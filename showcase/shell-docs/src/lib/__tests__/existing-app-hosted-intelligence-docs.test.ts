@@ -71,8 +71,11 @@ interface MdxCodeFence {
 
 interface MdxAstNode {
   type?: string;
+  name?: unknown;
+  value?: unknown;
   url?: unknown;
   children?: MdxAstNode[];
+  attributes?: MdxAstNode[];
 }
 
 function readContent(relativePath: string): string {
@@ -121,13 +124,65 @@ function expectCallbackFreeDrawerExample(source: string): void {
   expect(sharedChildren).toMatch(/<CopilotChat\b[^>]*\/>/);
 }
 
-/** Assert that public React TSDoc describes default cursor pagination. */
-function expectPublicReactPaginationTsdoc(source: string): void {
-  const tsdoc = collapseWhitespace(extractTsdocComments(source));
+/** Return TSDoc attached to one public interface member. */
+function extractPublicMemberTsdoc(
+  source: string,
+  interfaceName: string,
+  memberName: string,
+): string {
+  const declarations = Array.from(
+    source.matchAll(
+      new RegExp(`export\\s+interface\\s+${interfaceName}\\s*\\{`, "g"),
+    ),
+  );
+  const [declaration] = declarations;
 
-  expect(tsdoc).toMatch(/default[^.]*50 threads per page/i);
-  expect(tsdoc).toContain("`nextCursor`");
-  expect(tsdoc).not.toMatch(
+  if (declarations.length !== 1 || declaration?.index === undefined) {
+    throw new Error(`Expected one exported ${interfaceName} interface`);
+  }
+
+  const bodyStart = declaration.index + declaration[0].length;
+  const bodyEnd = source.indexOf("\n}", bodyStart);
+  const body = source.slice(bodyStart, bodyEnd);
+  const comments = Array.from(
+    body.matchAll(
+      new RegExp(`(\\/\\*\\*[\\s\\S]*?\\*\\/)\\s*${memberName}\\??\\s*:`, "g"),
+    ),
+    (match) => match[1] ?? "",
+  );
+  const [comment] = comments;
+
+  if (bodyEnd < 0 || comments.length !== 1 || !comment) {
+    throw new Error(`Expected one ${interfaceName}.${memberName} member`);
+  }
+
+  return comment;
+}
+
+/** Assert that a public React limit member documents default cursor pagination. */
+function expectPublicReactPaginationTsdoc(
+  source: string,
+  interfaceName: string,
+  cursorTarget: { interfaceName: string; memberName: string } = {
+    interfaceName,
+    memberName: "limit",
+  },
+): void {
+  const limitTsdoc = collapseWhitespace(
+    extractPublicMemberTsdoc(source, interfaceName, "limit"),
+  );
+  const cursorTsdoc = collapseWhitespace(
+    extractPublicMemberTsdoc(
+      source,
+      cursorTarget.interfaceName,
+      cursorTarget.memberName,
+    ),
+  );
+  const paginationTsdoc = `${limitTsdoc} ${cursorTsdoc}`;
+
+  expect(limitTsdoc).toMatch(/default[^.]*50 threads per page/i);
+  expect(cursorTsdoc).toContain("`nextCursor`");
+  expect(paginationTsdoc).not.toMatch(
     /(?:full list loads at once|Only meaningful when `limit` is set|When set, enables cursor-based pagination)/,
   );
 }
@@ -198,6 +253,53 @@ async function extractMarkdownLinkDestinations(
   return destinations;
 }
 
+/** Extract executable MDX ESM, expressions, and JSX outside code fences. */
+async function extractExecutableMdx(content: string): Promise<string> {
+  const pieces: string[] = [];
+  const valueNodeTypes = new Set([
+    "mdxjsEsm",
+    "mdxFlowExpression",
+    "mdxTextExpression",
+    "mdxJsxAttributeValueExpression",
+  ]);
+  const jsxNodeTypes = new Set(["mdxJsxFlowElement", "mdxJsxTextElement"]);
+  const collectExecutableMdx =
+    () =>
+    (tree: MdxAstNode): void => {
+      const pending = [tree];
+
+      while (pending.length > 0) {
+        const node = pending.pop();
+        if (!node) continue;
+
+        if (
+          valueNodeTypes.has(node.type ?? "") &&
+          typeof node.value === "string"
+        ) {
+          pieces.push(node.value);
+        }
+        if (
+          jsxNodeTypes.has(node.type ?? "") &&
+          typeof node.name === "string"
+        ) {
+          pieces.push(`<${node.name} />`);
+        }
+        if (node.children) pending.push(...node.children);
+        if (node.attributes) pending.push(...node.attributes);
+        if (typeof node.value === "object" && node.value !== null) {
+          pending.push(node.value as MdxAstNode);
+        }
+      }
+    };
+
+  await serialize(content, {
+    parseFrontmatter: true,
+    mdxOptions: { remarkPlugins: [remarkGfm, collectExecutableMdx] },
+  });
+
+  return pieces.join("\n");
+}
+
 /** Assert that contradictory archive and delete claims are absent. */
 function expectNoThreadRemovalContradictions(content: string): void {
   expect(content).not.toMatch(
@@ -222,22 +324,19 @@ async function expectFrameworkNativeGuide(
   const linkDestinations = (
     await extractMarkdownLinkDestinations(wrapperContent)
   ).map((destination) => destination.split(/[?#]/, 1)[0]);
-  const code = extractMdxCodeFences(renderedContent)
-    .map((fence) => fence.content)
-    .join("\n");
+  const executableCode = [
+    ...extractMdxCodeFences(renderedContent)
+      .filter((fence) =>
+        /^(?:[cm]?[jt]sx?|javascript|typescript)$/.test(fence.language),
+      )
+      .map((fence) => fence.content),
+    await extractExecutableMdx(renderedContent),
+  ].join("\n");
 
   expect(linkDestinations).toContain(variant.handoff);
-  expect(code).not.toMatch(
-    /\bimport\s+(?:type\s+)?\{[^}]*\b(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b[^}]*\}\s+from\s+["']@copilotkit\/react(?:-core)?(?:\/v2)?["']/,
+  expect(executableCode).not.toMatch(
+    /["']@copilotkit\/react(?:-core)?(?:\/[^"']*)?["']|\b[A-Za-z_$][\w$]*\.(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b|<(?:CopilotKitProvider|CopilotThreadsDrawer)\b|\buseThreads\s*\(/,
   );
-  expect(code).not.toMatch(
-    /\bimport\s+(?:type\s+)?(?:\*\s+as\s+[A-Za-z_$][\w$]*|[A-Za-z_$][\w$]*(?:\s*,\s*\{[^}]*\})?)\s+from\s+["']@copilotkit\/react(?:-core)?(?:\/v2)?["']/,
-  );
-  expect(code).not.toMatch(
-    /\b[A-Za-z_$][\w$]*\.(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b/,
-  );
-  expect(code).not.toMatch(/<(?:CopilotKitProvider|CopilotThreadsDrawer)\b/);
-  expect(code).not.toMatch(/\buseThreads\s*\(/);
 }
 
 test("extracts destinations only from rendered Markdown links", async () => {
@@ -312,6 +411,10 @@ test.each([
     'import * as ReactCore from "@copilotkit/react-core/v2";',
   ],
   ["a default import", 'import ReactCore from "@copilotkit/react-core/v2";'],
+  [
+    "an aliased public headless hook",
+    'import { useThreads as useThreadList } from "@copilotkit/react-core/v2/headless";',
+  ],
   ["a member-qualified API", "const Drawer = ReactCore.CopilotThreadsDrawer;"],
 ])(
   "rejects React-only APIs expressed through %s",
@@ -325,6 +428,62 @@ test.each([
     ).rejects.toThrow();
   },
 );
+
+test.each([
+  [
+    "an ESM import",
+    'import { useThreads as useThreadList } from "@copilotkit/react-core/v2/headless";',
+  ],
+  ["a JSX element", "<CopilotThreadsDrawer />"],
+  ["an MDX expression", '{useThreads({ agentId: "default" })}'],
+])(
+  "rejects React-only APIs in executable MDX through %s",
+  async (_caseName, reactOnlySource) => {
+    const variant = hostedGuideVariants[0];
+    const wrapperContent = `[Continue](${variant.handoff})`;
+    const renderedContent = `${wrapperContent}\n\n${reactOnlySource}`;
+
+    await expect(
+      expectFrameworkNativeGuide(variant, wrapperContent, renderedContent),
+    ).rejects.toThrow();
+  },
+);
+
+test("accepts React-only API names in non-executable MDX prose", async () => {
+  const variant = hostedGuideVariants[0];
+  const wrapperContent = `[Continue](${variant.handoff})`;
+  const renderedContent = `${wrapperContent}\n\nThe React guide covers CopilotThreadsDrawer and useThreads.`;
+
+  await expectFrameworkNativeGuide(variant, wrapperContent, renderedContent);
+});
+
+test("accepts non-React executable MDX outside code fences", async () => {
+  const variant = hostedGuideVariants[0];
+  const wrapperContent = `[Continue](${variant.handoff})`;
+  const renderedContent = [
+    'import { Callout } from "@/components/Callout";',
+    "",
+    wrapperContent,
+    "",
+    '<Callout title="Native guide">{1 + 1}</Callout>',
+  ].join("\n");
+
+  await expectFrameworkNativeGuide(variant, wrapperContent, renderedContent);
+});
+
+test("does not treat a Markdown fence as executable frontend code", async () => {
+  const variant = hostedGuideVariants[0];
+  const wrapperContent = `[Continue](${variant.handoff})`;
+  const renderedContent = [
+    wrapperContent,
+    "",
+    "```md",
+    "Mention `useThreads()` when linking to the React guide.",
+    "```",
+  ].join("\n");
+
+  await expectFrameworkNativeGuide(variant, wrapperContent, renderedContent);
+});
 
 test.each([
   "Archived threads are soft-deleted.",
@@ -499,6 +658,48 @@ function expectReactRouterAdapterContract(routeSource: string): void {
   }
 }
 
+/** Return the block body of one object-property callback. */
+function extractObjectCallbackBody(
+  source: string,
+  propertyName: string,
+): string {
+  const callbacks = Array.from(
+    source.matchAll(
+      new RegExp(
+        `${propertyName}\\s*:\\s*async\\s*\\([^)]*\\)\\s*=>\\s*\\{`,
+        "g",
+      ),
+    ),
+  );
+  const [callback] = callbacks;
+  if (callbacks.length !== 1 || callback?.index === undefined) {
+    throw new Error(`Expected one ${propertyName} callback body`);
+  }
+
+  const openBrace = callback.index + callback[0].lastIndexOf("{");
+  let depth = 0;
+  for (let index = openBrace; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") depth -= 1;
+    if (depth === 0) return source.slice(openBrace + 1, index);
+  }
+
+  throw new Error(`Unclosed ${propertyName} callback body`);
+}
+
+/** Return explicit agent ID overrides on the hosted React thread surfaces. */
+function extractHostedAgentIdOverrides(source: string): string[] {
+  return Array.from(
+    source.matchAll(
+      /<(?:CopilotChatConfigurationProvider|CopilotThreadsDrawer|CopilotChat)\b[^>]*\bagentId\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([^}]*)\})/g,
+    ),
+    (match) =>
+      (match[1] ?? match[2] ?? match[3] ?? "")
+        .trim()
+        .replace(/^(?:"([^"]*)"|'([^']*)'|`([^`]*)`)$/, "$1$2$3"),
+  );
+}
+
 /** Assert the canonical guide's managed Runtime, auth, and UI contracts. */
 function expectCanonicalGuideContracts(guide: string): void {
   const { data: frontmatter, content } = matter(guide);
@@ -538,8 +739,9 @@ function expectCanonicalGuideContracts(guide: string): void {
   expect(serverRoute).toMatch(
     /identifyUser\s*:\s*async\s*\(request\)\s*=>\s*\{[\s\S]*?getVerifiedAppUser\(request\)[\s\S]*?return\s*\{\s*id:\s*user\.id,\s*name:\s*user\.name\s*\}/,
   );
-  expect(serverRoute).toMatch(
-    /onRequest\s*:\s*async\s*\(\{\s*request\s*\}\)\s*=>\s*\{[\s\S]*?getVerifiedAppUser\(request\)[\s\S]*?if\s*\(!user\)\s*\{\s*(?:throw|return)\s+new Response\([\s\S]*?status:\s*401/,
+  const onRequestBody = extractObjectCallbackBody(serverRoute, "onRequest");
+  expect(onRequestBody).toMatch(
+    /getVerifiedAppUser\(request\)[\s\S]*?if\s*\(!user\)\s*\{\s*(?:throw|return)\s+new Response\([\s\S]*?status:\s*401/,
   );
 
   for (const method of ["GET", "POST", "PATCH", "DELETE"]) {
@@ -567,6 +769,9 @@ function expectCanonicalGuideContracts(guide: string): void {
   expect(configurationProviders).toHaveLength(1);
   expect(sharedChatChildren).toMatch(/<CopilotThreadsDrawer\b[^>]*\/>/);
   expect(sharedChatChildren).toMatch(/<CopilotChat\b[^>]*\/>/);
+  expect(
+    new Set(extractHostedAgentIdOverrides(appPage)).size,
+  ).toBeLessThanOrEqual(1);
 }
 
 test("lists the existing-app guide in both Intelligence navigation files", () => {
@@ -750,6 +955,30 @@ test.each([
   const mutatedGuide = mutateGuide(guide);
 
   expect(mutatedGuide).not.toMatch(removedPattern);
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
+test("rejects an onRequest auth gate satisfied only by later code", () => {
+  const mutatedGuide = readCanonicalGuide()
+    .replace(
+      /        onRequest: async \(\{ request \}\) => \{[\s\S]*?\n        \},/,
+      "        onRequest: async ({ request }) => { void request; },",
+    )
+    .replace(
+      "    export const GET = handler;",
+      '    async function unrelatedAuthGate(request: Request) { const user = await getVerifiedAppUser(request); if (!user) { throw new Response("Unauthorized", { status: 401 }); } }\n\n    export const GET = handler;',
+    );
+
+  expect(mutatedGuide).toContain("async function unrelatedAuthGate");
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
+test("rejects a conflicting nested CopilotChat agent override", () => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    "          <CopilotChat />",
+    '          <CopilotChat agentId="other-agent" />',
+  );
+
   expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
 });
 
@@ -1354,9 +1583,11 @@ test("public React TSDoc keeps pagination active when limit is omitted", () => {
   const drawerSource = fs.readFileSync(drawerWrapperSourceUrl, "utf8");
   const useThreadsSource = fs.readFileSync(useThreadsSourceUrl, "utf8");
 
-  for (const source of [drawerSource, useThreadsSource]) {
-    expectPublicReactPaginationTsdoc(source);
-  }
+  expectPublicReactPaginationTsdoc(drawerSource, "CopilotThreadsDrawerProps");
+  expectPublicReactPaginationTsdoc(useThreadsSource, "UseThreadsInput", {
+    interfaceName: "UseThreadsResult",
+    memberName: "hasMoreThreads",
+  });
 });
 
 test("implementation text cannot mask missing public pagination TSDoc", () => {
@@ -1369,7 +1600,34 @@ test("implementation text cannot mask missing public pagination TSDoc", () => {
   `;
 
   expect(() =>
-    expectPublicReactPaginationTsdoc(sourceWithImplementationOnly),
+    expectPublicReactPaginationTsdoc(
+      sourceWithImplementationOnly,
+      "PaginationInput",
+    ),
+  ).toThrow();
+});
+
+test("unrelated TSDoc cannot mask missing pagination docs on the public limit member", () => {
+  const sourceWithUnrelatedTsdoc = `
+    export interface PaginationInput {
+      /** The default is 50 threads per page. */
+      limit?: number;
+    }
+
+    /**
+     * The default is 50 threads per page.
+     * Cursor pagination uses \`nextCursor\`.
+     */
+    export interface UnrelatedResult {
+      threads: unknown[];
+    }
+  `;
+
+  expect(() =>
+    expectPublicReactPaginationTsdoc(
+      sourceWithUnrelatedTsdoc,
+      "PaginationInput",
+    ),
   ).toThrow();
 });
 
