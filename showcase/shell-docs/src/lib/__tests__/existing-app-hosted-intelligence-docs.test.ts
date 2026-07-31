@@ -871,6 +871,50 @@ test.each([
   },
 );
 
+test("T3: public Drawer TSDoc describes hosted managed entitlement without browser tokens", () => {
+  const tsdoc = collapseWhitespace(
+    extractTsdocComments(fs.readFileSync(drawerWrapperSourceUrl, "utf8")),
+  );
+  const browserWithoutToken =
+    /(?:\bno\b|\bwithout\b)[^.]*\bbrowser\b[^.]*\b(?:license )?token\b|\bbrowser\b[^.]*(?:\bdoes not\b|\bdoesn't\b|\bnever\b|\bno\b|\bwithout\b)[^.]*\b(?:license )?token\b/i;
+
+  expect
+    .soft(tsdoc, "hosted entitlement comes from the Runtime-connected project")
+    .toMatch(
+      /\b(?:cloud-hosted|hosted)\b[^.]*\bmanaged entitlement\b[^.]*(?:\bIntelligence project\b[^.]*\bconnected to (?:the )?Runtime\b|\bRuntime-connected Intelligence project\b)/i,
+    );
+  expect
+    .soft(tsdoc, "hosted setup sends no license token to the browser")
+    .toMatch(browserWithoutToken);
+  expect.soft(tsdoc, "retired browser prop").not.toContain("publicLicenseKey");
+  expect
+    .soft(tsdoc, "retired license-status framing")
+    .not.toMatch(
+      /\b(?:license gating is two-pronged|no license is configured|runtime reported no license status)\b/i,
+    );
+
+  const tokenSentences = tsdoc
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => /\b(?:license )?token\b/i.test(sentence));
+
+  for (const sentence of tokenSentences) {
+    if (browserWithoutToken.test(sentence)) continue;
+
+    expect
+      .soft(
+        sentence,
+        "explicit tokens are limited to a separate deployment case",
+      )
+      .toMatch(/\b(?:self-hosted|offline)\b/i);
+    expect
+      .soft(sentence, "self-hosted or offline tokens are explicit")
+      .toMatch(/\bexplicit\b/i);
+    expect
+      .soft(sentence, "hosted managed entitlement does not use a token")
+      .not.toMatch(/\b(?:cloud-hosted|hosted managed)\b/i);
+  }
+});
+
 test("the useThreads reference matches optimistic Core mutations", () => {
   const reference = collapseWhitespace(readContent(useThreadsReferencePath));
 
