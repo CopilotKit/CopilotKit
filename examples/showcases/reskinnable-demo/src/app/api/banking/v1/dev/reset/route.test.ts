@@ -43,7 +43,7 @@ describe("POST /api/banking/v1/dev/reset", () => {
 
   it("forgets every seeded persona when Intelligence is configured", async () => {
     vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
-    vi.stubEnv("INTELLIGENCE_API_URL", "http://localhost:7050");
+    vi.stubEnv("INTELLIGENCE_API_URL", "http://localhost:7250");
     vi.stubEnv("INTELLIGENCE_API_KEY", "cpk_test");
     const res = await POST();
     expect(res.status).toBe(200);
@@ -69,6 +69,8 @@ describe("POST /api/banking/v1/dev/reset", () => {
     expect(await res.json()).toEqual({
       ok: true,
       reset: ["store", "memory"],
+      // The route now names the backend it mutated (both demos share seeded ids).
+      apiUrl: "http://localhost:7250",
       forgot: 6,
       seeded: 3,
     });
@@ -76,7 +78,7 @@ describe("POST /api/banking/v1/dev/reset", () => {
 
   it("reports partial progress on a mid-loop memory failure", async () => {
     vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
-    vi.stubEnv("INTELLIGENCE_API_URL", "http://localhost:7050");
+    vi.stubEnv("INTELLIGENCE_API_URL", "http://localhost:7250");
     vi.stubEnv("INTELLIGENCE_API_KEY", "cpk_test");
     // First persona succeeds (2 forgotten), second persona throws.
     vi.mocked(forgetAllMemories)
@@ -87,6 +89,7 @@ describe("POST /api/banking/v1/dev/reset", () => {
     expect(await res.json()).toMatchObject({
       ok: false,
       reset: ["store", "memory"],
+      apiUrl: "http://localhost:7250",
       forgot: 2,
       memoryError: "boom",
     });

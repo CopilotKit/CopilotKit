@@ -40,11 +40,19 @@ export const POST = async () => {
   // forgotten, so the error body must not read as "memory untouched".
   let forgot = 0;
   let seeded = 0;
+  // Name the target backend + the exact ids about to be cleared BEFORE mutating.
+  // This app and the sibling banking demo vendor the same stack with identical
+  // seeded ids, so if this process ever resolved the neighbour's apiUrl, this
+  // warning is where a human sees the reset was about to reach across.
+  const userIds = [...SEEDED_USER_IDS, DEMO_DEFAULT_USER_ID];
+  console.warn(
+    `[reskinnable-demo] presenter reset: forgetting memories at ${apiUrl} for ${userIds.join(", ")}`,
+  );
   try {
     // Clear the personas AND the default identity. The default bucket is where
     // memory taught during a demo actually lands, so leaving it behind made
     // "reset" a lie — a previous run's facts survived into the next demo.
-    for (const userId of [...SEEDED_USER_IDS, DEMO_DEFAULT_USER_ID]) {
+    for (const userId of userIds) {
       forgot += await forgetAllMemories({ apiUrl, apiKey, userId });
     }
     // Then put back the memory the demo is supposed to START with, so the
@@ -58,6 +66,9 @@ export const POST = async () => {
       JSON.stringify({
         ok: true,
         reset: ["store", "memory"],
+        // Name the backend that was actually mutated, so the caller can confirm
+        // which stack this reset reached (both demos share seeded ids).
+        apiUrl,
         forgot,
         seeded,
       }),
@@ -68,6 +79,9 @@ export const POST = async () => {
       JSON.stringify({
         ok: false,
         reset: forgot > 0 ? ["store", "memory"] : ["store"],
+        // Report the target backend on failure too — partial progress may have
+        // already mutated it.
+        apiUrl,
         forgot,
         memoryError: err instanceof Error ? err.message : String(err),
       }),

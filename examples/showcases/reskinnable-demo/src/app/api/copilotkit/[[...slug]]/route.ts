@@ -131,6 +131,14 @@ const identifyUser: IdentifyUserCallback = async (request: Request) => {
 
 function createRuntime(): CopilotRuntime {
   if (intelligenceEnabled) {
+    // Announce WHICH Intelligence backend this process resolved, exactly once at
+    // startup (createRuntime runs at module load). This app and the sibling
+    // banking demo vendor the same stack with identical seeded ids, so a human
+    // must be able to see at a glance that `pnpm dev` attached to THIS app's
+    // backend and not the neighbour's. Never log the api key or license token.
+    console.info(
+      `[reskinnable-demo] Intelligence: ${intelligenceApiUrl}  (memory enabled)`,
+    );
     const intelligence = new CopilotKitIntelligence({
       apiUrl: intelligenceApiUrl!,
       wsUrl: intelligenceWsUrl!,
