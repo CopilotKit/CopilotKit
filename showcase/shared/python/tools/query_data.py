@@ -45,6 +45,7 @@ _MOCK_DATA = [
     },
 ]
 
+
 def _fail_or_mock(reason: str) -> list[dict[str, Any]]:
     """Fail LOUD on a missing/empty dataset instead of silently degrading.
 
