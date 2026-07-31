@@ -36,9 +36,9 @@ export default defineConfig({
           process.env.OPENAI_BASE_URL ??
           `http://localhost:${process.env.AIMOCK_PORT ?? "7099"}/v1`,
         INTELLIGENCE_API_URL:
-          process.env.INTELLIGENCE_API_URL ?? "http://localhost:7050",
+          process.env.INTELLIGENCE_API_URL ?? "http://localhost:7250",
         INTELLIGENCE_GATEWAY_WS_URL:
-          process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:7053",
+          process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:7253",
         INTELLIGENCE_API_KEY:
           process.env.INTELLIGENCE_API_KEY ??
           "cpk_sPRVSEED_seed0privat0longtoken00",

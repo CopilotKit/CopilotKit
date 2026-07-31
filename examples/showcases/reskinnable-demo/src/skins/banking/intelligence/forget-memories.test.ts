@@ -24,7 +24,7 @@ describe("forgetAllMemories", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const forgot = await forgetAllMemories({
-      apiUrl: "http://x:7050",
+      apiUrl: "http://x:7250",
       apiKey: "k",
       userId: "jordan-beamson",
     });
@@ -32,7 +32,7 @@ describe("forgetAllMemories", () => {
     expect(forgot).toBe(3);
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "http://x:7050/api/memories",
+      "http://x:7250/api/memories",
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer k",
@@ -44,9 +44,9 @@ describe("forgetAllMemories", () => {
       .filter(([, init]) => init?.method === "DELETE")
       .map(([url]) => url);
     expect(deleted).toEqual([
-      "http://x:7050/api/memories/a",
-      "http://x:7050/api/memories/b",
-      "http://x:7050/api/memories/c",
+      "http://x:7250/api/memories/a",
+      "http://x:7250/api/memories/b",
+      "http://x:7250/api/memories/c",
     ]);
   });
 
@@ -56,7 +56,7 @@ describe("forgetAllMemories", () => {
       .mockResolvedValueOnce(new Response("nope", { status: 401 }));
     vi.stubGlobal("fetch", fetchMock);
     await expect(
-      forgetAllMemories({ apiUrl: "http://x:7050", apiKey: "k", userId: "u" }),
+      forgetAllMemories({ apiUrl: "http://x:7250", apiKey: "k", userId: "u" }),
     ).rejects.toThrow(/401/);
   });
 
@@ -71,7 +71,7 @@ describe("forgetAllMemories", () => {
       .mockResolvedValueOnce(new Response("boom", { status: 500 }));
     vi.stubGlobal("fetch", fetchMock);
     await expect(
-      forgetAllMemories({ apiUrl: "http://x:7050", apiKey: "k", userId: "u" }),
+      forgetAllMemories({ apiUrl: "http://x:7250", apiKey: "k", userId: "u" }),
     ).rejects.toThrow(/500/);
   });
 
@@ -83,13 +83,13 @@ describe("forgetAllMemories", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
     await forgetAllMemories({
-      apiUrl: "http://x:7050/",
+      apiUrl: "http://x:7250/",
       apiKey: "k",
       userId: "u",
     });
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "http://x:7050/api/memories",
+      "http://x:7250/api/memories",
       expect.anything(),
     );
   });
@@ -102,7 +102,7 @@ describe("forgetAllMemories", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
     const forgot = await forgetAllMemories({
-      apiUrl: "http://x:7050",
+      apiUrl: "http://x:7250",
       apiKey: "k",
       userId: "u",
     });

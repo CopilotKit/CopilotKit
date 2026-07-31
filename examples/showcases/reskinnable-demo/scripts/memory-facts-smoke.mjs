@@ -21,7 +21,7 @@
  * backend startup window, not this script.
  */
 const DEMO_URL = process.env.DEMO_URL ?? "http://localhost:3000";
-const APP_API_URL = process.env.APP_API_URL ?? "http://localhost:7050";
+const APP_API_URL = process.env.APP_API_URL ?? "http://localhost:7250";
 const KEY =
   process.env.INTELLIGENCE_API_KEY ?? "cpk_sPRVSEED_seed0privat0longtoken00";
 const ALEX = {
@@ -114,7 +114,7 @@ async function restRecall(userId, query, scope) {
 }
 
 // Confirm the demo dev server (pnpm dev) is actually up at DEMO_URL. The /mcp gate
-// only covers the backend (:7050); the chat turns below hit the app (:3000). Any HTTP
+// only covers the backend (:7250); the chat turns below hit the app (:3000). Any HTTP
 // response (even 404) means it is serving; only a connection error means it is down.
 async function waitForDemoServer({ retries = 20, delayMs = 1000 } = {}) {
   for (let i = 0; i < retries; i++) {

@@ -16,11 +16,11 @@ import type { Page } from "@playwright/test";
  *
  * ── PRECONDITIONS (the gate assumes these are already running) ──────────────────
  *  1. The memory stack is up and healthy (docker compose; see README). app-api on
- *     $APP_API_URL (default http://localhost:7050) with the seeded org/key. IMPORTANT:
+ *     $APP_API_URL (default http://localhost:7250) with the seeded org/key. IMPORTANT:
  *     "container healthy" is not sufficient — the sl-mcp memory worker can throw an
  *     UnhandledPromiseRejection during boot and briefly drop /mcp connections. If this
  *     test fails with "No fixture matched" plus app-side [MCPMiddleware] "Failed to list
- *     tools" / "other side closed" / ECONNRESET on :7050, that is the backend startup
+ *     tools" / "other side closed" / ECONNRESET on :7250, that is the backend startup
  *     window, NOT a fixture or demo bug — wait until `POST /mcp initialize` returns 200
  *     (see scripts/memory-*-smoke.mjs readiness gate) and re-run. When the memory tools
  *     fail to attach, the agent skips recall_memory and its LLM-call sequence diverges
@@ -45,7 +45,7 @@ import type { Page } from "@playwright/test";
  *  - The fixtures' multi-turn ordering key (sequenceIndex) matches aimock.
  */
 
-const APP_API_URL = process.env.APP_API_URL ?? "http://localhost:7050";
+const APP_API_URL = process.env.APP_API_URL ?? "http://localhost:7250";
 const KEY =
   process.env.INTELLIGENCE_API_KEY ?? "cpk_sPRVSEED_seed0privat0longtoken00";
 const USER_ID = process.env.CPKI_USER_ID ?? "jordan-beamson";

@@ -8,13 +8,23 @@
 # repo (docker-compose.deps.yml + docker-compose.yml + run-demo.sh). It stands
 # up everything the durable cross-thread memory feature needs:
 #
-#   postgres (pgvector)  :7156   app DB + halfvec memory store
-#   redis                :7158   session / realtime fan-out
-#   minio                :7160   realtime-gateway event archive (S3 API)
-#   minio console        :7161
-#   tei                  :7167   Qwen3-Embedding-0.6B embeddings sidecar
-#   intelligence         :7050   app-api  (REST /api/memories + gated /mcp)
-#                        :7053   realtime-gateway (thread/conversation state)
+#   postgres (pgvector)  :7256   app DB + halfvec memory store
+#   redis                :7258   session / realtime fan-out
+#   minio                :7260   realtime-gateway event archive (S3 API)
+#   minio console        :7261
+#   tei                  :7267   Qwen3-Embedding-0.6B embeddings sidecar
+#   intelligence         :7250   app-api  (REST /api/memories + gated /mcp)
+#                        :7253   realtime-gateway (thread/conversation state)
+#
+# These host ports are the banking demo's range (705x/715x) shifted by +200.
+# reskinnable-demo was cloned from examples/showcases/banking and vendors the
+# SAME Intelligence stack with the SAME seeded ids (jordan-beamson / morgan-fluxx
+# / northwind-demo-user) and the SAME api key. If both apps published on banking's
+# ports, a `pnpm dev` here could silently attach to banking's live stack and
+# read/write the same memory buckets — and the presenter reset would wipe the
+# neighbour's demo. Distinct ports make attaching to the wrong stack impossible
+# by accident. (The native Metal TEI on :7067 is the deliberate exception — see
+# MEMORY_EMBEDDINGS_URL below.)
 #
 # `intelligence` is the single composite image (Dockerfile.composite) that
 # runs app-api + realtime-gateway + thread-culler + the db-migrations oneshot
@@ -45,9 +55,10 @@ services:
   postgres:
     image: pgvector/pgvector:0.8.2-pg16
     ports:
-      # Demo-specific host-port range (715x) so a bare `docker compose up`
-      # coexists with a developer's Intelligence dev deps (which use 705x).
-      - "${POSTGRES_HOST_PORT:-7156}:5432"
+      # Demo-specific host-port range (725x) so a bare `docker compose up`
+      # coexists with a developer's Intelligence dev deps (705x) AND with the
+      # sibling banking demo (which vendors this same stack on 705x/715x).
+      - "${POSTGRES_HOST_PORT:-7256}:5432"
     environment:
       POSTGRES_USER: intelligence
       POSTGRES_PASSWORD: intelligence
@@ -67,7 +78,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "${REDIS_HOST_PORT:-7158}:6379"
+      - "${REDIS_HOST_PORT:-7258}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -81,8 +92,8 @@ services:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     ports:
-      - "${MINIO_HOST_PORT:-7160}:9000"
-      - "${MINIO_CONSOLE_HOST_PORT:-7161}:9001"
+      - "${MINIO_HOST_PORT:-7260}:9000"
+      - "${MINIO_CONSOLE_HOST_PORT:-7261}:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
@@ -134,6 +145,13 @@ services:
   # same model, byte-identical embeddings). On amd64/CI, opt back in with
   # `docker compose --profile cpu-fallback up -d --wait`. `intelligence`'s
   # dependency on tei is `required: false`, so it starts fine without it.
+  #
+  # NOTE: the native Metal TEI on :7067 is shared with the banking demo ON PURPOSE
+  # and is NOT shifted by +200 like the rest of this app's ports. It holds no demo
+  # state (memory buckets live in postgres/redis, which ARE isolated), and the same
+  # TEI version + model produces byte-identical embeddings, so sharing it is safe;
+  # run-demo.sh reuses it when already healthy rather than forcing a second ~20x-
+  # slower model load. Only the STATEFUL services are isolated by the +200 shift.
   tei:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.3
     profiles: ["cpu-fallback"]
@@ -152,7 +170,7 @@ services:
         "${TEI_MAX_BATCH_TOKENS:-16384}",
       ]
     ports:
-      - "${TEI_HOST_PORT:-7167}:80"
+      - "${TEI_HOST_PORT:-7267}:80"
     volumes:
       - tei-model-cache:/data
     healthcheck:
@@ -166,7 +184,7 @@ services:
       start_period: 600s
     restart: unless-stopped
 
-  # app-api (:4201 -> host 7050) + realtime-gateway (:4401 -> host 7053) +
+  # app-api (:4201 -> host 7250) + realtime-gateway (:4401 -> host 7253) +
   # thread-culler + the db-migrations oneshot, all under s6-overlay. Built
   # from the Intelligence repo's Dockerfile.composite (memory/SL gates are
   # compiled in). The migrations oneshot runs graphile-migrate + seed.sql
@@ -178,8 +196,8 @@ services:
       context: ${INTELLIGENCE_REPO:-../../../../Intelligence}
       dockerfile: Dockerfile.composite
     ports:
-      - "${APP_API_HOST_PORT:-7050}:4201"
-      - "${GATEWAY_HOST_PORT:-7053}:4401"
+      - "${APP_API_HOST_PORT:-7250}:4201"
+      - "${GATEWAY_HOST_PORT:-7253}:4401"
     environment:
       DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
       REDIS_URL: redis://redis:6379

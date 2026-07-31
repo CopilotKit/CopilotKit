@@ -95,7 +95,7 @@ else
   say "amd64/Linux ($ARCH): bundled docker tei via the cpu-fallback profile"
   docker compose --profile cpu-fallback up -d --wait
 fi
-ok "stack healthy: app-api :7050, gateway :7053"
+ok "stack healthy: app-api :7250, gateway :7253"
 
 # --- App --------------------------------------------------------------------
 say "Starting the Next.js dev server (http://localhost:3000)"

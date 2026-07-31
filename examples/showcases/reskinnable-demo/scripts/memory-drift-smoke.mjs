@@ -43,7 +43,7 @@
  *   node scripts/memory-drift-smoke.mjs
  * ENV (optional)
  *   DEMO_URL          default http://localhost:3000
- *   APP_API_URL       default http://localhost:7050
+ *   APP_API_URL       default http://localhost:7250
  *   INTELLIGENCE_API_KEY  default cpk_sPRVSEED_seed0privat0longtoken00
  *   CPKI_USER_ID      default jordan-beamson
  *   DRIFT_TXN_ID      default t-3  (an over-limit pending seed txn)
@@ -55,7 +55,7 @@
  */
 
 const DEMO_URL = process.env.DEMO_URL ?? "http://localhost:3000";
-const APP_API_URL = process.env.APP_API_URL ?? "http://localhost:7050";
+const APP_API_URL = process.env.APP_API_URL ?? "http://localhost:7250";
 const KEY =
   process.env.INTELLIGENCE_API_KEY ?? "cpk_sPRVSEED_seed0privat0longtoken00";
 const USER_ID = process.env.CPKI_USER_ID ?? "jordan-beamson";
@@ -120,7 +120,7 @@ async function waitForMcpReady({ retries = 30, delayMs = 1000 } = {}) {
 }
 
 // Confirm the demo dev server (pnpm dev) is up at DEMO_URL. The /mcp gate only covers
-// the backend (:7050); the over-limit run below hits the app (:3000). Any HTTP response
+// the backend (:7250); the over-limit run below hits the app (:3000). Any HTTP response
 // means it is serving; only a connection error means it is down.
 async function waitForDemoServer({ retries = 20, delayMs = 1000 } = {}) {
   for (let i = 0; i < retries; i++) {
