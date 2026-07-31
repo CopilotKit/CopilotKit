@@ -87,6 +87,7 @@ export interface PreparedChannelDelivery {
     input: ChannelDeliveryTurnInput;
     actor?: {
       externalUserId: string;
+      kind: "human" | "bot" | "app" | "system";
       displayName?: string;
     };
   };
@@ -1153,6 +1154,14 @@ function assertPreparedDelivery(
     !isRecord(prepared.turn) ||
     typeof prepared.turn.eventId !== "string" ||
     typeof prepared.turn.receivedAt !== "string" ||
+    (prepared.turn.actor !== undefined &&
+      (!isRecord(prepared.turn.actor) ||
+        typeof prepared.turn.actor.externalUserId !== "string" ||
+        !["human", "bot", "app", "system"].includes(
+          String(prepared.turn.actor.kind),
+        ) ||
+        (prepared.turn.actor.displayName !== undefined &&
+          typeof prepared.turn.actor.displayName !== "string"))) ||
     !isRecord(prepared.turn.input) ||
     typeof prepared.turn.input.kind !== "string" ||
     !PREPARED_TURN_KINDS.has(prepared.turn.input.kind) ||

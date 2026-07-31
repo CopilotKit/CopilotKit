@@ -53,7 +53,7 @@ function prepared(deliveryId: string): PreparedChannelDelivery {
           mentioned: false,
         },
       },
-      actor: { externalUserId: "U1" },
+      actor: { externalUserId: "U1", kind: "human" },
     },
   };
 }

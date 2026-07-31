@@ -114,6 +114,17 @@ interface RawSlackEventBody {
   event?: Record<string, unknown>;
 }
 
+export interface SlackSelfIdentity {
+  botUserId?: string;
+  botId?: string;
+  appId?: string;
+}
+
+const normalizeSelfIdentity = (
+  identity: string | SlackSelfIdentity | undefined,
+): SlackSelfIdentity =>
+  typeof identity === "string" ? { botUserId: identity } : (identity ?? {});
+
 const hasFilesOn = (o: unknown): boolean =>
   Array.isArray((o as { files?: unknown[] } | undefined)?.files) &&
   (o as { files: unknown[] }).files.length > 0;
@@ -127,8 +138,13 @@ const hasFilesOn = (o: unknown): boolean =>
  */
 export function normalizeSlackEvent(
   body: RawSlackEventBody,
-  botUserId?: string,
+  selfIdentity?: string | SlackSelfIdentity,
 ): SlackNeutralEvent | undefined {
+  const {
+    botUserId,
+    botId: ownBotId,
+    appId: ownAppId,
+  } = normalizeSelfIdentity(selfIdentity);
   // Slash command: a flat form body, no Events API `event`.
   if (body.command) {
     const channel = body.channel_id ?? "";
@@ -198,13 +214,16 @@ export function normalizeSlackEvent(
       (typeof event.deleted_ts === "string" ? event.deleted_ts : undefined) ??
       (typeof message.ts === "string" ? message.ts : undefined) ??
       (typeof event.ts === "string" ? event.ts : undefined);
-    const actorId =
+    const messageUserId =
       (typeof message.user === "string" ? message.user : undefined) ??
-      (typeof event.user === "string" ? event.user : undefined) ??
+      (typeof event.user === "string" ? event.user : undefined);
+    const botId =
       (typeof message.bot_id === "string" ? message.bot_id : undefined) ??
-      (typeof event.bot_id === "string" ? event.bot_id : undefined) ??
+      (typeof event.bot_id === "string" ? event.bot_id : undefined);
+    const appId =
       (typeof message.app_id === "string" ? message.app_id : undefined) ??
       (typeof event.app_id === "string" ? event.app_id : undefined);
+    const actorId = messageUserId ?? botId ?? appId;
     const edited =
       message.edited && typeof message.edited === "object"
         ? (message.edited as Record<string, unknown>)
@@ -218,7 +237,9 @@ export function normalizeSlackEvent(
       !logicalMessageId ||
       !revisionId ||
       !actorId ||
-      actorId === botUserId
+      (botUserId !== undefined && messageUserId === botUserId) ||
+      (ownBotId !== undefined && botId === ownBotId) ||
+      (ownAppId !== undefined && appId === ownAppId)
     ) {
       return undefined;
     }

@@ -150,7 +150,7 @@ test("one claimed delivery shares its transcript promise across getMessages and 
           mentioned: false,
         },
       },
-      actor: { externalUserId: "U1", displayName: "Ada" },
+      actor: { externalUserId: "U1", kind: "human", displayName: "Ada" },
     },
   };
   const claimed = new ClaimedChannelDelivery(

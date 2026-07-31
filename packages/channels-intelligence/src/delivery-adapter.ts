@@ -305,6 +305,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       user: delivery.turn.actor
         ? {
             id: delivery.turn.actor.externalUserId,
+            kind: delivery.turn.actor.kind,
             ...(delivery.turn.actor.displayName
               ? { name: delivery.turn.actor.displayName }
               : {}),

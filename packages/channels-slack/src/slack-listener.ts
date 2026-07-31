@@ -49,6 +49,10 @@ export interface ListenerConfig {
   store: SlackConversationStore;
   /** Bot user id, used to filter out our own messages (loop guard). */
   botUserId: string | undefined;
+  /** Native bot id, used when Slack omits the bot user id on our own output. */
+  botId?: string;
+  /** Native app id, used when Slack identifies our own output by app only. */
+  appId?: string;
   /** Resolved response-routing policy for Slack ingress. */
   respondTo?: ResolvedSlackRespondToOptions;
   /** Where each accepted turn is dispatched. */
@@ -162,7 +166,11 @@ export function attachSlackListener(config: ListenerConfig): void {
           ...(message as unknown as Record<string, unknown>),
         },
       },
-      config.botUserId,
+      {
+        botUserId: config.botUserId,
+        botId: config.botId,
+        appId: config.appId,
+      },
     );
     if (!normalized || normalized.kind !== "turn") return;
     const isDM = normalized.source === "direct_message";

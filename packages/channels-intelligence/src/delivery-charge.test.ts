@@ -27,7 +27,7 @@ const delivery: PreparedChannelDelivery = {
         mentioned: true,
       },
     },
-    actor: { externalUserId: "U1" },
+    actor: { externalUserId: "U1", kind: "human" },
   },
 };
 

@@ -253,6 +253,46 @@ describe("normalizeSlackEvent", () => {
     });
   });
 
+  it("suppresses this app's output by bot or app id when Slack omits user", () => {
+    const identity = {
+      botUserId: "UBOT",
+      botId: "BOWN",
+      appId: "AOWN",
+    };
+    expect(
+      normalizeSlackEvent(
+        {
+          event_id: "Ev-bot",
+          event: {
+            type: "message",
+            subtype: "bot_message",
+            channel: "C1",
+            bot_id: "BOWN",
+            text: "own bot output",
+            ts: "10.1",
+          },
+        },
+        identity,
+      ),
+    ).toBeUndefined();
+    expect(
+      normalizeSlackEvent(
+        {
+          event_id: "Ev-app",
+          event: {
+            type: "message",
+            subtype: "bot_message",
+            channel: "C1",
+            app_id: "AOWN",
+            text: "own app output",
+            ts: "10.2",
+          },
+        },
+        identity,
+      ),
+    ).toBeUndefined();
+  });
+
   it("normalizes message edits and deletes as revisions", () => {
     expect(
       normalizeSlackEvent(

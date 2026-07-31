@@ -36,7 +36,7 @@ function prepared(): PreparedChannelDelivery {
           mentioned: false,
         },
       },
-      actor: { externalUserId: "U1" },
+      actor: { externalUserId: "U1", kind: "human" },
     },
   };
 }

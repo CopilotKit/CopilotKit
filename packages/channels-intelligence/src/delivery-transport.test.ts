@@ -33,7 +33,7 @@ function preparedDelivery() {
           mentioned: false,
         },
       },
-      actor: { externalUserId: "U1" },
+      actor: { externalUserId: "U1", kind: "human" as const },
     },
   };
 }
@@ -1090,7 +1090,7 @@ test("rejects prepared deliveries with incomplete turn fields", async () => {
       receivedAt: "2026-07-29T17:00:00.000Z",
       // command kind without required `command` field
       input: { kind: "command" as const },
-      actor: { externalUserId: "U1" },
+      actor: { externalUserId: "U1", kind: "human" as const },
     },
   };
   const deliveryChannel = channel(

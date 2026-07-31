@@ -125,6 +125,7 @@ export function preparedDelivery(
           : input,
       actor: {
         externalUserId: `user_${idSuffix}`,
+        kind: "human",
         displayName: "Ada",
       },
     },
