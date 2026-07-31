@@ -33,7 +33,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     git clone https://github.com/copilotkit/with-a2a-a2ui.git
     ```
 
-    The agent and application from the starter template are already configured to use A2UI, but details are included below for completeness.
+    The cloned starter currently ships a legacy v0.8 renderer. Replace that renderer with the v0.9 createA2UIMessageRenderer setup below before using the v0.9 operation example; the legacy renderer does not consume a2ui_operations.
 
   </Step>
   <Step>
@@ -61,7 +61,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
   <Step>
     ### Setting up your agent with components
 
-    The starter template is already configured to use A2UI, but lets look at how to add your own components.
+    After replacing the legacy renderer, use the v0.9 operation envelope below to add your own components.
 
     ```python title="agent/restaurant_finder/prompt_builder.py"
       RESTAURANT_UI_EXAMPLES = """
@@ -73,19 +73,34 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
           {{ "version": "v0.9", "updateComponents": {{
             "surfaceId": "default",
             "components": [
-            {{ "id": "root", "component": {{ "Column": {{ "children": {{ "explicitList": ["title-heading", "item-list"] }} }} }} }},
-            {{ "id": "title-heading", "component": {{ "Text": {{ "usageHint": "h1", "text": {{ "literalString": "Top Restaurants" }} }} }} }},
-            {{ "id": "item-list", "component": {{ "List": {{ "direction": "vertical", "children": {{ "template": {{ "componentId": "item-card-template", "dataBinding": "/items" }} }} }} }} }},
-            {{ "id": "item-card-template", "component": {{ "Card": {{ "child": "card-layout" }} }} }},
-            {{ "id": "card-layout", "component": {{ "Row": {{ "children": {{ "explicitList": ["template-image", "card-details"] }} }} }} }},
-            {{ "id": "template-image", weight: 1, "component": {{ "Image": {{ "url": {{ "path": "imageUrl" }} }} }} }},
-            {{ "id": "card-details", weight: 2, "component": {{ "Column": {{ "children": {{ "explicitList": ["template-name", "template-rating", "template-detail", "template-link", "template-book-button"] }} }} }} }},
-            {{ "id": "template-name", "component": {{ "Text": {{ "usageHint": "h3", "text": {{ "path": "name" }} }} }} }},
-            {{ "id": "template-rating", "component": {{ "Text": {{ "text": {{ "path": "rating" }} }} }} }},
-            {{ "id": "template-detail", "component": {{ "Text": {{ "text": {{ "path": "detail" }} }} }} }},
-            {{ "id": "template-link", "component": {{ "Text": {{ "text": {{ "path": "infoLink" }} }} }} }},
-            {{ "id": "template-book-button", "component": {{ "Button": {{ "child": "book-now-text", "primary": true, "action": {{ "name": "book_restaurant", "context": [ {{ "key": "restaurantName", "value": {{ "path": "name" }} }}, {{ "key": "imageUrl", "value": {{ "path": "imageUrl" }} }}, {{ "key": "address", "value": {{ "path": "address" }} }} ] }} }} }} }},
-            {{ "id": "book-now-text", "component": {{ "Text": {{ "text": {{ "literalString": "Book Now" }} }} }} }}
+              {{ "id": "root", "component": "Column", "children": ["title-heading", "item-list"] }},
+              {{ "id": "title-heading", "component": "Text", "text": "Top Restaurants", "variant": "h1" }},
+              {{ "id": "item-list", "component": "List", "direction": "vertical", "children": {{ "componentId": "item-card-template", "path": "/items" }} }},
+              {{ "id": "item-card-template", "component": "Card", "child": "card-layout" }},
+              {{ "id": "card-layout", "component": "Row", "children": ["template-image", "card-details"] }},
+              {{ "id": "template-image", "component": "Image", "url": {{ "path": "imageUrl" }} }},
+              {{ "id": "card-details", "component": "Column", "children": ["template-name", "template-rating", "template-detail", "template-link", "template-book-button"] }},
+              {{ "id": "template-name", "component": "Text", "text": {{ "path": "name" }}, "variant": "h3" }},
+              {{ "id": "template-rating", "component": "Text", "text": {{ "path": "rating" }}, "variant": "caption" }},
+              {{ "id": "template-detail", "component": "Text", "text": {{ "path": "detail" }}, "variant": "body" }},
+              {{ "id": "template-link", "component": "Text", "text": {{ "path": "infoLink" }}, "variant": "body" }},
+              {{
+                "id": "template-book-button",
+                "component": "Button",
+                "child": "book-now-text",
+                "variant": "primary",
+                "action": {{
+                  "event": {{
+                    "name": "book_restaurant",
+                    "context": {{
+                      "restaurantName": {{ "path": "name" }},
+                      "imageUrl": {{ "path": "imageUrl" }},
+                      "address": {{ "path": "address" }}
+                    }}
+                  }}
+                }}
+              }},
+              {{ "id": "book-now-text", "component": "Text", "text": "Book Now" }}
             ]
           }} }},
           {{ "version": "v0.9", "updateDataModel": {{
@@ -105,16 +120,16 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
       ```
 
     The widgets are injected into the agent's prompt, in this case using the `RESTAURANT_UI_EXAMPLES` variable.
-    Widgets are defined for the agent using examples of the json arrays they should output, wrapped in a comment block.
+    Widgets are defined for the agent using examples of the JSON objects they should output, wrapped in a comment block.
     - A comment indicating the start of the example
+    - a2ui_operations: The envelope containing the v0.9 operations
     - createSurface: Initializes the widget surface and must come first
     - updateComponents: An example of the JSON structure for the widget
     - updateDataModel: An example of the data that will populate the widget
-    - a2ui_operations: The envelope containing the v0.9 operations
     - A comment indicating the end of the example
 
-    In the example repo, all of the widgets are defined in a single variable int the prompt_builder.py file, but you can structure them however you like,
-    they simply need to be be injected into the agent's prompt in a clearly delineated way.
+    In the example repo, all of the widgets are defined in a single variable in the prompt_builder.py file, but you can structure them however you like,
+    they simply need to be injected into the agent's prompt in a clearly delineated way.
 
   </Step>
   <Step>
@@ -142,6 +157,13 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     ```tsx title="app/page.tsx"
     "use client";
 
+    import {
+      CopilotChat,
+      CopilotKit,
+      createA2UIMessageRenderer,
+    } from "@copilotkit/react-core/v2";
+    import "@copilotkit/react-core/v2/styles.css";
+    import { theme } from "./theme";
 
     // Disable static optimization for this page
     export const dynamic = "force-dynamic";
@@ -319,27 +341,30 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
       "layout-el-cv": true,
     };
 
-    const aLight = v0_8.Styles.merge(a, { "color-c-n5": true });
-    const inputLight = v0_8.Styles.merge(input, { "color-c-n5": true });
-    const textareaLight = v0_8.Styles.merge(textarea, { "color-c-n5": true });
-    const buttonLight = v0_8.Styles.merge(button, { "color-c-n100": true });
-    const h1Light = v0_8.Styles.merge(h1, { "color-c-n5": true });
-    const h2Light = v0_8.Styles.merge(h2, { "color-c-n5": true });
-    const h3Light = v0_8.Styles.merge(h3, { "color-c-n5": true });
-    const bodyLight = v0_8.Styles.merge(body, { "color-c-n5": true });
-    const pLight = v0_8.Styles.merge(p, { "color-c-n35": true });
-    const preLight = v0_8.Styles.merge(pre, { "color-c-n35": true });
-    const orderedListLight = v0_8.Styles.merge(orderedList, {
+    const mergeStyles = (...styles: Record<string, boolean>[]) =>
+      Object.assign({}, ...styles);
+
+    const aLight = mergeStyles(a, { "color-c-n5": true });
+    const inputLight = mergeStyles(input, { "color-c-n5": true });
+    const textareaLight = mergeStyles(textarea, { "color-c-n5": true });
+    const buttonLight = mergeStyles(button, { "color-c-n100": true });
+    const h1Light = mergeStyles(h1, { "color-c-n5": true });
+    const h2Light = mergeStyles(h2, { "color-c-n5": true });
+    const h3Light = mergeStyles(h3, { "color-c-n5": true });
+    const bodyLight = mergeStyles(body, { "color-c-n5": true });
+    const pLight = mergeStyles(p, { "color-c-n35": true });
+    const preLight = mergeStyles(pre, { "color-c-n35": true });
+    const orderedListLight = mergeStyles(orderedList, {
       "color-c-n35": true,
     });
-    const unorderedListLight = v0_8.Styles.merge(unorderedList, {
+    const unorderedListLight = mergeStyles(unorderedList, {
       "color-c-n35": true,
     });
-    const listItemLight = v0_8.Styles.merge(listItem, {
+    const listItemLight = mergeStyles(listItem, {
       "color-c-n35": true,
     });
 
-    export const theme: v0_8.Types.Theme = {
+    export const theme: Record<string, unknown> = {
       additionalStyles: {
         Button: {
           "--n-35": "var(--n-100)",

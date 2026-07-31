@@ -52,10 +52,6 @@ SURFACE_ID = "flight-search-results"
 FLIGHT_SCHEMA = a2ui.load_schema(
     Path(__file__).parent / "a2ui" / "schemas" / "flight_schema.json"
 )
-BOOKED_SCHEMA = a2ui.load_schema(
-    Path(__file__).parent / "a2ui" / "schemas" / "booked_schema.json"
-)
-
 @tool
 def search_flights(flights: list[Flight]) -> str:
     """Search for flights and display results as rich cards."""
@@ -106,7 +102,7 @@ const runtime = new CopilotRuntime({
 
 ## Action handler details
 
-The `action_handlers` option is reserved for future Python SDK support. The button schema can still define the action context used by frontend handlers. Here's how the schema side looks:
+The current Python SDK does not support the `action_handlers=` option. The button schema can still define the action context used by frontend handlers. Here's how the schema side looks:
 
 ### Button with action context
 

@@ -123,7 +123,7 @@ A common pattern is to show a skeleton layout once `components` has data, then s
 
 ## Action Handlers
 
-Each A2UI approach has its own way to declare action handlers on the agent side — see the individual guides for [Fixed Schema](./fixed-schema#adding-interactivity-action-handlers), [Streaming](./fixed-schema-streaming#adding-interactivity-action-handlers), and [Dynamic Schema](./dynamic-schema#action-handlers-in-dynamic-schemas).
+Action handling in this section is client-side. The fixed-schema guide documents the current Python SDK limitation and the supported button context.
 
 The Python SDK's `a2ui.render` does not yet support the `action_handlers=` keyword. The frontend hook and custom orchestrator examples below remain available for client-side handling.
 
@@ -172,7 +172,6 @@ useA2UIActionHandler((action, declaredOps) => {
   if (action.name === "book_flight") {
     // Return custom operations
     return [
-      { createSurface: { surfaceId: action.surfaceId, catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json" } },
       { updateComponents: { surfaceId: action.surfaceId, components: mySchema } },
     ];
   }
@@ -197,9 +196,9 @@ useA2UIActionHandler((action, declaredOps) => {
 The default orchestrator resolves actions in this order:
 
 1. **Hook handlers** — registered via `useA2UIActionHandler`. Each receives `(action, declaredOps)`. The first handler that returns a non-empty operations array wins.
-2. **Pre-declared ops** — if no hook handles the action, falls back to the agent's `action_handlers` (exact name match first, then `"*"` catch-all).
+2. **Pre-declared ops** — if no hook handles the action, uses operations already present in the supported payload.
 
-This means pre-declared ops work out of the box, and hooks can override or extend them when needed.
+The current Python SDK does not create pre-declared operations from an `action_handlers=` argument. Use the frontend hook for custom handling.
 
 ### Custom orchestrator (full control)
 
