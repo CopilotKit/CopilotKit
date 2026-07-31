@@ -423,17 +423,21 @@ export class ClaimedChannelDelivery {
   }
 
   /** Upload outbound bytes and return an opaque handle for a provider packet. */
-  async uploadFile(args: {
-    bytes: Uint8Array;
-    filename: string;
-    title?: string;
-    altText?: string;
-  }): Promise<string> {
+  async uploadFile(
+    operationId: string,
+    args: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
+  ): Promise<string> {
     if (!this.files) {
       throw new Error("Channel file upload is not configured");
     }
     const uploaded = await this.files.uploadFile(
       this.delivery.deliveryId,
+      operationId,
       args,
     );
     return uploaded.handle;

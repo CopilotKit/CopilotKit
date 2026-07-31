@@ -48,6 +48,7 @@ import type {
   ChannelDeliveryTransport,
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
+import { ChannelProviderDeliveryError } from "./delivery-transport.js";
 import { assertProviderReference } from "./delivery-contracts.js";
 import {
   managedImageBytesMatch,
@@ -71,7 +72,18 @@ interface DeliveryMessageRef extends MessageRef {
 }
 
 const MANAGED_ASSET_ACTIVITY_TYPE = "copilotkit.managed-asset";
+const MANAGED_ASSET_HISTORY_ATTEMPTS = 3;
 const MANAGED_SLACK_TEXT_INTERVAL_MS = 600;
+
+/** Slack could not prove whether a managed file became visible. */
+export class ChannelFileDeliveryUnknownError extends Error {
+  readonly code = "unknown";
+
+  constructor(options?: { cause?: unknown }) {
+    super("Channel file delivery outcome is unknown", options);
+    this.name = "ChannelFileDeliveryUnknownError";
+  }
+}
 
 export interface CanonicalChannelRunArgs {
   agent: AbstractAgent;
@@ -593,9 +605,10 @@ export class DeliveryAdapter implements PlatformAdapter {
     // failure must propagate so claimAndHandle does not emit a false complete
     // terminal after a permanent provider/protocol error.
     let handle: string;
+    const responseId = mintId("response_");
     const uploadStartedAtMs = Date.now();
     try {
-      handle = await target.claimedDelivery.uploadFile(args);
+      handle = await target.claimedDelivery.uploadFile(responseId, args);
     } catch (error) {
       this.options.log?.("channel managed asset upload", {
         outcome: "failed",
@@ -616,14 +629,27 @@ export class DeliveryAdapter implements PlatformAdapter {
       deliveryId: target.delivery.deliveryId,
       byteSize: args.bytes.byteLength,
     });
-    const responseId = mintId("response_");
     if (target.delivery.adapter === "slack") {
-      await target.claimedDelivery.effect(responseId, {
-        kind: "slack.file.create",
-        fileHandle: handle,
-        ...(args.title ? { title: args.title } : {}),
-        ...(args.altText ? { altText: args.altText } : {}),
-      });
+      let result: Record<string, unknown>;
+      try {
+        result = await target.claimedDelivery.effect(responseId, {
+          kind: "slack.file.create",
+          fileHandle: handle,
+          ...(args.title ? { title: args.title } : {}),
+          ...(args.altText ? { altText: args.altText } : {}),
+        });
+      } catch (error) {
+        if (
+          error instanceof ChannelProviderDeliveryError &&
+          error.code === "file_delivery_unknown"
+        ) {
+          throw new ChannelFileDeliveryUnknownError({ cause: error });
+        }
+        throw error;
+      }
+      if (result.deliveryStatus === "not_delivered") {
+        return { ok: false, error: "not_delivered" };
+      }
     } else {
       const providerStartedAtMs = Date.now();
       const result = await target.claimedDelivery.effect(responseId, {
@@ -642,7 +668,8 @@ export class DeliveryAdapter implements PlatformAdapter {
         return { ok: false, error: "teams_image_rejected" };
       }
     }
-    await this.recordManagedAssetActivity(target, {
+    const activityId = `activity_${responseId.slice("response_".length)}`;
+    void this.persistManagedAssetActivity(target, activityId, {
       assetId: handle,
       filename: args.filename,
       mimeType:
@@ -650,13 +677,51 @@ export class DeliveryAdapter implements PlatformAdapter {
       byteSize: args.bytes.byteLength,
       ...(args.title ? { title: args.title } : {}),
       ...(args.altText ? { altText: args.altText } : {}),
+    }).catch((error: unknown) => {
+      this.options.log?.("channel managed asset history", {
+        outcome: "failed",
+        code: "canonical_history_gap",
+        deliveryId: target.delivery.deliveryId,
+        assetId: handle,
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
     return { ok: true, assetId: handle };
+  }
+
+  /** Retries canonical persistence without repeating provider delivery. */
+  private async persistManagedAssetActivity(
+    target: DeliveryReplyTarget,
+    activityId: string,
+    content: {
+      readonly assetId: string;
+      readonly filename: string;
+      readonly mimeType: string;
+      readonly byteSize: number;
+      readonly title?: string;
+      readonly altText?: string;
+    },
+  ): Promise<void> {
+    let lastError: unknown;
+    for (
+      let attempt = 1;
+      attempt <= MANAGED_ASSET_HISTORY_ATTEMPTS;
+      attempt += 1
+    ) {
+      try {
+        await this.recordManagedAssetActivity(target, activityId, content);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError;
   }
 
   /** Records provider-acknowledged managed output through canonical AG-UI. */
   private async recordManagedAssetActivity(
     target: DeliveryReplyTarget,
+    activityId: string,
     content: {
       readonly assetId: string;
       readonly filename: string;
@@ -668,7 +733,7 @@ export class DeliveryAdapter implements PlatformAdapter {
   ): Promise<void> {
     const event = {
       type: EventType.ACTIVITY_SNAPSHOT,
-      messageId: mintId("activity_"),
+      messageId: activityId,
       activityType: MANAGED_ASSET_ACTIVITY_TYPE,
       content,
     } as BaseEvent;

@@ -2,7 +2,10 @@ import { AbstractAgent } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
 import { EMPTY } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
-import { DeliveryAdapter } from "./delivery-adapter.js";
+import {
+  ChannelFileDeliveryUnknownError,
+  DeliveryAdapter,
+} from "./delivery-adapter.js";
 import { ChannelProviderDeliveryError } from "./delivery-transport.js";
 import type {
   ClaimedChannelDelivery,
@@ -193,24 +196,111 @@ describe("DeliveryAdapter.postFile", () => {
         title: "chart",
       }),
     );
-    expect(onEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: expect.objectContaining({
-          type: "ACTIVITY_SNAPSHOT",
-          activityType: "copilotkit.managed-asset",
-          content: {
-            assetId: "file_handle_01",
-            filename: "a.png",
-            mimeType: "image/png",
-            byteSize: 8,
-            title: "chart",
-            altText: "Line chart",
-          },
+    await vi.waitFor(() => {
+      expect(onEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: expect.objectContaining({
+            type: "ACTIVITY_SNAPSHOT",
+            messageId: expect.stringMatching(/^activity_/),
+            activityType: "copilotkit.managed-asset",
+            content: {
+              assetId: "file_handle_01",
+              filename: "a.png",
+              mimeType: "image/png",
+              byteSize: 8,
+              title: "chart",
+              altText: "Line chart",
+            },
+          }),
         }),
-      }),
-    );
+      );
+    });
     expect(JSON.stringify(onEvent.mock.calls)).not.toContain("iVBOR");
     await agentSession.release?.();
+  });
+
+  it("returns not_delivered so handler code can post a text fallback", async () => {
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue("file_handle_01"),
+      effect: vi.fn().mockResolvedValue({
+        deliveryStatus: "not_delivered",
+      }),
+    } as unknown as ClaimedChannelDelivery;
+    const adapter = makeAdapter();
+
+    await expect(
+      adapter.postFile(replyTarget(session), {
+        bytes: new Uint8Array([1]),
+        filename: "a.txt",
+      }),
+    ).resolves.toEqual({ ok: false, error: "not_delivered" });
+  });
+
+  it("throws a typed unknown error after exhausted ambiguous delivery", async () => {
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue("file_handle_01"),
+      effect: vi
+        .fn()
+        .mockRejectedValue(
+          new ChannelProviderDeliveryError(
+            "file_delivery_unknown",
+            "uncertain",
+          ),
+        ),
+    } as unknown as ClaimedChannelDelivery;
+    const adapter = makeAdapter();
+
+    await expect(
+      adapter.postFile(replyTarget(session), {
+        bytes: new Uint8Array([1]),
+        filename: "a.txt",
+      }),
+    ).rejects.toBeInstanceOf(ChannelFileDeliveryUnknownError);
+  });
+
+  it("keeps confirmed success when canonical history retries exhaust", async () => {
+    const log = vi.fn();
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue("file_handle_01"),
+      effect: vi.fn().mockResolvedValue({}),
+      getTranscript: vi.fn().mockResolvedValue({
+        messages: [],
+        truncation: {
+          messageLimit: false,
+          byteLimit: false,
+          omittedMessageCount: 0,
+        },
+      }),
+      consumeTranscriptTriggerPersistence: vi.fn().mockReturnValue(false),
+    } as unknown as ClaimedChannelDelivery;
+    const adapter = makeAdapter({
+      log,
+      runCanonical: vi.fn().mockRejectedValue(new Error("writer unavailable")),
+    });
+    const target = replyTarget(session);
+    await adapter.conversationStore.getOrCreate(
+      "thread_postfile",
+      target,
+      () => new NoopAgent(),
+    );
+
+    await expect(
+      adapter.postFile(target, {
+        bytes: new Uint8Array([1]),
+        filename: "a.txt",
+      }),
+    ).resolves.toEqual({ ok: true, assetId: "file_handle_01" });
+
+    await vi.waitFor(() => {
+      expect(log).toHaveBeenCalledWith(
+        "channel managed asset history",
+        expect.objectContaining({
+          outcome: "failed",
+          code: "canonical_history_gap",
+          assetId: "file_handle_01",
+        }),
+      );
+    });
   });
 
   it("returns a Teams capability error and keeps later text usable", async () => {
