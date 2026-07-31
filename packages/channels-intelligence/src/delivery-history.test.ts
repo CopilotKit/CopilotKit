@@ -32,11 +32,6 @@ const delivery: PreparedChannelDelivery = {
   },
 };
 
-const target = {
-  claimedDelivery: {} as ClaimedChannelDelivery,
-  delivery,
-};
-
 test("managed history keeps multimodal and activity content structured", async () => {
   const imageContent = [
     { type: "text", text: "What is this?" },
@@ -72,7 +67,18 @@ test("managed history keeps multimodal and activity content structured", async (
     loadHistory: async () => history,
   });
 
-  await expect(adapter.getMessages(target)).resolves.toEqual([
+  const specializedTarget = {
+    claimedDelivery: {} as ClaimedChannelDelivery,
+    delivery: {
+      ...delivery,
+      turn: {
+        ...delivery.turn,
+        input: { kind: "command" as const, command: "history" },
+      },
+    },
+  };
+
+  await expect(adapter.getMessages(specializedTarget)).resolves.toEqual([
     expect.objectContaining({
       text: "What is this?",
       content: imageContent,

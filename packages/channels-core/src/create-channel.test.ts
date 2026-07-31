@@ -417,6 +417,43 @@ describe("createChannel", () => {
     });
   });
 
+  it("does not duplicate an explicitly repeated inbound prompt seeded by the conversation store", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const added = captureAddedMessages(agent);
+    const getOrCreate = fake.conversationStore.getOrCreate.bind(
+      fake.conversationStore,
+    );
+    Object.defineProperty(fake.conversationStore, "seedsInboundTurn", {
+      value: true,
+    });
+    fake.conversationStore.getOrCreate = async (...args) => {
+      const session = await getOrCreate(...args);
+      session.agent.addMessage({
+        id: "inbound",
+        role: "user",
+        content: "Say my name",
+      });
+      return session;
+    };
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
+
+    channel.onMention(async ({ thread, message }) => {
+      await thread.runAgent({ prompt: message.text });
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "Say my name",
+      platform: "fake",
+    });
+
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({ id: "inbound" });
+  });
+
   it("defaults runAgent prompt to inbound multimodal content parts", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();

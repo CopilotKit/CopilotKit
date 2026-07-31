@@ -16,6 +16,8 @@ export interface EphemeralResult {
 }
 export interface PlatformUser {
   id: string;
+  /** Provider-reported category; untrusted identity metadata, never authorization. */
+  kind?: "human" | "bot" | "app" | "system";
   name?: string;
   handle?: string;
   email?: string;
@@ -94,6 +96,34 @@ export interface ThreadMessage {
   activityType?: string;
   ts?: string;
   isBot?: boolean;
+  /** Structured provider revision facts for delivery-scoped transcript input. */
+  providerMessage?: {
+    logicalMessageId: string;
+    revisionId: string;
+    occurredAt: string;
+    deleted: boolean;
+    currentTrigger: boolean;
+    actor: {
+      id: string;
+      kind: "human" | "bot" | "app" | "system";
+      displayName: string | null;
+      handle: string | null;
+    };
+    files: Array<{
+      providerFileId: string;
+      name: string | null;
+      mimeType: string | null;
+      byteSize: number | null;
+      availability: "managed" | "provider_only" | "unavailable";
+      handle?: string;
+    }>;
+  };
+  /** Present on the model-visible omission marker when earlier context was cut. */
+  transcriptTruncation?: {
+    messageLimit: boolean;
+    byteLimit: boolean;
+    omittedMessageCount: number;
+  };
 }
 export interface Thread {
   readonly platform: string;

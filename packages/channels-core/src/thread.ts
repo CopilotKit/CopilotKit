@@ -440,7 +440,10 @@ export class Thread implements ThreadInterface {
       // reconstructed history (e.g. a slash command's args, or inbound image/file
       // attachments built into multimodal content parts). A non-empty array is
       // truthy, so this guard also admits multimodal prompts.
-      if (extra?.prompt) {
+      const promptAlreadySeeded =
+        this.deps.adapter.conversationStore.seedsInboundTurn &&
+        promptMatchesInbound(extra?.prompt, this.deps.message);
+      if (extra?.prompt && !promptAlreadySeeded) {
         session.agent.addMessage({
           id: globalThis.crypto.randomUUID(),
           role: "user",
@@ -612,6 +615,18 @@ export class Thread implements ThreadInterface {
       await session.release?.();
     }
   }
+}
+
+function promptMatchesInbound(
+  prompt: string | AgentContentPart[] | undefined,
+  message: ThreadDeps["message"],
+): boolean {
+  if (prompt === undefined || message === undefined) return false;
+  if (typeof prompt === "string") return prompt === message.text;
+  return (
+    message.contentParts !== undefined &&
+    JSON.stringify(prompt) === JSON.stringify(message.contentParts)
+  );
 }
 
 let transcriptWarned = false;

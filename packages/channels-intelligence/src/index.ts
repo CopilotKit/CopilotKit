@@ -49,3 +49,12 @@ export type {
 
 export { IntelligenceStateStore } from "./intelligence-state-store.js";
 export type { IntelligenceStateStoreConfig } from "./intelligence-state-store.js";
+
+export { ChannelDeliveryTranscriptError } from "./delivery-transcript.js";
+export type {
+  ChannelDeliveryTranscript,
+  ChannelTranscriptActor,
+  ChannelTranscriptActorKind,
+  ChannelTranscriptFile,
+  ChannelTranscriptMessage,
+} from "./delivery-transcript.js";

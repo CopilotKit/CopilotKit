@@ -18,6 +18,8 @@ import type {
   ChannelTerminalPayload,
 } from "./delivery-contracts.js";
 import { ChannelDeliveryFileClient } from "./delivery-files.js";
+import { ChannelDeliveryTranscriptClient } from "./delivery-transcript.js";
+import type { ChannelDeliveryTranscript } from "./delivery-transcript.js";
 import type { ChannelFileRef } from "./delivery-files.js";
 import { buildContentParts } from "./content-parts.js";
 
@@ -183,6 +185,8 @@ export class ClaimedChannelDelivery {
     unknown
   >();
   private trackedOperationsSealed = false;
+  private transcriptPromise?: Promise<ChannelDeliveryTranscript>;
+  private transcriptTriggerPersisted = false;
   private providerOutputApplied = false;
   /** After a successful terminal or permanent non-terminal failure, refuse further effects. */
   private effectsClosed = false;
@@ -201,6 +205,7 @@ export class ClaimedChannelDelivery {
       deliveryExpiresAt?: string;
     }>,
     private readonly files?: ChannelDeliveryFileClient,
+    private readonly transcripts?: ChannelDeliveryTranscriptClient,
     private readonly signal: AbortSignal = new AbortController().signal,
   ) {
     this.owner = owner;
@@ -331,6 +336,26 @@ export class ClaimedChannelDelivery {
       this.files?.fetchFile.bind(this.files),
       log,
     );
+  }
+
+  /** Load and memoize one delivery-scoped provider transcript promise. */
+  getTranscript(): Promise<ChannelDeliveryTranscript> {
+    if (!this.transcripts) {
+      return Promise.reject(
+        new Error("Channel transcript requires both appApiBaseUrl and apiKey"),
+      );
+    }
+    this.transcriptPromise ??= this.transcripts.fetchTranscript(
+      this.delivery.deliveryId,
+    );
+    return this.transcriptPromise;
+  }
+
+  /** Return true exactly once so the canonical run persists one trigger input. */
+  consumeTranscriptTriggerPersistence(): boolean {
+    if (this.transcriptTriggerPersisted) return false;
+    this.transcriptTriggerPersisted = true;
+    return true;
   }
 
   /** Upload outbound bytes and return an opaque handle for a provider packet. */
@@ -535,6 +560,7 @@ export class ChannelDeliveryTransport {
   private readonly activeDeliveries = new Map<string, ClaimedChannelDelivery>();
   private readonly activeThreads = new Set<string>();
   private readonly files?: ChannelDeliveryFileClient;
+  private readonly transcripts?: ChannelDeliveryTranscriptClient;
   private readonly maxConcurrentDeliveries: number;
   private stopped = false;
   private abortController = new AbortController();
@@ -559,6 +585,11 @@ export class ChannelDeliveryTransport {
     }
     if (options.appApiBaseUrl && options.apiKey) {
       this.files = new ChannelDeliveryFileClient({
+        baseUrl: options.appApiBaseUrl,
+        apiKey: options.apiKey,
+        ...(options.fileFetch ? { fetch: options.fileFetch } : {}),
+      });
+      this.transcripts = new ChannelDeliveryTranscriptClient({
         baseUrl: options.appApiBaseUrl,
         apiKey: options.apiKey,
         ...(options.fileFetch ? { fetch: options.fileFetch } : {}),
@@ -717,6 +748,7 @@ export class ChannelDeliveryTransport {
         joined,
         reconnect,
         this.files,
+        this.transcripts,
         signal,
       );
       this.activeDeliveries.set(deliveryId, claimedDelivery);

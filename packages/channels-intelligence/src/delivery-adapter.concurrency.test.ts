@@ -77,8 +77,20 @@ describe("DeliveryAdapter concurrent same-thread runs", () => {
     });
 
     const session = {} as ClaimedChannelDelivery;
-    const d1 = prepared("dlv_1");
-    const d2 = prepared("dlv_2");
+    const d1 = {
+      ...prepared("dlv_1"),
+      turn: {
+        ...prepared("dlv_1").turn,
+        input: { kind: "command" as const, command: "first" },
+      },
+    };
+    const d2 = {
+      ...prepared("dlv_2"),
+      turn: {
+        ...prepared("dlv_2").turn,
+        input: { kind: "command" as const, command: "second" },
+      },
+    };
     const makeAgent = (id: string) => {
       const a = new TestAgent({ agentId: "t" });
       a.threadId = id;

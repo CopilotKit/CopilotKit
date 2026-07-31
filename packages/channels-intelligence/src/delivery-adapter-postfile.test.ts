@@ -159,6 +159,15 @@ describe("DeliveryAdapter.postFile", () => {
     const session = {
       uploadFile: vi.fn().mockResolvedValue("file_handle_01"),
       effect: vi.fn().mockResolvedValue({}),
+      getTranscript: vi.fn().mockResolvedValue({
+        messages: [],
+        truncation: {
+          messageLimit: false,
+          byteLimit: false,
+          omittedMessageCount: 0,
+        },
+      }),
+      consumeTranscriptTriggerPersistence: vi.fn().mockReturnValue(false),
     } as unknown as ClaimedChannelDelivery;
     const adapter = makeAdapter({ runCanonical });
     const target = replyTarget(session);

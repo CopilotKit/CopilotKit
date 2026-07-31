@@ -91,6 +91,8 @@ export interface StartChannelsWithGatewayControlOptions {
   appApiBaseUrl?: string;
   /** Project runtime API key (`cpk-…`) for the app-api file/history calls. */
   apiKey?: string;
+  /** Injectable App API fetch used by managed file and transcript calls. */
+  appApiFetch?: typeof fetch;
   /** Activation env overrides forwarded to the runtime (so `handle.metadata`
    * matches what the caller declared on join); omitted fields are gathered from
    * the process. `runtimeInstanceId` is excluded — the required
@@ -135,6 +137,7 @@ export async function startChannelsWithGatewayControl(
       : {}),
     ...(opts.appApiBaseUrl ? { appApiBaseUrl: opts.appApiBaseUrl } : {}),
     ...(opts.apiKey ? { apiKey: opts.apiKey } : {}),
+    ...(opts.appApiFetch ? { fileFetch: opts.appApiFetch } : {}),
     ...(opts.log ? { log: opts.log } : {}),
   });
   const store =
