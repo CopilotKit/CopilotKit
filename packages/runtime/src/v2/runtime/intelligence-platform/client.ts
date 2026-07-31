@@ -330,8 +330,10 @@ export interface ThreadMessage {
   id: string;
   /** Message role, e.g. `"user"`, `"assistant"`, `"tool"`. */
   role: string;
-  /** Text content of the message. May be absent for tool-call-only messages. */
-  content?: string;
+  /** Structured AG-UI content. May be absent for tool-call-only messages. */
+  content?: unknown;
+  /** Standard AG-UI activity type when `role` is `"activity"`. */
+  activityType?: string;
   /** Tool calls initiated by this message (assistant role only). */
   toolCalls?: Array<{
     id: string;
@@ -387,6 +389,8 @@ export interface AcquireThreadLockRequest {
   runId: string;
   userId: string;
   agentId: string;
+  /** Internal managed-Channel delivery context for shared Thread access. */
+  channelDeliveryId?: string;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -952,12 +956,40 @@ export class CopilotKitIntelligence {
   async getThreadMessages(params: {
     threadId: string;
     userId: string;
+    /** Internal managed-Channel delivery context for shared Thread access. */
+    channelDeliveryId?: string;
   }): Promise<ThreadMessagesResponse> {
     const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadMessagesResponse>(
       "GET",
       `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
+      undefined,
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
     );
+  }
+
+  /** @internal Fetches one authorized managed Channel asset for history hydration. */
+  async ɵgetManagedChannelAsset(assetId: string): Promise<{
+    bytes: Uint8Array;
+    mimeType?: string;
+  }> {
+    const path = `/api/channels/files/${encodeURIComponent(assetId)}`;
+    const response = await fetch(`${this.#apiUrl}${path}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${this.#apiKey}` },
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new PlatformRequestError(
+        `Intelligence platform error ${response.status}: ${text || response.statusText}`,
+        response.status,
+      );
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const mimeType = response.headers.get("content-type") ?? undefined;
+    return { bytes, ...(mimeType ? { mimeType } : {}) };
   }
 
   /**
@@ -1122,6 +1154,9 @@ export class CopilotKitIntelligence {
           ? { ttlSeconds: params.ttlSeconds }
           : {}),
       },
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
     );
   }
 

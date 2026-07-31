@@ -4,6 +4,7 @@ import type {
   RunRenderer,
   CapturedToolCall,
   CapturedInterrupt,
+  ReplyContinuationOptions,
 } from "@copilotkit/channels-core";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
@@ -61,8 +62,8 @@ export function createRunRenderer(args: {
   /**
    * The credentialed Slack side-effects (setStatus / postMessage / update),
    * injected so this renderer never imports `@slack/web-api`. The native
-   * adapter wraps a `WebClient`; the managed Connector Outbox wraps its own
-   * sender.
+   * adapter wraps a `WebClient`; managed Intelligence delivery maps supported
+   * calls to provider effects.
    */
   transport: SlackRenderTransport;
   target: { channel: string; threadTs?: string };
@@ -114,8 +115,13 @@ export function createRunRenderer(args: {
      * instead of creating or updating a second legacy message.
      */
     strict?: boolean;
-    /** Override the native text flush floor. Managed sessions use `0`. */
+    /** Override the native text flush floor. */
     minIntervalMs?: number;
+    /**
+     * Tuning for splitting a long reply across continuation messages. Passed
+     * straight through to the turn stream; unset leaves its defaults.
+     */
+    replyContinuation?: ReplyContinuationOptions;
     onStartFailure?: (err: unknown) => void;
     /**
      * Whether structured `task_update` chunks are known to work on this
@@ -151,7 +157,7 @@ export function createRunRenderer(args: {
   const setStatus = async (text: string): Promise<void> => {
     if (!status) return;
     try {
-      await transport.setStatus({
+      await transport.setStatus?.({
         channel_id: target.channel,
         thread_ts: status.threadTs,
         status: text,
@@ -265,6 +271,16 @@ export function createRunRenderer(args: {
           await onFirstReply();
           return ts;
         },
+        ...(ns.transport.startStreamWithText
+          ? {
+              startStreamWithText: async (markdownText: string) => {
+                const ts =
+                  await ns.transport.startStreamWithText!(markdownText);
+                await onFirstReply();
+                return ts;
+              },
+            }
+          : {}),
         appendText: (ts, md) => ns.transport.appendText(ts, md),
         appendChunks: (ts, chunks) => ns.transport.appendChunks(ts, chunks),
         stopStream: (ts, blocks) => ns.transport.stopStream(ts, blocks),
@@ -273,6 +289,15 @@ export function createRunRenderer(args: {
       onStartFailure: ns.onStartFailure,
       strict: ns.strict,
       minIntervalMs: ns.minIntervalMs,
+      ...(ns.replyContinuation?.messageByteLimit !== undefined
+        ? { messageByteLimit: ns.replyContinuation.messageByteLimit }
+        : {}),
+      ...(ns.replyContinuation?.maxMessages !== undefined
+        ? { maxMessages: ns.replyContinuation.maxMessages }
+        : {}),
+      ...(ns.replyContinuation?.truncationMarker !== undefined
+        ? { truncationMarker: ns.replyContinuation.truncationMarker }
+        : {}),
       onChunkFailure: () => {
         // Structured chunks unsupported on this workspace — degrade tool
         // progress to `:wrench:` rows for the rest of the run, and let the

@@ -147,9 +147,10 @@ export class ChannelDeliveryFileClient {
     return { bytes, ...(mimeType ? { mimeType } : {}) };
   }
 
-  /** Upload one outbound file under the active delivery lease. */
+  /** Store one outbound file for the active delivery. */
   async uploadFile(
     deliveryId: string,
+    operationId: string,
     args: {
       bytes: Uint8Array;
       filename: string;
@@ -157,21 +158,40 @@ export class ChannelDeliveryFileClient {
       altText?: string;
     },
   ): Promise<{ handle: string }> {
-    const query = new URLSearchParams({ filename: args.filename });
+    const query = new URLSearchParams({
+      operationId,
+      filename: args.filename,
+    });
     if (args.title) query.set("title", args.title);
     if (args.altText) query.set("altText", args.altText);
-    const response = await this.fetchImpl()(
-      `${this.config.baseUrl}/api/channels/deliveries/${encodeURIComponent(deliveryId)}/files?${query.toString()}`,
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${this.config.apiKey}`,
-          "content-type":
-            managedImageMimeType(args.filename) ?? "application/octet-stream",
-        },
-        body: args.bytes as unknown as string,
-      },
-    );
+    let response: Response | undefined;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        response = await this.fetchImpl()(
+          `${this.config.baseUrl}/api/channels/deliveries/${encodeURIComponent(deliveryId)}/files?${query.toString()}`,
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${this.config.apiKey}`,
+              "content-type":
+                managedImageMimeType(args.filename) ??
+                "application/octet-stream",
+            },
+            body: args.bytes as unknown as string,
+          },
+        );
+      } catch (error) {
+        lastError = error;
+        continue;
+      }
+      if (response.ok || response.status < 500) break;
+    }
+    if (!response) {
+      throw lastError instanceof Error
+        ? lastError
+        : new Error("intelligence file upload failed");
+    }
     if (!response.ok) {
       throw new Error(`intelligence file upload -> ${response.status}`);
     }

@@ -13,8 +13,8 @@
  * IDENTICAL to the native bot; only the transport changes. Instead of a
  * launcher, the managed path now goes through the NORMAL runtime handler: you
  * hand your `createChannel(...)` to `new CopilotRuntime({ …, channels })` and
- * mount it with `createCopilotNodeListener`, then `await
- * listener.channels.ready()` to activate the managed Channel (the runtime
+ * mount it with `createCopilotNodeListener` — which activates the managed Channel
+ * — then `await listener.channels.ready()` to wait until it is live (the runtime
  * derives every infra id — project, adapter, channel — from the Intelligence
  * config + the channel `name`, so the developer supplies NONE of them):
  *
@@ -27,11 +27,10 @@
  */
 import "dotenv/config";
 import { createServer } from "node:http";
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import {
   defaultSlackTools,
   defaultSlackContext,
-  SanitizingHttpAgent,
 } from "@copilotkit/channels/slack";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
@@ -72,7 +71,7 @@ async function main() {
   const support = createChannel({
     name: channelName,
     agent: (threadId) => {
-      const a = new SanitizingHttpAgent({
+      const a = new HttpAgent({
         url: agentUrl,
         headers: agentHeaders,
       });
@@ -136,7 +135,7 @@ async function main() {
   });
 
   const runtime = new CopilotRuntime({
-    // The Channel supplies its own agent (the SanitizingHttpAgent above), so no
+    // The Channel supplies its own agent (the HttpAgent above), so no
     // additional runtime-hosted agents are needed here.
     agents: {},
     intelligence,
@@ -146,26 +145,16 @@ async function main() {
     channels: [support],
   });
 
-  // The NORMAL handler is what runs the managed Channel: the Node listener
-  // creates the runtime handler and exposes `.channels` for activation +
-  // shutdown. Mounting it opens NO connection — `ready()` below activates the
-  // Channel over the Intelligence transport. There is no public Slack ingress on
-  // this port — Intelligence owns the Slack edge — but the server keeps the
-  // lifecycle-owning process alive.
-  const listener = createCopilotNodeListener({
-    runtime,
-    basePath: "/api/copilotkit",
-  });
-  const port = Number(process.env.PORT ?? 8300);
-  createServer(listener).listen(port, () => {
-    console.log(`[channel] listener on :${port}`);
-  });
+  // Teardown is wired BEFORE the listener exists, because creating the listener
+  // is what activates the managed Channel; `stopChannels` is assigned in the same
+  // tick as that creation, so no signal can land in an untearable window.
+  let stopChannels: (() => Promise<void>) | undefined;
 
   const shutdown = async (signal: string) => {
     console.log(`\n[channel] received ${signal}, stopping…`);
     let exitCode = 0;
     try {
-      await listener.channels.stop();
+      await stopChannels?.();
     } catch (err) {
       console.error("[channel] error stopping managed Channel", err);
       exitCode = 1;
@@ -187,14 +176,30 @@ async function main() {
       process.exit(1);
     });
   };
-  // Registered BEFORE activation on purpose: `ready()` below can take up to its
-  // timeout, and a Ctrl-C inside that window must still tear the Channel down
-  // rather than hit Node's default handler and skip teardown.
+  // Registered BEFORE activation on purpose: activation begins the moment the
+  // listener is created and `ready()` below can take up to its timeout — a
+  // Ctrl-C anywhere in that window must still tear the Channel down rather than
+  // hit Node's default handler and skip teardown.
   process.on("SIGINT", () => runShutdown("SIGINT"));
   process.on("SIGTERM", () => runShutdown("SIGTERM"));
 
-  // Required: this is the call that connects the managed Channel to the Realtime
-  // Gateway. Bound it so a wedged connect can't hang startup forever.
+  // The NORMAL handler is what runs the managed Channel: creating the Node
+  // listener activates it over the Intelligence transport and exposes `.channels`
+  // to observe or stop it. There is no public Slack ingress on this port —
+  // Intelligence owns the Slack edge — but the server keeps the lifecycle-owning
+  // process alive.
+  const listener = createCopilotNodeListener({
+    runtime,
+    basePath: "/api/copilotkit",
+  });
+  stopChannels = () => listener.channels.stop();
+  const port = Number(process.env.PORT ?? 8300);
+  createServer(listener).listen(port, () => {
+    console.log(`[channel] listener on :${port}`);
+  });
+
+  // Wait for that activation to settle, bounded so a wedged connect can't hang
+  // startup forever — and so a failure exits non-zero instead of looking live.
   await listener.channels.ready({ timeoutMs: 30_000 });
   console.log(`[channel] started managed Channel "${channelName}"`);
 }

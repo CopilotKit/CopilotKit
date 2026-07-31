@@ -5,7 +5,7 @@ import { useAgentContext } from "@copilotkit/react-core/v2";
 import { Search, X } from "lucide-react";
 import { CHARGES, CHARGE_CATEGORIES, CHARGE_STATUSES } from "./charges-data";
 import type { Charge, ChargeStatus } from "./charges-data";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 type SortKey = "amount_desc" | "amount_asc" | "date_desc" | "date_asc";
 const SORT_LABELS: Record<SortKey, string> = {
@@ -43,6 +43,18 @@ export default function ChargesPage() {
   const vendor = searchParams.get("vendor") ?? "";
   const from = searchParams.get("from") ?? "";
   const to = searchParams.get("to") ?? "";
+
+  // Sort and Show carry the brand tint whenever they are set in the URL rather
+  // than sitting at their defaults. Arriving from the copilot is exactly that
+  // case, so the two controls the agent just set are the two that light up and
+  // the user can see WHAT changed, not just that the page changed. Manually
+  // choosing a non-default keeps the tint, which is the same statement: this
+  // view is filtered.
+  const sortIsSet = searchParams.get("sort") !== null;
+  const topIsSet = top !== null;
+  const activeSelect =
+    "border-brand/50 bg-brand-soft font-semibold text-brand-indigo dark:text-brand-violet";
+  const idleSelect = "border-hairline bg-surface font-medium text-ink";
 
   const setParam = (key: string, value: string | string[] | null) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -133,7 +145,10 @@ export default function ChargesPage() {
             <select
               value={sort}
               onChange={(e) => setParam("sort", e.target.value)}
-              className="rounded-lg border border-hairline bg-surface px-2.5 py-1.5 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+              className={cn(
+                "rounded-lg border px-2.5 py-1.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-brand",
+                sortIsSet ? activeSelect : idleSelect,
+              )}
             >
               {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
                 <option key={k} value={k}>
@@ -154,7 +169,10 @@ export default function ChargesPage() {
                   e.target.value === "all" ? null : e.target.value,
                 )
               }
-              className="rounded-lg border border-hairline bg-surface px-2.5 py-1.5 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+              className={cn(
+                "rounded-lg border px-2.5 py-1.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-brand",
+                topIsSet ? activeSelect : idleSelect,
+              )}
             >
               <option value="all">All</option>
               <option value="5">Top 5</option>

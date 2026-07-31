@@ -174,17 +174,16 @@ if (!result.ok) {
 }
 ```
 
-On managed Channels, `result.ok` means Intelligence accepted the durable upload
-and render frame. Provider delivery happens later in the Connector Outbox, so
-`ok: true` is not proof that Slack or Teams displayed the attachment. Verify
-the real provider message and monitor Intelligence **Delivery failing** status.
+On managed Channels, `result.ok` means Intelligence stored the managed asset,
+the provider acknowledged the file or image effect, and the SDK recorded the
+asset in canonical Thread history.
 
 <FrontendOnly frontend="slack">
 
 Managed Slack uses Slack's external-upload flow and can send general file types.
-The Slack app needs the `files:write` bot scope, which is absent from the
-generated manifest today. Reinstall after adding it. Check `result.ok`, then
-verify the real Slack message because provider upload happens asynchronously.
+The generated manifest includes the `files:write` bot scope. Add that scope and
+reinstall if the Slack app predates the current manifest. Check `result.ok`,
+then verify the real Slack message when provider-side display matters.
 
 </FrontendOnly>
 
@@ -192,9 +191,9 @@ verify the real Slack message because provider upload happens asynchronously.
 
 Managed Teams outbound file delivery currently supports images only. It posts
 the image as an inline Bot Connector attachment. For CSV, PDF, and other
-non-image files, Intelligence posts a visible “couldn't attach” notice and the
-SDK result may still reflect accepted managed delivery. Do not advertise a
-download until the real Teams message contains the expected attachment.
+non-image files, `postFile()` returns `ok: false` before a provider call. A
+confirmed Teams size rejection returns `teams_image_rejected` without ending
+the delivery, so the agent can still send a text fallback.
 
 </FrontendOnly>
 

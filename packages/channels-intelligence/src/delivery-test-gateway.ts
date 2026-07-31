@@ -46,14 +46,12 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
         return {
           deliveryId: packet.deliveryId,
           seq: packet.seq,
-          effectId: packet.effectId,
-          responseId: packet.responseId,
-          payloadDigest: packet.payloadDigest,
+          packetId: packet.packetId,
           phase: "applied",
           result:
             packet.payload.kind === "channel.delivery.terminal"
               ? {}
-              : { providerReference: `pref_v1_${packet.responseId}` },
+              : { providerReference: `pref_v1_${packet.packetId}` },
         };
       },
       on: () => undefined,
@@ -71,6 +69,7 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
     this.invitationHandler?.({
       protocol: "channel_delivery_v1",
       deliveryId: delivery.deliveryId,
+      canonicalThreadId: delivery.canonicalThreadId,
     });
     const deadline = Date.now() + 1_000;
     while (this.leaves !== expectedLeaves) {
@@ -86,7 +85,16 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
 export function preparedDelivery(
   suffix: string,
   adapter: "slack" | "teams",
-  input: PreparedChannelDelivery["turn"]["input"],
+  input:
+    | PreparedChannelDelivery["turn"]["input"]
+    | {
+        kind: "text";
+        text?: string;
+        files?: Extract<
+          PreparedChannelDelivery["turn"]["input"],
+          { kind: "text" }
+        >["files"];
+      },
 ): PreparedChannelDelivery {
   // Packet contract requires `dlv_` + 8..128 charset chars.
   const idSuffix =
@@ -103,9 +111,21 @@ export function preparedDelivery(
     turn: {
       eventId: `event_${idSuffix}`,
       receivedAt: "2026-07-29T17:00:00.000Z",
-      input,
+      input:
+        input.kind === "text" && !("operation" in input)
+          ? {
+              ...input,
+              operation: {
+                kind: "created",
+                logicalMessageId: `message_${idSuffix}`,
+                revisionId: `revision_${idSuffix}`,
+                mentioned: false,
+              },
+            }
+          : input,
       actor: {
         externalUserId: `user_${idSuffix}`,
+        kind: "human",
         displayName: "Ada",
       },
     },

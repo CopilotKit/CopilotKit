@@ -1,0 +1,266 @@
+import { describe, expect, it, vi } from "vitest";
+import { DeliveryAdapter } from "./delivery-adapter.js";
+import type { ChannelProviderPayload } from "./delivery-contracts.js";
+import type {
+  ClaimedChannelDelivery,
+  PreparedChannelDelivery,
+} from "./delivery-transport.js";
+
+function adapter(): DeliveryAdapter {
+  return new DeliveryAdapter({
+    channelName: "support",
+    transport: {} as never,
+    runCanonical: async () => ({ iterations: 0, interrupted: false }),
+    loadHistory: async () => [],
+  });
+}
+
+function delivery(): PreparedChannelDelivery {
+  return {
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_teams_final_01",
+    deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
+    channelId: "channel_support",
+    channelName: "support",
+    canonicalThreadId: "thread_teams_final",
+    appUserId: "teams:user-1",
+    adapter: "teams",
+    turn: {
+      eventId: "evt_teams_final",
+      receivedAt: "2026-07-29T17:00:00.000Z",
+      input: {
+        kind: "text",
+        text: "hello",
+        operation: {
+          kind: "created",
+          logicalMessageId: "message-final",
+          revisionId: "revision-final",
+          mentioned: false,
+        },
+      },
+    },
+  };
+}
+
+describe("DeliveryAdapter Teams final delivery", () => {
+  it("emits a distinct final packet after an intermediate post", async () => {
+    vi.useFakeTimers();
+    try {
+      const effect = vi.fn(
+        async (
+          _responseId: string,
+          _payload: ChannelProviderPayload,
+        ): Promise<Record<string, unknown>> => ({
+          providerReference: "pref_v1_teams_activity_01",
+        }),
+      );
+      const session = { effect } as unknown as ClaimedChannelDelivery;
+      const renderer = adapter().createRunRenderer({
+        claimedDelivery: session,
+        delivery: delivery(),
+      });
+      const subscriber = renderer.subscriber;
+
+      subscriber.onTextMessageStartEvent!({
+        event: { messageId: "message-1", role: "assistant" },
+      } as never);
+      subscriber.onTextMessageContentEvent!({
+        event: { messageId: "message-1", delta: "Working" },
+      } as never);
+      await vi.advanceTimersByTimeAsync(1);
+
+      subscriber.onTextMessageContentEvent!({
+        event: { messageId: "message-1", delta: " done" },
+      } as never);
+      await subscriber.onTextMessageEndEvent!({
+        event: { messageId: "message-1" },
+      } as never);
+
+      expect(effect.mock.calls.map((call) => call[1])).toEqual([
+        { kind: "teams.message.create", text: "Working" },
+        {
+          kind: "teams.message.finalize",
+          providerReference: "pref_v1_teams_activity_01",
+          text: "Working done",
+        },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("DeliveryAdapter Slack cadence", () => {
+  it("uses unmetered native status for run start and terminal clear", async () => {
+    const effect = vi.fn(
+      async (
+        _responseId: string,
+        _payload: ChannelProviderPayload,
+        _options?: { charge?: boolean },
+      ): Promise<Record<string, unknown>> => ({}),
+    );
+    const session = { effect } as unknown as ClaimedChannelDelivery;
+    const renderer = adapter().createRunRenderer({
+      claimedDelivery: session,
+      delivery: { ...delivery(), adapter: "slack" },
+    });
+
+    await renderer.subscriber.onRunStartedEvent!({ event: {} } as never);
+    await renderer.finish!();
+
+    expect(effect.mock.calls).toEqual([
+      [
+        expect.any(String),
+        { kind: "slack.thread.status", status: "is thinking…" },
+        { charge: false },
+      ],
+      [
+        expect.any(String),
+        { kind: "slack.thread.status", status: "" },
+        { charge: false },
+      ],
+    ]);
+  });
+
+  it("does not let a native status failure block visible output", async () => {
+    vi.useFakeTimers();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      const effect = vi.fn(
+        async (
+          _responseId: string,
+          payload: ChannelProviderPayload,
+        ): Promise<Record<string, unknown>> => {
+          if ((payload as { kind: string }).kind === "slack.thread.status") {
+            throw new Error("status unavailable");
+          }
+          return (payload as { kind: string }).kind === "slack.stream.start"
+            ? { providerReference: "pref_v1_slack_stream_01" }
+            : {};
+        },
+      );
+      const session = { effect } as unknown as ClaimedChannelDelivery;
+      const renderer = adapter().createRunRenderer({
+        claimedDelivery: session,
+        delivery: { ...delivery(), adapter: "slack" },
+      });
+
+      await renderer.subscriber.onRunStartedEvent!({ event: {} } as never);
+      renderer.subscriber.onTextMessageContentEvent!({
+        event: { messageId: "message-1", delta: "Hello" },
+      } as never);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(
+        effect.mock.calls.some(
+          (call) => (call[1] as { kind: string }).kind === "slack.stream.start",
+        ),
+      ).toBe(true);
+    } finally {
+      consoleError.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears native status on the first visible stream", async () => {
+    vi.useFakeTimers();
+    try {
+      const effect = vi.fn(
+        async (
+          _responseId: string,
+          payload: ChannelProviderPayload,
+        ): Promise<Record<string, unknown>> =>
+          payload.kind === "slack.stream.start"
+            ? { providerReference: "pref_v1_slack_stream_01" }
+            : {},
+      );
+      const session = { effect } as unknown as ClaimedChannelDelivery;
+      const renderer = adapter().createRunRenderer({
+        claimedDelivery: session,
+        delivery: { ...delivery(), adapter: "slack" },
+      });
+
+      await renderer.subscriber.onRunStartedEvent!({ event: {} } as never);
+      renderer.subscriber.onTextMessageContentEvent!({
+        event: { messageId: "message-1", delta: "Hello" },
+      } as never);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(
+        effect.mock.calls
+          .map((call) => call[1])
+          .filter(
+            (payload) =>
+              (payload as { kind: string }).kind === "slack.thread.status",
+          ),
+      ).toEqual([
+        { kind: "slack.thread.status", status: "is thinking…" },
+        { kind: "slack.thread.status", status: "" },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("coalesces intermediate text on the 600 millisecond attempt cadence", async () => {
+    vi.useFakeTimers();
+    try {
+      const effect = vi.fn(
+        async (
+          _responseId: string,
+          payload: ChannelProviderPayload,
+        ): Promise<Record<string, unknown>> =>
+          payload.kind === "slack.stream.start"
+            ? { providerReference: "pref_v1_slack_stream_01" }
+            : {},
+      );
+      const session = { effect } as unknown as ClaimedChannelDelivery;
+      const renderer = adapter().createRunRenderer({
+        claimedDelivery: session,
+        delivery: { ...delivery(), adapter: "slack" },
+      });
+      const subscriber = renderer.subscriber;
+
+      subscriber.onTextMessageStartEvent!({
+        event: { messageId: "message-1", role: "assistant" },
+      } as never);
+      subscriber.onTextMessageContentEvent!({
+        event: { messageId: "message-1", delta: "A" },
+      } as never);
+      await vi.advanceTimersByTimeAsync(0);
+
+      subscriber.onTextMessageContentEvent!({
+        event: { messageId: "message-1", delta: "B" },
+      } as never);
+      await vi.advanceTimersByTimeAsync(599);
+
+      const appendPayloads = (): unknown[] =>
+        effect.mock.calls
+          .map((call) => call[1])
+          .filter((payload) => payload.kind === "slack.stream.append");
+
+      expect(effect.mock.calls.map((call) => call[1])).toContainEqual({
+        kind: "slack.stream.start",
+        initialText: "A",
+      });
+      expect(appendPayloads()).toHaveLength(0);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(appendPayloads()).toEqual([
+        {
+          kind: "slack.stream.append",
+          providerReference: "pref_v1_slack_stream_01",
+          delta: "B",
+        },
+      ]);
+
+      await subscriber.onTextMessageEndEvent!({
+        event: { messageId: "message-1" },
+      } as never);
+      await renderer.finish!();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

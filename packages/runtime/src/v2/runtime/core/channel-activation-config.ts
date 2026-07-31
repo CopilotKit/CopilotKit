@@ -1,7 +1,7 @@
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output (see `runtime.ts` for the same constraint).
-import type { Channel } from "@copilotkit/channels";
+import type { Channel, ReplyContinuationOptions } from "@copilotkit/channels";
 
 /**
  * Error thrown when a Channel activation config cannot be derived — either the
@@ -47,6 +47,11 @@ export interface ChannelActivationConfig {
    * default.
    */
   showToolStatus?: boolean;
+  /**
+   * Optional per-Channel tuning for splitting a long reply across continuation
+   * messages. Unset leaves the provider renderer's defaults in place.
+   */
+  replyContinuation?: ReplyContinuationOptions;
   /** Identifier for the runtime instance activating this Channel. */
   runtimeInstanceId: string;
 }
@@ -173,6 +178,9 @@ export function deriveChannelActivationConfig(args: {
     adapter: trimmedProvider ? trimmedProvider : "slack",
     ...(channel.showToolStatus !== undefined
       ? { showToolStatus: channel.showToolStatus }
+      : {}),
+    ...(channel.replyContinuation !== undefined
+      ? { replyContinuation: channel.replyContinuation }
       : {}),
     runtimeInstanceId,
   };

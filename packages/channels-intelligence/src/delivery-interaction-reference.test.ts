@@ -11,6 +11,7 @@ test("interaction update and delete preserve the opaque provider reference", asy
   const providerReference = "pref_v1_opaqueReference_123";
   const gateway = new DeliveryTestGateway();
   const channel = createChannel({ name: "support" });
+  channel.onMessage(async () => {});
   channel.onInteraction("approve", async ({ thread, message }) => {
     await thread.update(
       message.ref,
@@ -48,6 +49,7 @@ test("invalid interaction references fail before handler dispatch", async () => 
   const gateway = new DeliveryTestGateway();
   const handler = vi.fn();
   const channel = createChannel({ name: "support" });
+  channel.onMessage(async () => {});
   channel.onInteraction("approve", handler);
   const handle = await startChannelsWithGatewayControl([channel], {
     session: gateway,

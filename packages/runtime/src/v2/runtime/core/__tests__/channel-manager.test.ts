@@ -857,6 +857,90 @@ describe("defaultActivateChannel", () => {
     expect(opts.scope).not.toHaveProperty("channelId");
   });
 
+  it("hydrates managed inbound and activity assets at the Runtime boundary", async () => {
+    const { start, importer } = captureChannelsIntelligenceLaunch();
+    const services = fakeServices();
+    vi.spyOn(services.intelligence, "getThreadMessages").mockResolvedValue({
+      messages: [
+        {
+          id: "user-image",
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "url",
+                value: "cpki-asset://fileref_inbound",
+                mimeType: "image/png",
+              },
+            },
+          ],
+        },
+        {
+          id: "activity-image",
+          role: "activity",
+          activityType: "copilotkit.managed-asset",
+          content: {
+            assetId: "fileref_outbound",
+            filename: "chart.png",
+            mimeType: "image/png",
+            byteSize: 8,
+          },
+        },
+      ],
+    });
+    vi.spyOn(
+      services.intelligence,
+      "ɵgetManagedChannelAsset",
+    ).mockResolvedValue({
+      bytes: new Uint8Array([137, 80, 78, 71]),
+      mimeType: "image/png",
+    });
+
+    await defaultActivateChannel(
+      config,
+      createChannel({ name: "support" }),
+      importer,
+      undefined,
+      services,
+    );
+    const loadHistory = start.mock.calls[0]![1].loadHistory;
+    const history = await loadHistory({
+      threadId: "thread-images",
+      appUserId: "app-user",
+      deliveryId: "dlv_images",
+    });
+
+    expect(services.intelligence.getThreadMessages).toHaveBeenCalledWith({
+      threadId: "thread-images",
+      userId: "app-user",
+      channelDeliveryId: "dlv_images",
+    });
+
+    expect(history[0]?.content).toEqual([
+      {
+        type: "image",
+        source: {
+          type: "data",
+          value: "iVBORw==",
+          mimeType: "image/png",
+        },
+      },
+    ]);
+    expect(history[1]).toMatchObject({
+      role: "activity",
+      activityType: "copilotkit.managed-asset",
+      content: {
+        assetId: "fileref_outbound",
+        source: {
+          type: "data",
+          value: "iVBORw==",
+          mimeType: "image/png",
+        },
+      },
+    });
+  });
+
   it("keeps tool status omitted when createChannel() does not configure it", async () => {
     const { start, importer } = captureChannelsIntelligenceLaunch();
     const channel = createChannel({ name: "support" });
@@ -902,6 +986,59 @@ describe("defaultActivateChannel", () => {
     expect(activationConfig.showToolStatus).toBe(true);
     const [, opts] = start.mock.calls[0]!;
     expect(opts.showToolStatus).toBe(true);
+  });
+
+  it("forwards createChannel({ replyContinuation }) to the managed launcher", async () => {
+    const { start, importer } = captureChannelsIntelligenceLaunch();
+    const channel = createChannel({
+      name: "support",
+      replyContinuation: { maxMessages: 5, truncationMarker: "…cut" },
+    });
+    const activationConfig = deriveChannelActivationConfig({
+      intelligence: fakeIntelligence(),
+      channel,
+      runtimeInstanceId: "rti_x",
+    });
+
+    await defaultActivateChannel(
+      activationConfig,
+      channel,
+      importer,
+      undefined,
+      fakeServices(),
+    );
+
+    expect(activationConfig.replyContinuation).toEqual({
+      maxMessages: 5,
+      truncationMarker: "…cut",
+    });
+    const [, opts] = start.mock.calls[0]!;
+    expect(opts.replyContinuation).toEqual({
+      maxMessages: 5,
+      truncationMarker: "…cut",
+    });
+  });
+
+  it("omits replyContinuation when createChannel does not set it", async () => {
+    const { start, importer } = captureChannelsIntelligenceLaunch();
+    const channel = createChannel({ name: "support" });
+    const activationConfig = deriveChannelActivationConfig({
+      intelligence: fakeIntelligence(),
+      channel,
+      runtimeInstanceId: "rti_x",
+    });
+
+    await defaultActivateChannel(
+      activationConfig,
+      channel,
+      importer,
+      undefined,
+      fakeServices(),
+    );
+
+    expect(activationConfig).not.toHaveProperty("replyContinuation");
+    const [, opts] = start.mock.calls[0]!;
+    expect(opts).not.toHaveProperty("replyContinuation");
   });
 
   it("forwards the log sink to the launcher opts so transport-level drops surface", async () => {

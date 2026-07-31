@@ -1,8 +1,7 @@
 export { SlackConversationStore } from "./conversation-store.js";
 export type { AgentSession } from "./conversation-store.js";
 
-// Pure Slack codec (render + normalize) shared with the managed/Connector-Outbox
-// and webhook-ingress paths.
+// Pure Slack codec shared by local delivery and managed webhook ingress.
 export { slackCodec } from "./codec.js";
 export {
   normalizeSlackEvent,

@@ -68,14 +68,13 @@ wiring:
 
 ```ts
 import { createServer } from "node:http";
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import {
   slack,
   defaultSlackTools,
   defaultSlackContext,
-  SanitizingHttpAgent,
 } from "@copilotkit/channels/slack";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
@@ -95,7 +94,7 @@ const bot = createChannel({
   ],
   // One AG-UI agent per conversation, pointed at the runtime.
   agent: (threadId) => {
-    const a = new SanitizingHttpAgent({ url: process.env.AGENT_URL! });
+    const a = new HttpAgent({ url: process.env.AGENT_URL! });
     a.threadId = threadId;
     return a;
   },
@@ -126,8 +125,8 @@ const runtime = new CopilotRuntime({
   channels: [bot],
 });
 
-// Mounting the listener exposes `.channels` for activation + shutdown but opens
-// no connection; `ready()` activates the Channel (starting its adapters).
+// Mounting the listener starts the Channel (and its adapters) and exposes
+// `.channels` to observe or shut it down; `ready()` waits until it is live.
 // No bot.start()/bot.stop().
 const listener = createCopilotNodeListener({
   runtime,

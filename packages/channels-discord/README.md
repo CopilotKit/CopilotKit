@@ -29,11 +29,8 @@ import {
   defaultDiscordTools,
   defaultDiscordContext,
 } from "@copilotkit/channels-discord";
-import {
-  CopilotRuntime,
-  CopilotKitIntelligence,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
@@ -71,8 +68,10 @@ const runtime = new CopilotRuntime({
   channels: [bot],
 });
 
-const handler = createCopilotRuntimeHandler({ runtime });
-await handler.channels.ready(); // starts the channel; handler.channels.stop() tears it down
+// Creating the listener starts the Channel's connection.
+const listener = createCopilotNodeListener({ runtime });
+// Optional: await that activation so a broken config fails startup loudly.
+await listener.channels.ready(); // listener.channels.stop() tears it down
 ```
 
 `discord(opts)` returns a `DiscordAdapter`. The adapter connects via the
@@ -275,7 +274,7 @@ work against any adapter that advertises the same capabilities.
 ## Slash commands
 
 Slash commands are registered up front — when the runtime activates the
-channel (`await handler.channels.ready()`) — via `registerCommands`. When
+channel (`await listener.channels.ready()`) — via `registerCommands`. When
 `guildId` is set they register to that guild instantly; without it they
 register globally and take ~1 hour to propagate. Register handlers with
 `bot.onCommand`:

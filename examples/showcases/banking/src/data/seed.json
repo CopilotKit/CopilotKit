@@ -29,9 +29,24 @@
     }
   ],
   "policies": [
-    { "id": "7f3b3c4d5e", "type": "Marketing", "limit": 5000, "spent": 500 },
-    { "id": "8r5c3m4n5o", "type": "Executive", "limit": 10000, "spent": 1000 },
-    { "id": "9a8b7c6d5e", "type": "Engineering", "limit": 15000, "spent": 1500 }
+    {
+      "id": "7f3b3c4d5e",
+      "type": "Marketing",
+      "limit": 25000,
+      "spent": 22000
+    },
+    {
+      "id": "8r5c3m4n5o",
+      "type": "Executive",
+      "limit": 60000,
+      "spent": 55000
+    },
+    {
+      "id": "9a8b7c6d5e",
+      "type": "Engineering",
+      "limit": 68000,
+      "spent": 60000
+    }
   ],
   "team": [
     {

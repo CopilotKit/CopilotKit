@@ -236,6 +236,12 @@ export class TeamsAdapter implements PlatformAdapter {
           conversationKey,
           replyTarget: target,
           userText: text,
+          operation: {
+            kind: "created",
+            logicalMessageId: activity.id ?? conversationKey,
+            revisionId: activity.id ?? conversationKey,
+            mentioned: false,
+          },
           user,
           platform: this.platform,
           contentParts,

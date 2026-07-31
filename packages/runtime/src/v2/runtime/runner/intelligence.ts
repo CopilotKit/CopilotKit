@@ -35,6 +35,7 @@ export interface RunnerStartupBoundary {
 }
 
 interface ThreadState {
+  runId: string;
   socket: Socket;
   channel: Channel;
   isRunning: boolean;
@@ -197,6 +198,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       });
 
       const state: ThreadState = {
+        runId: input.runId,
         socket,
         channel,
         isRunning: true,
@@ -351,6 +353,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
   stop(request: AgentRunnerStopRequest): Promise<boolean | undefined> {
     const state = this.threads.get(request.threadId);
     if (!state || !state.isRunning || state.stopRequested) {
+      return Promise.resolve(false);
+    }
+    if (request.runId !== undefined && state.runId !== request.runId) {
       return Promise.resolve(false);
     }
 

@@ -5,6 +5,7 @@ import type {
   EmojiValue,
   EphemeralResult,
   MessageRef,
+  MessageOperation,
   PlatformUser,
   ThreadMessage,
 } from "@copilotkit/channels-ui";
@@ -18,6 +19,8 @@ export type ReplyTarget = unknown;
 export type NativePayload = unknown;
 
 export interface SurfaceCapabilities {
+  /** This adapter can deliver provider messages through `onTurn`. */
+  supportsMessageEvents?: boolean;
   supportsModals: boolean;
   supportsTyping: boolean;
   supportsReactions: boolean;
@@ -87,6 +90,8 @@ export interface ChannelAgentLoopResult {
 export interface CanonicalRunIdentity {
   threadId: string;
   runId: string;
+  /** Fence the delivery immediately before an irreversible local tool call. */
+  beforeToolCall?: () => Promise<void>;
 }
 
 /**
@@ -136,12 +141,13 @@ export interface IngressIds {
   eventId?: string;
   /** Stable per-turn id (Intelligence Channel path); local adapters omit it. */
   turnId?: string;
-  /** Lease/delivery id (Intelligence Channel path); local adapters omit it. */
+  /** Durable delivery id (Intelligence Channel path); local adapters omit it. */
   deliveryId?: string;
 }
 
 export interface IncomingTurn extends IngressEventBase, IngressIds {
   userText: string;
+  operation: MessageOperation;
   /**
    * Optional multimodal content parts built by the adapter (e.g. inbound
    * image/file attachments). Carried through to `IncomingMessage.contentParts`.
@@ -377,7 +383,14 @@ export interface PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }>;
+  ): Promise<{
+    ok: boolean;
+    /** Provider file or message ID for native adapters. */
+    fileId?: string;
+    /** Provider-neutral managed asset ID for Intelligence adapters. */
+    assetId?: string;
+    error?: string;
+  }>;
   /**
    * Optional slash-command support. Called once on `start()` with the channel's
    * declared commands, so a surface that registers commands up front (e.g.

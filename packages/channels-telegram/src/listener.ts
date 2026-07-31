@@ -180,13 +180,13 @@ export function attachTelegramListener(config: ListenerConfig): void {
 
     // Decide whether to answer.
     const chatType = ctx.chat.type;
+    const mentionedBot = mentionRegex?.test(userText) ?? false;
     let shouldAnswer = false;
     if (chatType === "private") {
       shouldAnswer = true;
     } else {
       // group / supergroup: answer if @mentioned (case-insensitive, word-boundary)
       // or reply to bot's message.
-      const mentionedBot = mentionRegex?.test(userText) ?? false;
       const replyToBot = msg.reply_to_message?.from?.id === botUserId;
       shouldAnswer = mentionedBot || replyToBot;
     }
@@ -250,6 +250,12 @@ export function attachTelegramListener(config: ListenerConfig): void {
     void Promise.resolve(
       sink.onTurn({
         conversationKey: turnConversationKey,
+        operation: {
+          kind: "created",
+          logicalMessageId: String(msg.message_id),
+          revisionId: String(msg.message_id),
+          mentioned: mentionedBot,
+        },
         replyTarget: {
           chatId: ctx.chat.id,
           // Only attach a forum thread id in forum supergroups. In non-forum

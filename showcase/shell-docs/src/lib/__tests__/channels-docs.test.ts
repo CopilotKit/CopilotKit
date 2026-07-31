@@ -104,6 +104,26 @@ describe("Channels documentation journey", () => {
     expect(overview?.source).not.toContain(
       "## Match your Channels configuration",
     );
+    expect(overview?.source).toContain(
+      "description: Run one AG-UI agent in Slack, Microsoft Teams, and more",
+    );
+    expect(overview?.source).toContain(
+      "channel connection (Slack, Teams, Discord, etc.)",
+    );
+    expect(overview?.source).toContain('title="More channels are on the way"');
+    expect(overview?.source).toContain(
+      'surface="docs_channels_more_channels_contact"',
+    );
+    expect(overview?.source).toContain('ctaLabel="Book time with an engineer"');
+    expect(overview?.source).toContain(
+      "## Production self-hosting: Run Enterprise Intelligence in your own infrastructure",
+    );
+    expect(overview?.source).toContain(
+      'surface="docs_channels_self_hosting_contact"',
+    );
+    expect(overview?.source).toContain(
+      ">Book time with a CopilotKit engineer</DocsTrackedLink>",
+    );
     expect(overview?.source).toContain("## Next step");
     expect(overview?.source).toContain(
       "[Configure the Channel in Intelligence](/channels/intelligence)",
@@ -249,7 +269,7 @@ describe("Channels documentation journey", () => {
     expect(source).toMatch(/do not derive\s+the WebSocket URL/i);
     expect(source).toMatch(/Pass bare base URLs/i);
     expect(source).toMatch(
-      /Do not append\s+`\/api`,\s+`\/socket`,\s+`\/runner`,\s+or\s+`\/client`/i,
+      /Do not append\s+`\/api`,\s+`\/socket`,\s+`\/runner`,\s+`\/client`,\s+or\s+`\/channels`/i,
     );
     expect(source).toMatch(/replace both(?: bases)?\s+together/i);
   });
@@ -314,13 +334,12 @@ describe("Channels documentation journey", () => {
     const teams = filterFrontendScopedBlocks(source, "teams");
 
     expect(slack).toContain("### Connect Slack");
-    expect(slack).toContain("connections:write");
-    expect(slack).toContain("`xapp-…`");
     expect(slack).toContain("`xoxb-…`");
     expect(slack).toContain("`/invite @<app-handle>`");
-    expect(slack).toContain("Socket Mode");
-    expect(slack).toContain("public request URL");
-    expect(slack).toContain("signing secret");
+    expect(slack).toContain("Signing Secret");
+    expect(slack).toContain("signed Events API");
+    expect(slack).toMatch(/public\s+Intelligence URLs/);
+    expect(slack).not.toContain("Socket Mode");
     expect(slack).not.toContain("### Connect Microsoft Teams");
     expect(slack).not.toContain("Directory (tenant) ID");
 
@@ -440,9 +459,10 @@ describe("Channels documentation journey", () => {
 
     expect(slack).toContain("Block Kit");
     expect(slack).toContain("block_actions");
-    expect(slack).toContain("Socket Mode");
+    expect(slack).toContain("signed managed webhook");
     expect(slack).toContain("Interactivity");
     expect(slack).toMatch(/generated manifest[\s\S]{0,160}disabled/i);
+    expect(slack).not.toContain("Socket Mode");
 
     expect(teams).toContain("Adaptive Cards");
     expect(teams).toContain("Action.Submit");
@@ -520,10 +540,13 @@ describe("Channels documentation journey", () => {
       expect(persistence).toContain(facet);
     }
     expect(persistence).toContain('from "@copilotkit/channels/testing"');
-    expect(persistence).toMatch(/one active owner[\s\S]{0,120}Channel Code/i);
+    expect(persistence).toMatch(/Each prepared delivery has one claim winner/i);
     expect(persistence).toMatch(
-      /same complete Channel declaration set[\s\S]{0,160}standbys/i,
+      /Different replicas can serve different conversations/i,
     );
+    expect(persistence).toContain("`maxConcurrentDeliveries`");
+    expect(persistence).not.toMatch(/one active owner/i);
+    expect(persistence).not.toMatch(/standbys/i);
 
     expect(history).toMatch(/default history limit[\s\S]{0,80}20 messages/i);
     expect(history).toMatch(/current inbound turn is not part/i);
@@ -649,8 +672,9 @@ describe("Channels documentation journey", () => {
       expect(filteredThreads).toMatch(/conversationKey[\s\S]{0,120}opaque/i);
       expect(filteredThreads).toContain("durable `StateStore`");
       expect(filteredThreads).toMatch(
-        /\*\*Online\*\*[\s\S]{0,140}active or\s+standby/i,
+        /\*\*Online\*\*[\s\S]{0,180}receive delivery\s+invitations/i,
       );
+      expect(filteredThreads).not.toMatch(/active or\s+standby/i);
     }
   });
 
