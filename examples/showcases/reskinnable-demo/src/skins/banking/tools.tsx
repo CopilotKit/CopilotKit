@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import {
   useAgentContext,
   useComponent,
@@ -15,7 +16,11 @@ import { useRecording } from "@/skins/banking/components/recording-context";
 import { ApprovalButtons } from "@/skins/banking/components/approval-buttons";
 import { RecordingSteps } from "@/skins/banking/components/recording-feed";
 import { PendingApprovalsChat } from "@/skins/banking/components/wow/pending-approvals-chat";
-import { PinChangeCard } from "@/skins/banking/components/wow/pin-change-card";
+import {
+  PinChangeCard,
+  PinChangedCard,
+} from "@/skins/banking/components/wow/pin-change-card";
+import { NavigateConfirmCard } from "@/skins/banking/components/wow/navigate-confirm-card";
 import { DataTableChat } from "@/skins/banking/components/wow/data-table-chat";
 import { SpendSummaryCard } from "@/skins/banking/components/wow/spend-summary-card";
 import {
@@ -62,6 +67,27 @@ const canonicalProcedure = (code: string): string =>
   `lifts the policy-limit gate. Reuse this same procedure for any other ` +
   `over-limit charge — do not ask how to proceed.`;
 
+// PIN changes that have been answered in this browser session, keyed by tool
+// call id.
+//
+// The setCardPin tool result does not come back when a thread is reopened: the
+// call replays with status "inProgress" and no result, even though the user
+// answered it. (Other human-in-the-loop tools in this file, e.g. showCharges,
+// DO replay with their result, so this is specific to this call rather than to
+// how the card is written.) Without a record the answered card fell back to
+// "Loading…" forever, which is exactly the moment the card is supposed to earn
+// its keep — reopening the thread and seeing what happened.
+//
+// So the outcome is remembered here as the user answers, and the render
+// consults it before trusting the replayed status. Module scope, so it survives
+// switching between threads (the case that matters); a full page reload clears
+// it and the replayed call falls back to the loading state as before. Only
+// non-secret identifiers are kept — never the PIN.
+const answeredPinChanges = new Map<
+  string,
+  { brand?: string; last4?: string; failed?: string; cancelled?: boolean }
+>();
+
 // The banking skin's Tools component — the contract's registration point for the
 // skin's frontend tools, human-in-the-loop handlers, gen-UI component renderers
 // and agent-context readables. It takes no props and renders null; it sources
@@ -99,6 +125,21 @@ export function BankingTools() {
     finalizePolicyException,
   } = useCreditCards();
   const { beginRecording, endRecording, getDemonstratedCode } = useRecording();
+
+  // Live handle on the cards for the PIN tool's render. It reads through this
+  // ref instead of closing over `cards` so the tool is registered ONCE:
+  // useFrontendTool re-registers whenever JSON.stringify(deps) changes and
+  // re-registration removes the tool, so a `[cards]` dependency tore this tool
+  // down and rebuilt it on every card mutation — including the PIN write it was
+  // itself servicing. The ref keeps the picker's data fresh without touching
+  // registration. Synced in an effect rather than assigned inline during render
+  // so this stays clear of the react-hooks/refs rule (no ref writes mid-render);
+  // useRef seeds it with the initial cards, so the first render already reads a
+  // correct value.
+  const cardsRef = useRef(cards);
+  useEffect(() => {
+    cardsRef.current = cards;
+  }, [cards]);
 
   // A readable of app wide authentication and authorization context.
   // The LLM will now know which user is it working against, when performing operations.
@@ -305,6 +346,18 @@ export function BankingTools() {
       content: z.string().describe("The content of the note"),
     }),
     handler: async ({ transactionId, content }) => {
+      // A note about a reported/unrecognized charge carries a 🚨 so it is
+      // impossible to skim past in the transaction's note list. The seeded
+      // procedure also asks for it, but a model is not a reliable emoji
+      // emitter, so the marker is applied here where it is guaranteed — and
+      // only when the text actually reads as an alert, so ordinary notes stay
+      // plain.
+      const alerting =
+        /\b(unrecognized|unrecognised|suspicious|report(ed)?|fraud|disput)/i.test(
+          content,
+        );
+      const text =
+        alerting && !content.startsWith("🚨") ? `🚨 ${content}` : content;
       // `addNoteToTransaction` RESOLVES with the updated transaction and returns
       // undefined if the request failed (it catches internally) — there is no
       // {ok, error} envelope like the transaction-status helpers have. A
@@ -312,7 +365,10 @@ export function BankingTools() {
       // undefined, so a note that had in fact been written reported "adding the
       // note failed" while the note was visibly present on the transaction.
       // Presence of a result is the success signal.
-      const updated = await addNoteToTransaction({ transactionId, content });
+      const updated = await addNoteToTransaction({
+        transactionId,
+        content: text,
+      });
       return updated
         ? { ok: true, transactionId, note: "Note added to the transaction." }
         : { ok: false, error: "could not add the note" };
@@ -345,39 +401,53 @@ export function BankingTools() {
             "Optional. Only set when the user already named a card; otherwise omit and let the user choose.",
           ),
       }),
-      render: ({ args, respond, status, result }) => {
-        if (status === "inProgress") {
+      render: ({ args, respond, status, result, toolCallId }) => {
+        // What this session already knows about this call wins over the
+        // replayed status, which comes back as "inProgress" on a reopened
+        // thread even when the user answered it.
+        const remembered = answeredPinChanges.get(toolCallId);
+        if (remembered) return <PinChangedCard {...remembered} />;
+
+        // Resolved state is keyed on the RESULT, not on `status`. A thread
+        // reloaded from history replays this tool call with its stored result
+        // but not always with status "complete", so gating on the status alone
+        // left the answered card showing "Loading…" forever. The result is the
+        // durable fact; the status is not.
+        const text = typeof result === "string" ? result : "";
+        if (text) {
+          // Parsed out of `result` rather than component state precisely so the
+          // rehydrated thread re-renders the same card — local state is gone by
+          // then.
+          if (text.startsWith("PIN updated")) {
+            const match = /PIN updated on the (.+?) ending (\d{4})/.exec(text);
+            return <PinChangedCard brand={match?.[1]} last4={match?.[2]} />;
+          }
+          if (text.startsWith("Could not update the PIN")) {
+            return (
+              <PinChangedCard
+                failed={text.replace("Could not update the PIN: ", "")}
+              />
+            );
+          }
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              PIN change cancelled.
+            </div>
+          );
+        }
+        if (status === "inProgress" || status === "complete") {
           return (
             <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
               Loading…
             </div>
           );
         }
-        if (status === "complete") {
-          // Render our OWN copy rather than echoing `result`: the result string
-          // is addressed to the model, and with followUp:false this collapsed
-          // card is the only thing the user ever sees.
-          const succeeded =
-            typeof result === "string" && result.startsWith("PIN updated");
-          const failed =
-            typeof result === "string" &&
-            result.startsWith("Could not update the PIN");
-          return (
-            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
-              {succeeded
-                ? "New PIN saved."
-                : failed
-                  ? result
-                  : "PIN change cancelled."}
-            </div>
-          );
-        }
         return (
           <PinChangeCard
-            cards={cards}
+            cards={cardsRef.current}
             initialCardId={args?.cardId}
             onSubmit={async (cardId, pin) => {
-              const card = cards.find((c) => c.id === cardId);
+              const card = cardsRef.current.find((c) => c.id === cardId);
               const label = card
                 ? `${card.type} ending ${card.last4}`
                 : "the card";
@@ -388,27 +458,46 @@ export function BankingTools() {
               // back to the agent.
               try {
                 await changePin({ cardId, pin });
+                answeredPinChanges.set(toolCallId, {
+                  brand: card?.type,
+                  last4: card?.last4,
+                });
                 respond?.(`PIN updated on the ${label}.`);
               } catch (err) {
-                respond?.(
-                  `Could not update the PIN: ${err instanceof Error ? err.message : String(err)}`,
-                );
+                const reason =
+                  err instanceof Error ? err.message : String(err);
+                answeredPinChanges.set(toolCallId, { failed: reason });
+                respond?.(`Could not update the PIN: ${reason}`);
               }
             }}
-            onCancel={() => respond?.("cancelled")}
+            onCancel={() => {
+              answeredPinChanges.set(toolCallId, { cancelled: true });
+              respond?.("cancelled");
+            }}
           />
         );
       },
     },
-    [cards],
+    // No dependency on `cards`. useFrontendTool re-registers whenever
+    // JSON.stringify(deps) changes, and re-registration removes the tool — so
+    // with `[cards]` the PIN write itself (which mutates a card) tore down this
+    // tool while its own response was still in flight, the result was never
+    // recorded, and a reopened thread replayed the call as unanswered. The
+    // picker only needs card type and last4, neither of which a PIN change
+    // touches.
+    [],
   );
 
-  // Charges page: navigate + pre-filter + stack-rank. Fire-and-forget (no
-  // confirm) — opening a filtered list is safe. The page reads these as URL
-  // params (?sort=&top=&category=&status=&vendor=&from=&to=) so the on-screen
-  // controls reflect exactly what the agent chose. "the 10 most expensive
-  // charges" => { sort: "amount_desc", top: 10 }.
-  useFrontendTool({
+  // Charges page: navigate + pre-filter + stack-rank. Human-in-the-loop rather
+  // than fire-and-forget: the action is safe, but it replaces the user's whole
+  // screen, and an agent that swaps the page out from under you without asking
+  // reads as the agent being in charge. The confirm card also states the sort
+  // and filters BEFORE the page changes, so the highlighted controls on arrival
+  // are recognisably the agent's doing. The page reads these as URL params
+  // (?sort=&top=&category=&status=&vendor=&from=&to=) so the on-screen controls
+  // reflect exactly what the agent chose. "the 10 most expensive charges" =>
+  // { sort: "amount_desc", top: 10 }.
+  useHumanInTheLoop({
     name: "showCharges",
     description: `Open the Charges page pre-filtered and sorted, then stack-ranked. Use for asks like "show me the 10 most expensive charges", "which charges are over limit", or "marketing charges in May". Set sort/top/filters accordingly.`,
     parameters: z.object({
@@ -447,18 +536,75 @@ export function BankingTools() {
         .optional()
         .describe("Only charges on/before this ISO date (yyyy-mm-dd)."),
     }),
-    handler: async ({ sort, top, categories, statuses, vendor, from, to }) => {
-      const params = new URLSearchParams();
-      if (sort) params.set("sort", sort);
-      if (top) params.set("top", String(top));
-      if (categories?.length) params.set("category", categories.join(","));
-      if (statuses?.length) params.set("status", statuses.join(","));
-      if (vendor) params.set("vendor", vendor);
-      if (from) params.set("from", from);
-      if (to) params.set("to", to);
-      const qs = params.toString();
-      router.push(qs ? `${base}/charges?${qs}` : `${base}/charges`);
-      return `Opened the Charges page${qs ? ` (${qs})` : ""}.`;
+    followUp: false,
+    render: ({ args, result, respond }) => {
+      const { sort, top, categories, statuses, vendor, from, to } = args ?? {};
+
+      // Keyed on the RESULT rather than `status`: a thread reloaded from history
+      // replays the stored result, and an answered call must never come back
+      // showing live Open/Stay buttons that would navigate and respond a second
+      // time.
+      const answer = typeof result === "string" ? result : "";
+      if (answer) {
+        return (
+          <NavigateConfirmCard
+            title="Charges"
+            destination="Charges"
+            details={[]}
+            status={answer.startsWith("Opened") ? "confirmed" : "declined"}
+            onConfirm={() => {}}
+            onCancel={() => {}}
+          />
+        );
+      }
+
+      // Human-readable echo of the filter the agent picked, so the user knows
+      // what they are agreeing to before the screen changes.
+      const details = [
+        sort && {
+          label: "Sort",
+          value: {
+            amount_desc: "Highest amount first",
+            amount_asc: "Lowest amount first",
+            date_desc: "Newest first",
+            date_asc: "Oldest first",
+          }[sort],
+        },
+        top && { label: "Show", value: `Top ${top}` },
+        categories?.length && {
+          label: "Category",
+          value: categories.join(", "),
+        },
+        statuses?.length && { label: "Status", value: statuses.join(", ") },
+        vendor && { label: "Merchant", value: vendor },
+        (from || to) && {
+          label: "Dates",
+          value: [from ?? "any", to ?? "any"].join(" to "),
+        },
+      ].filter(Boolean) as { label: string; value: string }[];
+
+      return (
+        <NavigateConfirmCard
+          title="Open the charges list?"
+          destination="Charges"
+          details={details}
+          status="asking"
+          onConfirm={() => {
+            const params = new URLSearchParams();
+            if (sort) params.set("sort", sort);
+            if (top) params.set("top", String(top));
+            if (categories?.length) params.set("category", categories.join(","));
+            if (statuses?.length) params.set("status", statuses.join(","));
+            if (vendor) params.set("vendor", vendor);
+            if (from) params.set("from", from);
+            if (to) params.set("to", to);
+            const qs = params.toString();
+            router.push(qs ? `${base}/charges?${qs}` : `${base}/charges`);
+            respond?.(`Opened the Charges page${qs ? ` (${qs})` : ""}.`);
+          }}
+          onCancel={() => respond?.("The user chose to stay on this page.")}
+        />
+      );
     },
   });
 
