@@ -474,6 +474,7 @@ test("runCanonical rejects an outer agent error completed by the standard runner
       agent,
       threadId,
       runId,
+      deliveryId: "dlv_standard_runner_delivery",
       userId: "app-user-1",
       agentId: "support-agent",
       tools: [],
