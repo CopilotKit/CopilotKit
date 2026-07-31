@@ -28,7 +28,16 @@ function delivery(): PreparedChannelDelivery {
     turn: {
       eventId: "evt_teams_final",
       receivedAt: "2026-07-29T17:00:00.000Z",
-      input: { kind: "text", text: "hello" },
+      input: {
+        kind: "text",
+        text: "hello",
+        operation: {
+          kind: "created",
+          logicalMessageId: "message-final",
+          revisionId: "revision-final",
+          mentioned: false,
+        },
+      },
     },
   };
 }
@@ -82,6 +91,119 @@ describe("DeliveryAdapter Teams final delivery", () => {
 });
 
 describe("DeliveryAdapter Slack cadence", () => {
+  it("uses unmetered native status for run start and terminal clear", async () => {
+    const effect = vi.fn(
+      async (
+        _responseId: string,
+        _payload: ChannelProviderPayload,
+        _options?: { charge?: boolean },
+      ): Promise<Record<string, unknown>> => ({}),
+    );
+    const session = { effect } as unknown as ClaimedChannelDelivery;
+    const renderer = adapter().createRunRenderer({
+      claimedDelivery: session,
+      delivery: { ...delivery(), adapter: "slack" },
+    });
+
+    await renderer.subscriber.onRunStartedEvent!({ event: {} } as never);
+    await renderer.finish!();
+
+    expect(effect.mock.calls).toEqual([
+      [
+        expect.any(String),
+        { kind: "slack.thread.status", status: "is thinking…" },
+        { charge: false },
+      ],
+      [
+        expect.any(String),
+        { kind: "slack.thread.status", status: "" },
+        { charge: false },
+      ],
+    ]);
+  });
+
+  it("does not let a native status failure block visible output", async () => {
+    vi.useFakeTimers();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      const effect = vi.fn(
+        async (
+          _responseId: string,
+          payload: ChannelProviderPayload,
+        ): Promise<Record<string, unknown>> => {
+          if ((payload as { kind: string }).kind === "slack.thread.status") {
+            throw new Error("status unavailable");
+          }
+          return (payload as { kind: string }).kind === "slack.stream.start"
+            ? { providerReference: "pref_v1_slack_stream_01" }
+            : {};
+        },
+      );
+      const session = { effect } as unknown as ClaimedChannelDelivery;
+      const renderer = adapter().createRunRenderer({
+        claimedDelivery: session,
+        delivery: { ...delivery(), adapter: "slack" },
+      });
+
+      await renderer.subscriber.onRunStartedEvent!({ event: {} } as never);
+      renderer.subscriber.onTextMessageContentEvent!({
+        event: { messageId: "message-1", delta: "Hello" },
+      } as never);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(
+        effect.mock.calls.some(
+          (call) => (call[1] as { kind: string }).kind === "slack.stream.start",
+        ),
+      ).toBe(true);
+    } finally {
+      consoleError.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears native status on the first visible stream", async () => {
+    vi.useFakeTimers();
+    try {
+      const effect = vi.fn(
+        async (
+          _responseId: string,
+          payload: ChannelProviderPayload,
+        ): Promise<Record<string, unknown>> =>
+          payload.kind === "slack.stream.start"
+            ? { providerReference: "pref_v1_slack_stream_01" }
+            : {},
+      );
+      const session = { effect } as unknown as ClaimedChannelDelivery;
+      const renderer = adapter().createRunRenderer({
+        claimedDelivery: session,
+        delivery: { ...delivery(), adapter: "slack" },
+      });
+
+      await renderer.subscriber.onRunStartedEvent!({ event: {} } as never);
+      renderer.subscriber.onTextMessageContentEvent!({
+        event: { messageId: "message-1", delta: "Hello" },
+      } as never);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(
+        effect.mock.calls
+          .map((call) => call[1])
+          .filter(
+            (payload) =>
+              (payload as { kind: string }).kind === "slack.thread.status",
+          ),
+      ).toEqual([
+        { kind: "slack.thread.status", status: "is thinking…" },
+        { kind: "slack.thread.status", status: "" },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("coalesces intermediate text on the 600 millisecond attempt cadence", async () => {
     vi.useFakeTimers();
     try {

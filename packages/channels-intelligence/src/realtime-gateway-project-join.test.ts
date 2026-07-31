@@ -24,8 +24,11 @@ function setup() {
   connectRealtimeGatewayMock.mockReset();
   connectRealtimeGatewayMock.mockResolvedValue(session);
 
+  const channel = createChannel({ name: "support" });
+  channel.onMessage(async () => {});
+
   return {
-    channel: createChannel({ name: "support" }),
+    channel,
     disconnect,
     webSocket: vi.fn(),
   };

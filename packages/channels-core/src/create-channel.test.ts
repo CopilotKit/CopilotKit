@@ -122,6 +122,102 @@ function captureSessionAgents(fake: FakeAdapter): { agents: FakeAgent[] } {
 }
 
 describe("createChannel", () => {
+  it("rejects activation when a message-capable adapter has no eligible handler", async () => {
+    const fake = new FakeAdapter({ messageEvents: true });
+    const channel = createChannel({ name: "support", adapters: [fake] });
+
+    await expect(channel.ɵruntime.start()).rejects.toThrow(
+      'channel "support" must register onMention or onMessage',
+    );
+    expect(fake.started).toBe(false);
+  });
+
+  it("routes an explicit mention only to onMention", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({ adapters: [fake] });
+    const mentions = vi.fn();
+    const messages = vi.fn();
+    channel.onMention(mentions);
+    channel.onMessage(messages);
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hello",
+      platform: "fake",
+      operation: {
+        kind: "created",
+        logicalMessageId: "message-1",
+        revisionId: "revision-1",
+        mentioned: true,
+      },
+    });
+
+    expect(mentions).toHaveBeenCalledOnce();
+    expect(messages).not.toHaveBeenCalled();
+  });
+
+  it("falls an explicit mention back to onMessage", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({ adapters: [fake] });
+    const messages = vi.fn();
+    channel.onMessage(messages);
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hello",
+      platform: "fake",
+      operation: {
+        kind: "updated",
+        logicalMessageId: "message-1",
+        revisionId: "revision-2",
+        mentioned: true,
+      },
+    });
+
+    expect(messages).toHaveBeenCalledOnce();
+    expect(messages).toHaveBeenCalledWith({
+      thread: expect.anything(),
+      message: expect.objectContaining({
+        operation: {
+          kind: "updated",
+          logicalMessageId: "message-1",
+          revisionId: "revision-2",
+          mentioned: true,
+        },
+      }),
+    });
+  });
+
+  it("routes an ordinary message only to onMessage", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({ adapters: [fake] });
+    const mentions = vi.fn();
+    const messages = vi.fn();
+    channel.onMention(mentions);
+    channel.onMessage(messages);
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "",
+      platform: "fake",
+      operation: {
+        kind: "deleted",
+        logicalMessageId: "message-1",
+        revisionId: "revision-3",
+        mentioned: false,
+      },
+    });
+
+    expect(messages).toHaveBeenCalledOnce();
+    expect(mentions).not.toHaveBeenCalled();
+  });
+
   it("routes a mention to a handler that posts UI", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
@@ -319,6 +415,43 @@ describe("createChannel", () => {
       role: "user",
       content: "Say my name",
     });
+  });
+
+  it("does not duplicate an explicitly repeated inbound prompt seeded by the conversation store", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const added = captureAddedMessages(agent);
+    const getOrCreate = fake.conversationStore.getOrCreate.bind(
+      fake.conversationStore,
+    );
+    Object.defineProperty(fake.conversationStore, "seedsInboundTurn", {
+      value: true,
+    });
+    fake.conversationStore.getOrCreate = async (...args) => {
+      const session = await getOrCreate(...args);
+      session.agent.addMessage({
+        id: "inbound",
+        role: "user",
+        content: "Say my name",
+      });
+      return session;
+    };
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
+
+    channel.onMention(async ({ thread, message }) => {
+      await thread.runAgent({ prompt: message.text });
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "Say my name",
+      platform: "fake",
+    });
+
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({ id: "inbound" });
   });
 
   it("defaults runAgent prompt to inbound multimodal content parts", async () => {

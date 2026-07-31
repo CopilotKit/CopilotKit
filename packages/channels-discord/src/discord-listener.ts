@@ -4,6 +4,7 @@ import { decodeReaction } from "./interaction.js";
 import type { PendingInteractions } from "./pending-interactions.js";
 
 interface MessageLike {
+  id: string;
   author: {
     id: string;
     bot?: boolean;
@@ -91,6 +92,8 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
     void Promise.resolve(
       onTurn({
         conversationKey: msg.channelId,
+        messageId: msg.id,
+        mentioned: msg.mentions.has(botId),
         replyTarget,
         userText: stripMention(msg.content, botId),
         senderUserId: msg.author.id,

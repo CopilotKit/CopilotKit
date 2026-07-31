@@ -94,7 +94,10 @@ test("an ingress source platform scopes identity resolution and event dedupe", a
     user: { id: "user-1" },
   });
 
-  expect(dedupeSeen).toHaveBeenCalledWith("evt:teams:event-1", 300_000);
+  expect(dedupeSeen).toHaveBeenCalledWith(
+    "message:teams:created:event-1:event-1",
+    300_000,
+  );
   expect(identity).toHaveBeenCalledWith(
     expect.objectContaining({
       adapter: "teams",

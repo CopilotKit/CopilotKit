@@ -389,6 +389,8 @@ export interface AcquireThreadLockRequest {
   runId: string;
   userId: string;
   agentId: string;
+  /** Internal managed-Channel delivery context for shared Thread access. */
+  channelDeliveryId?: string;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -954,11 +956,17 @@ export class CopilotKitIntelligence {
   async getThreadMessages(params: {
     threadId: string;
     userId: string;
+    /** Internal managed-Channel delivery context for shared Thread access. */
+    channelDeliveryId?: string;
   }): Promise<ThreadMessagesResponse> {
     const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadMessagesResponse>(
       "GET",
       `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
+      undefined,
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
     );
   }
 
@@ -1146,6 +1154,9 @@ export class CopilotKitIntelligence {
           ? { ttlSeconds: params.ttlSeconds }
           : {}),
       },
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
     );
   }
 

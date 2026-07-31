@@ -18,14 +18,18 @@ const delivery: PreparedChannelDelivery = {
   turn: {
     eventId: "evt_history",
     receivedAt: "2026-07-29T17:00:00.000Z",
-    input: { kind: "text", text: "hi" },
-    actor: { externalUserId: "U1" },
+    input: {
+      kind: "text",
+      text: "hi",
+      operation: {
+        kind: "created",
+        logicalMessageId: "message-history",
+        revisionId: "revision-history",
+        mentioned: false,
+      },
+    },
+    actor: { externalUserId: "U1", kind: "human" },
   },
-};
-
-const target = {
-  claimedDelivery: {} as ClaimedChannelDelivery,
-  delivery,
 };
 
 test("managed history keeps multimodal and activity content structured", async () => {
@@ -56,14 +60,26 @@ test("managed history keeps multimodal and activity content structured", async (
       content: activityContent,
     },
   ] as Message[];
+  const loadHistory = vi.fn(async () => history);
   const adapter = new DeliveryAdapter({
     channelName: "support",
     transport: {} as never,
     runCanonical: async () => ({ iterations: 0, interrupted: false }),
-    loadHistory: async () => history,
+    loadHistory,
   });
 
-  await expect(adapter.getMessages(target)).resolves.toEqual([
+  const specializedTarget = {
+    claimedDelivery: {} as ClaimedChannelDelivery,
+    delivery: {
+      ...delivery,
+      turn: {
+        ...delivery.turn,
+        input: { kind: "command" as const, command: "history" },
+      },
+    },
+  };
+
+  await expect(adapter.getMessages(specializedTarget)).resolves.toEqual([
     expect.objectContaining({
       text: "What is this?",
       content: imageContent,
@@ -74,6 +90,11 @@ test("managed history keeps multimodal and activity content structured", async (
       content: activityContent,
     }),
   ]);
+  expect(loadHistory).toHaveBeenCalledWith({
+    threadId: "thread_history",
+    appUserId: "slack:T1:U1",
+    deliveryId: "dlv_history_01",
+  });
 });
 
 class NoopAgent extends AbstractAgent {
@@ -90,6 +111,12 @@ test("canonical run input stores managed asset references instead of hydrated by
       input: {
         kind: "text",
         text: "What is this?",
+        operation: {
+          kind: "created",
+          logicalMessageId: "message-history-file",
+          revisionId: "revision-history-file",
+          mentioned: false,
+        },
         files: [
           {
             handle: "fileref_inbound",

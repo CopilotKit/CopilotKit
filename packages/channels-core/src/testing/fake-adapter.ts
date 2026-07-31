@@ -97,6 +97,8 @@ export class FakeAdapter implements PlatformAdapter {
       reactions?: boolean;
       nativeEphemeral?: boolean;
       modals?: boolean;
+      /** When true, activation requires an onMention or onMessage handler. */
+      messageEvents?: boolean;
       /** Platform name override (defaults to "fake"); useful when a test needs distinct adapters. */
       platform?: string;
       /** When true, `start()` rejects — simulates an adapter that fails to come up. */
@@ -117,6 +119,7 @@ export class FakeAdapter implements PlatformAdapter {
       supportsTyping: false,
       supportsReactions: fakeOpts.reactions !== false,
       supportsStreaming: true,
+      supportsMessageEvents: fakeOpts.messageEvents === true,
       supportsSuggestedPrompts: paneMethods,
       supportsThreadTitle: paneMethods,
       supportsEphemeral: fakeOpts.nativeEphemeral === true,
@@ -186,14 +189,52 @@ export class FakeAdapter implements PlatformAdapter {
   stateStore?: StateStore;
   private sink?: IngressSink;
   private counter = 0;
+  private turnCounter = 0;
 
   /** Expose the registered sink so tests can invoke onTurn() directly for overlap/lock tests. */
-  getSink(): IngressSink {
+  getSink(): Omit<IngressSink, "onTurn"> & {
+    onTurn(
+      turn: Omit<IncomingTurn, "operation"> & {
+        operation?: IncomingTurn["operation"];
+      },
+    ): void | Promise<void>;
+  } {
     if (!this.sink)
       throw new Error(
         "FakeAdapter: sink not set — start the channel (channel.ɵruntime.start()) first",
       );
-    return this.sink;
+    const sink = this.sink;
+    const adapter = this;
+    return new Proxy(sink, {
+      get(target, property, receiver) {
+        if (property !== "onTurn") {
+          return Reflect.get(target, property, receiver);
+        }
+        return (
+          turn: Omit<IncomingTurn, "operation"> & {
+            operation?: IncomingTurn["operation"];
+          },
+        ) => {
+          const syntheticId =
+            turn.eventId ?? `fake-message-${++adapter.turnCounter}`;
+          return sink.onTurn({
+            ...turn,
+            operation: turn.operation ?? {
+              kind: "created",
+              logicalMessageId: syntheticId,
+              revisionId: syntheticId,
+              mentioned: true,
+            },
+          });
+        };
+      },
+    }) as Omit<IngressSink, "onTurn"> & {
+      onTurn(
+        turn: Omit<IncomingTurn, "operation"> & {
+          operation?: IncomingTurn["operation"];
+        },
+      ): void | Promise<void>;
+    };
   }
 
   async start(sink: IngressSink): Promise<void> {
@@ -274,12 +315,19 @@ export class FakeAdapter implements PlatformAdapter {
 
   // --- test helpers ---
   emitTurn(partial: Partial<IncomingTurn>): void {
+    const syntheticId = partial.eventId ?? `fake-message-${++this.turnCounter}`;
     void this.sink?.onTurn({
       conversationKey: "c",
       replyTarget: {},
       userText: "",
       platform: "fake",
       ...partial,
+      operation: partial.operation ?? {
+        kind: "created",
+        logicalMessageId: syntheticId,
+        revisionId: syntheticId,
+        mentioned: true,
+      },
     });
   }
   emitThreadStarted(

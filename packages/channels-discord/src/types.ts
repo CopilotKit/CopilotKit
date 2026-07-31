@@ -8,6 +8,8 @@ export interface ReplyTarget {
 /** A normalized inbound turn, before the adapter resolves the sender profile. */
 export interface IncomingTurn {
   conversationKey: string;
+  messageId: string;
+  mentioned: boolean;
   replyTarget: ReplyTarget;
   userText: string;
   senderUserId?: string;

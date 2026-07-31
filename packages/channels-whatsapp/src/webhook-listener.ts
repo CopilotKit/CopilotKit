@@ -107,6 +107,12 @@ export async function handleWebhookValue(
       });
       await args.sink.onTurn({
         conversationKey,
+        operation: {
+          kind: "created",
+          logicalMessageId: msg.id,
+          revisionId: msg.id,
+          mentioned: false,
+        },
         replyTarget,
         userText,
         user,
@@ -145,6 +151,12 @@ export async function handleWebhookValue(
       });
       await args.sink.onTurn({
         conversationKey,
+        operation: {
+          kind: "created",
+          logicalMessageId: msg.id,
+          revisionId: msg.id,
+          mentioned: false,
+        },
         replyTarget,
         userText: caption,
         user,

@@ -103,6 +103,7 @@ export function attachAssistant(cfg: AttachAssistantConfig): AssistantHandle {
       const m = message as {
         channel?: string;
         thread_ts?: string;
+        ts?: string;
         text?: string;
         user?: string;
       };
@@ -132,6 +133,12 @@ export function attachAssistant(cfg: AttachAssistantConfig): AssistantHandle {
         conversationKey: key,
         replyTarget: { channel: channelId, threadTs, recipientUserId: m.user },
         userText: text,
+        operation: {
+          kind: "created",
+          logicalMessageId: m.ts ?? threadTs,
+          revisionId: m.ts ?? threadTs,
+          mentioned: false,
+        },
         user: m.user ? await resolveUser(m.user) : undefined,
         platform: "slack",
       });

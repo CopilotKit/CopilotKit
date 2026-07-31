@@ -37,6 +37,12 @@ describe("handleWebhookValue", () => {
     expect(sink.onTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         conversationKey: "whatsapp:111",
+        operation: {
+          kind: "created",
+          logicalMessageId: "wamid.1",
+          revisionId: "wamid.1",
+          mentioned: false,
+        },
         userText: "hello",
         platform: "whatsapp",
         user: { id: "111", name: "Ada" },

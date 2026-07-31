@@ -37,6 +37,11 @@ export type ChannelProviderPayload =
       providerReference: string;
     }
   | {
+      kind: "slack.thread.status";
+      status: string;
+      loadingMessages?: readonly string[];
+    }
+  | {
       kind: "slack.message.create";
       text: string;
       blocks?: ReadonlyArray<Readonly<Record<string, unknown>>>;
@@ -91,8 +96,13 @@ export type ChannelTerminalPayload = {
     | "runtime_handler_failed";
 };
 
+export type ChannelCommitPayload = {
+  kind: "channel.delivery.commit";
+};
+
 export type ChannelDeliveryPayload =
   | ChannelProviderPayload
+  | ChannelCommitPayload
   | ChannelTerminalPayload;
 
 export interface ChannelDeliveryPacket {
@@ -204,6 +214,16 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         hasExactFields(value, ["kind", "providerReference"]) &&
         validReference(value.providerReference)
       );
+    case "slack.thread.status":
+      return (
+        hasExactFields(
+          value,
+          ["kind", "status", "loadingMessages"],
+          ["loadingMessages"],
+        ) &&
+        boundedString(value.status, 0, 512) &&
+        optionalBoundedStringArray(value.loadingMessages, 10, 512)
+      );
     case "slack.message.create":
       return (
         hasExactFields(value, ["kind", "text", "blocks"], ["blocks"]) &&
@@ -276,6 +296,8 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
           "runtime_handler_failed",
         ].includes(String(value.code))
       );
+    case "channel.delivery.commit":
+      return hasExactFields(value, ["kind"]);
     default:
       return false;
   }
@@ -306,6 +328,19 @@ function boundedString(value: unknown, min: number, max: number): boolean {
 
 function optionalBoundedString(value: unknown, max: number): boolean {
   return value === undefined || boundedString(value, 0, max);
+}
+
+function optionalBoundedStringArray(
+  value: unknown,
+  maxItems: number,
+  maxLength: number,
+): boolean {
+  return (
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.length <= maxItems &&
+      value.every((item) => boundedString(item, 1, maxLength)))
+  );
 }
 
 function optionalRecordArray(value: unknown, max: number): boolean {

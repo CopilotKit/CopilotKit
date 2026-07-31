@@ -124,6 +124,8 @@ export class SlackAdapter implements PlatformAdapter {
   readonly app: App;
   client: WebClient;
   botUserId = "";
+  private botId: string | undefined;
+  private appId: string | undefined;
   private readonly store: SlackConversationStore;
   private sink: IngressSink | undefined;
   /** Per-id cache for sender-profile resolution (repeat turns are cheap). */
@@ -149,6 +151,7 @@ export class SlackAdapter implements PlatformAdapter {
   constructor(private readonly opts: SlackAdapterOptions) {
     const assistantEnabled = opts.assistant !== false;
     this.capabilities = {
+      supportsMessageEvents: true,
       supportsModals: true,
       supportsTyping: false,
       supportsReactions: true,
@@ -189,6 +192,14 @@ export class SlackAdapter implements PlatformAdapter {
     // guard (skip our own posts) is in place from the first event.
     const auth = await this.client.auth.test();
     this.botUserId = auth.user_id as string;
+    this.botId =
+      typeof auth.bot_id === "string" && auth.bot_id.length > 0
+        ? auth.bot_id
+        : undefined;
+    this.appId =
+      typeof auth.app_id === "string" && auth.app_id.length > 0
+        ? auth.app_id
+        : undefined;
     this.teamId = auth.team_id as string | undefined;
     (this.store as unknown as { botUserId: string }).botUserId = this.botUserId;
 
@@ -208,6 +219,8 @@ export class SlackAdapter implements PlatformAdapter {
       app: this.app,
       store: this.store,
       botUserId: this.botUserId,
+      botId: this.botId,
+      appId: this.appId,
       respondTo: resolveSlackRespondToOptions(this.opts.respondTo),
       isAssistantThread: this.assistantHandle?.isAssistantThread,
       onTurn: async (turn) => {
@@ -220,6 +233,7 @@ export class SlackAdapter implements PlatformAdapter {
             recipientUserId: turn.senderUserId,
           },
           userText: turn.userText,
+          operation: turn.operation,
           user: turn.senderUserId
             ? await this.resolveUser(turn.senderUserId)
             : undefined,

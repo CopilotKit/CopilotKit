@@ -43,8 +43,17 @@ function prepared(deliveryId: string): PreparedChannelDelivery {
     turn: {
       eventId: `evt_${deliveryId}`,
       receivedAt: "2026-07-29T17:00:00.000Z",
-      input: { kind: "text", text: "hi" },
-      actor: { externalUserId: "U1" },
+      input: {
+        kind: "text",
+        text: "hi",
+        operation: {
+          kind: "created",
+          logicalMessageId: "message-concurrency",
+          revisionId: "revision-concurrency",
+          mentioned: false,
+        },
+      },
+      actor: { externalUserId: "U1", kind: "human" },
     },
   };
 }
@@ -68,8 +77,20 @@ describe("DeliveryAdapter concurrent same-thread runs", () => {
     });
 
     const session = {} as ClaimedChannelDelivery;
-    const d1 = prepared("dlv_1");
-    const d2 = prepared("dlv_2");
+    const d1 = {
+      ...prepared("dlv_1"),
+      turn: {
+        ...prepared("dlv_1").turn,
+        input: { kind: "command" as const, command: "first" },
+      },
+    };
+    const d2 = {
+      ...prepared("dlv_2"),
+      turn: {
+        ...prepared("dlv_2").turn,
+        input: { kind: "command" as const, command: "second" },
+      },
+    };
     const makeAgent = (id: string) => {
       const a = new TestAgent({ agentId: "t" });
       a.threadId = id;

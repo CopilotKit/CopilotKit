@@ -5,6 +5,7 @@ import type {
   EmojiValue,
   EphemeralResult,
   MessageRef,
+  MessageOperation,
   PlatformUser,
   ThreadMessage,
 } from "@copilotkit/channels-ui";
@@ -18,6 +19,8 @@ export type ReplyTarget = unknown;
 export type NativePayload = unknown;
 
 export interface SurfaceCapabilities {
+  /** This adapter can deliver provider messages through `onTurn`. */
+  supportsMessageEvents?: boolean;
   supportsModals: boolean;
   supportsTyping: boolean;
   supportsReactions: boolean;
@@ -87,6 +90,8 @@ export interface ChannelAgentLoopResult {
 export interface CanonicalRunIdentity {
   threadId: string;
   runId: string;
+  /** Fence the delivery immediately before an irreversible local tool call. */
+  beforeToolCall?: () => Promise<void>;
 }
 
 /**
@@ -142,6 +147,7 @@ export interface IngressIds {
 
 export interface IncomingTurn extends IngressEventBase, IngressIds {
   userText: string;
+  operation: MessageOperation;
   /**
    * Optional multimodal content parts built by the adapter (e.g. inbound
    * image/file attachments). Carried through to `IncomingMessage.contentParts`.

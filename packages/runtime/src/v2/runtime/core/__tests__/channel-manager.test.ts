@@ -908,6 +908,13 @@ describe("defaultActivateChannel", () => {
     const history = await loadHistory({
       threadId: "thread-images",
       appUserId: "app-user",
+      deliveryId: "dlv_images",
+    });
+
+    expect(services.intelligence.getThreadMessages).toHaveBeenCalledWith({
+      threadId: "thread-images",
+      userId: "app-user",
+      channelDeliveryId: "dlv_images",
     });
 
     expect(history[0]?.content).toEqual([
