@@ -8,9 +8,9 @@
 //
 // Privacy invariants enforced here:
 //   - We never send message content, agent state, prompts, completions,
-//     or banner markdown. Properties are scoped to event metadata only
-//     (banner_id/timestamp, cta location). Reviewers should grep call
-//     sites for any unintended payload.
+//     or banner markdown. Feature-specific properties are scoped to event
+//     metadata only (banner_id/timestamp, cta location). Reviewers should grep
+//     call sites for any unintended payload.
 //   - The opt-out short-circuits before any network call. There is no
 //     buffer, no retry queue.
 //   - All errors are swallowed; telemetry must never break the host app.
@@ -49,6 +49,8 @@ export const TELEMETRY_EVENTS = {
   threadsExampleTourCompleted: "oss.inspector.threads_example_tour_completed",
   threadsExampleTourReopened: "oss.inspector.threads_example_tour_reopened",
   memoriesTabClicked: "oss.inspector.memories_tab_clicked",
+  metadataModuleViewed: "oss.inspector.metadata_module_viewed",
+  metadataActionClicked: "oss.inspector.metadata_action_clicked",
 } as const;
 
 export type TelemetryEvent =
@@ -59,8 +61,8 @@ export type TelemetryEvent =
 export const TELEMETRY_INGEST_URL = "https://telemetry.copilotkit.ai/ingest";
 
 // Surfaced in console disclosure and the in-product opt-out panel.
-// Keep in sync with the canonical telemetry docs page on main
-// (`docs/content/docs/(root)/(other)/telemetry/index.mdx`).
+// Keep in sync with the live shell-docs telemetry page
+// (`showcase/shell-docs/src/content/docs/integrations/built-in-agent/telemetry.mdx`).
 // Mirror constant: packages/runtime/src/lib/telemetry-disclosure.ts
 export const TELEMETRY_DOCS_URL = "https://docs.copilotkit.ai/telemetry";
 
@@ -94,7 +96,9 @@ function isEnrichedTelemetryEvent(event: TelemetryEvent): boolean {
     event === TELEMETRY_EVENTS.threadsExampleTourDismissed ||
     event === TELEMETRY_EVENTS.threadsExampleTourCompleted ||
     event === TELEMETRY_EVENTS.threadsExampleTourReopened ||
-    event === TELEMETRY_EVENTS.memoriesTabClicked
+    event === TELEMETRY_EVENTS.memoriesTabClicked ||
+    event === TELEMETRY_EVENTS.metadataModuleViewed ||
+    event === TELEMETRY_EVENTS.metadataActionClicked
   );
 }
 
@@ -394,6 +398,61 @@ export function trackMemoriesTabClicked(
   props: InspectorMemoryTelemetryProps = {},
 ): void {
   track(TELEMETRY_EVENTS.memoriesTabClicked, props);
+}
+
+export type InspectorMetadataTelemetryModule = "identity" | "plan" | "action";
+export type InspectorMetadataLicenseBucket =
+  | "valid"
+  | "none"
+  | "expired"
+  | "unknown";
+export type InspectorMetadataActionKind =
+  | "manage_plan"
+  | "renew"
+  | "enable_intelligence";
+
+export type InspectorMetadataModuleViewedTelemetryProps = Readonly<{
+  module: InspectorMetadataTelemetryModule;
+  license_bucket: InspectorMetadataLicenseBucket;
+  action_kind?: InspectorMetadataActionKind;
+}>;
+
+export type InspectorMetadataActionClickedTelemetryProps = Readonly<{
+  action_kind: Exclude<InspectorMetadataActionKind, "enable_intelligence">;
+  license_bucket: InspectorMetadataLicenseBucket;
+}>;
+
+/**
+ * Tracks one visible Inspector metadata module using coarse fields only.
+ * Rebuilding the payload here prevents local labels, IDs, URLs, and usage
+ * values from crossing the telemetry boundary through extra object fields.
+ */
+export function trackMetadataModuleViewed({
+  module,
+  license_bucket,
+  action_kind,
+}: InspectorMetadataModuleViewedTelemetryProps): void {
+  track(TELEMETRY_EVENTS.metadataModuleViewed, {
+    module,
+    ...(action_kind === undefined ? {} : { action_kind }),
+    license_bucket,
+  });
+}
+
+/**
+ * Tracks clicks for managed plan and renewal actions. The existing
+ * Intelligence-enable funnel keeps its original event and never calls this
+ * helper, which prevents a single click from producing two wire events.
+ */
+export function trackMetadataActionClicked({
+  action_kind,
+  license_bucket,
+}: InspectorMetadataActionClickedTelemetryProps): void {
+  track(TELEMETRY_EVENTS.metadataActionClicked, {
+    module: "action",
+    action_kind,
+    license_bucket,
+  });
 }
 
 /**

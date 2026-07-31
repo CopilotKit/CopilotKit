@@ -70,6 +70,8 @@ import {
   trackBannerDismissed,
   trackBannerViewed,
   trackInspectorOpened,
+  trackMetadataActionClicked,
+  trackMetadataModuleViewed,
   trackTalkToEngineerClicked,
   trackThreadsEmptyEnabledViewed,
   trackThreadsEnabledViewed,
@@ -88,6 +90,9 @@ import {
 } from "./lib/telemetry.js";
 import type {
   BannerSurface,
+  InspectorMetadataLicenseBucket,
+  InspectorMetadataModuleViewedTelemetryProps,
+  InspectorMetadataTelemetryModule,
   InspectorMemoryTelemetryProps,
   InspectorOpenSource,
   InspectorThreadTelemetryProps,
@@ -4481,6 +4486,15 @@ export class WebInspectorElement extends LitElement {
   private inspectorMetadataValue: unknown;
   private inspectorMetadataProjection: InspectorMetadataProjection =
     projectInspectorMetadata(undefined, undefined);
+  // The last *visible* local fingerprint for each metadata module. This is a
+  // map rather than a cumulative set so A → B → A produces three impressions,
+  // while close/reopen with unchanged metadata produces only one. Fingerprint
+  // values can contain local labels and URLs because the map never leaves the
+  // browser; outbound helpers rebuild a coarse allowlisted payload.
+  private metadataTelemetryFingerprints: Map<
+    InspectorMetadataTelemetryModule,
+    string
+  > = new Map();
   private coreProperties: Readonly<Record<string, unknown>> = {};
   private lastCoreError: {
     code: CopilotKitCoreErrorCode;
@@ -5241,6 +5255,7 @@ export class WebInspectorElement extends LitElement {
       undefined,
       undefined,
     );
+    this.metadataTelemetryFingerprints.clear();
     this.lastCoreError = null;
     this.coreProperties = {};
     this.cachedTools = [];
@@ -6862,6 +6877,10 @@ ${argsString}</pre
     return this.isOpen ? this.renderWindow() : this.renderButton();
   }
 
+  protected updated(): void {
+    this.maybeTrackInspectorMetadataViews();
+  }
+
   private renderButton() {
     const buttonClasses = [
       "console-button",
@@ -6935,10 +6954,6 @@ ${argsString}</pre
     action: InspectorMetadataAction,
     placement: "header" | "locked",
   ) {
-    const trackEnableClick =
-      placement === "locked" && action.kind === "enable_intelligence"
-        ? this.handleThreadsIntelligenceSignupClick
-        : undefined;
     return html`
       <a
         data-inspector-action-placement=${placement}
@@ -6951,7 +6966,7 @@ ${argsString}</pre
             ? "display:inline-flex;min-height:28px;align-items:center;justify-content:center;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:5px 9px;color:#57575b;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;"
             : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;"
         }
-        @click=${trackEnableClick}
+        @click=${() => this.handleInspectorMetadataActionClick(action)}
       >
         ${action.label}
       </a>
@@ -8476,6 +8491,116 @@ ${argsString}</pre
       has_unseen_announcement: hadUnseenAnnouncement,
     });
   }
+
+  private getVisibleInspectorMetadataAction():
+    | Readonly<{
+        action: InspectorMetadataAction;
+        placement: "header" | "locked";
+      }>
+    | undefined {
+    const { headerAction, lockedAction } = this.inspectorMetadataProjection;
+    if (headerAction) {
+      return { action: headerAction, placement: "header" };
+    }
+    if (
+      lockedAction &&
+      this.selectedMenu === "threads" &&
+      !this.areThreadEndpointsAvailable()
+    ) {
+      return { action: lockedAction, placement: "locked" };
+    }
+    return undefined;
+  }
+
+  private trackMetadataModuleIfChanged(
+    props: InspectorMetadataModuleViewedTelemetryProps,
+    fingerprint: string,
+  ): void {
+    if (this.metadataTelemetryFingerprints.get(props.module) === fingerprint) {
+      return;
+    }
+    this.metadataTelemetryFingerprints.set(props.module, fingerprint);
+    try {
+      trackMetadataModuleViewed(props);
+    } catch {
+      // Telemetry is best-effort and must never break Inspector rendering.
+    }
+  }
+
+  private maybeTrackInspectorMetadataViews(): void {
+    if (
+      !this.isOpen ||
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
+
+    const { identity, plan } = this.inspectorMetadataProjection;
+    const license_bucket: InspectorMetadataLicenseBucket =
+      this.inspectorMetadataProjection.licenseState;
+
+    if (identity) {
+      this.trackMetadataModuleIfChanged(
+        { module: "identity", license_bucket },
+        JSON.stringify([
+          license_bucket,
+          identity.organizationName,
+          identity.projectName,
+        ]),
+      );
+    } else {
+      this.metadataTelemetryFingerprints.delete("identity");
+    }
+
+    if (plan) {
+      this.trackMetadataModuleIfChanged(
+        { module: "plan", license_bucket },
+        JSON.stringify([license_bucket, plan.code, plan.label]),
+      );
+    } else {
+      this.metadataTelemetryFingerprints.delete("plan");
+    }
+
+    const visibleAction = this.getVisibleInspectorMetadataAction();
+    if (visibleAction) {
+      const { action, placement } = visibleAction;
+      this.trackMetadataModuleIfChanged(
+        {
+          module: "action",
+          action_kind: action.kind,
+          license_bucket,
+        },
+        JSON.stringify([license_bucket, placement, action.kind, action.url]),
+      );
+    } else {
+      this.metadataTelemetryFingerprints.delete("action");
+    }
+  }
+
+  private handleInspectorMetadataActionClick = (
+    action: InspectorMetadataAction,
+  ): void => {
+    if (
+      !this.isOpen ||
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
+    if (action.kind === "enable_intelligence") {
+      this.handleThreadsIntelligenceSignupClick();
+      return;
+    }
+    try {
+      trackMetadataActionClicked({
+        action_kind: action.kind,
+        license_bucket: this.inspectorMetadataProjection.licenseState,
+      });
+    } catch {
+      // Telemetry is best-effort and must never break action navigation.
+    }
+  };
 
   // Fires `banner_dismissed` at most once per `${bannerId}:${surface}` per
   // mount. Emitted alongside `banner_clicked { cta: "dismiss" }` rather than
