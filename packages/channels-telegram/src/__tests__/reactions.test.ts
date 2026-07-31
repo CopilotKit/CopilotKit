@@ -17,7 +17,11 @@ it("emits an added event for a newly added emoji", () => {
     rawEmoji: "👍",
     added: true,
     messageId: "7",
-    user: { id: "1", handle: "ada" },
+    actor: { id: "1", kind: "human", handle: "ada" },
+    identityContext: {
+      tenant: { id: "42" },
+      trigger: "reaction",
+    },
   });
 });
 

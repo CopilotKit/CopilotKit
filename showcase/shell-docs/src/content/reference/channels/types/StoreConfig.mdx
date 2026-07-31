@@ -1,6 +1,6 @@
 ---
 title: StoreConfig
-description: Configure per-thread state, the StateStore backend, transcript identity, and turn concurrency controls.
+description: Configure per-thread state, the StateStore backend, transcripts, and turn concurrency controls.
 ---
 
 `StoreConfig` is the `createChannel({ store })` value.
@@ -9,8 +9,8 @@ description: Configure per-thread state, the StateStore backend, transcript iden
 interface StoreConfig<TStateSchema> {
   adapter?: StateStore;
   state?: TStateSchema;
-  identity?: Identity;
   transcripts?: TranscriptsConfig;
+  actionRetentionMs?: number;
   concurrency?: "parallel" | "serial" | "drop";
   /** @deprecated Prefer `concurrency`. */
   onLockConflict?:
@@ -29,8 +29,8 @@ interface StoreConfig<TStateSchema> {
 | --- | --- | --- |
 | `adapter` | `MemoryStore` | Persistence backend for SDK state. |
 | `state` | none | Standard Schema that types and validates `thread.state()` and `setState()`. |
-| `identity` | none | Resolves an inbound provider user to a stable transcript key. Must be paired with `transcripts`. |
-| `transcripts` | none | Optional retention and per-user cap. Must be paired with `identity`. |
+| `transcripts` | none | Optional retention and per-user cap, keyed by the application user from top-level `identifyUser`. |
+| `actionRetentionMs` | `604_800_000` | Retention for durable callbacks and one-use HITL continuations. |
 | `concurrency` | `"parallel"` | How overlapping turns on the same conversation are handled (see below). |
 | `onLockConflict` | (maps into `concurrency`) | **Deprecated.** Prefer `concurrency`. Static `"drop"` / `"force"` map to `"drop"` / `"parallel"`. A callback keeps the legacy exclusive-lock path. |
 | `lockTtl` | `60_000` | Per-conversation turn-lock TTL in milliseconds (used by `drop` / legacy lock paths). |
@@ -62,6 +62,7 @@ const stateSchema = z.object({
 const channel = createChannel({
   name: "support-slack",
   provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   store: {
     adapter: durableStateStore,

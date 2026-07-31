@@ -106,7 +106,10 @@ describe("parseProjectIdFromApiKey", () => {
 describe("deriveChannelActivationConfig", () => {
   it("resolves all six fields from the intelligence config and channel", () => {
     const intelligence = fakeIntelligence("cpk-42_short_long");
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
 
     const config = deriveChannelActivationConfig({
       intelligence,
@@ -131,7 +134,11 @@ describe("deriveChannelActivationConfig", () => {
     // gateway. Pre-change this always yielded "slack" (the provider was a
     // hard-coded global default), so this assertion is the regression guard.
     const intelligence = fakeIntelligence("cpk-7_a_b");
-    const channel = createChannel({ name: "support", provider: "teams" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+      provider: "teams",
+    });
 
     const config = deriveChannelActivationConfig({
       intelligence,
@@ -144,7 +151,11 @@ describe("deriveChannelActivationConfig", () => {
 
   it("declares the per-Channel provider as the config adapter (provider: 'slack' → 'slack')", () => {
     const intelligence = fakeIntelligence("cpk-7_a_b");
-    const channel = createChannel({ name: "support", provider: "slack" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+      provider: "slack",
+    });
 
     expect(
       deriveChannelActivationConfig({
@@ -157,7 +168,10 @@ describe("deriveChannelActivationConfig", () => {
 
   it("defaults the config adapter to the documented 'slack' when provider is unset", () => {
     const intelligence = fakeIntelligence("cpk-7_a_b");
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
 
     expect(
       deriveChannelActivationConfig({
@@ -170,7 +184,7 @@ describe("deriveChannelActivationConfig", () => {
 
   it("throws ChannelConfigError when the channel has no name", () => {
     const intelligence = fakeIntelligence("cpk-42_short_long");
-    const channel = createChannel({});
+    const channel = createChannel({ identifyUser: "platform" });
 
     expect(() =>
       deriveChannelActivationConfig({
@@ -189,7 +203,7 @@ describe("deriveChannelActivationConfig", () => {
     const intelligence = fakeIntelligence("cpk-42_short_long");
     const config = deriveChannelActivationConfig({
       intelligence,
-      channel: createChannel({ name: "Slack" }),
+      channel: createChannel({ identifyUser: "platform", name: "Slack" }),
       runtimeInstanceId: "rti_x",
     });
 

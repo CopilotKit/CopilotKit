@@ -65,7 +65,12 @@ describe("attachDiscordListener", () => {
         messageId: "m1",
         mentioned: true,
         replyTarget: { channelId: "c1", guildId: "g1" },
-        senderUserId: "u1",
+        actor: {
+          id: "u1",
+          kind: "human",
+          name: "Ann",
+          handle: "ann",
+        },
       }),
     );
   });
@@ -160,7 +165,10 @@ describe("attachDiscordListener", () => {
       }),
     );
     expect(onTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ conversationKey: "c1", senderUserId: "u1" }),
+      expect.objectContaining({
+        conversationKey: "c1",
+        actor: expect.objectContaining({ id: "u1", kind: "human" }),
+      }),
     );
   });
 

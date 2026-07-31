@@ -80,6 +80,7 @@ import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 
 const bot = createChannel({
+  identifyUser: "platform",
   name: "triage", // every declared Channel needs a unique name
   adapters: [
     slack({
@@ -109,7 +110,9 @@ const bot = createChannel({
 // One handler covers explicit @-mentions and normal DMs.
 // senderContext names the requesting user so the agent acts "as" them.
 bot.onMention(async ({ thread, message }) => {
-  await thread.runAgent({ context: senderContext(message.user) });
+  await thread.runAgent({
+    context: senderContext(message.user, thread.platform),
+  });
 });
 
 // A Channel runs only through the Intelligence runtime, which OWNS its
@@ -121,7 +124,6 @@ const intelligence = new CopilotKitIntelligence({
 const runtime = new CopilotRuntime({
   agents: {}, // the Channel supplies its own agent
   intelligence,
-  identifyUser: () => ({ id: "demo-user", name: "Demo User" }), // demo stub
   channels: [bot],
 });
 
@@ -145,7 +147,7 @@ plain replies in a thread can continue after the bot has posted there.
 
 The bot's tools are plain `ChannelTool`s, collected into `appTools` and spread
 into `createChannel({ tools })`. Each handler receives the generic
-`ChannelToolContext` (`{ thread, message?, user?, signal?, platform }`) the
+`ChannelToolContext` (`{ thread, message?, user, actor, signal?, platform }`) the
 adapter supplies at call time; tools reach platform power (post, postFile,
 `thread.getMessages()`, …) via the `thread` methods:
 
@@ -238,7 +240,10 @@ defineChannelCommand({
   description: "Ask the triage agent anything (no @mention needed).",
   async handler({ thread, text, user }) {
     if (!text) return void thread.post("Usage: `/agent <your question>`");
-    await thread.runAgent({ prompt: text, context: senderContext(user) });
+    await thread.runAgent({
+      prompt: text,
+      context: senderContext(user, thread.platform),
+    });
   },
 });
 ```
@@ -380,16 +385,14 @@ follow-up unless you enabled legacy thread continuation:
 
 ## Per-user identity
 
-The `onMention` handler forwards the **requesting user** (resolved to name +
-email where the platform exposes it) to the agent each turn via
-`senderContext(message.user)`, so the bot acts on behalf of whoever's asking:
-"my issues" is scoped to you, and issues it files are assigned to you. On Slack
-this needs the `users:read.email` scope (already in the manifest — reinstall
-the app once after adding it).
+The `onMention` handler forwards the canonical **application user** returned by
+the Channel `identifyUser` policy to the agent each turn via
+`senderContext(message.user, thread.platform)`. The standard `"platform"`
+policy namespaces each confirmed human by provider and workspace. Use a custom
+policy when Slack and another surface must map to one application user.
 
-Caveat: a single API key can't forge Linear's `creator`, so created issues
-are _authored_ by the bot and _assigned_ to the requester. True per-user
-attribution (and reliable Notion personalization) needs per-user OAuth.
+Caveat: a single API key cannot forge Linear's `creator`, so the bot authors
+created issues. True per-user attribution needs per-user OAuth.
 
 ## Files → charts, diagrams & tables
 

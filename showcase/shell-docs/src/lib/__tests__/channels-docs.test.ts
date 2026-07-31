@@ -238,13 +238,15 @@ describe("Channels documentation journey", () => {
         'required("INTELLIGENCE_GATEWAY_WS_URL")',
       );
       expect(source, slug).toContain("const channels = listener.channels");
-      expect(source, slug).toMatch(/if \(!channels\)/);
+      expect(source, slug).not.toMatch(/if \(!channels\)/);
       expect(source, slug).toContain(
         "await channels.ready({ timeoutMs: 30_000 })",
       );
       expect(source, slug).toContain('status.overall !== "online"');
-      expect(source, slug).toMatch(/opens? no\s+connection/i);
-      expect(source, slug).toMatch(/`ready\(\)` is required/i);
+      expect(source, slug).toMatch(
+        /Creating the Node listener starts the Channel/i,
+      );
+      expect(source, slug).toMatch(/`ready\(\)`[\s\S]{0,80}optional/i);
       expect(source, `${slug} bypasses the optional control guard`).not.toMatch(
         /listener\.channels\.(?:ready|status)\(/,
       );
@@ -556,7 +558,7 @@ describe("Channels documentation journey", () => {
     expect(history).toContain("`thread.getMessages()`");
     expect(history).toContain("`runAgent({ transcript: ... })`");
     expect(history).toMatch(
-      /managed entries use the adapter platform `"intelligence"`/i,
+      /managed entries use the normalized native provider, such as `"slack"` or\s+`"teams"`/i,
     );
     expect(history).not.toContain('platforms: ["slack", "teams"]');
 
@@ -667,7 +669,7 @@ describe("Channels documentation journey", () => {
       expect(filteredTools).toContain("`message.platform`");
       expect(filteredTools).toContain("`thread.platform`");
       expect(filteredTools).toContain("`ctx.platform`");
-      expect(filteredTools).toContain('"intelligence"');
+      expect(filteredTools).toContain("same normalized provider");
       expect(filteredThreads).toContain("`thread.conversationKey`");
       expect(filteredThreads).toMatch(/conversationKey[\s\S]{0,120}opaque/i);
       expect(filteredThreads).toContain("durable `StateStore`");

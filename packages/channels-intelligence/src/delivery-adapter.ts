@@ -11,7 +11,7 @@ import type {
   AgentContentPart,
   ChannelNode,
   MessageRef,
-  PlatformUser,
+  ProviderActor,
   ThreadMessage,
 } from "@copilotkit/channels-ui";
 import type {
@@ -31,6 +31,7 @@ import type {
   SurfaceCapabilities,
   UserQuery,
   ReplyContinuationOptions,
+  ResolvedChannelMemory,
 } from "@copilotkit/channels-core";
 import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
@@ -93,6 +94,7 @@ export interface CanonicalChannelRunArgs {
   threadId: string;
   runId: string;
   userId: string;
+  memory?: ResolvedChannelMemory;
   agentId: string;
   tools: readonly AgentToolDescriptor[];
   context: readonly ContextEntry[];
@@ -136,6 +138,7 @@ class ChannelSlashCommandAgentNotSupportedError extends Error {
 export class DeliveryAdapter implements PlatformAdapter {
   readonly platform = "intelligence";
   readonly __intelligenceChannel = true;
+  readonly supportsIntelligenceMemory = true;
   readonly skipIngressDedup = true;
   readonly injectInboundTurnOnce = true;
   readonly ackDeadlineMs = 0;
@@ -289,6 +292,10 @@ export class DeliveryAdapter implements PlatformAdapter {
     );
   }
 
+  getCanonicalThreadId(targetValue: ReplyTarget): string {
+    return asDeliveryTarget(targetValue).delivery.canonicalThreadId;
+  }
+
   private async dispatch(
     claimedDelivery: ClaimedChannelDelivery,
     delivery: PreparedChannelDelivery,
@@ -296,6 +303,22 @@ export class DeliveryAdapter implements PlatformAdapter {
     const sink = this.sink;
     if (!sink) throw new Error("DeliveryAdapter is not started");
     const replyTarget: DeliveryReplyTarget = { claimedDelivery, delivery };
+    const input = delivery.turn.input;
+    const actor = delivery.turn.actor
+      ? {
+          id: delivery.turn.actor.externalUserId,
+          kind: delivery.turn.actor.kind,
+          ...(delivery.turn.actor.displayName
+            ? { name: delivery.turn.actor.displayName }
+            : {}),
+          ...(delivery.turn.actor.handle
+            ? { handle: delivery.turn.actor.handle }
+            : {}),
+          ...(delivery.turn.actor.email
+            ? { email: delivery.turn.actor.email }
+            : {}),
+        }
+      : { id: "", kind: "unknown" as const };
     const base = {
       conversationKey: delivery.canonicalThreadId,
       replyTarget,
@@ -303,17 +326,22 @@ export class DeliveryAdapter implements PlatformAdapter {
       turnId: `turn_${delivery.deliveryId.slice("dlv_".length)}`,
       deliveryId: delivery.deliveryId,
       platform: delivery.adapter,
-      user: delivery.turn.actor
-        ? {
-            id: delivery.turn.actor.externalUserId,
-            kind: delivery.turn.actor.kind,
-            ...(delivery.turn.actor.displayName
-              ? { name: delivery.turn.actor.displayName }
-              : {}),
-          }
-        : undefined,
+      actor,
+      identityContext: {
+        tenant: delivery.tenant ?? { id: "unknown" },
+        installation: delivery.installation ?? { id: "unknown" },
+        conversation: delivery.conversation ?? {
+          id: delivery.canonicalThreadId,
+          kind: "thread",
+        },
+        trigger: input.kind === "text" ? "message" : input.kind,
+        event: {
+          id: delivery.turn.eventId,
+          occurredAt: delivery.turn.receivedAt,
+        },
+        raw: delivery.turn.raw ?? { kind: delivery.turn.input.kind },
+      },
     };
-    const input = delivery.turn.input;
     switch (input.kind) {
       case "text": {
         const parts = await claimedDelivery.getContentParts(
@@ -417,6 +445,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       threadId,
       runId,
       userId: target.delivery.appUserId,
+      memory: args.memory,
       agentId: this.options.channelName,
       tools: args.tools,
       context: args.context,
@@ -1009,6 +1038,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       isBot: message.role !== "user",
       user: {
         id: message.role === "user" ? "user" : "bot",
+        kind: message.role === "user" ? "human" : "bot",
         name: message.role === "user" ? "user" : "bot",
       },
     }));
@@ -1018,7 +1048,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     return raw as InteractionEvent;
   }
 
-  lookupUser(_query: UserQuery): Promise<PlatformUser | undefined> {
+  lookupUser(_query: UserQuery): Promise<ProviderActor | undefined> {
     return Promise.resolve(undefined);
   }
 }

@@ -55,6 +55,7 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   tools: [getIncident],
 });
@@ -78,6 +79,7 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "teams",
+  identifyUser: "platform",
   agent: makeAgent,
   tools: [getIncident],
 });
@@ -111,6 +113,7 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   context: [
     {
@@ -143,6 +146,7 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "teams",
+  identifyUser: "platform",
   agent: makeAgent,
   context: [
     {
@@ -167,8 +171,7 @@ instead of embedding stale snapshots in every prompt.
 
 On a managed Channel, the native origin is on `message.platform`
 (`"slack"` or `"teams"`). `thread.platform` and a channel-level tool's
-`ctx.platform` identify the managed adapter as `"intelligence"`, so do not use
-them to branch on the native provider.
+`ctx.platform` carry that same normalized provider.
 
 Add native context when you run the agent:
 
@@ -187,7 +190,7 @@ channel.onMessage(async ({ thread, message }) => {
       { description: "Originating platform", value: message.platform },
       {
         description: "Requesting user",
-        value: message.user.name ?? message.user.id,
+        value: message.user?.name ?? "Unidentified application user",
       },
     ],
   });
@@ -199,12 +202,13 @@ pass it for that run. Its closure captures the trusted inbound identity:
 
 ```ts title="channel.ts"
 channel.onMessage(async ({ thread, message }) => {
+  if (!message.user) return;
   const listMyApprovals = defineChannelTool({
     name: "list_my_approvals",
     description: "List approvals assigned to the requesting user.",
     parameters: z.object({}),
     async handler() {
-      return approvals.forPlatformUser(message.platform, message.user.id);
+      return approvals.forApplicationUser(message.user.id);
     },
   });
 
@@ -215,8 +219,8 @@ channel.onMessage(async ({ thread, message }) => {
 });
 ```
 
-Treat platform user ids as external identifiers. Resolve them to an authenticated
-application identity before allowing a consequential write.
+Treat provider actor IDs as external identifiers. Use the resolved application
+`user` for personal product data, and check it for `null` before a write.
 
 ## Render a tool result as native UI
 

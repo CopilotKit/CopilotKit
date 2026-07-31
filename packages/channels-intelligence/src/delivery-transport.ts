@@ -83,6 +83,9 @@ export interface PreparedChannelDelivery {
   channelId: string;
   channelName: string;
   adapter: ChannelDeliveryAdapter;
+  tenant?: { id: string; name?: string };
+  installation?: { id: string };
+  conversation?: { id: string; kind?: string };
   /** Trusted inbound Slack surface; omitted for providers without this concept. */
   surfaceKind?: "direct_message" | "app_mention" | "message";
   turn: {
@@ -91,9 +94,12 @@ export interface PreparedChannelDelivery {
     input: ChannelDeliveryTurnInput;
     actor?: {
       externalUserId: string;
-      kind: "human" | "bot" | "app" | "system";
+      kind: "human" | "bot" | "app" | "system" | "unknown";
       displayName?: string;
+      handle?: string;
+      email?: string;
     };
+    raw?: unknown;
   };
 }
 

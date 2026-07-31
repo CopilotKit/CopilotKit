@@ -52,6 +52,7 @@ const workflowState = z.object({
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   store: {
     adapter: durableStateStore,
@@ -88,6 +89,7 @@ const workflowState = z.object({
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "teams",
+  identifyUser: "platform",
   agent: makeAgent,
   store: {
     adapter: durableStateStore,
@@ -119,7 +121,7 @@ A complete production store implements:
 
 | Facet | Required behavior |
 | --- | --- |
-| `kv` | Get, set with optional TTL, and delete |
+| `kv` | Get, set with optional TTL, atomic consume, and delete |
 | `list` | Oldest-first append/range, cap, trim, delete, and list TTL |
 | `lock` | Atomic acquire plus token-checked release |
 | `dedup` | Atomic first-seen check with TTL |
@@ -169,6 +171,7 @@ A callback survives only when both conditions are true:
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
   store: { adapter: durableStateStore },
@@ -183,6 +186,7 @@ const channel = createChannel({
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "teams",
+  identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
   store: { adapter: durableStateStore },

@@ -107,7 +107,12 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
       intelligence,
       identifyUser,
       channels: [
-        createChannel({ name: "support", agent, showToolStatus: true }),
+        createChannel({
+          identifyUser: "platform",
+          name: "support",
+          agent,
+          showToolStatus: true,
+        }),
       ],
     });
 

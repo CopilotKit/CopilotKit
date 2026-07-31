@@ -6,9 +6,11 @@ import type {
   EphemeralResult,
   MessageRef,
   MessageOperation,
-  PlatformUser,
+  ProviderActor,
   ThreadMessage,
 } from "@copilotkit/channels-ui";
+import type { IngressIdentityContext } from "./identity.js";
+import type { ResolvedChannelMemory } from "./memory.js";
 import type { CommandSpec } from "./commands.js";
 import type { StateStore } from "./state/state-store.js";
 import type { AgentToolDescriptor, ContextEntry } from "./tools.js";
@@ -110,6 +112,8 @@ export interface ChannelAgentLifecycleArgs {
    * agent command and never crosses the managed run-open boundary.
    */
   isResume?: boolean;
+  /** Explicit Memory access resolved before agent execution. */
+  memory?: ResolvedChannelMemory;
   execute(
     subscriber: AgentSubscriber,
     canonicalRun?: CanonicalRunIdentity,
@@ -124,7 +128,10 @@ export interface ChannelAgentLifecycleArgs {
 export interface IngressEventBase {
   conversationKey: string;
   replyTarget: ReplyTarget;
-  user?: PlatformUser;
+  /** Provider account that caused this event. */
+  actor: ProviderActor;
+  /** Provider facts used by the Channel identity strategy. */
+  identityContext: IngressIdentityContext;
   /**
    * Provider that produced this event when it differs from the transport
    * adapter identity. Multiplexing adapters set it per event.
@@ -221,7 +228,8 @@ export interface IncomingModalSubmit {
   callbackId: string;
   /** Field id → value (text string, selected option value, etc.). */
   values: Record<string, unknown>;
-  user?: PlatformUser;
+  actor: ProviderActor;
+  identityContext: IngressIdentityContext;
   privateMetadata?: string;
   /** Present when the submission carries a conversation context (so the engine can build a Thread). */
   conversationKey?: string;
@@ -233,7 +241,8 @@ export interface IncomingModalSubmit {
 /** A modal dismissal (Slack `view_closed`; requires `notifyOnClose`). */
 export interface IncomingModalClose {
   callbackId: string;
-  user?: PlatformUser;
+  actor: ProviderActor;
+  identityContext: IngressIdentityContext;
   privateMetadata?: string;
   /** Present when the dismissal carries a conversation context (so the engine can build a Thread). */
   conversationKey?: string;
@@ -312,6 +321,8 @@ export interface PlatformAdapter {
   readonly platform: string;
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs: number;
+  /** Return the trusted canonical Thread bound to an opaque reply target. */
+  getCanonicalThreadId?(target: ReplyTarget): string;
   start(sink: IngressSink, ctx?: AdapterStartContext): Promise<void>;
   stop(): Promise<void>;
   render(ir: ChannelNode[]): NativePayload;
@@ -331,6 +342,8 @@ export interface PlatformAdapter {
    * containing delivery.
    */
   assertRunAgentSupported?(target: ReplyTarget): void;
+  /** True when this adapter is attached to an Intelligence Memory backend. */
+  supportsIntelligenceMemory?: boolean;
   runAgentLifecycle?(
     args: ChannelAgentLifecycleArgs,
   ): Promise<ChannelAgentLoopResult>;
@@ -344,7 +357,7 @@ export interface PlatformAdapter {
     operation: () => Promise<T>,
   ): Promise<T>;
   decodeInteraction(raw: unknown): InteractionEvent | undefined;
-  lookupUser(q: UserQuery): Promise<PlatformUser | undefined>;
+  lookupUser(q: UserQuery): Promise<ProviderActor | undefined>;
   readonly conversationStore: ConversationStore;
   /**
    * Optional persistence backend supplied by the adapter. `createChannel` uses it
@@ -441,7 +454,7 @@ export interface PlatformAdapter {
    */
   postEphemeral?(
     target: ReplyTarget,
-    user: PlatformUser | string,
+    user: ProviderActor | string,
     ir: ChannelNode[],
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null>;

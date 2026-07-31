@@ -16,7 +16,8 @@ interface InteractionContext<TValue = unknown> {
     value?: TValue;
   };
   values: Record<string, unknown>;
-  user: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   platform: string;
   openModal?(
     view: ModalView,
@@ -31,8 +32,9 @@ interface InteractionContext<TValue = unknown> {
 | `action.id` | Opaque SDK action id. |
 | `action.value` | Round-tripped `Button.value`, selected value, or submitted text. Guard `undefined`. |
 | `values` | Other submitted form values. Managed callbacks currently provide an empty object. |
-| `user` | Provider user who interacted. |
-| `platform` | Managed callbacks currently report `"intelligence"`, not the native provider. |
+| `user` | Nullable application user selected by `identifyUser`. |
+| `actor` | Provider account that caused the interaction. |
+| `platform` | Normalized source provider, such as `"slack"` or `"teams"`. |
 | `openModal` | Capability-gated and omitted on the managed Slack and Teams path. |
 
 ```tsx

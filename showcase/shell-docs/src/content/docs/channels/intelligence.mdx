@@ -87,6 +87,7 @@ interactive behavior, state, and deployment.
     const channel = createChannel({
       name: "support-slack",
       provider: "slack",
+      identifyUser: "platform",
       agent: makeAgent,
     });
     ```
@@ -102,6 +103,7 @@ interactive behavior, state, and deployment.
     const channel = createChannel({
       name: "support-teams",
       provider: "teams",
+      identifyUser: "platform",
       agent: makeAgent,
     });
     ```

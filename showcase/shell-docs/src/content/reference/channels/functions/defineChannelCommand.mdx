@@ -59,7 +59,8 @@ Register it with `createChannel({ commands: [triage] })` or
 | `command` | `string` | Normalized name: no leading slash, lowercase, hyphens and underscores route equivalently. |
 | `text` | `string` | Raw argument text. Managed Slack and Teams use this field. |
 | `options` | `TOptions` | Structured options when a provider supplies them; empty on managed Slack and Teams. |
-| `user` | `PlatformUser \| undefined` | Invoking provider user. |
+| `user` | `ApplicationUser \| null` | Application user selected by `identifyUser`. |
+| `actor` | `ProviderActor` | Provider account that invoked the command. |
 | `platform` | `string` | Native provider (`"slack"` or `"teams"`) on managed command ingress. |
 | `openModal` | function or `undefined` | Omitted by the managed Slack and Teams adapter. |
 

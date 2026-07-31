@@ -11,7 +11,11 @@ test("Slack commands reject runAgent while direct replies use delivery packets",
   const gateway = new DeliveryTestGateway();
   const agent = new FakeAgent();
   const runCanonical = vi.fn(async (args) => args.execute({}));
-  const channel = createChannel({ name: "support", agent: () => agent });
+  const channel = createChannel({
+    identifyUser: "platform",
+    name: "support",
+    agent: () => agent,
+  });
   channel.onMessage(async () => {});
   let runError: unknown;
   channel.onCommand("triage", async ({ thread, text }) => {

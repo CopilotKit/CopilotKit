@@ -193,6 +193,7 @@ async function main() {
   }
 
   const bot = createChannel({
+    identifyUser: "platform",
     // Every declared Channel needs a unique `name` — the Intelligence runtime
     // keys its lifecycle by it. All four platforms ride this ONE Channel; the
     // runtime starts each of its direct adapters when the Channel activates.
@@ -293,9 +294,6 @@ async function main() {
   const channelRuntime = new CopilotRuntime({
     agents: {},
     intelligence,
-    // Demo stub — replace with your own auth-derived user identity (e.g. OIDC)
-    // before any multi-user deployment, or all users share one thread history.
-    identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
     channels: [bot],
   });
 

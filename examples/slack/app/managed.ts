@@ -69,6 +69,7 @@ async function main() {
   // Slack tools/context (the native example adds these conditionally per active
   // adapter).
   const support = createChannel({
+    identifyUser: "platform",
     name: channelName,
     agent: (threadId) => {
       const a = new HttpAgent({
@@ -139,9 +140,6 @@ async function main() {
     // additional runtime-hosted agents are needed here.
     agents: {},
     intelligence,
-    // Demo stub — replace with your own auth-derived user identity (e.g. OIDC)
-    // before any multi-user deployment, or all users share one thread history.
-    identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
     channels: [support],
   });
 

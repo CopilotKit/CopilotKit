@@ -55,6 +55,41 @@
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).
 
+## Intelligence identity and Memory
+
+An Intelligence Runtime supports web only, Channels only, or both. Web routes
+need `identifyUser(request)`. Each Channel has its own `identifyUser` policy in
+`createChannel`. A Channels-only Runtime omits the web callback and exposes no
+functional web routes.
+
+```ts
+const runtime = new CopilotRuntime({
+  agents,
+  intelligence,
+  identifyUser: authenticateApplicationUser,
+  channels: [supportChannel],
+  memory: {
+    access: async ({ request, user, consumer }) => {
+      const role = await roleFor(request, user);
+      if (role === "blocked") return null;
+      return consumer === "client"
+        ? { user: "read", project: "none" }
+        : { user: "read-write", project: "read" };
+    },
+  },
+});
+```
+
+The callback runs once per web request. Its user owns ordinary web Threads and
+is reused for agent and browser Memory policy. Adding `memory` exposes the
+browser Memory routes and agent tools under the same policy. A denial returns
+403; a policy error fails the request. Omitting `memory` hides the browser
+routes and does not attach Memory tools.
+
+`exposeMemoryRoutes` and
+`CopilotKitIntelligence({ enableEnterpriseLearning: true })` remain for one
+compatibility window. New code should use `memory.access`.
+
 ## Analytics & Privacy
 
 CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and prioritize improvements.

@@ -53,10 +53,11 @@ before startup, or pass turn-scoped tools to `thread.runAgent({ tools })`.
 | Field | Type | Managed behavior |
 | --- | --- | --- |
 | `thread` | `Thread` | Current conversation handle. |
-| `message` | `IncomingMessage \| undefined` | Reserved optional field; the current SDK tool runner leaves it undefined. Capture validated message data in the handler when the tool needs it. |
-| `user` | `PlatformUser \| undefined` | Reserved optional field; the current SDK tool runner leaves it undefined. |
+| `message` | `IncomingMessage \| undefined` | Current inbound message when the run began from a message trigger. |
+| `user` | `ApplicationUser \| null` | Application user selected for this event. |
+| `actor` | `ProviderActor` | Provider account that caused this event. |
 | `signal` | `AbortSignal \| undefined` | Reserved optional field; the current SDK tool runner leaves it undefined. |
-| `platform` | `string` | Managed tools currently report `"intelligence"`; branch on `message.platform` for Slack versus Teams. |
+| `platform` | `string` | Normalized source provider, such as `"slack"` or `"teams"`. |
 
 Return raw objects or arrays for data. The SDK JSON-serializes non-string
 results for the model. A tool that already posted UI should return a short
