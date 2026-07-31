@@ -132,10 +132,20 @@ export function BankingTools() {
   // re-registration removes the tool, so a `[cards]` dependency tore this tool
   // down and rebuilt it on every card mutation — including the PIN write it was
   // itself servicing. The ref keeps the picker's data fresh without touching
-  // registration. Synced in an effect rather than assigned inline during render
-  // so this stays clear of the react-hooks/refs rule (no ref writes mid-render);
-  // useRef seeds it with the initial cards, so the first render already reads a
-  // correct value.
+  // registration.
+  //
+  // Synced in an effect rather than assigned inline during render, because
+  // eslint-plugin-react-hooks 7.x adds a `refs` rule that rejects a mid-render
+  // ref write. That is a deliberate TRADE-OFF, not a free substitution: the
+  // render below reads `cardsRef.current` to feed the picker, and an effect
+  // writes after commit, so on the render where `cards` changes that read is
+  // one render behind. A ref write schedules no re-render, so a card mutation
+  // landing while the PIN card is open can leave the picker showing the
+  // previous list until something else re-renders it. Accepted because the
+  // picker needs only type and last4 — neither of which a PIN change touches —
+  // and because closing over `cards` instead would reintroduce the teardown
+  // bug described above. Fixing it properly means changing how the tool
+  // re-registers, which is out of scope here.
   const cardsRef = useRef(cards);
   useEffect(() => {
     cardsRef.current = cards;
