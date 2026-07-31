@@ -22,7 +22,9 @@ import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
 import type { AbstractAgent } from "@ag-ui/client";
+import { sanitizeAgentEventStream } from "./sanitize-agent-events.js";
 import type {
+  ChannelMessage,
   InteractionContext,
   IncomingMessage,
   PlatformUser,
@@ -81,8 +83,30 @@ export type LockConflictDecision = "drop" | "force";
 export type ChannelConcurrency = "parallel" | "serial" | "drop";
 
 /**
- * Isolate a configured singleton agent for one run via `clone()`.
- * Fail loud when clone is missing or returns the same instance.
+ * Isolate an agent for one turn via `clone()`.
+ *
+ * Applied to every configured shape, so the object a turn runs on is never one
+ * the caller still holds a reference to:
+ * - `createChannel({ agent: shared })` — singleton config
+ * - `agent: (id) => new Agent()` — fresh factory, cloning an unused agent
+ * - `agent: (id) => shared` — factory returning the same object every call
+ *
+ * The last shape is the one that needs this, and it is easy to write by accident
+ * (it is also what a singleton becomes when someone refactors to get at the
+ * `threadId`). Sharing one `AbstractAgent` across turns is not safe, because
+ * turn concurrency defaults to `"parallel"` — see {@link ChannelConcurrency} —
+ * and only the managed adapter serializes same-thread deliveries. On a directly
+ * connected adapter two turns in one conversation can run at the same time, and
+ * on the same instance they corrupt each other: `messages` is a single array
+ * both runs append into, so each run's new-message diff picks up the other's,
+ * and `isRunning` / `activeRunDetach$` / `activeRunCompletionPromise` are
+ * single-slot fields the second run overwrites while the first is still
+ * streaming. Managed delivery serializes them instead, on object identity, which
+ * head-of-line blocks two *different* conversations that share one instance.
+ *
+ * Fails loud on all three ways cloning can fail to isolate: a missing `clone()`,
+ * a `clone()` that hands back the same object, and a `clone()` that silently
+ * drops subclass state (see {@link assertCloneKeptOwnFields}).
  */
 export function isolateAgentInstance(
   prototype: AbstractAgent,
@@ -90,8 +114,9 @@ export function isolateAgentInstance(
 ): AbstractAgent {
   if (typeof prototype.clone !== "function") {
     throw new Error(
-      "createChannel: singleton agent must implement clone() that returns a new instance " +
-        "(HttpAgent, BuiltInAgent, etc.), or pass agent: (threadId) => ... factory",
+      "createChannel: agent must implement clone() that returns a new instance " +
+        "(HttpAgent, BuiltInAgent, etc.). Every turn is isolated via clone(), " +
+        "including agents returned from an agent: (threadId) => ... factory.",
     );
   }
   const cloned = prototype.clone() as AbstractAgent;
@@ -100,8 +125,65 @@ export function isolateAgentInstance(
       "createChannel: agent.clone() must return a distinct instance for concurrent turns",
     );
   }
+  assertCloneKeptOwnFields(prototype, cloned);
   cloned.threadId = threadId;
+  // `clone()` copies `isRunning` from the source, and a source that has already
+  // run can be mid-run at the moment it is cloned. A fresh turn is not.
+  //
+  // Hygiene, not a fix for a dead turn: `runAgent` assigns
+  // `abortController = params?.abortController ?? new AbortController()` before
+  // each run and the run loop passes no controller, so an inherited aborted
+  // controller cannot reach the next request on its own. Reset it anyway so
+  // anything reading the signal between isolation and the run sees a live one.
+  // Note this deliberately discards `HttpAgent.clone()`'s propagation of the
+  // source's aborted state, which exists for callers that clone mid-run.
+  cloned.isRunning = false;
+  const withAbort = cloned as AbstractAgent & {
+    abortController?: AbortController;
+  };
+  if ("abortController" in withAbort) {
+    withAbort.abortController = new AbortController();
+  }
   return cloned;
+}
+
+/**
+ * Fail loud when `clone()` silently drops subclass state.
+ *
+ * `AbstractAgent.prototype.clone()` copies a fixed field list, so a subclass
+ * that declares its own fields (an auth client, config, a cache) gets them back
+ * as `undefined` on the clone — and because the base implementation always
+ * exists and returns a correctly-typed instance, nothing else surfaces it. The
+ * agent just runs gutted.
+ *
+ * Comparing own enumerable keys catches exactly that and stays quiet for the
+ * agents that do override `clone()` (`HttpAgent`, `LangGraphAgent`,
+ * `BuiltInAgent`, `IntelligenceAgent`). Symbol-keyed and non-enumerable fields
+ * are not covered.
+ *
+ * Own *functions* are deliberately exempt. Assigning a method on the instance is
+ * how spies and instrumentation wrap an agent, and losing that wrapper leaves
+ * the class's prototype method intact — the clone still behaves correctly, it
+ * just isn't wrapped. Only dropped state leaves an agent genuinely gutted.
+ */
+function assertCloneKeptOwnFields(
+  prototype: AbstractAgent,
+  cloned: AbstractAgent,
+): void {
+  const source = prototype as unknown as Record<string, unknown>;
+  const dropped = Object.keys(prototype).filter(
+    (key) =>
+      typeof source[key] !== "function" &&
+      !Object.prototype.hasOwnProperty.call(cloned, key),
+  );
+  if (dropped.length === 0) return;
+  const name = prototype.constructor?.name ?? "the configured agent";
+  throw new Error(
+    `createChannel: ${name}.clone() dropped ${dropped.join(", ")}. ` +
+      "Every turn runs on a clone, and AbstractAgent's clone() only copies its " +
+      `own fixed field list, so those fields would read as undefined. Override ` +
+      `clone() on ${name} to copy them (HttpAgent.clone() is the reference).`,
+  );
 }
 
 /**
@@ -158,7 +240,7 @@ export type ChannelComponent = (props: never) => ReturnType<ComponentFn>;
 
 export type ChannelHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
-  message: IncomingMessage;
+  message: ChannelMessage;
 }) => void | Promise<void>;
 
 /** Handler for a "conversation opened" lifecycle event (e.g. the Slack assistant pane). */
@@ -336,6 +418,20 @@ export interface CreateChannelOptions<
    */
   replyContinuation?: ReplyContinuationOptions;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
+  /**
+   * Tolerate the AG-UI event streams real agents emit. On by default.
+   *
+   * `@ag-ui/langgraph` emits a `TOOL_CALL_START` whose `parentMessageId` is
+   * `null` — notably the tool call that triggers an interrupt — which strict
+   * client-side validation rejects, aborting the whole run and breaking
+   * human-in-the-loop. Channels coerce that field on the wire so the run
+   * survives; see {@link sanitizeAgentEventStream} for exactly what is touched.
+   *
+   * Set `false` to stream events through unmodified and let a malformed event
+   * fail the run. Only meaningful for agents that stream over HTTP — nothing
+   * re-validates the events of an in-process agent.
+   */
+  sanitizeAgentEvents?: boolean;
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
   tools?: ChannelTool[];
@@ -435,13 +531,14 @@ export interface Channel<TState = unknown> {
 }
 
 /** Build the IncomingMessage object from an IncomingTurn (shared by lock-conflict callback and handler path). */
-function msgFromTurn(turn: IncomingTurn): IncomingMessage {
+function msgFromTurn(turn: IncomingTurn): ChannelMessage {
   return {
     text: turn.userText,
     contentParts: turn.contentParts,
     user: turn.user ?? { id: "" },
     ref: { id: "" },
     platform: turn.platform,
+    operation: turn.operation,
     eventId: turn.eventId,
     turnId: turn.turnId,
     deliveryId: turn.deliveryId,
@@ -527,16 +624,31 @@ export function createChannel<
   let telemetry: ChannelTelemetry | undefined;
 
   const agentFactory: (threadId: string) => AbstractAgent = (() => {
+    // Applied here rather than at each call site so a developer never has to
+    // know the workaround exists. Idempotent, so reusing one agent instance
+    // across threads (or being handed an already-sanitized one) is fine.
+    const sanitize =
+      opts.sanitizeAgentEvents === false
+        ? (agent: AbstractAgent) => agent
+        : sanitizeAgentEventStream;
     const a = opts.agent;
-    if (typeof a === "function")
-      return a as (threadId: string) => AbstractAgent;
-    // Singleton config: clone per run so concurrent turns never share one mutable agent.
-    if (a) return (threadId: string) => isolateAgentInstance(a, threadId);
-    return () => {
-      throw new Error(
-        "createChannel: no agent configured (pass `agent` to use runAgent)",
-      );
-    };
+    if (!a) {
+      return () => {
+        throw new Error(
+          "createChannel: no agent configured (pass `agent` to use runAgent)",
+        );
+      };
+    }
+    // Clone per turn for both shapes, so concurrent turns never share one
+    // mutable agent. Isolating only the singleton config is not enough: a
+    // factory is free to return the same object on every call. Cloning a fresh
+    // factory's result costs an unused instance and closes the shared case —
+    // see `isolateAgentInstance`.
+    if (typeof a === "function") {
+      return (threadId: string) =>
+        sanitize(isolateAgentInstance(a(threadId), threadId));
+    }
+    return (threadId: string) => sanitize(isolateAgentInstance(a, threadId));
   })();
 
   /** Per-conversation serial turn queue (error-boundaried so one failure cannot poison the chain). */
@@ -654,8 +766,14 @@ export function createChannel<
      */
     async function processTurn(turn: IncomingTurn): Promise<void> {
       const platform = ingressPlatform(adapter, turn);
-      if (turn.eventId && !adapter.skipIngressDedup) {
-        const dupKey = `evt:${platform}:${turn.eventId}`;
+      if (!adapter.skipIngressDedup) {
+        const dupKey = [
+          "message",
+          platform,
+          turn.operation.kind,
+          turn.operation.logicalMessageId,
+          turn.operation.revisionId,
+        ].join(":");
         try {
           if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
         } catch (err) {
@@ -686,19 +804,18 @@ export function createChannel<
           );
         }
       }
-      const message: IncomingMessage = { ...msgFromTurn(turn), userKey };
+      const message: ChannelMessage = { ...msgFromTurn(turn), userKey };
       const thread = makeThread(
         adapter,
         turn.replyTarget,
         turn.conversationKey,
         { platform, userKey, message },
       );
-      // v1 routing: there is no turn `kind`, so prefer mention handlers; if
-      // none are registered, fall back to message handlers. (The reference
-      // example registers identical handlers on both, so this avoids
-      // double-firing while still invoking whatever is registered.)
-      const handlers =
-        mentionHandlers.length > 0 ? mentionHandlers : messageHandlers;
+      const handlers = turn.operation.mentioned
+        ? mentionHandlers.length > 0
+          ? mentionHandlers
+          : messageHandlers
+        : messageHandlers;
       for (const h of handlers) await h({ thread, message });
     }
 
@@ -999,6 +1116,17 @@ export function createChannel<
         // — with a MemoryStore that wipes all lock/dedup/transcript/action state,
         // and real adapters would connect/port-bind twice.
         if (started) return;
+        if (
+          adapters.some(
+            (adapter) => adapter.capabilities.supportsMessageEvents,
+          ) &&
+          mentionHandlers.length === 0 &&
+          messageHandlers.length === 0
+        ) {
+          throw new Error(
+            `channel "${opts.name ?? "(unnamed)"}" must register onMention or onMessage before activation`,
+          );
+        }
         started = true;
         assertExclusive(adapters);
         // Resolve persistence now that all adapters (including any attached via

@@ -219,7 +219,7 @@ describe("slack-listener", () => {
     expect(f.turns[0]!.replyTarget.threadTs).toBeUndefined();
   });
 
-  it("ignores DM messages when directMessages is disabled", async () => {
+  it("keeps V5 DM routing active despite the retired directMessages option", async () => {
     const f = setup({
       respondTo: {
         directMessages: false,
@@ -235,7 +235,7 @@ describe("slack-listener", () => {
       ts: "300.0",
       text: "hi bot",
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(1);
   });
 
   it("skips a pane message (assistant thread) — owned by the Assistant middleware", async () => {
@@ -269,12 +269,11 @@ describe("slack-listener", () => {
       thread_ts: "100.0", // a different thread — not the assistant one
       text: "ordinary threaded dm",
     });
-    // The guard is per-thread, never per-config: a non-assistant threaded DM
-    // is unaffected and flows as a flat DM (shipped behavior).
+    // Explicit provider subthreads keep their own conversation scope.
     expect(f.turns).toHaveLength(1);
     expect(f.turns[0]).toMatchObject({
-      conversation: { channelId: "D1", scope: DM_SCOPE },
-      replyTarget: { channel: "D1" },
+      conversation: { channelId: "D1", scope: "100.0" },
+      replyTarget: { channel: "D1", threadTs: "100.0" },
     });
   });
 
@@ -294,7 +293,7 @@ describe("slack-listener", () => {
     expect(f.turns[0]!.replyTarget.threadTs).toBeUndefined();
   });
 
-  it("ignores a tracked thread plain reply by default", async () => {
+  it("delivers a tracked thread plain reply to onMessage by default", async () => {
     const f = setup({ ownedThreads: [{ channelId: "C1", threadTs: "100.0" }] });
     await f.fireMessage({
       type: "message",
@@ -304,7 +303,7 @@ describe("slack-listener", () => {
       thread_ts: "100.0",
       text: "carry on",
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(1);
   });
 
   it("continues a tracked thread on a plain reply when configured for legacy behavior", async () => {
@@ -328,7 +327,7 @@ describe("slack-listener", () => {
     expect(f.turns[0]!.userText).toBe("carry on");
   });
 
-  it("ignores plain replies in threads it doesn't own", async () => {
+  it("delivers ordinary replies in participant-owned threads", async () => {
     const f = setup(); // no seed
     await f.fireMessage({
       type: "message",
@@ -338,10 +337,10 @@ describe("slack-listener", () => {
       thread_ts: "999.0",
       text: "random thread chatter",
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(1);
   });
 
-  it("ignores top-level channel chatter with no @mention", async () => {
+  it("delivers top-level channel chatter to onMessage", async () => {
     const f = setup();
     await f.fireMessage({
       type: "message",
@@ -350,10 +349,14 @@ describe("slack-listener", () => {
       ts: "500.0",
       text: "just talking",
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(1);
+    expect(f.turns[0]).toMatchObject({
+      conversation: { channelId: "C1", scope: "500.0" },
+      operation: { kind: "created", mentioned: false },
+    });
   });
 
-  it("skips messages from any bot (bot_id set, no user)", async () => {
+  it("delivers messages from other bots", async () => {
     const f = setup({ ownedThreads: [{ channelId: "C1", threadTs: "100.0" }] });
     await f.fireMessage({
       type: "message",
@@ -363,7 +366,8 @@ describe("slack-listener", () => {
       thread_ts: "100.0",
       text: "bot chatter",
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(1);
+    expect(f.turns[0]!.senderUserId).toBe("BOTHER01");
   });
 
   it("skips its own messages (user matches botUserId)", async () => {
@@ -392,7 +396,7 @@ describe("slack-listener", () => {
     expect(f.turns).toHaveLength(0);
   });
 
-  it("skips the message.channels echo of an @mention (duplicate event)", async () => {
+  it("normalizes the paired message.channels mention for operation dedup", async () => {
     const f = setup({ ownedThreads: [{ channelId: "C1", threadTs: "100.0" }] });
     await f.fireMessage({
       type: "message",
@@ -402,7 +406,8 @@ describe("slack-listener", () => {
       thread_ts: "100.0",
       text: `<@${BOT_USER_ID}> hello`,
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(1);
+    expect(f.turns[0]!.operation.mentioned).toBe(true);
   });
 
   describe("subtype filter (cases F4..F7)", () => {
@@ -436,7 +441,7 @@ describe("slack-listener", () => {
       });
     }
 
-    it("ignores a file_share upload in an owned thread by default", async () => {
+    it("delivers a file_share upload in an owned thread by default", async () => {
       const f = setup({
         ownedThreads: [{ channelId: "C1", threadTs: "100.0" }],
       });
@@ -450,7 +455,7 @@ describe("slack-listener", () => {
         text: "",
         files: [{ id: "F1", name: "data.csv", mimetype: "text/csv" }],
       });
-      expect(f.turns).toHaveLength(0);
+      expect(f.turns).toHaveLength(1);
     });
 
     it("processes a file_share upload in an owned thread when legacy continuation is enabled", async () => {
@@ -476,7 +481,7 @@ describe("slack-listener", () => {
     });
   });
 
-  it("treats a group-DM (mpim) like a non-IM channel (ignored without thread_ts)", async () => {
+  it("treats a group-DM as a group conversation", async () => {
     const f = setup();
     await f.fireMessage({
       type: "message",
@@ -486,7 +491,11 @@ describe("slack-listener", () => {
       ts: "300.0",
       text: "ping in group dm",
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(1);
+    expect(f.turns[0]).toMatchObject({
+      conversation: { channelId: "G1", scope: "300.0" },
+      operation: { mentioned: false },
+    });
   });
 
   it("strips multiple @mentions of the bot from a single message", async () => {
@@ -533,7 +542,7 @@ describe("slack-listener", () => {
     );
   });
 
-  it("same thread_ts in different channels = different conversations (and not owned)", async () => {
+  it("same thread_ts in different channels remains different conversations", async () => {
     const f = setup({ ownedThreads: [{ channelId: "C1", threadTs: "100.0" }] });
     await f.fireMessage({
       type: "message",
@@ -543,7 +552,11 @@ describe("slack-listener", () => {
       thread_ts: "100.0",
       text: "stranger in another channel",
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(1);
+    expect(f.turns[0]!.conversation).toEqual({
+      channelId: "C2",
+      scope: "100.0",
+    });
   });
 
   it("forwards a slash command to onCommand with normalized fields (flat reply target)", async () => {

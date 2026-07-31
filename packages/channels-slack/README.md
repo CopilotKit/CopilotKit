@@ -29,11 +29,8 @@ import {
   defaultSlackTools,
   defaultSlackContext,
 } from "@copilotkit/channels-slack";
-import {
-  CopilotRuntime,
-  CopilotKitIntelligence,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
@@ -61,8 +58,10 @@ const runtime = new CopilotRuntime({
   channels: [bot],
 });
 
-const handler = createCopilotRuntimeHandler({ runtime });
-await handler.channels.ready(); // starts the channel; handler.channels.stop() tears it down
+// Creating the listener starts the Channel's connection.
+const listener = createCopilotNodeListener({ runtime });
+// Optional: await that activation so a broken config fails startup loudly.
+await listener.channels.ready(); // listener.channels.stop() tears it down
 ```
 
 `slack(opts)` returns a `SlackAdapter`. By default it runs in **Socket Mode**
@@ -383,5 +382,6 @@ features your app uses:
 entries); `markdownToMrkdwn`; and the
 preserved mechanics (`SlackConversationStore`, `MessageStream`,
 `ChunkedMessageStream`, `NativeMessageStream`, `attachSlackListener`,
-`attachAssistant`, `SanitizingHttpAgent`, `buildFileContentParts`,
+`attachAssistant`, `SanitizingHttpAgent` (deprecated — Channels sanitize by
+default), `buildFileContentParts`,
 `autoCloseOpenMarkdown`, and supporting types).

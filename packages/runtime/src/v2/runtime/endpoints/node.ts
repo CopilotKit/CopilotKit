@@ -4,14 +4,15 @@ import type { RuntimeWithDeclaredChannels } from "../core/runtime";
 import type { ChannelsControl } from "../core/channel-manager";
 import { createCopilotNodeHandler } from "./node-fetch-handler";
 import type { NodeFetchHandler } from "./node-fetch-handler";
+import { autoStartChannels } from "./auto-start-channels";
 
 /**
  * A Node.js HTTP request listener that is also a callable object carrying an
  * optional {@link ChannelsControl} surface, mirroring
  * `CopilotRuntimeFetchHandler.channels`. Node is the long-running,
  * lifecycle-owning entry point for the runtime, so it is the surface that
- * exposes `.channels` for callers that need to start, observe, or stop managed
- * Channel activation.
+ * exposes `.channels` for callers that need to observe or stop the managed
+ * Channel activation the listener starts at creation.
  */
 export type NodeCopilotListener = NodeFetchHandler & {
   channels?: ChannelsControl;
@@ -41,15 +42,24 @@ export type NodeCopilotListenerWithChannels = NodeFetchHandler & {
  *
  * ## Managed Channels lifecycle
  *
- * Creating the listener opens NO connection. Activation — which opens the
- * persistent Realtime Gateway WebSocket and starts every direct adapter on the
- * declared Channels — is LAZY: it is triggered by the first
- * `await listener.channels.ready()` and never before, neither at creation nor on
- * the first HTTP request. On a long-running host that call is REQUIRED, not
- * optional: without it the process serves HTTP but no Channel is ever connected.
- * `listener.channels.stop()` tears activation down. See the
- * `createCopilotRuntimeHandler` TSDoc for why activation is deferred
- * (serverless/edge safety).
+ * Creating the listener STARTS activation — which opens the persistent Realtime
+ * Gateway WebSocket and starts every direct adapter on the declared Channels.
+ * Node owns its own process lifetime, so there is nothing to defer to and no
+ * required incantation: a declared Channel connects because it was declared.
+ * (The generic `createCopilotRuntimeHandler` is the opposite — it stays lazy for
+ * serverless/edge safety; see its TSDoc.)
+ *
+ * `await listener.channels.ready()` is therefore OPTIONAL and purely
+ * await-and-observe: it resolves once every declared Channel has settled to
+ * `online`/`setup_required` and rejects with the activation failure, observing
+ * the activation started at creation rather than triggering a second one. Await
+ * it when startup should block on Channels being live (or should exit non-zero
+ * when they are not); skip it and activation failures land in the logs instead.
+ * `listener.channels.stop()` tears activation down.
+ *
+ * Pass `activateChannels: false` to build no control surface and open no socket
+ * — the clean opt-out for a test or a short-lived script that mounts the
+ * listener without wanting its Channels connected.
  *
  * @example
  * ```typescript
@@ -63,9 +73,10 @@ export type NodeCopilotListenerWithChannels = NodeFetchHandler & {
  *   cors: true,
  * });
  * createServer(listener).listen(3000);
+ * // Declared managed Channels are already connecting at this point.
  *
- * // Required to connect declared managed Channels. Bound it so one wedged
- * // adapter cannot hang startup forever.
+ * // Optional: block startup on them being live. Bound it so one wedged adapter
+ * // cannot hang startup forever.
  * await listener.channels.ready({ timeoutMs: 30_000 });
  * ```
  */
@@ -103,5 +114,6 @@ export function createCopilotNodeListener(
   const handler = createCopilotRuntimeHandler(options);
   const listener: NodeCopilotListener = createCopilotNodeHandler(handler);
   listener.channels = handler.channels;
+  autoStartChannels(listener.channels);
   return listener;
 }

@@ -231,6 +231,8 @@ export interface ChannelsIntelligenceModule {
       log?: (msg: string, meta?: unknown) => void;
       runCanonical(args: {
         agent: AbstractAgent;
+        deliveryId: string;
+        signal?: AbortSignal;
         threadId: string;
         runId: string;
         userId: string;
@@ -256,6 +258,7 @@ export interface ChannelsIntelligenceModule {
         deliveryError?: unknown;
       }>;
       loadHistory(args: {
+        deliveryId: string;
         threadId: string;
         appUserId: string;
       }): Promise<Message[]>;
@@ -347,18 +350,25 @@ export async function defaultActivateChannel(
         args,
         services.lockKeyPrefix,
       ),
-    loadHistory: async ({ threadId, appUserId }) => {
+    loadHistory: async ({ deliveryId, threadId, appUserId }) => {
       const history = await services.intelligence.getThreadMessages({
         threadId,
         userId: appUserId,
+        channelDeliveryId: deliveryId,
       });
-      return history.messages.map(toAgentMessage);
+      return Promise.all(
+        history.messages.map((message) =>
+          toAgentMessage(message, services.intelligence),
+        ),
+      );
     },
   });
 }
 
 interface CanonicalRunArgs {
   agent: AbstractAgent;
+  deliveryId: string;
+  signal?: AbortSignal;
   threadId: string;
   runId: string;
   userId: string;
@@ -436,6 +446,7 @@ async function runCanonicalChannelAgent(
     runId: args.runId,
     userId: args.userId,
     agentId: args.agentId,
+    channelDeliveryId: args.deliveryId,
     ttlSeconds: lockTtlSeconds,
     ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
   });
@@ -455,9 +466,23 @@ async function runCanonicalChannelAgent(
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   const stopCanonicalRun = (): void => {
     stopPromise ??= Promise.resolve()
-      .then(() => runner.stop({ threadId: canonicalThreadId }))
+      .then(() =>
+        runner.stop({
+          threadId: canonicalThreadId,
+          runId: canonicalRunId,
+        }),
+      )
       .catch(() => false);
   };
+  const abortCanonicalRun = (): void => {
+    try {
+      args.agent.abortRun();
+    } catch {
+      // The exact runner stop remains the authoritative cancellation path.
+    }
+    stopCanonicalRun();
+  };
+  args.signal?.addEventListener("abort", abortCanonicalRun, { once: true });
   heartbeatTimer = setInterval(() => {
     intelligence
       .ɵrenewThreadLock({
@@ -524,8 +549,12 @@ async function runCanonicalChannelAgent(
           }
         },
       });
+      if (args.signal?.aborted) {
+        abortCanonicalRun();
+      }
     });
   } finally {
+    args.signal?.removeEventListener("abort", abortCanonicalRun);
     if (heartbeatTimer !== undefined) {
       clearInterval(heartbeatTimer);
       heartbeatTimer = undefined;
@@ -549,17 +578,23 @@ async function runCanonicalChannelAgent(
 }
 
 /** Convert canonical Intelligence history into AG-UI messages. */
-function toAgentMessage(message: {
-  id: string;
-  role: string;
-  content?: string;
-  toolCalls?: Array<{ id: string; name: string; args: string }>;
-  toolCallId?: string;
-}): Message {
+async function toAgentMessage(
+  message: {
+    id: string;
+    role: string;
+    activityType?: string;
+    content?: unknown;
+    toolCalls?: Array<{ id: string; name: string; args: string }>;
+    toolCallId?: string;
+  },
+  intelligence: CopilotKitIntelligence,
+): Promise<Message> {
+  const content = await hydrateManagedContent(message.content, intelligence);
   return {
     id: message.id,
     role: message.role as Message["role"],
-    content: message.content ?? "",
+    content: content ?? "",
+    ...(message.activityType ? { activityType: message.activityType } : {}),
     ...(message.toolCalls
       ? {
           toolCalls: message.toolCalls.map((call) => ({
@@ -571,6 +606,69 @@ function toAgentMessage(message: {
       : {}),
     ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
   } as Message;
+}
+
+/** Resolves managed asset references only at the authorized Runtime boundary. */
+async function hydrateManagedContent(
+  content: unknown,
+  intelligence: CopilotKitIntelligence,
+): Promise<unknown> {
+  if (Array.isArray(content)) {
+    return Promise.all(
+      content.map(async (part) => {
+        if (
+          typeof part !== "object" ||
+          part === null ||
+          !("source" in part) ||
+          typeof part.source !== "object" ||
+          part.source === null ||
+          !("value" in part.source) ||
+          typeof part.source.value !== "string" ||
+          !part.source.value.startsWith("cpki-asset://")
+        ) {
+          return part;
+        }
+        const assetId = part.source.value.slice("cpki-asset://".length);
+        const asset = await intelligence.ɵgetManagedChannelAsset(assetId);
+        return {
+          ...part,
+          source: {
+            type: "data",
+            value: Buffer.from(asset.bytes).toString("base64"),
+            mimeType:
+              asset.mimeType ??
+              ("mimeType" in part.source &&
+              typeof part.source.mimeType === "string"
+                ? part.source.mimeType
+                : "application/octet-stream"),
+          },
+        };
+      }),
+    );
+  }
+
+  if (
+    typeof content === "object" &&
+    content !== null &&
+    "assetId" in content &&
+    typeof content.assetId === "string"
+  ) {
+    const asset = await intelligence.ɵgetManagedChannelAsset(content.assetId);
+    return {
+      ...content,
+      source: {
+        type: "data",
+        value: Buffer.from(asset.bytes).toString("base64"),
+        mimeType:
+          asset.mimeType ??
+          ("mimeType" in content && typeof content.mimeType === "string"
+            ? content.mimeType
+            : "application/octet-stream"),
+      },
+    };
+  }
+
+  return content;
 }
 
 /** Whether `err` signals a missing managed provider rather than a hard failure. */

@@ -32,7 +32,11 @@ export async function buildContentParts(
 ): Promise<AgentContentPart[]> {
   if (!files?.length) return [];
   if (!fetchFile) {
-    log?.("intelligence file fetch unavailable: file client is not configured");
+    log?.("channel managed asset restore", {
+      outcome: "unavailable",
+      code: "asset_restore_unavailable",
+      durationMs: 0,
+    });
     return files.map((ref) => ({
       type: "text" as const,
       text: `[attached file ${ref.filename} could not be retrieved]`,
@@ -40,6 +44,7 @@ export async function buildContentParts(
   }
   const parts: AgentContentPart[] = [];
   for (const ref of files) {
+    const startedAtMs = Date.now();
     try {
       const { bytes, mimeType } = await fetchFile(ref.handle);
       // The typed ref's mime is authoritative — the file-serve route coerces
@@ -63,8 +68,18 @@ export async function buildContentParts(
           text: `[attached file: ${ref.filename} (${mime})]`,
         });
       }
-    } catch (err) {
-      log?.("intelligence file fetch failed", err);
+      log?.("channel managed asset restore", {
+        outcome: "restored",
+        code: "asset_restored",
+        durationMs: elapsedMs(startedAtMs),
+        byteSize: bytes.byteLength,
+      });
+    } catch {
+      log?.("channel managed asset restore", {
+        outcome: "failed",
+        code: "asset_restore_failed",
+        durationMs: elapsedMs(startedAtMs),
+      });
       // Fail-visible, not fail-silent: the user attached a file the model
       // can't be shown, so surface a short note in context rather than
       // dropping it entirely (the model can acknowledge / ask to retry).
@@ -75,4 +90,8 @@ export async function buildContentParts(
     }
   }
   return parts;
+}
+
+function elapsedMs(startedAtMs: number): number {
+  return Math.max(Date.now() - startedAtMs, 0);
 }

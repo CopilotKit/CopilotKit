@@ -27,6 +27,8 @@ export interface AgentRunnerIsRunningRequest {
 
 export interface AgentRunnerStopRequest {
   threadId: string;
+  /** When present, stop only this exact run and never a newer run on the Thread. */
+  runId?: string;
 }
 
 export interface LocalThreadEndpointRecord {

@@ -38,11 +38,11 @@ const fakes = vi.hoisted(() => {
 vi.mock("node:http", () => ({ createServer: fakes.createServer }));
 vi.mock("@copilotkit/channels", () => ({
   createChannel: vi.fn(() => fakes.bot),
+  HttpAgent: function HttpAgent() {},
 }));
 vi.mock("@copilotkit/channels/slack", () => ({
   defaultSlackTools: [],
   defaultSlackContext: [],
-  SanitizingHttpAgent: function SanitizingHttpAgent() {},
 }));
 vi.mock("@copilotkit/runtime/v2", () => ({
   CopilotRuntime: fakes.CopilotRuntime,

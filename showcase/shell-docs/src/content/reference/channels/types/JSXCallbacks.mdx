@@ -8,7 +8,7 @@ opaque action ids; the SDK resolves the original handler when the interaction
 returns.
 
 Slack renders the controls as Block Kit. With Slack app Interactivity enabled,
-clicks arrive as `block_actions` over the managed Socket Mode connection.
+clicks arrive as `block_actions` through the signed managed webhook.
 
 Teams renders the controls in Adaptive Cards. Buttons use `Action.Submit`, and
 clicks return through the managed connection as message activities. A Teams

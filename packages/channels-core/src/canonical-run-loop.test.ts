@@ -181,6 +181,7 @@ test("managed runAgentLoop emits one canonical lifecycle and shares stamped even
   ]);
   const { renderer, renderedEvents } = setupRenderer();
   const ingestedEvents: BaseEvent[] = [];
+  let commits = 0;
   const echo: ChannelTool = {
     name: "echo",
     description: "Return the value.",
@@ -202,7 +203,12 @@ test("managed runAgentLoop emits one canonical lifecycle and shares stamped even
         ingestedEvents.push(event);
       },
     },
-    canonicalRun,
+    canonicalRun: {
+      ...canonicalRun,
+      beforeToolCall: async () => {
+        commits += 1;
+      },
+    },
   });
 
   const lifecycleTypes = ingestedEvents
@@ -221,6 +227,7 @@ test("managed runAgentLoop emits one canonical lifecycle and shares stamped even
   );
 
   expect(result).toEqual({ iterations: 2, interrupted: false });
+  expect(commits).toBe(1);
   expect(lifecycleTypes).toEqual([
     EventType.RUN_STARTED,
     EventType.RUN_FINISHED,

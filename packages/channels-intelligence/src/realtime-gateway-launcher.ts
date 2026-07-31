@@ -84,11 +84,17 @@ export interface StartChannelsWithGatewayControlOptions {
    * activation, and re-minted on process/ChannelManager restart.
    */
   runtimeInstanceId: string;
+  /** Maximum deliveries this Runtime may claim and execute at once. */
+  maxConcurrentDeliveries?: number;
+  /** Maximum claimed deliveries buffered behind active execution. */
+  maxPendingDeliveries?: number;
   /** Intelligence app-api HTTP base URL — enables file/history parity on the
    * realtime path (OSS-476), which are HTTP-only. With {@link apiKey}. */
   appApiBaseUrl?: string;
   /** Project runtime API key (`cpk-…`) for the app-api file/history calls. */
   apiKey?: string;
+  /** Injectable App API fetch used by managed file and transcript calls. */
+  appApiFetch?: typeof fetch;
   /** Activation env overrides forwarded to the runtime (so `handle.metadata`
    * matches what the caller declared on join); omitted fields are gathered from
    * the process. `runtimeInstanceId` is excluded — the required
@@ -108,6 +114,7 @@ export interface StartChannelsWithGatewayControlOptions {
   ): ReturnType<CanonicalChannelRunArgs["execute"]>;
   /** Load canonical Intelligence thread history before each public run. */
   loadHistory(args: {
+    deliveryId: string;
     threadId: string;
     appUserId: string;
   }): Promise<Message[]>;
@@ -128,8 +135,15 @@ export async function startChannelsWithGatewayControl(
   const transport = new ChannelDeliveryTransport({
     runtimeInstanceId: opts.runtimeInstanceId,
     session: opts.session,
+    ...(opts.maxConcurrentDeliveries !== undefined
+      ? { maxConcurrentDeliveries: opts.maxConcurrentDeliveries }
+      : {}),
+    ...(opts.maxPendingDeliveries !== undefined
+      ? { maxPendingDeliveries: opts.maxPendingDeliveries }
+      : {}),
     ...(opts.appApiBaseUrl ? { appApiBaseUrl: opts.appApiBaseUrl } : {}),
     ...(opts.apiKey ? { apiKey: opts.apiKey } : {}),
+    ...(opts.appApiFetch ? { fileFetch: opts.appApiFetch } : {}),
     ...(opts.log ? { log: opts.log } : {}),
   });
   const store =
@@ -217,12 +231,15 @@ export interface StartChannelsOverRealtimeGatewayOptions {
    * replicas; reuse it only for transport reconnects of this activation.
    */
   runtimeInstanceId: string;
+  /** Maximum deliveries this Runtime may claim and execute at once. */
+  maxConcurrentDeliveries?: number;
+  /** Maximum claimed deliveries buffered behind active execution. */
+  maxPendingDeliveries?: number;
   /** Adapter kind declared to the gateway on join (default `"slack"`). */
   adapter?: string;
-  /** Intelligence app-api HTTP base URL. Enables file/history parity on the
-   * realtime path (OSS-476) — these are HTTP-only (the gateway relays the
-   * render-event stream, not bytes/history), reached with the {@link apiKey}
-   * above. Omit and file/history stay unavailable (graceful degradation). */
+  /** Intelligence app-api HTTP base URL for managed file and Thread history
+   * calls made with the {@link apiKey} above. Omit it to leave those calls
+   * unavailable. */
   appApiBaseUrl?: string;
   /** Activation env overrides (package versions, runtimeEnv); omitted fields
    * are gathered from the process and exposed in `handle.metadata`.
@@ -250,6 +267,7 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   ): ReturnType<CanonicalChannelRunArgs["execute"]>;
   /** Load canonical Intelligence thread history before each public run. */
   loadHistory(args: {
+    deliveryId: string;
     threadId: string;
     appUserId: string;
   }): Promise<Message[]>;
@@ -291,6 +309,9 @@ export async function startChannelsOverRealtimeGateway(
     join: {
       protocol: CHANNEL_DELIVERY_PROTOCOL,
       runtimeInstanceId: config.runtimeInstanceId,
+      ...(config.maxConcurrentDeliveries !== undefined
+        ? { maxConcurrentDeliveries: config.maxConcurrentDeliveries }
+        : {}),
       channels: activation.declaredChannels.map((channel) => ({
         channelName: channel.channelName,
         adapter,
@@ -311,6 +332,12 @@ export async function startChannelsOverRealtimeGateway(
       session,
       scope: config.scope,
       runtimeInstanceId: config.runtimeInstanceId,
+      ...(config.maxConcurrentDeliveries !== undefined
+        ? { maxConcurrentDeliveries: config.maxConcurrentDeliveries }
+        : {}),
+      ...(config.maxPendingDeliveries !== undefined
+        ? { maxPendingDeliveries: config.maxPendingDeliveries }
+        : {}),
       // File/history parity is HTTP-only; forward the app-api coordinates (the
       // apiKey is the same one used as the socket authToken) so the transport
       // can reach the file/history REST endpoints directly.

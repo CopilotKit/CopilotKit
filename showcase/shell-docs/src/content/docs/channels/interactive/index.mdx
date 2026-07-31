@@ -13,7 +13,7 @@ by hand.
 <FrontendOnly frontend="slack">
 
 On Slack, Channels JSX renders as Block Kit. Button clicks return as
-`block_actions` events through the managed Socket Mode connection.
+`block_actions` events through the signed managed webhook.
 
 <Callout type="warn" title="Enable Slack Interactivity before testing buttons">
   Slack interactions require **Interactivity** to be enabled in the Slack app
@@ -204,7 +204,7 @@ approval.
 ## Use post-and-resume for managed approvals
 
 Managed deliveries cannot wait inside `thread.awaitChoice()`. The click arrives
-as a separate leased delivery, so blocking the first delivery would prevent the
+as a separate claimed delivery, so blocking the first delivery would prevent the
 approval from being processed.
 
 The safe flow is:

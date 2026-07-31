@@ -5,8 +5,8 @@ import type { SlackNeutralEvent } from "./ingress-normalize.js";
 
 /**
  * Pure Slack codec — both directions, no Bolt and no Slack credentials. Shared
- * by the local Slack adapter and (via the Connector Outbox / webhook ingress,
- * OSS-362/363) the managed path, so platform semantics live in one place:
+ * by the local Slack adapter and managed webhook ingress, so platform
+ * semantics live in one place:
  *
  * - `renderEgress`: IR → Block Kit.
  * - `normalizeIngress`: raw Slack payload (Events API envelope or slash-command

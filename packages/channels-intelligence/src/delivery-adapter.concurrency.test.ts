@@ -8,7 +8,7 @@ import type {
 import type { RunAgentInput } from "@ag-ui/core";
 import { DeliveryAdapter } from "./delivery-adapter.js";
 import type {
-  ChannelDeliverySession,
+  ClaimedChannelDelivery,
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
 
@@ -43,8 +43,17 @@ function prepared(deliveryId: string): PreparedChannelDelivery {
     turn: {
       eventId: `evt_${deliveryId}`,
       receivedAt: "2026-07-29T17:00:00.000Z",
-      input: { kind: "text", text: "hi" },
-      actor: { externalUserId: "U1" },
+      input: {
+        kind: "text",
+        text: "hi",
+        operation: {
+          kind: "created",
+          logicalMessageId: "message-concurrency",
+          revisionId: "revision-concurrency",
+          mentioned: false,
+        },
+      },
+      actor: { externalUserId: "U1", kind: "human" },
     },
   };
 }
@@ -67,9 +76,21 @@ describe("DeliveryAdapter concurrent same-thread runs", () => {
       },
     });
 
-    const session = {} as ChannelDeliverySession;
-    const d1 = prepared("dlv_1");
-    const d2 = prepared("dlv_2");
+    const session = {} as ClaimedChannelDelivery;
+    const d1 = {
+      ...prepared("dlv_1"),
+      turn: {
+        ...prepared("dlv_1").turn,
+        input: { kind: "command" as const, command: "first" },
+      },
+    };
+    const d2 = {
+      ...prepared("dlv_2"),
+      turn: {
+        ...prepared("dlv_2").turn,
+        input: { kind: "command" as const, command: "second" },
+      },
+    };
     const makeAgent = (id: string) => {
       const a = new TestAgent({ agentId: "t" });
       a.threadId = id;
@@ -78,16 +99,16 @@ describe("DeliveryAdapter concurrent same-thread runs", () => {
 
     const p1 = gated.conversationStore.getOrCreate(
       d1.canonicalThreadId,
-      { session, delivery: d1 },
+      { claimedDelivery: session, delivery: d1 },
       makeAgent,
     );
     const p2 = gated.conversationStore.getOrCreate(
       d2.canonicalThreadId,
-      { session, delivery: d2 },
+      { claimedDelivery: session, delivery: d2 },
       makeAgent,
     );
 
-    // Both must be in flight (second must not throw ChannelAgentConcurrencyError).
+    // Both must be in flight — the second must not be rejected for overlapping.
     await vi.waitFor(() => expect(loadCalls).toBeGreaterThanOrEqual(1));
     release1();
     const [s1, s2] = await Promise.all([p1, p2]);

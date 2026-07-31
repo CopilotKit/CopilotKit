@@ -10,11 +10,20 @@ import type {
 
 /**
  * A Hono app that may also carry an optional {@link ChannelsControl} surface.
- * Hono's app object is request-scoped routing config, not a long-running
- * process owner — Node (`createCopilotNodeListener`) is the lifecycle-owning
- * surface for `.channels`. It is attached here too, best-effort, for callers
- * that mount the Hono app directly and want to start (`ready()`), observe, or
- * stop managed Channel activation without also standing up a Node listener.
+ *
+ * Unlike the Node and Express wrappers — which own a process and therefore START
+ * managed-Channel activation at creation (OSS-641) — this wrapper stays LAZY:
+ * activation is triggered by the first `app.channels.ready()` and never before.
+ * A Hono app is multi-runtime and is our edge/serverless surface in practice:
+ * every Next.js App Router route handler in `examples/showcases/*` builds one at
+ * module scope, and those isolates freeze and recycle per request. Auto-starting
+ * there would mint a competing listener for the same Channel on every cold
+ * start, which is exactly what the lazy design exists to prevent (see the
+ * `createCopilotRuntimeHandler` TSDoc).
+ *
+ * So on a LONG-RUNNING Hono host (`@hono/node-server`, Bun, Deno) calling
+ * `await app.channels.ready()` once at startup is REQUIRED to connect declared
+ * Channels; on an edge/serverless host do NOT call it.
  */
 export type CopilotHonoApp = Hono & { channels?: ChannelsControl };
 

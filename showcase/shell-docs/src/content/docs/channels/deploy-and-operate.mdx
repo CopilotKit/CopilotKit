@@ -21,16 +21,14 @@ available in Node.js 22+.
 Upgrade Channels and Runtime together, then run the same real-provider smoke
 test used for the initial quickstart.
 
-## Start before reporting ready
+## Settle before reporting ready
 
-Creating the Node listener exposes the optional Channels control surface but
-does not open the managed connection. Call `ready()` and inspect `status()`:
+Creating the Node listener starts the managed connection — a declared Channel
+connects because it was declared, with no start call to forget. Await `ready()`
+to observe that activation settling, then inspect `status()`:
 
 ```ts title="health.ts"
 const channels = listener.channels;
-if (!channels) {
-  throw new Error("Managed Channels control surface was not created.");
-}
 
 await channels.ready({ timeoutMs: 30_000 });
 
@@ -82,18 +80,28 @@ or error.
 
 ## Shut down cleanly
 
-Register signal handlers before calling `ready()`:
+Register signal handlers before **creating the listener**, not just before
+`ready()`. Creating it begins activation, so a signal that arrives during the
+connect window must already have somewhere to land — otherwise it hits Node's
+default handler and leaves a live gateway session behind:
 
 ```ts title="channel.ts"
+let teardown: (() => Promise<void>) | undefined;
 const shutdown = async () => {
-  await channels.stop();
-  if (server.listening) server.close();
+  await teardown?.();
 };
 
 process.once("SIGINT", shutdown);
 process.once("SIGTERM", shutdown);
 
-await channels.ready({ timeoutMs: 30_000 });
+const listener = createCopilotNodeListener({ runtime });
+const server = createServer(listener);
+teardown = async () => {
+  await listener.channels.stop();
+  if (server.listening) server.close();
+};
+
+await listener.channels.ready({ timeoutMs: 30_000 });
 ```
 
 Give the worker enough termination grace to stop its managed sessions. Avoid
@@ -123,20 +131,16 @@ tokens or the Teams client secret. Rotate the project runtime key through your
 secret manager, restart the listener with the new value, and verify it returns
 to **Online**.
 
-## Use active/standby replicas safely
+## Bound active replicas
 
-Intelligence elects one active owner per Channel Code. Additional live runtimes
-that declare the same complete Channel set stay connected as standbys and are
-promoted when the active owner releases or expires. This is supported recovery,
-not active-active load balancing: one owner serves a Channel at a time.
+Intelligence offers each prepared delivery to connected Runtimes that declare
+the matching Channel. One Runtime claims that delivery; other replicas can
+claim different deliveries at the same time.
 
-Run the same build and configuration on every replica. Do not create partial
-overlap—for example, one runtime declaring `support-slack` plus `support-teams`
-and another declaring only `support-slack`. Election authority is
-runtime-scoped, so different but overlapping declaration sets can leave a
-Channel unserved. If one agent backend serves Slack and Teams, create one
-Intelligence Channel and `createChannel` declaration per provider, each with
-its own Code, and put the same full set on every replica.
+Run the same build and Channel declarations on every replica. Set
+`maxConcurrentDeliveries` to a bound each process can sustain. A full Runtime
+declines an invitation before it claims the delivery, which leaves another
+eligible replica free to claim it.
 
 ## Observe the full delivery path
 
@@ -156,12 +160,13 @@ secrets, or raw provider payloads by default.
 
 1. Build and typecheck the runner on Node.js 22.
 2. Confirm the exact package pair is in the lockfile.
-3. Start the intended replica set and wait for the Channel to report `online`.
+3. Start the intended replica set and wait for each listener to report `online`.
 4. Send a real provider message and verify a reply.
 5. Exercise one tool, one rich message, and one interaction.
 6. Restart with a pending approval and confirm your persistence promise.
 7. Test a brief network drop and observe `reconnecting` recovery.
-8. If you run standbys, stop the active worker and verify automatic promotion.
+8. Send concurrent messages and verify replicas claim distinct deliveries
+   within their local bounds.
 9. Send `SIGTERM` and confirm graceful shutdown.
 
 Use the [Intelligence walkthrough](/channels/intelligence) for control-plane

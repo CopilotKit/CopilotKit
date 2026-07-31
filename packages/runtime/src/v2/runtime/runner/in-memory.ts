@@ -384,6 +384,9 @@ export class InMemoryAgentRunner extends AgentRunner {
     if (!store || !store.isRunning) {
       return Promise.resolve(false);
     }
+    if (request.runId !== undefined && store.currentRunId !== request.runId) {
+      return Promise.resolve(false);
+    }
     if (store.stopRequested) {
       return Promise.resolve(false);
     }

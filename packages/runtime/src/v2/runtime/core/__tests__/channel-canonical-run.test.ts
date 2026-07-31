@@ -139,6 +139,7 @@ function runArgs(
   return {
     agent: new NoopAgent(),
     ...canonicalIdentity,
+    deliveryId: "dlv_delivery_1",
     userId: "app-user-1",
     agentId: "support-agent",
     tools: [],
@@ -215,6 +216,35 @@ test("runCanonical renews the standard thread lock until the run settles", async
   }
 });
 
+test("runCanonical stops only its exact run when the delivery is superseded", async () => {
+  const controller = new AbortController();
+  let complete: (() => void) | undefined;
+  const stopRun = vi.fn(async () => {
+    complete?.();
+    return true;
+  });
+  const runner = new TestRunner(
+    () =>
+      new Observable<BaseEvent>((observer) => {
+        complete = () => observer.complete();
+      }),
+    stopRun,
+  );
+  const runCanonical = await captureRunCanonical(runner);
+  const running = runCanonical({
+    ...runArgs(),
+    signal: controller.signal,
+  });
+
+  controller.abort("superseded");
+  await running;
+
+  expect(stopRun).toHaveBeenCalledWith({
+    threadId: canonicalIdentity.threadId,
+    runId: canonicalIdentity.runId,
+  });
+});
+
 test("runCanonical stops the standard runner when lock renewal fails", async () => {
   vi.useFakeTimers();
   try {
@@ -251,6 +281,7 @@ test("runCanonical stops the standard runner when lock renewal fails", async () 
     await failed;
     expect(stopRun).toHaveBeenCalledWith({
       threadId: canonicalIdentity.threadId,
+      runId: canonicalIdentity.runId,
     });
   } finally {
     vi.useRealTimers();
@@ -305,8 +336,17 @@ test("runCanonical acquires the standard lock and uses the runner project key", 
     userId: "app-user-1",
     agentId: "support-agent",
     ttlSeconds: 20,
+    channelDeliveryId: "dlv_delivery_1",
   });
   expect(request).not.toHaveProperty("authToken");
+  // The thread id reaching the runner must stay the canonical product thread id,
+  // never decorated with a run id or any other process-local key.
+  // `IntelligenceAgentRunner` does not treat it as a local map key: it sends it as
+  // `thread_id` when joining `ingestion:<runId>`, and the gateway resolves that
+  // against `cpki.threads`, rejecting anything else with `thread_not_found`.
+  // `buildRunStartedEvent` also re-stamps `input.threadId` from it, so both must hold.
+  expect(request?.threadId).toBe(canonicalIdentity.threadId);
+  expect(request?.input.threadId).toBe(canonicalIdentity.threadId);
 });
 
 test("runCanonical returns a deferred delivery error only after the runner records RUN_FINISHED", async () => {
@@ -434,6 +474,7 @@ test("runCanonical rejects an outer agent error completed by the standard runner
       agent,
       threadId,
       runId,
+      deliveryId: "dlv_standard_runner_delivery",
       userId: "app-user-1",
       agentId: "support-agent",
       tools: [],

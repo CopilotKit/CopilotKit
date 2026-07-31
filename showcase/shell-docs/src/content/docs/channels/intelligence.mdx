@@ -151,16 +151,16 @@ interactive behavior, state, and deployment.
 
     1. Copy the generated manifest, open Slack's app-creation flow, and create
        the app **From a manifest** using the YAML.
-    2. In **Basic Information → App-Level Tokens**, generate a token named
-       `CopilotKit Intelligence` with `connections:write`. Paste the `xapp-…`
-       value into **App-level token**.
-    3. In **OAuth & Permissions**, click **Install to Workspace**, approve the
+    2. In **OAuth & Permissions**, click **Install to Workspace**, approve the
        app, and paste the `xoxb-…` **Bot User OAuth Token** into **Bot token**.
+    3. In **Basic Information → App Credentials**, copy the
+       **Signing Secret** into Intelligence.
     4. Invite the app to a channel with `/invite @<app-handle>`, or open a
        direct message with it.
 
-    Intelligence uses Slack Socket Mode. You do not need a public request URL,
-    tunnel, or signing secret.
+    Slack sends signed Events API and slash-command requests to the public
+    Intelligence URLs in the generated manifest. Hosted Intelligence provides
+    those URLs; a self-hosted deployment must expose them.
 
   </Step>
 
