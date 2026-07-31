@@ -480,24 +480,25 @@ export class SlackAdapter implements PlatformAdapter {
     // channel and implicit in DMs / assistant threads — pass them only for
     // non-DM targets (DM channel ids start with "D").
     const isChannel = !t.channel.startsWith("D");
+    const startStream = async (markdownText?: string): Promise<string> => {
+      const args: ChatStartStreamArguments = {
+        channel: t.channel,
+        thread_ts: threadTs,
+        task_display_mode: "timeline",
+        ...(markdownText !== undefined ? { markdown_text: markdownText } : {}),
+        ...(isChannel && t.recipientUserId
+          ? { recipient_user_id: t.recipientUserId }
+          : {}),
+        ...(isChannel && this.teamId ? { recipient_team_id: this.teamId } : {}),
+      };
+      const res = await this.client.chat.startStream(args);
+      if (!res.ts) throw new Error("startStream returned no ts");
+      onFirstTs(res.ts, res.channel);
+      return res.ts;
+    };
     return {
-      startStream: async () => {
-        const args: ChatStartStreamArguments = {
-          channel: t.channel,
-          thread_ts: threadTs,
-          task_display_mode: "timeline",
-          ...(isChannel && t.recipientUserId
-            ? { recipient_user_id: t.recipientUserId }
-            : {}),
-          ...(isChannel && this.teamId
-            ? { recipient_team_id: this.teamId }
-            : {}),
-        };
-        const res = await this.client.chat.startStream(args);
-        if (!res.ts) throw new Error("startStream returned no ts");
-        onFirstTs(res.ts, res.channel);
-        return res.ts;
-      },
+      startStream: () => startStream(),
+      startStreamWithText: startStream,
       appendText: async (ts, markdownText) => {
         const args: ChatAppendStreamArguments = {
           channel: t.channel,
