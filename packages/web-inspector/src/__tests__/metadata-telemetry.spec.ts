@@ -255,8 +255,7 @@ test("metadata impressions wait for an open connected Inspector and use last-fin
 
 test("a metadata module re-emits after an open-panel absent transition", async () => {
   const initial = fullMetadata();
-  const withoutPlan = fullMetadata();
-  delete withoutPlan.plan;
+  const { plan: _drop, ...withoutPlan } = fullMetadata();
   const context = await setup({
     metadataResponses: [initial, withoutPlan, initial],
   });
