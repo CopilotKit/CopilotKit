@@ -5,6 +5,7 @@ import { CopilotKitCoreReact } from "../react-core";
 describe("CopilotKitCoreReact ephemeral messages", () => {
   it("keeps ordered immutable snapshots and rejects persisted ID collisions", () => {
     const agent = new MockStepwiseAgent();
+    agent.threadId = "thread-a";
     agent.addMessage({
       id: "persisted-card",
       role: "user",
@@ -35,12 +36,28 @@ describe("CopilotKitCoreReact ephemeral messages", () => {
       }),
     ).toBe(true);
     expect(core.getEphemeralMessages("default", "thread-a")).toEqual([
-      { id: "first", content: { label: "updated" } },
-      { id: "second", content: { label: "second" } },
+      {
+        id: "first",
+        content: { label: "updated" },
+        anchorMessageId: "persisted-card",
+      },
+      {
+        id: "second",
+        content: { label: "second" },
+        anchorMessageId: "persisted-card",
+      },
     ]);
     expect(initialSnapshot).toEqual([
-      { id: "first", content: { label: "first" } },
-      { id: "second", content: { label: "second" } },
+      {
+        id: "first",
+        content: { label: "first" },
+        anchorMessageId: "persisted-card",
+      },
+      {
+        id: "second",
+        content: { label: "second" },
+        anchorMessageId: "persisted-card",
+      },
     ]);
     expect(
       core.addEphemeralMessage("default", "thread-a", {
@@ -80,6 +97,43 @@ describe("CopilotKitCoreReact ephemeral messages", () => {
     expect(core.clearEphemeralMessages("agent-a", "thread-b")).toBe(true);
     expect(core.getEphemeralMessages("agent-a", "thread-b")).toEqual([]);
     expect(core.clearEphemeralMessages("agent-a", "thread-b")).toBe(false);
+    expect(
+      (core as unknown as { _ephemeralMessages: Map<unknown, unknown> })
+        ._ephemeralMessages.size,
+    ).toBe(1);
+  });
+
+  it("drops an ephemeral entry when its persisted ID arrives later", () => {
+    const agent = new MockStepwiseAgent();
+    agent.threadId = "thread-a";
+    const core = new CopilotKitCoreReact({
+      agents__unsafe_dev_only: { default: agent },
+    });
+
+    expect(
+      core.addEphemeralMessage("default", "thread-a", {
+        id: "later-persisted",
+        content: "client-only first",
+      }),
+    ).toBe(true);
+    agent.addMessage({
+      id: "later-persisted",
+      role: "user",
+      content: "persisted owns this ID",
+    });
+
+    expect(core.getEphemeralMessages("default", "thread-a")).toEqual([]);
+    expect(agent.messages).toEqual([
+      {
+        id: "later-persisted",
+        role: "user",
+        content: "persisted owns this ID",
+      },
+    ]);
+    expect(
+      (core as unknown as { _ephemeralMessages: Map<unknown, unknown> })
+        ._ephemeralMessages.size,
+    ).toBe(0);
   });
 
   it("notifies subscribers with the scoped immutable snapshot", async () => {

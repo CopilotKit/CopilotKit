@@ -1,4 +1,5 @@
 import { useAgent } from "../../hooks/use-agent";
+import { getApplicableCustomMessageRenderers } from "../../hooks/use-render-custom-messages";
 import { useAttachments } from "../../hooks/use-attachments";
 import { useSuggestions } from "../../hooks/use-suggestions";
 import type { CopilotChatViewProps } from "./CopilotChatView";
@@ -46,6 +47,7 @@ export type CopilotChatProps = Omit<
   CopilotChatViewProps,
   | "messages"
   | "ephemeralMessages"
+  | "hasRenderableEphemeralMessages"
   | "isRunning"
   | "suggestions"
   | "suggestionLoadingIndexes"
@@ -121,11 +123,15 @@ export function CopilotChat({
   const hasExplicitThreadId =
     !!threadId || !!existingConfig?.hasExplicitThreadId;
 
-  const { agent } = useAgent({
+  const { agent, ephemeralMessages } = useAgent({
     agentId: resolvedAgentId,
     throttleMs,
   });
   const { copilotkit } = useCopilotKit();
+  const hasRenderableEphemeralMessages = getApplicableCustomMessageRenderers(
+    copilotkit.renderCustomMessages,
+    resolvedAgentId,
+  ).some((renderer) => renderer.renderEphemeral);
   const [, forceEphemeralUpdate] = useState(0);
 
   useEffect(() => {
@@ -1020,11 +1026,6 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [messagesMemoKey],
   );
-  const ephemeralMessages = copilotkit.getEphemeralMessages(
-    resolvedAgentId,
-    resolvedThreadId,
-  );
-
   // Compute the ID of the last user message for scroll-pinning logic.
   const lastUserMessageId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -1060,6 +1061,7 @@ export function CopilotChat({
     ...mergedProps,
     messages,
     ephemeralMessages,
+    hasRenderableEphemeralMessages,
     // Input behavior props
     onSubmitMessage: onSubmitInput,
     onStop: effectiveStopHandler,

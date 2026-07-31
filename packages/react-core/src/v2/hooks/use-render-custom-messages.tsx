@@ -1,5 +1,6 @@
 import { useCopilotChatConfiguration, useCopilotKit } from "../providers";
 import type {
+  ReactCustomMessageRenderer,
   ReactCustomMessageRendererPosition,
   ReactEphemeralMessage,
 } from "../types/react-custom-message-renderer";
@@ -8,6 +9,23 @@ import type { Message } from "@ag-ui/core";
 interface UseRenderCustomMessagesParams {
   message: Message;
   position: ReactCustomMessageRendererPosition;
+}
+
+export function getApplicableCustomMessageRenderers(
+  renderers: ReadonlyArray<ReactCustomMessageRenderer>,
+  agentId: string,
+): ReactCustomMessageRenderer[] {
+  return renderers
+    .filter(
+      (renderer) =>
+        renderer.agentId === undefined || renderer.agentId === agentId,
+    )
+    .sort((a, b) => {
+      const aHasAgent = a.agentId !== undefined;
+      const bHasAgent = b.agentId !== undefined;
+      if (aHasAgent === bHasAgent) return 0;
+      return aHasAgent ? -1 : 1;
+    });
 }
 
 export function useRenderCustomMessages() {
@@ -20,17 +38,10 @@ export function useRenderCustomMessages() {
 
   const { agentId, threadId } = config;
 
-  const customMessageRenderers = copilotkit.renderCustomMessages
-    .filter(
-      (renderer) =>
-        renderer.agentId === undefined || renderer.agentId === agentId,
-    )
-    .sort((a, b) => {
-      const aHasAgent = a.agentId !== undefined;
-      const bHasAgent = b.agentId !== undefined;
-      if (aHasAgent === bHasAgent) return 0;
-      return aHasAgent ? -1 : 1;
-    });
+  const customMessageRenderers = getApplicableCustomMessageRenderers(
+    copilotkit.renderCustomMessages,
+    agentId,
+  );
 
   return function (params: UseRenderCustomMessagesParams) {
     if (!customMessageRenderers.length) {
@@ -104,17 +115,13 @@ export function useRenderEphemeralMessages() {
   }
 
   const { agentId, threadId } = config;
-  const renderers = copilotkit.renderCustomMessages
-    .filter(
-      (renderer) =>
-        renderer.agentId === undefined || renderer.agentId === agentId,
-    )
-    .sort((a, b) => {
-      const aHasAgent = a.agentId !== undefined;
-      const bHasAgent = b.agentId !== undefined;
-      if (aHasAgent === bHasAgent) return 0;
-      return aHasAgent ? -1 : 1;
-    });
+  const renderers = getApplicableCustomMessageRenderers(
+    copilotkit.renderCustomMessages,
+    agentId,
+  );
+  if (!renderers.some((renderer) => renderer.renderEphemeral)) {
+    return null;
+  }
 
   return function (params: {
     message: ReactEphemeralMessage;

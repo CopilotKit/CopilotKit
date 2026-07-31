@@ -5,6 +5,8 @@ export type ReactCustomMessageRendererPosition = "before" | "after";
 export interface ReactEphemeralMessage<T = unknown> {
   id: string;
   content: T;
+  /** Persisted message ID after which this entry should render. */
+  anchorMessageId?: string;
 }
 
 export interface ReactCustomMessageRenderer {

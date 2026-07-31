@@ -386,6 +386,47 @@ export function deduplicateMessages(messages: Message[]): Message[] {
   return [...acc.values()];
 }
 
+type ComposedMessage =
+  | { kind: "persisted"; message: Message }
+  | { kind: "ephemeral"; message: ReactEphemeralMessage };
+
+function composeMessages(
+  persistedMessages: Message[],
+  ephemeralMessages: ReadonlyArray<ReactEphemeralMessage>,
+): ComposedMessage[] {
+  const persistedIds = new Set(persistedMessages.map((message) => message.id));
+  const anchoredEphemeral = new Map<string, ReactEphemeralMessage[]>();
+  const unanchoredEphemeral: ReactEphemeralMessage[] = [];
+  const orphanedEphemeral: ReactEphemeralMessage[] = [];
+
+  for (const message of ephemeralMessages) {
+    if (!message.anchorMessageId) {
+      unanchoredEphemeral.push(message);
+    } else if (persistedIds.has(message.anchorMessageId)) {
+      const anchored = anchoredEphemeral.get(message.anchorMessageId) ?? [];
+      anchored.push(message);
+      anchoredEphemeral.set(message.anchorMessageId, anchored);
+    } else {
+      orphanedEphemeral.push(message);
+    }
+  }
+
+  const composed: ComposedMessage[] = unanchoredEphemeral.map((message) => ({
+    kind: "ephemeral",
+    message,
+  }));
+  for (const message of persistedMessages) {
+    composed.push({ kind: "persisted", message });
+    for (const ephemeralMessage of anchoredEphemeral.get(message.id) ?? []) {
+      composed.push({ kind: "ephemeral", message: ephemeralMessage });
+    }
+  }
+  for (const message of orphanedEphemeral) {
+    composed.push({ kind: "ephemeral", message });
+  }
+  return composed;
+}
+
 export type CopilotChatMessageViewProps = Omit<
   WithSlots<
     {
@@ -486,17 +527,12 @@ export function CopilotChatMessageView({
     [messages],
   );
   const composedMessages = useMemo(
-    () => [
-      ...deduplicatedMessages.map((message) => ({
-        kind: "persisted" as const,
-        message,
-      })),
-      ...ephemeralMessages.map((message) => ({
-        kind: "ephemeral" as const,
-        message,
-      })),
-    ],
-    [deduplicatedMessages, ephemeralMessages],
+    () =>
+      composeMessages(
+        deduplicatedMessages,
+        renderEphemeralMessage ? ephemeralMessages : [],
+      ),
+    [deduplicatedMessages, ephemeralMessages, renderEphemeralMessage],
   );
 
   if (
@@ -607,7 +643,7 @@ export function CopilotChatMessageView({
   // Per-message rendering helper (shared by flat and virtual paths)
   // ---------------------------------------------------------------------------
   const renderMessageBlock = (
-    entry: (typeof composedMessages)[number],
+    entry: ComposedMessage,
     entryIndex: number,
   ): React.ReactElement[] => {
     const elements: (React.ReactElement | null | undefined)[] = [];

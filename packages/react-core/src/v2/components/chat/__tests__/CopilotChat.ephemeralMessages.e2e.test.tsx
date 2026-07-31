@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { RunAgentInput } from "@ag-ui/client";
 import {
@@ -9,6 +9,7 @@ import {
   runStartedEvent,
 } from "../../../__tests__/utils/test-helpers";
 import { useAgent } from "../../../hooks/use-agent";
+import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { useCopilotKit } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotChat } from "../CopilotChat";
@@ -109,6 +110,51 @@ describe("CopilotChat ephemeral messages", () => {
     agent.complete();
   });
 
+  it("keeps the welcome screen when an ephemeral entry has no renderer", async () => {
+    const agent = new CapturingAgent();
+
+    function UnrenderedControls() {
+      const { addEphemeralMessage } = useAgent();
+      return (
+        <>
+          <button
+            data-testid="add-unrendered-card"
+            onClick={() =>
+              addEphemeralMessage({
+                id: "unrendered-card",
+                content: "No renderer",
+              })
+            }
+          >
+            Add unrendered card
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider
+          agentId="default"
+          threadId="thread-a"
+          hasExplicitThreadId={false}
+        >
+          <UnrenderedControls />
+          <div style={{ height: 400 }}>
+            <CopilotChat />
+          </div>
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    expect(screen.getByText("How can I help you today?")).toBeDefined();
+    fireEvent.click(await screen.findByTestId("add-unrendered-card"));
+    await waitFor(() => {
+      expect(screen.getByText("How can I help you today?")).toBeDefined();
+      expect(screen.queryByTestId("ephemeral-card-unrendered-card")).toBeNull();
+    });
+  });
+
   it("renders the core-composed transcript in persisted-then-ephemeral order", async () => {
     const agent = new CapturingAgent();
     agent.addMessage({
@@ -123,6 +169,11 @@ describe("CopilotChat ephemeral messages", () => {
         addEphemeralMessage({
           id: "ephemeral-message",
           content: "Ephemeral message",
+        });
+        hookAgent.addMessage({
+          id: "later-persisted-message",
+          role: "user",
+          content: "Later persisted message",
         });
       }, [addEphemeralMessage, hookAgent]);
 
@@ -143,8 +194,12 @@ describe("CopilotChat ephemeral messages", () => {
       const list = screen.getByTestId("copilot-message-list");
       expect(list.textContent).toContain("Persisted message");
       expect(list.textContent).toContain("Ephemeral message");
+      expect(list.textContent).toContain("Later persisted message");
       expect(list.textContent?.indexOf("Persisted message")).toBeLessThan(
         list.textContent?.indexOf("Ephemeral message") ?? -1,
+      );
+      expect(list.textContent?.indexOf("Ephemeral message")).toBeLessThan(
+        list.textContent?.indexOf("Later persisted message") ?? -1,
       );
     });
   });
@@ -236,7 +291,11 @@ describe("CopilotChat ephemeral messages", () => {
     function Harness() {
       const [threadId, setThreadId] = React.useState("thread-a");
       return (
-        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+        <CopilotChatConfigurationProvider
+          agentId="default"
+          threadId={threadId}
+          hasExplicitThreadId={false}
+        >
           <ScopedControls onSwitchThread={() => setThreadId("thread-b")} />
           <div style={{ height: 400 }}>
             <CopilotChat welcomeScreen={false} />
@@ -245,11 +304,14 @@ describe("CopilotChat ephemeral messages", () => {
       );
     }
 
-    renderWithCopilotKit({
-      agent,
-      renderCustomMessages: [ephemeralRenderer],
-      children: <Harness />,
-    });
+    render(
+      <CopilotKitProvider
+        agents__unsafe_dev_only={{ default: agent }}
+        renderCustomMessages={[ephemeralRenderer]}
+      >
+        <Harness />
+      </CopilotKitProvider>,
+    );
 
     fireEvent.click(await screen.findByTestId("add-scoped-card"));
     expect(

@@ -65,6 +65,7 @@ export type CopilotChatViewProps = WithSlots<
   {
     messages?: Message[];
     ephemeralMessages?: ReadonlyArray<ReactEphemeralMessage>;
+    hasRenderableEphemeralMessages?: boolean;
     autoScroll?: AutoScrollMode | boolean;
     isRunning?: boolean;
     suggestions?: Suggestion[];
@@ -146,6 +147,7 @@ export function CopilotChatView({
   welcomeScreen,
   messages = [],
   ephemeralMessages = [],
+  hasRenderableEphemeralMessages = false,
   autoScroll = true,
   isRunning = false,
   suggestions,
@@ -320,7 +322,9 @@ export function CopilotChatView({
   });
 
   // Welcome screen logic
-  const isEmpty = messages.length === 0 && ephemeralMessages.length === 0;
+  const isEmpty =
+    messages.length === 0 &&
+    (!hasRenderableEphemeralMessages || ephemeralMessages.length === 0);
   // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
   const welcomeScreenDisabled = (welcomeScreen as unknown) === false;
   // Suppress the welcome screen (1) while the initial connect is in flight

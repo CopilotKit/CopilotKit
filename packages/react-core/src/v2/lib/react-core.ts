@@ -105,10 +105,33 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     agentId: string,
     threadId: string,
   ): ReadonlyArray<ReactEphemeralMessage> {
-    return (
-      this._ephemeralMessages.get(this._ephemeralScopeKey(agentId, threadId)) ??
-      EMPTY_EPHEMERAL_MESSAGES
+    const key = this._ephemeralScopeKey(agentId, threadId);
+    const messages = this._ephemeralMessages.get(key);
+    if (!messages) {
+      return EMPTY_EPHEMERAL_MESSAGES;
+    }
+
+    const agent = this.getAgent(agentId);
+    if (!agent || agent.threadId !== threadId) {
+      return messages;
+    }
+
+    const persistedIds = new Set(agent.messages.map((message) => message.id));
+    const withoutCollisions = messages.filter(
+      (message) => !persistedIds.has(message.id),
     );
+    if (withoutCollisions.length === messages.length) {
+      return messages;
+    }
+
+    if (withoutCollisions.length === 0) {
+      this._ephemeralMessages.delete(key);
+      return EMPTY_EPHEMERAL_MESSAGES;
+    }
+
+    const snapshot = Object.freeze(withoutCollisions);
+    this._ephemeralMessages.set(key, snapshot);
+    return snapshot;
   }
 
   addEphemeralMessage(
@@ -125,12 +148,22 @@ export class CopilotKitCoreReact extends CopilotKitCore {
       return false;
     }
 
-    const key = this._ephemeralScopeKey(agentId, threadId);
     const previous = this.getEphemeralMessages(agentId, threadId);
     const existingIndex = previous.findIndex(
       (existingMessage) => existingMessage.id === message.id,
     );
-    const nextMessage = Object.freeze({ ...message });
+    const persistedMessages = agent?.messages ?? [];
+    const existingMessage =
+      existingIndex >= 0 ? previous[existingIndex] : undefined;
+    const anchorMessageId =
+      existingMessage?.anchorMessageId ??
+      message.anchorMessageId ??
+      persistedMessages[persistedMessages.length - 1]?.id;
+    const nextMessage = Object.freeze({
+      ...message,
+      ...(anchorMessageId ? { anchorMessageId } : {}),
+    });
+    const key = this._ephemeralScopeKey(agentId, threadId);
     const next = [...previous];
     if (existingIndex >= 0) {
       next[existingIndex] = nextMessage;
@@ -160,7 +193,11 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     const next = Object.freeze(
       previous.filter((message) => message.id !== messageId),
     );
-    this._ephemeralMessages.set(key, next);
+    if (next.length === 0) {
+      this._ephemeralMessages.delete(key);
+    } else {
+      this._ephemeralMessages.set(key, next);
+    }
     this._notifyEphemeralMessagesChanged(agentId, threadId, next);
     return true;
   }
@@ -172,7 +209,7 @@ export class CopilotKitCoreReact extends CopilotKitCore {
       return false;
     }
 
-    this._ephemeralMessages.set(key, EMPTY_EPHEMERAL_MESSAGES);
+    this._ephemeralMessages.delete(key);
     this._notifyEphemeralMessagesChanged(
       agentId,
       threadId,
