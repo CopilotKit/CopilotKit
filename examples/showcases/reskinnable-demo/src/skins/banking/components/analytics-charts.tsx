@@ -247,7 +247,9 @@ export function TopChargesChart({
               className="h-full rounded-full"
               style={{
                 width: `${max ? (r.amount / max) * 100 : 0}%`,
-                backgroundColor: r.team ? teamColor(r.team) : "hsl(248 84% 60%)",
+                backgroundColor: r.team
+                  ? teamColor(r.team)
+                  : "hsl(248 84% 60%)",
               }}
             />
           </div>

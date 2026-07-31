@@ -474,8 +474,7 @@ export function BankingTools() {
                 });
                 respond?.(`PIN updated on the ${label}.`);
               } catch (err) {
-                const reason =
-                  err instanceof Error ? err.message : String(err);
+                const reason = err instanceof Error ? err.message : String(err);
                 answeredPinChanges.set(toolCallId, { failed: reason });
                 respond?.(`Could not update the PIN: ${reason}`);
               }
@@ -603,7 +602,8 @@ export function BankingTools() {
             const params = new URLSearchParams();
             if (sort) params.set("sort", sort);
             if (top) params.set("top", String(top));
-            if (categories?.length) params.set("category", categories.join(","));
+            if (categories?.length)
+              params.set("category", categories.join(","));
             if (statuses?.length) params.set("status", statuses.join(","));
             if (vendor) params.set("vendor", vendor);
             if (from) params.set("from", from);

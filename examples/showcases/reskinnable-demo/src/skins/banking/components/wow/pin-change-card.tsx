@@ -283,8 +283,8 @@ export function PinChangedCard({
       </div>
 
       <p className="text-xs leading-relaxed text-ink-muted">
-        Set on your screen and applied immediately. The PIN was never sent to the
-        assistant.
+        Set on your screen and applied immediately. The PIN was never sent to
+        the assistant.
       </p>
     </div>
   );

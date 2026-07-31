@@ -31,7 +31,12 @@
   "policies": [
     { "id": "7f3b3c4d5e", "type": "Marketing", "limit": 25000, "spent": 22000 },
     { "id": "8r5c3m4n5o", "type": "Executive", "limit": 60000, "spent": 55000 },
-    { "id": "9a8b7c6d5e", "type": "Engineering", "limit": 68000, "spent": 60000 }
+    {
+      "id": "9a8b7c6d5e",
+      "type": "Engineering",
+      "limit": 68000,
+      "spent": 60000
+    }
   ],
   "team": [
     {
