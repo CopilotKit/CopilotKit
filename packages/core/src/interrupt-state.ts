@@ -145,7 +145,10 @@ export class ɵInterruptState<TValue = unknown> {
     const mutableInterrupts = [...interrupts];
     const resume = buildResumeArray(mutableInterrupts, this.#responses);
     const toolResults = mutableInterrupts.flatMap((interrupt) => {
-      if (!interrupt.toolCallId) return [];
+      // Executor-less interrupt tools rely on the client to persist the human
+      // response as their result. Suspend/resume backends emit the real result
+      // themselves after resuming, even when the interrupt references a tool.
+      if (!interrupt.toolCallId || interrupt.reason !== "tool_call") return [];
       return [
         {
           toolCallId: interrupt.toolCallId,

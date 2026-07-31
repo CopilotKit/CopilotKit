@@ -868,7 +868,7 @@ describe("useInterrupt", () => {
       runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
       const TOOL_INT: Interrupt = {
         id: "int-1",
-        reason: "tool_approval",
+        reason: "tool_call",
         toolCallId: "tc-1",
       };
       const calls: any[] = [];
