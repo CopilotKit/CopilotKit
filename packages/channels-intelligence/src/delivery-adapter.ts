@@ -32,6 +32,7 @@ import type {
   UserQuery,
   ReplyContinuationOptions,
 } from "@copilotkit/channels-core";
+import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
   createRunRenderer as createSlackRunRenderer,
   renderSlackMessage,
@@ -76,7 +77,7 @@ const MANAGED_ASSET_HISTORY_ATTEMPTS = 3;
 const MANAGED_SLACK_TEXT_INTERVAL_MS = 600;
 
 /** Slack could not prove whether a managed file became visible. */
-export class ChannelFileDeliveryUnknownError extends Error {
+export class ChannelFileDeliveryUnknownError extends ChannelDeliveryTerminatedError {
   readonly code = "unknown";
 
   constructor(options?: { cause?: unknown }) {

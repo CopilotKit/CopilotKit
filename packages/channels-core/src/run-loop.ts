@@ -21,6 +21,7 @@ import type {
   ContextEntry,
 } from "./tools.js";
 import { parseToolArgs, stringifyHandlerResult } from "./tools.js";
+import { isChannelDeliveryTerminatedError } from "./delivery-error.js";
 
 export interface RunLoopArgs {
   agent: AbstractAgent;
@@ -404,6 +405,13 @@ export async function runAgentLoop(
               ),
             );
           } catch (err) {
+            if (isChannelDeliveryTerminatedError(err)) {
+              // The provider already terminalled this delivery. Freeze renderer
+              // fanout before the canonical RUN_ERROR is ingested, then stop the
+              // loop instead of inviting the model to emit through a closed path.
+              deferRendererError(err);
+              throw err;
+            }
             result = JSON.stringify({ error: (err as Error).message });
           }
         }

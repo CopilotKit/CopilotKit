@@ -404,7 +404,7 @@ export class NativeMessageStream implements TextStream {
       clearTimeout(this.flushTimer);
       this.flushTimer = undefined;
     }
-    this.queue = this.queue.then(() => this.flushChunk(chunk));
+    this.setQueue(this.queue.then(() => this.flushChunk(chunk)));
   }
 
   async finish(finalBlocks?: KnownBlock[]): Promise<void> {
@@ -506,7 +506,19 @@ export class NativeMessageStream implements TextStream {
   }
 
   private enqueueFlush(): void {
-    this.queue = this.queue.then(() => this.flushText());
+    this.setQueue(this.queue.then(() => this.flushText()));
+  }
+
+  /**
+   * Keep the rejected queue available for finish() while observing it now.
+   *
+   * A strict provider failure may settle between an event callback and the
+   * owner's later finish() call. Attaching only the later await leaves a Node
+   * unhandled-rejection window that can terminate the host process.
+   */
+  private setQueue(operation: Promise<void>): void {
+    this.queue = operation;
+    void operation.catch(() => undefined);
   }
 
   /**

@@ -1,4 +1,5 @@
 import { expect, test, vi } from "vitest";
+import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
   ChannelProviderDeliveryError,
   ClaimedChannelDelivery,
@@ -1156,11 +1157,13 @@ test("surfaces a failed provider result as an already-terminal error", async () 
     vi.fn(),
   );
 
-  await expect(
-    session.effect("response_01", {
+  const error = await session
+    .effect("response_01", {
       kind: "slack.message.create",
       text: "Hello",
-    }),
-  ).rejects.toBeInstanceOf(ChannelProviderDeliveryError);
+    })
+    .catch((caught: unknown) => caught);
+  expect(error).toBeInstanceOf(ChannelProviderDeliveryError);
+  expect(error).toBeInstanceOf(ChannelDeliveryTerminatedError);
   expect(session.hasProviderOutput()).toBe(false);
 });
