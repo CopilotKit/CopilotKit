@@ -86,6 +86,8 @@ export interface StartChannelsWithGatewayControlOptions {
   runtimeInstanceId: string;
   /** Maximum deliveries this Runtime may claim and execute at once. */
   maxConcurrentDeliveries?: number;
+  /** Maximum claimed deliveries buffered behind active execution. */
+  maxPendingDeliveries?: number;
   /** Intelligence app-api HTTP base URL — enables file/history parity on the
    * realtime path (OSS-476), which are HTTP-only. With {@link apiKey}. */
   appApiBaseUrl?: string;
@@ -135,6 +137,9 @@ export async function startChannelsWithGatewayControl(
     session: opts.session,
     ...(opts.maxConcurrentDeliveries !== undefined
       ? { maxConcurrentDeliveries: opts.maxConcurrentDeliveries }
+      : {}),
+    ...(opts.maxPendingDeliveries !== undefined
+      ? { maxPendingDeliveries: opts.maxPendingDeliveries }
       : {}),
     ...(opts.appApiBaseUrl ? { appApiBaseUrl: opts.appApiBaseUrl } : {}),
     ...(opts.apiKey ? { apiKey: opts.apiKey } : {}),
@@ -228,6 +233,8 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   runtimeInstanceId: string;
   /** Maximum deliveries this Runtime may claim and execute at once. */
   maxConcurrentDeliveries?: number;
+  /** Maximum claimed deliveries buffered behind active execution. */
+  maxPendingDeliveries?: number;
   /** Adapter kind declared to the gateway on join (default `"slack"`). */
   adapter?: string;
   /** Intelligence app-api HTTP base URL for managed file and Thread history
@@ -325,6 +332,12 @@ export async function startChannelsOverRealtimeGateway(
       session,
       scope: config.scope,
       runtimeInstanceId: config.runtimeInstanceId,
+      ...(config.maxConcurrentDeliveries !== undefined
+        ? { maxConcurrentDeliveries: config.maxConcurrentDeliveries }
+        : {}),
+      ...(config.maxPendingDeliveries !== undefined
+        ? { maxPendingDeliveries: config.maxPendingDeliveries }
+        : {}),
       // File/history parity is HTTP-only; forward the app-api coordinates (the
       // apiKey is the same one used as the socket authToken) so the transport
       // can reach the file/history REST endpoints directly.

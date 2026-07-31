@@ -304,6 +304,95 @@ test("claims bounded pending work but does not execute above the local limit", a
   await transport.stop();
 });
 
+test("pending overflow records an explicit outcome without growing the buffer", async () => {
+  let releaseFirst: (() => void) | undefined;
+  const firstDelivery = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const log = vi.fn();
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockImplementation((event, payload) => {
+      const { deliveryId } = payload as { deliveryId: string };
+      if (event === "claim_overflow") {
+        return Promise.resolve({
+          result: "overflowed",
+          deliveryId,
+          outcome: "runtime_capacity_overflow",
+        });
+      }
+      return Promise.resolve({
+        result: "claimed",
+        deliveryId,
+        ownerGeneration: 7,
+        joinToken: `chj_${deliveryId}`,
+      });
+    }),
+    on: vi.fn(),
+    join: vi.fn().mockImplementation((topic) => {
+      const deliveryId = topic.replace("delivery:", "");
+      return Promise.resolve(
+        channel({
+          ...preparedDelivery(),
+          deliveryId,
+          canonicalThreadId: `thread_${deliveryId}`,
+        }),
+      );
+    }),
+  };
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+    maxConcurrentDeliveries: 1,
+    maxPendingDeliveries: 1,
+    log,
+  });
+  const handled = vi.fn(async (_session, delivery: PreparedChannelDelivery) => {
+    if (delivery.deliveryId === "dlv_delivery_01") {
+      await firstDelivery;
+    }
+  });
+  transport.start(handled);
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+
+  for (const deliveryId of [
+    "dlv_delivery_01",
+    "dlv_delivery_02",
+    "dlv_delivery_03",
+  ]) {
+    invitationHandler({
+      protocol: "channel_delivery_v1",
+      deliveryId,
+      canonicalThreadId: `thread_${deliveryId}`,
+    });
+    if (deliveryId === "dlv_delivery_01") {
+      await vi.waitFor(() => expect(handled).toHaveBeenCalledOnce());
+    }
+  }
+
+  await vi.waitFor(() => {
+    expect(control.push).toHaveBeenCalledWith("claim_overflow", {
+      protocol: "channel_delivery_v1",
+      deliveryId: "dlv_delivery_03",
+      runtimeInstanceId: "rti_runtime_01",
+    });
+    expect(log).toHaveBeenCalledWith("channel delivery capacity overflow", {
+      outcome: "overflowed",
+      reason: "runtime_capacity_overflow",
+      deliveryId: "dlv_delivery_03",
+      canonicalThreadId: "thread_dlv_delivery_03",
+    });
+  });
+  expect(handled).toHaveBeenCalledOnce();
+
+  releaseFirst?.();
+  await vi.waitFor(() => expect(handled).toHaveBeenCalledTimes(2));
+  expect(handled).not.toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ deliveryId: "dlv_delivery_03" }),
+  );
+  await transport.stop();
+});
+
 test("claims same-Thread work for Redis coordination but executes it in order", async () => {
   let releaseFirst: (() => void) | undefined;
   const firstDelivery = new Promise<void>((resolve) => {

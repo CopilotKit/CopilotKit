@@ -30,6 +30,7 @@ import { buildContentParts } from "./content-parts.js";
 
 const INVITATION_EVENT = "delivery_invitation";
 const CLAIM_EVENT = "claim";
+const CAPACITY_OVERFLOW_EVENT = "claim_overflow";
 const JOIN_TOKEN_EVENT = "join_token";
 const DEFAULT_MAX_CONCURRENT_DELIVERIES = 8;
 const DEFAULT_MAX_PENDING_DELIVERIES = 32;
@@ -723,11 +724,7 @@ export class ChannelDeliveryTransport {
         this.active.size >=
         this.maxConcurrentDeliveries + this.maxPendingDeliveries
       ) {
-        this.options.log?.("channel delivery invitation rejected", {
-          reason: "runtime_capacity_overflow",
-          deliveryId: value.deliveryId,
-          canonicalThreadId: value.canonicalThreadId,
-        });
+        this.reportCapacityOverflow(value.deliveryId, value.canonicalThreadId);
         return;
       }
       const activeHandler = this.deliveryHandler;
@@ -751,6 +748,38 @@ export class ChannelDeliveryTransport {
       this.threadTails.set(value.canonicalThreadId, running);
     };
     this.options.session.on(INVITATION_EVENT, this.invitationHandler);
+  }
+
+  private reportCapacityOverflow(
+    deliveryId: string,
+    canonicalThreadId: string,
+  ): void {
+    void this.options.session
+      .push(CAPACITY_OVERFLOW_EVENT, {
+        protocol: CHANNEL_DELIVERY_PROTOCOL,
+        deliveryId,
+        runtimeInstanceId: this.options.runtimeInstanceId,
+      })
+      .then((value: unknown) => {
+        const result =
+          isRecord(value) && typeof value.result === "string"
+            ? value.result
+            : "unknown";
+        this.options.log?.("channel delivery capacity overflow", {
+          outcome: result,
+          reason: "runtime_capacity_overflow",
+          deliveryId,
+          canonicalThreadId,
+        });
+      })
+      .catch(() => {
+        this.options.log?.("channel delivery capacity overflow", {
+          outcome: "report_failed",
+          reason: "runtime_capacity_overflow",
+          deliveryId,
+          canonicalThreadId,
+        });
+      });
   }
 
   async stop(): Promise<void> {
