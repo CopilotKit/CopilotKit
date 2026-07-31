@@ -87,7 +87,7 @@ describe("DeliveryAdapter concurrent same-thread runs", () => {
       makeAgent,
     );
 
-    // Both must be in flight (second must not throw ChannelAgentConcurrencyError).
+    // Both must be in flight — the second must not be rejected for overlapping.
     await vi.waitFor(() => expect(loadCalls).toBeGreaterThanOrEqual(1));
     release1();
     const [s1, s2] = await Promise.all([p1, p2]);

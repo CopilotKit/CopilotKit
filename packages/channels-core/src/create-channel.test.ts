@@ -57,15 +57,68 @@ function collectText(nodes: ChannelNode[]): string {
   return out;
 }
 
-/** Capture user messages injected into a fake agent without changing its behavior. */
+/**
+ * Apply `patch` to `agent` and, recursively, to every clone descended from it.
+ *
+ * `createChannel` isolates every turn via `clone()`, so the instance a turn
+ * actually runs on is never the one the test configured. A spy installed only on
+ * the configured agent would observe nothing.
+ */
+function patchAgentAndClones(
+  agent: FakeAgent,
+  patch: (target: FakeAgent) => void,
+): void {
+  const wrap = (target: FakeAgent): void => {
+    patch(target);
+    const origClone = target.clone.bind(target);
+    target.clone = () => {
+      const cloned = origClone();
+      wrap(cloned);
+      return cloned;
+    };
+  };
+  wrap(agent);
+}
+
+/** Capture user messages injected into a fake agent (and every clone of it). */
 function captureAddedMessages(agent: FakeAgent): unknown[] {
   const added: unknown[] = [];
-  const addMessage = agent.addMessage.bind(agent);
-  agent.addMessage = (message) => {
-    added.push(message);
-    return addMessage(message);
-  };
+  patchAgentAndClones(agent, (target) => {
+    const addMessage = target.addMessage.bind(target);
+    target.addMessage = (message) => {
+      added.push(message);
+      return addMessage(message);
+    };
+  });
   return added;
+}
+
+/** Sum `runAgent` calls across the configured agent and every clone of it. */
+function trackRunAgentCalls(agent: FakeAgent): { total: () => number } {
+  let total = 0;
+  patchAgentAndClones(agent, (target) => {
+    const orig = target.runAgent.bind(target);
+    target.runAgent = async (parameters, subscriber) => {
+      total += 1;
+      return orig(parameters, subscriber);
+    };
+  });
+  return { total: () => total };
+}
+
+/**
+ * Capture the agent instances handed to the conversation store — i.e. the ones
+ * that actually run, post-isolation — rather than the configured prototype.
+ */
+function captureSessionAgents(fake: FakeAdapter): { agents: FakeAgent[] } {
+  const agents: FakeAgent[] = [];
+  const orig = fake.conversationStore.getOrCreate.bind(fake.conversationStore);
+  fake.conversationStore.getOrCreate = async (key, target, makeAgent) => {
+    const session = await orig(key, target, makeAgent);
+    agents.push(session.agent as FakeAgent);
+    return session;
+  };
+  return { agents };
 }
 
 describe("createChannel", () => {
@@ -137,6 +190,7 @@ describe("createChannel", () => {
     Object.defineProperty(fake, "injectInboundTurnOnce", { value: true });
     const agent = new FakeAgent();
     const added = captureAddedMessages(agent);
+    const runs = trackRunAgentCalls(agent);
     const channel = createChannel({ adapters: [fake], agent: () => agent });
 
     channel.onMention(async ({ thread }) => {
@@ -152,7 +206,9 @@ describe("createChannel", () => {
       platform: "fake",
     });
 
-    expect(agent.runAgentCalls).toBe(2);
+    // Each `thread.runAgent()` resolves its own isolated instance, so count runs
+    // across the configured agent and its clones rather than on one object.
+    expect(runs.total()).toBe(2);
     expect(added).toEqual([
       expect.objectContaining({
         role: "user",
@@ -184,6 +240,7 @@ describe("createChannel", () => {
       },
       () => undefined,
     ]);
+    const sessionAgents = captureSessionAgents(fake);
     const channel = createChannel({
       adapters: [fake],
       agent: () => agent,
@@ -210,10 +267,14 @@ describe("createChannel", () => {
     });
 
     expect(lifecycleCalls).toHaveLength(1);
-    expect(agent.runAgentCalls).toBe(2);
+    // One `thread.runAgent()` → one isolated instance, and the tool loop iterates
+    // twice on that instance. Assert on it, not on the configured prototype.
+    expect(sessionAgents.agents).toHaveLength(1);
+    const ran = sessionAgents.agents[0]!;
+    expect(ran.runAgentCalls).toBe(2);
     expect(canonicalToolEnds).toEqual(["tool-1"]);
     expect(
-      agent.messages.some(
+      ran.messages.some(
         (message) => message.role === "tool" && message.toolCallId === "tool-1",
       ),
     ).toBe(true);
@@ -402,18 +463,21 @@ describe("createChannel", () => {
   it("merges per-turn runAgent context with the channel-level context", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    // Capture the context/tools passed to the agent's first runAgent call.
+    // Capture the context/tools passed to the first runAgent call on whichever
+    // isolated instance ends up running.
     let seenContext: unknown;
     let seenTools: unknown;
-    const origRunAgent = agent.runAgent.bind(agent);
-    agent.runAgent = async (parameters, subscriber) => {
-      if (seenContext === undefined) {
-        seenContext = (parameters as { context?: unknown } | undefined)
-          ?.context;
-        seenTools = (parameters as { tools?: unknown } | undefined)?.tools;
-      }
-      return origRunAgent(parameters, subscriber);
-    };
+    patchAgentAndClones(agent, (target) => {
+      const origRunAgent = target.runAgent.bind(target);
+      target.runAgent = async (parameters, subscriber) => {
+        if (seenContext === undefined) {
+          seenContext = (parameters as { context?: unknown } | undefined)
+            ?.context;
+          seenTools = (parameters as { tools?: unknown } | undefined)?.tools;
+        }
+        return origRunAgent(parameters, subscriber);
+      };
+    });
 
     const channel = createChannel({
       adapters: [fake],
@@ -708,18 +772,9 @@ describe("createChannel", () => {
   it("singleton agent is cloned per run (distinct instances)", async () => {
     const state = new MemoryStore();
     const prototype = new FakeAgent();
-    const seen: FakeAgent[] = [];
 
     const fake = new FakeAdapter();
-    // Capture agents the conversation store receives from makeAgent.
-    const origGetOrCreate = fake.conversationStore.getOrCreate.bind(
-      fake.conversationStore,
-    );
-    fake.conversationStore.getOrCreate = async (key, target, makeAgent) => {
-      const session = await origGetOrCreate(key, target, makeAgent);
-      seen.push(session.agent as FakeAgent);
-      return session;
-    };
+    const { agents: seen } = captureSessionAgents(fake);
 
     const channel = createChannel({
       adapters: [fake],
@@ -781,6 +836,146 @@ describe("createChannel", () => {
         eventId: "E1",
       }),
     ).rejects.toThrow(/clone\(\) must return a distinct instance/);
+  });
+
+  it("factory returning a shared instance isolates each turn from the others", async () => {
+    const state = new MemoryStore();
+    const shared = new FakeAgent();
+
+    const fake = new FakeAdapter();
+    const { agents: seen } = captureSessionAgents(fake);
+
+    // The shape this exists for: a factory that hands back the same object on
+    // every call. Turn concurrency is parallel by default, so without isolation
+    // both turns would run on `shared` and append into its one `messages` array.
+    const channel = createChannel({
+      adapters: [fake],
+      agent: (threadId) => {
+        shared.threadId = threadId;
+        return shared;
+      },
+      store: { adapter: state },
+    });
+    // What each run believes it was asked, read while both turns are in flight.
+    const askedPerRun: string[] = [];
+    patchAgentAndClones(shared, (target) => {
+      const orig = target.runAgent.bind(target);
+      target.runAgent = async (parameters, subscriber) => {
+        // Hold the run open so the turns genuinely overlap, then read back. On a
+        // shared instance the other turn's user message has landed by now.
+        await new Promise((r) => setTimeout(r, 20));
+        askedPerRun.push(
+          target.messages
+            .filter((m) => m.role === "user")
+            .map((m) => String(m.content))
+            .join("+"),
+        );
+        return orig(parameters, subscriber);
+      };
+    });
+
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    await Promise.all([
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "first",
+        platform: "fake" as const,
+        eventId: "E1",
+      }),
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "second",
+        platform: "fake" as const,
+        eventId: "E2",
+      }),
+    ]);
+
+    // Assert the symptom before the mechanism, so a regression reports the
+    // user-visible defect rather than an object-identity puzzle: without
+    // isolation both runs read "first+second" off the one shared `messages`
+    // array, so each turn is prompted with the other user's question too.
+    // Completion order between the turns isn't guaranteed — compare as a set.
+    expect(askedPerRun.sort()).toEqual(["first", "second"]);
+
+    // Mechanism: two distinct clones, neither of them the configured object.
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).not.toBe(shared);
+    expect(seen[1]).not.toBe(shared);
+    expect(seen[0]).not.toBe(seen[1]);
+    // Nothing ever runs on the configured object, so it stays pristine.
+    expect(shared.messages).toEqual([]);
+  });
+
+  it("agent whose clone() drops subclass state fails loud", async () => {
+    const state = new MemoryStore();
+
+    // Inherits `FakeAgent.clone()`, which builds a plain `FakeAgent` and so
+    // cannot carry this field — the same shape as a subclass inheriting
+    // `AbstractAgent.prototype.clone()`, which copies a fixed field list.
+    class StatefulAgent extends FakeAgent {
+      authClient = { token: "secret" };
+    }
+    const agent = new StatefulAgent();
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => agent,
+      store: { adapter: state },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ prompt: "hi" });
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    await expect(
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "hi",
+        platform: "fake" as const,
+        eventId: "E1",
+      }),
+    ).rejects.toThrow(/StatefulAgent\.clone\(\) dropped authClient/);
+  });
+
+  it("does not fail loud when clone() drops an instance-patched method", async () => {
+    const state = new MemoryStore();
+    const agent = new FakeAgent();
+    // Spies and instrumentation assign methods on the instance. `FakeAgent.clone()`
+    // does not carry them, but the prototype method survives, so the clone still
+    // behaves correctly and this must not be treated as dropped state.
+    agent.runAgent = async (parameters, subscriber) =>
+      FakeAgent.prototype.runAgent.call(agent, parameters, subscriber);
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => agent,
+      store: { adapter: state },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ prompt: "hi" });
+    });
+
+    await channel.ɵruntime.start();
+    await expect(
+      fake.getSink().onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "hi",
+        platform: "fake" as const,
+        eventId: "E1",
+      }),
+    ).resolves.not.toThrow();
   });
 
   it("dedupes turns by eventId", async () => {
@@ -939,19 +1134,23 @@ describe("createChannel", () => {
     // have the fake produce an assistant message with text on agent.messages
     // (mirroring how run-loop expects assistant replies to land there).
     let seenContext: unknown;
-    const origRunAgent = agent.runAgent.bind(agent);
-    agent.runAgent = async (parameters, subscriber) => {
-      if (seenContext === undefined) {
-        seenContext = (parameters as { context?: unknown } | undefined)
-          ?.context;
-      }
-      agent.addMessage({
-        id: globalThis.crypto.randomUUID(),
-        role: "assistant",
-        content: "the assistant reply",
-      });
-      return origRunAgent(parameters, subscriber);
-    };
+    patchAgentAndClones(agent, (target) => {
+      const origRunAgent = target.runAgent.bind(target);
+      target.runAgent = async (parameters, subscriber) => {
+        if (seenContext === undefined) {
+          seenContext = (parameters as { context?: unknown } | undefined)
+            ?.context;
+        }
+        // Add to the instance that is running, so the reply lands on the
+        // messages the run loop reads back.
+        target.addMessage({
+          id: globalThis.crypto.randomUUID(),
+          role: "assistant",
+          content: "the assistant reply",
+        });
+        return origRunAgent(parameters, subscriber);
+      };
+    });
 
     channel.onMention(async ({ thread }) => {
       await thread.runAgent({ transcript: true });
