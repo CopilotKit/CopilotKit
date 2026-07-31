@@ -4,12 +4,19 @@ from __future__ import annotations
 
 import csv
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
 _logger = logging.getLogger(__name__)
 
-_csv_path = Path(__file__).resolve().parent.parent / "data" / "db.csv"
+# NOTE: the dataset MUST live inside the `tools/` package. Every integration
+# Dockerfile copies `tools/` (the symlink to showcase/shared/python/tools), but
+# none copied the former sibling `shared/python/data/`, so the CSV was absent at
+# runtime and the silent fallback below served a 3-row mock — visible as a
+# 2-slice pie / 1-bar chart in the beautiful-chat demos of 8 integrations.
+_csv_path = Path(__file__).resolve().parent / "data" / "db.csv"
 
 _MOCK_DATA = [
     {
@@ -38,17 +45,39 @@ _MOCK_DATA = [
     },
 ]
 
+def _fail_or_mock(reason: str) -> list[dict[str, Any]]:
+    """Fail LOUD on a missing/empty dataset instead of silently degrading.
+
+    The 3-row ``_MOCK_DATA`` above is a developer convenience, but when it is
+    served unnoticed the beautiful-chat demos render a 2-slice pie chart and a
+    1-bar bar chart while looking "fine" — the exact bug this guard exists to
+    prevent. A warning was not enough: these integrations run the agent as a
+    child process whose stdout is not captured, so the warning was invisible
+    and the wrong data shipped.
+
+    Set ``SHOWCASE_ALLOW_MOCK_DATASET=1`` to opt into the mock (unit tests,
+    local experiments without the CSV).
+    """
+    message = (
+        f"query_data dataset unusable ({reason}) at {_csv_path}. "
+        "The demos would silently render a 3-row mock. Ensure the CSV ships "
+        "inside the tools/ package (every integration Dockerfile copies it). "
+        "Set SHOWCASE_ALLOW_MOCK_DATASET=1 to fall back to mock data on purpose."
+    )
+    if os.getenv("SHOWCASE_ALLOW_MOCK_DATASET") in ("1", "true", "TRUE"):
+        _logger.error("%s — continuing with mock data (opt-in).", message)
+        print(f"[query_data] {message}", file=sys.stderr, flush=True)
+        return _MOCK_DATA
+    raise RuntimeError(message)
+
+
 try:
     with open(_csv_path) as _f:
         _cached_data: list[dict[str, Any]] = list(csv.DictReader(_f))
     if not _cached_data:
-        _logger.warning("CSV at %s is empty, falling back to mock data", _csv_path)
-        _cached_data = _MOCK_DATA
+        _cached_data = _fail_or_mock("file is empty")
 except (FileNotFoundError, OSError) as exc:
-    _logger.warning(
-        "Could not load CSV at %s (%s), falling back to mock data", _csv_path, exc
-    )
-    _cached_data = _MOCK_DATA
+    _cached_data = _fail_or_mock(str(exc))
 
 
 def query_data_impl(query: str) -> list[dict[str, Any]]:
