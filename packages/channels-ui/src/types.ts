@@ -21,6 +21,17 @@ export interface PlatformUser {
   email?: string;
 }
 
+/** Provider-neutral identity and dispatch semantics for one message revision. */
+export interface MessageOperation {
+  kind: "created" | "updated" | "deleted";
+  /** Stable provider identity shared by every revision of one logical message. */
+  logicalMessageId: string;
+  /** Provider identity for this exact revision, including delete tombstones. */
+  revisionId: string;
+  /** Whether this revision explicitly addresses the Channel. */
+  mentioned: boolean;
+}
+
 /** A base64 data source, shared by every binary media part. */
 export type MediaDataSource = { type: "data"; value: string; mimeType: string };
 
@@ -46,6 +57,8 @@ export interface IncomingMessage {
   user: PlatformUser;
   ref: MessageRef;
   platform: string;
+  /** Present for provider message hooks; specialized interaction contexts omit it. */
+  operation?: MessageOperation;
   /**
    * Optional multimodal content parts (e.g. inbound image/file attachments)
    * built by the adapter. When present, the app should prefer these over
@@ -66,6 +79,11 @@ export interface IncomingMessage {
   turnId?: string;
   /** Lease/delivery id (managed/Intelligence path). */
   deliveryId?: string;
+}
+
+/** Incoming message delivered specifically to `onMention` or `onMessage`. */
+export interface ChannelMessage extends IncomingMessage {
+  operation: MessageOperation;
 }
 export interface ThreadMessage {
   user?: PlatformUser;

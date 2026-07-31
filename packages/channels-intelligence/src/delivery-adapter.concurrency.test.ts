@@ -43,7 +43,16 @@ function prepared(deliveryId: string): PreparedChannelDelivery {
     turn: {
       eventId: `evt_${deliveryId}`,
       receivedAt: "2026-07-29T17:00:00.000Z",
-      input: { kind: "text", text: "hi" },
+      input: {
+        kind: "text",
+        text: "hi",
+        operation: {
+          kind: "created",
+          logicalMessageId: "message-concurrency",
+          revisionId: "revision-concurrency",
+          mentioned: false,
+        },
+      },
       actor: { externalUserId: "U1" },
     },
   };

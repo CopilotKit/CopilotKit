@@ -85,7 +85,16 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
 export function preparedDelivery(
   suffix: string,
   adapter: "slack" | "teams",
-  input: PreparedChannelDelivery["turn"]["input"],
+  input:
+    | PreparedChannelDelivery["turn"]["input"]
+    | {
+        kind: "text";
+        text?: string;
+        files?: Extract<
+          PreparedChannelDelivery["turn"]["input"],
+          { kind: "text" }
+        >["files"];
+      },
 ): PreparedChannelDelivery {
   // Packet contract requires `dlv_` + 8..128 charset chars.
   const idSuffix =
@@ -102,7 +111,18 @@ export function preparedDelivery(
     turn: {
       eventId: `event_${idSuffix}`,
       receivedAt: "2026-07-29T17:00:00.000Z",
-      input,
+      input:
+        input.kind === "text" && !("operation" in input)
+          ? {
+              ...input,
+              operation: {
+                kind: "created",
+                logicalMessageId: `message_${idSuffix}`,
+                revisionId: `revision_${idSuffix}`,
+                mentioned: false,
+              },
+            }
+          : input,
       actor: {
         externalUserId: `user_${idSuffix}`,
         displayName: "Ada",

@@ -120,6 +120,7 @@ export class DeliveryAdapter implements PlatformAdapter {
   readonly ackDeadlineMs = 0;
   readonly stateStore?: StateStore;
   readonly capabilities: SurfaceCapabilities = {
+    supportsMessageEvents: true,
     supportsModals: false,
     supportsTyping: false,
     supportsReactions: false,
@@ -267,6 +268,7 @@ export class DeliveryAdapter implements PlatformAdapter {
         await sink.onTurn({
           ...base,
           userText: input.text ?? "",
+          operation: input.operation,
           ...(parts.length > 0
             ? {
                 contentParts: [

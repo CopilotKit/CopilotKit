@@ -27,6 +27,12 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
       preparedDelivery("channel_name", "slack", {
         kind: "text",
         text: "hello",
+        operation: {
+          kind: "created",
+          logicalMessageId: "message-channel-name",
+          revisionId: "revision-channel-name",
+          mentioned: false,
+        },
       }),
     );
 

@@ -149,6 +149,7 @@ export class SlackAdapter implements PlatformAdapter {
   constructor(private readonly opts: SlackAdapterOptions) {
     const assistantEnabled = opts.assistant !== false;
     this.capabilities = {
+      supportsMessageEvents: true,
       supportsModals: true,
       supportsTyping: false,
       supportsReactions: true,
@@ -220,6 +221,7 @@ export class SlackAdapter implements PlatformAdapter {
             recipientUserId: turn.senderUserId,
           },
           userText: turn.userText,
+          operation: turn.operation,
           user: turn.senderUserId
             ? await this.resolveUser(turn.senderUserId)
             : undefined,

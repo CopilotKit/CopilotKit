@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AgentContentPart } from "@copilotkit/channels-ui";
+import type { MessageOperation } from "@copilotkit/channels-ui";
 import type {
   RealtimeGatewayDeliveryChannel,
   RealtimeGatewaySession,
@@ -30,7 +31,12 @@ const PACKET_EVENT = "packet";
 export type ChannelDeliveryAdapter = "slack" | "teams";
 
 export type ChannelDeliveryTurnInput =
-  | { kind: "text"; text?: string; files?: ChannelFileRef[] }
+  | {
+      kind: "text";
+      text?: string;
+      files?: ChannelFileRef[];
+      operation: MessageOperation;
+    }
   | {
       kind: "command";
       command: string;

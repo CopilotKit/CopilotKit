@@ -23,7 +23,16 @@ function preparedDelivery() {
     turn: {
       eventId: "evt_delivery_01",
       receivedAt: "2026-07-29T17:00:00.000Z",
-      input: { kind: "text" as const, text: "Hello" },
+      input: {
+        kind: "text" as const,
+        text: "Hello",
+        operation: {
+          kind: "created" as const,
+          logicalMessageId: "message-transport",
+          revisionId: "revision-transport",
+          mentioned: false,
+        },
+      },
       actor: { externalUserId: "U1" },
     },
   };

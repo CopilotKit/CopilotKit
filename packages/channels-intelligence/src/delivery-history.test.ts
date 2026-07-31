@@ -18,7 +18,16 @@ const delivery: PreparedChannelDelivery = {
   turn: {
     eventId: "evt_history",
     receivedAt: "2026-07-29T17:00:00.000Z",
-    input: { kind: "text", text: "hi" },
+    input: {
+      kind: "text",
+      text: "hi",
+      operation: {
+        kind: "created",
+        logicalMessageId: "message-history",
+        revisionId: "revision-history",
+        mentioned: false,
+      },
+    },
     actor: { externalUserId: "U1" },
   },
 };
@@ -90,6 +99,12 @@ test("canonical run input stores managed asset references instead of hydrated by
       input: {
         kind: "text",
         text: "What is this?",
+        operation: {
+          kind: "created",
+          logicalMessageId: "message-history-file",
+          revisionId: "revision-history-file",
+          mentioned: false,
+        },
         files: [
           {
             handle: "fileref_inbound",

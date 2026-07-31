@@ -23,7 +23,16 @@ function prepared(): PreparedChannelDelivery {
     turn: {
       eventId: "evt_postfile",
       receivedAt: "2026-07-29T17:00:00.000Z",
-      input: { kind: "text", text: "hi" },
+      input: {
+        kind: "text",
+        text: "hi",
+        operation: {
+          kind: "created",
+          logicalMessageId: "message-postfile",
+          revisionId: "revision-postfile",
+          mentioned: false,
+        },
+      },
       actor: { externalUserId: "U1" },
     },
   };

@@ -82,6 +82,12 @@ describe("normalizeSlackEvent", () => {
       threadTs: "100.1",
       ts: "100.1",
       userText: "hello",
+      operation: {
+        kind: "created",
+        logicalMessageId: "100.1",
+        revisionId: "100.1",
+        mentioned: true,
+      },
       senderUserId: "U2",
       eventId: "Ev1",
       hasFiles: false,
@@ -136,10 +142,7 @@ describe("normalizeSlackEvent", () => {
     });
   });
 
-  it("skips a threaded reply that @-mentions the bot (app_mention handles it — no double turn)", () => {
-    // Slack delivers a threaded @-mention as BOTH an app_mention and a
-    // message event; with the bot's own id known, the message branch must
-    // defer to app_mention so the managed path doesn't respond twice.
+  it("normalizes the paired message envelope to the same mentioned operation", () => {
     expect(
       normalizeSlackEvent(
         {
@@ -154,7 +157,15 @@ describe("normalizeSlackEvent", () => {
         },
         "BOT",
       ),
-    ).toBeUndefined();
+    ).toMatchObject({
+      source: "thread_reply",
+      operation: {
+        kind: "created",
+        logicalMessageId: "100.4",
+        revisionId: "100.4",
+        mentioned: true,
+      },
+    });
   });
 
   it("skips a threaded reply that mentions the bot in the labeled <@U|handle> form", () => {
@@ -172,7 +183,7 @@ describe("normalizeSlackEvent", () => {
         },
         "BOT",
       ),
-    ).toBeUndefined();
+    ).toMatchObject({ operation: { mentioned: true } });
   });
 
   it("still delivers a threaded reply that mentions a DIFFERENT user", () => {
@@ -207,7 +218,7 @@ describe("normalizeSlackEvent", () => {
     expect(n).toMatchObject({ source: "direct_message", userText: "hi there" });
   });
 
-  it("drops top-level channel chatter (no thread_ts) and bot echoes", () => {
+  it("accepts top-level ordinary messages and other bots", () => {
     expect(
       normalizeSlackEvent({
         event: {
@@ -218,12 +229,78 @@ describe("normalizeSlackEvent", () => {
           ts: "1",
         },
       }),
-    ).toBeUndefined();
+    ).toMatchObject({
+      source: "message",
+      threadTs: "1",
+      operation: { kind: "created", mentioned: false },
+    });
+    expect(
+      normalizeSlackEvent(
+        {
+          event: {
+            type: "message",
+            channel: "C1",
+            text: "release complete",
+            bot_id: "B1",
+            ts: "2",
+          },
+        },
+        "BOT",
+      ),
+    ).toMatchObject({
+      senderUserId: "B1",
+      operation: { kind: "created", mentioned: false },
+    });
+  });
+
+  it("normalizes message edits and deletes as revisions", () => {
+    expect(
+      normalizeSlackEvent(
+        {
+          event: {
+            type: "message",
+            subtype: "message_changed",
+            channel: "C1",
+            event_ts: "101.2",
+            message: {
+              user: "U2",
+              text: "<@BOT> revised",
+              ts: "100.1",
+              edited: { ts: "101.2" },
+            },
+          },
+        },
+        "BOT",
+      ),
+    ).toMatchObject({
+      userText: "revised",
+      operation: {
+        kind: "updated",
+        logicalMessageId: "100.1",
+        revisionId: "101.2",
+        mentioned: true,
+      },
+    });
     expect(
       normalizeSlackEvent({
-        event: { type: "message", channel: "C1", text: "x", bot_id: "B1" },
+        event: {
+          type: "message",
+          subtype: "message_deleted",
+          channel: "C1",
+          deleted_ts: "100.1",
+          event_ts: "102.3",
+          previous_message: { user: "U2", text: "gone", ts: "100.1" },
+        },
       }),
-    ).toBeUndefined();
+    ).toMatchObject({
+      userText: "",
+      operation: {
+        kind: "deleted",
+        logicalMessageId: "100.1",
+        revisionId: "102.3",
+        mentioned: false,
+      },
+    });
   });
 
   it("maps a slash command", () => {

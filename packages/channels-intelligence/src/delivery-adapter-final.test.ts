@@ -28,7 +28,16 @@ function delivery(): PreparedChannelDelivery {
     turn: {
       eventId: "evt_teams_final",
       receivedAt: "2026-07-29T17:00:00.000Z",
-      input: { kind: "text", text: "hello" },
+      input: {
+        kind: "text",
+        text: "hello",
+        operation: {
+          kind: "created",
+          logicalMessageId: "message-final",
+          revisionId: "revision-final",
+          mentioned: false,
+        },
+      },
     },
   };
 }

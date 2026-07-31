@@ -24,6 +24,7 @@ import type { ThreadDeps } from "./thread.js";
 import type { AbstractAgent } from "@ag-ui/client";
 import { sanitizeAgentEventStream } from "./sanitize-agent-events.js";
 import type {
+  ChannelMessage,
   InteractionContext,
   IncomingMessage,
   PlatformUser,
@@ -239,7 +240,7 @@ export type ChannelComponent = (props: never) => ReturnType<ComponentFn>;
 
 export type ChannelHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
-  message: IncomingMessage;
+  message: ChannelMessage;
 }) => void | Promise<void>;
 
 /** Handler for a "conversation opened" lifecycle event (e.g. the Slack assistant pane). */
@@ -530,13 +531,14 @@ export interface Channel<TState = unknown> {
 }
 
 /** Build the IncomingMessage object from an IncomingTurn (shared by lock-conflict callback and handler path). */
-function msgFromTurn(turn: IncomingTurn): IncomingMessage {
+function msgFromTurn(turn: IncomingTurn): ChannelMessage {
   return {
     text: turn.userText,
     contentParts: turn.contentParts,
     user: turn.user ?? { id: "" },
     ref: { id: "" },
     platform: turn.platform,
+    operation: turn.operation,
     eventId: turn.eventId,
     turnId: turn.turnId,
     deliveryId: turn.deliveryId,
@@ -764,8 +766,14 @@ export function createChannel<
      */
     async function processTurn(turn: IncomingTurn): Promise<void> {
       const platform = ingressPlatform(adapter, turn);
-      if (turn.eventId && !adapter.skipIngressDedup) {
-        const dupKey = `evt:${platform}:${turn.eventId}`;
+      if (!adapter.skipIngressDedup) {
+        const dupKey = [
+          "message",
+          platform,
+          turn.operation.kind,
+          turn.operation.logicalMessageId,
+          turn.operation.revisionId,
+        ].join(":");
         try {
           if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
         } catch (err) {
@@ -796,19 +804,18 @@ export function createChannel<
           );
         }
       }
-      const message: IncomingMessage = { ...msgFromTurn(turn), userKey };
+      const message: ChannelMessage = { ...msgFromTurn(turn), userKey };
       const thread = makeThread(
         adapter,
         turn.replyTarget,
         turn.conversationKey,
         { platform, userKey, message },
       );
-      // v1 routing: there is no turn `kind`, so prefer mention handlers; if
-      // none are registered, fall back to message handlers. (The reference
-      // example registers identical handlers on both, so this avoids
-      // double-firing while still invoking whatever is registered.)
-      const handlers =
-        mentionHandlers.length > 0 ? mentionHandlers : messageHandlers;
+      const handlers = turn.operation.mentioned
+        ? mentionHandlers.length > 0
+          ? mentionHandlers
+          : messageHandlers
+        : messageHandlers;
       for (const h of handlers) await h({ thread, message });
     }
 
@@ -1109,6 +1116,17 @@ export function createChannel<
         // — with a MemoryStore that wipes all lock/dedup/transcript/action state,
         // and real adapters would connect/port-bind twice.
         if (started) return;
+        if (
+          adapters.some(
+            (adapter) => adapter.capabilities.supportsMessageEvents,
+          ) &&
+          mentionHandlers.length === 0 &&
+          messageHandlers.length === 0
+        ) {
+          throw new Error(
+            `channel "${opts.name ?? "(unnamed)"}" must register onMention or onMessage before activation`,
+          );
+        }
         started = true;
         assertExclusive(adapters);
         // Resolve persistence now that all adapters (including any attached via
