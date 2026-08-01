@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { createChannel } from "@copilotkit/channels";
-import type { Channel } from "@copilotkit/channels";
 import { CopilotKitIntelligence } from "../../intelligence-platform";
 import {
   ChannelConfigError,
@@ -104,7 +103,7 @@ describe("parseProjectIdFromApiKey", () => {
 });
 
 describe("deriveChannelActivationConfig", () => {
-  it("resolves all six fields from the intelligence config and channel", () => {
+  it("resolves the provider-neutral activation fields from the intelligence config and channel", () => {
     const intelligence = fakeIntelligence("cpk-42_short_long");
     const channel = createChannel({ name: "support" });
 
@@ -120,18 +119,13 @@ describe("deriveChannelActivationConfig", () => {
       apiKey: intelligence.ɵgetRunnerAuthToken(),
       projectId: 42,
       channelName: "support",
-      adapter: "slack",
       runtimeInstanceId: "rti_x",
     });
   });
 
-  it("declares the per-Channel provider as the config adapter (provider: 'teams' → 'teams') (OSS-473)", () => {
-    // The provider is a per-Channel choice, not a manager-wide default — a
-    // Teams-backed managed Channel must be able to declare "teams" to the
-    // gateway. Pre-change this always yielded "slack" (the provider was a
-    // hard-coded global default), so this assertion is the regression guard.
+  it("does not carry a provider selector because one managed activation declares Slack and Teams together", () => {
     const intelligence = fakeIntelligence("cpk-7_a_b");
-    const channel = createChannel({ name: "support", provider: "teams" });
+    const channel = createChannel({ name: "support" });
 
     const config = deriveChannelActivationConfig({
       intelligence,
@@ -139,33 +133,8 @@ describe("deriveChannelActivationConfig", () => {
       runtimeInstanceId: "rti_y",
     });
 
-    expect(config.adapter).toBe("teams");
-  });
-
-  it("declares the per-Channel provider as the config adapter (provider: 'slack' → 'slack')", () => {
-    const intelligence = fakeIntelligence("cpk-7_a_b");
-    const channel = createChannel({ name: "support", provider: "slack" });
-
-    expect(
-      deriveChannelActivationConfig({
-        intelligence,
-        channel,
-        runtimeInstanceId: "rti_y",
-      }).adapter,
-    ).toBe("slack");
-  });
-
-  it("defaults the config adapter to the documented 'slack' when provider is unset", () => {
-    const intelligence = fakeIntelligence("cpk-7_a_b");
-    const channel = createChannel({ name: "support" });
-
-    expect(
-      deriveChannelActivationConfig({
-        intelligence,
-        channel,
-        runtimeInstanceId: "rti_y",
-      }).adapter,
-    ).toBe("slack");
+    expect(config).not.toHaveProperty("adapter");
+    expect(config).not.toHaveProperty("provider");
   });
 
   it("throws ChannelConfigError when the channel has no name", () => {
@@ -194,51 +163,5 @@ describe("deriveChannelActivationConfig", () => {
     });
 
     expect(config.channelName).toBe("Slack");
-  });
-
-  it("trims a padded provider rather than forwarding it padded", () => {
-    // `provider` is typed to the "slack" | "teams" union, but the deriver stays
-    // defensive against a padded runtime value that bypasses the type; cast to
-    // exercise that trim path.
-    const intelligence = fakeIntelligence("cpk-7_a_b");
-    const channel = {
-      name: "support",
-      provider: "  teams  ",
-    } as unknown as Channel;
-
-    expect(
-      deriveChannelActivationConfig({
-        intelligence,
-        channel,
-        runtimeInstanceId: "rti_x",
-      }).adapter,
-    ).toBe("teams");
-  });
-
-  it('defaults to "slack" for an empty or whitespace-only provider', () => {
-    const intelligence = fakeIntelligence("cpk-7_a_b");
-    const emptyProvider = {
-      name: "support",
-      provider: "",
-    } as unknown as Channel;
-    const blankProvider = {
-      name: "support",
-      provider: "   ",
-    } as unknown as Channel;
-
-    expect(
-      deriveChannelActivationConfig({
-        intelligence,
-        channel: emptyProvider,
-        runtimeInstanceId: "rti_x",
-      }).adapter,
-    ).toBe("slack");
-    expect(
-      deriveChannelActivationConfig({
-        intelligence,
-        channel: blankProvider,
-        runtimeInstanceId: "rti_x",
-      }).adapter,
-    ).toBe("slack");
   });
 });
