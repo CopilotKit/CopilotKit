@@ -154,7 +154,8 @@ The resulting `A2UIUserAction` will include the resolved context:
 {
   name: "book_flight",
   surfaceId: "flight-search-results",
-  sourceComponentId: "button-123",
+  sourceComponentId: "book-button",
+  timestamp: "2025-01-01T00:00:00.000Z",
   context: { flightNumber: "AA100", price: "$350" },
   dataContextPath: "/flights/0",
 }
@@ -220,7 +221,7 @@ The current Python SDK does not create server-side action handlers from an `acti
 
 | Type | Description |
 |---|---|
-| `A2UIUserAction` | Dispatched action: `{ name, surfaceId, sourceComponentId, context?, dataContextPath? }` |
-| `A2UIActionInterceptor` | `(action, forward) => A2UIUserAction \| null \| void` — exported interceptor type |
+| `A2UIUserAction` | Dispatched action: `{ name, surfaceId, sourceComponentId, timestamp, context?, dataContextPath? }` |
+| `A2UIActionInterceptor` | `(action, forward) => A2UIUserAction \| null \| void \| Promise<void \| A2UIUserAction \| null>` — exported interceptor type |
 | `createA2UIMessageRenderer` | Exported factory that accepts `theme` and optional `onAction` |
 
