@@ -302,10 +302,10 @@ export class DeliveryAdapter implements PlatformAdapter {
     operation: "add" | "remove",
   ): Promise<{ ok: boolean; error?: string }> {
     const target = asDeliveryTarget(targetValue);
-    const messageRef = asDeliveryRef(messageRefValue);
+    const deliveryRef = asDeliveryRef(messageRefValue);
     if (
-      messageRef.claimedDelivery !== target.claimedDelivery ||
-      messageRef.adapter !== target.delivery.adapter
+      deliveryRef.claimedDelivery !== target.claimedDelivery ||
+      deliveryRef.adapter !== target.delivery.adapter
     ) {
       return { ok: false, error: "Message reference is outside this delivery" };
     }
@@ -314,10 +314,10 @@ export class DeliveryAdapter implements PlatformAdapter {
     // of truth and returns an explicit error if that value is unsupported.
     const reaction =
       toPlatformEmoji(emoji, target.delivery.adapter) ?? String(emoji);
-    assertProviderReference(messageRef.providerReference);
+    assertProviderReference(deliveryRef.providerReference);
     await target.claimedDelivery.effect(mintId("reaction_"), {
       kind: `${target.delivery.adapter}.reaction.${operation}`,
-      providerReference: messageRef.providerReference,
+      providerReference: deliveryRef.providerReference,
       reaction,
     });
     return { ok: true };
@@ -538,6 +538,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     let providerReference: string | undefined;
     if (target.delivery.adapter === "slack") {
       let bodyError: unknown;
+      let bodyFailed = false;
       let streamStarted = false;
       try {
         for await (const delta of chunks) {
@@ -569,22 +570,25 @@ export class DeliveryAdapter implements PlatformAdapter {
           providerReference = providerReferenceFromResult(startResult);
         }
       } catch (error) {
+        bodyFailed = true;
         bodyError = error;
-        throw error;
-      } finally {
-        // Always stop a started stream (append failure must not leave it open).
-        if (streamStarted && providerReference !== undefined) {
-          try {
-            await target.claimedDelivery.effect(responseId, {
-              kind: "slack.stream.stop",
-              providerReference,
-            });
-          } catch (stopError) {
-            // If the body succeeded, stop failure is the delivery failure.
-            if (bodyError === undefined) throw stopError;
-          }
+      }
+      let stopError: unknown;
+      let stopFailed = false;
+      // Always stop a started stream (append failure must not leave it open).
+      if (streamStarted && providerReference !== undefined) {
+        try {
+          await target.claimedDelivery.effect(responseId, {
+            kind: "slack.stream.stop",
+            providerReference,
+          });
+        } catch (error) {
+          stopFailed = true;
+          stopError = error;
         }
       }
+      if (bodyFailed) throw bodyError;
+      if (stopFailed) throw stopError;
     } else {
       let text = "";
       let created = false;
