@@ -13,9 +13,12 @@ import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
+import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
+  /** Internal StateManager handoff; never forwarded to the AG-UI agent. */
+  continuationHandoff?: CopilotKitCoreContinuationHandoff;
   forwardedProps?: Record<string, unknown>;
   /**
    * Optional caller-supplied run identifier forwarded to the underlying AG-UI
@@ -422,6 +425,7 @@ export class RunHandler {
    */
   async runAgent({
     agent,
+    continuationHandoff,
     forwardedProps,
     resume,
     runId,
@@ -492,8 +496,10 @@ export class RunHandler {
     try {
       let logicalRunId = runId;
       const agentSubscriber = this.createAgentErrorSubscriber(agent);
+      let started = false;
       const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
       agentSubscriber.onRunStartedEvent = async (params) => {
+        started = true;
         logicalRunId = params.input.runId;
         return onRunStartedEvent?.(params);
       };
@@ -510,12 +516,16 @@ export class RunHandler {
         },
         agentSubscriber,
       );
+      if (!started) {
+        continuationHandoff?.cancel();
+      }
       return await this.processAgentResult({
         runAgentResult,
         agent,
         runId: logicalRunId,
       });
     } catch (error) {
+      continuationHandoff?.cancel();
       const runError =
         error instanceof Error ? error : new Error(String(error));
       const context: Record<string, any> = {};
@@ -658,9 +668,11 @@ export class RunHandler {
         // complete and write fresh values into the context store before runAgent
         // reads it. The base implementation is a no-op; React overrides this.
         await this._internal.waitForPendingFrameworkUpdates();
-        this._internal.markNextRunAsContinuation(agentId);
+        const continuationHandoff =
+          this._internal.stateManager.markNextRunAsContinuation(agent, runId);
         return await this.runAgent({
           agent,
+          continuationHandoff,
           ...(runId !== undefined ? { runId } : {}),
         });
       }

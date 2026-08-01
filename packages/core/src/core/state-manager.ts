@@ -17,6 +17,15 @@ const isContinuation = (input: RunAgentInput): boolean =>
     "resume",
   );
 
+export interface CopilotKitCoreContinuationHandoff {
+  cancel(): void;
+}
+
+interface PendingContinuation extends CopilotKitCoreContinuationHandoff {
+  expectedRunId?: string;
+  active: boolean;
+}
+
 /**
  * Manages state and message tracking by run for CopilotKitCore.
  * Tracks agent state snapshots and message-to-run associations.
@@ -37,7 +46,10 @@ export class StateManager {
 
   // Internal follow-ups are marked in memory so the marker never reaches a
   // runtime or becomes user-controlled forwardedProps data.
-  private pendingContinuations = new Set<string>();
+  private pendingContinuations = new WeakMap<
+    AbstractAgent,
+    Set<PendingContinuation>
+  >();
 
   constructor(private core: CopilotKitCore) {}
 
@@ -48,8 +60,30 @@ export class StateManager {
     // Will be called when CopilotKitCore is initialized
   }
 
-  markNextRunAsContinuation(agentId: string): void {
-    this.pendingContinuations.add(agentId);
+  markNextRunAsContinuation(
+    agent: AbstractAgent,
+    expectedRunId?: string,
+  ): CopilotKitCoreContinuationHandoff {
+    let pendingForAgent = this.pendingContinuations.get(agent);
+    if (!pendingForAgent) {
+      pendingForAgent = new Set();
+      this.pendingContinuations.set(agent, pendingForAgent);
+    }
+
+    const pending: PendingContinuation = {
+      expectedRunId,
+      active: true,
+      cancel: () => {
+        if (!pending.active) return;
+        pending.active = false;
+        pendingForAgent!.delete(pending);
+        if (pendingForAgent!.size === 0) {
+          this.pendingContinuations.delete(agent);
+        }
+      },
+    };
+    pendingForAgent.add(pending);
+    return pending;
   }
 
   /**
@@ -96,7 +130,13 @@ export class StateManager {
     const { unsubscribe } = agent.subscribe({
       onRunStartedEvent: ({ input, state }) => {
         if (revoked) return;
-        const internalContinuation = this.pendingContinuations.delete(agentId);
+        const pendingForAgent = this.pendingContinuations.get(agent);
+        const internalContinuation = [...(pendingForAgent ?? [])].find(
+          (pending) =>
+            pending.expectedRunId === undefined ||
+            pending.expectedRunId === input.runId,
+        );
+        internalContinuation?.cancel();
         if (
           runFinished &&
           input.runId === subRunId &&
@@ -156,7 +196,7 @@ export class StateManager {
 
     this.agentSubscriptions.set(agentId, () => {
       revoked = true;
-      this.pendingContinuations.delete(agentId);
+      this.pendingContinuations.delete(agent);
       unsubscribe();
     });
   }

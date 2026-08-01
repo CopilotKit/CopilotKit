@@ -430,7 +430,16 @@ describe("StateManager - Multiple Runs", () => {
 
     await agent.emitRunStarted(runId, { step: "paused" });
     await agent.emitRunFinished(runId, { step: "paused" });
-    copilotKitCore.markNextRunAsContinuation("agent1");
+    (
+      copilotKitCore as unknown as {
+        stateManager: {
+          markNextRunAsContinuation: (
+            agent: EventEmittingMockAgent,
+            expectedRunId?: string,
+          ) => { cancel(): void };
+        };
+      }
+    ).stateManager.markNextRunAsContinuation(agent, runId);
     await agent.emitRunStarted(runId, { step: "continued" });
     await agent.emitNewMessage(runId, message);
     await agent.emitRunFinished(runId, { step: "completed" });
@@ -444,6 +453,31 @@ describe("StateManager - Multiple Runs", () => {
     expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
       runId,
     ]);
+  });
+
+  it("does not consume an internal handoff for an interleaved run ID", async () => {
+    const runId = "expected-follow-up-run";
+    const handoff = (
+      copilotKitCore as unknown as {
+        stateManager: {
+          markNextRunAsContinuation: (
+            agent: EventEmittingMockAgent,
+            expectedRunId?: string,
+          ) => { cancel(): void };
+        };
+      }
+    ).stateManager.markNextRunAsContinuation(agent, runId);
+
+    await agent.emitRunStarted("interleaved-run", { step: "first" });
+    await agent.emitRunFinished("interleaved-run", { step: "first" });
+    handoff.cancel();
+
+    await agent.emitRunStarted("interleaved-run", { step: "second" });
+    await agent.emitRunFinished("interleaved-run", { step: "second" });
+
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toHaveLength(
+      2,
+    );
   });
 
   it("does not treat a user forwardedProps marker as an internal continuation", async () => {

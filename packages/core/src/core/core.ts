@@ -31,6 +31,7 @@ import type {
 import { RunHandler } from "./run-handler";
 import type { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
+import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
@@ -366,7 +367,12 @@ export interface CopilotKitCoreFriendsAccess {
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
 
-  markNextRunAsContinuation(agentId: string): void;
+  readonly stateManager: {
+    markNextRunAsContinuation(
+      agent: AbstractAgent,
+      expectedRunId?: string,
+    ): CopilotKitCoreContinuationHandoff;
+  };
 }
 
 /**
@@ -1319,10 +1325,6 @@ export class CopilotKitCore {
     runId: string,
   ): State | undefined {
     return this.stateManager.getStateByRun(agentId, threadId, runId);
-  }
-
-  markNextRunAsContinuation(agentId: string): void {
-    this.stateManager.markNextRunAsContinuation(agentId);
   }
 
   getRunIdForMessage(
