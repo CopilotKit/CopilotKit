@@ -2,9 +2,10 @@
 name: copilotkit-setup
 description: >
   Use when adding CopilotKit to an existing project or bootstrapping a new CopilotKit
-  project from scratch. Covers framework detection, package installation, runtime wiring,
-  provider setup, and first working chat integration.
-version: 1.1.2
+  project from scratch. Covers framework detection, package installation, runtime wiring
+  (managed Intelligence or self-hosted SSE), provider setup, and first working chat
+  integration.
+version: 1.2.0
 ---
 
 # CopilotKit Setup
@@ -74,9 +75,24 @@ npm install -D @types/express tsx typescript
 (`createCopilotExpressHandler` enables CORS internally, so you do not need to
 install `cors` yourself. `dotenv` and `zod` are used by the example asset.)
 
-### Step 2: Configure the runtime
+### Step 2: Choose a runtime mode, then configure the runtime
 
 The runtime is the server-side component that manages agent execution. See `references/runtime-architecture.md` for details.
+
+**Decide the mode before writing any runtime code.** The mode changes how the runtime is constructed, so retrofitting it later means rewriting this file.
+
+| Mode                                   | Thread state               | Choose it when                                                                     |
+| -------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| **Managed Intelligence** (recommended) | Durable, hosted            | You want threads that survive restarts, hosted ingress, the dashboard, or Channels |
+| Self-hosted SSE                        | In-memory, lost on restart | You do not want a hosted dependency and are willing to own persistence yourself    |
+
+Ask the user which they want, defaulting to managed Intelligence. State the prerequisites plainly so the choice is informed:
+
+**Managed Intelligence requires** a CopilotKit account (free; `npx copilotkit login` opens the browser) and a project API key. In exchange, threads are durable across restarts and deploys, you get the dashboard, and Slack/Teams Channels become available -- Channels are not available in SSE mode at all.
+
+**Self-hosted SSE requires** nothing beyond an AI provider key. Thread state lives in memory in the process that served the request, so it is lost on restart and is not shared across replicas. Everything in this skill works in SSE mode; it is a supported path, not a dead end.
+
+If the user picks managed Intelligence, use the Intelligence runtime blocks below and then complete Step 6. If they pick SSE, use the SSE blocks and skip Step 6's server-side wiring.
 
 There are two endpoint styles:
 
@@ -120,6 +136,56 @@ export const POST = handle(app);
 export const PATCH = handle(app);
 export const DELETE = handle(app);
 ```
+
+#### Next.js App Router with managed Intelligence
+
+Same file and same handler as above; only the runtime construction differs. `intelligence` is what selects Intelligence mode, and `identifyUser` is required with it.
+
+```typescript
+import {
+  CopilotRuntime,
+  CopilotKitIntelligence,
+  createCopilotHonoHandler,
+  BuiltInAgent,
+} from "@copilotkit/runtime/v2";
+import { handle } from "hono/vercel";
+
+const agent = new BuiltInAgent({
+  model: "openai/gpt-4o",
+  prompt: "You are a helpful AI assistant.",
+});
+
+const intelligence = new CopilotKitIntelligence({
+  // Server-side secret. `apiUrl`/`wsUrl` default to CopilotKit's managed
+  // platform, so most projects set only the key.
+  apiKey: process.env.COPILOTKIT_API_KEY!,
+});
+
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  intelligence,
+  // REQUIRED in Intelligence mode: it decides whose threads these are. Resolve a
+  // real authenticated user from the request -- with a hardcoded id, every visitor
+  // shares one thread history.
+  identifyUser: (request) => resolveUserFromSession(request),
+});
+
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
+```
+
+Notes that matter:
+
+- **Do not pass `runner`.** Intelligence mode supplies `IntelligenceAgentRunner` itself; passing `InMemoryAgentRunner` is what keeps threads in memory.
+- **`identifyUser` is not optional.** It is the thread-ownership boundary. A stub like `() => ({ id: "demo", name: "Demo" })` is fine for a local spike and wrong for anything multi-user.
+- **`apiUrl` and `wsUrl` are separate hosts.** They default to `https://api.intelligence.copilotkit.ai` and `wss://realtime.intelligence.copilotkit.ai`. The realtime plane cannot be derived from the API plane by swapping the scheme, so override **both or neither** -- overriding one points the two planes at different deployments.
 
 #### Next.js App Router (alternative: single-route)
 
@@ -334,31 +400,61 @@ The `BuiltInAgent` automatically resolves API keys from these environment variab
 
 If you need to pass `apiKey` explicitly, always source it from the environment (`apiKey: process.env.OPENAI_API_KEY`) -- never inline a literal key.
 
-### Step 6: Connect to CopilotKit Intelligence (telemetry)
+### Step 6: Connect to CopilotKit Intelligence
 
-CopilotKit uses telemetry to understand adoption, improve the product, and provide better support. Connecting to CopilotKit Intelligence gives you access to analytics and optional premium features.
+Skip this step only if the user chose self-hosted SSE in Step 2.
 
-1. Ask the user if they'd like to connect to CopilotKit Intelligence (default: yes).
-2. If yes, run the CopilotKit CLI authentication flow (verify the exact command with `npx copilotkit --help` as it may vary by version):
+Intelligence has two halves and they use different credentials. Getting them mixed up is the most common setup mistake here.
+
+| Credential                  | Where it lives | Secret? | Purpose                                       |
+| --------------------------- | -------------- | ------- | --------------------------------------------- |
+| Project API key (`cpk-...`) | Server only    | **Yes** | The runtime authenticates to Intelligence     |
+| Public license key          | Client         | No      | Enables licensed frontend features, telemetry |
+
+1. **Sign in and create a project.**
+
    ```bash
-   npx copilotkit auth
+   npx copilotkit login
+   npx copilotkit project select
    ```
-3. Guide the user through the browser-based authentication that opens.
-4. Once authentication completes, the CLI outputs a license key (a public, client-side project identifier -- not a secret).
-5. Store the license key in an environment variable and reference it from the `CopilotKit` provider -- this keeps it out of source and easy to rotate per environment:
+
+   `login` opens the browser and stores a local CLI session. `project select` picks or creates a hosted project and records it in `.copilotkit/project.json`. Verify the available commands with `npx copilotkit --help` if a version differs.
+
+2. **Set the server-side project API key.** `project select` provisions one; you can also copy it from the dashboard.
+
    ```
-   # .env.local (Next.js)
+   # .env.local (Next.js) or .env
+   COPILOTKIT_API_KEY=cpk-...
+   ```
+
+   This is a secret. It has no `NEXT_PUBLIC_`/`VITE_` prefix on purpose -- prefixing it would ship it to the browser. It is read by the `CopilotKitIntelligence` client you wired in Step 2.
+
+   CLI-scaffolded projects use `INTELLIGENCE_API_KEY` for the same value; either name is fine as long as the runtime reads the one you set.
+
+3. **Set the public license key** and pass it to the provider. Unlike the API key, this one is a public project identifier and is meant to reach the client:
+
+   ```
    NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=<your-license-key>
    ```
+
    ```tsx
    <CopilotKit
      runtimeUrl="/api/copilotkit"
      publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
    >
    ```
+
    The `NEXT_PUBLIC_`/`VITE_` prefix is required because the key is read on the client.
 
-See `references/telemetry-setup.md` for full details on what the license key enables and how to opt out.
+4. **Confirm durable threads actually work.** Send a message, restart the dev server, and reload. The thread should still be there. If it is not, the runtime is still in SSE mode -- check that `intelligence` is passed and that no `runner` overrides it.
+
+See `references/telemetry-setup.md` for what the license key enables and how to opt out.
+
+#### Connecting Slack or Microsoft Teams
+
+Channels let an agent answer in Slack or Teams. They require the Intelligence runtime -- `channels` is not available in SSE mode -- and a long-running host, because activation opens a persistent connection.
+
+Use the **copilotkit-channels** skill for this. It covers declaring a Channel, the awaited activation call, and the long-running host requirement, and it builds on the wiring from this step.
 
 ### Step 7: Verify the setup
 
@@ -398,11 +494,14 @@ Keep these in mind as you wire up a real deployment:
 
 ### Runtime classes
 
-| Class                        | Use case                                                  |
-| ---------------------------- | --------------------------------------------------------- |
-| `CopilotRuntime`             | Compatibility shim; auto-selects SSE or Intelligence mode |
-| `CopilotSseRuntime`          | Explicit SSE mode (default, in-memory threads)            |
-| `CopilotIntelligenceRuntime` | Intelligence mode (durable threads, realtime events)      |
+| Class                        | Use case                                                       |
+| ---------------------------- | -------------------------------------------------------------- |
+| `CopilotRuntime`             | Compatibility shim; auto-selects SSE or Intelligence mode      |
+| `CopilotSseRuntime`          | Explicit SSE mode (default, in-memory threads)                 |
+| `CopilotIntelligenceRuntime` | Intelligence mode (durable threads, realtime events, Channels) |
+
+Channels require the Intelligence runtime and a long-running host. See the
+**copilotkit-channels** skill.
 
 ### Agent runners
 
