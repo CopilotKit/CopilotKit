@@ -624,10 +624,23 @@ async function expectFrameworkNativeGuide(
       .map((fence) => fence.content),
     await extractExecutableMdx(renderedContent),
   ].join("\n");
+  const allowedReactPackages = new Set<string>(
+    variant.name === "React Native" ? ["react-native"] : [],
+  );
+  const reactPackages = [
+    ...executableCode.matchAll(
+      /["']@copilotkit\/(react(?:-[a-z0-9-]+)?)(?:\/[^"']*)?["']/g,
+    ),
+  ].map((match) => match[1]);
 
   expect(linkDestinations).toContain(variant.handoff);
+  expect(
+    reactPackages.filter(
+      (packageName) => !allowedReactPackages.has(packageName),
+    ),
+  ).toEqual([]);
   expect(executableCode).not.toMatch(
-    /["']@copilotkit\/react(?:-core)?(?:\/[^"']*)?["']|\b[A-Za-z_$][\w$]*\.(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b|<(?:CopilotKitProvider|CopilotThreadsDrawer)\b|\buseThreads\s*\(/,
+    /\b[A-Za-z_$][\w$]*\.(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b|<(?:CopilotKitProvider|CopilotThreadsDrawer)\b|\buseThreads\s*\(/,
   );
 }
 
@@ -720,6 +733,44 @@ test.each([
     ).rejects.toThrow();
   },
 );
+
+test.each([
+  ["Angular", "@copilotkit/react-ui"],
+  ["Angular", "@copilotkit/react-textarea"],
+  ["Vue", "@copilotkit/react-native"],
+  ["React Native", "@copilotkit/react-ui"],
+] as const)(
+  "the %s hosted guide rejects the %s package",
+  async (variantName, packageName) => {
+    const variant = hostedGuideVariants.find(
+      ({ name }) => name === variantName,
+    );
+
+    expect(variant).toBeDefined();
+    if (!variant) return;
+
+    const wrapperContent = `[Continue](${variant.handoff})`;
+    const renderedContent = `${wrapperContent}\n\n\`\`\`ts\nimport { NativeSurface } from "${packageName}";\n\`\`\``;
+
+    await expect(
+      expectFrameworkNativeGuide(variant, wrapperContent, renderedContent),
+    ).rejects.toThrow();
+  },
+);
+
+test("allows the React Native package in the React Native hosted guide", async () => {
+  const variant = hostedGuideVariants.find(
+    ({ name }) => name === "React Native",
+  );
+
+  expect(variant).toBeDefined();
+  if (!variant) return;
+
+  const wrapperContent = `[Continue](${variant.handoff})`;
+  const renderedContent = `${wrapperContent}\n\n\`\`\`ts\nimport { NativeSurface } from "@copilotkit/react-native/v2";\n\`\`\``;
+
+  await expectFrameworkNativeGuide(variant, wrapperContent, renderedContent);
+});
 
 test.each([
   [
@@ -2100,6 +2151,14 @@ test("the architecture guide documents the actual thread error channels", () => 
   expect(guide).not.toContain("clears it after the next successful operation");
 });
 
+test("the architecture guide keeps mutation timeout guidance outside the cause list", () => {
+  const guide = readContent(threadsExplainedPath);
+
+  expect(guide).toMatch(
+    /- \*\*Authorization failure\.\*\*[^\n]+\n\nThe thread APIs have no built-in mutation timeout/,
+  );
+});
+
 test("the headless guide gives the actual thread auto-name timing", () => {
   const guide = readContent(headlessEntryPointPath);
 
@@ -2636,6 +2695,14 @@ test.each([
   expect.soft(content).toMatch(/`limit`[^.]*override[^.]*page size/i);
   expect(content).not.toMatch(
     /(?:omit (?:it|`limit`) to load (?:all|the full list)|only meaningful when `limit` is set|`limit`[^.]*enable(?:s)? cursor-based pagination)/i,
+  );
+});
+
+test("the Drawer reference shows that limit defaults to undefined", () => {
+  const reference = readContent(drawerReferencePath);
+
+  expect(reference).toContain(
+    '<PropertyReference name="limit" type="number" default="undefined">',
   );
 });
 

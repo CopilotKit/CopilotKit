@@ -102,6 +102,7 @@ All mutation methods (`renameThread`, `archiveThread`, `unarchiveThread`, `delet
 - **Network failure.** The client can't reach the runtime.
 - **Thread not found.** Another client deleted the thread before your mutation arrived.
 - **Authorization failure.** The user doesn't have permission to modify the thread.
+
 The thread APIs have no built-in mutation timeout, so a stalled request can remain pending until its fetch settles.
 
 Thread failures use two channels: list and mutation failures appear as `error` or `listError`, while page-load failures appear as `fetchMoreError`. A full list request clears the list or mutation error when it starts. A fetch-more retry clears the page error when it starts. A successful mutation does not clear an earlier list or mutation error.
