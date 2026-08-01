@@ -29,6 +29,7 @@ function preparedDelivery(): PreparedChannelDelivery {
       input: {
         kind: "text",
         text: "hello",
+        messageRef: { id: "pref_v1_message_slackStream_123" },
         operation: {
           kind: "created",
           logicalMessageId: "message-slack-stream",

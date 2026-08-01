@@ -16,11 +16,8 @@ test("delivery handlers receive the source provider", async () => {
   });
   channel.onMessage(({ message, thread }) => {
     observed.textMessagePlatform = message.platform;
+    observed.textMessageRef = message.ref.id;
     observed.textThreadPlatform = thread.platform;
-  });
-  channel.onCommand("triage", ({ platform, thread }) => {
-    observed.commandPlatform = platform;
-    observed.commandThreadPlatform = thread.platform;
   });
   channel.onInteraction("approve", ({ message, platform, thread }) => {
     observed.interactionMessagePlatform = message.platform;
@@ -47,12 +44,10 @@ test("delivery handlers receive the source provider", async () => {
 
   try {
     await gateway.deliver(
-      preparedDelivery("text", "slack", { kind: "text", text: "hello" }),
-    );
-    await gateway.deliver(
-      preparedDelivery("command", "teams", {
-        kind: "command",
-        command: "triage",
+      preparedDelivery("text", "slack", {
+        kind: "text",
+        text: "hello",
+        messageRef: { id: "pref_v1_sourcePlatformText_123" },
       }),
     );
     await gateway.deliver(
@@ -83,9 +78,8 @@ test("delivery handlers receive the source provider", async () => {
 
     expect(observed).toEqual({
       textMessagePlatform: "slack",
+      textMessageRef: "pref_v1_sourcePlatformText_123",
       textThreadPlatform: "slack",
-      commandPlatform: "teams",
-      commandThreadPlatform: "teams",
       interactionMessagePlatform: "slack",
       interactionPlatform: "slack",
       interactionThreadPlatform: "slack",

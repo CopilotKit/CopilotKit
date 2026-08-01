@@ -208,29 +208,6 @@ export function resolveChannelConcurrency(cfg: {
 }
 
 /**
- * The managed delivery provider a no-adapter Channel targets when it is
- * activated through CopilotKit Intelligence.
- *
- * This is the platform the runtime *declares* to the Intelligence gateway on
- * join; the gateway resolves the actual connection (workspace, credentials,
- * transport) for that provider. It is a per-Channel choice — one runtime can
- * declare a Slack-backed Channel and a Teams-backed Channel side by side.
- *
- * A CLOSED union of the providers the gateway has real/coordinated support for.
- * `"slack"` is generally available. `"teams"` is GATED/COORDINATED: the gateway
- * accepts only `"slack"` at join today, so declaring `provider: "teams"` is
- * SDK-ready but NOT generally available until the coordinated gateway path lands
- * (Intelligence OSS-450 / #511).
- *
- * Distinct from a {@link PlatformAdapter} attached via
- * `createChannel({ adapters })` / `channel.ɵruntime.addAdapter`: an adapter is
- * a *direct*, developer-owned connection this handler does not manage,
- * whereas `provider` selects the *managed* platform for a Channel with no
- * adapters.
- */
-export type ManagedChannelProvider = "slack" | "teams";
-
-/**
  * Any `@copilotkit/channels-ui` component function, regardless of its props type.
  * Accepting `(props: never)` lets a component with required, strongly-typed
  * props (e.g. `({ title }: { title: string }) => …`) be passed to
@@ -395,22 +372,6 @@ export interface CreateChannelOptions<
    */
   adapters?: PlatformAdapter[];
   /**
-   * The managed delivery provider this Channel targets when it is activated via
-   * CopilotKit Intelligence (a no-adapter, managed Channel). The runtime
-   * declares this provider to the Intelligence gateway on join; the gateway
-   * resolves the actual connection. Defaults to `"slack"` when unset.
-   *
-   * `provider: "teams"` is GATED: it is SDK-ready, but the gateway accepts only
-   * `"slack"` at join today, so Teams is not generally available until the
-   * coordinated gateway path lands (Intelligence OSS-450 / #511). See
-   * {@link ManagedChannelProvider}.
-   *
-   * Ignored for direct-adapter Channels (those created with `adapters` /
-   * `channel.ɵruntime.addAdapter`) — a direct Channel is owned by the
-   * developer's own adapter, not by managed activation.
-   */
-  provider?: ManagedChannelProvider;
-  /**
    * Override visible tool-call progress for a managed Channel. Managed Slack
    * defaults to hidden; other managed providers retain their existing default
    * when this is unset.
@@ -462,13 +423,6 @@ export interface Channel<TState = unknown> {
   readonly name?: string;
   /** Adapters currently attached to this Channel (read-only snapshot). The Channel runtime uses this to distinguish a managed-eligible Channel (no adapters) from one carrying developer-supplied direct adapters. */
   readonly adapters: readonly PlatformAdapter[];
-  /**
-   * The managed delivery provider a no-adapter Channel targets when activated
-   * via CopilotKit Intelligence (from `createChannel({ provider })`). Declared
-   * to the Intelligence gateway on join; `undefined` means the managed default
-   * (`"slack"`). Ignored for direct-adapter Channels.
-   */
-  readonly provider?: ManagedChannelProvider;
   /**
    * Managed tool-call visibility override from
    * `createChannel({ showToolStatus })`. Managed Slack defaults to hidden when
@@ -529,8 +483,7 @@ export interface Channel<TState = unknown> {
   /**
    * Internal lifecycle seam. Holds the `start`/`stop`/`addAdapter`
    * implementations that the runtime uses to drive the lifecycle directly —
-   * there is no public equivalent; channels are runtime-driven only. (Read the
-   * managed provider off the top-level `channel.provider`, not here.)
+   * there is no public equivalent; channels are runtime-driven only.
    * @internal
    */
   ɵruntime: {
@@ -546,7 +499,7 @@ function msgFromTurn(turn: IncomingTurn): ChannelMessage {
     text: turn.userText,
     contentParts: turn.contentParts,
     user: turn.user ?? { id: "" },
-    ref: { id: "" },
+    ref: turn.messageRef ?? { id: "" },
     platform: turn.platform,
     operation: turn.operation,
     eventId: turn.eventId,
@@ -561,20 +514,6 @@ function ingressPlatform(
   event: { platform?: string },
 ): string {
   return event.platform ?? adapter.platform;
-}
-
-/**
- * Enforce managed Intelligence Channel exclusivity. Managed and direct
- * delivery are alternative modes on a Channel: Intelligence holds provider
- * credentials, or the runtime does, never both.
- */
-function assertExclusive(adapters: PlatformAdapter[]): void {
-  if (adapters.some((a) => a.__intelligenceChannel) && adapters.length > 1) {
-    throw new Error(
-      "The managed Intelligence adapter must be the only adapter on a Channel — " +
-        "managed and direct delivery are alternative modes.",
-    );
-  }
 }
 
 /**
@@ -619,7 +558,6 @@ export function createChannel<
   // `channel.ɵruntime.addAdapter` (before `channel.ɵruntime.start()`). The
   // runtime uses the latter to attach Channel delivery.
   const adapters: PlatformAdapter[] = [...(opts.adapters ?? [])];
-  assertExclusive(adapters);
   let started = false;
 
   // Backend, transcripts, telemetry, the action registry, and component
@@ -1111,7 +1049,6 @@ export function createChannel<
 
   const channel: Channel<ThreadStateOf<TStateSchema>> = {
     name: opts.name,
-    ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
     ...(opts.showToolStatus !== undefined
       ? { showToolStatus: opts.showToolStatus }
       : {}),
@@ -1141,7 +1078,6 @@ export function createChannel<
             "channel.ɵruntime.addAdapter must be called before channel.ɵruntime.start()",
           );
         }
-        assertExclusive([...adapters, adapter]);
         adapters.push(adapter);
       },
       async start() {
@@ -1162,7 +1098,6 @@ export function createChannel<
           );
         }
         started = true;
-        assertExclusive(adapters);
         // Resolve persistence now that all adapters (including any attached via
         // addAdapter) are known, then build the transcript store, action
         // registry, and register components against it.

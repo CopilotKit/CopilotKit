@@ -15,9 +15,9 @@ export { HttpAgent } from "@ag-ui/client";
 export type {
   Channel,
   CreateChannelOptions,
-  ManagedChannelProvider,
   ReplyContinuationOptions,
   ChannelHandler,
+  WelcomeHandler,
   ThreadStartHandler,
   ReactionEvent,
   ReactionHandler,

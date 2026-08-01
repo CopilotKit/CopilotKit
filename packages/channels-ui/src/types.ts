@@ -96,6 +96,8 @@ export interface ThreadMessage {
   activityType?: string;
   ts?: string;
   isBot?: boolean;
+  /** Update/reaction-capable reference when the adapter exposes one safely. */
+  messageRef?: MessageRef;
   /** Structured provider revision facts for delivery-scoped transcript input. */
   providerMessage?: {
     logicalMessageId: string;

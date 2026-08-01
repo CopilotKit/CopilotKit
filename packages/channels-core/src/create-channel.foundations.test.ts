@@ -6,7 +6,22 @@ import { MemoryStore } from "./state/memory-store.js";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
+class ManagedFakeAdapter extends FakeAdapter {
+  readonly __intelligenceChannel = true;
+}
+
 describe("createChannel — optional adapters + addAdapter", () => {
+  it("allows a managed delivery adapter to coexist with a direct adapter", async () => {
+    const managed = new ManagedFakeAdapter({ platform: "intelligence" });
+    const direct = new FakeAdapter({ platform: "direct" });
+    const channel = createChannel({ adapters: [managed, direct] });
+
+    await channel.ɵruntime.start();
+
+    expect(managed.started).toBe(true);
+    expect(direct.started).toBe(true);
+  });
+
   it("starts with no adapters and runs one added before start()", async () => {
     const fake = new FakeAdapter();
     const channel = createChannel({ agent: () => new FakeAgent() });

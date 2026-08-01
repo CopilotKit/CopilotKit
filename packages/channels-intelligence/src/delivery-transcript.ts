@@ -23,6 +23,7 @@ export interface ChannelTranscriptMessage {
   role: "participant" | "assistant";
   actor: ChannelTranscriptActor;
   text: string;
+  messageRef: { id: string };
   deleted: boolean;
   currentTrigger: boolean;
   files: ChannelTranscriptFile[];
@@ -93,6 +94,9 @@ const isTranscriptMessage = (
   (value.role === "participant" || value.role === "assistant") &&
   isTranscriptActor(value.actor) &&
   typeof value.text === "string" &&
+  isRecord(value.messageRef) &&
+  typeof value.messageRef.id === "string" &&
+  value.messageRef.id.startsWith("pref_v1_") &&
   typeof value.deleted === "boolean" &&
   typeof value.currentTrigger === "boolean" &&
   Array.isArray(value.files) &&

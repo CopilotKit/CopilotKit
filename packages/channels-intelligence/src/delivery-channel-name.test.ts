@@ -29,6 +29,9 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
               handle: null,
             },
             text: "hello",
+            messageRef: {
+              id: "pref_v1_transcript_message_channel_name_123",
+            },
             deleted: false,
             currentTrigger: true,
             files: [],

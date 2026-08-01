@@ -30,6 +30,7 @@ function prepared(): PreparedChannelDelivery {
       input: {
         kind: "text",
         text: "hi",
+        messageRef: { id: "pref_v1_message_postfile_123" },
         operation: {
           kind: "created",
           logicalMessageId: "message-postfile",
@@ -361,6 +362,30 @@ describe("DeliveryAdapter.postFile", () => {
       {
         kind: "teams.message.create",
         text: "Here is a text fallback",
+      },
+    );
+  });
+
+  it("delivers a general Teams file through the managed file effect", async () => {
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue("file_handle_01"),
+      effect: vi.fn().mockResolvedValue({}),
+    } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      makeAdapter().postFile(replyTarget(session, "teams"), {
+        bytes: new TextEncoder().encode("report"),
+        filename: "report.txt",
+        title: "Weekly report",
+      }),
+    ).resolves.toEqual({ ok: true, assetId: "file_handle_01" });
+    expect(session.effect).toHaveBeenCalledWith(
+      expect.stringMatching(/^response_/),
+      {
+        kind: "teams.file.create",
+        fileHandle: "file_handle_01",
+        filename: "report.txt",
+        title: "Weekly report",
       },
     );
   });

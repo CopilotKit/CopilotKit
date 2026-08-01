@@ -53,7 +53,7 @@ export type ChannelProviderPayload =
       blocks?: ReadonlyArray<Readonly<Record<string, unknown>>>;
     }
   | {
-      kind: "slack.message.delete";
+      kind: "slack.message.delete" | "teams.message.delete";
       providerReference: string;
     }
   | {
@@ -73,11 +73,32 @@ export type ChannelProviderPayload =
       text: string;
       cards?: ReadonlyArray<Readonly<Record<string, unknown>>>;
     }
+  | { kind: "teams.typing" }
+  | {
+      kind:
+        | "slack.reaction.add"
+        | "slack.reaction.remove"
+        | "teams.reaction.add"
+        | "teams.reaction.remove";
+      providerReference: string;
+      reaction: string;
+    }
   | {
       kind: "slack.file.create";
       fileHandle: string;
       title?: string;
       altText?: string;
+    }
+  | {
+      kind: "teams.file.create";
+      fileHandle: string;
+      filename: string;
+      title?: string;
+      altText?: string;
+    }
+  | {
+      kind: "teams.file.consent.complete";
+      fileHandle: string;
     }
   | {
       kind: "slack.image.create" | "teams.image.create";
@@ -242,6 +263,7 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         optionalRecordArray(value.blocks, 100)
       );
     case "slack.message.delete":
+    case "teams.message.delete":
       return (
         hasExactFields(value, ["kind", "providerReference"]) &&
         validReference(value.providerReference)
@@ -264,6 +286,17 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         boundedString(value.text, 0, 40_000) &&
         optionalRecordArray(value.cards, 25)
       );
+    case "teams.typing":
+      return hasExactFields(value, ["kind"]);
+    case "slack.reaction.add":
+    case "slack.reaction.remove":
+    case "teams.reaction.add":
+    case "teams.reaction.remove":
+      return (
+        hasExactFields(value, ["kind", "providerReference", "reaction"]) &&
+        validReference(value.providerReference) &&
+        boundedString(value.reaction, 1, 128)
+      );
     case "slack.file.create":
       return (
         hasExactFields(
@@ -274,6 +307,23 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         boundedString(value.fileHandle, 1, 128) &&
         optionalBoundedString(value.title, 512) &&
         optionalBoundedString(value.altText, 2_000)
+      );
+    case "teams.file.create":
+      return (
+        hasExactFields(
+          value,
+          ["kind", "fileHandle", "filename", "title", "altText"],
+          ["title", "altText"],
+        ) &&
+        boundedString(value.fileHandle, 1, 128) &&
+        boundedString(value.filename, 1, 512) &&
+        optionalBoundedString(value.title, 512) &&
+        optionalBoundedString(value.altText, 2_000)
+      );
+    case "teams.file.consent.complete":
+      return (
+        hasExactFields(value, ["kind", "fileHandle"]) &&
+        boundedString(value.fileHandle, 1, 128)
       );
     case "slack.image.create":
     case "teams.image.create":

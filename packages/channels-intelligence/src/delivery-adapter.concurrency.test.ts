@@ -46,6 +46,7 @@ function prepared(deliveryId: string): PreparedChannelDelivery {
       input: {
         kind: "text",
         text: "hi",
+        messageRef: { id: "pref_v1_message_concurrency_123" },
         operation: {
           kind: "created",
           logicalMessageId: "message-concurrency",
@@ -81,14 +82,14 @@ describe("DeliveryAdapter concurrent same-thread runs", () => {
       ...prepared("dlv_1"),
       turn: {
         ...prepared("dlv_1").turn,
-        input: { kind: "command" as const, command: "first" },
+        input: { kind: "welcome" as const },
       },
     };
     const d2 = {
       ...prepared("dlv_2"),
       turn: {
         ...prepared("dlv_2").turn,
-        input: { kind: "command" as const, command: "second" },
+        input: { kind: "welcome" as const },
       },
     };
     const makeAgent = (id: string) => {

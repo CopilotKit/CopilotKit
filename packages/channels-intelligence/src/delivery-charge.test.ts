@@ -20,6 +20,7 @@ const delivery: PreparedChannelDelivery = {
     input: {
       kind: "text",
       text: "hello",
+      messageRef: { id: "pref_v1_message_charge_123" },
       operation: {
         kind: "created",
         logicalMessageId: "message_charge",

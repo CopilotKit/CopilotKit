@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { DeliveryAdapter } from "./delivery-adapter.js";
+import type { PlatformAdapter } from "@copilotkit/channels-core";
+import { emoji } from "@copilotkit/channels-ui";
 import type { ChannelProviderPayload } from "./delivery-contracts.js";
 import type {
   ClaimedChannelDelivery,
@@ -31,6 +33,7 @@ function delivery(): PreparedChannelDelivery {
       input: {
         kind: "text",
         text: "hello",
+        messageRef: { id: "pref_v1_message_final_123" },
         operation: {
           kind: "created",
           logicalMessageId: "message-final",
@@ -87,6 +90,74 @@ describe("DeliveryAdapter Teams final delivery", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("DeliveryAdapter managed reactions", () => {
+  it("adds a Teams reaction through an opaque provider reference", async () => {
+    const effect = vi.fn(async () => ({}));
+    const session = { effect } as unknown as ClaimedChannelDelivery;
+    const managed = adapter() as PlatformAdapter;
+    const target = { claimedDelivery: session, delivery: delivery() };
+    const messageRef = {
+      id: "pref_v1_teams_activity_01",
+      responseId: "response_01",
+      claimedDelivery: session,
+      adapter: "teams",
+      providerReference: "pref_v1_teams_activity_01",
+    };
+
+    await expect(
+      managed.addReaction?.(target, messageRef, emoji.thumbs_up),
+    ).resolves.toEqual({ ok: true });
+    expect(effect).toHaveBeenCalledWith(expect.any(String), {
+      kind: "teams.reaction.add",
+      providerReference: "pref_v1_teams_activity_01",
+      reaction: "like",
+    });
+  });
+
+  it("passes a provider-native Teams reaction through for provider validation", async () => {
+    const effect = vi.fn(async () => ({}));
+    const session = { effect } as unknown as ClaimedChannelDelivery;
+    const managed = adapter() as PlatformAdapter;
+    const target = { claimedDelivery: session, delivery: delivery() };
+    const messageRef = {
+      id: "pref_v1_teams_activity_01",
+      responseId: "response_01",
+      claimedDelivery: session,
+      adapter: "teams" as const,
+      providerReference: "pref_v1_teams_activity_01",
+    };
+
+    await expect(
+      managed.addReaction?.(target, messageRef, "provider_native_reaction"),
+    ).resolves.toEqual({ ok: true });
+    expect(effect).toHaveBeenCalledWith(expect.any(String), {
+      kind: "teams.reaction.add",
+      providerReference: "pref_v1_teams_activity_01",
+      reaction: "provider_native_reaction",
+    });
+  });
+});
+
+describe("DeliveryAdapter managed deletes", () => {
+  it("deletes a Teams message through its opaque provider reference", async () => {
+    const effect = vi.fn(async () => ({}));
+    const session = { effect } as unknown as ClaimedChannelDelivery;
+
+    await adapter().delete({
+      id: "pref_v1_teams_activity_01",
+      responseId: "response_01",
+      claimedDelivery: session,
+      adapter: "teams",
+      providerReference: "pref_v1_teams_activity_01",
+    });
+
+    expect(effect).toHaveBeenCalledWith("response_01", {
+      kind: "teams.message.delete",
+      providerReference: "pref_v1_teams_activity_01",
+    });
   });
 });
 

@@ -148,6 +148,8 @@ export interface IngressIds {
 export interface IncomingTurn extends IngressEventBase, IngressIds {
   userText: string;
   operation: MessageOperation;
+  /** Delivery-scoped opaque capability for mutating or reacting to this message. */
+  messageRef?: MessageRef;
   /**
    * Optional multimodal content parts built by the adapter (e.g. inbound
    * image/file attachments). Carried through to `IncomingMessage.contentParts`.

@@ -27,6 +27,7 @@ function preparedDelivery() {
       input: {
         kind: "text" as const,
         text: "Hello",
+        messageRef: { id: "pref_v1_message_transport_123" },
         operation: {
           kind: "created" as const,
           logicalMessageId: "message-transport",
@@ -40,7 +41,7 @@ function preparedDelivery() {
 }
 
 function channel(
-  joinReply = preparedDelivery(),
+  joinReply: PreparedChannelDelivery = preparedDelivery(),
 ): RealtimeGatewayDeliveryChannel {
   return {
     joinReply,
@@ -195,6 +196,72 @@ test("transcript failure is silent and unmetered for an ambient message", async 
     },
   ]);
 });
+
+test.each([
+  ["slack", "slack.message.create"],
+  ["teams", "teams.message.create"],
+] as const)(
+  "%s welcome failure posts the fixed provider error before failing the delivery",
+  async (adapter, effectKind) => {
+    const base = preparedDelivery();
+    const delivery = {
+      ...base,
+      adapter,
+      turn: {
+        ...base.turn,
+        input: { kind: "welcome" as const },
+      },
+    };
+    const deliveryChannel = channel(delivery);
+    const control: RealtimeGatewaySession = {
+      push: vi.fn().mockResolvedValue({
+        result: "claimed",
+        deliveryId: delivery.deliveryId,
+        ownerGeneration: 7,
+        joinToken: "chj_token_01",
+      }),
+      on: vi.fn(),
+      join: vi.fn().mockResolvedValue(deliveryChannel),
+    };
+    const transport = new ChannelDeliveryTransport({
+      session: control,
+      runtimeInstanceId: "rti_runtime_01",
+    });
+    transport.start(async () => {
+      throw new Error("welcome handler failed");
+    });
+
+    const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+    invitationHandler({
+      protocol: "channel_delivery_v1",
+      deliveryId: delivery.deliveryId,
+      canonicalThreadId: delivery.canonicalThreadId,
+    });
+    await vi.waitFor(() =>
+      expect(deliveryChannel.leave).toHaveBeenCalledOnce(),
+    );
+    await transport.stop();
+
+    expect(
+      vi
+        .mocked(deliveryChannel.push)
+        .mock.calls.map(
+          ([, packet]) =>
+            (packet as { payload: Record<string, unknown> }).payload,
+        ),
+    ).toEqual([
+      {
+        kind: effectKind,
+        text: "Something went wrong",
+      },
+      {
+        kind: "channel.delivery.terminal",
+        status: "failed",
+        code: "runtime_handler_failed",
+      },
+    ]);
+  },
+);
 
 test("claims an invitation and consumes the one-use token on delivery join", async () => {
   const deliveryChannel = channel();
@@ -1083,14 +1150,13 @@ test("classifies timeout/expiry errors from message text", async () => {
   ).toEqual({ errorCategory: "timeout" });
 });
 
-test("rejects prepared deliveries with incomplete turn fields", async () => {
+async function expectPreparedInputRejected(input: unknown) {
   const badPrepared = {
     ...preparedDelivery(),
     turn: {
       eventId: "evt_bad",
       receivedAt: "2026-07-29T17:00:00.000Z",
-      // command kind without required `command` field
-      input: { kind: "command" as const },
+      input,
       actor: { externalUserId: "U1", kind: "human" as const },
     },
   };
@@ -1136,6 +1202,24 @@ test("rejects prepared deliveries with incomplete turn fields", async () => {
         "channel.delivery.terminal",
     );
   expect(terminalPackets.length).toBe(0);
+}
+
+test("rejects prepared deliveries with incomplete turn fields", async () => {
+  // Managed slash commands were removed from the delivery protocol.
+  await expectPreparedInputRejected({
+    kind: "command",
+    command: "triage",
+    text: "summarize",
+  });
+});
+
+test("rejects a prepared reaction without an opaque message reference", async () => {
+  await expectPreparedInputRejected({
+    kind: "reaction",
+    rawEmoji: "like",
+    added: true,
+    messageId: "raw-provider-message-id",
+  });
 });
 
 test("surfaces a failed provider result as an already-terminal error", async () => {

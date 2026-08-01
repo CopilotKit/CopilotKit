@@ -90,6 +90,7 @@ export function preparedDelivery(
     | {
         kind: "text";
         text?: string;
+        messageRef?: { id: string };
         files?: Extract<
           PreparedChannelDelivery["turn"]["input"],
           { kind: "text" }
@@ -99,6 +100,24 @@ export function preparedDelivery(
   // Packet contract requires `dlv_` + 8..128 charset chars.
   const idSuffix =
     suffix.length >= 8 ? suffix : `${suffix}_pad000`.slice(0, 12);
+  const normalizedInput: PreparedChannelDelivery["turn"]["input"] =
+    input.kind === "text"
+      ? {
+          ...input,
+          messageRef: input.messageRef ?? {
+            id: `pref_v1_message_${idSuffix}`,
+          },
+          operation:
+            "operation" in input && input.operation
+              ? input.operation
+              : {
+                  kind: "created",
+                  logicalMessageId: `message_${idSuffix}`,
+                  revisionId: `revision_${idSuffix}`,
+                  mentioned: false,
+                },
+        }
+      : input;
   return {
     protocol: "channel_delivery_v1",
     deliveryId: `dlv_${idSuffix}`,
@@ -111,18 +130,7 @@ export function preparedDelivery(
     turn: {
       eventId: `event_${idSuffix}`,
       receivedAt: "2026-07-29T17:00:00.000Z",
-      input:
-        input.kind === "text" && !("operation" in input)
-          ? {
-              ...input,
-              operation: {
-                kind: "created",
-                logicalMessageId: `message_${idSuffix}`,
-                revisionId: `revision_${idSuffix}`,
-                mentioned: false,
-              },
-            }
-          : input,
+      input: normalizedInput,
       actor: {
         externalUserId: `user_${idSuffix}`,
         kind: "human",

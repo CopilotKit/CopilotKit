@@ -50,13 +50,7 @@ export type ChannelDeliveryTurnInput =
       text?: string;
       files?: ChannelFileRef[];
       operation: MessageOperation;
-    }
-  | {
-      kind: "command";
-      command: string;
-      text?: string;
-      triggerId?: string;
-      rawOptions?: Record<string, unknown>;
+      messageRef: { id: string };
     }
   | {
       kind: "reaction";
@@ -76,6 +70,11 @@ export type ChannelDeliveryTurnInput =
     }
   | {
       kind: "welcome";
+    }
+  | {
+      kind: "file_consent";
+      action: "accept" | "decline";
+      fileHandle: string;
     };
 
 export interface PreparedChannelDelivery {
@@ -92,6 +91,7 @@ export interface PreparedChannelDelivery {
   turn: {
     eventId: string;
     receivedAt: string;
+    typingDelayMs?: 0 | 300;
     input: ChannelDeliveryTurnInput;
     actor?: {
       externalUserId: string;
@@ -209,6 +209,8 @@ export class ClaimedChannelDelivery {
   private commitPromise?: Promise<void>;
   private transcriptTriggerPersisted = false;
   private providerOutputApplied = false;
+  private typingTimer?: ReturnType<typeof setTimeout>;
+  private typingActive = false;
   /** After a successful terminal or permanent non-terminal failure, refuse further effects. */
   private effectsClosed = false;
   /** After a successful terminal apply, refuse all further packets. */
@@ -265,6 +267,7 @@ export class ClaimedChannelDelivery {
     payload: ProviderPayloadInput,
     options: { charge?: boolean } = {},
   ): Promise<Record<string, unknown>> {
+    if (isVisibleProviderEffect(payload)) this.stopManagedTyping();
     const charged =
       options.charge === false ? Promise.resolve() : this.charge();
     return charged
@@ -302,12 +305,61 @@ export class ClaimedChannelDelivery {
           typeof payload.kind === "string" ? payload.kind : undefined;
         if (
           kind === undefined ||
-          (kind !== "slack.thread.status" && !kind.endsWith(".stream.stop"))
+          (kind !== "slack.thread.status" &&
+            kind !== "teams.typing" &&
+            !kind.endsWith(".stream.stop"))
         ) {
           this.providerOutputApplied = true;
         }
         return result;
       });
+  }
+
+  /** Refresh Teams typing until visible output, terminal completion, or leave. */
+  startManagedTyping(delayMs: 0 | 300 | undefined): void {
+    if (this.delivery.adapter !== "teams" || delayMs === undefined) return;
+    this.stopManagedTyping();
+    this.typingActive = true;
+
+    const refresh = async (): Promise<void> => {
+      if (
+        !this.typingActive ||
+        this.providerOutputApplied ||
+        this.effectsClosed ||
+        this.terminalApplied ||
+        this.left
+      ) {
+        return;
+      }
+      await this.effect(
+        "managed_typing",
+        { kind: "teams.typing" },
+        { charge: false },
+      ).catch(() => undefined);
+      if (
+        !this.typingActive ||
+        this.providerOutputApplied ||
+        this.effectsClosed
+      )
+        return;
+      this.typingTimer = setTimeout(() => void refresh(), 3_500);
+      this.typingTimer.unref?.();
+    };
+
+    if (delayMs === 0) {
+      void refresh();
+    } else {
+      this.typingTimer = setTimeout(() => void refresh(), delayMs);
+      this.typingTimer.unref?.();
+    }
+  }
+
+  private stopManagedTyping(): void {
+    this.typingActive = false;
+    if (this.typingTimer !== undefined) {
+      clearTimeout(this.typingTimer);
+      this.typingTimer = undefined;
+    }
   }
 
   /** Idempotently charge this delivery before its first substantive work. */
@@ -341,6 +393,7 @@ export class ClaimedChannelDelivery {
 
   /** Send the final outcome through the same ordered packet path. */
   async terminal(payload: Omit<ChannelTerminalPayload, "kind">): Promise<void> {
+    this.stopManagedTyping();
     await this.sealAndWaitForTrackedOperations(payload.status === "complete");
     // Terminal remains sendable after effect failures so claimAndHandle can
     // report failed/uncertain; only a successful terminal seals the delivery.
@@ -455,6 +508,7 @@ export class ClaimedChannelDelivery {
 
   leave(): void {
     if (this.left) return;
+    this.stopManagedTyping();
     this.left = true;
     this.parentSignal.removeEventListener("abort", this.stopFromParent);
     this.channel.leave();
@@ -918,6 +972,7 @@ export class ChannelDeliveryTransport {
         releaseExecution = await this.acquireExecutionSlot(
           claimedDelivery.signal,
         );
+        claimedDelivery.startManagedTyping(delivery.turn.typingDelayMs);
         await handler(claimedDelivery, delivery);
         await claimedDelivery.terminal({
           status: "complete",
@@ -928,6 +983,24 @@ export class ChannelDeliveryTransport {
           !isChannelDeliveryTerminatedError(error) &&
           !claimedDelivery.isSuperseded()
         ) {
+          if (
+            delivery.turn.input.kind === "welcome" &&
+            !claimedDelivery.hasProviderOutput()
+          ) {
+            await claimedDelivery
+              .effect(
+                "welcome_failure",
+                {
+                  kind:
+                    delivery.adapter === "slack"
+                      ? "slack.message.create"
+                      : "teams.message.create",
+                  text: "Something went wrong",
+                },
+                { charge: false },
+              )
+              .catch(() => undefined);
+          }
           if (
             error instanceof ChannelDeliveryTranscriptError &&
             shouldReportTranscriptFailure(delivery)
@@ -1114,10 +1187,10 @@ function assertClaim(
 
 const PREPARED_TURN_KINDS = new Set([
   "text",
-  "command",
   "reaction",
   "interaction",
   "welcome",
+  "file_consent",
 ]);
 const PREPARED_SURFACE_KINDS = new Set([
   "direct_message",
@@ -1163,6 +1236,9 @@ function assertPreparedDelivery(
     !isRecord(prepared.turn) ||
     typeof prepared.turn.eventId !== "string" ||
     typeof prepared.turn.receivedAt !== "string" ||
+    (prepared.turn.typingDelayMs !== undefined &&
+      prepared.turn.typingDelayMs !== 0 &&
+      prepared.turn.typingDelayMs !== 300) ||
     (prepared.turn.actor !== undefined &&
       (!isRecord(prepared.turn.actor) ||
         typeof prepared.turn.actor.externalUserId !== "string" ||
@@ -1185,24 +1261,45 @@ function assertPreparedDelivery(
 function isValidPreparedTurnInput(input: Record<string, unknown>): boolean {
   switch (input.kind) {
     case "text":
-      return true;
-    case "command":
-      return typeof input.command === "string" && input.command.length > 0;
+      return (
+        isRecord(input.messageRef) &&
+        typeof input.messageRef.id === "string" &&
+        input.messageRef.id.startsWith("pref_v1_")
+      );
     case "reaction":
       return (
         typeof input.rawEmoji === "string" &&
         input.rawEmoji.length > 0 &&
         typeof input.messageId === "string" &&
         input.messageId.length > 0 &&
-        typeof input.added === "boolean"
+        typeof input.added === "boolean" &&
+        isRecord(input.messageRef) &&
+        typeof input.messageRef.id === "string" &&
+        input.messageRef.id.startsWith("pref_v1_")
       );
     case "interaction":
       return typeof input.actionId === "string" && input.actionId.length > 0;
     case "welcome":
       return true;
+    case "file_consent":
+      return (
+        (input.action === "accept" || input.action === "decline") &&
+        typeof input.fileHandle === "string" &&
+        /^fileref_[A-Za-z0-9_-]+$/.test(input.fileHandle)
+      );
     default:
       return false;
   }
+}
+
+function isVisibleProviderEffect(payload: ProviderPayloadInput): boolean {
+  const kind = payload.kind;
+  return (
+    (kind.startsWith("slack.") || kind.startsWith("teams.")) &&
+    kind !== "slack.thread.status" &&
+    kind !== "teams.typing" &&
+    !kind.endsWith(".stream.stop")
+  );
 }
 
 function isInvitation(value: unknown): value is {
