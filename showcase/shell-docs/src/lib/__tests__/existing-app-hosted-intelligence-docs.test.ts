@@ -90,13 +90,34 @@ function parseTypeScriptModel(
   source: string,
   fileName = "example.tsx",
 ): TypeScriptModel {
-  return ts.createSourceFile(
+  const model = ts.createSourceFile(
     fileName,
     source,
     ts.ScriptTarget.Latest,
     true,
     fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
+  const diagnostics = (
+    model as ts.SourceFile & { parseDiagnostics?: readonly ts.Diagnostic[] }
+  ).parseDiagnostics;
+  const [diagnostic] = diagnostics ?? [];
+
+  if (diagnostic) {
+    const location =
+      diagnostic.start === undefined
+        ? ""
+        : (() => {
+            const { line, character } = model.getLineAndCharacterOfPosition(
+              diagnostic.start,
+            );
+            return `:${line + 1}:${character + 1}`;
+          })();
+    throw new Error(
+      `${fileName}${location}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`,
+    );
+  }
+
+  return model;
 }
 
 /** Visit every syntax node in a normalized TypeScript model. */
@@ -112,6 +133,75 @@ function visitTypeScript(
 function getTypeScriptName(name: ts.PropertyName | ts.BindingName): string {
   if (ts.isIdentifier(name) || ts.isStringLiteral(name)) return name.text;
   return name.getText();
+}
+
+/** Return a property name only when its runtime key is statically known. */
+function getStaticTypeScriptName(name: ts.PropertyName): string | undefined {
+  if (
+    ts.isIdentifier(name) ||
+    ts.isStringLiteral(name) ||
+    ts.isNumericLiteral(name)
+  ) {
+    return name.text;
+  }
+  if (!ts.isComputedPropertyName(name)) return undefined;
+
+  const expression = unwrapTypeScriptExpression(name.expression);
+  return ts.isStringLiteral(expression) ||
+    ts.isNoSubstitutionTemplateLiteral(expression) ||
+    ts.isNumericLiteral(expression)
+    ? expression.text
+    : undefined;
+}
+
+/** Remove syntax wrappers that do not change an expression's runtime value. */
+function unwrapTypeScriptExpression(expression: ts.Expression): ts.Expression {
+  let current = expression;
+
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isTypeAssertionExpression(current) ||
+    ts.isSatisfiesExpression(current) ||
+    ts.isNonNullExpression(current)
+  ) {
+    current = current.expression;
+  }
+
+  return current;
+}
+
+const managedReactSurfaceExports = new Set([
+  "CopilotKitProvider",
+  "CopilotChatConfigurationProvider",
+  "CopilotThreadsDrawer",
+  "CopilotChat",
+]);
+
+/** Return canonical and named-import aliases for managed React surfaces. */
+function getManagedReactSurfaceNames(model: ts.SourceFile): Set<string> {
+  const names = new Set(managedReactSurfaceExports);
+
+  for (const statement of model.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      statement.moduleSpecifier.text !== "@copilotkit/react-core/v2" ||
+      !statement.importClause?.namedBindings ||
+      !ts.isNamedImports(statement.importClause.namedBindings)
+    ) {
+      continue;
+    }
+
+    for (const element of statement.importClause.namedBindings.elements) {
+      const importedName = element.propertyName?.text ?? element.name.text;
+      if (managedReactSurfaceExports.has(importedName)) {
+        names.add(element.name.text);
+      }
+    }
+  }
+
+  return names;
 }
 
 /** Return whether a declaration has an `export` modifier. */
@@ -943,123 +1033,150 @@ function expectExecutableOnRequestAuth(source: string): void {
     throw new Error("Expected one onRequest callback body");
   }
 
-  let verifiedCall = false;
-  let has401Exit = false;
-  const inspect = (node: ts.Node): void => {
-    if (ts.isFunctionLike(node) && node !== callback) return;
+  const isUnauthorizedResponse = (expression: ts.Expression): boolean => {
+    const response = unwrapTypeScriptExpression(expression);
     if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.text === "getVerifiedAppUser" &&
-      node.arguments.some(
-        (argument) => ts.isIdentifier(argument) && argument.text === "request",
-      )
+      !ts.isNewExpression(response) ||
+      !ts.isIdentifier(response.expression) ||
+      response.expression.text !== "Response"
     ) {
-      verifiedCall = true;
+      return false;
     }
-    if (
-      ts.isIfStatement(node) &&
-      ts.isPrefixUnaryExpression(node.expression) &&
-      node.expression.operator === ts.SyntaxKind.ExclamationToken
-    ) {
-      const inspectBranch = (child: ts.Node): void => {
-        const expression =
-          ts.isThrowStatement(child) || ts.isReturnStatement(child)
-            ? child.expression
-            : undefined;
-        if (
-          expression &&
-          ts.isNewExpression(expression) &&
-          expression.expression.getText(model) === "Response"
-        ) {
-          const findStatus = (part: ts.Node): void => {
-            if (
-              ts.isPropertyAssignment(part) &&
-              getTypeScriptName(part.name) === "status" &&
-              part.initializer.getText(model) === "401"
-            ) {
-              has401Exit = true;
-            }
-            ts.forEachChild(part, findStatus);
-          };
-          findStatus(expression);
-        }
-        ts.forEachChild(child, inspectBranch);
-      };
-      inspectBranch(node.thenStatement);
-    }
-    ts.forEachChild(node, inspect);
-  };
-  inspect(callback.body);
 
-  expect(verifiedCall).toBe(true);
-  expect(has401Exit).toBe(true);
+    const initArgument = response.arguments?.[1];
+    if (!initArgument) return false;
+
+    const init = unwrapTypeScriptExpression(initArgument);
+    if (!ts.isObjectLiteralExpression(init)) return false;
+
+    const hasAmbiguousOverride = init.properties.some(
+      (property) =>
+        ts.isSpreadAssignment(property) ||
+        getStaticTypeScriptName(property.name) === undefined,
+    );
+    const statusProperties = init.properties.filter(
+      (property): property is ts.PropertyAssignment =>
+        ts.isPropertyAssignment(property) &&
+        getStaticTypeScriptName(property.name) === "status",
+    );
+    const [statusProperty] = statusProperties;
+    const status = statusProperty
+      ? unwrapTypeScriptExpression(statusProperty.initializer)
+      : undefined;
+
+    return (
+      !hasAmbiguousOverride &&
+      statusProperties.length === 1 &&
+      !!status &&
+      ts.isNumericLiteral(status) &&
+      status.text === "401"
+    );
+  };
+
+  const [callbackParameter] = callback.parameters;
+  const [requestBinding] =
+    callbackParameter && ts.isObjectBindingPattern(callbackParameter.name)
+      ? callbackParameter.name.elements
+      : [];
+  const hasRequestParameter =
+    callback.parameters.length === 1 &&
+    !!callbackParameter &&
+    ts.isObjectBindingPattern(callbackParameter.name) &&
+    callbackParameter.name.elements.length === 1 &&
+    !!requestBinding &&
+    !requestBinding.propertyName &&
+    !requestBinding.dotDotDotToken &&
+    ts.isIdentifier(requestBinding.name) &&
+    requestBinding.name.text === "request";
+  const [verifierStatement, guardStatement] = callback.body.statements;
+  const [verifiedDeclaration] =
+    verifierStatement && ts.isVariableStatement(verifierStatement)
+      ? verifierStatement.declarationList.declarations
+      : [];
+  const verifierInitializer = verifiedDeclaration?.initializer
+    ? unwrapTypeScriptExpression(verifiedDeclaration.initializer)
+    : undefined;
+  const awaited =
+    verifierInitializer && ts.isAwaitExpression(verifierInitializer)
+      ? unwrapTypeScriptExpression(verifierInitializer.expression)
+      : undefined;
+  const hasVerifiedDeclaration =
+    !!verifierStatement &&
+    ts.isVariableStatement(verifierStatement) &&
+    verifierStatement.declarationList.declarations.length === 1 &&
+    (verifierStatement.declarationList.flags & ts.NodeFlags.Const) !== 0 &&
+    !!verifiedDeclaration &&
+    ts.isIdentifier(verifiedDeclaration.name) &&
+    verifiedDeclaration.name.text === "user" &&
+    !!awaited &&
+    ts.isCallExpression(awaited) &&
+    ts.isIdentifier(awaited.expression) &&
+    awaited.expression.text === "getVerifiedAppUser" &&
+    awaited.arguments.length === 1 &&
+    ts.isIdentifier(awaited.arguments[0]) &&
+    awaited.arguments[0].text === "request";
+  const [firstBranchStatement] =
+    guardStatement &&
+    ts.isIfStatement(guardStatement) &&
+    ts.isBlock(guardStatement.thenStatement)
+      ? guardStatement.thenStatement.statements
+      : [];
+  const hasBound401Exit =
+    hasVerifiedDeclaration &&
+    !!verifiedDeclaration &&
+    ts.isIdentifier(verifiedDeclaration.name) &&
+    !!guardStatement &&
+    ts.isIfStatement(guardStatement) &&
+    ts.isPrefixUnaryExpression(guardStatement.expression) &&
+    guardStatement.expression.operator === ts.SyntaxKind.ExclamationToken &&
+    ts.isIdentifier(guardStatement.expression.operand) &&
+    guardStatement.expression.operand.text === verifiedDeclaration.name.text &&
+    !!firstBranchStatement &&
+    (ts.isThrowStatement(firstBranchStatement) ||
+      ts.isReturnStatement(firstBranchStatement)) &&
+    !!firstBranchStatement.expression &&
+    isUnauthorizedResponse(firstBranchStatement.expression);
+
+  expect(
+    hasRequestParameter &&
+      callback.body.statements.length === 2 &&
+      hasBound401Exit,
+  ).toBe(true);
 }
 
 /** Return explicit agent ID overrides on the hosted React thread surfaces. */
 function extractHostedAgentIdOverrides(source: string): string[] {
   const model = parseTypeScriptModel(source);
-  const objectBindings = new Map<string, ts.ObjectLiteralExpression>();
+  const managedSurfaceNames = getManagedReactSurfaceNames(model);
+  const unknownAgentId = "<dynamic-agent-id>";
   const values: string[] = [];
-  visitTypeScript(model, (node) => {
+  const readExpression = (expression: ts.Expression): string => {
+    const unwrapped = unwrapTypeScriptExpression(expression);
     if (
-      ts.isVariableDeclaration(node) &&
-      ts.isIdentifier(node.name) &&
-      node.initializer &&
-      ts.isObjectLiteralExpression(node.initializer)
+      ts.isStringLiteral(unwrapped) ||
+      ts.isNoSubstitutionTemplateLiteral(unwrapped)
     ) {
-      objectBindings.set(node.name.text, node.initializer);
+      return unwrapped.text;
     }
-  });
-  const readExpression = (expression: ts.Expression): string[] => {
-    if (
-      ts.isStringLiteral(expression) ||
-      ts.isNoSubstitutionTemplateLiteral(expression)
-    ) {
-      return [expression.text];
-    }
-    const object = ts.isObjectLiteralExpression(expression)
-      ? expression
-      : ts.isIdentifier(expression)
-        ? objectBindings.get(expression.text)
-        : undefined;
-    if (!object) return ["<dynamic-agent-id>"];
-    return object.properties.flatMap((property) => {
-      if (ts.isSpreadAssignment(property))
-        return readExpression(property.expression);
-      if (
-        ts.isPropertyAssignment(property) &&
-        getTypeScriptName(property.name) === "agentId"
-      ) {
-        return readExpression(property.initializer);
-      }
-      return [];
-    });
+    return unknownAgentId;
   };
   visitTypeScript(model, (node) => {
     if (!ts.isJsxOpeningLikeElement(node)) return;
     const tagName = node.tagName.getText(model).split(".").at(-1);
-    if (
-      ![
-        "CopilotChatConfigurationProvider",
-        "CopilotThreadsDrawer",
-        "CopilotChat",
-      ].includes(tagName ?? "")
-    ) {
-      return;
-    }
+    if (!tagName || !managedSurfaceNames.has(tagName)) return;
     for (const attribute of node.attributes.properties) {
       if (ts.isJsxSpreadAttribute(attribute)) {
-        values.push(...readExpression(attribute.expression));
-      } else if (
-        attribute.name.getText(model) === "agentId" &&
-        attribute.initializer
-      ) {
+        values.push(unknownAgentId);
+      } else if (attribute.name.getText(model) === "agentId") {
         const initializer = attribute.initializer;
-        if (ts.isStringLiteral(initializer)) {
+        if (!initializer) {
+          values.push(unknownAgentId);
+        } else if (ts.isStringLiteral(initializer)) {
           values.push(initializer.text);
         } else if (ts.isJsxExpression(initializer) && initializer.expression) {
-          values.push(...readExpression(initializer.expression));
+          values.push(readExpression(initializer.expression));
+        } else {
+          values.push(unknownAgentId);
         }
       }
     }
@@ -1073,33 +1190,42 @@ function expectNoManagedClientSecrets(source: string): void {
   const forbiddenIdentifier =
     /^(?:CPK_INTELLIGENCE_(?:API_KEY|API_URL|GATEWAY_WS_URL)|COPILOTKIT_LICENSE_TOKEN)$/;
   const forbiddenValue =
-    /^(?:CPK_INTELLIGENCE_(?:API_KEY|API_URL|GATEWAY_WS_URL)|COPILOTKIT_LICENSE_TOKEN|https:\/\/api\.intelligence\.copilotkit\.ai|wss:\/\/realtime\.intelligence\.copilotkit\.ai)$/;
+    /^(?:CPK_INTELLIGENCE_(?:API_KEY|API_URL|GATEWAY_WS_URL)|COPILOTKIT_LICENSE_TOKEN)$/;
+  const forbiddenHostedUrl =
+    /^(?:https:\/\/api\.intelligence\.copilotkit\.ai|wss:\/\/realtime\.intelligence\.copilotkit\.ai)(?::443)?(?=$|[/?#])/i;
   const forbiddenBrowserProp =
     /^(?:publicApiKey|publicLicenseKey|licenseToken)$/;
   const violations: string[] = [];
+  const managedSurfaceNames = getManagedReactSurfaceNames(model);
 
   visitTypeScript(model, (node) => {
     if (ts.isIdentifier(node) && forbiddenIdentifier.test(node.text)) {
       violations.push(node.text);
     }
+    const literalValue =
+      ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
+        ? node.text
+        : ts.isTemplateExpression(node)
+          ? node.head.text
+          : undefined;
     if (
-      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
-      forbiddenValue.test(node.text)
+      literalValue &&
+      (forbiddenValue.test(literalValue) ||
+        forbiddenHostedUrl.test(literalValue))
     ) {
-      violations.push(node.text);
+      violations.push(literalValue);
     }
-    if (
-      ts.isJsxAttribute(node) &&
-      forbiddenBrowserProp.test(node.name.getText(model))
-    ) {
-      violations.push(node.name.getText(model));
-    }
-    if (
-      (ts.isPropertyAssignment(node) ||
-        ts.isShorthandPropertyAssignment(node)) &&
-      forbiddenBrowserProp.test(getTypeScriptName(node.name))
-    ) {
-      violations.push(getTypeScriptName(node.name));
+    if (!ts.isJsxOpeningLikeElement(node)) return;
+
+    const tagName = node.tagName.getText(model).split(".").at(-1);
+    if (!tagName || !managedSurfaceNames.has(tagName)) return;
+
+    for (const attribute of node.attributes.properties) {
+      if (ts.isJsxSpreadAttribute(attribute)) {
+        violations.push("<managed-target-spread>");
+      } else if (forbiddenBrowserProp.test(attribute.name.getText(model))) {
+        violations.push(attribute.name.getText(model));
+      }
     }
   });
 
@@ -1398,6 +1524,98 @@ test("rejects an onRequest auth gate satisfied only by later code", () => {
   expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
 });
 
+test.each([
+  {
+    caseName: "an ignored verifier result and unrelated 401 condition",
+    body: `          const verified = await getVerifiedAppUser(request);
+          const unrelated = null;
+          if (!unrelated) {
+            throw new Response("Unauthorized", { status: 401 });
+          }
+          void verified;`,
+  },
+  {
+    caseName: "a 401 exit nested in a function",
+    body: `          const user = await getVerifiedAppUser(request);
+          if (!user) {
+            function rejectLater() {
+              throw new Response("Unauthorized", { status: 401 });
+            }
+            void rejectLater;
+          }`,
+  },
+  {
+    caseName: "a 401 exit behind another condition",
+    body: `          const user = await getVerifiedAppUser(request);
+          if (!user) {
+            if (false) {
+              throw new Response("Unauthorized", { status: 401 });
+            }
+          }`,
+  },
+  {
+    caseName: "a 401 marker in the response body only",
+    body: `          const user = await getVerifiedAppUser(request);
+          if (!user) {
+            throw new Response(JSON.stringify({ status: 401 }), { status: 200 });
+          }`,
+  },
+  {
+    caseName: "a reassigned verifier binding",
+    body: `          let user = await getVerifiedAppUser(request);
+          user = null;
+          if (!user) {
+            throw new Response("Unauthorized", { status: 401 });
+          }`,
+  },
+  {
+    caseName: "an unreachable 401 after another exit",
+    body: `          const user = await getVerifiedAppUser(request);
+          if (!user) {
+            return new Response("OK", { status: 200 });
+            throw new Response("Unauthorized", { status: 401 });
+          }`,
+  },
+  {
+    caseName: "a shadowed request binding",
+    body: `          const request = await getVerifiedAppUser(request);
+          if (!request) {
+            throw new Response("Unauthorized", { status: 401 });
+          }`,
+  },
+  {
+    caseName: "a shadowed Response binding",
+    body: `          const Response = await getVerifiedAppUser(request);
+          if (!Response) {
+            throw new Response("Unauthorized", { status: 401 });
+          }`,
+  },
+  {
+    caseName: "work before the direct 401 exit",
+    body: `          const user = await getVerifiedAppUser(request);
+          if (!user) {
+            console.error("Unauthorized");
+            throw new Response("Unauthorized", { status: 401 });
+          }`,
+  },
+])("rejects onRequest auth with $caseName", ({ body }) => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    /        onRequest: async \(\{ request \}\) => \{[\s\S]*?\n        \},/,
+    `        onRequest: async ({ request }) => {\n${body}\n        },`,
+  );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
+test("rejects an aliased onRequest request binding", () => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    "        onRequest: async ({ request }) => {",
+    "        onRequest: async ({ something: request }) => {",
+  );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
 test("rejects a conflicting nested CopilotChat agent override", () => {
   const mutatedGuide = readCanonicalGuide().replace(
     "          <CopilotChat />",
@@ -1413,9 +1631,22 @@ test.each([
   "const leak = process.env.CPK_INTELLIGENCE_GATEWAY_WS_URL;",
   'const leak = "https://api.intelligence.copilotkit.ai";',
   'const leak = "wss://realtime.intelligence.copilotkit.ai";',
+  'const leak = "https://api.intelligence.copilotkit.ai/";',
+  'const leak = "https://api.intelligence.copilotkit.ai/threads";',
+  'const leak = "https://api.intelligence.copilotkit.ai?region=us";',
+  'const leak = "https://api.intelligence.copilotkit.ai#client";',
+  'const leak = "wss://realtime.intelligence.copilotkit.ai/";',
+  'const leak = "wss://realtime.intelligence.copilotkit.ai/socket";',
+  'const leak = "wss://realtime.intelligence.copilotkit.ai?region=us";',
+  'const leak = "wss://realtime.intelligence.copilotkit.ai#client";',
+  "const leak = `https://api.intelligence.copilotkit.ai/${path}`;",
+  "const leak = `wss://realtime.intelligence.copilotkit.ai/?token=${token}`;",
+  'const leak = "https://API.INTELLIGENCE.COPILOTKIT.AI:443/threads";',
+  'const leak = "wss://REALTIME.INTELLIGENCE.COPILOTKIT.AI:443/socket";',
   'publicLicenseKey="stale"',
   'licenseToken="stale"',
   '{...{ licenseToken: "stale" }}',
+  '{...{ ["licenseToken"]: "stale" }}',
 ])("rejects client app-page leak %s", (leak) => {
   const guide = readCanonicalGuide();
   const mutatedGuide = leak.startsWith("const ")
@@ -1424,6 +1655,63 @@ test.each([
         "    <CopilotKitProvider\n",
         `    <CopilotKitProvider\n      ${leak}\n`,
       );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
+test("rejects an ambiguous computed property on a provider spread", () => {
+  const mutatedGuide = readCanonicalGuide()
+    .replace(
+      '"use client";',
+      '"use client";\nconst providerProp = Math.random() ? "licenseToken" : "className";\nconst providerProps = { [providerProp]: "stale" };',
+    )
+    .replace(
+      "    <CopilotKitProvider\n",
+      "    <CopilotKitProvider\n      {...providerProps}\n",
+    );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
+test("rejects a browser secret on an aliased managed component", () => {
+  const appPage = findMdxCodeFence(
+    extractMdxCodeFences(readCanonicalGuide()),
+    "tsx",
+    "app/page.tsx",
+  )
+    .replace("  CopilotKitProvider,", "  CopilotKitProvider as Provider,")
+    .replace(
+      "    <CopilotKitProvider\n",
+      '    <Provider\n      licenseToken="stale"\n',
+    )
+    .replace("    </CopilotKitProvider>", "    </Provider>");
+
+  expect(() => expectNoManagedClientSecrets(appPage)).toThrow();
+});
+
+test("allows an unrelated ambiguous computed property in client app logic", () => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    '"use client";',
+    '"use client";\nconst appProp = Math.random() ? "label" : "className";\nconst appProps = { [appProp]: "safe" };\nvoid appProps;',
+  );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).not.toThrow();
+});
+
+test("allows an unrelated licenseToken property in client app logic", () => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    '"use client";',
+    '"use client";\nconst appState = { licenseToken: "app-owned" };\nvoid appState;',
+  );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).not.toThrow();
+});
+
+test("rejects malformed executable syntax in a published snippet", () => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    '"use client";',
+    '"use client";\nconst broken = {;',
+  );
 
   expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
 });
@@ -1441,15 +1729,19 @@ test("rejects an onRequest auth gate that is fully commented out", () => {
   expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
 });
 
-test.each([
-  ["a closing brace in a string", '          const marker = "}";'],
-  ["a closing brace in a template", "          const marker = `}`;"],
-  ["a closing brace in a regex", "          const marker = /}/;"],
-  ["a closing brace in a block comment", "          /* } */"],
-])("allows %s before executable onRequest auth", (_caseName, statement) => {
+test("allows a block comment before executable onRequest auth", () => {
   const mutatedGuide = readCanonicalGuide().replace(
     "        onRequest: async ({ request }) => {",
-    `        onRequest: async ({ request }) => {\n${statement}`,
+    "        onRequest: async ({ request }) => {\n          /* } */",
+  );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).not.toThrow();
+});
+
+test("allows a parenthesized awaited verifier result", () => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    "          const user = await getVerifiedAppUser(request);",
+    "          const user = (await getVerifiedAppUser(request));",
   );
 
   expect(() => expectCanonicalGuideContracts(mutatedGuide)).not.toThrow();
@@ -2066,13 +2358,6 @@ test("uses one explicit agent ID for the headless thread list and chat", () => {
 
   expect.soft(listAgentId).toBe("my-agent");
   expectHostedAgentIdOverrides(app, listAgentId ?? "");
-  expectHostedAgentIdOverrides(
-    app.replace(
-      "threadId={activeThreadId}",
-      'threadId={activeThreadId} {...{ className: "chat" }}',
-    ),
-    listAgentId ?? "",
-  );
 });
 
 test.each([
@@ -2102,6 +2387,68 @@ test.each([
     "App.tsx",
   );
 
+  expect(() => expectHostedAgentIdOverrides(app, "my-agent")).toThrow();
+});
+
+test.each([
+  {
+    caseName: "a static computed agentId override",
+    setup: "",
+    replacement:
+      '<CopilotChat agentId="my-agent" threadId={activeThreadId} {...{ ["agentId"]: "other-agent" }} />',
+  },
+  {
+    caseName: "an ambiguous computed property on a target spread",
+    setup:
+      'const chatProp = Math.random() ? "agentId" : "className";\n        const chatProps = { [chatProp]: "other-agent" };\n\n        ',
+    replacement:
+      '<CopilotChat agentId="my-agent" threadId={activeThreadId} {...chatProps} />',
+  },
+  {
+    caseName: "a shorthand agentId override",
+    setup: 'const agentId = "other-agent";\n\n        ',
+    replacement:
+      '<CopilotChat agentId="my-agent" threadId={activeThreadId} {...{ agentId }} />',
+  },
+  {
+    caseName: "a valueless direct agentId override",
+    setup: "",
+    replacement:
+      '<CopilotChat agentId="my-agent" threadId={activeThreadId} agentId />',
+  },
+])("rejects $caseName", ({ setup, replacement }) => {
+  const mutatedHeadlessGuide = readContent(headlessEntryPointPath)
+    .replace("        function App() {", `        ${setup}function App() {`)
+    .replace(
+      '<CopilotChat agentId="my-agent" threadId={activeThreadId} />',
+      replacement,
+    );
+  const app = findMdxCodeFence(
+    extractMdxCodeFences(mutatedHeadlessGuide),
+    "tsx",
+    "App.tsx",
+  );
+
+  expect(() => expectHostedAgentIdOverrides(app, "my-agent")).toThrow();
+});
+
+test("rejects an agentId override on an aliased chat component", () => {
+  const mutatedHeadlessGuide = readContent(headlessEntryPointPath)
+    .replace(
+      'import { CopilotChat } from "@copilotkit/react-core/v2";',
+      'import { CopilotChat as Chat } from "@copilotkit/react-core/v2";',
+    )
+    .replace(
+      '<CopilotChat agentId="my-agent" threadId={activeThreadId} />',
+      '<Chat agentId="other-agent" threadId={activeThreadId} />',
+    );
+  const app = findMdxCodeFence(
+    extractMdxCodeFences(mutatedHeadlessGuide),
+    "tsx",
+    "App.tsx",
+  );
+
+  expect(extractHostedAgentIdOverrides(app)).toEqual(["other-agent"]);
   expect(() => expectHostedAgentIdOverrides(app, "my-agent")).toThrow();
 });
 
