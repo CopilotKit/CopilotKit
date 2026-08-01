@@ -211,6 +211,12 @@ export interface CopilotChatProps {
   labels?: CopilotChatLabels;
 
   /**
+   * Show each message's optional timestamp in the default message renderers.
+   * @default false
+   */
+  showTimestamps?: boolean;
+
+  /**
    * @deprecated Use `attachments={{ enabled: true }}` instead.
    * `imageUploadsEnabled` only supports images. The new `attachments` prop supports
    * images, audio, video, and documents.
@@ -410,6 +416,7 @@ export function CopilotChat({
   className,
   icons,
   labels,
+  showTimestamps = false,
   AssistantMessage = DefaultAssistantMessage,
   UserMessage = DefaultUserMessage,
   ImageRenderer = DefaultImageRenderer,
@@ -684,6 +691,7 @@ export function CopilotChat({
         id: randomUUID(),
         content: text,
         role: "user" as const,
+        timestamp: Date.now(),
       } as Message);
     }
 
@@ -721,6 +729,7 @@ export function CopilotChat({
         id: randomUUID(),
         content: contentParts,
         role: "user",
+        timestamp: Date.now(),
       });
     }
 
@@ -729,6 +738,7 @@ export function CopilotChat({
       id: randomUUID(),
       content: text,
       role: "user",
+      timestamp: Date.now(),
     });
   };
 
@@ -925,7 +935,12 @@ export function CopilotChat({
   };
 
   return (
-    <WrappedCopilotChat icons={icons} labels={labels} className={className}>
+    <WrappedCopilotChat
+      icons={icons}
+      labels={labels}
+      showTimestamps={showTimestamps}
+      className={className}
+    >
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -1017,11 +1032,13 @@ export function WrappedCopilotChat({
   children,
   icons,
   labels,
+  showTimestamps,
   className,
 }: {
   children: React.ReactNode;
   icons?: CopilotChatIcons;
   labels?: CopilotChatLabels;
+  showTimestamps?: boolean;
   className?: string;
 }) {
   const chatContext = React.useContext(ChatContext);
@@ -1030,6 +1047,7 @@ export function WrappedCopilotChat({
       <ChatContextProvider
         icons={icons}
         labels={labels}
+        showTimestamps={showTimestamps}
         open={true}
         setOpen={() => {}}
       >
