@@ -157,7 +157,6 @@ The resulting `A2UIUserAction` will include the resolved context:
   sourceComponentId: "book-button",
   timestamp: "2025-01-01T00:00:00.000Z",
   context: { flightNumber: "AA100", price: "$350" },
-  dataContextPath: "/flights/0",
 }
 ```
 
@@ -184,7 +183,7 @@ const A2UIMessageRenderer = createA2UIMessageRenderer({
 });
 ```
 
-Register `A2UIMessageRenderer` in the provider's `renderActivityMessages` list, as shown in the integration setup pages.
+Pass the returned renderer through the provider's `renderActivityMessages` prop when you need this custom `onAction` behavior. User-provided renderers take precedence over the provider's built-in A2UI renderer.
 
 ### Forward a modified action
 

@@ -52,6 +52,8 @@ SURFACE_ID = "flight-search-results"
 FLIGHT_SCHEMA = a2ui.load_schema(
     Path(__file__).parent / "a2ui" / "schemas" / "flight_schema.json"
 )
+
+
 @tool
 def search_flights(flights: list[Flight]) -> str:
     """Search for flights and display results as rich cards."""
@@ -66,7 +68,7 @@ def search_flights(flights: list[Flight]) -> str:
 
 Key points:
 - The `Flight` TypedDict is essential — LangGraph serializes it into the tool's JSON schema, which is what the LLM sees when deciding what data to generate.
-- The Python SDK's `a2ui.render` does not yet support the `action_handlers=` keyword, so the example keeps the button schema but does not declare server-side handlers. Button clicks are currently inert.
+- The Python SDK's `a2ui.render` does not yet support the `action_handlers=` keyword, so the example keeps the button schema but does not declare server-side handlers. Button clicks are forwarded to the agent, but this example has no server-side handler for them.
 - `"book_flight"` is the action name used by the schema button and can be handled with the frontend APIs in the [Advanced — Action Handlers](./advanced#action-handlers) guide.
 </Step>
 
