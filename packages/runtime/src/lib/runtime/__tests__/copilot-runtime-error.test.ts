@@ -1,8 +1,13 @@
-import {
+import type {
   CopilotErrorEvent,
   CopilotRequestContext,
   CopilotErrorHandler,
 } from "@copilotkit/shared";
+import { Observable } from "rxjs";
+import { HttpAgent } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
+import { createCopilotRuntimeHandler } from "../../../v2/runtime";
+import { CopilotRuntime } from "../copilot-runtime";
 
 describe("CopilotRuntime onError types", () => {
   it("should have correct CopilotTraceEvent type structure", () => {
@@ -179,5 +184,110 @@ describe("CopilotRuntime onError types", () => {
       expect(shouldHandleError(onError, cloudKey)).toBe(true);
       expect(shouldHandleError(onError, nonCloudKey)).toBe(true);
     });
+  });
+
+  it("forwards request headers from a failing local runtime", async () => {
+    const onError = vi.fn();
+    const runner = {
+      run: () =>
+        new Observable<BaseEvent>((subscriber) => {
+          subscriber.error(new Error("local runner failed"));
+        }),
+      connect: () => new Observable<BaseEvent>(() => {}),
+      isRunning: async () => false,
+      stop: async () => false,
+    };
+    const runtime = new CopilotRuntime({
+      agents: { default: new HttpAgent({ url: "https://agent.example" }) },
+      onError,
+      runner,
+    });
+    const handler = createCopilotRuntimeHandler({ runtime: runtime.instance });
+
+    const response = await handler(
+      new Request("https://example.com/agent/default/run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": "issue-2716-user",
+        },
+        body: JSON.stringify({
+          threadId: "thread-1",
+          runId: "run-1",
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {},
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await response.text();
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "error",
+        context: expect.objectContaining({
+          request: expect.objectContaining({
+            headers: expect.objectContaining({
+              "x-user-id": "issue-2716-user",
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("preserves the response when the rejecting runtime error handler runs", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const runtime = new CopilotRuntime({
+        agents: Promise.reject(new Error("agent lookup failed")),
+        onError: vi.fn().mockRejectedValue(new Error("callback failed")),
+      });
+      const handler = createCopilotRuntimeHandler({
+        runtime: runtime.instance,
+      });
+      const response = await handler(
+        new Request("https://example.com/agent/default/run", {
+          method: "POST",
+          headers: { "X-User-Id": "issue-2716-user" },
+          body: JSON.stringify({}),
+        }),
+      );
+
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toEqual({
+        error: "Failed to run agent",
+        message: "agent lookup failed",
+      });
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("reports a pre-response agent failure without changing the response", async () => {
+    const onError = vi.fn();
+    const runtime = new CopilotRuntime({
+      agents: Promise.reject(new Error("pre-response failure")),
+      onError,
+    });
+    const handler = createCopilotRuntimeHandler({ runtime: runtime.instance });
+
+    const response = await handler(
+      new Request("https://example.com/agent/default/run", {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to run agent",
+      message: "pre-response failure",
+    });
+    expect(onError).toHaveBeenCalledOnce();
   });
 });

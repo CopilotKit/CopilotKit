@@ -6,6 +6,7 @@ import { createLogger } from "../../../../lib/logger";
 import type { CopilotRuntimeLogger } from "../../../../lib/logger";
 import { telemetry } from "../../telemetry";
 import type { DebugEventBus } from "../../core/debug-event-bus";
+import type { RuntimeErrorReporter } from "../../core/runtime-error-reporter";
 
 interface CreateSseEventResponseParams {
   request: Request;
@@ -25,6 +26,8 @@ interface CreateSseEventResponseParams {
    * run telemetry.
    */
   captureTelemetry?: boolean;
+  runtimeErrorReporter?: RuntimeErrorReporter;
+  startTime?: number;
 }
 
 export function createSseEventResponse({
@@ -35,6 +38,8 @@ export function createSseEventResponse({
   debug,
   logger,
   captureTelemetry = true,
+  runtimeErrorReporter,
+  startTime,
 }: CreateSseEventResponseParams): Response {
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
@@ -73,6 +78,22 @@ export function createSseEventResponse({
   };
 
   let subscription: Subscription | undefined;
+  let agentErrorReported = false;
+
+  const reportAgentError = (error: unknown, phase: string) => {
+    if (agentErrorReported) return;
+    agentErrorReported = true;
+    runtimeErrorReporter?.report({
+      request,
+      error,
+      operation: "agent.run",
+      agentId,
+      threadId: debugThreadId || undefined,
+      runId: debugRunId || undefined,
+      phase,
+      startTime,
+    });
+  };
 
   (async () => {
     const observable = await observableFactory();
@@ -152,6 +173,7 @@ export function createSseEventResponse({
         }
       },
       error: async (error) => {
+        reportAgentError(error, "sse.subscription");
         if (captureTelemetry) {
           telemetry.capture("oss.runtime.agent_execution_stream_errored", {
             error: error instanceof Error ? error.message : String(error),
@@ -186,6 +208,7 @@ export function createSseEventResponse({
       subscription.unsubscribe();
     }
   })().catch(async (error) => {
+    reportAgentError(error, "sse.factory");
     logError(error);
     await closeStream();
   });

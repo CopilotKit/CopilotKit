@@ -39,6 +39,10 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 // by the Channel-listener bootstrap — not here.
 import type { Channel } from "@copilotkit/channels-core";
 import telemetry from "../telemetry/telemetry-client";
+import {
+  attachRuntimeErrorReporter,
+  getRuntimeErrorReporterFromOptions,
+} from "./runtime-error-reporter";
 
 export const VERSION = pkg.version;
 
@@ -556,6 +560,11 @@ class CopilotRuntimeShim implements CopilotRuntime {
     this.delegate = hasIntelligenceOptions(options)
       ? new CopilotIntelligenceRuntime(options)
       : new CopilotSseRuntime(options);
+
+    const reporter = getRuntimeErrorReporterFromOptions(options);
+    if (reporter) {
+      attachRuntimeErrorReporter(this, reporter);
+    }
   }
 
   get agents(): CopilotRuntimeOptions["agents"] {

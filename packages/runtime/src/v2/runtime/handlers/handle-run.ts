@@ -9,12 +9,14 @@ import {
 } from "./shared/agent-utils";
 import { handleIntelligenceRun } from "./intelligence/run";
 import { handleSseRun } from "./sse/run";
+import { getRuntimeErrorReporter } from "../core/runtime-error-reporter";
 
 export async function handleRunAgent({
   runtime,
   request,
   agentId,
 }: RunAgentParameters) {
+  const startTime = Date.now();
   telemetry.capture("oss.runtime.copilot_request_created", {
     "cloud.guardrails.enabled": false,
     requestType: "run",
@@ -83,6 +85,7 @@ export async function handleRunAgent({
         agentId,
         agent,
         input,
+        startTime,
       });
     }
 
@@ -94,8 +97,17 @@ export async function handleRunAgent({
       agentId,
       debug: runtime.debug,
       logger: runtime.debugLogger,
+      startTime,
     });
   } catch (error) {
+    getRuntimeErrorReporter(runtime)?.report({
+      request,
+      error,
+      operation: "agent.run",
+      agentId,
+      phase: "common",
+      startTime,
+    });
     console.error("Error running agent:", error);
     console.error(
       "Error stack:",
