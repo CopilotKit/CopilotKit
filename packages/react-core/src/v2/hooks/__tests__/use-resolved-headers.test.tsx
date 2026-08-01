@@ -64,6 +64,59 @@ describe("useResolvedHeaders", () => {
     });
   });
 
+  it("refreshes a stable async builder after its first result settles", async () => {
+    const first = deferred<HeaderRecord>();
+    const refresh = deferred<HeaderRecord>();
+    const source = vi
+      .fn<() => Promise<HeaderRecord>>()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(refresh.promise);
+    const { result, rerender } = renderHook(() => useResolvedHeaders(source));
+
+    act(() => first.resolve({ Authorization: "Bearer first" }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    rerender();
+    await waitFor(() => expect(source).toHaveBeenCalledTimes(2));
+    expect(result.current.headers).toEqual({
+      Authorization: "Bearer first",
+    });
+
+    act(() => refresh.resolve({ Authorization: "Bearer refreshed" }));
+    await waitFor(() =>
+      expect(result.current.headers).toEqual({
+        Authorization: "Bearer refreshed",
+      }),
+    );
+  });
+
+  it("retries a stable async builder after its first result rejects", async () => {
+    const first = deferred<HeaderRecord>();
+    const retry = deferred<HeaderRecord>();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const source = vi
+      .fn<() => Promise<HeaderRecord>>()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(retry.promise);
+    const { result, rerender } = renderHook(() => useResolvedHeaders(source));
+
+    act(() => first.reject(new Error("temporary token failure")));
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+    rerender();
+    await waitFor(() => expect(source).toHaveBeenCalledTimes(2));
+
+    act(() => retry.resolve({ Authorization: "Bearer recovered" }));
+    await waitFor(() => {
+      expect(result.current).toEqual({
+        headers: { Authorization: "Bearer recovered" },
+        ready: true,
+        error: null,
+      });
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[CopilotKit] Failed to resolve request headers",
+    );
+  });
+
   it("keeps the last good record after a refresh rejection", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const first = deferred<HeaderRecord>();

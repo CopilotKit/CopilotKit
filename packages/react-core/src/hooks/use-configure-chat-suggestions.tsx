@@ -4,9 +4,8 @@ import {
   useCopilotKit,
   useSuggestions,
 } from "../v2";
-import { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
-import { useCopilotContext } from "../context";
-import { useEffect, useMemo } from "react";
+import type { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
+import { useEffect } from "react";
 
 type StaticSuggestionInput = Omit<Suggestion, "isLoading"> &
   Partial<Pick<Suggestion, "isLoading">>;
@@ -61,7 +60,7 @@ export function useConfigureChatSuggestions(
 ): ReturnType<typeof useSuggestions> {
   const existingConfig = useCopilotChatConfiguration();
   const resolvedAgentId = existingConfig?.agentId ?? "default";
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, waitForHeaders } = useCopilotKit();
 
   const available =
     config.available === "enabled" ? "always" : config.available;
@@ -77,20 +76,43 @@ export function useConfigureChatSuggestions(
 
   useEffect(() => {
     if (finalSuggestionConfig.available === "disabled") return;
+    let active = true;
     const subscription = copilotkit.subscribe({
       onAgentsChanged: () => {
         // When agents change, check if our target agent now exists and reload
         const agent = copilotkit.getAgent(resolvedAgentId);
         if (agent && !agent.isRunning && !result.suggestions.length) {
-          copilotkit.reloadSuggestions(resolvedAgentId);
+          void (async () => {
+            try {
+              await waitForHeaders?.();
+            } catch {
+              return;
+            }
+            if (!active) return;
+            const latestAgent = copilotkit.getAgent(resolvedAgentId);
+            if (
+              latestAgent &&
+              !latestAgent.isRunning &&
+              !result.suggestions.length
+            ) {
+              copilotkit.reloadSuggestions(resolvedAgentId);
+            }
+          })();
         }
       },
     });
 
     return () => {
+      active = false;
       subscription.unsubscribe();
     };
-  }, [resolvedAgentId]);
+  }, [
+    copilotkit,
+    finalSuggestionConfig.available,
+    resolvedAgentId,
+    result.suggestions.length,
+    waitForHeaders,
+  ]);
 
   return result;
 }

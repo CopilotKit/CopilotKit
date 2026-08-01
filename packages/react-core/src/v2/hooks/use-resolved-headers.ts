@@ -74,14 +74,20 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
   const evaluationRef = useRef<{
     source: HeaderSource;
     evaluation: HeaderEvaluation;
+    settled: boolean;
+    skipSettledRefresh: boolean;
   } | null>(null);
   let evaluation: HeaderEvaluation;
+  const cachedEvaluation = evaluationRef.current;
 
   if (
-    evaluationRef.current === null ||
-    evaluationRef.current.source !== source ||
-    evaluationRef.current.evaluation.kind === "sync" ||
-    evaluationRef.current.evaluation.kind === "error"
+    cachedEvaluation === null ||
+    cachedEvaluation.source !== source ||
+    cachedEvaluation.evaluation.kind === "sync" ||
+    cachedEvaluation.evaluation.kind === "error" ||
+    (cachedEvaluation.evaluation.kind === "async" &&
+      cachedEvaluation.settled &&
+      !cachedEvaluation.skipSettledRefresh)
   ) {
     evaluation = evaluate(source);
     if (
@@ -91,9 +97,20 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
     ) {
       evaluation = evaluationRef.current.evaluation;
     }
-    evaluationRef.current = { source, evaluation };
+    evaluationRef.current = {
+      source,
+      evaluation,
+      settled: evaluation.kind !== "async",
+      skipSettledRefresh: false,
+    };
   } else {
-    evaluation = evaluationRef.current.evaluation;
+    if (
+      cachedEvaluation.evaluation.kind === "async" &&
+      cachedEvaluation.settled
+    ) {
+      cachedEvaluation.skipSettledRefresh = false;
+    }
+    evaluation = cachedEvaluation.evaluation;
   }
   const hasSettledRef = useRef(evaluation.kind === "sync");
   const lastGoodHeadersRef = useRef(
@@ -160,6 +177,10 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
     Promise.resolve(evaluation.promise).then(
       (headers) => {
         if (!active || attempt !== attemptRef.current) return;
+        if (evaluationRef.current?.evaluation === evaluation) {
+          evaluationRef.current.settled = true;
+          evaluationRef.current.skipSettledRefresh = true;
+        }
         if (!isHeaderRecord(headers)) {
           publishError(invalidHeadersError());
           return;
@@ -173,7 +194,13 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
             : { ready: true, error: null },
         );
       },
-      (error: unknown) => publishError(toError(error)),
+      (error: unknown) => {
+        if (evaluationRef.current?.evaluation === evaluation) {
+          evaluationRef.current.settled = true;
+          evaluationRef.current.skipSettledRefresh = true;
+        }
+        publishError(toError(error));
+      },
     );
 
     return () => {

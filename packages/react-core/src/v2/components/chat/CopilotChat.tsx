@@ -370,6 +370,8 @@ export function CopilotChat({
     const connect = async (agentToConnect: AbstractAgent) => {
       activeConnectCountRef.current += 1;
       try {
+        await waitForHeaders?.();
+        if (detached) return;
         await copilotkit.connectAgent({ agent: agentToConnect });
       } catch (error) {
         // Ignore errors from aborted connections (e.g., React StrictMode cleanup)
@@ -438,6 +440,7 @@ export function CopilotChat({
     resolvedAgentId,
     hasExplicitThreadId,
     headersReady,
+    waitForHeaders,
   ]);
 
   useEffect(() => {

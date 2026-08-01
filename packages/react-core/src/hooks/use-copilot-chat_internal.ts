@@ -772,8 +772,10 @@ export function useCopilotChatInternal({
     suggestions: renderedSuggestions.suggestions,
     setSuggestions: (suggestions: Omit<Suggestion, "isLoading">[]) =>
       copilotkit.addSuggestionsConfig({ suggestions }),
-    generateSuggestions: async () =>
-      copilotkit.reloadSuggestions(resolvedAgentId),
+    generateSuggestions: async () => {
+      await waitForHeaders?.();
+      copilotkit.reloadSuggestions(resolvedAgentId);
+    },
     resetSuggestions: () => copilotkit.clearSuggestions(resolvedAgentId),
     isLoadingSuggestions: renderedSuggestions.isLoading,
     interrupt,
