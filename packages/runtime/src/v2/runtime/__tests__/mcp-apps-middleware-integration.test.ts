@@ -1,13 +1,30 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import {
-  AbstractAgent,
-  RunAgentInput,
-  BaseEvent,
-  EventType,
-} from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
 import { MCPAppsMiddleware, getServerHash } from "@ag-ui/mcp-apps-middleware";
+import type * as MCPAppsMiddlewareModule from "@ag-ui/mcp-apps-middleware";
+import type { McpAppsServerConfig } from "../core/runtime";
+import { CopilotRuntime } from "../core/runtime";
+import { handleRunAgent } from "../handlers/handle-run";
+
+const middlewareConstructor = vi.hoisted(() => vi.fn());
+
+vi.mock("@ag-ui/mcp-apps-middleware", async (importOriginal) => {
+  const actual = await importOriginal<typeof MCPAppsMiddlewareModule>();
+
+  class TrackedMCPAppsMiddleware extends actual.MCPAppsMiddleware {
+    constructor(
+      ...args: ConstructorParameters<typeof actual.MCPAppsMiddleware>
+    ) {
+      middlewareConstructor(...args);
+      super(...args);
+    }
+  }
+
+  return { ...actual, MCPAppsMiddleware: TrackedMCPAppsMiddleware };
+});
 
 /**
  * A minimal next-agent that emits RUN_STARTED and RUN_FINISHED.
@@ -74,6 +91,7 @@ describe("MCPAppsMiddleware integration", () => {
     if (llm) {
       await llm.stop().catch(() => {});
     }
+    middlewareConstructor.mockClear();
   });
 
   async function startMcpServer(): Promise<string> {
@@ -113,6 +131,41 @@ describe("MCPAppsMiddleware integration", () => {
     });
 
     expect(middleware).toBeInstanceOf(MCPAppsMiddleware);
+  });
+
+  it("rejects unsupported policy before the runtime constructs middleware", async () => {
+    const server = {
+      type: "http" as const,
+      url: "https://mcp.example.com/mcp",
+      serverId: "weather",
+      excludeTools: ["delete_account"],
+    } as unknown as McpAppsServerConfig;
+    const runtime = new CopilotRuntime({
+      agents: { default: new MockNextAgent() },
+      mcpApps: { servers: [server] },
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const response = await handleRunAgent({
+        runtime,
+        agentId: "default",
+        request: new Request("https://example.com/agent/default/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(createRunInput()),
+        }),
+      });
+
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toMatchObject({
+        error: "Failed to run agent",
+        message: expect.stringContaining("excludeTools"),
+      });
+      expect(middlewareConstructor).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it("proxies tools/call through to MCPMock and returns results", async () => {
