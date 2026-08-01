@@ -42,6 +42,7 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
   let mockCopilotkit: {
     getAgent: ReturnType<typeof vi.fn>;
     getEphemeralMessages: ReturnType<typeof vi.fn>;
+    reconcileEphemeralMessages: ReturnType<typeof vi.fn>;
     subscribe: ReturnType<typeof vi.fn>;
     registerProxiedAgent: ReturnType<typeof vi.fn>;
     runtimeUrl: string | undefined;
@@ -60,6 +61,7 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
     mockCopilotkit = {
       getAgent: vi.fn(() => undefined),
       getEphemeralMessages: vi.fn(() => []),
+      reconcileEphemeralMessages: vi.fn(() => false),
       subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
       // Mini-registry stand-in for CopilotKitCore.registerProxiedAgent: hands
       // back a real ProxiedCopilotRuntimeAgent (so `.threadId` and

@@ -146,6 +146,7 @@ function createMockContext(
     copilotkit: {
       getAgent: () => agent,
       getEphemeralMessages: () => [],
+      reconcileEphemeralMessages: () => false,
       runtimeUrl: "http://localhost:3000/api/copilot",
       runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
       runtimeTransport: "rest",

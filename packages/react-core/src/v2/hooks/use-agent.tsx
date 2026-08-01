@@ -3,6 +3,7 @@ import {
   useCallback,
   useMemo,
   useEffect,
+  useLayoutEffect,
   useReducer,
   useRef,
   useState,
@@ -147,13 +148,22 @@ interface UseAgentUnscopedProps {
 export type UseAgentProps = UseAgentPropsBase &
   (UseAgentThreadScopedProps | UseAgentUnscopedProps);
 
-export function useAgent({
-  agentId,
-  threadId,
-  runtimeAgentId,
-  updates,
-  throttleMs,
-}: UseAgentProps = {}) {
+type UseAgentChatScope = {
+  agentId: string;
+  threadId: string;
+  hasExplicitThreadId: boolean;
+};
+
+export function useAgent(
+  {
+    agentId,
+    threadId,
+    runtimeAgentId,
+    updates,
+    throttleMs,
+  }: UseAgentProps = {},
+  chatScope?: UseAgentChatScope,
+) {
   // `threadId` and `runtimeAgentId` are all-or-nothing. UseAgentProps already
   // rejects a lone one at compile time; these are the runtime backstop for
   // callers TypeScript doesn't cover — plain JS, `as any`, and props widened to
@@ -211,7 +221,8 @@ export function useAgent({
   // <CopilotChat agentId="..."> subtree resolves to 'default' and throws once
   // the runtime has synced only a non-default agent (#5533).
   const chatConfig = useCopilotChatConfiguration();
-  const resolvedAgentId = agentId ?? chatConfig?.agentId ?? DEFAULT_AGENT_ID;
+  const resolvedAgentId =
+    chatScope?.agentId ?? agentId ?? chatConfig?.agentId ?? DEFAULT_AGENT_ID;
 
   const { copilotkit } = useCopilotKit();
   // Read the provider-level default so it appears in the effect's dep array.
@@ -461,8 +472,9 @@ export function useAgent({
   //      doesn't overwrite the auto-minted agent UUID (both are random and
   //      useless to the backend; the explicit gate keeps the agent's UUID
   //      stable across renders).
-  const configThreadId = chatConfig?.threadId;
-  const configHasExplicitThreadId = chatConfig?.hasExplicitThreadId;
+  const configThreadId = chatScope?.threadId ?? chatConfig?.threadId;
+  const configHasExplicitThreadId =
+    chatScope?.hasExplicitThreadId ?? chatConfig?.hasExplicitThreadId;
   const resolvedThreadId =
     threadId ?? (configHasExplicitThreadId ? configThreadId : undefined);
   useEffect(() => {
@@ -471,9 +483,35 @@ export function useAgent({
   }, [agent, resolvedThreadId]);
 
   const ephemeralThreadId =
-    resolvedThreadId ?? chatConfig?.threadId ?? agent.threadId;
-  const ephemeralThreadIdRef = useRef(ephemeralThreadId);
-  ephemeralThreadIdRef.current = ephemeralThreadId;
+    resolvedThreadId ?? configThreadId ?? agent.threadId;
+  const ephemeralScopeRef = useRef({
+    agentId: resolvedAgentId,
+    threadId: ephemeralThreadId,
+  });
+  useLayoutEffect(() => {
+    ephemeralScopeRef.current = {
+      agentId: resolvedAgentId,
+      threadId: ephemeralThreadId,
+    };
+  }, [ephemeralThreadId, resolvedAgentId]);
+
+  useEffect(() => {
+    copilotkit.reconcileEphemeralMessages(
+      resolvedAgentId,
+      ephemeralThreadId,
+      agent.messages,
+    );
+    const subscription = agent.subscribe({
+      onMessagesChanged: () => {
+        copilotkit.reconcileEphemeralMessages(
+          resolvedAgentId,
+          ephemeralThreadId,
+          agent.messages,
+        );
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [agent, copilotkit, ephemeralThreadId, resolvedAgentId]);
 
   useEffect(() => {
     const subscription = copilotkit.subscribe({
@@ -482,7 +520,7 @@ export function useAgent({
         threadId: eventThreadId,
       }) => {
         const currentThreadId =
-          resolvedThreadId ?? chatConfig?.threadId ?? agent.threadId;
+          resolvedThreadId ?? configThreadId ?? agent.threadId;
         if (
           eventAgentId === resolvedAgentId &&
           eventThreadId === currentThreadId
@@ -494,7 +532,7 @@ export function useAgent({
     return () => subscription.unsubscribe();
   }, [
     agent,
-    chatConfig,
+    configThreadId,
     copilotkit,
     ephemeralThreadId,
     forceUpdate,
@@ -504,86 +542,53 @@ export function useAgent({
 
   const addEphemeralMessage = useCallback(
     (message: ReactEphemeralMessage): boolean => {
+      const currentScope = ephemeralScopeRef.current;
       if (
-        !resolvedThreadId &&
-        chatConfig &&
-        ephemeralThreadIdRef.current !== ephemeralThreadId
+        currentScope.agentId !== resolvedAgentId ||
+        currentScope.threadId !== ephemeralThreadId
       ) {
         return false;
       }
-      const currentThreadId = resolvedThreadId
-        ? resolvedThreadId
-        : chatConfig
-          ? ephemeralThreadIdRef.current
-          : agent.threadId;
       return copilotkit.addEphemeralMessage(
-        resolvedAgentId,
-        currentThreadId,
+        currentScope.agentId,
+        currentScope.threadId,
         message,
       );
     },
-    [
-      agent,
-      chatConfig,
-      copilotkit,
-      ephemeralThreadId,
-      resolvedAgentId,
-      resolvedThreadId,
-    ],
+    [copilotkit, ephemeralThreadId, resolvedAgentId],
   );
 
   const removeEphemeralMessage = useCallback(
     (messageId: string): boolean => {
+      const currentScope = ephemeralScopeRef.current;
       if (
-        !resolvedThreadId &&
-        chatConfig &&
-        ephemeralThreadIdRef.current !== ephemeralThreadId
+        currentScope.agentId !== resolvedAgentId ||
+        currentScope.threadId !== ephemeralThreadId
       ) {
         return false;
       }
-      const currentThreadId = resolvedThreadId
-        ? resolvedThreadId
-        : chatConfig
-          ? ephemeralThreadIdRef.current
-          : agent.threadId;
       return copilotkit.removeEphemeralMessage(
-        resolvedAgentId,
-        currentThreadId,
+        currentScope.agentId,
+        currentScope.threadId,
         messageId,
       );
     },
-    [
-      agent,
-      chatConfig,
-      copilotkit,
-      ephemeralThreadId,
-      resolvedAgentId,
-      resolvedThreadId,
-    ],
+    [copilotkit, ephemeralThreadId, resolvedAgentId],
   );
 
   const clearEphemeralMessages = useCallback((): boolean => {
+    const currentScope = ephemeralScopeRef.current;
     if (
-      !resolvedThreadId &&
-      chatConfig &&
-      ephemeralThreadIdRef.current !== ephemeralThreadId
+      currentScope.agentId !== resolvedAgentId ||
+      currentScope.threadId !== ephemeralThreadId
     ) {
       return false;
     }
-    const currentThreadId = resolvedThreadId
-      ? resolvedThreadId
-      : chatConfig
-        ? ephemeralThreadIdRef.current
-        : agent.threadId;
-    return copilotkit.clearEphemeralMessages(resolvedAgentId, currentThreadId);
-  }, [
-    agent,
-    chatConfig,
-    copilotkit,
-    ephemeralThreadId,
-    resolvedAgentId,
-    resolvedThreadId,
-  ]);
+    return copilotkit.clearEphemeralMessages(
+      currentScope.agentId,
+      currentScope.threadId,
+    );
+  }, [copilotkit, ephemeralThreadId, resolvedAgentId]);
 
   const ephemeralMessages = copilotkit.getEphemeralMessages(
     resolvedAgentId,

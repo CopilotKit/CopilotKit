@@ -122,6 +122,19 @@ describe("CopilotKitCoreReact ephemeral messages", () => {
       content: "persisted owns this ID",
     });
 
+    expect(core.getEphemeralMessages("default", "thread-a")).toEqual([
+      {
+        id: "later-persisted",
+        content: "client-only first",
+      },
+    ]);
+    expect(
+      (core as unknown as { _ephemeralMessages: Map<unknown, unknown> })
+        ._ephemeralMessages.size,
+    ).toBe(1);
+    expect(
+      core.reconcileEphemeralMessages("default", "thread-a", agent.messages),
+    ).toBe(true);
     expect(core.getEphemeralMessages("default", "thread-a")).toEqual([]);
     expect(agent.messages).toEqual([
       {

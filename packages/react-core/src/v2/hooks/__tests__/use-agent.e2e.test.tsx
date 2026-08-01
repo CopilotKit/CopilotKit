@@ -1,5 +1,5 @@
 import React from "react";
-import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
@@ -12,8 +12,12 @@ import {
   testId,
 } from "../../__tests__/utils/test-helpers";
 import { useAgent } from "../use-agent";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import {
+  CopilotKitProvider,
+  useCopilotKit,
+} from "../../providers/CopilotKitProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
+import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 
 /**
  * Mock agent that captures RunAgentInput to verify state is passed correctly
@@ -227,6 +231,42 @@ describe("useAgent e2e", () => {
     });
   });
 
+  it("reconciles persisted collisions when message updates are disabled", async () => {
+    const agent = new MockStepwiseAgent();
+
+    function Harness() {
+      const { agent: hookAgent, ephemeralMessages } = useAgent({
+        updates: [],
+      });
+      const { copilotkit } = useCopilotKit();
+
+      React.useEffect(() => {
+        copilotkit.addEphemeralMessage("default", "test-thread", {
+          id: "collision-card",
+          content: "client-only",
+        });
+        hookAgent.addMessage({
+          id: "collision-card",
+          role: "user",
+          content: "persisted",
+        });
+      }, [copilotkit, hookAgent]);
+
+      return (
+        <output data-testid="reconciled-ephemeral-values">
+          {ephemeralMessages.map((message) => message.id).join(",")}
+        </output>
+      );
+    }
+
+    renderWithCopilotKit({ agent, children: <Harness /> });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("reconciled-ephemeral-values").textContent,
+      ).toBe("");
+    });
+  });
+
   it("uses a private thread argument over the surrounding chat thread", async () => {
     const runtimeAgent = new MockStepwiseAgent();
 
@@ -283,6 +323,87 @@ describe("useAgent e2e", () => {
         "private-thread-card",
       );
       expect(screen.getByTestId("outer-thread-values").textContent).toBe("");
+    });
+  });
+
+  it("rejects a deferred callback captured before an explicit thread switch", async () => {
+    const agent = new MockStepwiseAgent();
+    let staleAdd:
+      | ((message: { id: string; content: string }) => boolean)
+      | null = null;
+
+    function Harness() {
+      const { addEphemeralMessage } = useAgent();
+      React.useEffect(() => {
+        staleAdd ??= addEphemeralMessage;
+      }, [addEphemeralMessage]);
+      return null;
+    }
+
+    const { rerender } = render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider agentId="default" threadId="thread-a">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => expect(staleAdd).not.toBeNull());
+    rerender(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider agentId="default" threadId="thread-b">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(staleAdd?.({ id: "stale-thread-card", content: "stale" })).toBe(
+        false,
+      );
+    });
+  });
+
+  it("rejects a deferred callback captured before an explicit agent switch", async () => {
+    const firstAgent = new MockStepwiseAgent();
+    const secondAgent = new MockStepwiseAgent();
+    let staleAdd:
+      | ((message: { id: string; content: string }) => boolean)
+      | null = null;
+
+    function Harness() {
+      const { addEphemeralMessage } = useAgent();
+      React.useEffect(() => {
+        staleAdd ??= addEphemeralMessage;
+      }, [addEphemeralMessage]);
+      return null;
+    }
+
+    const { rerender } = render(
+      <CopilotKitProvider
+        agents__unsafe_dev_only={{ first: firstAgent, second: secondAgent }}
+      >
+        <CopilotChatConfigurationProvider agentId="first" threadId="thread-a">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => expect(staleAdd).not.toBeNull());
+    rerender(
+      <CopilotKitProvider
+        agents__unsafe_dev_only={{ first: firstAgent, second: secondAgent }}
+      >
+        <CopilotChatConfigurationProvider agentId="second" threadId="thread-a">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(staleAdd?.({ id: "stale-agent-card", content: "stale" })).toBe(
+        false,
+      );
     });
   });
 });

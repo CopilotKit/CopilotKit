@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach } from "vitest";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
+import { useCopilotChatConfiguration } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotChat } from "../CopilotChat";
 import { MockStepwiseAgent } from "../../../__tests__/utils/test-helpers";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
@@ -92,6 +93,34 @@ describe("CopilotChat welcome / connect integration", () => {
 
       expect(TrackingAgent.connectCalls).toHaveLength(0);
       expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
+    });
+
+    it("does not let its view provider override the chat lifecycle scope", async () => {
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      function ViewWithLocalThreadAction() {
+        const config = useCopilotChatConfiguration();
+        useEffect(() => {
+          config?.setActiveThreadId("view-selected-thread", { explicit: true });
+        }, [config]);
+        return (
+          <output data-testid="view-provider-thread">{config?.threadId}</output>
+        );
+      }
+
+      renderWithKit(
+        <CopilotChat chatView={ViewWithLocalThreadAction as any} />,
+        agent,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("view-provider-thread").textContent).toBe(
+          "view-selected-thread",
+        );
+      });
+      expect(TrackingAgent.connectCalls).toHaveLength(0);
+      expect(agent.threadId).not.toBe("view-selected-thread");
     });
   });
 

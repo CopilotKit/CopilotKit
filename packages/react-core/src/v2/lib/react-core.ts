@@ -110,28 +110,41 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     if (!messages) {
       return EMPTY_EPHEMERAL_MESSAGES;
     }
+    return messages;
+  }
 
-    const agent = this.getAgent(agentId);
-    if (!agent || agent.threadId !== threadId) {
-      return messages;
+  reconcileEphemeralMessages(
+    agentId: string,
+    threadId: string,
+    persistedMessages: ReadonlyArray<{ id: string }>,
+  ): boolean {
+    const key = this._ephemeralScopeKey(agentId, threadId);
+    const messages = this._ephemeralMessages.get(key);
+    if (!messages) {
+      return false;
     }
 
-    const persistedIds = new Set(agent.messages.map((message) => message.id));
+    const persistedIds = new Set(
+      persistedMessages.map((message) => message.id),
+    );
     const withoutCollisions = messages.filter(
       (message) => !persistedIds.has(message.id),
     );
     if (withoutCollisions.length === messages.length) {
-      return messages;
+      return false;
     }
 
-    if (withoutCollisions.length === 0) {
+    const next =
+      withoutCollisions.length === 0
+        ? EMPTY_EPHEMERAL_MESSAGES
+        : Object.freeze(withoutCollisions);
+    if (next.length === 0) {
       this._ephemeralMessages.delete(key);
-      return EMPTY_EPHEMERAL_MESSAGES;
+    } else {
+      this._ephemeralMessages.set(key, next);
     }
-
-    const snapshot = Object.freeze(withoutCollisions);
-    this._ephemeralMessages.set(key, snapshot);
-    return snapshot;
+    this._notifyEphemeralMessagesChanged(agentId, threadId, next);
+    return true;
   }
 
   addEphemeralMessage(

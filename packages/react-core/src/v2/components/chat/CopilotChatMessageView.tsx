@@ -415,15 +415,15 @@ function composeMessages(
     }
   }
 
-  const composed: ComposedMessage[] = unanchoredEphemeral.map((message) => ({
-    kind: "ephemeral",
-    message,
-  }));
+  const composed: ComposedMessage[] = [];
   for (const message of persistedMessages) {
     composed.push({ kind: "persisted", message });
     for (const ephemeralMessage of anchoredEphemeral.get(message.id) ?? []) {
       composed.push({ kind: "ephemeral", message: ephemeralMessage });
     }
+  }
+  for (const message of unanchoredEphemeral) {
+    composed.push({ kind: "ephemeral", message });
   }
   for (const message of orphanedEphemeral) {
     composed.push({ kind: "ephemeral", message });
@@ -530,13 +530,14 @@ export function CopilotChatMessageView({
     () => deduplicateMessages(messages),
     [messages],
   );
+  const hasEphemeralRenderer = !!renderEphemeralMessage;
   const composedMessages = useMemo(
     () =>
       composeMessages(
         deduplicatedMessages,
-        renderEphemeralMessage ? ephemeralMessages : [],
+        hasEphemeralRenderer ? ephemeralMessages : [],
       ),
-    [deduplicatedMessages, ephemeralMessages, renderEphemeralMessage],
+    [deduplicatedMessages, ephemeralMessages, hasEphemeralRenderer],
   );
 
   if (
@@ -623,7 +624,7 @@ export function CopilotChatMessageView({
   // on the virtualizer's total-size div — same as the flat path. Adding
   // deduplicatedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
-  const firstMessageId = composedMessages[0]?.message.id;
+  const firstMessageId = deduplicatedMessages[0]?.id;
   useLayoutEffect(() => {
     if (!shouldVirtualize || !composedMessages.length) return;
     virtualizer.scrollToIndex(composedMessages.length - 1, {

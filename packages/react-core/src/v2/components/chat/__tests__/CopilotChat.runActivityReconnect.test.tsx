@@ -169,6 +169,7 @@ function createTestCore(
     connectAgent,
     defaultThrottleMs: undefined,
     getEphemeralMessages: vi.fn(() => []),
+    reconcileEphemeralMessages: vi.fn(() => false),
     getAgent: vi.fn(
       (agentId: string) => agents[agentId as keyof typeof agents],
     ),

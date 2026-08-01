@@ -106,6 +106,11 @@ describe("CopilotChat throttleMs prop", () => {
       expect.objectContaining({
         throttleMs: 500,
       }),
+      expect.objectContaining({
+        agentId: "default",
+        threadId: "mock-thread-id",
+        hasExplicitThreadId: false,
+      }),
     );
   });
 
@@ -115,6 +120,11 @@ describe("CopilotChat throttleMs prop", () => {
     expect(mockUseAgent).toHaveBeenCalledWith(
       expect.objectContaining({
         throttleMs: undefined,
+      }),
+      expect.objectContaining({
+        agentId: "default",
+        threadId: "mock-thread-id",
+        hasExplicitThreadId: false,
       }),
     );
   });

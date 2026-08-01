@@ -489,6 +489,43 @@ describe("CopilotChat ephemeral messages", () => {
     });
   });
 
+  it("appends an unanchored runtime card after replayed persisted history", async () => {
+    const agent = new CapturingAgent();
+    renderWithCopilotKit({
+      agent,
+      renderCustomMessages: [ephemeralRenderer],
+      children: (
+        <CopilotChatMessageView
+          messages={[
+            {
+              id: "replayed-message-0",
+              role: "user",
+              content: "Replayed message 0",
+            },
+            {
+              id: "replayed-message-1",
+              role: "assistant",
+              content: "Replayed message 1",
+            },
+          ]}
+          ephemeralMessages={[
+            {
+              id: "runtime-card",
+              content: "Runtime card",
+            },
+          ]}
+        />
+      ),
+    });
+
+    await waitFor(() => {
+      const list = screen.getByTestId("copilot-message-list");
+      expect(list.textContent?.indexOf("Replayed message 1")).toBeLessThan(
+        list.textContent?.indexOf("Runtime card") ?? -1,
+      );
+    });
+  });
+
   it("renders the core-composed transcript in persisted-then-ephemeral order", async () => {
     const agent = new CapturingAgent();
     agent.addMessage({
