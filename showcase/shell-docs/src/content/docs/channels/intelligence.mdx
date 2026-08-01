@@ -13,6 +13,36 @@ In the managed path, Intelligence owns the provider connection and durable
 delivery edge. Your long-running process owns the agent, application tools,
 interactive behavior, state, and deployment.
 
+## Choose how to configure it
+
+Two supported paths do the same work. Both create the Channel, store the
+provider credentials, and leave the Channel waiting for your runtime.
+
+- **The browser wizard**, below. Best when you want to see the Channel, its
+  health, and its threads while you set it up. Requires no terminal.
+- **The CLI**, `copilotkit channels`. Best when you want the configuration
+  checked into the repository, want to re-run setup on another machine, or are
+  working with an agent. It records the Channel in
+  `.copilotkit/channels.json`, generates the same provider app manifest, and
+  reports what remains at each stop.
+
+```bash
+npx copilotkit channels add support
+npx copilotkit channels status
+```
+
+`channels add` performs the next undone step and is safe to re-run. Where the
+flow needs you in a provider console it stops and prints what is needed, the URL
+to open, which environment variables to set, and the exact command to resume
+with. No flag accepts a credential value, and `--json` emits a versioned envelope
+for scripts and agents.
+
+<Callout type="info" title="The CLI and the wizard are interchangeable">
+  Either can finish what the other started -- both reconcile against the same
+  server state. A Channel created in the wizard can be managed with the CLI, and
+  a Channel created with the CLI appears in the dashboard immediately.
+</Callout>
+
 ## Create and configure your Channel
 
 <FrontendOnly frontend="slack">
