@@ -71,9 +71,9 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
     agent.runAgentCallback = (input) => {
       if (agent.runAgentCalls.length === 2) {
         agent.setNewMessages([createAssistantMessage({ content: "Done" })]);
-        expect(input.forwardedProps).toMatchObject({
-          __copilotkit_follow_up: true,
-        });
+        expect(input.forwardedProps).not.toHaveProperty(
+          "__copilotkit_follow_up",
+        );
       }
       expect(input.runId).toBe("logical-hitl-run");
     };

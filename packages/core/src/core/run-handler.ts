@@ -14,8 +14,6 @@ import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 
-const COPILOTKIT_FOLLOW_UP_MARKER = "__copilotkit_follow_up";
-
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
   forwardedProps?: Record<string, unknown>;
@@ -660,9 +658,9 @@ export class RunHandler {
         // complete and write fresh values into the context store before runAgent
         // reads it. The base implementation is a no-op; React overrides this.
         await this._internal.waitForPendingFrameworkUpdates();
+        this._internal.markNextRunAsContinuation(agentId);
         return await this.runAgent({
           agent,
-          forwardedProps: { [COPILOTKIT_FOLLOW_UP_MARKER]: true },
           ...(runId !== undefined ? { runId } : {}),
         });
       }

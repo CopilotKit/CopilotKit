@@ -365,6 +365,8 @@ export interface CopilotKitCoreFriendsAccess {
    * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
+
+  markNextRunAsContinuation(agentId: string): void;
 }
 
 /**
@@ -1317,6 +1319,10 @@ export class CopilotKitCore {
     runId: string,
   ): State | undefined {
     return this.stateManager.getStateByRun(agentId, threadId, runId);
+  }
+
+  markNextRunAsContinuation(agentId: string): void {
+    this.stateManager.markNextRunAsContinuation(agentId);
   }
 
   getRunIdForMessage(

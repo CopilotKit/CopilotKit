@@ -10,17 +10,12 @@ import type {
 import { randomUUID } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
 
-const COPILOTKIT_FOLLOW_UP_MARKER = "__copilotkit_follow_up";
-
 const isContinuation = (input: RunAgentInput): boolean =>
   input.resume !== undefined ||
   Object.prototype.hasOwnProperty.call(
     (input.forwardedProps as { command?: object } | undefined)?.command ?? {},
     "resume",
-  ) ||
-  (input.forwardedProps as Record<string, unknown> | undefined)?.[
-    COPILOTKIT_FOLLOW_UP_MARKER
-  ] === true;
+  );
 
 /**
  * Manages state and message tracking by run for CopilotKitCore.
@@ -40,6 +35,10 @@ export class StateManager {
   // Agent subscriptions for cleanup
   private agentSubscriptions: Map<string, () => void> = new Map();
 
+  // Internal follow-ups are marked in memory so the marker never reaches a
+  // runtime or becomes user-controlled forwardedProps data.
+  private pendingContinuations = new Set<string>();
+
   constructor(private core: CopilotKitCore) {}
 
   /**
@@ -47,6 +46,10 @@ export class StateManager {
    */
   initialize(): void {
     // Will be called when CopilotKitCore is initialized
+  }
+
+  markNextRunAsContinuation(agentId: string): void {
+    this.pendingContinuations.add(agentId);
   }
 
   /**
@@ -93,7 +96,13 @@ export class StateManager {
     const { unsubscribe } = agent.subscribe({
       onRunStartedEvent: ({ input, state }) => {
         if (revoked) return;
-        if (runFinished && input.runId === subRunId && !isContinuation(input)) {
+        const internalContinuation = this.pendingContinuations.delete(agentId);
+        if (
+          runFinished &&
+          input.runId === subRunId &&
+          !internalContinuation &&
+          !isContinuation(input)
+        ) {
           // A new logical run's events are arriving through this same (old)
           // subscription. This happens when the test emits events before
           // copilotkit.runAgent() has had a chance to set up the new pipeline:
@@ -147,6 +156,7 @@ export class StateManager {
 
     this.agentSubscriptions.set(agentId, () => {
       revoked = true;
+      this.pendingContinuations.delete(agentId);
       unsubscribe();
     });
   }

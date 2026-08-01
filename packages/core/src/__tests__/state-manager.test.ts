@@ -422,7 +422,6 @@ describe("StateManager - Multiple Runs", () => {
 
   it("should preserve the supplied ID for an internal frontend follow-up", async () => {
     const runId = "internal-follow-up-run";
-    const forwardedProps = { __copilotkit_follow_up: true };
     const message = {
       id: "internal-follow-up-message",
       role: "assistant" as const,
@@ -431,12 +430,8 @@ describe("StateManager - Multiple Runs", () => {
 
     await agent.emitRunStarted(runId, { step: "paused" });
     await agent.emitRunFinished(runId, { step: "paused" });
-    await agent.emitRunStarted(
-      runId,
-      { step: "continued" },
-      undefined,
-      forwardedProps,
-    );
+    copilotKitCore.markNextRunAsContinuation("agent1");
+    await agent.emitRunStarted(runId, { step: "continued" });
     await agent.emitNewMessage(runId, message);
     await agent.emitRunFinished(runId, { step: "completed" });
 
@@ -449,6 +444,21 @@ describe("StateManager - Multiple Runs", () => {
     expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
       runId,
     ]);
+  });
+
+  it("does not treat a user forwardedProps marker as an internal continuation", async () => {
+    const runId = "collision-run";
+
+    await agent.emitRunStarted(runId, { step: "first" });
+    await agent.emitRunFinished(runId, { step: "first" });
+    await agent.emitRunStarted(runId, { step: "second" }, undefined, {
+      __copilotkit_follow_up: true,
+    });
+    await agent.emitRunFinished(runId, { step: "second" });
+
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toHaveLength(
+      2,
+    );
   });
 
   it("should isolate an ordinary same-ID run after a finished run", async () => {
