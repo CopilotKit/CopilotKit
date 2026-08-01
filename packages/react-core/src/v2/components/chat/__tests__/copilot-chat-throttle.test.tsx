@@ -74,6 +74,7 @@ function createMockChatContext(agent: MockStepwiseAgent) {
       runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
       runtimeTransport: "rest",
       headers: {},
+      renderCustomMessages: [],
       agents: { [String(agent.agentId)]: agent },
       connectAgent: vi.fn().mockResolvedValue(undefined),
       subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),

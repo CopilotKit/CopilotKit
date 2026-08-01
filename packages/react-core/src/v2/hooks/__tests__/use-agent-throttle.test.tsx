@@ -145,12 +145,14 @@ function createMockContext(
   return {
     copilotkit: {
       getAgent: () => agent,
+      getEphemeralMessages: () => [],
       runtimeUrl: "http://localhost:3000/api/copilot",
       runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
       runtimeTransport: "rest",
       headers: {},
       agents: { [String(agent.agentId)]: agent },
       defaultThrottleMs: core.defaultThrottleMs,
+      subscribe: () => ({ unsubscribe: () => {} }),
       subscribeToAgentWithOptions: core.subscribeToAgentWithOptions.bind(core),
     },
     executingToolCallIds: new Set(),

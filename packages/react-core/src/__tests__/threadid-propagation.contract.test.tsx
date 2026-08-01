@@ -41,6 +41,8 @@ const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 describe("useAgent → agent.threadId sync from chat configuration", () => {
   let mockCopilotkit: {
     getAgent: ReturnType<typeof vi.fn>;
+    getEphemeralMessages: ReturnType<typeof vi.fn>;
+    subscribe: ReturnType<typeof vi.fn>;
     registerProxiedAgent: ReturnType<typeof vi.fn>;
     runtimeUrl: string | undefined;
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
@@ -57,6 +59,8 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
   beforeEach(() => {
     mockCopilotkit = {
       getAgent: vi.fn(() => undefined),
+      getEphemeralMessages: vi.fn(() => []),
+      subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
       // Mini-registry stand-in for CopilotKitCore.registerProxiedAgent: hands
       // back a real ProxiedCopilotRuntimeAgent (so `.threadId` and
       // `.runtimeAgentId` behave authentically) registered under the local

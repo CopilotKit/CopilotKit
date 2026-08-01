@@ -324,6 +324,8 @@ const MemoizedEphemeralMessage = React.memo(
     renderEphemeralMessage,
   }: {
     message: ReactEphemeralMessage;
+    agentId: string;
+    threadId: string;
     messageIndex: number;
     numberOfMessages: number;
     renderEphemeralMessage: (params: {
@@ -339,6 +341,8 @@ const MemoizedEphemeralMessage = React.memo(
     });
   },
   (prevProps, nextProps) => {
+    if (prevProps.agentId !== nextProps.agentId) return false;
+    if (prevProps.threadId !== nextProps.threadId) return false;
     if (prevProps.message.id !== nextProps.message.id) return false;
     if (prevProps.message.content !== nextProps.message.content) return false;
     if (prevProps.messageIndex !== nextProps.messageIndex) return false;
@@ -651,8 +655,10 @@ export function CopilotChatMessageView({
       if (renderEphemeralMessage) {
         elements.push(
           <MemoizedEphemeralMessage
-            key={`${entry.message.id}-ephemeral`}
+            key={`${config?.agentId ?? ""}-${config?.threadId ?? ""}-${entry.message.id}-ephemeral`}
             message={entry.message}
+            agentId={config?.agentId ?? ""}
+            threadId={config?.threadId ?? ""}
             messageIndex={entryIndex}
             numberOfMessages={composedMessages.length}
             renderEphemeralMessage={renderEphemeralMessage}
@@ -792,7 +798,7 @@ export function CopilotChatMessageView({
             const entry = composedMessages[virtualItem.index]!;
             return (
               <div
-                key={`${entry.kind}-${entry.message.id}`}
+                key={`${config?.agentId ?? ""}-${config?.threadId ?? ""}-${entry.kind}-${entry.message.id}`}
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
                 style={{

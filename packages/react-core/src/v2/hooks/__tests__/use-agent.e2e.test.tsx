@@ -1,8 +1,8 @@
 import React from "react";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { type BaseEvent, type RunAgentInput } from "@ag-ui/client";
-import { Observable } from "rxjs";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
 import {
   MockStepwiseAgent,
   renderWithCopilotKit,
@@ -224,6 +224,65 @@ describe("useAgent e2e", () => {
     fireEvent.click(screen.getByTestId("clear-ephemeral"));
     await waitFor(() => {
       expect(screen.getByTestId("ephemeral-values").textContent).toBe("");
+    });
+  });
+
+  it("uses a private thread argument over the surrounding chat thread", async () => {
+    const runtimeAgent = new MockStepwiseAgent();
+
+    function PrivateThreadComponent() {
+      const { addEphemeralMessage, isReady } = useAgent({
+        agentId: "private",
+        runtimeAgentId: "runtime",
+        threadId: "private-thread",
+      });
+      const { copilotkit } = useCopilotKit();
+
+      return (
+        <>
+          <output data-testid="private-agent-ready">{String(isReady)}</output>
+          <button
+            data-testid="add-private-thread-card"
+            onClick={() =>
+              addEphemeralMessage({
+                id: "private-thread-card",
+                content: "private thread",
+              })
+            }
+          >
+            Add private thread card
+          </button>
+          <output data-testid="private-thread-values">
+            {copilotkit
+              .getEphemeralMessages("private", "private-thread")
+              .map((message) => message.id)}
+          </output>
+          <output data-testid="outer-thread-values">
+            {copilotkit
+              .getEphemeralMessages("private", "outer-thread")
+              .map((message) => message.id)}
+          </output>
+        </>
+      );
+    }
+
+    renderWithCopilotKit({
+      agents: { runtime: runtimeAgent },
+      threadId: "outer-thread",
+      children: <PrivateThreadComponent />,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("private-agent-ready").textContent).toBe(
+        "true",
+      );
+    });
+    fireEvent.click(screen.getByTestId("add-private-thread-card"));
+    await waitFor(() => {
+      expect(screen.getByTestId("private-thread-values").textContent).toBe(
+        "private-thread-card",
+      );
+      expect(screen.getByTestId("outer-thread-values").textContent).toBe("");
     });
   });
 });

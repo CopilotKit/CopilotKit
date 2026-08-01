@@ -471,7 +471,7 @@ export function useAgent({
   }, [agent, resolvedThreadId]);
 
   const ephemeralThreadId =
-    chatConfig?.threadId ?? resolvedThreadId ?? agent.threadId;
+    resolvedThreadId ?? chatConfig?.threadId ?? agent.threadId;
   const ephemeralThreadIdRef = useRef(ephemeralThreadId);
   ephemeralThreadIdRef.current = ephemeralThreadId;
 
@@ -482,7 +482,7 @@ export function useAgent({
         threadId: eventThreadId,
       }) => {
         const currentThreadId =
-          chatConfig?.threadId ?? resolvedThreadId ?? agent.threadId;
+          resolvedThreadId ?? chatConfig?.threadId ?? agent.threadId;
         if (
           eventAgentId === resolvedAgentId &&
           eventThreadId === currentThreadId
@@ -504,12 +504,18 @@ export function useAgent({
 
   const addEphemeralMessage = useCallback(
     (message: ReactEphemeralMessage): boolean => {
-      if (chatConfig && ephemeralThreadIdRef.current !== ephemeralThreadId) {
+      if (
+        !resolvedThreadId &&
+        chatConfig &&
+        ephemeralThreadIdRef.current !== ephemeralThreadId
+      ) {
         return false;
       }
-      const currentThreadId = chatConfig
-        ? ephemeralThreadIdRef.current
-        : (resolvedThreadId ?? agent.threadId);
+      const currentThreadId = resolvedThreadId
+        ? resolvedThreadId
+        : chatConfig
+          ? ephemeralThreadIdRef.current
+          : agent.threadId;
       return copilotkit.addEphemeralMessage(
         resolvedAgentId,
         currentThreadId,
@@ -528,12 +534,18 @@ export function useAgent({
 
   const removeEphemeralMessage = useCallback(
     (messageId: string): boolean => {
-      if (chatConfig && ephemeralThreadIdRef.current !== ephemeralThreadId) {
+      if (
+        !resolvedThreadId &&
+        chatConfig &&
+        ephemeralThreadIdRef.current !== ephemeralThreadId
+      ) {
         return false;
       }
-      const currentThreadId = chatConfig
-        ? ephemeralThreadIdRef.current
-        : (resolvedThreadId ?? agent.threadId);
+      const currentThreadId = resolvedThreadId
+        ? resolvedThreadId
+        : chatConfig
+          ? ephemeralThreadIdRef.current
+          : agent.threadId;
       return copilotkit.removeEphemeralMessage(
         resolvedAgentId,
         currentThreadId,
@@ -551,12 +563,18 @@ export function useAgent({
   );
 
   const clearEphemeralMessages = useCallback((): boolean => {
-    if (chatConfig && ephemeralThreadIdRef.current !== ephemeralThreadId) {
+    if (
+      !resolvedThreadId &&
+      chatConfig &&
+      ephemeralThreadIdRef.current !== ephemeralThreadId
+    ) {
       return false;
     }
-    const currentThreadId = chatConfig
-      ? ephemeralThreadIdRef.current
-      : (resolvedThreadId ?? agent.threadId);
+    const currentThreadId = resolvedThreadId
+      ? resolvedThreadId
+      : chatConfig
+        ? ephemeralThreadIdRef.current
+        : agent.threadId;
     return copilotkit.clearEphemeralMessages(resolvedAgentId, currentThreadId);
   }, [
     agent,

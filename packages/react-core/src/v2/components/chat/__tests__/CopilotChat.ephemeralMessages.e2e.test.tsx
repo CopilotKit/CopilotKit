@@ -1,6 +1,13 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Message } from "@ag-ui/core";
 import type { RunAgentInput } from "@ag-ui/client";
 import {
   MockStepwiseAgent,
@@ -13,6 +20,8 @@ import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { useCopilotKit } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotChat } from "../CopilotChat";
+import { CopilotChatMessageView } from "../CopilotChatMessageView";
+import { ScrollElementContext } from "../scroll-element-context";
 
 class CapturingAgent extends MockStepwiseAgent {
   lastRunInput?: RunAgentInput;
@@ -39,6 +48,70 @@ const ephemeralRenderer = {
   render: null,
   renderEphemeral: EphemeralCard,
 };
+
+const ScopeSwitchContext = React.createContext<() => void>(() => {});
+
+const realRAF = globalThis.requestAnimationFrame;
+const realWindowRAF =
+  typeof window !== "undefined" ? window.requestAnimationFrame : realRAF;
+const isKnownTanstackTeardownError = (err: unknown): boolean => {
+  const message =
+    (err as { message?: string } | null | undefined)?.message ?? "";
+  return (
+    message.includes("Cannot read properties of null") &&
+    message.includes("requestAnimationFrame")
+  );
+};
+const wrapRAF = (real: typeof requestAnimationFrame) =>
+  ((cb: FrameRequestCallback) =>
+    real((time) => {
+      try {
+        cb(time);
+      } catch (err) {
+        if (isKnownTanstackTeardownError(err)) return;
+        throw err;
+      }
+    })) as typeof requestAnimationFrame;
+const noopRAF = ((_cb: FrameRequestCallback) =>
+  0) as typeof requestAnimationFrame;
+
+beforeEach(() => {
+  globalThis.requestAnimationFrame = wrapRAF(realRAF);
+  if (typeof window !== "undefined") {
+    window.requestAnimationFrame = wrapRAF(realWindowRAF);
+  }
+});
+
+afterEach(async () => {
+  await act(async () => {
+    await new Promise<void>((resolve) => realRAF(() => resolve()));
+    await new Promise<void>((resolve) => realRAF(() => resolve()));
+  });
+  globalThis.requestAnimationFrame = noopRAF;
+  if (typeof window !== "undefined") {
+    window.requestAnimationFrame = noopRAF;
+  }
+});
+
+function ScopeAwareChatView({
+  messages = [],
+  ephemeralMessages = [],
+  isRunning = false,
+}: any) {
+  const switchThread = React.useContext(ScopeSwitchContext);
+  return (
+    <>
+      <button data-testid="switch-renderer-scope" onClick={switchThread}>
+        Switch renderer scope
+      </button>
+      <CopilotChatMessageView
+        messages={messages}
+        ephemeralMessages={ephemeralMessages}
+        isRunning={isRunning}
+      />
+    </>
+  );
+}
 
 describe("CopilotChat ephemeral messages", () => {
   it("keeps a frontend event card out of the next agent run", async () => {
@@ -214,6 +287,206 @@ describe("CopilotChat ephemeral messages", () => {
       ),
     ).toBe(false);
     expect(outerAgent.messages).toEqual([]);
+  });
+
+  it("remounts an unchanged ephemeral card when its agent and thread scope changes", async () => {
+    const agent = new CapturingAgent();
+
+    function Harness() {
+      const [threadId, setThreadId] = React.useState("thread-a");
+      const { copilotkit } = useCopilotKit();
+      React.useEffect(() => {
+        copilotkit.addEphemeralMessage("default", "thread-a", {
+          id: "same-scope-card",
+          content: "same content",
+        });
+        copilotkit.addEphemeralMessage("default", "thread-b", {
+          id: "same-scope-card",
+          content: "same content",
+        });
+      }, [copilotkit]);
+
+      return (
+        <ScopeSwitchContext.Provider value={() => setThreadId("thread-b")}>
+          <CopilotChat
+            threadId={threadId}
+            chatView={ScopeAwareChatView as any}
+          />
+        </ScopeSwitchContext.Provider>
+      );
+    }
+
+    const scopedRenderer = {
+      render: null,
+      renderEphemeral: ({ agentId, threadId, message }: any) => (
+        <div data-testid="scope-rendered-card">
+          {`${agentId}:${threadId}:${message.content}`}
+        </div>
+      ),
+    };
+
+    renderWithCopilotKit({
+      agent,
+      renderCustomMessages: [scopedRenderer],
+      children: <Harness />,
+    });
+
+    expect(
+      await screen.findByText("default:thread-a:same content"),
+    ).toBeDefined();
+    fireEvent.click(screen.getByTestId("switch-renderer-scope"));
+    await waitFor(() => {
+      expect(screen.getByText("default:thread-b:same content")).toBeDefined();
+    });
+  });
+
+  it("prefers an agent-specific ephemeral renderer over the generic renderer", async () => {
+    const agent = new CapturingAgent();
+    const genericRenderer = {
+      render: null,
+      renderEphemeral: () => (
+        <div data-testid="generic-ephemeral-renderer">generic</div>
+      ),
+    };
+    const agentRenderer = {
+      agentId: "default",
+      render: null,
+      renderEphemeral: () => (
+        <div data-testid="agent-ephemeral-renderer">agent-specific</div>
+      ),
+    };
+
+    function Controls() {
+      const { addEphemeralMessage } = useAgent();
+      return (
+        <>
+          <button
+            data-testid="add-priority-card"
+            onClick={() =>
+              addEphemeralMessage({
+                id: "priority-card",
+                content: "priority",
+              })
+            }
+          >
+            Add priority card
+          </button>
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} />
+          </div>
+        </>
+      );
+    }
+
+    renderWithCopilotKit({
+      agent,
+      renderCustomMessages: [genericRenderer, agentRenderer],
+      children: <Controls />,
+    });
+
+    fireEvent.click(await screen.findByTestId("add-priority-card"));
+    expect(await screen.findByTestId("agent-ephemeral-renderer")).toBeDefined();
+    expect(screen.queryByTestId("generic-ephemeral-renderer")).toBeNull();
+  });
+
+  it("composes anchored and orphaned cards in the virtualized transcript", async () => {
+    const TOTAL = 51;
+    const messages: Message[] = Array.from({ length: TOTAL }, (_, index) => ({
+      id: `virtual-message-${index}`,
+      role: "user",
+      content: `Virtual message ${index}`,
+    }));
+    const fakeScrollElement = document.createElement("div");
+    Object.defineProperty(fakeScrollElement, "clientHeight", {
+      configurable: true,
+      get: () => 600,
+    });
+    fakeScrollElement.getBoundingClientRect = () =>
+      ({
+        height: 600,
+        width: 800,
+        top: 0,
+        left: 0,
+        bottom: 600,
+        right: 800,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    const { unmount } = renderWithCopilotKit({
+      renderCustomMessages: [ephemeralRenderer],
+      children: (
+        <ScrollElementContext.Provider value={fakeScrollElement}>
+          <CopilotChatMessageView
+            messages={messages}
+            ephemeralMessages={[
+              {
+                id: "anchored-virtual-card",
+                content: "Anchored virtual card",
+                anchorMessageId: "virtual-message-0",
+              },
+              {
+                id: "orphaned-virtual-card",
+                content: "Orphaned virtual card",
+                anchorMessageId: "missing-message",
+              },
+            ]}
+          />
+        </ScrollElementContext.Provider>
+      ),
+    });
+
+    await waitFor(() => {
+      const virtualContainer = document.querySelector(
+        '[data-testid="copilot-message-list"] > div[style*="position: relative"]',
+      ) as HTMLElement | null;
+      expect(virtualContainer).not.toBeNull();
+      expect(virtualContainer?.style.height).toBe("4200px");
+    });
+
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+    });
+    unmount();
+  });
+
+  it("renders an orphaned card after the persisted transcript", async () => {
+    const agent = new CapturingAgent();
+    renderWithCopilotKit({
+      agent,
+      renderCustomMessages: [ephemeralRenderer],
+      children: (
+        <CopilotChatMessageView
+          messages={[
+            {
+              id: "persisted-before-orphan",
+              role: "user",
+              content: "Persisted before orphan",
+            },
+          ]}
+          ephemeralMessages={[
+            {
+              id: "orphaned-card",
+              content: "Orphaned card",
+              anchorMessageId: "missing-message",
+            },
+          ]}
+        />
+      ),
+    });
+
+    await waitFor(() => {
+      const list = screen.getByTestId("copilot-message-list");
+      expect(list.textContent?.indexOf("Persisted before orphan")).toBeLessThan(
+        list.textContent?.indexOf("Orphaned card") ?? -1,
+      );
+    });
   });
 
   it("renders the core-composed transcript in persisted-then-ephemeral order", async () => {

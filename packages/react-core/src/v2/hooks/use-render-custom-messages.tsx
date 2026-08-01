@@ -139,7 +139,7 @@ export function useRenderEphemeralMessages() {
       const Component = renderer.renderEphemeral;
       return (
         <Component
-          key={`ephemeral-${threadId}-${params.message.id}`}
+          key={`ephemeral-${agentId}-${threadId}-${params.message.id}`}
           message={params.message}
           agentId={agentId}
           threadId={threadId}
