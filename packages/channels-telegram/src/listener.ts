@@ -4,9 +4,10 @@ import type { TelegramConversationStore } from "./conversation-store.js";
 import {
   conversationKeyOf,
   deriveConversationKey,
-  toPlatformUser,
+  toProviderActor,
   decodeInteraction,
   decodeReaction,
+  telegramIdentityContext,
 } from "./interaction.js";
 import { buildFileContentParts } from "./download-files.js";
 import type { AgentContentPart, TelegramFileRef } from "./download-files.js";
@@ -233,7 +234,7 @@ export function attachTelegramListener(config: ListenerConfig): void {
       text: strippedText,
       ts: String(msg.message_id),
       isBot: false,
-      user: from ? toPlatformUser(from) : undefined,
+      user: from ? toProviderActor(from) : undefined,
     });
 
     // CRITICAL: run the turn WITHOUT blocking grammY's poll loop. grammY's
@@ -268,7 +269,16 @@ export function attachTelegramListener(config: ListenerConfig): void {
           conversationKey: turnConversationKey,
         },
         userText: strippedText,
-        user: from ? toPlatformUser(from) : undefined,
+        actor: from
+          ? toProviderActor(from)!
+          : { id: "unknown", kind: "unknown" },
+        identityContext: telegramIdentityContext({
+          chat: ctx.chat,
+          conversationKey: turnConversationKey,
+          trigger: "message",
+          eventId: String(msg.message_id),
+          raw: msg,
+        }),
         platform: "telegram",
       }),
     ).catch((e: unknown) => {
@@ -411,7 +421,16 @@ export function attachTelegramListener(config: ListenerConfig): void {
               : undefined,
             conversationKey: commandConversationKey,
           },
-          user: from ? toPlatformUser(from) : undefined,
+          actor: from
+            ? toProviderActor(from)!
+            : { id: "unknown", kind: "unknown" },
+          identityContext: telegramIdentityContext({
+            chat: ctx.chat,
+            conversationKey: commandConversationKey,
+            trigger: "command",
+            eventId: String(msg.message_id),
+            raw: msg,
+          }),
           platform: "telegram",
         }),
       ).catch((e: unknown) =>
@@ -564,7 +583,16 @@ export function attachTelegramListener(config: ListenerConfig): void {
         chatId: ctx.chat.id,
         conversationKey: startConversationKey,
       },
-      user: msg.from ? toPlatformUser(msg.from) : undefined,
+      actor: msg.from
+        ? toProviderActor(msg.from)!
+        : { id: "unknown", kind: "unknown" },
+      identityContext: telegramIdentityContext({
+        chat: ctx.chat,
+        conversationKey: startConversationKey,
+        trigger: "thread_start",
+        eventId: String(msg.message_id),
+        raw: msg,
+      }),
       platform: "telegram",
     });
   });

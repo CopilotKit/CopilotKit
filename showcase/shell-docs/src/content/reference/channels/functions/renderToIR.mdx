@@ -17,7 +17,7 @@ type Renderable =
   | string
   | ChannelNode
   | ChannelNode[]
-  | { raw: unknown };
+  | { raw: unknown; provider?: "slack" | "teams" };
 ```
 
 ## Example
@@ -39,6 +39,8 @@ Strings—and numbers used as component children—become `text` nodes. `false`,
 `null`, and `undefined` render nothing. Function components are evaluated
 immediately, so keep them pure and free of provider side effects.
 
-The `{ raw }` escape hatch produces a provider-specific `raw` node. Managed
-Slack can pass native blocks through; the Teams renderer skips unknown raw
-content. It is not portable.
+The `{ raw, provider }` escape hatch produces a provider-specific `raw` node.
+Use `provider: "slack"` for native blocks and `provider: "teams"` for one
+Adaptive Card object. Omitting `provider` defaults to Slack. A raw node sent
+through the wrong active provider fails explicitly before that effect reaches
+the provider; it is never translated or silently dropped.

@@ -37,7 +37,7 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     cd my-slack-channel
     npm init -y
     npm pkg set type=module
-    npm install --save-exact @copilotkit/channels@0.4.0 @copilotkit/runtime@1.64.1
+    npm install --save-exact @copilotkit/channels@0.5.0 @copilotkit/runtime@1.64.2
     npm install -D tsx typescript @types/node
     ```
 
@@ -96,14 +96,8 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
 
     const channel = createChannel({
       name: required("CHANNEL_CODE"),
-      provider: "slack",
+      identifyUser: "platform",
       agent: makeAgent,
-      context: [
-        {
-          description: "Channel behavior",
-          value: "You are working in Slack. Keep responses concise and scannable.",
-        },
-      ],
     });
 
     channel.onMessage(async ({ thread, message }) => {
@@ -134,9 +128,6 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     const runtime = new CopilotRuntime({
       agents: {},
       intelligence,
-      // Replace this stub with your authenticated application identity if this
-      // listener also serves normal Copilot Runtime requests.
-      identifyUser: () => ({ id: "channels-runtime", name: "Channels Runtime" }),
       channels: [channel],
     });
 
@@ -262,7 +253,7 @@ Opt in per Channel when the live tool timeline is useful:
 ```ts title="channel.ts"
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
-  provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   showToolStatus: true,
 });
@@ -273,8 +264,9 @@ const channel = createChannel({
 <Accordions>
   <Accordion title="The Channel stays at Waiting for runtime">
     Confirm `CHANNEL_CODE` exactly matches the Intelligence Code and the
-    declaration uses `provider: "slack"`. Check that the project-scoped
-    `INTELLIGENCE_API_KEY` belongs to the same project.
+    project-scoped `INTELLIGENCE_API_KEY` belongs to the same project. Provider
+    routing comes from the Slack connection attached in Intelligence, not from a
+    `createChannel` option.
   </Accordion>
   <Accordion title="Startup reports setup_required">
     Reopen the Channel in Intelligence and finish the Slack credential steps.

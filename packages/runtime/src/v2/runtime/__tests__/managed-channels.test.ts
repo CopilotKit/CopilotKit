@@ -13,7 +13,10 @@ const identifyUser = vi.fn().mockResolvedValue({ id: "u", name: "U" });
 
 describe("CopilotRuntime — managed channels option", () => {
   it("stores declared channels on the intelligence runtime and exposes them via the facade", () => {
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
     const rt = new CopilotRuntime({
       agents: {},
       intelligence: intelligence(),
@@ -45,7 +48,9 @@ describe("CopilotRuntime — managed channels option", () => {
       () =>
         new CopilotRuntime({
           agents: {},
-          channels: [createChannel({ name: "support" })],
+          channels: [
+            createChannel({ identifyUser: "platform", name: "support" }),
+          ],
         } as unknown as ConstructorParameters<typeof CopilotRuntime>[0]),
     ).toThrow(/Intelligence runtime/i);
   });
@@ -57,7 +62,7 @@ describe("CopilotRuntime — managed channels option", () => {
           agents: {},
           intelligence: intelligence(),
           identifyUser,
-          channels: [createChannel({})],
+          channels: [createChannel({ identifyUser: "platform" })],
         }),
     ).toThrow(/name/i);
   });

@@ -107,7 +107,12 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
       intelligence,
       identifyUser,
       channels: [
-        createChannel({ name: "support", agent, showToolStatus: true }),
+        createChannel({
+          identifyUser: "platform",
+          name: "support",
+          agent,
+          showToolStatus: true,
+        }),
       ],
     });
 
@@ -137,7 +142,7 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
     expect(config.projectId).toBe(77);
     expect(config.channelName).toBe("support");
     expect(state.calls[0]!.channelName).toBe("support");
-    expect(config.adapter).toBe("slack");
+    expect(config).not.toHaveProperty("adapter");
     expect(config.showToolStatus).toBe(true);
     expect(config.wsUrl).toBe(intelligence.ɵgetChannelsWsUrl());
     expect(config.apiUrl).toBe(intelligence.ɵgetApiUrl());

@@ -3,7 +3,7 @@ import type {
   IncomingReaction,
   IncomingModalSubmit,
 } from "@copilotkit/channels-core";
-import type { PlatformUser } from "@copilotkit/channels-ui";
+import type { ProviderActor } from "@copilotkit/channels-ui";
 
 /** The structural subset of a discord.js component interaction we read. */
 interface ComponentInteractionLike {
@@ -20,6 +20,7 @@ interface ComponentInteractionLike {
   message?: { id: string };
   channelId?: string;
   guildId?: string | null;
+  applicationId?: string;
   user?: { id: string; username?: string; globalName?: string | null };
 }
 
@@ -33,7 +34,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
 
   const customId = i.customId ?? "";
   const channelId = i.channelId ?? "";
-  const user = toUser(i.user);
+  const actor = toUser(i.user);
 
   // A button custom_id may be a handler id ("ck:…"), a packed value
   // ("v:<json>"), or BOTH ("ck:…;v:<json>") when a button carries an onClick AND
@@ -68,7 +69,15 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     conversationKey: channelId,
     replyTarget: { channelId, ...(i.guildId ? { guildId: i.guildId } : {}) },
     value,
-    user,
+    actor: actor ?? { id: "unknown", kind: "unknown" },
+    identityContext: identityContext({
+      guildId: i.guildId,
+      applicationId: i.applicationId,
+      channelId,
+      trigger: "interaction",
+      eventId: i.message?.id,
+      raw,
+    }),
     messageRef: i.message ? { id: i.message.id, channelId } : undefined,
     // Filled by the adapter from the pending-interaction registry; the bare
     // decode has no live trigger to attach.
@@ -96,9 +105,37 @@ function unpackValue(customId: string): unknown {
   }
 }
 
-function toUser(u: ComponentInteractionLike["user"]): PlatformUser | undefined {
+function toUser(
+  u: ComponentInteractionLike["user"],
+): ProviderActor | undefined {
   if (!u?.id) return undefined;
-  return { id: u.id, name: u.globalName ?? u.username, handle: u.username };
+  return {
+    id: u.id,
+    kind: "human",
+    name: u.globalName ?? u.username,
+    handle: u.username,
+  };
+}
+
+function identityContext(input: {
+  guildId?: string | null;
+  applicationId?: string;
+  channelId?: string;
+  trigger: string;
+  eventId?: string;
+  raw: unknown;
+}) {
+  return {
+    tenant: { id: input.guildId ?? "direct" },
+    installation: { id: input.applicationId ?? "unknown" },
+    conversation: {
+      id: input.channelId ?? "unknown",
+      kind: input.guildId ? "guild" : "direct",
+    },
+    trigger: input.trigger,
+    event: { id: input.eventId },
+    raw: input.raw,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -130,6 +167,8 @@ interface ModalSubmitLike {
   customId?: string;
   channelId?: string;
   guildId?: string | null;
+  applicationId?: string;
+  id?: string;
   user?: { id?: string; username?: string; globalName?: string };
   fields?: { fields?: Map<string, { customId?: string; value?: string }> };
 }
@@ -144,9 +183,21 @@ export function decodeModalSubmit(interaction: unknown): IncomingModalSubmit {
   return {
     callbackId: i.customId ?? "",
     values,
-    user: i.user?.id
-      ? { id: i.user.id, name: i.user.globalName ?? i.user.username }
-      : undefined,
+    actor: i.user?.id
+      ? {
+          id: i.user.id,
+          kind: "human",
+          name: i.user.globalName ?? i.user.username,
+        }
+      : { id: "unknown", kind: "unknown" },
+    identityContext: identityContext({
+      guildId: i.guildId,
+      applicationId: i.applicationId,
+      channelId: i.channelId,
+      trigger: "modal_submit",
+      eventId: i.id,
+      raw: interaction,
+    }),
     conversationKey: i.channelId,
     replyTarget: i.channelId
       ? { channelId: i.channelId, ...(i.guildId ? { guildId: i.guildId } : {}) }
@@ -178,7 +229,20 @@ export function decodeReaction(
   return {
     rawEmoji: token,
     added,
-    user: u.id ? { id: u.id, name: u.globalName ?? u.username } : undefined,
+    actor: u.id
+      ? {
+          id: u.id,
+          kind: u.bot ? "bot" : "human",
+          name: u.globalName ?? u.username,
+        }
+      : { id: "unknown", kind: "unknown" },
+    identityContext: identityContext({
+      guildId: r.message?.guildId,
+      channelId,
+      trigger: "reaction",
+      eventId: messageId,
+      raw: reaction,
+    }),
     conversationKey: channelId,
     replyTarget: {
       channelId,

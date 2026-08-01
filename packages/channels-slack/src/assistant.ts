@@ -21,7 +21,11 @@
  */
 import { Assistant } from "@slack/bolt";
 import type { App } from "@slack/bolt";
-import type { IngressSink, PlatformUser } from "@copilotkit/channels-core";
+import type {
+  IngressIdentityContext,
+  IngressSink,
+  ProviderActor,
+} from "@copilotkit/channels-core";
 import { conversationKeyOf } from "./interaction.js";
 import type { SlackAssistantOptions } from "./types.js";
 
@@ -31,8 +35,14 @@ export interface AttachAssistantConfig {
   sink: IngressSink;
   /** Static pane behavior (greeting / prompts / title). */
   opts: SlackAssistantOptions;
-  /** Resolve a Slack user id to a richer PlatformUser (adapter-owned, cached). */
-  resolveUser: (userId: string) => Promise<PlatformUser>;
+  identityContext: (input: {
+    conversationKey: string;
+    conversationKind: string;
+    trigger: string;
+    eventId?: string;
+    actor: ProviderActor;
+    raw: unknown;
+  }) => IngressIdentityContext;
 }
 
 export interface AssistantHandle {
@@ -42,7 +52,7 @@ export interface AssistantHandle {
 
 /** Register the Bolt `Assistant` middleware and bridge it to the engine sink. */
 export function attachAssistant(cfg: AttachAssistantConfig): AssistantHandle {
-  const { app, sink, opts, resolveUser } = cfg;
+  const { app, sink, opts, identityContext } = cfg;
 
   // Pane threads seen this process (channelId::threadTs). Populated on
   // thread_started and (defensively, after a restart) on the first message.
@@ -86,15 +96,29 @@ export function attachAssistant(cfg: AttachAssistantConfig): AssistantHandle {
       }
 
       // ── Then hand off to the engine (onThreadStarted handlers layer on top). ──
-      const user = at.user_id ? await resolveUser(at.user_id) : undefined;
+      const actor = at.user_id
+        ? { id: at.user_id, kind: "human" as const }
+        : { id: "", kind: "unknown" as const };
+      const conversationKey = conversationKeyOf({
+        channelId,
+        scope: threadTs,
+      });
       await sink.onThreadStarted({
-        conversationKey: conversationKeyOf({ channelId, scope: threadTs }),
+        conversationKey,
         replyTarget: {
           channel: channelId,
           threadTs,
           recipientUserId: at.user_id,
         },
-        user,
+        actor,
+        identityContext: identityContext({
+          conversationKey,
+          conversationKind: "assistant_thread",
+          trigger: "thread-start",
+          eventId: threadTs,
+          actor,
+          raw: { channelId, threadTs },
+        }),
         platform: "slack",
       });
     },
@@ -139,7 +163,19 @@ export function attachAssistant(cfg: AttachAssistantConfig): AssistantHandle {
           revisionId: m.ts ?? threadTs,
           mentioned: false,
         },
-        user: m.user ? await resolveUser(m.user) : undefined,
+        actor: m.user
+          ? { id: m.user, kind: "human" as const }
+          : { id: "", kind: "unknown" as const },
+        identityContext: identityContext({
+          conversationKey: key,
+          conversationKind: "assistant_thread",
+          trigger: "message",
+          eventId: m.ts,
+          actor: m.user
+            ? { id: m.user, kind: "human" }
+            : { id: "", kind: "unknown" },
+          raw: { channelId, threadTs, messageTs: m.ts },
+        }),
         platform: "slack",
       });
     },

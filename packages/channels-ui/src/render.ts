@@ -35,7 +35,16 @@ function expand(node: unknown): ChannelNode[] {
 
 export function renderToIR(ui: Renderable): ChannelNode[] {
   if (typeof ui === "object" && ui !== null && "raw" in ui) {
-    return [{ type: "raw", props: { value: (ui as { raw: unknown }).raw } }];
+    const native = ui as {
+      raw: unknown;
+      provider?: "slack" | "teams";
+    };
+    return [
+      {
+        type: "raw",
+        props: { value: native.raw, provider: native.provider ?? "slack" },
+      },
+    ];
   }
   return expand(ui);
 }

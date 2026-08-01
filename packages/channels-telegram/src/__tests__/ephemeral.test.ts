@@ -11,7 +11,7 @@ it("DMs the user when fallbackToDM=true", async () => {
   a.bot = { api: { sendMessage } };
   const res = await a.postEphemeral!(
     { chatId: 99 },
-    { id: "1" },
+    { id: "1", kind: "human" },
     [{ type: "text", props: { value: "hi" } }],
     { fallbackToDM: true },
   );
@@ -27,7 +27,7 @@ it("returns null when fallbackToDM=false", async () => {
   const a = new TelegramAdapter({ token: "t" });
   const res = await a.postEphemeral!(
     { chatId: 99 },
-    { id: "1" },
+    { id: "1", kind: "human" },
     [{ type: "text", props: { value: "hi" } }],
     { fallbackToDM: false },
   );

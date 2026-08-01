@@ -24,8 +24,8 @@ import { createChannel } from "@copilotkit/channels";
 
 ```ts title="channel.ts"
 const channel = createChannel({
-  name: "support-slack",
-  provider: "slack",
+  name: "support",
+  identifyUser: "platform",
   agent: makeAgent,
   tools: [getIncident],
   context: [
@@ -41,32 +41,43 @@ channel.onMessage(async ({ thread, message }) => {
 });
 ```
 
-Use `provider: "teams"` with the exact Code of the corresponding Teams Channel
-in Intelligence. Slack and Teams are production-ready managed providers.
+The Channel name is the project-unique Intelligence Code. A single managed
+runtime declares both Slack and Teams for that Channel; Intelligence routes each
+prepared delivery only to its originating provider.
 
 ## Options
 
-| Option | Type | Notes |
-| --- | --- | --- |
-| `name` | `string` | Required for managed delivery. Must match the project-unique Intelligence Code. |
-| `provider` | `"slack" \| "teams"` | Managed provider. Defaults to Slack when omitted; set it explicitly. |
-| `showToolStatus` | `boolean` | Managed Slack hides tool-call progress by default. Set `true` to show it; tool history remains available in Intelligence either way. |
-| `agent` | `AbstractAgent \| (threadId) => AbstractAgent` | Prefer a factory; a singleton is isolated per run via `clone()`. |
-| `tools` | `ChannelTool[]` | Channel-level typed tools. |
-| `context` | `ContextEntry[]` | Stable context added to every agent run. |
-| `components` | `ChannelComponent[]` | Named JSX components used to reconstruct callbacks. |
-| `commands` | `ChannelCommand[]` | Declared commands routed from provider ingress. |
-| `store` | `StoreConfig` | State, persistence, turn concurrency (`parallel` default), transcripts, and dedup. |
-| `adapters` | `PlatformAdapter[]` | Developer-owned direct transports. Do not mix them with managed activation on one Channel. |
+| Option           | Type                                           | Notes                                                                                                                                |
+| ---------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`           | `string`                                       | Required for managed delivery. Must match the project-unique Intelligence Code.                                                      |
+| `identifyUser`   | `"platform" \| ChannelIdentifyUser`            | Required. Maps each provider actor to an application user or `null`.                                                                 |
+| `showToolStatus` | `boolean`                                      | Managed Slack hides tool-call progress by default. Set `true` to show it; tool history remains available in Intelligence either way. |
+| `agent`          | `AbstractAgent \| (threadId) => AbstractAgent` | Prefer a factory; a singleton is isolated per run via `clone()`.                                                                     |
+| `tools`          | `ChannelTool[]`                                | Channel-level typed tools.                                                                                                           |
+| `context`        | `ContextEntry[]`                               | Stable context added to every agent run.                                                                                             |
+| `components`     | `ChannelComponent[]`                           | Named JSX components used to reconstruct callbacks.                                                                                  |
+| `commands`       | `ChannelCommand[]`                             | Declared commands routed from provider ingress.                                                                                      |
+| `store`          | `StoreConfig`                                  | State, persistence, turn concurrency (`parallel` default), transcripts, and dedup.                                                   |
+| `adapters`       | `PlatformAdapter[]`                            | Developer-owned direct transports that may coexist with the managed Intelligence adapter.                                            |
 
 The managed runtime validates `name` as lowercase kebab-case, 3–64 characters,
 not equal to `channels`, and unique within the Runtime.
+
+Handlers receive both the required provider `actor` and the nullable
+application `user`. The SDK resolves that pair once for each incoming event.
+Both objects are immutable snapshots. The SDK does not link accounts by email,
+name, or handle.
+
+Malformed callback output rejects with `channel_identity_invalid`. A callback
+exception rejects with `channel_identity_failed` and never falls back to the
+standard platform policy.
 
 ## Registration methods
 
 The returned Channel supports:
 
 - `onMessage` and `onMention`
+- `onWelcome`
 - `onInterrupt`
 - `onInteraction`
 - `onCommand`

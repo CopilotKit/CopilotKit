@@ -10,7 +10,7 @@ import { startChannelsWithGatewayControl } from "./realtime-gateway-launcher.js"
 test("interaction update and delete preserve the opaque provider reference", async () => {
   const providerReference = "pref_v1_opaqueReference_123";
   const gateway = new DeliveryTestGateway();
-  const channel = createChannel({ name: "support" });
+  const channel = createChannel({ identifyUser: "platform", name: "support" });
   channel.onMessage(async () => {});
   channel.onInteraction("approve", async ({ thread, message }) => {
     await thread.update(
@@ -48,7 +48,7 @@ test("interaction update and delete preserve the opaque provider reference", asy
 test("invalid interaction references fail before handler dispatch", async () => {
   const gateway = new DeliveryTestGateway();
   const handler = vi.fn();
-  const channel = createChannel({ name: "support" });
+  const channel = createChannel({ identifyUser: "platform", name: "support" });
   channel.onMessage(async () => {});
   channel.onInteraction("approve", handler);
   const handle = await startChannelsWithGatewayControl([channel], {
@@ -68,10 +68,7 @@ test("invalid interaction references fail before handler dispatch", async () => 
       }),
     );
     expect(handler).not.toHaveBeenCalled();
-    expect(gateway.packets.at(-1)?.payload).toMatchObject({
-      kind: "channel.delivery.terminal",
-      status: "failed_before_output",
-    });
+    expect(gateway.packets).toEqual([]);
   } finally {
     await handle.stop();
   }

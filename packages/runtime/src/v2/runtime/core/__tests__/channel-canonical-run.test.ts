@@ -103,10 +103,9 @@ async function captureRunCanonical(
       apiKey: "cpk-42_short_long",
       projectId: 42,
       channelName: "support",
-      adapter: "slack",
       runtimeInstanceId: "rti_test",
     },
-    createChannel({ name: "support" }),
+    createChannel({ identifyUser: "platform", name: "support" }),
     importer,
     undefined,
     {

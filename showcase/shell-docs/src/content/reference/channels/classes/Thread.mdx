@@ -8,11 +8,11 @@ tools, and JSX callbacks receive it.
 
 ## Properties
 
-| Property                 | Type                   | Description                                                                                                                  |
-| ------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `conversationKey`        | `string`               | Stable managed conversation key. Also passed to the `agent(threadId)` factory.                                               |
-| `platform`               | `string`               | Delivery adapter id. Managed Channels report `"intelligence"`; use the inbound `message.platform` for Slack/Teams branching. |
-| `supportsBlockingChoice` | `boolean \| undefined` | `false` on the managed path. Use post-and-resume instead of `awaitChoice`.                                                   |
+| Property                 | Type                   | Description                                                                    |
+| ------------------------ | ---------------------- | ------------------------------------------------------------------------------ |
+| `conversationKey`        | `string`               | Stable managed conversation key. Also passed to the `agent(threadId)` factory. |
+| `platform`               | `string`               | Native delivery provider. Managed Channels report `"slack"` or `"teams"`.      |
+| `supportsBlockingChoice` | `boolean \| undefined` | `false` on the managed path. Use post-and-resume instead of `awaitChoice`.     |
 
 ## Post and update
 
@@ -46,19 +46,20 @@ allowed to fail the workflow.
 
 ## Run and resume the agent
 
-| Method             | Returns                            | Description                                                  |
-| ------------------ | ---------------------------------- | ------------------------------------------------------------ |
-| `runAgent(input?)` | `Promise<MessageRef \| undefined>` | Run the thread's agent and render its output.                |
-| `resume(value)`    | `Promise<MessageRef \| undefined>` | Re-enter an interrupted run with a human or external result. |
+| Method                    | Returns                            | Description                                                      |
+| ------------------------- | ---------------------------------- | ---------------------------------------------------------------- |
+| `runAgent(input?)`        | `Promise<MessageRef \| undefined>` | Run the thread's agent and render its output.                    |
+| `resume(value, options?)` | `Promise<MessageRef \| undefined>` | Consume the action continuation and re-enter an interrupted run. |
 
 `runAgent` accepts:
 
-| Field        | Type                            | Description                                                                                    |
-| ------------ | ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Field        | Type                            | Description                                                                                                             |
+| ------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `prompt`     | `string \| AgentContentPart[]`  | Explicit user turn. When omitted in a message handler, the SDK injects the inbound text or content parts automatically. |
-| `context`    | `ContextEntry[]`                | Context for this run only.                                                                     |
-| `tools`      | `ChannelTool[]`                 | Tools for this run only.                                                                       |
-| `transcript` | `boolean \| { limit?: number }` | Optional SDK transcript bridge when `identity` and `transcripts` are configured.               |
+| `context`    | `ContextEntry[]`                | Context for this run only.                                                                                              |
+| `tools`      | `ChannelTool[]`                 | Tools for this run only.                                                                                                |
+| `transcript` | `boolean \| { limit?: number }` | Optional SDK transcript bridge when `identifyUser` resolves a user and transcripts are configured.                      |
+| `memory`     | `{ user?, project? }`           | Per-run Intelligence Memory access. Each scope is `"none"`, `"read"`, or `"read-write"`; omission disables Memory.      |
 
 ```ts title="channel.ts"
 channel.onMessage(async ({ thread, message }) => {
@@ -81,12 +82,33 @@ handler, and call `resume(value)` when a later click arrives. Do not call
 `awaitChoice`; see the interactive messages guide for
 [Slack](/slack/interactive) or [Teams](/teams/interactive).
 
+Personal Memory on resume needs a trusted subject selector:
+
+```ts
+await thread.resume(value, {
+  memory: { user: "read", project: "read" },
+  subject: "initiator", // or "actor"
+});
+```
+
+`initiator` keeps the application user that started this HITL chain. `actor`
+uses the application user resolved for the current interaction. Project-only
+Memory needs no subject and carries no made-up user. A continuation expires
+with action retention and can start only one resumed run.
+
+Memory and continuation failures expose stable codes:
+
+- `channel_memory_grant_invalid`, `channel_memory_user_required`, and
+  `channel_memory_unavailable`
+- `channel_memory_subject_required`, `channel_continuation_required`,
+  `channel_continuation_mismatch`, and `channel_action_expired`
+
 ## Conversation history and users
 
-| Method              | Returns                              | Description                                                          |
-| ------------------- | ------------------------------------ | -------------------------------------------------------------------- |
-| `getMessages()`     | `Promise<ThreadMessage[]>`           | Managed history in chronological order; returns `[]` if unavailable. |
-| `lookupUser(query)` | `Promise<PlatformUser \| undefined>` | Provider lookup where supported.                                     |
+| Method              | Returns                               | Description                                                          |
+| ------------------- | ------------------------------------- | -------------------------------------------------------------------- |
+| `getMessages()`     | `Promise<ThreadMessage[]>`            | Managed history in chronological order; returns `[]` if unavailable. |
+| `lookupUser(query)` | `Promise<ProviderActor \| undefined>` | Provider lookup where supported.                                     |
 
 ## Per-conversation state
 
@@ -109,5 +131,7 @@ state guide for [Slack](/slack/threads-and-state) or
 | `setTitle(title)`                                  | Name the conversation.                                                          |
 | `subscribe()` / `unsubscribe()` / `isSubscribed()` | Store a subscription flag. Proactive routing from that flag is not implemented. |
 
-These methods are not guaranteed on managed Slack and Teams. Check `{ ok }`
+Managed Slack and Teams support `react` and `unreact` for the portable reaction
+set: `thumbs_up`, `thumbs_down`, `heart`, `fire`, `eyes`, `refresh`, `thinking`,
+and `tada`. Other methods remain provider-capability dependent; check `{ ok }`
 when the method returns a capability result.

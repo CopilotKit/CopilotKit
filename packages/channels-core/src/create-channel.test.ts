@@ -18,7 +18,10 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
  * `ctx.action.value`.
  */
 const __handlerTypeGuards = () => {
-  const channel = createChannel({ adapters: [new FakeAdapter()] });
+  const channel = createChannel({
+    identifyUser: "platform",
+    adapters: [new FakeAdapter()],
+  });
   channel.onInterrupt<{ question: string }>("ask", ({ payload }) => {
     payload.question.toUpperCase();
     // @ts-expect-error 'missing' is not on the payload type
@@ -124,7 +127,11 @@ function captureSessionAgents(fake: FakeAdapter): { agents: FakeAgent[] } {
 describe("createChannel", () => {
   it("rejects activation when a message-capable adapter has no eligible handler", async () => {
     const fake = new FakeAdapter({ messageEvents: true });
-    const channel = createChannel({ name: "support", adapters: [fake] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+      adapters: [fake],
+    });
 
     await expect(channel.ɵruntime.start()).rejects.toThrow(
       'channel "support" must register onMention or onMessage',
@@ -134,7 +141,10 @@ describe("createChannel", () => {
 
   it("routes an explicit mention only to onMention", async () => {
     const fake = new FakeAdapter();
-    const channel = createChannel({ adapters: [fake] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
     const mentions = vi.fn();
     const messages = vi.fn();
     channel.onMention(mentions);
@@ -160,7 +170,10 @@ describe("createChannel", () => {
 
   it("falls an explicit mention back to onMessage", async () => {
     const fake = new FakeAdapter();
-    const channel = createChannel({ adapters: [fake] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
     const messages = vi.fn();
     channel.onMessage(messages);
 
@@ -194,7 +207,10 @@ describe("createChannel", () => {
 
   it("routes an ordinary message only to onMessage", async () => {
     const fake = new FakeAdapter();
-    const channel = createChannel({ adapters: [fake] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
     const mentions = vi.fn();
     const messages = vi.fn();
     channel.onMention(mentions);
@@ -221,7 +237,11 @@ describe("createChannel", () => {
   it("routes a mention to a handler that posts UI", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     channel.onMention(async ({ thread }) => {
       await thread.post(Section({ children: "hi" }));
@@ -240,7 +260,11 @@ describe("createChannel", () => {
   it("calls renderer.finish() once after a turn's run-loop resolves", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     channel.onMention(async ({ thread }) => {
       await thread.runAgent();
@@ -260,7 +284,11 @@ describe("createChannel", () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
     const added = captureAddedMessages(agent);
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     channel.onMention(async ({ thread }) => {
       await thread.runAgent();
@@ -287,7 +315,11 @@ describe("createChannel", () => {
     const agent = new FakeAgent();
     const added = captureAddedMessages(agent);
     const runs = trackRunAgentCalls(agent);
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     channel.onMention(async ({ thread }) => {
       await thread.runAgent();
@@ -338,6 +370,7 @@ describe("createChannel", () => {
     ]);
     const sessionAgents = captureSessionAgents(fake);
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => agent,
       tools: [
@@ -395,7 +428,11 @@ describe("createChannel", () => {
       });
       return session;
     };
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     channel.onMention(async ({ thread }) => {
       await thread.runAgent();
@@ -436,7 +473,11 @@ describe("createChannel", () => {
       });
       return session;
     };
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     channel.onMention(async ({ thread, message }) => {
       await thread.runAgent({ prompt: message.text });
@@ -458,7 +499,11 @@ describe("createChannel", () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
     const added = captureAddedMessages(agent);
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
     const parts = [
       { type: "text" as const, text: "look" },
       {
@@ -491,7 +536,11 @@ describe("createChannel", () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
     const added = captureAddedMessages(agent);
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     const explicitParts = [
       { type: "text" as const, text: "use this instead" },
@@ -524,7 +573,11 @@ describe("createChannel", () => {
   it("dispatches a bound onClick handler on interaction", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     let clicked = false;
     channel.onMention(async ({ thread }) => {
@@ -560,7 +613,11 @@ describe("createChannel", () => {
   it("resolves a HITL awaitChoice with the element value when the event carries none (Telegram)", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     let chosen: unknown;
     channel.onMention(async ({ thread }) => {
@@ -613,6 +670,7 @@ describe("createChannel", () => {
     });
 
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => agent,
       context: [{ description: "channel-level", value: "always here" }],
@@ -638,7 +696,11 @@ describe("createChannel", () => {
   it("thread.postFile returns a capability-gated error when the adapter can't upload", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     let result: { ok: boolean; error?: string } | undefined;
     channel.onMention(async ({ thread }) => {
@@ -661,11 +723,20 @@ describe("createChannel", () => {
   it("thread.getMessages and thread.lookupUser surface the adapter's data", async () => {
     const fake = new FakeAdapter();
     fake.messages = [
-      { user: { id: "u1", name: "Ada" }, text: "hi", ts: "1", isBot: false },
+      {
+        user: { id: "u1", kind: "human", name: "Ada" },
+        text: "hi",
+        ts: "1",
+        isBot: false,
+      },
     ];
-    fake.user = { id: "u1", name: "Ada" };
+    fake.user = { id: "u1", kind: "human", name: "Ada" };
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     let history: unknown;
     let resolved: unknown;
@@ -679,15 +750,24 @@ describe("createChannel", () => {
     await tick();
 
     expect(history).toEqual([
-      { user: { id: "u1", name: "Ada" }, text: "hi", ts: "1", isBot: false },
+      {
+        user: { id: "u1", kind: "human", name: "Ada" },
+        text: "hi",
+        ts: "1",
+        isBot: false,
+      },
     ]);
-    expect(resolved).toEqual({ id: "u1", name: "Ada" });
+    expect(resolved).toEqual({ id: "u1", kind: "human", name: "Ada" });
   });
 
   it("resolves awaitChoice when a matching interaction arrives", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
 
     let choicePromise: Promise<unknown> | undefined;
     channel.onMention(async ({ thread }) => {
@@ -731,6 +811,7 @@ describe("createChannel", () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => agent,
       store: { adapter: state, onLockConflict: "drop" },
@@ -768,6 +849,7 @@ describe("createChannel", () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => agent,
       store: { adapter: state, onLockConflict: "force" },
@@ -804,6 +886,7 @@ describe("createChannel", () => {
 
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => new FakeAgent(),
       store: { adapter: state },
@@ -839,6 +922,7 @@ describe("createChannel", () => {
 
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => new FakeAgent(),
       store: { adapter: state, concurrency: "serial" },
@@ -877,6 +961,7 @@ describe("createChannel", () => {
 
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => new FakeAgent(),
       store: { adapter: state, concurrency: "drop" },
@@ -910,6 +995,7 @@ describe("createChannel", () => {
     const { agents: seen } = captureSessionAgents(fake);
 
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: prototype, // singleton, not factory
       store: { adapter: state },
@@ -950,6 +1036,7 @@ describe("createChannel", () => {
 
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: bad,
       store: { adapter: state },
@@ -982,6 +1069,7 @@ describe("createChannel", () => {
     // every call. Turn concurrency is parallel by default, so without isolation
     // both turns would run on `shared` and append into its one `messages` array.
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: (threadId) => {
         shared.threadId = threadId;
@@ -1059,6 +1147,7 @@ describe("createChannel", () => {
 
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => agent,
       store: { adapter: state },
@@ -1091,6 +1180,7 @@ describe("createChannel", () => {
 
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => agent,
       store: { adapter: state },
@@ -1118,6 +1208,7 @@ describe("createChannel", () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => agent,
       store: { adapter: state },
@@ -1146,47 +1237,34 @@ describe("createChannel", () => {
     expect(runs).toBe(2);
   });
 
-  it("throws when identity is set without transcripts", () => {
+  it("configures transcripts without a second identity callback", async () => {
     const fake = new FakeAdapter();
-    expect(() =>
-      createChannel({
-        adapters: [fake],
-        store: { identity: () => "key" },
-      }),
-    ).toThrow(
-      "createChannel: `identity` and `transcripts` must be configured together.",
-    );
+    const channel = createChannel({
+      adapters: [fake],
+      identifyUser: "platform",
+      store: { transcripts: { maxPerUser: 100 } },
+    });
+    await channel.ɵruntime.start();
+    expect(channel.transcripts).toBeDefined();
   });
 
-  it("throws when transcripts is set without identity", () => {
-    const fake = new FakeAdapter();
-    expect(() =>
-      createChannel({
-        adapters: [fake],
-        store: { transcripts: { maxPerUser: 100 } },
-      }),
-    ).toThrow(
-      "createChannel: `identity` and `transcripts` must be configured together.",
-    );
-  });
-
-  it("stamps message.userKey when identity resolves a key", async () => {
+  it("stamps message.user when identifyUser resolves an application user", async () => {
     const state = new MemoryStore();
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
     const channel = createChannel({
       adapters: [fake],
       agent: () => agent,
+      identifyUser: () => ({ id: "user@example.com", name: "Alice" }),
       store: {
         adapter: state,
-        identity: () => "user@example.com",
         transcripts: {},
       },
     });
 
     let capturedKey: string | undefined;
     channel.onMention(async ({ message }) => {
-      capturedKey = message.userKey;
+      capturedKey = message.user?.id;
     });
 
     await channel.ɵruntime.start();
@@ -1196,7 +1274,7 @@ describe("createChannel", () => {
       replyTarget: {},
       userText: "hello",
       platform: "fake" as const,
-      user: { id: "u1" },
+      actor: { id: "u1", kind: "human" },
     });
 
     expect(capturedKey).toBe("user@example.com");
@@ -1207,11 +1285,11 @@ describe("createChannel", () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => agent,
       store: {
         adapter: state,
-        identity: () => "alice@example.com",
         transcripts: { maxPerUser: 50 },
       },
     });
@@ -1229,17 +1307,17 @@ describe("createChannel", () => {
       thread,
       { role: "user", text: "hi there" },
       {
-        userKey: "alice@example.com",
+        userId: "alice@example.com",
       },
     );
     await channel.transcripts.append(
       thread,
       { role: "assistant", text: "hello!" },
-      { userKey: "alice@example.com" },
+      { userId: "alice@example.com" },
     );
 
     const entries = await channel.transcripts.list({
-      userKey: "alice@example.com",
+      userId: "alice@example.com",
     });
     expect(entries).toHaveLength(2);
     expect(entries[0]!.role).toBe("user");
@@ -1256,9 +1334,9 @@ describe("createChannel", () => {
     const channel = createChannel({
       adapters: [fake],
       agent: () => agent,
+      identifyUser: () => ({ id: "u@x.com", name: "User" }),
       store: {
         adapter: state,
-        identity: () => "u@x.com",
         transcripts: {},
       },
     });
@@ -1296,7 +1374,7 @@ describe("createChannel", () => {
     await channel.transcripts.append(
       { platform: "discord", conversationKey: "other" },
       { role: "user", text: "remembered from discord" },
-      { userKey: "u@x.com" },
+      { userId: "u@x.com" },
     );
     const sink = fake.getSink();
     await sink.onTurn({
@@ -1304,12 +1382,12 @@ describe("createChannel", () => {
       replyTarget: {},
       userText: "hello from fake",
       platform: "fake" as const,
-      user: { id: "u1" },
+      actor: { id: "u1", kind: "human" },
     });
 
     // Append side: both the user turn and the assistant reply are recorded,
     // oldest-first (after the seeded discord entry).
-    const entries = await channel.transcripts.list({ userKey: "u@x.com" });
+    const entries = await channel.transcripts.list({ userId: "u@x.com" });
     const fakeEntries = entries.filter((e) => e.platform === "fake");
     expect(fakeEntries).toHaveLength(2);
     expect(fakeEntries[0]!.role).toBe("user");
@@ -1333,6 +1411,7 @@ describe("createChannel", () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => agent,
       store: {
@@ -1373,6 +1452,7 @@ describe("createChannel lock and dedup edge cases", () => {
     const fake = new FakeAdapter();
     // Use a separate channel so the throwing handler is isolated.
     const bot1 = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       store: { adapter: state, onLockConflict: "drop", lockTtl: 5000 },
     });
@@ -1416,6 +1496,7 @@ describe("createChannel lock and dedup edge cases", () => {
 
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       store: {
         adapter: state,
@@ -1458,6 +1539,7 @@ describe("createChannel lock and dedup edge cases", () => {
 
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       store: {
         adapter: state,
@@ -1486,48 +1568,52 @@ describe("createChannel lock and dedup edge cases", () => {
     expect(runs).toBe(2);
   });
 
-  it("identity throws: handler still runs and userKey is undefined", async () => {
+  it("identifyUser errors fail the trigger before its handler runs", async () => {
     const state = new MemoryStore();
     const fake = new FakeAdapter();
     const channel = createChannel({
       adapters: [fake],
+      identifyUser: () => {
+        throw new Error("identity failed");
+      },
       store: {
         adapter: state,
-        identity: () => {
-          throw new Error("x");
-        },
         transcripts: {},
       },
     });
 
-    let capturedUserKey: string | undefined = "SENTINEL";
-    channel.onMention(async ({ message }) => {
-      capturedUserKey = message.userKey;
+    let handled = false;
+    channel.onMention(async () => {
+      handled = true;
     });
 
     await channel.ɵruntime.start();
     const sink = fake.getSink();
-    await sink.onTurn({
+    const delivery = sink.onTurn({
       conversationKey: "c1",
       replyTarget: {},
       userText: "hi",
       platform: "fake" as const,
     });
-
-    expect(capturedUserKey).toBeUndefined();
+    await expect(delivery).rejects.toMatchObject({
+      code: "channel_identity_failed",
+      cause: expect.objectContaining({ message: "identity failed" }),
+    });
+    expect(handled).toBe(false);
   });
 
-  it("identity returns null: userKey is undefined", async () => {
+  it("identifyUser may return null without substituting the provider actor", async () => {
     const state = new MemoryStore();
     const fake = new FakeAdapter();
     const channel = createChannel({
       adapters: [fake],
-      store: { adapter: state, identity: () => null, transcripts: {} },
+      identifyUser: () => null,
+      store: { adapter: state, transcripts: {} },
     });
 
-    let capturedUserKey: string | undefined = "SENTINEL";
+    let capturedUser: unknown = "SENTINEL";
     channel.onMention(async ({ message }) => {
-      capturedUserKey = message.userKey;
+      capturedUser = message.user;
     });
 
     await channel.ɵruntime.start();
@@ -1539,7 +1625,7 @@ describe("createChannel lock and dedup edge cases", () => {
       platform: "fake" as const,
     });
 
-    expect(capturedUserKey).toBeUndefined();
+    expect(capturedUser).toBeNull();
   });
 
   it("dedup+lock ordering: deduped turn never takes the lock", async () => {
@@ -1548,6 +1634,7 @@ describe("createChannel lock and dedup edge cases", () => {
 
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       store: { adapter: state, onLockConflict: "drop" },
     });
@@ -1592,6 +1679,7 @@ describe("createChannel lock and dedup edge cases", () => {
     let runs = 0;
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       store: { adapter: state },
     });
@@ -1621,6 +1709,7 @@ describe("createChannel lock and dedup edge cases", () => {
 
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       store: { adapter: state, onLockConflict: "drop" },
     });
@@ -1670,6 +1759,7 @@ describe("createChannel lock and dedup edge cases", () => {
 
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       store: { adapter: state },
     });
@@ -1700,7 +1790,10 @@ describe("createChannel lock and dedup edge cases", () => {
 describe("createChannel slash commands", () => {
   it("routes a command to its handler with the raw text", async () => {
     const fake = new FakeAdapter();
-    const channel = createChannel({ adapters: [fake] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
     let seen: { command: string; text: string } | undefined;
     channel.onCommand("triage", ({ command, text }) => {
       seen = { command, text };
@@ -1712,7 +1805,10 @@ describe("createChannel slash commands", () => {
 
   it("ignores a command with no registered handler", async () => {
     const fake = new FakeAdapter();
-    const channel = createChannel({ adapters: [fake] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
     let fired = false;
     channel.onCommand("triage", () => {
       fired = true;
@@ -1726,6 +1822,7 @@ describe("createChannel slash commands", () => {
     let captured: { seat: string } | undefined;
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       commands: [
         defineChannelCommand({
@@ -1748,7 +1845,10 @@ describe("createChannel slash commands", () => {
 
   it("hands declared commands to adapters that implement registerCommands", async () => {
     const fake = new FakeAdapter();
-    const channel = createChannel({ adapters: [fake] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
     channel.onCommand("triage", () => {});
     channel.onCommand("status", () => {});
     await channel.ɵruntime.start();
@@ -1762,13 +1862,148 @@ describe("createChannel slash commands", () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       const bad = new FakeAdapter({ platform: "telegram", failStart: true });
+      const badStop = vi.spyOn(bad, "stop");
       const good = new FakeAdapter({ platform: "slack" });
-      const channel = createChannel({ adapters: [bad, good] });
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [bad, good],
+      });
       await expect(channel.ɵruntime.start()).resolves.toBeUndefined();
       expect(good.started).toBe(true);
+      expect(badStop).toHaveBeenCalledTimes(1);
       expect(
         errSpy.mock.calls.some((c) => String(c[0]).includes("telegram")),
       ).toBe(true);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it("does not register commands on an adapter whose start failed", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const failed = new FakeAdapter({ platform: "telegram", failStart: true });
+      const failedRegister = vi.spyOn(failed, "registerCommands");
+      const healthy = new FakeAdapter({ platform: "slack" });
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [failed, healthy],
+      });
+      channel.onCommand("triage", () => {});
+
+      await expect(channel.ɵruntime.start()).resolves.toBeUndefined();
+      expect(failedRegister).not.toHaveBeenCalled();
+      expect(healthy.registeredCommands?.map(({ name }) => name)).toEqual([
+        "triage",
+      ]);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it("start() rejects and rolls back direct adapters when the managed adapter fails", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const direct = new FakeAdapter({ platform: "slack" });
+      const directStop = vi.spyOn(direct, "stop");
+      const managed = Object.assign(
+        new FakeAdapter({ platform: "intelligence", failStart: true }),
+        { __intelligenceChannel: true as const },
+      );
+      const managedStop = vi.spyOn(managed, "stop");
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [direct, managed],
+      });
+
+      await expect(channel.ɵruntime.start()).rejects.toThrow(
+        "failed to start its managed Intelligence adapter",
+      );
+      expect(direct.started).toBe(true);
+      expect(directStop).toHaveBeenCalledTimes(1);
+      expect(managedStop).toHaveBeenCalledTimes(1);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it("managed-start rollback keeps stopping adapters after a synchronous stop throw", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const throwing = new FakeAdapter({ platform: "slack" });
+      throwing.stop = vi.fn(() => {
+        throw new Error("synchronous stop failure");
+      });
+      const healthy = new FakeAdapter({ platform: "teams" });
+      const healthyStop = vi.spyOn(healthy, "stop");
+      const managed = Object.assign(
+        new FakeAdapter({ platform: "intelligence", failStart: true }),
+        { __intelligenceChannel: true as const },
+      );
+      const managedStop = vi.spyOn(managed, "stop");
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [throwing, healthy, managed],
+      });
+
+      await expect(channel.ɵruntime.start()).rejects.toThrow(
+        "failed to start its managed Intelligence adapter",
+      );
+      expect(throwing.stop).toHaveBeenCalledTimes(1);
+      expect(healthyStop).toHaveBeenCalledTimes(1);
+      expect(managedStop).toHaveBeenCalledTimes(1);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it("managed-start rollback times out a stop that never settles", async () => {
+    vi.useFakeTimers();
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const stuck = new FakeAdapter({ platform: "slack" });
+      stuck.stop = vi.fn(() => new Promise<void>(() => undefined));
+      const managed = Object.assign(
+        new FakeAdapter({ platform: "intelligence", failStart: true }),
+        { __intelligenceChannel: true as const },
+      );
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [stuck, managed],
+      });
+
+      const starting = expect(channel.ɵruntime.start()).rejects.toThrow(
+        "failed to start its managed Intelligence adapter",
+      );
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      await starting;
+      expect(stuck.stop).toHaveBeenCalledOnce();
+      expect(
+        errSpy.mock.calls.some((call) =>
+          call.some((part) => String(part).includes("stop timed out")),
+        ),
+      ).toBe(true);
+    } finally {
+      errSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("start() stops a rejecting adapter when every adapter fails", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const adapter = new FakeAdapter({ platform: "slack", failStart: true });
+      const stop = vi.spyOn(adapter, "stop");
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [adapter],
+      });
+
+      await expect(channel.ɵruntime.start()).rejects.toThrow(
+        "all 1 adapter(s) failed to connect",
+      );
+      expect(stop).toHaveBeenCalledTimes(1);
     } finally {
       errSpy.mockRestore();
     }
@@ -1782,7 +2017,10 @@ describe("createChannel slash commands", () => {
         failRegisterCommands: true,
       });
       const good = new FakeAdapter({ platform: "slack" });
-      const channel = createChannel({ adapters: [bad, good] });
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [bad, good],
+      });
       channel.onCommand("triage", () => {});
       await expect(channel.ɵruntime.start()).resolves.toBeUndefined();
       expect(good.started).toBe(true);
@@ -1801,7 +2039,10 @@ describe("createChannel slash commands", () => {
       const bad = new FakeAdapter({ platform: "telegram", failStop: true });
       const good = new FakeAdapter({ platform: "slack" });
       const stopSpy = vi.spyOn(good, "stop");
-      const channel = createChannel({ adapters: [bad, good] });
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [bad, good],
+      });
       await channel.ɵruntime.start();
       await expect(channel.ɵruntime.stop()).resolves.toBeUndefined();
       expect(stopSpy).toHaveBeenCalled();
@@ -1815,7 +2056,10 @@ describe("createChannel slash commands", () => {
 
   it("exposes attached adapters through a read-only, non-mutable-through accessor", () => {
     const fake = new FakeAdapter();
-    const channel = createChannel({ adapters: [fake] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
 
     expect(channel.adapters).toContain(fake);
     expect(channel.adapters).toHaveLength(1);
@@ -1826,7 +2070,7 @@ describe("createChannel slash commands", () => {
   });
 
   it("reflects an adapter attached via addAdapter in the adapters accessor", () => {
-    const channel = createChannel({});
+    const channel = createChannel({ identifyUser: "platform" });
     expect(channel.adapters).toHaveLength(0);
 
     const fake = new FakeAdapter();
