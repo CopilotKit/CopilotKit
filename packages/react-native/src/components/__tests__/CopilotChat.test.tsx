@@ -312,6 +312,23 @@ describe("CopilotChat", () => {
     expect(onSend).toHaveBeenCalledWith("Delayed callback");
   });
 
+  it("preserves typed input when header readiness rejects", async () => {
+    hoisted.waitForHeaders.mockRejectedValueOnce(
+      new Error("Header readiness failed"),
+    );
+    const { getByTestId } = render(<CopilotChat />);
+    const input = getByTestId("text-input");
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "Retry this message" } });
+      fireEvent.click(getByTestId("send-button"));
+    });
+
+    expect(input).toHaveProperty("value", "Retry this message");
+    expect(hoisted.mockAgent.addMessage).not.toHaveBeenCalled();
+    expect(hoisted.mockRunAgent).not.toHaveBeenCalled();
+  });
+
   it("renders tool call indicator for unregistered tools", () => {
     hoisted.mockAgent.messages = [
       {

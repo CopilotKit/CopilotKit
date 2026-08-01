@@ -163,8 +163,8 @@ export function CopilotChat({
 
   // Shared logic for sending a message to the agent
   const sendMessage = useCallback(
-    async (text: string) => {
-      if (!text || isRunning || !agent) return;
+    async (text: string): Promise<boolean> => {
+      if (!text || isRunning || !agent) return false;
 
       setError(null);
 
@@ -175,7 +175,7 @@ export function CopilotChat({
         const message =
           err instanceof Error ? err.message : "Authentication is not ready";
         setError(message);
-        return;
+        return false;
       }
 
       onSendMessage?.(text);
@@ -195,6 +195,7 @@ export function CopilotChat({
         console.error("[CopilotChat] runAgent failed:", err);
         setError(message);
       }
+      return true;
     },
     [isRunning, agent, copilotkit, onSendMessage, waitForHeaders],
   );
@@ -203,8 +204,10 @@ export function CopilotChat({
   const handleSend = useCallback(async () => {
     const text = inputText.trim();
     if (!text) return;
-    setInputText("");
-    await sendMessage(text);
+    const sent = await sendMessage(text);
+    if (sent) {
+      setInputText("");
+    }
   }, [inputText, sendMessage]);
 
   // Handle suggestion pill press

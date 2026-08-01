@@ -206,6 +206,7 @@ export function useHeaderReadiness(
   const pendingRef = useRef<PendingReadiness | null>(null);
   const unmountedRef = useRef(false);
   const cancellationErrorRef = useRef<Error | null>(null);
+  const lifecycleRef = useRef({ generation: 0, mounted: false });
 
   const waitForHeaders = useCallback((): void | Promise<void> => {
     if (unmountedRef.current) {
@@ -242,14 +243,32 @@ export function useHeaderReadiness(
   }, [ready, error]);
 
   useEffect(() => {
+    const generation = lifecycleRef.current.generation + 1;
+    lifecycleRef.current = { generation, mounted: true };
+    unmountedRef.current = false;
+
     return () => {
-      unmountedRef.current = true;
-      const cancellationError = new Error("Header readiness was canceled");
-      cancellationErrorRef.current = cancellationError;
-      const pending = pendingRef.current;
-      if (!pending) return;
-      pendingRef.current = null;
-      pending.reject(cancellationError);
+      lifecycleRef.current = { generation, mounted: false };
+
+      // React StrictMode replays passive effects by running cleanup and setup
+      // back-to-back. Defer cancellation until a setup has had a chance to
+      // replace this lifecycle, which leaves rejection for real unmounts.
+      void Promise.resolve().then(() => {
+        if (
+          lifecycleRef.current.generation !== generation ||
+          lifecycleRef.current.mounted
+        ) {
+          return;
+        }
+
+        unmountedRef.current = true;
+        const cancellationError = new Error("Header readiness was canceled");
+        cancellationErrorRef.current = cancellationError;
+        const pending = pendingRef.current;
+        if (!pending) return;
+        pendingRef.current = null;
+        pending.reject(cancellationError);
+      });
     };
   }, []);
 

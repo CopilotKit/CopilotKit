@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
@@ -18,7 +18,7 @@ export interface UseSuggestionsResult {
 export function useSuggestions({
   agentId,
 }: UseSuggestionsOptions = {}): UseSuggestionsResult {
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, waitForHeaders } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const resolvedAgentId = useMemo(
     () => agentId ?? config?.agentId ?? DEFAULT_AGENT_ID,
@@ -42,11 +42,14 @@ export function useSuggestions({
 
   useEffect(() => {
     const subscription = copilotkit.subscribe({
-      onSuggestionsChanged: ({ agentId: changedAgentId, suggestions }) => {
+      onSuggestionsChanged: ({
+        agentId: changedAgentId,
+        suggestions: changedSuggestions,
+      }) => {
         if (changedAgentId !== resolvedAgentId) {
           return;
         }
-        setSuggestions(suggestions);
+        setSuggestions(changedSuggestions);
       },
       onSuggestionsStartedLoading: ({ agentId: changedAgentId }) => {
         if (changedAgentId !== resolvedAgentId) {
@@ -73,9 +76,19 @@ export function useSuggestions({
   }, [copilotkit, resolvedAgentId]);
 
   const reloadSuggestions = useCallback(() => {
-    copilotkit.reloadSuggestions(resolvedAgentId);
+    const reload = () => copilotkit.reloadSuggestions(resolvedAgentId);
+    try {
+      const pendingHeaders = waitForHeaders?.();
+      if (pendingHeaders) {
+        void pendingHeaders.then(reload, () => {});
+        return;
+      }
+    } catch {
+      return;
+    }
+    reload();
     // Loading state is handled by onSuggestionsStartedLoading event
-  }, [copilotkit, resolvedAgentId]);
+  }, [copilotkit, resolvedAgentId, waitForHeaders]);
 
   const clearSuggestions = useCallback(() => {
     copilotkit.clearSuggestions(resolvedAgentId);

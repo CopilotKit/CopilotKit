@@ -1,4 +1,5 @@
 import { renderHook, waitFor, act } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   useHeaderReadiness,
@@ -209,6 +210,23 @@ describe("useResolvedHeaders", () => {
     expect(pending).toBeInstanceOf(Promise);
     unmount();
     await expect(pending).rejects.toThrow("Header readiness was canceled");
+  });
+
+  it("keeps readiness waiters pending through StrictMode effect replay", async () => {
+    const { result, rerender } = renderHook(
+      ({ ready }: { ready: boolean }) => useHeaderReadiness(ready, null),
+      {
+        initialProps: { ready: false },
+        wrapper: StrictMode,
+      },
+    );
+    const pending = result.current();
+
+    expect(pending).toBeInstanceOf(Promise);
+
+    rerender({ ready: true });
+
+    await expect(pending).resolves.toBeUndefined();
   });
 
   it("rejects waiters created after unmount", async () => {
