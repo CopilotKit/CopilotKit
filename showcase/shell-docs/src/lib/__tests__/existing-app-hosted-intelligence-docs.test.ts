@@ -3,6 +3,7 @@ import fs from "fs";
 import matter from "gray-matter";
 import { serialize } from "next-mdx-remote/serialize";
 import remarkGfm from "remark-gfm";
+import ts from "typescript";
 
 vi.mock("../registry", () => ({ getDocsMode: () => "generated" }));
 
@@ -52,6 +53,10 @@ const useThreadsSourceUrl = new URL(
   "../../../../../packages/react-core/src/v2/hooks/use-threads.tsx",
   import.meta.url,
 );
+const angularThreadsSourceUrl = new URL(
+  "../../../../../packages/angular/src/lib/threads.ts",
+  import.meta.url,
+);
 const headlessEntryPointPath = "snippets/shared/threads/headless-threads.mdx";
 const drawerReferencePath = "reference/components/CopilotThreadsDrawer.mdx";
 const useThreadsReferencePath = "reference/hooks/useThreads.mdx";
@@ -76,6 +81,105 @@ interface MdxAstNode {
   url?: unknown;
   children?: MdxAstNode[];
   attributes?: MdxAstNode[];
+}
+
+type TypeScriptModel = ts.SourceFile;
+
+/** Parse executable TypeScript or TSX into the suite's normalized syntax model. */
+function parseTypeScriptModel(
+  source: string,
+  fileName = "example.tsx",
+): TypeScriptModel {
+  return ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+}
+
+/** Visit every syntax node in a normalized TypeScript model. */
+function visitTypeScript(
+  node: ts.Node,
+  visitor: (node: ts.Node) => void,
+): void {
+  visitor(node);
+  ts.forEachChild(node, (child) => visitTypeScript(child, visitor));
+}
+
+/** Return a static declaration, property, or JSX name. */
+function getTypeScriptName(name: ts.PropertyName | ts.BindingName): string {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name)) return name.text;
+  return name.getText();
+}
+
+/** Return whether a declaration has an `export` modifier. */
+function isExportedDeclaration(node: ts.Node): boolean {
+  return (
+    ts.canHaveModifiers(node) &&
+    (ts
+      .getModifiers(node)
+      ?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ??
+      false)
+  );
+}
+
+/** Normalize one attached TSDoc block for text assertions. */
+function normalizeTsdoc(tsdoc: string): string {
+  return collapseWhitespace(
+    tsdoc.replace(/^\s*\/\*\*|\*\/\s*$|^\s*\* ?/gm, "").replace(/`/g, ""),
+  );
+}
+
+/** Return the TSDoc attached to one named exported declaration or member. */
+function extractPublicTsdoc(
+  model: TypeScriptModel,
+  declarationName: string,
+  memberName?: string,
+): string {
+  const declarations = model.statements.filter((statement) => {
+    if (!isExportedDeclaration(statement)) return false;
+    if (
+      ts.isFunctionDeclaration(statement) ||
+      ts.isInterfaceDeclaration(statement)
+    ) {
+      return statement.name?.text === declarationName;
+    }
+    return false;
+  });
+  const [declaration] = declarations;
+
+  if (!declaration || declarations.length !== 1) {
+    throw new Error(`Expected one exported ${declarationName} declaration`);
+  }
+
+  let target: ts.Node = declaration;
+  if (memberName !== undefined) {
+    if (!ts.isInterfaceDeclaration(declaration)) {
+      throw new Error(`Expected ${declarationName} to be an interface`);
+    }
+    const members = declaration.members.filter(
+      (member) =>
+        member.name !== undefined &&
+        getTypeScriptName(member.name) === memberName,
+    );
+    const [member] = members;
+    if (!member || members.length !== 1) {
+      throw new Error(`Expected one ${declarationName}.${memberName} member`);
+    }
+    target = member;
+  }
+
+  const comments = ts
+    .getJSDocCommentsAndTags(target)
+    .filter(ts.isJSDoc)
+    .map((comment) => comment.getFullText(model));
+  if (comments.length !== 1) {
+    throw new Error(`Expected one TSDoc block on ${declarationName}`);
+  }
+
+  return normalizeTsdoc(comments[0] ?? "");
 }
 
 function readContent(relativePath: string): string {
@@ -106,6 +210,93 @@ function extractTsdocComments(source: string): string {
     source.matchAll(/\/\*\*[\s\S]*?\*\//g),
     (match) => match[0],
   ).join("\n");
+}
+
+interface PublicTsdocContract {
+  source: string;
+  declarationName: string;
+  memberName?: string;
+  required: RegExp[];
+}
+
+/** Assert the public TSDoc claims in the cross-framework contract matrix. */
+function expectPublicTsdocContractMatrix(
+  contracts: PublicTsdocContract[],
+): void {
+  for (const contract of contracts) {
+    const model = parseTypeScriptModel(contract.source);
+    const tsdoc = extractPublicTsdoc(
+      model,
+      contract.declarationName,
+      contract.memberName,
+    );
+    const surface = `${contract.declarationName}${contract.memberName ? `.${contract.memberName}` : ""}`;
+
+    expect(tsdoc, `${surface}: TSDoc exists`).not.toHaveLength(0);
+    for (const required of contract.required) {
+      expect(tsdoc, `${surface}: ${required}`).toMatch(required);
+    }
+  }
+}
+
+/** Bind declaration/member TSDoc specifications to one source file. */
+function createPublicTsdocRows(
+  source: string,
+  specs: Array<[string, RegExp[], string?]>,
+): PublicTsdocContract[] {
+  return specs.map(([declarationName, required, memberName]) => ({
+    source,
+    declarationName,
+    memberName,
+    required,
+  }));
+}
+
+/** Build the declaration/member matrix for public thread and Drawer TSDoc. */
+function createPublicTsdocContractMatrix(
+  reactThreadsSource: string,
+  drawerSource: string,
+  angularThreadsSource: string,
+): PublicTsdocContract[] {
+  const recencyContract =
+    /lastRunAt[^.]*when present[^.]*otherwise[^.]*updatedAt[^.]*otherwise[^.]*createdAt[^.]*(?:most recent|newest)[ -]first/i;
+  const lifecycleContract =
+    /archive[^.]*reversible visibility state[\s\S]*includeArchived: true[\s\S]*unarchive[^.]*restores[\s\S]*delete[^.]*irreversible to the app user[\s\S]*platform soft-deletes[^.]*retains[^.]*stored row/i;
+  const optimisticContract =
+    /rename[^.]*archive[^.]*unarchive[^.]*delete[^.]*optimistic/i;
+  const omittedLimitContract =
+    /cursor(?:-based)? pagination[^.]*active when (?:this|limit) is omitted/i;
+  const limit = [/default is 50 threads per page/i, omittedLimitContract];
+  const cursor = [/nextCursor/i, /when limit is omitted/i];
+  const lifecycle = [lifecycleContract, optimisticContract, recencyContract];
+  const reactHook = [
+    /React hook[\s\S]*runtime-authenticated user[\s\S]*realtime subscription/i,
+  ];
+  const drawerEntitlement = [
+    /cloud-hosted[\s\S]*managed entitlement[\s\S]*Runtime-connected Intelligence project[\s\S]*browser[^.]*no license token/i,
+  ];
+  const angularHook = [
+    /Angular threads-list API[\s\S]*runtime-authenticated user[\s\S]*realtime subscription/i,
+  ];
+  return [
+    ...createPublicTsdocRows(reactThreadsSource, [
+      ["useThreads", reactHook],
+      ["UseThreadsResult", lifecycle],
+      ["UseThreadsResult", [recencyContract], "threads"],
+      ["UseThreadsInput", limit, "limit"],
+      ["UseThreadsResult", cursor, "hasMoreThreads"],
+    ]),
+    ...createPublicTsdocRows(drawerSource, [
+      ["CopilotThreadsDrawer", drawerEntitlement],
+      ["CopilotThreadsDrawerProps", limit, "limit"],
+    ]),
+    ...createPublicTsdocRows(angularThreadsSource, [
+      ["injectThreads", angularHook],
+      ["InjectThreadsResult", lifecycle],
+      ["InjectThreadsInput", limit, "limit"],
+      ["InjectThreadsResult", cursor, "hasMoreThreads"],
+    ]),
+  ];
 }
 
 /** Assert that the callback-free Drawer example shares chat configuration. */
@@ -520,15 +711,53 @@ function expectNoRetiredThreadSetup(
   expect(contentsByPath.has(drawerEntryPointPath)).toBe(true);
   expect(contentsByPath.has(headlessEntryPointPath)).toBe(true);
 
+  const executableModels = (content: string): TypeScriptModel[] => {
+    const fences = extractMdxCodeFences(content).filter((fence) =>
+      /^(?:[cm]?[jt]sx?|javascript|typescript)$/.test(fence.language),
+    );
+    return (
+      fences.length > 0 ? fences.map((fence) => fence.content) : [content]
+    ).map((source) => parseTypeScriptModel(source));
+  };
   expect(contentsByPath.get(drawerEntryPointPath) ?? "").not.toMatch(
     /\bpublicLicenseKey\b\s*(?:=|:|(?=\}))/,
   );
-  expect(contentsByPath.get(headlessEntryPointPath) ?? "").not.toMatch(
-    /\bimport\s*(?:type\s+)?\{[^}]*\bCopilotRuntime\b[^}]*\}\s*from\s*(["'])@copilotkit\/runtime\1/,
-  );
-  expect(contentsByPath.get(headlessEntryPointPath) ?? "").not.toMatch(
-    /\b[A-Za-z_$][\w$]*\.CopilotRuntime\b/,
-  );
+
+  const runtimeViolations: string[] = [];
+  for (const model of executableModels(
+    contentsByPath.get(headlessEntryPointPath) ?? "",
+  )) {
+    visitTypeScript(model, (node) => {
+      if (
+        ts.isImportDeclaration(node) &&
+        ts.isStringLiteral(node.moduleSpecifier) &&
+        /^@copilotkit\/runtime(?:\/|$)/.test(node.moduleSpecifier.text)
+      ) {
+        const bindings = node.importClause?.namedBindings;
+        if (bindings && ts.isNamedImports(bindings)) {
+          for (const binding of bindings.elements) {
+            if (
+              (binding.propertyName ?? binding.name).text === "CopilotRuntime"
+            ) {
+              runtimeViolations.push(binding.name.text);
+            }
+          }
+        }
+      }
+      if (ts.isNewExpression(node)) {
+        const expression = node.expression;
+        if (
+          (ts.isIdentifier(expression) &&
+            expression.text === "CopilotRuntime") ||
+          (ts.isPropertyAccessExpression(expression) &&
+            expression.name.text === "CopilotRuntime")
+        ) {
+          runtimeViolations.push(expression.getText(model));
+        }
+      }
+    });
+  }
+  expect(runtimeViolations).toEqual([]);
 }
 
 /** Build the path-keyed entry-point fixture used by retired-code checks. */
@@ -653,51 +882,235 @@ function expectReactRouterAdapterContract(routeSource: string): void {
     /export async function action\(\{ request \}: Route\.ActionArgs\) \{\s*return handler\(request\);\s*\}/,
   );
 
+  const model = parseTypeScriptModel(routeSource, "react-router-route.ts");
+  const exportedNames = new Set<string>();
+  const collectBindingNames = (name: ts.BindingName): void => {
+    if (ts.isIdentifier(name)) {
+      exportedNames.add(name.text);
+      return;
+    }
+    for (const element of name.elements) {
+      if (!ts.isOmittedExpression(element)) collectBindingNames(element.name);
+    }
+  };
+
+  for (const statement of model.statements) {
+    if (ts.isExportDeclaration(statement) && statement.exportClause) {
+      if (ts.isNamedExports(statement.exportClause)) {
+        for (const element of statement.exportClause.elements) {
+          exportedNames.add(element.name.text);
+        }
+      }
+      continue;
+    }
+    if (!isExportedDeclaration(statement)) continue;
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        collectBindingNames(declaration.name);
+      }
+    } else if (
+      (ts.isFunctionDeclaration(statement) ||
+        ts.isClassDeclaration(statement)) &&
+      statement.name
+    ) {
+      exportedNames.add(statement.name.text);
+    }
+  }
+
   for (const method of ["GET", "POST", "PATCH", "DELETE"]) {
-    expect(routeSource).not.toContain(`export const ${method} = handler`);
+    expect(exportedNames).not.toContain(method);
   }
 }
 
-/** Return the block body of one object-property callback. */
-function extractObjectCallbackBody(
-  source: string,
-  propertyName: string,
-): string {
-  const callbacks = Array.from(
-    source.matchAll(
-      new RegExp(
-        `${propertyName}\\s*:\\s*async\\s*\\([^)]*\\)\\s*=>\\s*\\{`,
-        "g",
-      ),
-    ),
-  );
+/** Assert executable authentication inside the `onRequest` callback. */
+function expectExecutableOnRequestAuth(source: string): void {
+  const model = parseTypeScriptModel(source, "runtime-route.ts");
+  const callbacks: ts.ArrowFunction[] = [];
+
+  visitTypeScript(model, (node) => {
+    if (
+      ts.isPropertyAssignment(node) &&
+      getTypeScriptName(node.name) === "onRequest" &&
+      ts.isArrowFunction(node.initializer) &&
+      ts.isBlock(node.initializer.body)
+    ) {
+      callbacks.push(node.initializer);
+    }
+  });
+
   const [callback] = callbacks;
-  if (callbacks.length !== 1 || callback?.index === undefined) {
-    throw new Error(`Expected one ${propertyName} callback body`);
+  if (!callback || callbacks.length !== 1 || !ts.isBlock(callback.body)) {
+    throw new Error("Expected one onRequest callback body");
   }
 
-  const openBrace = callback.index + callback[0].lastIndexOf("{");
-  let depth = 0;
-  for (let index = openBrace; index < source.length; index += 1) {
-    if (source[index] === "{") depth += 1;
-    if (source[index] === "}") depth -= 1;
-    if (depth === 0) return source.slice(openBrace + 1, index);
-  }
+  let verifiedCall = false;
+  let has401Exit = false;
+  const inspect = (node: ts.Node): void => {
+    if (ts.isFunctionLike(node) && node !== callback) return;
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "getVerifiedAppUser" &&
+      node.arguments.some(
+        (argument) => ts.isIdentifier(argument) && argument.text === "request",
+      )
+    ) {
+      verifiedCall = true;
+    }
+    if (
+      ts.isIfStatement(node) &&
+      ts.isPrefixUnaryExpression(node.expression) &&
+      node.expression.operator === ts.SyntaxKind.ExclamationToken
+    ) {
+      const inspectBranch = (child: ts.Node): void => {
+        const expression =
+          ts.isThrowStatement(child) || ts.isReturnStatement(child)
+            ? child.expression
+            : undefined;
+        if (
+          expression &&
+          ts.isNewExpression(expression) &&
+          expression.expression.getText(model) === "Response"
+        ) {
+          const findStatus = (part: ts.Node): void => {
+            if (
+              ts.isPropertyAssignment(part) &&
+              getTypeScriptName(part.name) === "status" &&
+              part.initializer.getText(model) === "401"
+            ) {
+              has401Exit = true;
+            }
+            ts.forEachChild(part, findStatus);
+          };
+          findStatus(expression);
+        }
+        ts.forEachChild(child, inspectBranch);
+      };
+      inspectBranch(node.thenStatement);
+    }
+    ts.forEachChild(node, inspect);
+  };
+  inspect(callback.body);
 
-  throw new Error(`Unclosed ${propertyName} callback body`);
+  expect(verifiedCall).toBe(true);
+  expect(has401Exit).toBe(true);
 }
 
 /** Return explicit agent ID overrides on the hosted React thread surfaces. */
 function extractHostedAgentIdOverrides(source: string): string[] {
-  return Array.from(
-    source.matchAll(
-      /<(?:CopilotChatConfigurationProvider|CopilotThreadsDrawer|CopilotChat)\b[^>]*\bagentId\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([^}]*)\})/g,
-    ),
-    (match) =>
-      (match[1] ?? match[2] ?? match[3] ?? "")
-        .trim()
-        .replace(/^(?:"([^"]*)"|'([^']*)'|`([^`]*)`)$/, "$1$2$3"),
-  );
+  const model = parseTypeScriptModel(source);
+  const objectBindings = new Map<string, ts.ObjectLiteralExpression>();
+  const values: string[] = [];
+  visitTypeScript(model, (node) => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      ts.isObjectLiteralExpression(node.initializer)
+    ) {
+      objectBindings.set(node.name.text, node.initializer);
+    }
+  });
+  const readExpression = (expression: ts.Expression): string[] => {
+    if (
+      ts.isStringLiteral(expression) ||
+      ts.isNoSubstitutionTemplateLiteral(expression)
+    ) {
+      return [expression.text];
+    }
+    const object = ts.isObjectLiteralExpression(expression)
+      ? expression
+      : ts.isIdentifier(expression)
+        ? objectBindings.get(expression.text)
+        : undefined;
+    if (!object) return ["<dynamic-agent-id>"];
+    return object.properties.flatMap((property) => {
+      if (ts.isSpreadAssignment(property))
+        return readExpression(property.expression);
+      if (
+        ts.isPropertyAssignment(property) &&
+        getTypeScriptName(property.name) === "agentId"
+      ) {
+        return readExpression(property.initializer);
+      }
+      return [];
+    });
+  };
+  visitTypeScript(model, (node) => {
+    if (!ts.isJsxOpeningLikeElement(node)) return;
+    const tagName = node.tagName.getText(model).split(".").at(-1);
+    if (
+      ![
+        "CopilotChatConfigurationProvider",
+        "CopilotThreadsDrawer",
+        "CopilotChat",
+      ].includes(tagName ?? "")
+    ) {
+      return;
+    }
+    for (const attribute of node.attributes.properties) {
+      if (ts.isJsxSpreadAttribute(attribute)) {
+        values.push(...readExpression(attribute.expression));
+      } else if (
+        attribute.name.getText(model) === "agentId" &&
+        attribute.initializer
+      ) {
+        const initializer = attribute.initializer;
+        if (ts.isStringLiteral(initializer)) {
+          values.push(initializer.text);
+        } else if (ts.isJsxExpression(initializer) && initializer.expression) {
+          values.push(...readExpression(initializer.expression));
+        }
+      }
+    }
+  });
+  return values;
+}
+
+/** Assert that the executable client page contains no managed server secrets. */
+function expectNoManagedClientSecrets(source: string): void {
+  const model = parseTypeScriptModel(source, "app-page.tsx");
+  const forbiddenIdentifier =
+    /^(?:CPK_INTELLIGENCE_(?:API_KEY|API_URL|GATEWAY_WS_URL)|COPILOTKIT_LICENSE_TOKEN)$/;
+  const forbiddenValue =
+    /^(?:CPK_INTELLIGENCE_(?:API_KEY|API_URL|GATEWAY_WS_URL)|COPILOTKIT_LICENSE_TOKEN|https:\/\/api\.intelligence\.copilotkit\.ai|wss:\/\/realtime\.intelligence\.copilotkit\.ai)$/;
+  const forbiddenBrowserProp =
+    /^(?:publicApiKey|publicLicenseKey|licenseToken)$/;
+  const violations: string[] = [];
+
+  visitTypeScript(model, (node) => {
+    if (ts.isIdentifier(node) && forbiddenIdentifier.test(node.text)) {
+      violations.push(node.text);
+    }
+    if (
+      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
+      forbiddenValue.test(node.text)
+    ) {
+      violations.push(node.text);
+    }
+    if (
+      ts.isJsxAttribute(node) &&
+      forbiddenBrowserProp.test(node.name.getText(model))
+    ) {
+      violations.push(node.name.getText(model));
+    }
+    if (
+      (ts.isPropertyAssignment(node) ||
+        ts.isShorthandPropertyAssignment(node)) &&
+      forbiddenBrowserProp.test(getTypeScriptName(node.name))
+    ) {
+      violations.push(getTypeScriptName(node.name));
+    }
+  });
+
+  expect(violations).toEqual([]);
+}
+
+/** Assert that every explicit chat-side agent ID matches the thread list. */
+function expectHostedAgentIdOverrides(source: string, expected: string): void {
+  const overrides = extractHostedAgentIdOverrides(source);
+  expect(overrides).not.toHaveLength(0);
+  expect(overrides.every((agentId) => agentId === expected)).toBe(true);
 }
 
 /** Assert the canonical guide's managed Runtime, auth, and UI contracts. */
@@ -710,6 +1123,8 @@ function expectCanonicalGuideContracts(guide: string): void {
     "app/api/copilotkit/[[...slug]]/route.ts",
   );
   const appPage = findMdxCodeFence(fences, "tsx", "app/page.tsx");
+
+  expectNoManagedClientSecrets(appPage);
 
   expect(frontmatter.doc_type).toBe("how-to");
   expect(content).toContain('surface="docs_existing_app_hosted_intelligence"');
@@ -739,10 +1154,7 @@ function expectCanonicalGuideContracts(guide: string): void {
   expect(serverRoute).toMatch(
     /identifyUser\s*:\s*async\s*\(request\)\s*=>\s*\{[\s\S]*?getVerifiedAppUser\(request\)[\s\S]*?return\s*\{\s*id:\s*user\.id,\s*name:\s*user\.name\s*\}/,
   );
-  const onRequestBody = extractObjectCallbackBody(serverRoute, "onRequest");
-  expect(onRequestBody).toMatch(
-    /getVerifiedAppUser\(request\)[\s\S]*?if\s*\(!user\)\s*\{\s*(?:throw|return)\s+new Response\([\s\S]*?status:\s*401/,
-  );
+  expectExecutableOnRequestAuth(serverRoute);
 
   for (const method of ["GET", "POST", "PATCH", "DELETE"]) {
     expect(serverRoute).toContain(`export const ${method} = handler`);
@@ -905,6 +1317,19 @@ test("documents framework-native registration for the same four HTTP methods", (
   );
 });
 
+test.each([
+  "export { handler as GET };",
+  "export const POST = (request: Request) => handler(request);",
+  "export async function PATCH(request: Request) { return handler(request); }",
+  "const DELETE = handler; export { DELETE };",
+])("rejects React Router binding %s", (forbiddenExport) => {
+  expect(() =>
+    expectReactRouterAdapterContract(
+      `${fs.readFileSync(reactRouterRouteSourceUrl, "utf8")}\n${forbiddenExport}`,
+    ),
+  ).toThrow();
+});
+
 test("rejects a guide that omits the explicit runner exception", () => {
   const guide = readCanonicalGuide();
   const guideWithoutException = guide.replace(runnerException, "");
@@ -977,6 +1402,72 @@ test("rejects a conflicting nested CopilotChat agent override", () => {
   const mutatedGuide = readCanonicalGuide().replace(
     "          <CopilotChat />",
     '          <CopilotChat agentId="other-agent" />',
+  );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
+test.each([
+  "const leak = process.env.CPK_INTELLIGENCE_API_KEY;",
+  "const leak = process.env.CPK_INTELLIGENCE_API_URL;",
+  "const leak = process.env.CPK_INTELLIGENCE_GATEWAY_WS_URL;",
+  'const leak = "https://api.intelligence.copilotkit.ai";',
+  'const leak = "wss://realtime.intelligence.copilotkit.ai";',
+  'publicLicenseKey="stale"',
+  'licenseToken="stale"',
+  '{...{ licenseToken: "stale" }}',
+])("rejects client app-page leak %s", (leak) => {
+  const guide = readCanonicalGuide();
+  const mutatedGuide = leak.startsWith("const ")
+    ? guide.replace('"use client";', `"use client";\n${leak}`)
+    : guide.replace(
+        "    <CopilotKitProvider\n",
+        `    <CopilotKitProvider\n      ${leak}\n`,
+      );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
+test("rejects an onRequest auth gate that is fully commented out", () => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    /(        onRequest: async \(\{ request \}\) => \{\n)([\s\S]*?)(\n        \},)/,
+    (_match, opening: string, body: string, closing: string) =>
+      `${opening}${body
+        .split("\n")
+        .map((line) => line.replace(/^(\s*)/, "$1// "))
+        .join("\n")}${closing}`,
+  );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
+test.each([
+  ["a closing brace in a string", '          const marker = "}";'],
+  ["a closing brace in a template", "          const marker = `}`;"],
+  ["a closing brace in a regex", "          const marker = /}/;"],
+  ["a closing brace in a block comment", "          /* } */"],
+])("allows %s before executable onRequest auth", (_caseName, statement) => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    "        onRequest: async ({ request }) => {",
+    `        onRequest: async ({ request }) => {\n${statement}`,
+  );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).not.toThrow();
+});
+
+test("rejects onRequest auth masked by an opening brace in a literal", () => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    /        onRequest: async \(\{ request \}\) => \{[\s\S]*?\n        \},/,
+    `        onRequest: async ({ request }) => {
+          const marker = "{";
+          void request;
+        },
+        unrelated: async ({ request }) => {
+          const user = await getVerifiedAppUser(request);
+          if (!user) {
+            throw new Response("Unauthorized", { status: 401 });
+          }
+        },`,
   );
 
   expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
@@ -1484,6 +1975,26 @@ test.each([
     "",
     'import * as Runtime from "@copilotkit/runtime";\nconst runtime = new Runtime.CopilotRuntime({});',
   ],
+  [
+    "a Runtime /v2 import",
+    "",
+    'import { CopilotRuntime } from "@copilotkit/runtime/v2";\nconst runtime = new CopilotRuntime({});',
+  ],
+  [
+    "an aliased Runtime /v2 import",
+    "",
+    'import { CopilotRuntime as ManagedRuntime } from "@copilotkit/runtime/v2";\nconst runtime = new ManagedRuntime({});',
+  ],
+  [
+    "a namespace Runtime /v2 construction",
+    "",
+    'import * as RuntimeV2 from "@copilotkit/runtime/v2";\nconst runtime = new RuntimeV2.CopilotRuntime({});',
+  ],
+  [
+    "a bare executable Runtime construction",
+    "",
+    "const runtime = new CopilotRuntime({});",
+  ],
 ])("rejects %s", (_caseName, drawer, headless) => {
   expect(() =>
     expectNoRetiredThreadSetup(createEntryPointFixture(drawer, headless)),
@@ -1552,13 +2063,46 @@ test("uses one explicit agent ID for the headless thread list and chat", () => {
   const listAgentId = threadSidebar.match(
     /useThreads\(\s*\{[\s\S]*?\bagentId\s*:\s*(["'])([^"']+)\1[\s\S]*?\}\s*\)/,
   )?.[2];
-  const chatAgentId = app.match(
-    /<(?:CopilotChat|CopilotChatConfigurationProvider)\b[^>]*\bagentId\s*=\s*(["'])([^"']+)\1/,
-  )?.[2];
 
   expect.soft(listAgentId).toBe("my-agent");
-  expect.soft(chatAgentId).toBeDefined();
-  expect(chatAgentId).toBe(listAgentId);
+  expectHostedAgentIdOverrides(app, listAgentId ?? "");
+  expectHostedAgentIdOverrides(
+    app.replace(
+      "threadId={activeThreadId}",
+      'threadId={activeThreadId} {...{ className: "chat" }}',
+    ),
+    listAgentId ?? "",
+  );
+});
+
+test.each([
+  {
+    caseName: "a later direct CopilotChat override",
+    replacement:
+      '<CopilotChat agentId="my-agent" threadId={activeThreadId} />\n              <CopilotChat agentId="other-agent" />',
+  },
+  {
+    caseName: "an inline JSX spread override",
+    replacement:
+      '<CopilotChat agentId="my-agent" threadId={activeThreadId} {...{ agentId: "other-agent" }} />',
+  },
+  {
+    caseName: "a nested inline JSX spread override",
+    replacement:
+      '<CopilotChat agentId="my-agent" threadId={activeThreadId} />\n              <section><CopilotChat {...{ agentId: "other-agent" }} /></section>',
+  },
+])("rejects $caseName", ({ replacement }) => {
+  const mutatedHeadlessGuide = readContent(headlessEntryPointPath).replace(
+    '<CopilotChat agentId="my-agent" threadId={activeThreadId} />',
+    replacement,
+  );
+  const app = findMdxCodeFence(
+    extractMdxCodeFences(mutatedHeadlessGuide),
+    "tsx",
+    "App.tsx",
+  );
+
+  expect(() => expectHostedAgentIdOverrides(app, "my-agent")).toThrow();
 });
 
 test.each([
@@ -1588,6 +2132,66 @@ test("public React TSDoc keeps pagination active when limit is omitted", () => {
     interfaceName: "UseThreadsResult",
     memberName: "hasMoreThreads",
   });
+});
+
+test("public thread and Drawer TSDoc satisfies the declaration/member matrix", () => {
+  expectPublicTsdocContractMatrix(
+    createPublicTsdocContractMatrix(
+      fs.readFileSync(useThreadsSourceUrl, "utf8"),
+      fs.readFileSync(drawerWrapperSourceUrl, "utf8"),
+      fs.readFileSync(angularThreadsSourceUrl, "utf8"),
+    ),
+  );
+});
+
+test.each([
+  "useThreads",
+  "UseThreadsResult.threads",
+  "CopilotThreadsDrawer",
+  "CopilotThreadsDrawerProps.limit",
+  "injectThreads",
+  "InjectThreadsResult.hasMoreThreads",
+])("does not let unrelated TSDoc satisfy %s", (target) => {
+  const [declarationName = "", memberName] = target.split(".");
+  const declaration = memberName
+    ? `export interface ${declarationName} { /** Public docs are missing the contract. */ ${memberName}: unknown; }`
+    : `/** Public docs are missing the contract. */ export function ${declarationName}(): void {}`;
+  const source = `${declaration}\n/** Required target wording. */ function privateHelper(): void {}`;
+
+  expect(() =>
+    expectPublicTsdocContractMatrix([
+      {
+        source,
+        declarationName,
+        memberName,
+        required: [/Required target wording/i],
+      },
+    ]),
+  ).toThrow();
+});
+
+test("requires the omitted-limit guarantee on the public React limit member", () => {
+  const source = `
+    export interface UseThreadsInput {
+      /** The default is 50 threads per page. */ limit?: number;
+    }
+    /** Cursor-based pagination remains active when this is omitted. */
+    function privatePaginationNote(): void {}
+  `;
+
+  expect(() =>
+    expectPublicTsdocContractMatrix([
+      {
+        source,
+        declarationName: "UseThreadsInput",
+        memberName: "limit",
+        required: [
+          /default is 50 threads per page/i,
+          /pagination[^.]*active when this is omitted/i,
+        ],
+      },
+    ]),
+  ).toThrow();
 });
 
 test("implementation text cannot mask missing public pagination TSDoc", () => {
