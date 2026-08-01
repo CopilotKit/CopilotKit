@@ -155,6 +155,67 @@ describe("CopilotChat ephemeral messages", () => {
     });
   });
 
+  it("uses CopilotChat's resolved agent and thread over an outer provider scope", async () => {
+    const outerAgent = new CapturingAgent();
+    const resolvedAgent = new CapturingAgent();
+
+    function ResolvedScopeView({
+      ephemeralMessages = [],
+    }: {
+      ephemeralMessages?: ReadonlyArray<{ id: string; content: unknown }>;
+    }) {
+      const { addEphemeralMessage } = useAgent();
+      return (
+        <>
+          <button
+            data-testid="add-resolved-scope-card"
+            onClick={() =>
+              addEphemeralMessage({
+                id: "resolved-scope-card",
+                content: "resolved scope",
+              })
+            }
+          >
+            Add resolved scope card
+          </button>
+          <output data-testid="resolved-scope-cards">
+            {ephemeralMessages.map((message) => message.id).join(",")}
+          </output>
+        </>
+      );
+    }
+
+    render(
+      <CopilotKitProvider
+        agents__unsafe_dev_only={{ outer: outerAgent, resolved: resolvedAgent }}
+      >
+        <CopilotChatConfigurationProvider
+          agentId="outer"
+          threadId="outer-thread"
+        >
+          <CopilotChat
+            agentId="resolved"
+            threadId="resolved-thread"
+            chatView={ResolvedScopeView as any}
+          />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    fireEvent.click(await screen.findByTestId("add-resolved-scope-card"));
+    await waitFor(() => {
+      expect(screen.getByTestId("resolved-scope-cards").textContent).toBe(
+        "resolved-scope-card",
+      );
+    });
+    expect(
+      resolvedAgent.messages.some(
+        (message) => message.id === "resolved-scope-card",
+      ),
+    ).toBe(false);
+    expect(outerAgent.messages).toEqual([]);
+  });
+
   it("renders the core-composed transcript in persisted-then-ephemeral order", async () => {
     const agent = new CapturingAgent();
     agent.addMessage({

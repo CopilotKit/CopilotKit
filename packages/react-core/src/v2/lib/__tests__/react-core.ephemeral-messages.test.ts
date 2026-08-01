@@ -136,6 +136,112 @@ describe("CopilotKitCoreReact ephemeral messages", () => {
     ).toBe(0);
   });
 
+  it("preserves the original anchor across updates and keeps unanchored entries unanchored", () => {
+    const anchoredAgent = new MockStepwiseAgent();
+    anchoredAgent.threadId = "thread-a";
+    anchoredAgent.addMessage({
+      id: "first-persisted",
+      role: "user",
+      content: "first",
+    });
+    const unanchoredAgent = new MockStepwiseAgent();
+    unanchoredAgent.threadId = "thread-b";
+    const core = new CopilotKitCoreReact({
+      agents__unsafe_dev_only: {
+        anchored: anchoredAgent,
+        unanchored: unanchoredAgent,
+      },
+    });
+
+    expect(
+      core.addEphemeralMessage("anchored", "thread-a", {
+        id: "anchored-card",
+        content: "before later history",
+      }),
+    ).toBe(true);
+    anchoredAgent.addMessage({
+      id: "later-persisted",
+      role: "user",
+      content: "later",
+    });
+    expect(
+      core.addEphemeralMessage("anchored", "thread-a", {
+        id: "anchored-card",
+        content: "updated after later history",
+      }),
+    ).toBe(true);
+    expect(core.getEphemeralMessages("anchored", "thread-a")).toEqual([
+      {
+        id: "anchored-card",
+        content: "updated after later history",
+        anchorMessageId: "first-persisted",
+      },
+    ]);
+
+    expect(
+      core.addEphemeralMessage("unanchored", "thread-b", {
+        id: "unanchored-card",
+        content: "without history",
+      }),
+    ).toBe(true);
+    unanchoredAgent.addMessage({
+      id: "first-persisted-in-thread-b",
+      role: "user",
+      content: "arrived later",
+    });
+    expect(
+      core.addEphemeralMessage("unanchored", "thread-b", {
+        id: "unanchored-card",
+        content: "still without an anchor",
+      }),
+    ).toBe(true);
+    expect(core.getEphemeralMessages("unanchored", "thread-b")).toEqual([
+      { id: "unanchored-card", content: "still without an anchor" },
+    ]);
+  });
+
+  it("checks persisted collisions and automatic anchors only in the requested thread", () => {
+    const agent = new MockStepwiseAgent();
+    agent.threadId = "thread-b";
+    agent.addMessage({
+      id: "thread-b-persisted",
+      role: "user",
+      content: "only in thread b",
+    });
+    const core = new CopilotKitCoreReact({
+      agents__unsafe_dev_only: { default: agent },
+    });
+
+    expect(
+      core.addEphemeralMessage("default", "thread-a", {
+        id: "thread-b-persisted",
+        content: "allowed in thread a",
+      }),
+    ).toBe(true);
+    expect(core.getEphemeralMessages("default", "thread-a")).toEqual([
+      { id: "thread-b-persisted", content: "allowed in thread a" },
+    ]);
+    expect(
+      core.addEphemeralMessage("default", "thread-b", {
+        id: "thread-b-persisted",
+        content: "collision in thread b",
+      }),
+    ).toBe(false);
+    expect(
+      core.addEphemeralMessage("default", "thread-b", {
+        id: "thread-b-card",
+        content: "anchored in thread b",
+      }),
+    ).toBe(true);
+    expect(core.getEphemeralMessages("default", "thread-b")).toEqual([
+      {
+        id: "thread-b-card",
+        content: "anchored in thread b",
+        anchorMessageId: "thread-b-persisted",
+      },
+    ]);
+  });
+
   it("notifies subscribers with the scoped immutable snapshot", async () => {
     const core = new CopilotKitCoreReact({});
     const onEphemeralMessagesChanged = vi.fn();

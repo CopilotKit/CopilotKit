@@ -140,8 +140,10 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     message: ReactEphemeralMessage,
   ): boolean {
     const agent = this.getAgent(agentId);
+    const persistedMessages =
+      agent?.threadId === threadId ? agent.messages : [];
     if (
-      agent?.messages.some(
+      persistedMessages.some(
         (persistedMessage) => persistedMessage.id === message.id,
       )
     ) {
@@ -152,16 +154,20 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     const existingIndex = previous.findIndex(
       (existingMessage) => existingMessage.id === message.id,
     );
-    const persistedMessages = agent?.messages ?? [];
+    const {
+      anchorMessageId: requestedAnchorMessageId,
+      ...messageWithoutAnchor
+    } = message;
     const existingMessage =
       existingIndex >= 0 ? previous[existingIndex] : undefined;
     const anchorMessageId =
-      existingMessage?.anchorMessageId ??
-      message.anchorMessageId ??
-      persistedMessages[persistedMessages.length - 1]?.id;
+      existingMessage !== undefined
+        ? existingMessage.anchorMessageId
+        : (requestedAnchorMessageId ??
+          persistedMessages[persistedMessages.length - 1]?.id);
     const nextMessage = Object.freeze({
-      ...message,
-      ...(anchorMessageId ? { anchorMessageId } : {}),
+      ...messageWithoutAnchor,
+      ...(anchorMessageId !== undefined ? { anchorMessageId } : {}),
     });
     const key = this._ephemeralScopeKey(agentId, threadId);
     const next = [...previous];

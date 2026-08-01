@@ -91,21 +91,19 @@ export type CopilotChatProps = Omit<
    */
   throttleMs?: number;
 };
+type CopilotChatInnerProps = Omit<
+  CopilotChatProps,
+  "agentId" | "threadId" | "labels" | "isModalDefaultOpen"
+>;
+
 export function CopilotChat({
   agentId,
   threadId,
   labels,
-  chatView,
   isModalDefaultOpen,
-  attachments: attachmentsConfig,
-  onError,
-  throttleMs,
   ...props
 }: CopilotChatProps) {
-  // Check for existing configuration provider
   const existingConfig = useCopilotChatConfiguration();
-
-  // Apply priority: props > existing config > defaults
   const resolvedAgentId =
     agentId ?? existingConfig?.agentId ?? DEFAULT_AGENT_ID;
   const providedThreadId = threadId ?? existingConfig?.threadId;
@@ -113,15 +111,34 @@ export function CopilotChat({
     () => providedThreadId ?? randomUUID(),
     [providedThreadId],
   );
-  // "Explicit" means a caller actually picked this thread — via the
-  // `threadId` prop on CopilotChat or a wrapping provider that marked its
-  // threadId as caller-chosen. An auto-minted UUID leaking down through a
-  // CopilotChatConfigurationProvider (e.g. from the v1 CopilotKit →
-  // ThreadsProvider chain) does NOT count; treating it as explicit is
-  // what made /connect fire against 404s and the welcome screen stay
-  // hidden for fresh empty chats.
   const hasExplicitThreadId =
     !!threadId || !!existingConfig?.hasExplicitThreadId;
+
+  return (
+    <CopilotChatConfigurationProvider
+      agentId={resolvedAgentId}
+      threadId={resolvedThreadId}
+      hasExplicitThreadId={hasExplicitThreadId}
+      labels={labels}
+      isModalDefaultOpen={isModalDefaultOpen}
+    >
+      <CopilotChatInner {...props} />
+    </CopilotChatConfigurationProvider>
+  );
+}
+
+function CopilotChatInner({
+  chatView,
+  attachments: attachmentsConfig,
+  onError,
+  throttleMs,
+  ...props
+}: CopilotChatInnerProps) {
+  // Check for the configuration provider owned by CopilotChat.
+  const existingConfig = useCopilotChatConfiguration();
+  const resolvedAgentId = existingConfig?.agentId ?? DEFAULT_AGENT_ID;
+  const resolvedThreadId = existingConfig?.threadId ?? "";
+  const hasExplicitThreadId = existingConfig?.hasExplicitThreadId ?? false;
 
   const { agent, ephemeralMessages } = useAgent({
     agentId: resolvedAgentId,
@@ -1087,53 +1104,43 @@ export function CopilotChat({
     hasExplicitThreadId,
   };
 
-  // Always create a provider with merged values
-  // This ensures priority: props > existing config > defaults
   const RenderedChatView = renderSlot(chatView, CopilotChatView, finalProps);
 
   return (
-    <CopilotChatConfigurationProvider
-      agentId={resolvedAgentId}
-      threadId={resolvedThreadId}
-      hasExplicitThreadId={hasExplicitThreadId}
-      labels={labels}
-      isModalDefaultOpen={isModalDefaultOpen}
-    >
-      <div ref={chatContainerRef} style={{ display: "contents" }}>
-        {attachmentsEnabled && (
-          <input
-            type="file"
-            multiple
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept={attachmentsConfig?.accept ?? "*/*"}
-            style={{ display: "none" }}
-          />
-        )}
-        {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
-        {transcriptionError && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "100px",
-              left: "50%",
-              transform: "translateX(-50%)",
-              backgroundColor: "#ef4444",
-              color: "white",
-              padding: "8px 16px",
-              borderRadius: "8px",
-              fontSize: "14px",
-              zIndex: 50,
-            }}
-          >
-            {transcriptionError}
-          </div>
-        )}
-        <LastUserMessageContext.Provider value={lastUserMessageState}>
-          {RenderedChatView}
-        </LastUserMessageContext.Provider>
-      </div>
-    </CopilotChatConfigurationProvider>
+    <div ref={chatContainerRef} style={{ display: "contents" }}>
+      {attachmentsEnabled && (
+        <input
+          type="file"
+          multiple
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          accept={attachmentsConfig?.accept ?? "*/*"}
+          style={{ display: "none" }}
+        />
+      )}
+      {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
+      {transcriptionError && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "100px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "#ef4444",
+            color: "white",
+            padding: "8px 16px",
+            borderRadius: "8px",
+            fontSize: "14px",
+            zIndex: 50,
+          }}
+        >
+          {transcriptionError}
+        </div>
+      )}
+      <LastUserMessageContext.Provider value={lastUserMessageState}>
+        {RenderedChatView}
+      </LastUserMessageContext.Provider>
+    </div>
   );
 }
 
