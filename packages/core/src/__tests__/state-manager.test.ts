@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
-import type { Message, State, RunAgentInput } from "@ag-ui/client";
+import type { BaseEvent, Message, State, RunAgentInput } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import type { Observable } from "rxjs";
+import { defer } from "rxjs";
 
 /**
  * Mock agent that can emit events to test state management
@@ -18,9 +20,41 @@ class EventEmittingMockAgent extends AbstractAgent {
     });
   }
 
-  public run(input: RunAgentInput): any {
-    // Not used in these tests
-    throw new Error("run() should not be called in these tests");
+  public run(input: RunAgentInput): Observable<BaseEvent> {
+    return defer(async () => {
+      this.state = { step: "started" };
+      for (const sub of this.testSubscribers) {
+        await sub.onRunStartedEvent?.({
+          event: {
+            type: EventType.RUN_STARTED,
+            threadId: input.threadId,
+            runId: input.runId,
+          },
+          messages: this.messages,
+          state: this.state,
+          agent: this,
+          input,
+        });
+        await sub.onRunFinishedEvent?.({
+          event: {
+            type: EventType.RUN_FINISHED,
+            threadId: input.threadId,
+            runId: input.runId,
+            outcome: "success",
+          },
+          outcome: "success",
+          messages: this.messages,
+          state: this.state,
+          agent: this,
+          input,
+        });
+      }
+      return {
+        type: EventType.CUSTOM,
+        name: "test",
+        value: {},
+      } as BaseEvent;
+    });
   }
 
   // Expose subscribe for testing
@@ -453,6 +487,28 @@ describe("StateManager - Multiple Runs", () => {
     expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
       runId,
     ]);
+  });
+
+  it("binds an internal handoff to the AbstractAgent lifecycle input", async () => {
+    const runId = "abstract-agent-follow-up-run";
+    await copilotKitCore.runAgent({ agent: agent as any, runId });
+    const handoff = (
+      copilotKitCore as unknown as {
+        stateManager: {
+          markNextRunAsContinuation: (
+            agent: EventEmittingMockAgent,
+            expectedRunId?: string,
+          ) => { cancel(): void; bind(input: object): void };
+        };
+      }
+    ).stateManager.markNextRunAsContinuation(agent, runId);
+
+    await copilotKitCore.runAgent({ agent: agent as any, runId });
+
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      runId,
+    ]);
+    handoff.cancel();
   });
 
   it("does not consume an internal handoff for a same-ID interleaving", async () => {

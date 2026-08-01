@@ -498,6 +498,11 @@ export class RunHandler {
       const agentSubscriber = this.createAgentErrorSubscriber(agent);
       let started = false;
       const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
+      const onRunInitialized = agentSubscriber.onRunInitialized;
+      agentSubscriber.onRunInitialized = async (params) => {
+        continuationHandoff?.bind(params.input);
+        return onRunInitialized?.(params);
+      };
       agentSubscriber.onRunStartedEvent = async (params) => {
         started = true;
         logicalRunId = params.input.runId;
@@ -513,7 +518,6 @@ export class RunHandler {
         tools: this.buildFrontendTools(agent.agentId),
         context: this._internal.getContextForAgent(agent.agentId),
       };
-      continuationHandoff?.bind(agentRunInput);
       const runAgentResult = await agent.runAgent(
         agentRunInput,
         agentSubscriber,
