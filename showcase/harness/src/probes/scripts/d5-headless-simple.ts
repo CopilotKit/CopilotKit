@@ -82,9 +82,12 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return [
     {
       // Empty input + chip click via preFill. The chip's onClick calls
-      // `send(text)` directly; the runner's fill+press is a no-op
-      // because the composer's send button is disabled on empty input.
+      // `send(text)` directly, so this is a true preFill-owned submission.
+      // Do not let the generic runner clear/press the textarea while that
+      // asynchronous run is starting. Those empty-input Enter attempts cannot
+      // submit or verify anything and needlessly race the headless run.
       input: "",
+      skipSend: true,
       preFill: async (page) => {
         console.debug("[d5-headless-simple] turn 1: clicking sample chip", {
           label: SAMPLE_CHIP_LABEL,

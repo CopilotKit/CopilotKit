@@ -58,4 +58,17 @@ export class FakeAgent extends AbstractAgent {
   override abortRun(): void {
     this.aborted = true;
   }
+
+  /**
+   * Distinct instance for concurrent channel turns (singleton agent isolation).
+   * Copies the remaining script so both prototype and clone can still drive steps.
+   */
+  override clone(): FakeAgent {
+    const cloned = new FakeAgent(this.script);
+    cloned.threadId = this.threadId;
+    cloned.agentId = this.agentId;
+    cloned.messages = structuredClone(this.messages);
+    cloned.state = structuredClone(this.state);
+    return cloned;
+  }
 }

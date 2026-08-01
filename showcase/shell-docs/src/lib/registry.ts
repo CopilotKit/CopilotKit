@@ -96,6 +96,7 @@ export interface Integration {
     | "microsoft-agent-framework"
     | "runtime-onrequest"
     | null;
+  voice_backend_pattern?: "adk-fastapi-agent-path" | null;
   sort_order?: number;
   managed_platform?: { name: string; url: string };
   animated_preview_url?: string | null;

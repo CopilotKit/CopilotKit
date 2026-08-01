@@ -12,11 +12,6 @@
  * Column, Image, Card, Button, …) come along for free.
  */
 // @region[definitions-zod]
-// ZOD VERSION: stays on root zod@4 (NOT the `zod-v3` alias) because this catalog
-// declares NO {path} dynamic bindings — only inline literals — so @a2ui/web_core's
-// Zod-3 schema scraper never needs to classify a binding here. If a path-bound prop
-// is ever added, switch to the `zod-v3` alias like sibling a2ui-fixed-schema/a2ui/
-// definitions.ts (whose ZOD VERSION comment explains the React #31 crash otherwise).
 import { z } from "zod";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
@@ -72,7 +67,7 @@ export const myDefinitions = {
 
   StatusBadge: {
     description:
-      "A small coloured pill communicating the state of something (healthy/degraded/down, online/offline, open/closed). Choose `variant` to match the intent.",
+      "A small coloured pill communicating the state of something (healthy/degraded/at-risk, on-track/behind). Choose `variant` to match the intent.",
     props: z.object({
       text: z.string(),
       variant: z.enum(["success", "warning", "error", "info"]).optional(),
@@ -102,12 +97,22 @@ export const myDefinitions = {
   DataTable: {
     description:
       "A data table with column headers and rows. Ideal for rankings and per-person/per-item breakdowns (rep performance vs quota, deal lists). Each row's keys MUST appear in `columns[].key`; unknown row keys render as blank cells and indicate model/schema drift.",
+    // NOTE on B12 (row-keys ⊆ columns[].key): we'd normally enforce this
+    // with `z.object(...).refine(...)`, but the host catalog package's
+    // `CatalogComponentDefinition` type requires `props: ZodObject<…>`
+    // (it inspects `.shape` at runtime), and `.refine` returns a
+    // `ZodEffects` that breaks both the `satisfies CatalogDefinitions`
+    // type assertion and the runtime `.shape` access. Until the host
+    // type is broadened, we encode the constraint in the description
+    // above so the LLM sees the rule, and leave hard enforcement to
+    // the rendering pipeline (which already shows the empty cell —
+    // detection is the gap, not behaviour).
     props: z.object({
       columns: z.array(z.object({ key: z.string(), label: z.string() })),
       // Cells may be strings or numbers — the renderer stringifies at
       // render time, but accepting both lets the LLM emit raw numerics
       // (e.g. attainment 124) instead of being forced to stringify.
-      rows: z.array(z.record(z.string(), z.union([z.string(), z.number()]))),
+      rows: z.array(z.record(z.union([z.string(), z.number()]))),
     }),
   },
 
@@ -116,13 +121,18 @@ export const myDefinitions = {
       "A styled primary call-to-action button. Attach an optional `action` that will be dispatched back to the agent when the user clicks it.",
     props: z.object({
       label: z.string(),
-      action: z.any().optional(),
+      // The renderer hands `action` opaquely to the A2UI `dispatch` helper,
+      // which forwards it back to the agent. We don't constrain the shape
+      // (different demos use different action payloads), but `z.unknown()`
+      // is strictly better than `z.any()` here because it forces any
+      // consumer that touches the value to narrow it explicitly.
+      action: z.unknown().optional(),
     }),
   },
 
   PieChart: {
     description:
-      "A pie/donut chart with a brand-coloured legend. Provide `title`, `description`, and `data` as an array of `{ label, value }` objects. Great for part-of-whole breakdowns (sales by region, traffic sources, portfolio allocation).",
+      "A pie/donut chart with a brand-coloured legend. Provide `title`, `description`, and `data` as an array of `{ label, value }` objects. Great for part-of-whole breakdowns (revenue by region, pipeline by stage).",
     props: z.object({
       title: z.string(),
       description: z.string(),
@@ -137,7 +147,7 @@ export const myDefinitions = {
 
   BarChart: {
     description:
-      "A vertical bar chart built on Recharts. Provide `title`, `description`, and `data` as an array of `{ label, value }` objects. Great for comparing series across categories (quarterly revenue, headcount by team, signups per month).",
+      "A vertical bar chart built on Recharts. Provide `title`, `description`, and `data` as an array of `{ label, value }` objects. Great for comparing series across categories or time (monthly revenue, signups per month).",
     props: z.object({
       title: z.string(),
       description: z.string(),

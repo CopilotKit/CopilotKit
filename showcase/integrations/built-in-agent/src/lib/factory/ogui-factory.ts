@@ -7,6 +7,7 @@ import { openaiText } from "@tanstack/ai-openai";
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
 import { jsonSchemaToZod } from "./tanstack-factory";
+import { DEMO_AGENT_LOOP_STRATEGY } from "./demo-stream";
 
 /**
  * Built-in agent for the Open Generative UI demo.
@@ -39,11 +40,12 @@ export function createOguiAgent() {
         }),
       );
       return chat({
-        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
         systemPrompts,
         tools,
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
     },
   });

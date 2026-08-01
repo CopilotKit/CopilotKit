@@ -16,9 +16,22 @@ export interface EphemeralResult {
 }
 export interface PlatformUser {
   id: string;
+  /** Provider-reported category; untrusted identity metadata, never authorization. */
+  kind?: "human" | "bot" | "app" | "system";
   name?: string;
   handle?: string;
   email?: string;
+}
+
+/** Provider-neutral identity and dispatch semantics for one message revision. */
+export interface MessageOperation {
+  kind: "created" | "updated" | "deleted";
+  /** Stable provider identity shared by every revision of one logical message. */
+  logicalMessageId: string;
+  /** Provider identity for this exact revision, including delete tombstones. */
+  revisionId: string;
+  /** Whether this revision explicitly addresses the Channel. */
+  mentioned: boolean;
 }
 
 /** A base64 data source, shared by every binary media part. */
@@ -46,6 +59,8 @@ export interface IncomingMessage {
   user: PlatformUser;
   ref: MessageRef;
   platform: string;
+  /** Present for provider message hooks; specialized interaction contexts omit it. */
+  operation?: MessageOperation;
   /**
    * Optional multimodal content parts (e.g. inbound image/file attachments)
    * built by the adapter. When present, the app should prefer these over
@@ -67,11 +82,48 @@ export interface IncomingMessage {
   /** Lease/delivery id (managed/Intelligence path). */
   deliveryId?: string;
 }
+
+/** Incoming message delivered specifically to `onMention` or `onMessage`. */
+export interface ChannelMessage extends IncomingMessage {
+  operation: MessageOperation;
+}
 export interface ThreadMessage {
   user?: PlatformUser;
   text: string;
+  /** Structured AG-UI message content when the platform preserves it. */
+  content?: unknown;
+  /** Standard AG-UI activity type for activity messages. */
+  activityType?: string;
   ts?: string;
   isBot?: boolean;
+  /** Structured provider revision facts for delivery-scoped transcript input. */
+  providerMessage?: {
+    logicalMessageId: string;
+    revisionId: string;
+    occurredAt: string;
+    deleted: boolean;
+    currentTrigger: boolean;
+    actor: {
+      id: string;
+      kind: "human" | "bot" | "app" | "system";
+      displayName: string | null;
+      handle: string | null;
+    };
+    files: Array<{
+      providerFileId: string;
+      name: string | null;
+      mimeType: string | null;
+      byteSize: number | null;
+      availability: "managed" | "provider_only" | "unavailable";
+      handle?: string;
+    }>;
+  };
+  /** Present on the model-visible omission marker when earlier context was cut. */
+  transcriptTruncation?: {
+    messageLimit: boolean;
+    byteLimit: boolean;
+    omittedMessageCount: number;
+  };
 }
 export interface Thread {
   readonly platform: string;
@@ -100,7 +152,12 @@ export interface Thread {
     filename: string;
     title?: string;
     altText?: string;
-  }): Promise<{ ok: boolean; fileId?: string; error?: string }>;
+  }): Promise<{
+    ok: boolean;
+    fileId?: string;
+    assetId?: string;
+    error?: string;
+  }>;
   /** Read the conversation's messages (capability-gated; returns `[]` when the adapter can't read history). */
   getMessages(): Promise<ThreadMessage[]>;
   /** Resolve a platform user by a free-form query (capability-gated; returns `undefined` when unsupported). */

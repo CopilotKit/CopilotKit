@@ -8,6 +8,7 @@ import { MemoryStore } from "./state/memory-store.js";
 import { Section, Actions, Button } from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { PlatformAdapter } from "./platform-adapter.js";
+import type { AgentSubscriber } from "@ag-ui/client";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -56,7 +57,167 @@ function collectText(nodes: ChannelNode[]): string {
   return out;
 }
 
+/**
+ * Apply `patch` to `agent` and, recursively, to every clone descended from it.
+ *
+ * `createChannel` isolates every turn via `clone()`, so the instance a turn
+ * actually runs on is never the one the test configured. A spy installed only on
+ * the configured agent would observe nothing.
+ */
+function patchAgentAndClones(
+  agent: FakeAgent,
+  patch: (target: FakeAgent) => void,
+): void {
+  const wrap = (target: FakeAgent): void => {
+    patch(target);
+    const origClone = target.clone.bind(target);
+    target.clone = () => {
+      const cloned = origClone();
+      wrap(cloned);
+      return cloned;
+    };
+  };
+  wrap(agent);
+}
+
+/** Capture user messages injected into a fake agent (and every clone of it). */
+function captureAddedMessages(agent: FakeAgent): unknown[] {
+  const added: unknown[] = [];
+  patchAgentAndClones(agent, (target) => {
+    const addMessage = target.addMessage.bind(target);
+    target.addMessage = (message) => {
+      added.push(message);
+      return addMessage(message);
+    };
+  });
+  return added;
+}
+
+/** Sum `runAgent` calls across the configured agent and every clone of it. */
+function trackRunAgentCalls(agent: FakeAgent): { total: () => number } {
+  let total = 0;
+  patchAgentAndClones(agent, (target) => {
+    const orig = target.runAgent.bind(target);
+    target.runAgent = async (parameters, subscriber) => {
+      total += 1;
+      return orig(parameters, subscriber);
+    };
+  });
+  return { total: () => total };
+}
+
+/**
+ * Capture the agent instances handed to the conversation store — i.e. the ones
+ * that actually run, post-isolation — rather than the configured prototype.
+ */
+function captureSessionAgents(fake: FakeAdapter): { agents: FakeAgent[] } {
+  const agents: FakeAgent[] = [];
+  const orig = fake.conversationStore.getOrCreate.bind(fake.conversationStore);
+  fake.conversationStore.getOrCreate = async (key, target, makeAgent) => {
+    const session = await orig(key, target, makeAgent);
+    agents.push(session.agent as FakeAgent);
+    return session;
+  };
+  return { agents };
+}
+
 describe("createChannel", () => {
+  it("rejects activation when a message-capable adapter has no eligible handler", async () => {
+    const fake = new FakeAdapter({ messageEvents: true });
+    const channel = createChannel({ name: "support", adapters: [fake] });
+
+    await expect(channel.ɵruntime.start()).rejects.toThrow(
+      'channel "support" must register onMention or onMessage',
+    );
+    expect(fake.started).toBe(false);
+  });
+
+  it("routes an explicit mention only to onMention", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({ adapters: [fake] });
+    const mentions = vi.fn();
+    const messages = vi.fn();
+    channel.onMention(mentions);
+    channel.onMessage(messages);
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hello",
+      platform: "fake",
+      operation: {
+        kind: "created",
+        logicalMessageId: "message-1",
+        revisionId: "revision-1",
+        mentioned: true,
+      },
+    });
+
+    expect(mentions).toHaveBeenCalledOnce();
+    expect(messages).not.toHaveBeenCalled();
+  });
+
+  it("falls an explicit mention back to onMessage", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({ adapters: [fake] });
+    const messages = vi.fn();
+    channel.onMessage(messages);
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hello",
+      platform: "fake",
+      operation: {
+        kind: "updated",
+        logicalMessageId: "message-1",
+        revisionId: "revision-2",
+        mentioned: true,
+      },
+    });
+
+    expect(messages).toHaveBeenCalledOnce();
+    expect(messages).toHaveBeenCalledWith({
+      thread: expect.anything(),
+      message: expect.objectContaining({
+        operation: {
+          kind: "updated",
+          logicalMessageId: "message-1",
+          revisionId: "revision-2",
+          mentioned: true,
+        },
+      }),
+    });
+  });
+
+  it("routes an ordinary message only to onMessage", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({ adapters: [fake] });
+    const mentions = vi.fn();
+    const messages = vi.fn();
+    channel.onMention(mentions);
+    channel.onMessage(messages);
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "",
+      platform: "fake",
+      operation: {
+        kind: "deleted",
+        logicalMessageId: "message-1",
+        revisionId: "revision-3",
+        mentioned: false,
+      },
+    });
+
+    expect(messages).toHaveBeenCalledOnce();
+    expect(mentions).not.toHaveBeenCalled();
+  });
+
   it("routes a mention to a handler that posts UI", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
@@ -66,7 +227,7 @@ describe("createChannel", () => {
       await thread.post(Section({ children: "hi" }));
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "yo", conversationKey: "c1" });
     await tick();
 
@@ -85,7 +246,7 @@ describe("createChannel", () => {
       await thread.runAgent();
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "yo", conversationKey: "c1" });
     await tick();
 
@@ -95,18 +256,209 @@ describe("createChannel", () => {
     expect(renderer.finishCalls).toBe(1);
   });
 
-  it("delivers a turn's contentParts as the runAgent prompt to agent.addMessage", async () => {
+  it("defaults runAgent prompt to the inbound message text", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    // Capture what the framework injects as the user message.
-    const added: unknown[] = [];
-    const origAddMessage = agent.addMessage.bind(agent);
-    agent.addMessage = (m) => {
-      added.push(m);
-      return origAddMessage(m);
+    const added = captureAddedMessages(agent);
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
+
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "Say my name",
+      platform: "fake",
+    });
+
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({
+      role: "user",
+      content: "Say my name",
+    });
+  });
+
+  it("injects the inbound turn only into the first managed run in one handler", async () => {
+    const fake = new FakeAdapter();
+    Object.defineProperty(fake, "injectInboundTurnOnce", { value: true });
+    const agent = new FakeAgent();
+    const added = captureAddedMessages(agent);
+    const runs = trackRunAgentCalls(agent);
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
+
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "Use this once",
+      platform: "fake",
+    });
+
+    // Each `thread.runAgent()` resolves its own isolated instance, so count runs
+    // across the configured agent and its clones rather than on one object.
+    expect(runs.total()).toBe(2);
+    expect(added).toEqual([
+      expect.objectContaining({
+        role: "user",
+        content: "Use this once",
+      }),
+    ]);
+  });
+
+  it("wraps every local tool iteration in one managed lifecycle", async () => {
+    const fake = new FakeAdapter();
+    const canonicalToolEnds: string[] = [];
+    const lifecycleCalls: number[] = [];
+    (fake as PlatformAdapter).runAgentLifecycle = async (args) => {
+      lifecycleCalls.push(1);
+      const subscriber: AgentSubscriber = {
+        onToolCallEndEvent({ event }) {
+          canonicalToolEnds.push(event.toolCallId);
+        },
+      };
+      return args.execute(subscriber);
+    };
+    const agent = new FakeAgent([
+      (subscriber) => {
+        subscriber.onToolCallEndEvent?.({
+          event: { toolCallId: "tool-1" },
+          toolCallName: "echo",
+          toolCallArgs: { value: "hello" },
+        } as never);
+      },
+      () => undefined,
+    ]);
+    const sessionAgents = captureSessionAgents(fake);
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => agent,
+      tools: [
+        {
+          name: "echo",
+          description: "Return the input",
+          parameters: z.object({ value: z.string() }),
+          handler: ({ value }) => value,
+        },
+      ],
+    });
+
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "Run the tool",
+      platform: "fake",
+    });
+
+    expect(lifecycleCalls).toHaveLength(1);
+    // One `thread.runAgent()` → one isolated instance, and the tool loop iterates
+    // twice on that instance. Assert on it, not on the configured prototype.
+    expect(sessionAgents.agents).toHaveLength(1);
+    const ran = sessionAgents.agents[0]!;
+    expect(ran.runAgentCalls).toBe(2);
+    expect(canonicalToolEnds).toEqual(["tool-1"]);
+    expect(
+      ran.messages.some(
+        (message) => message.role === "tool" && message.toolCallId === "tool-1",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not duplicate an inbound message seeded by the conversation store", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const added = captureAddedMessages(agent);
+    const getOrCreate = fake.conversationStore.getOrCreate.bind(
+      fake.conversationStore,
+    );
+    Object.defineProperty(fake.conversationStore, "seedsInboundTurn", {
+      value: true,
+    });
+    fake.conversationStore.getOrCreate = async (...args) => {
+      const session = await getOrCreate(...args);
+      session.agent.addMessage({
+        id: "inbound",
+        role: "user",
+        content: "Say my name",
+      });
+      return session;
     };
     const channel = createChannel({ adapters: [fake], agent: () => agent });
 
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "Say my name",
+      platform: "fake",
+    });
+
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({
+      id: "inbound",
+      role: "user",
+      content: "Say my name",
+    });
+  });
+
+  it("does not duplicate an explicitly repeated inbound prompt seeded by the conversation store", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const added = captureAddedMessages(agent);
+    const getOrCreate = fake.conversationStore.getOrCreate.bind(
+      fake.conversationStore,
+    );
+    Object.defineProperty(fake.conversationStore, "seedsInboundTurn", {
+      value: true,
+    });
+    fake.conversationStore.getOrCreate = async (...args) => {
+      const session = await getOrCreate(...args);
+      session.agent.addMessage({
+        id: "inbound",
+        role: "user",
+        content: "Say my name",
+      });
+      return session;
+    };
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
+
+    channel.onMention(async ({ thread, message }) => {
+      await thread.runAgent({ prompt: message.text });
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "Say my name",
+      platform: "fake",
+    });
+
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({ id: "inbound" });
+  });
+
+  it("defaults runAgent prompt to inbound multimodal content parts", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const added = captureAddedMessages(agent);
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
     const parts = [
       { type: "text" as const, text: "look" },
       {
@@ -114,29 +466,59 @@ describe("createChannel", () => {
         source: { type: "data" as const, value: "QUJD", mimeType: "image/png" },
       },
     ];
-    channel.onMention(async ({ thread, message }) => {
-      // The example mirrors this: prefer multimodal parts over plain text.
-      await thread.runAgent({
-        prompt:
-          message.contentParts && message.contentParts.length > 0
-            ? message.contentParts
-            : message.text,
-      });
+
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
     });
 
-    await channel.start();
-    fake.emitTurn({
-      userText: "look",
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
       conversationKey: "c1",
+      replyTarget: {},
+      userText: "look",
       contentParts: parts,
+      platform: "fake",
     });
-    await tick();
+
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({
+      role: "user",
+      content: parts,
+    });
+  });
+
+  it("prefers an explicit multimodal prompt over inbound content parts", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const added = captureAddedMessages(agent);
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
+
+    const explicitParts = [
+      { type: "text" as const, text: "use this instead" },
+      {
+        type: "image" as const,
+        source: { type: "data" as const, value: "QUJD", mimeType: "image/png" },
+      },
+    ];
+    const inboundParts = [{ type: "text" as const, text: "inbound" }];
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ prompt: explicitParts });
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      userText: "inbound",
+      conversationKey: "c1",
+      replyTarget: {},
+      contentParts: inboundParts,
+      platform: "fake",
+    });
 
     expect(added).toHaveLength(1);
     const msg = added[0] as { role: string; content: unknown };
     expect(msg.role).toBe("user");
     // The multimodal parts array survives the string-typed `content` cast.
-    expect(msg.content).toEqual(parts);
+    expect(msg.content).toEqual(explicitParts);
   });
 
   it("dispatches a bound onClick handler on interaction", async () => {
@@ -161,7 +543,7 @@ describe("createChannel", () => {
       );
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "yo", conversationKey: "c1" });
     await tick();
 
@@ -195,7 +577,7 @@ describe("createChannel", () => {
       );
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "create a thing", conversationKey: "c1" });
     await tick();
 
@@ -214,18 +596,21 @@ describe("createChannel", () => {
   it("merges per-turn runAgent context with the channel-level context", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    // Capture the context/tools passed to the agent's first runAgent call.
+    // Capture the context/tools passed to the first runAgent call on whichever
+    // isolated instance ends up running.
     let seenContext: unknown;
     let seenTools: unknown;
-    const origRunAgent = agent.runAgent.bind(agent);
-    agent.runAgent = async (parameters, subscriber) => {
-      if (seenContext === undefined) {
-        seenContext = (parameters as { context?: unknown } | undefined)
-          ?.context;
-        seenTools = (parameters as { tools?: unknown } | undefined)?.tools;
-      }
-      return origRunAgent(parameters, subscriber);
-    };
+    patchAgentAndClones(agent, (target) => {
+      const origRunAgent = target.runAgent.bind(target);
+      target.runAgent = async (parameters, subscriber) => {
+        if (seenContext === undefined) {
+          seenContext = (parameters as { context?: unknown } | undefined)
+            ?.context;
+          seenTools = (parameters as { tools?: unknown } | undefined)?.tools;
+        }
+        return origRunAgent(parameters, subscriber);
+      };
+    });
 
     const channel = createChannel({
       adapters: [fake],
@@ -239,7 +624,7 @@ describe("createChannel", () => {
       });
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "go", conversationKey: "c1" });
     await tick();
 
@@ -263,7 +648,7 @@ describe("createChannel", () => {
       });
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "hi", conversationKey: "c1" });
     await tick();
 
@@ -289,7 +674,7 @@ describe("createChannel", () => {
       resolved = await thread.lookupUser("Ada");
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "hi", conversationKey: "c1" });
     await tick();
 
@@ -319,7 +704,7 @@ describe("createChannel", () => {
       );
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "decide", conversationKey: "c1" });
     await tick();
 
@@ -355,7 +740,7 @@ describe("createChannel", () => {
       await gate;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -392,7 +777,7 @@ describe("createChannel", () => {
       await gate;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -411,6 +796,321 @@ describe("createChannel", () => {
     expect(runs).toBe(2);
   });
 
+  it("default concurrency is parallel: overlapping same-conversation turns both run", async () => {
+    const state = new MemoryStore();
+    let runs = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+      store: { adapter: state },
+    });
+    channel.onMention(async () => {
+      runs++;
+      await gate;
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    const turn = {
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hi",
+      platform: "fake" as const,
+    };
+
+    const p1 = sink.onTurn({ ...turn, eventId: "E-a" });
+    const p2 = sink.onTurn({ ...turn, eventId: "E-b" });
+    // Both handlers must have started before either finishes (parallel).
+    await vi.waitFor(() => expect(runs).toBe(2));
+    release();
+    await Promise.all([p1, p2]);
+    expect(runs).toBe(2);
+  });
+
+  it("concurrency: serial queues the second turn until the first finishes", async () => {
+    const state = new MemoryStore();
+    const order: string[] = [];
+    let release1!: () => void;
+    const gate1 = new Promise<void>((r) => (release1 = r));
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+      store: { adapter: state, concurrency: "serial" },
+    });
+    channel.onMention(async ({ message }) => {
+      order.push(`start:${message.eventId}`);
+      if (message.eventId === "E1") await gate1;
+      order.push(`end:${message.eventId}`);
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    const base = {
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hi",
+      platform: "fake" as const,
+    };
+
+    const p1 = sink.onTurn({ ...base, eventId: "E1" });
+    const p2 = sink.onTurn({ ...base, eventId: "E2" });
+
+    await vi.waitFor(() => expect(order).toContain("start:E1"));
+    // Second must not start while first is gated.
+    expect(order).toEqual(["start:E1"]);
+    release1();
+    await Promise.all([p1, p2]);
+    expect(order).toEqual(["start:E1", "end:E1", "start:E2", "end:E2"]);
+  });
+
+  it("concurrency: drop discards the overlapping turn", async () => {
+    const state = new MemoryStore();
+    let runs = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+      store: { adapter: state, concurrency: "drop" },
+    });
+    channel.onMention(async () => {
+      runs++;
+      await gate;
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    const turn = {
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hi",
+      platform: "fake" as const,
+    };
+
+    const p1 = sink.onTurn({ ...turn, eventId: "E1" });
+    const p2 = sink.onTurn({ ...turn, eventId: "E2" });
+    release();
+    await Promise.all([p1, p2]);
+    expect(runs).toBe(1);
+  });
+
+  it("singleton agent is cloned per run (distinct instances)", async () => {
+    const state = new MemoryStore();
+    const prototype = new FakeAgent();
+
+    const fake = new FakeAdapter();
+    const { agents: seen } = captureSessionAgents(fake);
+
+    const channel = createChannel({
+      adapters: [fake],
+      agent: prototype, // singleton, not factory
+      store: { adapter: state },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ prompt: "hi" });
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    await Promise.all([
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "a",
+        platform: "fake" as const,
+        eventId: "E1",
+      }),
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "b",
+        platform: "fake" as const,
+        eventId: "E2",
+      }),
+    ]);
+
+    expect(seen.length).toBe(2);
+    expect(seen[0]).not.toBe(prototype);
+    expect(seen[1]).not.toBe(prototype);
+    expect(seen[0]).not.toBe(seen[1]);
+  });
+
+  it("singleton agent whose clone returns itself fails loud", async () => {
+    const state = new MemoryStore();
+    const bad = new FakeAgent();
+    bad.clone = () => bad;
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: bad,
+      store: { adapter: state },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ prompt: "hi" });
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    await expect(
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "hi",
+        platform: "fake" as const,
+        eventId: "E1",
+      }),
+    ).rejects.toThrow(/clone\(\) must return a distinct instance/);
+  });
+
+  it("factory returning a shared instance isolates each turn from the others", async () => {
+    const state = new MemoryStore();
+    const shared = new FakeAgent();
+
+    const fake = new FakeAdapter();
+    const { agents: seen } = captureSessionAgents(fake);
+
+    // The shape this exists for: a factory that hands back the same object on
+    // every call. Turn concurrency is parallel by default, so without isolation
+    // both turns would run on `shared` and append into its one `messages` array.
+    const channel = createChannel({
+      adapters: [fake],
+      agent: (threadId) => {
+        shared.threadId = threadId;
+        return shared;
+      },
+      store: { adapter: state },
+    });
+    // What each run believes it was asked, read while both turns are in flight.
+    const askedPerRun: string[] = [];
+    patchAgentAndClones(shared, (target) => {
+      const orig = target.runAgent.bind(target);
+      target.runAgent = async (parameters, subscriber) => {
+        // Hold the run open so the turns genuinely overlap, then read back. On a
+        // shared instance the other turn's user message has landed by now.
+        await new Promise((r) => setTimeout(r, 20));
+        askedPerRun.push(
+          target.messages
+            .filter((m) => m.role === "user")
+            .map((m) => String(m.content))
+            .join("+"),
+        );
+        return orig(parameters, subscriber);
+      };
+    });
+
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    await Promise.all([
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "first",
+        platform: "fake" as const,
+        eventId: "E1",
+      }),
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "second",
+        platform: "fake" as const,
+        eventId: "E2",
+      }),
+    ]);
+
+    // Assert the symptom before the mechanism, so a regression reports the
+    // user-visible defect rather than an object-identity puzzle: without
+    // isolation both runs read "first+second" off the one shared `messages`
+    // array, so each turn is prompted with the other user's question too.
+    // Completion order between the turns isn't guaranteed — compare as a set.
+    expect(askedPerRun.sort()).toEqual(["first", "second"]);
+
+    // Mechanism: two distinct clones, neither of them the configured object.
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).not.toBe(shared);
+    expect(seen[1]).not.toBe(shared);
+    expect(seen[0]).not.toBe(seen[1]);
+    // Nothing ever runs on the configured object, so it stays pristine.
+    expect(shared.messages).toEqual([]);
+  });
+
+  it("agent whose clone() drops subclass state fails loud", async () => {
+    const state = new MemoryStore();
+
+    // Inherits `FakeAgent.clone()`, which builds a plain `FakeAgent` and so
+    // cannot carry this field — the same shape as a subclass inheriting
+    // `AbstractAgent.prototype.clone()`, which copies a fixed field list.
+    class StatefulAgent extends FakeAgent {
+      authClient = { token: "secret" };
+    }
+    const agent = new StatefulAgent();
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => agent,
+      store: { adapter: state },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ prompt: "hi" });
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    await expect(
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "hi",
+        platform: "fake" as const,
+        eventId: "E1",
+      }),
+    ).rejects.toThrow(/StatefulAgent\.clone\(\) dropped authClient/);
+  });
+
+  it("does not fail loud when clone() drops an instance-patched method", async () => {
+    const state = new MemoryStore();
+    const agent = new FakeAgent();
+    // Spies and instrumentation assign methods on the instance. `FakeAgent.clone()`
+    // does not carry them, but the prototype method survives, so the clone still
+    // behaves correctly and this must not be treated as dropped state.
+    agent.runAgent = async (parameters, subscriber) =>
+      FakeAgent.prototype.runAgent.call(agent, parameters, subscriber);
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => agent,
+      store: { adapter: state },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ prompt: "hi" });
+    });
+
+    await channel.ɵruntime.start();
+    await expect(
+      fake.getSink().onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "hi",
+        platform: "fake" as const,
+        eventId: "E1",
+      }),
+    ).resolves.not.toThrow();
+  });
+
   it("dedupes turns by eventId", async () => {
     const state = new MemoryStore();
     let runs = 0;
@@ -426,7 +1126,7 @@ describe("createChannel", () => {
       runs++;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const base = {
       conversationKey: "c",
@@ -489,7 +1189,7 @@ describe("createChannel", () => {
       capturedKey = message.userKey;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -516,7 +1216,7 @@ describe("createChannel", () => {
       },
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
 
     // Drive a turn so identity is resolved and we can verify transcripts exist
@@ -567,25 +1267,29 @@ describe("createChannel", () => {
     // have the fake produce an assistant message with text on agent.messages
     // (mirroring how run-loop expects assistant replies to land there).
     let seenContext: unknown;
-    const origRunAgent = agent.runAgent.bind(agent);
-    agent.runAgent = async (parameters, subscriber) => {
-      if (seenContext === undefined) {
-        seenContext = (parameters as { context?: unknown } | undefined)
-          ?.context;
-      }
-      agent.addMessage({
-        id: globalThis.crypto.randomUUID(),
-        role: "assistant",
-        content: "the assistant reply",
-      });
-      return origRunAgent(parameters, subscriber);
-    };
+    patchAgentAndClones(agent, (target) => {
+      const origRunAgent = target.runAgent.bind(target);
+      target.runAgent = async (parameters, subscriber) => {
+        if (seenContext === undefined) {
+          seenContext = (parameters as { context?: unknown } | undefined)
+            ?.context;
+        }
+        // Add to the instance that is running, so the reply lands on the
+        // messages the run loop reads back.
+        target.addMessage({
+          id: globalThis.crypto.randomUUID(),
+          role: "assistant",
+          content: "the assistant reply",
+        });
+        return origRunAgent(parameters, subscriber);
+      };
+    });
 
     channel.onMention(async ({ thread }) => {
       await thread.runAgent({ transcript: true });
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     // Seed one prior cross-platform entry (different platform label) so we can
     // assert it shows up in the injected context. Seeded post-start: transcripts
     // are only available once the backend is resolved in start().
@@ -651,7 +1355,7 @@ describe("createChannel", () => {
       }
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "go", conversationKey: "c1" });
     await tick();
 
@@ -680,7 +1384,7 @@ describe("createChannel lock and dedup edge cases", () => {
       throw new Error("boom");
     });
 
-    await bot1.start();
+    await bot1.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -727,7 +1431,7 @@ describe("createChannel lock and dedup edge cases", () => {
       await gate;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -765,7 +1469,7 @@ describe("createChannel lock and dedup edge cases", () => {
       await gate;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -801,7 +1505,7 @@ describe("createChannel lock and dedup edge cases", () => {
       capturedUserKey = message.userKey;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -826,7 +1530,7 @@ describe("createChannel lock and dedup edge cases", () => {
       capturedUserKey = message.userKey;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -851,7 +1555,7 @@ describe("createChannel lock and dedup edge cases", () => {
       runs++;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const base = {
       conversationKey: "c1",
@@ -895,7 +1599,7 @@ describe("createChannel lock and dedup edge cases", () => {
       runs++;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -925,7 +1629,7 @@ describe("createChannel lock and dedup edge cases", () => {
       await gate;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turnA = {
       conversationKey: "c1",
@@ -973,7 +1677,7 @@ describe("createChannel lock and dedup edge cases", () => {
       runs++;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c2",
@@ -1001,7 +1705,7 @@ describe("createChannel slash commands", () => {
     channel.onCommand("triage", ({ command, text }) => {
       seen = { command, text };
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await fake.emitCommand({ command: "/Triage", text: "db is down" });
     expect(seen).toEqual({ command: "triage", text: "db is down" });
   });
@@ -1013,7 +1717,7 @@ describe("createChannel slash commands", () => {
     channel.onCommand("triage", () => {
       fired = true;
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await fake.emitCommand({ command: "unknown", text: "x" });
     expect(fired).toBe(false);
   });
@@ -1033,7 +1737,7 @@ describe("createChannel slash commands", () => {
         }),
       ],
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await fake.emitCommand({
       command: "book",
       text: "raw",
@@ -1047,7 +1751,7 @@ describe("createChannel slash commands", () => {
     const channel = createChannel({ adapters: [fake] });
     channel.onCommand("triage", () => {});
     channel.onCommand("status", () => {});
-    await channel.start();
+    await channel.ɵruntime.start();
     expect(fake.registeredCommands?.map((c) => c.name).sort()).toEqual([
       "status",
       "triage",
@@ -1060,7 +1764,7 @@ describe("createChannel slash commands", () => {
       const bad = new FakeAdapter({ platform: "telegram", failStart: true });
       const good = new FakeAdapter({ platform: "slack" });
       const channel = createChannel({ adapters: [bad, good] });
-      await expect(channel.start()).resolves.toBeUndefined();
+      await expect(channel.ɵruntime.start()).resolves.toBeUndefined();
       expect(good.started).toBe(true);
       expect(
         errSpy.mock.calls.some((c) => String(c[0]).includes("telegram")),
@@ -1080,7 +1784,7 @@ describe("createChannel slash commands", () => {
       const good = new FakeAdapter({ platform: "slack" });
       const channel = createChannel({ adapters: [bad, good] });
       channel.onCommand("triage", () => {});
-      await expect(channel.start()).resolves.toBeUndefined();
+      await expect(channel.ɵruntime.start()).resolves.toBeUndefined();
       expect(good.started).toBe(true);
       expect(good.registeredCommands?.map((c) => c.name)).toEqual(["triage"]);
       expect(
@@ -1098,8 +1802,8 @@ describe("createChannel slash commands", () => {
       const good = new FakeAdapter({ platform: "slack" });
       const stopSpy = vi.spyOn(good, "stop");
       const channel = createChannel({ adapters: [bad, good] });
-      await channel.start();
-      await expect(channel.stop()).resolves.toBeUndefined();
+      await channel.ɵruntime.start();
+      await expect(channel.ɵruntime.stop()).resolves.toBeUndefined();
       expect(stopSpy).toHaveBeenCalled();
       expect(
         errSpy.mock.calls.some((c) => String(c[0]).includes("telegram")),
@@ -1126,7 +1830,7 @@ describe("createChannel slash commands", () => {
     expect(channel.adapters).toHaveLength(0);
 
     const fake = new FakeAdapter();
-    channel.addAdapter(fake);
+    channel.ɵruntime.addAdapter(fake);
     expect(channel.adapters).toEqual([fake]);
   });
 });

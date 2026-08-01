@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildFrameworkSearchOptions,
+  parseChannelDocsHref,
+  reconcileFrameworkSearchSelection,
+  resolveChannelSearchHrefs,
   frameworkDocsHref,
   normalizeHref,
   parseDocsHref,
@@ -28,6 +32,12 @@ describe("search href helpers", () => {
     expect(
       frameworkDocsHref("mastra", "concepts/architecture", "react-native"),
     ).toBe("/react-native/mastra/concepts/architecture");
+    expect(
+      frameworkDocsHref("built-in-agent", "backend/copilot-runtime", "angular"),
+    ).toBe("/angular/backend/copilot-runtime");
+    expect(frameworkDocsHref("langgraph-python", "auth", "angular")).toBe(
+      "/angular/langgraph-python/auth",
+    );
   });
 
   it("normalizes built-in-agent docs index hrefs to root URLs", () => {
@@ -76,5 +86,136 @@ describe("search href helpers", () => {
     expect(
       parseIntegrationDocsHref("/docs/integrations/mastra/quickstart"),
     ).toEqual({ folder: "mastra", topic: "quickstart" });
+  });
+
+  it("parses only registered shared Channels guide sources", () => {
+    expect(parseChannelDocsHref("/docs/channels")).toEqual({
+      topic: "overview",
+    });
+    expect(parseChannelDocsHref("/docs/channels/tools")).toEqual({
+      topic: "tools",
+    });
+    expect(parseChannelDocsHref("/docs/channels/reference/thread")).toBeNull();
+    expect(parseChannelDocsHref("/docs/channels/not-a-guide")).toBeNull();
+    expect(parseChannelDocsHref("/docs/channels/tools/")).toBeNull();
+    expect(parseChannelDocsHref("/docs/channels?view=all")).toBeNull();
+  });
+
+  it("fails closed for unknown sources in the Channels namespace", () => {
+    expect(parseDocsHref("/docs/channels/not-a-guide")).toBeNull();
+    expect(parseDocsHref("/docs/channels/tools")).toBeNull();
+    expect(parseDocsHref("/docs/channels?view=all")).toBeNull();
+    expect(parseDocsHref("/docs/channels-but-not-the-namespace")).toBe(
+      "channels-but-not-the-namespace",
+    );
+  });
+
+  it("resolves one channel guide destination on an active channel surface", () => {
+    expect(resolveChannelSearchHrefs("tools", "mastra", "slack")).toEqual([
+      { frontend: "slack", href: "/slack/mastra/tools" },
+    ]);
+    expect(
+      resolveChannelSearchHrefs(
+        "threads-and-state",
+        "langgraph-fastapi",
+        "teams",
+      ),
+    ).toEqual([
+      {
+        frontend: "teams",
+        href: "/teams/langgraph-fastapi/threads-and-state",
+      },
+    ]);
+  });
+
+  it("resolves both provider destinations outside a channel surface", () => {
+    expect(resolveChannelSearchHrefs("tools", "mastra", null)).toEqual([
+      { frontend: "slack", href: "/slack/mastra/tools" },
+      { frontend: "teams", href: "/teams/mastra/tools" },
+    ]);
+    expect(resolveChannelSearchHrefs("tools", "mastra", "vue")).toEqual([
+      { frontend: "slack", href: "/slack/mastra/tools" },
+      { frontend: "teams", href: "/teams/mastra/tools" },
+    ]);
+  });
+
+  it("routes the overview to provider roots and collapses Built-in Agent guide URLs", () => {
+    expect(resolveChannelSearchHrefs("", "mastra", null)).toEqual([]);
+    expect(resolveChannelSearchHrefs("overview", "mastra", null)).toEqual([
+      { frontend: "slack", href: "/slack/mastra" },
+      { frontend: "teams", href: "/teams/mastra" },
+    ]);
+    expect(
+      resolveChannelSearchHrefs("interactive", "built-in-agent", null),
+    ).toEqual([
+      { frontend: "slack", href: "/slack/interactive" },
+      { frontend: "teams", href: "/teams/interactive" },
+    ]);
+    expect(
+      resolveChannelSearchHrefs("not-a-guide", "built-in-agent", null),
+    ).toEqual([]);
+  });
+
+  it("preserves a server-known docs-only framework after client registry load", () => {
+    const options = buildFrameworkSearchOptions(
+      [
+        {
+          slug: "built-in-agent",
+          name: "CopilotKit's Built-in Agent",
+          docs_mode: "authored",
+        },
+        { slug: "mastra", name: "Mastra", docs_mode: "authored" },
+        { slug: "langroid", name: "Langroid", docs_mode: "hidden" },
+      ],
+      ["built-in-agent", "mastra", "langroid", "deepagents"],
+    );
+    const selectedFramework = reconcileFrameworkSearchSelection(
+      "deepagents",
+      options,
+    );
+
+    expect(options).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slug: "deepagents",
+          name: "Deep Agents",
+          logo: null,
+        }),
+      ]),
+    );
+    expect(options.some((option) => option.slug === "langroid")).toBe(false);
+    expect(options.some((option) => option.slug === "unknown-framework")).toBe(
+      false,
+    );
+    expect(selectedFramework).toBe("deepagents");
+    expect(
+      resolveChannelSearchHrefs("tools", selectedFramework, "slack"),
+    ).toEqual([
+      {
+        frontend: "slack",
+        href: "/slack/deepagents/tools",
+      },
+    ]);
+  });
+
+  it("falls back from hidden or unknown framework selections", () => {
+    const options = buildFrameworkSearchOptions(
+      [
+        {
+          slug: "built-in-agent",
+          name: "CopilotKit's Built-in Agent",
+          docs_mode: "authored",
+        },
+        { slug: "langroid", name: "Langroid", docs_mode: "hidden" },
+      ],
+      ["built-in-agent", "langroid"],
+    );
+
+    expect(reconcileFrameworkSearchSelection("langroid", options)).toBe(
+      "built-in-agent",
+    );
+    expect(
+      reconcileFrameworkSearchSelection("unknown-framework", options),
+    ).toBe("built-in-agent");
   });
 });

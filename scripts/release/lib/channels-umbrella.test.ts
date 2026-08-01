@@ -81,6 +81,17 @@ describe("validatePackedManifests", () => {
     );
   });
 
+  it("keeps the managed Intelligence launcher out of the public umbrella", () => {
+    const manifests = validManifests();
+    manifests.get("@copilotkit/channels")!.dependencies![
+      "@copilotkit/channels-intelligence"
+    ] = "0.1.2";
+
+    expect(validatePackedManifests(manifests)).toContainEqual(
+      "@copilotkit/channels has unexpected dependency @copilotkit/channels-intelligence",
+    );
+  });
+
   it("rejects a foundation back-edge to the umbrella", () => {
     const manifests = validManifests();
     manifests.get("@copilotkit/channels-core")!.dependencies![

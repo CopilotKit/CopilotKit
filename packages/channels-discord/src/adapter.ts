@@ -228,6 +228,12 @@ export class DiscordAdapter implements PlatformAdapter {
         // the bridge passes context only; no per-turn content-part building.
         await sink.onTurn({
           conversationKey: turn.conversationKey,
+          operation: {
+            kind: "created",
+            logicalMessageId: turn.messageId,
+            revisionId: turn.messageId,
+            mentioned: turn.mentioned,
+          },
           replyTarget: turn.replyTarget,
           userText: turn.userText,
           user: turn.senderUserId

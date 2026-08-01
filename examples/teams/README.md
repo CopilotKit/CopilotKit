@@ -5,16 +5,26 @@ Teams bot backed by a CopilotKit `BuiltInAgent` that shows
 **streamed-by-edit replies**, **agent-rendered Adaptive Cards**, and a
 **human-in-the-loop approval gate**, testable locally in the **Microsoft 365
 Agents Playground** with **no Microsoft credentials**. It needs an
-`OPENAI_API_KEY`. The application depends on the umbrella and imports the Teams
-integration from `@copilotkit/channels/teams`.
+`OPENAI_API_KEY` and an **Intelligence key** (free tier). The application depends
+on the umbrella and imports the Teams integration from
+`@copilotkit/channels/teams`.
+
+A Channel runs **only** through the Intelligence runtime. The Teams adapter stays
+_direct_ (it keeps the Playground/Teams ingress), but the runtime owns the
+Channel's lifecycle: the bot is declared on
+`new CopilotRuntime({ intelligence, identifyUser, channels: [bot] })` and started
+by mounting the node listener — `listener.channels.ready()` waits until it is live
+and `.stop()` tears it down. There is no `bot.start()`/`bot.stop()`. That's why an Intelligence key is required even
+though no Microsoft credentials are.
 
 ## Run it
 
 From this directory (after `pnpm install` at the repo root):
 
 ```sh
-export OPENAI_API_KEY=sk-...   # or add it to .env (see .env.example)
-pnpm start                     # starts the bot on http://localhost:3978/api/messages
+export OPENAI_API_KEY=sk-...              # or add it to .env (see .env.example)
+export COPILOTKIT_API_KEY=cpk-...          # Intelligence key (free tier)
+pnpm start                                 # starts the bot on http://localhost:3978/api/messages
 ```
 
 In a second terminal:
@@ -53,7 +63,7 @@ instead, swap the `agent` factory to read a URL from the environment:
 
 ```ts
 agent: (threadId) => {
-  const a = new SanitizingHttpAgent({ url: process.env.AGENT_URL! });
+  const a = new HttpAgent({ url: process.env.AGENT_URL! });
   a.threadId = threadId;
   return a;
 },
@@ -166,6 +176,20 @@ Set the environment for wherever you deploy:
 - `OPENAI_API_KEY` _(required)_: the bot runs a `BuiltInAgent` and exits at
   startup without it.
 - `OPENAI_MODEL` _(optional)_: defaults to `openai/gpt-5.5`.
+- `COPILOTKIT_API_KEY` _(required)_: the Intelligence runtime that owns the
+  Channel lifecycle. A Channel runs only through Intelligence, so the bot exits
+  at startup without it (free tier is enough). No URLs to configure — the SDK
+  defaults to the managed Intelligence platform.
+- `COPILOTKIT_INTELLIGENCE_URL` / `COPILOTKIT_INTELLIGENCE_WS_URL` _(optional)_:
+  point the bot at a self-hosted or dev Intelligence deployment. Set **both or
+  neither**: the API and realtime planes are **separate hosts**
+  (`api.intelligence.copilotkit.ai` vs `realtime.intelligence.copilotkit.ai`), so
+  the websocket URL cannot be derived from the API URL by swapping the scheme, and
+  setting one alone leaves the other plane on the managed platform. Getting the
+  websocket host wrong does not produce an error; the Channel sits in `connecting`
+  until it times out.
+- `CHANNELS_PORT` _(optional)_: port for the Intelligence runtime that owns the
+  Channel (loopback-only, default 8300).
 - `clientId` / `clientSecret` / `tenantId`: needed to reach real Teams (see
   above). The in-process `BuiltInAgent` runtime stays on `RUNTIME_PORT`
   (localhost-only, default 8200).

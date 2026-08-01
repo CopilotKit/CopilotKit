@@ -1,6 +1,6 @@
 ## What is the Enterprise Intelligence Platform?
 
-The Enterprise Intelligence Platform is CopilotKit's production layer for durable threads, persistence, hosted inspection, and operational visibility. It sits beside your CopilotKit runtime and gives production agentic applications shared infrastructure without changing the React SDK, AG-UI protocol, or agent framework you use.
+The Enterprise Intelligence Platform is CopilotKit's production layer for durable threads, persistence, hosted inspection, and operational visibility. It sits beside your CopilotKit runtime and gives production agentic applications shared infrastructure without changing the frontend SDK, AG-UI protocol, or agent framework you use.
 
 Start here when you are deciding what the platform gives you and where it should run. The rest of the Intelligence Platform docs are deeper dives into the specific feature or hosting path you choose.
 
@@ -20,7 +20,7 @@ Start here when you are deciding what the platform gives you and where it should
 | [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) | You want CopilotKit to run the platform for you: hosted projects, API keys, thread history, dashboard inspection, and plan management. | Your app, your runtime, your agent, and your model provider credentials. |
 | [Self-Hosting Enterprise Intelligence](/premium/self-hosting) | You need the platform inside your own VPC, Kubernetes cluster, data residency boundary, or enterprise operations model. | The `copilot-intelligence` Helm release, Postgres, Redis, ingress, OIDC, secrets, upgrades, and monitoring. |
 
-Both options use the same CopilotKit application surface. Your frontend still calls CopilotKit hooks, your runtime still speaks AG-UI, and your agents keep the same framework integration. The deployment choice changes the platform endpoint and credentials your runtime uses.
+Both options use the same CopilotKit application surface. Your frontend still uses CopilotKit APIs, your runtime still speaks AG-UI, and your agents keep the same framework integration. The deployment choice changes the platform endpoint and credentials your runtime uses.
 
 ## Plans and access
 
@@ -50,7 +50,7 @@ Self-hosted access is available on the Team self-hosted plan or a custom Enterpr
 
 ### Does my application code change between hosting options?
 
-No. Your React UI, CopilotKit runtime, and agent integration stay focused on CopilotKit APIs. The deployment mode changes which platform URL and credentials your runtime uses.
+No. Your frontend UI, CopilotKit runtime, and agent integration stay focused on CopilotKit APIs. The deployment mode changes which platform URL and credentials your runtime uses.
 
 ### What is the difference between a project API key and a license key?
 

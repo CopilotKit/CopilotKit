@@ -1,15 +1,22 @@
 ---
 title: VS Code Extension
 icon: "lucide/Monitor"
-description: Live preview your CopilotKit render hooks, A2UI catalog components, and AG-UI event stream — without leaving VS Code.
+description: Preview supported CopilotKit UI sources, A2UI catalog components, and the AG-UI event stream without leaving VS Code.
+frontend: universal
 ---
 The CopilotKit VS Code extension is a three-in-one workbench for iterating on CopilotKit features inside your editor. Install it once and you get three sidebars under the CopilotKit activity-bar icon:
 
+<FrontendOnly frontend="react">
 - **CopilotKit Hooks** — discover every `useCopilotAction`, `useRenderTool`, `useCoAgentStateRender`, etc. in your workspace, and live-preview their `render` components with auto-generated form controls.
+</FrontendOnly>
+<FrontendOnly frontend="angular">
+- **CopilotKit Hooks** — currently targets hook-based frontend source; use the Angular feature catalog and linked Showcase source for Angular component examples.
+</FrontendOnly>
 - **A2UI Catalog** — live preview of your A2UI catalog components with fixture-driven scenarios and hot-reload on save.
 - **AG-UI Inspector** — a real-time, color-coded, filterable stream of every AG-UI event your runtime emits.
 
-No localhost server, no browser tab, no agent run required for the first two — you can iterate on rendering and UI structure entirely offline.
+The A2UI catalog preview runs without a localhost server, browser tab, or agent
+run. The AG-UI Inspector connects to a running development runtime.
 
 ## Install
 
@@ -37,6 +44,7 @@ Each is a self-contained tool — pick the one that matches what you're working 
 </Step>
 </Steps>
 
+<FrontendOnly frontend="react">
 ## Hook Explorer
 
 You have a file that calls `useCopilotAction`, `useRenderTool`, or any other render-capable CopilotKit hook, and you want to iterate on the `render` prop. The **CopilotKit Hooks** sidebar lists every call-site in your workspace; clicking one opens a live preview panel where the `render` output is driven by a form built from your hook's declared parameters.
@@ -50,6 +58,17 @@ Extra niceties:
 <Callout type="info">
   Full walkthrough, hook coverage table, and limitations: [Hook Explorer](/troubleshooting/hook-explorer).
 </Callout>
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+## Angular component source
+
+The hook preview is not the Angular authoring surface. Browse <a
+href="/angular/features">Angular feature examples</a> instead: each supported
+feature links to the runnable standalone component and its closest typed API
+reference. The A2UI Catalog and AG-UI Inspector sections below remain
+applicable.
+</FrontendOnly>
 
 ## A2UI Catalog
 

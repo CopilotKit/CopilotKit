@@ -57,6 +57,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
           runtimeUrl,
           agentId,
           headers: { Authorization: "Bearer test-token" },
+          credentials: "include",
           transport,
         });
 
@@ -88,6 +89,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         }
 
         expect(init.method).toBe("POST");
+        expect(init.credentials).toBe("include");
         const headers = new Headers(init.headers as HeadersInit);
         expect(headers.get("content-type")).toBe("application/json");
         expect(headers.get("accept")).toBe("text/event-stream");
@@ -99,6 +101,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
           runtimeUrl,
           agentId,
           headers: { Authorization: "Bearer test-token" },
+          credentials: "include",
           transport,
         });
 
@@ -125,6 +128,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
           });
         }
         expect(init.method).toBe("POST");
+        expect(init.credentials).toBe("include");
         const headers = new Headers(init.headers as HeadersInit);
         expect(headers.get("accept")).toBe("text/event-stream");
       });

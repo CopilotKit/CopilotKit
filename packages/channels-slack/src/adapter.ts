@@ -22,6 +22,7 @@ import type {
   UserQuery,
   EphemeralResult,
   NativePayload,
+  ReplyContinuationOptions,
 } from "@copilotkit/channels-core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
@@ -79,8 +80,13 @@ export interface SlackAdapterOptions {
   logLevel?: LogLevel;
   /** Custom-event names treated as interrupts by the run renderer. */
   interruptEventNames?: ReadonlySet<string>;
-  /** Surface `:wrench:`/`:white_check_mark:` tool-status rows. Default true. */
+  /** Surface tool-call progress in Slack. Default false. */
   showToolStatus?: boolean;
+  /**
+   * Tuning for splitting a long reply across continuation messages once Slack's
+   * per-message ceiling is reached. See {@link ReplyContinuationOptions}.
+   */
+  replyContinuation?: ReplyContinuationOptions;
   /**
    * Assistant-pane behavior ("Agents & AI Apps"). ON by default — the pane
    * activates whenever the app's Slack config has the toggle (see the README),
@@ -118,6 +124,8 @@ export class SlackAdapter implements PlatformAdapter {
   readonly app: App;
   client: WebClient;
   botUserId = "";
+  private botId: string | undefined;
+  private appId: string | undefined;
   private readonly store: SlackConversationStore;
   private sink: IngressSink | undefined;
   /** Per-id cache for sender-profile resolution (repeat turns are cheap). */
@@ -143,6 +151,7 @@ export class SlackAdapter implements PlatformAdapter {
   constructor(private readonly opts: SlackAdapterOptions) {
     const assistantEnabled = opts.assistant !== false;
     this.capabilities = {
+      supportsMessageEvents: true,
       supportsModals: true,
       supportsTyping: false,
       supportsReactions: true,
@@ -183,6 +192,14 @@ export class SlackAdapter implements PlatformAdapter {
     // guard (skip our own posts) is in place from the first event.
     const auth = await this.client.auth.test();
     this.botUserId = auth.user_id as string;
+    this.botId =
+      typeof auth.bot_id === "string" && auth.bot_id.length > 0
+        ? auth.bot_id
+        : undefined;
+    this.appId =
+      typeof auth.app_id === "string" && auth.app_id.length > 0
+        ? auth.app_id
+        : undefined;
     this.teamId = auth.team_id as string | undefined;
     (this.store as unknown as { botUserId: string }).botUserId = this.botUserId;
 
@@ -202,6 +219,8 @@ export class SlackAdapter implements PlatformAdapter {
       app: this.app,
       store: this.store,
       botUserId: this.botUserId,
+      botId: this.botId,
+      appId: this.appId,
       respondTo: resolveSlackRespondToOptions(this.opts.respondTo),
       isAssistantThread: this.assistantHandle?.isAssistantThread,
       onTurn: async (turn) => {
@@ -214,6 +233,7 @@ export class SlackAdapter implements PlatformAdapter {
             recipientUserId: turn.senderUserId,
           },
           userText: turn.userText,
+          operation: turn.operation,
           user: turn.senderUserId
             ? await this.resolveUser(turn.senderUserId)
             : undefined,
@@ -416,6 +436,15 @@ export class SlackAdapter implements PlatformAdapter {
         onStartFailure: () => {
           this.nativeStreamingOk = false;
         },
+        ...(this.opts.replyContinuation?.messageByteLimit !== undefined
+          ? { messageByteLimit: this.opts.replyContinuation.messageByteLimit }
+          : {}),
+        ...(this.opts.replyContinuation?.maxMessages !== undefined
+          ? { maxMessages: this.opts.replyContinuation.maxMessages }
+          : {}),
+        ...(this.opts.replyContinuation?.truncationMarker !== undefined
+          ? { truncationMarker: this.opts.replyContinuation.truncationMarker }
+          : {}),
       });
     } else {
       sink = makeLegacy();
@@ -451,24 +480,25 @@ export class SlackAdapter implements PlatformAdapter {
     // channel and implicit in DMs / assistant threads — pass them only for
     // non-DM targets (DM channel ids start with "D").
     const isChannel = !t.channel.startsWith("D");
+    const startStream = async (markdownText?: string): Promise<string> => {
+      const args: ChatStartStreamArguments = {
+        channel: t.channel,
+        thread_ts: threadTs,
+        task_display_mode: "timeline",
+        ...(markdownText !== undefined ? { markdown_text: markdownText } : {}),
+        ...(isChannel && t.recipientUserId
+          ? { recipient_user_id: t.recipientUserId }
+          : {}),
+        ...(isChannel && this.teamId ? { recipient_team_id: this.teamId } : {}),
+      };
+      const res = await this.client.chat.startStream(args);
+      if (!res.ts) throw new Error("startStream returned no ts");
+      onFirstTs(res.ts, res.channel);
+      return res.ts;
+    };
     return {
-      startStream: async () => {
-        const args: ChatStartStreamArguments = {
-          channel: t.channel,
-          thread_ts: threadTs,
-          task_display_mode: "timeline",
-          ...(isChannel && t.recipientUserId
-            ? { recipient_user_id: t.recipientUserId }
-            : {}),
-          ...(isChannel && this.teamId
-            ? { recipient_team_id: this.teamId }
-            : {}),
-        };
-        const res = await this.client.chat.startStream(args);
-        if (!res.ts) throw new Error("startStream returned no ts");
-        onFirstTs(res.ts, res.channel);
-        return res.ts;
-      },
+      startStream: () => startStream(),
+      startStreamWithText: startStream,
       appendText: async (ts, markdownText) => {
         const args: ChatAppendStreamArguments = {
           channel: t.channel,
@@ -624,6 +654,9 @@ export class SlackAdapter implements PlatformAdapter {
             onChunkFailure: () => {
               this.nativeTaskChunksOk = false;
             },
+            ...(this.opts.replyContinuation !== undefined
+              ? { replyContinuation: this.opts.replyContinuation }
+              : {}),
           }
         : undefined,
       // Native AI feedback row (opt-in); only attached to native streamed
@@ -786,6 +819,7 @@ export class SlackAdapter implements PlatformAdapter {
   get conversationStore(): ConversationStore {
     const store = this.store;
     return {
+      seedsInboundTurn: store.seedsInboundTurn,
       async getOrCreate(
         conversationKey: string,
         replyTarget: BotReplyTarget,

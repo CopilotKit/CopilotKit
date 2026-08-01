@@ -9,6 +9,13 @@ on Teams by adding this adapter.
 It is built on the **Microsoft 365 Agents SDK** (`@microsoft/agents-hosting`),
 the successor to the Bot Framework SDK.
 
+The adapter keeps its own Teams/Microsoft 365 credentials (`clientId` /
+`clientSecret` / `tenantId`, or none for anonymous local dev) — but the
+Channel itself only runs inside a CopilotKit Intelligence-configured
+`CopilotRuntime` (an API key; a free tier is available). There is no
+standalone / DIY runner and no `channel.start()`; the runtime starts and owns
+the channel because Intelligence is configured.
+
 ## Install
 
 ```sh
@@ -20,14 +27,32 @@ pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels-teams";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
+  name: "support-bot", // project-unique Intelligence Channel name
   adapters: [teams({ port: 3978 })],
 });
 
 bot.onMessage(({ thread, message }) => thread.post(`Echo: ${message.text}`));
 
-await bot.start(); // POST /api/messages now listening on :3978
+// The runtime owns the channel's lifecycle — there is no `bot.start()`.
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    // apiUrl and wsUrl default to the managed Intelligence platform — override
+    // both together only for a self-hosted deployment.
+    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+  }),
+  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
+  channels: [bot],
+});
+
+// Creating the listener starts the Channel's connection.
+const listener = createCopilotNodeListener({ runtime });
+// Optional: await that activation; once settled, POST /api/messages is listening
+// on :3978.
+await listener.channels.ready();
 ```
 
 Then point the **Microsoft 365 Agents Playground** at it. No Microsoft
@@ -137,5 +162,6 @@ Planned follow-ups (the architecture leaves room for each):
 `renderAdaptiveCard` / `AdaptiveCard` / `isPlainText` /
 `ADAPTIVE_CARD_CONTENT_TYPE`; `TEAMS_LIMITS`; `TeamsMessageStream`;
 `createTeamsServer` / `TeamsServer` / `TeamsServerConfig`;
-`SanitizingHttpAgent`; `buildFileContentParts` / `TeamsAttachmentRef` /
+`SanitizingHttpAgent` (deprecated — Channels sanitize by default);
+`buildFileContentParts` / `TeamsAttachmentRef` /
 `FileDeliveryConfig`.

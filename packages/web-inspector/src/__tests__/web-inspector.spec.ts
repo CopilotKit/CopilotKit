@@ -1,6 +1,7 @@
 import {
   CpkThreadInspector,
   WebInspectorElement,
+  ɵbuildCapabilityRows,
   ɵCpkThreadDetails,
 } from "../index.js";
 import type { ThreadDebuggerProvider } from "../index.js";
@@ -235,6 +236,26 @@ function getContextInternals(inspector: WebInspectorElement) {
   return inspector as unknown as InspectorContextInternals;
 }
 
+type TelemetryPost = { event: string; properties: Record<string, unknown> };
+
+/** Decode the `oss.inspector.*` payloads a stubbed fetch received. */
+function telemetryPostsFrom(fetchMock: {
+  mock: { calls: unknown[][] };
+}): TelemetryPost[] {
+  return fetchMock.mock.calls
+    .filter(
+      (call) =>
+        String(call[0]) === "https://telemetry.copilotkit.ai/ingest" &&
+        (call[1] as RequestInit | undefined)?.method === "POST",
+    )
+    .map(
+      (call) =>
+        JSON.parse(
+          ((call[1] as RequestInit | undefined)?.body as string) ?? "{}",
+        ) as TelemetryPost,
+    );
+}
+
 // --- Tests ---
 
 describe("WebInspectorElement", () => {
@@ -411,6 +432,19 @@ type ThreadDetailsInternals = {
   timelineItemsFromEvents: (
     events: Array<Record<string, unknown>>,
   ) => Array<Record<string, unknown>>;
+  mapMessages: (
+    messages: Array<{
+      id: string;
+      role: string;
+      content?: string | null;
+      toolCallId?: string | null;
+      toolCalls?: Array<{
+        id: string;
+        name: string;
+        args: string;
+      }>;
+    }>,
+  ) => Array<Record<string, unknown>>;
 };
 
 function createThreadDetails(): {
@@ -453,7 +487,6 @@ function createDeferred<T>(): {
   });
   return { promise, resolve, reject };
 }
-
 describe("ɵCpkThreadDetails caching", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -748,6 +781,57 @@ describe("ɵCpkThreadDetails caching", () => {
 
     expect(internals.renderState()).not.toBe(stateA);
     expect(internals.renderEvents()).not.toBe(eventsA);
+  });
+
+  it("maps empty tool arguments and results as empty objects", () => {
+    const { internals } = createThreadDetails();
+
+    const items = internals.mapMessages([
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "call-empty",
+            name: "lookupUser",
+            args: "",
+          },
+          {
+            id: "call-whitespace",
+            name: "lookupOrder",
+            args: "   ",
+          },
+        ],
+      },
+      {
+        id: "tool-empty",
+        role: "tool",
+        toolCallId: "call-empty",
+        content: "",
+      },
+      {
+        id: "tool-whitespace",
+        role: "tool",
+        toolCallId: "call-whitespace",
+        content: "   ",
+      },
+    ]);
+
+    expect(items).toMatchObject([
+      {
+        type: "tool_call",
+        toolCallId: "call-empty",
+        arguments: {},
+        result: {},
+      },
+      {
+        type: "tool_call",
+        toolCallId: "call-whitespace",
+        arguments: {},
+        result: {},
+      },
+    ]);
   });
 });
 
@@ -1097,6 +1181,14 @@ describe("CpkThreadInspector provider contract", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { el, internals } = createThreadInspector();
 
+    // Count only thread-inspection requests. This stub replaces the global
+    // fetch, so a fire-and-forget telemetry POST from an earlier case can land
+    // here too; the assertion is about refetches, not total network calls.
+    const threadFetches = () =>
+      fetchMock.mock.calls.filter((call) =>
+        String(call[0]).startsWith("http://runtime"),
+      );
+
     internals.runtimeUrl = "http://runtime";
     internals.threadInspectionAvailable = true;
     internals.headers = { Authorization: "Bearer first" };
@@ -1104,7 +1196,7 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(threadFetches()).toHaveLength(1);
       expect(internals._fetchedEvents?.[0]?.payload).toEqual({
         auth: "Bearer first",
       });
@@ -1114,12 +1206,12 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(threadFetches()).toHaveLength(2);
       expect(internals._fetchedEvents?.[0]?.payload).toEqual({
         auth: "Bearer second",
       });
     });
-    expect(headersOf(fetchMock.mock.calls.at(-1)!)).toMatchObject({
+    expect(headersOf(threadFetches().at(-1)!)).toMatchObject({
       Authorization: "Bearer second",
     });
   });
@@ -1409,6 +1501,36 @@ describe("WebInspectorElement announcement preview dismissal", () => {
     expect(a.isOpen).toBe(false);
   });
 
+  it("emits banner_dismissed with the bubble surface alongside banner_clicked", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    const timestamp = "2026-06-11T13:00:00.000Z";
+    const { inspector } = await mountWithUnseenAnnouncement(timestamp);
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview__dismiss")
+      ?.click();
+    await inspector.updateComplete;
+
+    const posts = telemetryPostsFrom(fetchMock);
+    const dismissed = posts.find(
+      (post) => post.event === "oss.inspector.banner_dismissed",
+    );
+    expect(dismissed?.properties).toMatchObject({
+      banner_id: timestamp,
+      surface: "collapsed_preview",
+    });
+    // The legacy signal keeps flowing so existing dashboards don't zero out.
+    const clicked = posts.find(
+      (post) => post.event === "oss.inspector.banner_clicked",
+    );
+    expect(clicked?.properties).toMatchObject({
+      banner_id: timestamp,
+      cta: "dismiss",
+    });
+  });
+
   it("clicking the popout body opens the inspector without persisting", async () => {
     const { inspector, a } = await mountWithUnseenAnnouncement(
       "2026-06-11T13:00:00.000Z",
@@ -1427,6 +1549,258 @@ describe("WebInspectorElement announcement preview dismissal", () => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────
+// Panel-open + banner-surface telemetry (OSS-566 / OSS-568)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// `oss.inspector.opened` exists because opens were previously only inferable
+// from in-panel activity (a floor) or from `banner_clicked` cta=body (which
+// misses the floating-button path). `banner_viewed` carries a `surface`
+// because the bubble on the collapsed widget and the card inside the opened
+// panel are separate impressions — reach on one says nothing about the other.
+
+const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+
+type OpenTelemetryInternals = {
+  isOpen: boolean;
+  announcementTimestamp: string | null;
+  fetchAnnouncement: () => Promise<void>;
+  openInspector: (source: "floating_button" | "announcement_preview") => void;
+};
+
+describe("WebInspectorElement open + banner surface telemetry", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  const timestamp = "2026-07-01T09:00:00.000Z";
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    fetchMock = vi.fn((input: unknown) => {
+      if (String(input) === ANNOUNCEMENT_URL) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              timestamp,
+              previewText: "Channels are here",
+              announcement: "Channels are here — [read more](https://x.test)",
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** Mount an inspector attached to a connected core with telemetry on. */
+  function mount(telemetryDisabled = false, connected = true) {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore(
+      { alpha: agent },
+      {},
+      {},
+      telemetryDisabled,
+    );
+    if (!connected) {
+      harness.core.runtimeConnectionStatus =
+        CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    }
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    return {
+      inspector,
+      harness,
+      internals: inspector as unknown as OpenTelemetryInternals,
+    };
+  }
+
+  const posts = () => telemetryPostsFrom(fetchMock);
+  const eventsNamed = (name: string) =>
+    posts().filter((post) => post.event === name);
+
+  it("records the collapsed bubble impression, then the in-panel card on open", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    const first = eventsNamed("oss.inspector.banner_viewed");
+    expect(first).toHaveLength(1);
+    expect(first[0]!.properties).toMatchObject({
+      banner_id: timestamp,
+      surface: "collapsed_preview",
+    });
+
+    // Opening reveals the in-panel card — a distinct impression.
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.click();
+    await inspector.updateComplete;
+
+    const surfaces = eventsNamed("oss.inspector.banner_viewed").map(
+      (post) => post.properties.surface,
+    );
+    expect(surfaces).toEqual(["collapsed_preview", "expanded_card"]);
+  });
+
+  it("does not re-record an impression for a surface already seen this mount", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(1);
+  });
+
+  it("emits opened with the floating-button source and announcement context", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.click();
+    await inspector.updateComplete;
+
+    const opened = eventsNamed("oss.inspector.opened");
+    expect(opened).toHaveLength(1);
+    expect(opened[0]!.properties).toMatchObject({
+      open_source: "floating_button",
+      has_unseen_announcement: true,
+      package_name: "@copilotkit/web-inspector",
+    });
+  });
+
+  it("attributes an open through the announcement bubble to that surface", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.click();
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.opened")[0]!.properties).toMatchObject({
+      open_source: "announcement_preview",
+    });
+  });
+
+  it("counts one open per open, and nothing for an already-open panel", async () => {
+    const { inspector, internals } = mount();
+    await inspector.updateComplete;
+
+    internals.openInspector("floating_button");
+    internals.openInspector("floating_button");
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.opened")).toHaveLength(1);
+  });
+
+  it("does not count a restored-open panel as an open", async () => {
+    const { inspector, internals } = mount();
+    // Restoring persisted state assigns isOpen directly rather than calling
+    // openInspector — otherwise every reload / dev-server hot reload would
+    // register as a fresh open.
+    internals.isOpen = true;
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.opened")).toHaveLength(0);
+  });
+
+  // An open while disconnected is still a real open, so it is reported — but the
+  // /info-derived dimensions are omitted rather than guessed. Recording the
+  // `sse` default would permanently misattribute an Intelligence runtime.
+  it("omits license and runtime mode for an open before the handshake", async () => {
+    const { inspector, internals } = mount(false, false);
+
+    internals.openInspector("floating_button");
+    await inspector.updateComplete;
+
+    const opened = eventsNamed("oss.inspector.opened");
+    expect(opened).toHaveLength(1);
+    expect(opened[0]!.properties).toMatchObject({
+      open_source: "floating_button",
+      // Config-derived, so accurate immediately.
+      runtime_url_type: "localhost",
+    });
+    expect(opened[0]!.properties).not.toHaveProperty("runtime_mode");
+    expect(opened[0]!.properties).not.toHaveProperty("license_status");
+  });
+
+  it("records license and runtime mode for an open against a connected Intelligence runtime", async () => {
+    const { inspector, harness, internals } = mount(false, false);
+    harness.completeHandshake({
+      telemetryDisabled: false,
+      runtimeMode: "intelligence",
+      licenseStatus: "valid",
+    });
+    await inspector.updateComplete;
+
+    internals.openInspector("floating_button");
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.opened")[0]!.properties).toMatchObject({
+      open_source: "floating_button",
+      runtime_mode: "intelligence",
+      license_status: "valid",
+    });
+  });
+
+  // The impression deferral predates the surface split and must survive it: the
+  // runtime's opt-out only arrives with /info.
+  it("holds a banner impression until the handshake, then drops it when telemetry is disabled", async () => {
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+
+    harness.completeHandshake({ telemetryDisabled: true });
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+  });
+
+  it("releases a held banner impression once the runtime allows telemetry", async () => {
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+
+    const viewed = eventsNamed("oss.inspector.banner_viewed");
+    expect(viewed).toHaveLength(1);
+    expect(viewed[0]!.properties).toMatchObject({
+      surface: "collapsed_preview",
+    });
+  });
+
+  it("emits nothing when the runtime has telemetry disabled", async () => {
+    const { inspector, internals } = mount(true);
+
+    await internals.fetchAnnouncement();
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.click();
+    await inspector.updateComplete;
+
+    expect(posts()).toEqual([]);
+  });
+});
+
 // --- Owned thread store header forwarding (issue #5581) ---
 //
 // When useThreads() isn't mounted, the inspector creates its own thread store
@@ -1439,6 +1813,12 @@ type HeaderMockCore = {
   context: Record<string, unknown>;
   properties: Record<string, unknown>;
   telemetryDisabled: boolean;
+  // Mirrors CopilotKitCore's pre-handshake state (`agent-registry.ts:77`):
+  // `runtimeMode` already reads its `sse` default and `licenseStatus` is absent,
+  // both of which only become real once /info answers. Without this, telemetry
+  // assertions about pre-handshake segmentation pass for the wrong reason.
+  runtimeMode: string;
+  licenseStatus?: string;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
@@ -1470,6 +1850,7 @@ function createHeaderMockCore(
     context: {},
     properties: {},
     telemetryDisabled,
+    runtimeMode: "sse",
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
@@ -1509,6 +1890,29 @@ function createHeaderMockCore(
       core.headers = nextHeaders;
       subscribers.forEach((s) =>
         s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
+      );
+    },
+    /**
+     * Simulates the /info handshake landing: applies what the runtime reported,
+     * then transitions to `connected`. Lets a test observe what is sent after
+     * the handshake versus before it — the segmentation fields do not exist
+     * until this point.
+     */
+    completeHandshake(
+      reported: {
+        telemetryDisabled?: boolean;
+        licenseStatus?: string;
+        runtimeMode?: string;
+      } = {},
+    ) {
+      Object.assign(core, reported);
+      core.runtimeConnectionStatus =
+        CopilotKitCoreRuntimeConnectionStatus.Connected;
+      subscribers.forEach((s) =>
+        s.onRuntimeConnectionStatusChanged?.({
+          copilotkit: asCore(),
+          status: core.runtimeConnectionStatus,
+        }),
       );
     },
   };
@@ -2295,7 +2699,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 //
 // 6.1  Helpers: makeCoreWithMemory / makeCoreNoIntelligence / mountMemories
 // 6.2  Subscription: inspector._memories is seeded from store
-// 6.3  Tab presence: "Learning" label appears in the rendered menu
+// 6.3  Tab presence: "Memory" label appears in the rendered menu
 // 6.4  View states: locked teaser vs. enabled empty vs. enabled with cards
 // 6.5  cpk-memory-list: cards, kind filter, search filter, empty state
 // 6.6  Passive guard: inspector reads from core.getMemoryStore(), never creates its own
@@ -2514,7 +2918,7 @@ describe("WebInspectorElement memories — tab presence", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders a Learning tab button in the inspector menu", async () => {
+  it("renders a Memory tab button in the inspector menu", async () => {
     const core = makeCoreWithMemory([]);
     const el = await mountMemories(core);
 
@@ -2522,10 +2926,10 @@ describe("WebInspectorElement memories — tab presence", () => {
       el.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
     );
     const memoriesButton = buttons.find((btn) =>
-      btn.textContent?.trim().includes("Learning"),
+      btn.textContent?.trim().includes("Memory"),
     );
 
-    expect(memoriesButton, "Learning tab button should render").toBeDefined();
+    expect(memoriesButton, "Memory tab button should render").toBeDefined();
   });
 });
 
@@ -3314,5 +3718,194 @@ describe("WebInspectorElement memories — tab telemetry + detach reset", () => 
     expect(state._memoriesLoading).toBe(false);
     expect(state._memoriesError).toBeNull();
     expect(state._memoriesAvailable).toBe(true);
+  });
+});
+
+describe("ɵbuildCapabilityRows", () => {
+  it("maps core.tools to rows, reflects isToolEnabled, and sorts by agentId then name", () => {
+    const enabled = new Set(["b-tool"]);
+    const core = {
+      tools: [
+        { name: "z-tool", agentId: "agent-2", description: "zed" },
+        { name: "a-tool", agentId: "agent-1" },
+        { name: "b-tool" },
+      ],
+      isToolEnabled: (name: string) => enabled.has(name),
+    };
+    const rows = ɵbuildCapabilityRows(core);
+    expect(rows.map((r) => r.name)).toEqual(["b-tool", "a-tool", "z-tool"]);
+    expect(rows[0]).toMatchObject({
+      key: ":b-tool",
+      name: "b-tool",
+      agentId: undefined,
+      enabled: true,
+    });
+    expect(rows.find((r) => r.name === "a-tool")).toMatchObject({
+      key: "agent-1:a-tool",
+      enabled: false,
+    });
+    expect(rows.find((r) => r.name === "z-tool")).toMatchObject({
+      description: "zed",
+      enabled: false,
+    });
+  });
+
+  it("passes isToolEnabled the tool's agentId (per-agent enablement)", () => {
+    const calls: Array<[string, string | undefined]> = [];
+    const core = {
+      tools: [{ name: "t", agentId: "agent-x" }],
+      isToolEnabled: (name: string, agentId?: string) => {
+        calls.push([name, agentId]);
+        return true;
+      },
+    };
+    ɵbuildCapabilityRows(core);
+    expect(calls).toEqual([["t", "agent-x"]]);
+  });
+
+  it("returns an empty array when there are no tools", () => {
+    expect(
+      ɵbuildCapabilityRows({ tools: [], isToolEnabled: () => false }),
+    ).toEqual([]);
+    expect(ɵbuildCapabilityRows({ isToolEnabled: () => false })).toEqual([]);
+  });
+});
+
+describe("WebInspectorElement Capabilities tab", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    const store: Record<string, string> = {};
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => {
+        store[k] = v;
+      },
+      removeItem: (k: string) => {
+        delete store[k];
+      },
+      clear: () => {
+        for (const k of Object.keys(store)) delete store[k];
+      },
+      get length() {
+        return Object.keys(store).length;
+      },
+      key: (i: number) => Object.keys(store)[i] ?? null,
+    });
+  });
+
+  function createCapabilitiesCore() {
+    const toolEnabled: Record<string, boolean> = { greet: true, hide: true };
+    const catalogEnabled: Record<string, boolean> = { Chart: true };
+    const setToolEnabled = vi.fn(
+      (name: string, enabled: boolean, _agentId?: string) => {
+        toolEnabled[name] = enabled;
+      },
+    );
+    const setCatalogComponentEnabled = vi.fn(
+      (name: string, enabled: boolean) => {
+        catalogEnabled[name] = enabled;
+      },
+    );
+    const core = {
+      agents: {},
+      context: {},
+      properties: {},
+      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+      subscribe: () => ({ unsubscribe: () => undefined }),
+      getThreadStores: () => ({}),
+      getThreadStore: () => undefined,
+      getMemoryStore: () => ({
+        getState: () => ({ available: true }),
+        select: () => ({
+          subscribe: (cb: (v: unknown) => void) => {
+            cb(undefined);
+            return { unsubscribe: () => undefined };
+          },
+        }),
+      }),
+      tools: [{ name: "greet", description: "Say hi" }, { name: "hide" }],
+      isToolEnabled: (name: string) => toolEnabled[name] ?? true,
+      setToolEnabled,
+      catalogComponents: [{ name: "Chart", schema: {} }],
+      isCatalogComponentEnabled: (name: string) => catalogEnabled[name] ?? true,
+      setCatalogComponentEnabled,
+    };
+    return { core, setToolEnabled, setCatalogComponentEnabled };
+  }
+
+  it("shows the Capabilities tab and renders both sections", async () => {
+    const { core } = createCapabilitiesCore();
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const text = inspector.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Frontend tools");
+    expect(text).toContain("A2UI catalog components");
+    expect(text).toContain("greet");
+    expect(text).toContain("Chart");
+  });
+
+  it("calls setToolEnabled(false) when a tool switch is toggled off", async () => {
+    const { core, setToolEnabled } = createCapabilitiesCore();
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const switches =
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        'button[role="switch"]',
+      ) ?? [];
+    switches[0]?.click();
+    await inspector.updateComplete;
+    expect(setToolEnabled).toHaveBeenCalledWith("greet", false, undefined);
+    const refreshed =
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        'button[role="switch"]',
+      ) ?? [];
+    expect(refreshed[0]?.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("calls setCatalogComponentEnabled when a catalog switch is toggled", async () => {
+    const { core, setCatalogComponentEnabled } = createCapabilitiesCore();
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const switches =
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        'button[role="switch"]',
+      ) ?? [];
+    switches[switches.length - 1]?.click();
+    await inspector.updateComplete;
+    expect(setCatalogComponentEnabled).toHaveBeenCalledWith("Chart", false);
+  });
+
+  it("hides the catalog section when catalogComponents is empty", async () => {
+    const { core } = createCapabilitiesCore();
+    (core as { catalogComponents: unknown[] }).catalogComponents = [];
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const text = inspector.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Frontend tools");
+    expect(text).not.toContain("A2UI catalog components");
   });
 });

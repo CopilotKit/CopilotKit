@@ -8,4 +8,5 @@ export {
   collectPlainText,
   ADAPTIVE_CARD_CONTENT_TYPE,
 } from "./adaptive-card.js";
+export { renderTeamsMarkdown } from "./markdown.js";
 export { createRunRenderer } from "../event-renderer.js";

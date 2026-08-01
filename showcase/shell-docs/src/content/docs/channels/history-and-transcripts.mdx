@@ -1,0 +1,187 @@
+---
+title: History and transcripts
+icon: "lucide/MessagesSquareText"
+description: Distinguish Intelligence-managed conversation history from the optional SDK transcript store, and use each without duplicating turns.
+doc_type: explanation
+---
+
+Channels exposes two different history systems:
+
+- Intelligence-managed conversation history rebuilds the selected provider
+  thread for the agent.
+- SDK transcripts create an application-owned, identity-keyed record that can
+  span providers and conversations.
+
+Choose one based on the behavior you need. They are not interchangeable.
+
+## Use managed conversation history
+
+On each delivered turn, Intelligence fetches recent messages for that native
+conversation and seeds a fresh agent instance. The default history limit in the
+managed adapter is 20 messages.
+
+The current inbound turn is not part of the fetched history. `runAgent()`
+automatically injects it when `prompt` is omitted. Build an explicit prompt when
+you need both the message text and hydrated attachments:
+
+```ts title="channel.ts"
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({
+    prompt: message.contentParts?.length
+      ? [
+          ...(message.text
+            ? [{ type: "text" as const, text: message.text }]
+            : []),
+          ...message.contentParts,
+        ]
+      : message.text,
+  });
+});
+```
+
+Create a fresh agent for every `conversationKey`; the managed adapter assigns
+the reconstructed messages to that instance. Sharing one mutable agent between
+threads can leak or overwrite history.
+
+## Read the current provider thread
+
+`thread.getMessages()` returns a best-effort, oldest-first text view of recent
+history:
+
+```ts title="read-thread.ts"
+const messages = await thread.getMessages();
+const transcript = messages
+  .map((message) => `${message.isBot ? "Agent" : "User"}: ${message.text}`)
+  .join("\n");
+```
+
+On the managed path, history-fetch failures return `[]` instead of failing the
+turn. The method is text-oriented: binary image, audio, and video content is
+available to the agent through multimodal history, but is not reproduced as
+binary data in `ThreadMessage`.
+
+## Add cross-platform SDK transcripts
+
+Use SDK transcripts when your application needs a user-centric record across
+Slack and Teams. Configure both `identity` and `transcripts`; providing only
+one is an error.
+
+<FrontendOnly frontend="slack">
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { durableStateStore } from "./state-store.js";
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "slack",
+  agent: makeAgent,
+  store: {
+    adapter: durableStateStore,
+    identity: async ({ author, message }) => {
+      const account = await accounts.findByExternalIdentity({
+        provider: message.platform,
+        externalUserId: author.id,
+      });
+      return account?.id ?? null;
+    },
+    transcripts: {
+      retention: "30d",
+      maxPerUser: 500,
+    },
+  },
+});
+```
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { durableStateStore } from "./state-store.js";
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "teams",
+  agent: makeAgent,
+  store: {
+    adapter: durableStateStore,
+    identity: async ({ author, message }) => {
+      const account = await accounts.findByExternalIdentity({
+        provider: message.platform,
+        externalUserId: author.id,
+      });
+      return account?.id ?? null;
+    },
+    transcripts: {
+      retention: "30d",
+      maxPerUser: 500,
+    },
+  },
+});
+```
+
+</FrontendOnly>
+
+Provider user ids are not cross-platform identities. Resolve them to a stable
+application user id, verified email, or another identity your application
+controls. Returning `null` skips transcript storage for that turn.
+
+The transcript list facet must be durable if this record must survive a restart.
+The default `MemoryStore` is not sufficient.
+
+## Let `runAgent` bridge the transcript once
+
+Set `transcript: true` to inject prior SDK transcript entries, append the
+current user turn, run the agent, and capture its reply:
+
+```ts title="channel.ts"
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({
+    prompt: message.text,
+    transcript: { limit: 20 },
+  });
+});
+```
+
+Do not also call `channel.transcripts.append()` for the same user and assistant
+turns. `runAgent({ transcript: ... })` owns that bridge and manual appends would
+duplicate the record.
+
+## Query and delete the application record
+
+`channel.transcripts` is available after the runner starts the Channel:
+
+```ts title="transcripts.ts"
+const recent = await channel.transcripts.list({
+  userKey: "usr_123",
+  limit: 50,
+});
+
+const { deleted } = await channel.transcripts.delete({
+  userKey: "usr_123",
+});
+```
+
+`list()` returns entries oldest-first. You can filter by platform, thread id, or
+role, but managed entries use the adapter platform `"intelligence"` rather than
+the native `"slack"` or `"teams"` value. Resolve cross-provider identity through
+`userKey`; do not filter managed entries by the native provider names.
+
+`delete()` removes the SDK-owned transcript for that user; provider history and
+any separate Intelligence retention policy remain independent.
+
+## Pick the right source
+
+| Need | Use |
+| --- | --- |
+| Continue the current Slack or Teams conversation | Managed conversation history |
+| Inspect recent text in one provider thread | `thread.getMessages()` |
+| Carry user context between Slack and Teams | SDK transcripts with a stable identity |
+| Store workflow progress | `thread.state()` |
+| Meet application deletion or retention requirements | A durable SDK transcript store plus your provider/Intelligence policies |
+
+See the [`Transcripts` reference](/reference/channels/classes/Transcripts) and
+[persistence guide](/channels/persistence-and-scaling) before enabling this in
+production.

@@ -1,0 +1,204 @@
+---
+title: Threads and state
+icon: "lucide/History"
+description: Understand managed conversation identity and history, then persist the SDK state your Slack or Teams workflow owns.
+doc_type: explanation
+---
+
+Every delivered Slack or Teams conversation becomes a Channels SDK `Thread`.
+It is the reply and workflow handle passed to `onMessage`, tools, interactions,
+and interrupt callbacks.
+
+<Callout type="info" title="Channels Thread is not Rich Threads">
+  A Channels `Thread` represents one platform conversation inside the SDK. [Rich
+  Threads](/threads) is CopilotKit's application UI for browsing and restoring
+  agent conversations. They share the idea of a stable thread id, but they are
+  different APIs and surfaces.
+</Callout>
+
+## Conversation identity
+
+`thread.conversationKey` is the opaque, stable key Intelligence supplies for
+the native conversation. Do not parse it or infer workspace, team, channel, or
+thread identifiers from its value. The SDK passes that same value to your
+`agent(threadId)` factory (or sets it on a cloned singleton), which is why
+every quickstart creates a fresh agent and assigns its `threadId`.
+
+```ts title="agent.ts"
+export function makeAgent(threadId: string) {
+  const agent = createAgentForYourFramework();
+  agent.threadId = threadId;
+  return agent;
+}
+```
+
+Prefer an agent **factory** so each turn gets an explicit new instance. You may
+also pass a singleton (`agent: shared`); under the hood the SDK calls
+`shared.clone()` per run so concurrent turns do not share one mutable object.
+Managed history is loaded onto that per-run agent after isolation.
+
+Managed delivery admission keeps one canonical conversation exclusive while
+unrelated conversations run in parallel. The SDK `store.concurrency` setting
+still governs other adapter paths and shared workflow state; it does not raise
+the managed same-Thread delivery limit.
+
+The native provider is `message.platform`. On the managed path,
+`thread.platform` is `"intelligence"` because it identifies the delivery
+adapter rather than Slack or Teams.
+
+## What Intelligence restores
+
+For each new turn, the managed transport reconstructs recent conversation
+history for the agent. The current in-flight message is not in that fetched
+history. `runAgent()` automatically injects it when `prompt` is omitted; pass
+an explicit combined prompt when a turn can contain both text and attachments:
+
+```ts title="channel.ts"
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({
+    prompt: message.contentParts?.length
+      ? [
+          ...(message.text
+            ? [{ type: "text" as const, text: message.text }]
+            : []),
+          ...message.contentParts,
+        ]
+      : message.text,
+  });
+});
+```
+
+This history is the conversational record used to seed the agent. It is
+separate from application workflow state such as an approval step, selected
+environment, or form draft.
+
+## Persist workflow state
+
+Use `thread.state()` and `thread.setState()` for JSON-serializable state keyed
+by `conversationKey`. A Standard Schema makes reads typed and validates writes:
+
+```bash title="Terminal"
+npm install zod
+```
+
+<FrontendOnly frontend="slack">
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { z } from "zod";
+import { makeAgent } from "./agent.js";
+import { durableStateStore } from "./state-store.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+const workflowState = z.object({
+  incidentId: z.string(),
+  stage: z.enum(["triage", "awaiting-approval", "resolved"]),
+});
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "slack",
+  agent: makeAgent,
+  store: {
+    state: workflowState,
+    adapter: durableStateStore,
+  },
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  const current = await thread.state();
+  await thread.setState({
+    incidentId: current?.incidentId ?? "INC-421",
+    stage: "triage",
+  });
+  await thread.runAgent({ prompt: message.text });
+});
+```
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { z } from "zod";
+import { makeAgent } from "./agent.js";
+import { durableStateStore } from "./state-store.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+const workflowState = z.object({
+  incidentId: z.string(),
+  stage: z.enum(["triage", "awaiting-approval", "resolved"]),
+});
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "teams",
+  agent: makeAgent,
+  store: {
+    state: workflowState,
+    adapter: durableStateStore,
+  },
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  const current = await thread.state();
+  await thread.setState({
+    incidentId: current?.incidentId ?? "INC-421",
+    stage: "triage",
+  });
+  await thread.runAgent({ prompt: message.text });
+});
+```
+
+</FrontendOnly>
+
+`setState` replaces the stored value; it does not merge a partial patch.
+
+## Choose the persistence boundary deliberately
+
+The managed realtime path restores platform conversation history, but it does
+not automatically wire a durable SDK `StateStore`. Without `store.adapter`,
+the default MemoryStore keeps these only in the current process:
+
+- `thread.state()`
+- registered interactive-action snapshots
+- SDK locks, deduplication windows, and queues
+
+For production workflows that must survive a deploy, provide a durable
+application implementation of the
+[`StateStore` contract](/reference/channels/classes/Channel#statestore-contract).
+The contract includes key/value, list, lock, deduplication, and queue
+operations. Values must round-trip through JSON.
+
+<Callout type="warn" title="Do not infer durability from Online status">
+  **Online** confirms a healthy managed connection that can receive delivery
+  invitations. Send a real provider message to test delivery. This status does
+  not prove your application workflow state survives a process restart, so test
+  a restart while an approval card is pending before shipping a durable
+  workflow.
+</Callout>
+
+## Operational checklist
+
+- Use one fresh agent per `conversationKey`.
+- Pass the current inbound message to `runAgent`.
+- Branch on `message.platform`, not `thread.platform`.
+- Store only JSON-serializable workflow data.
+- Replace, do not patch, values passed to `setState`.
+- Configure a durable `StateStore` before promising restart-safe approvals.
+- Stop the listener on `SIGINT` and `SIGTERM` so Intelligence can release the
+  runtime cleanly.
+
+See the [Thread API](/reference/channels/classes/Thread) for methods and
+[interactive approvals](/channels/interactive) for the managed resume flow.

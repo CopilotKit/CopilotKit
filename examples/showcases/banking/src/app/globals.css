@@ -182,21 +182,255 @@ body {
   content: "↑ ";
 }
 
-/* ── CopilotKit chat popup accent ───────────────────────────────────────────
-   The v2 chat scopes its shadcn-style tokens to `[data-copilotkit]` (neutral
-   greys by default). We re-point only the accent-ish tokens to the brand
-   violet so the send button, focus rings and links match — purely additive,
-   no component props touched, and it degrades gracefully if the SDK changes. */
+/* ── The chat surface reads as ChatGPT ──────────────────────────────────────
+   The chat is deliberately NOT Aurora: the brief is "as close to ChatGPT as
+   possible", so this one surface runs ChatGPT's neutral palette (white canvas,
+   grey user bubble, near-black send button) while the banking app around it
+   keeps the violet Aurora identity. The v2 chat scopes its shadcn-style tokens
+   to `[data-copilotkit]`, so re-pointing those tokens restyles the composer,
+   bubbles, borders and focus rings without touching a single component prop —
+   and it degrades gracefully if the SDK changes.
+
+   `--muted` is the user bubble (`cpk:bg-muted` on CopilotChatUserMessage) and
+   `--primary` is the send button; both match ChatGPT's own values. */
 [data-copilotkit] {
-  --primary: oklch(58% 0.214 277);
-  --primary-foreground: oklch(98.5% 0 0);
-  --ring: oklch(58% 0.214 277);
+  --background: #ffffff;
+  --foreground: #0d0d0d;
+  --muted: #f4f4f4;
+  --muted-foreground: #8f8f8f;
+  --border: #e3e3e3;
+  --primary: #0d0d0d;
+  --primary-foreground: #ffffff;
+  --ring: #0d0d0d;
 }
 .dark [data-copilotkit],
 [data-copilotkit].dark {
-  --primary: oklch(70% 0.17 280);
-  --primary-foreground: oklch(20.5% 0 0);
-  --ring: oklch(70% 0.17 280);
+  --background: #212121;
+  --foreground: #ececec;
+  --muted: #303030;
+  --muted-foreground: #b4b4b4;
+  --border: #ffffff26;
+  --primary: #ffffff;
+  --primary-foreground: #0d0d0d;
+  --ring: #ffffff;
+}
+
+/* Left-docked sidebar holds TWO columns: the thread rail then the conversation.
+   CopilotSidebarView pins the <aside> to left:0 at the full width of both and
+   takes no consumer className, so the conversation is inset past the rail with
+   this custom property (set by ChatPanel from the rail's visibility). The rail
+   paints into the strip this frees. Transition matches the sidebar's own 300ms
+   so collapsing the rail slides content instead of snapping. */
+[data-copilot-sidebar][data-position="left"] {
+  padding-left: var(--nw-rail-offset, 0px);
+  transition:
+    transform 300ms ease-out,
+    padding-left 300ms ease-out;
+}
+
+/* Removing the "AI can make mistakes…" disclaimer also removed the only thing
+   holding the composer off the bottom edge (it carried the trailing padding),
+   so the input sat flush against the window. Give it its own breathing room. */
+[data-copilot-sidebar] .copilotKitInput {
+  margin-bottom: 0.875rem;
+}
+
+/* Tool activity, in flight: ChatGPT sweeps a lighter band across the label so an
+   unfinished action reads as live without adding a second spinner or a progress
+   bar. Gradient-on-text is used here as a MOTION affordance (it says "still
+   working"), not as decorative emphasis. */
+.tool-activity-shimmer {
+  background: linear-gradient(
+    90deg,
+    #6e6e6e 0%,
+    #6e6e6e 35%,
+    #c9c9c9 50%,
+    #6e6e6e 65%,
+    #6e6e6e 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: tool-activity-sweep 1.6s linear infinite;
+}
+.dark .tool-activity-shimmer {
+  background: linear-gradient(
+    90deg,
+    #b4b4b4 0%,
+    #b4b4b4 35%,
+    #ffffff 50%,
+    #b4b4b4 65%,
+    #b4b4b4 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+@keyframes tool-activity-sweep {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -20% 0;
+  }
+}
+/* Reduced motion: keep the muted label, drop the sweep (the spinner beside it
+   already carries the "in progress" signal). */
+@media (prefers-reduced-motion: reduce) {
+  .tool-activity-shimmer {
+    animation: none;
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: #6e6e6e;
+  }
+  .dark .tool-activity-shimmer {
+    background: none;
+    color: #b4b4b4;
+  }
+}
+
+/* ── Assistant markdown ─────────────────────────────────────────────────────
+   The SDK renders assistant text with Streamdown (GFM + streaming-safe) inside
+   a bare Tailwind `prose` wrapper. Prose is tuned for article measure, so in a
+   480px chat column its margins, marker indents and heading sizes all read
+   wrong: headings arrive article-sized, list items sit far from their markers,
+   and stacked "Label: value" lines collapse into an undifferentiated block.
+
+   Everything below is scoped to `.cpk\:prose` — the actual class on that
+   wrapper — NOT to `.copilotKitAssistantMessage`, because our HITL cards and
+   gen-UI charts render inside the same message and contain their own <p>/<li>/
+   <h3>. Scoping to the wrapper leaves those untouched. */
+[data-copilot-sidebar] .cpk\:prose {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: #0d0d0d;
+}
+.dark [data-copilot-sidebar] .cpk\:prose {
+  color: #ececec;
+}
+
+/* Vertical rhythm: tight inside a block, clear between blocks, and no leading
+   or trailing margin so the bubble never gains phantom padding. */
+[data-copilot-sidebar] .cpk\:prose > * + * {
+  margin-top: 0.75em;
+}
+[data-copilot-sidebar] .cpk\:prose > :first-child {
+  margin-top: 0;
+}
+[data-copilot-sidebar] .cpk\:prose > :last-child {
+  margin-bottom: 0;
+}
+
+/* Headings: chat-sized, not article-sized. Same weight, descending scale. */
+[data-copilot-sidebar] .cpk\:prose :is(h1, h2, h3, h4) {
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.25em;
+  margin-bottom: 0.4em;
+}
+[data-copilot-sidebar] .cpk\:prose h1 {
+  font-size: 1.125rem;
+}
+[data-copilot-sidebar] .cpk\:prose h2 {
+  font-size: 1.0625rem;
+}
+[data-copilot-sidebar] .cpk\:prose :is(h3, h4) {
+  font-size: 1rem;
+}
+
+/* Lists: pull the marker in close, and give rows breathing room without the
+   double-spacing prose applies to "loose" lists. */
+[data-copilot-sidebar] .cpk\:prose :is(ul, ol) {
+  margin-top: 0.5em;
+  padding-left: 1.15em;
+}
+[data-copilot-sidebar] .cpk\:prose li {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+  padding-left: 0.15em;
+}
+[data-copilot-sidebar] .cpk\:prose li > p {
+  margin: 0;
+}
+/* Markers carry structure, so they are dark enough to read as part of the text
+   and sized up a touch — a faint small dot made lists look like loose prose. */
+[data-copilot-sidebar] .cpk\:prose li::marker {
+  color: #3d3d3d;
+  font-size: 1.15em;
+  font-weight: 600;
+}
+.dark [data-copilot-sidebar] .cpk\:prose li::marker {
+  color: #d4d4d4;
+}
+[data-copilot-sidebar] .cpk\:prose :is(ul, ol) :is(ul, ol) {
+  margin-top: 0.25em;
+}
+
+/* Inline code as a chip; blocks as a bordered, scrollable slab. */
+[data-copilot-sidebar] .cpk\:prose :not(pre) > code {
+  background: #f4f4f4;
+  border-radius: 0.3rem;
+  padding: 0.1em 0.32em;
+  font-size: 0.875em;
+  font-weight: 500;
+}
+[data-copilot-sidebar] .cpk\:prose :not(pre) > code::before,
+[data-copilot-sidebar] .cpk\:prose :not(pre) > code::after {
+  content: none; /* prose adds literal backticks */
+}
+.dark [data-copilot-sidebar] .cpk\:prose :not(pre) > code {
+  background: #ffffff1a;
+}
+[data-copilot-sidebar] .cpk\:prose pre {
+  background: #f7f7f8;
+  color: #0d0d0d;
+  border: 1px solid #e3e3e3;
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+.dark [data-copilot-sidebar] .cpk\:prose pre {
+  background: #ffffff0d;
+  color: #ececec;
+  border-color: #ffffff1f;
+}
+
+/* No markdown-table styling here on purpose: the agent is instructed never to
+   emit one (tabular data goes through the showTable component instead), so
+   styling markdown tables would only make a forbidden output look acceptable.
+   Streamdown still renders one safely if a model ever slips. */
+
+[data-copilot-sidebar] .cpk\:prose strong {
+  font-weight: 600;
+}
+[data-copilot-sidebar] .cpk\:prose a {
+  color: hsl(var(--brand-indigo));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.dark [data-copilot-sidebar] .cpk\:prose a {
+  color: hsl(var(--brand-violet));
+}
+[data-copilot-sidebar] .cpk\:prose blockquote {
+  border-left: 2px solid #e3e3e3;
+  padding-left: 0.75rem;
+  color: #6e6e6e;
+  font-style: normal; /* prose italicises; quotes here are data, not voice */
+}
+.dark [data-copilot-sidebar] .cpk\:prose blockquote {
+  border-left-color: #ffffff29;
+  color: #b4b4b4;
+}
+[data-copilot-sidebar] .cpk\:prose hr {
+  border-color: #e3e3e3;
+  margin: 1em 0;
+}
+.dark [data-copilot-sidebar] .cpk\:prose hr {
+  border-color: #ffffff1f;
 }
 
 /* ── Spacing between stacked chat action cards ──────────────────────────────

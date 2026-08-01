@@ -1,10 +1,4 @@
-import type { Channel, StateStore } from "@copilotkit/channels-core";
-import type {
-  DeliverySource,
-  EgressSink,
-  RenderEventSink,
-} from "./transports.js";
-import { intelligenceAdapter } from "./intelligence-adapter.js";
+import type { Channel } from "@copilotkit/channels-core";
 
 /** Lowercase kebab-case Channel name, 3–64 characters. */
 const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -63,19 +57,25 @@ export interface ChannelActivationMetadata extends ChannelActivationEnv {
  * Gather the process-level runtime activation env — `COPILOTKIT_RUNTIME_ENV`
  * (override) → `NODE_ENV` → "development", and the Node version. Caller
  * `overrides` win and supply what only the runtime knows: package versions
- * (`runtimePackageVersion`/`channelsPackageVersion`) and a stable `runtimeInstanceId`.
+ * (`runtimePackageVersion`/`channelsPackageVersion`) and an activation-scoped
+ * `runtimeInstanceId` that is stable only across transport reconnects.
  */
 export function resolveChannelActivationEnv(
   overrides: Partial<ChannelActivationEnv> = {},
 ): ChannelActivationEnv {
   // Guard against non-Node hosts (browser/edge) where `process` is absent.
   const env = typeof process !== "undefined" ? process.env : undefined;
-  const nodeEnv = env?.NODE_ENV;
+  const copilotRuntimeEnv = env?.COPILOTKIT_RUNTIME_ENV?.trim() || undefined;
+  const nodeEnv = env?.NODE_ENV?.trim() || undefined;
+  // Only defined overrides may clobber defaults (Partial can carry explicit undefined).
+  const definedOverrides = Object.fromEntries(
+    Object.entries(overrides).filter(([, value]) => value !== undefined),
+  ) as Partial<ChannelActivationEnv>;
   return {
-    runtimeEnv: env?.COPILOTKIT_RUNTIME_ENV ?? nodeEnv ?? "development",
+    runtimeEnv: copilotRuntimeEnv ?? nodeEnv ?? "development",
     nodeEnv,
     nodeVersion: typeof process !== "undefined" ? process.version : undefined,
-    ...overrides,
+    ...definedOverrides,
   };
 }
 
@@ -84,7 +84,7 @@ export function resolveChannelActivationEnv(
  * env/versions plus per-Channel declarations (name + declared command names). Pure.
  *
  * Assumes every Channel has a name — call {@link assertValidChannelNames} first
- * (`startChannels` does). A nameless Channel is a programming error and throws
+ * (the managed launcher does). A nameless Channel is a programming error and throws
  * rather than being silently filtered out of the activation set.
  *
  * TODO(OSS-377): add richer per-Channel capabilities once the framework Channel exposes them.
@@ -111,31 +111,15 @@ export function buildChannelActivationMetadata(
   };
 }
 
-/** Per-Channel transport, resolved by the runtime (closed Gateway/Outbox). */
-export interface ChannelTransport {
-  source: DeliverySource;
-  egress: EgressSink;
-  renderSink?: RenderEventSink;
-  store?: StateStore;
-}
-
-export interface StartChannelsOptions {
-  channels: Channel[];
-  /** Resolve the inbound/outbound transport for a declared Channel name. */
-  resolveTransport: (channelName: string) => ChannelTransport;
-  /** Activation env overrides; omitted fields are gathered from the process. */
-  env?: Partial<ChannelActivationEnv>;
-}
-
 export interface ChannelsHandle {
   metadata: ChannelActivationMetadata;
   stop(): Promise<void>;
   /**
-   * Optional seam: register a callback the handle fires when its managed
-   * session drops unexpectedly, so a supervising `ChannelManager` can begin a
-   * reconnect. Not fired by the handle's own `stop()`. Present when the
-   * underlying session supports drop notification (see
-   * `ConnectedRealtimeGatewaySession.onClose` in `realtime-gateway.ts`).
+   * Optional drop breadcrumb when the managed session disconnects
+   * unexpectedly. Not used by `ChannelManager` for reconnect (Phoenix owns
+   * reconnect; status is driven by `onStateChange`). Not fired by the
+   * handle's own `stop()`. Present when the underlying session supports it
+   * (see `ConnectedRealtimeGatewaySession.onClose` in `realtime-gateway.ts`).
    */
   onClose?(cb: () => void): void;
   /**
@@ -147,57 +131,9 @@ export interface ChannelsHandle {
    * `ConnectedRealtimeGatewaySession.onStateChange` in `realtime-gateway.ts`).
    */
   onStateChange?(
-    cb: (state: "online" | "reconnecting" | "gave_up") => void,
+    cb: (
+      state: "online" | "reconnecting" | "gave_up",
+      detail?: { reason?: string; code?: string },
+    ) => void,
   ): void;
-}
-
-/**
- * Start the Channel listener lifecycle: validate the declared framework Channels,
- * build the activation metadata, then attach an `intelligenceAdapter` to each Channel (wired
- * to its resolved transport) and start it. Returns the metadata and a `stop`.
- *
- * The transports come from the caller (production: the Realtime Gateway +
- * Connector Outbox clients; tests: in-memory). This module owns no Slack
- * credentials, webhook ingress, or outbox persistence.
- */
-export async function startChannels(
-  opts: StartChannelsOptions,
-): Promise<ChannelsHandle> {
-  assertValidChannelNames(opts.channels);
-  if (opts.channels.length === 0) {
-    console.warn(
-      "[channels-intelligence] startChannels called with no channels — nothing to start. " +
-        "Pass `channels: [createChannel({ name })]` on the Intelligence runtime.",
-    );
-  }
-  const metadata = buildChannelActivationMetadata(
-    opts.channels,
-    resolveChannelActivationEnv(opts.env),
-  );
-  // Partial-start rollback: addAdapter/resolveTransport/start for channel N can
-  // throw AFTER Channels 0..N-1 are already live. Without unwinding, those
-  // started Channels leak (open listeners/connections) with no handle to stop
-  // them. Track what started and stop it before rethrowing.
-  const startedChannels: Channel[] = [];
-  try {
-    for (const channel of opts.channels) {
-      const { source, egress, renderSink, store } = opts.resolveTransport(
-        channel.name!,
-      );
-      channel.addAdapter(
-        intelligenceAdapter({ source, egress, renderSink, store }),
-      );
-      await channel.start();
-      startedChannels.push(channel);
-    }
-  } catch (err) {
-    await Promise.allSettled(startedChannels.map((c) => c.stop()));
-    throw err;
-  }
-  return {
-    metadata,
-    async stop() {
-      await Promise.all(opts.channels.map((c) => c.stop()));
-    },
-  };
 }

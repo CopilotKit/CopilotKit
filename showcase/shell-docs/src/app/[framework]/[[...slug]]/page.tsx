@@ -36,6 +36,11 @@ import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-fra
 import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
 import { FrameworkSetup } from "@/lib/setup-concept";
 import { frameworkOverviews } from "@/data/frameworks";
+import {
+  getAngularDocsNavTree,
+  resolveAngularDoc,
+} from "@/lib/angular-doc-navigation";
+import { buildAngularBackendOverview } from "@/lib/angular-backend-overview";
 import { docsComponents } from "@/lib/mdx-registry";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import {
@@ -48,9 +53,12 @@ import type { FrontendPageId } from "@/lib/frontend-page-content";
 import {
   frontendPathForBackend,
   getFrontendOption,
+  isChannelFrontend,
   isFrontendId,
   parseFrontendRoutePath,
 } from "@/lib/frontend-options";
+import { resolveChannelGuideRoute } from "@/lib/channel-guide-routes";
+import type { ChannelFrontend } from "@/lib/channel-guide-routes";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import {
   CONTENT_DIR,
@@ -138,6 +146,35 @@ function frontendMetadata(
   slugPath: string,
   activeBackendFramework: string | null = null,
 ): Metadata {
+  if (isChannelFrontend(frontend) && !slugPath) {
+    const doc = loadDoc("channels");
+    const frontendName =
+      frontend === "teams"
+        ? "Microsoft Teams"
+        : getFrontendOption(frontend).name;
+
+    return buildDocMetadata({
+      title: `${frontendName}: ${doc?.fm.title ?? "Channels"}`,
+      description: doc?.fm.description,
+      canonicalPath: frontendRoutePath(frontend, "", activeBackendFramework),
+    });
+  }
+
+  if (isChannelFrontend(frontend) && slugPath === "connect") {
+    const contentSlug = getFrontendContentSlug(frontend);
+    const doc = loadDoc(contentSlug);
+
+    return buildDocMetadata({
+      title: doc?.fm.title ?? "Connect and run your agent",
+      description: doc?.fm.description,
+      canonicalPath: frontendRoutePath(
+        frontend,
+        "connect",
+        activeBackendFramework,
+      ),
+    });
+  }
+
   if (!slugPath || slugPath === "quickstart") {
     const contentSlug = getFrontendContentSlug(frontend);
     const doc = loadDoc(contentSlug);
@@ -291,6 +328,13 @@ export async function generateMetadata({
         ? null
         : (frontendRoute?.backend ?? null);
     const activeFrontendSlugPath = frontendRoute?.slugPath ?? slugPath;
+    if (
+      activeBackendFramework &&
+      getDocsMode(activeBackendFramework) === "hidden"
+    ) {
+      notFound();
+    }
+
     if (isFrontendGuidanceSlug(activeFrontendSlugPath)) {
       return frontendMetadata(
         framework,
@@ -299,8 +343,83 @@ export async function generateMetadata({
       );
     }
 
-    if (isFrontendRootSlug(activeFrontendSlugPath)) {
-      return frontendMetadata(framework, "", activeBackendFramework);
+    if (isChannelFrontend(framework) && activeFrontendSlugPath === "connect") {
+      return frontendMetadata(
+        framework,
+        activeFrontendSlugPath,
+        activeBackendFramework,
+      );
+    }
+
+    if (
+      isFrontendRootSlug(activeFrontendSlugPath) &&
+      !(
+        framework === "angular" &&
+        activeBackendFramework &&
+        !activeFrontendSlugPath
+      )
+    ) {
+      return frontendMetadata(
+        framework,
+        activeFrontendSlugPath,
+        activeBackendFramework,
+      );
+    }
+
+    const channelGuideRoute = resolveChannelGuideRoute({
+      frontend: framework,
+      framework: activeBackendFramework,
+      slugPath: activeFrontendSlugPath,
+      frameworkDocsMode: getDocsMode(activeBackendFramework ?? ROOT_FRAMEWORK),
+    });
+    if (channelGuideRoute) {
+      const doc = loadDoc(channelGuideRoute.sourceSlug);
+      const frontendName =
+        channelGuideRoute.frontend === "teams"
+          ? "Microsoft Teams"
+          : getFrontendOption(channelGuideRoute.frontend).name;
+      const backendName =
+        channelGuideRoute.framework !== ROOT_FRAMEWORK
+          ? (getIntegration(channelGuideRoute.framework)?.name ??
+            humanizeSlug(channelGuideRoute.framework))
+          : null;
+      const metadataTitlePrefix = backendName
+        ? `${frontendName} + ${backendName}`
+        : frontendName;
+      const canonicalPath = channelGuideRoute.canonicalPath;
+
+      return buildDocMetadata({
+        title: `${metadataTitlePrefix}: ${
+          doc?.fm.title ?? humanizeSlug(channelGuideRoute.slugPath)
+        }`,
+        description: doc?.fm.description,
+        canonicalPath,
+        ogPath: `/og${canonicalPath}/og.png`,
+      });
+    }
+
+    if (framework === "angular" && activeFrontendSlugPath) {
+      const canonicalSlugPath = getFrontendCanonicalSlug(
+        framework,
+        activeFrontendSlugPath,
+      );
+      const resolution = resolveAngularDoc(
+        activeBackendFramework,
+        canonicalSlugPath,
+      );
+      const doc = resolution ? loadDoc(resolution.contentSlugPath) : null;
+      const canonicalPath = frontendRoutePath(
+        framework,
+        canonicalSlugPath,
+        activeBackendFramework,
+      );
+
+      return buildDocMetadata({
+        title: doc?.fm.title ?? canonicalSlugPath,
+        description: doc?.fm.description,
+        canonicalPath,
+        ogPath: `/og${canonicalPath}/og.png`,
+      });
     }
 
     if (activeBackendFramework) {
@@ -432,15 +551,68 @@ export default async function FrameworkScopedDocsPage({
     }
 
     if (!activeFrontendSlugPath) {
+      if (isChannelFrontend(framework)) {
+        return (
+          <ChannelGuideDocsPage
+            frontend={framework}
+            activeBackendFramework={activeBackendFramework}
+            slugPath=""
+            contentSlugPath="channels"
+          />
+        );
+      }
+
+      if (framework === "angular" && activeBackendFramework) {
+        return (
+          <FrameworkRootPage
+            framework={activeBackendFramework}
+            preferIndexMdx
+            frontendOverride="angular"
+            slugHrefPrefix={frontendRoutePath(
+              framework,
+              "",
+              activeBackendFramework,
+            )}
+            navTreeOverride={getAngularDocsNavTree(activeBackendFramework)}
+            sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
+          />
+        );
+      }
+
       return (
         <FrontendQuickstartDocsPage
           frontend={framework}
           activeBackendFramework={activeBackendFramework}
+          navTree={
+            framework === "angular"
+              ? getAngularDocsNavTree(activeBackendFramework)
+              : undefined
+          }
+        />
+      );
+    }
+
+    if (isChannelFrontend(framework) && activeFrontendSlugPath === "connect") {
+      return (
+        <FrontendQuickstartDocsPage
+          frontend={framework}
+          activeBackendFramework={activeBackendFramework}
+          routeSlugPath="connect"
         />
       );
     }
 
     if (activeFrontendSlugPath === "quickstart") {
+      if (framework === "angular" && activeBackendFramework) {
+        return (
+          <FrontendQuickstartDocsPage
+            frontend={framework}
+            activeBackendFramework={activeBackendFramework}
+            routeSlugPath="quickstart"
+            navTree={getAngularDocsNavTree(activeBackendFramework)}
+          />
+        );
+      }
       redirect(frontendRoutePath(framework, "", activeBackendFramework));
     }
 
@@ -449,11 +621,61 @@ export default async function FrameworkScopedDocsPage({
         <FrontendGuidanceDocsPage
           frontend={framework}
           activeBackendFramework={activeBackendFramework}
+          navTree={
+            framework === "angular"
+              ? getAngularDocsNavTree(activeBackendFramework)
+              : undefined
+          }
         />
       );
     }
 
-    if (activeBackendFramework && framework !== "angular") {
+    const channelGuideRoute = resolveChannelGuideRoute({
+      frontend: framework,
+      framework: activeBackendFramework,
+      slugPath: activeFrontendSlugPath,
+      frameworkDocsMode: getDocsMode(activeBackendFramework ?? ROOT_FRAMEWORK),
+    });
+    if (channelGuideRoute) {
+      return (
+        <ChannelGuideDocsPage
+          frontend={channelGuideRoute.frontend}
+          activeBackendFramework={
+            channelGuideRoute.framework === ROOT_FRAMEWORK
+              ? null
+              : channelGuideRoute.framework
+          }
+          slugPath={channelGuideRoute.slugPath}
+          contentSlugPath={channelGuideRoute.sourceSlug}
+        />
+      );
+    }
+
+    if (framework === "angular") {
+      const resolution = resolveAngularDoc(
+        activeBackendFramework,
+        activeFrontendSlugPath,
+      );
+      if (!resolution) notFound();
+
+      return (
+        <DocsPageView
+          slugPath={resolution.slugPath}
+          contentSlugPath={resolution.contentSlugPath}
+          slugHrefPrefix={frontendRoutePath(
+            framework,
+            "",
+            activeBackendFramework,
+          )}
+          frameworkOverride={resolution.framework}
+          frontendOverride="angular"
+          navTree={getAngularDocsNavTree(activeBackendFramework)}
+          sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
+        />
+      );
+    }
+
+    if (activeBackendFramework) {
       scopedFramework = activeBackendFramework;
       scopedSlug = activeFrontendSlugPath
         ? activeFrontendSlugPath.split("/").filter(Boolean)
@@ -480,6 +702,7 @@ export default async function FrameworkScopedDocsPage({
             activeBackendFramework,
           )}
           frameworkOverride={activeBackendFramework}
+          frontendOverride={framework}
           navTree={getFrontendQuickstartNavTree(framework)}
           sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
         />
@@ -716,6 +939,7 @@ export default async function FrameworkScopedDocsPage({
       contentSlugPath={contentSlugPath}
       slugHrefPrefix={scopedSlugHrefPrefix ?? `/${scopedFramework}`}
       frameworkOverride={scopedFramework}
+      frontendOverride={activeFrontendPage ?? undefined}
       navTree={
         activeFrontendPage
           ? getFrontendQuickstartNavTree(activeFrontendPage)
@@ -731,23 +955,57 @@ export default async function FrameworkScopedDocsPage({
   );
 }
 
+function ChannelGuideDocsPage({
+  frontend,
+  activeBackendFramework,
+  slugPath,
+  contentSlugPath,
+}: {
+  frontend: ChannelFrontend;
+  activeBackendFramework: string | null;
+  slugPath: string;
+  contentSlugPath: string;
+}) {
+  if (!loadDoc(contentSlugPath)) notFound();
+
+  return (
+    <DocsPageView
+      slugPath={slugPath}
+      contentSlugPath={contentSlugPath}
+      slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
+      frameworkOverride={activeBackendFramework ?? ROOT_FRAMEWORK}
+      frontendOverride={frontend}
+      navTree={getFrontendQuickstartNavTree(frontend)}
+      sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
+    />
+  );
+}
+
 function FrontendQuickstartDocsPage({
   frontend,
   activeBackendFramework,
+  routeSlugPath = "",
+  navTree,
 }: {
   frontend: FrontendPageId;
   activeBackendFramework?: string | null;
+  routeSlugPath?: string;
+  navTree?: NavNode[];
 }) {
   const contentSlug = getFrontendContentSlug(frontend);
   if (!loadDoc(contentSlug)) notFound();
 
   return (
     <DocsPageView
-      slugPath=""
+      slugPath={routeSlugPath}
       contentSlugPath={contentSlug}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
-      frameworkOverride={activeBackendFramework}
-      navTree={getFrontendQuickstartNavTree(frontend)}
+      frameworkOverride={
+        activeBackendFramework ??
+        (frontend === "slack" || frontend === "teams" ? ROOT_FRAMEWORK : null)
+      }
+      frontendOverride={frontend}
+      navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
     />
   );
@@ -756,9 +1014,11 @@ function FrontendQuickstartDocsPage({
 function FrontendGuidanceDocsPage({
   frontend,
   activeBackendFramework,
+  navTree,
 }: {
   frontend: FrontendPageId;
   activeBackendFramework?: string | null;
+  navTree?: NavNode[];
 }) {
   const contentSlug = getFrontendGuidanceContentSlug(frontend);
   if (!loadDoc(contentSlug)) notFound();
@@ -769,7 +1029,8 @@ function FrontendGuidanceDocsPage({
       contentSlugPath={contentSlug}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
       frameworkOverride={activeBackendFramework}
-      navTree={getFrontendQuickstartNavTree(frontend)}
+      frontendOverride={frontend}
+      navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
     />
   );
@@ -808,10 +1069,16 @@ async function FrameworkRootPage({
   framework,
   preferIndexMdx = false,
   slugHrefPrefix = `/${framework}`,
+  frontendOverride,
+  navTreeOverride,
+  sidebarBannerSlot,
 }: {
   framework: string;
   preferIndexMdx?: boolean;
   slugHrefPrefix?: string;
+  frontendOverride?: FrontendPageId;
+  navTreeOverride?: NavNode[];
+  sidebarBannerSlot?: React.ReactNode;
 }) {
   // Some frameworks are docs-only — they have a `frameworkOverviews`
   // entry and an `integrations/<slug>/` content folder, but no demo
@@ -834,21 +1101,24 @@ async function FrameworkRootPage({
     framework;
   const docsMode = getDocsMode(framework);
   const navTree: NavNode[] =
-    docsMode === "authored"
+    navTreeOverride ??
+    (docsMode === "authored"
       ? buildFrameworkOnlyNav(docsFolder)
-      : buildFrameworkNav(docsFolder, integrationName, framework);
+      : buildFrameworkNav(docsFolder, integrationName, framework));
 
   const indexContentPath = `integrations/${docsFolder}/index`;
   const indexDoc = loadDoc(indexContentPath);
 
-  if (preferIndexMdx && indexDoc) {
+  if (preferIndexMdx && docsMode !== "generated" && indexDoc) {
     return (
       <DocsPageView
         slugPath=""
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        frontendOverride={frontendOverride}
         navTree={navTree}
+        sidebarBannerSlot={sidebarBannerSlot}
       />
     );
   }
@@ -889,6 +1159,7 @@ async function FrameworkRootPage({
                 <MdxFrameworkOverview
                   {...props}
                   currentFramework={framework ?? props.currentFramework}
+                  hrefPrefix={slugHrefPrefix}
                 />
               ),
               // Mirror the binding in DocsPageView so any
@@ -944,11 +1215,22 @@ async function FrameworkRootPage({
         );
       }
     }
+    const scopedOverview =
+      frontendOverride === "angular"
+        ? buildAngularBackendOverview(overview, framework)
+        : overview;
+
     return (
-      <FrameworkRootShell navTree={navTree} slugHrefPrefix={slugHrefPrefix}>
+      <FrameworkRootShell
+        navTree={navTree}
+        slugHrefPrefix={slugHrefPrefix}
+        sidebarBannerSlot={sidebarBannerSlot}
+      >
         <FrameworkOverview
-          data={overview}
+          data={scopedOverview}
           currentFramework={framework}
+          hrefPrefix={slugHrefPrefix}
+          frontendOverride={frontendOverride}
           afterFeatures={afterFeatures}
         />
       </FrameworkRootShell>
@@ -968,7 +1250,9 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        frontendOverride={frontendOverride}
         navTree={navTree}
+        sidebarBannerSlot={sidebarBannerSlot}
       />
     );
   }
@@ -985,15 +1269,20 @@ async function FrameworkRootPage({
 function FrameworkRootShell({
   navTree,
   slugHrefPrefix,
+  sidebarBannerSlot,
   children,
 }: {
   navTree: NavNode[];
   slugHrefPrefix: string;
+  sidebarBannerSlot?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const pageTree = navTreeToPageTree(navTree, slugHrefPrefix);
   return (
-    <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
+    <ShellDocsLayout
+      tree={pageTree}
+      banner={sidebarBannerSlot ?? <SidebarFrameworkSelector />}
+    >
       <DocsPage
         toc={[]}
         tableOfContent={{ enabled: false }}

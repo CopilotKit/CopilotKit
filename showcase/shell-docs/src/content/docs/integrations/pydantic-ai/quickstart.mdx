@@ -156,6 +156,47 @@ Before you begin, you'll need the following:
                 app = agent.to_ag_ui()
 
                 if __name__ == "__main__":
+                    import uvicorn
+
+                    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+                ```
+
+                <Callout type="info" title="What is AG-UI?">
+                  AG-UI is the protocol that lets Copilot Runtime communicate with your Pydantic AI agent.
+                </Callout>
+            </Step>
+            <Step>
+                ### Create your frontend
+
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+                ```bash
+                cd ..
+                npx create-next-app@latest my-copilot-app
+                cd my-copilot-app
+                ```
+            </Step>
+            <Step>
+                ### Install CopilotKit packages
+
+                ```npm
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                ```
+            </Step>
+            <Step>
+                ### Setup Copilot Runtime
+
+                Create an API route that connects CopilotKit to the Pydantic AI
+                AG-UI endpoint:
+
+                ```tsx title="app/api/copilotkit/route.ts"
+                import {
+                  CopilotRuntime,
+                  ExperimentalEmptyAdapter,
+                  copilotRuntimeNextJSAppRouterEndpoint,
+                } from "@copilotkit/runtime";
+                import { HttpAgent } from "@ag-ui/client";
+                import { NextRequest } from "next/server";
 
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
@@ -174,7 +215,7 @@ Before you begin, you'll need the following:
 
                   return handleRequest(req);
                 };
-               ```
+                ```
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
@@ -222,10 +263,11 @@ Before you begin, you'll need the following:
             <Step>
                 ### Start your agent
 
-                From your agent directory, start the agent server:
+                From the frontend directory created above, start the agent
+                server:
 
                 ```bash
-                cd ..
+                cd ../my-agent
                 uv run main.py
                 ```
 

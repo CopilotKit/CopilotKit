@@ -130,10 +130,18 @@ export interface RawRung {
   /**
    * `true` when a mapped/unconditional sub-key produced NO row — the STRICT
    * `anyMissing` collapse (D4 missing-chat; D5/D6 missing sub-row).
+   *
+   * NOTE (§D scope): this is the only FAMILY-scoped predicate on a `RawRung`,
+   * and it is family-scoped on purpose — a missing sub-key is a property of the
+   * family, and it gates a family-scoped verdict (the whole family is
+   * unverified). The `signal`-provenance precondition that guards the infra-red
+   * gray is NOT like that: it qualifies evidence read off the RED rows only, so
+   * it is derived at that scope by `foldFamily` (`redSignalKnown`) instead of
+   * being plumbed through here. A family-scoped version of it was answerable
+   * "no" by a green row the infra branch never reads — see the fail-safe /
+   * scope note in `classifyRung`.
    */
   anyExpectedMissing: boolean;
-  /** `false` when the projection stripped `signal` from a contributing row (I5/§D). */
-  signalKnown: boolean;
 }
 
 /** Stage B output — one classified contribution per rung. */
@@ -298,6 +306,23 @@ interface FamilyFold {
   /** At least one contributing row ranks at/above red. */
   hasRed: boolean;
   /**
+   * Every contributing RED row actually CARRIED its `signal` (the key was
+   * delivered, `!== undefined`) — i.e. the infra-vs-product attribution the
+   * infra-red branch reads is present rather than PENDING. Vacuously `true`
+   * when the family has no red rows.
+   *
+   * RED-ROW-SCOPED, deliberately and load-bearingly so. PocketBase omits the
+   * `signal` key ONLY under a `fields=` projection (a genuinely signal-less row
+   * arrives as `null`), so this is a pure PROVENANCE marker — and the ONLY rows
+   * whose provenance the infra branch depends on are the red ones, since those
+   * are the only blobs it reads. The dashboard's supplemental fetch restores
+   * `signal` for `state != "green"` only, so in a MIXED-state family the reds
+   * arrive with attribution while the green siblings do not; a family-wide
+   * version of this flag therefore reads `false` exactly when it should read
+   * `true` and suppresses a legitimate gray. See `classifyRung`.
+   */
+  redSignalKnown: boolean;
+  /**
    * HIGHEST `fail_count` across the NON-INFRA contributing red rows (for
    * first-strike de-amplification), or null when there is no non-infra red.
    *
@@ -332,6 +357,7 @@ export function foldFamily(
   let freshestAgeMs: number | null = null;
   let hasNonInfraRed = false;
   let hasRed = false;
+  let redSignalKnown = true;
   let maxNonInfraRedFailCount: number | null = null;
   let allRedSoftClass = true;
 
@@ -366,6 +392,10 @@ export function foldFamily(
     // sibling must not re-arm tolerance for an already-confirmed sustained red.
     if (rankOfState(row.state) >= RED_RANK) {
       hasRed = true;
+      // Provenance, scoped to the rows the infra branch actually reads: a RED
+      // row whose `signal` key was projected away has a PENDING attribution.
+      // Green/degraded siblings are irrelevant here — that is the whole point.
+      if (row.signal === undefined) redSignalKnown = false;
       if (!signalHasInfraErrorClass(row.signal)) {
         hasNonInfraRed = true;
         maxNonInfraRedFailCount =
@@ -386,6 +416,7 @@ export function foldFamily(
     freshestAgeMs,
     hasNonInfraRed,
     hasRed,
+    redSignalKnown,
     maxNonInfraRedFailCount,
     allRedSoftClass,
   };
@@ -444,13 +475,80 @@ export function classifyRung(raw: RawRung, now: number): RungContribution {
   }
 
   // ── Red fold winner (rank ≥ red) ───────────────────────────────────
-  // §3 rule 4 / §D: infra-ness unknown (signal stripped) → NO_DATA, never a
-  // manufactured product-red.
-  if (!raw.signalKnown) {
-    return { ...base, contribution: "NO_DATA", rawStatus: null };
-  }
-  // U7: every contributing red row is infra-classed → INFRA_RED_FRESH (→ gray).
-  if (!fold.hasNonInfraRed) {
+  // §3 rule 4 / §D — FAIL-SAFE POLARITY (inverted; see below). A red rung whose
+  // infra-ness we cannot determine classifies as a RED, never as NO_DATA.
+  //
+  // This branch used to read `if (!signalKnown) return NO_DATA` — i.e. a
+  // genuinely-failing rung was painted GRAY ("nothing to see here") whenever the
+  // browser's bulk projection had stripped `signal` off its rows. That polarity
+  // was backwards in two independent ways:
+  //
+  //   1. A stripped `signal` does NOT mean "known to have no signal". PB only
+  //      ever OMITS the `signal` key under a `fields=` projection; a row that
+  //      genuinely carries no signal arrives as `null`, and
+  //      `null !== undefined`, so the provenance flag stays `true`. So it means
+  //      exactly "this row came from a projected fetch" — PENDING, i.e. the
+  //      ABSENCE of evidence about WHY the rung failed. It was never evidence
+  //      that the failure was infra. (This omission-vs-null property is
+  //      VERSION-SCOPED to the pinned PocketBase 0.22.21 and re-verified there —
+  //      see the upgrade hazard in `STATUS_LIST_FIELDS`' doc, live-status.ts.)
+  //   2. Empirically the guess it made was wrong on the overwhelming majority:
+  //      ~94% of production reds are product-class and only ~6% are infra-class.
+  //      Graying them all lost ~94 real failures to save ~6 false alarms — and a
+  //      masked red is never investigated, while a false alarm is looked at once
+  //      and closed.
+  //
+  //      MEASUREMENT (anchor this before quoting the split anywhere else). Taken
+  //      2026-07-24 against the production PocketBase
+  //      (`showcase-pocketbase-production.up.railway.app`): fetch the `status`
+  //      collection filtered `state = "red"` — 357 rows — and partition them
+  //      with THIS module's own `signalHasInfraErrorClass` predicate, i.e. count
+  //      a row infra iff its `signal.errorClass` or `signal.errorDesc` is in
+  //      `INFRA_ERROR_CLASSES`. Result: 21 infra (5.9%) vs 336 product (94.1%).
+  //      The 21 infra rows are `driver-error` (11) and `abort` (10); the product
+  //      side is dominated by `conversation-error` (121), `selector-timeout`
+  //      (49), `smoke-failed` (18) and untyped reds. The split is a SNAPSHOT of
+  //      one fleet on one day, not a constant — re-run that query before relying
+  //      on the exact figures. The ARGUMENT, however, does not depend on them:
+  //      the polarity only needs product-class reds to outnumber infra-class
+  //      reds, and it is asymmetric-loss reasoning regardless (a hidden red is
+  //      never investigated; an over-reported red is closed once).
+  //
+  // So graying a red now requires POSITIVE infra evidence: `hasNonInfraRed`
+  // is false only when EVERY contributing red row's `signal` blob actually
+  // carries an INFRA_ERROR_CLASSES attribution, and `redSignalKnown` is
+  // retained as a second, explicit precondition so an absent blob can never be
+  // read as an infra attribution even if `signalHasInfraErrorClass` is loosened
+  // later. The residual cost is over-reporting (a red that was really infra
+  // shows red until its signal arrives), which is the direction a health
+  // dashboard must fail in. `useLiveStatus` also re-fetches `signal` for every
+  // NON-GREEN row on cold load, so in practice this branch only fires when the
+  // data genuinely cannot say.
+  //
+  // SCOPE (§D). Both conjuncts are RED-ROW-scoped, and they must be: this
+  // branch reads the `signal` blobs of the RED rows and nothing else, so only
+  // those rows' provenance can qualify what it read. The precondition used to
+  // be `raw.signalKnown` — a boolean AND over EVERY present row of the family —
+  // which broke the mixed-state case it was supposed to protect: the
+  // supplemental cold-load fetch restores `signal` for `state != "green"` only,
+  // so a family like D4 = green `chat` + infra-red `tools` arrives with full
+  // attribution on the red row and none on the green one. The family-wide flag
+  // read `false`, this branch was skipped, and the browser painted RED a cell
+  // `/api/matrix` (full `signal` on every row) reported as gray — precisely the
+  // §11.4 drift the read-model exists to forbid, on every multi-row family
+  // (D4, and any multi-pill D5/D6). Only single-key D3 was unaffected, because
+  // there the family's one row IS the red row and the two scopes coincide —
+  // which is why the single-key fixtures never caught it.
+  //
+  // Today `redSignalKnown` is IMPLIED by `!hasNonInfraRed`
+  // (`signalHasInfraErrorClass(undefined) === false`, so a stripped red row
+  // forces `hasNonInfraRed` on its own). It is kept explicit anyway: this is the
+  // masks-real-red guard, and it must not depend on a coincidental property of a
+  // helper two modules away. `foldFamily` covers it directly.
+  //
+  // U7: every contributing red row is POSITIVELY infra-classed, and we can see
+  // the blobs that say so → INFRA_RED_FRESH (→ gray).
+  if (fold.redSignalKnown && !fold.hasNonInfraRed) {
     return { ...base, contribution: "INFRA_RED_FRESH", rawStatus };
   }
   // §3 rule 3: first-strike de-amplification, per rung kind. Gate on the WORST

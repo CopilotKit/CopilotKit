@@ -1,5 +1,6 @@
 import { test, expect } from "vitest";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotNodeListener } from "../endpoints/node";
 import { CopilotRuntime } from "../core/runtime";
 import type { IdentifyUserCallback } from "../core/runtime";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
@@ -79,6 +80,53 @@ async function _channelsHandlerTypeContracts(): Promise<void> {
   >();
 }
 
+/**
+ * OSS-646 — the same contract for the Node listener.
+ *
+ * Node is the long-running, lifecycle-owning entry point, so `ready()` is the
+ * call developers actually make there. Never invoked; exists so `tsc` checks the
+ * documented `listener.channels.ready(...)` snippet verbatim.
+ */
+async function _channelsNodeListenerTypeContracts(): Promise<void> {
+  const runtime = new CopilotRuntime({
+    agents: {},
+    intelligence,
+    identifyUser,
+    channels: [support],
+  });
+  const listener = createCopilotNodeListener({
+    runtime,
+    basePath: "/api/copilotkit",
+  });
+
+  // Documented usage — verbatim, with NO `!` and NO `?.`.
+  const c = listener.channels;
+  await listener.channels.ready({ timeoutMs: 10 });
+  await c.stop();
+
+  // The discriminating proof: `.channels` is REQUIRED here.
+  assertTrue<KeyIsRequired<typeof listener, "channels">>();
+
+  // A plain SSE runtime's listener must keep `.channels` OPTIONAL.
+  const sseListener = createCopilotNodeListener({
+    runtime: new CopilotRuntime({ agents: {} }),
+  });
+  assertTrue<
+    KeyIsRequired<typeof sseListener, "channels"> extends false ? true : false
+  >();
+
+  // Opting out of activation keeps the optional shape even for a runtime that
+  // declares Channels — there is no control surface to promise.
+  const optedOut = createCopilotNodeListener({
+    runtime,
+    activateChannels: false,
+  });
+  assertTrue<
+    KeyIsRequired<typeof optedOut, "channels"> extends false ? true : false
+  >();
+}
+
 test("handler.channels type contracts are enforced at compile time", () => {
   expect(typeof _channelsHandlerTypeContracts).toBe("function");
+  expect(typeof _channelsNodeListenerTypeContracts).toBe("function");
 });

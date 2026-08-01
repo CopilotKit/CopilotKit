@@ -68,7 +68,8 @@ Threads are persistent conversations stored by the Enterprise Intelligence Platf
 
 ![A Cloud-Hosted Enterprise Intelligence thread detail page with metadata and event history.](/images/enterprise-intelligence/managed-thread-detail.png)
 
-Thread actions map to the same lifecycle your app sees through `useThreads`:
+Thread actions map to the same lifecycle your app sees through its
+thread-management API:
 
 - Rename changes the display name.
 - Archive is reversible: it marks the thread archived and hides it from the default list without deleting its history. Pass `includeArchived: true` to show archived threads, then unarchive one to return it to the active list.
@@ -91,7 +92,11 @@ Some capabilities may appear in the dashboard as early access. Those capabilitie
 | Cloud-Hosted Enterprise Intelligence | You want hosted projects, managed API keys, conversation history, thread inspection, and plan management without running platform infrastructure. |
 | Self-hosted Enterprise Intelligence Platform | You need the same platform inside your own Kubernetes cluster for residency, compliance, network isolation, or enterprise operations requirements. |
 
-Your application code should stay focused on the CopilotKit SDK and runtime. The deployment mode changes which platform endpoint and credentials your runtime uses, not how your React UI calls `useThreads` or renders chat. Moving from cloud-hosted projects to self-hosting is available on the Team self-hosted plan or a custom Enterprise plan.
+Your application code should stay focused on the CopilotKit frontend SDK and
+runtime. The deployment mode changes which platform endpoint and credentials
+your runtime uses, not how the frontend lists threads or renders chat. Moving
+from cloud-hosted projects to self-hosting is available on the Team self-hosted
+plan or a custom Enterprise plan.
 
 ## Next steps
 

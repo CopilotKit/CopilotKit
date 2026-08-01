@@ -13,7 +13,9 @@ import {
   maybeShowDisclosure,
   track,
   trackBannerClicked,
+  trackBannerDismissed,
   trackBannerViewed,
+  trackInspectorOpened,
   trackTalkToEngineerClicked,
   trackThreadsEmptyEnabledViewed,
   trackThreadsEnabledViewed,
@@ -162,8 +164,12 @@ describe("track()", () => {
 // ─── Typed per-event helpers ─────────────────────────────────────────────────
 
 describe("typed helpers", () => {
-  it("trackBannerViewed sends banner_id and optional cta_label", async () => {
-    trackBannerViewed({ banner_id: "ts-2025", cta_label: "Try threads" });
+  it("trackBannerViewed sends banner_id, surface, and optional cta_label", async () => {
+    trackBannerViewed({
+      banner_id: "ts-2025",
+      surface: "collapsed_preview",
+      cta_label: "Try threads",
+    });
     await Promise.resolve();
     const [, init] = fetchMock.mock.calls[0]!;
     const body = JSON.parse((init?.body as string) ?? "{}") as {
@@ -172,15 +178,103 @@ describe("typed helpers", () => {
     };
     expect(body.event).toBe(TELEMETRY_EVENTS.bannerViewed);
     expect(body.properties.banner_id).toBe("ts-2025");
+    expect(body.properties.surface).toBe("collapsed_preview");
     expect(body.properties.cta_label).toBe("Try threads");
   });
 
   it("trackBannerViewed omits cta_label when undefined (JSON.stringify drops it)", async () => {
-    trackBannerViewed({ banner_id: "ts-2025" });
+    trackBannerViewed({ banner_id: "ts-2025", surface: "expanded_card" });
     await Promise.resolve();
     const [, init] = fetchMock.mock.calls[0]!;
     const raw = (init?.body as string) ?? "{}";
     expect(raw).not.toContain("cta_label");
+  });
+
+  it("trackBannerDismissed sends a first-class dismissed event with its surface", async () => {
+    trackBannerDismissed({
+      banner_id: "ts-2025",
+      surface: "expanded_card",
+      cta_label: "Try threads",
+    });
+    await Promise.resolve();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+      package: { name: string; version?: string };
+    };
+    expect(body.event).toBe("oss.inspector.banner_dismissed");
+    expect(body.properties.banner_id).toBe("ts-2025");
+    expect(body.properties.surface).toBe("expanded_card");
+    expect(body.properties.cta_label).toBe("Try threads");
+    // Banner events keep the flat shape their existing dashboards read.
+    expect(body.properties).not.toHaveProperty("package_version");
+    expect(body.package).toEqual({ name: "@copilotkit/web-inspector" });
+  });
+
+  it("trackInspectorOpened sends open_source and is enriched with package identity", async () => {
+    trackInspectorOpened({
+      open_source: "floating_button",
+      license_status: "none",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      has_unseen_announcement: true,
+    });
+    await Promise.resolve();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+      package: { name: string; version?: string };
+    };
+    expect(body.event).toBe("oss.inspector.opened");
+    expect(body.properties).toMatchObject({
+      open_source: "floating_button",
+      license_status: "none",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      has_unseen_announcement: true,
+      package_name: "@copilotkit/web-inspector",
+      package_version: webInspectorPackage.version,
+    });
+    expect(body.properties.inspector_distinct_id).toBe(
+      body.properties.distinct_id,
+    );
+    expect(body.package).toEqual({
+      name: "@copilotkit/web-inspector",
+      version: webInspectorPackage.version,
+    });
+  });
+
+  it("opened and banner events carry no message, state, or announcement content", async () => {
+    trackInspectorOpened({ open_source: "announcement_preview" });
+    trackBannerDismissed({
+      banner_id: "ts-2025",
+      surface: "collapsed_preview",
+    });
+    await Promise.resolve();
+    for (const [, init] of fetchMock.mock.calls) {
+      const properties = (
+        JSON.parse((init?.body as string) ?? "{}") as {
+          properties: Record<string, unknown>;
+        }
+      ).properties;
+      // Allow-list assertion: any new key has to be added here deliberately,
+      // so an accidental content/PII payload fails the test instead of
+      // shipping.
+      const allowed = new Set([
+        "open_source",
+        "banner_id",
+        "surface",
+        "distinct_id",
+        "inspector_distinct_id",
+        "package_name",
+        "package_version",
+      ]);
+      expect(Object.keys(properties).filter((k) => !allowed.has(k))).toEqual(
+        [],
+      );
+    }
   });
 
   it("trackBannerClicked sends banner_id, cta, and optional cta_label", async () => {

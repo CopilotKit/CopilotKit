@@ -2357,9 +2357,6 @@ importers:
       '@copilotkit/channels-discord':
         specifier: workspace:*
         version: link:../channels-discord
-      '@copilotkit/channels-intelligence':
-        specifier: workspace:*
-        version: link:../channels-intelligence
       '@copilotkit/channels-slack':
         specifier: workspace:*
         version: link:../channels-slack
@@ -2465,6 +2462,12 @@ importers:
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
+      '@copilotkit/channels-slack':
+        specifier: workspace:^
+        version: link:../channels-slack
+      '@copilotkit/channels-teams':
+        specifier: workspace:^
+        version: link:../channels-teams
       '@copilotkit/channels-ui':
         specifier: workspace:^
         version: link:../channels-ui
@@ -2472,6 +2475,9 @@ importers:
         specifier: ^1.8.4
         version: 1.8.4
     devDependencies:
+      '@ag-ui/core':
+        specifier: 0.0.57
+        version: 0.0.57
       '@copilotkit/typescript-config':
         specifier: workspace:^
         version: link:../typescript-config
@@ -2481,6 +2487,9 @@ importers:
       '@types/phoenix':
         specifier: ^1.6.6
         version: 1.6.7
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.1
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -3222,7 +3231,7 @@ importers:
         specifier: ^3.0.36
         version: 3.0.36(zod@3.25.76)
       '@anthropic-ai/sdk':
-        specifier: ^0.57.0
+        specifier: '>=0.57.0'
         version: 0.57.0
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -25375,8 +25384,8 @@ packages:
   vue-component-type-helpers@3.3.1:
     resolution: {integrity: sha512-pu58kqxmVyEH6VfNYW1UyEfR3XAnJ27ZXT3yzXxxpjLxVzAbyC35Zk/nm/RMs7ijWnJNSd9fWkeex2OhUsx3MA==}
 
-  vue-component-type-helpers@3.3.7:
-    resolution: {integrity: sha512-Skkhw9agYSgsWqv7bxSOGJZa9SaiJbZVGdXuFWnrzKaQYHnw9qbjD630rw6RyMqDbp54nfLCLw5SZA55if7JLg==}
+  vue-component-type-helpers@3.3.8:
+    resolution: {integrity: sha512-troqCMmQodQDqUqn63NQaFi+CDSclSe7sc8VEBFqf5GFLqmGR2Ph3P2WEC7qwpRVyEWsTi/aAr4vyOe/B1hU3g==}
 
   vue-devtools-stub@0.1.0:
     resolution: {integrity: sha512-RutnB7X8c5hjq39NceArgXg28WZtZpGc3+J16ljMiYnFhKvd8hITxSWQSQ5bvldxMDU6gG5mkxl1MTQLXckVSQ==}
@@ -39426,7 +39435,7 @@ snapshots:
       storybook: 10.1.11(@testing-library/dom@10.4.0)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       type-fest: 2.19.0
       vue: 3.5.34(typescript@5.8.2)
-      vue-component-type-helpers: 3.3.7
+      vue-component-type-helpers: 3.3.8
 
   '@swc/core-darwin-arm64@1.15.8':
     optional: true
@@ -57289,7 +57298,7 @@ snapshots:
 
   vue-component-type-helpers@3.3.1: {}
 
-  vue-component-type-helpers@3.3.7: {}
+  vue-component-type-helpers@3.3.8: {}
 
   vue-devtools-stub@0.1.0: {}
 

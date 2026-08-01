@@ -115,7 +115,7 @@ describe("deriveChannelActivationConfig", () => {
     });
 
     expect(config).toEqual({
-      wsUrl: intelligence.ɵgetRunnerWsUrl(),
+      wsUrl: intelligence.ɵgetChannelsWsUrl(),
       apiUrl: intelligence.ɵgetApiUrl(),
       apiKey: intelligence.ɵgetRunnerAuthToken(),
       projectId: 42,

@@ -67,7 +67,12 @@ export const useGenerativeUIExamples = () => {
     },
   });
 
-  // Frontend Tools (direct frontend state manipulation)
+  // Frontend Tools (direct frontend state manipulation).
+  // No deps array needed — the handler reads `document` directly and
+  // calls a stable setter. Including [theme, setTheme] in deps caused
+  // the hook to re-register every time the theme flipped, which could
+  // race with an in-flight tool result from the runtime and surface
+  // as a renderer-level error during multi-turn beautiful-chat probes.
   useFrontendTool({
     name: "toggleTheme",
     description: "Frontend tool for toggling the theme of the app.",

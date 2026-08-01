@@ -4,8 +4,8 @@ import { createRunRenderer } from "../event-renderer.js";
 
 /**
  * Fake {@link SlackRenderTransport} — records every post / update call in
- * order. This is exactly the seam the managed Connector Outbox will drive, so
- * the renderer is verified Bolt-free (no `WebClient`).
+ * order. Local and managed delivery both drive this transport seam, so the
+ * renderer is verified Bolt-free (no `WebClient`).
  */
 function makeFakeClient() {
   const posts: {
@@ -55,16 +55,24 @@ describe("createRunRenderer", () => {
       event: { messageId: id, delta: "E" },
       textMessageBuffer: "",
     } as never);
+
+    await vi.waitFor(() => {
+      expect(fake.posts).toHaveLength(1);
+      expect(fake.posts[0]?.text).toBe("E");
+      expect(fake.posts.every((post) => post.text !== "_thinking…_")).toBe(
+        true,
+      );
+    });
+
     sub.onTextMessageContentEvent!({
       event: { messageId: id, delta: "CHO" },
       textMessageBuffer: "E",
     } as never);
     await sub.onTextMessageEndEvent!({ event: { messageId: id } } as never);
 
-    // (a) Text streaming posts a placeholder then updates it; the LAST
-    // update must be the fully-accumulated text.
+    // (a) The first post contains the buffered response, then updates track
+    // the fully accumulated text.
     expect(fake.posts).toHaveLength(1);
-    expect(fake.posts[0]?.text).toBe("_thinking…_");
     expect(fake.updates.length).toBeGreaterThan(0);
     expect(fake.updates.at(-1)?.text).toBe("ECHO");
   });
@@ -167,11 +175,12 @@ describe("createRunRenderer", () => {
     expect(captured[0]?.toolCallArgs).toEqual({ title: "final" });
   });
 
-  it("tool-call status: showToolStatus default (true) → START posts 🔧, END edits to ✅", async () => {
+  it("tool-call status: showToolStatus:true → START posts 🔧, END edits to ✅", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub } = createRunRenderer({
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
+      showToolStatus: true,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "tc1", toolCallName: "search_flights" },
@@ -188,12 +197,11 @@ describe("createRunRenderer", () => {
     expect(fake.updates[0]?.text).toContain(":white_check_mark:");
   });
 
-  it("tool-call status: showToolStatus:false → no status posts but still captures", async () => {
+  it("tool-call status: hidden by default but still captured", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub, getCapturedToolCalls } = createRunRenderer({
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
-      showToolStatus: false,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "tc1", toolCallName: "search_flights" },
@@ -287,6 +295,10 @@ describe("createRunRenderer", () => {
       textMessageBuffer: "",
     } as never);
     await sub.onTextMessageEndEvent!({ event: { messageId: "m1" } } as never);
+    const initial = fake.posts[0]?.text ?? "";
+    expect(initial).toContain("*hi*");
+    expect(initial).toContain("<https://x.com|docs>");
+    expect(initial).toContain("•  a");
     const last = fake.updates.at(-1)?.text ?? "";
     expect(last).toContain("*hi*");
     expect(last).toContain("<https://x.com|docs>");
@@ -481,6 +493,7 @@ describe("createRunRenderer — native status mode", () => {
       transport: f.transport,
       target: { channel: "D1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: true, config: {} },
+      showToolStatus: true,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "t1", toolCallName: "search" },
@@ -489,19 +502,32 @@ describe("createRunRenderer — native status mode", () => {
     expect(f.statuses.at(-1)?.status).toBe("is using `search`…");
   });
 
-  it("showToolStatus:false suppresses the pane's `is using` status", async () => {
+  it("showToolStatus:false refreshes the generic pane status without revealing tools", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
       transport: f.transport,
       target: { channel: "D1", threadTs: "100.0" },
-      status: { threadTs: "100.0", isPane: true, config: {} },
+      status: {
+        threadTs: "100.0",
+        isPane: true,
+        config: { thinking: "is pondering…" },
+      },
       showToolStatus: false,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "t1", toolCallName: "search" },
     } as never);
+    await sub.onToolCallEndEvent!({
+      event: { toolCallId: "t1" },
+      toolCallName: "search",
+      toolCallArgs: {},
+    } as never);
     expect(f.posts).toHaveLength(0);
     expect(f.statuses.some((s) => s.status.includes("is using"))).toBe(false);
+    expect(f.statuses.map((s) => s.status)).toEqual([
+      "is pondering…",
+      "is pondering…",
+    ]);
   });
 
   it("clears the status once a reply is posted", async () => {
@@ -621,8 +647,9 @@ describe("createRunRenderer — native status mode", () => {
 
   // ── Non-pane: a channel @-mention / thread (isPane:false) gets the native
   // "is thinking…" status instead of the old :hourglass: placeholder, and tool
-  // progress flows to both :wrench: rows and the composer "is using…" status
-  // (setStatus drives any thread anchor now, not just panes). ──────────────────
+  // progress, when enabled, flows to both :wrench: rows and the composer
+  // "is using…" status (setStatus drives any thread anchor now, not just
+  // panes). ────────────────────────────────────────────────────────────────────
   it("non-pane thread: sets native status on run start (no :hourglass: placeholder)", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
@@ -641,6 +668,7 @@ describe("createRunRenderer — native status mode", () => {
       transport: f.transport,
       target: { channel: "C1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: false, config: {} },
+      showToolStatus: true,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "t1", toolCallName: "search" },

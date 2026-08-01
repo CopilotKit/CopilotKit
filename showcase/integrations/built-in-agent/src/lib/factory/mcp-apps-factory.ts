@@ -7,6 +7,7 @@ import { openaiText } from "@tanstack/ai-openai";
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
 import { jsonSchemaToZod } from "./tanstack-factory";
+import { DEMO_AGENT_LOOP_STRATEGY } from "./demo-stream";
 
 const MCP_APPS_SYSTEM_PROMPT = `\
 You draw simple diagrams in Excalidraw via the MCP \`create_view\` tool.
@@ -55,11 +56,12 @@ export function createMcpAppsAgent() {
         }),
       );
       return chat({
-        adapter: openaiText("gpt-4o-mini", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [MCP_APPS_SYSTEM_PROMPT, ...systemPrompts],
         tools,
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
     },
   });

@@ -2,10 +2,21 @@
 
 // Channel orchestration
 export { createChannel } from "./create-channel.js";
+export {
+  isolateAgentInstance,
+  resolveChannelConcurrency,
+} from "./create-channel.js";
+// Applied to every Channel agent by default; exported for the adapter packages
+// and for anyone driving an agent outside a Channel.
+export { sanitizeAgentEventStream } from "./sanitize-agent-events.js";
+// The usual `agent` for a Channel is an AG-UI agent over HTTP. Re-exported so
+// wiring one up needs no second import (any `AbstractAgent` still works).
+export { HttpAgent } from "@ag-ui/client";
 export type {
   Channel,
   CreateChannelOptions,
   ManagedChannelProvider,
+  ReplyContinuationOptions,
   ChannelHandler,
   ThreadStartHandler,
   ReactionEvent,
@@ -16,6 +27,7 @@ export type {
   ModalCloseHandler,
   StoreConfig,
   LockConflictDecision,
+  ChannelConcurrency,
   StatefulThread,
   ChannelComponent,
 } from "./create-channel.js";
@@ -44,6 +56,9 @@ export type {
   AgentSession,
   CapturedToolCall,
   CapturedInterrupt,
+  ChannelAgentLifecycleArgs,
+  ChannelAgentLoopResult,
+  CanonicalRunIdentity,
   UserQuery,
   NativePayload,
 } from "./platform-adapter.js";
@@ -107,8 +122,12 @@ export { mintId, stableStringify } from "./mint-id.js";
 // Run loop
 export { runAgentLoop } from "./run-loop.js";
 export type { RunLoopArgs } from "./run-loop.js";
+export {
+  ChannelDeliveryTerminatedError,
+  isChannelDeliveryTerminatedError,
+} from "./delivery-error.js";
 
-// Pure, per-platform codec seam (shared with the Channel/Connector-Outbox path).
+// Pure per-platform codec seam shared with managed Intelligence delivery.
 // The Intelligence Channel adapter itself lives in
 // `@copilotkit/channels-intelligence`.
 export type { PlatformCodec } from "./codec.js";

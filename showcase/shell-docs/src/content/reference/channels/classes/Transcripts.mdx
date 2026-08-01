@@ -1,0 +1,81 @@
+---
+title: Transcripts
+description: Append, query, retain, and delete an application-owned transcript keyed by a stable user identity.
+---
+
+`Transcripts` stores an optional SDK-owned record on the Channel's
+`StateStore`. Configure `store.identity` and `store.transcripts` together.
+
+## Configuration
+
+```ts
+const channel = createChannel({
+  name: "support-slack",
+  provider: "slack",
+  agent: makeAgent,
+  store: {
+    adapter: durableStateStore,
+    identity: async ({ author, message }) =>
+      accounts.resolveUserId(message.platform, author.id),
+    transcripts: {
+      retention: "30d",
+      maxPerUser: 500,
+    },
+  },
+});
+```
+
+`retention` accepts milliseconds or a duration string. Entries are stored on
+the `list` facet, so that facet must be durable for production transcripts.
+
+## append
+
+```ts
+await channel.transcripts.append(
+  thread,
+  {
+    role: "assistant",
+    text: "The incident owner is Payments.",
+    userKey: "usr_123",
+  },
+);
+```
+
+Append silently does nothing when neither the message nor `opts` supplies a
+`userKey`.
+
+## list
+
+```ts
+const entries = await channel.transcripts.list({
+  userKey: "usr_123",
+  limit: 20,
+  roles: ["user", "assistant"],
+});
+```
+
+Entries are oldest-first and can be filtered by platform, `threadId`, or role.
+On managed Channels, `platform` is the adapter id `"intelligence"` rather than
+the native provider. Use the stable `userKey` to carry context between Slack
+and Teams; filtering managed entries by `"slack"` or `"teams"` returns no
+matches.
+
+## delete
+
+```ts
+const { deleted } = await channel.transcripts.delete({
+  userKey: "usr_123",
+});
+```
+
+This deletes only the SDK-owned transcript. It does not delete provider history
+or a separate Intelligence record.
+
+## Automatic bridge
+
+`thread.runAgent({ transcript: true })` injects prior entries, appends the
+current user turn, runs the agent, and appends its response. Do not manually
+append those same turns.
+
+`channel.transcripts` becomes available after the runtime starts the Channel.
+See [History and transcripts](/slack/history-and-transcripts).

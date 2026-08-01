@@ -1,7 +1,7 @@
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output (see `runtime.ts` for the same constraint).
-import type { Channel } from "@copilotkit/channels";
+import type { Channel, ReplyContinuationOptions } from "@copilotkit/channels";
 
 /**
  * Error thrown when a Channel activation config cannot be derived — either the
@@ -41,6 +41,17 @@ export interface ChannelActivationConfig {
    * connection for the declared provider.
    */
   adapter: string;
+  /**
+   * Optional per-Channel override for visible managed tool-call progress.
+   * Unset Slack routes default to hidden; other providers retain their existing
+   * default.
+   */
+  showToolStatus?: boolean;
+  /**
+   * Optional per-Channel tuning for splitting a long reply across continuation
+   * messages. Unset leaves the provider renderer's defaults in place.
+   */
+  replyContinuation?: ReplyContinuationOptions;
   /** Identifier for the runtime instance activating this Channel. */
   runtimeInstanceId: string;
 }
@@ -101,7 +112,8 @@ export function parseProjectIdFromApiKey(apiKey: string): number {
  * @param args.intelligence - The Intelligence runtime client to pull the
  *   runner websocket URL and auth token from.
  * @param args.channel - The Channel being activated. Must have a `name`; its
- *   per-Channel `provider` selects the managed adapter declared to the gateway.
+ *   per-Channel `provider` selects the managed adapter declared to the gateway,
+ *   and `showToolStatus` optionally overrides managed tool-call visibility.
  * @param args.runtimeInstanceId - Identifier for the activating runtime
  *   instance, passed through unchanged.
  * @returns The resolved {@link ChannelActivationConfig}.
@@ -142,7 +154,7 @@ export function deriveChannelActivationConfig(args: {
 
   const channelName = channel.name;
 
-  const wsUrl = intelligence.ɵgetRunnerWsUrl();
+  const wsUrl = intelligence.ɵgetChannelsWsUrl();
   const apiUrl = intelligence.ɵgetApiUrl();
   const apiKey = intelligence.ɵgetRunnerAuthToken();
   const projectId = parseProjectIdFromApiKey(apiKey);
@@ -164,6 +176,12 @@ export function deriveChannelActivationConfig(args: {
     projectId,
     channelName,
     adapter: trimmedProvider ? trimmedProvider : "slack",
+    ...(channel.showToolStatus !== undefined
+      ? { showToolStatus: channel.showToolStatus }
+      : {}),
+    ...(channel.replyContinuation !== undefined
+      ? { replyContinuation: channel.replyContinuation }
+      : {}),
     runtimeInstanceId,
   };
 }

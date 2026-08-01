@@ -8,6 +8,12 @@ vocabulary, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to the WhatsApp Cloud API.
 
+The adapter keeps its own WhatsApp Cloud API credentials (`accessToken` /
+`phoneNumberId` / …) — but the Channel itself only runs inside a CopilotKit
+Intelligence-configured `CopilotRuntime` (an API key; a free tier is
+available). There is no standalone / DIY runner and no `channel.start()`; the
+runtime starts and owns the channel because Intelligence is configured.
+
 ## Install
 
 ```sh
@@ -22,8 +28,11 @@ import {
   whatsapp,
   defaultWhatsAppContext,
 } from "@copilotkit/channels-whatsapp";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
+  name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     whatsapp({
       accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
@@ -43,7 +52,21 @@ bot.onMessage(async ({ thread }) => {
   await thread.runAgent();
 });
 
-await bot.start();
+// The runtime owns the channel's lifecycle — there is no `bot.start()`.
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    // apiUrl and wsUrl default to the managed Intelligence platform — override
+    // both together only for a self-hosted deployment.
+    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+  }),
+  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
+  channels: [bot],
+});
+
+// Creating the listener starts the Channel's connection.
+const listener = createCopilotNodeListener({ runtime });
+// Optional: await that activation so a broken config fails startup loudly.
+await listener.channels.ready(); // listener.channels.stop() tears it down
 console.log("[whatsapp-bot] listening for webhooks");
 ```
 

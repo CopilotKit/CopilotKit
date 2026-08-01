@@ -1,5 +1,8 @@
 {
   "title": "Deploy",
+  "frontend": {
+    "kind": "universal"
+  },
   "pages": [
     "agentcore"
   ]

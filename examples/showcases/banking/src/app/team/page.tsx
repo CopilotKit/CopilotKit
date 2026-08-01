@@ -46,9 +46,29 @@ export default function Team() {
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") as TeamPageOperations | null;
 
+  // What the Team page ACTUALLY renders, labelled as the UI labels it. The old
+  // readable here ("the available users of the system") described the DATA, so
+  // "what's on my screen?" on this route answered from a bare user list with no
+  // idea what page it was on or what was displayed. Mirrors the Cards and
+  // Charges pages so screen-awareness is truthful on every route.
   useAgentContext({
-    description: "The available users of the system.",
-    value: JSON.stringify(team),
+    description:
+      "The Team Management page the user is currently viewing, exactly as " +
+      "rendered: the heading, the primary action, and one card per teammate " +
+      "showing their name, email, role and team. Use this to answer questions " +
+      "about what is on screen here.",
+    value: JSON.stringify({
+      page: "team",
+      heading: "Team Management",
+      subheading: "Invite teammates and manage roles & departments.",
+      primaryAction: "Invite Team Member",
+      visibleMembers: team.map((member) => ({
+        name: member.name,
+        email: member.email,
+        role: member.role,
+        team: member.team,
+      })),
+    }),
   });
 
   useHumanInTheLoop({

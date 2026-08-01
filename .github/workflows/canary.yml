@@ -30,13 +30,20 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "Package scope to publish a canary for. Regenerated from release.config.json — do NOT hand-edit (the release-scope-dropdown-sync CI guard enforces parity)."
+        description: "Package scope to publish a canary for, or 'all' when the change spans scopes (e.g. runtime↔channels). Regenerated from release.config.json — do NOT hand-edit (the release-scope-dropdown-sync CI guard enforces parity)."
         required: true
         type: choice
         options:
           - monorepo
           - angular
           - channels
+          # Sentinel, not a scope (see ALL_SCOPES in scripts/release/lib/config.ts):
+          # publishes every scope from this commit under one shared canary id.
+          # Required whenever the change spans scopes, because cross-scope
+          # `workspace:` deps (e.g. @copilotkit/runtime -> @copilotkit/channels-intelligence)
+          # are packed against whatever is in the tree — a single-scope canary
+          # pins them to the other scope's last STABLE release.
+          - all
       suffix:
         description: "Prerelease suffix (e.g. 'fix-user-issue'); blank = unix timestamp. Allowed: [a-zA-Z0-9._-]+. Reuse a suffix only if the base version moved, else the publish collides."
         required: false
@@ -218,7 +225,9 @@ jobs:
           RUN_ID=""
           ERR=$(mktemp)
           for i in $(seq 1 30); do
-            sleep 6
+            # Poll BEFORE sleeping: Actions has usually indexed the run by the
+            # time the dispatch call returns, so sleeping first paid a guaranteed
+            # 6s on every canary. Same 30-attempt / 3-min tolerance.
             RUN_ID=$(gh run list \
               --repo "$GITHUB_REPOSITORY" \
               --workflow=publish-release.yml \
@@ -234,6 +243,7 @@ jobs:
             if [ -n "$RUN_ID" ]; then
               break
             fi
+            sleep 6
           done
           if [ -z "$RUN_ID" ]; then
             echo "::error::Dispatched publish-release run never appeared on ${BRANCH}. Leaving the ref in place for debugging; delete it manually once resolved."
