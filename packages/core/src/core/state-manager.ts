@@ -8,7 +8,7 @@ import type {
   MessagesSnapshotEvent,
   TextMessageStartEvent,
 } from "@ag-ui/client";
-import { randomUUID } from "@ag-ui/client";
+import { randomUUID, structuredClone_ } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
 
 /**
@@ -172,7 +172,7 @@ export class StateManager {
       unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
-    this.clearAgentState(agentId);
+    this.rawEventByMessage.delete(agentId);
   }
 
   /**
@@ -209,7 +209,11 @@ export class StateManager {
     threadId: string,
     messageId: string,
   ): unknown {
-    return this.rawEventByMessage.get(agentId)?.get(threadId)?.get(messageId);
+    const rawEvent = this.rawEventByMessage
+      .get(agentId)
+      ?.get(threadId)
+      ?.get(messageId);
+    return rawEvent === undefined ? undefined : structuredClone_(rawEvent);
   }
 
   /**
@@ -326,7 +330,7 @@ export class StateManager {
     agent: AbstractAgent,
     event: MessagesSnapshotEvent,
     input: RunAgentInput,
-    _messages: readonly Message[],
+    messages: readonly Message[],
   ): void {
     if (!agent.agentId) return;
 

@@ -528,10 +528,6 @@ export class CopilotKitCore {
         this.previousAgentIds = currentAgentIds;
       },
     });
-
-    Object.values(agents__unsafe_dev_only).forEach((agent) => {
-      if (agent.agentId) this.stateManager.subscribeToAgent(agent);
-    });
   }
 
   /**
