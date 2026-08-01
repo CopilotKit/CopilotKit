@@ -6,6 +6,7 @@ import type {
   StateSnapshotEvent,
   StateDeltaEvent,
   MessagesSnapshotEvent,
+  TextMessageStartEvent,
 } from "@ag-ui/client";
 import { randomUUID } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
@@ -20,6 +21,10 @@ export class StateManager {
 
   // Message tracking: agentId -> threadId -> messageId -> runId
   private messageToRun: Map<string, Map<string, Map<string, string>>> =
+    new Map();
+
+  // Direct text-start metadata: agentId -> threadId -> messageId -> rawEvent
+  private rawEventByMessage: Map<string, Map<string, Map<string, unknown>>> =
     new Map();
 
   // Active run tracking: `agentId:threadId` -> runId (used when messages arrive without input)
@@ -117,6 +122,10 @@ export class StateManager {
         if (revoked) return;
         this.handleStateDelta(agent, event, effectiveInput(input), state);
       },
+      onTextMessageStartEvent: ({ event, input }) => {
+        if (revoked) return;
+        this.handleTextMessageStart(agent, event, effectiveInput(input));
+      },
       onMessagesSnapshotEvent: ({ event, input, messages }) => {
         if (revoked) return;
         this.handleMessagesSnapshot(
@@ -124,6 +133,12 @@ export class StateManager {
           event,
           effectiveInput(input),
           messages,
+        );
+        this.pruneRawEvents(
+          agent.agentId!,
+          input.threadId,
+          event.messages,
+          effectiveInput(input),
         );
       },
       onNewMessage: ({ message, input }) => {
@@ -133,6 +148,12 @@ export class StateManager {
           message,
           input ? effectiveInput(input) : undefined,
         );
+      },
+      onMessagesChanged: ({ messages, input }) => {
+        if (revoked) return;
+        if (!input) {
+          this.pruneRawEvents(agent.agentId!, agent.threadId, messages);
+        }
       },
     });
 
@@ -151,6 +172,7 @@ export class StateManager {
       unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
+    this.clearAgentState(agentId);
   }
 
   /**
@@ -177,6 +199,17 @@ export class StateManager {
     messageId: string,
   ): string | undefined {
     return this.messageToRun.get(agentId)?.get(threadId)?.get(messageId);
+  }
+
+  /**
+   * Get direct text-start metadata associated with a message.
+   */
+  getRawEventForMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): unknown {
+    return this.rawEventByMessage.get(agentId)?.get(threadId)?.get(messageId);
   }
 
   /**
@@ -266,13 +299,34 @@ export class StateManager {
   }
 
   /**
+   * Capture only defined metadata from a normalized direct text-start event.
+   */
+  private handleTextMessageStart(
+    agent: AbstractAgent,
+    event: TextMessageStartEvent,
+    input: RunAgentInput,
+  ): void {
+    if (!agent.agentId || event.rawEvent === undefined) return;
+
+    const { threadId } = input;
+    if (!this.rawEventByMessage.has(agent.agentId)) {
+      this.rawEventByMessage.set(agent.agentId, new Map());
+    }
+    const agentEvents = this.rawEventByMessage.get(agent.agentId)!;
+    if (!agentEvents.has(threadId)) {
+      agentEvents.set(threadId, new Map());
+    }
+    agentEvents.get(threadId)!.set(event.messageId, event.rawEvent);
+  }
+
+  /**
    * Handle messages snapshot event
    */
   private handleMessagesSnapshot(
     agent: AbstractAgent,
     event: MessagesSnapshotEvent,
     input: RunAgentInput,
-    messages: readonly Message[],
+    _messages: readonly Message[],
   ): void {
     if (!agent.agentId) return;
 
@@ -361,12 +415,37 @@ export class StateManager {
     threadMessages.set(messageId, runId);
   }
 
+  private pruneRawEvents(
+    agentId: string,
+    fallbackThreadId: string | undefined,
+    messages: ReadonlyArray<Readonly<Message>>,
+    input?: RunAgentInput,
+  ): void {
+    const threadId = input?.threadId ?? fallbackThreadId;
+    if (!threadId) return;
+
+    const threadEvents = this.rawEventByMessage.get(agentId)?.get(threadId);
+    if (!threadEvents) return;
+
+    const messageIds = new Set(messages.map((message) => message.id));
+    for (const messageId of threadEvents.keys()) {
+      if (!messageIds.has(messageId)) threadEvents.delete(messageId);
+    }
+    if (threadEvents.size === 0) {
+      this.rawEventByMessage.get(agentId)?.delete(threadId);
+    }
+    if (this.rawEventByMessage.get(agentId)?.size === 0) {
+      this.rawEventByMessage.delete(agentId);
+    }
+  }
+
   /**
    * Clear all state for an agent
    */
   clearAgentState(agentId: string): void {
     this.stateByRun.delete(agentId);
     this.messageToRun.delete(agentId);
+    this.rawEventByMessage.delete(agentId);
   }
 
   /**
@@ -375,5 +454,6 @@ export class StateManager {
   clearThreadState(agentId: string, threadId: string): void {
     this.stateByRun.get(agentId)?.delete(threadId);
     this.messageToRun.get(agentId)?.delete(threadId);
+    this.rawEventByMessage.get(agentId)?.delete(threadId);
   }
 }

@@ -97,6 +97,27 @@ export function HeadlessChat() {
 />
 ```
 
+### Feedback event metadata
+
+Pass thumbs callbacks through the `assistantMessage` slot when a live direct
+AG-UI text-start event's metadata is needed:
+
+```tsx
+<CopilotChatMessageView
+  messages={agent.messages}
+  assistantMessage={{
+    onThumbsUp: (message) => {
+      console.log(message.rawEvent);
+    },
+  }}
+/>
+```
+
+The callback receives the same assistant message ID and a callback-only
+`rawEvent` value when the message came from a direct `TEXT_MESSAGE_START`.
+Canonical messages and future run input remain protocol-clean. Chunk and
+snapshot metadata aren't attributed to feedback messages.
+
 ## Common Mistakes
 
 ### CRITICAL — Importing `CopilotPanel`

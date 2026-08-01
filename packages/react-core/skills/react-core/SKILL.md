@@ -106,3 +106,12 @@ your task — do not try to absorb the whole package from this file.
 3. `agent-access` — talk to agents.
 4. `client-side-tools` + `rendering-tool-calls` — add tool-call UI.
 5. Anything else as your feature requires.
+
+## Feedback metadata
+
+React v2 thumbs callbacks receive `CopilotChatFeedbackMessage`. For a live
+assistant message created by a direct AG-UI `TEXT_MESSAGE_START` event, the
+callback argument can include that event's opaque `rawEvent` value. The value
+is joined at click time and stays out of canonical messages, rendering props,
+and future run input. Chunk, snapshot, persisted, and legacy message paths do
+not provide this metadata.

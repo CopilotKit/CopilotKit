@@ -11,6 +11,7 @@ import { ScrollElementContext } from "./scroll-element-context";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
+import type { CopilotChatFeedbackMessage } from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
 import type {
@@ -465,6 +466,40 @@ export function CopilotChatMessageView({
       () => resolveSlotComponent(assistantMessage, CopilotChatAssistantMessage),
       [assistantMessage],
     );
+  const assistantSlotPropsWithFeedback = useMemo(() => {
+    const onThumbsUp = assistantSlotProps?.onThumbsUp as
+      | ((message: CopilotChatFeedbackMessage) => void)
+      | undefined;
+    const onThumbsDown = assistantSlotProps?.onThumbsDown as
+      | ((message: CopilotChatFeedbackMessage) => void)
+      | undefined;
+    if (!onThumbsUp && !onThumbsDown) return assistantSlotProps;
+
+    const withRawEvent = (
+      message: AssistantMessage,
+    ): CopilotChatFeedbackMessage => {
+      const rawEvent = config
+        ? copilotkit.getRawEventForMessage(
+            config.agentId,
+            config.threadId,
+            message.id,
+          )
+        : undefined;
+      return rawEvent === undefined ? message : { ...message, rawEvent };
+    };
+
+    return {
+      ...assistantSlotProps,
+      ...(onThumbsUp && {
+        onThumbsUp: (message: AssistantMessage) =>
+          onThumbsUp(withRawEvent(message)),
+      }),
+      ...(onThumbsDown && {
+        onThumbsDown: (message: AssistantMessage) =>
+          onThumbsDown(withRawEvent(message)),
+      }),
+    };
+  }, [assistantSlotProps, config, copilotkit]);
   const { Component: UserComponent, slotProps: userSlotProps } = useMemo(
     () => resolveSlotComponent(userMessage, CopilotChatUserMessage),
     [userMessage],
@@ -578,7 +613,7 @@ export function CopilotChatMessageView({
           messages={messages}
           isRunning={isRunning}
           AssistantMessageComponent={AssistantComponent}
-          slotProps={assistantSlotProps}
+          slotProps={assistantSlotPropsWithFeedback}
         />,
       );
     } else if (message.role === "user") {

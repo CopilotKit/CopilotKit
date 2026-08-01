@@ -26,6 +26,10 @@ import { Streamdown } from "streamdown";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
 
+export type CopilotChatFeedbackMessage = AssistantMessage & {
+  rawEvent?: unknown;
+};
+
 export type CopilotChatAssistantMessageProps = WithSlots<
   {
     markdownRenderer: typeof CopilotChatAssistantMessage.MarkdownRenderer;
@@ -38,8 +42,8 @@ export type CopilotChatAssistantMessageProps = WithSlots<
     toolCallsView: typeof CopilotChatToolCallsView;
   },
   {
-    onThumbsUp?: (message: AssistantMessage) => void;
-    onThumbsDown?: (message: AssistantMessage) => void;
+    onThumbsUp?: (message: CopilotChatFeedbackMessage) => void;
+    onThumbsDown?: (message: CopilotChatFeedbackMessage) => void;
     onReadAloud?: (message: AssistantMessage) => void;
     onRegenerate?: (message: AssistantMessage) => void;
     message: AssistantMessage;

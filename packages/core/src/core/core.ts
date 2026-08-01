@@ -528,6 +528,10 @@ export class CopilotKitCore {
         this.previousAgentIds = currentAgentIds;
       },
     });
+
+    Object.values(agents__unsafe_dev_only).forEach((agent) => {
+      if (agent.agentId) this.stateManager.subscribeToAgent(agent);
+    });
   }
 
   /**
@@ -1325,6 +1329,18 @@ export class CopilotKitCore {
     messageId: string,
   ): string | undefined {
     return this.stateManager.getRunIdForMessage(agentId, threadId, messageId);
+  }
+
+  getRawEventForMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): unknown {
+    return this.stateManager.getRawEventForMessage(
+      agentId,
+      threadId,
+      messageId,
+    );
   }
 
   getRunIdsForThread(agentId: string, threadId: string): string[] {
