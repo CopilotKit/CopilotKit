@@ -23,7 +23,6 @@ export interface CopilotKitCoreContinuationHandoff {
 }
 
 interface PendingContinuation extends CopilotKitCoreContinuationHandoff {
-  expectedRunId?: string;
   expectedInput?: object;
   active: boolean;
 }
@@ -64,7 +63,7 @@ export class StateManager {
 
   markNextRunAsContinuation(
     agent: AbstractAgent,
-    expectedRunId?: string,
+    _expectedRunId?: string,
   ): CopilotKitCoreContinuationHandoff {
     let pendingForAgent = this.pendingContinuations.get(agent);
     if (!pendingForAgent) {
@@ -73,7 +72,6 @@ export class StateManager {
     }
 
     const pending: PendingContinuation = {
-      expectedRunId,
       active: true,
       bind: (input) => {
         if (pending.active) pending.expectedInput = input;
@@ -137,11 +135,7 @@ export class StateManager {
         if (revoked) return;
         const pendingForAgent = this.pendingContinuations.get(agent);
         const internalContinuation = [...(pendingForAgent ?? [])].find(
-          (pending) =>
-            pending.expectedInput === input ||
-            (pending.expectedInput === undefined &&
-              (pending.expectedRunId === undefined ||
-                pending.expectedRunId === input.runId)),
+          (pending) => pending.expectedInput === input,
         );
         internalContinuation?.cancel();
         if (

@@ -454,41 +454,6 @@ describe("StateManager - Multiple Runs", () => {
     ]);
   });
 
-  it("should preserve the supplied ID for an internal frontend follow-up", async () => {
-    const runId = "internal-follow-up-run";
-    const message = {
-      id: "internal-follow-up-message",
-      role: "assistant" as const,
-      content: "completed",
-    };
-
-    await agent.emitRunStarted(runId, { step: "paused" });
-    await agent.emitRunFinished(runId, { step: "paused" });
-    (
-      copilotKitCore as unknown as {
-        stateManager: {
-          markNextRunAsContinuation: (
-            agent: EventEmittingMockAgent,
-            expectedRunId?: string,
-          ) => { cancel(): void; bind(input: object): void };
-        };
-      }
-    ).stateManager.markNextRunAsContinuation(agent, runId);
-    await agent.emitRunStarted(runId, { step: "continued" });
-    await agent.emitNewMessage(runId, message);
-    await agent.emitRunFinished(runId, { step: "completed" });
-
-    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toEqual({
-      step: "completed",
-    });
-    expect(
-      copilotKitCore.getRunIdForMessage("agent1", "thread1", message.id),
-    ).toBe(runId);
-    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
-      runId,
-    ]);
-  });
-
   it("binds an internal handoff to the AbstractAgent lifecycle input", async () => {
     const runId = "abstract-agent-follow-up-run";
     await copilotKitCore.runAgent({ agent: agent as any, runId });
@@ -503,11 +468,55 @@ describe("StateManager - Multiple Runs", () => {
       }
     ).stateManager.markNextRunAsContinuation(agent, runId);
 
-    await copilotKitCore.runAgent({ agent: agent as any, runId });
+    await (
+      copilotKitCore as unknown as {
+        runHandler: {
+          runAgent(
+            params: { agent: EventEmittingMockAgent; runId: string },
+            handoff: { cancel(): void; bind(input: object): void },
+          ): Promise<unknown>;
+        };
+      }
+    ).runHandler.runAgent({ agent, runId }, handoff);
 
     expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
       runId,
     ]);
+    handoff.cancel();
+  });
+
+  it("does not consume an unbound handoff during detach", async () => {
+    const runId = "detach-interleaving-run";
+    await copilotKitCore.runAgent({ agent: agent as any, runId });
+
+    const handoff = (
+      copilotKitCore as unknown as {
+        stateManager: {
+          markNextRunAsContinuation: (
+            agent: EventEmittingMockAgent,
+            expectedRunId?: string,
+          ) => { cancel(): void; bind(input: object): void };
+        };
+      }
+    ).stateManager.markNextRunAsContinuation(agent, runId);
+    let releaseDetach!: () => void;
+    agent.detachActiveRun = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseDetach = resolve;
+        }),
+    );
+
+    const followUp = copilotKitCore.runAgent({ agent: agent as any, runId });
+    await Promise.resolve();
+    await agent.emitRunStarted(runId, { step: "interleaved" });
+    await agent.emitRunFinished(runId, { step: "interleaved" });
+    releaseDetach();
+    await followUp;
+
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toHaveLength(
+      2,
+    );
     handoff.cancel();
   });
 
