@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { CopilotKitCore } from "../core";
-import { FrontendTool } from "../types";
+import type { FrontendTool } from "../types";
 import {
   MockAgent,
   createAssistantMessage,
@@ -51,6 +51,43 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
 
     expect(agent.runAgentCalls).toHaveLength(2);
     expect(result.newMessages).toContain(followUpMessage);
+  });
+
+  it("should preserve the originating run ID through a frontend follow-up", async () => {
+    const tool = createTool({
+      name: "runIdTool",
+      handler: vi.fn(async () => "Result"),
+      followUp: true,
+    });
+    copilotKitCore.addTool(tool);
+
+    const agent = new MockAgent({
+      newMessages: [createToolCallMessage("runIdTool")],
+    });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+    agent.runAgentCallback = (input) => {
+      if (agent.runAgentCalls.length === 2) {
+        agent.setNewMessages([createAssistantMessage({ content: "Done" })]);
+        expect(input.forwardedProps).toMatchObject({
+          __copilotkit_follow_up: true,
+        });
+      }
+      expect(input.runId).toBe("logical-hitl-run");
+    };
+
+    await copilotKitCore.runAgent({
+      agent: agent as any,
+      runId: "logical-hitl-run",
+    });
+
+    expect(agent.runAgentCalls).toHaveLength(2);
+    expect(agent.runAgentCalls.map((input) => input.runId)).toEqual([
+      "logical-hitl-run",
+      "logical-hitl-run",
+    ]);
   });
 
   it("should not trigger recursive call when tool.followUp is false", async () => {

@@ -14,6 +14,8 @@ import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 
+const COPILOTKIT_FOLLOW_UP_MARKER = "__copilotkit_follow_up";
+
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
   forwardedProps?: Record<string, unknown>;
@@ -490,6 +492,13 @@ export class RunHandler {
     this._runDepth++;
 
     try {
+      let logicalRunId = runId;
+      const agentSubscriber = this.createAgentErrorSubscriber(agent);
+      const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
+      agentSubscriber.onRunStartedEvent = async (params) => {
+        logicalRunId = params.input.runId;
+        return onRunStartedEvent?.(params);
+      };
       const runAgentResult = await agent.runAgent(
         {
           forwardedProps: {
@@ -501,9 +510,13 @@ export class RunHandler {
           tools: this.buildFrontendTools(agent.agentId),
           context: this._internal.getContextForAgent(agent.agentId),
         },
-        this.createAgentErrorSubscriber(agent),
+        agentSubscriber,
       );
-      return await this.processAgentResult({ runAgentResult, agent });
+      return await this.processAgentResult({
+        runAgentResult,
+        agent,
+        runId: logicalRunId,
+      });
     } catch (error) {
       const runError =
         error instanceof Error ? error : new Error(String(error));
@@ -533,10 +546,12 @@ export class RunHandler {
   private async processAgentResult({
     runAgentResult,
     agent,
+    runId,
     executeFrontendTools = true,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
+    runId?: string;
     executeFrontendTools?: boolean;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
@@ -645,7 +660,11 @@ export class RunHandler {
         // complete and write fresh values into the context store before runAgent
         // reads it. The base implementation is a no-op; React overrides this.
         await this._internal.waitForPendingFrameworkUpdates();
-        return await this.runAgent({ agent });
+        return await this.runAgent({
+          agent,
+          forwardedProps: { [COPILOTKIT_FOLLOW_UP_MARKER]: true },
+          ...(runId !== undefined ? { runId } : {}),
+        });
       }
     }
 

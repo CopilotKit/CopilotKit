@@ -29,7 +29,12 @@ class EventEmittingMockAgent extends AbstractAgent {
   }
 
   // Helper to emit run started event
-  public async emitRunStarted(runId: string, state: State = {}) {
+  public async emitRunStarted(
+    runId: string,
+    state: State = {},
+    resume?: RunAgentInput["resume"],
+    forwardedProps?: RunAgentInput["forwardedProps"],
+  ) {
     this.state = state;
     for (const sub of this.testSubscribers) {
       if (sub.onRunStartedEvent) {
@@ -42,14 +47,18 @@ class EventEmittingMockAgent extends AbstractAgent {
           messages: this.messages,
           state: this.state,
           agent: this,
-          input: this.createRunInput(runId),
+          input: this.createRunInput(runId, resume, forwardedProps),
         });
       }
     }
   }
 
   // Helper to emit run finished event
-  public async emitRunFinished(runId: string, state: State = {}) {
+  public async emitRunFinished(
+    runId: string,
+    state: State = {},
+    resume?: RunAgentInput["resume"],
+  ) {
     this.state = state;
     for (const sub of this.testSubscribers) {
       if (sub.onRunFinishedEvent) {
@@ -62,7 +71,7 @@ class EventEmittingMockAgent extends AbstractAgent {
           messages: this.messages,
           state: this.state,
           agent: this,
-          input: this.createRunInput(runId),
+          input: this.createRunInput(runId, resume),
         });
       }
     }
@@ -183,7 +192,11 @@ class EventEmittingMockAgent extends AbstractAgent {
     };
   }
 
-  private createRunInput(runId: string): RunAgentInput {
+  private createRunInput(
+    runId: string,
+    resume?: RunAgentInput["resume"],
+    forwardedProps?: RunAgentInput["forwardedProps"],
+  ): RunAgentInput {
     return {
       threadId: this.threadId,
       runId,
@@ -191,6 +204,8 @@ class EventEmittingMockAgent extends AbstractAgent {
       messages: this.messages,
       tools: [],
       context: [],
+      ...(resume !== undefined ? { resume } : {}),
+      ...(forwardedProps !== undefined ? { forwardedProps } : {}),
     };
   }
 }
@@ -338,6 +353,124 @@ describe("StateManager - Multiple Runs", () => {
     expect(copilotKitCore.getStateByRun("agent1", "thread1", "run3")).toEqual(
       run3State,
     );
+  });
+
+  it("should preserve the supplied ID for an explicit resume continuation", async () => {
+    const runId = "hitl-run";
+    const resume = [
+      { interruptId: "interrupt-1", status: "resolved" as const, payload: {} },
+    ];
+
+    await agent.emitRunStarted(runId, { step: "paused" });
+    await agent.emitRunFinished(runId, { step: "paused" });
+    await agent.emitRunStarted(runId, { step: "resumed" }, resume);
+    await agent.emitRunFinished(runId, { step: "completed" }, resume);
+
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toEqual({
+      step: "completed",
+    });
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      runId,
+    ]);
+  });
+
+  it("should preserve the supplied ID for a legacy resume continuation", async () => {
+    const runId = "legacy-hitl-run";
+    const forwardedProps = {
+      command: { resume: { approved: true } },
+    };
+
+    await agent.emitRunStarted(runId, { step: "paused" });
+    await agent.emitRunFinished(runId, { step: "paused" });
+    await agent.emitRunStarted(
+      runId,
+      { step: "resumed" },
+      undefined,
+      forwardedProps,
+    );
+    await agent.emitRunFinished(runId, { step: "completed" });
+
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toEqual({
+      step: "completed",
+    });
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      runId,
+    ]);
+  });
+
+  it("should preserve the supplied ID for a legacy resume with no payload", async () => {
+    const runId = "legacy-empty-resume-run";
+    const forwardedProps = { command: { resume: undefined } };
+
+    await agent.emitRunStarted(runId, { step: "paused" });
+    await agent.emitRunFinished(runId, { step: "paused" });
+    await agent.emitRunStarted(
+      runId,
+      { step: "resumed" },
+      undefined,
+      forwardedProps,
+    );
+    await agent.emitRunFinished(runId, { step: "completed" });
+
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toEqual({
+      step: "completed",
+    });
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      runId,
+    ]);
+  });
+
+  it("should preserve the supplied ID for an internal frontend follow-up", async () => {
+    const runId = "internal-follow-up-run";
+    const forwardedProps = { __copilotkit_follow_up: true };
+    const message = {
+      id: "internal-follow-up-message",
+      role: "assistant" as const,
+      content: "completed",
+    };
+
+    await agent.emitRunStarted(runId, { step: "paused" });
+    await agent.emitRunFinished(runId, { step: "paused" });
+    await agent.emitRunStarted(
+      runId,
+      { step: "continued" },
+      undefined,
+      forwardedProps,
+    );
+    await agent.emitNewMessage(runId, message);
+    await agent.emitRunFinished(runId, { step: "completed" });
+
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toEqual({
+      step: "completed",
+    });
+    expect(
+      copilotKitCore.getRunIdForMessage("agent1", "thread1", message.id),
+    ).toBe(runId);
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      runId,
+    ]);
+  });
+
+  it("should isolate an ordinary same-ID run after a finished run", async () => {
+    const runId = "reused-run";
+
+    await agent.emitRunStarted(runId, { step: "first" });
+    await agent.emitRunFinished(runId, { step: "first" });
+    await agent.emitRunStarted(runId, { step: "second" });
+    await agent.emitRunFinished(runId, { step: "second" });
+
+    const runIds = copilotKitCore.getRunIdsForThread("agent1", "thread1");
+    const isolatedRunId = runIds.find((candidate) => candidate !== runId);
+
+    expect(runIds).toHaveLength(2);
+    expect(runIds).toContain(runId);
+    expect(isolatedRunId).toBeDefined();
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", isolatedRunId!),
+    ).toEqual({ step: "second" });
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toEqual({
+      step: "first",
+    });
   });
 
   it("should list all run IDs for a thread", async () => {
