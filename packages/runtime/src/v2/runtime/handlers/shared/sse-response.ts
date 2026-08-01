@@ -6,7 +6,10 @@ import { createLogger } from "../../../../lib/logger";
 import type { CopilotRuntimeLogger } from "../../../../lib/logger";
 import { telemetry } from "../../telemetry";
 import type { DebugEventBus } from "../../core/debug-event-bus";
-import type { RuntimeErrorReporter } from "../../core/runtime-error-reporter";
+import type {
+  RuntimeErrorPhase,
+  RuntimeErrorReporter,
+} from "../../core/runtime-error-reporter";
 
 interface CreateSseEventResponseParams {
   request: Request;
@@ -80,7 +83,7 @@ export function createSseEventResponse({
   let subscription: Subscription | undefined;
   let agentErrorReported = false;
 
-  const reportAgentError = (error: unknown, phase: string) => {
+  const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
     if (agentErrorReported) return;
     agentErrorReported = true;
     runtimeErrorReporter?.report({
@@ -116,6 +119,24 @@ export function createSseEventResponse({
           const e = event as { threadId?: string; runId?: string };
           debugThreadId = e.threadId ?? "";
           debugRunId = e.runId ?? "";
+        }
+
+        if (event.type === "RUN_ERROR") {
+          const e = event as {
+            message?: unknown;
+            threadId?: string;
+            runId?: string;
+          };
+          debugThreadId = e.threadId ?? debugThreadId;
+          debugRunId = e.runId ?? debugRunId;
+          reportAgentError(
+            new Error(
+              typeof e.message === "string"
+                ? e.message
+                : "Runner reported a run error",
+            ),
+            "sse.subscription",
+          );
         }
 
         // Broadcast to debug listeners BEFORE the stream-closed gate below.

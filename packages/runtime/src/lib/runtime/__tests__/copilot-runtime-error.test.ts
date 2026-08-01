@@ -243,9 +243,10 @@ describe("CopilotRuntime onError types", () => {
   it("preserves the response when the rejecting runtime error handler runs", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
+      const onError = vi.fn().mockRejectedValue(new Error("callback failed"));
       const runtime = new CopilotRuntime({
         agents: Promise.reject(new Error("agent lookup failed")),
-        onError: vi.fn().mockRejectedValue(new Error("callback failed")),
+        onError,
       });
       const handler = createCopilotRuntimeHandler({
         runtime: runtime.instance,
@@ -263,6 +264,13 @@ describe("CopilotRuntime onError types", () => {
         error: "Failed to run agent",
         message: "agent lookup failed",
       });
+      expect(onError).toHaveBeenCalledOnce();
+      await vi.waitFor(() =>
+        expect(errorSpy).toHaveBeenCalledWith(
+          "CopilotRuntime onError reporting failed:",
+          expect.any(Error),
+        ),
+      );
     } finally {
       errorSpy.mockRestore();
     }

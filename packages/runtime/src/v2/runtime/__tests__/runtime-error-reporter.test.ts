@@ -82,6 +82,30 @@ describe("runtime error reporter", () => {
     }
   });
 
+  it("contains malformed request event construction", () => {
+    const handler = vi.fn();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      createRuntimeErrorReporter(handler).report({
+        request: {
+          method: "POST",
+          url: "not-a-url",
+          headers: { entries: () => [] },
+        } as unknown as Request,
+        error: new Error("agent failed"),
+        operation: "agent.run",
+      });
+
+      expect(handler).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledWith(
+        "CopilotRuntime onError reporting failed:",
+        expect.any(TypeError),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("keeps reporter state isolated per runtime instance", () => {
     const first = {};
     const second = {};

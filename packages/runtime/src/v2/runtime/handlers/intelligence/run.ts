@@ -14,6 +14,7 @@ import { isHandlerResponse } from "../shared/json-response";
 import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
 import type { Observable } from "rxjs";
 import { getRuntimeErrorReporter } from "../../core/runtime-error-reporter";
+import type { RuntimeErrorPhase } from "../../core/runtime-error-reporter";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -243,7 +244,7 @@ export async function handleIntelligenceRun({
 
   const runtimeErrorReporter = getRuntimeErrorReporter(runtime);
   let agentErrorReported = false;
-  const reportAgentError = (error: unknown, phase: string) => {
+  const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
     if (agentErrorReported) return;
     agentErrorReported = true;
     runtimeErrorReporter?.report({
@@ -271,18 +272,22 @@ export async function handleIntelligenceRun({
         if (event.type === EventType.RUN_STARTED) {
           runStarted.current = true;
         }
-        if (event.type === EventType.RUN_ERROR && !runStarted.current) {
-          const error =
-            "message" in event && typeof event.message === "string"
-              ? new Error(event.message)
-              : new Error("Runner failed before the run started");
-          reportAgentError(error, "intelligence.startup");
-          clearHeartbeat();
-          immediateStartupErrorMessage =
+        if (event.type === EventType.RUN_ERROR) {
+          const message =
             "message" in event && typeof event.message === "string"
               ? event.message
               : "Runner failed before the run started";
-          immediateStartupCleanup = cleanupLock("runner-start-failed");
+          reportAgentError(
+            new Error(message),
+            runStarted.current
+              ? "intelligence.subscription"
+              : "intelligence.startup",
+          );
+          if (!runStarted.current) {
+            clearHeartbeat();
+            immediateStartupErrorMessage = message;
+            immediateStartupCleanup = cleanupLock("runner-start-failed");
+          }
         }
       },
       error: (error) => {

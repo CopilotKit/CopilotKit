@@ -149,6 +149,29 @@ describe("sse-response.ts — telemetry lifecycle", () => {
     );
   });
 
+  it("reports a RUN_ERROR event as an SSE subscription failure", async () => {
+    const onError = vi.fn();
+    const failing = new Observable<BaseEvent>((subscriber) => {
+      subscriber.next({
+        type: "RUN_ERROR",
+        message: "run event failed",
+      } as BaseEvent);
+      subscriber.complete();
+    });
+    const response = createSseEventResponse({
+      request: makeRequest(),
+      observableFactory: () => failing,
+      runtimeErrorReporter: createRuntimeErrorReporter(onError),
+    });
+
+    expect(response.status).toBe(200);
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
+    expect(onError.mock.calls[0][0]).toMatchObject({
+      error: new Error("run event failed"),
+      context: { metadata: { phase: "sse.subscription" } },
+    });
+  });
+
   it("does not report successful completion or request abort", async () => {
     const onError = vi.fn();
     const completed = new Observable<BaseEvent>((subscriber) => {
