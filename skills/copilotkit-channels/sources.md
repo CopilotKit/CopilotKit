@@ -20,7 +20,12 @@ Generated: 2026-08-01
   to the managed platform, and the warning that the two planes are separate hosts.
 - `packages/runtime/src/v2/runtime/core/channel-manager.ts` — `ready()` is one-shot and
   settles on the initial activation outcome.
-- `packages/runtime/src/v2/runtime/endpoints/node.ts` — the lazy-activation contract: the
-  connection opens on `await listener.channels.ready()` and never before, neither at
-  creation nor on mount.
+- `packages/runtime/src/v2/runtime/endpoints/node.ts` and `endpoints/express.ts` — these
+  lifecycle-owning wrappers START activation at creation; `ready()` there is optional and
+  purely await-and-observe.
+- `packages/runtime/src/v2/runtime/core/fetch-handler.ts` and `endpoints/hono.ts` — these
+  stay LAZY: activation is triggered by the first `ready()` and never before.
+- `packages/runtime/src/v2/runtime/endpoints/auto-start-channels.ts` — why the split exists
+  (an isolate recycles per request, so separate cold starts would mint competing listeners
+  for one Channel) and that `activateChannels: false` is the clean opt-out.
 - `packages/channels-*/README.md` — the self-hosted adapter family, for the scope boundary.

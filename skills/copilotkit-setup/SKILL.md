@@ -454,7 +454,7 @@ See `references/telemetry-setup.md` for what the license key enables and how to 
 
 Channels let an agent answer in Slack or Teams. They require the Intelligence runtime -- `channels` is not available in SSE mode -- and a long-running host, because activation opens a persistent connection.
 
-Use the **copilotkit-channels** skill for this. It covers declaring a Channel, the awaited activation call, and the long-running host requirement, and it builds on the wiring from this step.
+Use the **copilotkit-channels** skill for this. It covers declaring a Channel, the long-running host requirement, and which mounts start activation on their own versus which wait for an explicit `channels.ready()` call. It builds on the wiring from this step.
 
 ### Step 7: Verify the setup
 

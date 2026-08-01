@@ -91,7 +91,7 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-## Step 4: Mount a long-running host and activate
+## Step 4: Mount a long-running host
 
 ```typescript
 import { createServer } from "node:http";
@@ -104,18 +104,31 @@ const listener = createCopilotNodeListener({
 
 createServer(listener).listen(Number(process.env.PORT ?? 8300));
 
-// THIS is what connects the Channel. Mounting the listener opens no connection.
-await listener.channels.ready();
+// Optional on this mount, and worth doing: it turns a failed activation into a
+// startup failure instead of a line in the logs.
+await listener.channels.ready({ timeoutMs: 30_000 });
 ```
 
-**`await listener.channels.ready()` is the whole ballgame.** Channel activation is lazy on every host, including node and express — deliberately, so serverless and edge deployments stay safe. The gateway connection opens on the first awaited ready call and never before. A long-running host that omits it serves HTTP and connects nothing.
+### Whether you must call `ready()` depends on the mount
 
-There is no framework where activation happens implicitly. Whatever the host, the call must be present.
+This is the single most misunderstood thing about Channels. Activation is **not** lazy everywhere.
 
-Two details worth knowing:
+| Mount                                         | Activation                          | Is `ready()` required?   |
+| --------------------------------------------- | ----------------------------------- | ------------------------ |
+| `createCopilotNodeListener`                   | Starts when the listener is created | No — await it to observe |
+| `createCopilotExpressHandler`                 | Starts when the router is created   | No — await it to observe |
+| `createCopilotHonoHandler`                    | Deferred to the first `ready()`     | **Yes**                  |
+| `createCopilotRuntimeHandler` (generic fetch) | Deferred to the first `ready()`     | **Yes**                  |
+| any mount with `activateChannels: false`      | None; no control surface, no socket | Nothing will connect     |
 
-- `ready()` is **one-shot**: it settles on the initial activation outcome, not on later reconnects.
-- Pair it with shutdown so a redeploy releases the connection cleanly:
+The two lifecycle-owning wrappers start on their own because they own their process lifetime — a declared Channel connects because it was declared, and there is no incantation to forget. The fetch and hono handlers defer on purpose: they are the serverless and edge entry points, where an isolate freezes and recycles per request and separate cold starts would mint competing listeners for the same Channel.
+
+So the silent failure — a process that serves HTTP, looks healthy, and answers nothing — happens on a **deferring** mount when nothing ever calls `ready()`. On a node or express host, a missing `ready()` is not that failure.
+
+Two details either way:
+
+- `ready()` is **one-shot** and idempotent. It settles on the initial activation outcome, so awaiting it after an auto-start observes that activation rather than triggering a second one. It can resolve as `setup_required`, which means activation settled — not that delivery is healthy. Treat only `status().overall === "online"` as connected.
+- Pair activation with shutdown so a redeploy releases the connection cleanly:
 
   ```typescript
   process.on("SIGTERM", async () => {
@@ -150,7 +163,7 @@ That compares three things that must agree — the declared configuration, the p
 2. Invite the bot to a channel (`channels status` prints the invite command with the right handle).
 3. Mention the bot. You should get a reply.
 
-If nothing happens and there is no error, check in this order: is `ready()` awaited; is `intelligence` passed (not a `runner`); is the realtime URL correct; is the app installed and invited.
+If nothing happens and there is no error, check in this order: is `activateChannels: false` set anywhere; on a deferring mount, is `ready()` awaited; is `intelligence` passed (not a `runner`); is the realtime URL correct; is the app installed and invited.
 
 Do not report a Channel as working because credentials were stored. A stored adapter proves the credentials are real — the server probed them — and nothing more. It does not prove the app is installed, that a channel was invited, or that a runtime is connected.
 
@@ -158,5 +171,6 @@ Do not report a Channel as working because credentials were stored. A stored ada
 
 - **Do not write provider credentials into the project** for a managed Channel. Intelligence stores them server-side; the runtime never reads them. If the project holds a Slack bot token for a managed Channel, something is wired wrong.
 - **Do not put a Channel on a serverless route handler.** It will appear to deploy and never connect.
+- **Do not assume `ready()` is required, or that it is optional.** Check the mount. Telling someone to add a call they do not need is as unhelpful as omitting one they do.
 - **Do not pass `runner` alongside `intelligence`.** That is what silently keeps threads in memory.
 - **Do not invent Channel infrastructure ids.** Project, adapter, and channel ids are derived from the Intelligence config plus the Channel `name`.
