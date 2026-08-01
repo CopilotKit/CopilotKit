@@ -1,7 +1,12 @@
 import { expect, test, vi } from "vitest";
-import { FakeAgent } from "@copilotkit/channels-core";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { createChannel, FakeAgent } from "@copilotkit/channels-core";
+import { of } from "rxjs";
 import { DeliveryAdapter } from "./delivery-adapter.js";
+import { ChannelDeliveryFileClient } from "./delivery-files.js";
 import { ClaimedChannelDelivery } from "./delivery-transport.js";
+import type { ChannelDeliveryTransport } from "./delivery-transport.js";
 import type { PreparedChannelDelivery } from "./delivery-transport.js";
 import { ChannelDeliveryTranscriptClient } from "./delivery-transcript.js";
 import type { ChannelDeliveryTranscriptError } from "./delivery-transcript.js";
@@ -319,4 +324,202 @@ test("assistant transcript history stays plain while participant metadata stays 
 
   expect(persistedRuns[1]).toHaveLength(0);
   expect(fetch).toHaveBeenCalledOnce();
+});
+
+class CapturingAgent extends AbstractAgent {
+  constructor(private readonly capturedInputs: RunAgentInput[]) {
+    super({ agentId: "capturing" });
+  }
+
+  run(input: RunAgentInput): ReturnType<AbstractAgent["run"]> {
+    this.capturedInputs.push(structuredClone(input));
+    return of(
+      {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as BaseEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as BaseEvent,
+    );
+  }
+
+  override clone(): CapturingAgent {
+    const cloned = new CapturingAgent(this.capturedInputs);
+    cloned.threadId = this.threadId;
+    cloned.agentId = this.agentId;
+    cloned.messages = structuredClone(this.messages);
+    cloned.state = structuredClone(this.state);
+    return cloned;
+  }
+}
+
+test("managed inbound image reaches the agent through transcript-seeded runAgent", async () => {
+  const imageBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const imageBase64 = Buffer.from(imageBytes).toString("base64");
+  const imageHandle = "fileref_transcript_image";
+  const currentTrigger = transcript.messages.find(
+    (message) => message.currentTrigger,
+  )!;
+  const imageTranscript = {
+    ...transcript,
+    messages: transcript.messages.map((message) =>
+      message.currentTrigger
+        ? {
+            ...message,
+            text: "This image",
+            files: [
+              {
+                providerFileId: `managed:${imageHandle}`,
+                name: "image.png",
+                mimeType: "image/png",
+                byteSize: imageBytes.byteLength,
+                availability: "managed" as const,
+                handle: imageHandle,
+              },
+            ],
+          }
+        : message,
+    ),
+  };
+  const fetch = vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith(`/api/channels/files/${imageHandle}`)) {
+      return new Response(imageBytes, {
+        headers: { "content-type": "image/png" },
+      });
+    }
+    if (
+      url.endsWith("/api/channels/deliveries/dlv_transcript_image/transcript")
+    ) {
+      return new Response(JSON.stringify(imageTranscript));
+    }
+    throw new Error(`unexpected URL: ${url}`);
+  });
+  const fileClient = new ChannelDeliveryFileClient({
+    baseUrl: "https://api.example",
+    apiKey: "cpk-runtime",
+    fetch,
+  });
+  const transcriptClient = new ChannelDeliveryTranscriptClient({
+    baseUrl: "https://api.example",
+    apiKey: "cpk-runtime",
+    fetch,
+  });
+  const delivery: PreparedChannelDelivery = {
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_transcript_image",
+    deliveryExpiresAt: "2099-07-30T20:00:00.000Z",
+    canonicalThreadId: "thread_transcript_image",
+    appUserId: "slack:T1:U1",
+    channelId: "channel_transcript_image",
+    channelName: "support",
+    adapter: "slack",
+    turn: {
+      eventId: "evt_transcript_image",
+      receivedAt: "2026-07-30T20:00:00.000Z",
+      input: {
+        kind: "text",
+        text: "This image",
+        files: [
+          {
+            handle: imageHandle,
+            filename: "image.png",
+            mimeType: "image/png",
+            byteSize: imageBytes.byteLength,
+          },
+        ],
+        operation: {
+          kind: "created",
+          logicalMessageId: currentTrigger.logicalMessageId,
+          revisionId: currentTrigger.revisionId,
+          mentioned: true,
+        },
+      },
+      actor: { externalUserId: "U1", kind: "human", displayName: "Ada" },
+    },
+  };
+  const claimed = new ClaimedChannelDelivery(
+    delivery,
+    { ownerGeneration: 1, runtimeInstanceId: "rti_transcript_image" },
+    {
+      joinReply: delivery,
+      push: vi.fn(async (_event: string, packet: Record<string, unknown>) => ({
+        ...packet,
+        phase: "applied",
+        result: {},
+      })),
+      on: vi.fn(),
+      onClose: vi.fn(),
+      leave: vi.fn(),
+    },
+    vi.fn(),
+    fileClient,
+    transcriptClient,
+  );
+  let handleDelivery:
+    | ((
+        claimedDelivery: ClaimedChannelDelivery,
+        preparedDelivery: PreparedChannelDelivery,
+      ) => Promise<void>)
+    | undefined;
+  const transport = {
+    start: vi.fn((handler) => {
+      handleDelivery = handler;
+    }),
+    stop: vi.fn(async () => undefined),
+  } as unknown as ChannelDeliveryTransport;
+  const capturedInputs: RunAgentInput[] = [];
+  const adapter = new DeliveryAdapter({
+    channelName: "support",
+    transport,
+    loadHistory: async () => [],
+    runCanonical: async (args) => args.execute({}),
+  });
+  const channel = createChannel({
+    name: "support",
+    adapters: [adapter],
+    agent: () => new CapturingAgent(capturedInputs),
+  });
+  channel.onMention(async ({ thread, message }) => {
+    await thread.runAgent({
+      prompt: message.contentParts?.length
+        ? message.contentParts
+        : message.text,
+    });
+  });
+
+  await channel.ɵruntime.start();
+  expect(handleDelivery).toBeDefined();
+  await handleDelivery!(claimed, delivery);
+  await channel.ɵruntime.stop();
+
+  expect(capturedInputs).toHaveLength(1);
+  expect(capturedInputs[0]?.messages).toHaveLength(transcript.messages.length);
+  expect(capturedInputs[0]?.messages.at(-1)).toEqual(
+    expect.objectContaining({
+      role: "user",
+      content: [
+        expect.objectContaining({
+          type: "text",
+          text: expect.stringContaining("This image"),
+        }),
+        {
+          type: "image",
+          source: {
+            type: "data",
+            value: imageBase64,
+            mimeType: "image/png",
+          },
+        },
+      ],
+    }),
+  );
+  expect(fetch).toHaveBeenCalledWith(
+    `https://api.example/api/channels/files/${imageHandle}`,
+    expect.objectContaining({ method: "GET" }),
+  );
 });
