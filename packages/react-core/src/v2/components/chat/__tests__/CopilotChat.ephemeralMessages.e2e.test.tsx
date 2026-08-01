@@ -340,6 +340,64 @@ describe("CopilotChat ephemeral messages", () => {
     });
   });
 
+  it("resets virtual scrolling for an ephemeral-only thread", async () => {
+    const ephemeralMessages = Array.from({ length: 51 }, (_, index) => ({
+      id: `ephemeral-only-${index}`,
+      content: `Ephemeral-only ${index}`,
+    }));
+    const fakeScrollElement = document.createElement("div");
+    Object.defineProperty(fakeScrollElement, "clientHeight", {
+      configurable: true,
+      get: () => 600,
+    });
+    fakeScrollElement.getBoundingClientRect = () =>
+      ({
+        height: 600,
+        width: 800,
+        top: 0,
+        left: 0,
+        bottom: 600,
+        right: 800,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    const { rerender, unmount } = renderWithCopilotKit({
+      renderCustomMessages: [ephemeralRenderer],
+      children: (
+        <CopilotChatConfigurationProvider threadId="ephemeral-thread-a">
+          <ScrollElementContext.Provider value={fakeScrollElement}>
+            <CopilotChatMessageView ephemeralMessages={ephemeralMessages} />
+          </ScrollElementContext.Provider>
+        </CopilotChatConfigurationProvider>
+      ),
+    });
+
+    expect(
+      (
+        screen.getByTestId("copilot-message-list")
+          .firstElementChild as HTMLElement
+      ).style.height,
+    ).toBe("4000px");
+    rerender(
+      <CopilotKitProvider renderCustomMessages={[ephemeralRenderer]}>
+        <CopilotChatConfigurationProvider threadId="ephemeral-thread-b">
+          <ScrollElementContext.Provider value={fakeScrollElement}>
+            <CopilotChatMessageView ephemeralMessages={ephemeralMessages} />
+          </ScrollElementContext.Provider>
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+    expect(
+      (
+        screen.getByTestId("copilot-message-list")
+          .firstElementChild as HTMLElement
+      ).style.height,
+    ).toBe("4000px");
+    unmount();
+  });
+
   it("prefers an agent-specific ephemeral renderer over the generic renderer", async () => {
     const agent = new CapturingAgent();
     const genericRenderer = {

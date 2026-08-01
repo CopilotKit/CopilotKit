@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach } from "vitest";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
@@ -95,7 +95,7 @@ describe("CopilotChat welcome / connect integration", () => {
       expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
     });
 
-    it("does not let its view provider override the chat lifecycle scope", async () => {
+    it("lets its provider lifecycle follow a local thread selection", async () => {
       const agent = new TrackingAgent();
       agent.agentId = DEFAULT_AGENT_ID;
 
@@ -119,8 +119,48 @@ describe("CopilotChat welcome / connect integration", () => {
           "view-selected-thread",
         );
       });
-      expect(TrackingAgent.connectCalls).toHaveLength(0);
-      expect(agent.threadId).not.toBe("view-selected-thread");
+      await waitFor(() => {
+        expect(
+          TrackingAgent.connectCalls.some(
+            (call) => call.threadId === "view-selected-thread",
+          ),
+        ).toBe(true);
+      });
+      expect(agent.threadId).toBe("view-selected-thread");
+    });
+  });
+
+  it("runs the chat lifecycle from an outer provider thread switch", async () => {
+    const agent = new TrackingAgent();
+    agent.agentId = DEFAULT_AGENT_ID;
+
+    function ThreadSwitcher() {
+      const config = useCopilotChatConfiguration();
+      return (
+        <button
+          data-testid="switch-outer-thread"
+          onClick={() => config?.setActiveThreadId("provider-selected-thread")}
+        >
+          Switch thread
+        </button>
+      );
+    }
+
+    renderWithKit(
+      <CopilotChatConfigurationProvider>
+        <ThreadSwitcher />
+        <CopilotChat />
+      </CopilotChatConfigurationProvider>,
+      agent,
+    );
+
+    fireEvent.click(screen.getByTestId("switch-outer-thread"));
+    await waitFor(() => {
+      expect(
+        TrackingAgent.connectCalls.some(
+          (call) => call.threadId === "provider-selected-thread",
+        ),
+      ).toBe(true);
     });
   });
 

@@ -91,15 +91,21 @@ export type CopilotChatProps = Omit<
    */
   throttleMs?: number;
 };
+
+type CopilotChatInnerProps = Omit<
+  CopilotChatProps,
+  "agentId" | "threadId" | "labels" | "isModalDefaultOpen"
+> & {
+  agentId: string;
+  threadId: string;
+  hasExplicitThreadId: boolean;
+};
+
 export function CopilotChat({
   agentId,
   threadId,
   labels,
-  chatView,
   isModalDefaultOpen,
-  attachments: attachmentsConfig,
-  onError,
-  throttleMs,
   ...props
 }: CopilotChatProps) {
   const existingConfig = useCopilotChatConfiguration();
@@ -112,6 +118,41 @@ export function CopilotChat({
   );
   const hasExplicitThreadId =
     !!threadId || !!existingConfig?.hasExplicitThreadId;
+
+  return (
+    <CopilotChatConfigurationProvider
+      agentId={resolvedAgentId}
+      threadId={resolvedThreadId}
+      hasExplicitThreadId={hasExplicitThreadId}
+      labels={labels}
+      isModalDefaultOpen={isModalDefaultOpen}
+    >
+      <CopilotChatInner
+        {...props}
+        agentId={resolvedAgentId}
+        threadId={resolvedThreadId}
+        hasExplicitThreadId={hasExplicitThreadId}
+      />
+    </CopilotChatConfigurationProvider>
+  );
+}
+
+function CopilotChatInner({
+  agentId: scopedAgentId,
+  threadId: scopedThreadId,
+  hasExplicitThreadId: scopedHasExplicitThreadId,
+  chatView,
+  attachments: attachmentsConfig,
+  onError,
+  throttleMs,
+  ...props
+}: CopilotChatInnerProps) {
+  const existingConfig = useCopilotChatConfiguration();
+  const resolvedAgentId =
+    existingConfig?.agentId ?? scopedAgentId ?? DEFAULT_AGENT_ID;
+  const resolvedThreadId = existingConfig?.threadId ?? scopedThreadId;
+  const hasExplicitThreadId =
+    existingConfig?.hasExplicitThreadId ?? scopedHasExplicitThreadId;
 
   const { agent, ephemeralMessages } = useAgent(
     {
@@ -1087,48 +1128,40 @@ export function CopilotChat({
   const RenderedChatView = renderSlot(chatView, CopilotChatView, finalProps);
 
   return (
-    <CopilotChatConfigurationProvider
-      agentId={resolvedAgentId}
-      threadId={resolvedThreadId}
-      hasExplicitThreadId={hasExplicitThreadId}
-      labels={labels}
-      isModalDefaultOpen={isModalDefaultOpen}
-    >
-      <div ref={chatContainerRef} style={{ display: "contents" }}>
-        {attachmentsEnabled && (
-          <input
-            type="file"
-            multiple
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept={attachmentsConfig?.accept ?? "*/*"}
-            style={{ display: "none" }}
-          />
-        )}
-        {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
-        {transcriptionError && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "100px",
-              left: "50%",
-              transform: "translateX(-50%)",
-              backgroundColor: "#ef4444",
-              color: "white",
-              padding: "8px 16px",
-              borderRadius: "8px",
-              fontSize: "14px",
-              zIndex: 50,
-            }}
-          >
-            {transcriptionError}
-          </div>
-        )}
-        <LastUserMessageContext.Provider value={lastUserMessageState}>
-          {RenderedChatView}
-        </LastUserMessageContext.Provider>
-      </div>
-    </CopilotChatConfigurationProvider>
+    <div ref={chatContainerRef} style={{ display: "contents" }}>
+      {attachmentsEnabled && (
+        <input
+          type="file"
+          multiple
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          accept={attachmentsConfig?.accept ?? "*/*"}
+          style={{ display: "none" }}
+        />
+      )}
+      {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
+      {transcriptionError && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "100px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "#ef4444",
+            color: "white",
+            padding: "8px 16px",
+            borderRadius: "8px",
+            fontSize: "14px",
+            zIndex: 50,
+          }}
+        >
+          {transcriptionError}
+        </div>
+      )}
+      <LastUserMessageContext.Provider value={lastUserMessageState}>
+        {RenderedChatView}
+      </LastUserMessageContext.Provider>
+    </div>
   );
 }
 

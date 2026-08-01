@@ -460,10 +460,13 @@ export type CopilotChatMessageViewProps = Omit<
 // full DOM tree. Below the threshold the overhead of virtualization isn't
 // worth it and the simpler flat render is faster.
 const VIRTUALIZE_THRESHOLD = 50;
+const EMPTY_MESSAGES: Message[] = [];
+const EMPTY_EPHEMERAL_MESSAGES: ReadonlyArray<ReactEphemeralMessage> =
+  Object.freeze([]);
 
 export function CopilotChatMessageView({
-  messages = [],
-  ephemeralMessages = [],
+  messages = EMPTY_MESSAGES,
+  ephemeralMessages = EMPTY_EPHEMERAL_MESSAGES,
   assistantMessage,
   userMessage,
   reasoningMessage,
@@ -624,14 +627,18 @@ export function CopilotChatMessageView({
   // on the virtualizer's total-size div — same as the flat path. Adding
   // deduplicatedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
-  const firstMessageId = deduplicatedMessages[0]?.id;
+  const threadChangeKey = [
+    config?.agentId ?? "",
+    config?.threadId ?? "",
+    deduplicatedMessages[0]?.id ?? ephemeralMessages[0]?.id ?? "",
+  ].join(":");
   useLayoutEffect(() => {
     if (!shouldVirtualize || !composedMessages.length) return;
     virtualizer.scrollToIndex(composedMessages.length - 1, {
       align: "end",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldVirtualize, firstMessageId]);
+  }, [shouldVirtualize, threadChangeKey]);
 
   // Map each Intelligence-using turn's anchor message → stable turn id. One
   // indicator is emitted per turn (keyed by the turn id) at its anchor, so it

@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { describe, it, expect } from "vitest";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
@@ -228,6 +229,71 @@ describe("useAgent e2e", () => {
     fireEvent.click(screen.getByTestId("clear-ephemeral"));
     await waitFor(() => {
       expect(screen.getByTestId("ephemeral-values").textContent).toBe("");
+    });
+  });
+
+  it("keeps new-thread ephemeral IDs valid while the previous messages are still present", async () => {
+    const agent = new MockStepwiseAgent();
+    let currentAdd:
+      | ((message: { id: string; content: string }) => boolean)
+      | undefined;
+    let seeded = false;
+
+    function Harness() {
+      const {
+        agent: hookAgent,
+        addEphemeralMessage,
+        ephemeralMessages,
+      } = useAgent();
+      const { copilotkit } = useCopilotKit();
+      currentAdd = addEphemeralMessage;
+
+      useEffect(() => {
+        if (seeded) return;
+        seeded = true;
+        hookAgent.addMessage({
+          id: "reused-card-id",
+          role: "user",
+          content: "thread A history",
+        });
+        copilotkit.addEphemeralMessage("default", "thread-b", {
+          id: "reused-card-id",
+          content: "thread B card",
+        });
+      }, [copilotkit, hookAgent]);
+
+      return (
+        <output data-testid="transition-ephemeral-values">
+          {ephemeralMessages.map(
+            (message) => `${message.id}:${message.content}`,
+          )}
+        </output>
+      );
+    }
+
+    const { rerender } = render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider agentId="default" threadId="thread-a">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    rerender(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider agentId="default" threadId="thread-b">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(currentAdd?.({ id: "reused-card-id", content: "updated" })).toBe(
+        true,
+      );
+      expect(
+        screen.getByTestId("transition-ephemeral-values").textContent,
+      ).toContain("reused-card-id");
     });
   });
 

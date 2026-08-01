@@ -477,9 +477,16 @@ export function useAgent(
     chatScope?.hasExplicitThreadId ?? chatConfig?.hasExplicitThreadId;
   const resolvedThreadId =
     threadId ?? (configHasExplicitThreadId ? configThreadId : undefined);
+  const previousResolvedThreadIdRef = useRef(resolvedThreadId);
   useEffect(() => {
     if (!resolvedThreadId) return;
+    const threadChanged =
+      previousResolvedThreadIdRef.current !== resolvedThreadId;
+    previousResolvedThreadIdRef.current = resolvedThreadId;
     agent.threadId = resolvedThreadId;
+    if (threadChanged && agent.messages.length > 0) {
+      agent.setMessages([]);
+    }
   }, [agent, resolvedThreadId]);
 
   const ephemeralThreadId =
@@ -496,19 +503,18 @@ export function useAgent(
   }, [ephemeralThreadId, resolvedAgentId]);
 
   useEffect(() => {
-    copilotkit.reconcileEphemeralMessages(
-      resolvedAgentId,
-      ephemeralThreadId,
-      agent.messages,
-    );
+    const reconcile = () => {
+      if (agent.threadId !== ephemeralThreadId) return;
+      copilotkit.reconcileEphemeralMessages(
+        resolvedAgentId,
+        ephemeralThreadId,
+        agent.messages,
+      );
+    };
+
+    reconcile();
     const subscription = agent.subscribe({
-      onMessagesChanged: () => {
-        copilotkit.reconcileEphemeralMessages(
-          resolvedAgentId,
-          ephemeralThreadId,
-          agent.messages,
-        );
-      },
+      onMessagesChanged: reconcile,
     });
     return () => subscription.unsubscribe();
   }, [agent, copilotkit, ephemeralThreadId, resolvedAgentId]);

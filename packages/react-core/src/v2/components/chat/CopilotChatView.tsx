@@ -43,6 +43,9 @@ import { usePinToSend } from "../../hooks/use-pin-to-send";
 
 // Vertical gap between the scroll-to-bottom button and the input container.
 const SCROLL_BUTTON_OFFSET = 16;
+const EMPTY_MESSAGES: Message[] = [];
+const EMPTY_EPHEMERAL_MESSAGES: ReadonlyArray<ReactEphemeralMessage> =
+  Object.freeze([]);
 
 // Forward declaration for WelcomeScreen component type
 export type WelcomeScreenProps = WithSlots<
@@ -145,8 +148,8 @@ export function CopilotChatView({
   scrollView,
   suggestionView,
   welcomeScreen,
-  messages = [],
-  ephemeralMessages = [],
+  messages = EMPTY_MESSAGES,
+  ephemeralMessages = EMPTY_EPHEMERAL_MESSAGES,
   hasRenderableEphemeralMessages = false,
   autoScroll = true,
   isRunning = false,
