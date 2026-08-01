@@ -214,13 +214,13 @@ The current renderer applies `onAction` before forwarding an action:
 2. Returning an `A2UIUserAction` forwards that modified action.
 3. Returning `undefined` forwards the original action.
 
-The current Python SDK does not create server-side action handlers from an `action_handlers=` argument. The frontend interceptor is the supported custom-handling path in this documentation.
+The current Python SDK does not create server-side action handlers from an `action_handlers=` argument. The frontend interceptor is the supported custom-handling path in this documentation. The current React bridge does not include `dataContextPath` in the action passed to `onAction`; use `context` for values needed by the callback.
 
 ### Types reference
 
 | Type | Description |
 |---|---|
-| `A2UIUserAction` | Dispatched action: `{ name, surfaceId, sourceComponentId, timestamp, context?, dataContextPath? }` |
+| `A2UIUserAction` | Dispatched action: `{ name, surfaceId, sourceComponentId, timestamp, context? }` |
 | `A2UIActionInterceptor` | `(action, forward) => A2UIUserAction \| null \| void \| Promise<void \| A2UIUserAction \| null>` — exported interceptor type |
 | `createA2UIMessageRenderer` | Exported factory that accepts `theme` and optional `onAction` |
 

@@ -27,13 +27,14 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
 
 <Steps>
   <Step>
-    ### Clone the A2A starter template
+    ### Use the A2A starter template
 
     ```bash
-    git clone https://github.com/copilotkit/with-a2a-a2ui.git
+    git clone https://github.com/CopilotKit/CopilotKit.git
+    cd CopilotKit/examples/integrations/a2a-a2ui
     ```
 
-    The cloned starter currently uses the legacy v0.8 renderer and its agent emits a JSON list of v0.8 operation objects. This page documents that accepted starter payload. Migrating the starter to the v0.9 renderer and `a2ui_operations` envelope requires changes outside this documentation target.
+    The archived `copilotkit/with-a2a-a2ui` starter now lives at this monorepo path. The current starter uses its local v0.8 renderer and emits a JSON list of v0.8 operation objects. This page documents that accepted starter payload. Migrating the starter to the v0.9 renderer and `a2ui_operations` envelope requires changes outside this documentation target.
 
   </Step>
   <Step>
@@ -127,7 +128,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     In the example repo, all of the widgets are defined in a single variable in the prompt_builder.py file, but you can structure them however you like,
     they simply need to be injected into the agent's prompt in a clearly delineated way. The v0.9 SDK migration is not demonstrated by this starter page.
 
-    The button payload uses the v0.8 `action.name` field. The published renderer sends that value as `userAction.name`, while the current starter executor reads `userAction.actionName` before selecting its `book_restaurant` branch. As a result, the click reaches the agent but follows the executor's generic event path instead of the booking-specific path. Updating that starter field is outside this documentation-only change.
+    The current starter's v0.8 renderer displays the `Book Now` control without an `onClick` handler or action dispatch. The button is inert, so no click reaches the agent and the executor's `book_restaurant` branch is not reached. Adding action wiring is outside this documentation-only change.
 
   </Step>
   <Step>
@@ -150,26 +151,27 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     AG-UI handles communicating with your a2a agent, and passes the a2ui messages back and forth as `ActivityMessage` objects.
     In order to render them in your frontend, you need to configure activity message rendering.
 
-    The cloned starter renders these messages with the v0.8-compatible `@copilotkit/a2ui-renderer` package and its theme. The setup below mirrors the starter's current `app/page.tsx`; the v0.9 renderer and `a2ui_operations` envelope are documented in the other A2UI integration guides.
+    The current starter registers its local v0.8 renderer and its v0.8 theme. The setup below mirrors that `app/page.tsx`; the v0.9 renderer and `a2ui_operations` envelope are documented in the other A2UI integration guides.
 
     ```tsx title="app/page.tsx"
     "use client";
 
     import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core/v2";
-    import { createA2UIMessageRenderer } from "@copilotkit/a2ui-renderer";
+    import { a2uiV08Renderer } from "./components/a2ui-v0-8-renderer";
     import { theme } from "./theme";
 
     // Disable static optimization for this page
     export const dynamic = "force-dynamic";
 
-    const A2UIMessageRenderer = createA2UIMessageRenderer({ theme });
-    const activityRenderers = [A2UIMessageRenderer];
+    const activityRenderers = [a2uiV08Renderer];
 
     export default function Home() {
       return (
         <CopilotKitProvider
           runtimeUrl="/api/copilotkit"
           showDevConsole="auto"
+          useSingleEndpoint={false}
+          a2ui={{ theme }}
           renderActivityMessages={activityRenderers}
         >
           <main
@@ -184,7 +186,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     ```
 
     ```tsx title="app/theme.ts"
-    import { v0_8 } from "@a2ui/lit";
+    import { Styles, type Types } from "@a2ui/lit/0.8";
 
     /** Elements */
 
@@ -339,29 +341,29 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
       "layout-el-cv": true,
     };
 
-    const aLight = v0_8.Styles.merge(a, { "color-c-n5": true });
-    const inputLight = v0_8.Styles.merge(input, { "color-c-n5": true });
-    const textareaLight = v0_8.Styles.merge(textarea, { "color-c-n5": true });
-    const buttonLight = v0_8.Styles.merge(button, { "color-c-n100": true });
-    const h1Light = v0_8.Styles.merge(h1, { "color-c-n5": true });
-    const h2Light = v0_8.Styles.merge(h2, { "color-c-n5": true });
-    const h3Light = v0_8.Styles.merge(h3, { "color-c-n5": true });
-    const h4Light = v0_8.Styles.merge(h4, { "color-c-n5": true });
-    const h5Light = v0_8.Styles.merge(h5, { "color-c-n5": true });
-    const bodyLight = v0_8.Styles.merge(body, { "color-c-n5": true });
-    const pLight = v0_8.Styles.merge(p, { "color-c-n35": true });
-    const preLight = v0_8.Styles.merge(pre, { "color-c-n35": true });
-    const orderedListLight = v0_8.Styles.merge(orderedList, {
+    const aLight = Styles.merge(a, { "color-c-n5": true });
+    const inputLight = Styles.merge(input, { "color-c-n5": true });
+    const textareaLight = Styles.merge(textarea, { "color-c-n5": true });
+    const buttonLight = Styles.merge(button, { "color-c-n100": true });
+    const h1Light = Styles.merge(h1, { "color-c-n5": true });
+    const h2Light = Styles.merge(h2, { "color-c-n5": true });
+    const h3Light = Styles.merge(h3, { "color-c-n5": true });
+    const h4Light = Styles.merge(h4, { "color-c-n5": true });
+    const h5Light = Styles.merge(h5, { "color-c-n5": true });
+    const bodyLight = Styles.merge(body, { "color-c-n5": true });
+    const pLight = Styles.merge(p, { "color-c-n35": true });
+    const preLight = Styles.merge(pre, { "color-c-n35": true });
+    const orderedListLight = Styles.merge(orderedList, {
       "color-c-n35": true,
     });
-    const unorderedListLight = v0_8.Styles.merge(unorderedList, {
+    const unorderedListLight = Styles.merge(unorderedList, {
       "color-c-n35": true,
     });
-    const listItemLight = v0_8.Styles.merge(listItem, {
+    const listItemLight = Styles.merge(listItem, {
       "color-c-n35": true,
     });
 
-    export const theme: v0_8.Types.Theme = {
+    export const theme: Types.Theme = {
       additionalStyles: {
         Button: {
           "--n-35": "var(--n-100)",
@@ -604,8 +606,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
   <Step>
     ### Give it a try!
 
-    That's it! When your agent generates an A2UI message, it will be rendered in your frontend.
-    A2UI actions (like button clicks) are sent back to your agent via AG-UI. In the current starter, the renderer emits the button's action as `userAction.name`, but the executor checks `userAction.actionName`, so the documented `book_restaurant` button does not select the booking-specific branch until that starter mismatch is migrated.
+    That's it! When your agent generates an A2UI message, it will be rendered in your frontend. The current starter's v0.8 `Book Now` control is inert because its renderer doesn't attach a click handler or dispatch an action. No button click reaches the agent until that starter behavior is implemented.
 
   </Step>
 </Steps>
