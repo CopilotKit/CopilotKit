@@ -2,6 +2,7 @@ import { AbstractAgent } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
 import { EMPTY } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
+import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
   ChannelFileDeliveryUnknownError,
   DeliveryAdapter,
@@ -250,12 +251,14 @@ describe("DeliveryAdapter.postFile", () => {
     } as unknown as ClaimedChannelDelivery;
     const adapter = makeAdapter();
 
-    await expect(
-      adapter.postFile(replyTarget(session), {
+    const error = await adapter
+      .postFile(replyTarget(session), {
         bytes: new Uint8Array([1]),
         filename: "a.txt",
-      }),
-    ).rejects.toBeInstanceOf(ChannelFileDeliveryUnknownError);
+      })
+      .catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ChannelFileDeliveryUnknownError);
+    expect(error).toBeInstanceOf(ChannelDeliveryTerminatedError);
   });
 
   it("keeps confirmed success when canonical history retries exhaust", async () => {

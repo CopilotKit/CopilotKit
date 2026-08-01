@@ -32,6 +32,7 @@ import type {
   UserQuery,
   ReplyContinuationOptions,
 } from "@copilotkit/channels-core";
+import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
   createRunRenderer as createSlackRunRenderer,
   renderSlackMessage,
@@ -76,7 +77,7 @@ const MANAGED_ASSET_HISTORY_ATTEMPTS = 3;
 const MANAGED_SLACK_TEXT_INTERVAL_MS = 600;
 
 /** Slack could not prove whether a managed file became visible. */
-export class ChannelFileDeliveryUnknownError extends Error {
+export class ChannelFileDeliveryUnknownError extends ChannelDeliveryTerminatedError {
   readonly code = "unknown";
 
   constructor(options?: { cause?: unknown }) {
@@ -509,20 +510,33 @@ export class DeliveryAdapter implements PlatformAdapter {
       let bodyError: unknown;
       let streamStarted = false;
       try {
-        // Start lives inside try/finally so a missing providerReference after
-        // an applied start still attempts stream.stop cleanup.
-        const startResult = await target.claimedDelivery.effect(responseId, {
-          kind: "slack.stream.start",
-        });
-        streamStarted = true;
-        providerReference = providerReferenceFromResult(startResult);
         for await (const delta of chunks) {
           if (delta.length === 0) continue;
+          if (!streamStarted) {
+            const startResult = await target.claimedDelivery.effect(
+              responseId,
+              {
+                kind: "slack.stream.start",
+                initialText: delta,
+              },
+            );
+            streamStarted = true;
+            providerReference = providerReferenceFromResult(startResult);
+            continue;
+          }
+          assertProviderReference(providerReference);
           await target.claimedDelivery.effect(responseId, {
             kind: "slack.stream.append",
             providerReference,
             delta,
           });
+        }
+        if (!streamStarted) {
+          const startResult = await target.claimedDelivery.effect(responseId, {
+            kind: "slack.stream.start",
+          });
+          streamStarted = true;
+          providerReference = providerReferenceFromResult(startResult);
         }
       } catch (error) {
         bodyError = error;
@@ -840,6 +854,15 @@ export class DeliveryAdapter implements PlatformAdapter {
             providerReference = providerReferenceFromResult(
               await claimedDelivery.effect(responseId, {
                 kind: "slack.stream.start",
+              }),
+            );
+            return responseId;
+          },
+          startStreamWithText: async (initialText) => {
+            providerReference = providerReferenceFromResult(
+              await claimedDelivery.effect(responseId, {
+                kind: "slack.stream.start",
+                initialText,
               }),
             );
             return responseId;

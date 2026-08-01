@@ -122,6 +122,10 @@ export { mintId, stableStringify } from "./mint-id.js";
 // Run loop
 export { runAgentLoop } from "./run-loop.js";
 export type { RunLoopArgs } from "./run-loop.js";
+export {
+  ChannelDeliveryTerminatedError,
+  isChannelDeliveryTerminatedError,
+} from "./delivery-error.js";
 
 // Pure per-platform codec seam shared with managed Intelligence delivery.
 // The Intelligence Channel adapter itself lives in

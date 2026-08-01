@@ -13,6 +13,7 @@ import { expect, test } from "vitest";
 import { z } from "zod";
 import type { CapturedToolCall, RunRenderer } from "./platform-adapter.js";
 import { runAgentLoop } from "./run-loop.js";
+import { ChannelDeliveryTerminatedError } from "./delivery-error.js";
 import { FakeAgent } from "./testing/fake-agent.js";
 import type { ChannelTool } from "./tools.js";
 
@@ -378,6 +379,77 @@ test("managed renderer failure freezes later rendering while canonical ingestion
     { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "message-2" },
     { type: EventType.RUN_FINISHED, messageId: undefined },
   ]);
+});
+
+test("terminal delivery tool failure stops the loop and closes renderer fanout", async () => {
+  const deliveryError = new ChannelDeliveryTerminatedError(
+    "provider delivery timed out",
+  );
+  let agent!: FakeAgent;
+  agent = new FakeAgent([
+    (subscriber) =>
+      emitBatch(subscriber, agent, "inner-run-1", [
+        {
+          type: EventType.TOOL_CALL_END,
+          toolCallId: "tool-call-1",
+        },
+      ]),
+    (subscriber) =>
+      emitBatch(subscriber, agent, "inner-run-2", [
+        textEvent("message-after-failure", "should not render"),
+      ]),
+  ]);
+  const { renderer, renderedEvents } = setupRenderer();
+  const ingestedEvents: BaseEvent[] = [];
+  const postFile: ChannelTool = {
+    name: "echo",
+    description: "Post a managed file.",
+    parameters: z.object({ value: z.string() }),
+    handler: () => {
+      throw deliveryError;
+    },
+  };
+
+  await expect(
+    runAgentLoop({
+      agent,
+      renderer,
+      tools: new Map([["echo", postFile]]),
+      toolDescriptors: [],
+      context: [],
+      makeToolCtx: () => ({ thread: {} as never, platform: "fake" }),
+      subscriber: {
+        onEvent: ({ event }) => {
+          ingestedEvents.push(event);
+        },
+      },
+      canonicalRun,
+    }),
+  ).rejects.toBe(deliveryError);
+
+  expect(agent.runAgentCalls).toBe(1);
+  expect(agent.messages.some(({ role }) => role === "tool")).toBe(false);
+  expect(
+    renderedEvents
+      .filter(
+        ({ type }) =>
+          type === EventType.RUN_STARTED ||
+          type === EventType.RUN_FINISHED ||
+          type === EventType.RUN_ERROR ||
+          type === EventType.TEXT_MESSAGE_CONTENT,
+      )
+      .map(({ type }) => type),
+  ).toEqual([EventType.RUN_STARTED]);
+  expect(
+    ingestedEvents
+      .filter(
+        ({ type }) =>
+          type === EventType.RUN_STARTED ||
+          type === EventType.RUN_FINISHED ||
+          type === EventType.RUN_ERROR,
+      )
+      .map(({ type }) => type),
+  ).toEqual([EventType.RUN_STARTED, EventType.RUN_ERROR]);
 });
 
 test("inner RUN_ERROR becomes one canonical outer RUN_ERROR", async () => {

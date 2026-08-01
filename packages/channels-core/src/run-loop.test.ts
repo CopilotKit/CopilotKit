@@ -62,6 +62,46 @@ describe("runAgentLoop", () => {
     expect((toolResult as { toolCallId?: string }).toolCallId).toBe("t1");
   });
 
+  it("keeps ordinary tool failures recoverable by the agent", async () => {
+    const renderer = makeFakeRunRenderer();
+    const tool: ChannelTool = {
+      name: "recoverable",
+      description: "Fail without closing the delivery.",
+      parameters: z.object({}),
+      handler: () => {
+        throw new Error("try something else");
+      },
+    };
+    const agent = new FakeAgent([
+      (sub: AgentSubscriber) => {
+        sub.onToolCallEndEvent?.({
+          event: { toolCallId: "t1" },
+          toolCallName: "recoverable",
+          toolCallArgs: {},
+        } as never);
+        sub.onRunFinishedEvent?.({ event: {} } as never);
+      },
+      (sub: AgentSubscriber) => {
+        sub.onRunFinishedEvent?.({ event: {} } as never);
+      },
+    ]);
+
+    await runAgentLoop({
+      agent,
+      renderer,
+      tools: new Map([["recoverable", tool]]),
+      toolDescriptors,
+      context,
+      makeToolCtx: () => ({ thread: {} as never, platform: "fake" }),
+    });
+
+    expect(agent.runAgentCalls).toBe(2);
+    expect(agent.messages.find(({ role }) => role === "tool")).toMatchObject({
+      toolCallId: "t1",
+      content: JSON.stringify({ error: "try something else" }),
+    });
+  });
+
   it("posts the picker via handleInterrupt and returns without running tools", async () => {
     const renderer = makeFakeRunRenderer();
     const tools = new Map<string, ChannelTool>();
