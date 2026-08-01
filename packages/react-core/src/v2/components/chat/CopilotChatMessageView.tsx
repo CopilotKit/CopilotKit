@@ -466,6 +466,8 @@ export function CopilotChatMessageView({
       () => resolveSlotComponent(assistantMessage, CopilotChatAssistantMessage),
       [assistantMessage],
     );
+  const agentId = config?.agentId;
+  const threadId = config?.threadId;
   const assistantSlotPropsWithFeedback = useMemo(() => {
     const onThumbsUp = assistantSlotProps?.onThumbsUp as
       | ((message: CopilotChatFeedbackMessage) => void)
@@ -478,13 +480,10 @@ export function CopilotChatMessageView({
     const withRawEvent = (
       message: AssistantMessage,
     ): CopilotChatFeedbackMessage => {
-      const rawEvent = config
-        ? copilotkit.getRawEventForMessage(
-            config.agentId,
-            config.threadId,
-            message.id,
-          )
-        : undefined;
+      const rawEvent =
+        agentId === undefined || threadId === undefined
+          ? undefined
+          : copilotkit.getRawEventForMessage(agentId, threadId, message.id);
       return rawEvent === undefined ? message : { ...message, rawEvent };
     };
 
@@ -499,7 +498,7 @@ export function CopilotChatMessageView({
           onThumbsDown(withRawEvent(message)),
       }),
     };
-  }, [assistantSlotProps, config, copilotkit]);
+  }, [assistantSlotProps, agentId, threadId, copilotkit]);
   const { Component: UserComponent, slotProps: userSlotProps } = useMemo(
     () => resolveSlotComponent(userMessage, CopilotChatUserMessage),
     [userMessage],

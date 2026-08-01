@@ -116,7 +116,7 @@ describe("StateManager direct text-start raw event sidecar", () => {
   });
 
   it("captures replacements and preserves state and message mappings on unsubscribe", async () => {
-    let rawEvent = { version: 1 };
+    let rawEvent: unknown = { version: 1 };
     const agent = new RawEventAgent((input) => {
       const events = startAndFinish(input, "replace-message", rawEvent);
       return [
@@ -182,6 +182,34 @@ describe("StateManager direct text-start raw event sidecar", () => {
         agent.agentId!,
         agent.threadId,
         "replace-message",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("clears a reused message sidecar when the next start omits rawEvent", async () => {
+    let rawEvent: unknown = { version: 1 };
+    const agent = new RawEventAgent((input) =>
+      startAndFinish(input, "reused-message", rawEvent),
+    );
+    const core = new CopilotKitCore({});
+    core.setAgents__unsafe_dev_only({ [agent.agentId!]: agent });
+
+    await agent.runAgent({ runId: "defined-run" });
+    expect(
+      core.getRawEventForMessage(
+        agent.agentId!,
+        agent.threadId,
+        "reused-message",
+      ),
+    ).toEqual({ version: 1 });
+
+    rawEvent = undefined;
+    await agent.runAgent({ runId: "undefined-run" });
+    expect(
+      core.getRawEventForMessage(
+        agent.agentId!,
+        agent.threadId,
+        "reused-message",
       ),
     ).toBeUndefined();
   });
@@ -264,6 +292,42 @@ describe("StateManager direct text-start raw event sidecar", () => {
         "collision-message",
       ),
     ).toEqual({ owner: "second" });
+  });
+
+  it("isolates equal agent and message IDs by thread scope", async () => {
+    const agent = new RawEventAgent(
+      (input) =>
+        startAndFinish(
+          input,
+          "shared-message",
+          input.threadId === "first-thread"
+            ? { owner: "first-thread" }
+            : { owner: "second-thread" },
+        ),
+      "shared-agent",
+      "first-thread",
+    );
+    const core = new CopilotKitCore({});
+    core.setAgents__unsafe_dev_only({ [agent.agentId!]: agent });
+
+    await agent.runAgent({ runId: "first-run" });
+    agent.threadId = "second-thread";
+    await agent.runAgent({ runId: "second-run" });
+
+    expect(
+      core.getRawEventForMessage(
+        agent.agentId!,
+        "first-thread",
+        "shared-message",
+      ),
+    ).toEqual({ owner: "first-thread" });
+    expect(
+      core.getRawEventForMessage(
+        agent.agentId!,
+        "second-thread",
+        "shared-message",
+      ),
+    ).toEqual({ owner: "second-thread" });
   });
 
   it("returns isolated callback values for mutable raw-event objects", async () => {
@@ -369,6 +433,13 @@ describe("StateManager direct text-start raw event sidecar", () => {
     core.setAgents__unsafe_dev_only({ [agent.agentId!]: agent });
 
     await agent.runAgent({ runId: "prune-run" });
+    expect(
+      core.getRawEventForMessage(
+        agent.agentId!,
+        agent.threadId,
+        "snapshot-only",
+      ),
+    ).toBeUndefined();
     expect(
       core.getRawEventForMessage(
         agent.agentId!,

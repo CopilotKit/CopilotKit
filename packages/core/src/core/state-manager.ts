@@ -310,9 +310,23 @@ export class StateManager {
     event: TextMessageStartEvent,
     input: RunAgentInput,
   ): void {
-    if (!agent.agentId || event.rawEvent === undefined) return;
+    if (!agent.agentId) return;
 
     const { threadId } = input;
+    if (event.rawEvent === undefined) {
+      const threadEvents = this.rawEventByMessage
+        .get(agent.agentId)
+        ?.get(threadId);
+      threadEvents?.delete(event.messageId);
+      if (threadEvents?.size === 0) {
+        this.rawEventByMessage.get(agent.agentId)?.delete(threadId);
+      }
+      if (this.rawEventByMessage.get(agent.agentId)?.size === 0) {
+        this.rawEventByMessage.delete(agent.agentId);
+      }
+      return;
+    }
+
     if (!this.rawEventByMessage.has(agent.agentId)) {
       this.rawEventByMessage.set(agent.agentId, new Map());
     }

@@ -78,6 +78,15 @@ class FeedbackAgent extends AbstractAgent {
   }
 }
 
+let thumbsUpButtonRenderCount = 0;
+
+function CountingThumbsUpButton(
+  props: React.ButtonHTMLAttributes<HTMLButtonElement>,
+) {
+  thumbsUpButtonRenderCount++;
+  return <button aria-label="Good response" {...props} />;
+}
+
 function renderFeedbackView(
   agent: FeedbackAgent,
   messages: Message[] = agent.messages,
@@ -198,6 +207,55 @@ describe("CopilotChatMessageView feedback raw event", () => {
       expect.objectContaining({ rawEvent: agent.rawEvent }),
     );
     stringify.mockRestore();
+    view.unmount();
+  });
+
+  it("keeps assistant slot props stable across unrelated configuration changes", () => {
+    thumbsUpButtonRenderCount = 0;
+    const agent = new FeedbackAgent();
+    const onThumbsUp = vi.fn();
+    const assistantMessage = {
+      onThumbsUp,
+      thumbsUpButton: CountingThumbsUpButton,
+    };
+    const view = render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ "feedback-agent": agent }}>
+        <CopilotChatConfigurationProvider
+          agentId="feedback-agent"
+          threadId="feedback-thread"
+          labels={{ chatInputPlaceholder: "first" }}
+        >
+          <CopilotChatMessageView
+            messages={[
+              { id: "assistant-1", role: "assistant", content: "Answer" },
+            ]}
+            assistantMessage={assistantMessage}
+          />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    const initialRenderCount = thumbsUpButtonRenderCount;
+    expect(initialRenderCount).toBeGreaterThan(0);
+
+    view.rerender(
+      <CopilotKitProvider agents__unsafe_dev_only={{ "feedback-agent": agent }}>
+        <CopilotChatConfigurationProvider
+          agentId="feedback-agent"
+          threadId="feedback-thread"
+          labels={{ chatInputPlaceholder: "second" }}
+        >
+          <CopilotChatMessageView
+            messages={[
+              { id: "assistant-1", role: "assistant", content: "Answer" },
+            ]}
+            assistantMessage={assistantMessage}
+          />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    expect(thumbsUpButtonRenderCount).toBe(initialRenderCount);
     view.unmount();
   });
 
