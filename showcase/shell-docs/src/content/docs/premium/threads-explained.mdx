@@ -12,11 +12,9 @@ doc_type: explanation
   surface="docs_learn_threads"
 />
 
-Start with the [Rich Threads overview](/threads) to understand what Rich Threads provide
-and choose between the prebuilt Drawer and a custom headless UI. This page
-explains the persistence and replay architecture beneath both paths. For the
-client-side lifecycle (minting a `threadId`, hydrating history on load, and
-switching or starting threads), see [Thread & History Lifecycle](/threads-lifecycle).
+Start with the [Rich Threads overview](/threads) to understand what Rich Threads
+provide. This page explains the persistence and replay architecture beneath
+each frontend's thread UI.
 
 ## What are threads?
 
@@ -40,9 +38,7 @@ From a developer's perspective, threads involve three things:
 | `CopilotChat` with `threadId` | Connects to a specific thread, loads its history, and streams new events in realtime. |
 | `CopilotRuntime` | Server-side layer that executes agents, stores thread data on the Enterprise Intelligence Platform, and relays events to connected clients. |
 
-You interact with the first two. The runtime and platform handle persistence and sync behind the scenes.
-
-To wire these pieces into a custom chat UI, follow [Headless Threads](/headless-threads).
+You interact with the first two. The runtime and platform handle persistence and sync behind the scenes. Use your frontend's thread API and chat configuration to wire these pieces into a custom UI; the native guides and references are linked under Next steps.
 
 ### Auto-naming
 
@@ -61,7 +57,7 @@ Neither operation has a built-in confirmation dialog, so your application should
 
 ## How it works
 
-The client-side steps (minting a `threadId`, hydrating history on load, and switching or starting threads) live in [Thread & History Lifecycle](/threads-lifecycle). This section covers what the platform does underneath: persisting runs, replaying them, and keeping every connected client in sync.
+Client SDKs mint a `threadId`, hydrate history on load, and switch or start threads. This section covers what the platform does underneath: persisting runs, replaying them, and keeping every connected client in sync.
 
 ### Persistence and replay
 
@@ -149,14 +145,22 @@ The trade-off is that replay is more complex than loading a message array. The p
 
 ## Next steps
 
-- **Client lifecycle:** [Thread & History Lifecycle](/threads-lifecycle) — how a `threadId` is minted, hydrated, and switched on the client
 - **Overview:** [Rich Threads](/threads) — understand the feature and choose an implementation path
-- **Step-by-step guide:** [Headless Threads](/headless-threads) — build a custom thread-management UI
 <FrontendOnly frontend="react">
+- **Client lifecycle:** [Thread & History Lifecycle](/threads-lifecycle) — how a `threadId` is minted, hydrated, and switched on the client
+- **Step-by-step guide:** [Headless Threads](/headless-threads) — build a custom thread-management UI
 - **API reference:** [useThreads](/reference/hooks/useThreads) — parameters, return values, types
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
 - **Angular guide:** <a href="/angular/guides/threads-memory-attachments-headless">Threads, memory, attachments, and headless UI</a>
 - **API reference:** <a href="/reference/angular/functions/injectThreads">injectThreads</a> — options, signals, and mutations
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+- **API reference:** [Vue `useThreads`](/reference/vue/hooks/useThreads) — reactive inputs, refs, pagination, and mutations
+</FrontendOnly>
+
+<FrontendOnly frontend="react-native">
+- **API reference:** [React Native `useThreads`](/reference/react-native/hooks/useThreads) — native thread-list state, pagination, and mutations
 </FrontendOnly>

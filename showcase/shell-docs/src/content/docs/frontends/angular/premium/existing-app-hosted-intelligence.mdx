@@ -16,6 +16,6 @@ Keep your existing `provideCopilotKit` setup pointed at your app Runtime's `/api
 
 Angular includes `CopilotThreadsDrawer` for a ready-made thread list and `injectThreads` for a custom signal-based UI. Follow [Threads, memory, attachments, and headless UI](/angular/guides/threads-memory-attachments-headless) for the native Angular setup, then return here to verify persistence and user isolation.
 
-Keep your current auth headers or cookie settings when you update the Runtime URL. The Angular client should authenticate only to your app Runtime.
+Keep sending your current auth headers or cookies to `/api/copilotkit`. The Angular client should authenticate only to your app Runtime. The shared server setup below configures the hosted API URL and hosted WebSocket URL inside that Runtime.
 
 <HostedIntelligencePlatformRuntime components={props.components} />

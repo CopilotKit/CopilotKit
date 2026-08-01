@@ -16,6 +16,6 @@ Keep the native client pointed at the public URL for your app Runtime. A physica
 
 React Native supports persistent Threads through the headless `useThreads` hook exported by `@copilotkit/react-native`. It does not provide the web Threads Drawer, so build the list with native components. Follow the [React Native `useThreads` reference](/reference/react-native/hooks/useThreads) for the supported API, then return here to verify persistence and user isolation.
 
-Keep your current bearer-token or cookie settings when you update the Runtime URL. The native client should authenticate only to your app Runtime; the Runtime reports the selected project's managed entitlement and realtime connection details.
+Keep sending your current bearer token or cookies to the public app Runtime URL. The native client should authenticate only to your app Runtime; the Runtime reports the selected project's managed entitlement and realtime connection details. The shared server setup below configures the hosted API URL and hosted WebSocket URL inside that Runtime.
 
 <HostedIntelligencePlatformRuntime components={props.components} />

@@ -16,6 +16,6 @@ Keep the Vue provider pointed at your app Runtime's `/api/copilotkit` endpoint. 
 
 Vue exposes its own `useThreads` composable for a persistent thread list. Follow the [Vue `useThreads` reference](/reference/vue/hooks/useThreads) for its Vue refs, pagination, realtime updates, and mutation methods, then return here to verify persistence and user isolation.
 
-Keep your current auth headers or cookie settings when you update the Runtime URL. The Vue client should authenticate only to your app Runtime.
+Keep sending your current auth headers or cookies to `/api/copilotkit`. The Vue client should authenticate only to your app Runtime. The shared server setup below configures the hosted API URL and hosted WebSocket URL inside that Runtime.
 
 <HostedIntelligencePlatformRuntime components={props.components} />

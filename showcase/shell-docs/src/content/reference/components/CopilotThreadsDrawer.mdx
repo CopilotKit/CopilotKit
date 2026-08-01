@@ -184,7 +184,7 @@ function App() {
 - **Optimistic mutations**: archive/unarchive/rename/delete are optimistic in the core thread store; delete rolls back if the server rejects.
 - **Deleting the active thread** resets to a fresh thread; **archiving** the active thread keeps you viewing it. Archived threads render italic/muted inline in the "All" view.
 - **Filter**: an Active/All filter lives behind a **funnel** icon popover under the "Recent Conversations" heading; a small indicator dot appears on the funnel when a non-default filter is applied. Toggling the filter refetches server-side.
-- **Mobile**: below 768px the drawer is an off-canvas modal. Closed, it shows the same floating cluster (a launcher to open it + a "New Conversation" button); open, it slides in and is dismissed by tapping the backdrop or pressing Escape. Customize the launcher position with the `--cpk-drawer-launcher-*` variables.
+- **Mobile**: at 768px or below the drawer is an off-canvas modal. Closed, it shows the same floating cluster (a launcher to open it + a "New Conversation" button); open, it slides in and is dismissed by tapping the backdrop or pressing Escape. Customize the launcher position with the `--cpk-drawer-launcher-*` variables.
 - **Entitlement**: threads require CopilotKit Intelligence. A cloud-hosted app gets its entitlement from the Intelligence project connected to the Runtime. Self-hosted and offline enterprise setups may use an explicit license token. When the Runtime reports no active entitlement, the drawer shows a locked view instead of the list.
 
 ## Related

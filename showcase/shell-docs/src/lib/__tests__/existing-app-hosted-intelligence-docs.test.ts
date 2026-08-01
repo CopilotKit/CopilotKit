@@ -8,6 +8,7 @@ import ts from "typescript";
 vi.mock("../registry", () => ({ getDocsMode: () => "generated" }));
 
 import { inlineSnippets } from "../docs-render";
+import { filterFrontendScopedBlocks } from "../toc";
 
 const canonicalGuidePath = "/premium/existing-app-hosted-intelligence";
 const canonicalGuideContentPath =
@@ -43,6 +44,10 @@ const drawerEntryPointPath =
   "snippets/shared/basics/copilot-threads-drawer.mdx";
 const drawerWrapperSourceUrl = new URL(
   "../../../../../packages/react-core/src/v2/components/chat/CopilotThreadsDrawer.tsx",
+  import.meta.url,
+);
+const drawerElementSourceUrl = new URL(
+  "../../../../../packages/web-components/src/threads-drawer/copilotkit-threads-drawer.ts",
   import.meta.url,
 );
 const reactRouterRouteSourceUrl = new URL(
@@ -1385,6 +1390,46 @@ test.each(hostedGuideWrappers)(
     expect(guide).toContain("hosted API URL");
     expect(guide).toContain("hosted WebSocket URL");
     expect(guide).not.toContain("either hosted URL");
+    if (path !== canonicalGuideContentPath) {
+      expect(guide).toContain(
+        "The shared server setup below configures the hosted API URL and hosted WebSocket URL inside that Runtime.",
+      );
+      expect(guide).not.toContain("when you update the Runtime URL");
+    }
+  },
+);
+
+test.each([
+  ["React", "react", "/reference/hooks/useThreads", true],
+  [
+    "Angular",
+    "angular",
+    "/angular/guides/threads-memory-attachments-headless",
+    false,
+  ],
+  ["Vue", "vue", "/reference/vue/hooks/useThreads", false],
+  [
+    "React Native",
+    "react-native",
+    "/reference/react-native/hooks/useThreads",
+    false,
+  ],
+] as const)(
+  "the Threads architecture page gives $0 a native frontend handoff",
+  (_name, frontend, expectedHandoff, expectsReactGuides) => {
+    const guide = filterFrontendScopedBlocks(
+      readContent(threadsExplainedPath),
+      frontend,
+    );
+
+    expect(guide).toContain(expectedHandoff);
+    if (expectsReactGuides) {
+      expect(guide).toContain("/headless-threads");
+      expect(guide).toContain("/threads-lifecycle");
+    } else {
+      expect(guide).not.toContain("/headless-threads");
+      expect(guide).not.toContain("/threads-lifecycle");
+    }
   },
 );
 
@@ -2340,6 +2385,19 @@ test("the Drawer reference distinguishes managed entitlements from offline licen
     "Self-hosted and offline enterprise setups may use an explicit license token.",
   );
   expect(reference).not.toMatch(/without (?:a )?license key[^.]*locked view/i);
+});
+
+test("the Drawer reference matches the custom element's inclusive mobile breakpoint", () => {
+  const elementSource = fs.readFileSync(drawerElementSourceUrl, "utf8");
+  const breakpoint = /const MOBILE_BREAKPOINT = (\d+);/.exec(
+    elementSource,
+  )?.[1];
+
+  expect(breakpoint).toBeDefined();
+
+  const reference = readContent(drawerReferencePath);
+  expect(reference).toContain(`at ${breakpoint}px or below`);
+  expect(reference).not.toContain(`below ${breakpoint}px`);
 });
 
 test.each([
