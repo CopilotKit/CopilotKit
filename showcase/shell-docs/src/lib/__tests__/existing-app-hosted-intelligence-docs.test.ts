@@ -60,6 +60,12 @@ const angularThreadsSourceUrl = new URL(
 const headlessEntryPointPath = "snippets/shared/threads/headless-threads.mdx";
 const drawerReferencePath = "reference/components/CopilotThreadsDrawer.mdx";
 const useThreadsReferencePath = "reference/hooks/useThreads.mdx";
+const reactNativeUseThreadsReferencePath =
+  "reference/react-native/hooks/useThreads.mdx";
+const vueUseThreadsReferencePath = "reference/vue/hooks/useThreads.mdx";
+const threadsExplainedPath = "docs/premium/threads-explained.mdx";
+const angularThreadsGuidePath =
+  "docs/frontends/angular/guides/threads-memory-attachments-headless.mdx";
 const entryPointPaths = [
   "snippets/shared/cli/cli.mdx",
   "docs/premium/managed-intelligence-platform.mdx",
@@ -1371,6 +1377,17 @@ test.each(hostedGuideWrappers)(
   },
 );
 
+test.each(hostedGuideWrappers)(
+  "$name frontend boundary names both hosted server URLs",
+  ({ path }) => {
+    const guide = readContent(path);
+
+    expect(guide).toContain("hosted API URL");
+    expect(guide).toContain("hosted WebSocket URL");
+    expect(guide).not.toContain("either hosted URL");
+  },
+);
+
 test("the canonical key-rotation link resolves to the supported replacement sequence", async () => {
   const guide = readCanonicalGuide();
   const cli = readContent("snippets/shared/cli/cli.mdx");
@@ -1765,17 +1782,39 @@ test("rejects onRequest auth masked by an opening brace in a literal", () => {
   expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
 });
 
-test("checks user B's successful agent-scoped list for user A's thread", () => {
+test("checks user B's successful agent-scoped pages for user A's thread", () => {
   const guide = readCanonicalGuide();
 
-  expect(guide).toContain(
-    "`${runtimeUrl}/threads?agentId=${encodeURIComponent(agentId)}`",
+  expect(guide).toMatch(
+    /new URLSearchParams\(\{[\s\S]*?agentId,[\s\S]*?includeArchived: "true",[\s\S]*?\}\)/,
   );
+  expect(guide).toContain("`${runtimeUrl}/threads?${query}`");
   expect(guide).toMatch(
     /if \(!listResponse\.ok\) \{[\s\S]*?throw new Error\([\s\S]*?\);[\s\S]*?\}[\s\S]*?const listBody = await listResponse\.json\(\);/,
   );
   expect(guide).toMatch(
     /if \(listBody\.threads\.some\(\(thread\) => thread\.id === threadId\)\) \{[\s\S]*?throw new Error/,
+  );
+});
+
+test("checks every thread page and rejects successful cross-user route access", () => {
+  const verificationCode = findMdxCodeFence(
+    extractMdxCodeFences(readCanonicalGuide()),
+    "js",
+    "Authenticated client — user B's session",
+  );
+
+  expect(verificationCode).toContain("const seenCursors = new Set();");
+  expect(verificationCode).toContain('includeArchived: "true"');
+  expect(verificationCode).toContain("do {");
+  expect(verificationCode).toContain("if (!Array.isArray(listBody.threads)) {");
+  expect(verificationCode).toContain("const nextCursor = listBody.nextCursor;");
+  expect(verificationCode).toContain("} while (cursor);");
+  expect(verificationCode).toMatch(
+    /if \(messagesResponse\.ok\) \{[\s\S]*?throw new Error/,
+  );
+  expect(verificationCode).toMatch(
+    /if \(connectResponse\.ok\) \{[\s\S]*?throw new Error/,
   );
 });
 
@@ -1949,6 +1988,78 @@ test("Angular public API inventory lists public thread entry points", () => {
 
   expect(completeUiFamily).toContain("`CopilotThreadsDrawer`");
   expect(applicationStateFamily).toContain("`injectThreads`");
+});
+
+test("the Angular custom list switches both the thread store and chat", () => {
+  const example = findMdxCodeFence(
+    extractMdxCodeFences(readContent(angularThreadsGuidePath)),
+    "ts",
+    "src/app/thread-list.component.ts",
+  );
+
+  expect(example).toContain("injectChatConfiguration");
+  expect(example).toContain("readonly chat = injectChatConfiguration();");
+  expect(example).toContain("this.chat.setActiveThreadId(threadId);");
+  expect(example).toContain("this.threads.startNewThread();");
+  expect(example).toContain("this.chat.startNewThread();");
+});
+
+test("the Vue thread reference uses managed entitlement instead of a browser key", () => {
+  const reference = readContent(vueUseThreadsReferencePath);
+
+  expect(reference).toContain(
+    'body="Create a cloud-hosted project or connect a self-hosted deployment to start syncing threads."',
+  );
+  expect(reference).not.toMatch(/\bpublic license key\b/i);
+});
+
+test.each([
+  ["React", useThreadsReferencePath],
+  ["React Native", reactNativeUseThreadsReferencePath],
+  ["architecture", threadsExplainedPath],
+])(
+  "the %s thread docs do not promise a client mutation timeout",
+  (_name, path) => {
+    const content = collapseWhitespace(readContent(path));
+
+    expect(content).not.toMatch(/\b15(?:-second| seconds?)\b/i);
+    expect(content).toMatch(
+      /\bno built-in mutation timeout\b[^.]*\bstalled request\b[^.]*\bremain pending\b/i,
+    );
+  },
+);
+
+test("the React thread reference lists every realtime lifecycle event", () => {
+  const reference = collapseWhitespace(readContent(useThreadsReferencePath));
+
+  expect(reference).toContain(
+    "Thread creates, renames, archives, unarchives, and deletes from any client are reflected immediately without polling.",
+  );
+});
+
+test("the architecture guide documents the actual thread error channels", () => {
+  const guide = collapseWhitespace(readContent(threadsExplainedPath));
+
+  expect(guide).toContain(
+    "All mutation methods (`renameThread`, `archiveThread`, `unarchiveThread`, `deleteThread`)",
+  );
+  expect(guide).toContain(
+    "A full list request clears the list or mutation error when it starts.",
+  );
+  expect(guide).toContain(
+    "A fetch-more retry clears the page error when it starts.",
+  );
+  expect(guide).toContain(
+    "A successful mutation does not clear an earlier list or mutation error.",
+  );
+  expect(guide).not.toContain("clears it after the next successful operation");
+});
+
+test("the headless guide gives the actual thread auto-name timing", () => {
+  const guide = readContent(headlessEntryPointPath);
+
+  expect(guide).toContain("after the first run completes by default");
+  expect(guide).not.toContain("after the first message by default");
 });
 
 test.each([

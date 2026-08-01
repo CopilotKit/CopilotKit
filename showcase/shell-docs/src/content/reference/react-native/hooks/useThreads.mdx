@@ -153,7 +153,7 @@ function ThreadList() {
 
 - On mount, fetches the thread list and establishes a realtime WebSocket subscription.
 - Thread creates, renames, archives, unarchives, and deletes from any client are reflected immediately without polling.
-- Rename, archive, unarchive, and delete update the local thread list optimistically. A rejected delete restores the removed row; other mutation failures surface an error, and realtime updates or a refetch reconcile the server state. Promises resolve on confirmation (15-second timeout) and reject on failure.
+- Rename, archive, unarchive, and delete update the local thread list optimistically. A rejected delete restores the removed row; other mutation failures surface an error, and realtime updates or a refetch reconcile the server state. Promises resolve on confirmation and reject on failure. The hook has no built-in mutation timeout, so a stalled request can remain pending until its fetch settles.
 - The `error` state updates with the most recent error from any operation.
 - The `threads` array stays sorted by recency: `lastRunAt` when present, falling back to `updatedAt`, then `createdAt` (most recent first).
 - New threads are **automatically named** by the LLM after their first run (a short title of 2 to 5 words). This is configurable via `generateThreadNames` on the runtime.

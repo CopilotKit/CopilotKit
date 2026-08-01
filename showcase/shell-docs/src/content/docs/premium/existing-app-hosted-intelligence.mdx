@@ -13,7 +13,7 @@ Keep your existing React UI connected to your app Runtime while you add hosted T
 
 ## Confirm the browser points at your app Runtime
 
-Set your React provider's `runtimeUrl` to `/api/copilotkit`. Do not put the managed key or either hosted URL in frontend configuration.
+Set your React provider's `runtimeUrl` to `/api/copilotkit`. Do not put the managed project key, hosted API URL, or hosted WebSocket URL in frontend configuration.
 
 Keep the auth, `frontendTools`, and other props from your current provider when you make this change. Same-origin cookie auth works with `/api/copilotkit`. If your app uses bearer auth, keep passing its verified token in the provider's `Authorization` header as described in [Authentication](/auth).
 

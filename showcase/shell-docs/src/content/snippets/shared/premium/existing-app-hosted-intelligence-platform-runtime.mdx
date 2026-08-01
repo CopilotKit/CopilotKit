@@ -164,26 +164,58 @@ The server example uses a Next.js App Router catch-all route at `app/api/copilot
     const agentId = "default";
     const authHeaders = {};
 
-    const listResponse = await fetch(
-      `${runtimeUrl}/threads?agentId=${encodeURIComponent(agentId)}`,
-      {
+    const seenCursors = new Set();
+    let cursor;
+    let listPagesChecked = 0;
+
+    do {
+      if (cursor) {
+        if (seenCursors.has(cursor)) {
+          throw new Error(`Thread list repeated cursor: ${cursor}`);
+        }
+        seenCursors.add(cursor);
+      }
+
+      const query = new URLSearchParams({
+        agentId,
+        includeArchived: "true",
+      });
+      if (cursor) query.set("cursor", cursor);
+
+      const listResponse = await fetch(`${runtimeUrl}/threads?${query}`, {
         credentials: "include",
         headers: authHeaders,
-      },
-    );
-    if (!listResponse.ok) {
-      throw new Error(`Thread list request failed: ${listResponse.status}`);
-    }
-    const listBody = await listResponse.json();
-    if (listBody.threads.some((thread) => thread.id === threadId)) {
-      throw new Error(`User B can see user A's Thread: ${threadId}`);
-    }
+      });
+      if (!listResponse.ok) {
+        throw new Error(`Thread list request failed: ${listResponse.status}`);
+      }
+
+      const listBody = await listResponse.json();
+      if (!Array.isArray(listBody.threads)) {
+        throw new Error("Thread list response is missing a threads array");
+      }
+      if (listBody.threads.some((thread) => thread.id === threadId)) {
+        throw new Error(`User B can see user A's Thread: ${threadId}`);
+      }
+
+      const nextCursor = listBody.nextCursor;
+      if (nextCursor != null && typeof nextCursor !== "string") {
+        throw new Error("Thread list response has an invalid nextCursor");
+      }
+      cursor = nextCursor || undefined;
+      listPagesChecked += 1;
+    } while (cursor);
 
     const messagesResponse = await fetch(
       `${runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
       { credentials: "include", headers: authHeaders },
     );
     const messagesBody = await messagesResponse.text();
+    if (messagesResponse.ok) {
+      throw new Error(
+        `User B can read user A's messages: ${messagesResponse.status}`,
+      );
+    }
 
     const connectResponse = await fetch(
       `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/connect`,
@@ -203,16 +235,21 @@ The server example uses a Next.js App Router catch-all route at `app/api/copilot
       },
     );
     await connectResponse.body?.cancel();
+    if (connectResponse.ok) {
+      throw new Error(
+        `User B can connect to user A's Thread: ${connectResponse.status}`,
+      );
+    }
 
     console.table({
-      listStatus: listResponse.status,
+      listPagesChecked,
       messagesStatus: messagesResponse.status,
       connectStatus: connectResponse.status,
     });
-    console.log({ listBody, messagesBody });
+    console.log({ messagesBody });
     ```
 
-    The list request must succeed, and its parsed `threads` array must not contain A's Thread. The message and connect calls must return a non-`2xx` response without A's data or events. Then sign back in as A and reopen the Thread. Test every path through your app Runtime, not the hosted REST API. Any response that exposes A's Thread or messages to B is a release blocker.
+    Every list page must succeed, and no parsed `threads` array may contain A's Thread. The message and connect calls must return a non-`2xx` response without A's data or events. Then sign back in as A and reopen the Thread. Test every path through your app Runtime, not the hosted REST API. Any response that exposes A's Thread or messages to B is a release blocker.
   </Step>
 </Steps>
 

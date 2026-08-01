@@ -17,17 +17,22 @@ Pass `threadId` to connect the chat to an existing conversation:
 <copilot-chat agentId="support" [threadId]="selectedThreadId()" />
 ```
 
-For a custom thread list, use `injectThreads`. Its inputs accept plain values
-or signals.
+For a custom thread list, render the list and `CopilotChat` under the same
+`provideCopilotChatConfiguration` scope. Use `injectThreads` for list state and
+`injectChatConfiguration` to switch the active chat. The `injectThreads` inputs
+accept plain values or Angular signals.
 
 ```ts title="src/app/thread-list.component.ts"
 import { Component } from "@angular/core";
-import { injectThreads } from "@copilotkit/angular";
+import {
+  injectChatConfiguration,
+  injectThreads,
+} from "@copilotkit/angular";
 
 @Component({
   selector: "app-thread-list",
   template: `
-    <button type="button" (click)="threads.startNewThread()">
+    <button type="button" (click)="startNewThread()">
       New conversation
     </button>
 
@@ -51,10 +56,15 @@ export class ThreadListComponent {
     agentId: "support",
     limit: 20,
   });
+  readonly chat = injectChatConfiguration();
 
   protected select(threadId: string): void {
-    // Store this id and bind it to CopilotChat's threadId input.
-    console.log(threadId);
+    this.chat.setActiveThreadId(threadId);
+  }
+
+  protected startNewThread(): void {
+    this.threads.startNewThread();
+    this.chat.startNewThread();
   }
 }
 ```

@@ -58,7 +58,7 @@ before exposing thread lists or lifecycle actions.
 
         Cloud-hosted Threads use the entitlement state returned by the managed project, not a license token in browser code. Self-hosted and offline enterprise setups may use an explicit license token.
 
-        Thread names are generated after the first message by default. Add `generateThreadNames: false` to your existing Runtime options to turn that off.
+        Thread names are generated after the first run completes by default. Add `generateThreadNames: false` to your existing Runtime options to turn that off.
 
         **Thread lock options:** When an agent run starts, the runtime acquires a lock on the thread to prevent concurrent runs. You can tune this behavior:
 

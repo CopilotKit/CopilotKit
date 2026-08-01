@@ -101,15 +101,14 @@ Rename, archive, unarchive, and delete update the thread list optimistically. A 
 
 ### Mutation failures
 
-All mutation methods (`renameThread`, `archiveThread`, `deleteThread`) return promises that reject with an `Error` if the server cannot complete the operation. Common causes:
+All mutation methods (`renameThread`, `archiveThread`, `unarchiveThread`, `deleteThread`) return promises that reject with an `Error` if the server cannot complete the operation. Common causes:
 
 - **Network failure.** The client can't reach the runtime.
 - **Thread not found.** Another client deleted the thread before your mutation arrived.
 - **Authorization failure.** The user doesn't have permission to modify the thread.
-- **Timeout.** The server didn't respond within 15 seconds.
+The thread APIs have no built-in mutation timeout, so a stalled request can remain pending until its fetch settles.
 
-The thread client exposes the most recent list or mutation error and clears it
-after the next successful operation.
+Thread failures use two channels: list and mutation failures appear as `error` or `listError`, while page-load failures appear as `fetchMoreError`. A full list request clears the list or mutation error when it starts. A fetch-more retry clears the page error when it starts. A successful mutation does not clear an earlier list or mutation error.
 
 ### WebSocket disconnection
 

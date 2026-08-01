@@ -12,7 +12,7 @@ Keep your existing Vue UI connected to your app Runtime while you add hosted Thr
 
 ## Confirm the Vue frontend points at your app Runtime
 
-Keep the Vue provider pointed at your app Runtime's `/api/copilotkit` endpoint. Do not add the managed project key or either hosted URL to Vue configuration.
+Keep the Vue provider pointed at your app Runtime's `/api/copilotkit` endpoint. Do not add the managed project key, hosted API URL, or hosted WebSocket URL to Vue configuration.
 
 Vue exposes its own `useThreads` composable for a persistent thread list. Follow the [Vue `useThreads` reference](/reference/vue/hooks/useThreads) for its Vue refs, pagination, realtime updates, and mutation methods, then return here to verify persistence and user isolation.
 
