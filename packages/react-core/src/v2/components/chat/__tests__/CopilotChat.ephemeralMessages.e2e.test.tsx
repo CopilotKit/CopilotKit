@@ -6,7 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Message } from "@ag-ui/core";
 import type { RunAgentInput } from "@ag-ui/client";
 import {
@@ -395,6 +395,85 @@ describe("CopilotChat ephemeral messages", () => {
           .firstElementChild as HTMLElement
       ).style.height,
     ).toBe("4000px");
+    unmount();
+  });
+
+  it("does not reset virtual scrolling when the first ephemeral entry is removed", async () => {
+    const ephemeralMessages = Array.from({ length: 52 }, (_, index) => ({
+      id: `removable-ephemeral-${index}`,
+      content: `Removable ephemeral ${index}`,
+    }));
+    const fakeScrollElement = document.createElement("div");
+    const scrollTo = vi.fn();
+    fakeScrollElement.scrollTo = (
+      optionsOrX: ScrollToOptions | number = {},
+      y?: number,
+    ) => {
+      scrollTo(optionsOrX, y);
+      fakeScrollElement.scrollTop =
+        typeof optionsOrX === "number"
+          ? (y ?? optionsOrX)
+          : (optionsOrX.top ?? 0);
+    };
+    Object.defineProperty(fakeScrollElement, "clientHeight", {
+      configurable: true,
+      get: () => 600,
+    });
+    fakeScrollElement.getBoundingClientRect = () =>
+      ({
+        height: 600,
+        width: 800,
+        top: 0,
+        left: 0,
+        bottom: 600,
+        right: 800,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    const { rerender, unmount } = renderWithCopilotKit({
+      renderCustomMessages: [ephemeralRenderer],
+      children: (
+        <ScrollElementContext.Provider value={fakeScrollElement}>
+          <CopilotChatMessageView ephemeralMessages={ephemeralMessages} />
+        </ScrollElementContext.Provider>
+      ),
+    });
+
+    await waitFor(() => {
+      expect(
+        document.querySelector(
+          '[data-testid="copilot-message-list"] > div[style*="position: relative"]',
+        ),
+      ).not.toBeNull();
+    });
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+    });
+    scrollTo.mockClear();
+    globalThis.requestAnimationFrame = noopRAF;
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame = noopRAF;
+    }
+
+    rerender(
+      <CopilotKitProvider renderCustomMessages={[ephemeralRenderer]}>
+        <CopilotChatConfigurationProvider threadId="test-thread">
+          <ScrollElementContext.Provider value={fakeScrollElement}>
+            <CopilotChatMessageView
+              ephemeralMessages={ephemeralMessages.slice(1)}
+            />
+          </ScrollElementContext.Provider>
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+    expect(scrollTo).not.toHaveBeenCalled();
     unmount();
   });
 

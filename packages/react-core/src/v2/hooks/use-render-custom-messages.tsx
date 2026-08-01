@@ -42,6 +42,9 @@ export function useRenderCustomMessages() {
     copilotkit.renderCustomMessages,
     agentId,
   );
+  if (!customMessageRenderers.some((renderer) => renderer.render)) {
+    return null;
+  }
 
   return function (params: UseRenderCustomMessagesParams) {
     if (!customMessageRenderers.length) {

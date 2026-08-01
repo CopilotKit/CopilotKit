@@ -630,7 +630,7 @@ export function CopilotChatMessageView({
   const threadChangeKey = [
     config?.agentId ?? "",
     config?.threadId ?? "",
-    deduplicatedMessages[0]?.id ?? ephemeralMessages[0]?.id ?? "",
+    deduplicatedMessages[0]?.id ?? "",
   ].join(":");
   useLayoutEffect(() => {
     if (!shouldVirtualize || !composedMessages.length) return;

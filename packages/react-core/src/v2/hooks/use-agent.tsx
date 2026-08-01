@@ -477,25 +477,32 @@ export function useAgent(
     chatScope?.hasExplicitThreadId ?? chatConfig?.hasExplicitThreadId;
   const resolvedThreadId =
     threadId ?? (configHasExplicitThreadId ? configThreadId : undefined);
+  const threadScopeId = threadId ?? configThreadId;
   const previousThreadScopeRef = useRef({
-    resolvedThreadId,
+    threadScopeId,
     hasExplicitThreadId: configHasExplicitThreadId,
+    explicitThreadId: threadId,
   });
   useEffect(() => {
     const threadChanged =
-      previousThreadScopeRef.current.resolvedThreadId !== resolvedThreadId ||
-      previousThreadScopeRef.current.hasExplicitThreadId !==
-        configHasExplicitThreadId;
+      previousThreadScopeRef.current.threadScopeId !== threadScopeId ||
+      previousThreadScopeRef.current.explicitThreadId !== threadId ||
+      (threadId === undefined &&
+        previousThreadScopeRef.current.hasExplicitThreadId !==
+          configHasExplicitThreadId);
     previousThreadScopeRef.current = {
-      resolvedThreadId,
+      threadScopeId,
       hasExplicitThreadId: configHasExplicitThreadId,
+      explicitThreadId: threadId,
     };
-    if (!resolvedThreadId) return;
-    agent.threadId = resolvedThreadId;
+    if (!threadScopeId) return;
+    if (threadId !== undefined || configHasExplicitThreadId || threadChanged) {
+      agent.threadId = threadScopeId;
+    }
     if (threadChanged && agent.messages.length > 0) {
       agent.setMessages([]);
     }
-  }, [agent, configHasExplicitThreadId, resolvedThreadId]);
+  }, [agent, configHasExplicitThreadId, threadId, threadScopeId]);
 
   const ephemeralThreadId =
     resolvedThreadId ?? configThreadId ?? agent.threadId;
@@ -509,23 +516,6 @@ export function useAgent(
       threadId: ephemeralThreadId,
     };
   }, [ephemeralThreadId, resolvedAgentId]);
-
-  useEffect(() => {
-    const reconcile = () => {
-      if (agent.threadId !== ephemeralThreadId) return;
-      copilotkit.reconcileEphemeralMessages(
-        resolvedAgentId,
-        ephemeralThreadId,
-        agent.messages,
-      );
-    };
-
-    reconcile();
-    const subscription = agent.subscribe({
-      onMessagesChanged: reconcile,
-    });
-    return () => subscription.unsubscribe();
-  }, [agent, copilotkit, ephemeralThreadId, resolvedAgentId]);
 
   useEffect(() => {
     const subscription = copilotkit.subscribe({
@@ -553,6 +543,23 @@ export function useAgent(
     resolvedAgentId,
     resolvedThreadId,
   ]);
+
+  useEffect(() => {
+    const reconcile = () => {
+      if (agent.threadId !== ephemeralThreadId) return;
+      copilotkit.reconcileEphemeralMessages(
+        resolvedAgentId,
+        ephemeralThreadId,
+        agent.messages,
+      );
+    };
+
+    reconcile();
+    const subscription = agent.subscribe({
+      onMessagesChanged: reconcile,
+    });
+    return () => subscription.unsubscribe();
+  }, [agent, copilotkit, ephemeralThreadId, resolvedAgentId]);
 
   const addEphemeralMessage = useCallback(
     (message: ReactEphemeralMessage): boolean => {

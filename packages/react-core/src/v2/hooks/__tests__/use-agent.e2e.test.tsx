@@ -232,6 +232,62 @@ describe("useAgent e2e", () => {
     });
   });
 
+  it("resets messages across non-explicit provider thread changes", async () => {
+    const agent = new MockStepwiseAgent();
+
+    function Harness() {
+      const { agent: hookAgent } = useAgent();
+      return (
+        <output data-testid="non-explicit-thread-messages">
+          {hookAgent.messages.map((message) => message.id).join(",")}
+        </output>
+      );
+    }
+
+    const { rerender } = render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider
+          agentId="default"
+          threadId="thread-a"
+          hasExplicitThreadId={false}
+        >
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => expect(agent.threadId).toBeDefined());
+    agent.addMessage({
+      id: "thread-a-message",
+      role: "user",
+      content: "Thread A history",
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("non-explicit-thread-messages").textContent,
+      ).toContain("thread-a-message");
+    });
+
+    rerender(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider
+          agentId="default"
+          threadId="thread-b"
+          hasExplicitThreadId={false}
+        >
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(agent.threadId).toBe("thread-b");
+      expect(
+        screen.getByTestId("non-explicit-thread-messages").textContent,
+      ).toBe("");
+    });
+  });
+
   it("keeps new-thread ephemeral IDs valid while the previous messages are still present", async () => {
     const agent = new MockStepwiseAgent();
     let currentAdd:
@@ -454,6 +510,49 @@ describe("useAgent e2e", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId("reconciled-ephemeral-values").textContent,
+      ).toBe("");
+    });
+  });
+
+  it("refreshes the rendered snapshot for a mount-time persisted collision", async () => {
+    const agent = new MockStepwiseAgent();
+
+    function SeededHarness() {
+      const { copilotkit } = useCopilotKit();
+      const seeded = React.useRef(false);
+      if (!seeded.current) {
+        seeded.current = true;
+        copilotkit.addEphemeralMessage("default", "test-thread", {
+          id: "mount-collision-card",
+          content: "client-only",
+        });
+        agent.addMessage({
+          id: "mount-collision-card",
+          role: "user",
+          content: "persisted",
+        });
+      }
+
+      return <ObservedEphemeralMessages />;
+    }
+
+    function ObservedEphemeralMessages() {
+      const { ephemeralMessages } = useAgent({ updates: [] });
+      return (
+        <output data-testid="mount-reconciled-ephemeral-values">
+          {ephemeralMessages.map((message) => message.id).join(",")}
+        </output>
+      );
+    }
+
+    renderWithCopilotKit({
+      agent,
+      children: <SeededHarness />,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("mount-reconciled-ephemeral-values").textContent,
       ).toBe("");
     });
   });
