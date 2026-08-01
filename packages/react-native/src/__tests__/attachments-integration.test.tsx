@@ -43,6 +43,7 @@ const hoisted = vi.hoisted(() => {
   return {
     RealContext: _React.createContext(null),
     MockCoreConstructor: vi.fn(),
+    waitForHeaders: vi.fn((): void | Promise<void> => undefined),
   };
 });
 
@@ -142,7 +143,7 @@ vi.mock("@copilotkit/react-core/v2/context", () => {
       if (!ctx) {
         throw new Error("useCopilotKit must be used within CopilotKitProvider");
       }
-      return { copilotkit: ctx };
+      return { copilotkit: ctx, waitForHeaders: hoisted.waitForHeaders };
     },
     useLicenseContext: () => ({
       status: null,
@@ -190,6 +191,7 @@ describe("Attachments integration: full pick -> attach -> submit flow", () => {
     mockCoreInstance = createMockCore();
     hoisted.MockCoreConstructor.mockClear();
     hoisted.MockCoreConstructor.mockReturnValue(mockCoreInstance);
+    hoisted.waitForHeaders.mockReturnValue(undefined);
     vi.clearAllMocks();
   });
 
@@ -339,5 +341,54 @@ describe("Attachments integration: full pick -> attach -> submit flow", () => {
     });
 
     expect(chatCtx!.attachments).toHaveLength(0);
+  });
+
+  it("retains ready attachments when header readiness rejects", async () => {
+    mockGetDocumentAsync.mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: "file:///cache/photo.png",
+          name: "photo.png",
+          size: 10,
+          mimeType: "image/png",
+        },
+      ],
+    });
+    mockReadAsStringAsync.mockResolvedValue("aGVsbG8=");
+    let rejectHeaders!: (error: Error) => void;
+    const headersRejected = new Promise<void>((_, reject) => {
+      rejectHeaders = reject;
+    });
+    hoisted.waitForHeaders.mockReturnValue(headersRejected);
+    let chatCtx: CopilotChatContextValue | null = null;
+
+    function Consumer() {
+      chatCtx = useCopilotChatContext();
+      return null;
+    }
+
+    render(
+      <CopilotKitProvider runtimeUrl="https://api.test">
+        <CopilotChat agentId="test-agent" attachments={{ enabled: true }}>
+          <Consumer />
+        </CopilotChat>
+      </CopilotKitProvider>,
+    );
+
+    await act(async () => {
+      await chatCtx!.openPicker();
+    });
+    expect(chatCtx!.attachments).toHaveLength(1);
+
+    const submit = chatCtx!.submitMessage("with photo");
+    rejectHeaders(new Error("headers unavailable"));
+    await act(async () => {
+      await submit;
+    });
+
+    expect(chatCtx!.attachments).toHaveLength(1);
+    expect(mockAgent.addMessage).not.toHaveBeenCalled();
+    expect(mockRunAgent).not.toHaveBeenCalled();
   });
 });

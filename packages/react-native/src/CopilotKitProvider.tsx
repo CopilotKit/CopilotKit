@@ -177,6 +177,9 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   useEffect(() => {
     copilotkit.setHeaders(stableHeaders);
     copilotkit.setCredentials(credentials);
+    copilotkit.setProperties(stableProperties);
+    copilotkit.setDebug(debug);
+    if (!headersReady) return;
     copilotkit.setRuntimeUrl(runtimeUrl);
     copilotkit.setRuntimeTransport(
       useSingleEndpoint === true
@@ -185,9 +188,6 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
           ? "rest"
           : "auto",
     );
-    copilotkit.setProperties(stableProperties);
-    copilotkit.setDebug(debug);
-    if (!headersReady) return;
     copilotkit.connect();
   }, [
     runtimeUrl,

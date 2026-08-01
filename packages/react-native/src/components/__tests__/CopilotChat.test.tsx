@@ -13,6 +13,7 @@ const hoisted = vi.hoisted(() => {
     },
     mockRunAgent: vi.fn().mockResolvedValue(undefined),
     mockToolRegistry: vi.fn(() => new Map()),
+    waitForHeaders: vi.fn((): void | Promise<void> => undefined),
   };
 });
 
@@ -26,6 +27,7 @@ vi.mock("@copilotkit/react-core/v2/context", () => ({
   useCopilotKit: vi.fn(() => ({
     copilotkit: { runAgent: hoisted.mockRunAgent },
     executingToolCallIds: new Set<string>(),
+    waitForHeaders: hoisted.waitForHeaders,
   })),
 }));
 
@@ -141,6 +143,7 @@ describe("CopilotChat", () => {
     hoisted.mockAgent.addMessage = vi.fn();
     hoisted.mockRunAgent.mockResolvedValue(undefined);
     hoisted.mockToolRegistry.mockReturnValue(new Map());
+    hoisted.waitForHeaders.mockReturnValue(undefined);
   });
 
   it("renders empty state when there are no messages", () => {
@@ -280,6 +283,33 @@ describe("CopilotChat", () => {
     });
 
     expect(onSend).toHaveBeenCalledWith("Callback test");
+  });
+
+  it("waits for headers before calling onSendMessage", async () => {
+    let resolveHeaders!: () => void;
+    const headersReady = new Promise<void>((resolve) => {
+      resolveHeaders = resolve;
+    });
+    hoisted.waitForHeaders.mockReturnValue(headersReady);
+    const onSend = vi.fn();
+    const { getByTestId } = render(<CopilotChat onSendMessage={onSend} />);
+
+    await act(async () => {
+      fireEvent.change(getByTestId("text-input"), {
+        target: { value: "Delayed callback" },
+      });
+      fireEvent.click(getByTestId("send-button"));
+      await Promise.resolve();
+    });
+
+    expect(onSend).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveHeaders();
+      await headersReady;
+    });
+
+    expect(onSend).toHaveBeenCalledWith("Delayed callback");
   });
 
   it("renders tool call indicator for unregistered tools", () => {

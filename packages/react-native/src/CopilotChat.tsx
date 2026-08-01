@@ -235,8 +235,6 @@ export function CopilotChat({
         return;
       }
 
-      const readyAttachments = consumeAttachments();
-
       try {
         const pendingHeaders = waitForHeaders?.();
         if (pendingHeaders) await pendingHeaders;
@@ -244,6 +242,8 @@ export function CopilotChat({
         console.error("CopilotChat: header resolution failed", error);
         return;
       }
+
+      const readyAttachments = consumeAttachments();
 
       if (readyAttachments.length > 0) {
         const contentParts: InputContent[] = [];

@@ -167,7 +167,6 @@ export function CopilotChat({
       if (!text || isRunning || !agent) return;
 
       setError(null);
-      onSendMessage?.(text);
 
       try {
         const pendingHeaders = waitForHeaders?.();
@@ -178,6 +177,8 @@ export function CopilotChat({
         setError(message);
         return;
       }
+
+      onSendMessage?.(text);
 
       const id = `user-${++messageIdCounter.current}`;
       agent.addMessage({

@@ -80,7 +80,8 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
   if (
     evaluationRef.current === null ||
     evaluationRef.current.source !== source ||
-    evaluationRef.current.evaluation.kind === "sync"
+    evaluationRef.current.evaluation.kind === "sync" ||
+    evaluationRef.current.evaluation.kind === "error"
   ) {
     evaluation = evaluate(source);
     if (
@@ -115,9 +116,14 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
     const attempt = ++attemptRef.current;
     let active = true;
 
-    const publishError = (error: Error) => {
+    const reportError = (_error: Error) => {
       if (!active || attempt !== attemptRef.current) return;
       console.error("[CopilotKit] Failed to resolve request headers");
+    };
+
+    const publishError = (error: Error) => {
+      reportError(error);
+      if (!active || attempt !== attemptRef.current) return;
       setState((previous) =>
         previous.ready === hasSettledRef.current && previous.error === error
           ? previous
@@ -139,7 +145,8 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
     }
 
     if (evaluation.kind === "error") {
-      publishError(evaluation.error);
+      // The error is already visible in render, so avoid consuming the next-render retry.
+      reportError(evaluation.error);
       return () => {
         active = false;
       };
@@ -181,7 +188,7 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
   return {
     headers: lastGoodHeadersRef.current,
     ready: hasSettledRef.current ? state.ready : false,
-    error: state.error,
+    error: evaluation.kind === "error" ? evaluation.error : state.error,
   };
 }
 

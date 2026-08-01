@@ -37,6 +37,14 @@ function createMockCore() {
 let mockCoreInstance: ReturnType<typeof createMockCore>;
 const asyncNativeHeaders = async () => ({ Authorization: "Bearer native" });
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 vi.mock("@copilotkit/react-core/v2/headless", async () => {
   // Regular function (not arrow) so it's new-able
   function CopilotKitCoreReact(this: any, ...args: any[]) {
@@ -286,6 +294,44 @@ describe("CopilotKitProvider (React Native)", () => {
         Authorization: "Bearer native",
       });
       expect(mockCoreInstance.connect).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("defers runtime URL and transport changes until async headers settle", async () => {
+    const pending = deferred<Record<string, string>>();
+    const { rerender } = render(
+      <CopilotKitProvider
+        runtimeUrl="https://api.test/v1"
+        headers={() => pending.promise}
+      >
+        <div />
+      </CopilotKitProvider>,
+    );
+
+    expect(mockCoreInstance.setRuntimeUrl).not.toHaveBeenCalled();
+    expect(mockCoreInstance.setRuntimeTransport).not.toHaveBeenCalled();
+
+    rerender(
+      <CopilotKitProvider
+        runtimeUrl="https://api.test/v2"
+        useSingleEndpoint
+        headers={() => pending.promise}
+      >
+        <div />
+      </CopilotKitProvider>,
+    );
+
+    expect(mockCoreInstance.setRuntimeUrl).not.toHaveBeenCalled();
+    expect(mockCoreInstance.setRuntimeTransport).not.toHaveBeenCalled();
+
+    act(() => pending.resolve({ Authorization: "Bearer native" }));
+    await waitFor(() => {
+      expect(mockCoreInstance.setRuntimeUrl).toHaveBeenCalledWith(
+        "https://api.test/v2",
+      );
+      expect(mockCoreInstance.setRuntimeTransport).toHaveBeenCalledWith(
+        "single",
+      );
     });
   });
 

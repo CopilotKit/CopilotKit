@@ -160,6 +160,30 @@ describe("useResolvedHeaders", () => {
     );
   });
 
+  it("retries a stable builder after a transient synchronous evaluation error", async () => {
+    let attempts = 0;
+    const source = vi.fn(() => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("token service unavailable");
+      return { Authorization: "Bearer recovered" };
+    });
+    const { result, rerender } = renderHook(() => useResolvedHeaders(source));
+
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+    expect(result.current.ready).toBe(false);
+
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current).toEqual({
+        headers: { Authorization: "Bearer recovered" },
+        ready: true,
+        error: null,
+      });
+    });
+    expect(source).toHaveBeenCalledTimes(3);
+  });
+
   it("reevaluates a stable synchronous builder on each render", () => {
     let token = "first";
     const source = vi.fn(() => ({ Authorization: `Bearer ${token}` }));
