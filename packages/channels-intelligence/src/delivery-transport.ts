@@ -23,10 +23,7 @@ import type {
   ChannelTerminalPayload,
 } from "./delivery-contracts.js";
 import { ChannelDeliveryFileClient } from "./delivery-files.js";
-import {
-  ChannelDeliveryTranscriptClient,
-  ChannelDeliveryTranscriptError,
-} from "./delivery-transcript.js";
+import { ChannelDeliveryTranscriptClient } from "./delivery-transcript.js";
 import type { ChannelDeliveryTranscript } from "./delivery-transcript.js";
 import { ChannelDeliveryChargeClient } from "./delivery-charge.js";
 import type { ChannelFileRef } from "./delivery-files.js";
@@ -86,8 +83,18 @@ export interface PreparedChannelDelivery {
   channelId: string;
   channelName: string;
   adapter: ChannelDeliveryAdapter;
-  /** Trusted inbound Slack surface; omitted for providers without this concept. */
-  surfaceKind?: "direct_message" | "app_mention" | "message";
+  /** Trusted provider surface used to decide whether a response is expected. */
+  surfaceKind?:
+    | "direct_message"
+    | "app_mention"
+    | "message"
+    | "personal"
+    | "mention"
+    | "ambient"
+    | "interaction"
+    | "welcome"
+    | "reaction"
+    | "file_consent";
   turn: {
     eventId: string;
     receivedAt: string;
@@ -116,6 +123,22 @@ export class ChannelProviderDeliveryError extends ChannelDeliveryTerminatedError
   ) {
     super(`Channel provider delivery ended with ${code}`);
     this.name = "ChannelProviderDeliveryError";
+  }
+}
+
+/** A provider-native effect or element was used for a different active provider. */
+export class ChannelProviderMismatchError extends TypeError {
+  readonly code = "CHANNEL_PROVIDER_MISMATCH";
+
+  constructor(
+    readonly activeProvider: ChannelDeliveryAdapter,
+    readonly requestedProvider: ChannelDeliveryAdapter,
+    readonly source: "effect" | "element",
+  ) {
+    super(
+      `Cannot send a ${requestedProvider} ${source} through an active ${activeProvider} delivery`,
+    );
+    this.name = "ChannelProviderMismatchError";
   }
 }
 
@@ -209,6 +232,7 @@ export class ClaimedChannelDelivery {
   private commitPromise?: Promise<void>;
   private transcriptTriggerPersisted = false;
   private providerOutputApplied = false;
+  private providerOutputExpected = false;
   private typingTimer?: ReturnType<typeof setTimeout>;
   private typingActive = false;
   /** After a successful terminal or permanent non-terminal failure, refuse further effects. */
@@ -267,7 +291,20 @@ export class ClaimedChannelDelivery {
     payload: ProviderPayloadInput,
     options: { charge?: boolean } = {},
   ): Promise<Record<string, unknown>> {
-    if (isVisibleProviderEffect(payload)) this.stopManagedTyping();
+    if (isVisibleProviderEffect(payload)) {
+      this.providerOutputExpected = true;
+      this.stopManagedTyping();
+    }
+    const requestedProvider = providerForEffect(payload);
+    if (requestedProvider !== this.delivery.adapter) {
+      return Promise.reject(
+        new ChannelProviderMismatchError(
+          this.delivery.adapter,
+          requestedProvider,
+          "effect",
+        ),
+      );
+    }
     const charged =
       options.charge === false ? Promise.resolve() : this.charge();
     return charged
@@ -408,6 +445,16 @@ export class ClaimedChannelDelivery {
   /** Return whether at least one provider packet reached the applied phase. */
   hasProviderOutput(): boolean {
     return this.providerOutputApplied;
+  }
+
+  /** Mark that handler code explicitly attempted visible provider output. */
+  expectProviderOutput(): void {
+    this.providerOutputExpected = true;
+  }
+
+  /** Return whether this delivery's handler explicitly attempted visible output. */
+  hasExpectedProviderOutput(): boolean {
+    return this.providerOutputExpected;
   }
 
   /**
@@ -983,34 +1030,16 @@ export class ChannelDeliveryTransport {
           !isChannelDeliveryTerminatedError(error) &&
           !claimedDelivery.isSuperseded()
         ) {
-          if (
-            delivery.turn.input.kind === "welcome" &&
-            !claimedDelivery.hasProviderOutput()
-          ) {
+          if (shouldSendGenericFailure(delivery, claimedDelivery)) {
             await claimedDelivery
               .effect(
-                "welcome_failure",
+                "expected_response_failure",
                 {
                   kind:
                     delivery.adapter === "slack"
                       ? "slack.message.create"
                       : "teams.message.create",
                   text: "Something went wrong",
-                },
-                { charge: false },
-              )
-              .catch(() => undefined);
-          }
-          if (
-            error instanceof ChannelDeliveryTranscriptError &&
-            shouldReportTranscriptFailure(delivery)
-          ) {
-            await claimedDelivery
-              .effect(
-                "transcript_failure",
-                {
-                  kind: "slack.message.create",
-                  text: "An error occurred processing this request.",
                 },
                 { charge: false },
               )
@@ -1196,21 +1225,14 @@ const PREPARED_SURFACE_KINDS = new Set([
   "direct_message",
   "app_mention",
   "message",
+  "personal",
+  "mention",
+  "ambient",
+  "interaction",
+  "welcome",
+  "reaction",
+  "file_consent",
 ]);
-
-function shouldReportTranscriptFailure(
-  delivery: PreparedChannelDelivery,
-): boolean {
-  if (delivery.adapter !== "slack") return false;
-  if (
-    delivery.surfaceKind === "direct_message" ||
-    delivery.surfaceKind === "app_mention"
-  ) {
-    return true;
-  }
-  const input = delivery.turn.input;
-  return input.kind === "text" && input.operation.mentioned;
-}
 
 function assertPreparedDelivery(
   value: unknown,
@@ -1299,6 +1321,37 @@ function isVisibleProviderEffect(payload: ProviderPayloadInput): boolean {
     kind !== "slack.thread.status" &&
     kind !== "teams.typing" &&
     !kind.endsWith(".stream.stop")
+  );
+}
+
+/** Resolve the provider encoded in the strict provider-effect discriminator. */
+function providerForEffect(
+  payload: ProviderPayloadInput,
+): ChannelDeliveryAdapter {
+  return payload.kind.startsWith("teams.") ? "teams" : "slack";
+}
+
+/** Whether a failed handler owes the participant a generic visible response. */
+function shouldSendGenericFailure(
+  delivery: PreparedChannelDelivery,
+  claimedDelivery: ClaimedChannelDelivery,
+): boolean {
+  if (claimedDelivery.hasExpectedProviderOutput()) return true;
+  if (
+    delivery.surfaceKind === "direct_message" ||
+    delivery.surfaceKind === "app_mention" ||
+    delivery.surfaceKind === "personal" ||
+    delivery.surfaceKind === "mention" ||
+    delivery.surfaceKind === "interaction" ||
+    delivery.surfaceKind === "welcome"
+  ) {
+    return true;
+  }
+  const input = delivery.turn.input;
+  return (
+    input.kind === "welcome" ||
+    input.kind === "interaction" ||
+    (input.kind === "text" && input.operation.mentioned)
   );
 }
 

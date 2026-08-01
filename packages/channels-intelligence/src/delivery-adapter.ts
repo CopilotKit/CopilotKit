@@ -52,6 +52,7 @@ import type {
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
 import { ChannelProviderDeliveryError } from "./delivery-transport.js";
+import { ChannelProviderMismatchError } from "./delivery-transport.js";
 import { assertProviderReference } from "./delivery-contracts.js";
 import {
   managedImageBytesMatch,
@@ -983,6 +984,8 @@ export class DeliveryAdapter implements PlatformAdapter {
     responseId: string,
     ir: ChannelNode[],
   ): Promise<string> {
+    claimedDelivery.expectProviderOutput?.();
+    assertProviderElements(ir, adapter);
     if (adapter === "slack") {
       const rendered = renderSlackMessage(ir);
       return providerReferenceFromResult(
@@ -1008,6 +1011,8 @@ export class DeliveryAdapter implements PlatformAdapter {
     ir: ChannelNode[],
     providerReference: string,
   ): Promise<void> {
+    claimedDelivery.expectProviderOutput?.();
+    assertProviderElements(ir, adapter);
     assertProviderReference(providerReference);
     if (adapter === "slack") {
       const rendered = renderSlackMessage(ir);
@@ -1086,12 +1091,16 @@ function transcriptActorText(
   ].join(" ");
 }
 
-function transcriptFileText(message: ChannelTranscriptMessage): string {
+/** Render unavailable historical file metadata with the active provider label. */
+function transcriptFileText(
+  message: ChannelTranscriptMessage,
+  adapter: "slack" | "teams",
+): string {
   const files = message.files.filter(
     (file) => file.availability !== "managed" || !file.handle,
   );
   if (files.length === 0) return "";
-  return `\n[Historical Slack files: ${files
+  return `\n[Historical ${adapter === "teams" ? "Teams" : "Slack"} files: ${files
     .map((file) =>
       JSON.stringify({
         providerFileId: file.providerFileId,
@@ -1114,7 +1123,7 @@ function transcriptMessageText(
     message.role === "participant"
       ? `${transcriptActorText(message, adapter)}\n`
       : "";
-  return `${actor}${body}${transcriptFileText(message)}`;
+  return `${actor}${body}${transcriptFileText(message, adapter)}`;
 }
 
 async function transcriptContent(
@@ -1333,12 +1342,20 @@ function teamsMessageEffect(
   ir: ChannelNode[],
   providerReference?: string,
 ): ChannelProviderPayload {
-  const text = renderTeamsMarkdown(ir);
-  const cards = isPlainText(ir)
-    ? {}
-    : {
-        cards: [renderAdaptiveCard(ir) as unknown as Record<string, unknown>],
-      };
+  const portable = ir.filter((node) => node.type !== "raw");
+  const nativeCards = ir.flatMap((node) =>
+    node.type === "raw" && node.props.provider === "teams"
+      ? [assertNativeCard(node.props.value)]
+      : [],
+  );
+  const text = renderTeamsMarkdown(portable);
+  const renderedCards = [
+    ...(!isPlainText(portable) && portable.length > 0
+      ? [renderAdaptiveCard(portable) as unknown as Record<string, unknown>]
+      : []),
+    ...nativeCards,
+  ];
+  const cards = renderedCards.length > 0 ? { cards: renderedCards } : {};
   if (operation === "create") {
     return { kind: "teams.message.create", text, ...cards };
   }
@@ -1349,6 +1366,41 @@ function teamsMessageEffect(
     text,
     ...cards,
   };
+}
+
+/** Reject provider-native IR before the delivery emits any provider effect. */
+function assertProviderElements(
+  ir: ChannelNode[],
+  activeProvider: "slack" | "teams",
+): void {
+  for (const node of ir) {
+    if (node.type !== "raw") continue;
+    const requestedProvider =
+      node.props.provider === "teams" ? "teams" : "slack";
+    if (requestedProvider !== activeProvider) {
+      throw new ChannelProviderMismatchError(
+        activeProvider,
+        requestedProvider,
+        "element",
+      );
+    }
+  }
+}
+
+/** Validate one provider-native Adaptive Card without translating its contents. */
+function assertNativeCard(value: unknown): Record<string, unknown> {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    !("type" in value) ||
+    value.type !== "AdaptiveCard"
+  ) {
+    throw new TypeError(
+      "Teams-native channel elements must contain one AdaptiveCard object",
+    );
+  }
+  return value as Record<string, unknown>;
 }
 
 function asDeliveryTarget(value: ReplyTarget): DeliveryReplyTarget {

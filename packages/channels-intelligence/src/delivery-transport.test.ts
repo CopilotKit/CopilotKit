@@ -1,6 +1,7 @@
 import { expect, test, vi } from "vitest";
 import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
+  ChannelProviderMismatchError,
   ChannelProviderDeliveryError,
   ClaimedChannelDelivery,
   ChannelDeliveryTransport,
@@ -59,12 +60,14 @@ function channel(
 }
 
 async function runTranscriptFailure(input: {
-  surfaceKind: "direct_message" | "app_mention" | "message";
+  surfaceKind: NonNullable<PreparedChannelDelivery["surfaceKind"]>;
   mentioned: boolean;
+  adapter?: "slack" | "teams";
 }) {
   const base = preparedDelivery();
   const delivery = {
     ...base,
+    adapter: input.adapter ?? base.adapter,
     surfaceKind: input.surfaceKind,
     turn: {
       ...base.turn,
@@ -133,7 +136,42 @@ async function runTranscriptFailure(input: {
   };
 }
 
-test("transcript failure posts the fixed unmetered error for an app mention", async () => {
+async function runHandlerFailure(
+  delivery: PreparedChannelDelivery,
+  handler: (claimed: ClaimedChannelDelivery) => Promise<void>,
+) {
+  const deliveryChannel = channel(delivery);
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockResolvedValue({
+      result: "claimed",
+      deliveryId: delivery.deliveryId,
+      ownerGeneration: 7,
+      joinToken: "chj_token_01",
+    }),
+    on: vi.fn(),
+    join: vi.fn().mockResolvedValue(deliveryChannel),
+  };
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+  });
+  transport.start(handler);
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+  invitationHandler({
+    protocol: "channel_delivery_v1",
+    deliveryId: delivery.deliveryId,
+    canonicalThreadId: delivery.canonicalThreadId,
+  });
+  await vi.waitFor(() => expect(deliveryChannel.leave).toHaveBeenCalledOnce());
+  await transport.stop();
+  return vi
+    .mocked(deliveryChannel.push)
+    .mock.calls.map(
+      ([, packet]) => (packet as { payload: Record<string, unknown> }).payload,
+    );
+}
+
+test("transcript failure posts the generic unmetered error for an app mention", async () => {
   const result = await runTranscriptFailure({
     surfaceKind: "app_mention",
     mentioned: true,
@@ -148,7 +186,7 @@ test("transcript failure posts the fixed unmetered error for an app mention", as
   expect(result.packets).toEqual([
     {
       kind: "slack.message.create",
-      text: "An error occurred processing this request.",
+      text: "Something went wrong",
     },
     {
       kind: "channel.delivery.terminal",
@@ -158,7 +196,7 @@ test("transcript failure posts the fixed unmetered error for an app mention", as
   ]);
 });
 
-test("transcript failure posts the fixed unmetered error for a direct message", async () => {
+test("transcript failure posts the generic unmetered error for a direct message", async () => {
   const result = await runTranscriptFailure({
     surfaceKind: "direct_message",
     mentioned: false,
@@ -172,7 +210,20 @@ test("transcript failure posts the fixed unmetered error for a direct message", 
   ).toBe(true);
   expect(result.packets[0]).toEqual({
     kind: "slack.message.create",
-    text: "An error occurred processing this request.",
+    text: "Something went wrong",
+  });
+});
+
+test("Teams transcript failure uses the Teams generic error effect", async () => {
+  const result = await runTranscriptFailure({
+    surfaceKind: "personal",
+    mentioned: false,
+    adapter: "teams",
+  });
+
+  expect(result.packets[0]).toEqual({
+    kind: "teams.message.create",
+    text: "Something went wrong",
   });
 });
 
@@ -262,6 +313,97 @@ test.each([
     ]);
   },
 );
+
+test("interaction handler failure sends the generic provider error", async () => {
+  const base = preparedDelivery();
+  const packets = await runHandlerFailure(
+    {
+      ...base,
+      adapter: "teams",
+      turn: {
+        ...base.turn,
+        input: { kind: "interaction", actionId: "approve" },
+      },
+    },
+    async () => {
+      throw new Error("interaction handler failed");
+    },
+  );
+
+  expect(packets).toEqual([
+    { kind: "teams.message.create", text: "Something went wrong" },
+    {
+      kind: "channel.delivery.terminal",
+      status: "failed",
+      code: "runtime_handler_failed",
+    },
+  ]);
+});
+
+test("ambient handler failure is silent until developer output is expected", async () => {
+  const base = preparedDelivery();
+  const delivery: PreparedChannelDelivery = {
+    ...base,
+    surfaceKind: "message",
+    turn: {
+      ...base.turn,
+      input: {
+        ...base.turn.input,
+        operation: { ...base.turn.input.operation, mentioned: false },
+      },
+    },
+  };
+
+  await expect(
+    runHandlerFailure(delivery, async () => {
+      throw new Error("ambient handler failed");
+    }),
+  ).resolves.toEqual([
+    {
+      kind: "channel.delivery.terminal",
+      status: "failed_before_output",
+      code: "runtime_handler_failed",
+    },
+  ]);
+
+  await expect(
+    runHandlerFailure(delivery, async (claimed) => {
+      claimed.expectProviderOutput();
+      throw new Error("explicit output construction failed");
+    }),
+  ).resolves.toEqual([
+    { kind: "slack.message.create", text: "Something went wrong" },
+    {
+      kind: "channel.delivery.terminal",
+      status: "failed",
+      code: "runtime_handler_failed",
+    },
+  ]);
+});
+
+test("rejects a wrong-provider effect before charging or sending a packet", async () => {
+  const deliveryChannel = channel();
+  const charge = vi.fn().mockResolvedValue(undefined);
+  const claimed = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    { ownerGeneration: 1, runtimeInstanceId: "rti_runtime_01" },
+    deliveryChannel,
+    vi.fn(),
+    undefined,
+    undefined,
+    new AbortController().signal,
+    { charge },
+  );
+
+  await expect(
+    claimed.effect("response_wrong_provider", {
+      kind: "teams.message.create",
+      text: "must not cross providers",
+    }),
+  ).rejects.toBeInstanceOf(ChannelProviderMismatchError);
+  expect(charge).not.toHaveBeenCalled();
+  expect(deliveryChannel.push).not.toHaveBeenCalled();
+});
 
 test("claims an invitation and consumes the one-use token on delivery join", async () => {
   const deliveryChannel = channel();

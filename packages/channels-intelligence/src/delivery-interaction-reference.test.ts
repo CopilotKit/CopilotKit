@@ -68,10 +68,14 @@ test("invalid interaction references fail before handler dispatch", async () => 
       }),
     );
     expect(handler).not.toHaveBeenCalled();
-    expect(gateway.packets.at(-1)?.payload).toMatchObject({
-      kind: "channel.delivery.terminal",
-      status: "failed_before_output",
-    });
+    expect(gateway.packets.slice(-2).map(({ payload }) => payload)).toEqual([
+      { kind: "slack.message.create", text: "Something went wrong" },
+      {
+        kind: "channel.delivery.terminal",
+        status: "failed",
+        code: "runtime_handler_failed",
+      },
+    ]);
   } finally {
     await handle.stop();
   }

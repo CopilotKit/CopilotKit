@@ -353,7 +353,20 @@ test("assistant transcript history stays plain while participant metadata stays 
 
 test("Teams transcript metadata and truncation labels name Teams, not Slack", async () => {
   const teamsTranscript = {
-    messages: [transcript.messages[0]],
+    messages: [
+      {
+        ...transcript.messages[0],
+        files: [
+          {
+            providerFileId: "teams-file-1",
+            name: "history.txt",
+            mimeType: "text/plain",
+            byteSize: 12,
+            availability: "unavailable" as const,
+          },
+        ],
+      },
+    ],
     truncation: {
       messageLimit: true,
       byteLimit: false,
@@ -421,6 +434,7 @@ test("Teams transcript metadata and truncation labels name Teams, not Slack", as
 
   expect(messages[0]?.content).toContain("Earlier Teams context omitted");
   expect(messages[1]?.content).toContain("Teams participant metadata");
+  expect(messages[1]?.content).toContain("Historical Teams files");
   expect(messages.map((message) => message.content).join("\n")).not.toContain(
     "Slack",
   );
