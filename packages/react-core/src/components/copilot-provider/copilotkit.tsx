@@ -112,8 +112,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
   const showInspector = shouldShowDevConsole(props.enableInspector);
 
-  // Match the v2 provider's public-key precedence.
-  const publicApiKey = props.publicApiKey ?? props.publicLicenseKey;
+  const publicApiKey = props.publicLicenseKey || props.publicApiKey;
 
   const renderArr = useMemo(() => [{ render: CoAgentStateRenderBridge }], []);
 
@@ -213,8 +212,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
    */
   validateProps(cpkProps);
 
-  // Match the v2 provider's public-key precedence.
-  const publicApiKey = props.publicApiKey ?? props.publicLicenseKey;
+  const publicApiKey = props.publicLicenseKey || props.publicApiKey;
 
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
@@ -856,7 +854,7 @@ function validateProps(props: CopilotKitProps): never | void {
   const cloudFeatures = Object.keys(props).filter((key) => key.endsWith("_c"));
 
   // Check if we have either a runtimeUrl or one of the API keys
-  const hasApiKey = props.publicApiKey ?? props.publicLicenseKey;
+  const hasApiKey = props.publicLicenseKey || props.publicApiKey;
 
   // Self-managed (and dev-only) agents are instantiated client-side and route
   // directly to their AG-UI endpoints, so they need neither a runtime nor a

@@ -1,6 +1,9 @@
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useResolvedHeaders } from "../use-resolved-headers";
+import {
+  useHeaderReadiness,
+  useResolvedHeaders,
+} from "../use-resolved-headers";
 import type { HeaderRecord, HeaderSource } from "../use-resolved-headers";
 
 function deferred<T>() {
@@ -140,30 +143,32 @@ describe("useResolvedHeaders", () => {
     });
   });
 
-  it("reevaluates a stable async builder on a parent rerender", async () => {
-    const first = deferred<HeaderRecord>();
-    const second = deferred<HeaderRecord>();
+  it("does not reevaluate a stable async builder on a parent rerender", async () => {
+    const pending = deferred<HeaderRecord>();
     const source = vi
       .fn<() => Promise<HeaderRecord>>()
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second.promise)
-      .mockReturnValue(second.promise);
+      .mockReturnValue(pending.promise);
     const { result, rerender } = renderHook(() => useResolvedHeaders(source));
 
     rerender();
-    expect(source).toHaveBeenCalledTimes(2);
-    act(() => second.resolve({ Authorization: "Bearer current" }));
+    expect(source).toHaveBeenCalledTimes(1);
+    act(() => pending.resolve({ Authorization: "Bearer current" }));
     await waitFor(() =>
       expect(result.current.headers).toEqual({
         Authorization: "Bearer current",
       }),
     );
+  });
 
-    act(() => first.resolve({ Authorization: "Bearer stale" }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(result.current.headers).toEqual({
-      Authorization: "Bearer current",
-    });
+  it("settles pending readiness waiters when unmounted", async () => {
+    const { result, unmount } = renderHook(() =>
+      useHeaderReadiness(false, null),
+    );
+    const pending = result.current();
+
+    expect(pending).toBeInstanceOf(Promise);
+    unmount();
+    await expect(pending).rejects.toThrow("Header readiness was canceled");
   });
 
   it("does not publish a pending result after unmount", async () => {

@@ -678,7 +678,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const waitForHeaders = useCallback((): void | Promise<void> => {
     const pending = resolveHeaders();
     if (!pending) {
-      copilotkit.setHeaders(mergedHeadersRef.current);
       return undefined;
     }
     return pending.then(() => {
@@ -822,18 +821,19 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [copilotkit]);
 
   useEffect(() => {
-    if (!headersReady) return;
     copilotkit.setHeaders(mergedHeaders);
     copilotkit.setCredentials(credentials);
-    // Apply resolved headers before setters that can reconnect the runtime.
-    copilotkit.setRuntimeUrl(chatApiEndpoint);
-    copilotkit.setRuntimeTransport(
-      useSingleEndpoint === true
-        ? "single"
-        : useSingleEndpoint === false
-          ? "rest"
-          : "auto",
-    );
+    // URL and transport changes can reconnect, so apply them with connect after readiness.
+    if (headersReady) {
+      copilotkit.setRuntimeUrl(chatApiEndpoint);
+      copilotkit.setRuntimeTransport(
+        useSingleEndpoint === true
+          ? "single"
+          : useSingleEndpoint === false
+            ? "rest"
+            : "auto",
+      );
+    }
     // Forward a per-run signal when the provider has an A2UI catalog so the
     // runtime can turn A2UI on (and inject the render tool) without a separate
     // `a2ui.injectA2UITool` flag on the runtime.
@@ -844,6 +844,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     );
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
     copilotkit.setDebug(debug);
+    if (!headersReady) return;
     // Start the runtime `/info` connection now that we're in the commit phase.
     // The ctor deferred it (see `deferInitialConnection` above) so discarded
     // renders never fetch; `connect()` is idempotent, so StrictMode's

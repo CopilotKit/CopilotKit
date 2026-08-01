@@ -75,7 +75,6 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
     source: HeaderSource;
     evaluation: HeaderEvaluation;
   } | null>(null);
-  const skipNextEvaluationRef = useRef(false);
   let evaluation: HeaderEvaluation;
 
   if (
@@ -91,19 +90,8 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
       evaluation = evaluationRef.current.evaluation;
     }
     evaluationRef.current = { source, evaluation };
-  } else if (skipNextEvaluationRef.current) {
-    skipNextEvaluationRef.current = false;
-    evaluation = evaluationRef.current.evaluation;
   } else {
-    evaluation = evaluate(source);
-    if (
-      evaluationRef.current.evaluation.kind === "sync" &&
-      evaluation.kind === "sync" &&
-      sameHeaders(evaluationRef.current.evaluation.headers, evaluation.headers)
-    ) {
-      evaluation = evaluationRef.current.evaluation;
-    }
-    evaluationRef.current = { source, evaluation };
+    evaluation = evaluationRef.current.evaluation;
   }
   const hasSettledRef = useRef(evaluation.kind === "sync");
   const lastGoodHeadersRef = useRef(
@@ -129,12 +117,6 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
     const publishError = (error: Error) => {
       if (!active || attempt !== attemptRef.current) return;
       console.error("[CopilotKit] Failed to resolve request headers");
-      if (
-        stateRef.current.error !== error ||
-        stateRef.current.ready !== hasSettledRef.current
-      ) {
-        skipNextEvaluationRef.current = true;
-      }
       setState((previous) =>
         previous.ready === hasSettledRef.current && previous.error === error
           ? previous
@@ -145,9 +127,6 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
     if (evaluation.kind === "sync") {
       lastGoodHeadersRef.current = evaluation.headers;
       hasSettledRef.current = true;
-      if (!stateRef.current.ready || stateRef.current.error !== null) {
-        skipNextEvaluationRef.current = true;
-      }
       setState((previous) =>
         previous.ready && previous.error === null
           ? previous
@@ -166,7 +145,6 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
     }
 
     if (stateRef.current.error !== null) {
-      skipNextEvaluationRef.current = true;
       setState((previous) =>
         previous.error === null ? previous : { ...previous, error: null },
       );
@@ -181,13 +159,6 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
         const changed = !sameHeaders(lastGoodHeadersRef.current, headers);
         if (changed) lastGoodHeadersRef.current = headers;
         hasSettledRef.current = true;
-        if (
-          changed ||
-          !stateRef.current.ready ||
-          stateRef.current.error !== null
-        ) {
-          skipNextEvaluationRef.current = true;
-        }
         setState((previous) =>
           !changed && previous.ready && previous.error === null
             ? previous
@@ -253,6 +224,15 @@ export function useHeaderReadiness(
       pending.reject(error);
     }
   }, [ready, error]);
+
+  useEffect(() => {
+    return () => {
+      const pending = pendingRef.current;
+      if (!pending) return;
+      pendingRef.current = null;
+      pending.reject(new Error("Header readiness was canceled"));
+    };
+  }, []);
 
   return waitForHeaders;
 }

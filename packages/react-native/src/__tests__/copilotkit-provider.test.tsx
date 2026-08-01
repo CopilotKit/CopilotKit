@@ -16,7 +16,7 @@ const hoisted = vi.hoisted(() => {
         ? { headers: {}, ready: false, error: null }
         : { headers: result ?? {}, ready: true, error: null };
     }),
-    MockHeaderReadiness: vi.fn(() => vi.fn(() => Promise.resolve())),
+    MockHeaderReadiness: vi.fn(() => vi.fn(() => undefined)),
   };
 });
 

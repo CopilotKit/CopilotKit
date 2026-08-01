@@ -153,7 +153,6 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   const waitForHeaders = useCallback((): void | Promise<void> => {
     const pending = resolveHeaders();
     if (!pending) {
-      copilotkit.setHeaders(stableHeadersRef.current);
       return undefined;
     }
     return pending.then(() => {

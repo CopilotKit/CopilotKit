@@ -111,7 +111,9 @@ describe("v1 CopilotKit async headers", () => {
         }),
       ),
     );
-    await waitFor(() => expect(configs.at(-1)?.publicApiKey).toBe("api-key"));
+    await waitFor(() =>
+      expect(configs.at(-1)?.publicApiKey).toBe("license-key"),
+    );
     expect(observed.at(-1)?.["x-copilotcloud-public-api-key"]).toBe(
       "explicit-key",
     );
