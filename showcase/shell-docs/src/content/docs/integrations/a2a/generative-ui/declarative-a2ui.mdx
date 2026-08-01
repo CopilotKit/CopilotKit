@@ -127,6 +127,8 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     In the example repo, all of the widgets are defined in a single variable in the prompt_builder.py file, but you can structure them however you like,
     they simply need to be injected into the agent's prompt in a clearly delineated way. The v0.9 SDK migration is not demonstrated by this starter page.
 
+    The button payload uses the v0.8 `action.name` field. The published renderer sends that value as `userAction.name`, while the current starter executor reads `userAction.actionName` before selecting its `book_restaurant` branch. As a result, the click reaches the agent but follows the executor's generic event path instead of the booking-specific path. Updating that starter field is outside this documentation-only change.
+
   </Step>
   <Step>
     ### Generating components with the A2UI Composer
@@ -251,6 +253,16 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
       "typography-sz-ts": true,
     };
 
+    const h4 = {
+      ...heading,
+      "typography-sz-bl": true,
+    };
+
+    const h5 = {
+      ...heading,
+      "typography-sz-bm": true,
+    };
+
     const iframe = {
       "behavior-sw-n": true,
     };
@@ -334,6 +346,8 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     const h1Light = v0_8.Styles.merge(h1, { "color-c-n5": true });
     const h2Light = v0_8.Styles.merge(h2, { "color-c-n5": true });
     const h3Light = v0_8.Styles.merge(h3, { "color-c-n5": true });
+    const h4Light = v0_8.Styles.merge(h4, { "color-c-n5": true });
+    const h5Light = v0_8.Styles.merge(h5, { "color-c-n5": true });
     const bodyLight = v0_8.Styles.merge(body, { "color-c-n5": true });
     const pLight = v0_8.Styles.merge(p, { "color-c-n35": true });
     const preLight = v0_8.Styles.merge(pre, { "color-c-n35": true });
@@ -559,6 +573,8 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
         h1: h1Light,
         h2: h2Light,
         h3: h3Light,
+        h4: h4Light,
+        h5: h5Light,
         iframe,
         input: inputLight,
         p: pLight,
@@ -571,8 +587,8 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
         h1: [...Object.keys(h1Light)],
         h2: [...Object.keys(h2Light)],
         h3: [...Object.keys(h3Light)],
-        h4: [],
-        h5: [],
+        h4: [...Object.keys(h4Light)],
+        h5: [...Object.keys(h5Light)],
         h6: [],
         ul: [...Object.keys(unorderedListLight)],
         ol: [...Object.keys(orderedListLight)],
@@ -589,7 +605,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     ### Give it a try!
 
     That's it! When your agent generates an A2UI message, it will be rendered in your frontend.
-    A2UI actions (like button clicks) are automatically sent back to your agent via AG-UI.
+    A2UI actions (like button clicks) are sent back to your agent via AG-UI. In the current starter, the renderer emits the button's action as `userAction.name`, but the executor checks `userAction.actionName`, so the documented `book_restaurant` button does not select the booking-specific branch until that starter mismatch is migrated.
 
   </Step>
 </Steps>
