@@ -436,7 +436,7 @@ describe("StateManager - Multiple Runs", () => {
           markNextRunAsContinuation: (
             agent: EventEmittingMockAgent,
             expectedRunId?: string,
-          ) => { cancel(): void };
+          ) => { cancel(): void; bind(input: object): void };
         };
       }
     ).stateManager.markNextRunAsContinuation(agent, runId);
@@ -455,7 +455,7 @@ describe("StateManager - Multiple Runs", () => {
     ]);
   });
 
-  it("does not consume an internal handoff for an interleaved run ID", async () => {
+  it("does not consume an internal handoff for a same-ID interleaving", async () => {
     const runId = "expected-follow-up-run";
     const handoff = (
       copilotKitCore as unknown as {
@@ -463,17 +463,52 @@ describe("StateManager - Multiple Runs", () => {
           markNextRunAsContinuation: (
             agent: EventEmittingMockAgent,
             expectedRunId?: string,
-          ) => { cancel(): void };
+          ) => { cancel(): void; bind(input: object): void };
         };
       }
     ).stateManager.markNextRunAsContinuation(agent, runId);
+    handoff.bind({});
 
-    await agent.emitRunStarted("interleaved-run", { step: "first" });
-    await agent.emitRunFinished("interleaved-run", { step: "first" });
+    await agent.emitRunStarted(runId, { step: "first" });
+    await agent.emitRunFinished(runId, { step: "first" });
+
+    await agent.emitRunStarted(runId, { step: "second" });
+    await agent.emitRunFinished(runId, { step: "second" });
     handoff.cancel();
 
-    await agent.emitRunStarted("interleaved-run", { step: "second" });
-    await agent.emitRunFinished("interleaved-run", { step: "second" });
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toHaveLength(
+      2,
+    );
+  });
+
+  it("cancels an internal handoff when detaching the follow-up fails", async () => {
+    const runId = "detach-failure-run";
+    await agent.emitRunStarted(runId, { step: "first" });
+    await agent.emitRunFinished(runId, { step: "first" });
+
+    const handoff = (
+      copilotKitCore as unknown as {
+        stateManager: {
+          markNextRunAsContinuation: (
+            agent: EventEmittingMockAgent,
+            expectedRunId?: string,
+          ) => { cancel(): void; bind(input: object): void };
+        };
+      }
+    ).stateManager.markNextRunAsContinuation(agent, runId);
+    handoff.bind({});
+    agent.detachActiveRun = vi
+      .fn()
+      .mockRejectedValue(new Error("detach failed"));
+
+    await expect(
+      copilotKitCore.runAgent({ agent: agent as any, runId }),
+    ).rejects.toThrow("detach failed");
+
+    agent.detachActiveRun = vi.fn().mockResolvedValue(undefined);
+    await agent.emitRunStarted(runId, { step: "second" });
+    await agent.emitRunFinished(runId, { step: "second" });
+    handoff.cancel();
 
     expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toHaveLength(
       2,

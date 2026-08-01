@@ -19,10 +19,12 @@ const isContinuation = (input: RunAgentInput): boolean =>
 
 export interface CopilotKitCoreContinuationHandoff {
   cancel(): void;
+  bind(input: object): void;
 }
 
 interface PendingContinuation extends CopilotKitCoreContinuationHandoff {
   expectedRunId?: string;
+  expectedInput?: object;
   active: boolean;
 }
 
@@ -73,6 +75,9 @@ export class StateManager {
     const pending: PendingContinuation = {
       expectedRunId,
       active: true,
+      bind: (input) => {
+        if (pending.active) pending.expectedInput = input;
+      },
       cancel: () => {
         if (!pending.active) return;
         pending.active = false;
@@ -133,8 +138,10 @@ export class StateManager {
         const pendingForAgent = this.pendingContinuations.get(agent);
         const internalContinuation = [...(pendingForAgent ?? [])].find(
           (pending) =>
-            pending.expectedRunId === undefined ||
-            pending.expectedRunId === input.runId,
+            pending.expectedInput === input ||
+            (pending.expectedInput === undefined &&
+              (pending.expectedRunId === undefined ||
+                pending.expectedRunId === input.runId)),
         );
         internalContinuation?.cancel();
         if (
