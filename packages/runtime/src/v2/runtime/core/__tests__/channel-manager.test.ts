@@ -185,7 +185,11 @@ describe("ChannelManager", () => {
   it("starts and stops direct adapters when managed setup is incomplete", async () => {
     const direct = new FakeAdapter({ platform: "direct" });
     const directStop = vi.spyOn(direct, "stop");
-    const channel = createChannel({ name: "support", adapters: [direct] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+      adapters: [direct],
+    });
     const engine: ActivateChannelEngine = async () => {
       throw new ChannelSetupRequiredError("managed Teams is not installed");
     };
@@ -212,7 +216,11 @@ describe("ChannelManager", () => {
     const direct = new FakeAdapter({ platform: "direct" });
     const start = vi.spyOn(direct, "start").mockReturnValue(startAttempt);
     const stop = vi.spyOn(direct, "stop");
-    const channel = createChannel({ name: "support", adapters: [direct] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+      adapters: [direct],
+    });
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
       channels: [channel],
@@ -720,7 +728,11 @@ describe("ChannelManager", () => {
         platform: "intelligence",
         failStart: true,
       });
-      const channel = createChannel({ name: "sales", adapters: [direct] });
+      const channel = createChannel({
+        identifyUser: "platform",
+        name: "sales",
+        adapters: [direct],
+      });
       const engine: ActivateChannelEngine = vi.fn(
         async (_config, candidate) => {
           candidate.ɵruntime.addAdapter(managed);

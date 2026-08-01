@@ -115,7 +115,10 @@ test("delivery handlers receive the source provider", async () => {
 
 test("managed text selects onMention with onMessage fallback", async () => {
   const mentionGateway = new DeliveryTestGateway();
-  const mentionChannel = createChannel({ name: "support" });
+  const mentionChannel = createChannel({
+    identifyUser: "platform",
+    name: "support",
+  });
   const onMention = vi.fn();
   const onMessage = vi.fn();
   mentionChannel.onMention(onMention);
@@ -153,7 +156,10 @@ test("managed text selects onMention with onMessage fallback", async () => {
   }
 
   const fallbackGateway = new DeliveryTestGateway();
-  const fallbackChannel = createChannel({ name: "support" });
+  const fallbackChannel = createChannel({
+    identifyUser: "platform",
+    name: "support",
+  });
   const fallback = vi.fn();
   fallbackChannel.onMessage(fallback);
   const fallbackHandle = await startChannelsWithGatewayControl(

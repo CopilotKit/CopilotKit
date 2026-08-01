@@ -50,7 +50,7 @@ prepared delivery only to its originating provider.
 | Option           | Type                                           | Notes                                                                                                                                |
 | ---------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `name`           | `string`                                       | Required for managed delivery. Must match the project-unique Intelligence Code.                                                      |
-| `identifyUser`   | `"platform" \| ChannelIdentifyUser`          | Required. Maps each provider actor to an application user or `null`.                                                          |
+| `identifyUser`   | `"platform" \| ChannelIdentifyUser`            | Required. Maps each provider actor to an application user or `null`.                                                                 |
 | `showToolStatus` | `boolean`                                      | Managed Slack hides tool-call progress by default. Set `true` to show it; tool history remains available in Intelligence either way. |
 | `agent`          | `AbstractAgent \| (threadId) => AbstractAgent` | Prefer a factory; a singleton is isolated per run via `clone()`.                                                                     |
 | `tools`          | `ChannelTool[]`                                | Channel-level typed tools.                                                                                                           |

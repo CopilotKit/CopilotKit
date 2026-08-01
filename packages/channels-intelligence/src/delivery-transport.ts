@@ -1299,7 +1299,7 @@ function assertPreparedDelivery(
         "adapter",
         "turn",
       ],
-      ["surfaceKind"],
+      ["tenant", "installation", "conversation", "surfaceKind"],
     )
   ) {
     throw new TypeError("Gateway returned an invalid prepared delivery");
@@ -1315,6 +1315,11 @@ function assertPreparedDelivery(
     !isSafeExternalId(prepared.canonicalThreadId) ||
     !isSafeExternalId(prepared.appUserId) ||
     (prepared.adapter !== "slack" && prepared.adapter !== "teams") ||
+    (prepared.tenant !== undefined && !isPreparedTenant(prepared.tenant)) ||
+    (prepared.installation !== undefined &&
+      !isPreparedInstallation(prepared.installation)) ||
+    (prepared.conversation !== undefined &&
+      !isPreparedConversation(prepared.conversation)) ||
     (prepared.surfaceKind !== undefined &&
       (typeof prepared.surfaceKind !== "string" ||
         !PREPARED_SURFACE_KINDS.has(prepared.surfaceKind))) ||
@@ -1322,7 +1327,7 @@ function assertPreparedDelivery(
     !hasExactFields(
       prepared.turn,
       ["eventId", "receivedAt", "input"],
-      ["typingDelayMs", "actor"],
+      ["typingDelayMs", "actor", "raw"],
     ) ||
     !isEventId(prepared.turn.eventId) ||
     !isIsoDateTime(prepared.turn.receivedAt) ||
@@ -1487,13 +1492,45 @@ function isSafeExternalId(value: unknown): value is string {
 function isPreparedActor(value: unknown): boolean {
   return (
     isRecord(value) &&
-    hasExactFields(value, ["externalUserId", "kind"], ["displayName"]) &&
+    hasExactFields(
+      value,
+      ["externalUserId", "kind"],
+      ["displayName", "handle", "email"],
+    ) &&
     isBoundedString(value.externalUserId, 1, 512) &&
-    ["human", "bot", "app", "system"].includes(String(value.kind)) &&
+    ["human", "bot", "app", "system", "unknown"].includes(String(value.kind)) &&
     (value.displayName === undefined ||
       (typeof value.displayName === "string" &&
         value.displayName.trim().length >= 1 &&
-        value.displayName.trim().length <= 120))
+        value.displayName.trim().length <= 120)) &&
+    (value.handle === undefined || isBoundedString(value.handle, 1, 512)) &&
+    (value.email === undefined || isBoundedString(value.email, 1, 512))
+  );
+}
+
+function isPreparedTenant(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    hasExactFields(value, ["id"], ["name"]) &&
+    isBoundedString(value.id, 1, 512) &&
+    (value.name === undefined || isBoundedString(value.name, 1, 512))
+  );
+}
+
+function isPreparedInstallation(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    hasExactFields(value, ["id"]) &&
+    isBoundedString(value.id, 1, 512)
+  );
+}
+
+function isPreparedConversation(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    hasExactFields(value, ["id"], ["kind"]) &&
+    isBoundedString(value.id, 1, 512) &&
+    (value.kind === undefined || isBoundedString(value.kind, 1, 120))
   );
 }
 

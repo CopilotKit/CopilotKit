@@ -65,8 +65,8 @@ or omit a component when the native provider has no equivalent.
 | `action.value` | `TValue \| undefined`     | The control's round-tripped value. Guard it before use even when the component declares `value`.                      |
 | `values`       | `Record<string, unknown>` | Submitted form values.                                                                                                |
 | `user`         | `ApplicationUser \| null` | Application user selected by `identifyUser`.                                                                          |
-| `actor`        | `ProviderActor`            | Provider account that caused the interaction.                                                                         |
-| `platform`     | `string`                  | Normalized source provider, such as `"slack"` or `"teams"`.                                                          |
+| `actor`        | `ProviderActor`           | Provider account that caused the interaction.                                                                         |
+| `platform`     | `string`                  | Normalized source provider, such as `"slack"` or `"teams"`.                                                           |
 | `openModal`    | function or `undefined`   | Capability-gated modal opener. Not part of the managed Slack/Teams realtime path.                                     |
 
 ```tsx title="decision.tsx"

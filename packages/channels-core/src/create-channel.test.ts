@@ -1885,7 +1885,10 @@ describe("createChannel slash commands", () => {
       const failed = new FakeAdapter({ platform: "telegram", failStart: true });
       const failedRegister = vi.spyOn(failed, "registerCommands");
       const healthy = new FakeAdapter({ platform: "slack" });
-      const channel = createChannel({ adapters: [failed, healthy] });
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [failed, healthy],
+      });
       channel.onCommand("triage", () => {});
 
       await expect(channel.ɵruntime.start()).resolves.toBeUndefined();
@@ -1908,7 +1911,10 @@ describe("createChannel slash commands", () => {
         { __intelligenceChannel: true as const },
       );
       const managedStop = vi.spyOn(managed, "stop");
-      const channel = createChannel({ adapters: [direct, managed] });
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [direct, managed],
+      });
 
       await expect(channel.ɵruntime.start()).rejects.toThrow(
         "failed to start its managed Intelligence adapter",
@@ -1935,7 +1941,10 @@ describe("createChannel slash commands", () => {
         { __intelligenceChannel: true as const },
       );
       const managedStop = vi.spyOn(managed, "stop");
-      const channel = createChannel({ adapters: [throwing, healthy, managed] });
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [throwing, healthy, managed],
+      });
 
       await expect(channel.ɵruntime.start()).rejects.toThrow(
         "failed to start its managed Intelligence adapter",
@@ -1958,7 +1967,10 @@ describe("createChannel slash commands", () => {
         new FakeAdapter({ platform: "intelligence", failStart: true }),
         { __intelligenceChannel: true as const },
       );
-      const channel = createChannel({ adapters: [stuck, managed] });
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [stuck, managed],
+      });
 
       const starting = expect(channel.ɵruntime.start()).rejects.toThrow(
         "failed to start its managed Intelligence adapter",
@@ -1983,7 +1995,10 @@ describe("createChannel slash commands", () => {
     try {
       const adapter = new FakeAdapter({ platform: "slack", failStart: true });
       const stop = vi.spyOn(adapter, "stop");
-      const channel = createChannel({ adapters: [adapter] });
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [adapter],
+      });
 
       await expect(channel.ɵruntime.start()).rejects.toThrow(
         "all 1 adapter(s) failed to connect",

@@ -30,7 +30,7 @@ interface InteractionContext<TValue = unknown> {
 | `action.id`    | Opaque SDK action id.                                                                                  |
 | `action.value` | Round-tripped `Button.value`, selected value, or submitted text. Guard `undefined`.                    |
 | `values`       | Other submitted form values. Teams `Action.Submit` callbacks include named Adaptive Card input values. |
-| `user`         | Nullable application user selected by `identifyUser`.                                                   |
+| `user`         | Nullable application user selected by `identifyUser`.                                                  |
 | `actor`        | Provider account that caused the interaction.                                                          |
 | `platform`     | Native provider; managed callbacks report `"slack"` or `"teams"`.                                      |
 | `openModal`    | Capability-gated and omitted on the managed Slack and Teams path.                                      |

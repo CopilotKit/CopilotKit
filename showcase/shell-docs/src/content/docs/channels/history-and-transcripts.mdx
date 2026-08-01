@@ -166,7 +166,7 @@ const { deleted } = await channel.transcripts.delete({
 `list()` returns entries oldest-first. You can filter by platform, thread id, or
 role. Managed entries use the native `"slack"` or `"teams"` provider. Resolve
 cross-provider identity through the application `userId`; use the platform
-filter only when you intentionally want one provider\'s entries.
+filter only when you intentionally want one provider's entries.
 
 `delete()` removes the SDK-owned transcript for that user; provider history and
 any separate Intelligence retention policy remain independent.

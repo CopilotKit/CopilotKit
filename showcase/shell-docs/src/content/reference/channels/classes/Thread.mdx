@@ -46,9 +46,9 @@ allowed to fail the workflow.
 
 ## Run and resume the agent
 
-| Method             | Returns                            | Description                                                  |
-| ------------------ | ---------------------------------- | ------------------------------------------------------------ |
-| `runAgent(input?)` | `Promise<MessageRef \| undefined>` | Run the thread's agent and render its output.                |
+| Method                    | Returns                            | Description                                                      |
+| ------------------------- | ---------------------------------- | ---------------------------------------------------------------- |
+| `runAgent(input?)`        | `Promise<MessageRef \| undefined>` | Run the thread's agent and render its output.                    |
 | `resume(value, options?)` | `Promise<MessageRef \| undefined>` | Consume the action continuation and re-enter an interrupted run. |
 
 `runAgent` accepts:
@@ -56,10 +56,10 @@ allowed to fail the workflow.
 | Field        | Type                            | Description                                                                                                             |
 | ------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `prompt`     | `string \| AgentContentPart[]`  | Explicit user turn. When omitted in a message handler, the SDK injects the inbound text or content parts automatically. |
-| `context`    | `ContextEntry[]`                | Context for this run only.                                                                     |
-| `tools`      | `ChannelTool[]`                 | Tools for this run only.                                                                       |
-| `transcript` | `boolean \| { limit?: number }` | Optional SDK transcript bridge when `identifyUser` resolves a user and transcripts are configured. |
-| `memory` | `{ user?, project? }` | Per-run Intelligence Memory access. Each scope is `"none"`, `"read"`, or `"read-write"`; omission disables Memory. |
+| `context`    | `ContextEntry[]`                | Context for this run only.                                                                                              |
+| `tools`      | `ChannelTool[]`                 | Tools for this run only.                                                                                                |
+| `transcript` | `boolean \| { limit?: number }` | Optional SDK transcript bridge when `identifyUser` resolves a user and transcripts are configured.                      |
+| `memory`     | `{ user?, project? }`           | Per-run Intelligence Memory access. Each scope is `"none"`, `"read"`, or `"read-write"`; omission disables Memory.      |
 
 ```ts title="channel.ts"
 channel.onMessage(async ({ thread, message }) => {
@@ -105,9 +105,9 @@ Memory and continuation failures expose stable codes:
 
 ## Conversation history and users
 
-| Method              | Returns                              | Description                                                          |
-| ------------------- | ------------------------------------ | -------------------------------------------------------------------- |
-| `getMessages()`     | `Promise<ThreadMessage[]>`           | Managed history in chronological order; returns `[]` if unavailable. |
+| Method              | Returns                               | Description                                                          |
+| ------------------- | ------------------------------------- | -------------------------------------------------------------------- |
+| `getMessages()`     | `Promise<ThreadMessage[]>`            | Managed history in chronological order; returns `[]` if unavailable. |
 | `lookupUser(query)` | `Promise<ProviderActor \| undefined>` | Provider lookup where supported.                                     |
 
 ## Per-conversation state
