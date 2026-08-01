@@ -477,17 +477,25 @@ export function useAgent(
     chatScope?.hasExplicitThreadId ?? chatConfig?.hasExplicitThreadId;
   const resolvedThreadId =
     threadId ?? (configHasExplicitThreadId ? configThreadId : undefined);
-  const previousResolvedThreadIdRef = useRef(resolvedThreadId);
+  const previousThreadScopeRef = useRef({
+    resolvedThreadId,
+    hasExplicitThreadId: configHasExplicitThreadId,
+  });
   useEffect(() => {
-    if (!resolvedThreadId) return;
     const threadChanged =
-      previousResolvedThreadIdRef.current !== resolvedThreadId;
-    previousResolvedThreadIdRef.current = resolvedThreadId;
+      previousThreadScopeRef.current.resolvedThreadId !== resolvedThreadId ||
+      previousThreadScopeRef.current.hasExplicitThreadId !==
+        configHasExplicitThreadId;
+    previousThreadScopeRef.current = {
+      resolvedThreadId,
+      hasExplicitThreadId: configHasExplicitThreadId,
+    };
+    if (!resolvedThreadId) return;
     agent.threadId = resolvedThreadId;
     if (threadChanged && agent.messages.length > 0) {
       agent.setMessages([]);
     }
-  }, [agent, resolvedThreadId]);
+  }, [agent, configHasExplicitThreadId, resolvedThreadId]);
 
   const ephemeralThreadId =
     resolvedThreadId ?? configThreadId ?? agent.threadId;
