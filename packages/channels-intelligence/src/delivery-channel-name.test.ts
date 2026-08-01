@@ -6,7 +6,7 @@ import {
 } from "./delivery-test-gateway.js";
 import { startChannelsWithGatewayControl } from "./realtime-gateway-launcher.js";
 
-test("managed deliveries use the declared Channel name for canonical runs", async () => {
+test("managed deliveries use the canonical Channel agent id for runs", async () => {
   const gateway = new DeliveryTestGateway();
   const agent = new FakeAgent();
   const runCanonical = vi.fn(async (args) => args.execute({}));
@@ -84,7 +84,7 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
     );
 
     expect(runCanonical).toHaveBeenCalledOnce();
-    expect(runCanonical.mock.calls[0]![0].agentId).toBe("support");
+    expect(runCanonical.mock.calls[0]![0].agentId).toBe("channel:support");
     expect(runCanonical.mock.calls[0]![0].memory).toEqual({
       grant: { user: "read", project: "read-write" },
       user: {
