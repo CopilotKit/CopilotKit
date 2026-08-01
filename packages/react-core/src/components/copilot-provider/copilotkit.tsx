@@ -112,7 +112,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
   const showInspector = shouldShowDevConsole(props.enableInspector);
 
-  const publicApiKey = props.publicLicenseKey || props.publicApiKey;
+  const publicApiKey = props.publicApiKey || props.publicLicenseKey;
 
   const renderArr = useMemo(() => [{ render: CoAgentStateRenderBridge }], []);
 
@@ -200,10 +200,10 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const {
     copilotkit,
     headers: resolvedHeaders,
-    headersReady = true,
+    rawHeaders,
     waitForHeaders,
   } = useCopilotKit();
-  const settledHeaders = resolvedHeaders ?? copilotkit.headers;
+  const settledHeaders = rawHeaders ?? resolvedHeaders ?? copilotkit.headers;
   const settledHeadersRef = useRef(settledHeaders);
   settledHeadersRef.current = settledHeaders;
 
@@ -357,7 +357,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       ...(cloud ? { cloud } : {}),
       chatApiEndpoint: chatApiEndpoint,
       headers: contextHeaders,
-      headersReady,
       waitForHeaders,
       getHeaders: () => settledHeadersRef.current,
       properties: props.properties || {},
@@ -369,7 +368,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     publicApiKey,
     contextHeaders,
     chatApiEndpoint,
-    headersReady,
     waitForHeaders,
     props.properties,
     props.transcribeAudioUrl,
@@ -854,7 +852,7 @@ function validateProps(props: CopilotKitProps): never | void {
   const cloudFeatures = Object.keys(props).filter((key) => key.endsWith("_c"));
 
   // Check if we have either a runtimeUrl or one of the API keys
-  const hasApiKey = props.publicLicenseKey || props.publicApiKey;
+  const hasApiKey = props.publicApiKey || props.publicLicenseKey;
 
   // Self-managed (and dev-only) agents are instantiated client-side and route
   // directly to their AG-UI endpoints, so they need neither a runtime nor a

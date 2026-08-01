@@ -160,6 +160,22 @@ describe("useResolvedHeaders", () => {
     );
   });
 
+  it("reevaluates a stable synchronous builder on each render", () => {
+    let token = "first";
+    const source = vi.fn(() => ({ Authorization: `Bearer ${token}` }));
+    const { result, rerender } = renderHook(() => useResolvedHeaders(source));
+
+    expect(result.current.headers).toEqual({ Authorization: "Bearer first" });
+
+    token = "second";
+    rerender();
+
+    expect(result.current.headers).toEqual({
+      Authorization: "Bearer second",
+    });
+    expect(source).toHaveBeenCalledTimes(2);
+  });
+
   it("settles pending readiness waiters when unmounted", async () => {
     const { result, unmount } = renderHook(() =>
       useHeaderReadiness(false, null),
@@ -169,6 +185,18 @@ describe("useResolvedHeaders", () => {
     expect(pending).toBeInstanceOf(Promise);
     unmount();
     await expect(pending).rejects.toThrow("Header readiness was canceled");
+  });
+
+  it("rejects waiters created after unmount", async () => {
+    const { result, unmount } = renderHook(() =>
+      useHeaderReadiness(false, null),
+    );
+
+    unmount();
+
+    await expect(result.current()).rejects.toThrow(
+      "Header readiness was canceled",
+    );
   });
 
   it("does not publish a pending result after unmount", async () => {

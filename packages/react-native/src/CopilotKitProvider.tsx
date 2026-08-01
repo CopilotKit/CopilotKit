@@ -146,19 +146,11 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   }
 
   const copilotkit = copilotkitRef.current;
-  const stableHeadersRef = useRef(stableHeaders);
-  stableHeadersRef.current = stableHeaders;
   // Stays synchronous while headers are already settled; only a genuinely
   // pending resolution hands back a promise for callers to await.
   const waitForHeaders = useCallback((): void | Promise<void> => {
-    const pending = resolveHeaders();
-    if (!pending) {
-      return undefined;
-    }
-    return pending.then(() => {
-      copilotkit.setHeaders(stableHeadersRef.current);
-    });
-  }, [copilotkit, resolveHeaders]);
+    return resolveHeaders();
+  }, [resolveHeaders]);
 
   const reportedHeadersErrorRef = useRef<Error | null>(null);
   useEffect(() => {
@@ -183,7 +175,6 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
 
   // Sync props to core instance
   useEffect(() => {
-    if (!headersReady) return;
     copilotkit.setHeaders(stableHeaders);
     copilotkit.setCredentials(credentials);
     copilotkit.setRuntimeUrl(runtimeUrl);
@@ -196,6 +187,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     );
     copilotkit.setProperties(stableProperties);
     copilotkit.setDebug(debug);
+    if (!headersReady) return;
     copilotkit.connect();
   }, [
     runtimeUrl,

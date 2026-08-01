@@ -79,7 +79,8 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
 
   if (
     evaluationRef.current === null ||
-    evaluationRef.current.source !== source
+    evaluationRef.current.source !== source ||
+    evaluationRef.current.evaluation.kind === "sync"
   ) {
     evaluation = evaluate(source);
     if (
@@ -196,8 +197,16 @@ export function useHeaderReadiness(
   const statusRef = useRef({ ready, error });
   statusRef.current = { ready, error };
   const pendingRef = useRef<PendingReadiness | null>(null);
+  const unmountedRef = useRef(false);
+  const cancellationErrorRef = useRef<Error | null>(null);
 
   const waitForHeaders = useCallback((): void | Promise<void> => {
+    if (unmountedRef.current) {
+      return Promise.reject(
+        cancellationErrorRef.current ??
+          new Error("Header readiness was canceled"),
+      );
+    }
     const status = statusRef.current;
     if (status.ready) return undefined;
     if (status.error) return Promise.reject(status.error);
@@ -227,10 +236,13 @@ export function useHeaderReadiness(
 
   useEffect(() => {
     return () => {
+      unmountedRef.current = true;
+      const cancellationError = new Error("Header readiness was canceled");
+      cancellationErrorRef.current = cancellationError;
       const pending = pendingRef.current;
       if (!pending) return;
       pendingRef.current = null;
-      pending.reject(new Error("Header readiness was canceled"));
+      pending.reject(cancellationError);
     };
   }, []);
 

@@ -13,6 +13,8 @@ export interface CopilotKitContextValue {
   copilotkit: CopilotKitCoreReact;
   /** Active settled headers, including provider-managed public-key headers. */
   headers?: Record<string, string>;
+  /** Settled headers supplied by the caller before provider-managed headers. */
+  rawHeaders?: Record<string, string>;
   /** True once the initial provider header source has settled. */
   headersReady?: boolean;
   /** Wait for initial header resolution; refreshes keep using last-good headers. */

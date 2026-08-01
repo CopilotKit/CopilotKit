@@ -671,19 +671,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }
   const copilotkit = copilotkitRef.current;
-  const mergedHeadersRef = useRef(mergedHeaders);
-  mergedHeadersRef.current = mergedHeaders;
   // Stays synchronous while headers are already settled; only a genuinely
   // pending resolution hands back a promise for callers to await.
   const waitForHeaders = useCallback((): void | Promise<void> => {
-    const pending = resolveHeaders();
-    if (!pending) {
-      return undefined;
-    }
-    return pending.then(() => {
-      copilotkit.setHeaders(mergedHeadersRef.current);
-    });
-  }, [copilotkit, resolveHeaders]);
+    return resolveHeaders();
+  }, [resolveHeaders]);
 
   // Register the full A2UI catalog component list onto core so the inspector can
   // read `core.catalogComponents`, and re-derive the filtered catalog whenever
@@ -956,6 +948,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       copilotkit,
       executingToolCallIds,
       headers: mergedHeaders,
+      rawHeaders: headers,
       headersReady,
       waitForHeaders,
     }),
@@ -963,6 +956,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       copilotkit,
       executingToolCallIds,
       mergedHeaders,
+      headers,
       headersReady,
       waitForHeaders,
     ],

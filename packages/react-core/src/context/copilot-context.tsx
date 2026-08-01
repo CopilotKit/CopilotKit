@@ -69,9 +69,6 @@ export interface CopilotApiConfig {
    */
   headers: Record<string, string>;
 
-  /** True once the initial provider header source has settled. */
-  headersReady?: boolean;
-
   /** Wait for initial header resolution before issuing a v1 request. */
   waitForHeaders?: () => void | Promise<void>;
 

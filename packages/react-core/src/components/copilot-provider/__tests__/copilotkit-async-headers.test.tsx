@@ -119,6 +119,45 @@ describe("v1 CopilotKit async headers", () => {
     );
   });
 
+  it("keeps v1 license-key precedence out of the settled header record", async () => {
+    const observed: HeaderRecord[] = [];
+    const configs: { publicApiKey?: string }[] = [];
+    const agent = new HttpAgent({ url: "https://agent.example" });
+
+    render(
+      <CopilotKit
+        runtimeUrl="https://runtime.example/rest"
+        publicApiKey="api-key-boundary"
+        publicLicenseKey="license-key-boundary"
+        headers={{ "X-Mine": "mine" }}
+        agent="default"
+        agents__unsafe_dev_only={{ default: agent }}
+      >
+        <HeaderProbe onHeaders={(headers) => observed.push(headers)} />
+        <ConfigProbe onConfig={(config) => configs.push(config)} />
+      </CopilotKit>,
+    );
+
+    await waitFor(() => expect(observed).toContainEqual({ "X-Mine": "mine" }));
+    await waitFor(() =>
+      expect(configs.at(-1)?.publicApiKey).toBe("license-key-boundary"),
+    );
+    const statusRequest = vi
+      .mocked(global.fetch)
+      .mock.calls.find(([url]) => String(url).endsWith("/ciu"));
+    expect(statusRequest).toBeDefined();
+    expect(
+      new Headers(statusRequest?.[1]?.headers).get(
+        "x-copilotcloud-public-api-key",
+      ),
+    ).toBe("api-key-boundary");
+    expect(
+      Object.keys(observed.at(-1) ?? {}).some(
+        (key) => key.toLowerCase() === "x-copilotcloud-public-api-key",
+      ),
+    ).toBe(false);
+  });
+
   it("routes local header failures to the v1 onError surface", async () => {
     const pending = deferred<HeaderRecord>();
     const onError = vi.fn();

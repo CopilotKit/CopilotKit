@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import { render, act } from "@testing-library/react";
+import { render, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -10,13 +10,6 @@ const hoisted = vi.hoisted(() => {
   return {
     RealContext: _React.createContext(null),
     MockCoreConstructor: vi.fn(),
-    MockResolvedHeaders: vi.fn((source: any) => {
-      const result = typeof source === "function" ? source() : source;
-      return result && typeof result.then === "function"
-        ? { headers: {}, ready: false, error: null }
-        : { headers: result ?? {}, ready: true, error: null };
-    }),
-    MockHeaderReadiness: vi.fn(() => vi.fn(() => undefined)),
   };
 });
 
@@ -44,17 +37,30 @@ function createMockCore() {
 let mockCoreInstance: ReturnType<typeof createMockCore>;
 const asyncNativeHeaders = async () => ({ Authorization: "Bearer native" });
 
-vi.mock("@copilotkit/react-core/v2/headless", () => {
+vi.mock("@copilotkit/react-core/v2/headless", async () => {
   // Regular function (not arrow) so it's new-able
   function CopilotKitCoreReact(this: any, ...args: any[]) {
     hoisted.MockCoreConstructor(...args);
     const instance = hoisted.MockCoreConstructor.mock.results.at(-1)?.value;
     if (instance) Object.assign(this, instance);
   }
+  const hooks = (await vi.importActual(
+    "@copilotkit/react-core/v2/headless",
+  )) as {
+    useHeaderReadiness: (
+      ready: boolean,
+      error: Error | null,
+    ) => () => void | Promise<void>;
+    useResolvedHeaders: (source: any) => {
+      headers: Record<string, string>;
+      ready: boolean;
+      error: Error | null;
+    };
+  };
   return {
     CopilotKitCoreReact,
-    useHeaderReadiness: hoisted.MockHeaderReadiness,
-    useResolvedHeaders: hoisted.MockResolvedHeaders,
+    useHeaderReadiness: hooks.useHeaderReadiness,
+    useResolvedHeaders: hooks.useResolvedHeaders,
   };
 });
 
@@ -77,14 +83,18 @@ vi.mock("@copilotkit/react-core/v2/context", () => {
   };
 });
 
-vi.mock("@copilotkit/shared", () => ({
-  createLicenseContextValue: () => ({
-    status: null,
-    license: null,
-    checkFeature: () => true,
-    getLimit: () => null,
-  }),
-}));
+vi.mock("@copilotkit/shared", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    createLicenseContextValue: () => ({
+      status: null,
+      license: null,
+      checkFeature: () => true,
+      getLimit: () => null,
+    }),
+  };
+});
 
 // Import after mocks
 import { CopilotKitProvider } from "../CopilotKitProvider";
@@ -104,8 +114,6 @@ describe("CopilotKitProvider (React Native)", () => {
     unsubscribeMock = vi.fn();
     mockCoreInstance = createMockCore();
     hoisted.MockCoreConstructor.mockClear();
-    hoisted.MockResolvedHeaders.mockClear();
-    hoisted.MockHeaderReadiness.mockClear();
     hoisted.MockCoreConstructor.mockReturnValue(mockCoreInstance);
   });
 
@@ -249,19 +257,18 @@ describe("CopilotKitProvider (React Native)", () => {
     });
   });
 
-  it("routes async headers through the shared resolver before connecting", () => {
+  it("routes async headers through the production resolver before connecting", async () => {
     render(
       <CopilotKitProvider
         runtimeUrl="https://api.test"
         headers={asyncNativeHeaders}
+        properties={{ source: "native" }}
+        debug
       >
         <div />
       </CopilotKitProvider>,
     );
 
-    expect(hoisted.MockResolvedHeaders).toHaveBeenCalledWith(
-      asyncNativeHeaders,
-    );
     expect(hoisted.MockCoreConstructor).toHaveBeenCalledWith(
       expect.objectContaining({
         deferInitialConnection: true,
@@ -269,6 +276,17 @@ describe("CopilotKitProvider (React Native)", () => {
       }),
     );
     expect(mockCoreInstance.connect).not.toHaveBeenCalled();
+    expect(mockCoreInstance.setProperties).toHaveBeenCalledWith({
+      source: "native",
+    });
+    expect(mockCoreInstance.setDebug).toHaveBeenCalledWith(true);
+
+    await waitFor(() => {
+      expect(mockCoreInstance.setHeaders).toHaveBeenCalledWith({
+        Authorization: "Bearer native",
+      });
+      expect(mockCoreInstance.connect).toHaveBeenCalledTimes(1);
+    });
   });
 
   // ── Context provision ─────────────────────────────────────────────────
