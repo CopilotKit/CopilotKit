@@ -6,7 +6,9 @@ import { LLMock, MCPMock } from "@copilotkit/aimock";
 import { MCPAppsMiddleware, getServerHash } from "@ag-ui/mcp-apps-middleware";
 import type * as MCPAppsMiddlewareModule from "@ag-ui/mcp-apps-middleware";
 import type { McpAppsServerConfig } from "../core/runtime";
+import type { CopilotRuntimeLike } from "../core/runtime";
 import { CopilotRuntime } from "../core/runtime";
+import { configureAgentForRequest } from "../handlers/shared/agent-utils";
 import { handleRunAgent } from "../handlers/handle-run";
 
 const middlewareConstructor = vi.hoisted(() => vi.fn());
@@ -166,6 +168,105 @@ describe("MCPAppsMiddleware integration", () => {
     } finally {
       errorSpy.mockRestore();
     }
+  });
+
+  it("attaches valid MCP Apps servers through the production adapter", () => {
+    const agent = new MockNextAgent();
+    const runtime = {
+      mcpApps: {
+        servers: [
+          {
+            type: "http" as const,
+            url: "https://mcp.example.com/mcp",
+            serverId: "weather",
+            agentId: "default",
+          },
+        ],
+      },
+    } as unknown as CopilotRuntimeLike;
+
+    configureAgentForRequest({
+      runtime,
+      request: new Request("https://example.com/run"),
+      agentId: "default",
+      agent,
+    });
+
+    expect(middlewareConstructor).toHaveBeenCalledOnce();
+    const [config] = middlewareConstructor.mock.calls[0] as [
+      { mcpServers: Record<string, unknown>[] },
+    ];
+    expect(config.mcpServers).toEqual([
+      {
+        type: "http",
+        url: "https://mcp.example.com/mcp",
+        serverId: "weather",
+      },
+    ]);
+    expect(config.mcpServers[0]).not.toHaveProperty("agentId");
+  });
+
+  it("does not attach MCP Apps when no server matches the agent", () => {
+    const agent = new MockNextAgent();
+    const runtime = {
+      mcpApps: {
+        servers: [
+          {
+            type: "http" as const,
+            url: "https://mcp.example.com/mcp",
+            agentId: "other",
+          },
+        ],
+      },
+    } as unknown as CopilotRuntimeLike;
+
+    configureAgentForRequest({
+      runtime,
+      request: new Request("https://example.com/run"),
+      agentId: "default",
+      agent,
+    });
+
+    expect(middlewareConstructor).not.toHaveBeenCalled();
+  });
+
+  it("does not attach MCP Apps for an empty server list", () => {
+    const agent = new MockNextAgent();
+    const runtime = {
+      mcpApps: { servers: [] },
+    } as unknown as CopilotRuntimeLike;
+
+    configureAgentForRequest({
+      runtime,
+      request: new Request("https://example.com/run"),
+      agentId: "default",
+      agent,
+    });
+
+    expect(middlewareConstructor).not.toHaveBeenCalled();
+  });
+
+  it("does not attach MCP Apps when the agent has no use method", () => {
+    const agent = { headers: {} } as unknown as AbstractAgent;
+    const runtime = {
+      mcpApps: {
+        servers: [
+          {
+            type: "http" as const,
+            url: "https://mcp.example.com/mcp",
+          },
+        ],
+      },
+    } as unknown as CopilotRuntimeLike;
+
+    configureAgentForRequest({
+      runtime,
+      request: new Request("https://example.com/run"),
+      agentId: "default",
+      agent,
+    });
+
+    expect(middlewareConstructor).not.toHaveBeenCalled();
   });
 
   it("proxies tools/call through to MCPMock and returns results", async () => {
