@@ -83,6 +83,10 @@ const MANAGED_ASSET_ACTIVITY_TYPE = "copilotkit.managed-asset";
 const MANAGED_ASSET_HISTORY_ATTEMPTS = 3;
 const MANAGED_SLACK_TEXT_INTERVAL_MS = 600;
 
+/** Return the canonical Intelligence agent id owned by one Channel. */
+const canonicalChannelAgentId = (channelName: string): string =>
+  `channel:${channelName}`;
+
 /** Slack could not prove whether a managed file became visible. */
 export class ChannelFileDeliveryUnknownError extends ChannelDeliveryTerminatedError {
   readonly code = "unknown";
@@ -483,7 +487,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       runId,
       userId: target.delivery.appUserId,
       memory: args.memory,
-      agentId: this.options.channelName,
+      agentId: canonicalChannelAgentId(this.options.channelName),
       tools: args.tools,
       context: args.context,
       persistedInputMessages,
@@ -852,7 +856,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       threadId: target.delivery.canonicalThreadId,
       runId: mintId("run_"),
       userId: target.delivery.appUserId,
-      agentId: this.options.channelName,
+      agentId: canonicalChannelAgentId(this.options.channelName),
       tools: [],
       context: [],
       persistedInputMessages: [],
