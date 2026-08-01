@@ -211,7 +211,7 @@ export function useCoAgent<T = any>(
   options: UseCoagentOptions<T>,
 ): UseCoagentReturnType<T> {
   const { agent } = useAgent({ agentId: options.name });
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, waitForHeaders } = useCopilotKit();
   const nodeName = useAgentNodeName(options.name);
 
   const handleStateUpdate = useCallback(
@@ -348,6 +348,12 @@ export function useCoAgent<T = any>(
       };
     }
 
+    const runAgent = async (...args: any[]) => {
+      const pendingHeaders = waitForHeaders?.();
+      if (pendingHeaders) await pendingHeaders;
+      return agent.runAgent(...args);
+    };
+
     return {
       name: agent?.agentId ?? options.name,
       nodeName,
@@ -356,15 +362,16 @@ export function useCoAgent<T = any>(
       state: agent.state,
       setState: handleStateUpdate,
       // TODO: start and run both have same thing. need to figure out
-      start: agent.runAgent,
+      start: runAgent,
       stop: agent.abortRun,
-      run: agent.runAgent,
+      run: runAgent,
     };
   }, [
     agent?.state,
     agent?.runAgent,
     agent?.abortRun,
     agent?.runAgent,
+    waitForHeaders,
     agent?.threadId,
     agent?.isRunning,
     agent?.agentId,

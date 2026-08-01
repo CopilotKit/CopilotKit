@@ -83,6 +83,37 @@ describe("CopilotRuntimeClient abort suppression", () => {
     });
   });
 
+  it("preserves an explicit cloud key without duplicate injection", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { generateCopilotResponse: {} } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const client = new CopilotRuntimeClient({
+      url: "https://example.com/runtime",
+      publicApiKey: "generated-key",
+      headers: { "X-CopilotCloud-Public-Api-Key": "explicit-key" },
+    });
+
+    await client
+      .generateCopilotResponse({
+        data: {} as any,
+        properties: {} as any,
+      })
+      .toPromise();
+
+    const requestHeaders = new Headers(fetchSpy.mock.calls[0]?.[1]?.headers);
+    expect(requestHeaders.get("x-copilotcloud-public-api-key")).toBe(
+      "explicit-key",
+    );
+    expect(
+      [...requestHeaders.keys()].filter(
+        (key) => key === "x-copilotcloud-public-api-key",
+      ),
+    ).toHaveLength(1);
+  });
+
   it("suppresses abort errors in stream errors without message access", async () => {
     const stream = makeClient().asStream({
       subscribe: (next) => {

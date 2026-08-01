@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { AuthState } from "../../context/copilot-context";
 import type { CopilotErrorHandler, DebugConfig } from "@copilotkit/shared";
 import type { CopilotKitProviderProps } from "../../v2";
+import type { HeaderSource } from "../../v2/hooks/use-resolved-headers";
 /**
  * Props for CopilotKit.
  */
@@ -55,8 +56,8 @@ export interface CopilotKitProps extends Omit<
 
   /**
    * Additional headers to be sent with the request.
-   * Can be a static object or a function that returns headers dynamically
-   * (useful for refreshing auth tokens).
+   * Can be a static object or a synchronous or asynchronous function that
+   * returns headers dynamically (useful for refreshing auth tokens).
    *
    * For example:
    * ```tsx
@@ -65,9 +66,10 @@ export interface CopilotKitProps extends Omit<
    *
    * // Dynamic headers (re-evaluated on each render)
    * headers={() => ({ "Authorization": `Bearer ${getToken()}` })}
+   * headers={async () => ({ "Authorization": `Bearer ${await getToken()}` })}
    * ```
    */
-  headers?: Record<string, string> | (() => Record<string, string>);
+  headers?: HeaderSource;
 
   /**
    * The children to be rendered within the CopilotKit.
@@ -152,7 +154,8 @@ export interface CopilotKitProps extends Omit<
   threadId?: string;
 
   /**
-   * Optional error handler for comprehensive debugging and observability.
+   * Optional error handler for comprehensive debugging and observability,
+   * including local header-builder failures before a runtime request starts.
    *
    * @param errorEvent - Structured error event with rich debugging context
    *

@@ -24,6 +24,15 @@
 // extensionless import is invalid in ESM declarations).
 export { CopilotKitCoreReact, useCopilotKit } from "./context";
 export type { CopilotKitCoreReactConfig } from "./context";
+export {
+  useHeaderReadiness,
+  useResolvedHeaders,
+} from "./hooks/use-resolved-headers";
+export type {
+  HeaderRecord,
+  HeaderSource,
+  ResolvedHeaders,
+} from "./hooks/use-resolved-headers";
 
 // Chat configuration provider (no UI, just context)
 export {

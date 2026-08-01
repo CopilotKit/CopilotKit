@@ -46,23 +46,23 @@
  * Have a look at the [Presentation Example App](https://github.com/CopilotKit/CopilotKit/blob/main/examples/v1/next-openai/src/app/presentation/page.tsx) for a more complete example.
  */
 
-import {
+import type {
   ActionExecutionMessage,
-  CopilotRuntimeClient,
   Message,
+  ForwardedParametersInput,
+} from "@copilotkit/runtime-client-gql";
+import {
+  CopilotRuntimeClient,
   Role,
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
   filterAgentStateMessages,
   CopilotRequestType,
-  ForwardedParametersInput,
 } from "@copilotkit/runtime-client-gql";
-import {
-  FrontendAction,
-  processActionsForRuntimeRequest,
-} from "../types/frontend-action";
-import { CopilotContextParams } from "../context";
+import type { FrontendAction } from "../types/frontend-action";
+import { processActionsForRuntimeRequest } from "../types/frontend-action";
+import type { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 
 export interface CopilotTaskConfig {
@@ -110,6 +110,8 @@ export class CopilotTask<T = any> {
    * @param data The data to use for the task.
    */
   async run(context: CopilotContextParams, data?: T): Promise<void> {
+    const pendingHeaders = context.copilotApiConfig.waitForHeaders?.();
+    if (pendingHeaders) await pendingHeaders;
     const actions = this.includeCopilotActions
       ? Object.assign({}, context.actions)
       : {};
@@ -143,7 +145,9 @@ export class CopilotTask<T = any> {
     const runtimeClient = new CopilotRuntimeClient({
       url: context.copilotApiConfig.chatApiEndpoint,
       publicApiKey: context.copilotApiConfig.publicApiKey,
-      headers: context.copilotApiConfig.headers,
+      headers:
+        context.copilotApiConfig.getHeaders?.() ??
+        context.copilotApiConfig.headers,
       credentials: context.copilotApiConfig.credentials,
     });
 

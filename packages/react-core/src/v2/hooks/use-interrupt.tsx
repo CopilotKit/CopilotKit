@@ -172,7 +172,7 @@ export function useInterrupt<
   config: UseInterruptConfig<any, TResult, TRenderInChat>,
 ): UseInterruptReturn<TRenderInChat> {
   /* eslint-enable @typescript-eslint/no-explicit-any */
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, waitForHeaders } = useCopilotKit();
   const { agent } = useAgent({ agentId: config.agentId });
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
   const pendingRef = useRef(pending);
@@ -248,6 +248,8 @@ export function useInterrupt<
       const decision = interruptStateRef.current.resolve(payload, interruptId);
       if (decision.kind === "legacy-resume") {
         try {
+          const pendingHeaders = waitForHeaders?.();
+          if (pendingHeaders) await pendingHeaders;
           return await copilotkit.runAgent({
             agent,
             forwardedProps: {
@@ -284,6 +286,8 @@ export function useInterrupt<
         } as Message);
       }
       try {
+        const pendingHeaders = waitForHeaders?.();
+        if (pendingHeaders) await pendingHeaders;
         return await copilotkit.runAgent({ agent, resume: decision.resume });
       } catch (err) {
         console.error(
@@ -295,7 +299,7 @@ export function useInterrupt<
         throw err;
       }
     },
-    [agent, copilotkit],
+    [agent, copilotkit, waitForHeaders],
   );
 
   const cancel: InterruptCancelFn = useCallback(
@@ -340,6 +344,8 @@ export function useInterrupt<
         } as Message);
       }
       try {
+        const pendingHeaders = waitForHeaders?.();
+        if (pendingHeaders) await pendingHeaders;
         return await copilotkit.runAgent({ agent, resume: decision.resume });
       } catch (err) {
         console.error(
@@ -351,7 +357,7 @@ export function useInterrupt<
         throw err;
       }
     },
-    [agent, copilotkit],
+    [agent, copilotkit, waitForHeaders],
   );
 
   // Stabilize consumer-supplied callbacks behind refs so inline lambdas do not

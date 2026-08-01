@@ -20,6 +20,7 @@ const mockUseCopilotChatConfiguration =
 /** Shared fetch-call tracking type. */
 interface FetchCall {
   url: string;
+  init: RequestInit | undefined;
   body: Record<string, unknown> | null;
 }
 
@@ -42,7 +43,7 @@ const mockFetch = (
         parsedBody = null;
       }
     }
-    calls.push({ url: String(url), body: parsedBody });
+    calls.push({ url: String(url), init, body: parsedBody });
     const response = responses[index++] ?? responses[responses.length - 1]!;
     return new Response(JSON.stringify(response.body), {
       status: response.status,
@@ -61,9 +62,14 @@ const mockFetch = (
 /** Set up the copilotkit context mock with a runtimeUrl. */
 const installCopilotKit = (
   runtimeUrl: string | null = "https://bff.example.com/api/copilotkit",
+  options: {
+    headers?: Record<string, string>;
+    headersReady?: boolean;
+  } = {},
 ) => {
   mockUseCopilotKit.mockReturnValue({
-    copilotkit: { runtimeUrl, headers: undefined },
+    copilotkit: { runtimeUrl, headers: options.headers },
+    headersReady: options.headersReady ?? true,
   });
 };
 
@@ -94,6 +100,49 @@ test("mount with default [project] → NO emit", () => {
   renderHook(() =>
     useLearningContainers({ threadId: "t1", learningContainers: ["project"] }),
   );
+
+  expect(calls).toHaveLength(0);
+  restore();
+});
+
+test("initial annotation waits for settled provider headers", async () => {
+  installCopilotKit(undefined, { headersReady: false });
+  const { calls, restore } = mockFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+  ]);
+
+  const rendered = renderHook(() =>
+    useLearningContainers({ threadId: "t1", learningContainers: ["team"] }),
+  );
+  await act(async () => {});
+  expect(calls).toHaveLength(0);
+
+  installCopilotKit(undefined, {
+    headers: { Authorization: "Bearer learning" },
+    headersReady: true,
+  });
+  rendered.rerender();
+  await act(async () => {});
+
+  expect(calls).toHaveLength(1);
+  expect(calls[0]!.url).toBe("https://bff.example.com/api/copilotkit/annotate");
+  expect(new Headers(calls[0]!.init?.headers).get("Authorization")).toBe(
+    "Bearer learning",
+  );
+  restore();
+});
+
+test("pending initial annotation cleanup does not send empty headers", async () => {
+  installCopilotKit(undefined, { headersReady: false });
+  const { calls, restore } = mockFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+  ]);
+
+  const { unmount } = renderHook(() =>
+    useLearningContainers({ threadId: "t1", learningContainers: ["team"] }),
+  );
+  unmount();
+  await act(async () => {});
 
   expect(calls).toHaveLength(0);
   restore();

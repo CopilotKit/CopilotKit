@@ -48,3 +48,9 @@ export { useLearningContainers } from "./use-learning-containers";
 export type { UseLearningContainersArgs } from "./use-learning-containers";
 export { useLearningContainersInCurrentThread } from "./use-learning-containers-in-current-thread";
 export type { UseLearningContainersInCurrentThreadArgs } from "./use-learning-containers-in-current-thread";
+export { useHeaderReadiness, useResolvedHeaders } from "./use-resolved-headers";
+export type {
+  HeaderRecord,
+  HeaderSource,
+  ResolvedHeaders,
+} from "./use-resolved-headers";

@@ -19,6 +19,7 @@ let unsubscribeMock: ReturnType<typeof vi.fn>;
 
 function createMockCore() {
   return {
+    connect: vi.fn(),
     subscribe: vi.fn((_subscriber: any) => ({
       unsubscribe: unsubscribeMock,
     })),
@@ -58,6 +59,12 @@ vi.mock("@copilotkit/react-core/v2/headless", () => {
     if (instance) Object.assign(this, instance);
   }
   return {
+    useResolvedHeaders: (source: any) => ({
+      headers: (typeof source === "function" ? source() : source) ?? {},
+      ready: true,
+      error: null,
+    }),
+    useHeaderReadiness: () => () => undefined,
     CopilotKitCoreReact,
     useAgent: (props: any) => {
       const ctx = require("react").useContext(hoisted.RealContext);

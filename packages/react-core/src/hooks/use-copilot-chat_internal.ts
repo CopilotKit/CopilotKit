@@ -7,9 +7,9 @@ import React, {
   createElement,
 } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import { SystemMessageFunction } from "../types";
+import type { SystemMessageFunction } from "../types";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import { Message } from "@copilotkit/shared";
+import type { Message } from "@copilotkit/shared";
 import {
   gqlToAGUI,
   Message as DeprecatedGqlMessage,
@@ -21,20 +21,13 @@ import {
   useRenderCustomMessages,
   useSuggestions,
 } from "../v2";
-import {
-  Suggestion,
-  CopilotKitCoreRuntimeConnectionStatus,
-} from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
-import {
-  AbstractAgent,
-  AGUIConnectNotImplementedError,
-  HttpAgent,
-} from "@ag-ui/client";
-import {
-  CoAgentStateRenderBridge,
-  type CoAgentStateRenderBridgeProps,
-} from "./use-coagent-state-render-bridge";
+import type { AbstractAgent } from "@ag-ui/client";
+import { AGUIConnectNotImplementedError, HttpAgent } from "@ag-ui/client";
+import { CoAgentStateRenderBridge } from "./use-coagent-state-render-bridge";
+import type { CoAgentStateRenderBridgeProps } from "./use-coagent-state-render-bridge";
 
 /**
  * The type of suggestions to use in the chat.
@@ -330,7 +323,7 @@ export function useCopilotChatInternal({
   onStopGeneration,
   onReloadMessages,
 }: UseCopilotChatOptions = {}): UseCopilotChatReturn {
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, waitForHeaders } = useCopilotKit();
   const { threadId, agentSession } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();
   const [agentAvailable, setAgentAvailable] = useState(false);
@@ -363,6 +356,8 @@ export function useCopilotChatInternal({
     const connect = async (agent: AbstractAgent) => {
       setAgentAvailable(false);
       try {
+        const pendingHeaders = waitForHeaders?.();
+        if (pendingHeaders) await pendingHeaders;
         await copilotkit.connectAgent({ agent });
         // Guard against setting state after cleanup (e.g. React StrictMode unmount)
         if (!detached) {
@@ -404,6 +399,7 @@ export function useCopilotChatInternal({
     copilotkit,
     copilotkit.runtimeConnectionStatus,
     resolvedAgentId,
+    waitForHeaders,
   ]);
 
   useEffect(() => {
@@ -503,6 +499,8 @@ export function useCopilotChatInternal({
 
       if (agent) {
         try {
+          const pendingHeaders = waitForHeaders?.();
+          if (pendingHeaders) await pendingHeaders;
           await copilotkit.runAgent({ agent });
         } catch (error) {
           console.error("CopilotChat: runAgent failed during reload", error);
@@ -516,6 +514,7 @@ export function useCopilotChatInternal({
       agent?.isRunning,
       agent?.setMessages,
       copilotkit?.runAgent,
+      waitForHeaders,
     ],
   );
 
@@ -548,6 +547,8 @@ export function useCopilotChatInternal({
       agent?.addMessage(message);
       if (followUp) {
         try {
+          const pendingHeaders = waitForHeaders?.();
+          if (pendingHeaders) await pendingHeaders;
           await copilotkit.runAgent({ agent });
         } catch (error) {
           console.error("CopilotChat: runAgent failed", error);
@@ -555,7 +556,7 @@ export function useCopilotChatInternal({
         }
       }
     },
-    [agent, copilotkit, resolvedAgentId, onSubmitMessage],
+    [agent, copilotkit, resolvedAgentId, onSubmitMessage, waitForHeaders],
   );
 
   const latestAppendFunc = useAsyncCallback(

@@ -11,6 +11,12 @@ export type { CopilotKitCoreReactConfig };
 
 export interface CopilotKitContextValue {
   copilotkit: CopilotKitCoreReact;
+  /** Active settled headers, including provider-managed public-key headers. */
+  headers?: Record<string, string>;
+  /** True once the initial provider header source has settled. */
+  headersReady?: boolean;
+  /** Wait for initial header resolution; refreshes keep using last-good headers. */
+  waitForHeaders?: () => void | Promise<void>;
   /**
    * Set of tool call IDs currently being executed.
    * This is tracked at the provider level to ensure tool execution events

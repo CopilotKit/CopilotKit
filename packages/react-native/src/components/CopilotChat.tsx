@@ -9,9 +9,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  type ListRenderItemInfo,
-  type ViewStyle,
 } from "react-native";
+import type { ListRenderItemInfo, ViewStyle } from "react-native";
 import { useAgent } from "@copilotkit/react-core/v2/headless";
 import { useCopilotKit } from "@copilotkit/react-core/v2/context";
 import { AssistantMessage } from "./messages/AssistantMessage";
@@ -102,7 +101,7 @@ export function CopilotChat({
   const flatListRef = useRef<FlatList>(null);
   const messageIdCounter = useRef(0);
 
-  const { copilotkit, executingToolCallIds } = useCopilotKit();
+  const { copilotkit, executingToolCallIds, waitForHeaders } = useCopilotKit();
   const { agent } = useAgent({ agentId: agentName });
 
   const messages = agent.messages ?? [];
@@ -170,6 +169,16 @@ export function CopilotChat({
       setError(null);
       onSendMessage?.(text);
 
+      try {
+        const pendingHeaders = waitForHeaders?.();
+        if (pendingHeaders) await pendingHeaders;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Authentication is not ready";
+        setError(message);
+        return;
+      }
+
       const id = `user-${++messageIdCounter.current}`;
       agent.addMessage({
         id,
@@ -186,7 +195,7 @@ export function CopilotChat({
         setError(message);
       }
     },
-    [isRunning, agent, copilotkit, onSendMessage],
+    [isRunning, agent, copilotkit, onSendMessage, waitForHeaders],
   );
 
   // Send from the input field

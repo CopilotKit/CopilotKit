@@ -35,15 +35,19 @@ export async function ɵrunMcpFollowUp({
   host,
   agent,
   capturedThreadId,
+  waitForHeaders,
 }: {
   host: ɵMcpFollowUpHost;
   agent: AbstractAgent;
   capturedThreadId: string;
+  waitForHeaders?: () => void | Promise<void>;
 }): Promise<RunAgentResult> {
   const currentThreadId = agent.threadId || "default";
   const originThreadId = capturedThreadId || "default";
 
   if (currentThreadId === originThreadId) {
+    const pendingHeaders = waitForHeaders?.();
+    if (pendingHeaders) await pendingHeaders;
     return host.runAgent({ agent });
   }
 
@@ -303,7 +307,7 @@ interface MCPAppsActivityRendererProps {
  */
 export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
   function MCPAppsActivityRenderer({ content, agent }) {
-    const { copilotkit } = useCopilotKit();
+    const { copilotkit, waitForHeaders } = useCopilotKit();
     const containerRef = useRef<HTMLDivElement>(null);
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
     const [iframeReady, setIframeReady] = useState(false);
@@ -414,6 +418,8 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       // Create the fetch promise using the queue to serialize requests
       const fetchPromise = (async (): Promise<FetchedResource | null> => {
         try {
+          const pendingHeaders = waitForHeaders?.();
+          if (pendingHeaders) await pendingHeaders;
           // Use queue to wait for agent to be idle and serialize requests
           const runResult = await mcpAppsRequestQueue.enqueue(agent, () =>
             agent.runAgent({
@@ -466,7 +472,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
         });
 
       // No cleanup needed - we want the fetch to complete even if StrictMode unmounts
-    }, [agent, content]);
+    }, [agent, content, waitForHeaders]);
 
     // Effect 1: Setup sandbox proxy iframe and communication (after resource is fetched)
     useEffect(() => {
@@ -646,6 +652,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                             host: copilotkit,
                             agent: currentAgent,
                             capturedThreadId,
+                            waitForHeaders,
                           }),
                         )
                         .catch((err) =>
@@ -698,6 +705,8 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                   }
 
                   try {
+                    const pendingHeaders = waitForHeaders?.();
+                    if (pendingHeaders) await pendingHeaders;
                     // Use queue to wait for agent to be idle and serialize requests
                     const runResult = await mcpAppsRequestQueue.enqueue(
                       currentAgent,
@@ -815,6 +824,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       sendNotification,
       sendResponse,
       sendErrorResponse,
+      waitForHeaders,
     ]);
 
     // Effect 2: Update iframe size when it changes

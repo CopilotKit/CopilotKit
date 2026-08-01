@@ -295,11 +295,13 @@ export async function runA2UIAction({
   agent,
   copilotkit,
   onAction,
+  waitForHeaders,
 }: {
   message: A2UIClientEventMessage;
   agent: any;
   copilotkit: any;
   onAction?: A2UIActionInterceptor;
+  waitForHeaders?: () => void | Promise<void>;
 }): Promise<void> {
   if (!agent) return;
 
@@ -315,6 +317,8 @@ export async function runA2UIAction({
         ? { ...message, userAction: forwardAction }
         : message;
     try {
+      const pendingHeaders = waitForHeaders?.();
+      if (pendingHeaders) await pendingHeaders;
       copilotkit.setProperties({
         ...copilotkit.properties,
         a2uiAction,
@@ -358,11 +362,19 @@ function ReactSurfaceHost({
   onAction,
   onReady,
 }: ReactSurfaceHostProps) {
+  const { waitForHeaders } = useCopilotKit();
+
   // Bridge: when the React renderer dispatches an action, forward to CopilotKit
   const handleAction = useCallback(
     (message: A2UIClientEventMessage) =>
-      runA2UIAction({ message, agent, copilotkit, onAction }),
-    [agent, copilotkit, onAction],
+      runA2UIAction({
+        message,
+        agent,
+        copilotkit,
+        onAction,
+        waitForHeaders,
+      }),
+    [agent, copilotkit, onAction, waitForHeaders],
   );
 
   return (
