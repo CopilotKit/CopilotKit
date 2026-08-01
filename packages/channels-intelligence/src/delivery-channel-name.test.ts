@@ -18,8 +18,9 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
       JSON.stringify({
         messages: [
           {
-            logicalMessageId: "message-channel-name",
-            revisionId: "revision-channel-name",
+            logicalMessageId:
+              "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+            revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
             occurredAt: "2026-07-29T17:00:00.000Z",
             role: "participant",
             actor: {
@@ -67,8 +68,9 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
         text: "hello",
         operation: {
           kind: "created",
-          logicalMessageId: "message-channel-name",
-          revisionId: "revision-channel-name",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
           mentioned: false,
         },
       }),

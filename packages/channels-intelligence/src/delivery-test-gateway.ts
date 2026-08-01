@@ -15,13 +15,24 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
 
   push(event: string, payload: unknown): Promise<unknown> {
     this.controlPushes.push({ event, payload });
-    if (event === "claim" || event === "join_token") {
+    if (event === "claim") {
       const deliveryId = (payload as { deliveryId: string }).deliveryId;
       return Promise.resolve({
         result: "claimed",
         deliveryId,
         ownerGeneration: 1,
-        joinToken: `chj_${deliveryId}`,
+        joinToken: `chj_token_${deliveryId.slice(4)}`,
+        joinTokenExpiresAt: "2099-07-29T16:01:00.000Z",
+        deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
+      });
+    }
+    if (event === "join_token") {
+      const deliveryId = (payload as { deliveryId: string }).deliveryId;
+      return Promise.resolve({
+        deliveryId,
+        ownerGeneration: 2,
+        joinToken: `chj_reconnect_${deliveryId.slice(4)}`,
+        joinTokenExpiresAt: "2099-07-29T16:01:00.000Z",
         deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
       });
     }
@@ -70,6 +81,8 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
       protocol: "channel_delivery_v1",
       deliveryId: delivery.deliveryId,
       canonicalThreadId: delivery.canonicalThreadId,
+      channelName: delivery.channelName,
+      adapter: delivery.adapter,
     });
     const deadline = Date.now() + 1_000;
     while (this.leaves !== expectedLeaves) {
@@ -104,6 +117,7 @@ export function preparedDelivery(
     input.kind === "text"
       ? {
           ...input,
+          text: input.text ?? "",
           messageRef: input.messageRef ?? {
             id: `pref_v1_message_${idSuffix}`,
           },
@@ -112,8 +126,10 @@ export function preparedDelivery(
               ? input.operation
               : {
                   kind: "created",
-                  logicalMessageId: `message_${idSuffix}`,
-                  revisionId: `revision_${idSuffix}`,
+                  logicalMessageId:
+                    "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+                  revisionId:
+                    "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
                   mentioned: false,
                 },
         }
@@ -128,7 +144,7 @@ export function preparedDelivery(
     channelName: "support",
     adapter,
     turn: {
-      eventId: `event_${idSuffix}`,
+      eventId: `evt_${idSuffix}`,
       receivedAt: "2026-07-29T17:00:00.000Z",
       input: normalizedInput,
       actor: {

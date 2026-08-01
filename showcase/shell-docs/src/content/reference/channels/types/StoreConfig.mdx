@@ -25,24 +25,24 @@ interface StoreConfig<TStateSchema> {
 }
 ```
 
-| Option | Default | Behavior |
-| --- | --- | --- |
-| `adapter` | `MemoryStore` | Persistence backend for SDK state. |
-| `state` | none | Standard Schema that types and validates `thread.state()` and `setState()`. |
-| `identity` | none | Resolves an inbound provider user to a stable transcript key. Must be paired with `transcripts`. |
-| `transcripts` | none | Optional retention and per-user cap. Must be paired with `identity`. |
-| `concurrency` | `"parallel"` | How overlapping turns on the same conversation are handled (see below). |
+| Option           | Default                   | Behavior                                                                                                                                           |
+| ---------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `adapter`        | `MemoryStore`             | Persistence backend for SDK state.                                                                                                                 |
+| `state`          | none                      | Standard Schema that types and validates `thread.state()` and `setState()`.                                                                        |
+| `identity`       | none                      | Resolves an inbound provider user to a stable transcript key. Must be paired with `transcripts`.                                                   |
+| `transcripts`    | none                      | Optional retention and per-user cap. Must be paired with `identity`.                                                                               |
+| `concurrency`    | `"parallel"`              | How overlapping turns on the same conversation are handled (see below).                                                                            |
 | `onLockConflict` | (maps into `concurrency`) | **Deprecated.** Prefer `concurrency`. Static `"drop"` / `"force"` map to `"drop"` / `"parallel"`. A callback keeps the legacy exclusive-lock path. |
-| `lockTtl` | `60_000` | Per-conversation turn-lock TTL in milliseconds (used by `drop` / legacy lock paths). |
-| `dedupTtl` | `300_000` | Inbound event deduplication window in milliseconds. |
+| `lockTtl`        | `60_000`                  | Per-conversation turn-lock TTL in milliseconds (used by `drop` / legacy lock paths).                                                               |
+| `dedupTtl`       | `300_000`                 | Inbound event deduplication window in milliseconds.                                                                                                |
 
 ### Turn concurrency
 
-| Mode | Behavior |
-| --- | --- |
+| Mode                   | Behavior                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `"parallel"` (default) | Overlapping turns on the same conversation run together. Multiple people asking questions in one Slack thread each get a concurrent reply. |
-| `"serial"` | Later turns on the same conversation wait until the in-flight turn finishes (per-conversation queue). |
-| `"drop"` | Later turns are discarded while a turn is already in flight. |
+| `"serial"`             | Later turns on the same conversation wait until the in-flight turn finishes (per-conversation queue).                                      |
+| `"drop"`               | Later turns are discarded while a turn is already in flight.                                                                               |
 
 A configured **singleton** agent (`agent: sharedInstance`) is isolated per run via `agent.clone()` under the hood, so parallel mode does not mutate one shared agent object. Prefer an agent factory when you want explicit control:
 
@@ -51,7 +51,7 @@ agent: (threadId) => {
   const a = new HttpAgent({ url });
   a.threadId = threadId;
   return a;
-}
+};
 ```
 
 ```ts
@@ -61,7 +61,6 @@ const stateSchema = z.object({
 
 const channel = createChannel({
   name: "support-slack",
-  provider: "slack",
   agent: makeAgent,
   store: {
     adapter: durableStateStore,

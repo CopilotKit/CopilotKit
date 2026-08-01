@@ -14,16 +14,15 @@ import { durableStateStore } from "./state-store.js";
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
-  provider: "slack",
   agent: makeAgent,
   components: [ApprovalCard],
   store: { adapter: durableStateStore },
 });
 ```
 
-Use `provider: "teams"` for a Teams Channel. The registered component lets the
-SDK rebuild its callback, while the durable store preserves the snapshot across
-process restarts.
+The same Channel declaration receives managed Slack and Teams deliveries. The
+registered component lets the SDK rebuild its callback, while the durable store
+preserves the snapshot across process restarts.
 
 ## Deprecated contract
 

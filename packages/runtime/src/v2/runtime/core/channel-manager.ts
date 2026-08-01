@@ -909,6 +909,40 @@ export class ChannelManager implements ChannelsControl {
               return;
             }
             if (isSetupRequired(err)) {
+              const hasDirectAdapter = channel.adapters.some(
+                (adapter) => !adapter.__intelligenceChannel,
+              );
+              if (hasDirectAdapter) {
+                try {
+                  // Managed setup may be incomplete while a developer-owned
+                  // transport is fully configured. Keep that transport alive;
+                  // a later runtime restart can attach the managed adapter once
+                  // Intelligence setup is complete.
+                  await channel.ɵruntime.start();
+                  entry.handle = {
+                    metadata: {},
+                    stop: () => channel.ɵruntime.stop(),
+                  };
+                  if (this.stopped) {
+                    await this.stopEntry(entry);
+                    resolveSettled();
+                    return;
+                  }
+                } catch (directError) {
+                  if (this.stopped) {
+                    await this.stopEntry(entry);
+                    resolveSettled();
+                    return;
+                  }
+                  entry.status = "error";
+                  this.log?.(
+                    `channel "${name}" failed to start its direct adapters while managed setup is incomplete`,
+                    directError,
+                  );
+                  rejectSettled(directError);
+                  return;
+                }
+              }
               entry.status = "setup_required";
               this.log?.(`channel "${name}" requires setup`, err);
               resolveSettled();

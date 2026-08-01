@@ -8,11 +8,11 @@ tools, and JSX callbacks receive it.
 
 ## Properties
 
-| Property                 | Type                   | Description                                                                                                                  |
-| ------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `conversationKey`        | `string`               | Stable managed conversation key. Also passed to the `agent(threadId)` factory.                                               |
-| `platform`               | `string`               | Delivery adapter id. Managed Channels report `"intelligence"`; use the inbound `message.platform` for Slack/Teams branching. |
-| `supportsBlockingChoice` | `boolean \| undefined` | `false` on the managed path. Use post-and-resume instead of `awaitChoice`.                                                   |
+| Property                 | Type                   | Description                                                                    |
+| ------------------------ | ---------------------- | ------------------------------------------------------------------------------ |
+| `conversationKey`        | `string`               | Stable managed conversation key. Also passed to the `agent(threadId)` factory. |
+| `platform`               | `string`               | Native delivery provider. Managed Channels report `"slack"` or `"teams"`.      |
+| `supportsBlockingChoice` | `boolean \| undefined` | `false` on the managed path. Use post-and-resume instead of `awaitChoice`.     |
 
 ## Post and update
 
@@ -53,12 +53,12 @@ allowed to fail the workflow.
 
 `runAgent` accepts:
 
-| Field        | Type                            | Description                                                                                    |
-| ------------ | ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Field        | Type                            | Description                                                                                                             |
+| ------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `prompt`     | `string \| AgentContentPart[]`  | Explicit user turn. When omitted in a message handler, the SDK injects the inbound text or content parts automatically. |
-| `context`    | `ContextEntry[]`                | Context for this run only.                                                                     |
-| `tools`      | `ChannelTool[]`                 | Tools for this run only.                                                                       |
-| `transcript` | `boolean \| { limit?: number }` | Optional SDK transcript bridge when `identity` and `transcripts` are configured.               |
+| `context`    | `ContextEntry[]`                | Context for this run only.                                                                                              |
+| `tools`      | `ChannelTool[]`                 | Tools for this run only.                                                                                                |
+| `transcript` | `boolean \| { limit?: number }` | Optional SDK transcript bridge when `identity` and `transcripts` are configured.                                        |
 
 ```ts title="channel.ts"
 channel.onMessage(async ({ thread, message }) => {
@@ -109,5 +109,7 @@ state guide for [Slack](/slack/threads-and-state) or
 | `setTitle(title)`                                  | Name the conversation.                                                          |
 | `subscribe()` / `unsubscribe()` / `isSubscribed()` | Store a subscription flag. Proactive routing from that flag is not implemented. |
 
-These methods are not guaranteed on managed Slack and Teams. Check `{ ok }`
+Managed Slack and Teams support `react` and `unreact` for the portable reaction
+set: `thumbs_up`, `thumbs_down`, `heart`, `fire`, `eyes`, `refresh`, `thinking`,
+and `tada`. Other methods remain provider-capability dependent; check `{ ok }`
 when the method returns a capability result.

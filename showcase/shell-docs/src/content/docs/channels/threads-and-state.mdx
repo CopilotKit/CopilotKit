@@ -42,9 +42,8 @@ unrelated conversations run in parallel. The SDK `store.concurrency` setting
 still governs other adapter paths and shared workflow state; it does not raise
 the managed same-Thread delivery limit.
 
-The native provider is `message.platform`. On the managed path,
-`thread.platform` is `"intelligence"` because it identifies the delivery
-adapter rather than Slack or Teams.
+The native provider is available on both `message.platform` and
+`thread.platform`. Managed turns report `"slack"` or `"teams"`.
 
 ## What Intelligence restores
 
@@ -102,7 +101,6 @@ const workflowState = z.object({
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
-  provider: "slack",
   agent: makeAgent,
   store: {
     state: workflowState,
@@ -143,7 +141,6 @@ const workflowState = z.object({
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
-  provider: "teams",
   agent: makeAgent,
   store: {
     state: workflowState,
@@ -193,7 +190,8 @@ operations. Values must round-trip through JSON.
 
 - Use one fresh agent per `conversationKey`.
 - Pass the current inbound message to `runAgent`.
-- Branch on `message.platform`, not `thread.platform`.
+- Branch on `message.platform` for the current turn; `thread.platform` carries
+  the same native provider when only the Thread is available.
 - Store only JSON-serializable workflow data.
 - Replace, do not patch, values passed to `setState`.
 - Configure a durable `StateStore` before promising restart-safe approvals.

@@ -61,7 +61,7 @@ test("delivery handlers receive the source provider", async () => {
         kind: "reaction",
         rawEmoji: "thumbs-up",
         added: true,
-        messageId: "pref_v1_sourcePlatformReaction_123",
+        messageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
         messageRef: { id: "pref_v1_sourcePlatformReaction_123" },
       }),
     );
@@ -93,5 +93,80 @@ test("delivery handlers receive the source provider", async () => {
     );
   } finally {
     await handle.stop();
+  }
+});
+
+test("managed text selects onMention with onMessage fallback", async () => {
+  const mentionGateway = new DeliveryTestGateway();
+  const mentionChannel = createChannel({ name: "support" });
+  const onMention = vi.fn();
+  const onMessage = vi.fn();
+  mentionChannel.onMention(onMention);
+  mentionChannel.onMessage(onMessage);
+  const mentionHandle = await startChannelsWithGatewayControl(
+    [mentionChannel],
+    {
+      session: mentionGateway,
+      scope: { projectId: 1, channelName: "support" },
+      runtimeInstanceId: "rti_mention_route",
+      runCanonical: async (args) => args.execute({}),
+      loadHistory: async () => [],
+    },
+  );
+
+  try {
+    await mentionGateway.deliver(
+      preparedDelivery("mention-route", "teams", {
+        kind: "text",
+        text: "@bot hello",
+        messageRef: { id: "pref_v1_mention_route_01" },
+        operation: {
+          kind: "created",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
+          mentioned: true,
+        },
+      }),
+    );
+    expect(onMention).toHaveBeenCalledOnce();
+    expect(onMessage).not.toHaveBeenCalled();
+  } finally {
+    await mentionHandle.stop();
+  }
+
+  const fallbackGateway = new DeliveryTestGateway();
+  const fallbackChannel = createChannel({ name: "support" });
+  const fallback = vi.fn();
+  fallbackChannel.onMessage(fallback);
+  const fallbackHandle = await startChannelsWithGatewayControl(
+    [fallbackChannel],
+    {
+      session: fallbackGateway,
+      scope: { projectId: 1, channelName: "support" },
+      runtimeInstanceId: "rti_mention_fallback",
+      runCanonical: async (args) => args.execute({}),
+      loadHistory: async () => [],
+    },
+  );
+
+  try {
+    await fallbackGateway.deliver(
+      preparedDelivery("mention-fallback", "slack", {
+        kind: "text",
+        text: "@bot hello",
+        messageRef: { id: "pref_v1_mention_fallback_01" },
+        operation: {
+          kind: "created",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
+          mentioned: true,
+        },
+      }),
+    );
+    expect(fallback).toHaveBeenCalledOnce();
+  } finally {
+    await fallbackHandle.stop();
   }
 });

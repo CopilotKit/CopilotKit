@@ -33,8 +33,9 @@ function prepared(): PreparedChannelDelivery {
         messageRef: { id: "pref_v1_message_postfile_123" },
         operation: {
           kind: "created",
-          logicalMessageId: "message-postfile",
-          revisionId: "revision-postfile",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
           mentioned: false,
         },
       },
@@ -316,6 +317,8 @@ describe("DeliveryAdapter.postFile", () => {
         .mockResolvedValueOnce({ capabilityError: "teams_image_rejected" })
         .mockResolvedValueOnce({
           providerReference: "pref_v1_teams_activity_01",
+          providerMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
         }),
     } as unknown as ClaimedChannelDelivery;
     const adapter = makeAdapter({ log });

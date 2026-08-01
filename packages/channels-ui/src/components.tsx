@@ -88,6 +88,8 @@ export interface SelectOption {
   value: string;
 }
 export interface SelectProps {
+  /** Stable field key used when a provider submits this select with a form. */
+  name?: string;
   /**
    * Handler run on selection. `ctx.action.value` is the chosen option's `value`
    * (a `string`), or a `string[]` of chosen values when `multi` is set.
@@ -110,6 +112,7 @@ export interface InputProps {
   onSubmit?: ClickHandler<string>;
   placeholder?: string;
   multiline?: boolean;
+  /** Stable field key used when a provider submits this input with a form. */
   name?: string;
 }
 

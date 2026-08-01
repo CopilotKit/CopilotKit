@@ -1,3 +1,8 @@
+import {
+  isProviderMessageId,
+  isProviderReference,
+} from "./delivery-contracts.js";
+
 export type ChannelTranscriptActorKind = "human" | "bot" | "app" | "system";
 
 export interface ChannelTranscriptActor {
@@ -59,21 +64,54 @@ export class ChannelDeliveryTranscriptError extends Error {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const isNullableString = (value: unknown): value is string | null =>
-  typeof value === "string" || value === null;
+const hasExactFields = (
+  value: Record<string, unknown>,
+  required: readonly string[],
+  optional: readonly string[] = [],
+): boolean => {
+  const allowed = new Set([...required, ...optional]);
+  return (
+    required.every((field) => Object.hasOwn(value, field)) &&
+    Object.keys(value).every((field) => allowed.has(field))
+  );
+};
+
+const isTeamsId = (value: unknown): value is string =>
+  typeof value === "string" &&
+  value.trim().length >= 1 &&
+  value.trim().length <= 512;
+
+const isNullableBoundedString = (
+  value: unknown,
+  maximum: number,
+): value is string | null =>
+  value === null || (typeof value === "string" && value.length <= maximum);
+
+const isIsoDateTime = (value: unknown): value is string =>
+  typeof value === "string" &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
+    value,
+  ) &&
+  Number.isFinite(Date.parse(value));
 
 const isTranscriptActor = (value: unknown): value is ChannelTranscriptActor =>
   isRecord(value) &&
-  typeof value.id === "string" &&
+  hasExactFields(value, ["id", "kind", "displayName", "handle"]) &&
+  isTeamsId(value.id) &&
   ["human", "bot", "app", "system"].includes(String(value.kind)) &&
-  isNullableString(value.displayName) &&
-  isNullableString(value.handle);
+  isNullableBoundedString(value.displayName, 256) &&
+  isNullableBoundedString(value.handle, 256);
 
 const isTranscriptFile = (value: unknown): value is ChannelTranscriptFile =>
   isRecord(value) &&
-  typeof value.providerFileId === "string" &&
-  isNullableString(value.name) &&
-  isNullableString(value.mimeType) &&
+  hasExactFields(
+    value,
+    ["providerFileId", "name", "mimeType", "byteSize", "availability"],
+    ["handle"],
+  ) &&
+  isTeamsId(value.providerFileId) &&
+  isNullableBoundedString(value.name, 512) &&
+  isNullableBoundedString(value.mimeType, 256) &&
   (value.byteSize === null ||
     (typeof value.byteSize === "number" &&
       Number.isSafeInteger(value.byteSize) &&
@@ -81,34 +119,55 @@ const isTranscriptFile = (value: unknown): value is ChannelTranscriptFile =>
   ["managed", "provider_only", "unavailable"].includes(
     String(value.availability),
   ) &&
-  (value.handle === undefined || typeof value.handle === "string");
+  (value.handle === undefined ||
+    (typeof value.handle === "string" &&
+      value.handle.length >= 1 &&
+      value.handle.length <= 200));
 
 const isTranscriptMessage = (
   value: unknown,
 ): value is ChannelTranscriptMessage =>
   isRecord(value) &&
-  typeof value.logicalMessageId === "string" &&
-  typeof value.revisionId === "string" &&
-  typeof value.occurredAt === "string" &&
-  Number.isFinite(Date.parse(value.occurredAt)) &&
+  hasExactFields(value, [
+    "logicalMessageId",
+    "revisionId",
+    "occurredAt",
+    "role",
+    "actor",
+    "text",
+    "messageRef",
+    "deleted",
+    "currentTrigger",
+    "files",
+  ]) &&
+  isProviderMessageId(value.logicalMessageId) &&
+  isProviderMessageId(value.revisionId) &&
+  isIsoDateTime(value.occurredAt) &&
   (value.role === "participant" || value.role === "assistant") &&
   isTranscriptActor(value.actor) &&
   typeof value.text === "string" &&
   isRecord(value.messageRef) &&
-  typeof value.messageRef.id === "string" &&
-  value.messageRef.id.startsWith("pref_v1_") &&
+  hasExactFields(value.messageRef, ["id"]) &&
+  isProviderReference(value.messageRef.id) &&
   typeof value.deleted === "boolean" &&
   typeof value.currentTrigger === "boolean" &&
   Array.isArray(value.files) &&
+  value.files.length <= 100 &&
   value.files.every(isTranscriptFile);
 
 const parseTranscript = (value: unknown): ChannelDeliveryTranscript | null => {
   if (
     !isRecord(value) ||
+    !hasExactFields(value, ["messages", "truncation"]) ||
     !Array.isArray(value.messages) ||
     value.messages.length > 100 ||
     !value.messages.every(isTranscriptMessage) ||
     !isRecord(value.truncation) ||
+    !hasExactFields(value.truncation, [
+      "messageLimit",
+      "byteLimit",
+      "omittedMessageCount",
+    ]) ||
     typeof value.truncation.messageLimit !== "boolean" ||
     typeof value.truncation.byteLimit !== "boolean" ||
     typeof value.truncation.omittedMessageCount !== "number" ||

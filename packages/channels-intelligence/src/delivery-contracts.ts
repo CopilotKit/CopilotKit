@@ -11,6 +11,7 @@ export const CHANNEL_DELIVERY_OWNER_TTL_SECONDS = 60 * 60;
 export const DELIVERY_PACKET_MAX_BYTES = 64 * 1024;
 
 const PROVIDER_REFERENCE_PATTERN = /^pref_v1_[A-Za-z0-9_-]{8,4088}$/;
+const PROVIDER_MESSAGE_ID_PATTERN = /^pid_v1_[A-Za-z0-9_-]{43}$/;
 const PACKET_ID_PATTERN = /^pkt_[A-Za-z0-9_-]{2,128}$/;
 const DELIVERY_ID_PATTERN = /^dlv_[A-Za-z0-9_-]{8,128}$/;
 const RUNTIME_ID_PATTERN = /^rti_[A-Za-z0-9_-]{4,96}$/;
@@ -155,6 +156,44 @@ export function assertProviderReference(
   }
 }
 
+/** Return whether a value is one opaque, delivery-scoped provider capability. */
+export function isProviderReference(value: unknown): value is string {
+  try {
+    assertProviderReference(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Assert that a provider message id is a stable, non-capability correlation id. */
+export function assertProviderMessageId(
+  value: unknown,
+): asserts value is string {
+  if (typeof value !== "string" || !PROVIDER_MESSAGE_ID_PATTERN.test(value)) {
+    throw new TypeError(
+      "provider message id must be a stable pid_v1 correlation id",
+    );
+  }
+}
+
+/** Return whether a value is one stable, non-capability provider message id. */
+export function isProviderMessageId(value: unknown): value is string {
+  try {
+    assertProviderMessageId(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Return whether a provider-native reaction fits the shared UTF-8 bound. */
+export function isValidReactionName(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const byteLength = new TextEncoder().encode(value).byteLength;
+  return byteLength >= 1 && byteLength <= 128;
+}
+
 /** Return the UTF-8 JSON size of a value. */
 export function deliveryPacketByteLength(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).byteLength;
@@ -292,7 +331,7 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
       return (
         hasExactFields(value, ["kind", "providerReference", "reaction"]) &&
         validReference(value.providerReference) &&
-        boundedString(value.reaction, 1, 128)
+        isValidReactionName(value.reaction)
       );
     case "slack.file.create":
       return (

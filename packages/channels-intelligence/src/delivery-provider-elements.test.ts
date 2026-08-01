@@ -26,8 +26,9 @@ function delivery(adapter: "slack" | "teams"): PreparedChannelDelivery {
         messageRef: { id: "pref_v1_provider_element_message_123" },
         operation: {
           kind: "created",
-          logicalMessageId: "provider-element-message",
-          revisionId: "provider-element-revision",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
           mentioned: true,
         },
       },
@@ -83,6 +84,7 @@ test("Teams delivery forwards a Teams-native Adaptive Card without translation",
   const card = { type: "AdaptiveCard", version: "1.5", body: [] };
   const effect = vi.fn().mockResolvedValue({
     providerReference: "pref_v1_teams_native_card_123",
+    providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
   });
 
   await makeAdapter().post(target("teams", effect), [

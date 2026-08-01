@@ -52,6 +52,8 @@ const pkg = createRequire(import.meta.url)("../package.json") as {
   version: string;
 };
 
+const ADAPTER_ROLLBACK_TIMEOUT_MS = 5_000;
+
 function storeKind(s: StateStore): "memory" | "postgres" | "redis" | "custom" {
   const n = s.constructor?.name;
   if (n === "MemoryStore") return "memory";
@@ -1165,6 +1167,96 @@ export function createChannel<
             startedPlatforms.push(platform);
           }
         });
+        const managedFailureIndex = startResults.findIndex(
+          (result, index) =>
+            adapters[index]?.__intelligenceChannel === true &&
+            result.status === "rejected",
+        );
+        const stopAdapters = async (
+          indexes: readonly number[],
+          reason: string,
+        ) => {
+          const rollbackResults = await Promise.allSettled(
+            indexes.map(
+              (index) =>
+                new Promise<void>((resolve, reject) => {
+                  let settled = false;
+                  const timeout = setTimeout(() => {
+                    if (settled) return;
+                    settled = true;
+                    reject(
+                      new Error(
+                        `stop timed out after ${ADAPTER_ROLLBACK_TIMEOUT_MS}ms`,
+                      ),
+                    );
+                  }, ADAPTER_ROLLBACK_TIMEOUT_MS);
+                  void Promise.resolve()
+                    .then(() => adapters[index]!.stop())
+                    .then(
+                      () => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(timeout);
+                        resolve();
+                      },
+                      (error: unknown) => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(timeout);
+                        reject(error);
+                      },
+                    );
+                }),
+            ),
+          );
+          rollbackResults.forEach((result, resultIndex) => {
+            if (result.status === "rejected") {
+              const adapterIndex = indexes[resultIndex]!;
+              console.error(
+                `[channel] adapter "${adapters[adapterIndex]!.platform}" failed to stop ${reason}:`,
+                result.reason,
+              );
+            }
+          });
+        };
+        const allAdapterIndexes = adapters.map((_adapter, index) => index);
+        const rejectedAdapterIndexes = startResults.flatMap((result, index) =>
+          result.status === "rejected" ? [index] : [],
+        );
+        if (managedFailureIndex >= 0) {
+          // Managed activation must never report online merely because a
+          // coexisting direct adapter started. Roll back every attempted
+          // adapter, including the rejecting managed adapter, because start()
+          // may have acquired resources before it failed.
+          await stopAdapters(
+            allAdapterIndexes,
+            "after managed activation failed",
+          );
+          started = false;
+          throw new Error(
+            `channel "${opts.name ?? "(unnamed)"}" failed to start its managed Intelligence adapter`,
+          );
+        }
+        // A channel that has adapters but where NONE started is dead — surface an
+        // error so the runtime reports status "error", not a false "online". A
+        // PARTIAL start (>=1 adapter live) still counts as started. Reset the
+        // `started` guard so a caller can retry after fixing the misconfiguration.
+        if (adapters.length > 0 && startedPlatforms.length === 0) {
+          await stopAdapters(
+            allAdapterIndexes,
+            "after all adapters failed to start",
+          );
+          started = false;
+          throw new Error(
+            `channel "${opts.name ?? "(unnamed)"}" failed to start: all ${failedPlatforms.length} adapter(s) failed to connect (${failedPlatforms.join(", ")}) — see the logged errors above`,
+          );
+        }
+        if (rejectedAdapterIndexes.length > 0) {
+          // A rejecting start may still have acquired a listener or provider
+          // client. Release only those failed adapters while preserving the
+          // healthy adapters that make this a valid degraded start.
+          await stopAdapters(rejectedAdapterIndexes, "after its start failed");
+        }
         if (startedPlatforms.length > 0) {
           tel.capture("oss.channel.started", {
             platforms: startedPlatforms,
@@ -1177,28 +1269,25 @@ export function createChannel<
             toolsCount: toolMap.size,
           });
         }
-        // A channel that has adapters but where NONE started is dead — surface an
-        // error so the runtime reports status "error", not a false "online". A
-        // PARTIAL start (>=1 adapter live) still counts as started. Reset the
-        // `started` guard so a caller can retry after fixing the misconfiguration.
-        if (adapters.length > 0 && startedPlatforms.length === 0) {
-          started = false;
-          throw new Error(
-            `channel "${opts.name ?? "(unnamed)"}" failed to start: all ${failedPlatforms.length} adapter(s) failed to connect (${failedPlatforms.join(", ")}) — see the logged errors above`,
-          );
-        }
         // Hand declared commands to adapters that register them up front (e.g.
-        // Discord); adapters without `registerCommands` are skipped. Per-adapter
-        // failures are isolated the same way as start().
+        // Discord); adapters without `registerCommands` are skipped. Never call
+        // into adapters whose start failed and whose resources were just
+        // cleaned up. Per-adapter failures are isolated the same way as start().
         const commandSpecs = [...commandHandlers.values()].map(toCommandSpec);
         if (commandSpecs.length > 0) {
-          const registerResults = await Promise.allSettled(
-            adapters.map((a) => a.registerCommands?.(commandSpecs)),
+          const startedAdapterIndexes = startResults.flatMap((result, index) =>
+            result.status === "fulfilled" ? [index] : [],
           );
-          registerResults.forEach((r, i) => {
+          const registerResults = await Promise.allSettled(
+            startedAdapterIndexes.map((index) =>
+              adapters[index]!.registerCommands?.(commandSpecs),
+            ),
+          );
+          registerResults.forEach((r, resultIndex) => {
             if (r.status === "rejected") {
+              const adapterIndex = startedAdapterIndexes[resultIndex]!;
               console.error(
-                `[channel] adapter "${adapters[i]!.platform}" failed to register commands:`,
+                `[channel] adapter "${adapters[adapterIndex]!.platform}" failed to register commands:`,
                 r.reason,
               );
             }
@@ -1214,7 +1303,7 @@ export function createChannel<
         // Isolate per-adapter shutdown failures: one adapter's stop() rejecting
         // must not prevent the others from being stopped.
         const stopResults = await Promise.allSettled(
-          adapters.map((a) => a.stop()),
+          adapters.map((a) => Promise.resolve().then(() => a.stop())),
         );
         stopResults.forEach((r, i) => {
           if (r.status === "rejected") {

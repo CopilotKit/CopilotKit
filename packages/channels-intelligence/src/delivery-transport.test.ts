@@ -31,8 +31,9 @@ function preparedDelivery() {
         messageRef: { id: "pref_v1_message_transport_123" },
         operation: {
           kind: "created" as const,
-          logicalMessageId: "message-transport",
-          revisionId: "revision-transport",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
           mentioned: false,
         },
       },
@@ -41,18 +42,60 @@ function preparedDelivery() {
   };
 }
 
+function claimResult(deliveryId: string, ownerGeneration = 7) {
+  return {
+    result: "claimed" as const,
+    deliveryId,
+    ownerGeneration,
+    joinToken: `chj_token_${deliveryId.slice(4)}`,
+    joinTokenExpiresAt: "2099-07-29T16:01:00.000Z",
+    deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
+  };
+}
+
+function invitation(
+  deliveryId: string,
+  canonicalThreadId: string,
+  adapter: "slack" | "teams" = "slack",
+) {
+  return {
+    protocol: "channel_delivery_v1" as const,
+    deliveryId,
+    canonicalThreadId,
+    channelName: "support",
+    adapter,
+  };
+}
+
+function acknowledgement(
+  packet: unknown,
+  fields: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const identity = packet as {
+    deliveryId: string;
+    seq: number;
+    packetId: string;
+  };
+  return {
+    deliveryId: identity.deliveryId,
+    seq: identity.seq,
+    packetId: identity.packetId,
+    phase: "applied",
+    result: { providerReference: "pref_v1_message_01" },
+    ...fields,
+  };
+}
+
 function channel(
   joinReply: PreparedChannelDelivery = preparedDelivery(),
 ): RealtimeGatewayDeliveryChannel {
   return {
     joinReply,
-    push: vi.fn().mockImplementation((_event, packet) =>
-      Promise.resolve({
-        ...(packet as object),
-        phase: "applied",
-        result: { providerReference: "pref_v1_message_01" },
-      }),
-    ),
+    push: vi
+      .fn()
+      .mockImplementation((_event, packet) =>
+        Promise.resolve(acknowledgement(packet)),
+      ),
     on: vi.fn(),
     onClose: vi.fn(),
     leave: vi.fn(),
@@ -82,12 +125,7 @@ async function runTranscriptFailure(input: {
   };
   const deliveryChannel = channel(delivery);
   const control: RealtimeGatewaySession = {
-    push: vi.fn().mockResolvedValue({
-      result: "claimed",
-      deliveryId: delivery.deliveryId,
-      ownerGeneration: 7,
-      joinToken: "chj_token_01",
-    }),
+    push: vi.fn().mockResolvedValue(claimResult(delivery.deliveryId)),
     on: vi.fn(),
     join: vi.fn().mockResolvedValue(deliveryChannel),
   };
@@ -115,11 +153,13 @@ async function runTranscriptFailure(input: {
     await claimedDelivery.getTranscript();
   });
   const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
-  invitationHandler({
-    protocol: "channel_delivery_v1",
-    deliveryId: delivery.deliveryId,
-    canonicalThreadId: delivery.canonicalThreadId,
-  });
+  invitationHandler(
+    invitation(
+      delivery.deliveryId,
+      delivery.canonicalThreadId,
+      delivery.adapter,
+    ),
+  );
   await vi.waitFor(() => expect(deliveryChannel.leave).toHaveBeenCalledOnce());
   await transport.stop();
 
@@ -142,12 +182,7 @@ async function runHandlerFailure(
 ) {
   const deliveryChannel = channel(delivery);
   const control: RealtimeGatewaySession = {
-    push: vi.fn().mockResolvedValue({
-      result: "claimed",
-      deliveryId: delivery.deliveryId,
-      ownerGeneration: 7,
-      joinToken: "chj_token_01",
-    }),
+    push: vi.fn().mockResolvedValue(claimResult(delivery.deliveryId)),
     on: vi.fn(),
     join: vi.fn().mockResolvedValue(deliveryChannel),
   };
@@ -157,11 +192,13 @@ async function runHandlerFailure(
   });
   transport.start(handler);
   const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
-  invitationHandler({
-    protocol: "channel_delivery_v1",
-    deliveryId: delivery.deliveryId,
-    canonicalThreadId: delivery.canonicalThreadId,
-  });
+  invitationHandler(
+    invitation(
+      delivery.deliveryId,
+      delivery.canonicalThreadId,
+      delivery.adapter,
+    ),
+  );
   await vi.waitFor(() => expect(deliveryChannel.leave).toHaveBeenCalledOnce());
   await transport.stop();
   return vi
@@ -265,12 +302,7 @@ test.each([
     };
     const deliveryChannel = channel(delivery);
     const control: RealtimeGatewaySession = {
-      push: vi.fn().mockResolvedValue({
-        result: "claimed",
-        deliveryId: delivery.deliveryId,
-        ownerGeneration: 7,
-        joinToken: "chj_token_01",
-      }),
+      push: vi.fn().mockResolvedValue(claimResult(delivery.deliveryId)),
       on: vi.fn(),
       join: vi.fn().mockResolvedValue(deliveryChannel),
     };
@@ -283,11 +315,13 @@ test.each([
     });
 
     const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
-    invitationHandler({
-      protocol: "channel_delivery_v1",
-      deliveryId: delivery.deliveryId,
-      canonicalThreadId: delivery.canonicalThreadId,
-    });
+    invitationHandler(
+      invitation(
+        delivery.deliveryId,
+        delivery.canonicalThreadId,
+        delivery.adapter,
+      ),
+    );
     await vi.waitFor(() =>
       expect(deliveryChannel.leave).toHaveBeenCalledOnce(),
     );
@@ -405,17 +439,91 @@ test("rejects a wrong-provider effect before charging or sending a packet", asyn
   expect(deliveryChannel.push).not.toHaveBeenCalled();
 });
 
+test("rejects a raw provider message id at the Gateway acknowledgement boundary", async () => {
+  const deliveryChannel = channel();
+  vi.mocked(deliveryChannel.push).mockImplementationOnce((_event, packet) =>
+    Promise.resolve(
+      acknowledgement(packet, {
+        result: {
+          providerReference: "pref_v1_message_01",
+          providerMessageId: "1712345678.1234",
+        },
+      }),
+    ),
+  );
+  const claimed = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    { ownerGeneration: 1, runtimeInstanceId: "rti_runtime_01" },
+    deliveryChannel,
+    vi.fn(),
+  );
+
+  await expect(
+    claimed.effect("response_raw_provider_id", {
+      kind: "slack.message.create",
+      text: "Hello",
+    }),
+  ).rejects.toThrow("stable pid_v1 correlation id");
+});
+
+test("rejects acknowledgement fields that drift from the strict Gateway schema", async () => {
+  const malformed = [
+    { phase: "applied", retryAt: "2026-07-30T20:00:00.000Z" },
+    { phase: "applied", rawResponse: "secret" },
+    { phase: "applied", result: [] },
+  ];
+
+  for (const fields of malformed) {
+    const deliveryChannel = channel();
+    vi.mocked(deliveryChannel.push).mockImplementationOnce((_event, packet) =>
+      Promise.resolve(acknowledgement(packet, fields)),
+    );
+    const claimed = new ClaimedChannelDelivery(
+      preparedDelivery(),
+      { ownerGeneration: 1, runtimeInstanceId: "rti_runtime_01" },
+      deliveryChannel,
+      vi.fn(),
+    );
+
+    await expect(
+      claimed.effect("response_malformed_ack", {
+        kind: "slack.message.create",
+        text: "Hello",
+      }),
+    ).rejects.toThrow("conflicting packet acknowledgement");
+  }
+});
+
+test("wrong-provider handler output uses only the trusted active-provider fallback", async () => {
+  const base = preparedDelivery();
+
+  await expect(
+    runHandlerFailure(
+      { ...base, surfaceKind: "direct_message" },
+      async (claimed) => {
+        await claimed.effect("response_wrong_provider", {
+          kind: "teams.message.create",
+          text: "must not cross providers",
+        });
+      },
+    ),
+  ).resolves.toEqual([
+    {
+      kind: "slack.message.create",
+      text: "Something went wrong",
+    },
+    {
+      kind: "channel.delivery.terminal",
+      status: "failed",
+      code: "runtime_handler_failed",
+    },
+  ]);
+});
+
 test("claims an invitation and consumes the one-use token on delivery join", async () => {
   const deliveryChannel = channel();
   const control: RealtimeGatewaySession = {
-    push: vi.fn().mockResolvedValue({
-      result: "claimed",
-      deliveryId: "dlv_delivery_01",
-      ownerGeneration: 7,
-      joinToken: "chj_token_01",
-      joinTokenExpiresAt: "2099-07-29T16:01:00.000Z",
-      deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
-    }),
+    push: vi.fn().mockResolvedValue(claimResult("dlv_delivery_01")),
     on: vi.fn(),
     join: vi.fn().mockResolvedValue(deliveryChannel),
   };
@@ -427,13 +535,7 @@ test("claims an invitation and consumes the one-use token on delivery join", asy
 
   transport.start(handled);
   const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
-  invitationHandler({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_01",
-    canonicalThreadId: "thread_01",
-    channelName: "support",
-    adapter: "slack",
-  });
+  invitationHandler(invitation("dlv_delivery_01", "thread_01"));
   await vi.waitFor(() => expect(handled).toHaveBeenCalledOnce());
 
   expect(control.push).toHaveBeenCalledWith("claim", {
@@ -446,8 +548,62 @@ test("claims an invitation and consumes the one-use token on delivery join", asy
     deliveryId: "dlv_delivery_01",
     runtimeInstanceId: "rti_runtime_01",
     ownerGeneration: 7,
-    joinToken: "chj_token_01",
+    joinToken: "chj_token_delivery_01",
   });
+});
+
+test("reconnect accepts the distinct join-token response without a claim result", async () => {
+  const first = channel();
+  const second = channel();
+  vi.mocked(first.push).mockRejectedValueOnce(new Error("socket dropped"));
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockImplementation((event, payload) => {
+      const deliveryId = (payload as { deliveryId: string }).deliveryId;
+      if (event === "claim") return Promise.resolve(claimResult(deliveryId));
+      if (event === "join_token") {
+        return Promise.resolve({
+          deliveryId,
+          ownerGeneration: 8,
+          joinToken: "chj_reconnect_delivery_01",
+          joinTokenExpiresAt: "2099-07-29T16:02:00.000Z",
+          deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
+        });
+      }
+      return Promise.resolve({});
+    }),
+    on: vi.fn(),
+    join: vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second),
+  };
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+  });
+  transport.start(async (claimed) => {
+    await claimed.effect("response_01", {
+      kind: "slack.message.create",
+      text: "Hello after reconnect",
+    });
+  });
+
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+  invitationHandler(invitation("dlv_delivery_01", "thread_01"));
+
+  await vi.waitFor(() => expect(second.leave).toHaveBeenCalledOnce());
+  expect(control.push).toHaveBeenCalledWith("join_token", {
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_01",
+    runtimeInstanceId: "rti_runtime_01",
+  });
+  expect(control.join).toHaveBeenNthCalledWith(2, "delivery:dlv_delivery_01", {
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_01",
+    runtimeInstanceId: "rti_runtime_01",
+    ownerGeneration: 8,
+    joinToken: "chj_reconnect_delivery_01",
+  });
+  expect(first.leave).toHaveBeenCalledOnce();
+  expect(second.push).toHaveBeenCalledTimes(2);
+  await transport.stop();
 });
 
 test("claims bounded pending work but does not execute above the local limit", async () => {
@@ -458,12 +614,7 @@ test("claims bounded pending work but does not execute above the local limit", a
   const control: RealtimeGatewaySession = {
     push: vi.fn().mockImplementation((_event, payload) => {
       const { deliveryId } = payload as { deliveryId: string };
-      return Promise.resolve({
-        result: "claimed",
-        deliveryId,
-        ownerGeneration: 7,
-        joinToken: `chj_${deliveryId}`,
-      });
+      return Promise.resolve(claimResult(deliveryId));
     }),
     on: vi.fn(),
     join: vi.fn().mockImplementation((topic) => {
@@ -491,17 +642,9 @@ test("claims bounded pending work but does not execute above the local limit", a
   transport.start(handled);
   const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
 
-  invitationHandler({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_01",
-    canonicalThreadId: "thread_01",
-  });
+  invitationHandler(invitation("dlv_delivery_01", "thread_01"));
   await vi.waitFor(() => expect(handled).toHaveBeenCalledOnce());
-  invitationHandler({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_02",
-    canonicalThreadId: "thread_02",
-  });
+  invitationHandler(invitation("dlv_delivery_02", "thread_02"));
 
   expect(control.push).toHaveBeenCalledWith(
     "claim",
@@ -530,12 +673,7 @@ test("pending overflow records an explicit outcome without growing the buffer", 
           outcome: "runtime_capacity_overflow",
         });
       }
-      return Promise.resolve({
-        result: "claimed",
-        deliveryId,
-        ownerGeneration: 7,
-        joinToken: `chj_${deliveryId}`,
-      });
+      return Promise.resolve(claimResult(deliveryId));
     }),
     on: vi.fn(),
     join: vi.fn().mockImplementation((topic) => {
@@ -569,11 +707,7 @@ test("pending overflow records an explicit outcome without growing the buffer", 
     "dlv_delivery_02",
     "dlv_delivery_03",
   ]) {
-    invitationHandler({
-      protocol: "channel_delivery_v1",
-      deliveryId,
-      canonicalThreadId: `thread_${deliveryId}`,
-    });
+    invitationHandler(invitation(deliveryId, `thread_${deliveryId}`));
     if (deliveryId === "dlv_delivery_01") {
       await vi.waitFor(() => expect(handled).toHaveBeenCalledOnce());
     }
@@ -616,12 +750,7 @@ test("claims same-Thread work for Redis coordination but executes it in order", 
   const control: RealtimeGatewaySession = {
     push: vi.fn().mockImplementation((_event, payload) => {
       const { deliveryId } = payload as { deliveryId: string };
-      return Promise.resolve({
-        result: "claimed",
-        deliveryId,
-        ownerGeneration: 7,
-        joinToken: `chj_${deliveryId}`,
-      });
+      return Promise.resolve(claimResult(deliveryId));
     }),
     on: vi.fn(),
     join: vi.fn().mockImplementation((topic) => {
@@ -648,22 +777,10 @@ test("claims same-Thread work for Redis coordination but executes it in order", 
   transport.start(handled);
   const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
 
-  invitationHandler({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_01",
-    canonicalThreadId: "thread_01",
-  });
+  invitationHandler(invitation("dlv_delivery_01", "thread_01"));
   await vi.waitFor(() => expect(handled).toHaveBeenCalledOnce());
-  invitationHandler({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_02",
-    canonicalThreadId: "thread_01",
-  });
-  invitationHandler({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_03",
-    canonicalThreadId: "thread_03",
-  });
+  invitationHandler(invitation("dlv_delivery_02", "thread_01"));
+  invitationHandler(invitation("dlv_delivery_03", "thread_03"));
 
   await vi.waitFor(() => expect(handled).toHaveBeenCalledTimes(2));
   expect(control.push).toHaveBeenCalledWith(
@@ -695,12 +812,7 @@ test("a newer same-Thread claim aborts the exact switchable delivery before outp
           reason: "superseded",
         });
       }
-      return Promise.resolve({
-        result: "claimed",
-        deliveryId,
-        ownerGeneration: 7,
-        joinToken: `chj_${deliveryId}`,
-      });
+      return Promise.resolve(claimResult(deliveryId));
     }),
     on: vi.fn(),
     join: vi.fn().mockImplementation((topic) => {
@@ -737,17 +849,9 @@ test("a newer same-Thread claim aborts the exact switchable delivery before outp
   });
   const invite = vi.mocked(control.on).mock.calls[0]![1];
 
-  invite({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_01",
-    canonicalThreadId: "thread_01",
-  });
+  invite(invitation("dlv_delivery_01", "thread_01"));
   await vi.waitFor(() => expect(handled).toEqual(["dlv_delivery_01"]));
-  invite({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_02",
-    canonicalThreadId: "thread_01",
-  });
+  invite(invitation("dlv_delivery_02", "thread_01"));
 
   await vi.waitFor(() =>
     expect(handled).toEqual(["dlv_delivery_01", "dlv_delivery_02"]),
@@ -774,12 +878,7 @@ test("later same-Thread work waits FIFO when Redis reports a committed owner", a
           activeDeliveryId: "dlv_delivery_01",
         });
       }
-      return Promise.resolve({
-        result: "claimed",
-        deliveryId,
-        ownerGeneration: 7,
-        joinToken: `chj_${deliveryId}`,
-      });
+      return Promise.resolve(claimResult(deliveryId));
     }),
     on: vi.fn(),
     join: vi.fn().mockImplementation((topic) => {
@@ -807,17 +906,9 @@ test("later same-Thread work waits FIFO when Redis reports a committed owner", a
   });
   const invite = vi.mocked(control.on).mock.calls[0]![1];
 
-  invite({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_01",
-    canonicalThreadId: "thread_01",
-  });
+  invite(invitation("dlv_delivery_01", "thread_01"));
   await vi.waitFor(() => expect(handled).toEqual(["dlv_delivery_01"]));
-  invite({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_02",
-    canonicalThreadId: "thread_01",
-  });
+  invite(invitation("dlv_delivery_02", "thread_01"));
   await vi.waitFor(() =>
     expect(control.push).toHaveBeenCalledWith(
       "claim",
@@ -905,22 +996,19 @@ test("polls the same packet after a retry-wait result", async () => {
   const deliveryChannel = channel();
   vi.mocked(deliveryChannel.push)
     .mockImplementationOnce((_event, packet) =>
-      Promise.resolve({
-        ...(packet as object),
-        phase: "retry_wait",
-        retryAt: "2000-01-01T00:00:00.000Z",
-        result: {
-          status: "retry_wait",
-          code: "provider_rate_limited",
-        },
-      }),
+      Promise.resolve(
+        acknowledgement(packet, {
+          phase: "retry_wait",
+          retryAt: "2000-01-01T00:00:00.000Z",
+          result: {
+            status: "retry_wait",
+            code: "provider_rate_limited",
+          },
+        }),
+      ),
     )
     .mockImplementationOnce((_event, packet) =>
-      Promise.resolve({
-        ...(packet as object),
-        phase: "applied",
-        result: { providerReference: "pref_v1_message_01" },
-      }),
+      Promise.resolve(acknowledgement(packet)),
     );
   const session = new ClaimedChannelDelivery(
     preparedDelivery(),
@@ -976,18 +1064,18 @@ test("keeps a confirmed Teams image capability rejection non-terminal", async ()
   const deliveryChannel = channel();
   vi.mocked(deliveryChannel.push)
     .mockImplementationOnce((_event, packet) =>
-      Promise.resolve({
-        ...(packet as object),
-        phase: "applied",
-        result: { capabilityError: "teams_image_rejected" },
-      }),
+      Promise.resolve(
+        acknowledgement(packet, {
+          result: { capabilityError: "teams_image_rejected" },
+        }),
+      ),
     )
     .mockImplementationOnce((_event, packet) =>
-      Promise.resolve({
-        ...(packet as object),
-        phase: "applied",
-        result: { providerReference: "pref_v1_teams_activity_01" },
-      }),
+      Promise.resolve(
+        acknowledgement(packet, {
+          result: { providerReference: "pref_v1_teams_activity_01" },
+        }),
+      ),
     );
   const claimedDelivery = new ClaimedChannelDelivery(
     { ...preparedDelivery(), adapter: "teams" },
@@ -1024,30 +1112,22 @@ test("stop aborts an active retry wait and leaves its delivery topic", async () 
   const deliveryChannel = channel();
   vi.mocked(deliveryChannel.push)
     .mockImplementationOnce((_event, packet) =>
-      Promise.resolve({
-        ...(packet as object),
-        phase: "retry_wait",
-        retryAt: new Date(Date.now() + 1_000).toISOString(),
-        result: {
-          status: "retry_wait",
-          code: "provider_rate_limited",
-        },
-      }),
+      Promise.resolve(
+        acknowledgement(packet, {
+          phase: "retry_wait",
+          retryAt: new Date(Date.now() + 1_000).toISOString(),
+          result: {
+            status: "retry_wait",
+            code: "provider_rate_limited",
+          },
+        }),
+      ),
     )
     .mockImplementation((_event, packet) =>
-      Promise.resolve({
-        ...(packet as object),
-        phase: "applied",
-        result: { providerReference: "pref_v1_message_01" },
-      }),
+      Promise.resolve(acknowledgement(packet)),
     );
   const control: RealtimeGatewaySession = {
-    push: vi.fn().mockResolvedValue({
-      result: "claimed",
-      deliveryId: "dlv_delivery_01",
-      ownerGeneration: 7,
-      joinToken: "chj_token_01",
-    }),
+    push: vi.fn().mockResolvedValue(claimResult("dlv_delivery_01")),
     on: vi.fn(),
     join: vi.fn().mockResolvedValue(deliveryChannel),
   };
@@ -1062,11 +1142,7 @@ test("stop aborts an active retry wait and leaves its delivery topic", async () 
     });
   });
   const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
-  invitationHandler({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_01",
-    canonicalThreadId: "thread_01",
-  });
+  invitationHandler(invitation("dlv_delivery_01", "thread_01"));
   await vi.waitFor(() => expect(deliveryChannel.push).toHaveBeenCalledOnce());
 
   const outcome = await Promise.race([
@@ -1080,11 +1156,7 @@ test("stop aborts an active retry wait and leaves its delivery topic", async () 
   expect(deliveryChannel.leave).toHaveBeenCalled();
   expect(deliveryChannel.push).toHaveBeenCalledOnce();
 
-  invitationHandler({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_02",
-    canonicalThreadId: "thread_02",
-  });
+  invitationHandler(invitation("dlv_delivery_02", "thread_02"));
   expect(control.push).toHaveBeenCalledOnce();
 });
 
@@ -1107,11 +1179,7 @@ test("still sends a failed terminal when complete terminal fails", async () => {
         );
       }
     }
-    return Promise.resolve({
-      ...(packet as object),
-      phase: "applied",
-      result: {},
-    });
+    return Promise.resolve(acknowledgement(packet, { result: {} }));
   });
   const session = new ClaimedChannelDelivery(
     preparedDelivery(),
@@ -1219,11 +1287,7 @@ test("still allows stream.stop after a permanent non-terminal failure", async ()
         new RealtimeGatewayPushError("packet", "conflict", "append failed"),
       );
     }
-    return Promise.resolve({
-      ...(packet as object),
-      phase: "applied",
-      result: { providerReference: "pref_v1_message_01" },
-    });
+    return Promise.resolve(acknowledgement(packet));
   });
   const session = new ClaimedChannelDelivery(
     preparedDelivery(),
@@ -1293,25 +1357,23 @@ test("classifies timeout/expiry errors from message text", async () => {
 });
 
 async function expectPreparedInputRejected(input: unknown) {
-  const badPrepared = {
+  await expectPreparedDeliveryRejected({
     ...preparedDelivery(),
     turn: {
-      eventId: "evt_bad",
+      eventId: "evt_bad_prepared_01",
       receivedAt: "2026-07-29T17:00:00.000Z",
       input,
       actor: { externalUserId: "U1", kind: "human" as const },
     },
-  };
+  });
+}
+
+async function expectPreparedDeliveryRejected(badPrepared: unknown) {
   const deliveryChannel = channel(
     badPrepared as unknown as ReturnType<typeof preparedDelivery>,
   );
   const control: RealtimeGatewaySession = {
-    push: vi.fn().mockResolvedValue({
-      result: "claimed",
-      deliveryId: "dlv_delivery_01",
-      ownerGeneration: 1,
-      joinToken: "chj_token_01",
-    }),
+    push: vi.fn().mockResolvedValue(claimResult("dlv_delivery_01", 1)),
     on: vi.fn(),
     join: vi.fn().mockResolvedValue(deliveryChannel),
   };
@@ -1325,11 +1387,7 @@ async function expectPreparedInputRejected(input: unknown) {
   const invitationHandler = vi.mocked(control.on).mock.calls[0]![1] as (
     invitation: unknown,
   ) => void;
-  invitationHandler({
-    protocol: "channel_delivery_v1",
-    deliveryId: "dlv_delivery_01",
-    canonicalThreadId: "thread_01",
-  });
+  invitationHandler(invitation("dlv_delivery_01", "thread_01"));
   await vi.waitFor(() => {
     expect(vi.mocked(control.join)).toHaveBeenCalled();
   });
@@ -1355,23 +1413,104 @@ test("rejects prepared deliveries with incomplete turn fields", async () => {
   });
 });
 
-test("rejects a prepared reaction without an opaque message reference", async () => {
+test("rejects a prepared reaction carrying a raw provider message id", async () => {
   await expectPreparedInputRejected({
     kind: "reaction",
     rawEmoji: "like",
     added: true,
     messageId: "raw-provider-message-id",
+    messageRef: { id: "pref_v1_reaction_capability_01" },
+  });
+});
+
+test("rejects obsolete raw postedRef fields on prepared reactions", async () => {
+  await expectPreparedInputRejected({
+    kind: "reaction",
+    rawEmoji: "like",
+    added: true,
+    messageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+    postedRef: "raw-provider-message-id",
+    messageRef: { id: "pref_v1_reaction_capability_01" },
+  });
+});
+
+test("rejects malformed capabilities on every prepared input that carries one", async () => {
+  const base = preparedDelivery().turn.input;
+  await expectPreparedInputRejected({
+    ...base,
+    messageRef: { id: "pref_v1_short" },
+  });
+  await expectPreparedInputRejected({
+    kind: "interaction",
+    actionId: "ck:approve",
+    messageRef: { id: "raw-provider-message-id" },
+  });
+});
+
+test("rejects missing, malformed, and extra prepared input fields", async () => {
+  const base = preparedDelivery().turn.input;
+  const { text: _text, ...withoutText } = base;
+  await expectPreparedInputRejected(withoutText);
+  await expectPreparedInputRejected({
+    ...base,
+    files: [{ handle: "fileref_ok", filename: "brief.txt", rawUrl: "secret" }],
+  });
+  await expectPreparedInputRejected({
+    kind: "interaction",
+    actionId: "ck:approve",
+    values: [],
+  });
+  await expectPreparedInputRejected({ kind: "welcome", raw: "provider" });
+  await expectPreparedInputRejected({
+    kind: "reaction",
+    rawEmoji: "like",
+    added: true,
+    messageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+    messageRef: { id: "pref_v1_reaction_capability_01" },
+    threadId: "1700000000.000100",
+  });
+});
+
+test("rejects extra prepared delivery and turn fields", async () => {
+  const base = preparedDelivery();
+  await expectPreparedDeliveryRejected({ ...base, credentials: "secret" });
+  await expectPreparedDeliveryRejected({
+    ...base,
+    turn: { ...base.turn, replyTarget: { channel: "C1" } },
+  });
+});
+
+test("rejects malformed managed mention-routing metadata", async () => {
+  const base = preparedDelivery().turn.input;
+  await expectPreparedInputRejected({
+    ...base,
+    operation: {
+      ...base.operation,
+      mentioned: "false",
+    },
+  });
+});
+
+test("rejects raw provider ids in prepared text operations", async () => {
+  const base = preparedDelivery().turn.input;
+  await expectPreparedInputRejected({
+    ...base,
+    operation: {
+      ...base.operation,
+      logicalMessageId: "1712345678.1234",
+    },
   });
 });
 
 test("surfaces a failed provider result as an already-terminal error", async () => {
   const deliveryChannel = channel();
   vi.mocked(deliveryChannel.push).mockImplementation((_event, packet) =>
-    Promise.resolve({
-      ...(packet as object),
-      phase: "failed",
-      result: { error: "provider_call_failed", status: "failed" },
-    }),
+    Promise.resolve(
+      acknowledgement(packet, {
+        phase: "failed",
+        result: { error: "provider_call_failed", status: "failed" },
+      }),
+    ),
   );
   const session = new ClaimedChannelDelivery(
     preparedDelivery(),

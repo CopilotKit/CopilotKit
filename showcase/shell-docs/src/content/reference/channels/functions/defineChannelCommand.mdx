@@ -1,6 +1,6 @@
 ---
 title: defineChannelCommand
-description: Define a normalized Slack or Teams command and its free-text or structured arguments.
+description: Define a normalized direct-adapter command and its free-text or structured arguments.
 ---
 
 `defineChannelCommand` preserves a command definition and infers structured
@@ -51,18 +51,21 @@ export const triage = defineChannelCommand({
 Register it with `createChannel({ commands: [triage] })` or
 `channel.onCommand(triage)` before startup.
 
+Managed Slack and Teams do not dispatch commands: leading-slash content remains
+a normal message. This API applies when a developer-owned direct adapter emits
+an `IncomingCommand`.
+
 ## CommandContext
 
-| Field | Type | Notes |
-| --- | --- | --- |
-| `thread` | `Thread` | Conversation where the command was invoked. |
-| `command` | `string` | Normalized name: no leading slash, lowercase, hyphens and underscores route equivalently. |
-| `text` | `string` | Raw argument text. Managed Slack and Teams use this field. |
-| `options` | `TOptions` | Structured options when a provider supplies them; empty on managed Slack and Teams. |
-| `user` | `PlatformUser \| undefined` | Invoking provider user. |
-| `platform` | `string` | Native provider (`"slack"` or `"teams"`) on managed command ingress. |
-| `openModal` | function or `undefined` | Omitted by the managed Slack and Teams adapter. |
+| Field       | Type                        | Notes                                                                                     |
+| ----------- | --------------------------- | ----------------------------------------------------------------------------------------- |
+| `thread`    | `Thread`                    | Conversation where the command was invoked.                                               |
+| `command`   | `string`                    | Normalized name: no leading slash, lowercase, hyphens and underscores route equivalently. |
+| `text`      | `string`                    | Raw argument text supplied by the direct adapter.                                         |
+| `options`   | `TOptions`                  | Structured options when the adapter supplies them.                                        |
+| `user`      | `PlatformUser \| undefined` | Invoking provider user.                                                                   |
+| `platform`  | `string`                    | Native provider reported by the direct adapter.                                           |
+| `openModal` | function or `undefined`     | Present only when the adapter supports modal opening.                                     |
 
-Slack must also register the native slash command in the Slack app. Teams
-routes messages matching `/name` or `/name arguments`. See
-[Commands and reactions](/slack/commands-and-reactions).
+See [Commands and reactions](/slack/commands-and-reactions) for the managed
+provider boundary.

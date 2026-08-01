@@ -32,12 +32,14 @@ import { slack } from "@copilotkit/channels-slack";
 `createChannel(opts)` returns a `Channel`:
 
 - `onMention(handler)` / `onMessage(handler)` — turn handlers receiving
-  `{ thread, message }`. (Routing is mention-preferred: if any mention
-  handler is registered, all turns route to it; otherwise message handlers
-  fire.)
+  `{ thread, message }`. Bot mentions select `onMention` when registered and
+  otherwise fall back to `onMessage`; other content selects `onMessage`.
 - `onThreadStarted(handler)` — a conversation surface opened (e.g. the Slack
   assistant pane); receives `{ thread, user? }`. Greet, set suggested prompts
   or a title, or run the agent. Adapters without the concept never fire it.
+- `onWelcome(handler)` — a provider installation or conversation activation;
+  receives `{ thread, user?, platform }`. Adapters without a reliable
+  activation event never fire it.
 - `onInteraction<TValue>(id, handler)` — explicit escape-hatch handler for a
   known action id, bypassing the registry; `ctx.action.value` is typed `TValue`.
 - `onInterrupt<TPayload>(eventName, handler)` — handle a captured agent
@@ -47,8 +49,11 @@ import { slack } from "@copilotkit/channels-slack";
   The handler gets `{ thread, command, text, options, user }`. `text` is the
   raw args (Slack); `options` is the typed, parsed form (`defineChannelCommand`
   with an `options` Standard Schema) for surfaces with native structured args
-  (e.g. Discord). Forwarded to adapters that support commands and ignored
-  elsewhere — also pass them up front via `commands` in `CreateChannelOptions`.
+  (e.g. Discord). This is a direct-adapter capability: managed Slack and Teams
+  treat leading-slash text as ordinary message content and do not register
+  provider slash commands. Forwarded to direct adapters that support commands
+  and ignored elsewhere — also pass them up front via `commands` in
+  `CreateChannelOptions`.
 - `tool(t)` — register a `ChannelTool` (alternative to `opts.tools`); must be
   added before the runtime activates the channel.
 
@@ -92,6 +97,12 @@ const listener = createCopilotNodeListener({ runtime });
 await listener.channels.ready();
 // await listener.channels.stop(); // tears them down
 ```
+
+The runtime also declares managed Slack and Teams for the same Channel name.
+Developer-owned adapters stay in the adapter array and may run alongside that
+managed adapter. If managed setup is incomplete, configured direct adapters
+still start while `listener.channels.status()` reports `setup_required` for the
+managed path.
 
 ## `Thread`
 
@@ -208,8 +219,9 @@ reads after each `runAgent`), `decodeInteraction(raw)` (native event → opaque
 `postFile(target, args)` back the matching `thread` methods when the surface
 supports them — likewise `setSuggestedPrompts(target, prompts, opts?)` and
 `setThreadTitle(target, title)` back `thread.setSuggestedPrompts` /
-`thread.setTitle`, and `sink.onThreadStarted(...)` emits the "conversation
-opened" lifecycle event. Slash commands are also capability-gated: an adapter forwards
+`thread.setTitle`, `sink.onWelcome(...)` emits a reliable installation or
+activation event, and `sink.onThreadStarted(...)` emits the "conversation
+opened" lifecycle event. Direct-adapter slash commands are also capability-gated: an adapter forwards
 invocations via `sink.onCommand(IncomingCommand)`, and may implement
 `registerCommands(specs)` to publish the channel's declared commands up front
 (e.g. Discord's application-command API); adapters that omit it are skipped.
@@ -217,9 +229,11 @@ See `@copilotkit/channels-slack` for a complete implementation.
 
 ## Exports
 
-`createChannel`, `Channel`, `CreateChannelOptions`, `ChannelHandler`, `ThreadStartHandler`;
+`createChannel`, `Channel`, `CreateChannelOptions`, `ChannelHandler`,
+`WelcomeHandler`, `ThreadStartHandler`;
 `Thread`; the `PlatformAdapter` boundary types (`RunRenderer`, `IngressSink`,
-`IncomingTurn`, `InteractionEvent`, `IncomingCommand`, `IncomingThreadStart`,
+`IncomingTurn`, `InteractionEvent`, `IncomingCommand`, `IncomingWelcome`,
+`IncomingThreadStart`,
 `SurfaceCapabilities`,
 `ReplyTarget`, `ConversationStore`, `AgentSession`, `CapturedToolCall`,
 `CapturedInterrupt`, `UserQuery`); `ActionStore` / `InMemoryActionStore` /

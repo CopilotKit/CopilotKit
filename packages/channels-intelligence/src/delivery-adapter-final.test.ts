@@ -36,8 +36,9 @@ function delivery(): PreparedChannelDelivery {
         messageRef: { id: "pref_v1_message_final_123" },
         operation: {
           kind: "created",
-          logicalMessageId: "message-final",
-          revisionId: "revision-final",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
           mentioned: false,
         },
       },
@@ -94,6 +95,23 @@ describe("DeliveryAdapter Teams final delivery", () => {
 });
 
 describe("DeliveryAdapter managed reactions", () => {
+  it("keys a posted message by the Gateway's stable provider correlation id", async () => {
+    const effect = vi.fn(async () => ({
+      providerReference: "pref_v1_teams_activity_01",
+      providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+    }));
+    const session = { effect } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      adapter().post({ claimedDelivery: session, delivery: delivery() }, [
+        { type: "text", props: { value: "hello" } },
+      ]),
+    ).resolves.toMatchObject({
+      id: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+      providerReference: "pref_v1_teams_activity_01",
+    });
+  });
+
   it("adds a Teams reaction through an opaque provider reference", async () => {
     const effect = vi.fn(async () => ({}));
     const session = { effect } as unknown as ClaimedChannelDelivery;

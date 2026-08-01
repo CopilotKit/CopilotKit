@@ -49,8 +49,9 @@ function prepared(deliveryId: string): PreparedChannelDelivery {
         messageRef: { id: "pref_v1_message_concurrency_123" },
         operation: {
           kind: "created",
-          logicalMessageId: "message-concurrency",
-          revisionId: "revision-concurrency",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
           mentioned: false,
         },
       },

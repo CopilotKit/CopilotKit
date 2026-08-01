@@ -11,7 +11,6 @@ description: Append, query, retain, and delete an application-owned transcript k
 ```ts
 const channel = createChannel({
   name: "support-slack",
-  provider: "slack",
   agent: makeAgent,
   store: {
     adapter: durableStateStore,
@@ -31,14 +30,11 @@ the `list` facet, so that facet must be durable for production transcripts.
 ## append
 
 ```ts
-await channel.transcripts.append(
-  thread,
-  {
-    role: "assistant",
-    text: "The incident owner is Payments.",
-    userKey: "usr_123",
-  },
-);
+await channel.transcripts.append(thread, {
+  role: "assistant",
+  text: "The incident owner is Payments.",
+  userKey: "usr_123",
+});
 ```
 
 Append silently does nothing when neither the message nor `opts` supplies a
@@ -55,10 +51,9 @@ const entries = await channel.transcripts.list({
 ```
 
 Entries are oldest-first and can be filtered by platform, `threadId`, or role.
-On managed Channels, `platform` is the adapter id `"intelligence"` rather than
-the native provider. Use the stable `userKey` to carry context between Slack
-and Teams; filtering managed entries by `"slack"` or `"teams"` returns no
-matches.
+On managed Channels, `platform` is the native provider (`"slack"` or
+`"teams"`). Use the stable `userKey` to carry context between providers, and
+filter by platform only when you want one provider's entries.
 
 ## delete
 

@@ -9,8 +9,8 @@ import type { ChannelDeliveryTranscriptError } from "./delivery-transcript.js";
 const transcript = {
   messages: [
     {
-      logicalMessageId: "1730000000.000100",
-      revisionId: "1730000000.000100",
+      logicalMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+      revisionId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
       occurredAt: "2026-07-30T19:58:00.000Z",
       role: "participant" as const,
       actor: {
@@ -26,8 +26,8 @@ const transcript = {
       files: [],
     },
     {
-      logicalMessageId: "1730000000.000200",
-      revisionId: "1730000000.000200",
+      logicalMessageId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
+      revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
       occurredAt: "2026-07-30T19:59:00.000Z",
       role: "assistant" as const,
       actor: {
@@ -43,8 +43,8 @@ const transcript = {
       files: [],
     },
     {
-      logicalMessageId: "1730000000.000300",
-      revisionId: "1730000000.000300",
+      logicalMessageId: "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
+      revisionId: "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
       occurredAt: "2026-07-30T20:00:00.000Z",
       role: "participant" as const,
       actor: {
@@ -179,6 +179,141 @@ test("transcript client rejects raw or missing provider message references", asy
   });
 });
 
+test.each([
+  ["top-level extras", { ...transcript, rawProviderPayload: {} }],
+  [
+    "truncation extras",
+    { ...transcript, truncation: { ...transcript.truncation, secret: true } },
+  ],
+  [
+    "message extras",
+    {
+      ...transcript,
+      messages: [{ ...transcript.messages[0], rawProviderMessageId: "171.1" }],
+    },
+  ],
+  [
+    "actor extras",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          actor: { ...transcript.messages[0]!.actor, tenantSecret: "raw" },
+        },
+      ],
+    },
+  ],
+  [
+    "message-reference extras",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          messageRef: {
+            ...transcript.messages[0]!.messageRef,
+            rawId: "171.1",
+          },
+        },
+      ],
+    },
+  ],
+  [
+    "file extras",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          files: [
+            {
+              providerFileId: "file-1",
+              name: "report.txt",
+              mimeType: "text/plain",
+              byteSize: 10,
+              availability: "managed",
+              handle: "fileref_report",
+              rawUrl: "https://provider.example/secret",
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  [
+    "oversized actor ids",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          actor: { ...transcript.messages[0]!.actor, id: "x".repeat(513) },
+        },
+      ],
+    },
+  ],
+  [
+    "oversized file metadata",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          files: [
+            {
+              providerFileId: "file-1",
+              name: "x".repeat(513),
+              mimeType: "text/plain",
+              byteSize: 10,
+              availability: "managed",
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  [
+    "more than 100 files",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          files: Array.from({ length: 101 }, (_, index) => ({
+            providerFileId: `file-${index}`,
+            name: null,
+            mimeType: null,
+            byteSize: null,
+            availability: "provider_only",
+          })),
+        },
+      ],
+    },
+  ],
+  [
+    "non-RFC3339 dates",
+    {
+      ...transcript,
+      messages: [
+        { ...transcript.messages[0], occurredAt: "July 30, 2026 19:58" },
+      ],
+    },
+  ],
+])("transcript client rejects %s", async (_name, invalidTranscript) => {
+  const client = new ChannelDeliveryTranscriptClient({
+    baseUrl: "https://api.example",
+    apiKey: "cpk-runtime",
+    fetch: async () => new Response(JSON.stringify(invalidTranscript)),
+  });
+
+  await expect(client.fetchTranscript("dlv_123")).rejects.toMatchObject({
+    code: "CHANNEL_TRANSCRIPT_RESPONSE_INVALID",
+    retryable: false,
+    attempts: 1,
+  });
+});
+
 test("assistant transcript history stays plain while participant metadata stays structured and model-visible", async () => {
   const fetch = vi.fn(async () =>
     Promise.resolve(new Response(JSON.stringify(transcript))),
@@ -206,8 +341,9 @@ test("assistant transcript history stays plain while participant metadata stays 
         messageRef: { id: "pref_v1_message_transcript_123" },
         operation: {
           kind: "created",
-          logicalMessageId: "1730000000.000300",
-          revisionId: "1730000000.000300",
+          logicalMessageId:
+            "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
+          revisionId: "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
           mentioned: false,
         },
       },
@@ -255,7 +391,7 @@ test("assistant transcript history stays plain while participant metadata stays 
       },
       providerMessage: expect.objectContaining({
         currentTrigger: false,
-        logicalMessageId: "1730000000.000100",
+        logicalMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
         actor: {
           id: "U1",
           kind: "human",
@@ -282,7 +418,7 @@ test("assistant transcript history stays plain while participant metadata stays 
       },
       providerMessage: expect.objectContaining({
         currentTrigger: false,
-        logicalMessageId: "1730000000.000200",
+        logicalMessageId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
         actor: {
           id: "B1",
           kind: "app",
@@ -298,7 +434,7 @@ test("assistant transcript history stays plain while participant metadata stays 
       content: `${adaActorEnvelope}\nCan you help again?`,
       providerMessage: expect.objectContaining({
         currentTrigger: true,
-        logicalMessageId: "1730000000.000300",
+        logicalMessageId: "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
       }),
     }),
   );
@@ -394,8 +530,9 @@ test("Teams transcript metadata and truncation labels name Teams, not Slack", as
         messageRef: { id: "pref_v1_message_teamsTranscript_123" },
         operation: {
           kind: "created",
-          logicalMessageId: "1730000000.000100",
-          revisionId: "1730000000.000100",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
           mentioned: false,
         },
       },

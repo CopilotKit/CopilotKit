@@ -182,6 +182,56 @@ describe("ChannelManager", () => {
     expect(mgr.status().channels.support).toBe("setup_required");
   });
 
+  it("starts and stops direct adapters when managed setup is incomplete", async () => {
+    const direct = new FakeAdapter({ platform: "direct" });
+    const directStop = vi.spyOn(direct, "stop");
+    const channel = createChannel({ name: "support", adapters: [direct] });
+    const engine: ActivateChannelEngine = async () => {
+      throw new ChannelSetupRequiredError("managed Teams is not installed");
+    };
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [channel],
+      activateChannel: engine,
+    });
+
+    await expect(mgr.ready()).resolves.toBeUndefined();
+    expect(direct.started).toBe(true);
+    expect(mgr.status().channels.support).toBe("setup_required");
+
+    await mgr.stop();
+    expect(directStop).toHaveBeenCalledOnce();
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
+  it("keeps a stopped status when setup-required direct startup later rejects", async () => {
+    let rejectStart!: (error: Error) => void;
+    const startAttempt = new Promise<void>((_resolve, reject) => {
+      rejectStart = reject;
+    });
+    const direct = new FakeAdapter({ platform: "direct" });
+    const start = vi.spyOn(direct, "start").mockReturnValue(startAttempt);
+    const stop = vi.spyOn(direct, "stop");
+    const channel = createChannel({ name: "support", adapters: [direct] });
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [channel],
+      activateChannel: async () => {
+        throw new ChannelSetupRequiredError("managed Teams is not installed");
+      },
+    });
+
+    mgr.activate();
+    await vi.waitFor(() => expect(start).toHaveBeenCalledOnce());
+    await mgr.stop();
+    rejectStart(new Error("direct start failed after shutdown"));
+
+    await expect(mgr.ready()).resolves.toBeUndefined();
+    expect(stop).toHaveBeenCalledOnce();
+    expect(mgr.status().channels.support).toBe("stopped");
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
   it("marks a plain error rejection as error and rejects ready()", async () => {
     const engine: ActivateChannelEngine = async () => {
       throw new Error("boom");
@@ -651,6 +701,48 @@ describe("ChannelManager", () => {
     expect(managed.started).toBe(true);
     expect(mgr.status().channels).toEqual({ sales: "online" });
     await mgr.stop();
+  });
+
+  it("reports error when managed startup fails despite a healthy direct adapter", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const direct = new FakeAdapter({ platform: "direct" });
+      const directStop = vi.spyOn(direct, "stop");
+      const managed = new ManagedFakeAdapter({
+        platform: "intelligence",
+        failStart: true,
+      });
+      const channel = createChannel({ name: "sales", adapters: [direct] });
+      const engine: ActivateChannelEngine = vi.fn(
+        async (_config, candidate) => {
+          candidate.ɵruntime.addAdapter(managed);
+          await candidate.ɵruntime.start();
+          return {
+            metadata: {},
+            stop: () => candidate.ɵruntime.stop(),
+          };
+        },
+      );
+
+      const mgr = new ChannelManager({
+        intelligence: fakeIntelligence(),
+        channels: [channel],
+        activateChannel: engine,
+      });
+
+      const error = await mgr.ready().catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(AggregateError);
+      expect((error as AggregateError).errors[0]).toMatchObject({
+        message:
+          'channel "sales" failed to start its managed Intelligence adapter',
+      });
+      expect(direct.started).toBe(true);
+      expect(directStop).toHaveBeenCalledTimes(1);
+      expect(mgr.status().channels).toEqual({ sales: "error" });
+      await mgr.stop();
+    } finally {
+      errSpy.mockRestore();
+    }
   });
 
   it("still enforces unique names across all declared channels, including direct ones", () => {

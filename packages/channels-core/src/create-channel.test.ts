@@ -1762,13 +1762,130 @@ describe("createChannel slash commands", () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       const bad = new FakeAdapter({ platform: "telegram", failStart: true });
+      const badStop = vi.spyOn(bad, "stop");
       const good = new FakeAdapter({ platform: "slack" });
       const channel = createChannel({ adapters: [bad, good] });
       await expect(channel.ɵruntime.start()).resolves.toBeUndefined();
       expect(good.started).toBe(true);
+      expect(badStop).toHaveBeenCalledTimes(1);
       expect(
         errSpy.mock.calls.some((c) => String(c[0]).includes("telegram")),
       ).toBe(true);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it("does not register commands on an adapter whose start failed", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const failed = new FakeAdapter({ platform: "telegram", failStart: true });
+      const failedRegister = vi.spyOn(failed, "registerCommands");
+      const healthy = new FakeAdapter({ platform: "slack" });
+      const channel = createChannel({ adapters: [failed, healthy] });
+      channel.onCommand("triage", () => {});
+
+      await expect(channel.ɵruntime.start()).resolves.toBeUndefined();
+      expect(failedRegister).not.toHaveBeenCalled();
+      expect(healthy.registeredCommands?.map(({ name }) => name)).toEqual([
+        "triage",
+      ]);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it("start() rejects and rolls back direct adapters when the managed adapter fails", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const direct = new FakeAdapter({ platform: "slack" });
+      const directStop = vi.spyOn(direct, "stop");
+      const managed = Object.assign(
+        new FakeAdapter({ platform: "intelligence", failStart: true }),
+        { __intelligenceChannel: true as const },
+      );
+      const managedStop = vi.spyOn(managed, "stop");
+      const channel = createChannel({ adapters: [direct, managed] });
+
+      await expect(channel.ɵruntime.start()).rejects.toThrow(
+        "failed to start its managed Intelligence adapter",
+      );
+      expect(direct.started).toBe(true);
+      expect(directStop).toHaveBeenCalledTimes(1);
+      expect(managedStop).toHaveBeenCalledTimes(1);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it("managed-start rollback keeps stopping adapters after a synchronous stop throw", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const throwing = new FakeAdapter({ platform: "slack" });
+      throwing.stop = vi.fn(() => {
+        throw new Error("synchronous stop failure");
+      });
+      const healthy = new FakeAdapter({ platform: "teams" });
+      const healthyStop = vi.spyOn(healthy, "stop");
+      const managed = Object.assign(
+        new FakeAdapter({ platform: "intelligence", failStart: true }),
+        { __intelligenceChannel: true as const },
+      );
+      const managedStop = vi.spyOn(managed, "stop");
+      const channel = createChannel({ adapters: [throwing, healthy, managed] });
+
+      await expect(channel.ɵruntime.start()).rejects.toThrow(
+        "failed to start its managed Intelligence adapter",
+      );
+      expect(throwing.stop).toHaveBeenCalledTimes(1);
+      expect(healthyStop).toHaveBeenCalledTimes(1);
+      expect(managedStop).toHaveBeenCalledTimes(1);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it("managed-start rollback times out a stop that never settles", async () => {
+    vi.useFakeTimers();
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const stuck = new FakeAdapter({ platform: "slack" });
+      stuck.stop = vi.fn(() => new Promise<void>(() => undefined));
+      const managed = Object.assign(
+        new FakeAdapter({ platform: "intelligence", failStart: true }),
+        { __intelligenceChannel: true as const },
+      );
+      const channel = createChannel({ adapters: [stuck, managed] });
+
+      const starting = expect(channel.ɵruntime.start()).rejects.toThrow(
+        "failed to start its managed Intelligence adapter",
+      );
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      await starting;
+      expect(stuck.stop).toHaveBeenCalledOnce();
+      expect(
+        errSpy.mock.calls.some((call) =>
+          call.some((part) => String(part).includes("stop timed out")),
+        ),
+      ).toBe(true);
+    } finally {
+      errSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("start() stops a rejecting adapter when every adapter fails", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const adapter = new FakeAdapter({ platform: "slack", failStart: true });
+      const stop = vi.spyOn(adapter, "stop");
+      const channel = createChannel({ adapters: [adapter] });
+
+      await expect(channel.ɵruntime.start()).rejects.toThrow(
+        "all 1 adapter(s) failed to connect",
+      );
+      expect(stop).toHaveBeenCalledTimes(1);
     } finally {
       errSpy.mockRestore();
     }

@@ -32,8 +32,9 @@ function preparedDelivery(): PreparedChannelDelivery {
         messageRef: { id: "pref_v1_message_slackStream_123" },
         operation: {
           kind: "created",
-          logicalMessageId: "message-slack-stream",
-          revisionId: "revision-slack-stream",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
           mentioned: true,
         },
       },
@@ -56,11 +57,17 @@ function setup() {
       }
       payloads.push(value.payload);
       return {
-        ...value,
+        deliveryId: value.deliveryId,
+        seq: value.seq,
+        packetId: value.packetId,
         phase: "applied",
         result:
           value.payload.kind === "slack.stream.start"
-            ? { providerReference: "pref_v1_slack_stream_01" }
+            ? {
+                providerReference: "pref_v1_slack_stream_01",
+                providerMessageId:
+                  "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+              }
             : {},
       };
     }),

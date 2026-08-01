@@ -24,8 +24,8 @@ const delivery: PreparedChannelDelivery = {
       messageRef: { id: "pref_v1_message_history_123" },
       operation: {
         kind: "created",
-        logicalMessageId: "message-history",
-        revisionId: "revision-history",
+        logicalMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+        revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
         mentioned: false,
       },
     },
@@ -115,8 +115,9 @@ test("canonical run input stores managed asset references instead of hydrated by
         messageRef: { id: "pref_v1_message_historyFile_123" },
         operation: {
           kind: "created",
-          logicalMessageId: "message-history-file",
-          revisionId: "revision-history-file",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
           mentioned: false,
         },
         files: [

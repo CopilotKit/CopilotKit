@@ -53,7 +53,10 @@ import type {
 } from "./delivery-transport.js";
 import { ChannelProviderDeliveryError } from "./delivery-transport.js";
 import { ChannelProviderMismatchError } from "./delivery-transport.js";
-import { assertProviderReference } from "./delivery-contracts.js";
+import {
+  assertProviderMessageId,
+  assertProviderReference,
+} from "./delivery-contracts.js";
 import {
   managedImageBytesMatch,
   managedImageMimeType,
@@ -410,10 +413,10 @@ export class DeliveryAdapter implements PlatformAdapter {
           ...base,
           rawEmoji: input.rawEmoji,
           added: input.added,
-          // Platform-native id for handler lookup; opaque capability stays on messageRef.
+          // Stable opaque correlation id for handler lookup; the delivery-scoped
+          // mutation capability stays on messageRef.
           messageId: input.messageId,
           messageRef: inboundMessageRef(replyTarget, input.messageRef),
-          ...(input.postedRef ? { postedMessageId: input.postedRef } : {}),
           raw: input,
         });
         return;
@@ -500,13 +503,13 @@ export class DeliveryAdapter implements PlatformAdapter {
   async post(targetValue: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const target = asDeliveryTarget(targetValue);
     const responseId = mintId("response_");
-    const providerReference = await this.postRendered(
+    const { providerReference, providerMessageId } = await this.postRendered(
       target.claimedDelivery,
       target.delivery.adapter,
       responseId,
       ir,
     );
-    return messageRef(target, responseId, providerReference);
+    return messageRef(target, responseId, providerReference, providerMessageId);
   }
 
   async update(refValue: MessageRef, ir: ChannelNode[]): Promise<void> {
@@ -537,6 +540,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     const target = asDeliveryTarget(targetValue);
     const responseId = mintId("response_");
     let providerReference: string | undefined;
+    let providerMessageId: string | undefined;
     if (target.delivery.adapter === "slack") {
       let bodyError: unknown;
       let bodyFailed = false;
@@ -553,7 +557,8 @@ export class DeliveryAdapter implements PlatformAdapter {
               },
             );
             streamStarted = true;
-            providerReference = providerReferenceFromResult(startResult);
+            ({ providerReference, providerMessageId } =
+              providerMessageResultFromResult(startResult));
             continue;
           }
           assertProviderReference(providerReference);
@@ -568,7 +573,8 @@ export class DeliveryAdapter implements PlatformAdapter {
             kind: "slack.stream.start",
           });
           streamStarted = true;
-          providerReference = providerReferenceFromResult(startResult);
+          ({ providerReference, providerMessageId } =
+            providerMessageResultFromResult(startResult));
         }
       } catch (error) {
         bodyFailed = true;
@@ -608,22 +614,26 @@ export class DeliveryAdapter implements PlatformAdapter {
             });
         // Only advance local text after create/replace is applied.
         text = nextText;
-        providerReference ??= providerReferenceFromResult(result);
+        if (!providerReference) {
+          ({ providerReference, providerMessageId } =
+            providerMessageResultFromResult(result));
+        }
         created = true;
       }
     }
     if (!providerReference) {
-      providerReference = providerReferenceFromResult(
-        await target.claimedDelivery.effect(responseId, {
-          kind:
-            target.delivery.adapter === "slack"
-              ? "slack.message.create"
-              : "teams.message.create",
-          text: "",
-        }),
-      );
+      ({ providerReference, providerMessageId } =
+        providerMessageResultFromResult(
+          await target.claimedDelivery.effect(responseId, {
+            kind:
+              target.delivery.adapter === "slack"
+                ? "slack.message.create"
+                : "teams.message.create",
+            text: "",
+          }),
+        ));
     }
-    return messageRef(target, responseId, providerReference);
+    return messageRef(target, responseId, providerReference, providerMessageId);
   }
 
   async postFile(
@@ -983,12 +993,12 @@ export class DeliveryAdapter implements PlatformAdapter {
     adapter: "slack" | "teams",
     responseId: string,
     ir: ChannelNode[],
-  ): Promise<string> {
+  ): Promise<ProviderMessageResult> {
     claimedDelivery.expectProviderOutput?.();
     assertProviderElements(ir, adapter);
     if (adapter === "slack") {
       const rendered = renderSlackMessage(ir);
-      return providerReferenceFromResult(
+      return providerMessageResultFromResult(
         await claimedDelivery.effect(responseId, {
           kind: "slack.message.create",
           text: collectText(ir),
@@ -996,7 +1006,7 @@ export class DeliveryAdapter implements PlatformAdapter {
         }),
       );
     }
-    return providerReferenceFromResult(
+    return providerMessageResultFromResult(
       await claimedDelivery.effect(
         responseId,
         teamsMessageEffect("create", ir),
@@ -1425,13 +1435,29 @@ function providerReferenceFromResult(result: Record<string, unknown>): string {
   return providerReference;
 }
 
+interface ProviderMessageResult {
+  providerReference: string;
+  providerMessageId: string;
+}
+
+/** Read the Gateway's capability plus its stable, non-capability correlation id. */
+function providerMessageResultFromResult(
+  result: Record<string, unknown>,
+): ProviderMessageResult {
+  const providerReference = providerReferenceFromResult(result);
+  const providerMessageId = result.providerMessageId;
+  assertProviderMessageId(providerMessageId);
+  return { providerReference, providerMessageId };
+}
+
 function messageRef(
   target: DeliveryReplyTarget,
   responseId: string,
   providerReference?: string,
+  providerMessageId?: string,
 ): DeliveryMessageRef {
   return {
-    id: providerReference ?? responseId,
+    id: providerMessageId ?? providerReference ?? responseId,
     responseId,
     claimedDelivery: target.claimedDelivery,
     adapter: target.delivery.adapter,

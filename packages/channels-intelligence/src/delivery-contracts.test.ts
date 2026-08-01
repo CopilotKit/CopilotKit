@@ -95,6 +95,45 @@ test("accepts destination-free provider reaction effects", () => {
       },
     }),
   ).not.toThrow();
+
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "teams.reaction.add",
+        providerReference: "pref_v1_reference_01",
+        reaction: "provider native 👍",
+      },
+    }),
+  ).not.toThrow();
+});
+
+test("rejects provider reactions outside the shared UTF-8 byte bounds", () => {
+  for (const reaction of ["", "👍".repeat(33)]) {
+    expect(() =>
+      assertDeliveryPacket({
+        ...packet(),
+        payload: {
+          kind: "teams.reaction.add",
+          providerReference: "pref_v1_reference_01",
+          reaction,
+        },
+      }),
+    ).toThrow("delivery payload is invalid");
+  }
+});
+
+test("accepts a provider reaction at the shared UTF-8 byte boundary", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "teams.reaction.add",
+        providerReference: "pref_v1_reference_01",
+        reaction: "👍".repeat(32),
+      },
+    }),
+  ).not.toThrow();
 });
 
 test("accepts a destination-free Teams delete effect", () => {
