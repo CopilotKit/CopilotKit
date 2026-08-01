@@ -220,7 +220,7 @@ describe("Channels documentation journey", () => {
     }
   });
 
-  it("matches the Runtime URL and lifecycle contract", () => {
+  it("matches the Runtime URL and Node listener lifecycle contract", () => {
     for (const slug of providerQuickstartSlugs) {
       const source = bodyFor(slug);
 
@@ -238,22 +238,44 @@ describe("Channels documentation journey", () => {
         'required("INTELLIGENCE_GATEWAY_WS_URL")',
       );
       expect(source, slug).toContain("const channels = listener.channels");
-      expect(source, slug).toMatch(/if \(!channels\)/);
+      expect(
+        source,
+        `${slug} retains the stale optional control guard`,
+      ).not.toMatch(/if\s*\(\s*!channels\s*\)/);
       expect(source, slug).toContain(
         "await channels.ready({ timeoutMs: 30_000 })",
       );
       expect(source, slug).toContain('status.overall !== "online"');
-      expect(source, slug).toMatch(/opens? no\s+connection/i);
-      expect(source, slug).toMatch(/`ready\(\)` is required/i);
-      expect(source, `${slug} bypasses the optional control guard`).not.toMatch(
-        /listener\.channels\.(?:ready|status)\(/,
+      expect(source, slug).toMatch(
+        /Creating the Node listener starts the Channel/i,
+      );
+      expect(source, slug).toMatch(
+        /`ready\(\)`\s+is therefore optional and purely\s+await-and-observe/i,
+      );
+      expect(source, slug).toMatch(
+        /Skip `ready\(\)` and activation failures land in your logs/i,
       );
       expect(
-        source.indexOf('process.once("SIGTERM", shutdown)'),
-        `${slug} registers shutdown before activation`,
-      ).toBeLessThan(
-        source.indexOf("await channels.ready({ timeoutMs: 30_000 })"),
+        source,
+        `${slug} bypasses the non-optional channels alias`,
+      ).not.toMatch(/listener\.channels\.(?:ready|status)\(/);
+
+      const shutdownIndex = source.indexOf('process.once("SIGTERM", shutdown)');
+      const listenerIndex = source.indexOf(
+        "const listener = createCopilotNodeListener({",
       );
+      expect(
+        shutdownIndex,
+        `${slug} registers SIGTERM shutdown`,
+      ).toBeGreaterThan(-1);
+      expect(
+        listenerIndex,
+        `${slug} creates the Node listener`,
+      ).toBeGreaterThan(-1);
+      expect(
+        shutdownIndex,
+        `${slug} registers shutdown before listener auto-start`,
+      ).toBeLessThan(listenerIndex);
     }
 
     expect(
