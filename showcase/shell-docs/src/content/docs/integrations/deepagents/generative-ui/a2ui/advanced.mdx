@@ -117,32 +117,32 @@ As the secondary LLM generates the A2UI surface, the `parameters` object accumul
 | `components` | `array` | The component tree (schema) — arrives first |
 | `root` | `string` | Root component ID |
 | `items` | `array` | Data items — arrive after the schema |
-| `actionHandlers` | `object` | Optional button action handlers |
 
 A common pattern is to show a skeleton layout once `components` has data, then show item count as `items` streams in.
 
 ## Action Handlers
 
-Action handling in this section is client-side. The fixed-schema guide documents the current Python SDK limitation and the supported button context.
+Action handling in this section is client-side. The current Python SDK's `a2ui.render` does not support the `action_handlers=` keyword; the fixed-schema guide preserves the button schema and documents that server-side handlers are not supported. The current React API exposes `createA2UIMessageRenderer` with an `onAction` interceptor.
 
-The Python SDK's `a2ui.render` does not yet support the `action_handlers=` keyword. The frontend hook and custom orchestrator examples below remain available for client-side handling.
-
-This section covers the frontend-side APIs for custom handling, the resolution chain, and the schema button format.
+This section covers the current frontend interceptor and the v0.9 schema button format.
 
 ### Schema button with action context
 
-The A2UI schema defines buttons with action names and data-bound context fields. When the button is clicked, the context values are resolved from the data model for that specific item:
+The v0.9 A2UI schema defines buttons with an event and data-bound context fields. Components inside a repeating list use relative paths, so the context values resolve from the clicked item:
 
 ```json
 {
-  "Button": {
-    "label": "Book",
-    "action": {
+  "id": "book-button",
+  "component": "Button",
+  "child": "book-label",
+  "variant": "primary",
+  "action": {
+    "event": {
       "name": "book_flight",
-      "context": [
-        { "key": "flightNumber", "value": { "path": "/flightNumber" } },
-        { "key": "price", "value": { "path": "/price" } }
-      ]
+      "context": {
+        "flightNumber": { "path": "flightNumber" },
+        "price": { "path": "price" }
+      }
     }
   }
 }
@@ -160,79 +160,67 @@ The resulting `A2UIUserAction` will include the resolved context:
 }
 ```
 
-### `useA2UIActionHandler` hook (frontend)
+### `onAction` interceptor
 
-For custom frontend logic, register a handler with `useA2UIActionHandler`. Your handler receives every action and the pre-declared ops (if any), and decides whether to handle it:
-
-```tsx
-import { useA2UIActionHandler } from "@copilotkit/react-core/v2";
-
-// Handle a specific action with custom ops
-useA2UIActionHandler((action, declaredOps) => {
-  if (action.name === "book_flight") {
-    // Return custom operations
-    return [
-      { updateComponents: { surfaceId: action.surfaceId, components: mySchema } },
-    ];
-  }
-  return null; // skip — let other handlers or fallback try
-});
-
-// Delegate to pre-declared ops from the agent
-useA2UIActionHandler((action, declaredOps) => {
-  if (action.name === "book_flight") return declaredOps;
-  return null;
-});
-
-// Handle all actions on a specific surface
-useA2UIActionHandler((action, declaredOps) => {
-  if (action.surfaceId === "my-surface") return declaredOps;
-  return null;
-});
-```
-
-### Resolution order
-
-The default orchestrator resolves actions in this order:
-
-1. **Hook handlers** — registered via `useA2UIActionHandler`. Each receives `(action, declaredOps)`. The first handler that returns a non-empty operations array wins.
-2. **Pre-declared ops** — if no hook handles the action, uses operations already present in the supported payload.
-
-The current Python SDK does not create pre-declared operations from an `action_handlers=` argument. Use the frontend hook for custom handling.
-
-### Custom orchestrator (full control)
-
-To completely replace the resolution logic, pass a custom `onAction` to `createA2UIMessageRenderer`:
+Pass `onAction` to the exported renderer factory to handle an action in the browser. Return `null` after handling the action locally; return `undefined` to forward it unchanged to the agent:
 
 ```tsx
 import {
   createA2UIMessageRenderer,
-  resolveDeclaredOps,
+  type A2UIUserAction,
 } from "@copilotkit/react-core/v2";
+import { theme } from "./theme";
 
-const activityRenderers = [
-  createA2UIMessageRenderer({
-    theme,
-    onAction: (action, handlers, declaredHandlers) => {
-      // Custom dispatch logic — you control everything
-      const declaredOps = resolveDeclaredOps(action, declaredHandlers);
-
-      // Example: always use declared ops, ignore hooks
-      return declaredOps;
-    },
-  }),
-];
+const A2UIMessageRenderer = createA2UIMessageRenderer({
+  theme,
+  onAction: (action: A2UIUserAction) => {
+    if (action.name === "book_flight") {
+      console.info("Booking requested", action.context);
+      return null;
+    }
+    return undefined;
+  },
+});
 ```
+
+Register `A2UIMessageRenderer` in the provider's `renderActivityMessages` list, as shown in the integration setup pages.
+
+### Forward a modified action
+
+An interceptor can return a modified exported `A2UIUserAction`; the renderer forwards that action to the agent:
+
+```tsx
+const A2UIMessageRenderer = createA2UIMessageRenderer({
+  theme,
+  onAction: (action) => {
+    if (action.name !== "book_flight") return;
+
+    return {
+      ...action,
+      context: {
+        ...(action.context ?? {}),
+        source: "a2ui",
+      },
+    };
+  },
+});
+```
+
+### Current action flow
+
+The current renderer applies `onAction` before forwarding an action:
+
+1. Returning `null` handles the action in the browser and skips the agent.
+2. Returning an `A2UIUserAction` forwards that modified action.
+3. Returning `undefined` forwards the original action.
+
+The current Python SDK does not create server-side action handlers from an `action_handlers=` argument. The frontend interceptor is the supported custom-handling path in this documentation.
 
 ### Types reference
 
 | Type | Description |
 |---|---|
 | `A2UIUserAction` | Dispatched action: `{ name, surfaceId, sourceComponentId, context?, dataContextPath? }` |
-| `A2UIOps` | `Array<Record<string, unknown>>` — array of A2UI operations |
-| `A2UIDeclaredOps` | `A2UIOps \| null` — resolved pre-declared ops, or null if no match |
-| `A2UIActionHandler` | `(action: A2UIUserAction, declaredOps: A2UIDeclaredOps) => A2UIOps \| null` |
-| `A2UIActionOrchestrator` | `(action, handlers, declaredHandlers) => A2UIOps \| null` — full control |
-| `resolveDeclaredOps` | Helper: resolves exact match or `"*"` catch-all from declared handlers map |
-| `defaultActionOrchestrator` | The built-in orchestrator — hooks first, then declared fallback |
+| `A2UIActionInterceptor` | `(action, forward) => A2UIUserAction \| null \| void` — exported interceptor type |
+| `createA2UIMessageRenderer` | Exported factory that accepts `theme` and optional `onAction` |
 

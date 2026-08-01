@@ -110,14 +110,17 @@ In your `flight_schema.json`, buttons declare an `action` with data-bound contex
 
 ```json
 {
-  "Button": {
-    "label": "Book",
-    "action": {
+  "id": "book-button",
+  "component": "Button",
+  "child": "book-label",
+  "variant": "primary",
+  "action": {
+    "event": {
       "name": "book_flight",
-      "context": [
-        { "key": "flightNumber", "value": { "path": "/flightNumber" } },
-        { "key": "price", "value": { "path": "/price" } }
-      ]
+      "context": {
+        "flightNumber": { "path": "flightNumber" },
+        "price": { "path": "price" }
+      }
     }
   }
 }
@@ -126,5 +129,5 @@ In your `flight_schema.json`, buttons declare an `action` with data-bound contex
 When this button is clicked on a card showing flight AA100 at $350, frontend action handling receives `context: { flightNumber: "AA100", price: "$350" }`. The Python `action_handlers=` path is not yet supported.
 
 <Callout type="info">
-For custom frontend handling with `useA2UIActionHandler`, custom orchestrators, and the full resolution chain, see the [Advanced — Action Handlers](./advanced#action-handlers) guide.
+For custom frontend handling with `createA2UIMessageRenderer` and its `onAction` option, see the [Advanced — Action Handlers](./advanced#action-handlers) guide.
 </Callout>

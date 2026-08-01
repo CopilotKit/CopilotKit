@@ -33,7 +33,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     git clone https://github.com/copilotkit/with-a2a-a2ui.git
     ```
 
-    The cloned starter currently ships a legacy v0.8 renderer. Replace that renderer with the v0.9 createA2UIMessageRenderer setup below before using the v0.9 operation example; the legacy renderer does not consume a2ui_operations.
+    The cloned starter currently uses the legacy v0.8 renderer and its agent emits a JSON list of v0.8 operation objects. This page documents that accepted starter payload. Migrating the starter to the v0.9 renderer and `a2ui_operations` envelope requires changes outside this documentation target.
 
   </Step>
   <Step>
@@ -61,82 +61,78 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
   <Step>
     ### Setting up your agent with components
 
-    After replacing the legacy renderer, use the v0.9 operation envelope below to add your own components.
+    The starter's current agent accepts the v0.8 operation list below. Keep the operation order and shapes when adding your own components; each list entry is sent as an individual A2A data part by the starter agent.
 
     ```python title="agent/restaurant_finder/prompt_builder.py"
       RESTAURANT_UI_EXAMPLES = """
       ...
       ---BEGIN SINGLE_COLUMN_LIST_EXAMPLE---
-      {{
-        "a2ui_operations": [
-          {{ "version": "v0.9", "createSurface": {{ "surfaceId": "default", "catalogId": "https://a2ui.org/specification/v0_9/basic_catalog.json" }} }},
-          {{ "version": "v0.9", "updateComponents": {{
-            "surfaceId": "default",
-            "components": [
-              {{ "id": "root", "component": "Column", "children": ["title-heading", "item-list"] }},
-              {{ "id": "title-heading", "component": "Text", "text": "Top Restaurants", "variant": "h1" }},
-              {{ "id": "item-list", "component": "List", "direction": "vertical", "children": {{ "componentId": "item-card-template", "path": "/items" }} }},
-              {{ "id": "item-card-template", "component": "Card", "child": "card-layout" }},
-              {{ "id": "card-layout", "component": "Row", "children": ["template-image", "card-details"] }},
-              {{ "id": "template-image", "component": "Image", "url": {{ "path": "imageUrl" }} }},
-              {{ "id": "card-details", "component": "Column", "children": ["template-name", "template-rating", "template-detail", "template-link", "template-book-button"] }},
-              {{ "id": "template-name", "component": "Text", "text": {{ "path": "name" }}, "variant": "h3" }},
-              {{ "id": "template-rating", "component": "Text", "text": {{ "path": "rating" }}, "variant": "caption" }},
-              {{ "id": "template-detail", "component": "Text", "text": {{ "path": "detail" }}, "variant": "body" }},
-              {{ "id": "template-link", "component": "Text", "text": {{ "path": "infoLink" }}, "variant": "body" }},
-              {{
-                "id": "template-book-button",
-                "component": "Button",
-                "child": "book-now-text",
-                "variant": "primary",
-                "action": {{
-                  "event": {{
-                    "name": "book_restaurant",
-                    "context": {{
-                      "restaurantName": {{ "path": "name" }},
-                      "imageUrl": {{ "path": "imageUrl" }},
-                      "address": {{ "path": "address" }}
-                    }}
-                  }}
-                }}
-              }},
-              {{ "id": "book-now-text", "component": "Text", "text": "Book Now" }}
-            ]
-          }} }},
-          {{ "version": "v0.9", "updateDataModel": {{
-            "surfaceId": "default",
-            "path": "/",
-            "value": {{
-              "items": [
-                {{ "name": "The Fancy Place", "rating": 4.8, "detail": "Fine dining experience", "infoLink": "https://example.com/fancy", "imageUrl": "https://example.com/fancy.jpg", "address": "123 Main St" }},
-                {{ "name": "Quick Bites", "rating": 4.2, "detail": "Casual and fast", "infoLink": "https://example.com/quick", "imageUrl": "https://example.com/quick.jpg", "address": "456 Oak Ave" }}
-              ]
-            }}
-          }} }}
-        ]
-      }}
+      [
+        {{ "beginRendering": {{ "surfaceId": "default", "root": "root-column", "styles": {{ "primaryColor": "#FF0000", "font": "Roboto" }} }} }},
+        {{ "surfaceUpdate": {{
+          "surfaceId": "default",
+          "components": [
+            {{ "id": "root-column", "component": {{ "Column": {{ "children": {{ "explicitList": ["title-heading", "item-list"] }} }} }} }},
+            {{ "id": "title-heading", "component": {{ "Text": {{ "usageHint": "h1", "text": {{ "literalString": "Top Restaurants" }} }} }} }},
+            {{ "id": "item-list", "component": {{ "List": {{ "direction": "vertical", "children": {{ "template": {{ "componentId": "item-card-template", "dataBinding": "/items" }} }} }} }} }},
+            {{ "id": "item-card-template", "component": {{ "Card": {{ "child": "card-layout" }} }} }},
+            {{ "id": "card-layout", "component": {{ "Row": {{ "children": {{ "explicitList": ["template-image", "card-details"] }} }} }} }},
+            {{ "id": "template-image", "weight": 1, "component": {{ "Image": {{ "url": {{ "path": "imageUrl" }} }} }} }},
+            {{ "id": "card-details", "weight": 2, "component": {{ "Column": {{ "children": {{ "explicitList": ["template-name", "template-rating", "template-detail", "template-link", "template-book-button"] }} }} }} }},
+            {{ "id": "template-name", "component": {{ "Text": {{ "usageHint": "h3", "text": {{ "path": "name" }} }} }} }},
+            {{ "id": "template-rating", "component": {{ "Text": {{ "text": {{ "path": "rating" }} }} }} }},
+            {{ "id": "template-detail", "component": {{ "Text": {{ "text": {{ "path": "detail" }} }} }} }},
+            {{ "id": "template-link", "component": {{ "Text": {{ "text": {{ "path": "infoLink" }} }} }} }},
+            {{ "id": "template-book-button", "component": {{ "Button": {{ "child": "book-now-text", "primary": true, "action": {{ "name": "book_restaurant", "context": [{{ "key": "restaurantName", "value": {{ "path": "name" }} }}, {{ "key": "imageUrl", "value": {{ "path": "imageUrl" }} }}, {{ "key": "address", "value": {{ "path": "address" }}}} ] }} }} }} }},
+            {{ "id": "book-now-text", "component": {{ "Text": {{ "text": {{ "literalString": "Book Now" }} }} }} }}
+          ]
+        }} }},
+        {{ "dataModelUpdate": {{
+          "surfaceId": "default",
+          "path": "/",
+          "contents": [
+            {{ "key": "items", "valueMap": [
+              {{ "key": "item1", "valueMap": [
+                {{ "key": "name", "valueString": "The Fancy Place" }},
+                {{ "key": "rating", "valueNumber": 4.8 }},
+                {{ "key": "detail", "valueString": "Fine dining experience" }},
+                {{ "key": "infoLink", "valueString": "https://example.com/fancy" }},
+                {{ "key": "imageUrl", "valueString": "https://example.com/fancy.jpg" }},
+                {{ "key": "address", "valueString": "123 Main St" }}
+              ] }},
+              {{ "key": "item2", "valueMap": [
+                {{ "key": "name", "valueString": "Quick Bites" }},
+                {{ "key": "rating", "valueNumber": 4.2 }},
+                {{ "key": "detail", "valueString": "Casual and fast" }},
+                {{ "key": "infoLink", "valueString": "https://example.com/quick" }},
+                {{ "key": "imageUrl", "valueString": "https://example.com/quick.jpg" }},
+                {{ "key": "address", "valueString": "456 Oak Ave" }}
+              ] }}
+            ] }}
+          ]
+        }} }}
+      ]
       ---END SINGLE_COLUMN_LIST_EXAMPLE---
       # ... more examples below
       ```
 
     The widgets are injected into the agent's prompt, in this case using the `RESTAURANT_UI_EXAMPLES` variable.
-    Widgets are defined for the agent using examples of the JSON objects they should output, wrapped in a comment block.
+    Widgets are defined for the agent using an example of the JSON array it should output, wrapped in a comment block.
     - A comment indicating the start of the example
-    - a2ui_operations: The envelope containing the v0.9 operations
-    - createSurface: Initializes the widget surface and must come first
-    - updateComponents: An example of the JSON structure for the widget
-    - updateDataModel: An example of the data that will populate the widget
+    - beginRendering: Starts the v0.8 surface
+    - surfaceUpdate: Defines the v0.8 component tree
+    - dataModelUpdate: Provides the v0.8 data model contents
     - A comment indicating the end of the example
 
     In the example repo, all of the widgets are defined in a single variable in the prompt_builder.py file, but you can structure them however you like,
-    they simply need to be injected into the agent's prompt in a clearly delineated way.
+    they simply need to be injected into the agent's prompt in a clearly delineated way. The v0.9 SDK migration is not demonstrated by this starter page.
 
   </Step>
   <Step>
     ### Generating components with the A2UI Composer
     If you want an easy way to generate components, you can use the A2UI Composer.
     Go to https://a2ui-composer.ag-ui.com/ to create your own components.
-    The composer will generate the json spec for you, all you have to do is copy and paste it into your agent's prompt.
+    The composer will generate the JSON spec for you, all you have to do is copy and paste it into your agent's prompt.
     <a href="https://a2ui-editor.ag-ui.com/gallery" target="_blank" rel="noopener noreferrer">
       <Image 
         src="/images/a2ui-composer.png" 
@@ -152,51 +148,45 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     AG-UI handles communicating with your a2a agent, and passes the a2ui messages back and forth as `ActivityMessage` objects.
     In order to render them in your frontend, you need to configure activity message rendering.
 
-    Copilotkit provides a renderer for A2UI messages, all you need to do is instantiate it with a theme and pass it to your CopilotKit.
+    The cloned starter renders these messages with its v0.8 renderer and theme. The setup below mirrors the current starter; it is not a v0.9 `createA2UIMessageRenderer` walkthrough.
 
     ```tsx title="app/page.tsx"
     "use client";
 
     import {
       CopilotChat,
-      CopilotKit,
-      createA2UIMessageRenderer,
+      CopilotKitProvider,
     } from "@copilotkit/react-core/v2";
-    import "@copilotkit/react-core/v2/styles.css";
+    import { a2uiV08Renderer } from "./components/a2ui-v0-8-renderer";
     import { theme } from "./theme";
 
     // Disable static optimization for this page
     export const dynamic = "force-dynamic";
 
-    const A2UIMessageRenderer = createA2UIMessageRenderer({ theme });
+    const activityRenderers = [a2uiV08Renderer];
 
     export default function Home() {
       return (
-        <CopilotKit
+        <CopilotKitProvider
           runtimeUrl="/api/copilotkit"
           showDevConsole="auto"
-          renderActivityMessages={[A2UIMessageRenderer]}
+          useSingleEndpoint={false}
+          a2ui={{ theme }}
+          renderActivityMessages={activityRenderers}
         >
           <main
             className="flex min-h-screen flex-1 flex-col overflow-hidden"
             style={{ minHeight: "100dvh" }}
           >
-            <Chat />
+            <CopilotChat />
           </main>
-        </CopilotKit>
-      );
-    }
-
-    function Chat() {
-      return (
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <CopilotChat style={{ flex: 1, minHeight: "100%" }} />
-        </div>
+        </CopilotKitProvider>
       );
     }
     ```
 
     ```tsx title="app/theme.ts"
+    import { Styles, type Types } from "@a2ui/lit/0.8";
 
     /** Elements */
 
@@ -341,30 +331,27 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
       "layout-el-cv": true,
     };
 
-    const mergeStyles = (...styles: Record<string, boolean>[]) =>
-      Object.assign({}, ...styles);
-
-    const aLight = mergeStyles(a, { "color-c-n5": true });
-    const inputLight = mergeStyles(input, { "color-c-n5": true });
-    const textareaLight = mergeStyles(textarea, { "color-c-n5": true });
-    const buttonLight = mergeStyles(button, { "color-c-n100": true });
-    const h1Light = mergeStyles(h1, { "color-c-n5": true });
-    const h2Light = mergeStyles(h2, { "color-c-n5": true });
-    const h3Light = mergeStyles(h3, { "color-c-n5": true });
-    const bodyLight = mergeStyles(body, { "color-c-n5": true });
-    const pLight = mergeStyles(p, { "color-c-n35": true });
-    const preLight = mergeStyles(pre, { "color-c-n35": true });
-    const orderedListLight = mergeStyles(orderedList, {
+    const aLight = Styles.merge(a, { "color-c-n5": true });
+    const inputLight = Styles.merge(input, { "color-c-n5": true });
+    const textareaLight = Styles.merge(textarea, { "color-c-n5": true });
+    const buttonLight = Styles.merge(button, { "color-c-n100": true });
+    const h1Light = Styles.merge(h1, { "color-c-n5": true });
+    const h2Light = Styles.merge(h2, { "color-c-n5": true });
+    const h3Light = Styles.merge(h3, { "color-c-n5": true });
+    const bodyLight = Styles.merge(body, { "color-c-n5": true });
+    const pLight = Styles.merge(p, { "color-c-n35": true });
+    const preLight = Styles.merge(pre, { "color-c-n35": true });
+    const orderedListLight = Styles.merge(orderedList, {
       "color-c-n35": true,
     });
-    const unorderedListLight = mergeStyles(unorderedList, {
+    const unorderedListLight = Styles.merge(unorderedList, {
       "color-c-n35": true,
     });
-    const listItemLight = mergeStyles(listItem, {
+    const listItemLight = Styles.merge(listItem, {
       "color-c-n35": true,
     });
 
-    export const theme: Record<string, unknown> = {
+    export const theme: Types.Theme = {
       additionalStyles: {
         Button: {
           "--n-35": "var(--n-100)",
