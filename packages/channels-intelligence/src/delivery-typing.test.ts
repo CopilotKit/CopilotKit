@@ -45,14 +45,13 @@ async function deliverNoopTeamsMessage(typingDelayMs: 0 | 300) {
   }
 }
 
-test("Teams starts typing immediately for an addressed managed turn", async () => {
+test("addressed Teams typing remains backend-owned", async () => {
   await expect(deliverNoopTeamsMessage(0)).resolves.toEqual([
-    "teams.typing",
     "channel.delivery.terminal",
   ]);
 });
 
-test("an ambient no-op finishes before the delayed Teams typing indicator", async () => {
+test("ambient Teams typing remains backend-owned", async () => {
   await expect(deliverNoopTeamsMessage(300)).resolves.toEqual([
     "channel.delivery.terminal",
   ]);

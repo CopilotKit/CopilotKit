@@ -75,13 +75,13 @@ test("accepts a distinct Teams final effect for priority rate gating", () => {
   ).not.toThrow();
 });
 
-test("accepts a destination-free managed Teams typing effect", () => {
+test("rejects application-originated Teams typing effects", () => {
   expect(() =>
     assertDeliveryPacket({
       ...packet(),
       payload: { kind: "teams.typing" },
     }),
-  ).not.toThrow();
+  ).toThrow(TypeError);
 });
 
 test("accepts destination-free provider reaction effects", () => {

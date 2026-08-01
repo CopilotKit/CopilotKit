@@ -233,8 +233,6 @@ export class ClaimedChannelDelivery {
   private transcriptTriggerPersisted = false;
   private providerOutputApplied = false;
   private providerOutputExpected = false;
-  private typingTimer?: ReturnType<typeof setTimeout>;
-  private typingActive = false;
   /** After a successful terminal or permanent non-terminal failure, refuse further effects. */
   private effectsClosed = false;
   /** After a successful terminal apply, refuse all further packets. */
@@ -293,7 +291,6 @@ export class ClaimedChannelDelivery {
   ): Promise<Record<string, unknown>> {
     if (isVisibleProviderEffect(payload)) {
       this.providerOutputExpected = true;
-      this.stopManagedTyping();
     }
     const requestedProvider = providerForEffect(payload);
     if (requestedProvider !== this.delivery.adapter) {
@@ -342,61 +339,12 @@ export class ClaimedChannelDelivery {
           typeof payload.kind === "string" ? payload.kind : undefined;
         if (
           kind === undefined ||
-          (kind !== "slack.thread.status" &&
-            kind !== "teams.typing" &&
-            !kind.endsWith(".stream.stop"))
+          (kind !== "slack.thread.status" && !kind.endsWith(".stream.stop"))
         ) {
           this.providerOutputApplied = true;
         }
         return result;
       });
-  }
-
-  /** Refresh Teams typing until visible output, terminal completion, or leave. */
-  startManagedTyping(delayMs: 0 | 300 | undefined): void {
-    if (this.delivery.adapter !== "teams" || delayMs === undefined) return;
-    this.stopManagedTyping();
-    this.typingActive = true;
-
-    const refresh = async (): Promise<void> => {
-      if (
-        !this.typingActive ||
-        this.providerOutputApplied ||
-        this.effectsClosed ||
-        this.terminalApplied ||
-        this.left
-      ) {
-        return;
-      }
-      await this.effect(
-        "managed_typing",
-        { kind: "teams.typing" },
-        { charge: false },
-      ).catch(() => undefined);
-      if (
-        !this.typingActive ||
-        this.providerOutputApplied ||
-        this.effectsClosed
-      )
-        return;
-      this.typingTimer = setTimeout(() => void refresh(), 3_500);
-      this.typingTimer.unref?.();
-    };
-
-    if (delayMs === 0) {
-      void refresh();
-    } else {
-      this.typingTimer = setTimeout(() => void refresh(), delayMs);
-      this.typingTimer.unref?.();
-    }
-  }
-
-  private stopManagedTyping(): void {
-    this.typingActive = false;
-    if (this.typingTimer !== undefined) {
-      clearTimeout(this.typingTimer);
-      this.typingTimer = undefined;
-    }
   }
 
   /** Idempotently charge this delivery before its first substantive work. */
@@ -430,7 +378,6 @@ export class ClaimedChannelDelivery {
 
   /** Send the final outcome through the same ordered packet path. */
   async terminal(payload: Omit<ChannelTerminalPayload, "kind">): Promise<void> {
-    this.stopManagedTyping();
     await this.sealAndWaitForTrackedOperations(payload.status === "complete");
     // Terminal remains sendable after effect failures so claimAndHandle can
     // report failed/uncertain; only a successful terminal seals the delivery.
@@ -555,7 +502,6 @@ export class ClaimedChannelDelivery {
 
   leave(): void {
     if (this.left) return;
-    this.stopManagedTyping();
     this.left = true;
     this.parentSignal.removeEventListener("abort", this.stopFromParent);
     this.channel.leave();
@@ -1019,7 +965,6 @@ export class ChannelDeliveryTransport {
         releaseExecution = await this.acquireExecutionSlot(
           claimedDelivery.signal,
         );
-        claimedDelivery.startManagedTyping(delivery.turn.typingDelayMs);
         await handler(claimedDelivery, delivery);
         await claimedDelivery.terminal({
           status: "complete",
@@ -1319,7 +1264,6 @@ function isVisibleProviderEffect(payload: ProviderPayloadInput): boolean {
   return (
     (kind.startsWith("slack.") || kind.startsWith("teams.")) &&
     kind !== "slack.thread.status" &&
-    kind !== "teams.typing" &&
     !kind.endsWith(".stream.stop")
   );
 }

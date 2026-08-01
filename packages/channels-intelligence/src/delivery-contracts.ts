@@ -73,7 +73,6 @@ export type ChannelProviderPayload =
       text: string;
       cards?: ReadonlyArray<Readonly<Record<string, unknown>>>;
     }
-  | { kind: "teams.typing" }
   | {
       kind:
         | "slack.reaction.add"
@@ -286,8 +285,6 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         boundedString(value.text, 0, 40_000) &&
         optionalRecordArray(value.cards, 25)
       );
-    case "teams.typing":
-      return hasExactFields(value, ["kind"]);
     case "slack.reaction.add":
     case "slack.reaction.remove":
     case "teams.reaction.add":
