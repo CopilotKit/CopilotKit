@@ -34,7 +34,7 @@ from ag2.config import OpenAIConfig
 def book_table(time: str, party_size: int) -> str:
     return f"booked a table for {party_size} at {time}"
 
-agent = Agent(name="ui_agent", config=OpenAIConfig(model="gpt-4o-mini"))
+agent = Agent(name="ui_agent", config=OpenAIConfig(model="gpt-5.4-mini"))
 
 app = A2UIServer(
     agent,

@@ -111,11 +111,11 @@ the runtime middleware config doesn't leak into other cells.
 These demos own their own `Agent`(s) plus FastAPI sub-app
 mounted at a named path (`agent_server.py` mounts each one before the
 catch-all `/`). The Next.js runtime points an `HttpAgent` at the
-matching path so each demo gets its own ContextVariables-backed state
+matching path so each demo gets its own conversation-variables state
 slot, isolated from the shared default agent.
 
-- `shared-state-read-write` — bidirectional shared state via AG2
-  `ContextVariables` + `ReplyResult`. Agent calls `get_current_preferences`
+- `shared-state-read-write` — bidirectional shared state via ag2
+  `Context.variables`. Agent calls `get_current_preferences`
   to read UI-written prefs and `set_notes` to write back.
 - `subagents` — supervisor `Agent` that delegates to three
   sub-`Agent`s (research/writing/critique) exposed as tools;

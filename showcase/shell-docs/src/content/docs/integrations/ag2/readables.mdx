@@ -124,7 +124,7 @@ This context can then be shared with your AG2 backend.
                                 "You are a helpful assistant that can help emailing colleagues. "
                                 "Call `get_colleagues` before suggesting recipients."
                             ),
-                            config=OpenAIConfig(model="gpt-4o-mini"),
+                            config=OpenAIConfig(model="gpt-5.4-mini"),
                             tools=[get_colleagues],
                         )
 
@@ -208,7 +208,7 @@ This context can then be shared with your AG2 backend.
                         agent = Agent(
                             name="assistant",
                             prompt="You are a helpful assistant.",
-                            config=OpenAIConfig(model="gpt-4o-mini"),
+                            config=OpenAIConfig(model="gpt-5.4-mini"),
                         )
 
                         stream = AGUIStream(agent)

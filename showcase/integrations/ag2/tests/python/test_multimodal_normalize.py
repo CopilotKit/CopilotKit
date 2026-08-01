@@ -74,6 +74,11 @@ from ag_ui.core import (  # noqa: E402
     UserMessage,
 )
 
+# Deliberately reaching into an internal ag2 symbol: ``map_agui_content_to_input``
+# is the exact call site that rejects legacy ``binary`` parts, and it is not
+# re-exported from ``ag2.ag_ui``. Pinning the test to the real gate (rather than
+# to a structural look-alike) is the whole point — if ag2 moves or renames it,
+# this import fails loudly at collection time and we revisit the workaround.
 from ag2.ag_ui.stream import map_agui_content_to_input  # noqa: E402
 
 from agents._multimodal_normalize import (  # noqa: E402

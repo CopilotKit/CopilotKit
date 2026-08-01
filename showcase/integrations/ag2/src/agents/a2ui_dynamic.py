@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 
-import openai
 from ag2 import Agent
 from ag2.config import OpenAIConfig
 from ag2.ag_ui import AGUIStream  # type: ignore[import-not-found]  # runtime-only submodule (ag2[ag-ui] extra); not present in static type stubs
@@ -49,23 +48,11 @@ def generate_a2ui() -> str:
     pass itself. If this body actually executes, the middleware is
     misconfigured — raise loudly so the failure is visible.
     """
-    # A4 / R2-A3: thread the latest user prompt from the outer conversation
-    # into the inner call so each pill's request body is byte-distinct
-    # (without this, all 4 declarative pills produce IDENTICAL wire payloads
-    # because the outer agent calls generate_a2ui with arguments="{}" →
-    # context defaults → system message is constant, and the user message
-    # below is hardcoded).
-    #
-    # The prompt is read from a per-request ContextVar populated by
-    # ``RequestUserMessageMiddleware`` at the inbound HTTP boundary — NOT
-    # from any agent-held conversation state (which would be shared
-    # module-level mutable state racing across concurrent requests). If the
-    # middleware did not
-    # capture anything (non-AG-UI request, parse failure already logged at
-    # WARNING) we fall back to the original hardcoded prompt so the inner
-    # LLM call still produces a sensible default.
-    user_prompt = get_latest_user_message() or (
-        "Generate a dynamic A2UI dashboard based on the conversation."
+    raise RuntimeError(
+        "generate_a2ui called directly — the CopilotKit a2ui middleware "
+        "should intercept this call before it reaches the agent. "
+        "Check the route configuration at "
+        "app/api/copilotkit-declarative-gen-ui/route.ts."
     )
 
 

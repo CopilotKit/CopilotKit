@@ -39,7 +39,7 @@ state updates, you can reflect these updates natively in your application.
   <Step>
     ### Define the Agent State
 
-    In AG2, shared state lives in the agent's **conversation variables**. `AGUIStream` handles the synchronization for you: incoming state from the UI is merged into the variables for the run (agent-defined `variables` take precedence for the keys they set), and the variables are streamed back as `STATE_SNAPSHOT` events — at the start of the run and, if a tool changed `context.variables`, at the end of the run. No manual event construction needed.
+    In AG2, shared state lives in the agent's **conversation variables**. `AGUIStream` handles the synchronization for you: incoming state from the UI is merged into the variables for the run, and the variables are streamed back as `STATE_SNAPSHOT` events — at the start of the run (only when the agent or `dispatch()` defines initial variables) and, if a tool changed `context.variables`, at the end of the run. No manual event construction needed.
 
     ```python title="agent.py"
     from typing import Annotated
@@ -67,8 +67,7 @@ state updates, you can reflect these updates natively in your application.
             "You are a helpful assistant for tracking language. "
             "Always respond in the current language."
         ),
-        config=OpenAIConfig(model="gpt-4o-mini"),
-        variables={"language": "english"},
+        config=OpenAIConfig(model="gpt-5.4-mini"),
         tools=[set_language],
     )
 
@@ -85,6 +84,10 @@ state updates, you can reflect these updates natively in your application.
             media_type=accept or "text/event-stream",
         )
     ```
+
+    <Callout type="warn">
+      Don't seed the initial value with `Agent(variables={"language": "english"})` — agent variables take precedence over the incoming `RunAgentInput.state` on every run, so the agent would reset the language back to `english` on the turn after it set `spanish`. Provide the default in the UI (as the `?? "english"` fallback below does) or with `context.variables.setdefault` inside a tool.
+    </Callout>
 
   </Step>
   <Step>

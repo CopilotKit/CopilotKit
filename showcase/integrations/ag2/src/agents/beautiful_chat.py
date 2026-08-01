@@ -85,15 +85,8 @@ short sentence — let the visual do the talking.
 """
 
 
-async def generate_a2ui(
-    context: Annotated[
-        str,
-        Field(
-            description="Conversation context summary the secondary LLM should design UI from"
-        ),
-    ],
-) -> str:
-    """Generate dynamic A2UI components based on the conversation.
+def _generate_a2ui(context: str) -> str:
+    """Blocking secondary-LLM round-trip for `generate_a2ui`.
 
     Kept synchronous and offloaded via ``asyncio.to_thread`` from the async
     tool wrapper below: the synchronous ``openai.OpenAI().chat.completions``
@@ -129,6 +122,27 @@ async def generate_a2ui(
         return json.dumps(result)
 
     return json.dumps({"error": "LLM did not call render_a2ui"})
+
+
+async def generate_a2ui(
+    context: Annotated[
+        str,
+        Field(
+            description="Conversation context summary the secondary LLM should design UI from"
+        ),
+    ],
+) -> str:
+    """Generate dynamic A2UI components based on the conversation.
+
+    A secondary LLM is bound to the `render_a2ui` tool with `tool_choice`
+    forced, and the resulting arguments are wrapped into an
+    `a2ui_operations` container the runtime A2UI middleware detects and
+    forwards to the frontend.
+
+    The blocking LLM round-trip runs in ``_generate_a2ui`` and is offloaded
+    via ``asyncio.to_thread`` so it never blocks the event loop.
+    """
+    return await asyncio.to_thread(_generate_a2ui, context)
 
 
 agent = Agent(
