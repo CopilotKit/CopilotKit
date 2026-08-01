@@ -14,6 +14,20 @@ Channel itself only runs inside a CopilotKit Intelligence-configured
 standalone / DIY runner and no `channel.start()`; the runtime starts and owns
 the channel because Intelligence is configured.
 
+## Managed Channels: the alternative to holding your own credentials
+
+This adapter is the **self-hosted** path: your process holds the Slack credentials, runs the Slack ingress, and talks to Slack directly.
+
+**Managed Intelligence Channels** is the alternative. Intelligence owns the provider edge — signed ingress, egress, and encrypted credential storage — so your process holds no Slack credentials and exposes no public Slack endpoint. You also get durable threads, the Channels dashboard with per-Channel health and transcripts, and guided provider setup from either the browser wizard or the CLI:
+
+```bash
+npx copilotkit channels add support
+```
+
+Your bot code is otherwise identical — the agent, tools, context, commands, and turn handlers do not change. Only the transport does. See `examples/slack/app/managed.ts` for the same bot wired both ways, and the **copilotkit-channels** skill for the runtime wiring.
+
+This self-hosted adapter remains fully supported. Choose it when you want the provider connection inside your own infrastructure.
+
 ## Install
 
 ```sh
