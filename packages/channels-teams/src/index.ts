@@ -15,7 +15,9 @@ export {
   conversationKeyOf,
   parseCardAction,
   CARD_ENVELOPE_KEYS,
+  isCardEnvelopeKey,
 } from "./interaction.js";
+export type { CardEnvelopeKey, TeamsActivityLike } from "./interaction.js";
 
 export { renderTeamsMarkdown } from "./render/markdown.js";
 export { autoCloseOpenMarkdown } from "./render/auto-close.js";
