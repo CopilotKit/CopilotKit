@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    // mastra-specific addition (not in the reference tsconfig.channel.json):
+    // src/agent.ts pulls in src/mastra/**, which uses the "@/*" alias
+    // internally (e.g. src/mastra/agents/index.ts imports "@/mastra/tools").
+    // Without this, both tsc and tsx fail to resolve that import — verified
+    // by running `npm run channel`, which crashes with
+    // "Cannot find module '@/mastra/tools'" without it.
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["channel-host.mts", "src/agent.ts"]
+}
