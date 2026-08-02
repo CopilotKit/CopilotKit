@@ -11,7 +11,8 @@
     "start": "next start",
     "install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat",
     "postinstall": "npm run install:agent",
-    "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts"
+    "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts",
+    "typecheck:channel": "tsc -p tsconfig.channel.json --noEmit"
   },
   "dependencies": {
     "@copilotkit/a2ui-renderer": "1.64.3-canary.1785633429",

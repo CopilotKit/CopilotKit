@@ -42,17 +42,32 @@ function resolveChannelName(): string {
   const fromEnv = process.env.INTELLIGENCE_CHANNEL_NAME;
   if (fromEnv) return fromEnv;
 
-  let names: string[];
+  const configPath = ".copilotkit/channels.json";
+
+  // Read and parse are separate try blocks on purpose: a missing file and a
+  // malformed one are different problems with different fixes, and conflating
+  // them sends someone to re-run `channels add` when the real issue is a typo
+  // in JSON they already have.
+  let raw: string;
   try {
-    const config: unknown = JSON.parse(
-      readFileSync(".copilotkit/channels.json", "utf8"),
-    );
-    const channels = (config as { channels?: { name?: string }[] }).channels;
-    names = (channels ?? []).flatMap((c) => (c.name ? [c.name] : []));
+    raw = readFileSync(configPath, "utf8");
   } catch {
     console.error(
-      "[channel] no .copilotkit/channels.json found.\n" +
+      `[channel] no ${configPath} found.\n` +
         "  Run `copilotkit channels add <name>` first, or set INTELLIGENCE_CHANNEL_NAME.",
+    );
+    process.exit(1);
+  }
+
+  let names: string[];
+  try {
+    const config: unknown = JSON.parse(raw);
+    const channels = (config as { channels?: { name?: string }[] }).channels;
+    names = (channels ?? []).flatMap((c) => (c.name ? [c.name] : []));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[channel] ${configPath} exists but could not be parsed: ${message}`,
     );
     process.exit(1);
   }
