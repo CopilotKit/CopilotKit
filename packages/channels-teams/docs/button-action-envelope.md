@@ -203,12 +203,37 @@ the adapter never reads `activity.text` on this path:
 - **Typed text is a string.** Teams delivers `Input.Text` values as strings and
   nothing may coerce them: `42`, `true`, `null` and `{"a":1}` must reach the
   handler as those four strings.
-- **`values` carries only submitted data.** `parseCardAction` builds it with a
-  null prototype, because `__proto__` survives `JSON.parse` as an own key: an
-  out-of-band decoder that copies fields onto a plain `{}` runs
-  `Object.prototype`'s setter instead, and the handler then sees an invisible
-  inherited property in place of the submitted value. Build the field map with
-  `Object.create(null)`.
+- **Write each field with `defineProperty`; keep the bag an ordinary object.**
+  `__proto__` survives `JSON.parse` as an own key, so a crafted submit really
+  can carry one. A decoder that copies fields with `bag[key] = fieldValue` runs
+  `Object.prototype`'s `__proto__` **setter** instead of creating a field: the
+  submitted value vanishes from `Object.keys(bag)` and — being an object —
+  becomes the bag's prototype, so everything it carries reads back off the bag
+  as though it had been submitted. `parseCardAction` writes every field with
+  `Object.defineProperty` (see `setField` in `src/interaction.ts`), which
+  performs `[[DefineOwnProperty]]` and never consults a setter, so `__proto__`
+  lands as ordinary enumerable own data like any other field id. Reproduce with
+  `JSON.parse('{"ckActionId":"ck:x","__proto__":{"injected":true},"reason":"ok"}')`:
+  `values.injected` is `undefined`, `Object.keys(values)` is
+  `["__proto__", "reason"]`, and the global `Object.prototype` is untouched.
+  **Do _not_ reach for `Object.create(null)`.** It blocks the same injection,
+  but at a price you cannot pay here: `values` is public API — it reaches
+  application handlers as `ctx.values`, typed `Record<string, unknown>` — and a
+  prototype-less bag makes ordinary consumer code like
+  `ctx.values.hasOwnProperty(id)` throw and `String(ctx.values)` break.
+  `Object.getPrototypeOf(values)` is `Object.prototype`.
+- **What the ordinary prototype costs, and what it does not.** Because the bag
+  keeps its prototype, a field id that was **not** submitted but is spelled like
+  a builtin reads back the builtin rather than `undefined` — `values.toString`
+  is a function on a bag carrying no `toString` field. That is true of every
+  `Record<string, unknown>` on this API, and it is not the injection; test
+  presence with `Object.hasOwn(values, id)` or `Object.keys(values)`, never
+  truthiness. The half that _is_ guaranteed: a field that **was** submitted
+  always wins, because `defineProperty` creates an own property that shadows its
+  `Object.prototype` namesake — a submitted `toString` reads back as the
+  submitted string. The `ckValueField` lookup is `hasOwnProperty`-guarded for
+  the same reason, so a `ckValueField` naming an unsubmitted builtin misses and
+  takes the fallback above rather than dispatching `Object.prototype.toString`.
 - **Conversation key:** derive it from `activity.conversation.id` (see
   `conversationKeyOf`). Ingress and interaction decode MUST use the same key or
   the waiter is stranded.
