@@ -355,6 +355,10 @@ function renderActionElement(node: ChannelNode): object | null {
           type: "plain_text",
           text: String(props.placeholder ?? " "),
         },
+        // A plain string on the wire, never JSON: `SelectOption.value` is a
+        // `string`, so `interaction.ts` reads it back verbatim. (A `<Button>`'s
+        // value is the opposite — `JSON.stringify`d above, JSON-parsed on the
+        // way in.) `String(...)` keeps that true for an untyped JS caller.
         options: items.map((o) => ({
           text: { type: "plain_text", text: truncateText(o.label, 75) },
           value: truncateText(String(o.value), 150),
@@ -417,6 +421,7 @@ function multiSelectInput(node: ChannelNode): KnownBlock {
         type: "plain_text",
         text: String(props.placeholder ?? " "),
       },
+      // Verbatim strings, as in renderActionElement's `select` case.
       options: items.map((o) => ({
         text: { type: "plain_text", text: truncateText(o.label, 75) },
         value: truncateText(String(o.value), 150),

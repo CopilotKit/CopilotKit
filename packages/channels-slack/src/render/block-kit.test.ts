@@ -115,6 +115,32 @@ describe("renderBlockKit", () => {
     expect(select.action_id.length).toBeGreaterThan(0);
   });
 
+  it("writes select option values verbatim, never JSON-encoded", () => {
+    // The wire codec the decoder is paired with: a `SelectOption.value` is a
+    // `string` and goes out as-is, so `interaction.ts` must NOT JSON-parse it
+    // back. (A `<Button>`'s value is the opposite — see the JSON.stringify
+    // case above.) Values that happen to look like JSON make the difference
+    // visible.
+    const options = [
+      { label: "A", value: "42" },
+      { label: "B", value: "true" },
+      { label: "C", value: "null" },
+    ];
+    for (const multi of [false, true]) {
+      const blocks = renderBlockKit([
+        {
+          type: "actions",
+          props: { children: [{ type: "select", props: { options, multi } }] },
+        },
+      ]);
+      const el = multi
+        ? (blocks[0] as { element: { options: { value: string }[] } }).element
+        : (blocks[0] as { elements: { options: { value: string }[] }[] })
+            .elements[0]!;
+      expect(el.options.map((o) => o.value)).toEqual(["42", "true", "null"]);
+    }
+  });
+
   it("renders a Table IR into a native Slack table block", () => {
     const ir: ChannelNode[] = [
       {

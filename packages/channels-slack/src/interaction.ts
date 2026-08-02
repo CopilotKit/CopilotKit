@@ -78,21 +78,26 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     threadTs: isDm && !explicitThreadTs ? undefined : threadTs,
   };
 
-  // Tiny, non-sensitive value: the clicked button's value (or selected option
-  // value), JSON-parsed if it round-trips, otherwise the raw string. A
-  // multi_static_select reports `selected_options` (an array) → a `string[]`.
+  // Tiny, non-sensitive value: the clicked control's reading, decoded with the
+  // codec that encoded it (see block-kit.ts). Only a `<Button>`'s value is
+  // JSON-encoded there, so only `action.value` is JSON-parsed — falling back to
+  // the raw string when it isn't JSON.
   //
-  // Free text typed by a user is the exception: it is a string by contract
-  // (`<Input onSubmit>` is a `ClickHandler<string>`), and JSON-parsing it would
-  // silently hand the handler `42` as a number, `true` as a boolean, `null`, or
-  // `{"a":1}` as an object. Parsing is correct only for values WE serialized.
+  // Everything else is a string on the wire and stays one. Free text is a
+  // string by contract (`<Input onSubmit>` is a `ClickHandler<string>`), and so
+  // is a select's option value (`SelectOption.value` is a `string`, written out
+  // verbatim). JSON-parsing either would silently hand the handler `42` as a
+  // number, `true` as a boolean, `null`, or `{"a":1}` as an object. A
+  // multi_static_select reports `selected_options` (an array) → a `string[]`.
   let value: unknown;
   if (action.type === PLAIN_TEXT_INPUT) {
     value = action.value;
   } else if (action.selected_options) {
-    value = action.selected_options.map((o) => parseValue(o.value));
+    value = action.selected_options.map((o) => o.value);
+  } else if (action.value !== undefined) {
+    value = parseValue(action.value);
   } else {
-    value = parseValue(action.value ?? action.selected_option?.value);
+    value = action.selected_option?.value;
   }
 
   const actor = body.user?.id
@@ -145,7 +150,12 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   };
 }
 
-/** JSON-parse a control value so non-string option values round-trip; else keep the raw string. */
+/**
+ * JSON-parse a `<Button>` value — the one control whose value block-kit
+ * serializes with `JSON.stringify`, so `{decision:"yes"}` round-trips as an
+ * object. Falls back to the raw string when it isn't JSON (e.g. Slack's own
+ * `feedback_buttons`, whose "positive"/"negative" we never encoded).
+ */
 function parseValue(raw: string | undefined): unknown {
   if (typeof raw !== "string") return raw;
   try {
@@ -173,16 +183,18 @@ interface SlackBlockState {
 
 /**
  * The current value of one `state.values` element, resolved by exactly the rule
- * the clicked action uses above: user-typed text passes through verbatim, and
- * only option values — which we serialized ourselves — are JSON-parsed. The two
- * must agree, or the same `<Select>` would reach a handler as `1` via
- * `ctx.action.value` and `"1"` via `ctx.values`.
+ * the clicked action uses above. Nothing here is JSON-decoded: a `<Button>` is
+ * the only control whose value we JSON-encode and it holds no state, so every
+ * reading Slack reports — typed text, option values — is a string on the wire
+ * and stays one. The two readers must agree, or the same `<Select>` would reach
+ * a handler as `42` via `ctx.action.value` and `"42"` via `ctx.values`.
  */
 function stateElementValue(el: SlackStateElement): unknown {
+  // Explicit ahead of the shared fallback: Slack reports an EMPTY text input as
+  // `value: null`, which the `??` below would turn into `undefined`.
   if (el.type === PLAIN_TEXT_INPUT) return el.value;
-  if (el.selected_options)
-    return el.selected_options.map((o) => parseValue(o.value));
-  return parseValue(el.value ?? el.selected_option?.value);
+  if (el.selected_options) return el.selected_options.map((o) => o.value);
+  return el.value ?? el.selected_option?.value;
 }
 
 /**
