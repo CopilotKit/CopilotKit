@@ -263,19 +263,74 @@ describe("renderAdaptiveCard", () => {
     ]);
   });
 
-  it("synthesizes a submit beside a <Button> that routes nowhere", () => {
-    // A handler-less <Button> submits the card but carries no ckActionId, so
-    // the decode treats the click as an ordinary chat message and the input's
-    // text goes nowhere.
+  it("drops a <Button> with neither a url nor an onClick", () => {
+    // It would render as an Action.Submit with no ckActionId: clicking it
+    // submits the card, and Teams delivers that as a Message activity with
+    // empty text, which the decode reads as an ordinary chat message.
+    const card = renderAdaptiveCard([
+      el("actions", [el("button", [text("Dismiss")], {})]),
+    ]);
+
+    expect(card.actions).toBeUndefined();
+  });
+
+  it("drops a <Button> carrying a value but no onClick", () => {
+    // `value` is not a route: without a ckActionId the submit is rejected by
+    // `parseCardAction` exactly as a bare one is.
+    const card = renderAdaptiveCard([
+      el("button", [text("Later")], { value: "later" }),
+    ]);
+
+    expect(card.actions).toBeUndefined();
+  });
+
+  it("leaves only the synthesized submit when a <Button> routes nowhere", () => {
+    // The dead button is the path by which typed text is silently discarded:
+    // Teams merges the card's inputs into whichever submit fires, so clicking
+    // it would carry the input's text into a turn the engine reads as blank.
     const card = renderAdaptiveCard([
       el("input", [], { onSubmit: { id: "ck:note" } }),
       el("button", [text("Dismiss")], {}),
     ]);
 
-    expect(card.actions).toHaveLength(2);
-    expect(card.actions![1]).toMatchObject({
-      data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
+  });
+
+  it("does not synthesize a submit for an option-less <Select>", () => {
+    // An empty ChoiceSet has nothing to pick, so the submit would dispatch
+    // `undefined` to a handler whose contract is the chosen value.
+    const card = renderAdaptiveCard([
+      el("select", [], { onSelect: { id: "ck:pick" }, options: [] }),
+    ]);
+
+    expect(card.body[0]).toMatchObject({
+      type: "Input.ChoiceSet",
+      choices: [],
     });
+    expect(card.actions).toBeUndefined();
+  });
+
+  it("skips an option-less <Select> when picking the synthesized submit's field", () => {
+    // Only the first *usable* field backs the submit; an unpickable one must
+    // not consume the single binding and strand the field below it.
+    const card = renderAdaptiveCard([
+      el("select", [], { onSelect: { id: "ck:pick" } }),
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
   });
 
   it("binds the synthesized submit to only the FIRST input; the rest ride in `values`", () => {

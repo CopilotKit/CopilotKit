@@ -51,6 +51,11 @@ const SYNTHETIC_SUBMIT_TITLE = "Submit";
  * are inputs gets a synthesized `Action.Submit`, without which Teams offers no
  * way to submit it at all.
  *
+ * A control that cannot route its interaction anywhere is not emitted as one: a
+ * `<Button>` with neither a `url` nor an `onClick` is dropped (see
+ * `renderButton`), and a field that cannot produce a value cannot back the
+ * synthesized submit (see `synthesizeSubmit`).
+ *
  * The renderer is total: unknown intrinsics are skipped. Collections clamp and
  * text truncates to {@link TEAMS_LIMITS} so the card stays within Teams' payload
  * ceiling.
@@ -105,14 +110,16 @@ export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
  * reach a `ClickHandler<string>` as `undefined`).
  *
  * "Dispatchable" is the caller's test, not "has actions": a link `<Button>`
- * renders as `Action.OpenUrl`, which opens a URL and submits nothing, and a
- * `<Button>` with no `onClick` submits but routes nowhere. Either one beside an
- * `<Input>` would otherwise reproduce the original defect.
+ * renders as `Action.OpenUrl`, which opens a URL and submits nothing, so one
+ * beside an `<Input>` would otherwise reproduce the original defect. (A
+ * `<Button>` that routes nowhere is not emitted at all — see `renderButton`.)
  *
- * This covers `<Select>` too, since it is unsubmittable for the same reason.
- * Note a `<Select multi>` still arrives as Teams' comma-joined string rather
- * than the `string[]` `onSelect` declares — a pre-existing Teams fidelity gap
- * (see `renderSelect`) that this only makes reachable, not worse.
+ * This covers `<Select>` too, since it is unsubmittable for the same reason,
+ * but only when it has something to pick: `renderNode` withholds an option-less
+ * one, whose (absent) choice would reach its handler as `undefined`. Note a
+ * `<Select multi>` still arrives as Teams' comma-joined string rather than the
+ * `string[]` `onSelect` declares — a pre-existing Teams fidelity gap (see
+ * `renderSelect`) that this only makes reachable, not worse.
  */
 function synthesizeSubmit(
   clampedBody: CardElement[],
@@ -139,7 +146,11 @@ function synthesizeSubmit(
   };
 }
 
-/** Can this action route an interaction back into the engine when it fires? */
+/**
+ * Can this action route an interaction back into the engine when it fires?
+ * `renderButton` only emits a submit that can, so the `data` test holds by
+ * construction; it is checked here so the predicate stands on its own.
+ */
 function isDispatchableSubmit(action: CardAction): boolean {
   if (action.type !== "Action.Submit") return false;
   const data = action.data as { ckActionId?: unknown } | undefined;
@@ -221,16 +232,31 @@ function renderNode(
       for (const child of childNodes(node))
         renderNode(child, body, actions, context);
       return;
-    case "button":
-      actions.push(renderButton(node));
+    case "button": {
+      // Absent for a button that can route nowhere — see `renderButton`.
+      const action = renderButton(node);
+      if (action) actions.push(action);
       return;
-    case "select":
+    }
+    case "select": {
+      // An option-less ChoiceSet offers nothing to pick, so it can never carry
+      // a value and must not back a synthesized submit.
+      const options = props.options;
+      const pickable = Array.isArray(options) && options.length > 0;
       body.push(
-        renderSelect(node, fieldId(node, "onSelect", "select", context)),
+        renderSelect(
+          node,
+          fieldId(node, "onSelect", "select", context, pickable),
+        ),
       );
       return;
+    }
     case "input":
-      body.push(renderInput(node, fieldId(node, "onSubmit", "input", context)));
+      // An Input.Text always submits a string (empty when untouched), so it is
+      // always a candidate to back a synthesized submit.
+      body.push(
+        renderInput(node, fieldId(node, "onSubmit", "input", context, true)),
+      );
       return;
     default:
       // Unknown intrinsic: skip (total renderer).
@@ -264,7 +290,18 @@ function factSet(fieldNodes: ChannelNode[]): CardElement {
   return { type: "FactSet", facts };
 }
 
-function renderButton(node: ChannelNode): CardAction {
+/**
+ * A `<Button>` → a top-level action, or `undefined` when it can route nowhere.
+ *
+ * A `<Button>` with neither a `url` nor an `onClick` has no destination, and
+ * there is no inert button in Adaptive Cards: emitted as an `Action.Submit` it
+ * would still submit the card, and Teams delivers that as an ordinary Message
+ * activity with empty `text`, which `parseCardAction` rejects (no `ckActionId`)
+ * and the adapter then drives as a blank user turn. Worse, Teams merges every
+ * card input into whichever submit fires, so the click also swallows what the
+ * user typed. Emitting nothing is the only shape that cannot do either.
+ */
+function renderButton(node: ChannelNode): CardAction | undefined {
   const props = node.props ?? {};
   // Link button → Action.OpenUrl (opens the URL; carries no submit data).
   if (typeof props.url === "string" && props.url.length > 0) {
@@ -274,17 +311,19 @@ function renderButton(node: ChannelNode): CardAction {
       url: props.url,
     };
   }
+  // The opaque action id is what routes the submit back into the engine, so a
+  // button without one is dropped. `value` alone is not a route: the decode
+  // keys on `ckActionId`.
+  const id = idFromHandler(props.onClick);
+  if (!id) return undefined;
   const action: CardAction = {
     type: "Action.Submit",
     title: truncateText(collectText(node), TEAMS_LIMITS.buttonText),
+    data: {
+      ckActionId: id,
+      ...(props.value !== undefined ? { value: props.value } : {}),
+    },
   };
-  // Forward-ready: carry the opaque action id + value so a later
-  // `decodeInteraction` can route the submit back into the engine.
-  const id = idFromHandler(props.onClick);
-  const data: Record<string, unknown> = {};
-  if (id) data.ckActionId = id;
-  if (props.value !== undefined) data.value = props.value;
-  if (Object.keys(data).length > 0) action.data = data;
   if (props.style === "danger" || props.style === "destructive") {
     action.style = "destructive";
   } else if (props.style === "primary") {
@@ -328,6 +367,8 @@ function fieldId(
   handlerProp: "onSelect" | "onSubmit",
   fallback: "select" | "input",
   context: RenderContext,
+  /** Can this field produce a value? Only then may it back a synthesized submit. */
+  canProduceValue: boolean,
 ): string {
   const props = node.props ?? {};
   const index = ++context.nextFieldIndex;
@@ -345,7 +386,9 @@ function fieldId(
   // An explicit `name` (or a dedupe suffix) makes the field id diverge from the
   // minted action id, so record both: dispatch needs the action id, reading the
   // submitted text needs the field id.
-  if (actionId) context.boundFields.push({ fieldId: candidate, actionId });
+  if (actionId && canProduceValue) {
+    context.boundFields.push({ fieldId: candidate, actionId });
+  }
   return candidate;
 }
 
