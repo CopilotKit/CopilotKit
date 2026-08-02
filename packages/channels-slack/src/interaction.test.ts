@@ -130,6 +130,51 @@ describe("decodeInteraction", () => {
     }
   });
 
+  it('delivers an EMPTY plain_text_input as "", in `value` and in `values` alike', () => {
+    // Slack reports a genuinely empty text input as `value: null`. Passing that
+    // through breaks the `ClickHandler<string>` contract, and it disagrees with
+    // Teams, where the same JSX arrives as `""` (Teams merges an untouched
+    // `Input.Text` into the submit that way — see its `render/adaptive-card.ts`
+    // and `input-submit.e2e.test.ts`). Empty is `""` on both surfaces.
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [
+        { action_id: "ck:note", type: "plain_text_input", value: null },
+      ],
+      state: {
+        values: {
+          "ckf:note": { "ck:note": { type: "plain_text_input", value: null } },
+        },
+      },
+    });
+    expect(evt!.value).toBe("");
+    expect(evt!.values!.note).toBe("");
+  });
+
+  it('reports an untouched <Input> beside a clicked <Button> as "" in `values`', () => {
+    // The non-dispatching half of the same contract, and the exact shape Teams
+    // asserts: one field filled in, one left blank, submitted together. Slack
+    // still lists the blank one — as `null` — so `values` must report `""` for
+    // it, not `null` and not a missing key.
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [{ action_id: "ck:approve", type: "button", value: '"yes"' }],
+      state: {
+        values: {
+          "ckf:why": {
+            "ck:why": { type: "plain_text_input", value: "ship it" },
+          },
+          "ckf:details": {
+            "ck:details": { type: "plain_text_input", value: null },
+          },
+        },
+      },
+    });
+    expect(evt!.values).toEqual({ why: "ship it", details: "" });
+  });
+
   it("still JSON-parses a button value (a payload we serialized ourselves)", () => {
     const evt = decodeInteraction({
       type: "block_actions",

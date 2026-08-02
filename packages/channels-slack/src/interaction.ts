@@ -55,7 +55,8 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     actions?: Array<{
       action_id?: string;
       type?: string;
-      value?: string;
+      /** `null`, not absent, when the control is a text input the user left empty. */
+      value?: string | null;
       selected_option?: { value?: string };
       selected_options?: Array<{ value?: string }>;
       action_ts?: string;
@@ -105,7 +106,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   // multi_static_select reports `selected_options` (an array) → a `string[]`.
   let value: unknown;
   if (action.type === PLAIN_TEXT_INPUT) {
-    value = action.value;
+    value = textInputValue(action.value);
   } else if (action.selected_options) {
     value = action.selected_options.map((o) => o.value);
   } else if (action.value !== undefined) {
@@ -170,7 +171,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
  * object. Falls back to the raw string when it isn't JSON (e.g. Slack's own
  * `feedback_buttons`, whose "positive"/"negative" we never encoded).
  */
-function parseValue(raw: string | undefined): unknown {
+function parseValue(raw: string | null | undefined): unknown {
   if (typeof raw !== "string") return raw;
   try {
     return JSON.parse(raw);
@@ -182,10 +183,24 @@ function parseValue(raw: string | undefined): unknown {
 /** Slack's element type for a free-text input — the one control whose value is user-typed. */
 const PLAIN_TEXT_INPUT = "plain_text_input";
 
+/**
+ * A `plain_text_input`'s reading, as the string its contract promises. Slack
+ * reports a field the user left EMPTY as `value: null`, but `<Input onSubmit>`
+ * is a `ClickHandler<string>` and an empty field is emptiness, not absence — so
+ * the reading is `""`. That is also what identical JSX delivers on Teams, which
+ * merges an untouched `Input.Text` into the submit as `""` (see
+ * `render/adaptive-card.ts` in channels-teams); handing a handler `null` here
+ * would make the two surfaces disagree about the same blank box.
+ */
+function textInputValue(raw: string | null | undefined): string {
+  return raw ?? "";
+}
+
 /** One entry of a Slack view/message `state.values` block. */
 interface SlackStateElement {
   type?: string;
-  value?: string;
+  /** `null`, not absent, when the element is a text input the user left empty. */
+  value?: string | null;
   selected_option?: { value?: string };
   selected_options?: Array<{ value?: string }>;
 }
@@ -205,8 +220,9 @@ interface SlackBlockState {
  */
 function stateElementValue(el: SlackStateElement): unknown {
   // Explicit ahead of the shared fallback: Slack reports an EMPTY text input as
-  // `value: null`, which the `??` below would turn into `undefined`.
-  if (el.type === PLAIN_TEXT_INPUT) return el.value;
+  // `value: null`, and the `??` below would resolve that to the (absent)
+  // `selected_option` rather than to the empty string a text field owes.
+  if (el.type === PLAIN_TEXT_INPUT) return textInputValue(el.value);
   if (el.selected_options) return el.selected_options.map((o) => o.value);
   return el.value ?? el.selected_option?.value;
 }
