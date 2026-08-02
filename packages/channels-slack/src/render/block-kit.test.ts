@@ -333,7 +333,113 @@ describe("renderBlockKit", () => {
       "input",
     ]);
   });
+
+  it("does not charge peeled-off inputs against the actions element budget", () => {
+    // The peeled <Input> and <Select multi> land in their own input blocks, so
+    // they occupy no slot in the actions block and must not cost it any.
+    const blocks = renderBlockKit([
+      {
+        type: "actions",
+        props: {
+          children: [
+            { type: "input", props: { onSubmit: { id: "ck:note" } } },
+            {
+              type: "select",
+              props: {
+                multi: true,
+                onSelect: { id: "ck:ms" },
+                options: [{ label: "Core", value: "core" }],
+              },
+            },
+            ...buttons(25),
+          ],
+        },
+      },
+    ]);
+
+    expect(blocks.map((b) => (b as { type: string }).type)).toEqual([
+      "input",
+      "input",
+      "actions",
+    ]);
+    expect((blocks[2] as { elements: unknown[] }).elements).toHaveLength(25);
+  });
+
+  it("budgets actions elements per emitted block, not per child list", () => {
+    // A peeled input splits the children across two actions blocks; each block
+    // is under the 25-element ceiling on its own, so nothing may be dropped.
+    const blocks = renderBlockKit([
+      {
+        type: "actions",
+        props: {
+          children: [
+            ...buttons(20, "a"),
+            { type: "input", props: { onSubmit: { id: "ck:note" } } },
+            ...buttons(20, "b"),
+          ],
+        },
+      },
+    ]);
+
+    expect(blocks.map((b) => (b as { type: string }).type)).toEqual([
+      "actions",
+      "input",
+      "actions",
+    ]);
+    expect((blocks[0] as { elements: unknown[] }).elements).toHaveLength(20);
+    expect((blocks[2] as { elements: unknown[] }).elements).toHaveLength(20);
+  });
+
+  it("still clamps an actions block that really overflows the element limit", () => {
+    const blocks = renderBlockKit([
+      { type: "actions", props: { children: buttons(30) } },
+    ]);
+
+    expect(blocks).toHaveLength(1);
+    expect((blocks[0] as { elements: unknown[] }).elements).toHaveLength(25);
+  });
+
+  it("counts the table header against the table row budget", () => {
+    // The header is a row of the emitted block, so 100 data rows + a header
+    // would put the table one row over Slack's ceiling.
+    const blocks = renderBlockKit([
+      {
+        type: "table",
+        props: {
+          columns: [{ header: "Name" }],
+          children: Array.from({ length: 100 }, (_, i) => ({
+            type: "row",
+            props: {
+              children: [
+                {
+                  type: "cell",
+                  props: {
+                    children: [{ type: "text", props: { value: `r${i}` } }],
+                  },
+                },
+              ],
+            },
+          })),
+        },
+      },
+    ]);
+
+    const rows = (blocks[0] as { rows: { text: string }[][] }).rows;
+    expect(rows).toHaveLength(100);
+    expect(rows[0]![0]!.text).toBe("Name");
+  });
 });
+
+/** `count` pre-bound `<Button>` IR nodes with distinct ids. */
+function buttons(count: number, prefix = "b"): ChannelNode[] {
+  return Array.from({ length: count }, (_, i) => ({
+    type: "button",
+    props: {
+      onClick: { id: `ck:${prefix}${i}` },
+      children: [{ type: "text", props: { value: `B${i}` } }],
+    },
+  }));
+}
 
 describe("renderSlackMessage", () => {
   it("extracts a top-level <Message accent> as the attachment color", () => {

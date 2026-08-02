@@ -180,10 +180,6 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       return;
     }
     case "actions": {
-      const { items } = clampArray(
-        childNodes(node),
-        SLACK_LIMITS.actionsElements,
-      );
       // Neither a text input nor a multi-select can live in an `actions` block
       // (Slack allows both only in section/input blocks), so peel each one off
       // into its own dispatching input block; the rest stay as action elements.
@@ -195,11 +191,16 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       let elements: object[] = [];
       const flush = () => {
         if (elements.length > 0) {
-          out.push({ type: "actions", elements } as KnownBlock);
+          // `actionsElements` bounds one emitted `actions` block, so clamp
+          // here rather than over the children: peeled-off inputs and
+          // unrenderable children never take a slot in any block, and a peel
+          // splits the rest across several blocks that are budgeted apart.
+          const { items } = clampArray(elements, SLACK_LIMITS.actionsElements);
+          out.push({ type: "actions", elements: items } as KnownBlock);
           elements = [];
         }
       };
-      for (const child of items) {
+      for (const child of childNodes(node)) {
         if (child.type === "input") {
           flush();
           out.push(textInput(child));
@@ -267,7 +268,12 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       }
 
       const rowNodes = childNodes(node).filter((c) => c.type === "row");
-      const { items: dataRows } = clampArray(rowNodes, SLACK_LIMITS.tableRows);
+      // The header is a row of the emitted block too, so budget data rows
+      // against what it leaves of the table's row ceiling.
+      const { items: dataRows } = clampArray(
+        rowNodes,
+        SLACK_LIMITS.tableRows - rows.length,
+      );
       for (const rowNode of dataRows) {
         const cells = childNodes(rowNode).filter((c) => c.type === "cell");
         rows.push(cells.map((cell) => cellOf(collectText(cell))));
