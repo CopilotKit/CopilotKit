@@ -348,9 +348,13 @@ describe("Channels documentation journey", () => {
     expect(teams).toContain("### Connect Microsoft Teams");
     expect(teams).toContain("Microsoft Entra");
     expect(teams).toContain("Azure Bot");
-    expect(teams).toContain("Messaging endpoint");
+    expect(teams).toContain("Fast CLI setup (recommended)");
+    expect(teams).toContain("Guided manual setup");
+    expect(teams).toMatch(/Teams\s+Developer Portal/);
+    expect(teams).toContain("never stores them");
+    expect(teams).toContain("Add to a team");
     expect(teams).toContain("Microsoft Teams");
-    expect(teams).toContain("Download app package (.zip)");
+    expect(teams).toContain("fresh package");
     expect(teams).not.toContain("### Connect Slack");
     expect(teams).not.toContain("connections:write");
     expect(teams).not.toContain("`xapp-…`");

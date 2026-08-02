@@ -4,8 +4,9 @@ description: >
   Use when connecting a CopilotKit agent to Slack or Microsoft Teams with managed
   Intelligence Channels. Covers customising the Channel a CLI-scaffolded project
   already ships, and — for a project the CLI did not generate — the Channel
-  declaration, the long-running host requirement, and the awaited activation call.
-version: 1.0.0
+  declaration, long-running host, and awaited activation call, plus the Teams
+  provider setup done by the CLI or dashboard wizard.
+version: 1.1.0
 ---
 
 # CopilotKit Channels
@@ -34,10 +35,30 @@ The scaffolded path is the one exercised end to end. Wiring an existing project 
 
 A Channel only works when both are correct, and each half is invisible from the other:
 
-1. **The provider half** — an app registered with Slack or Microsoft, credentials stored server-side, ingress pointed at Intelligence. Three doors to it, all reconciling against the same server state so any can finish what another started: `npx copilotkit init` leads an interactive developer through the whole thing during setup; `npx copilotkit channels add` does it for an existing project or an agent; the dashboard wizard does it in a browser.
+1. **The provider half** — an app registered with Slack or Microsoft, credentials stored server-side, ingress pointed at Intelligence. Three entry points converge on it: `npx copilotkit init` guides a new project, `npx copilotkit channels add` handles an existing project or agent, and the dashboard wizard works in a browser. A new Teams app begins with the browser-created draft and uses one of the two paths below.
 2. **The code half** — a long-running runtime that declares the Channel and awaits activation. A scaffolded project **already has this**; for anything else, it is what this skill writes.
 
 The most confusing failure in this product is a correct provider half with a missing code half: the app serves HTTP normally, reports no error, shows an encouraging badge in the dashboard, and answers nothing. Nothing in the browser can diagnose it, because the missing piece is in the source tree.
+
+### Teams provider setup has two peer paths
+
+For Teams, create the durable Channel draft in Intelligence before provisioning Microsoft resources. The browser then offers:
+
+- **Fast CLI setup (recommended):** copy the fully scoped command from the draft:
+
+  ```bash
+  npx copilotkit@latest channels add --project-id <project-id> --channel-id <channel-id> --adapter teams --provision
+  ```
+
+  It works outside a repository, reuses the CopilotKit login, confirms the Microsoft tenant, creates one single-tenant Teams-managed app, and sends the generated secret directly to encrypted Intelligence storage. It does not print the secret, write provider environment files, or modify runtime code.
+
+- **Guided manual setup:** use Teams Developer Portal and Microsoft Entra, enter write-only credentials, and download the finished package from the browser. The normal path does not need Azure Bot and never asks the user to edit `manifest.json`.
+
+Both paths use the same durable setup state and can replace one another mid-setup. `Files.ReadWrite.All` administrator consent and one **Add to a team** installation are required. A non-admin pause is a successful `blocked` outcome with one approval link and the same resume command; rerunning it must reuse the existing Microsoft app.
+
+Custom icon and package bytes stay in browser/CLI memory or a temporary local directory. Never send them to Intelligence, Redis, or another relay. If an attempt stops before upload, require the user to select custom icons again (or explicitly choose the default kite) and delete every temporary copy on exit.
+
+Treat **Created and installed** narrowly: the Microsoft app exists, encrypted credentials are stored, file and Team message access are approved, and a Team installation was recorded. It is not proof that this runtime is online or that a message was delivered.
 
 ## Customising a scaffolded Channel
 
@@ -95,8 +116,8 @@ npx copilotkit channels status
 That compares three things that must agree — the declared configuration, the project source, and the server — and names whichever is missing. Then:
 
 1. Start the long-running host — `npm run channel` in a scaffolded project. It should log the activation.
-2. Invite the bot to a channel (`channels status` prints the invite command with the right handle).
-3. Message the bot. You should get a reply.
+2. In Slack, invite the app to a channel (`channels status` prints the invite command with the right handle). In Teams, provider setup must already record **Add to a team**; do not substitute a personal-only install.
+3. Send a real mention or direct message. You should get a reply.
 
 If nothing happens and there is no error, check in this order: is `activateChannels: false` set anywhere; on a deferring mount, is `ready()` awaited; is `intelligence` passed (not a `runner`); is the realtime URL correct; is the app installed and invited.
 
@@ -260,3 +281,6 @@ When a separate host is needed, it is a small program: the runtime, the Channel,
 - **Do not pass `runner` alongside `intelligence`.** That is what silently keeps threads in memory.
 - **Do not hand-wire a Channel into a scaffolded project.** If `channel-host.mts` is present the code half is done; adding a second declaration stops the host from booting rather than adding a bot.
 - **Do not invent Channel infrastructure ids.** Project, adapter, and channel ids are derived from the Intelligence config plus the Channel `name`.
+- **Do not send Teams icon or package bytes through Intelligence.** Browser-generated artifacts stay local to the active attempt and are discarded afterward.
+- **Do not use Azure Bot for normal managed Teams setup.** The launch path is Teams Developer Portal plus Entra, or the Teams-managed Fast CLI path.
+- **Do not call a Teams Channel working because setup says Created and installed.** Provider completion and runtime/message health are separate axes.

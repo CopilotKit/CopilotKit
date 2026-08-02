@@ -5,7 +5,7 @@ description: >
   project from scratch. Covers framework detection, package installation, runtime wiring
   (managed Intelligence or self-hosted SSE), provider setup, and first working chat
   integration.
-version: 1.2.0
+version: 1.3.0
 ---
 
 # CopilotKit Setup
@@ -455,6 +455,8 @@ See `references/telemetry-setup.md` for what the license key enables and how to 
 Channels let an agent answer in Slack or Teams. They require the Intelligence runtime -- `channels` is not available in SSE mode -- and a long-running host, because activation opens a persistent connection.
 
 Use the **copilotkit-channels** skill for this. It covers declaring a Channel, the long-running host requirement, and which mounts start activation on their own versus which wait for an explicit `channels.ready()` call. It builds on the wiring from this step.
+
+For a new managed Teams app, create the Channel draft in Intelligence first and use either the recommended browser-issued Fast CLI command (`channels add --project-id … --channel-id … --adapter teams --provision`) or the peer Guided manual path. Do not scaffold Azure Bot resources or place Microsoft credentials, custom icons, or generated packages in the project. The provider's **Created and installed** result is separate from this code half; only a running host plus a real Teams interaction verifies the integration end to end.
 
 ### Step 7: Verify the setup
 
