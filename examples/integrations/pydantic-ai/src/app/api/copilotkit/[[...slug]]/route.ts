@@ -4,7 +4,7 @@ import {
   InMemoryAgentRunner,
   createCopilotEndpoint,
 } from "@copilotkit/runtime/v2";
-import { HttpAgent } from "@ag-ui/client";
+import { createDefaultAgent } from "@/agent";
 import { handle } from "hono/vercel";
 
 // 1. Create the CopilotRuntime instance and utilize the PydanticAI AG-UI
@@ -12,9 +12,7 @@ import { handle } from "hono/vercel";
 const runtime = new CopilotRuntime({
   agents: {
     // Our FastAPI endpoint URL
-    default: new HttpAgent({
-      url: process.env.AGENT_URL || "http://localhost:8000/",
-    }),
+    default: createDefaultAgent(),
   },
   // --- copilotkit:intelligence (remove this block to opt out) ---
   ...(process.env.COPILOTKIT_LICENSE_TOKEN
