@@ -85,16 +85,16 @@ npm run build
 # Lint code
 npm run lint
 
-# Hold a managed Intelligence Channel open (see "Running a managed Channel" below)
+# Hold an Intelligence Channel open (see "Running a Channel" below)
 npm run channel
 
 # Type-check channel-host.mts on its own tsconfig.channel.json
 npm run typecheck:channel
 ```
 
-## Running a managed Channel
+## Running a Channel
 
-`channel-host.mts` mounts the orchestrator agent as a managed Intelligence
+`channel-host.mts` mounts the orchestrator agent as an Intelligence
 Channel (Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared
 Channel in `.copilotkit/channels.json` — set both up with `copilotkit init` or
 `copilotkit channels add`, which write that file and the credentials your
@@ -112,8 +112,8 @@ Intelligence owns the provider edge — so the same file works for every provide
 
 Once startup finishes, the log reports the truth per Channel:
 
-- `Channel "<name>" is online.` — the managed session is up and can send.
-- `Channel "<name>" is declared but no managed provider is attached yet.` —
+- `Channel "<name>" is online.` — the session is up and can send.
+- `Channel "<name>" is declared but no provider is attached yet.` —
   a normal waiting state, not a failure. Run `copilotkit channels status` to
   see what setup remains.
 

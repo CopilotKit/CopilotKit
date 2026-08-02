@@ -1,14 +1,14 @@
 /**
- * Managed Channel host — a second mount over the SAME agent the web route serves.
+ * Channel host — a second mount over the SAME agent the web route serves.
  *
- * The runtime route answers HTTP for the web app. This process holds a managed
+ * The runtime route answers HTTP for the web app. This process holds an
  * Intelligence Channel open (Slack, Teams, ...) and delivers its turns to that
  * same agent.
  *
  * It holds NO provider credentials and exposes NO provider endpoint:
  * Intelligence owns the provider edge and delivers turns over its realtime
- * transport. `createChannel` takes no adapters in managed mode, which is why
- * this file is identical in every starter and for every provider.
+ * transport. `createChannel` takes no adapters here, which is why this file
+ * is identical in every starter and for every provider.
  *
  * Run: `npm run channel`
  */
@@ -90,7 +90,7 @@ function resolveChannelName(): string {
 async function main(): Promise<void> {
   const channelName = resolveChannelName();
 
-  // No adapters and no provider tools: the managed transport is attached by the
+  // No adapters and no provider tools: the transport is attached by the
   // runtime when the handler activates the Channel, and per-provider tools would
   // make this file provider-specific. `onMessage` (not `onMention`) is what makes
   // the host work on 1:1 platforms as well as multi-party ones — a non-mention
@@ -192,7 +192,7 @@ async function main(): Promise<void> {
     console.log(`[channel] Channel "${channelName}" is online.`);
   } else if (thisStatus === "setup_required") {
     console.log(
-      `[channel] Channel "${channelName}" is declared but no managed provider is attached yet.\n` +
+      `[channel] Channel "${channelName}" is declared but no provider is attached yet.\n` +
         "  This is a normal waiting state, not an error — run `copilotkit channels status` " +
         "to see what setup remains before it can send or receive messages.",
     );
@@ -210,6 +210,6 @@ process.on("unhandledRejection", (reason) => {
 });
 
 main().catch((err: unknown) => {
-  console.error("[channel] fatal: failed to start managed Channel", err);
+  console.error("[channel] fatal: failed to start Channel", err);
   process.exit(1);
 });

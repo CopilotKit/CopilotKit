@@ -65,9 +65,9 @@ agent updates through the adapter's built-in `ag_ui_update_state` tool.
    Intelligence license. Set `COPILOTKIT_LICENSE_TOKEN` (and the `INTELLIGENCE_*` URLs) in
    `.env` to activate live thread history; without it the drawer shows a locked state.
 
-## Running a managed Channel
+## Running a Channel
 
-`channel-host.mts` mounts the same agent as a managed Intelligence Channel
+`channel-host.mts` mounts the same agent as an Intelligence Channel
 (Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
 `.copilotkit/channels.json` — set both up with `copilotkit init` or
 `copilotkit channels add`, which write that file and the credentials your
@@ -85,8 +85,8 @@ Intelligence owns the provider edge — so the same file works for every provide
 
 Once startup finishes, the log reports the truth per Channel:
 
-- `Channel "<name>" is online.` — the managed session is up and can send.
-- `Channel "<name>" is declared but no managed provider is attached yet.` —
+- `Channel "<name>" is online.` — the session is up and can send.
+- `Channel "<name>" is declared but no provider is attached yet.` —
   a normal waiting state, not a failure. Run `copilotkit channels status` to
   see what setup remains.
 
@@ -102,7 +102,7 @@ it) before treating the Channel as working.
 - `npm run build` — build the Next.js app for production
 - `npm start` — start the production server
 - `npm run install:agent` — (re)install the Python agent's dependencies
-- `npm run channel` — hold a managed Intelligence Channel open (see "Running a managed Channel" above)
+- `npm run channel` — hold an Intelligence Channel open (see "Running a Channel" above)
 - `npm run typecheck:channel` — type-check `channel-host.mts` on its own `tsconfig.channel.json`
 
 ## Project structure

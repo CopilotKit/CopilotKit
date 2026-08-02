@@ -17,7 +17,7 @@ export function createLocalAgents(): Record<string, AbstractAgent> {
 }
 
 /**
- * The single agent the managed Channel drives.
+ * The single agent the Channel drives.
  *
  * A Channel is one conversation surface, so it takes one agent. The first local
  * agent is the deliberate choice, and an empty registry is a configuration error

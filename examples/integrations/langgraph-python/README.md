@@ -66,9 +66,9 @@ bun run dev
 
 This will start both the UI and agent servers concurrently.
 
-## Running a managed Channel
+## Running a Channel
 
-`channel-host.mts` mounts the same agent as a managed Intelligence Channel
+`channel-host.mts` mounts the same agent as an Intelligence Channel
 (Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
 `.copilotkit/channels.json` — set both up with `copilotkit init` or
 `copilotkit channels add`, which write that file and the credentials your
@@ -87,8 +87,8 @@ Intelligence owns the provider edge — so the same file works for every provide
 Once startup finishes, the log reports the truth per Channel rather than a
 blanket success:
 
-- `Channel "<name>" is online.` — the managed session is up and can send.
-- `Channel "<name>" is declared but no managed provider is attached yet.` —
+- `Channel "<name>" is online.` — the session is up and can send.
+- `Channel "<name>" is declared but no provider is attached yet.` —
   a normal waiting state, not a failure. Run `copilotkit channels status` to
   see what setup remains (e.g. finishing a Slack app install).
 
@@ -108,7 +108,7 @@ The following scripts can also be run using your preferred package manager:
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
 - `install:agent` - Installs Python dependencies for the agent
-- `channel` - Holds a managed Intelligence Channel open (see "Running a managed Channel" above)
+- `channel` - Holds an Intelligence Channel open (see "Running a Channel" above)
 - `typecheck:channel` - Type-checks `channel-host.mts` on its own `tsconfig.channel.json`
 
 ## Project Structure

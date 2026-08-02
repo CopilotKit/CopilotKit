@@ -117,9 +117,9 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
 
    This will start both the Next.js UI (port 3000) and C# agent server (port 8000) concurrently.
 
-## Running a managed Channel
+## Running a Channel
 
-`channel-host.mts` mounts the same agent as a managed Intelligence Channel
+`channel-host.mts` mounts the same agent as an Intelligence Channel
 (Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
 `.copilotkit/channels.json` — set both up with `copilotkit init` or
 `copilotkit channels add`, which write that file and the credentials your
@@ -137,8 +137,8 @@ Intelligence owns the provider edge — so the same file works for every provide
 
 Once startup finishes, the log reports the truth per Channel:
 
-- `Channel "<name>" is online.` — the managed session is up and can send.
-- `Channel "<name>" is declared but no managed provider is attached yet.` —
+- `Channel "<name>" is online.` — the session is up and can send.
+- `Channel "<name>" is declared but no provider is attached yet.` —
   a normal waiting state, not a failure. Run `copilotkit channels status` to
   see what setup remains.
 
@@ -158,7 +158,7 @@ The following scripts can also be run using your preferred package manager:
 - `start` - Starts the production server
 - `lint` - Runs ESLint for code linting
 - `install:agent` - Restores NuGet packages for the C# agent
-- `channel` - Holds a managed Intelligence Channel open (see "Running a managed Channel" above)
+- `channel` - Holds an Intelligence Channel open (see "Running a Channel" above)
 - `typecheck:channel` - Type-checks `channel-host.mts` on its own `tsconfig.channel.json`
 
 ## Project Structure
