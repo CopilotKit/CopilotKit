@@ -79,7 +79,14 @@ export function parseCardAction(activity: TeamsActivityLike):
   ) {
     return undefined;
   }
-  const values: Record<string, unknown> = {};
+  // Null-prototype, because `data` is an inbound payload and `__proto__`
+  // survives `JSON.parse` as an OWN key: assigning it onto a plain `{}` runs
+  // `Object.prototype`'s setter instead of creating a field, so the handler
+  // would receive an INVISIBLE inherited property (absent from `Object.keys`)
+  // in place of the submitted value. With no prototype every key lands as plain
+  // data and nothing is inherited, so `values` is exactly what was submitted —
+  // `constructor` and friends included.
+  const values: Record<string, unknown> = Object.create(null);
   for (const [key, fieldValue] of Object.entries(data)) {
     if (CARD_ENVELOPE_KEYS.includes(key)) continue;
     values[key] = fieldValue;

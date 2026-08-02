@@ -195,7 +195,14 @@ function stateElementValue(el: SlackStateElement): unknown {
 function flattenBlockState(state: SlackBlockState | undefined): {
   [actionId: string]: unknown;
 } {
-  const out: Record<string, unknown> = {};
+  // Null-prototype, because the element ids come from an inbound payload and
+  // `__proto__` survives `JSON.parse` as an OWN key: assigning it onto a plain
+  // `{}` runs `Object.prototype`'s setter instead of creating a field, so the
+  // handler would receive an INVISIBLE inherited property (absent from
+  // `Object.keys`) in place of the element's value. With no prototype every key
+  // lands as plain data and nothing is inherited, so `values` is exactly what
+  // the message carried — `constructor` and friends included.
+  const out: Record<string, unknown> = Object.create(null);
   for (const block of Object.values(state?.values ?? {})) {
     for (const [actionId, el] of Object.entries(block)) {
       out[actionId] = stateElementValue(el);
@@ -281,11 +288,21 @@ interface SlackViewState {
  * `block_actions` reader would silently change what `view_submission` delivers.
  */
 function flattenViewValues(view: SlackViewState): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
+  // Null-prototype for the same reason as {@link flattenBlockState}: block ids
+  // come from an inbound payload, and a `__proto__` key assigned onto a plain
+  // `{}` would run `Object.prototype`'s setter and reach the handler as an
+  // invisible inherited property instead of a submitted field.
+  const out: Record<string, unknown> = Object.create(null);
   const values = view.state?.values ?? {};
   for (const blockId of Object.keys(values)) {
     const inner = values[blockId]!;
-    const el = inner[blockId] ?? Object.values(inner)[0];
+    // Own-key lookup only: an unguarded `inner[blockId]` resolves ids like
+    // `constructor`/`toString` to an `Object.prototype` member, which is truthy
+    // and so would shadow the documented first-element fallback below.
+    const own = Object.prototype.hasOwnProperty.call(inner, blockId)
+      ? inner[blockId]
+      : undefined;
+    const el = own ?? Object.values(inner)[0];
     if (!el) continue;
     out[blockId] = el.value ?? el.selected_option?.value;
   }

@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { decodeInteraction, conversationKeyOf } from "./interaction.js";
+import {
+  decodeInteraction,
+  conversationKeyOf,
+  decodeViewSubmission,
+} from "./interaction.js";
 import { DM_SCOPE } from "./types.js";
 
 describe("conversationKeyOf", () => {
@@ -182,6 +186,50 @@ describe("decodeInteraction", () => {
     expect(evt!.values).toEqual({});
   });
 
+  it("lands a `__proto__` element id as plain data, never on the prototype", () => {
+    // `__proto__` survives JSON.parse as an OWN key, so a crafted payload can
+    // carry one. On a plain `{}` the assignment runs the inherited setter: the
+    // handler then sees `values.injected` without `injected` ever appearing in
+    // `Object.keys(values)`.
+    const evt = decodeInteraction(
+      JSON.parse(`{
+        "type": "block_actions",
+        "container": { "channel_id": "C1", "thread_ts": "200.0" },
+        "actions": [{ "action_id": "ck:approve", "type": "button" }],
+        "state": {
+          "values": {
+            "block1": {
+              "__proto__": {
+                "type": "static_select",
+                "selected_option": { "value": "{\\"injected\\":true}" }
+              },
+              "ck:note": { "type": "plain_text_input", "value": "hi" }
+            }
+          }
+        }
+      }`),
+    );
+    const values = evt!.values!;
+    expect(values.injected).toBeUndefined();
+    expect(Object.keys(values).sort()).toEqual(["__proto__", "ck:note"]);
+    expect(values["__proto__"]).toEqual({ injected: true });
+    expect(values["ck:note"]).toBe("hi");
+  });
+
+  it("does not surface Object.prototype members through `values`", () => {
+    // A handler reading `ctx.values[someActionId]` must get submitted data or
+    // nothing — never an inherited builtin.
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [{ action_id: "ck:b", type: "button" }],
+    });
+    const values = evt!.values!;
+    for (const builtin of ["constructor", "toString", "hasOwnProperty"]) {
+      expect(values[builtin]).toBeUndefined();
+    }
+  });
+
   it("returns undefined for non-block_actions or missing action_id", () => {
     expect(decodeInteraction({ type: "view_submission" })).toBeUndefined();
     expect(
@@ -250,5 +298,49 @@ describe("decodeInteraction", () => {
       actions: [{ action_id: "ck:x", value: "v" }],
     });
     expect(evt!.triggerId).toBe("T123.456");
+  });
+});
+
+describe("decodeViewSubmission field ids vs Object.prototype", () => {
+  it("lands a `__proto__` field id as plain data", () => {
+    // Same inbound-key hazard as `block_actions`: here the flattened value is a
+    // string, so the inherited setter drops it outright and the handler never
+    // sees the field at all.
+    const evt = decodeViewSubmission(
+      JSON.parse(`{
+        "callback_id": "triage",
+        "state": {
+          "values": {
+            "__proto__": {
+              "__proto__": { "type": "plain_text_input", "value": "pwned" }
+            },
+            "summary": {
+              "summary": { "type": "plain_text_input", "value": "boom" }
+            }
+          }
+        }
+      }`),
+    );
+    expect(Object.keys(evt.values).sort()).toEqual(["__proto__", "summary"]);
+    expect(evt.values["__proto__"]).toBe("pwned");
+    expect(evt.values.summary).toBe("boom");
+    for (const builtin of ["constructor", "toString", "hasOwnProperty"]) {
+      expect(evt.values[builtin]).toBeUndefined();
+    }
+  });
+
+  it("falls back to the first element for a block id that names a builtin", () => {
+    // The inner lookup is by block id too: an unguarded `inner[blockId]` finds
+    // `Object.prototype.toString`, which is truthy and so shadows the
+    // first-element fallback, yielding `undefined` for a real field.
+    const evt = decodeViewSubmission({
+      callback_id: "triage",
+      state: {
+        values: {
+          toString: { field: { type: "plain_text_input", value: "typed" } },
+        },
+      },
+    });
+    expect(evt.values["toString"]).toBe("typed");
   });
 });

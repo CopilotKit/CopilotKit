@@ -122,6 +122,31 @@ describe("parseCardAction", () => {
     ).toEqual({ id: "ck:note", value: "fallback", values: {} });
   });
 
+  it("lands a `__proto__` field as plain data, never on the prototype", () => {
+    // `__proto__` survives JSON.parse as an OWN key, so a crafted submit can
+    // carry one. On a plain `{}` the assignment runs the inherited setter: the
+    // handler then sees `values.injected` without `injected` ever appearing in
+    // `Object.keys(values)`.
+    const parsed = parseCardAction({
+      value: JSON.parse(
+        '{"ckActionId":"ck:x","__proto__":{"injected":true},"reason":"ok"}',
+      ),
+    });
+    const values = parsed!.values;
+    expect(values.injected).toBeUndefined();
+    expect(Object.keys(values).sort()).toEqual(["__proto__", "reason"]);
+    expect(values.reason).toBe("ok");
+  });
+
+  it("does not surface Object.prototype members through `values`", () => {
+    // A handler reading `ctx.values[someFieldId]` must get submitted data or
+    // nothing — never an inherited builtin.
+    const values = parseCardAction({ value: { ckActionId: "ck:x" } })!.values;
+    for (const builtin of ["constructor", "toString", "hasOwnProperty"]) {
+      expect(values[builtin]).toBeUndefined();
+    }
+  });
+
   it("keeps typed text as a string even when it parses as JSON", () => {
     // Teams delivers Input.Text values as strings; nothing may coerce them.
     for (const typed of ["42", "true", "null", '{"a":1}']) {
