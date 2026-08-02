@@ -1480,6 +1480,44 @@ test("rejects extra prepared delivery and turn fields", async () => {
   });
 });
 
+test("accepts a namespaced Teams app user id longer than one external id", async () => {
+  const base = preparedDelivery();
+  const appUserId = `teams:00000000-0000-0000-0000-000000000000:29:${"a".repeat(87)}`;
+  const delivery = {
+    ...base,
+    adapter: "teams" as const,
+    appUserId,
+  };
+  const deliveryChannel = channel(delivery);
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockResolvedValue(claimResult(delivery.deliveryId)),
+    on: vi.fn(),
+    join: vi.fn().mockResolvedValue(deliveryChannel),
+  };
+  const handler = vi.fn(async () => undefined);
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+  });
+  transport.start(handler);
+
+  expect(appUserId).toHaveLength(133);
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+  invitationHandler(
+    invitation(delivery.deliveryId, delivery.canonicalThreadId, "teams"),
+  );
+  await vi.waitFor(() => expect(handler).toHaveBeenCalledOnce());
+  await transport.stop();
+});
+
+test("rejects a namespaced app user id over the composite bound", async () => {
+  const base = preparedDelivery();
+  await expectPreparedDeliveryRejected({
+    ...base,
+    appUserId: "a".repeat(2049),
+  });
+});
+
 test("rejects malformed managed mention-routing metadata", async () => {
   const base = preparedDelivery().turn.input;
   await expectPreparedInputRejected({
