@@ -101,6 +101,23 @@ describe("decodeInteraction", () => {
     expect(evt!.actor).toEqual({ id: "unknown", kind: "unknown" });
   });
 
+  it("takes the picker message's ts from the container when `message` is absent", () => {
+    // The half of the container fallback the case above leaves untouched: with
+    // no `message` and no explicit thread_ts, the container's own message_ts is
+    // both the thread root the scope keys on and the ref an onClick
+    // `thread.update(message.ref, …)` targets. It is asserted here because the
+    // fixture above carries an explicit thread_ts and no message_ts, so neither
+    // fallback runs there.
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C3", message_ts: "199.0" },
+      actions: [{ action_id: "ck:c", value: "x" }],
+    });
+    expect(evt!.conversationKey).toBe("C3::199.0");
+    expect(evt!.replyTarget).toEqual({ channel: "C3", threadTs: "199.0" });
+    expect(evt!.messageRef).toEqual({ id: "199.0", channel: "C3" });
+  });
+
   it("decodes a multi_static_select's selected_options into a string[] value", () => {
     const evt = decodeInteraction({
       type: "block_actions",
@@ -351,9 +368,12 @@ describe("decodeInteraction", () => {
 
   it("lands a `__proto__` element id as plain data, never on the prototype", () => {
     // `__proto__` survives JSON.parse as an OWN key, so a crafted payload can
-    // carry one. Assigned with `values[key] = v` it runs the inherited setter:
-    // the handler then sees `values.injected` without `injected` ever appearing
-    // in `Object.keys(values)`.
+    // carry one. Assigned with `values[key] = v` it runs the inherited setter,
+    // which for the STRING reading below drops the write outright: the field
+    // disappears from the bag and the handler never sees it. (The setter can
+    // only redirect the prototype when the reading is an object — the multi
+    // select in the next case. Asserting `values.injected` here would be
+    // unfalsifiable: a string can never become anyone's prototype.)
     const evt = decodeInteraction(
       JSON.parse(`{
         "type": "block_actions",
@@ -373,7 +393,6 @@ describe("decodeInteraction", () => {
       }`),
     );
     const values = evt!.values!;
-    expect(values.injected).toBeUndefined();
     expect(Object.keys(values).sort()).toEqual(["__proto__", "ck:note"]);
     // Verbatim: an option value is never JSON-decoded, so a JSON-shaped one
     // lands as plain data on a plain key rather than as an object.
@@ -384,6 +403,39 @@ describe("decodeInteraction", () => {
     expect(Object.prototype.hasOwnProperty.call(values, "__proto__")).toBe(
       true,
     );
+  });
+
+  it("keeps an OBJECT-valued `__proto__` reading off the bag's prototype", () => {
+    // The injection the string case above cannot reach. A multi select's
+    // reading is an array — an object — so `values["__proto__"] = reading`
+    // makes it the bag's PROTOTYPE: the field vanishes from `Object.keys` and
+    // every property the crafted reading carries reads back off `values` as
+    // though the workspace had submitted it.
+    const evt = decodeInteraction(
+      JSON.parse(`{
+        "type": "block_actions",
+        "container": { "channel_id": "C1", "thread_ts": "200.0" },
+        "actions": [{ "action_id": "ck:approve", "type": "button" }],
+        "state": {
+          "values": {
+            "block1": {
+              "__proto__": {
+                "type": "multi_static_select",
+                "selected_options": [{ "value": "pwned" }]
+              }
+            }
+          }
+        }
+      }`),
+    );
+    const values = evt!.values!;
+    expect(Object.getPrototypeOf(values)).toBe(Object.prototype);
+    // Nothing the crafted reading carries reads back as a submitted field.
+    expect(values["0"]).toBeUndefined();
+    expect(values["length"]).toBeUndefined();
+    // And the reading itself is an ordinary field, still enumerable.
+    expect(Object.keys(values)).toEqual(["__proto__"]);
+    expect(values["__proto__"]).toEqual(["pwned"]);
   });
 
   it("hands handlers an ORDINARY object, prototype intact", () => {
@@ -489,17 +541,53 @@ describe("decodeInteraction", () => {
     expect(evt!.values).toEqual({ input_1: "one", input_2: "two" });
   });
 
-  it("returns undefined for non-block_actions or missing action_id", () => {
-    expect(decodeInteraction({ type: "view_submission" })).toBeUndefined();
+  it("returns undefined for a payload that is not `block_actions`", () => {
+    // Each rejection below is pinned on ONE guard, and the fixture is
+    // otherwise fully decodable — the control at the end proves it. A fixture
+    // that is ALSO missing its channel or its action_id still returns
+    // undefined with this type check deleted, which is how the assertion goes
+    // dead: a later guard, not the one named, is what rejects it.
+    const decodable = {
+      channel: { id: "C1" },
+      message: { ts: "111.1" },
+      actions: [{ action_id: "ck:abc", value: "yes" }],
+    };
     expect(
-      decodeInteraction({ type: "block_actions", actions: [] }),
+      decodeInteraction({ ...decodable, type: "view_submission" }),
     ).toBeUndefined();
+    // No `type` at all (e.g. a slash command or an unparsed body).
+    expect(decodeInteraction({ ...decodable })).toBeUndefined();
+    // Control: the same payload decodes once the type matches, so the two
+    // undefineds above can only be the type guard.
+    expect(decodeInteraction({ ...decodable, type: "block_actions" })?.id).toBe(
+      "ck:abc",
+    );
+  });
+
+  it("returns undefined when the clicked action carries no action_id", () => {
+    // Same isolation: the channel resolves and the type matches, so the only
+    // thing left to reject these is the missing dispatch id. Without the
+    // channel these assertions pass with the action_id guard deleted — the
+    // channel guard downstream returns undefined and the case never reaches
+    // the id check.
+    const rest = {
+      type: "block_actions",
+      channel: { id: "C1" },
+      message: { ts: "111.1" },
+    };
     expect(
-      decodeInteraction({ type: "block_actions", actions: [{ value: "x" }] }),
+      decodeInteraction({ ...rest, actions: [{ value: "x" }] }),
     ).toBeUndefined();
+    expect(decodeInteraction({ ...rest, actions: [] })).toBeUndefined();
+    expect(decodeInteraction({ ...rest })).toBeUndefined();
+    // Control: identical payload, plus the id.
+    expect(
+      decodeInteraction({ ...rest, actions: [{ action_id: "ck:abc" }] })?.id,
+    ).toBe("ck:abc");
   });
 
   it("returns undefined when no channel can be resolved", () => {
+    // Carries an action_id so the guard above cannot be what rejects it.
     expect(
       decodeInteraction({
         type: "block_actions",
@@ -532,6 +620,9 @@ describe("decodeInteraction", () => {
       actions: [{ action_id: "ck:c", value: "x" }],
     });
     expect(evt!.eventId).toBe("trig-xyz");
+    // And with no message ts anywhere there is no message to update in place:
+    // the ref stays absent rather than being fabricated as `{ id: undefined }`.
+    expect(evt!.messageRef).toBeUndefined();
   });
 
   it("does NOT require a resume field (opaque id only)", () => {
