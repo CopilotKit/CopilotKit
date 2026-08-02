@@ -88,7 +88,7 @@ npm run lint
 # Hold an Intelligence Channel open (see "Running a Channel" below)
 npm run channel
 
-# Type-check channel-host.mts on its own tsconfig.channel.json
+# Type-check the channel host on its own tsconfig.channel.json
 npm run typecheck:channel
 ```
 
@@ -109,6 +109,10 @@ project declares more than one, set `INTELLIGENCE_CHANNEL_NAME` to pick one.
 
 The host holds no provider credentials and exposes no provider endpoint —
 Intelligence owns the provider edge — so the same file works for every provider.
+
+The Channel itself is declared in `channels.mts` — that is where to add commands,
+reactions, or an `onMention` handler. `channel-host.mts` only owns the process
+lifetime, and is byte-identical in every starter.
 
 Once startup finishes, the log reports the truth per Channel:
 

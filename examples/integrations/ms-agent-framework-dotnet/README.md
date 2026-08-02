@@ -135,6 +135,10 @@ project declares more than one, set `INTELLIGENCE_CHANNEL_NAME` to pick one.
 The host holds no provider credentials and exposes no provider endpoint —
 Intelligence owns the provider edge — so the same file works for every provider.
 
+The Channel itself is declared in `channels.mts` — that is where to add commands,
+reactions, or an `onMention` handler. `channel-host.mts` only owns the process
+lifetime, and is byte-identical in every starter.
+
 Once startup finishes, the log reports the truth per Channel:
 
 - `Channel "<name>" is online.` — the session is up and can send.
@@ -159,7 +163,7 @@ The following scripts can also be run using your preferred package manager:
 - `lint` - Runs ESLint for code linting
 - `install:agent` - Restores NuGet packages for the C# agent
 - `channel` - Holds an Intelligence Channel open (see "Running a Channel" above)
-- `typecheck:channel` - Type-checks `channel-host.mts` on its own `tsconfig.channel.json`
+- `typecheck:channel` - Type-checks the channel host on its own `tsconfig.channel.json`
 
 ## Project Structure
 

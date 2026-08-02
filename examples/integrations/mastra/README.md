@@ -72,6 +72,10 @@ project declares more than one, set `INTELLIGENCE_CHANNEL_NAME` to pick one.
 The host holds no provider credentials and exposes no provider endpoint —
 Intelligence owns the provider edge — so the same file works for every provider.
 
+The Channel itself is declared in `channels.mts` — that is where to add commands,
+reactions, or an `onMention` handler. `channel-host.mts` only owns the process
+lifetime, and is byte-identical in every starter.
+
 Once startup finishes, the log reports the truth per Channel:
 
 - `Channel "<name>" is online.` — the session is up and can send.

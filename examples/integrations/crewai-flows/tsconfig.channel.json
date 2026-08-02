@@ -7,5 +7,5 @@
     "skipLibCheck": true,
     "strict": true
   },
-  "include": ["channel-host.mts", "src/agent.ts"]
+  "include": ["channel-host.mts", "channels.mts", "src/agent.ts"]
 }

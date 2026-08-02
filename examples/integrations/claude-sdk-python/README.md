@@ -83,6 +83,10 @@ project declares more than one, set `INTELLIGENCE_CHANNEL_NAME` to pick one.
 The host holds no provider credentials and exposes no provider endpoint —
 Intelligence owns the provider edge — so the same file works for every provider.
 
+The Channel itself is declared in `channels.mts` — that is where to add commands,
+reactions, or an `onMention` handler. `channel-host.mts` only owns the process
+lifetime, and is byte-identical in every starter.
+
 Once startup finishes, the log reports the truth per Channel:
 
 - `Channel "<name>" is online.` — the session is up and can send.
@@ -103,7 +107,7 @@ it) before treating the Channel as working.
 - `npm start` — start the production server
 - `npm run install:agent` — (re)install the Python agent's dependencies
 - `npm run channel` — hold an Intelligence Channel open (see "Running a Channel" above)
-- `npm run typecheck:channel` — type-check `channel-host.mts` on its own `tsconfig.channel.json`
+- `npm run typecheck:channel` — type-check the channel host on its own `tsconfig.channel.json`
 
 ## Project structure
 
