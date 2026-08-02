@@ -20,6 +20,14 @@ export function TradeoffTable({
   authorityUsd: number | null;
   onChoose?: (kind: MitigationKind) => void;
 }) {
+  if (!options.length) {
+    return (
+      <div className="rounded-lg border border-dashed border-hairline p-4 text-sm text-ink-muted">
+        No mitigation options are available for this shipment.
+      </div>
+    );
+  }
+
   const overAuthority = (cost: number) =>
     authorityUsd !== null && cost > authorityUsd;
 
