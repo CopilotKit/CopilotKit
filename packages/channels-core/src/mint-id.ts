@@ -14,6 +14,16 @@ export function stableStringify(v: unknown): string {
   );
 }
 
+/**
+ * Derive a content-addressed action id from the component that owns the
+ * handler, its path in the rendered tree, and the props it was rendered with.
+ *
+ * `componentName` must be the component's *durable* identity — what
+ * `resolveComponentName` returns, not a raw `fn.name`. The id is persisted in
+ * the action snapshot and re-resolved on a cold dispatch, so feeding it a
+ * minifiable name means already-posted buttons stop resolving after a deploy
+ * that mangles it differently.
+ */
 export function mintId(
   componentName: string,
   path: (string | number)[],

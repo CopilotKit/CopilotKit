@@ -63,10 +63,12 @@ import {
   Header,
   Message,
   Section,
+  defineChannelComponent,
 } from "@copilotkit/channels/ui";
 
-export function ApprovalCard({ summary }: { summary: string }) {
-  return (
+export const ApprovalCard = defineChannelComponent(
+  "ApprovalCard",
+  ({ summary }: { summary: string }) => (
     <Message>
       <Header>Approval required</Header>
       <Section>{summary}</Section>
@@ -133,8 +135,8 @@ export function ApprovalCard({ summary }: { summary: string }) {
         </Button>
       </Actions>
     </Message>
-  );
-}
+  ),
+);
 ```
 
 <FrontendOnly frontend="slack">
@@ -199,6 +201,37 @@ channel.onInterrupt<{ summary: string }>(
 
 Registration lets the action registry rebuild a named component when a later
 click arrives. Keep component props JSON-serializable.
+
+### Pin the component name
+
+`defineChannelComponent` pins the name the action registry files the component
+under. That name is baked into every action id it mints and stored alongside the
+posted card, so a click that arrives minutes or days later is resolved by
+looking the name back up.
+
+Without a pinned name the registry falls back to the function's own name — which
+is a build artifact. A bundler that mangles names gives the same component a
+different identity in each deploy, and cards posted by the previous deploy stop
+resolving: the user clicks, the platform acknowledges, and nothing happens.
+Server-side you get a warning about an unresolvable action and nothing else.
+
+Pin the name on any component you register or post with a handler:
+
+```tsx
+export const ApprovalCard = defineChannelComponent(
+  "ApprovalCard",
+  ({ summary }: { summary: string }) => <Message>{summary}</Message>,
+);
+```
+
+Two rules follow from the name being an identity:
+
+- **Names must be unique across your registered components.** Two components
+  sharing a name can mint the same action id, and a click may then run the wrong
+  handler. The Channel logs a warning when it sees a conflict.
+- **Changing a pinned name invalidates cards already posted.** Their ids were
+  minted from the old name, so in-flight cards go stale once. Adding a pin to a
+  component that has been running unpinned has the same effect.
 
 Treat an interaction message as updateable only when `message.ref.id` is
 non-empty. The card update in this example is best-effort: a missing ref or a

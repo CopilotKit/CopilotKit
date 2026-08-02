@@ -157,11 +157,14 @@ durable Redis or Postgres implementation in the umbrella package.
 
 ## Preserve interactive callbacks across restarts
 
-A callback survives only when both conditions are true:
+A callback survives only when all three conditions are true:
 
 1. The JSX comes from a named component registered in
    `createChannel({ components })`.
-2. The action snapshot is stored in a durable `StateStore`.
+2. That component's name is pinned with `defineChannelComponent`, so a bundler
+   cannot change it between deploys. See
+   [Pin the component name](/channels/interactive#pin-the-component-name).
+3. The action snapshot is stored in a durable `StateStore`.
 
 <FrontendOnly frontend="slack">
 
@@ -193,7 +196,8 @@ const channel = createChannel({
 
 Keep registered component props JSON-serializable and derive the handler from
 those props. Test by posting a card, restarting the process, then clicking the
-old card.
+old card — and test the same thing across a *production* build, since that is
+where an unpinned component name changes out from under the stored snapshot.
 
 ## Match the managed concurrency model
 
