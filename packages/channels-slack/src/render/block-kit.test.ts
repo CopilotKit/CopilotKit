@@ -248,6 +248,60 @@ describe("renderBlockKit", () => {
     expect(block.element.action_id).toBe("ck:ms");
   });
 
+  it("renders an <Input> nested in <Actions> instead of dropping it", () => {
+    // Slack forbids plain_text_input inside an actions block while requiring
+    // <Button> to be in one; Teams' actions case just recurses. Peeling the
+    // input out keeps identical JSX from diverging between the two surfaces.
+    const blocks = renderBlockKit([
+      {
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "input",
+              props: { onSubmit: { id: "ck:note" }, placeholder: "Why?" },
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({
+      type: "input",
+      dispatch_action: true,
+      element: { type: "plain_text_input", action_id: "ck:note" },
+    });
+  });
+
+  it("keeps source order when an <Input> is mixed with a button", () => {
+    const blocks = renderBlockKit([
+      {
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "input",
+              props: { onSubmit: { id: "ck:note" } },
+            },
+            {
+              type: "button",
+              props: {
+                onClick: { id: "ck:b" },
+                children: [{ type: "text", props: { value: "Go" } }],
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(blocks.map((b) => (b as { type: string }).type)).toEqual([
+      "input",
+      "actions",
+    ]);
+  });
+
   it("keeps source order when a multi-select is mixed with a button", () => {
     const blocks = renderBlockKit([
       {

@@ -184,11 +184,14 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
         childNodes(node),
         SLACK_LIMITS.actionsElements,
       );
-      // A multi-select can't live in an `actions` block (Slack allows
-      // multi_static_select only in section/input blocks), so peel each one off
+      // Neither a text input nor a multi-select can live in an `actions` block
+      // (Slack allows both only in section/input blocks), so peel each one off
       // into its own dispatching input block; the rest stay as action elements.
-      // Flush the pending actions block BEFORE each peeled-off input so blocks
-      // stay in source order (e.g. [Button, Select multi] → actions, then input).
+      // Teams' `actions` case simply recurses, so peeling — rather than
+      // dropping — is what keeps identical JSX rendering the same on both MVP
+      // surfaces. Flush the pending actions block BEFORE each peeled-off input
+      // so blocks stay in source order (e.g. [Button, Select multi] → actions,
+      // then input).
       let elements: object[] = [];
       const flush = () => {
         if (elements.length > 0) {
@@ -197,6 +200,11 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
         }
       };
       for (const child of items) {
+        if (child.type === "input") {
+          flush();
+          out.push(textInput(child));
+          continue;
+        }
         if (child.type === "select" && child.props.multi) {
           flush();
           out.push(multiSelectInput(child));
@@ -222,22 +230,7 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       return;
     }
     case "input": {
-      out.push({
-        type: "input",
-        dispatch_action: true,
-        element: {
-          type: "plain_text_input",
-          action_id: truncateText(
-            idFromHandler(props.onSubmit) ?? "input",
-            SLACK_LIMITS.actionId,
-          ),
-          multiline: !!props.multiline,
-        },
-        label: {
-          type: "plain_text",
-          text: truncateText(String(props.placeholder ?? " "), 150),
-        },
-      } as KnownBlock);
+      out.push(textInput(node));
       return;
     }
     case "text": {
@@ -366,6 +359,32 @@ function renderActionElement(node: ChannelNode): object | null {
     default:
       return null;
   }
+}
+
+/**
+ * Render an `<Input>` as a dispatching input block holding a
+ * `plain_text_input` (which Slack forbids inside an `actions` block). Typing
+ * and submitting fires a `block_actions` payload carrying the typed text
+ * verbatim on the element's `action_id` — the registry-minted `onSubmit` id.
+ */
+function textInput(node: ChannelNode): KnownBlock {
+  const props = node.props ?? {};
+  return {
+    type: "input",
+    dispatch_action: true,
+    element: {
+      type: "plain_text_input",
+      action_id: truncateText(
+        idFromHandler(props.onSubmit) ?? "input",
+        SLACK_LIMITS.actionId,
+      ),
+      multiline: !!props.multiline,
+    },
+    label: {
+      type: "plain_text",
+      text: truncateText(String(props.placeholder ?? " "), 150),
+    },
+  } as KnownBlock;
 }
 
 /**

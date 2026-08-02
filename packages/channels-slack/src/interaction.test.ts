@@ -87,6 +87,72 @@ describe("decodeInteraction", () => {
     expect(evt!.value).toEqual(["core", "infra"]);
   });
 
+  it("keeps a plain_text_input's typed text as a string, never JSON-parsed", () => {
+    // `<Input onSubmit>` is a `ClickHandler<string>`. Parsing free text would
+    // silently hand the handler a number/boolean/null/object instead.
+    for (const typed of ["42", "true", "null", '{"a":1}', "ship it"]) {
+      const evt = decodeInteraction({
+        type: "block_actions",
+        container: { channel_id: "C1", thread_ts: "200.0" },
+        actions: [
+          { action_id: "ck:note", type: "plain_text_input", value: typed },
+        ],
+      });
+      expect(evt!.value).toBe(typed);
+    }
+  });
+
+  it("still JSON-parses a button value (a payload we serialized ourselves)", () => {
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [{ action_id: "ck:b", type: "button", value: "42" }],
+    });
+    expect(evt!.value).toBe(42);
+  });
+
+  it("carries every input on the message as `values`, keyed by action_id", () => {
+    // So a <Button onClick> handler beside an <Input> can read what was typed.
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [{ action_id: "ck:approve", type: "button", value: '"yes"' }],
+      state: {
+        values: {
+          block1: {
+            "ck:note": { type: "plain_text_input", value: "42" },
+          },
+          block2: {
+            "ck:team": {
+              type: "static_select",
+              selected_option: { value: "core" },
+            },
+            "ck:owners": {
+              type: "multi_static_select",
+              selected_options: [{ value: "ada" }, { value: "bo" }],
+            },
+          },
+        },
+      },
+    });
+    expect(evt!.value).toBe("yes");
+    expect(evt!.values).toEqual({
+      // Still a string: `values` is a form-value carrier, so nothing coerces.
+      "ck:note": "42",
+      "ck:team": "core",
+      "ck:owners": ["ada", "bo"],
+    });
+  });
+
+  it("reports empty `values` when the payload carries no block state", () => {
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [{ action_id: "ck:b", type: "button", value: '"yes"' }],
+    });
+    expect(evt!.values).toEqual({});
+  });
+
   it("returns undefined for non-block_actions or missing action_id", () => {
     expect(decodeInteraction({ type: "view_submission" })).toBeUndefined();
     expect(

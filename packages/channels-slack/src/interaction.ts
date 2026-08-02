@@ -40,11 +40,13 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     };
     actions?: Array<{
       action_id?: string;
+      type?: string;
       value?: string;
       selected_option?: { value?: string };
       selected_options?: Array<{ value?: string }>;
       action_ts?: string;
     }>;
+    state?: SlackBlockState;
   };
   if (body.type !== "block_actions") return undefined;
   const action = body.actions?.[0];
@@ -79,8 +81,15 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   // Tiny, non-sensitive value: the clicked button's value (or selected option
   // value), JSON-parsed if it round-trips, otherwise the raw string. A
   // multi_static_select reports `selected_options` (an array) → a `string[]`.
+  //
+  // Free text typed by a user is the exception: it is a string by contract
+  // (`<Input onSubmit>` is a `ClickHandler<string>`), and JSON-parsing it would
+  // silently hand the handler `42` as a number, `true` as a boolean, `null`, or
+  // `{"a":1}` as an object. Parsing is correct only for values WE serialized.
   let value: unknown;
-  if (action.selected_options) {
+  if (action.type === PLAIN_TEXT_INPUT) {
+    value = action.value;
+  } else if (action.selected_options) {
     value = action.selected_options.map((o) => parseValue(o.value));
   } else {
     value = parseValue(action.value ?? action.selected_option?.value);
@@ -116,6 +125,11 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     conversationKey,
     replyTarget,
     value,
+    // Every input still on the message, so a `<Button onClick>` handler beside
+    // an `<Input>` can read what was typed. Slack keys `state.values` by block
+    // then by element; we flatten to the element's `action_id` — the minted
+    // `ck:` id — matching how Teams keys its merged card inputs.
+    values: flattenBlockState(body.state),
     actor,
     messageRef,
     triggerId: body.trigger_id,
@@ -139,6 +153,51 @@ function parseValue(raw: string | undefined): unknown {
   } catch {
     return raw;
   }
+}
+
+/** Slack's element type for a free-text input — the one control whose value is user-typed. */
+const PLAIN_TEXT_INPUT = "plain_text_input";
+
+/** One entry of a Slack view/message `state.values` block. */
+interface SlackStateElement {
+  type?: string;
+  value?: string;
+  selected_option?: { value?: string };
+  selected_options?: Array<{ value?: string }>;
+}
+
+/** Slack's `state` envelope: block id → element id → the element's current value. */
+interface SlackBlockState {
+  values?: Record<string, Record<string, SlackStateElement>>;
+}
+
+/**
+ * The current value of one `state.values` element. Never JSON-parses: these are
+ * form-field values, either user-typed text or an option value we rendered with
+ * `String(...)`, so both are strings by contract.
+ */
+function stateElementValue(el: SlackStateElement): unknown {
+  if (el.selected_options) return el.selected_options.map((o) => o.value);
+  return el.value ?? el.selected_option?.value;
+}
+
+/**
+ * Flatten a `block_actions` payload's `state.values` to a flat `action_id →
+ * value` map. Unlike a modal view (whose vocabulary names block id == action
+ * id, see {@link flattenViewValues}), a rendered message leaves `block_id` to
+ * Slack, so the element's own `action_id` — the registry-minted `ck:` id — is
+ * the only stable key.
+ */
+function flattenBlockState(state: SlackBlockState | undefined): {
+  [actionId: string]: unknown;
+} {
+  const out: Record<string, unknown> = {};
+  for (const block of Object.values(state?.values ?? {})) {
+    for (const [actionId, el] of Object.entries(block)) {
+      out[actionId] = stateElementValue(el);
+    }
+  }
+  return out;
 }
 
 interface SlackReactionEvent {
@@ -203,27 +262,14 @@ export function decodeReaction(
 interface SlackViewState {
   callback_id?: string;
   private_metadata?: string;
-  state?: {
-    values?: Record<
-      string,
-      Record<
-        string,
-        {
-          type?: string;
-          value?: string;
-          selected_option?: { value?: string };
-        }
-      >
-    >;
-  };
+  state?: SlackBlockState;
 }
 
 /**
  * Flatten a Slack view's `state.values` to a flat `fieldId → value` map. The
  * modal vocabulary names every block id == action id (the field id), so for
  * each block we take the inner element keyed by that same block id, falling
- * back to the first element. Text inputs expose `value`; selects/radios expose
- * `selected_option.value`.
+ * back to the first element.
  */
 function flattenViewValues(view: SlackViewState): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -232,7 +278,7 @@ function flattenViewValues(view: SlackViewState): Record<string, unknown> {
     const inner = values[blockId]!;
     const el = inner[blockId] ?? Object.values(inner)[0];
     if (!el) continue;
-    out[blockId] = el.value ?? el.selected_option?.value;
+    out[blockId] = stateElementValue(el);
   }
   return out;
 }
