@@ -1,6 +1,7 @@
 import { Header, Message, Section, renderToIR } from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import { describe, expect, it } from "vitest";
+import { FIELD_BLOCK_PREFIX } from "../interaction.js";
 import { renderBlockKit, renderSlackMessage } from "./block-kit.js";
 
 describe("renderBlockKit", () => {
@@ -84,6 +85,8 @@ describe("renderBlockKit", () => {
     ).toEqual([
       {
         type: "input",
+        // Unnamed, so the field id `values` keys by is the minted id itself.
+        block_id: "ckf:ck:in1",
         dispatch_action: true,
         element: {
           type: "plain_text_input",
@@ -95,7 +98,7 @@ describe("renderBlockKit", () => {
     ]);
   });
 
-  it("gives a static_select a fallback action_id when onSelect is absent", () => {
+  it("gives a static_select a unique fallback action_id when onSelect is absent", () => {
     const blocks = renderBlockKit([
       {
         type: "actions",
@@ -111,8 +114,8 @@ describe("renderBlockKit", () => {
     ]);
     const select = (blocks[0] as { elements: { action_id: string }[] })
       .elements[0]!;
-    expect(select.action_id).toBe("select");
-    expect(select.action_id.length).toBeGreaterThan(0);
+    // The field id, not the bare `"select"` literal a second one would repeat.
+    expect(select.action_id).toBe("select_1");
   });
 
   it("writes select option values verbatim, never JSON-encoded", () => {
@@ -453,6 +456,121 @@ describe("renderBlockKit", () => {
     const rows = (blocks[0] as { rows: { text: string }[][] }).rows;
     expect(rows).toHaveLength(100);
     expect(rows[0]![0]!.text).toBe("Name");
+  });
+});
+
+/**
+ * The `values` key a field's reading arrives under, and how it gets onto the
+ * wire. Teams derives an Adaptive Card element's `id` — which becomes the
+ * `values` key there — as `name ?? mintedActionId ?? \`${kind}_${index}\``,
+ * deduped (see `fieldId()` in channels-teams' `render/adaptive-card.ts`). Slack
+ * must land on the same key for the same JSX, so it carries the field id in the
+ * block id and leaves `action_id` to dispatch.
+ */
+describe("field ids (Slack ↔ Teams `values` key parity)", () => {
+  /** The `ckf:`-stripped field id of each block that names one, in block order. */
+  function fieldIds(blocks: unknown[]): string[] {
+    return blocks
+      .map((b) => (b as { block_id?: string }).block_id)
+      .filter((id): id is string => id?.startsWith(FIELD_BLOCK_PREFIX) === true)
+      .map((id) => id.slice(FIELD_BLOCK_PREFIX.length));
+  }
+
+  it("keys a named <Input> by its `name`, while `action_id` stays the minted id", () => {
+    // Teams honours `name`; Slack ignored it, so `ctx.values.reason` resolved on
+    // one surface and was `undefined` on the other. `action_id` may not change
+    // with it: the engine dispatches on exactly that string.
+    const blocks = renderBlockKit([
+      {
+        type: "input",
+        props: {
+          name: "reason",
+          onSubmit: { id: "ck:in1" },
+          placeholder: "Why?",
+        },
+      },
+    ]);
+    expect(blocks[0]).toMatchObject({
+      type: "input",
+      block_id: "ckf:reason",
+      element: { type: "plain_text_input", action_id: "ck:in1" },
+    });
+  });
+
+  it("keys a named <Select> (single and multi) by its `name`", () => {
+    for (const multi of [false, true]) {
+      const blocks = renderBlockKit([
+        {
+          type: "actions",
+          props: {
+            children: [
+              {
+                type: "select",
+                props: {
+                  multi,
+                  name: "team",
+                  onSelect: { id: "ck:sel" },
+                  options: [{ label: "Core", value: "core" }],
+                },
+              },
+            ],
+          },
+        },
+      ]);
+      expect(fieldIds(blocks)).toEqual(["team"]);
+      // Dispatch is unmoved: the minted id still rides on the element.
+      const el = blocks[0] as {
+        element?: { action_id: string };
+        elements?: { action_id: string }[];
+      };
+      expect((el.element ?? el.elements![0]!).action_id).toBe("ck:sel");
+    }
+  });
+
+  it("gives two handler-less <Input>s distinct field ids", () => {
+    // Both used to be keyed `input`, so `flattenBlockState` overwrote one with
+    // the other and a field's submitted text was silently lost.
+    const blocks = renderBlockKit([
+      { type: "input", props: { placeholder: "First" } },
+      { type: "input", props: { placeholder: "Second" } },
+    ]);
+    expect(fieldIds(blocks)).toEqual(["input_1", "input_2"]);
+  });
+
+  it("numbers unnamed fields off one counter shared by inputs and selects", () => {
+    // The exact ids Teams' `fieldId()` mints for this JSX: an explicit `name`
+    // first, then the minted handler id, then `${kind}_${index}` off a counter
+    // that every field advances.
+    const blocks = renderBlockKit([
+      {
+        type: "actions",
+        props: {
+          children: [
+            { type: "input", props: { name: "reason" } },
+            { type: "input", props: { onSubmit: { id: "ck:in2" } } },
+            { type: "input", props: {} },
+            {
+              type: "select",
+              props: { options: [{ label: "A", value: "a" }] },
+            },
+          ],
+        },
+      },
+    ]);
+    expect(fieldIds(blocks)).toEqual([
+      "reason",
+      "ck:in2",
+      "input_3",
+      "select_4",
+    ]);
+  });
+
+  it("dedupes two fields that claim the same `name`", () => {
+    const blocks = renderBlockKit([
+      { type: "input", props: { name: "reason" } },
+      { type: "input", props: { name: "reason" } },
+    ]);
+    expect(fieldIds(blocks)).toEqual(["reason", "reason_1"]);
   });
 });
 

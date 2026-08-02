@@ -8,6 +8,20 @@ import { DM_SCOPE } from "./types.js";
 import type { ConversationKey, ReplyTarget } from "./types.js";
 
 /**
+ * Prefix marking a `block_id` the renderer minted to name the one field its
+ * block holds (see `fieldBlockId` in `render/block-kit.ts`).
+ *
+ * A field's `values` key must follow the author's `<Input name>`/`<Select name>`,
+ * as it does on Teams — but `action_id` cannot carry it, because that is the
+ * string the engine dispatches on and it has to stay the registry-minted `ck:`
+ * id. Slack keys `state.values` by block then by element, so the block id is the
+ * only other stable slot on the wire: the renderer writes the field id there and
+ * {@link flattenBlockState} reads it back. The prefix is what distinguishes a
+ * block we named from one Slack auto-numbered or a `<Raw>` author set.
+ */
+export const FIELD_BLOCK_PREFIX = "ckf:";
+
+/**
  * Stable string key shared by ingress (onTurn) and interaction decoding so the
  * bot's awaitChoice waiters resolve. Both paths MUST derive the conversation key
  * from this single helper — a mismatch silently strands the waiter.
@@ -131,9 +145,9 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     replyTarget,
     value,
     // Every input still on the message, so a `<Button onClick>` handler beside
-    // an `<Input>` can read what was typed. Slack keys `state.values` by block
-    // then by element; we flatten to the element's `action_id` — the minted
-    // `ck:` id — matching how Teams keys its merged card inputs.
+    // an `<Input>` can read what was typed. Keyed by field id — the author's
+    // `name` when set, else the minted `ck:` id — matching how Teams keys its
+    // merged card inputs. See {@link FIELD_BLOCK_PREFIX}.
     values: flattenBlockState(body.state),
     actor,
     messageRef,
@@ -198,14 +212,18 @@ function stateElementValue(el: SlackStateElement): unknown {
 }
 
 /**
- * Flatten a `block_actions` payload's `state.values` to a flat `action_id →
- * value` map. Unlike a modal view (whose vocabulary names block id == action
- * id, see {@link flattenViewValues}), a rendered message leaves `block_id` to
- * Slack, so the element's own `action_id` — the registry-minted `ck:` id — is
- * the only stable key.
+ * Flatten a `block_actions` payload's `state.values` to a flat `fieldId → value`
+ * map, keyed the way Teams keys the same JSX's merged card inputs: the author's
+ * `name` first, else the registry-minted `ck:` id, else a positional fallback.
+ *
+ * The renderer stamps that field id into the block id (see
+ * {@link FIELD_BLOCK_PREFIX}), so — as in a modal view, whose vocabulary also
+ * names block id == field id (see {@link flattenViewValues}) — the block is what
+ * names the field. A block without the prefix was not ours to name, and there
+ * the element's own `action_id` is the only stable key left.
  */
 function flattenBlockState(state: SlackBlockState | undefined): {
-  [actionId: string]: unknown;
+  [fieldId: string]: unknown;
 } {
   // Null-prototype, because the element ids come from an inbound payload and
   // `__proto__` survives `JSON.parse` as an OWN key: assigning it onto a plain
@@ -215,9 +233,14 @@ function flattenBlockState(state: SlackBlockState | undefined): {
   // lands as plain data and nothing is inherited, so `values` is exactly what
   // the message carried — `constructor` and friends included.
   const out: Record<string, unknown> = Object.create(null);
-  for (const block of Object.values(state?.values ?? {})) {
+  for (const [blockId, block] of Object.entries(state?.values ?? {})) {
+    // A `ckf:` block names its single field (the renderer never puts two in
+    // one), so every element under it resolves to that same field id.
+    const named = blockId.startsWith(FIELD_BLOCK_PREFIX)
+      ? blockId.slice(FIELD_BLOCK_PREFIX.length)
+      : undefined;
     for (const [actionId, el] of Object.entries(block)) {
-      out[actionId] = stateElementValue(el);
+      out[named ?? actionId] = stateElementValue(el);
     }
   }
   return out;

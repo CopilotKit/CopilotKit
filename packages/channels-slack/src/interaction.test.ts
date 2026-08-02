@@ -4,7 +4,31 @@ import {
   conversationKeyOf,
   decodeViewSubmission,
 } from "./interaction.js";
+import { renderBlockKit } from "./render/block-kit.js";
 import { DM_SCOPE } from "./types.js";
+
+/**
+ * The `state.values` Slack posts back for a rendered message's text inputs:
+ * block id → element `action_id` → the element's reading. Built from the real
+ * blocks so the renderer's own keying is what the decoder is handed.
+ */
+function textInputState(
+  blocks: unknown[],
+  typed: string[],
+): Record<string, Record<string, unknown>> {
+  const inputs = blocks.filter(
+    (b) =>
+      (b as { element?: { type?: string } }).element?.type ===
+      "plain_text_input",
+  ) as { block_id: string; element: { action_id: string } }[];
+  expect(inputs).toHaveLength(typed.length);
+  return Object.fromEntries(
+    inputs.map((b, i) => [
+      b.block_id,
+      { [b.element.action_id]: { type: "plain_text_input", value: typed[i] } },
+    ]),
+  );
+}
 
 describe("conversationKeyOf", () => {
   it("joins channelId + scope with the canonical separator", () => {
@@ -115,8 +139,11 @@ describe("decodeInteraction", () => {
     expect(evt!.value).toBe(42);
   });
 
-  it("carries every input on the message as `values`, keyed by action_id", () => {
+  it("falls back to the element's action_id for a block the renderer didn't name", () => {
     // So a <Button onClick> handler beside an <Input> can read what was typed.
+    // These block ids carry no `ckf:` field id (a <Raw> block, or a message
+    // rendered before that vocabulary existed), so the element's own action_id
+    // is the only stable key left.
     const evt = decodeInteraction({
       type: "block_actions",
       container: { channel_id: "C1", thread_ts: "200.0" },
@@ -262,6 +289,59 @@ describe("decodeInteraction", () => {
     for (const builtin of ["constructor", "toString", "hasOwnProperty"]) {
       expect(values[builtin]).toBeUndefined();
     }
+  });
+
+  it("keys `values` by the renderer's field ids, round-tripped through real blocks", () => {
+    // The half the unit tests above cannot see: the renderer picks the key and
+    // the decoder must read back the same one. `name` is the key on Teams (see
+    // `fieldId()` in channels-teams' `render/adaptive-card.ts`), so it has to be
+    // the key here too, even though `action_id` stays the minted dispatch id.
+    const blocks = renderBlockKit([
+      {
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "input",
+              props: { name: "reason", onSubmit: { id: "ck:in1" } },
+            },
+            { type: "input", props: { name: "detail" } },
+            {
+              type: "button",
+              props: {
+                onClick: { id: "ck:approve" },
+                children: [{ type: "text", props: { value: "Approve" } }],
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [{ action_id: "ck:approve", type: "button" }],
+      state: { values: textInputState(blocks, ["ship it", "looks good"]) },
+    });
+    expect(evt!.values).toEqual({ reason: "ship it", detail: "looks good" });
+  });
+
+  it("keeps two handler-less <Input>s from overwriting each other", () => {
+    // Both used to render `action_id: "input"`, so the flattening dropped one
+    // field's text on the floor.
+    const blocks = renderBlockKit([
+      { type: "input", props: { placeholder: "First" } },
+      { type: "input", props: { placeholder: "Second" } },
+    ]);
+
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [{ action_id: "ck:approve", type: "button" }],
+      state: { values: textInputState(blocks, ["one", "two"]) },
+    });
+    expect(evt!.values).toEqual({ input_1: "one", input_2: "two" });
   });
 
   it("returns undefined for non-block_actions or missing action_id", () => {
