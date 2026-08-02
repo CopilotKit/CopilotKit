@@ -365,10 +365,46 @@ function renderActionElement(node: ChannelNode): object | null {
  * `plain_text_input` (which Slack forbids inside an `actions` block). Typing
  * and submitting fires a `block_actions` payload carrying the typed text
  * verbatim on the element's `action_id` — the registry-minted `onSubmit` id.
+ *
+ * `dispatch_action` on the block only permits that payload; WHEN it fires is
+ * the element's `dispatch_action_config` — a `plain_text_input`'s dispatch is
+ * "determined by the dispatch_action_config field" (Slack's `block_actions`
+ * reference), whose only two triggers are `on_enter_pressed` and
+ * `on_character_entered`. We name `on_enter_pressed` rather than lean on
+ * Slack's unspecified default: Enter-to-submit is the affordance `onSubmit`
+ * means, and naming it is what makes the multiline case below decidable.
+ *
+ * `multiline` is a presentation hint and `onSubmit` is a data contract, and on
+ * Slack a `plain_text_input` cannot honour both: a BOUND multiline input is
+ * therefore rendered single-line, so Enter submits it. Neither trigger works in
+ * a tall box —
+ *   - `on_enter_pressed` never fires, because Enter inserts a newline there.
+ *     That is the shape this replaces: the handler never ran, and a
+ *     `thread.awaitChoice` waiting on it hung forever.
+ *   - `on_character_entered` fires once per KEYSTROKE, so it would run
+ *     `onSubmit` on every prefix of the text and resolve an `awaitChoice` on
+ *     the first character. `onSubmit` is a `ClickHandler<string>` whose value
+ *     is the submitted text, not a fragment of it — a wrong value delivered
+ *     N times is worse than the hang it replaces.
+ * Slack also has no per-input submit button, and a synthesized one could not
+ * carry the text: only a static `value` rides on a `block_actions` action, so
+ * such a click would reach `onSubmit` (and any `awaitChoice`) as `undefined`
+ * while the text arrived separately in `state.values`. A one-line box that
+ * submits the whole string beats a taller box that submits nothing, a
+ * fragment, or nothing but a hole where the string should be.
+ *
+ * An UNBOUND `<Input multiline>` keeps its tall box: with no `onSubmit` there
+ * is nothing to make unreachable — its text rides to a sibling `<Button>`'s
+ * click in `state.values`, keyed by {@link fieldBlockId} — and it claims no
+ * trigger, since the one it could claim could not fire.
  */
 function textInput(node: ChannelNode, context: RenderContext): KnownBlock {
   const props = node.props ?? {};
   const id = fieldId(node, "onSubmit", "input", context);
+  // Only a handler-bound input has a submit to keep reachable; `multiline`
+  // costs an unbound one nothing, so it is honoured there.
+  const bound = idFromHandler(props.onSubmit) !== undefined;
+  const multiline = !!props.multiline && !bound;
   return {
     type: "input",
     block_id: fieldBlockId(id),
@@ -376,7 +412,17 @@ function textInput(node: ChannelNode, context: RenderContext): KnownBlock {
     element: {
       type: "plain_text_input",
       action_id: elementActionId(props.onSubmit, id),
-      multiline: !!props.multiline,
+      multiline,
+      // Claimed only where it can fire — see the multiline discussion above.
+      // Slack renders its own "press enter to submit" hint under a box
+      // configured this way.
+      ...(multiline
+        ? {}
+        : {
+            dispatch_action_config: {
+              trigger_actions_on: ["on_enter_pressed"],
+            },
+          }),
     },
     label: {
       type: "plain_text",

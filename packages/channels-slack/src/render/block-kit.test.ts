@@ -92,8 +92,74 @@ describe("renderBlockKit", () => {
           type: "plain_text_input",
           action_id: "ck:in1",
           multiline: false,
+          // Enter-to-submit, named rather than left to Slack's default: a
+          // `plain_text_input`'s dispatch is "determined by the
+          // dispatch_action_config field" (Slack's block_actions reference).
+          dispatch_action_config: { trigger_actions_on: ["on_enter_pressed"] },
         },
         label: { type: "plain_text", text: "Name" },
+      },
+    ]);
+  });
+
+  it("renders a bound <Input multiline onSubmit> single-line, so Enter can submit it", () => {
+    // Slack cannot express both at once. In a multiline box Enter inserts a
+    // newline, so `on_enter_pressed` never fires; the only other trigger,
+    // `on_character_entered`, fires once per KEYSTROKE and would run
+    // `onSubmit` — a `ClickHandler<string>` promised "the submitted text" —
+    // on every prefix of it, resolving a `thread.awaitChoice` on the first
+    // character. A one-line box that submits the whole string beats a taller
+    // one that submits nothing or a fragment.
+    const blocks = renderBlockKit([
+      {
+        type: "input",
+        props: {
+          onSubmit: { id: "ck:note" },
+          placeholder: "Why?",
+          multiline: true,
+        },
+      },
+    ]);
+
+    expect(blocks).toEqual([
+      {
+        type: "input",
+        block_id: "ckf:ck:note",
+        dispatch_action: true,
+        element: {
+          type: "plain_text_input",
+          action_id: "ck:note",
+          multiline: false,
+          dispatch_action_config: { trigger_actions_on: ["on_enter_pressed"] },
+        },
+        label: { type: "plain_text", text: "Why?" },
+      },
+    ]);
+  });
+
+  it("keeps the tall box for an <Input multiline> with no onSubmit, and claims no trigger for it", () => {
+    // Nothing to make unreachable: the text rides to a sibling `<Button>`'s
+    // click in `state.values`, which needs no trigger on this element. Naming
+    // one anyway would be the same unfireable configuration the bound case
+    // avoids — `on_enter_pressed` cannot fire in a multiline box.
+    const blocks = renderBlockKit([
+      {
+        type: "input",
+        props: { name: "reason", placeholder: "Why?", multiline: true },
+      },
+    ]);
+
+    expect(blocks).toEqual([
+      {
+        type: "input",
+        block_id: "ckf:reason",
+        dispatch_action: true,
+        element: {
+          type: "plain_text_input",
+          action_id: "reason",
+          multiline: true,
+        },
+        label: { type: "plain_text", text: "Why?" },
       },
     ]);
   });
@@ -275,6 +341,13 @@ describe("renderBlockKit", () => {
     expect(block.dispatch_action).toBe(true);
     expect(block.element.type).toBe("multi_static_select");
     expect(block.element.action_id).toBe("ck:ms");
+    // `dispatch_action` alone IS reachable here, unlike on a multiline
+    // `plain_text_input`: Slack dispatches a `multi_*_select` "each time an
+    // item is chosen from the multi-select menu" (block_actions reference),
+    // with no trigger to configure. `dispatch_action_config` is documented as
+    // usable only with a plain-text or rich-text input, so adding one here
+    // would be an unsupported field, not a fix.
+    expect(block.element).not.toHaveProperty("dispatch_action_config");
   });
 
   it("renders an <Input> nested in <Actions> instead of dropping it", () => {
