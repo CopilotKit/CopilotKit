@@ -56,18 +56,26 @@ const REPORTED_STATE: Record<
  * groups them: block → element. The renderer puts them in exactly two places —
  * an `input` block's `element` and an `actions` block's `elements`.
  *
- * The renderer leaves `block_id` to Slack, so these stand in for the ids Slack
- * would generate; only the grouping they express is load-bearing.
+ * Slack echoes each block's own `block_id` back as the outer `state.values`
+ * key, so the id is read off the RENDERED block rather than invented here: a
+ * block holding a single field carries the renderer's `ckf:<fieldId>`, which is
+ * what `decodeInteraction` strips to key `values` by field id. Only a block the
+ * renderer left unnamed — the shared `actions` block of `<Button>`s — needs a
+ * stand-in for the id Slack would auto-generate.
  */
 function statefulBlocks(
   blocks: KnownBlock[],
 ): { id: string; elements: StateElement[] }[] {
   return blocks
     .map((block, i) => {
-      const b = block as { element?: StateElement; elements?: StateElement[] };
+      const b = block as {
+        block_id?: string;
+        element?: StateElement;
+        elements?: StateElement[];
+      };
       const candidates = b.element ? [b.element] : (b.elements ?? []);
       return {
-        id: `block-${i}`,
+        id: b.block_id ?? `block-${i}`,
         elements: candidates.filter((el) => el && el.type in REPORTED_STATE),
       };
     })
@@ -177,6 +185,9 @@ describe("<Input onSubmit> round-trip (Slack)", () => {
     expect(submitted).toBe("ship it");
     // The submitting input reports its own text in `state.values` as well, so
     // both accessors must hand the handler the same string for one control.
+    // The key is the field id off the block's `ckf:` id, which for a field with
+    // no `name` is the same minted handler id as the element's `action_id` —
+    // so this pins the value, not `name`-based keying.
     expect(seenValues).toEqual({ [input.action_id]: "ship it" });
     await expect(choice!).resolves.toBe("ship it");
   });
