@@ -72,10 +72,33 @@ describe("HITL button action envelope (contract)", () => {
     expect(conversationKeyOf(inboundActivity)).toBe("conv-1");
   });
 
-  it("treats an ordinary chat message (no ckActionId) as not-a-card-action", () => {
+  it("treats an activity carrying no `value` object at all as not-a-card-action", () => {
+    // A typed chat message puts its text in `text` and carries no `value`, so
+    // the decode stops on the is-there-a-payload half of the guard, before
+    // `ckActionId` is ever consulted. `null` must take the same exit: `typeof
+    // null === "object"`, so reading through it would throw rather than
+    // return.
     const ordinary: TeamsActivityLike = { value: undefined };
 
     expect(parseCardAction(ordinary)).toBeUndefined();
+    expect(parseCardAction({})).toBeUndefined();
+    expect(parseCardAction({ value: null })).toBeUndefined();
+    // Nor is a non-object `value` an envelope, however it is spelled.
+    expect(parseCardAction({ value: "ck:approve" })).toBeUndefined();
+  });
+
+  it("treats a `value` object with no string ckActionId as not-a-card-action", () => {
+    // Past the payload guard, so this is the id test doing the deciding: an
+    // activity really can arrive with a `value` object that is not one of our
+    // submits, and only a *string* `ckActionId` routes. Anything else is an
+    // ordinary chat message the adapter drives as a user turn.
+    expect(parseCardAction({ value: {} })).toBeUndefined();
+    expect(parseCardAction({ value: { reason: "ship it" } })).toBeUndefined();
+    expect(parseCardAction({ value: { ckActionId: 42 } })).toBeUndefined();
+    expect(parseCardAction({ value: { ckActionId: null } })).toBeUndefined();
+    expect(
+      parseCardAction({ value: { ckActionId: ["ck:approve"] } }),
+    ).toBeUndefined();
   });
 });
 
@@ -225,9 +248,12 @@ describe("link <Button> envelope (contract)", () => {
       url: "https://example.com/docs",
     });
     expect(action).not.toHaveProperty("data");
-    // Nothing to decode: an OpenUrl click never reaches the bot at all, and a
-    // payload carrying its (absent) data is not a card action.
-    expect(parseCardAction({ value: action.data })).toBeUndefined();
+    // Nothing to decode: an OpenUrl click never reaches the bot at all. And
+    // there is no envelope hiding anywhere on it — posting the whole action
+    // back as an activity `value` still yields no card action, because no key
+    // on it is a `ckActionId`. (Asserting on `action.data` here would be
+    // vacuous: it is absent, so it only re-tests the no-payload case above.)
+    expect(parseCardAction({ value: action })).toBeUndefined();
   });
 
   it("still gets a synthesized submit beside an <Input> — OpenUrl is not dispatchable", () => {
@@ -320,5 +346,181 @@ describe("routeless <Button> (contract)", () => {
         }),
       ).toBeDefined();
     }
+  });
+});
+
+describe("submitted field ids (contract)", () => {
+  // Teams keys a submitted field by the card `id` the renderer minted for it,
+  // so what `fieldId` picks IS the wire name an out-of-band consumer reads
+  // `values` (and `ckValueField`) by.
+
+  it("keys a field by its `name`, else its minted handler id, else a positional slot on one shared counter", () => {
+    const card = renderAdaptiveCard([
+      // Neither a name nor a minted handler id: a positional slot.
+      el("select", [], { options: [{ label: "One", value: "1" }] }),
+      el("input", [], {}),
+      // A minted handler id but no name: the id itself.
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      // An explicit `name` outranks the minted id, and is trimmed.
+      el("input", [], { name: "  reason  ", onSubmit: { id: "ck:why" } }),
+    ]);
+
+    // `<Input>` and `<Select>` share ONE 1-based counter, so the input after a
+    // select is `input_2` — not `input_1`.
+    expect(card.body.map((element) => element.id)).toEqual([
+      "select_1",
+      "input_2",
+      "ck:note",
+      "reason",
+    ]);
+
+    // Those ids are exactly the keys the decode surfaces as `values`.
+    expect(
+      parseCardAction({
+        value: {
+          ...(card.actions![0]!.data as object),
+          select_1: "1",
+          input_2: "",
+          "ck:note": "why",
+          reason: "because",
+        },
+      }),
+    ).toEqual({
+      id: "ck:note",
+      value: "why",
+      values: {
+        select_1: "1",
+        input_2: "",
+        "ck:note": "why",
+        reason: "because",
+      },
+    });
+  });
+
+  it("suffixes a field id already taken on the card — two <Input>s on one handler", () => {
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+    ]);
+
+    expect(card.body.map((element) => element.id)).toEqual([
+      "ck:note",
+      "ck:note_1",
+    ]);
+    // Both fields answer to the same action id, so `ckValueField` has to be
+    // the FIELD id to name one of them; the two arrive as distinct keys.
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
+    expect(
+      parseCardAction({
+        value: {
+          ...(card.actions![0]!.data as object),
+          "ck:note": "first",
+          "ck:note_1": "second",
+        },
+      }),
+    ).toEqual({
+      id: "ck:note",
+      value: "first",
+      values: { "ck:note": "first", "ck:note_1": "second" },
+    });
+  });
+
+  it("never mints a field id over a reserved envelope key, whatever `name` asks for", () => {
+    const card = renderAdaptiveCard([
+      el("input", [], { name: "ckActionId", onSubmit: { id: "ck:note" } }),
+      el("input", [], { name: "value" }),
+      el("input", [], { name: "ckValueField" }),
+    ]);
+
+    // A `name` colliding with `CARD_ENVELOPE_KEYS` is ignored and the field
+    // falls back down the same ladder. Honouring it would key the user's text
+    // under an envelope name, which the decode strips as reserved — the text
+    // would vanish, and a `name: "ckActionId"` would forge the route.
+    expect(card.body.map((element) => element.id)).toEqual([
+      "ck:note",
+      "input_2",
+      "input_3",
+    ]);
+
+    expect(
+      parseCardAction({
+        value: {
+          ...(card.actions![0]!.data as object),
+          "ck:note": "why",
+          input_2: "b",
+          input_3: "c",
+        },
+      }),
+    ).toEqual({
+      id: "ck:note",
+      value: "why",
+      values: { "ck:note": "why", input_2: "b", input_3: "c" },
+    });
+  });
+});
+
+describe("decoded `values` bag (contract)", () => {
+  it("delivers typed text as a string — nothing on this path coerces it", () => {
+    // Teams submits an `Input.Text` as a string, so text that merely LOOKS
+    // like JSON stays text. `<Input onSubmit>` is a `ClickHandler<string>`:
+    // handing it a number, a boolean, `null` or an object breaks the contract
+    // that the value is what the user typed.
+    const action = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+    ]).actions![0]!;
+
+    for (const typed of ["42", "true", "null", '{"a":1}']) {
+      const decoded = parseCardAction({
+        value: { ...(action.data as object), "ck:note": typed },
+      });
+
+      expect(decoded).toEqual({
+        id: "ck:note",
+        value: typed,
+        values: { "ck:note": typed },
+      });
+      expect(typeof decoded!.value).toBe("string");
+      expect(typeof decoded!.values["ck:note"]).toBe("string");
+    }
+  });
+
+  it("lands a `__proto__` field as own data and leaves `values` an ordinary object", () => {
+    // `__proto__` survives `JSON.parse` as an OWN key, so a payload really can
+    // carry one. Copied onto a bag with `bag[key] = …` it would run
+    // `Object.prototype`'s SETTER instead of becoming a field: the submitted
+    // value would disappear from `Object.keys`, and — being an object — would
+    // become the bag's prototype, so everything it carries would read back off
+    // the bag as though it had been submitted. Build the payload the way the
+    // wire does, not with an object literal (which sets the prototype).
+    const inbound = JSON.parse(
+      '{"ckActionId":"ck:note","__proto__":{"polluted":"yes"},"reason":"ship it"}',
+    ) as Record<string, unknown>;
+
+    const decoded = parseCardAction({ value: inbound })!;
+
+    // It is a field like any other: own, enumerable, and carrying its value.
+    expect(Object.keys(decoded.values).sort()).toEqual(["__proto__", "reason"]);
+    expect(
+      Object.getOwnPropertyDescriptor(decoded.values, "__proto__"),
+    ).toMatchObject({ value: { polluted: "yes" }, enumerable: true });
+    // …and it reached no prototype: not the bag's, not every object's.
+    expect(Object.getPrototypeOf(decoded.values)).toBe(Object.prototype);
+    expect(decoded.values).not.toHaveProperty("polluted");
+    expect({}).not.toHaveProperty("polluted");
+
+    // The bag stays an ORDINARY object: `values` is public API (it reaches
+    // handlers as `ctx.values`, a `Record<string, unknown>`), and consumer
+    // code calls `Object.prototype` methods on it. A null-prototype bag would
+    // block the injection too, but at the cost of breaking that. (See
+    // `setField`; the doc bullet still describes the older `Object.create(null)`
+    // build and is stale on this point.)
+    expect(typeof decoded.values.hasOwnProperty).toBe("function");
+    expect(decoded.value).toBeUndefined();
   });
 });
