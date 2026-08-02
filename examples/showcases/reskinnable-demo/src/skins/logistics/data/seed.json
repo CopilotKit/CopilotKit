@@ -30,7 +30,7 @@
       "reliability": 0.88,
       "costPerKg": 0.52,
       "status": "healthy",
-      "note": "Longer drayage to the LA DC, but berths are clear."
+      "note": "Direct Pacific Northwest service; berths are clear."
     },
     {
       "id": "ln-rtm-nyc-ocean",
@@ -62,6 +62,50 @@
       "costPerKg": 0.9,
       "status": "degraded",
       "note": "Customs staffing shortage at Laredo."
+    },
+    {
+      "id": "ln-sha-lax-ocean-exp",
+      "origin": "Shanghai (SHA)",
+      "destination": "Los Angeles (LAX)",
+      "mode": "ocean",
+      "transitDays": 18,
+      "reliability": 0.89,
+      "costPerKg": 0.68,
+      "status": "healthy",
+      "note": "Premium service with a priority berthing window at LAX."
+    },
+    {
+      "id": "ln-sha-lax-searail",
+      "origin": "Shanghai (SHA)",
+      "destination": "Los Angeles (LAX)",
+      "mode": "rail",
+      "transitDays": 20,
+      "reliability": 0.84,
+      "costPerKg": 0.62,
+      "status": "healthy",
+      "note": "Transload at Seattle, rail south to LAX — bypasses the LA berth queue."
+    },
+    {
+      "id": "ln-rtm-nyc-ocean-alt",
+      "origin": "Rotterdam (RTM)",
+      "destination": "New York (NYC)",
+      "mode": "ocean",
+      "transitDays": 12,
+      "reliability": 0.87,
+      "costPerKg": 0.72,
+      "status": "healthy",
+      "note": "Second carrier on a faster string at a higher rate."
+    },
+    {
+      "id": "ln-mty-dfw-rail",
+      "origin": "Monterrey (MTY)",
+      "destination": "Dallas (DFW)",
+      "mode": "rail",
+      "transitDays": 4,
+      "reliability": 0.92,
+      "costPerKg": 0.55,
+      "status": "healthy",
+      "note": "Crosses at Eagle Pass, avoiding the Laredo backlog."
     }
   ],
   "shipments": [
