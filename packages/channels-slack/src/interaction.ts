@@ -57,7 +57,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
       type?: string;
       /** `null`, not absent, when the control is a text input the user left empty. */
       value?: string | null;
-      selected_option?: { value?: string };
+      selected_option?: SelectedOption;
       selected_options?: Array<{ value?: string }>;
       action_ts?: string;
     }>;
@@ -103,7 +103,9 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   // is a select's option value (`SelectOption.value` is a `string`, written out
   // verbatim). JSON-parsing either would silently hand the handler `42` as a
   // number, `true` as a boolean, `null`, or `{"a":1}` as an object. A
-  // multi_static_select reports `selected_options` (an array) → a `string[]`.
+  // multi_static_select reports `selected_options` (an array) → a `string[]`;
+  // a single select reports `selected_option` → a `string` (see
+  // {@link selectedOptionValue} for the choice-less case).
   let value: unknown;
   if (action.type === PLAIN_TEXT_INPUT) {
     value = textInputValue(action.value);
@@ -112,7 +114,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   } else if (action.value !== undefined) {
     value = parseValue(action.value);
   } else {
-    value = action.selected_option?.value;
+    value = selectedOptionValue(action);
   }
 
   const actor = body.user?.id
@@ -197,6 +199,42 @@ function textInputValue(raw: string | null | undefined): string {
 }
 
 /**
+ * The `selected_option` slot a single-choice control carries: the chosen
+ * option, or `null` when it is a select nobody has picked from yet. Slack
+ * sends the key either way — `null` is how it says "this control is on the
+ * message and holds no choice", which is exactly the distinction
+ * {@link selectedOptionValue} keys the empty reading on.
+ */
+type SelectedOption = { value?: string } | null;
+
+/**
+ * A single `<Select>`'s reading, as the string its contract promises — or
+ * `undefined` for a control that has no `selected_option` slot at all.
+ *
+ * Slack reports an untouched single select as `selected_option: null`, and the
+ * reading is `""` — by the same rule that makes a blank text input `""` (see
+ * {@link textInputValue}) and an untouched multi select `[]`: empty is a
+ * reading, not absence. `onSelect` is a `ClickHandler<string | string[]>` (see
+ * `SelectProps` in channels-ui), which `undefined` does not satisfy, and it is
+ * what identical JSX delivers on Teams, where an untouched `Input.ChoiceSet`
+ * is merged into the submit as `""` like every other `Input.*` (see
+ * `render/adaptive-card.ts` and `input-submit.e2e.test.ts` in channels-teams).
+ *
+ * Keyed on the SLOT, not on a missing value: a `<Button>` with no `value` prop
+ * carries no `selected_option` at all and must stay `undefined`, since
+ * `ButtonProps.value` is genuinely optional and absence is its reading.
+ */
+function selectedOptionValue(el: {
+  selected_option?: SelectedOption;
+}): string | undefined {
+  const chosen = el.selected_option?.value;
+  if (chosen !== undefined) return chosen;
+  return Object.prototype.hasOwnProperty.call(el, "selected_option")
+    ? ""
+    : undefined;
+}
+
+/**
  * Write one decoded field onto a `values` bag as an OWN data property.
  *
  * `key` is a block/element id from an inbound Slack payload, and `__proto__`
@@ -240,7 +278,8 @@ interface SlackStateElement {
   type?: string;
   /** `null`, not absent, when the element is a text input the user left empty. */
   value?: string | null;
-  selected_option?: { value?: string };
+  /** `null`, not absent, when the element is a single select nobody has picked from. */
+  selected_option?: SelectedOption;
   selected_options?: Array<{ value?: string }>;
 }
 
@@ -256,6 +295,13 @@ interface SlackBlockState {
  * reading Slack reports — typed text, option values — is a string on the wire
  * and stays one. The two readers must agree, or the same `<Select>` would reach
  * a handler as `42` via `ctx.action.value` and `"42"` via `ctx.values`.
+ *
+ * One rule governs every control the user left alone, here and above: empty is
+ * a reading, not absence. A blank text input reads `""`, an untouched multi
+ * select reads `[]`, and an unpicked single select reads `""` (see
+ * {@link textInputValue} and {@link selectedOptionValue}) — never `null` and
+ * never `undefined`, which would make an on-screen control indistinguishable
+ * from one that is not on the message at all.
  */
 function stateElementValue(el: SlackStateElement): unknown {
   // Explicit ahead of the shared fallback: Slack reports an EMPTY text input as
@@ -263,7 +309,7 @@ function stateElementValue(el: SlackStateElement): unknown {
   // `selected_option` rather than to the empty string a text field owes.
   if (el.type === PLAIN_TEXT_INPUT) return textInputValue(el.value);
   if (el.selected_options) return el.selected_options.map((o) => o.value);
-  return el.value ?? el.selected_option?.value;
+  return el.value ?? selectedOptionValue(el);
 }
 
 /**

@@ -281,6 +281,65 @@ describe("decodeInteraction", () => {
     expect(evt!.values!["ck:multi"]).toEqual(chosen);
   });
 
+  it('reports an untouched single <Select> beside a clicked <Button> as ""', () => {
+    // The select half of the same "empty is a reading, not absence" contract
+    // the blank `<Input>` case above pins. Slack lists an untouched single
+    // select as `selected_option: null` — a control that IS on the message and
+    // holds no choice — so `values` owes `""`, the string `onSelect`'s
+    // `ClickHandler<string | string[]>` declares, not `null` and not
+    // `undefined`. It is also what identical JSX delivers on Teams, which
+    // merges an untouched `Input.ChoiceSet` into the submit as `""` like every
+    // other `Input.*` (see `input-submit.e2e.test.ts` in channels-teams).
+    // The untouched MULTI select next to it already reads `[]` for the same
+    // reason; `undefined` would make the two disagree about the same emptiness.
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [{ action_id: "ck:approve", type: "button", value: '"yes"' }],
+      state: {
+        values: {
+          "ckf:team": {
+            "ck:team": { type: "static_select", selected_option: null },
+          },
+          "ckf:owners": {
+            "ck:owners": {
+              type: "multi_static_select",
+              selected_options: [],
+            },
+          },
+        },
+      },
+    });
+    expect(evt!.values).toEqual({ team: "", owners: [] });
+  });
+
+  it('resolves an untouched single <Select> as "" in `value` too, never `undefined`', () => {
+    // The two readers must not disagree: whatever `ctx.values` reports for a
+    // choice-less single select, `ctx.action.value` reports the same.
+    const el = { type: "static_select", selected_option: null };
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [{ action_id: "ck:team", ...el }],
+      state: { values: { block1: { "ck:team": el } } },
+    });
+    expect(evt!.value).toBe("");
+    expect(evt!.values!["ck:team"]).toBe("");
+  });
+
+  it("still reports a valueless <Button> as `undefined`, not as an empty select", () => {
+    // The guard on the reading above: a button carries no `selected_option`
+    // slot at all, so `<Button onClick>` with no `value` prop stays absence.
+    // Keying the empty reading on the SLOT, not on a missing value, is what
+    // keeps these two apart.
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [{ action_id: "ck:b", type: "button" }],
+    });
+    expect(evt!.value).toBeUndefined();
+  });
+
   it("reports empty `values` when the payload carries no block state", () => {
     const evt = decodeInteraction({
       type: "block_actions",
