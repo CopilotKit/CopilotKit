@@ -176,9 +176,33 @@ async function main(): Promise<void> {
   });
 
   // Bounded, so a wedged connect cannot hang startup forever and a failure exits
-  // non-zero instead of looking live.
+  // non-zero instead of looking live. A rejection here (e.g. a Channel in
+  // `error`) still falls through to the top-level `.catch` below and exits
+  // non-zero.
   await listener.channels.ready({ timeoutMs: 30_000 });
-  console.log(`[channel] holding managed Channel "${channelName}"`);
+
+  // `ready()` resolving only means every Channel reached a terminal,
+  // non-connecting state — that includes `setup_required`, where nothing is
+  // actually attached yet. Report what `status()` says is true, not what we
+  // hoped would be true, so an unfinished setup reads as unfinished instead
+  // of as success.
+  const { channels: channelStatuses } = listener.channels.status();
+  const thisStatus = channelStatuses[channelName];
+  if (thisStatus === "online") {
+    console.log(`[channel] Channel "${channelName}" is online.`);
+  } else if (thisStatus === "setup_required") {
+    console.log(
+      `[channel] Channel "${channelName}" is declared but no managed provider is attached yet.\n` +
+        "  This is a normal waiting state, not an error — run `copilotkit channels status` " +
+        "to see what setup remains before it can send or receive messages.",
+    );
+  } else {
+    // ready() only resolves once every Channel is `online` or `setup_required`,
+    // so this should be unreachable — but report the truth if it ever isn't.
+    console.log(
+      `[channel] Channel "${channelName}" settled to unexpected status "${thisStatus}".`,
+    );
+  }
 }
 
 process.on("unhandledRejection", (reason) => {

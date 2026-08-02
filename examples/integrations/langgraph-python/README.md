@@ -69,9 +69,10 @@ This will start both the UI and agent servers concurrently.
 ## Running a managed Channel
 
 `channel-host.mts` mounts the same agent as a managed Intelligence Channel
-(Slack, Teams). Set it up with `copilotkit init` or `copilotkit channels add`,
-which write `.copilotkit/channels.json` and the credentials your `.env` needs,
-then:
+(Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
+`.copilotkit/channels.json` — set both up with `copilotkit init` or
+`copilotkit channels add`, which write that file and the credentials your
+`.env` needs, then:
 
 ```bash
 npm run channel
@@ -83,11 +84,18 @@ project declares more than one, set `INTELLIGENCE_CHANNEL_NAME` to pick one.
 The host holds no provider credentials and exposes no provider endpoint —
 Intelligence owns the provider edge — so the same file works for every provider.
 
-Reaching `[channel] holding managed Channel "<name>"` in the log means the
-runtime activated and the gateway accepted it. It does not prove the provider
-app is installed, that it has been invited to a channel, or that anyone can
-message it — verify those separately (invite the bot, then message it) before
-treating the Channel as working.
+Once startup finishes, the log reports the truth per Channel rather than a
+blanket success:
+
+- `Channel "<name>" is online.` — the managed session is up and can send.
+- `Channel "<name>" is declared but no managed provider is attached yet.` —
+  a normal waiting state, not a failure. Run `copilotkit channels status` to
+  see what setup remains (e.g. finishing a Slack app install).
+
+Either message means the runtime activated and the gateway accepted the
+Channel. Neither one proves the provider app is installed, that it has been
+invited to a channel, or that anyone can message it — verify those separately
+(invite the bot, then message it) before treating the Channel as working.
 
 ## Available Scripts
 
