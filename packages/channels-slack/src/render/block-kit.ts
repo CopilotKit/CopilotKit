@@ -419,7 +419,14 @@ function textInput(node: ChannelNode, context: RenderContext): KnownBlock {
   return {
     type: "input",
     block_id: fieldBlockId(id),
-    dispatch_action: true,
+    // Bound inputs only. An unbound box has no handler to reach, so a trigger
+    // here would post an interaction whose id dispatches nothing — and the
+    // engine resolves a pending `thread.awaitChoice` on ANY interaction in the
+    // conversation, so a decorative notes field would answer someone else's
+    // approval with whatever was typed in it. Its text still reaches handlers:
+    // Slack reports every input in `state.values` when a sibling `<Button>` is
+    // clicked, whether or not the input itself dispatches.
+    dispatch_action: bound,
     element: {
       type: "plain_text_input",
       action_id: elementActionId(props.onSubmit, id),
@@ -483,7 +490,10 @@ function selectBlock(node: ChannelNode, context: RenderContext): KnownBlock {
   return {
     type: "input",
     block_id: fieldBlockId(id),
-    dispatch_action: true,
+    // Bound selects only, for the same reason as `textInput`: an unbound
+    // multi-select that dispatches would resolve a pending `awaitChoice` with
+    // its own selection. Its reading still rides along in `state.values`.
+    dispatch_action: idFromHandler(props.onSelect) !== undefined,
     element,
     label: {
       type: "plain_text",

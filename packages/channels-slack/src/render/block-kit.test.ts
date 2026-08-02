@@ -137,7 +137,7 @@ describe("renderBlockKit", () => {
     ]);
   });
 
-  it("keeps the tall box for an <Input multiline> with no onSubmit, and claims no trigger for it", () => {
+  it("keeps the tall box for an <Input multiline> with no onSubmit, and dispatches nothing for it", () => {
     // Nothing to make unreachable: the text rides to a sibling `<Button>`'s
     // click in `state.values`, which needs no trigger on this element. Naming
     // one anyway would be the same unfireable configuration the bound case
@@ -153,7 +153,7 @@ describe("renderBlockKit", () => {
       {
         type: "input",
         block_id: "ckf:reason",
-        dispatch_action: true,
+        dispatch_action: false,
         element: {
           type: "plain_text_input",
           action_id: "reason",
@@ -162,6 +162,58 @@ describe("renderBlockKit", () => {
         label: { type: "plain_text", text: "Why?" },
       },
     ]);
+  });
+
+  it("does not let a decorative <Input> beside a <Button> claim a dispatch trigger", () => {
+    // The engine resolves a pending `thread.awaitChoice` on ANY interaction in
+    // the conversation, so an unbound notes box that dispatched would answer
+    // the Approve/Reject choice with whatever the user typed — the button
+    // handler never running. Only the button may dispatch here.
+    const blocks = renderBlockKit([
+      { type: "input", props: { name: "notes", placeholder: "Notes" } },
+      {
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "button",
+              props: {
+                onClick: { id: "ck:approve" },
+                children: [{ type: "text", props: { value: "Approve" } }],
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    const input = blocks[0] as { type: string; dispatch_action: boolean };
+    expect(input.type).toBe("input");
+    expect(input.dispatch_action).toBe(false);
+    // …and the notes text still reaches the button's handler, because Slack
+    // reports every input in `state.values` regardless of `dispatch_action`.
+    expect(blocks[1]).toMatchObject({
+      type: "actions",
+      elements: [{ action_id: "ck:approve" }],
+    });
+  });
+
+  it("does not let an unbound <Select multi> claim a dispatch trigger", () => {
+    const blocks = renderBlockKit([
+      {
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "select",
+              props: { multi: true, options: [{ label: "Core", value: "c" }] },
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(blocks[0]).toMatchObject({ type: "input", dispatch_action: false });
   });
 
   it("gives a static_select a unique fallback action_id when onSelect is absent", () => {
