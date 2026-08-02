@@ -27,6 +27,28 @@
  * />
  * ```
  *
+ * ### Send a message programmatically
+ *
+ * ```tsx
+ * import { useRef } from "react";
+ * import { CopilotChat, type CopilotChatRef } from "@copilotkit/react-ui";
+ *
+ * export function ChatWithRef() {
+ *   const chatRef = useRef<CopilotChatRef>(null);
+ *
+ *   const sendExample = async () => {
+ *     await chatRef.current?.sendMessage("Evaluate my traces");
+ *   };
+ *
+ *   return (
+ *     <>
+ *       <button onClick={sendExample}>Send example</button>
+ *       <CopilotChat ref={chatRef} />
+ *     </>
+ *   );
+ * }
+ * ```
+ *
  * ### With Observability Hooks
  *
  * To monitor user interactions, provide the `observabilityHooks` prop.
@@ -377,6 +399,13 @@ export interface CopilotChatProps {
   onError?: CopilotErrorHandler;
 }
 
+export interface CopilotChatRef {
+  /**
+   * Sends a text message through the same pipeline as the default chat input.
+   */
+  sendMessage: (text: string) => Promise<void>;
+}
+
 /**
  * @deprecated Use the `Attachment` type from `@copilotkit/react-ui` instead.
  * `ImageUpload` only described image payloads. `Attachment` supports images,
@@ -389,45 +418,48 @@ export type ImageUpload = {
   bytes: string;
 };
 
-export function CopilotChat({
-  instructions,
-  suggestions = "auto",
-  onSubmitMessage,
-  makeSystemMessage,
-  disableSystemMessage,
-  onInProgress,
-  onStopGeneration,
-  onReloadMessages,
-  onRegenerate,
-  onCopy,
-  onThumbsUp,
-  onThumbsDown,
-  markdownTagRenderers,
-  Messages = DefaultMessages,
-  RenderMessage = DefaultRenderMessage,
-  RenderSuggestionsList = DefaultRenderSuggestionsList,
-  Input = DefaultInput,
-  className,
-  icons,
-  labels,
-  AssistantMessage = DefaultAssistantMessage,
-  UserMessage = DefaultUserMessage,
-  ImageRenderer = DefaultImageRenderer,
-  ErrorMessage,
-  imageUploadsEnabled,
-  inputFileAccept = "image/*",
-  attachments,
-  hideStopButton,
-  observabilityHooks,
-  renderError,
-  onError,
-  // Legacy props - deprecated
-  RenderTextMessage,
-  RenderActionExecutionMessage,
-  RenderAgentStateMessage,
-  RenderResultMessage,
-  RenderImageMessage,
-}: CopilotChatProps) {
+function CopilotChatComponent(
+  {
+    instructions,
+    suggestions = "auto",
+    onSubmitMessage,
+    makeSystemMessage,
+    disableSystemMessage,
+    onInProgress,
+    onStopGeneration,
+    onReloadMessages,
+    onRegenerate,
+    onCopy,
+    onThumbsUp,
+    onThumbsDown,
+    markdownTagRenderers,
+    Messages = DefaultMessages,
+    RenderMessage = DefaultRenderMessage,
+    RenderSuggestionsList = DefaultRenderSuggestionsList,
+    Input = DefaultInput,
+    className,
+    icons,
+    labels,
+    AssistantMessage = DefaultAssistantMessage,
+    UserMessage = DefaultUserMessage,
+    ImageRenderer = DefaultImageRenderer,
+    ErrorMessage,
+    imageUploadsEnabled,
+    inputFileAccept = "image/*",
+    attachments,
+    hideStopButton,
+    observabilityHooks,
+    renderError,
+    onError,
+    // Legacy props - deprecated
+    RenderTextMessage,
+    RenderActionExecutionMessage,
+    RenderAgentStateMessage,
+    RenderResultMessage,
+    RenderImageMessage,
+  }: CopilotChatProps,
+  ref: React.ForwardedRef<CopilotChatRef>,
+) {
   const {
     additionalInstructions,
     setChatInstructions,
@@ -732,6 +764,13 @@ export function CopilotChat({
     });
   };
 
+  React.useImperativeHandle(ref, () => ({
+    sendMessage: async (text) => {
+      if (!text.trim()) return;
+      await handleSendMessage(text);
+    },
+  }));
+
   const chatContext = React.useContext(ChatContext);
   const isVisible = chatContext ? chatContext.open : true;
 
@@ -774,7 +813,9 @@ export function CopilotChat({
 
     for (const file of validFiles) {
       if (exceedsMaxSize(file, attachmentsMaxSize)) {
-        const message = `File "${file.name}" exceeds the maximum size of ${formatFileSize(attachmentsMaxSize)}`;
+        const message = `File "${
+          file.name
+        }" exceeds the maximum size of ${formatFileSize(attachmentsMaxSize)}`;
         triggerChatError(new Error(message), "fileUpload");
         resolvedAttachments?.onUploadFailed?.({
           reason: "file-too-large",
@@ -1012,6 +1053,9 @@ export function CopilotChat({
     </WrappedCopilotChat>
   );
 }
+
+export const CopilotChat = React.forwardRef(CopilotChatComponent);
+CopilotChat.displayName = "CopilotChat";
 
 export function WrappedCopilotChat({
   children,
