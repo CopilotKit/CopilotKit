@@ -526,6 +526,14 @@ function dispatchRoute(
   route: RouteInfo,
   options: { threadEndpointsEnabled: boolean },
 ): Promise<Response> {
+  if (
+    isIntelligenceRuntime(runtime) &&
+    runtime.identifyUser === undefined &&
+    route.method !== "info"
+  ) {
+    throw jsonResponse({ error: "Not found" }, 404);
+  }
+
   // Opt-in gate for the client-facing memory proxy routes (secure default:
   // off). When not explicitly enabled, every `/memories/*` route 404s as if it
   // did not exist — this MUST run before the per-handler `isIntelligenceRuntime`

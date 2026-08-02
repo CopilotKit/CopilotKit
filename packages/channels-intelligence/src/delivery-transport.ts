@@ -13,7 +13,10 @@ import { RealtimeGatewayPushError } from "./realtime-gateway.js";
 import {
   CHANNEL_DELIVERY_PROTOCOL,
   assertDeliveryPacket,
+  assertProviderMessageId,
   assertProviderReference,
+  isProviderMessageId,
+  isValidReactionName,
 } from "./delivery-contracts.js";
 import type {
   ChannelDeliveryPacket,
@@ -23,10 +26,7 @@ import type {
   ChannelTerminalPayload,
 } from "./delivery-contracts.js";
 import { ChannelDeliveryFileClient } from "./delivery-files.js";
-import {
-  ChannelDeliveryTranscriptClient,
-  ChannelDeliveryTranscriptError,
-} from "./delivery-transcript.js";
+import { ChannelDeliveryTranscriptClient } from "./delivery-transcript.js";
 import type { ChannelDeliveryTranscript } from "./delivery-transcript.js";
 import { ChannelDeliveryChargeClient } from "./delivery-charge.js";
 import type { ChannelFileRef } from "./delivery-files.js";
@@ -47,16 +47,10 @@ export type ChannelDeliveryAdapter = "slack" | "teams";
 export type ChannelDeliveryTurnInput =
   | {
       kind: "text";
-      text?: string;
+      text: string;
       files?: ChannelFileRef[];
       operation: MessageOperation;
-    }
-  | {
-      kind: "command";
-      command: string;
-      text?: string;
-      triggerId?: string;
-      rawOptions?: Record<string, unknown>;
+      messageRef: { id: string };
     }
   | {
       kind: "reaction";
@@ -64,14 +58,22 @@ export type ChannelDeliveryTurnInput =
       added: boolean;
       messageId: string;
       messageRef: { id: string };
-      postedRef?: string;
     }
   | {
       kind: "interaction";
       actionId: string;
       value?: unknown;
+      values?: Record<string, unknown>;
       messageRef?: { id: string };
       triggerId?: string;
+    }
+  | {
+      kind: "welcome";
+    }
+  | {
+      kind: "file_consent";
+      action: "accept" | "decline";
+      fileHandle: string;
     };
 
 export interface PreparedChannelDelivery {
@@ -83,17 +85,34 @@ export interface PreparedChannelDelivery {
   channelId: string;
   channelName: string;
   adapter: ChannelDeliveryAdapter;
-  /** Trusted inbound Slack surface; omitted for providers without this concept. */
-  surfaceKind?: "direct_message" | "app_mention" | "message";
+  tenant?: { id: string; name?: string };
+  installation?: { id: string };
+  conversation?: { id: string; kind?: string };
+  /** Trusted provider surface used to decide whether a response is expected. */
+  surfaceKind?:
+    | "direct_message"
+    | "app_mention"
+    | "message"
+    | "personal"
+    | "mention"
+    | "ambient"
+    | "interaction"
+    | "welcome"
+    | "reaction"
+    | "file_consent";
   turn: {
     eventId: string;
     receivedAt: string;
+    typingDelayMs?: 0 | 300;
     input: ChannelDeliveryTurnInput;
     actor?: {
       externalUserId: string;
-      kind: "human" | "bot" | "app" | "system";
+      kind: "human" | "bot" | "app" | "system" | "unknown";
       displayName?: string;
+      handle?: string;
+      email?: string;
     };
+    raw?: unknown;
   };
 }
 
@@ -112,6 +131,22 @@ export class ChannelProviderDeliveryError extends ChannelDeliveryTerminatedError
   ) {
     super(`Channel provider delivery ended with ${code}`);
     this.name = "ChannelProviderDeliveryError";
+  }
+}
+
+/** A provider-native effect or element was used for a different active provider. */
+export class ChannelProviderMismatchError extends TypeError {
+  readonly code = "CHANNEL_PROVIDER_MISMATCH";
+
+  constructor(
+    readonly activeProvider: ChannelDeliveryAdapter,
+    readonly requestedProvider: ChannelDeliveryAdapter,
+    readonly source: "effect" | "element",
+  ) {
+    super(
+      `Cannot send a ${requestedProvider} ${source} through an active ${activeProvider} delivery`,
+    );
+    this.name = "ChannelProviderMismatchError";
   }
 }
 
@@ -205,6 +240,7 @@ export class ClaimedChannelDelivery {
   private commitPromise?: Promise<void>;
   private transcriptTriggerPersisted = false;
   private providerOutputApplied = false;
+  private providerOutputExpected = false;
   /** After a successful terminal or permanent non-terminal failure, refuse further effects. */
   private effectsClosed = false;
   /** After a successful terminal apply, refuse all further packets. */
@@ -261,6 +297,19 @@ export class ClaimedChannelDelivery {
     payload: ProviderPayloadInput,
     options: { charge?: boolean } = {},
   ): Promise<Record<string, unknown>> {
+    if (isVisibleProviderEffect(payload)) {
+      this.providerOutputExpected = true;
+    }
+    const requestedProvider = providerForEffect(payload);
+    if (requestedProvider !== this.delivery.adapter) {
+      return Promise.reject(
+        new ChannelProviderMismatchError(
+          this.delivery.adapter,
+          requestedProvider,
+          "effect",
+        ),
+      );
+    }
     const charged =
       options.charge === false ? Promise.resolve() : this.charge();
     return charged
@@ -351,6 +400,16 @@ export class ClaimedChannelDelivery {
   /** Return whether at least one provider packet reached the applied phase. */
   hasProviderOutput(): boolean {
     return this.providerOutputApplied;
+  }
+
+  /** Mark that handler code explicitly attempted visible provider output. */
+  expectProviderOutput(): void {
+    this.providerOutputExpected = true;
+  }
+
+  /** Return whether this delivery's handler explicitly attempted visible output. */
+  hasExpectedProviderOutput(): boolean {
+    return this.providerOutputExpected;
   }
 
   /**
@@ -583,22 +642,23 @@ export class ClaimedChannelDelivery {
     acknowledgement: ChannelDeliveryPacketAck,
   ): void {
     if (
+      !isRecord(acknowledgement) ||
+      !hasExactFields(
+        acknowledgement,
+        ["deliveryId", "seq", "packetId", "phase", "result"],
+        ["retryAt"],
+      ) ||
       !["applied", "retry_wait", "failed", "uncertain"].includes(
-        acknowledgement?.phase,
+        String(acknowledgement.phase),
       ) ||
       acknowledgement.deliveryId !== packet.deliveryId ||
       acknowledgement.seq !== packet.seq ||
       acknowledgement.packetId !== packet.packetId ||
-      typeof acknowledgement.result !== "object" ||
-      acknowledgement.result === null
-    ) {
-      throw new TypeError(
-        "Gateway returned a conflicting packet acknowledgement",
-      );
-    }
-    if (
-      acknowledgement.phase === "retry_wait" &&
-      !Number.isFinite(Date.parse(acknowledgement.retryAt ?? ""))
+      !isRecord(acknowledgement.result) ||
+      (acknowledgement.phase === "retry_wait") !==
+        (acknowledgement.retryAt !== undefined) ||
+      (acknowledgement.retryAt !== undefined &&
+        !isIsoDateTime(acknowledgement.retryAt))
     ) {
       throw new TypeError(
         "Gateway returned a conflicting packet acknowledgement",
@@ -606,16 +666,36 @@ export class ClaimedChannelDelivery {
     }
     const reference = acknowledgement.result.providerReference;
     if (reference !== undefined) assertProviderReference(reference);
+    const providerMessageId = acknowledgement.result.providerMessageId;
+    if (providerMessageId !== undefined) {
+      assertProviderMessageId(providerMessageId);
+    }
   }
 }
 
-interface ClaimResult {
-  result?: "claimed" | "lost" | "deferred";
+type ClaimResult =
+  | {
+      result: "claimed";
+      deliveryId: string;
+      ownerGeneration: number;
+      joinToken: string;
+      joinTokenExpiresAt: string;
+      deliveryExpiresAt: string;
+      supersededDeliveryId?: string;
+    }
+  | { result: "lost"; deliveryId: string }
+  | {
+      result: "deferred";
+      deliveryId: string;
+      activeDeliveryId: string;
+    };
+
+interface JoinTokenResult {
   deliveryId: string;
-  activeDeliveryId?: string;
-  ownerGeneration?: number;
-  joinToken?: string;
-  deliveryExpiresAt?: string;
+  ownerGeneration: number;
+  joinToken: string;
+  joinTokenExpiresAt: string;
+  deliveryExpiresAt: string;
 }
 
 export interface ChannelDeliveryTransportOptions {
@@ -814,11 +894,14 @@ export class ChannelDeliveryTransport {
     try {
       let claim: ClaimResult;
       do {
-        claim = (await this.options.session.push(CLAIM_EVENT, {
-          protocol: CHANNEL_DELIVERY_PROTOCOL,
+        claim = assertClaimResult(
+          await this.options.session.push(CLAIM_EVENT, {
+            protocol: CHANNEL_DELIVERY_PROTOCOL,
+            deliveryId,
+            runtimeInstanceId: this.options.runtimeInstanceId,
+          }),
           deliveryId,
-          runtimeInstanceId: this.options.runtimeInstanceId,
-        })) as ClaimResult;
+        );
         if (claim.result === "deferred") {
           await waitUnlessStopped(DEFERRED_CLAIM_RETRY_MS, signal);
         }
@@ -861,12 +944,12 @@ export class ChannelDeliveryTransport {
         deliveryExpiresAt?: string;
       }> => {
         const previous = joined;
-        const refreshed = assertClaim(
-          (await this.options.session.push(JOIN_TOKEN_EVENT, {
+        const refreshed = assertJoinTokenResult(
+          await this.options.session.push(JOIN_TOKEN_EVENT, {
             protocol: CHANNEL_DELIVERY_PROTOCOL,
             deliveryId,
             runtimeInstanceId: this.options.runtimeInstanceId,
-          })) as ClaimResult,
+          }),
           deliveryId,
           this.options.runtimeInstanceId,
         );
@@ -924,16 +1007,16 @@ export class ChannelDeliveryTransport {
           !isChannelDeliveryTerminatedError(error) &&
           !claimedDelivery.isSuperseded()
         ) {
-          if (
-            error instanceof ChannelDeliveryTranscriptError &&
-            shouldReportTranscriptFailure(delivery)
-          ) {
+          if (shouldSendGenericFailure(delivery, claimedDelivery)) {
             await claimedDelivery
               .effect(
-                "transcript_failure",
+                "expected_response_failure",
                 {
-                  kind: "slack.message.create",
-                  text: "An error occurred processing this request.",
+                  kind:
+                    delivery.adapter === "slack"
+                      ? "slack.message.create"
+                      : "teams.message.create",
+                  text: "Something went wrong",
                 },
                 { charge: false },
               )
@@ -1087,85 +1170,172 @@ export function safeChannelErrorMetadata(error: unknown): {
 }
 
 function assertClaim(
-  claim: ClaimResult,
+  claim: Extract<ClaimResult, { result: "claimed" }>,
   deliveryId: string,
   runtimeInstanceId: string,
 ): DeliveryOwner & { joinToken: string } {
-  if (
-    claim.result !== "claimed" ||
-    claim.deliveryId !== deliveryId ||
-    !Number.isInteger(claim.ownerGeneration) ||
-    (claim.ownerGeneration ?? 0) < 1 ||
-    typeof claim.joinToken !== "string" ||
-    !claim.joinToken.startsWith("chj_")
-  ) {
-    throw new TypeError("Gateway returned an invalid delivery claim");
-  }
   return {
-    ownerGeneration: claim.ownerGeneration!,
+    ownerGeneration: claim.ownerGeneration,
     runtimeInstanceId,
     joinToken: claim.joinToken,
   };
 }
 
+function assertClaimResult(value: unknown, deliveryId: string): ClaimResult {
+  if (!isRecord(value) || value.deliveryId !== deliveryId) {
+    throw new TypeError("Gateway returned an invalid delivery claim");
+  }
+  if (value.result === "lost") {
+    if (!hasExactFields(value, ["result", "deliveryId"])) {
+      throw new TypeError("Gateway returned an invalid delivery claim");
+    }
+    return value as ClaimResult;
+  }
+  if (value.result === "deferred") {
+    if (
+      !hasExactFields(value, ["result", "deliveryId", "activeDeliveryId"]) ||
+      !isDeliveryId(value.activeDeliveryId)
+    ) {
+      throw new TypeError("Gateway returned an invalid delivery claim");
+    }
+    return value as ClaimResult;
+  }
+  if (
+    value.result !== "claimed" ||
+    !hasExactFields(
+      value,
+      [
+        "result",
+        "deliveryId",
+        "ownerGeneration",
+        "joinToken",
+        "joinTokenExpiresAt",
+        "deliveryExpiresAt",
+      ],
+      ["supersededDeliveryId"],
+    ) ||
+    !Number.isInteger(value.ownerGeneration) ||
+    Number(value.ownerGeneration) < 1 ||
+    !isJoinToken(value.joinToken) ||
+    !isIsoDateTime(value.joinTokenExpiresAt) ||
+    !isIsoDateTime(value.deliveryExpiresAt) ||
+    (value.supersededDeliveryId !== undefined &&
+      !isDeliveryId(value.supersededDeliveryId))
+  ) {
+    throw new TypeError("Gateway returned an invalid delivery claim");
+  }
+  return value as ClaimResult;
+}
+
+function assertJoinTokenResult(
+  value: unknown,
+  deliveryId: string,
+  runtimeInstanceId: string,
+): DeliveryOwner & JoinTokenResult {
+  if (
+    !isRecord(value) ||
+    !hasExactFields(value, [
+      "deliveryId",
+      "ownerGeneration",
+      "joinToken",
+      "joinTokenExpiresAt",
+      "deliveryExpiresAt",
+    ]) ||
+    value.deliveryId !== deliveryId ||
+    !Number.isInteger(value.ownerGeneration) ||
+    Number(value.ownerGeneration) < 1 ||
+    !isJoinToken(value.joinToken) ||
+    !isIsoDateTime(value.joinTokenExpiresAt) ||
+    !isIsoDateTime(value.deliveryExpiresAt)
+  ) {
+    throw new TypeError("Gateway returned an invalid delivery join token");
+  }
+  return {
+    deliveryId,
+    ownerGeneration: Number(value.ownerGeneration),
+    runtimeInstanceId,
+    joinToken: value.joinToken,
+    joinTokenExpiresAt: value.joinTokenExpiresAt,
+    deliveryExpiresAt: value.deliveryExpiresAt,
+  };
+}
+
 const PREPARED_TURN_KINDS = new Set([
   "text",
-  "command",
   "reaction",
   "interaction",
+  "welcome",
+  "file_consent",
 ]);
 const PREPARED_SURFACE_KINDS = new Set([
   "direct_message",
   "app_mention",
   "message",
+  "personal",
+  "mention",
+  "ambient",
+  "interaction",
+  "welcome",
+  "reaction",
+  "file_consent",
 ]);
-
-function shouldReportTranscriptFailure(
-  delivery: PreparedChannelDelivery,
-): boolean {
-  if (delivery.adapter !== "slack") return false;
-  if (
-    delivery.surfaceKind === "direct_message" ||
-    delivery.surfaceKind === "app_mention"
-  ) {
-    return true;
-  }
-  const input = delivery.turn.input;
-  return input.kind === "text" && input.operation.mentioned;
-}
 
 function assertPreparedDelivery(
   value: unknown,
   deliveryId: string,
 ): PreparedChannelDelivery {
-  if (!isRecord(value)) {
+  if (
+    !isRecord(value) ||
+    !hasExactFields(
+      value,
+      [
+        "protocol",
+        "deliveryId",
+        "deliveryExpiresAt",
+        "channelId",
+        "channelName",
+        "canonicalThreadId",
+        "appUserId",
+        "adapter",
+        "turn",
+      ],
+      ["tenant", "installation", "conversation", "surfaceKind"],
+    )
+  ) {
     throw new TypeError("Gateway returned an invalid prepared delivery");
   }
   const prepared = value as Partial<PreparedChannelDelivery>;
   if (
     prepared.protocol !== CHANNEL_DELIVERY_PROTOCOL ||
     prepared.deliveryId !== deliveryId ||
-    typeof prepared.deliveryExpiresAt !== "string" ||
-    !Number.isFinite(Date.parse(prepared.deliveryExpiresAt)) ||
-    typeof prepared.channelId !== "string" ||
-    typeof prepared.channelName !== "string" ||
-    typeof prepared.canonicalThreadId !== "string" ||
-    typeof prepared.appUserId !== "string" ||
+    !isDeliveryId(prepared.deliveryId) ||
+    !isIsoDateTime(prepared.deliveryExpiresAt) ||
+    !isChannelId(prepared.channelId) ||
+    !isChannelName(prepared.channelName) ||
+    !isSafeExternalId(prepared.canonicalThreadId) ||
+    !isSafeAppUserId(prepared.appUserId) ||
     (prepared.adapter !== "slack" && prepared.adapter !== "teams") ||
+    (prepared.tenant !== undefined && !isPreparedTenant(prepared.tenant)) ||
+    (prepared.installation !== undefined &&
+      !isPreparedInstallation(prepared.installation)) ||
+    (prepared.conversation !== undefined &&
+      !isPreparedConversation(prepared.conversation)) ||
     (prepared.surfaceKind !== undefined &&
       (typeof prepared.surfaceKind !== "string" ||
         !PREPARED_SURFACE_KINDS.has(prepared.surfaceKind))) ||
     !isRecord(prepared.turn) ||
-    typeof prepared.turn.eventId !== "string" ||
-    typeof prepared.turn.receivedAt !== "string" ||
+    !hasExactFields(
+      prepared.turn,
+      ["eventId", "receivedAt", "input"],
+      ["typingDelayMs", "actor", "raw"],
+    ) ||
+    !isEventId(prepared.turn.eventId) ||
+    !isIsoDateTime(prepared.turn.receivedAt) ||
+    (prepared.turn.typingDelayMs !== undefined &&
+      prepared.turn.typingDelayMs !== 0 &&
+      prepared.turn.typingDelayMs !== 300) ||
     (prepared.turn.actor !== undefined &&
-      (!isRecord(prepared.turn.actor) ||
-        typeof prepared.turn.actor.externalUserId !== "string" ||
-        !["human", "bot", "app", "system"].includes(
-          String(prepared.turn.actor.kind),
-        ) ||
-        (prepared.turn.actor.displayName !== undefined &&
-          typeof prepared.turn.actor.displayName !== "string"))) ||
+      !isPreparedActor(prepared.turn.actor)) ||
     !isRecord(prepared.turn.input) ||
     typeof prepared.turn.input.kind !== "string" ||
     !PREPARED_TURN_KINDS.has(prepared.turn.input.kind) ||
@@ -1180,36 +1350,316 @@ function assertPreparedDelivery(
 function isValidPreparedTurnInput(input: Record<string, unknown>): boolean {
   switch (input.kind) {
     case "text":
-      return true;
-    case "command":
-      return typeof input.command === "string" && input.command.length > 0;
+      return (
+        hasExactFields(
+          input,
+          ["kind", "text", "operation", "messageRef"],
+          ["files"],
+        ) &&
+        isBoundedString(input.text, 0, 40_000) &&
+        (input.files === undefined || isPreparedFiles(input.files)) &&
+        isPreparedMessageRef(input.messageRef) &&
+        isValidMessageOperation(input.operation)
+      );
     case "reaction":
       return (
-        typeof input.rawEmoji === "string" &&
-        input.rawEmoji.length > 0 &&
-        typeof input.messageId === "string" &&
-        input.messageId.length > 0 &&
-        typeof input.added === "boolean"
+        hasExactFields(input, [
+          "kind",
+          "rawEmoji",
+          "added",
+          "messageId",
+          "messageRef",
+        ]) &&
+        isValidReactionName(input.rawEmoji) &&
+        isProviderMessageId(input.messageId) &&
+        typeof input.added === "boolean" &&
+        isPreparedMessageRef(input.messageRef)
       );
     case "interaction":
-      return typeof input.actionId === "string" && input.actionId.length > 0;
+      return (
+        hasExactFields(
+          input,
+          ["kind", "actionId"],
+          ["value", "values", "messageRef", "triggerId"],
+        ) &&
+        isBoundedString(input.actionId, 1, 400) &&
+        (input.values === undefined || isRecord(input.values)) &&
+        (input.messageRef === undefined ||
+          isPreparedMessageRef(input.messageRef)) &&
+        (input.triggerId === undefined || isSafeExternalId(input.triggerId))
+      );
+    case "welcome":
+      return hasExactFields(input, ["kind"]);
+    case "file_consent":
+      return (
+        hasExactFields(input, ["kind", "action", "fileHandle"]) &&
+        (input.action === "accept" || input.action === "decline") &&
+        typeof input.fileHandle === "string" &&
+        /^fileref_[A-Za-z0-9_-]+$/.test(input.fileHandle)
+      );
     default:
       return false;
   }
+}
+
+function hasExactFields(
+  value: Record<string, unknown>,
+  required: readonly string[],
+  optional: readonly string[] = [],
+): boolean {
+  const allowed = new Set([...required, ...optional]);
+  return (
+    required.every((field) => Object.hasOwn(value, field)) &&
+    Object.keys(value).every((field) => allowed.has(field))
+  );
+}
+
+function isBoundedString(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= minimum &&
+    value.length <= maximum
+  );
+}
+
+function isIsoDateTime(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      value,
+    ) &&
+    Number.isFinite(Date.parse(value))
+  );
+}
+
+function isDeliveryId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 12 &&
+    value.length <= 132 &&
+    /^dlv_[A-Za-z0-9_-]+$/.test(value)
+  );
+}
+
+function isJoinToken(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 16 &&
+    value.length <= 4096 &&
+    /^chj_[A-Za-z0-9._-]+$/.test(value)
+  );
+}
+
+function isChannelId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 12 &&
+    value.length <= 132 &&
+    /^channel_[A-Za-z0-9_-]+$/.test(value)
+  );
+}
+
+function isEventId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 12 &&
+    value.length <= 132 &&
+    /^evt_[A-Za-z0-9_-]+$/.test(value)
+  );
+}
+
+function isChannelName(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 3 &&
+    value.length <= 64 &&
+    value !== "channels" &&
+    /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value)
+  );
+}
+
+function isSafeExternalId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(value)
+  );
+}
+
+const APP_USER_ID_MAX_LENGTH = 2048;
+
+/**
+ * Check a server-generated app-user id composed from provider-scoped parts.
+ */
+function isSafeAppUserId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= APP_USER_ID_MAX_LENGTH &&
+    /^[A-Za-z0-9][A-Za-z0-9_.:-]*$/.test(value)
+  );
+}
+
+function isPreparedActor(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    hasExactFields(
+      value,
+      ["externalUserId", "kind"],
+      ["displayName", "handle", "email"],
+    ) &&
+    isBoundedString(value.externalUserId, 1, 512) &&
+    ["human", "bot", "app", "system", "unknown"].includes(String(value.kind)) &&
+    (value.displayName === undefined ||
+      (typeof value.displayName === "string" &&
+        value.displayName.trim().length >= 1 &&
+        value.displayName.trim().length <= 120)) &&
+    (value.handle === undefined || isBoundedString(value.handle, 1, 512)) &&
+    (value.email === undefined || isBoundedString(value.email, 1, 512))
+  );
+}
+
+function isPreparedTenant(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    hasExactFields(value, ["id"], ["name"]) &&
+    isBoundedString(value.id, 1, 512) &&
+    (value.name === undefined || isBoundedString(value.name, 1, 512))
+  );
+}
+
+function isPreparedInstallation(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    hasExactFields(value, ["id"]) &&
+    isBoundedString(value.id, 1, 512)
+  );
+}
+
+function isPreparedConversation(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    hasExactFields(value, ["id"], ["kind"]) &&
+    isBoundedString(value.id, 1, 512) &&
+    (value.kind === undefined || isBoundedString(value.kind, 1, 120))
+  );
+}
+
+function isPreparedMessageRef(value: unknown): boolean {
+  if (!isRecord(value) || !hasExactFields(value, ["id"])) return false;
+  try {
+    assertProviderReference(value.id);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isPreparedFiles(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length <= 20 &&
+    value.every(
+      (file) =>
+        isRecord(file) &&
+        hasExactFields(
+          file,
+          ["handle", "filename"],
+          ["mimeType", "byteSize"],
+        ) &&
+        typeof file.handle === "string" &&
+        /^fileref_[A-Za-z0-9_-]+$/.test(file.handle) &&
+        typeof file.filename === "string" &&
+        file.filename.trim().length >= 1 &&
+        file.filename.trim().length <= 120 &&
+        (file.mimeType === undefined ||
+          isBoundedString(file.mimeType, 0, 255)) &&
+        (file.byteSize === undefined ||
+          (typeof file.byteSize === "number" &&
+            Number.isSafeInteger(file.byteSize) &&
+            file.byteSize >= 0)),
+    )
+  );
+}
+
+function isValidMessageOperation(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const fields = Object.keys(value);
+  return (
+    fields.length === 4 &&
+    fields.every((field) =>
+      ["kind", "logicalMessageId", "revisionId", "mentioned"].includes(field),
+    ) &&
+    ["created", "updated", "deleted"].includes(String(value.kind)) &&
+    isProviderMessageId(value.logicalMessageId) &&
+    isProviderMessageId(value.revisionId) &&
+    typeof value.mentioned === "boolean"
+  );
+}
+
+function isVisibleProviderEffect(payload: ProviderPayloadInput): boolean {
+  const kind = payload.kind;
+  return (
+    (kind.startsWith("slack.") || kind.startsWith("teams.")) &&
+    kind !== "slack.thread.status" &&
+    !kind.endsWith(".stream.stop")
+  );
+}
+
+/** Resolve the provider encoded in the strict provider-effect discriminator. */
+function providerForEffect(
+  payload: ProviderPayloadInput,
+): ChannelDeliveryAdapter {
+  return payload.kind.startsWith("teams.") ? "teams" : "slack";
+}
+
+/** Whether a failed handler owes the participant a generic visible response. */
+function shouldSendGenericFailure(
+  delivery: PreparedChannelDelivery,
+  claimedDelivery: ClaimedChannelDelivery,
+): boolean {
+  if (claimedDelivery.hasExpectedProviderOutput()) return true;
+  if (
+    delivery.surfaceKind === "direct_message" ||
+    delivery.surfaceKind === "app_mention" ||
+    delivery.surfaceKind === "personal" ||
+    delivery.surfaceKind === "mention" ||
+    delivery.surfaceKind === "interaction" ||
+    delivery.surfaceKind === "welcome"
+  ) {
+    return true;
+  }
+  const input = delivery.turn.input;
+  return (
+    input.kind === "welcome" ||
+    input.kind === "interaction" ||
+    (input.kind === "text" && input.operation.mentioned)
+  );
 }
 
 function isInvitation(value: unknown): value is {
   protocol: typeof CHANNEL_DELIVERY_PROTOCOL;
   deliveryId: string;
   canonicalThreadId: string;
+  channelName: string;
+  adapter: ChannelDeliveryAdapter;
 } {
   return (
     isRecord(value) &&
+    hasExactFields(value, [
+      "protocol",
+      "deliveryId",
+      "canonicalThreadId",
+      "channelName",
+      "adapter",
+    ]) &&
     value.protocol === CHANNEL_DELIVERY_PROTOCOL &&
-    typeof value.deliveryId === "string" &&
-    value.deliveryId.startsWith("dlv_") &&
-    typeof value.canonicalThreadId === "string" &&
-    value.canonicalThreadId.length > 0
+    isDeliveryId(value.deliveryId) &&
+    isSafeExternalId(value.canonicalThreadId) &&
+    isChannelName(value.channelName) &&
+    (value.adapter === "slack" || value.adapter === "teams")
   );
 }
 

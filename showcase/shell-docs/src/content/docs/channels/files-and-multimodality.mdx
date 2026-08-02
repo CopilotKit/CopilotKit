@@ -37,14 +37,14 @@ yourself; `runAgent` adds the explicit prompt for this turn.
 
 ## Understand the content mapping
 
-| Provider file | `AgentContentPart` |
-| --- | --- |
-| Image MIME type | `{ type: "image", source: { type: "data", value, mimeType } }` |
-| Audio MIME type | `{ type: "audio", source: ... }` |
-| Video MIME type | `{ type: "video", source: ... }` |
-| PDF | `{ type: "document", source: ... }` |
-| `text/*` | UTF-8 `{ type: "text", text }` |
-| Other binary type | A text note naming the attachment and MIME type |
+| Provider file     | `AgentContentPart`                                             |
+| ----------------- | -------------------------------------------------------------- |
+| Image MIME type   | `{ type: "image", source: { type: "data", value, mimeType } }` |
+| Audio MIME type   | `{ type: "audio", source: ... }`                               |
+| Video MIME type   | `{ type: "video", source: ... }`                               |
+| PDF               | `{ type: "document", source: ... }`                            |
+| `text/*`          | UTF-8 `{ type: "text", text }`                                 |
+| Other binary type | A text note naming the attachment and MIME type                |
 
 The binary `value` is base64. Whether the agent actually understands a media
 part depends on its selected model and framework. Choose a multimodal model and
@@ -102,38 +102,11 @@ Teams exposes files differently by surface:
 - Other group-chat file-upload shapes remain unsupported. Test every
   attachment shape your workflow accepts.
 
-The generated Teams package currently sets `supportsFiles` to `false` and does
-not request channel-message resource-specific consent. To enable the personal
-file picker and Graph-backed channel paths, edit the generated `manifest.json`
-before upload:
-
-```json title="manifest.json"
-{
-  "bots": [
-    {
-      "botId": "<your-azure-bot-app-id>",
-      "scopes": ["personal", "team", "groupChat"],
-      "supportsFiles": true,
-      "isNotificationOnly": false
-    }
-  ],
-  "authorization": {
-    "permissions": {
-      "resourceSpecific": [
-        {
-          "name": "ChannelMessage.Read.Group",
-          "type": "Application"
-        }
-      ]
-    }
-  }
-}
-```
-
-Merge those fields into the generated manifest rather than replacing the rest
-of it. Rebuild the zip with `manifest.json`, `color.png`, and `outline.png` at
-the archive root, then upload or reinstall it. A team owner grants the
-resource-specific permission during installation.
+The generated Teams package already declares the supported `personal` and
+`team` bot scopes, sets `supportsFiles: true`, and requests
+`ChannelMessage.Read.Group` resource-specific consent. Upload that generated
+package as-is. Do not add `groupChat`; managed group chats are not supported.
+A team owner grants the resource-specific permission during installation.
 
 For Graph-backed team-channel messages:
 
@@ -142,13 +115,15 @@ For Graph-backed team-channel messages:
   grants it during installation; it does not need tenant-admin Graph consent.
   Microsoft documents it as a
   [resource-specific consent permission](https://learn.microsoft.com/en-us/microsoftteams/platform/graph-api/rsc/resource-specific-consent).
-- Add the `Files.Read.All` application permission to the Entra app when you
-  need SharePoint-reference uploads. This additional permission requires tenant
-  admin consent.
+- Add the broad `Files.ReadWrite.All` **application** permission to the Entra
+  app for SharePoint-reference file ingest and managed outbound file support.
+  It requires tenant-admin consent. Teams setup probes this permission and does
+  not report the connection ready when the required Graph access is missing.
 
 Without the required consent, the text turn still runs but affected files are
-omitted or represented by a retrieval-failure note. Test personal chat, group
-chat, inline-media, pasted-image, and SharePoint-reference uploads separately.
+omitted or represented by a retrieval-failure note. Test personal chat,
+standard/private team channels, inline media, pasted images, and
+SharePoint-reference uploads separately.
 
 </FrontendOnly>
 
@@ -189,11 +164,13 @@ then verify the real Slack message when provider-side display matters.
 
 <FrontendOnly frontend="teams">
 
-Managed Teams outbound file delivery currently supports images only. It posts
-the image as an inline Bot Connector attachment. For CSV, PDF, and other
-non-image files, `postFile()` returns `ok: false` before a provider call. A
-confirmed Teams size rejection returns `teams_image_rejected` without ending
-the delivery, so the agent can still send a text fallback.
+Managed Teams supports general outbound files. In standard and private Team
+channels, Intelligence uploads the original bytes to the channel's SharePoint
+files area and sends a visible card or link. In personal chat, the same
+`postFile()` call starts Microsoft's native consent-card flow when required;
+acceptance completes the trusted upload and a decline remains a normal user
+choice. Images may use the inline Bot Connector path. Always check `result.ok`
+and send a text fallback when delivery is rejected.
 
 </FrontendOnly>
 

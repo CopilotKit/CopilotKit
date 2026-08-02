@@ -77,7 +77,9 @@ export function ApprovalCard({ summary }: { summary: string }) {
           onClick={async ({ thread, message, action }) => {
             const value = action.value;
             if (value === undefined) {
-              await thread.post("The approval value was missing. Please try again.");
+              await thread.post(
+                "The approval value was missing. Please try again.",
+              );
               return;
             }
 
@@ -105,7 +107,9 @@ export function ApprovalCard({ summary }: { summary: string }) {
           onClick={async ({ thread, message, action }) => {
             const value = action.value;
             if (value === undefined) {
-              await thread.post("The approval value was missing. Please try again.");
+              await thread.post(
+                "The approval value was missing. Please try again.",
+              );
               return;
             }
 
@@ -148,7 +152,7 @@ function required(name: string): string {
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
-  provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
 });
@@ -178,7 +182,7 @@ function required(name: string): string {
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
-  provider: "teams",
+  identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
 });
@@ -251,9 +255,8 @@ on the selected provider's app configuration:
 
 Other provider-specific features remain capability-gated:
 
-- Incoming reactions can be handled when Intelligence delivers them, but
-  adding or removing reactions from the SDK is not part of the managed
-  baseline.
+- Incoming reactions can be handled when Intelligence delivers them, and the
+  managed adapter supports adding or removing documented portable reactions.
 - Modal open/submit callbacks are direct-adapter capabilities, not part of the
   managed Slack or Teams realtime path.
 - Ephemeral messages, conversation titles, and suggested prompts may return

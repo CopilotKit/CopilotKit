@@ -1,8 +1,12 @@
-import type { CopilotRuntimeLike } from "../../core/runtime";
+import type {
+  CopilotIntelligenceRuntimeLike,
+  CopilotRuntimeLike,
+} from "../../core/runtime";
 import { isIntelligenceRuntime } from "../../core/runtime";
 import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
+import { resolveWebMemory } from "../shared/memory-policy";
 import { PlatformRequestError } from "../../intelligence-platform/client";
 
 interface MemoriesHandlerParams {
@@ -12,6 +16,15 @@ interface MemoriesHandlerParams {
 
 interface MemoryMutationParams extends MemoriesHandlerParams {
   memoryId: string;
+}
+
+async function resolveClientMemory(
+  runtime: CopilotIntelligenceRuntimeLike,
+  request: Request,
+) {
+  const user = await resolveIntelligenceUser({ runtime, request });
+  if (isHandlerResponse(user)) return user;
+  return resolveWebMemory(runtime, request, user, "client");
 }
 
 const MISSING_INTELLIGENCE_MESSAGE =
@@ -176,11 +189,12 @@ export async function handleListMemories({
       const includeInvalidated =
         url.searchParams.get("includeInvalidated") === "true";
 
-      const user = await resolveIntelligenceUser({ runtime, request });
-      if (isHandlerResponse(user)) return user;
+      const access = await resolveClientMemory(runtime, request);
+      if (isHandlerResponse(access)) return access;
 
       const data = await runtime.intelligence.listMemories({
-        userId: user.id,
+        userId: access.user.id,
+        ...(runtime.memory ? { memoryGrant: access.grant } : {}),
         ...(includeInvalidated ? { includeInvalidated: true } : {}),
       });
 
@@ -235,11 +249,12 @@ export async function handleRecallMemories({
     const fields = parseRecallBody(body);
     if (isHandlerResponse(fields)) return fields;
 
-    const user = await resolveIntelligenceUser({ runtime, request });
-    if (isHandlerResponse(user)) return user;
+    const access = await resolveClientMemory(runtime, request);
+    if (isHandlerResponse(access)) return access;
 
     const data = await runtime.intelligence.recallMemories({
-      userId: user.id,
+      userId: access.user.id,
+      ...(runtime.memory ? { memoryGrant: access.grant } : {}),
       ...fields,
     });
 
@@ -285,16 +300,21 @@ export async function handleSubscribeToMemories({
 }: MemoriesHandlerParams): Promise<Response> {
   if (isIntelligenceRuntime(runtime)) {
     try {
-      const user = await resolveIntelligenceUser({ runtime, request });
-      if (isHandlerResponse(user)) return user;
+      const access = await resolveClientMemory(runtime, request);
+      if (isHandlerResponse(access)) return access;
 
       const credentials = await runtime.intelligence.ɵsubscribeToMemories({
-        userId: user.id,
+        userId: access.user.id,
+        ...(runtime.memory ? { memoryGrant: access.grant } : {}),
       });
 
       return Response.json({
-        joinToken: credentials.joinToken,
-        joinCode: credentials.joinCode,
+        ...(credentials.joinToken !== undefined
+          ? { joinToken: credentials.joinToken }
+          : {}),
+        ...(credentials.joinCode !== undefined
+          ? { joinCode: credentials.joinCode }
+          : {}),
         // Project-scoped credentials ride along only when the platform minted
         // them; omit both when absent (silent-degrade contract).
         ...(credentials.projectJoinToken !== undefined
@@ -331,11 +351,12 @@ export async function handleCreateMemory({
     const fields = parseMemoryBody(body);
     if (isHandlerResponse(fields)) return fields;
 
-    const user = await resolveIntelligenceUser({ runtime, request });
-    if (isHandlerResponse(user)) return user;
+    const access = await resolveClientMemory(runtime, request);
+    if (isHandlerResponse(access)) return access;
 
     const data = await runtime.intelligence.createMemory({
-      userId: user.id,
+      userId: access.user.id,
+      ...(runtime.memory ? { memoryGrant: access.grant } : {}),
       ...fields,
     });
     return Response.json(data, { status: 201 });
@@ -363,11 +384,12 @@ export async function handleUpdateMemory({
     const fields = parseMemoryBody(body);
     if (isHandlerResponse(fields)) return fields;
 
-    const user = await resolveIntelligenceUser({ runtime, request });
-    if (isHandlerResponse(user)) return user;
+    const access = await resolveClientMemory(runtime, request);
+    if (isHandlerResponse(access)) return access;
 
     const data = await runtime.intelligence.updateMemory({
-      userId: user.id,
+      userId: access.user.id,
+      ...(runtime.memory ? { memoryGrant: access.grant } : {}),
       id: memoryId,
       ...fields,
     });
@@ -391,10 +413,14 @@ export async function handleRemoveMemory({
     return errorResponse(MISSING_INTELLIGENCE_MESSAGE, 422);
   }
   try {
-    const user = await resolveIntelligenceUser({ runtime, request });
-    if (isHandlerResponse(user)) return user;
+    const access = await resolveClientMemory(runtime, request);
+    if (isHandlerResponse(access)) return access;
 
-    await runtime.intelligence.removeMemory({ userId: user.id, id: memoryId });
+    await runtime.intelligence.removeMemory({
+      userId: access.user.id,
+      id: memoryId,
+      ...(runtime.memory ? { memoryGrant: access.grant } : {}),
+    });
     return new Response(null, { status: 204 });
   } catch (error) {
     logger.error({ err: error }, "Error removing memory");

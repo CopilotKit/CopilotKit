@@ -34,14 +34,6 @@ export interface ChannelActivationConfig {
   /** The Channel's declared name (`createChannel({ name })`). */
   channelName: string;
   /**
-   * The managed provider this Channel declares to the Intelligence gateway on
-   * join, resolved from the Channel's per-Channel `provider` (e.g. `"slack"` or
-   * `"teams"`), defaulting to `"slack"`. Named `adapter` because that is the
-   * field the gateway's join payload expects; the gateway resolves the actual
-   * connection for the declared provider.
-   */
-  adapter: string;
-  /**
    * Optional per-Channel override for visible managed tool-call progress.
    * Unset Slack routes default to hidden; other providers retain their existing
    * default.
@@ -112,8 +104,7 @@ export function parseProjectIdFromApiKey(apiKey: string): number {
  * @param args.intelligence - The Intelligence runtime client to pull the
  *   runner websocket URL and auth token from.
  * @param args.channel - The Channel being activated. Must have a `name`; its
- *   per-Channel `provider` selects the managed adapter declared to the gateway,
- *   and `showToolStatus` optionally overrides managed tool-call visibility.
+ *   `showToolStatus` optionally overrides managed tool-call visibility.
  * @param args.runtimeInstanceId - Identifier for the activating runtime
  *   instance, passed through unchanged.
  * @returns The resolved {@link ChannelActivationConfig}.
@@ -121,14 +112,10 @@ export function parseProjectIdFromApiKey(apiKey: string): number {
  *   parseable, strictly-positive project id, or if `channel.name` is
  *   missing/empty.
  *
- * The managed provider is a PER-CHANNEL choice read from `channel.provider`, so
- * one runtime can activate a Slack-backed Channel and a Teams-backed Channel
- * side by side. When `channel.provider` is unset the config adapter defaults to
- * `"slack"` — an explicit, documented default, not a silent global. The SDK
- * only DECLARES this provider to the Intelligence gateway on join; the gateway
- * resolves the actual connection and is the authority on which providers it
- * accepts (it accepts only `"slack"` today — Teams gateway support is tracked
- * in OSS-450).
+ * Provider declarations do not belong in this per-Channel config. One managed
+ * activation declares every supported managed provider over its single control
+ * connection; the Intelligence gateway selects the provider from each trusted
+ * prepared delivery.
  *
  * The Channel-name FORMAT rules (lowercase kebab-case, 3–64 chars) and the
  * reserved-name rule are NOT re-checked here. Their single source of truth is
@@ -159,23 +146,12 @@ export function deriveChannelActivationConfig(args: {
   const apiKey = intelligence.ɵgetRunnerAuthToken();
   const projectId = parseProjectIdFromApiKey(apiKey);
 
-  // Resolve the managed adapter declared to the gateway from the Channel's OWN
-  // `provider` — a per-Channel choice, not a manager-wide default. When
-  // `provider` is unset the adapter is the documented default `"slack"`; set
-  // `createChannel({ provider: "teams" })` to declare Teams instead. The value
-  // is trimmed so a padded runtime value (one that bypassed the typed union)
-  // resolves to its bare provider rather than being forwarded with whitespace,
-  // and a blank/whitespace-only provider falls back to `"slack"` (`??` alone
-  // would keep `""`).
-  const trimmedProvider = channel.provider?.trim();
-
   return {
     wsUrl,
     apiUrl,
     apiKey,
     projectId,
     channelName,
-    adapter: trimmedProvider ? trimmedProvider : "slack",
     ...(channel.showToolStatus !== undefined
       ? { showToolStatus: channel.showToolStatus }
       : {}),

@@ -12,6 +12,23 @@ import { randomUUID } from "crypto";
  * @internal
  */
 export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
+/** Immutable user/project Memory grant forwarded to Intelligence. */
+export const INTELLIGENCE_MEMORY_GRANT_HEADER = "x-cpki-memory-grant";
+
+interface RuntimeMemoryGrant {
+  readonly user: "none" | "read" | "read-write";
+  readonly project: "none" | "read" | "read-write";
+}
+
+const memoryRequestHeaders = (
+  userId: string,
+  grant?: RuntimeMemoryGrant,
+): Record<string, string> => ({
+  [INTELLIGENCE_USER_ID_HEADER]: userId,
+  ...(grant
+    ? { [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(grant) }
+    : {}),
+});
 
 /**
  * REST base URL of CopilotKit's managed Intelligence platform — the default
@@ -97,6 +114,9 @@ export interface CopilotKitIntelligenceConfig {
    *
    * Defaults to `false` — opt-in. Existing intelligence setups continue
    * to work without these tools unless they flip this flag.
+   *
+   * @deprecated Configure `memory.access` on `CopilotRuntime` so each web
+   * request receives an explicit agent or client Memory grant.
    */
   enableEnterpriseLearning?: boolean;
   /**
@@ -247,6 +267,7 @@ export interface SubscribeToThreadsResponse {
 
 export interface SubscribeToMemoriesRequest {
   userId: string;
+  memoryGrant?: RuntimeMemoryGrant;
 }
 
 /**
@@ -256,8 +277,8 @@ export interface SubscribeToMemoriesRequest {
  * `user_meta:memories:<joinCode>` channel topic.
  */
 export interface SubscribeToMemoriesResponse {
-  joinToken: string;
-  joinCode: string;
+  joinToken?: string;
+  joinCode?: string;
   /**
    * Project-scoped realtime credentials, minted by the platform only when the
    * caller's API key resolves to a project scope. Absent when project scope is
@@ -686,6 +707,7 @@ export class CopilotKitIntelligence {
    */
   async listMemories(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     includeInvalidated?: boolean;
   }): Promise<ListMemoriesResponse> {
     const qs = params.includeInvalidated ? "?includeInvalidated=true" : "";
@@ -693,7 +715,7 @@ export class CopilotKitIntelligence {
       "GET",
       `/api/memories${qs}`,
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -705,6 +727,7 @@ export class CopilotKitIntelligence {
    */
   async createMemory(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     content: string;
     kind: string;
     /** Optional: when omitted, the platform applies its default (`"user"`). */
@@ -720,7 +743,7 @@ export class CopilotKitIntelligence {
         ...(params.scope !== undefined ? { scope: params.scope } : {}),
         sourceThreadIds: params.sourceThreadIds ?? [],
       },
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -734,6 +757,7 @@ export class CopilotKitIntelligence {
    */
   async updateMemory(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     id: string;
     content: string;
     kind: string;
@@ -750,7 +774,7 @@ export class CopilotKitIntelligence {
         ...(params.scope !== undefined ? { scope: params.scope } : {}),
         sourceThreadIds: params.sourceThreadIds ?? [],
       },
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -758,12 +782,16 @@ export class CopilotKitIntelligence {
    * Non-lossily retire (forget) a memory (platform `DELETE /api/memories/:id`).
    * @throws {@link PlatformRequestError} on non-2xx responses.
    */
-  async removeMemory(params: { userId: string; id: string }): Promise<void> {
+  async removeMemory(params: {
+    userId: string;
+    id: string;
+    memoryGrant?: RuntimeMemoryGrant;
+  }): Promise<void> {
     await this.#request<void>(
       "DELETE",
       `/api/memories/${encodeURIComponent(params.id)}`,
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -775,6 +803,7 @@ export class CopilotKitIntelligence {
    */
   async recallMemories(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     query: string;
     limit?: number;
     scope?: string;
@@ -787,7 +816,7 @@ export class CopilotKitIntelligence {
         ...(params.limit !== undefined ? { limit: params.limit } : {}),
         ...(params.scope !== undefined ? { scope: params.scope } : {}),
       },
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -827,7 +856,7 @@ export class CopilotKitIntelligence {
       "POST",
       "/api/memories/subscribe",
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 

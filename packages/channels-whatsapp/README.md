@@ -32,6 +32,7 @@ import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
+  identifyUser: "platform",
   name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     whatsapp({
@@ -59,7 +60,6 @@ const runtime = new CopilotRuntime({
     // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [bot],
 });
 

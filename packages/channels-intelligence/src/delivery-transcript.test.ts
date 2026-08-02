@@ -9,8 +9,8 @@ import type { ChannelDeliveryTranscriptError } from "./delivery-transcript.js";
 const transcript = {
   messages: [
     {
-      logicalMessageId: "1730000000.000100",
-      revisionId: "1730000000.000100",
+      logicalMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+      revisionId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
       occurredAt: "2026-07-30T19:58:00.000Z",
       role: "participant" as const,
       actor: {
@@ -20,13 +20,14 @@ const transcript = {
         handle: "ada",
       },
       text: "hello",
+      messageRef: { id: "pref_v1_transcript_message_hello_123" },
       deleted: false,
       currentTrigger: false,
       files: [],
     },
     {
-      logicalMessageId: "1730000000.000200",
-      revisionId: "1730000000.000200",
+      logicalMessageId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
+      revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
       occurredAt: "2026-07-30T19:59:00.000Z",
       role: "assistant" as const,
       actor: {
@@ -36,13 +37,14 @@ const transcript = {
         handle: "support-bot",
       },
       text: "Hi Ada!",
+      messageRef: { id: "pref_v1_transcript_message_reply_123" },
       deleted: false,
       currentTrigger: false,
       files: [],
     },
     {
-      logicalMessageId: "1730000000.000300",
-      revisionId: "1730000000.000300",
+      logicalMessageId: "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
+      revisionId: "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
       occurredAt: "2026-07-30T20:00:00.000Z",
       role: "participant" as const,
       actor: {
@@ -52,6 +54,7 @@ const transcript = {
         handle: "ada",
       },
       text: "Can you help again?",
+      messageRef: { id: "pref_v1_transcript_message_trigger_123" },
       deleted: false,
       currentTrigger: true,
       files: [],
@@ -154,6 +157,163 @@ test("transcript client rejects malformed successful responses without another p
   expect(fetch).toHaveBeenCalledOnce();
 });
 
+test("transcript client rejects raw or missing provider message references", async () => {
+  const withoutReference = {
+    ...transcript,
+    messages: transcript.messages.map(
+      ({ messageRef: _messageRef, ...message }) => message,
+    ),
+  };
+  const fetch = vi.fn(async () =>
+    Promise.resolve(new Response(JSON.stringify(withoutReference))),
+  );
+  const client = new ChannelDeliveryTranscriptClient({
+    baseUrl: "https://api.example",
+    apiKey: "cpk-runtime",
+    fetch,
+  });
+
+  await expect(client.fetchTranscript("dlv_123")).rejects.toMatchObject({
+    code: "CHANNEL_TRANSCRIPT_RESPONSE_INVALID",
+    retryable: false,
+  });
+});
+
+test.each([
+  ["top-level extras", { ...transcript, rawProviderPayload: {} }],
+  [
+    "truncation extras",
+    { ...transcript, truncation: { ...transcript.truncation, secret: true } },
+  ],
+  [
+    "message extras",
+    {
+      ...transcript,
+      messages: [{ ...transcript.messages[0], rawProviderMessageId: "171.1" }],
+    },
+  ],
+  [
+    "actor extras",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          actor: { ...transcript.messages[0]!.actor, tenantSecret: "raw" },
+        },
+      ],
+    },
+  ],
+  [
+    "message-reference extras",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          messageRef: {
+            ...transcript.messages[0]!.messageRef,
+            rawId: "171.1",
+          },
+        },
+      ],
+    },
+  ],
+  [
+    "file extras",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          files: [
+            {
+              providerFileId: "file-1",
+              name: "report.txt",
+              mimeType: "text/plain",
+              byteSize: 10,
+              availability: "managed",
+              handle: "fileref_report",
+              rawUrl: "https://provider.example/secret",
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  [
+    "oversized actor ids",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          actor: { ...transcript.messages[0]!.actor, id: "x".repeat(513) },
+        },
+      ],
+    },
+  ],
+  [
+    "oversized file metadata",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          files: [
+            {
+              providerFileId: "file-1",
+              name: "x".repeat(513),
+              mimeType: "text/plain",
+              byteSize: 10,
+              availability: "managed",
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  [
+    "more than 100 files",
+    {
+      ...transcript,
+      messages: [
+        {
+          ...transcript.messages[0],
+          files: Array.from({ length: 101 }, (_, index) => ({
+            providerFileId: `file-${index}`,
+            name: null,
+            mimeType: null,
+            byteSize: null,
+            availability: "provider_only",
+          })),
+        },
+      ],
+    },
+  ],
+  [
+    "non-RFC3339 dates",
+    {
+      ...transcript,
+      messages: [
+        { ...transcript.messages[0], occurredAt: "July 30, 2026 19:58" },
+      ],
+    },
+  ],
+])("transcript client rejects %s", async (_name, invalidTranscript) => {
+  const client = new ChannelDeliveryTranscriptClient({
+    baseUrl: "https://api.example",
+    apiKey: "cpk-runtime",
+    fetch: async () => new Response(JSON.stringify(invalidTranscript)),
+  });
+
+  await expect(client.fetchTranscript("dlv_123")).rejects.toMatchObject({
+    code: "CHANNEL_TRANSCRIPT_RESPONSE_INVALID",
+    retryable: false,
+    attempts: 1,
+  });
+});
+
 test("assistant transcript history stays plain while participant metadata stays structured and model-visible", async () => {
   const fetch = vi.fn(async () =>
     Promise.resolve(new Response(JSON.stringify(transcript))),
@@ -178,10 +338,12 @@ test("assistant transcript history stays plain while participant metadata stays 
       input: {
         kind: "text",
         text: "Can you help again?",
+        messageRef: { id: "pref_v1_message_transcript_123" },
         operation: {
           kind: "created",
-          logicalMessageId: "1730000000.000300",
-          revisionId: "1730000000.000300",
+          logicalMessageId:
+            "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
+          revisionId: "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
           mentioned: false,
         },
       },
@@ -229,13 +391,17 @@ test("assistant transcript history stays plain while participant metadata stays 
       },
       providerMessage: expect.objectContaining({
         currentTrigger: false,
-        logicalMessageId: "1730000000.000100",
+        logicalMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
         actor: {
           id: "U1",
           kind: "human",
           displayName: "Ada",
           handle: "ada",
         },
+      }),
+      messageRef: expect.objectContaining({
+        id: "pref_v1_transcript_message_hello_123",
+        providerReference: "pref_v1_transcript_message_hello_123",
       }),
     }),
   );
@@ -252,7 +418,7 @@ test("assistant transcript history stays plain while participant metadata stays 
       },
       providerMessage: expect.objectContaining({
         currentTrigger: false,
-        logicalMessageId: "1730000000.000200",
+        logicalMessageId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
         actor: {
           id: "B1",
           kind: "app",
@@ -268,7 +434,7 @@ test("assistant transcript history stays plain while participant metadata stays 
       content: `${adaActorEnvelope}\nCan you help again?`,
       providerMessage: expect.objectContaining({
         currentTrigger: true,
-        logicalMessageId: "1730000000.000300",
+        logicalMessageId: "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
       }),
     }),
   );
@@ -319,4 +485,94 @@ test("assistant transcript history stays plain while participant metadata stays 
 
   expect(persistedRuns[1]).toHaveLength(0);
   expect(fetch).toHaveBeenCalledOnce();
+});
+
+test("Teams transcript metadata and truncation labels name Teams, not Slack", async () => {
+  const teamsTranscript = {
+    messages: [
+      {
+        ...transcript.messages[0],
+        files: [
+          {
+            providerFileId: "teams-file-1",
+            name: "history.txt",
+            mimeType: "text/plain",
+            byteSize: 12,
+            availability: "unavailable" as const,
+          },
+        ],
+      },
+    ],
+    truncation: {
+      messageLimit: true,
+      byteLimit: false,
+      omittedMessageCount: 2,
+    },
+  };
+  const fetch = vi.fn(async () =>
+    Promise.resolve(new Response(JSON.stringify(teamsTranscript))),
+  );
+  const delivery: PreparedChannelDelivery = {
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_teams_transcript_01",
+    deliveryExpiresAt: "2099-07-30T20:00:00.000Z",
+    canonicalThreadId: "thread_teams_transcript",
+    appUserId: "teams:T1:U1",
+    channelId: "channel_teams_transcript",
+    channelName: "support",
+    adapter: "teams",
+    turn: {
+      eventId: "evt_teams_transcript",
+      receivedAt: "2026-07-30T20:00:00.000Z",
+      input: {
+        kind: "text",
+        text: "hello",
+        messageRef: { id: "pref_v1_message_teamsTranscript_123" },
+        operation: {
+          kind: "created",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          mentioned: false,
+        },
+      },
+      actor: { externalUserId: "U1", kind: "human", displayName: "Ada" },
+    },
+  };
+  const claimed = new ClaimedChannelDelivery(
+    delivery,
+    { ownerGeneration: 1, runtimeInstanceId: "rti_teams_transcript_01" },
+    {
+      joinReply: delivery,
+      push: vi.fn(),
+      on: vi.fn(),
+      onClose: vi.fn(),
+      leave: vi.fn(),
+    },
+    vi.fn(),
+    undefined,
+    new ChannelDeliveryTranscriptClient({
+      baseUrl: "https://api.example",
+      apiKey: "cpk-runtime",
+      fetch,
+    }),
+  );
+  const adapter = new DeliveryAdapter({
+    channelName: "support",
+    transport: {} as never,
+    loadHistory: vi.fn(async () => []),
+    runCanonical: async () => ({ iterations: 0, interrupted: false }),
+  });
+
+  const messages = await adapter.getMessages({
+    claimedDelivery: claimed,
+    delivery,
+  });
+
+  expect(messages[0]?.content).toContain("Earlier Teams context omitted");
+  expect(messages[1]?.content).toContain("Teams participant metadata");
+  expect(messages[1]?.content).toContain("Historical Teams files");
+  expect(messages.map((message) => message.content).join("\n")).not.toContain(
+    "Slack",
+  );
 });

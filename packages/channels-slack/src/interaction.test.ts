@@ -27,7 +27,7 @@ describe("decodeInteraction", () => {
     expect(evt!.value).toEqual({ confirmed: true });
     expect(evt!.conversationKey).toBe("C1::100.0");
     expect(evt!.replyTarget).toEqual({ channel: "C1", threadTs: "100.0" });
-    expect(evt!.user).toEqual({ id: "U1", name: "Ana" });
+    expect(evt!.actor).toEqual({ id: "U1", kind: "human", name: "Ana" });
     expect(evt!.messageRef).toEqual({ id: "111.1", channel: "C1" });
   });
 
@@ -42,7 +42,7 @@ describe("decodeInteraction", () => {
     expect(evt!.conversationKey).toBe("D5::dm");
     expect(evt!.replyTarget).toEqual({ channel: "D5", threadTs: undefined });
     expect(evt!.value).toBe("yes");
-    expect(evt!.user).toEqual({ id: "U2", name: "bob" });
+    expect(evt!.actor).toEqual({ id: "U2", kind: "human", name: "bob" });
   });
 
   it("scopes a THREADED DM (assistant pane) by its thread ts, not DM_SCOPE", () => {
@@ -70,7 +70,7 @@ describe("decodeInteraction", () => {
     });
     expect(evt!.conversationKey).toBe("C3::200.0");
     expect(evt!.value).toBe("opt-1");
-    expect(evt!.user).toBeUndefined();
+    expect(evt!.actor).toEqual({ id: "unknown", kind: "unknown" });
   });
 
   it("decodes a multi_static_select's selected_options into a string[] value", () => {

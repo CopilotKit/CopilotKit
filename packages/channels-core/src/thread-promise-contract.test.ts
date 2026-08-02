@@ -15,6 +15,8 @@ function setupThreadWithSyncDeleteFailure(failure: Error): Thread {
     adapter,
     replyTarget: {},
     conversationKey: "thread-promise-contract",
+    channelName: "test",
+    threadId: "thread-promise-contract",
     registry: new ActionRegistry({ store: new InMemoryActionStore() }),
     agentFactory: (threadId) => {
       throw new Error(`agentFactory not needed in this test: ${threadId}`);
@@ -25,6 +27,8 @@ function setupThreadWithSyncDeleteFailure(failure: Error): Thread {
     registerWaiter: () => undefined,
     interruptHandlers: new Map(),
     state: new MemoryStore(),
+    user: null,
+    actor: { id: "actor", kind: "unknown" },
   };
   return new Thread(deps);
 }

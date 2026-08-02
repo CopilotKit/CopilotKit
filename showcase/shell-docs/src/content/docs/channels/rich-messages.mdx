@@ -87,28 +87,28 @@ components do not need registration.
 
 ## Know what each provider renders
 
-| Channels component | Slack | Microsoft Teams |
-| --- | --- | --- |
-| `Message` | Flattens to Block Kit; the current managed connector does not forward `accent` | Flattens into an Adaptive Card; `accent` has no native mapping |
-| `Header` | Header block | Large bold text block |
-| `Section`, `Markdown` | Slack `mrkdwn` section | Wrapped Adaptive Card text |
-| `Fields`, `Field` | Section fields; honors `Field.label` | Fact set; derives a label from `Label: value` text |
-| `Context` | Context block | Small, subtle text |
-| `Actions`, `Button` | Actions block and button | Top-level `Action.Submit` or `Action.OpenUrl` |
-| `Select`, `Input` | Native Block Kit controls | Adaptive Card inputs |
-| `Image`, `Divider` | Native image and divider blocks | Image and separator |
-| `Table`, `Row`, `Cell` | Native Slack table block | Adaptive Card 1.5 table |
-| `Chart` | Omitted by the Slack renderer | Teams chart extension where the client supports it |
+| Channels component     | Slack                                                                          | Microsoft Teams                                                |
+| ---------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `Message`              | Flattens to Block Kit; the current managed connector does not forward `accent` | Flattens into an Adaptive Card; `accent` has no native mapping |
+| `Header`               | Header block                                                                   | Large bold text block                                          |
+| `Section`, `Markdown`  | Slack `mrkdwn` section                                                         | Wrapped Adaptive Card text                                     |
+| `Fields`, `Field`      | Section fields; honors `Field.label`                                           | Fact set; derives a label from `Label: value` text             |
+| `Context`              | Context block                                                                  | Small, subtle text                                             |
+| `Actions`, `Button`    | Actions block and button                                                       | Top-level `Action.Submit` or `Action.OpenUrl`                  |
+| `Select`, `Input`      | Native Block Kit controls                                                      | Adaptive Card inputs                                           |
+| `Image`, `Divider`     | Native image and divider blocks                                                | Image and separator                                            |
+| `Table`, `Row`, `Cell` | Native Slack table block                                                       | Adaptive Card 1.5 table                                        |
+| `Chart`                | Omitted by the Slack renderer                                                  | Teams chart extension where the client supports it             |
 
 Unknown or unsupported nodes are omitted instead of failing the whole message.
 That makes portable rendering resilient, but it also means the text around an
 optional visual must still carry the important result.
 
-`Select` and `Input` currently have different interaction behavior by provider.
-Managed Slack dispatches those controls. Managed Teams renders their Adaptive
-Card fields, but its managed ingress currently routes only `Button`
-submissions and does not expose the other field values. Use `Button.value` for
-required cross-provider workflow data.
+`Select` and `Input` have different interaction behavior by provider. Managed
+Slack dispatches those controls directly. Managed Teams renders Adaptive Card
+fields and submits them with a `Button`'s `Action.Submit`; that Button callback
+receives the other named fields in `ctx.values`. Teams does not dispatch
+`Select.onSelect` or `Input.onSubmit` independently.
 
 <FrontendOnly frontend="slack">
 
@@ -144,10 +144,7 @@ managed delivery:
 ```tsx title="update.tsx"
 const ref = await thread.post(<IncidentCard {...incident} status="Loading" />);
 
-await thread.update(
-  ref,
-  <IncidentCard {...incident} status="Investigating" />,
-);
+await thread.update(ref, <IncidentCard {...incident} status="Investigating" />);
 ```
 
 Do not persist that ref and assume it remains updateable in a later delivery.
@@ -162,17 +159,17 @@ Managed Slack supports post, update, and delete frames.
 
 <FrontendOnly frontend="teams">
 
-Managed Teams supports post and update frames. Delete is not implemented on the
-managed Teams connector today, so do not make workflow correctness depend on
-`thread.delete()`.
+Managed Teams supports post, update, and delete frames.
 
 </FrontendOnly>
 
 ## Keep provider-specific payloads at the edge
 
-The `{ raw: nativePayload }` escape hatch is part of the low-level renderable
-type, but it is not portable: Slack accepts raw blocks while the Teams renderer
-skips unknown raw nodes. Prefer Channels components in shared managed code.
+The `{ raw: nativePayload, provider }` escape hatch is part of the low-level
+renderable type, but it is not portable. Tag Slack Block Kit with `provider:
+"slack"` and a Teams Adaptive Card object with `provider: "teams"`. A provider
+mismatch fails explicitly before the effect reaches the provider. Prefer
+Channels components in shared managed code.
 
 Use [interactive messages and approvals](/channels/interactive) for callbacks,
 or browse the [Channels UI reference](/reference/channels/components/Message)
