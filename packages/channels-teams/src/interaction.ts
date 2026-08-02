@@ -23,8 +23,14 @@ export interface TeamsActivityLike {
 
 /** The `data` our submits round-trip (see `render/adaptive-card.ts`). */
 interface CardActionData {
-  /** Opaque minted handler id. Emitted by `renderButton` for a `<Button onClick>`
-   *  and by `synthesizeSubmit` for the field it binds. */
+  /**
+   * Opaque minted handler id. Emitted by `renderButton` for a `<Button onClick>`
+   * and by `synthesizeSubmit` for the field it binds. Every `Action.Submit` the
+   * renderer emits carries one — `renderButton` emits no action at all for a
+   * `<Button>` with no route — so an inbound payload without it is never one of
+   * our submits. Optional here because this types an INBOUND payload, which may
+   * be an ordinary chat message's `value`.
+   */
   ckActionId?: string;
   /** The clicked `<Button value>`, when it had one. Only `renderButton` emits it. */
   value?: unknown;

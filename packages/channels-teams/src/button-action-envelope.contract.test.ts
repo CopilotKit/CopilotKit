@@ -205,3 +205,74 @@ describe("link <Button> envelope (contract)", () => {
     ]);
   });
 });
+
+describe("routeless <Button> (contract)", () => {
+  it("emits NO action for a <Button> with neither a url nor an onClick", () => {
+    const card = renderAdaptiveCard([
+      el("actions", [
+        el("button", [text("Dismiss")], {}),
+        // `value` is not a route: the decode keys on `ckActionId` alone.
+        el("button", [text("Later")], { value: "later" }),
+      ]),
+    ]);
+
+    expect(card.actions).toBeUndefined();
+  });
+
+  it("drops the routeless <Button> rather than emitting a submit the decode rejects", () => {
+    // The rule is a decode-side contract: a submit with no `ckActionId` posts a
+    // Message activity `parseCardAction` reads as an ordinary chat message, and
+    // since Teams merges every card input into whichever submit fires, that
+    // click would also swallow what the user typed. Only the synthesized submit
+    // is left, so the card's single click is always routable.
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("actions", [el("button", [text("Dismiss")], {})]),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
+    expect(
+      parseCardAction({
+        value: { ...(card.actions![0]!.data as object), "ck:note": "ship it" },
+      }),
+    ).toEqual({
+      id: "ck:note",
+      value: "ship it",
+      values: { "ck:note": "ship it" },
+    });
+  });
+
+  it("keeps only routable actions on a mixed card — every emitted submit decodes", () => {
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("actions", [
+        el("button", [text("Approve")], { onClick: { id: "ck:ok" } }),
+        el("button", [text("Dismiss")], {}), // routeless — not emitted
+        el("button", [text("Docs")], { url: "https://x.test" }),
+      ]),
+    ]);
+
+    // The dispatchable <Button> suppresses synthesis, so these are exactly the
+    // authored actions minus the routeless one, in author order.
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Approve",
+        data: { ckActionId: "ck:ok" },
+      },
+      { type: "Action.OpenUrl", title: "Docs", url: "https://x.test" },
+    ]);
+    for (const action of card.actions!) {
+      if (action.type !== "Action.Submit") continue;
+      // Every Action.Submit we emit carries a routable `ckActionId`, so a
+      // consumer decoding the click never gets `undefined`.
+      expect(parseCardAction({ value: action.data })).toBeDefined();
+    }
+  });
+});
