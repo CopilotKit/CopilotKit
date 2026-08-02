@@ -3,10 +3,15 @@
  * dispatch → resume, driving a real `createChannel` runtime through the real
  * {@link renderAdaptiveCard} and {@link parseCardAction}.
  *
- * The four defects this locks down all lived between those two functions —
+ * Both defects this locks down lived between those two functions —
  * `renderInput` emitted no submit affordance, and `parseCardAction` discarded
  * every merged card input — so unit tests on either side alone kept passing
  * while the round-trip was broken.
+ *
+ * The cases below cover the synthesized submit on an input-only card, an
+ * input's text arriving beside a clicked `<Button>`'s own value, JSON-shaped
+ * text passing through uncoerced, and a multi-input card where only the first
+ * handler-bound field dispatches while every field's text still arrives.
  */
 import { describe, it, expect } from "vitest";
 import { createChannel } from "@copilotkit/channels-core";
@@ -21,10 +26,25 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 
 const CONVERSATION = "19:abc@thread.tacv2";
 
+/** Every `Input.*` id on the rendered card, in body order — exactly the set of
+ *  keys Teams will report for it. */
+function cardInputIds(card: AdaptiveCard): string[] {
+  return card.body
+    .filter((el) => String(el.type ?? "").startsWith("Input."))
+    .map((el) => el.id)
+    .filter((id): id is string => typeof id === "string");
+}
+
 /**
  * Everything a real Teams client does between a rendered card and the activity
- * it posts back: the user fills in each `Input.*` and taps an action, and Teams
- * merges the field values into that action's `data`.
+ * it posts back: the user fills in some of the card's inputs and taps an
+ * action, and Teams merges EVERY `Input.*` on the card into that action's
+ * `data`, keyed by the element's `id` — an input nobody touched still arrives,
+ * as an empty string.
+ *
+ * The payload is therefore derived from the RENDERED card, not from `typed`:
+ * a partial `typed` map is a user who left fields blank, not a card with fewer
+ * fields, and only the former is a submit Teams could actually send.
  */
 function submitCard(
   card: AdaptiveCard,
@@ -33,18 +53,30 @@ function submitCard(
 ): ReturnType<typeof parseCardAction> {
   const action = card.actions?.[actionIndex];
   if (!action) throw new Error("card has no submittable action");
+  const ids = cardInputIds(card);
+  // A `typed` key that names no rendered field is a test bug: Teams could
+  // never send it, and silently dropping it would assert against a submit no
+  // client produces.
+  for (const id of Object.keys(typed)) {
+    if (!ids.includes(id)) throw new Error(`card has no input "${id}"`);
+  }
   const data = (action.data ?? {}) as Record<string, unknown>;
   return parseCardAction({
     conversation: { id: CONVERSATION },
-    value: { ...data, ...typed },
+    value: {
+      ...data,
+      ...Object.fromEntries(ids.map((id) => [id, typed[id] ?? ""])),
+    },
   });
 }
 
-/** The `id` Teams will key this card's single `Input.Text` under. */
+/** The `id` Teams will key this card's single input under. */
 function inputFieldId(card: AdaptiveCard): string {
-  const el = card.body.find((e) => e.type === "Input.Text");
-  if (!el) throw new Error("card has no Input.Text");
-  return el.id as string;
+  const ids = cardInputIds(card);
+  if (ids.length !== 1) {
+    throw new Error(`expected exactly one card input, got ${ids.length}`);
+  }
+  return ids[0]!;
 }
 
 describe("<Input onSubmit> round-trip (Teams)", () => {
@@ -69,6 +101,12 @@ describe("<Input onSubmit> round-trip (Teams)", () => {
           },
         }),
       );
+      // The waiter settles only once the submit below is dispatched — long
+      // after `onMention` returns — so it cannot be awaited here. Observe it
+      // now anyway: if an earlier expectation aborts the test before the
+      // assertion at the end, a rejection would otherwise escape as an
+      // unhandled rejection attributed to some later test.
+      void choice.catch(() => {});
     });
 
     await channel.ɵruntime.start();
@@ -184,5 +222,69 @@ describe("<Input onSubmit> round-trip (Teams)", () => {
     }
 
     expect(received).toEqual(typedInputs);
+  });
+
+  it("delivers every field of a two-input card, including the one left blank", async () => {
+    // Adaptive Cards fires ONE action per card, so the synthesized submit binds
+    // to the first handler-bound field only. The second input's handler never
+    // runs — but its text must still reach the dispatched handler's `values`,
+    // and a field the user skipped must arrive blank rather than vanish.
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
+
+    let submitted: unknown;
+    let seenValues: Record<string, unknown> | undefined;
+    let secondHandlerRuns = 0;
+    channel.onMention(async ({ thread }) => {
+      await thread.post(
+        Actions({
+          children: [
+            Input({
+              name: "why",
+              onSubmit: (ctx) => {
+                submitted = ctx.action.value;
+                seenValues = ctx.values;
+              },
+            }),
+            Input({
+              name: "details",
+              onSubmit: () => {
+                secondHandlerRuns++;
+              },
+            }),
+          ],
+        }),
+      );
+    });
+
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "ask me twice", conversationKey: CONVERSATION });
+    await tick();
+
+    const card = renderAdaptiveCard(fake.posted[0] as ChannelNode[]);
+    expect(cardInputIds(card)).toEqual(["why", "details"]);
+    // Two inputs, still one submit — synthesized, since neither input is a
+    // dispatchable action of its own.
+    expect(card.actions).toHaveLength(1);
+    expect(card.actions![0]).toMatchObject({ type: "Action.Submit" });
+
+    // The user fills the first field and taps Submit without touching the
+    // second; `submitCard` reports `details` the way Teams would.
+    const action = submitCard(card, { why: "ship it" })!;
+    fake.emitInteraction({
+      id: action.id,
+      conversationKey: CONVERSATION,
+      value: action.value,
+      values: action.values,
+    });
+    await tick();
+
+    expect(submitted).toBe("ship it");
+    expect(seenValues).toEqual({ why: "ship it", details: "" });
+    expect(secondHandlerRuns).toBe(0);
   });
 });
