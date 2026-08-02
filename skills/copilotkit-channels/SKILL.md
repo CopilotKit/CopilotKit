@@ -18,6 +18,12 @@ This skill covers **managed Intelligence Channels**: `CopilotIntelligenceRuntime
 
 It does **not** cover the self-hosted `@copilotkit/channels` provider adapters (`@copilotkit/channels-slack`, `-teams`, `-discord`, `-telegram`, `-whatsapp`). Those hold provider credentials in your process and talk to the provider directly. Both products use the words "channels" and "Slack", so confirm which one the user means before wiring anything. If they want to hold their own Slack tokens and run their own ingress, they want the adapter packages, not this skill.
 
+## What is well-trodden, and what is not
+
+The path exercised end to end today is a project scaffolded by `npx copilotkit init`, which offers a Channel during setup and writes the hosted values the runtime needs.
+
+Wiring a project that already exists works and is supported, but it is less exercised: the CLI reads source it did not generate, and a project laid out unusually may get a `status` leg reported as `undetermined` rather than a confident answer. That is deliberate — an unsure answer is better than a wrong one — but expect to verify the wiring yourself rather than trusting a green report.
+
 ## A Channel has two halves
 
 A Channel only works when both are correct, and each half is invisible from the other:
