@@ -1,0 +1,38 @@
+/* Meridian (logistics) theme — a warm signal-amber on graphite control-tower
+   palette. Re-values only the shared design tokens the shell defines in
+   globals.css; adds no new token names. Imported (side-effect) from layout.tsx
+   so it loads whenever the logistics skin mounts. Deliberately distinct from
+   banking's violet and airline's jet teal: this one is WARM, and its radius is
+   tight where both others are generous — a dense operations console rather
+   than a friendly consumer app.
+
+   Light-only by design: this block does NOT set `--nw-dark-capable`, so the
+   shell's theme reconciler pins the skin to light mode. Do not add it. */
+
+.theme-logistics {
+  --radius: 0.5rem;
+
+  /* Brand: signal amber, deepening toward copper. */
+  --brand: 32 94% 48%;
+  --brand-violet: 32 94% 48%;
+  --brand-indigo: 20 88% 40%;
+  /* Dark ink ON amber — white text on a 48%-lightness amber fails contrast. */
+  --brand-foreground: 30 50% 10%;
+  --brand-soft: 36 90% 94%;
+
+  /* Surfaces: warm graphite-tinted paper. */
+  --background: 40 20% 98%;
+  --foreground: 30 12% 12%;
+
+  --canvas: 40 14% 95%;
+  --surface: 0 0% 100%;
+  --surface-muted: 40 16% 96%;
+  --ink: 30 12% 13%;
+  --ink-muted: 32 8% 42%;
+  --hairline: 38 14% 86%;
+
+  --positive: 152 58% 36%;
+  --positive-soft: 152 60% 94%;
+  --negative: 8 78% 50%;
+  --negative-soft: 8 86% 96%;
+}
