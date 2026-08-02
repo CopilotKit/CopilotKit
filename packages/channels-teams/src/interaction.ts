@@ -3,10 +3,16 @@
  *
  * A button rendered by {@link ../render/adaptive-card.renderButton} carries its
  * opaque minted action id (`ck:...`) and tiny `value` in the action's `data`.
- * When clicked, Teams delivers a **Message activity** whose `value` is that
+ * The submit `renderAdaptiveCard` synthesizes for a card with no dispatchable
+ * one (see `synthesizeSubmit`) carries a `ckValueField` instead of a `value`.
+ * When clicked, either delivers a **Message activity** whose `value` is that
  * `data` object (merged with any card inputs) and whose `text` is empty. These
  * helpers recognize and decode that activity so the engine's `awaitChoice`
  * waiter resolves.
+ *
+ * The wire contract these decode is documented in
+ * `docs/button-action-envelope.md`; out-of-band consumers decode it themselves,
+ * so keep the two in step.
  */
 
 /** Minimal shape of the inbound Teams activity we read for interaction decoding. */
@@ -15,16 +21,19 @@ export interface TeamsActivityLike {
   conversation?: { id?: string };
 }
 
-/** The `data` our buttons round-trip (see `render/adaptive-card.ts` `renderButton`). */
+/** The `data` our submits round-trip (see `render/adaptive-card.ts`). */
 interface CardActionData {
+  /** Opaque minted handler id. Emitted by `renderButton` for a `<Button onClick>`
+   *  and by `synthesizeSubmit` for the field it binds. */
   ckActionId?: string;
+  /** The clicked `<Button value>`, when it had one. Only `renderButton` emits it. */
   value?: unknown;
   /**
-   * Id of the card input whose text IS this submit's action value. Set only on
-   * the submit the renderer synthesizes for an input-only card (see
-   * `renderAdaptiveCard`), where the dispatched handler is an `<Input onSubmit>`
-   * and its `ClickHandler<string>` contract requires the typed text — not the
-   * (absent) button value.
+   * Id of the card field whose submitted value IS this submit's action value.
+   * Emitted ONLY by `synthesizeSubmit` — `renderButton` never sets it. It marks
+   * the submit the renderer adds to a card with no dispatchable one, where the
+   * dispatched handler is an `<Input onSubmit>` or `<Select onSelect>` whose
+   * contract is the submitted value, not the (absent) button value.
    */
   ckValueField?: string;
 }
@@ -61,8 +70,11 @@ export function conversationKeyOf(activity: TeamsActivityLike): string {
  * Teams merges every `Input.*` on the card into the submit's `data`, keyed by
  * the element's `id`. Those fields become the event's `values` (so a
  * `<Button onClick>` handler beside an `<Input>` can still read what was typed),
- * and, when the submit names a `ckValueField`, that field's text is also the
- * action's `value`.
+ * and, when the submit names a `ckValueField` that is present among them, that
+ * field's submitted value is also the action's `value`. A `ckValueField` naming
+ * an absent field (or one of the reserved envelope keys, which are stripped
+ * before the lookup) falls back to `data.value` — `undefined` on a synthesized
+ * submit, which carries no `value`.
  */
 export function parseCardAction(activity: TeamsActivityLike):
   | {

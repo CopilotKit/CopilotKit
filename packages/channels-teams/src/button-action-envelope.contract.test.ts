@@ -1,8 +1,10 @@
 /**
  * Contract test for the HITL button action envelope — the wire shape a consumer
  * (e.g. Intelligence managed-Teams ingress) must decode. Locks the shape in BOTH
- * directions: what {@link renderAdaptiveCard} emits for a `<Button>`, and how
- * {@link parseCardAction} decodes the click Teams delivers back. See
+ * directions for BOTH emitters: the `Action.Submit` {@link renderAdaptiveCard}
+ * emits for a `<Button>`, the one it synthesizes for a card with no dispatchable
+ * submit, the `Action.OpenUrl` a link `<Button>` becomes, and how
+ * {@link parseCardAction} decodes each click Teams delivers back. See
  * `docs/button-action-envelope.md`.
  */
 import { describe, it, expect } from "vitest";
@@ -74,5 +76,132 @@ describe("HITL button action envelope (contract)", () => {
     const ordinary: TeamsActivityLike = { value: undefined };
 
     expect(parseCardAction(ordinary)).toBeUndefined();
+  });
+});
+
+describe("synthesized submit envelope (contract)", () => {
+  it("emits { ckActionId, ckValueField } and NO `value` for a card with no dispatchable submit", () => {
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" }, placeholder: "Why?" }),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        // `ckValueField` names the field whose submitted value IS the action
+        // value; there is deliberately no `value` key to fall back to.
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
+  });
+
+  it("round-trips the synthesized submit: the named field's text becomes the action value", () => {
+    const action = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+    ]).actions![0]!;
+
+    // Teams merges every Input.* into the submit's data, keyed by element id.
+    const inbound: TeamsActivityLike = {
+      value: { ...(action.data as object), "ck:note": "ship it" },
+      conversation: { id: "conv-1" },
+    };
+
+    expect(parseCardAction(inbound)).toEqual({
+      id: "ck:note",
+      value: "ship it",
+      values: { "ck:note": "ship it" },
+    });
+  });
+
+  it("round-trips when an explicit <Input name> makes ckValueField diverge from ckActionId", () => {
+    const action = renderAdaptiveCard([
+      el("input", [], { name: "reason", onSubmit: { id: "ck:note" } }),
+    ]).actions![0]!;
+
+    expect(action.data).toEqual({
+      ckActionId: "ck:note",
+      ckValueField: "reason",
+    });
+    // Dispatch keys off `ckActionId`; the value is read from `ckValueField`.
+    expect(
+      parseCardAction({
+        value: { ...(action.data as object), reason: "ship it" },
+      }),
+    ).toEqual({
+      id: "ck:note",
+      value: "ship it",
+      values: { reason: "ship it" },
+    });
+  });
+
+  it("synthesizes for a <Select onSelect>-only card too — the trigger is not input-only", () => {
+    const action = renderAdaptiveCard([
+      el("select", [], {
+        onSelect: { id: "ck:pick" },
+        options: [{ label: "One", value: "1" }],
+      }),
+    ]).actions![0]!;
+
+    expect(action).toEqual({
+      type: "Action.Submit",
+      title: "Submit",
+      data: { ckActionId: "ck:pick", ckValueField: "ck:pick" },
+    });
+    expect(
+      parseCardAction({
+        value: { ...(action.data as object), "ck:pick": "1" },
+      }),
+    ).toEqual({ id: "ck:pick", value: "1", values: { "ck:pick": "1" } });
+  });
+
+  it("yields `undefined` (not the raw envelope) when ckValueField names an absent field", () => {
+    // The documented miss fallback: `data.value`, which a synthesized submit
+    // never carries. An out-of-band decoder must reproduce exactly this.
+    const action = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+    ]).actions![0]!;
+
+    expect(parseCardAction({ value: { ...(action.data as object) } })).toEqual({
+      id: "ck:note",
+      value: undefined,
+      values: {},
+    });
+  });
+});
+
+describe("link <Button> envelope (contract)", () => {
+  it("emits Action.OpenUrl with no `data`, so it never round-trips", () => {
+    const action = renderAdaptiveCard([
+      el("actions", [
+        el("button", [text("Docs")], { url: "https://example.com/docs" }),
+      ]),
+    ]).actions![0]!;
+
+    expect(action).toEqual({
+      type: "Action.OpenUrl",
+      title: "Docs",
+      url: "https://example.com/docs",
+    });
+    expect(action).not.toHaveProperty("data");
+    // Nothing to decode: an OpenUrl click never reaches the bot at all, and a
+    // payload carrying its (absent) data is not a card action.
+    expect(parseCardAction({ value: action.data })).toBeUndefined();
+  });
+
+  it("still gets a synthesized submit beside an <Input> — OpenUrl is not dispatchable", () => {
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("actions", [el("button", [text("Docs")], { url: "https://x.test" })]),
+    ]);
+
+    expect(card.actions).toEqual([
+      { type: "Action.OpenUrl", title: "Docs", url: "https://x.test" },
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
   });
 });
