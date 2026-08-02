@@ -25,6 +25,7 @@ export type ChannelProviderPayload =
       kind: "slack.stream.append";
       providerReference: string;
       delta: string;
+      fullText: string;
     }
   | {
       kind: "slack.stream.task";
@@ -248,9 +249,15 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
       );
     case "slack.stream.append":
       return (
-        hasExactFields(value, ["kind", "providerReference", "delta"]) &&
+        hasExactFields(value, [
+          "kind",
+          "providerReference",
+          "delta",
+          "fullText",
+        ]) &&
         validReference(value.providerReference) &&
-        boundedString(value.delta, 1, 40_000)
+        boundedString(value.delta, 1, 40_000) &&
+        boundedString(value.fullText, 1, 40_000)
       );
     case "slack.stream.task":
       return (

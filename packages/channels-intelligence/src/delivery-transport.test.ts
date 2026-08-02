@@ -1305,6 +1305,7 @@ test("still allows stream.stop after a permanent non-terminal failure", async ()
       kind: "slack.stream.append",
       providerReference: "pref_v1_message_01",
       delta: "x",
+      fullText: "x",
     }),
   ).rejects.toBeInstanceOf(RealtimeGatewayPushError);
 

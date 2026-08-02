@@ -341,6 +341,7 @@ describe("DeliveryAdapter Slack cadence", () => {
           kind: "slack.stream.append",
           providerReference: "pref_v1_slack_stream_01",
           delta: "B",
+          fullText: "AB",
         },
       ]);
 

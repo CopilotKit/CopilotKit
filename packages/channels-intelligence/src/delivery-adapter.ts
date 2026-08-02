@@ -576,9 +576,11 @@ export class DeliveryAdapter implements PlatformAdapter {
       let bodyError: unknown;
       let bodyFailed = false;
       let streamStarted = false;
+      let fullText = "";
       try {
         for await (const delta of chunks) {
           if (delta.length === 0) continue;
+          fullText += delta;
           if (!streamStarted) {
             const startResult = await target.claimedDelivery.effect(
               responseId,
@@ -597,6 +599,7 @@ export class DeliveryAdapter implements PlatformAdapter {
             kind: "slack.stream.append",
             providerReference,
             delta,
+            fullText,
           });
         }
         if (!streamStarted) {
@@ -891,6 +894,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     responseId: string,
   ): RunRenderer {
     let providerReference: string | undefined;
+    let fullText = "";
     return createSlackRunRenderer({
       target: { channel: "managed", threadTs: "managed" },
       showToolStatus: this.options.showToolStatus ?? false,
@@ -933,6 +937,7 @@ export class DeliveryAdapter implements PlatformAdapter {
           : {}),
         transport: {
           startStream: async () => {
+            fullText = "";
             providerReference = providerReferenceFromResult(
               await claimedDelivery.effect(responseId, {
                 kind: "slack.stream.start",
@@ -941,6 +946,7 @@ export class DeliveryAdapter implements PlatformAdapter {
             return responseId;
           },
           startStreamWithText: async (initialText) => {
+            fullText = initialText;
             providerReference = providerReferenceFromResult(
               await claimedDelivery.effect(responseId, {
                 kind: "slack.stream.start",
@@ -951,11 +957,13 @@ export class DeliveryAdapter implements PlatformAdapter {
           },
           appendText: async (_id, delta) => {
             if (delta.length === 0) return;
+            fullText += delta;
             assertProviderReference(providerReference);
             await claimedDelivery.effect(responseId, {
               kind: "slack.stream.append",
               providerReference,
               delta,
+              fullText,
             });
           },
           appendChunks: async (_id, chunks) => {

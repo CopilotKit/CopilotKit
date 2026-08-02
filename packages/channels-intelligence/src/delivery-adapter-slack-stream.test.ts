@@ -159,6 +159,7 @@ test("starts an explicit managed Slack stream with its first text chunk", async 
         kind: "slack.stream.append",
         providerReference: "pref_v1_slack_stream_01",
         delta: " world",
+        fullText: "Hello world",
       },
       {
         kind: "slack.stream.stop",
