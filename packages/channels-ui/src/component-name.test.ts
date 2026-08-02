@@ -75,9 +75,19 @@ describe("defineChannelComponent", () => {
 });
 
 describe("library components", () => {
-  // Without pinned names these all resolve to "" (the `intrinsic` factory
-  // returns an anonymous closure), so every `<Message>`-rooted post would
-  // register as "anonymous" and their action ids would collide.
+  // Two distinct cases, one shared threat — a bundler rewriting `fn.name`:
+  //   * Message/Section/Actions come from the `intrinsic` factory, which
+  //     returns an anonymous closure (`fn.name === ""`). Without the pin they'd
+  //     have no identity at all, so every `<Message>`-rooted post would register
+  //     as "anonymous" and their action ids would collide.
+  //   * Button/Select/Input/Table are plain function declarations, so `fn.name`
+  //     already reads correctly *in source* — but a minifier mangling this
+  //     library would silently rewrite it, changing every action id minted from
+  //     a tree rooted at one of them.
+  // Both are pinned via `displayName`, which no bundler can touch. Asserting
+  // `resolveComponentName` on the pristine component is tautological for the
+  // declarations (it just re-reads `fn.name`); to verify the pin actually does
+  // its job we mangle `fn.name` first and confirm the identity still resolves.
   it.each([
     [Message, "Message"],
     [Section, "Section"],
@@ -86,9 +96,26 @@ describe("library components", () => {
     [Select, "Select"],
     [Input, "Input"],
     [Table, "Table"],
-  ])("pins a stable identity (%#)", (component, expected) => {
-    expect(resolveComponentName(component)).toBe(expected);
-  });
+  ])(
+    "keeps a stable identity when a bundler mangles fn.name (%#)",
+    (component, expected) => {
+      // `Function.prototype.name` is configurable but not writable — redefine it
+      // to stand in for what a minifier leaves behind, then restore it.
+      const originalName = Object.getOwnPropertyDescriptor(component, "name");
+      try {
+        Object.defineProperty(component, "name", {
+          value: "a",
+          configurable: true,
+        });
+        expect(component.name).toBe("a");
+        expect(resolveComponentName(component)).toBe(expected);
+      } finally {
+        if (originalName) {
+          Object.defineProperty(component, "name", originalName);
+        }
+      }
+    },
+  );
 
   it("gives each intrinsic a distinct identity", () => {
     const names = [Message, Section, Actions, Button, Select, Input, Table].map(
