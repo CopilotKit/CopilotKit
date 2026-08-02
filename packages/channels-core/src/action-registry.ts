@@ -6,7 +6,12 @@ import type {
   Renderable,
   MessageReactionHandler,
 } from "@copilotkit/channels-ui";
-import { isBound, getBoundArgs, renderToIR } from "@copilotkit/channels-ui";
+import {
+  isBound,
+  getBoundArgs,
+  renderToIR,
+  resolveComponentName,
+} from "@copilotkit/channels-ui";
 import { mintId } from "./mint-id.js";
 import type {
   ActionContinuationContext,
@@ -120,7 +125,26 @@ export class ActionRegistry {
     return takeMessageReaction(root);
   }
 
+  /**
+   * Register `fn` under its durable identity `name` (see
+   * {@link resolveComponentName}) so a cold dispatch can re-render it.
+   *
+   * Two different components sharing one name is a real hazard, not a
+   * curiosity: `mintId` folds the name into the action id, so equal names with
+   * equal props and path mint the *same* id — and a cold dispatch then resolves
+   * a handler out of the wrong component tree. Registration stays
+   * last-one-wins (re-registering the same component on every post is normal,
+   * and dev hot-reload legitimately swaps the function identity), but the
+   * conflict is reported once so it is not silent.
+   */
   registerComponent(name: string, fn: ComponentFn): void {
+    const existing = this.components.get(name);
+    if (existing && existing !== fn) {
+      warnOnce(
+        `name-conflict:${name}`,
+        `[channel] two different components are registered as "${name}"; their action ids can collide and a click may run the wrong handler. Give each a distinct name via defineChannelComponent().`,
+      );
+    }
     this.components.set(name, fn);
   }
 
@@ -175,7 +199,14 @@ export class ActionRegistry {
     let props: Record<string, unknown> | undefined;
     if (isComponentElement(ui)) {
       const fn = ui.type;
-      component = fn.name || "anonymous";
+      const resolved = resolveComponentName(fn);
+      if (!resolved) {
+        warnOnce(
+          "anonymous-component",
+          "[channel] posting a component with no resolvable name — it registers as \"anonymous\", so its action ids collide with every other unnamed component. Wrap it in defineChannelComponent('Name', fn).",
+        );
+      }
+      component = resolved ?? "anonymous";
       props = (ui.props ?? {}) as Record<string, unknown>;
       this.registerComponent(component, fn);
       root = await this.bindTree(
@@ -212,9 +243,18 @@ export class ActionRegistry {
         const handler = node.props[ep];
         if (typeof handler === "function") {
           const fullPath: (string | number)[] = [...path, ep];
-          const id = continuation
-            ? `ck:${globalThis.crypto.randomUUID()}`
-            : mintId(comp, fullPath, props);
+          // A registered-component binding is content-addressed so a cold
+          // dispatch can re-mint the same id and re-resolve the handler.
+          // Inline (`comp === ""`) and continuation bindings can never be
+          // rehydrated (dispatch throws ActionExpiredError once `component` is
+          // falsy), so they get a fresh random id. Content-addressing an inline
+          // binding would collide two structurally identical posts in the same
+          // conversation onto one id — the later would overwrite the earlier and
+          // a click on the older message would run the newer message's handler.
+          const id =
+            continuation || comp === ""
+              ? `ck:${globalThis.crypto.randomUUID()}`
+              : mintId(comp, fullPath, props);
           this.hot.set(id, {
             handler: handler as ClickHandler,
             value: node.props.value,
@@ -328,6 +368,17 @@ function assertContinuationBinding(
   ) {
     throw new ActionContinuationMismatchError();
   }
+}
+
+/**
+ * Report a registry-identity hazard once per process. These fire on a hot path
+ * (every post), and a per-post log would bury the signal it exists to raise.
+ */
+const warned = new Set<string>();
+function warnOnce(key: string, message: string): void {
+  if (warned.has(key)) return;
+  warned.add(key);
+  console.warn(message);
 }
 
 /** Store key for a message's durable reaction snapshot (distinct from minted action ids). */

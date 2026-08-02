@@ -79,10 +79,15 @@ tenant cannot use it.
 Use `Message.onReaction` when only one posted component should react:
 
 ```tsx title="feedback-card.tsx"
-import { Message, Section } from "@copilotkit/channels/ui";
+import {
+  Message,
+  Section,
+  defineChannelComponent,
+} from "@copilotkit/channels/ui";
 
-export function FeedbackCard({ answerId }: { answerId: string }) {
-  return (
+export const FeedbackCard = defineChannelComponent(
+  "FeedbackCard",
+  ({ answerId }: { answerId: string }) => (
     <Message
       onReaction={async (emoji, reaction) => {
         if (reaction.added && emoji === "thumbs_up") {
@@ -95,13 +100,15 @@ export function FeedbackCard({ answerId }: { answerId: string }) {
     >
       <Section>React with 👍 if this solved the problem.</Section>
     </Message>
-  );
-}
+  ),
+);
 ```
 
 Register `FeedbackCard` in `createChannel({ components: [FeedbackCard] })`.
 Surviving a process restart also requires a durable `StateStore`, because the
-SDK must reload the component snapshot that owns the callback.
+SDK must reload the component snapshot that owns the callback, and a name
+pinned with `defineChannelComponent` so a production build cannot rename it —
+see [Pin the component name](/channels/interactive#pin-the-component-name).
 
 Add or remove the bot's reaction with the delivery-scoped reference from the
 current message or transcript:

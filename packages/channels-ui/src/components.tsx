@@ -1,3 +1,4 @@
+import { defineChannelComponent } from "./component-name.js";
 import type { ChannelNode } from "./ir.js";
 import type { ClickHandler, MessageReactionHandler } from "./types.js";
 
@@ -158,12 +159,19 @@ export interface ChartProps {
 // `intrinsic` produces a typed component that lowers `<X .../>` to an IR node
 // of the given `type`; the generic `P` is what gives each tag its prop type.
 
-export const intrinsic =
-  <P,>(type: string) =>
-  (props: P): ChannelNode => ({
-    type,
-    props: (props ?? {}) as Record<string, unknown>,
-  });
+// The closure returned here is anonymous, so without an explicit identity every
+// `<Message>`-rooted post would register with the action registry as
+// "anonymous" — colliding with every other unnamed component. Pin it to the
+// exported component's name (`"message"` -> `"Message"`), which no bundler can
+// mangle.
+export const intrinsic = <P,>(type: string) =>
+  defineChannelComponent(
+    type.charAt(0).toUpperCase() + type.slice(1),
+    (props: P): ChannelNode => ({
+      type,
+      props: (props ?? {}) as Record<string, unknown>,
+    }),
+  );
 
 export const Message = intrinsic<MessageProps>("message");
 export const Header = intrinsic<HeaderProps>("header");
@@ -193,3 +201,12 @@ export function Input(props: InputProps): ChannelNode {
 export function Table(props: TableProps): ChannelNode {
   return { type: "table", props: props as unknown as Record<string, unknown> };
 }
+
+// Pin the same durable identity the `intrinsic` components get. These are
+// declarations, so `fn.name` already reads correctly in source — but a bundler
+// mangling this library would silently change it, and with it every action id
+// minted from a tree rooted at one of them.
+Button.displayName = "Button";
+Select.displayName = "Select";
+Input.displayName = "Input";
+Table.displayName = "Table";

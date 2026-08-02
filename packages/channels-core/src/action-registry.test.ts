@@ -8,7 +8,16 @@ import { InMemoryActionStore } from "./action-store.js";
 import type { ActionContinuationSnapshot } from "./action-store.js";
 import { MemoryStore } from "./state/memory-store.js";
 import { kvActionStore } from "./state/kv-action-store.js";
-import type { ChannelNode, InteractionContext } from "@copilotkit/channels-ui";
+import { mintId } from "./mint-id.js";
+import {
+  defineChannelComponent,
+  resolveComponentName,
+} from "@copilotkit/channels-ui";
+import type {
+  ChannelNode,
+  ComponentFn,
+  InteractionContext,
+} from "@copilotkit/channels-ui";
 
 // Records each click so a test can assert the handler ran — dispatch() now
 // returns the clicked element's `value` (needed to resolve HITL waiters on
@@ -135,8 +144,6 @@ describe("ActionRegistry", () => {
       regB.registerComponent("Confirm", Confirm as never);
 
       // Cold dispatch must succeed and fire the handler.
-      const handlerFired: string[] = [];
-      // Wrap the existing Confirm component so we can assert the specific call.
       const value = await regB.dispatch(id, ctx);
       expect(value).toEqual({ ok: "restart-test" });
       // The shared `clicks` array is populated by Confirm's onClick.
@@ -169,6 +176,201 @@ describe("ActionRegistry", () => {
       await expect(regBPrime.dispatch(id, ctx)).rejects.toBeInstanceOf(
         ActionExpiredError,
       );
+    });
+  });
+
+  describe("inline (non-component) renderables", () => {
+    // An inline renderable carries its handlers as closures with no component to
+    // re-render, so its ids can't be content-addressed. Two structurally
+    // identical inline posts in one conversation must still get distinct ids —
+    // otherwise the later binding overwrites the earlier and a click on the
+    // older message runs the newer message's handler.
+    function inlinePost(marker: string): ChannelNode {
+      return {
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "button",
+              props: {
+                value: { pick: "x" },
+                onClick: ({ action }: InteractionContext) => {
+                  clicks.push(`${marker}:${action.id}`);
+                },
+                children: "Go",
+              },
+            },
+          ],
+        },
+      };
+    }
+
+    function bindId(root: ChannelNode[]): string {
+      return (
+        (root[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+          id: string;
+        }
+      ).id;
+    }
+
+    it("mints distinct ids for structurally identical posts, so the older keeps its handler", async () => {
+      const reg = new ActionRegistry({ store: new InMemoryActionStore() });
+      // `older` and `newer` differ only by closure — same tree, same props — so
+      // a content-addressed id would collide them.
+      const { root: older } = await reg.bindRenderable(
+        inlinePost("older"),
+        "conv",
+      );
+      const { root: newer } = await reg.bindRenderable(
+        inlinePost("newer"),
+        "conv",
+      );
+      const olderId = bindId(older);
+      const newerId = bindId(newer);
+
+      expect(olderId).not.toBe(newerId);
+
+      await reg.dispatch(olderId, ctx);
+      expect(clicks).toEqual([`older:${olderId}`]);
+    });
+  });
+
+  describe("stable component identity across a mangling build", () => {
+    // The same component as a bundler emits it in two successive deploys. Both
+    // are minified, and the mangler picked a different letter each time — only
+    // `displayName`, set via defineChannelComponent, is stable across them.
+    function makeCard(pin: boolean, fnName: string): ComponentFn {
+      const body = (props: Record<string, unknown>): ChannelNode => ({
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "button",
+              props: {
+                value: { approved: props.summary },
+                onClick: ({ action }: InteractionContext) => {
+                  clicks.push(`approve:${props.summary}:${action.id}`);
+                },
+                children: "Approve",
+              },
+            },
+          ],
+        },
+      });
+      // `Object.defineProperty` is how a minifier's output differs from source:
+      // only the function's own `name` changes.
+      Object.defineProperty(body, "name", { value: fnName });
+      return pin
+        ? (defineChannelComponent("ApprovalCard", body) as ComponentFn)
+        : body;
+    }
+
+    /** Post a card from "deploy 1" and return its minted action id. */
+    async function post(reg: ActionRegistry, card: ComponentFn) {
+      const { root } = await reg.bindRenderable(
+        { type: card, props: { summary: "ship it" } },
+        "conv-deploy",
+      );
+      return (
+        (root[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+          id: string;
+        }
+      ).id;
+    }
+
+    it("rehydrates a pinned component across a rename of fn.name", async () => {
+      const shared = new MemoryStore();
+      // Deploy 1 posts the card; the mangler called the function `a`.
+      const deploy1 = new ActionRegistry({ store: kvActionStore(shared) });
+      const id = await post(deploy1, makeCard(true, "a"));
+
+      // Deploy 2: fresh process, same component, mangled to `b`, seeded the
+      // way createChannel seeds `components` — under the resolved name.
+      const redeployed = makeCard(true, "b");
+      expect(redeployed.name).toBe("b");
+      const deploy2 = new ActionRegistry({ store: kvActionStore(shared) });
+      deploy2.registerComponent(resolveComponentName(redeployed)!, redeployed);
+
+      await expect(deploy2.dispatch(id, ctx)).resolves.toEqual({
+        approved: "ship it",
+      });
+      expect(clicks[0]).toContain("approve:ship it:");
+    });
+
+    it("mints the same id on both sides of the rename, so live cards stay valid", async () => {
+      const before = await post(
+        new ActionRegistry({ store: kvActionStore(new MemoryStore()) }),
+        makeCard(true, "a"),
+      );
+      const after = await post(
+        new ActionRegistry({ store: kvActionStore(new MemoryStore()) }),
+        makeCard(true, "b"),
+      );
+      expect(after).toBe(before);
+    });
+
+    it("without a pinned name the same rename silently breaks the card", async () => {
+      // Negative control: the bug the pin exists to prevent. Deploy 2 knows the
+      // component only as `b`, so the snapshot's `a` resolves to nothing and
+      // the click is dropped.
+      const shared = new MemoryStore();
+      const deploy1 = new ActionRegistry({ store: kvActionStore(shared) });
+      const id = await post(deploy1, makeCard(false, "a"));
+
+      const redeployed = makeCard(false, "b");
+      const deploy2 = new ActionRegistry({ store: kvActionStore(shared) });
+      deploy2.registerComponent(resolveComponentName(redeployed)!, redeployed);
+
+      await expect(deploy2.dispatch(id, ctx)).rejects.toBeInstanceOf(
+        ActionExpiredError,
+      );
+    });
+
+    it("keeps an unpinned named component working exactly as before", async () => {
+      // Backward compatibility: no displayName anywhere, ids still derive from
+      // fn.name and cold dispatch still resolves.
+      const shared = new MemoryStore();
+      const deploy1 = new ActionRegistry({ store: kvActionStore(shared) });
+      const id = await post(deploy1, makeCard(false, "ApprovalCard"));
+      expect(id).toBe(
+        mintId("ApprovalCard", [0, "children", 0, "onClick"], {
+          summary: "ship it",
+        }),
+      );
+
+      const deploy2 = new ActionRegistry({ store: kvActionStore(shared) });
+      deploy2.registerComponent(
+        "ApprovalCard",
+        makeCard(false, "ApprovalCard"),
+      );
+      await expect(deploy2.dispatch(id, ctx)).resolves.toEqual({
+        approved: "ship it",
+      });
+    });
+
+    it("warns when two different components claim one name", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const reg = new ActionRegistry({ store: new InMemoryActionStore() });
+        // Re-registering the *same* function object is the normal per-post
+        // re-registration and must stay silent. Assert zero warnings before any
+        // conflict has fired for "Card": warnOnce dedupes by name, so only a
+        // still-empty warn count can prove same-function registration is silent
+        // on its own (rather than a second warning being swallowed by dedup).
+        const same = makeCard(false, "a");
+        reg.registerComponent("Card", same);
+        reg.registerComponent("Card", same);
+        expect(warn).not.toHaveBeenCalled();
+        // A genuinely different function object under the same name — each
+        // makeCard() returns a fresh closure — is the real hazard, so it warns.
+        reg.registerComponent("Card", makeCard(false, "a"));
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0]![0]).toContain(
+          'two different components are registered as "Card"',
+        );
+      } finally {
+        warn.mockRestore();
+      }
     });
   });
 

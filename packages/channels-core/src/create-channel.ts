@@ -40,6 +40,7 @@ import {
   normalizeEmoji,
   toCanonicalEmoji,
   renderToIR,
+  resolveComponentName,
 } from "@copilotkit/channels-ui";
 import { Transcripts } from "./transcripts.js";
 import type { TranscriptsConfig } from "./transcripts.js";
@@ -955,8 +956,15 @@ export function createChannel<
             dispatchedValue = await registry!.dispatch(evt.id, ctx);
           }
         } catch (err) {
-          // v1: swallow expired-action dispatches; surface anything else.
+          // v1: swallow expired-action dispatches; surface anything else. Log
+          // the swallow — from the user's side this is a click that does
+          // nothing, so without a trace here the failure is invisible on both
+          // ends. A retention-window expiry is expected; a burst of these
+          // usually means a component's registry name changed under it.
           if (!(err instanceof ActionExpiredError)) throw err;
+          console.warn(
+            `[channel] ignoring click on expired or unresolvable action "${evt.id}" — its retention window may have passed, or the component that minted it is no longer registered under the same name.`,
+          );
         }
         // Resolve any HITL waiter awaiting a choice in this conversation. Prefer
         // the value carried in the event (Slack), falling back to the value the
@@ -1279,14 +1287,18 @@ export function createChannel<
         });
         registry = registryInstance;
         for (const c of opts.components ?? []) {
-          if (!c.name) {
+          // Prefer the pinned `displayName` over `fn.name`: the latter is a
+          // build artifact, and a bundler that mangles it between deploys makes
+          // every already-posted button undispatchable.
+          const componentName = resolveComponentName(c);
+          if (!componentName) {
             console.warn(
-              "[channel] createChannel: skipping anonymous component — give it a name to enable durable actions after restart.",
+              "[channel] createChannel: skipping anonymous component — wrap it in defineChannelComponent('Name', fn) to enable durable actions after restart.",
             );
             continue;
           }
           registryInstance.registerComponent(
-            c.name,
+            componentName,
             c as unknown as ComponentFn,
           );
         }
