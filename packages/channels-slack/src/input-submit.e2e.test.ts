@@ -111,7 +111,7 @@ describe("<Input onSubmit> round-trip (Slack)", () => {
       type: "plain_text_input",
       value: "ship it",
     })!;
-    fake.emitInteraction({ ...evt, conversationKey });
+    fake.emitInteraction(evt);
     await tick();
 
     expect(submitted).toBe("ship it");
@@ -155,7 +155,7 @@ describe("<Input onSubmit> round-trip (Slack)", () => {
         {},
         i,
       )!;
-      fake.emitInteraction({ ...evt, conversationKey });
+      fake.emitInteraction(evt);
       await tick();
     }
 
@@ -217,7 +217,7 @@ describe("<Input onSubmit> round-trip (Slack)", () => {
       },
       { [input!.element.action_id]: "looks good" },
     )!;
-    fake.emitInteraction({ ...evt, conversationKey });
+    fake.emitInteraction(evt);
     await tick();
 
     expect(clickedValue).toEqual({ decision: "yes" });

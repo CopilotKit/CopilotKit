@@ -24,7 +24,8 @@ interface RenderContext {
   /**
    * Inputs bound to a registry-minted handler, in render order: the card's
    * `id` for the element paired with the action id its handler was minted
-   * under. Used to synthesize a submit for an input-only card.
+   * under. Used to synthesize a submit for a card that has no dispatchable
+   * one. Only the first survivor is bound — see `renderAdaptiveCard`.
    */
   boundFields: { fieldId: string; actionId: string }[];
 }
@@ -64,34 +65,61 @@ export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
   };
   for (const node of ir) renderNode(node, body, actions, context);
 
+  const clampedBody = clampArray(body, TEAMS_LIMITS.bodyElements).items;
   const card: AdaptiveCard = {
     type: "AdaptiveCard",
     $schema: SCHEMA,
     version: VERSION,
-    body: clampArray(body, TEAMS_LIMITS.bodyElements).items,
+    body: clampedBody,
   };
   const clampedActions = clampArray(actions, TEAMS_LIMITS.actions).items;
   // Adaptive Cards has no per-input submit affordance: an `Input.*` only reaches
   // us when some `Action.Submit` on the card fires, and Teams merges every input
-  // into that submit's payload. A card whose only controls are inputs therefore
-  // has zero actions and cannot be submitted at all — synthesize one bound to
-  // the first handler-bound field, naming it as the value field so the typed
-  // text (not an absent button value) arrives as the action's value.
+  // into that submit's payload. A card with no *dispatchable* submit therefore
+  // cannot deliver its inputs anywhere — synthesize one, naming the field whose
+  // text becomes the action's value (an absent button value would otherwise
+  // reach a `ClickHandler<string>` as `undefined`).
+  //
+  // "Dispatchable" is the test, not "has actions": a link `<Button>` renders as
+  // `Action.OpenUrl`, which opens a URL and submits nothing, and a `<Button>`
+  // with no `onClick` submits but routes nowhere. Either one beside an
+  // `<Input>` would otherwise reproduce the original defect.
   //
   // This covers `<Select>` too, since it is unsubmittable for the same reason.
   // Note a `<Select multi>` still arrives as Teams' comma-joined string rather
   // than the `string[]` `onSelect` declares — a pre-existing Teams fidelity gap
   // (see `renderSelect`) that this only makes reachable, not worse.
-  if (clampedActions.length === 0 && context.boundFields.length > 0) {
-    const field = context.boundFields[0]!;
-    clampedActions.push({
-      type: "Action.Submit",
-      title: SYNTHETIC_SUBMIT_TITLE,
-      data: { ckActionId: field.actionId, ckValueField: field.fieldId },
-    });
+  if (!clampedActions.some(isDispatchableSubmit)) {
+    // Only a field that survived the body clamp can back a submit; a dropped
+    // one would render a Submit with nothing above it.
+    const rendered = new Set(
+      clampedBody
+        .map((element) => element.id)
+        .filter((id): id is string => typeof id === "string"),
+    );
+    const field = context.boundFields.find((f) => rendered.has(f.fieldId));
+    // One submit per card, bound to the FIRST handler-bound field: Adaptive
+    // Cards fires a single action, and a button per input would be nonsense UI.
+    // Later fields' handlers therefore never fire — but their text is not lost,
+    // since Teams merges every input into this submit and `parseCardAction`
+    // surfaces them all as the event's `values`.
+    if (field) {
+      clampedActions.push({
+        type: "Action.Submit",
+        title: SYNTHETIC_SUBMIT_TITLE,
+        data: { ckActionId: field.actionId, ckValueField: field.fieldId },
+      });
+    }
   }
   if (clampedActions.length > 0) card.actions = clampedActions;
   return card;
+}
+
+/** Can this action route an interaction back into the engine when it fires? */
+function isDispatchableSubmit(action: CardAction): boolean {
+  if (action.type !== "Action.Submit") return false;
+  const data = action.data as { ckActionId?: unknown } | undefined;
+  return typeof data?.ckActionId === "string";
 }
 
 /** Render a single IR node, pushing body elements and/or top-level actions. */

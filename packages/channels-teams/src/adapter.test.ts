@@ -104,6 +104,56 @@ describe("TeamsAdapter card interactions", () => {
     expect(evt.replyTarget.context).toBe(inbound);
     expect(evt.messageRef.context).toBe(inbound);
   });
+
+  it("forwards the card's merged inputs onto the InteractionEvent", async () => {
+    // The adapter is what actually wires `values` onto the event; without it a
+    // <Button onClick> handler beside an <Input> never sees the typed text.
+    const adapter = new TeamsAdapter({});
+    const sink = mockSink();
+    const activity = {
+      type: ActivityTypes.Message,
+      value: {
+        ckActionId: "ck:approve",
+        value: { confirmed: true },
+        reason: "looks good",
+      },
+      conversation: { id: "conv-1" },
+      from: { id: "user-1", name: "Tester" },
+      replyToId: "card-activity-1",
+      getConversationReference: () => ({ conversation: { id: "conv-1" } }),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (adapter as any).handleActivity(
+      { activity } as unknown as TurnContext,
+      sink,
+    );
+    await flush();
+
+    const evt = sink.onInteraction.mock.calls[0]![0];
+    expect(evt.value).toEqual({ confirmed: true });
+    expect(evt.values).toEqual({ reason: "looks good" });
+  });
+
+  it("decodeInteraction carries the merged inputs too", () => {
+    const adapter = new TeamsAdapter({});
+    const evt = adapter.decodeInteraction({
+      type: ActivityTypes.Message,
+      value: {
+        ckActionId: "ck:note",
+        ckValueField: "ck:note",
+        "ck:note": "42",
+      },
+      conversation: { id: "conv-1" },
+      from: { id: "user-1", role: "user" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    // The synthesized input submit: the typed text is the action value, as a
+    // string, and is also readable as a submitted field.
+    expect(evt!.value).toBe("42");
+    expect(evt!.values).toEqual({ "ck:note": "42" });
+  });
 });
 
 /** A plain inbound message activity carrying optional file attachments. */

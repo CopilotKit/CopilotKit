@@ -35,10 +35,10 @@ the action's `data`:
 ### The synthesized submit
 
 Adaptive Cards has no per-input submit affordance: an `Input.*` only reaches us
-when some `Action.Submit` on the card fires. A card whose only controls are
-`<Input>`/`<Select>` would therefore have **zero** actions and could not be
-submitted at all, so `renderAdaptiveCard` appends one bound to the first
-handler-bound field:
+when some `Action.Submit` on the card fires, and `renderButton` is the only other
+producer of one. A card that has no submit able to route the click therefore
+cannot deliver its inputs anywhere, so `renderAdaptiveCard` appends one bound to
+the first handler-bound field:
 
 ```jsonc
 {
@@ -52,8 +52,22 @@ handler-bound field:
 ```
 
 The two differ whenever an explicit `<Input name>` (or a collision suffix) renames
-the field, so both are carried. This action is appended **only** when the card has
-no other action and at least one field is bound to a handler.
+the field, so both are carried.
+
+It is appended only when the card has **no dispatchable submit** — an
+`Action.Submit` carrying a `ckActionId`. Having _some_ action is not enough: an
+`Action.OpenUrl` (a link `<Button>`) opens a URL and submits nothing, and a
+`<Button>` with no `onClick` submits but routes nowhere, so an `<Input>` beside
+either still needs one.
+
+**One submit per card.** Adaptive Cards fires a single action, so only the first
+handler-bound field is bound; later `<Input onSubmit>` handlers never fire. Their
+text is _not_ lost — Teams merges every input into this one submit, so all of them
+arrive as submitted fields. Read them from `activity.value` (or
+`InteractionEvent.values`) rather than expecting a per-input handler.
+
+A field dropped by the body-element budget is skipped, since a submit with no
+visible input above it would dispatch `undefined` to a `ClickHandler<string>`.
 
 ## Inbound — what Teams delivers on click
 

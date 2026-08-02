@@ -5,6 +5,7 @@ import {
   isPlainText,
   collectPlainText,
 } from "./adaptive-card.js";
+import { TEAMS_LIMITS } from "./budget.js";
 
 const text = (value: string): ChannelNode => ({
   type: "text",
@@ -241,6 +242,75 @@ describe("renderAdaptiveCard", () => {
         data: { ckActionId: "ck:pick", ckValueField: "ck:pick" },
       },
     ]);
+  });
+
+  it("synthesizes a submit beside a link <Button>, which submits nothing", () => {
+    // Action.OpenUrl opens a URL; it is not a submit. Counting actions rather
+    // than dispatchable submits would leave this card unsubmittable — the
+    // original defect, for a very ordinary "input + learn more link" shape.
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("actions", [el("button", [text("Docs")], { url: "https://x.com" })]),
+    ]);
+
+    expect(card.actions).toEqual([
+      { type: "Action.OpenUrl", title: "Docs", url: "https://x.com" },
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
+  });
+
+  it("synthesizes a submit beside a <Button> that routes nowhere", () => {
+    // A handler-less <Button> submits the card but carries no ckActionId, so
+    // the decode treats the click as an ordinary chat message and the input's
+    // text goes nowhere.
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("button", [text("Dismiss")], {}),
+    ]);
+
+    expect(card.actions).toHaveLength(2);
+    expect(card.actions![1]).toMatchObject({
+      data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+    });
+  });
+
+  it("binds the synthesized submit to only the FIRST input; the rest ride in `values`", () => {
+    // Adaptive Cards fires one action, and a Submit per input would be nonsense
+    // UI. Later handlers never fire — but Teams merges every input into this
+    // submit, so no typed text is lost.
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:a" } }),
+      el("input", [], { onSubmit: { id: "ck:b" } }),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:a", ckValueField: "ck:a" },
+      },
+    ]);
+  });
+
+  it("does not synthesize a submit for a field the body clamp dropped", () => {
+    // Otherwise the card shows a Submit with no input above it, and clicking it
+    // dispatches `undefined` to a `ClickHandler<string>`.
+    const overflow = Array.from({ length: TEAMS_LIMITS.bodyElements }, (_, i) =>
+      text(`t${i}`),
+    );
+    const card = renderAdaptiveCard([
+      ...overflow,
+      el("input", [], { onSubmit: { id: "ck:late" } }),
+    ]);
+
+    expect(card.body.some((element) => element.type === "Input.Text")).toBe(
+      false,
+    );
+    expect(card.actions).toBeUndefined();
   });
 
   it("does not synthesize a submit when no input is bound to a handler", () => {

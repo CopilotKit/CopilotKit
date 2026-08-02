@@ -172,13 +172,17 @@ interface SlackBlockState {
 }
 
 /**
- * The current value of one `state.values` element. Never JSON-parses: these are
- * form-field values, either user-typed text or an option value we rendered with
- * `String(...)`, so both are strings by contract.
+ * The current value of one `state.values` element, resolved by exactly the rule
+ * the clicked action uses above: user-typed text passes through verbatim, and
+ * only option values — which we serialized ourselves — are JSON-parsed. The two
+ * must agree, or the same `<Select>` would reach a handler as `1` via
+ * `ctx.action.value` and `"1"` via `ctx.values`.
  */
 function stateElementValue(el: SlackStateElement): unknown {
-  if (el.selected_options) return el.selected_options.map((o) => o.value);
-  return el.value ?? el.selected_option?.value;
+  if (el.type === PLAIN_TEXT_INPUT) return el.value;
+  if (el.selected_options)
+    return el.selected_options.map((o) => parseValue(o.value));
+  return parseValue(el.value ?? el.selected_option?.value);
 }
 
 /**
@@ -269,7 +273,12 @@ interface SlackViewState {
  * Flatten a Slack view's `state.values` to a flat `fieldId → value` map. The
  * modal vocabulary names every block id == action id (the field id), so for
  * each block we take the inner element keyed by that same block id, falling
- * back to the first element.
+ * back to the first element. Text inputs expose `value`; selects/radios expose
+ * `selected_option.value`.
+ *
+ * Deliberately NOT {@link stateElementValue}: modal submissions are a separate
+ * surface with its own settled semantics, and routing them through the
+ * `block_actions` reader would silently change what `view_submission` delivers.
  */
 function flattenViewValues(view: SlackViewState): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -278,7 +287,7 @@ function flattenViewValues(view: SlackViewState): Record<string, unknown> {
     const inner = values[blockId]!;
     const el = inner[blockId] ?? Object.values(inner)[0];
     if (!el) continue;
-    out[blockId] = stateElementValue(el);
+    out[blockId] = el.value ?? el.selected_option?.value;
   }
   return out;
 }

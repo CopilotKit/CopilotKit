@@ -137,11 +137,40 @@ describe("decodeInteraction", () => {
     });
     expect(evt!.value).toBe("yes");
     expect(evt!.values).toEqual({
-      // Still a string: `values` is a form-value carrier, so nothing coerces.
+      // Still a string: typed text is never coerced, here or in `value`.
       "ck:note": "42",
       "ck:team": "core",
       "ck:owners": ["ada", "bo"],
     });
+  });
+
+  it("resolves the same <Select> identically in `value` and in `values`", () => {
+    // A non-string option value is serialized with String(...) on the way out,
+    // so both accessors must JSON-parse it back. Disagreeing would hand the
+    // handler `1` via ctx.action.value and "1" via ctx.values for one control.
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [
+        {
+          action_id: "ck:sel",
+          type: "static_select",
+          selected_option: { value: "1" },
+        },
+      ],
+      state: {
+        values: {
+          block1: {
+            "ck:sel": {
+              type: "static_select",
+              selected_option: { value: "1" },
+            },
+          },
+        },
+      },
+    });
+    expect(evt!.value).toBe(1);
+    expect(evt!.values!["ck:sel"]).toBe(1);
   });
 
   it("reports empty `values` when the payload carries no block state", () => {
