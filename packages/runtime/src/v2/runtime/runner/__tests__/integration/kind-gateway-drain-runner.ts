@@ -22,6 +22,7 @@ Object.assign(globalThis, { WebSocket: ObservedWebSocket });
 class SlowLifecycleAgent extends AbstractAgent {
   runCount = 0;
   emittedEvents = 0;
+  aborted = false;
 
   async runAgent(
     input: RunAgentInput,
@@ -64,7 +65,9 @@ class SlowLifecycleAgent extends AbstractAgent {
     return { result: undefined, newMessages: [] };
   }
 
-  abortRun(): void {}
+  abortRun(): void {
+    this.aborted = true;
+  }
   clone(): AbstractAgent {
     return new SlowLifecycleAgent();
   }
@@ -112,6 +115,7 @@ async function main(): Promise<void> {
     runnerErrors: runnerEvents.filter(
       (event) => event.type === EventType.RUN_ERROR,
     ).length,
+    agentAborted: agent.aborted,
     expectedEvents: chunks + 4,
   };
 
@@ -133,6 +137,11 @@ async function main(): Promise<void> {
   }
   if (result.runnerErrors !== 0) {
     throw new Error(`runner emitted ${result.runnerErrors} terminal errors`);
+  }
+  if (result.agentAborted) {
+    throw new Error(
+      "runner aborted the accepted agent during gateway recovery",
+    );
   }
 }
 

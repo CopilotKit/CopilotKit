@@ -1162,7 +1162,7 @@ describe("IntelligenceAgentRunner", () => {
       sub.unsubscribe();
     });
 
-    it("aborts after repeated unrelated transport failures", () => {
+    it("keeps an accepted run alive through prolonged abnormal reconnect failures", () => {
       const threadId = "t-exhaust";
       const input = createRunInput({ threadId, runId: "r-exhaust" });
       const agent = new BlockingMockAgent();
@@ -1171,8 +1171,30 @@ describe("IntelligenceAgentRunner", () => {
       const socket = mockSockets[0];
       mockChannels[0].triggerJoin("ok");
 
-      for (let i = 0; i < 5; i++) {
+      socket.triggerClose({ code: 1006 });
+      for (let i = 0; i < 20; i++) {
         socket.triggerError(new Error("connection lost"));
+        socket.triggerClose({ code: 1006 });
+      }
+
+      expect(agent.aborted).toBe(false);
+      socket.triggerOpen();
+      sub.unsubscribe();
+    });
+
+    it("retains the pre-join error budget before a run has been accepted", () => {
+      const threadId = "t-prejoin-exhaust";
+      const input = createRunInput({
+        threadId,
+        runId: "r-prejoin-exhaust",
+      });
+      const agent = new BlockingMockAgent();
+
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+      const socket = mockSockets[0];
+
+      for (let i = 0; i < 5; i++) {
+        socket.triggerError(new Error("connection refused"));
       }
 
       expect(agent.aborted).toBe(true);

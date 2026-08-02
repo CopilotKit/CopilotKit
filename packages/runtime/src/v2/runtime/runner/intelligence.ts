@@ -259,7 +259,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
         plannedRestart = false;
       });
       socket.onError(() => {
-        if (plannedRestart) {
+        // Once the gateway has accepted the run, transport recovery is not a
+        // terminal condition. The agent may still be producing the
+        // authoritative answer while Phoenix reconnects and replays durable
+        // events, so an arbitrary socket-error count must not abort it.
+        if (plannedRestart || state.hasJoined) {
           return;
         }
 
