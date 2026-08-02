@@ -34,6 +34,8 @@ import type {
   UserQuery,
   ReplyContinuationOptions,
   ResolvedChannelMemory,
+  ChannelTaskAdapter,
+  ChannelHistoryAdapter,
 } from "@copilotkit/channels-core";
 import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
@@ -66,6 +68,8 @@ import type {
   ChannelDeliveryTranscript,
   ChannelTranscriptMessage,
 } from "./delivery-transcript.js";
+import { ChannelTaskHttpClient } from "./channel-tasks.js";
+import { ChannelHistoryHttpClient } from "./channel-history.js";
 
 interface DeliveryReplyTarget {
   claimedDelivery: ClaimedChannelDelivery;
@@ -130,6 +134,10 @@ export interface DeliveryAdapterOptions {
   showToolStatus?: boolean;
   /** Continuation-message tuning for long Slack replies. */
   replyContinuation?: ReplyContinuationOptions;
+  /** App API coordinates for Task CRUD and event candidate lookup. */
+  appApiBaseUrl?: string;
+  apiKey?: string;
+  appApiFetch?: typeof globalThis.fetch;
 }
 
 /** Managed Channels adapter backed by the dedicated delivery boundary. */
@@ -141,6 +149,8 @@ export class DeliveryAdapter implements PlatformAdapter {
   readonly injectInboundTurnOnce = true;
   readonly ackDeadlineMs = 0;
   readonly stateStore?: StateStore;
+  readonly channelTasks?: ChannelTaskAdapter;
+  readonly channelHistory?: ChannelHistoryAdapter;
   readonly capabilities: SurfaceCapabilities = {
     supportsMessageEvents: true,
     supportsModals: false,
@@ -215,6 +225,20 @@ export class DeliveryAdapter implements PlatformAdapter {
 
   constructor(private readonly options: DeliveryAdapterOptions) {
     this.stateStore = options.store;
+    if (options.appApiBaseUrl && options.apiKey) {
+      this.channelTasks = new ChannelTaskHttpClient({
+        baseUrl: options.appApiBaseUrl,
+        apiKey: options.apiKey,
+        channelName: options.channelName,
+        ...(options.appApiFetch ? { fetch: options.appApiFetch } : {}),
+      });
+      this.channelHistory = new ChannelHistoryHttpClient({
+        baseUrl: options.appApiBaseUrl,
+        apiKey: options.apiKey,
+        channelName: options.channelName,
+        ...(options.appApiFetch ? { fetch: options.appApiFetch } : {}),
+      });
+    }
   }
 
   /**
@@ -392,6 +416,8 @@ export class DeliveryAdapter implements PlatformAdapter {
         );
         await sink.onTurn({
           ...base,
+          surfaceId: delivery.surfaceId,
+          occurredAt: delivery.turn.receivedAt,
           userText: input.text ?? "",
           operation: input.operation,
           messageRef: inboundMessageRef(replyTarget, input.messageRef),
@@ -443,6 +469,8 @@ export class DeliveryAdapter implements PlatformAdapter {
       case "reaction":
         await sink.onReaction({
           ...base,
+          surfaceId: delivery.surfaceId,
+          occurredAt: delivery.turn.receivedAt,
           rawEmoji: input.rawEmoji,
           added: input.added,
           // Stable opaque correlation id for handler lookup; the delivery-scoped
@@ -450,6 +478,19 @@ export class DeliveryAdapter implements PlatformAdapter {
           messageId: input.messageId,
           messageRef: inboundMessageRef(replyTarget, input.messageRef),
           raw: input,
+        });
+        return;
+      case "scheduled_task":
+        if (!sink.onScheduledTask) {
+          throw new TypeError(
+            "Managed scheduled delivery requires a Task-capable Channel",
+          );
+        }
+        await sink.onScheduledTask({
+          ...base,
+          surfaceId: delivery.surfaceId,
+          scheduledAt: input.scheduledAt,
+          task: input.task,
         });
         return;
       default: {

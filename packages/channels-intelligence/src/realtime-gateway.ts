@@ -48,6 +48,7 @@ export interface ConnectRealtimeGatewayOptions {
     channels: ReadonlyArray<{
       channelName: string;
       adapter: string;
+      tasks?: true;
     }>;
   };
   /** Per-push / join timeout in ms (default 10000). */
