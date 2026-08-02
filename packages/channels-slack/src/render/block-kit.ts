@@ -193,20 +193,30 @@ function renderNode(
     }
     case "actions": {
       // Every field is peeled into a block of its own, leaving `actions` blocks
-      // to the buttons. Two reasons, and both apply to all three field shapes:
-      // Slack forbids a text input and a multi-select inside an `actions` block
-      // at all (they belong in input blocks), and a field's `values` key rides
-      // on its block id (see `fieldBlockId`), which one shared block could only
-      // spell for one of them. Teams' `actions` case simply recurses, so peeling
-      // — rather than dropping — is what keeps identical JSX rendering the same
-      // on both MVP surfaces. Flush the pending actions block BEFORE each peeled
-      // field so blocks stay in source order (e.g. [Button, Select multi] →
-      // actions, then input).
+      // to the buttons. Slack forbids a text input and a multi-select inside an
+      // `actions` block at all (they belong in input blocks), which forces the
+      // peel for those two. A single `static_select` Slack *would* allow inline,
+      // and it is peeled anyway: a field's `values` key rides on its block id
+      // (see `fieldBlockId`), which one shared block could only spell for one
+      // field. Flush the pending actions block BEFORE each peeled field so
+      // blocks stay in source order (e.g. [Button, Select multi] → actions,
+      // then input).
+      //
+      // Peeling rather than dropping is what puts every field inside
+      // `<Actions>` onto Slack, which is what Teams does with the same JSX —
+      // its `actions` case just recurses into its full node switch. The match
+      // ends at that wrapper. Slack's `renderNode` has no top-level `select`,
+      // `button` or `chart` case, so all three render to nothing when they
+      // appear OUTSIDE an `<Actions>`, while Teams renders all three there;
+      // and `<Chart>` has no Slack rendering at any depth, since
+      // `renderActionElement` drops it inside `<Actions>` too. Identical JSX
+      // therefore still diverges across the two surfaces in those cases —
+      // closing that is separate follow-up work, not something this peel did.
       let elements: object[] = [];
       const flush = () => {
         if (elements.length > 0) {
           // `actionsElements` bounds one emitted `actions` block, so clamp
-          // here rather than over the children: peeled-off inputs and
+          // here rather than over the children: peeled-off fields and
           // unrenderable children never take a slot in any block, and a peel
           // splits the rest across several blocks that are budgeted apart.
           const { items } = clampArray(elements, SLACK_LIMITS.actionsElements);
@@ -319,8 +329,9 @@ function renderNode(
 /**
  * Render one interactive element inside a shared `actions` block. Only a
  * `<Button>` qualifies — every field is peeled into a block of its own by the
- * caller. Returns `null` for children that aren't renderable as action elements
- * (so callers can filter).
+ * caller. Returns `null` for every other child, which the caller then drops:
+ * a `<Chart>` inside `<Actions>` reaches Slack as nothing, where Teams renders
+ * it, because Teams' `actions` case recurses into its full node switch.
  */
 function renderActionElement(node: ChannelNode): object | null {
   if (typeof node.type !== "string") return null;
@@ -436,8 +447,9 @@ function textInput(node: ChannelNode, context: RenderContext): KnownBlock {
  * when `multi` (Slack forbids a `multi_static_select` inside an `actions` block
  * and an input block is what dispatches it), else a single-element `actions`
  * block, which is how a `static_select` renders inline. Either way the payload
- * carries the chosen option value(s) — `selected_options` decodes to a
- * `string[]`.
+ * carries the chosen option value(s), in the shape the element reports it:
+ * `selected_option` for the single case (decoded to a `string`),
+ * `selected_options` for the multi case (decoded to a `string[]`).
  */
 function selectBlock(node: ChannelNode, context: RenderContext): KnownBlock {
   const props = node.props ?? {};
@@ -482,11 +494,19 @@ function selectBlock(node: ChannelNode, context: RenderContext): KnownBlock {
 
 /**
  * The key this field's reading appears under in an interaction's `values`,
- * derived exactly as Teams derives the Adaptive Card element `id` that plays the
+ * derived the way Teams derives the Adaptive Card element `id` that plays the
  * same role (`fieldId()` in channels-teams' `render/adaptive-card.ts`): an
  * explicit `name` wins, else the registry-minted handler id, else a positional
  * fallback numbered off a counter every field advances. Deduped with a numbered
  * suffix, because two fields keyed alike would overwrite one another's reading.
+ *
+ * One Teams rule is deliberately absent here: Teams also refuses a `name` that
+ * collides with a `CARD_ENVELOPE_KEYS` entry, and seeds its used-id set with
+ * those keys, because every Teams reading shares one submit-data object with
+ * that envelope. A Slack field's key rides on its own block id instead, so
+ * there is nothing to collide with. The two surfaces therefore key a
+ * `<Select name="ckActionId">` differently — `ckActionId` here, the minted
+ * handler id on Teams.
  */
 function fieldId(
   node: ChannelNode,

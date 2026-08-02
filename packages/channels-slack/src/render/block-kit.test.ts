@@ -647,6 +647,65 @@ describe("field ids (Slack ↔ Teams `values` key parity)", () => {
   });
 });
 
+/**
+ * Pins the Slack↔Teams gaps that peeling fields out of `<Actions>` did NOT
+ * close, so the follow-up that closes them has to flip an assertion rather than
+ * discover the divergence. Teams renders every node below outside an
+ * `<Actions>` (`Input.ChoiceSet`, an `Action.Submit`, and `Chart.Line`
+ * respectively); Slack's `renderNode` has no case for any of them.
+ */
+describe("Slack↔Teams render gaps (documented, not yet closed)", () => {
+  const select: ChannelNode = {
+    type: "select",
+    props: {
+      onSelect: { id: "ck:sel" },
+      options: [{ label: "A", value: "a" }],
+    },
+  };
+  const button: ChannelNode = {
+    type: "button",
+    props: {
+      onClick: { id: "ck:btn" },
+      children: [{ type: "text", props: { value: "Go" } }],
+    },
+  };
+  const chart: ChannelNode = {
+    type: "chart",
+    props: { type: "line", data: [{ label: "x", value: 1 }] },
+  };
+
+  it.each([
+    ["select", select],
+    ["button", button],
+    ["chart", chart],
+  ])("drops a top-level <%s> outside <Actions>", (_name, node) => {
+    expect(renderBlockKit([node])).toEqual([]);
+  });
+
+  it("drops all three together, emitting no blocks at all", () => {
+    expect(renderBlockKit([select, button, chart])).toEqual([]);
+  });
+
+  it("renders <Select> and <Button> inside <Actions>, but still drops <Chart>", () => {
+    const blocks = renderBlockKit([
+      { type: "actions", props: { children: [select, button, chart] } },
+    ]);
+    // The select is peeled into its own block; the button keeps an `actions`
+    // block. Nothing in between is the chart — it has no Slack rendering at
+    // any depth.
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toMatchObject({
+      type: "actions",
+      block_id: `${FIELD_BLOCK_PREFIX}ck:sel`,
+      elements: [{ type: "static_select" }],
+    });
+    expect(blocks[1]).toMatchObject({
+      type: "actions",
+      elements: [{ type: "button", action_id: "ck:btn" }],
+    });
+  });
+});
+
 /** `count` pre-bound `<Button>` IR nodes with distinct ids. */
 function buttons(count: number, prefix = "b"): ChannelNode[] {
   return Array.from({ length: count }, (_, i) => ({
