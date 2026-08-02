@@ -196,6 +196,45 @@ function textInputValue(raw: string | null | undefined): string {
   return raw ?? "";
 }
 
+/**
+ * Write one decoded field onto a `values` bag as an OWN data property.
+ *
+ * `key` is a block/element id from an inbound Slack payload, and `__proto__`
+ * survives `JSON.parse` as an own key. A plain `bag[key] = value` for that key
+ * runs `Object.prototype`'s `__proto__` SETTER instead of creating a field: the
+ * element's reading disappears from `Object.keys(bag)` and — when it is an
+ * object — becomes the bag's prototype, so every property it carries reads back
+ * off `bag` as though the workspace had submitted it. (In the modal reader,
+ * where the flattened reading is a string, the setter drops it outright and the
+ * handler never sees the field at all.) `defineProperty` writes the property
+ * itself and never consults a setter, so `__proto__` lands as ordinary
+ * enumerable data like any other field id.
+ *
+ * Deliberately a plain `{}` and NOT `Object.create(null)`. These bags are
+ * public API — `flattenBlockState`'s reaches handlers as `ctx.values` and
+ * `flattenViewValues`' as an `onModalSubmit` handler's `values`, both typed
+ * `Record<string, unknown>` (see channels-core's `InteractionContext` and
+ * `IncomingModalSubmit`) — and `values.hasOwnProperty(...)`/`toString()` is
+ * ordinary consumer code that a prototype-less bag would break. Dropping the
+ * prototype buys only that an ABSENT field id spelled like a builtin reads back
+ * `undefined` rather than the builtin, which is true of every other
+ * `Record<string, unknown>` in this API and is not what the injection was
+ * about. A field that WAS submitted still wins: an own property shadows its
+ * `Object.prototype` namesake.
+ */
+function setField(
+  bag: Record<string, unknown>,
+  key: string,
+  value: unknown,
+): void {
+  Object.defineProperty(bag, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
 /** One entry of a Slack view/message `state.values` block. */
 interface SlackStateElement {
   type?: string;
@@ -241,14 +280,7 @@ function stateElementValue(el: SlackStateElement): unknown {
 function flattenBlockState(state: SlackBlockState | undefined): {
   [fieldId: string]: unknown;
 } {
-  // Null-prototype, because the element ids come from an inbound payload and
-  // `__proto__` survives `JSON.parse` as an OWN key: assigning it onto a plain
-  // `{}` runs `Object.prototype`'s setter instead of creating a field, so the
-  // handler would receive an INVISIBLE inherited property (absent from
-  // `Object.keys`) in place of the element's value. With no prototype every key
-  // lands as plain data and nothing is inherited, so `values` is exactly what
-  // the message carried — `constructor` and friends included.
-  const out: Record<string, unknown> = Object.create(null);
+  const out: Record<string, unknown> = {};
   for (const [blockId, block] of Object.entries(state?.values ?? {})) {
     // A `ckf:` block names its single field (the renderer never puts two in
     // one), so every element under it resolves to that same field id.
@@ -256,7 +288,7 @@ function flattenBlockState(state: SlackBlockState | undefined): {
       ? blockId.slice(FIELD_BLOCK_PREFIX.length)
       : undefined;
     for (const [actionId, el] of Object.entries(block)) {
-      out[named ?? actionId] = stateElementValue(el);
+      setField(out, named ?? actionId, stateElementValue(el));
     }
   }
   return out;
@@ -339,11 +371,7 @@ interface SlackViewState {
  * `block_actions` reader would silently change what `view_submission` delivers.
  */
 function flattenViewValues(view: SlackViewState): Record<string, unknown> {
-  // Null-prototype for the same reason as {@link flattenBlockState}: block ids
-  // come from an inbound payload, and a `__proto__` key assigned onto a plain
-  // `{}` would run `Object.prototype`'s setter and reach the handler as an
-  // invisible inherited property instead of a submitted field.
-  const out: Record<string, unknown> = Object.create(null);
+  const out: Record<string, unknown> = {};
   const values = view.state?.values ?? {};
   for (const blockId of Object.keys(values)) {
     const inner = values[blockId]!;
@@ -355,7 +383,7 @@ function flattenViewValues(view: SlackViewState): Record<string, unknown> {
       : undefined;
     const el = own ?? Object.values(inner)[0];
     if (!el) continue;
-    out[blockId] = el.value ?? el.selected_option?.value;
+    setField(out, blockId, el.value ?? el.selected_option?.value);
   }
   return out;
 }

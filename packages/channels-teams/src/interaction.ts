@@ -66,6 +66,41 @@ export function conversationKeyOf(activity: TeamsActivityLike): string {
 }
 
 /**
+ * Write one decoded field onto the `values` bag as an OWN data property.
+ *
+ * `key` comes from an inbound platform payload, and `__proto__` survives
+ * `JSON.parse` as an own key. A plain `bag[key] = value` for that key runs
+ * `Object.prototype`'s `__proto__` SETTER instead of creating a field: the
+ * submitted value disappears from `Object.keys(bag)` and — when it is an
+ * object — becomes the bag's prototype, so every property it carries reads
+ * back off `bag` as though the sender had submitted it. `defineProperty`
+ * writes the property itself and never consults a setter, so `__proto__`
+ * lands as ordinary enumerable data like any other field id.
+ *
+ * Deliberately a plain `{}` and NOT `Object.create(null)`. `values` is public
+ * API — it reaches application handlers as `ctx.values`, typed
+ * `Record<string, unknown>` (see channels-core's `InteractionContext`) — and
+ * `ctx.values.hasOwnProperty(...)`/`toString()` is ordinary consumer code that
+ * a prototype-less bag would break. Dropping the prototype buys only that an
+ * ABSENT field id spelled like a builtin reads back `undefined` rather than
+ * the builtin, which is true of every other `Record<string, unknown>` in this
+ * API and is not what the injection was about. A field that WAS submitted
+ * still wins: an own property shadows its `Object.prototype` namesake.
+ */
+function setField(
+  bag: Record<string, unknown>,
+  key: string,
+  value: unknown,
+): void {
+  Object.defineProperty(bag, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+/**
  * Recognize and parse an Adaptive Card `Action.Submit`. Returns the opaque
  * action id, the action's value, and every submitted card input when the
  * activity carries our `ckActionId`, else `undefined` (i.e. it's an ordinary
@@ -97,17 +132,10 @@ export function parseCardAction(activity: TeamsActivityLike):
   ) {
     return undefined;
   }
-  // Null-prototype, because `data` is an inbound payload and `__proto__`
-  // survives `JSON.parse` as an OWN key: assigning it onto a plain `{}` runs
-  // `Object.prototype`'s setter instead of creating a field, so the handler
-  // would receive an INVISIBLE inherited property (absent from `Object.keys`)
-  // in place of the submitted value. With no prototype every key lands as plain
-  // data and nothing is inherited, so `values` is exactly what was submitted —
-  // `constructor` and friends included.
-  const values: Record<string, unknown> = Object.create(null);
+  const values: Record<string, unknown> = {};
   for (const [key, fieldValue] of Object.entries(data)) {
     if (CARD_ENVELOPE_KEYS.includes(key)) continue;
-    values[key] = fieldValue;
+    setField(values, key, fieldValue);
   }
   const valueField = data.ckValueField;
   const value =

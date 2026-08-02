@@ -124,9 +124,9 @@ describe("parseCardAction", () => {
 
   it("lands a `__proto__` field as plain data, never on the prototype", () => {
     // `__proto__` survives JSON.parse as an OWN key, so a crafted submit can
-    // carry one. On a plain `{}` the assignment runs the inherited setter: the
-    // handler then sees `values.injected` without `injected` ever appearing in
-    // `Object.keys(values)`.
+    // carry one. Assigned with `values[key] = v` it runs the inherited setter:
+    // the handler then sees `values.injected` without `injected` ever appearing
+    // in `Object.keys(values)`.
     const parsed = parseCardAction({
       value: JSON.parse(
         '{"ckActionId":"ck:x","__proto__":{"injected":true},"reason":"ok"}',
@@ -136,15 +136,38 @@ describe("parseCardAction", () => {
     expect(values.injected).toBeUndefined();
     expect(Object.keys(values).sort()).toEqual(["__proto__", "reason"]);
     expect(values.reason).toBe("ok");
+    // The crafted key is a field like any other, not the bag's prototype.
+    expect(Object.getPrototypeOf(values)).toBe(Object.prototype);
+    expect(Object.prototype.hasOwnProperty.call(values, "__proto__")).toBe(
+      true,
+    );
   });
 
-  it("does not surface Object.prototype members through `values`", () => {
-    // A handler reading `ctx.values[someFieldId]` must get submitted data or
-    // nothing — never an inherited builtin.
-    const values = parseCardAction({ value: { ckActionId: "ck:x" } })!.values;
-    for (const builtin of ["constructor", "toString", "hasOwnProperty"]) {
-      expect(values[builtin]).toBeUndefined();
-    }
+  it("hands handlers an ORDINARY object, prototype intact", () => {
+    // `values` is public API (`ctx.values`, typed `Record<string, unknown>`)
+    // and reaches third-party handlers. Hardening the inbound keys must not
+    // cost it `Object.prototype`: `ctx.values.hasOwnProperty(...)` is ordinary
+    // consumer code and must keep working.
+    const values = parseCardAction({
+      value: { ckActionId: "ck:x", reason: "ok" },
+    })!.values;
+    expect(values.hasOwnProperty("reason")).toBe(true);
+    expect(Object.getPrototypeOf(values)).toBe(Object.prototype);
+    expect(values.hasOwnProperty("nope")).toBe(false);
+    expect(() => String(values)).not.toThrow();
+    expect({ ...values }).toEqual({ reason: "ok" });
+  });
+
+  it("delivers a submitted field whose id collides with a builtin", () => {
+    // The half of prototype hygiene that IS a correctness guarantee: a field
+    // the sender actually submitted must reach the handler as its own value,
+    // shadowing whatever `Object.prototype` happens to name.
+    const values = parseCardAction({
+      value: { ckActionId: "ck:x", toString: "typed", constructor: "ctor" },
+    })!.values;
+    expect(values.toString).toBe("typed");
+    expect(values.constructor).toBe("ctor");
+    expect(Object.keys(values).sort()).toEqual(["constructor", "toString"]);
   });
 
   it("keeps typed text as a string even when it parses as JSON", () => {

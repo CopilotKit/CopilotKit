@@ -292,9 +292,9 @@ describe("decodeInteraction", () => {
 
   it("lands a `__proto__` element id as plain data, never on the prototype", () => {
     // `__proto__` survives JSON.parse as an OWN key, so a crafted payload can
-    // carry one. On a plain `{}` the assignment runs the inherited setter: the
-    // handler then sees `values.injected` without `injected` ever appearing in
-    // `Object.keys(values)`.
+    // carry one. Assigned with `values[key] = v` it runs the inherited setter:
+    // the handler then sees `values.injected` without `injected` ever appearing
+    // in `Object.keys(values)`.
     const evt = decodeInteraction(
       JSON.parse(`{
         "type": "block_actions",
@@ -320,20 +320,61 @@ describe("decodeInteraction", () => {
     // lands as plain data on a plain key rather than as an object.
     expect(values["__proto__"]).toBe('{"injected":true}');
     expect(values["ck:note"]).toBe("hi");
+    // The crafted key is a field like any other, not the bag's prototype.
+    expect(Object.getPrototypeOf(values)).toBe(Object.prototype);
+    expect(Object.prototype.hasOwnProperty.call(values, "__proto__")).toBe(
+      true,
+    );
   });
 
-  it("does not surface Object.prototype members through `values`", () => {
-    // A handler reading `ctx.values[someActionId]` must get submitted data or
-    // nothing — never an inherited builtin.
+  it("hands handlers an ORDINARY object, prototype intact", () => {
+    // `values` is public API (`ctx.values`, typed `Record<string, unknown>`)
+    // and reaches third-party handlers. Hardening the inbound keys must not
+    // cost it `Object.prototype`: `ctx.values.hasOwnProperty(...)` is ordinary
+    // consumer code and must keep working.
     const evt = decodeInteraction({
       type: "block_actions",
       container: { channel_id: "C1", thread_ts: "200.0" },
       actions: [{ action_id: "ck:b", type: "button" }],
+      state: {
+        values: {
+          "ckf:reason": {
+            "ck:reason": { type: "plain_text_input", value: "ok" },
+          },
+        },
+      },
     });
     const values = evt!.values!;
-    for (const builtin of ["constructor", "toString", "hasOwnProperty"]) {
-      expect(values[builtin]).toBeUndefined();
-    }
+    expect(values.hasOwnProperty("reason")).toBe(true);
+    expect(Object.getPrototypeOf(values)).toBe(Object.prototype);
+    expect(values.hasOwnProperty("nope")).toBe(false);
+    expect(() => String(values)).not.toThrow();
+    expect({ ...values }).toEqual({ reason: "ok" });
+  });
+
+  it("delivers a submitted field whose id collides with a builtin", () => {
+    // The half of prototype hygiene that IS a correctness guarantee: a field
+    // the sender actually submitted must reach the handler as its own value,
+    // shadowing whatever `Object.prototype` happens to name.
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C1", thread_ts: "200.0" },
+      actions: [{ action_id: "ck:b", type: "button" }],
+      state: {
+        values: {
+          "ckf:toString": {
+            "ck:a": { type: "plain_text_input", value: "typed" },
+          },
+          "ckf:constructor": {
+            "ck:b": { type: "plain_text_input", value: "ctor" },
+          },
+        },
+      },
+    });
+    const values = evt!.values!;
+    expect(values.toString).toBe("typed");
+    expect(values.constructor).toBe("ctor");
+    expect(Object.keys(values).sort()).toEqual(["constructor", "toString"]);
   });
 
   it("keys `values` by the renderer's field ids, round-tripped through real blocks", () => {
@@ -483,9 +524,30 @@ describe("decodeViewSubmission field ids vs Object.prototype", () => {
     expect(Object.keys(evt.values).sort()).toEqual(["__proto__", "summary"]);
     expect(evt.values["__proto__"]).toBe("pwned");
     expect(evt.values.summary).toBe("boom");
-    for (const builtin of ["constructor", "toString", "hasOwnProperty"]) {
-      expect(evt.values[builtin]).toBeUndefined();
-    }
+    // The crafted key is a field like any other, not the bag's prototype.
+    expect(Object.getPrototypeOf(evt.values)).toBe(Object.prototype);
+    expect(Object.prototype.hasOwnProperty.call(evt.values, "__proto__")).toBe(
+      true,
+    );
+  });
+
+  it("hands handlers an ORDINARY object, prototype intact", () => {
+    // `IncomingModalSubmit.values` reaches an `onModalSubmit` handler verbatim
+    // (see channels-core `create-channel.ts`), so it owes the same ordinary-
+    // object contract as `ctx.values`.
+    const evt = decodeViewSubmission({
+      callback_id: "triage",
+      state: {
+        values: {
+          summary: { summary: { type: "plain_text_input", value: "boom" } },
+        },
+      },
+    });
+    expect(evt.values.hasOwnProperty("summary")).toBe(true);
+    expect(Object.getPrototypeOf(evt.values)).toBe(Object.prototype);
+    expect(evt.values.hasOwnProperty("nope")).toBe(false);
+    expect(() => String(evt.values)).not.toThrow();
+    expect({ ...evt.values }).toEqual({ summary: "boom" });
   });
 
   it("falls back to the first element for a block id that names a builtin", () => {
