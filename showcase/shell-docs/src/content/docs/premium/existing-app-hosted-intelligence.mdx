@@ -1,0 +1,270 @@
+---
+title: Connect an Existing App to Hosted Intelligence
+description: "Connect an existing JavaScript or TypeScript app to Cloud-Hosted Enterprise Intelligence with one server-side project key, verified app-user identity, and persistent Threads."
+icon: "lucide/PlugZap"
+doc_type: how-to
+premium: true
+---
+
+Confirm that your existing CopilotKit Runtime v2 endpoint and agent can answer a request. Then use this guide to connect that Runtime to a cloud-hosted project, identify each signed-in app user, and add persistent Threads without replacing your agents or tools.
+
+<Callout type="info" title="Need a working Runtime endpoint first?">
+  Follow the [Quickstart](/quickstart) through the Runtime setup, then return
+  here before selecting a hosted project. This guide starts from an existing
+  server-side Runtime v2 endpoint.
+</Callout>
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Create your hosted Intelligence project"
+  body="Create a free account, then select the project from your existing app with the CopilotKit CLI."
+  ctaLabel="Create a free account"
+  surface="docs_existing_app_hosted_intelligence"
+/>
+
+## Before you start
+
+You need:
+
+- A JavaScript or TypeScript app with a working server-side CopilotKit Runtime v2 endpoint
+- An existing agent map and any server or frontend tools you already use
+- A server-side session helper that verifies the signed-in app user
+- Node.js 20 or later
+
+The example uses a Next.js App Router catch-all route at `app/api/copilotkit/[[...slug]]/route.ts`. Only the route registration is Next.js-specific; the same Runtime configuration and Fetch handler work with any [Fetch-compatible server adapter](/runtime-server-adapter).
+
+<Steps>
+  <Step>
+    ### Sign in and select a hosted project
+
+    Run these commands from your existing app:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest login
+    npx copilotkit@latest project select
+    ```
+
+    Sign in in the browser, then choose or create the project that should store this app's Threads. The CLI records the project in `.copilotkit/project.json` and writes the project key to `.env`:
+
+    ```bash title=".env"
+    CPK_INTELLIGENCE_API_KEY=cpk_...
+    CPK_TELEMETRY_ID=...
+    ```
+
+    `CPK_INTELLIGENCE_API_KEY` is the only credential required for managed Intelligence. It is a server secret. Keep `.env` out of source control, and never put the key in a `NEXT_PUBLIC_` variable or browser bundle.
+
+    `CPK_TELEMETRY_ID` is optional, is not a secret, and is not needed for connectivity. The CLI may write it for analytics attribution.
+
+    See the [CLI guide](/cli) for project selection, the supported dashboard key-rotation sequence, and local project files.
+  </Step>
+
+  <Step>
+    ### Connect the Runtime to hosted Intelligence
+
+    If you started with the Quickstart, replace its route before you change the handler. Move the Runtime setup from `app/api/copilotkit/route.ts` to `app/api/copilotkit/[[...slug]]/route.ts`, then delete the old `app/api/copilotkit/route.ts`. Keep only the catch-all route. Next.js rejects the two routes when both files exist.
+
+    Keep your existing agent map, tools, middleware, hooks, and other compatible Runtime options in the moved file. One exception: if those options include an explicit `runner`, remove it before adding `intelligence`; the two select different Runtime modes. Replace the single-method handler with the Intelligence and multi-method handler setup shown here. Replace the first two imports with your app's current agent map and server auth helper:
+
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+    import { getVerifiedAppUser } from "@/lib/auth";
+    import { agents } from "@/lib/copilotkit/agents";
+    import {
+      CopilotKitIntelligence,
+      CopilotRuntime,
+      createCopilotRuntimeHandler,
+    } from "@copilotkit/runtime/v2";
+
+    const intelligenceApiKey =
+      process.env.CPK_INTELLIGENCE_API_KEY?.trim();
+
+    if (!intelligenceApiKey) {
+      throw new Error("CPK_INTELLIGENCE_API_KEY is required");
+    }
+
+    const runtime = new CopilotRuntime({
+      agents, // Keep the agent map and tools your app already uses.
+      // Keep your app's other compatible Runtime options here.
+      intelligence: new CopilotKitIntelligence({
+        apiKey: intelligenceApiKey,
+        apiUrl: "https://api.intelligence.copilotkit.ai",
+        wsUrl: "wss://realtime.intelligence.copilotkit.ai",
+      }),
+      identifyUser: async (request) => {
+        const user = await getVerifiedAppUser(request);
+
+        if (!user) {
+          throw new Error("Verified app user missing after authentication");
+        }
+
+        return { id: user.id, name: user.name };
+      },
+    });
+
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+      hooks: {
+        onRequest: async ({ request }) => {
+          // Keep any work from your current onRequest hook here.
+          const user = await getVerifiedAppUser(request);
+
+          if (!user) {
+            throw new Response(
+              JSON.stringify({ error: "Unauthorized" }),
+              {
+                status: 401,
+                headers: { "content-type": "application/json" },
+              },
+            );
+          }
+        },
+      },
+    });
+
+    export const GET = handler;
+    export const POST = handler;
+    export const PATCH = handler;
+    export const DELETE = handler;
+    ```
+
+    Those four named exports are Next.js App Router syntax. In another Fetch-compatible host, keep the same `handler` and register it for `GET`, `POST`, `PATCH`, and `DELETE` with the host's native routing API. For React Router v7, add the `Route` type import with your other imports, then replace the four exports at the end of the example with the `loader` and `action` below:
+
+    ```ts title="app/routes/api.copilotkit.$.tsx"
+    import type { Route } from "./+types/api.copilotkit.$";
+
+    export async function loader({ request }: Route.LoaderArgs) {
+      return handler(request);
+    }
+
+    export async function action({ request }: Route.ActionArgs) {
+      return handler(request);
+    }
+    ```
+
+    `getVerifiedAppUser(request)` represents your app's existing server auth helper. It must verify the session cookie or bearer token and return the same signed-in user in both calls. Do not read an app-user ID from a request body, query string, or unverified header.
+
+    Merge these fields into your current Runtime and handler. Keep existing middleware, CORS, Channels, hooks, and other compatible options. If you already have an `onRequest` hook, add the auth check to it instead of replacing it.
+
+    Return a stable user ID and a nonblank display name. The ID must be unique across every app user in the selected hosted project. If IDs are only unique inside a tenant, namespace them, such as `tenant-123:user-456`.
+
+    The ID must be 1–128 characters and may contain only ASCII letters (`A`–`Z` and `a`–`z`), ASCII digits (`0`–`9`), `_`, `.`, `@`, `:`, `=`, or `-`. If an issuer, tenant, or subject uses other characters, encode the full tuple or hash it with a collision-resistant function. Do not make it fit by stripping characters, which can map two users to one ID.
+
+    The `onRequest` hook rejects unauthenticated requests before Runtime dispatch. `identifyUser` then scopes hosted Threads to the verified app user. Do not use an anonymous fallback or a constant user ID.
+
+    Keep the hosted URLs exactly as shown. Do not add `/api`, `/runner`, or `/client` suffixes.
+  </Step>
+
+  <Step>
+    ### Keep the browser pointed at your app Runtime
+
+    Set your React provider's `runtimeUrl` to `/api/copilotkit`. Do not put the managed key or either hosted URL in frontend configuration.
+
+    Keep the auth, `frontendTools`, and other props from your current provider when you make this change. Same-origin cookie auth works with `/api/copilotkit`. If your app uses bearer auth, keep passing its verified token in the provider's `Authorization` header as described in [Authentication](/auth).
+
+    For the default persistent Threads UI, place `<CopilotThreadsDrawer>` and your chat inside the same configuration provider:
+
+    ```tsx title="app/page.tsx"
+    "use client";
+
+    import {
+      CopilotChat,
+      CopilotChatConfigurationProvider,
+      CopilotKitProvider,
+      CopilotThreadsDrawer,
+    } from "@copilotkit/react-core/v2";
+    import "@copilotkit/react-core/v2/styles.css";
+
+    export default function Page() {
+      return (
+        <CopilotKitProvider
+          runtimeUrl="/api/copilotkit"
+          useSingleEndpoint={false}
+        >
+          <CopilotChatConfigurationProvider agentId="default">
+            <main style={{ display: "flex", height: "100dvh" }}>
+              <CopilotThreadsDrawer />
+              <CopilotChat />
+            </main>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      );
+    }
+    ```
+
+    Replace `default` with the key your existing agent map uses. See [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for its props and layout options. To build your own list, use the [Headless Threads guide](/headless-threads) and `useThreads` instead.
+
+    Your app code sends authenticated HTTP requests only to its Runtime. After the Runtime connects a Thread, the SDK uses the short-lived join credential in the response to open the hosted realtime WebSocket. The browser never receives the project key and must not call the hosted REST API.
+  </Step>
+
+  <Step>
+    ### Verify persistence and user isolation
+
+    Start your app and test with two real app accounts:
+
+    1. Sign in as user A, send a message, refresh the page, and reopen the Thread from the Drawer.
+    2. Open the selected project in the [hosted dashboard](https://dashboard.operations.copilotkit.ai) and confirm that the Thread shows user A and the expected agent.
+    3. Copy user A's Thread ID, then sign in to the app as user B in a private browser session.
+    4. Confirm that B's Thread list does not include A's Thread. Then open DevTools in B's session and run the checks below. Replace both IDs. If you use bearer auth, add B's `Authorization` header to `authHeaders`.
+
+    ```js title="Browser DevTools — user B's session"
+    const threadId = "user-a-thread-id";
+    const agentId = "default";
+    const authHeaders = {};
+
+    const listResponse = await fetch(
+      `/api/copilotkit/threads?agentId=${encodeURIComponent(agentId)}`,
+      {
+        credentials: "include",
+        headers: authHeaders,
+      },
+    );
+    if (!listResponse.ok) {
+      throw new Error(`Thread list request failed: ${listResponse.status}`);
+    }
+    const listBody = await listResponse.json();
+    if (listBody.threads.some((thread) => thread.id === threadId)) {
+      throw new Error(`User B can see user A's Thread: ${threadId}`);
+    }
+
+    const messagesResponse = await fetch(
+      `/api/copilotkit/threads/${encodeURIComponent(threadId)}/messages`,
+      { credentials: "include", headers: authHeaders },
+    );
+    const messagesBody = await messagesResponse.text();
+
+    const connectResponse = await fetch(
+      `/api/copilotkit/agent/${encodeURIComponent(agentId)}/connect`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json", ...authHeaders },
+        body: JSON.stringify({
+          threadId,
+          runId: crypto.randomUUID(),
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {},
+        }),
+      },
+    );
+    await connectResponse.body?.cancel();
+
+    console.table({
+      listStatus: listResponse.status,
+      messagesStatus: messagesResponse.status,
+      connectStatus: connectResponse.status,
+    });
+    console.log({ listBody, messagesBody });
+    ```
+
+    The list request must succeed, and its parsed `threads` array must not contain A's Thread. The message and connect calls must return a non-`2xx` response without A's data or events. Then sign back in as A and reopen the Thread. Test every path through your app Runtime, not the hosted REST API. Any response that exposes A's Thread or messages to B is a release blocker.
+  </Step>
+</Steps>
+
+## What changed
+
+Your app still owns authentication, agents, tools, and the public Runtime endpoint. Cloud-Hosted Enterprise Intelligence now owns project-scoped Thread storage and realtime sync. Your frontend config points only to your Runtime. The Runtime uses the project key plus the verified app-user identity, then gives the SDK a short-lived credential for realtime delivery.
+
+For dashboard behavior, project keys, and plans, see [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform).

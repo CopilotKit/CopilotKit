@@ -2,14 +2,14 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## What is this?
 
-The CopilotKit CLI helps you create CopilotKit apps connected to Enterprise Intelligence, whether cloud-hosted or self-hosted. It handles browser sign-in, project selection, project-scoped runtime API keys, historical thread import, and local project configuration so your app can use durable threads and conversation history.
+The CopilotKit CLI helps you scaffold supported CopilotKit starters and manage Enterprise Intelligence workflows. For cloud-hosted Intelligence, it handles browser sign-in, project selection, project-scoped Runtime keys, and local project configuration. Its import command can also target a self-hosted deployment through explicit destination flags, and its license commands support self-hosted or offline enterprise flows.
 
 Use the CLI when you want to start a new app, import historical ADK or LangGraph conversations, or install CopilotKit agent skills for your coding agent.
 
 <OpsPlatformCTA
   variant="inline"
   title="Start with a hosted Enterprise Intelligence project"
-  body="Create a free account, then copy the create command below to scaffold a connected app."
+  body="Create a free account, then copy the create command below to scaffold a supported starter."
   ctaLabel="Create a free account"
   surface="docs_cli_intro_signup"
 />
@@ -23,7 +23,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 ## Start a new app
 
 <Callout type="info" title="Creating vs. adding to an existing app">
-  `create` (aliased as `init`) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
+  `create` (aliased as `init`) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. For an existing app that you want to connect to a cloud-hosted project, run `npx copilotkit@latest project select`, then follow [Connect an Existing App to Hosted Intelligence](/premium/existing-app-hosted-intelligence). Otherwise, start with the [Quickstart](/quickstart).
 </Callout>
 
 <Steps>
@@ -34,7 +34,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
     npx copilotkit@latest create
     ```
 
-    The CLI prompts for the app name and framework, opens browser sign-in when needed, scaffolds the starter, and connects the app to a cloud-hosted Enterprise Intelligence project.
+    `create` scaffolds any supported starter. During `create`, only starters with Threads support continue through managed project selection and project-scoped key provisioning. The CLI prompts for the app name and framework and opens browser sign-in when needed.
   </Step>
 
   <Step>
@@ -48,7 +48,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   <Step>
     ### Select a project
 
-    Choose an existing cloud-hosted project or create a new one. A project is where your app's threads, messages, and platform metadata are stored.
+    For a starter with Threads support, choose an existing cloud-hosted project or create a new one. A project is where your app's threads, messages, and platform metadata are stored.
 
     The CLI writes the selected project to `.copilotkit/project.json`:
 
@@ -56,7 +56,9 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
     {
       "projectId": "proj_...",
       "projectSlug": "support-assistant",
-      "clerkOrgId": "org_..."
+      "projectName": "Support Assistant",
+      "clerkOrgId": "org_...",
+      "telemetryBindingId": "2c6c8044-..."
     }
     ```
   </Step>
@@ -64,15 +66,24 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   <Step>
     ### Use the generated environment
 
-    The CLI writes the hosted platform URLs and project-scoped runtime API key to `.env`.
+    The CLI writes the required project-scoped runtime key to `.env`. Telemetry metadata is optional.
 
     ```bash title=".env"
-    INTELLIGENCE_API_URL=https://...
-    INTELLIGENCE_GATEWAY_WS_URL=wss://...
-    INTELLIGENCE_API_KEY=cpk_...
+    # Your CopilotKit Enterprise Intelligence API Key
+    # Project Name: Support Assistant
+    CPK_INTELLIGENCE_API_KEY=cpk_...
+
+    # CopilotKit Telemetry ID
+    # Optional: written only when telemetry is enabled and identity creation succeeds
+    CPK_TELEMETRY_ID=...
     ```
 
-    Keep `INTELLIGENCE_API_KEY` on the server side. It is a runtime key for the selected project, not a frontend token.
+    Keep `CPK_INTELLIGENCE_API_KEY` on the server side. It is the only managed
+    Intelligence credential. `CPK_INTELLIGENCE_API_KEY` remains required for
+    managed connectivity. When telemetry is enabled and identity creation succeeds,
+    the CLI may write `CPK_TELEMETRY_ID` for analytics attribution. The telemetry ID
+    is not a secret. A selected project and its project-scoped key are a valid managed
+    setup without `CPK_TELEMETRY_ID`.
   </Step>
 
   <Step>
@@ -82,13 +93,13 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
     npm run dev
     ```
 
-    The starter runs your local app and runtime while storing durable threads in the cloud-hosted project selected by the CLI.
+    The starter runs your local app and runtime. A starter with Threads support stores durable threads in the cloud-hosted project selected by the CLI.
   </Step>
 </Steps>
 
 ## Import and synchronize historical conversations
 
-Use `import` from a CopilotKit app created with the CLI and Enterprise Intelligence enabled. The importer targets the Enterprise Intelligence project already selected for the current directory.
+Use `import` from any existing app directory with Enterprise Intelligence enabled. The app does not need to have been created by the CLI. For a real upload, provide the destination through explicit flags or the current process environment.
 
 <Tabs groupId="cli-import-source" items={["ADK", "LangGraph"]}>
   <Tab value="ADK">
@@ -109,24 +120,13 @@ Use `import` from a CopilotKit app created with the CLI and Enterprise Intellige
 
 The command runs interactively by default. Start with `--dry-run` to discover source agent keys, conversation counts, skips, and the estimated upload size without opening an import batch.
 
-If you need to import into a different project, select it before continuing with the real import:
+Any existing app can safely re-run `project select` before the dry run to choose a different managed project:
 
 ```bash title="Terminal"
 npx copilotkit@latest project select
 ```
 
-This changes the project selected for the current directory and writes its project-scoped runtime key to the starter's generated `.env`.
-
-Before the real import, export the destination values from that `.env`:
-
-```bash title="Terminal"
-export INTELLIGENCE_API_URL="https://..."
-export INTELLIGENCE_API_KEY="cpk_..."
-```
-
-The importer reads `--api-url` and `--api-key` or the current process environment. It does not load `.env` or `.copilotkit/project.json` automatically. `COPILOTKIT_API_KEY` is also accepted for the key.
-
-Project selection updates the app configuration; the importer still receives its destination through flags or exported environment variables.
+This changes the project selected for the current directory and provisions its project-scoped runtime key. It does not by itself set the import destination. Explicit `--api-url` and `--api-key` values take precedence, followed by nonblank shell values. The importer does not load `.env` or `.copilotkit/project.json` automatically.
 
 For the full adoption flow, see [Import & Synchronize Thread History](/threads-import). Source-specific setup lives in [Synchronize ADK threads](/google-adk/threads-import) and [Synchronize LangGraph threads](/langgraph-python/threads-import).
 
@@ -145,10 +145,42 @@ For the full adoption flow, see [Import & Synchronize Thread History](/threads-i
 | `npx copilotkit@latest project select` | Selects or creates a cloud-hosted Enterprise Intelligence project for the current directory. |
 | `npx copilotkit@latest import --source adk --dry-run` | Previews historical Google ADK conversation threads before import. |
 | `npx copilotkit@latest import --source langgraph --dry-run` | Previews historical LangGraph conversation threads before import. |
-| `npx copilotkit@latest license create` | Issues a CopilotKit license token for flows that require one. |
-| `npx copilotkit@latest license list` | Lists license metadata for the current user or organization. |
+| `npx copilotkit@latest license create` | Issues a license token for an explicit self-hosted or offline enterprise flow. |
+| `npx copilotkit@latest license list` | Lists self-hosted or offline license metadata for the current user or organization. |
 
-Re-running `project select` is safe when you need to move a CLI-created app to a different cloud-hosted project. The command updates `.copilotkit/project.json` and provisions a project-scoped API key for the selected project.
+`project select` works in any existing app that you want to connect to a cloud-hosted project, whether or not the CLI created the app. The command updates `.copilotkit/project.json` and provisions a project-scoped API key for the selected project.
+
+## Rotate a project API key
+
+Run the full rotation in the hosted dashboard so you can name and identify both keys. `project select` can provision another key, but it does not list or revoke the old key.
+
+<Steps>
+  <Step>
+    ### Create a replacement
+
+    Open the selected project in the [hosted dashboard](https://dashboard.operations.copilotkit.ai), then choose **API Keys**. Before creating the replacement, note the old key's name, masked **Secret Key**, and creation date so you can identify it later.
+
+    Choose **Create API key**, give the replacement a distinct name, and copy it from the **API key created** dialog. The full token is shown once. Keep the old key active until the replacement has passed the verification step.
+  </Step>
+
+  <Step>
+    ### Update the running app
+
+    Set `CPK_INTELLIGENCE_API_KEY` to the copied token in the server-side secret store or `.env` used by every Runtime instance. Restart or redeploy each instance so it loads the replacement. Keep this key out of browser code and client-visible environment variables.
+  </Step>
+
+  <Step>
+    ### Verify the replacement
+
+    Use a signed-in app account to create a new Thread, send a message, refresh the page, and reopen that Thread. In the same dashboard project, confirm that the new Thread and message appear. Do not revoke the old key until this check works through the updated deployment.
+  </Step>
+
+  <Step>
+    ### Revoke the old key
+
+    Return to **API Keys**, find the old entry by the details you noted, use its delete action, and confirm **Delete API key**. Deleting the old key revokes it immediately, so any service that still uses it will stop authenticating. Repeat the Thread check after deletion to catch a Runtime instance that missed the update.
+  </Step>
+</Steps>
 
 ## Skills commands
 
@@ -159,6 +191,7 @@ Re-running `project select` is safe when you need to move a CLI-created app to a
 
 ## Next steps
 
+- **Connect an existing app:** [Connect an Existing App to Hosted Intelligence](/premium/existing-app-hosted-intelligence) — select a hosted project, configure Runtime v2, and verify per-user Threads
 - **Cloud-hosted platform:** [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) — login, projects, API keys, threads, and plans in the hosted web app
 - **Add threads:** use the [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for a drop-in thread switcher, or [Headless Threads](/headless-threads) to build your own thread UI
 - **Synchronize thread history:** [Import & Synchronize Thread History](/threads-import) — import existing ADK or LangGraph conversations and keep future CopilotKit runs synchronized

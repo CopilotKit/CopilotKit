@@ -59,10 +59,10 @@ import "@copilotkit/react-core/v2/styles.css";
 </PropertyReference>
 
 <PropertyReference name="limit" type="number">
-  Page size for thread pagination. When set, threads load in pages of this size
-  and a "Load more" control appears at the bottom of the list while more remain
-  (the element emits a `load-more` event the wrapper routes to
-  `fetchMoreThreads`). Omit to load the full list at once with no control.
+  The default page size is 50 threads. Set `limit` to override the page size.
+  Cursor pagination stays active when you omit it: `nextCursor` controls
+  whether a "Load more" control appears at the bottom of the list (the element
+  emits a `load-more` event the wrapper routes to `fetchMoreThreads`).
 </PropertyReference>
 
 <PropertyReference name="collapsible" type="boolean" default="true">
@@ -89,26 +89,17 @@ import "@copilotkit/react-core/v2/styles.css";
 
 The drawer renders inside a shadow root and ships its own self-contained,
 theme-inheriting styles, so it looks correct in any host (including dark mode)
-with zero config. Three bounded escape hatches pierce the boundary.
+with zero config. Use the wrapper's typed props, CSS parts, and CSS variables to
+customize it. The React wrapper does not forward arbitrary children to the
+custom element.
 
-### Slots
+### Wrapper props
 
-Project light-DOM children with a `slot` attribute to replace a region:
-
-| Slot | Replaces |
+| Prop | Customizes |
 | --- | --- |
-| `header` | The drawer header region (renders only when you project content). |
-| `empty` | The empty-state body shown when there are no threads. |
-| `footer` | A footer region (hidden until you project content). |
-| `memories` | A reserved region for a future memories surface. |
-| `launcher-icon` | The icon inside the floating mobile launcher. |
-| `row:{id}` | Per-row content — prefer the `renderRow` prop, which manages this. |
-
-```tsx
-<CopilotThreadsDrawer>
-  <span slot="header">My conversations</span>
-</CopilotThreadsDrawer>
-```
+| `label` | The drawer's accessible name. |
+| `recentLabel` | The heading above the recent-thread list. |
+| `renderRow` | Per-row content while the wrapper keeps selection and actions. |
 
 ### CSS parts
 
@@ -188,13 +179,13 @@ function App() {
 ## Behavior
 
 - **Self-connecting**: without `onThreadSelect`/`onNewThread`, the drawer drives the chat configuration — select connects + replays; the "New Conversation" row shows the welcome screen.
-- **Collapsible sidebar**: on larger screens the drawer is an expanded sidebar by default with a collapse toggle (sidebar glyph) in the header. Collapsing replaces the panel with a small floating cluster — a sidebar toggle to expand plus a "New Conversation" button — and (via `--cpk-drawer-reserved-width`) lets a host grid reclaim the column. Set `collapsible={false}` to omit the toggle. "New Conversation" is its own row below the header; project `slot="header"` content to add your own chrome beside the toggle.
+- **Collapsible sidebar**: on larger screens the drawer is an expanded sidebar by default with a collapse toggle (sidebar glyph) in the header. Collapsing replaces the panel with a small floating cluster — a sidebar toggle to expand plus a "New Conversation" button — and (via `--cpk-drawer-reserved-width`) lets a host grid reclaim the column. Set `collapsible={false}` to omit the toggle. "New Conversation" is its own row below the header.
 - **Row actions**: per-row **Archive/Delete** live behind a per-row kebab (⋮) menu (`row-menu`), not always-visible inline buttons; delete still asks for confirmation.
 - **Optimistic mutations**: archive/unarchive/rename/delete are optimistic in the core thread store; delete rolls back if the server rejects.
 - **Deleting the active thread** resets to a fresh thread; **archiving** the active thread keeps you viewing it. Archived threads render italic/muted inline in the "All" view.
 - **Filter**: an Active/All filter lives behind a **funnel** icon popover under the "Recent Conversations" heading; a small indicator dot appears on the funnel when a non-default filter is applied. Toggling the filter refetches server-side.
-- **Mobile**: below 768px the drawer is an off-canvas modal. Closed, it shows the same floating cluster (a launcher to open it + a "New Conversation" button); open, it slides in and is dismissed by tapping the backdrop or pressing Escape. The launcher icon (`launcher-icon` slot) and position (`--cpk-drawer-launcher-*`) are customizable.
-- **License**: threads require CopilotKit Intelligence; without a license key the drawer shows a locked view in place of the list.
+- **Mobile**: below 768px the drawer is an off-canvas modal. Closed, it shows the same floating cluster (a launcher to open it + a "New Conversation" button); open, it slides in and is dismissed by tapping the backdrop or pressing Escape. Customize the launcher position with the `--cpk-drawer-launcher-*` variables.
+- **Entitlement**: threads require CopilotKit Intelligence. A cloud-hosted app gets its entitlement from the Intelligence project connected to the Runtime. Self-hosted and offline enterprise setups may use an explicit license token. When the Runtime reports no active entitlement, the drawer shows a locked view instead of the list.
 
 ## Related
 

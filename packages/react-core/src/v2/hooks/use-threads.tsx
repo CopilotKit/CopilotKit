@@ -52,7 +52,10 @@ export interface UseThreadsInput {
   agentId: string;
   /** When `true`, archived threads are included in the list. Defaults to `false`. */
   includeArchived?: boolean;
-  /** Maximum number of threads to fetch per page. When set, enables cursor-based pagination. */
+  /**
+   * Overrides the thread page size. The default is 50 threads per page.
+   * Cursor-based pagination remains active when this is omitted.
+   */
   limit?: number;
   /**
    * When `false`, the hook stays inert: no runtime context is dispatched, so
@@ -113,8 +116,9 @@ export interface UseThreadsResult {
    */
   fetchMoreError: Error | null;
   /**
-   * `true` when there are more threads available to fetch via
-   * {@link fetchMoreThreads}. Only meaningful when `limit` is set.
+   * `true` when the latest thread-list response includes `nextCursor`.
+   * Use {@link fetchMoreThreads} to load that page, including when `limit` is
+   * omitted and the default page size applies.
    */
   hasMoreThreads: boolean;
   /**
