@@ -63,6 +63,35 @@ agent updates through the adapter's built-in `ag_ui_update_state` tool.
    Intelligence license. Set `COPILOTKIT_LICENSE_TOKEN` (and the `INTELLIGENCE_*` URLs) in
    `.env` to activate live thread history; without it the drawer shows a locked state.
 
+## Running a managed Channel
+
+`channel-host.mts` mounts the same agent as a managed Intelligence Channel
+(Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
+`.copilotkit/channels.json` — set both up with `copilotkit init` or
+`copilotkit channels add`, which write that file and the credentials your
+`.env` needs, then:
+
+```bash
+npm run channel
+```
+
+The host reads which Channel to hold from `.copilotkit/channels.json`. If a
+project declares more than one, set `INTELLIGENCE_CHANNEL_NAME` to pick one.
+
+The host holds no provider credentials and exposes no provider endpoint —
+Intelligence owns the provider edge — so the same file works for every provider.
+
+Once startup finishes, the log reports the truth per Channel:
+
+- `Channel "<name>" is online.` — the managed session is up and can send.
+- `Channel "<name>" is declared but no managed provider is attached yet.` —
+  a normal waiting state, not a failure. Run `copilotkit channels status` to
+  see what setup remains.
+
+Neither message proves the provider app is installed, reachable, or that
+anyone can message it — verify that separately (invite the bot, then message
+it) before treating the Channel as working.
+
 ## Available scripts
 
 - `npm run dev` — start the UI and agent together (dev mode)
@@ -71,6 +100,8 @@ agent updates through the adapter's built-in `ag_ui_update_state` tool.
 - `npm run build` — build the Next.js app for production
 - `npm start` — start the production server
 - `npm run install:agent` — (re)install the agent's dependencies
+- `npm run channel` — hold a managed Intelligence Channel open (see "Running a managed Channel" above)
+- `npm run typecheck:channel` — type-check `channel-host.mts` on its own `tsconfig.channel.json`
 
 ## Project structure
 
