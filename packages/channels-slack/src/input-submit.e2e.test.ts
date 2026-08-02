@@ -24,6 +24,9 @@ const THREAD_TS = "100.0";
 
 type StateElement = { type: string; action_id: string };
 
+/** What the user put into one control, or `undefined` if they never touched it. */
+type Entered = string | string[] | undefined;
+
 /**
  * How Slack reports one element's current reading, per element type. `entered`
  * is what the user put in; absent means untouched, which Slack reports as an
@@ -31,25 +34,35 @@ type StateElement = { type: string; action_id: string };
  * choice, `[]` for a multi-select) — never as a missing key. Keying off this
  * table is also what decides which elements appear in `state.values` at all: a
  * `<Button>` holds no state, so Slack lists none for it.
+ *
+ * Null-prototype, for the same reason `flattenBlockState` in `interaction.ts`
+ * builds its output that way: this table is probed with `in` and then INDEXED
+ * by a type read off an element, so on a plain `{}` a type of `toString` or
+ * `constructor` resolves to an `Object.prototype` member — it passes the
+ * membership check and is then CALLED as a state factory, reporting
+ * `"[object Object]"` as that element's state instead of the element being
+ * filtered out as the stateless thing it is. With no prototype, `in` is exactly
+ * own-key and only the three real Slack element types below can match.
  */
-const REPORTED_STATE: Record<
-  string,
-  (entered: string | string[] | undefined) => object
-> = {
-  plain_text_input: (entered) => ({
-    type: "plain_text_input",
-    value: entered ?? null,
-  }),
-  static_select: (entered) => ({
-    type: "static_select",
-    selected_option: entered === undefined ? null : { value: String(entered) },
-  }),
-  multi_static_select: (entered) => ({
-    type: "multi_static_select",
-    selected_options:
-      entered === undefined ? [] : [entered].flat().map((value) => ({ value })),
-  }),
-};
+const REPORTED_STATE: Record<string, (entered: Entered) => object> =
+  Object.assign(Object.create(null), {
+    plain_text_input: (entered: Entered) => ({
+      type: "plain_text_input",
+      value: entered ?? null,
+    }),
+    static_select: (entered: Entered) => ({
+      type: "static_select",
+      selected_option:
+        entered === undefined ? null : { value: String(entered) },
+    }),
+    multi_static_select: (entered: Entered) => ({
+      type: "multi_static_select",
+      selected_options:
+        entered === undefined
+          ? []
+          : [entered].flat().map((value) => ({ value })),
+    }),
+  });
 
 /**
  * The stateful elements of the rendered message, grouped the way `state.values`
@@ -116,8 +129,15 @@ function blockActions(
   entered: Record<string, string | string[]> = {},
   nonce = 0,
 ) {
+  // Own-key lookup: `entered` is a plain object literal, so a bare
+  // `entered[actionId]` resolves an action id of `constructor`/`toString` to an
+  // `Object.prototype` member and reports that function as the user's reading
+  // for a control nobody touched — where an id absent from `entered` must read
+  // as untouched.
+  const enteredBy = (actionId: string) =>
+    Object.hasOwn(entered, actionId) ? entered[actionId] : undefined;
   const readingOf = (el: StateElement) =>
-    el.action_id === action.action_id ? action.value : entered[el.action_id];
+    el.action_id === action.action_id ? action.value : enteredBy(el.action_id);
   const state = {
     values: Object.fromEntries(
       statefulBlocks(blocks).map((block) => [
@@ -165,6 +185,12 @@ describe("<Input onSubmit> round-trip (Slack)", () => {
           },
         }),
       );
+      // The waiter settles only once the submit below is dispatched — long
+      // after `onMention` returns — so it cannot be awaited here. Observe it
+      // now anyway: if an earlier expectation aborts the test before the
+      // assertion at the end, a rejection would otherwise escape as an
+      // unhandled rejection attributed to some later test.
+      void choice.catch(() => {});
     });
 
     await channel.ɵruntime.start();
