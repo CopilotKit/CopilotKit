@@ -144,8 +144,6 @@ describe("ActionRegistry", () => {
       regB.registerComponent("Confirm", Confirm as never);
 
       // Cold dispatch must succeed and fire the handler.
-      const handlerFired: string[] = [];
-      // Wrap the existing Confirm component so we can assert the specific call.
       const value = await regB.dispatch(id, ctx);
       expect(value).toEqual({ ok: "restart-test" });
       // The shared `clicks` array is populated by Confirm's onClick.
@@ -178,6 +176,62 @@ describe("ActionRegistry", () => {
       await expect(regBPrime.dispatch(id, ctx)).rejects.toBeInstanceOf(
         ActionExpiredError,
       );
+    });
+  });
+
+  describe("inline (non-component) renderables", () => {
+    // An inline renderable carries its handlers as closures with no component to
+    // re-render, so its ids can't be content-addressed. Two structurally
+    // identical inline posts in one conversation must still get distinct ids —
+    // otherwise the later binding overwrites the earlier and a click on the
+    // older message runs the newer message's handler.
+    function inlinePost(marker: string): ChannelNode {
+      return {
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "button",
+              props: {
+                value: { pick: "x" },
+                onClick: ({ action }: InteractionContext) => {
+                  clicks.push(`${marker}:${action.id}`);
+                },
+                children: "Go",
+              },
+            },
+          ],
+        },
+      };
+    }
+
+    function bindId(root: ChannelNode[]): string {
+      return (
+        (root[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+          id: string;
+        }
+      ).id;
+    }
+
+    it("mints distinct ids for structurally identical posts, so the older keeps its handler", async () => {
+      const reg = new ActionRegistry({ store: new InMemoryActionStore() });
+      // `older` and `newer` differ only by closure — same tree, same props — so
+      // a content-addressed id would collide them.
+      const { root: older } = await reg.bindRenderable(
+        inlinePost("older"),
+        "conv",
+      );
+      const { root: newer } = await reg.bindRenderable(
+        inlinePost("newer"),
+        "conv",
+      );
+      const olderId = bindId(older);
+      const newerId = bindId(newer);
+
+      expect(olderId).not.toBe(newerId);
+
+      await reg.dispatch(olderId, ctx);
+      expect(clicks).toEqual([`older:${olderId}`]);
     });
   });
 
@@ -298,11 +352,18 @@ describe("ActionRegistry", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       try {
         const reg = new ActionRegistry({ store: new InMemoryActionStore() });
-        reg.registerComponent("Card", makeCard(false, "a"));
-        // Same function again is the normal per-post re-registration — silent.
+        // Re-registering the *same* function object is the normal per-post
+        // re-registration and must stay silent. Assert zero warnings before any
+        // conflict has fired for "Card": warnOnce dedupes by name, so only a
+        // still-empty warn count can prove same-function registration is silent
+        // on its own (rather than a second warning being swallowed by dedup).
         const same = makeCard(false, "a");
         reg.registerComponent("Card", same);
         reg.registerComponent("Card", same);
+        expect(warn).not.toHaveBeenCalled();
+        // A genuinely different function object under the same name — each
+        // makeCard() returns a fresh closure — is the real hazard, so it warns.
+        reg.registerComponent("Card", makeCard(false, "a"));
         expect(warn).toHaveBeenCalledTimes(1);
         expect(warn.mock.calls[0]![0]).toContain(
           'two different components are registered as "Card"',

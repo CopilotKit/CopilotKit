@@ -243,9 +243,18 @@ export class ActionRegistry {
         const handler = node.props[ep];
         if (typeof handler === "function") {
           const fullPath: (string | number)[] = [...path, ep];
-          const id = continuation
-            ? `ck:${globalThis.crypto.randomUUID()}`
-            : mintId(comp, fullPath, props);
+          // A registered-component binding is content-addressed so a cold
+          // dispatch can re-mint the same id and re-resolve the handler.
+          // Inline (`comp === ""`) and continuation bindings can never be
+          // rehydrated (dispatch throws ActionExpiredError once `component` is
+          // falsy), so they get a fresh random id. Content-addressing an inline
+          // binding would collide two structurally identical posts in the same
+          // conversation onto one id — the later would overwrite the earlier and
+          // a click on the older message would run the newer message's handler.
+          const id =
+            continuation || comp === ""
+              ? `ck:${globalThis.crypto.randomUUID()}`
+              : mintId(comp, fullPath, props);
           this.hot.set(id, {
             handler: handler as ClickHandler,
             value: node.props.value,

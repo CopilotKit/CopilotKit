@@ -205,10 +205,10 @@ describe("durable component identity across a redeploy", () => {
       }).ɵruntime.start();
 
       expect(
-        warn.mock.calls.some((call) =>
+        warn.mock.calls.filter((call) =>
           String(call[0]).includes("skipping anonymous component"),
         ),
-      ).toBe(true);
+      ).toHaveLength(1);
     } finally {
       warn.mockRestore();
     }
