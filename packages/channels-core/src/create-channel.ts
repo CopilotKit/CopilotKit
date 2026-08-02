@@ -9,6 +9,7 @@ import type {
   IncomingReaction,
   IncomingModalSubmit,
   IncomingModalClose,
+  IncomingScheduledTask,
   ModalSubmitResult,
 } from "./platform-adapter.js";
 import { ActionRegistry, ActionExpiredError } from "./action-registry.js";
@@ -23,6 +24,16 @@ import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
 import type { AbstractAgent } from "@ag-ui/client";
+import { selectChannelTask } from "./tasks.js";
+import type { ReadChannelMessagesInput } from "./channel-history.js";
+import type {
+  ChannelTask,
+  ChannelTaskCause,
+  ChannelTaskEvent,
+  ChannelTaskWhen,
+  ChannelTasksClient,
+  ChannelTasksConfig,
+} from "./tasks.js";
 import { sanitizeAgentEventStream } from "./sanitize-agent-events.js";
 import type {
   ChannelMessage,
@@ -48,6 +59,7 @@ import { resolveChannelUser } from "./identity.js";
 import type {
   ChannelIdentifyUser,
   ChannelIdentityContext,
+  IngressIdentityContext,
 } from "./identity.js";
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
 import { isChannelComponentDefinition } from "./channel-component.js";
@@ -58,6 +70,7 @@ import type {
 import { ChannelTelemetry } from "./telemetry/channel-telemetry.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import { createRequire } from "node:module";
+import { z } from "zod";
 
 const pkg = createRequire(import.meta.url)("../package.json") as {
   name: string;
@@ -261,6 +274,13 @@ export type ChannelHandler<TState = unknown> = (ctx: {
   message: ChannelMessage;
 }) => void | Promise<void>;
 
+/** Handler for one matched event Task or live scheduled Task delivery. */
+export type ChannelTaskHandler<TState = unknown> = (ctx: {
+  task: ChannelTask;
+  cause: ChannelTaskCause;
+  thread: StatefulThread<TState>;
+}) => void | Promise<void>;
+
 /** Handler for a "conversation opened" lifecycle event (e.g. the Slack assistant pane). */
 export type ThreadStartHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
@@ -434,6 +454,8 @@ export interface CreateChannelOptions<
    */
   replyContinuation?: ReplyContinuationOptions;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
+  /** Optional Task matching configuration. Requires exactly one onTask handler. */
+  tasks?: ChannelTasksConfig;
   /**
    * Tolerate the AG-UI event streams real agents emit. On by default.
    *
@@ -484,6 +506,14 @@ export interface Channel<TState = unknown> {
   readonly replyContinuation?: ReplyContinuationOptions;
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
+  /** True when this Channel declares a Task model and exactly one handler. */
+  readonly tasksEnabled: boolean;
+  /** Programmatic Intelligence Task operations. */
+  readonly tasks: ChannelTasksClient;
+  /** Optional agent tool for provider-wide history on the current surface. */
+  readonly readChannelMessagesTool: ChannelTool;
+  /** Register the only Task handler for this Channel. */
+  onTask(handler: ChannelTaskHandler<TState>): void;
   onMention(h: ChannelHandler<TState>): void;
   onMessage(h: ChannelHandler<TState>): void;
   /** Welcome a newly installed or activated provider conversation. */
@@ -566,7 +596,7 @@ function identityContextFromIngress(
   event: {
     conversationKey?: string;
     actor?: ProviderActor;
-    identityContext?: import("./identity.js").IngressIdentityContext;
+    identityContext?: IngressIdentityContext;
   },
   trigger: string,
 ): ChannelIdentityContext {
@@ -665,14 +695,20 @@ export function createChannel<
   let registry: ActionRegistry | undefined;
   let telemetry: ChannelTelemetry | undefined;
 
+  // Applied here rather than at each call site so a developer never has to
+  // know the workaround exists. Idempotent, so reusing one agent instance
+  // across threads (or being handed an already-sanitized one) is fine.
+  const sanitizeConfiguredAgent =
+    opts.sanitizeAgentEvents === false
+      ? (agent: AbstractAgent) => agent
+      : sanitizeAgentEventStream;
+  const isolateConfiguredAgent = (
+    agent: AbstractAgent,
+    threadId: string,
+  ): AbstractAgent =>
+    sanitizeConfiguredAgent(isolateAgentInstance(agent, threadId));
+
   const agentFactory: (threadId: string) => AbstractAgent = (() => {
-    // Applied here rather than at each call site so a developer never has to
-    // know the workaround exists. Idempotent, so reusing one agent instance
-    // across threads (or being handed an already-sanitized one) is fine.
-    const sanitize =
-      opts.sanitizeAgentEvents === false
-        ? (agent: AbstractAgent) => agent
-        : sanitizeAgentEventStream;
     const a = opts.agent;
     if (!a) {
       return () => {
@@ -688,9 +724,9 @@ export function createChannel<
     // see `isolateAgentInstance`.
     if (typeof a === "function") {
       return (threadId: string) =>
-        sanitize(isolateAgentInstance(a(threadId), threadId));
+        isolateConfiguredAgent(a(threadId), threadId);
     }
-    return (threadId: string) => sanitize(isolateAgentInstance(a, threadId));
+    return (threadId: string) => isolateConfiguredAgent(a, threadId);
   })();
 
   /** Per-conversation serial turn queue (error-boundaried so one failure cannot poison the chain). */
@@ -787,6 +823,17 @@ export function createChannel<
 
   const mentionHandlers: ChannelHandler[] = [];
   const messageHandlers: ChannelHandler[] = [];
+  const taskHandlers: ChannelTaskHandler[] = [];
+  const taskToolScopes = new WeakMap<
+    Thread,
+    {
+      adapter: PlatformAdapter;
+      replyTarget: unknown;
+      surfaceId: string;
+      actor: ProviderActor | null;
+      user: ApplicationUser | null;
+    }
+  >();
   const welcomeHandlers: WelcomeHandler[] = [];
   const threadStartedHandlers: ThreadStartHandler[] = [];
   const interactionHandlers = new Map<
@@ -827,6 +874,7 @@ export function createChannel<
       user?: ApplicationUser | null;
       actor?: ProviderActor;
       interactionActionId?: string;
+      surfaceId?: string;
     },
   ): Thread {
     if (!backend || !registry || !telemetry) {
@@ -841,6 +889,7 @@ export function createChannel<
       conversationKey,
       registry,
       agentFactory,
+      isolateAgent: isolateConfiguredAgent,
       tools: toolMap,
       toolDescriptors,
       context,
@@ -858,7 +907,248 @@ export function createChannel<
       intelligenceMemoryAvailable,
       telemetry,
     };
-    return new Thread(deps);
+    const thread = new Thread(deps);
+    if (extras?.surfaceId) {
+      taskToolScopes.set(thread, {
+        adapter,
+        replyTarget,
+        surfaceId: extras.surfaceId,
+        actor: extras.actor ?? null,
+        user: extras.user ?? null,
+      });
+    }
+    return thread;
+  }
+
+  /** Resolve a managed Task adapter only when a Task operation is requested. */
+  function getTaskAdapter(): NonNullable<PlatformAdapter["channelTasks"]> {
+    const taskAdapters = adapters.flatMap((adapter) =>
+      adapter.channelTasks ? [adapter.channelTasks] : [],
+    );
+    if (taskAdapters.length !== 1) {
+      throw new Error(
+        taskAdapters.length === 0
+          ? "channel.tasks requires an Intelligence-backed Channel adapter"
+          : "channel.tasks requires exactly one Task-capable adapter",
+      );
+    }
+    return taskAdapters[0]!;
+  }
+
+  const taskWhenSchema = z.discriminatedUnion("kind", [
+    z
+      .object({
+        kind: z.literal("event"),
+        event: z.enum(["message", "reaction_added"]),
+        rule: z.string().trim().min(1).max(40_000),
+      })
+      .strict(),
+    z
+      .object({
+        kind: z.literal("schedule"),
+        cron: z
+          .string()
+          .trim()
+          .regex(/^\S+(?:\s+\S+){4}$/u),
+        timeZone: z.string().trim().min(1).max(128),
+      })
+      .strict(),
+  ]);
+
+  /** Read the trusted delivery scope bound to one current handler Thread. */
+  function taskToolScope(thread: unknown) {
+    const scope = taskToolScopes.get(thread as Thread);
+    if (!scope?.adapter.channelTasks) {
+      throw new Error(
+        "Channel Task tools require a current Intelligence delivery surface",
+      );
+    }
+    return { scope, client: scope.adapter.channelTasks };
+  }
+
+  const taskTools: ChannelTool[] = [
+    {
+      name: "create_channel_task",
+      description: "Create a Task on the current Channel surface.",
+      parameters: z
+        .object({
+          goal: z.string().trim().min(1).max(40_000),
+          when: taskWhenSchema,
+        })
+        .strict(),
+      async handler(args, ctx) {
+        const { scope, client } = taskToolScope(ctx.thread);
+        return client.create(
+          {
+            surfaceId: scope.surfaceId,
+            goal: args.goal as string,
+            when: args.when as ChannelTaskWhen,
+          },
+          scope,
+        );
+      },
+    },
+    {
+      name: "list_channel_tasks",
+      description: "List Tasks on the current Channel surface.",
+      parameters: z
+        .object({
+          event: z.enum(["message", "reaction_added"]).optional(),
+          enabled: z.boolean().optional(),
+        })
+        .strict(),
+      async handler(args, ctx) {
+        const { scope, client } = taskToolScope(ctx.thread);
+        return client.list(
+          {
+            surfaceId: scope.surfaceId,
+            ...(args.event
+              ? {
+                  event: args.event as "message" | "reaction_added",
+                }
+              : {}),
+            ...(args.enabled !== undefined
+              ? { enabled: args.enabled as boolean }
+              : {}),
+          },
+          scope,
+        );
+      },
+    },
+    {
+      name: "update_channel_task",
+      description: "Update a Task on the current Channel surface.",
+      parameters: z
+        .object({
+          taskId: z.string().min(1),
+          goal: z.string().trim().min(1).max(40_000).optional(),
+          when: taskWhenSchema.optional(),
+          enabled: z.boolean().optional(),
+        })
+        .strict(),
+      async handler(args, ctx) {
+        const { scope, client } = taskToolScope(ctx.thread);
+        return client.update(
+          {
+            taskId: args.taskId as string,
+            ...(args.goal !== undefined ? { goal: args.goal as string } : {}),
+            ...(args.when !== undefined
+              ? {
+                  when: args.when as ChannelTaskWhen,
+                }
+              : {}),
+            ...(args.enabled !== undefined
+              ? { enabled: args.enabled as boolean }
+              : {}),
+          },
+          scope,
+        );
+      },
+    },
+    {
+      name: "delete_channel_task",
+      description: "Delete a Task on the current Channel surface.",
+      parameters: z.object({ taskId: z.string().min(1) }).strict(),
+      async handler(args, ctx) {
+        const { scope, client } = taskToolScope(ctx.thread);
+        await client.delete({ taskId: args.taskId as string }, scope);
+        return { deletedTaskId: args.taskId };
+      },
+    },
+  ];
+
+  const readChannelMessagesTool: ChannelTool = {
+    name: "read_channel_messages",
+    description:
+      "Read a bounded chronological page from the current Channel surface.",
+    parameters: z
+      .object({
+        limit: z.number().int().positive().max(50).optional(),
+        cursor: z.string().min(1).max(4096).optional(),
+      })
+      .strict(),
+    async handler(args, ctx) {
+      const scope = taskToolScopes.get(ctx.thread as Thread);
+      if (!scope?.adapter.channelHistory) {
+        throw new Error(
+          "Channel history requires a current Intelligence delivery surface",
+        );
+      }
+      return scope.adapter.channelHistory.read(
+        {
+          surfaceId: scope.surfaceId,
+          ...(args.limit !== undefined
+            ? { limit: args.limit as ReadChannelMessagesInput["limit"] }
+            : {}),
+          ...(args.cursor !== undefined
+            ? { cursor: args.cursor as ReadChannelMessagesInput["cursor"] }
+            : {}),
+        },
+        scope,
+      );
+    },
+  };
+
+  /** Match one trusted event and run the Task handler when selected. */
+  async function dispatchEventTask(input: {
+    adapter: PlatformAdapter;
+    surfaceId: string | undefined;
+    event: ChannelTaskEvent;
+    thread: Thread;
+    actor: ProviderActor;
+    user: ApplicationUser | null;
+    replyTarget: unknown;
+  }): Promise<boolean> {
+    if (
+      !opts.tasks ||
+      taskHandlers.length !== 1 ||
+      !input.surfaceId ||
+      input.actor.kind === "system" ||
+      !input.adapter.channelTasks
+    ) {
+      return false;
+    }
+    let selected: ChannelTask | undefined;
+    try {
+      const candidates = (
+        await input.adapter.channelTasks.list(
+          {
+            surfaceId: input.surfaceId,
+            event: input.event.kind,
+            enabled: true,
+          },
+          {
+            replyTarget: input.replyTarget,
+            actor: input.actor,
+            user: input.user,
+          },
+        )
+      ).filter(
+        (candidate) =>
+          candidate.enabled &&
+          candidate.surfaceId === input.surfaceId &&
+          candidate.when.kind === "event" &&
+          candidate.when.event === input.event.kind,
+      );
+      selected = await selectChannelTask({
+        model: opts.tasks.model,
+        event: input.event,
+        candidates,
+      });
+    } catch (error) {
+      console.warn(
+        `[channel] Task matching failed for ${input.event.kind}; using the ordinary handler`,
+        error,
+      );
+      return false;
+    }
+    if (!selected) return false;
+    await taskHandlers[0]!({
+      task: selected,
+      cause: { kind: "event", event: input.event, actor: input.actor },
+      thread: input.thread,
+    });
+    return true;
   }
 
   /**
@@ -931,8 +1221,28 @@ export function createChannel<
           message,
           user,
           actor: identityContext.actor,
+          surfaceId: turn.surfaceId,
         },
       );
+      if (turn.operation.kind === "created") {
+        const matched = await dispatchEventTask({
+          adapter,
+          surfaceId: turn.surfaceId,
+          event: {
+            kind: "message",
+            text: turn.userText,
+            mentioned: turn.operation.mentioned,
+            messageId: turn.operation.logicalMessageId,
+            occurredAt:
+              turn.occurredAt ?? identityContext.event.occurredAt ?? "",
+          },
+          thread,
+          actor: identityContext.actor,
+          user,
+          replyTarget: turn.replyTarget,
+        });
+        if (matched) return;
+      }
       const handlers = turn.operation.mentioned
         ? mentionHandlers.length > 0
           ? mentionHandlers
@@ -986,6 +1296,43 @@ export function createChannel<
         }
         // "drop" or legacy callback — exclusive lock + drop/force.
         await processTurnWithLock(turn);
+      },
+      async onScheduledTask(evt: IncomingScheduledTask) {
+        if (!opts.tasks || taskHandlers.length !== 1) {
+          throw new Error(
+            `channel "${opts.name ?? "(unnamed)"}" received a scheduled Task without valid Task configuration`,
+          );
+        }
+        const platform = ingressPlatform(adapter, evt);
+        const identityContext = identityContextFromIngress(
+          platform,
+          evt,
+          "scheduled-task",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
+        const thread = makeThread(
+          adapter,
+          evt.replyTarget,
+          evt.conversationKey,
+          {
+            platform,
+            user,
+            actor: identityContext.actor,
+            surfaceId: evt.surfaceId,
+          },
+        );
+        await taskHandlers[0]!({
+          task: evt.task,
+          cause: {
+            kind: "schedule",
+            scheduledAt: evt.scheduledAt,
+            actor: null,
+          },
+          thread,
+        });
       },
       async onInteraction(evt: InteractionEvent) {
         const platform = ingressPlatform(adapter, evt);
@@ -1209,6 +1556,7 @@ export function createChannel<
             platform: sourcePlatform,
             user,
             actor: identityContext.actor,
+            surfaceId: evt.surfaceId,
           },
         );
         // Prefer the adapter's update-capable ref; fall back to the bare id.
@@ -1226,6 +1574,32 @@ export function createChannel<
           adapter,
           raw: evt.raw,
         };
+        if (
+          evt.added &&
+          opts.tasks &&
+          taskHandlers.length === 1 &&
+          evt.surfaceId &&
+          identityContext.actor.kind !== "system" &&
+          adapter.channelTasks
+        ) {
+          const matched = await dispatchEventTask({
+            adapter,
+            surfaceId: evt.surfaceId,
+            event: {
+              kind: "reaction_added",
+              emoji: value,
+              rawEmoji: evt.rawEmoji,
+              messageId: evt.messageId,
+              occurredAt:
+                evt.occurredAt ?? identityContext.event.occurredAt ?? "",
+            },
+            thread,
+            actor: identityContext.actor,
+            user,
+            replyTarget: evt.replyTarget,
+          });
+          if (matched) return;
+        }
         for (const reg of reactionHandlers) {
           if (!reg.emojis || reg.emojis.has(value))
             await reg.handler(reactionEvt);
@@ -1321,6 +1695,25 @@ export function createChannel<
     get commandNames() {
       return [...commandHandlers.keys()];
     },
+    get tasksEnabled() {
+      return opts.tasks !== undefined && taskHandlers.length === 1;
+    },
+    tasks: {
+      tools: taskTools,
+      create(input) {
+        return getTaskAdapter().create(input);
+      },
+      list(input) {
+        return getTaskAdapter().list(input);
+      },
+      update(input) {
+        return getTaskAdapter().update(input);
+      },
+      delete(input) {
+        return getTaskAdapter().delete(input);
+      },
+    },
+    readChannelMessagesTool,
     get transcripts() {
       if (!transcripts) {
         throw new Error(
@@ -1348,12 +1741,28 @@ export function createChannel<
         // and real adapters would connect/port-bind twice.
         if (started) return;
         if (componentConfigurationError) throw componentConfigurationError;
+        const hasTaskModel = opts.tasks !== undefined;
+        const hasTaskHandler = taskHandlers.length === 1;
+        if (hasTaskModel !== hasTaskHandler || taskHandlers.length > 1) {
+          throw new Error(
+            `channel "${opts.name ?? "(unnamed)"}" must configure both tasks.model and exactly one onTask handler`,
+          );
+        }
+        if (
+          hasTaskModel &&
+          adapters.filter((adapter) => adapter.channelTasks).length !== 1
+        ) {
+          throw new Error(
+            `channel "${opts.name ?? "(unnamed)"}" Task support requires exactly one Intelligence-backed Task adapter`,
+          );
+        }
         if (
           adapters.some(
             (adapter) => adapter.capabilities.supportsMessageEvents,
           ) &&
           mentionHandlers.length === 0 &&
-          messageHandlers.length === 0
+          messageHandlers.length === 0 &&
+          !hasTaskHandler
         ) {
           throw new Error(
             `channel "${opts.name ?? "(unnamed)"}" must register onMention or onMessage before activation`,
@@ -1584,6 +1993,9 @@ export function createChannel<
       // assignable to StatefulThread<TState> (its generic setState/state
       // satisfy the narrowed signatures), so the cast is sound.
       mentionHandlers.push(h as ChannelHandler);
+    },
+    onTask(handler) {
+      taskHandlers.push(handler as ChannelTaskHandler);
     },
     onMessage(h) {
       messageHandlers.push(h as ChannelHandler);

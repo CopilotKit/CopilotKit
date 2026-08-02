@@ -12,6 +12,7 @@ const delivery: PreparedChannelDelivery = {
   deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
   channelId: "channel_history_01",
   channelName: "support",
+  surfaceId: "surface_support_01",
   canonicalThreadId: "thread_history",
   appUserId: "slack:T1:U1",
   adapter: "slack",

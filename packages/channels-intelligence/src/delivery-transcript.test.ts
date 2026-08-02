@@ -494,6 +494,7 @@ test("assistant transcript history stays plain while participant metadata stays 
     appUserId: "slack:T1:U1",
     channelId: "channel_transcript",
     channelName: "support",
+    surfaceId: "surface_support_01",
     adapter: "slack",
     turn: {
       eventId: "evt_transcript",
@@ -683,6 +684,7 @@ test("Teams transcript metadata and truncation labels name Teams, not Slack", as
     appUserId: "teams:T1:U1",
     channelId: "channel_teams_transcript",
     channelName: "support",
+    surfaceId: "surface_support_01",
     adapter: "teams",
     turn: {
       eventId: "evt_teams_transcript",

@@ -17,6 +17,7 @@ export type {
   CreateChannelOptions,
   ReplyContinuationOptions,
   ChannelHandler,
+  ChannelTaskHandler,
   WelcomeHandler,
   ThreadStartHandler,
   ReactionEvent,
@@ -71,6 +72,7 @@ export type {
   IncomingReaction,
   IncomingModalSubmit,
   IncomingModalClose,
+  IncomingScheduledTask,
   ModalSubmitResult,
   SurfaceCapabilities,
   ReplyTarget,
@@ -84,6 +86,35 @@ export type {
   UserQuery,
   NativePayload,
 } from "./platform-adapter.js";
+
+// Intelligence Channel Tasks
+export { selectChannelTask } from "./tasks.js";
+export type {
+  ChannelTask,
+  ChannelScheduledTask,
+  ChannelTaskActor,
+  ChannelTaskCreator,
+  ChannelTaskWhen,
+  ChannelMessageEvent,
+  ChannelReactionAddedEvent,
+  ChannelTaskEvent,
+  ChannelTaskCause,
+  ChannelTasksConfig,
+  CreateChannelTaskInput,
+  ListChannelTasksInput,
+  UpdateChannelTaskInput,
+  DeleteChannelTaskInput,
+  ChannelTaskOperationContext,
+  ChannelTaskAdapter,
+  ChannelTasksClient,
+} from "./tasks.js";
+export type {
+  ChannelHistoryMessage,
+  ChannelHistoryPage,
+  ReadChannelMessagesInput,
+  ChannelHistoryAdapterInput,
+  ChannelHistoryAdapter,
+} from "./channel-history.js";
 
 // Slash commands
 export {

@@ -50,7 +50,11 @@ export interface ChannelActivationEnv {
 export interface ChannelActivationMetadata extends ChannelActivationEnv {
   declaredChannelNames: string[];
   /** Per-Channel declarations: name + declared slash-command names. */
-  declaredChannels: Array<{ channelName: string; commands: string[] }>;
+  declaredChannels: Array<{
+    channelName: string;
+    commands: string[];
+    tasks?: true;
+  }>;
 }
 
 /**
@@ -107,6 +111,7 @@ export function buildChannelActivationMetadata(
     declaredChannels: channels.map((c, i) => ({
       channelName: names[i]!,
       commands: c.commandNames,
+      ...(c.tasksEnabled ? { tasks: true as const } : {}),
     })),
   };
 }

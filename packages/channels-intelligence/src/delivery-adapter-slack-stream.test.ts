@@ -25,6 +25,7 @@ function preparedDelivery(
     deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
     channelId: "channel_support",
     channelName: "support",
+    surfaceId: "surface_support_01",
     canonicalThreadId: "thread_slack_stream",
     appUserId: "slack:T1:U1",
     adapter: "slack",
