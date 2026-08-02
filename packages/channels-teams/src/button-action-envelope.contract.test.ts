@@ -64,6 +64,8 @@ describe("HITL button action envelope (contract)", () => {
     expect(parseCardAction(inboundActivity)).toEqual({
       id: "ck:approve",
       value: { decision: "yes" },
+      // No `<Input>` on this card, so nothing merged in alongside the envelope.
+      values: {},
     });
     expect(conversationKeyOf(inboundActivity)).toBe("conv-1");
   });

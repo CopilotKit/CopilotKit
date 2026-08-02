@@ -19,7 +19,26 @@ export interface TeamsActivityLike {
 interface CardActionData {
   ckActionId?: string;
   value?: unknown;
+  /**
+   * Id of the card input whose text IS this submit's action value. Set only on
+   * the submit the renderer synthesizes for an input-only card (see
+   * `renderAdaptiveCard`), where the dispatched handler is an `<Input onSubmit>`
+   * and its `ClickHandler<string>` contract requires the typed text — not the
+   * (absent) button value.
+   */
+  ckValueField?: string;
 }
+
+/**
+ * Keys reserved by our own submit envelope. Teams merges every card input into
+ * the submit's `data` object keyed by the input element's `id`, so these names
+ * must never be minted as field ids nor read back as submitted fields.
+ */
+export const CARD_ENVELOPE_KEYS: readonly string[] = [
+  "ckActionId",
+  "value",
+  "ckValueField",
+];
 
 /**
  * Stable conversation key shared by ingress (`onTurn`) and interaction decoding
@@ -33,14 +52,25 @@ export function conversationKeyOf(activity: TeamsActivityLike): string {
 
 /**
  * Recognize and parse an Adaptive Card `Action.Submit`. Returns the opaque
- * action id + button value when the activity carries our `ckActionId`, else
- * `undefined` (i.e. it's an ordinary chat message). Carries ONLY the opaque id
- * and the tiny button value: no resume-data smuggling; durability rides on the
+ * action id, the action's value, and every submitted card input when the
+ * activity carries our `ckActionId`, else `undefined` (i.e. it's an ordinary
+ * chat message). Carries ONLY the opaque id, the tiny button value and the
+ * user's own form input: no resume-data smuggling; durability rides on the
  * engine's ActionStore keyed by that id.
+ *
+ * Teams merges every `Input.*` on the card into the submit's `data`, keyed by
+ * the element's `id`. Those fields become the event's `values` (so a
+ * `<Button onClick>` handler beside an `<Input>` can still read what was typed),
+ * and, when the submit names a `ckValueField`, that field's text is also the
+ * action's `value`.
  */
-export function parseCardAction(
-  activity: TeamsActivityLike,
-): { id: string; value: unknown } | undefined {
+export function parseCardAction(activity: TeamsActivityLike):
+  | {
+      id: string;
+      value: unknown;
+      values: Record<string, unknown>;
+    }
+  | undefined {
   const data = activity.value as CardActionData | undefined;
   if (
     !data ||
@@ -49,5 +79,16 @@ export function parseCardAction(
   ) {
     return undefined;
   }
-  return { id: data.ckActionId, value: data.value };
+  const values: Record<string, unknown> = {};
+  for (const [key, fieldValue] of Object.entries(data)) {
+    if (CARD_ENVELOPE_KEYS.includes(key)) continue;
+    values[key] = fieldValue;
+  }
+  const valueField = data.ckValueField;
+  const value =
+    typeof valueField === "string" &&
+    Object.prototype.hasOwnProperty.call(values, valueField)
+      ? values[valueField]
+      : data.value;
+  return { id: data.ckActionId, value, values };
 }

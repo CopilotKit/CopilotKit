@@ -32,6 +32,29 @@ the action's `data`:
   carries **no** `data` — it is not an interactive submit and never round-trips.
 - `data` is omitted entirely if the button has neither an `onClick` id nor a `value`.
 
+### The synthesized submit
+
+Adaptive Cards has no per-input submit affordance: an `Input.*` only reaches us
+when some `Action.Submit` on the card fires. A card whose only controls are
+`<Input>`/`<Select>` would therefore have **zero** actions and could not be
+submitted at all, so `renderAdaptiveCard` appends one bound to the first
+handler-bound field:
+
+```jsonc
+{
+  "type": "Action.Submit",
+  "title": "Submit",
+  "data": {
+    "ckActionId": "ck:note", // the field's minted handler id — what gets dispatched
+    "ckValueField": "reason", // the card `id` of the field whose text IS the action value
+  },
+}
+```
+
+The two differ whenever an explicit `<Input name>` (or a collision suffix) renames
+the field, so both are carried. This action is appended **only** when the card has
+no other action and at least one field is bound to a handler.
+
 ## Inbound — what Teams delivers on click
 
 Clicking an `Action.Submit` arrives as a **Message activity** (`activity.type ===
@@ -55,12 +78,19 @@ The action's `data` becomes `activity.value`, and the message `text` is empty:
 
 - **Is it a card action?** `typeof activity.value.ckActionId === "string"`. If not,
   it's an ordinary chat message.
-- **Fields:** `id = activity.value.ckActionId`, `value = activity.value.value`.
-  Carry only these two — no resume-data smuggling; durability rides on the
-  consumer's action store keyed by `id`.
+- **Fields:** `id = activity.value.ckActionId`. No resume-data smuggling —
+  durability rides on the consumer's action store keyed by `id`.
 - **Card inputs:** if the card also had `<Input>`/`<Select>` fields, Teams merges
-  their values into `activity.value` alongside `ckActionId`/`value`. Read the
-  named input keys directly from `activity.value` if needed.
+  their values into `activity.value` alongside the envelope keys. Every key that
+  is **not** `ckActionId` / `value` / `ckValueField` is a submitted field; those
+  three names are reserved and are never minted as field ids.
+- **Action value:** `activity.value[ckValueField]` when `ckValueField` is set and
+  names a present field (the synthesized input submit — the dispatched handler is
+  an `<Input onSubmit>`, whose contract is the typed text), else
+  `activity.value.value` (the clicked button's own value).
+- **Typed text is a string.** Teams delivers `Input.Text` values as strings and
+  nothing may coerce them: `42`, `true`, `null` and `{"a":1}` must reach the
+  handler as those four strings.
 - **Conversation key:** derive it from `activity.conversation.id` (see
   `conversationKeyOf`). Ingress and interaction decode MUST use the same key or the
   waiter is stranded.

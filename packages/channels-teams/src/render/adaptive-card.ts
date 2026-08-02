@@ -1,4 +1,5 @@
 import type { ChannelNode } from "@copilotkit/channels-ui";
+import { CARD_ENVELOPE_KEYS } from "../interaction.js";
 import { TEAMS_LIMITS, truncateText, clampArray } from "./budget.js";
 
 /** Teams attachment content type for an Adaptive Card. */
@@ -20,10 +21,18 @@ type CardAction = Record<string, unknown>;
 interface RenderContext {
   nextFieldIndex: number;
   usedFieldIds: Set<string>;
+  /**
+   * Inputs bound to a registry-minted handler, in render order: the card's
+   * `id` for the element paired with the action id its handler was minted
+   * under. Used to synthesize a submit for an input-only card.
+   */
+  boundFields: { fieldId: string; actionId: string }[];
 }
 
 const SCHEMA = "http://adaptivecards.io/schemas/adaptive-card.json";
 const VERSION = "1.5";
+/** Title of the submit synthesized for a card whose only controls are inputs. */
+const SYNTHETIC_SUBMIT_TITLE = "Submit";
 
 /**
  * Render a cross-platform component IR tree (already expanded by `renderToIR`
@@ -37,7 +46,9 @@ const VERSION = "1.5";
  * decision to use `Action.Submit`), while `<Input>`/`<Select>` become
  * `Input.Text`/`Input.ChoiceSet` in the body. Each action/input carries the
  * registry-stamped opaque id in its `data`/`id` so a later interaction can be
- * decoded back into the engine (round-trip is a follow-up; rendering is here).
+ * decoded back into the engine by `parseCardAction`. A card whose only controls
+ * are inputs gets a synthesized `Action.Submit`, without which Teams offers no
+ * way to submit it at all.
  *
  * The renderer is total: unknown intrinsics are skipped. Collections clamp and
  * text truncates to {@link TEAMS_LIMITS} so the card stays within Teams' payload
@@ -48,7 +59,8 @@ export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
   const actions: CardAction[] = [];
   const context: RenderContext = {
     nextFieldIndex: 0,
-    usedFieldIds: new Set(["ckActionId", "value"]),
+    usedFieldIds: new Set(CARD_ENVELOPE_KEYS),
+    boundFields: [],
   };
   for (const node of ir) renderNode(node, body, actions, context);
 
@@ -59,6 +71,25 @@ export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
     body: clampArray(body, TEAMS_LIMITS.bodyElements).items,
   };
   const clampedActions = clampArray(actions, TEAMS_LIMITS.actions).items;
+  // Adaptive Cards has no per-input submit affordance: an `Input.*` only reaches
+  // us when some `Action.Submit` on the card fires, and Teams merges every input
+  // into that submit's payload. A card whose only controls are inputs therefore
+  // has zero actions and cannot be submitted at all — synthesize one bound to
+  // the first handler-bound field, naming it as the value field so the typed
+  // text (not an absent button value) arrives as the action's value.
+  //
+  // This covers `<Select>` too, since it is unsubmittable for the same reason.
+  // Note a `<Select multi>` still arrives as Teams' comma-joined string rather
+  // than the `string[]` `onSelect` declares — a pre-existing Teams fidelity gap
+  // (see `renderSelect`) that this only makes reachable, not worse.
+  if (clampedActions.length === 0 && context.boundFields.length > 0) {
+    const field = context.boundFields[0]!;
+    clampedActions.push({
+      type: "Action.Submit",
+      title: SYNTHETIC_SUBMIT_TITLE,
+      data: { ckActionId: field.actionId, ckValueField: field.fieldId },
+    });
+  }
   if (clampedActions.length > 0) card.actions = clampedActions;
   return card;
 }
@@ -250,17 +281,19 @@ function fieldId(
   const index = ++context.nextFieldIndex;
   const rawName = typeof props.name === "string" ? props.name.trim() : "";
   const explicitName =
-    rawName && rawName !== "ckActionId" && rawName !== "value"
-      ? rawName
-      : undefined;
-  const base =
-    explicitName ?? idFromHandler(props[handlerProp]) ?? `${fallback}_${index}`;
+    rawName && !CARD_ENVELOPE_KEYS.includes(rawName) ? rawName : undefined;
+  const actionId = idFromHandler(props[handlerProp]);
+  const base = explicitName ?? actionId ?? `${fallback}_${index}`;
   let candidate = base;
   let suffix = 1;
   while (context.usedFieldIds.has(candidate)) {
     candidate = `${base}_${suffix++}`;
   }
   context.usedFieldIds.add(candidate);
+  // An explicit `name` (or a dedupe suffix) makes the field id diverge from the
+  // minted action id, so record both: dispatch needs the action id, reading the
+  // submitted text needs the field id.
+  if (actionId) context.boundFields.push({ fieldId: candidate, actionId });
   return candidate;
 }
 

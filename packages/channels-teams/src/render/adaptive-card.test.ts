@@ -177,6 +177,79 @@ describe("renderAdaptiveCard", () => {
     ]);
   });
 
+  it("synthesizes an Action.Submit for a card whose only control is an <Input>", () => {
+    // Without it the card has zero actions and the user physically cannot
+    // submit it — `renderButton` is otherwise the only producer of a submit.
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" }, placeholder: "Why?" }),
+    ]);
+
+    expect(card.body[0]).toMatchObject({ type: "Input.Text", id: "ck:note" });
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
+  });
+
+  it("points the synthesized submit at the field id when <Input name> renames it", () => {
+    const card = renderAdaptiveCard([
+      el("input", [], { name: "reason", onSubmit: { id: "ck:note" } }),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "reason" },
+      },
+    ]);
+  });
+
+  it("does not synthesize a submit when the card already has a <Button>", () => {
+    // The button's own action id must stay the routed one; the input's text
+    // still rides along in the merged card inputs.
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("button", [text("Approve")], { onClick: { id: "ck:approve" } }),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Approve",
+        data: { ckActionId: "ck:approve" },
+      },
+    ]);
+  });
+
+  it("synthesizes a submit for a <Select>-only card too", () => {
+    // Same defect, same fix: without an action the choice can never be sent.
+    const card = renderAdaptiveCard([
+      el("select", [], {
+        onSelect: { id: "ck:pick" },
+        options: [{ label: "One", value: "1" }],
+      }),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:pick", ckValueField: "ck:pick" },
+      },
+    ]);
+  });
+
+  it("does not synthesize a submit when no input is bound to a handler", () => {
+    // Nothing to dispatch: a submit would post an activity the engine ignores.
+    const card = renderAdaptiveCard([el("input", [], { name: "reason" })]);
+
+    expect(card.actions).toBeUndefined();
+  });
+
   it("keeps form fields from overwriting Action.Submit routing data", () => {
     const card = renderAdaptiveCard([
       el("input", [], { onSubmit: { id: "ckActionId" } }),

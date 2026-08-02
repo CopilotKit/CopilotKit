@@ -156,6 +156,7 @@ export class TeamsAdapter implements PlatformAdapter {
             id: action.id,
             conversationKey,
             value: action.value,
+            values: action.values,
             actor,
             identityContext: {
               ...identityContext,
@@ -547,6 +548,7 @@ export class TeamsAdapter implements PlatformAdapter {
       id: action.id,
       conversationKey,
       value: action.value,
+      values: action.values,
       actor,
       identityContext: this.identityContext(
         activity,
