@@ -19,12 +19,15 @@ export const GET = async (
 /**
  * Status / ETA patch only.
  *
- * `appliedMitigation` and `activeEscalationId` are writable ONLY through the
- * gated endpoints (mitigate / escalations-approve). Without this guard a
- * caller could PATCH them directly and route straight around the authority
- * check, making the whole gate theater.
+ * This is an ALLOW-list, not a deny-list, and that is deliberate. The mitigate
+ * endpoint recomputes cost from the shipment's own fields, so ANY writable
+ * field that feeds pricing (`weightKg`, `laneId`, …) is a side channel around
+ * the authority gate: patch the input, and the server honestly computes a
+ * small cost that clears the limit. Only fields listed here may be written;
+ * `appliedMitigation` and `activeEscalationId` remain writable solely through
+ * the gated mitigate / escalation-approve endpoints.
  */
-const GATED_FIELDS = ["appliedMitigation", "activeEscalationId"] as const;
+const PATCHABLE_FIELDS = ["status", "etaCurrent"] as const;
 
 export const PATCH = async (
   req: Request,
@@ -37,16 +40,18 @@ export const PATCH = async (
       { status: 404 },
     );
   }
-  const body = (await req.json()) as Partial<Shipment>;
-  const attempted = GATED_FIELDS.filter((f) => f in body);
-  if (attempted.length) {
+  const body = (await req.json()) as Record<string, unknown>;
+  const illegal = Object.keys(body).filter(
+    (k) => !(PATCHABLE_FIELDS as readonly string[]).includes(k),
+  );
+  if (illegal.length) {
     return Response.json(
       {
         error: "FORBIDDEN_FIELD",
-        message: `${attempted.join(", ")} can only be set through the mitigate or escalation endpoints.`,
+        message: `${illegal.join(", ")} cannot be patched. Only ${PATCHABLE_FIELDS.join(", ")} are writable here; mitigations and escalations go through their own endpoints.`,
       },
       { status: 422 },
     );
   }
-  return Response.json(store.updateShipment(id, body));
+  return Response.json(store.updateShipment(id, body as Partial<Shipment>));
 };
