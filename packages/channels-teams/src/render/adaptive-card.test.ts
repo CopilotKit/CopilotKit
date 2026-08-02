@@ -313,6 +313,44 @@ describe("renderAdaptiveCard", () => {
     expect(card.actions).toBeUndefined();
   });
 
+  it("keeps the synthesized submit inside the top-level action ceiling", () => {
+    // The synthesized submit competes for the same budget as authored buttons.
+    // It is also the card's only route back into the engine, so it is the
+    // authored actions that give way, not the submit.
+    const links = Array.from({ length: TEAMS_LIMITS.actions }, (_, i) =>
+      el("button", [text(`l${i}`)], { url: `https://x.com/${i}` }),
+    );
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("actions", links),
+    ]);
+
+    expect(card.actions).toHaveLength(TEAMS_LIMITS.actions);
+    expect(card.actions!.at(-1)).toEqual({
+      type: "Action.Submit",
+      title: "Submit",
+      data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+    });
+  });
+
+  it("does not synthesize a submit when a dispatchable <Button> was clamped away", () => {
+    // The author did bind a handler; a submit synthesized from the input would
+    // dispatch the input's handler in the button's place.
+    const links = Array.from({ length: TEAMS_LIMITS.actions }, (_, i) =>
+      el("button", [text(`l${i}`)], { url: `https://x.com/${i}` }),
+    );
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("actions", [
+        ...links,
+        el("button", [text("Save")], { onClick: { id: "ck:save" } }),
+      ]),
+    ]);
+
+    expect(card.actions).toHaveLength(TEAMS_LIMITS.actions);
+    expect(card.actions!.every((a) => a.type === "Action.OpenUrl")).toBe(true);
+  });
+
   it("does not synthesize a submit when no input is bound to a handler", () => {
     // Nothing to dispatch: a submit would post an activity the engine ignores.
     const card = renderAdaptiveCard([el("input", [], { name: "reason" })]);
@@ -351,6 +389,17 @@ describe("renderAdaptiveCard", () => {
     const rows = table.rows as Array<Record<string, unknown>>;
     expect(rows).toHaveLength(2); // header + 1 data row
     expect(rows[0]!.type).toBe("TableRow");
+  });
+
+  it("counts the header row against the table row ceiling", () => {
+    const rows = Array.from({ length: TEAMS_LIMITS.tableRows }, (_, i) =>
+      el("row", [el("cell", [text(`r${i}`)])]),
+    );
+    const card = renderAdaptiveCard([
+      el("table", rows, { columns: [{ header: "A" }] }),
+    ]);
+    const table = card.body[0] as Record<string, unknown>;
+    expect(table.rows as unknown[]).toHaveLength(TEAMS_LIMITS.tableRows);
   });
 
   it("clamps top-level actions to the Teams ceiling", () => {

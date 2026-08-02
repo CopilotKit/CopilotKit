@@ -25,7 +25,7 @@ interface RenderContext {
    * Inputs bound to a registry-minted handler, in render order: the card's
    * `id` for the element paired with the action id its handler was minted
    * under. Used to synthesize a submit for a card that has no dispatchable
-   * one. Only the first survivor is bound — see `renderAdaptiveCard`.
+   * one. Only the first survivor is bound — see `synthesizeSubmit`.
    */
   boundFields: { fieldId: string; actionId: string }[];
 }
@@ -72,47 +72,71 @@ export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
     version: VERSION,
     body: clampedBody,
   };
-  const clampedActions = clampArray(actions, TEAMS_LIMITS.actions).items;
-  // Adaptive Cards has no per-input submit affordance: an `Input.*` only reaches
-  // us when some `Action.Submit` on the card fires, and Teams merges every input
-  // into that submit's payload. A card with no *dispatchable* submit therefore
-  // cannot deliver its inputs anywhere — synthesize one, naming the field whose
-  // text becomes the action's value (an absent button value would otherwise
-  // reach a `ClickHandler<string>` as `undefined`).
-  //
-  // "Dispatchable" is the test, not "has actions": a link `<Button>` renders as
-  // `Action.OpenUrl`, which opens a URL and submits nothing, and a `<Button>`
-  // with no `onClick` submits but routes nowhere. Either one beside an
-  // `<Input>` would otherwise reproduce the original defect.
-  //
-  // This covers `<Select>` too, since it is unsubmittable for the same reason.
-  // Note a `<Select multi>` still arrives as Teams' comma-joined string rather
-  // than the `string[]` `onSelect` declares — a pre-existing Teams fidelity gap
-  // (see `renderSelect`) that this only makes reachable, not worse.
-  if (!clampedActions.some(isDispatchableSubmit)) {
-    // Only a field that survived the body clamp can back a submit; a dropped
-    // one would render a Submit with nothing above it.
-    const rendered = new Set(
-      clampedBody
-        .map((element) => element.id)
-        .filter((id): id is string => typeof id === "string"),
-    );
-    const field = context.boundFields.find((f) => rendered.has(f.fieldId));
-    // One submit per card, bound to the FIRST handler-bound field: Adaptive
-    // Cards fires a single action, and a button per input would be nonsense UI.
-    // Later fields' handlers therefore never fire — but their text is not lost,
-    // since Teams merges every input into this submit and `parseCardAction`
-    // surfaces them all as the event's `values`.
-    if (field) {
-      clampedActions.push({
-        type: "Action.Submit",
-        title: SYNTHETIC_SUBMIT_TITLE,
-        data: { ckActionId: field.actionId, ckValueField: field.fieldId },
-      });
-    }
-  }
+  // Decide synthesis against the UNCLAMPED actions: a dispatchable `<Button>`
+  // pushed past the ceiling below is still the handler the author bound, and
+  // synthesizing from an input would dispatch the input's handler in its place.
+  // Such a card keeps the author's action order, so the overflowing button's
+  // handler still never fires — but a wrong dispatch is worse than none.
+  const synthesized = actions.some(isDispatchableSubmit)
+    ? undefined
+    : synthesizeSubmit(clampedBody, context);
+  // One clamp governs the emitted list, with the synthesized submit's slot
+  // reserved inside the ceiling: appending it afterwards would emit
+  // `TEAMS_LIMITS.actions + 1` actions, and letting the clamp choose between
+  // them could drop the card's only route back into the engine.
+  const clampedActions = clampArray(
+    actions,
+    TEAMS_LIMITS.actions - (synthesized ? 1 : 0),
+  ).items;
+  if (synthesized) clampedActions.push(synthesized);
   if (clampedActions.length > 0) card.actions = clampedActions;
   return card;
+}
+
+/**
+ * The `Action.Submit` to add to a card that has none it can dispatch, or
+ * `undefined` when no rendered field can back one.
+ *
+ * Adaptive Cards has no per-input submit affordance: an `Input.*` only reaches
+ * us when some `Action.Submit` on the card fires, and Teams merges every input
+ * into that submit's payload. A card with no *dispatchable* submit therefore
+ * cannot deliver its inputs anywhere — synthesize one, naming the field whose
+ * text becomes the action's value (an absent button value would otherwise
+ * reach a `ClickHandler<string>` as `undefined`).
+ *
+ * "Dispatchable" is the caller's test, not "has actions": a link `<Button>`
+ * renders as `Action.OpenUrl`, which opens a URL and submits nothing, and a
+ * `<Button>` with no `onClick` submits but routes nowhere. Either one beside an
+ * `<Input>` would otherwise reproduce the original defect.
+ *
+ * This covers `<Select>` too, since it is unsubmittable for the same reason.
+ * Note a `<Select multi>` still arrives as Teams' comma-joined string rather
+ * than the `string[]` `onSelect` declares — a pre-existing Teams fidelity gap
+ * (see `renderSelect`) that this only makes reachable, not worse.
+ */
+function synthesizeSubmit(
+  clampedBody: CardElement[],
+  context: RenderContext,
+): CardAction | undefined {
+  // Only a field that survived the body clamp can back a submit; a dropped
+  // one would render a Submit with nothing above it.
+  const rendered = new Set(
+    clampedBody
+      .map((element) => element.id)
+      .filter((id): id is string => typeof id === "string"),
+  );
+  // One submit per card, bound to the FIRST handler-bound field: Adaptive
+  // Cards fires a single action, and a button per input would be nonsense UI.
+  // Later fields' handlers therefore never fire — but their text is not lost,
+  // since Teams merges every input into this submit and `parseCardAction`
+  // surfaces them all as the event's `values`.
+  const field = context.boundFields.find((f) => rendered.has(f.fieldId));
+  if (!field) return undefined;
+  return {
+    type: "Action.Submit",
+    title: SYNTHETIC_SUBMIT_TITLE,
+    data: { ckActionId: field.actionId, ckValueField: field.fieldId },
+  };
 }
 
 /** Can this action route an interaction back into the engine when it fires? */
@@ -347,15 +371,21 @@ function renderTable(node: ChannelNode): CardElement {
     ? clampArray(columnsProp, TEAMS_LIMITS.tableColumns).items
     : undefined;
 
+  const headerColumns = columns && columns.length > 0 ? columns : undefined;
   const rows: Record<string, unknown>[] = [];
-  if (columns && columns.length > 0) {
+  if (headerColumns) {
     rows.push({
       type: "TableRow",
-      cells: columns.map((c) => cell(c.header, true)),
+      cells: headerColumns.map((c) => cell(c.header, true)),
     });
   }
   const rowNodes = childNodes(node).filter((c) => c.type === "row");
-  const { items: dataRows } = clampArray(rowNodes, TEAMS_LIMITS.tableRows);
+  // The header is one of the emitted rows, so it takes a slot from the same
+  // budget rather than riding on top of a full set of data rows.
+  const { items: dataRows } = clampArray(
+    rowNodes,
+    TEAMS_LIMITS.tableRows - (headerColumns ? 1 : 0),
+  );
   for (const rowNode of dataRows) {
     const cells = childNodes(rowNode).filter((c) => c.type === "cell");
     rows.push({
@@ -373,7 +403,7 @@ function renderTable(node: ChannelNode): CardElement {
         : {}),
     })),
     rows,
-    firstRowAsHeader: !!(columns && columns.length > 0),
+    firstRowAsHeader: !!headerColumns,
     gridStyle: "default",
   };
   return table;
