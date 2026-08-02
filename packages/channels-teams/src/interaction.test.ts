@@ -1,5 +1,73 @@
 import { describe, it, expect } from "vitest";
-import { conversationKeyOf, parseCardAction } from "./interaction.js";
+import {
+  CARD_ENVELOPE_KEYS,
+  conversationKeyOf,
+  isCardEnvelopeKey,
+  parseCardAction,
+} from "./interaction.js";
+import type { CardEnvelopeKey } from "./interaction.js";
+
+describe("CARD_ENVELOPE_KEYS", () => {
+  it("is frozen, so a consumer cannot retarget the reserved set", () => {
+    // It is exported from the package, and BOTH safety behaviours read it
+    // live: the renderer seeds `usedFieldIds` from it and `parseCardAction`
+    // strips it out of `values`. Were it mutable, one `push` from anywhere
+    // in-process would silently disable them.
+    expect(Object.isFrozen(CARD_ENVELOPE_KEYS)).toBe(true);
+
+    // This module is ESM, hence always strict mode, so a rejected write is a
+    // thrown TypeError rather than a silent no-op. (`push` throws either way;
+    // the element assignment is the one that needs strict mode.)
+    const escaped = CARD_ENVELOPE_KEYS as unknown as string[];
+    expect(() => escaped.push("reason")).toThrow(TypeError);
+    expect(() => {
+      escaped[0] = "hijacked";
+    }).toThrow(TypeError);
+    expect(() => {
+      escaped.length = 0;
+    }).toThrow(TypeError);
+
+    expect([...CARD_ENVELOPE_KEYS]).toEqual([
+      "ckActionId",
+      "value",
+      "ckValueField",
+    ]);
+  });
+
+  it("keeps decoding intact after a mutation attempt", () => {
+    // The guarantee the freeze buys, end to end. Before it, `push("reason")`
+    // made the decoder strip a genuinely submitted `reason` field, and
+    // overwriting index 0 leaked `ckActionId` into `values`.
+    const escaped = CARD_ENVELOPE_KEYS as unknown as string[];
+    expect(() => escaped.push("reason")).toThrow(TypeError);
+    expect(() => {
+      escaped[0] = "hijacked";
+    }).toThrow(TypeError);
+
+    expect(
+      parseCardAction({ value: { ckActionId: "ck:x", reason: "ok" } }),
+    ).toEqual({ id: "ck:x", value: undefined, values: { reason: "ok" } });
+  });
+
+  it("exposes the member names in its type", () => {
+    // `readonly string[]` would erase them; `as const` keeps them, so a
+    // consumer can spell a reserved key in a type position.
+    const key: CardEnvelopeKey = "ckValueField";
+    expect(CARD_ENVELOPE_KEYS).toContain(key);
+    // @ts-expect-error — "reason" is not a reserved envelope key.
+    const notAKey: CardEnvelopeKey = "reason";
+    expect(notAKey).toBe("reason");
+  });
+
+  it("narrows an arbitrary string via isCardEnvelopeKey", () => {
+    for (const reserved of CARD_ENVELOPE_KEYS) {
+      expect(isCardEnvelopeKey(reserved)).toBe(true);
+    }
+    expect(isCardEnvelopeKey("reason")).toBe(false);
+    expect(isCardEnvelopeKey("ckactionid")).toBe(false);
+    expect(isCardEnvelopeKey("")).toBe(false);
+  });
+});
 
 describe("conversationKeyOf", () => {
   it("derives the key from activity.conversation.id", () => {

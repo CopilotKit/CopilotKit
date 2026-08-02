@@ -1,5 +1,5 @@
 import type { ChannelNode } from "@copilotkit/channels-ui";
-import { CARD_ENVELOPE_KEYS } from "../interaction.js";
+import { CARD_ENVELOPE_KEYS, isCardEnvelopeKey } from "../interaction.js";
 import { TEAMS_LIMITS, truncateText, clampArray } from "./budget.js";
 
 /** Teams attachment content type for an Adaptive Card. */
@@ -393,7 +393,7 @@ function fieldId(
   const index = ++context.nextFieldIndex;
   const rawName = typeof props.name === "string" ? props.name.trim() : "";
   const explicitName =
-    rawName && !CARD_ENVELOPE_KEYS.includes(rawName) ? rawName : undefined;
+    rawName && !isCardEnvelopeKey(rawName) ? rawName : undefined;
   const actionId = idFromHandler(props[handlerProp]);
   const base = explicitName ?? actionId ?? `${fallback}_${index}`;
   let candidate = base;

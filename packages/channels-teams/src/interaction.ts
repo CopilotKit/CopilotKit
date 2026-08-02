@@ -48,12 +48,31 @@ interface CardActionData {
  * Keys reserved by our own submit envelope. Teams merges every card input into
  * the submit's `data` object keyed by the input element's `id`, so these names
  * must never be minted as field ids nor read back as submitted fields.
+ *
+ * Frozen because it is public API and both of those guarantees read it live:
+ * `render/adaptive-card.ts` seeds its reserved-field-id set from it and
+ * `parseCardAction` strips it out of `values`. An in-process mutation would
+ * silently retarget both — dropping a genuinely submitted field or minting one
+ * under an envelope name. `as const` keeps the member names in the exported
+ * type; use {@link isCardEnvelopeKey} to test an arbitrary string against it.
  */
-export const CARD_ENVELOPE_KEYS: readonly string[] = [
+export const CARD_ENVELOPE_KEYS = Object.freeze([
   "ckActionId",
   "value",
   "ckValueField",
-];
+] as const);
+
+/** One of the {@link CARD_ENVELOPE_KEYS}. */
+export type CardEnvelopeKey = (typeof CARD_ENVELOPE_KEYS)[number];
+
+/**
+ * Is `key` reserved by the submit envelope? Narrows, so callers that hold a
+ * plain `string` (an inbound payload key, an author-supplied `name` prop) can
+ * still test it against the literal-typed {@link CARD_ENVELOPE_KEYS}.
+ */
+export function isCardEnvelopeKey(key: string): key is CardEnvelopeKey {
+  return CARD_ENVELOPE_KEYS.some((reserved) => reserved === key);
+}
 
 /**
  * Stable conversation key shared by ingress (`onTurn`) and interaction decoding
@@ -134,7 +153,7 @@ export function parseCardAction(activity: TeamsActivityLike):
   }
   const values: Record<string, unknown> = {};
   for (const [key, fieldValue] of Object.entries(data)) {
-    if (CARD_ENVELOPE_KEYS.includes(key)) continue;
+    if (isCardEnvelopeKey(key)) continue;
     setField(values, key, fieldValue);
   }
   const valueField = data.ckValueField;
