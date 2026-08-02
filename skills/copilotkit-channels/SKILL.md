@@ -102,6 +102,28 @@ If nothing happens and there is no error, check in this order: is `activateChann
 
 Do not report a Channel as working because credentials were stored. A stored adapter proves the credentials are real — the server probed them — and nothing more. It does not prove the app is installed, that a channel was invited, or that a runtime is connected.
 
+### Online, but silent — a different failure
+
+That checklist only covers a Channel that never connected. If the host logs `Channel "<name>" is online` and the bot still says nothing, the code half is **fine** — activation succeeded — and every item above will come back correct. Walking the list again is wasted time.
+
+Look in the host's own output for:
+
+```
+{ meta: { deliveryId: 'dlv_...', errorCategory: 'validation' } } channel delivery claim or join failed
+```
+
+That is the runtime rejecting the turn the server sent it, at the join boundary, before any handler runs. Nothing is posted back to the provider on this path, which is why it looks like silence rather than an error.
+
+The usual cause is a **version disagreement between the installed `@copilotkit/channels-*` packages and the Intelligence deployment serving them**. The runtime validates each delivery strictly — exact field sets, not a loose subset — so a client expecting a field its server does not yet send fails every turn of that kind, while a Channel that never receives one (Teams-only, or an idle Slack app) looks perfectly healthy.
+
+So:
+
+1. Note the installed versions: `npm ls @copilotkit/runtime @copilotkit/channels`.
+2. Compare them with the Intelligence deployment. On hosted Intelligence, a canary or prerelease client can run ahead of what is deployed. On self-hosted, the deployment is usually the one that lags.
+3. Move them onto matching lines. Pinning the client to a prerelease is the common way into this state.
+
+`errorCategory` is a classification, not the message — the underlying error text is deliberately not logged, so the category plus this note is the whole signal you get.
+
 ## Wiring a project the CLI did not generate
 
 Everything from here down is the hand-wiring path — the less-trodden one. If `channel-host.mts` exists, you are in the wrong section.
