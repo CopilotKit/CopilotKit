@@ -32,8 +32,8 @@
       "import": "./dist/index.js"
     },
     "./testing": {
-      "types": "./dist/testing/state-store-conformance.d.ts",
-      "import": "./dist/testing/state-store-conformance.js"
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
     },
     "./jsx-runtime": {
       "types": "./dist/jsx-runtime.d.ts",
