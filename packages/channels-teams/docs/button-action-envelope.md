@@ -16,8 +16,10 @@ Decoder: `parseCardAction` in [`src/interaction.ts`](../src/interaction.ts).
 A **non-link** `<Button>` — one with no non-empty `url` prop — renders as a
 **top-level Adaptive Card `Action.Submit`**, deliberately `Action.Submit` and
 **not `Action.Execute`** (no `verb`) — but only when it carries an `onClick`
-handler, whose minted id is the one thing that can route the click back. The
-opaque action id and optional value ride in the action's `data`:
+handler that the action registry has already stamped with an id (the renderer
+reads `onClick.id`, and that minted id is the one thing that can route the click
+back; an unstamped handler is indistinguishable from none here). The opaque
+action id and optional value ride in the action's `data`:
 
 ```jsonc
 {
@@ -27,9 +29,16 @@ opaque action id and optional value ride in the action's `data`:
     "ckActionId": "ck:approve", // opaque id; always present — see the drop rule below
     "value": { "decision": "yes" }, // present only when the Button had a `value` prop
   },
-  "style": "positive", // optional: "positive" (style="primary") | "destructive" (style="danger" | "destructive")
+  "style": "positive", // optional: "positive" (style="primary") | "destructive" (style="danger")
 }
 ```
+
+`ButtonProps.style` offers exactly `"primary" | "danger"` — those are the only
+two values a typed caller can send, and they map to Adaptive Cards' `"positive"`
+and `"destructive"`. `renderButton` additionally tolerates the raw
+`"destructive"` (same result as `"danger"`), for untyped callers reaching the
+renderer through a deep import; that is not a `<Button>` prop value and should
+not be relied on. Anything else leaves `style` off the action entirely.
 
 - A **link** `<Button>` (a non-empty `url` prop) renders as `Action.OpenUrl`
   instead and carries **no** `data` — it is not a submit and never round-trips.
@@ -95,15 +104,18 @@ actions at all.
 **One submit per card.** Adaptive Cards fires a single action, so only that first
 field is bound; later `<Input onSubmit>` / `<Select onSelect>` handlers never
 fire. Their values are _not_ lost — Teams merges every input into this one submit,
-so all of them arrive as submitted fields. Read them from `activity.value` (or
+so all of them arrive as submitted fields, including any the user left blank (as
+`""` — see the inbound rules below). Read them from `activity.value` (or
 `InteractionEvent.values`) rather than expecting a per-field handler.
 
-**Action budget.** Top-level actions are clamped to `TEAMS_LIMITS.actions` (6),
-and the synthesized submit's slot is reserved _inside_ that ceiling: the authored
-actions are clamped to `actions - 1` and the submit is then appended. So a card
-never emits more than the ceiling, the submit — the card's only route back into
-the engine — is never the entry the clamp drops, and it is always **last** in
-`actions`.
+**Action budget.** Top-level actions are clamped to `TEAMS_LIMITS.actions`, so a
+card never emits more than that many. _When a submit is synthesized_, its slot is
+reserved **inside** that ceiling — the authored actions are clamped to
+`TEAMS_LIMITS.actions - 1` and the submit is appended afterwards — so the submit,
+the card's only route back into the engine, is never the entry the clamp drops,
+and it is always **last** in `actions`. When nothing is synthesized the authored
+actions get the whole ceiling and keep the author's order, with no guarantee
+about which action is last.
 
 **Overflow does not create one.** Whether to synthesize is decided against the
 _unclamped_ action list. A dispatchable `<Button>` that the action clamp then
@@ -151,6 +163,20 @@ the adapter never reads `activity.text` on this path:
   three names are reserved (`CARD_ENVELOPE_KEYS`): the renderer seeds its used-id
   set with them and ignores an explicit `name` that matches one, so no field is
   ever minted under them.
+- **Which key a field arrives under.** Teams keys a submitted field by the card
+  `id` the renderer minted for it, so this rule is part of the wire contract for
+  anyone reading `values` (or `ckValueField`) out-of-band. `fieldId` picks, in
+  order: (1) the `name` prop, trimmed, when it is non-empty and not one of the
+  reserved keys; (2) otherwise the field's own minted handler id — the
+  `<Input onSubmit>` / `<Select onSelect>` id, the same string that would appear
+  in `ckActionId`; (3) otherwise a positional `input_N` / `select_N`, where `N`
+  counts every field on the card in render order, 1-based, with `<Input>`s and
+  `<Select>`s sharing one counter (so a `<Select>` then an `<Input>` yields
+  `select_1` then `input_2`). Whatever the source, a name already taken on the
+  card takes the first free `_1`, `_2`, … suffix: two `<Input>`s bound to the
+  same handler arrive as `ck:note` and `ck:note_1`. Field ids are card-local —
+  do not assume one is an action id, and do not assume it is stable across
+  renders of a card whose fields moved.
 - **Action value:** `activity.value[ckValueField]` when `ckValueField` is a string
   **and** that key is present among the submitted fields. That is the synthesized
   submit: the dispatched handler is an `<Input onSubmit>` or `<Select onSelect>`,
@@ -164,6 +190,16 @@ the adapter never reads `activity.text` on this path:
   `undefined`. A `ckValueField` naming a reserved key misses for the same reason
   (reserved keys are stripped before the lookup), though the renderer never emits
   one.
+- **An untouched input still arrives — as `""`.** Teams merges _every_ `Input.*`
+  on the card into the submit, not only the ones the user touched, so a field
+  left blank is present in `values` carrying an empty string: not absent, and not
+  `null`. `<Input onSubmit>` is a `ClickHandler<string>` and `""` is the reading
+  that contract promises for an empty box. `@copilotkit/channels-slack` matches
+  this — Slack reports an empty `plain_text_input` as `value: null` and its
+  decoder normalizes that to `""` — so identical JSX reads identically on both
+  surfaces. Modelled by the Teams-client simulation in
+  [`src/input-submit.e2e.test.ts`](../src/input-submit.e2e.test.ts), which
+  derives its payload from the rendered card rather than from what was typed.
 - **Typed text is a string.** Teams delivers `Input.Text` values as strings and
   nothing may coerce them: `42`, `true`, `null` and `{"a":1}` must reach the
   handler as those four strings.

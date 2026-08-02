@@ -22,10 +22,12 @@ interface RenderContext {
   nextFieldIndex: number;
   usedFieldIds: Set<string>;
   /**
-   * Inputs bound to a registry-minted handler, in render order: the card's
-   * `id` for the element paired with the action id its handler was minted
-   * under. Used to synthesize a submit for a card that has no dispatchable
-   * one. Only the first survivor is bound — see `synthesizeSubmit`.
+   * Fields (`<Input>`/`<Select>`) that both carry a registry-minted handler and
+   * can produce a value, in render order: the card `id` minted for the element
+   * paired with the action id its handler was stamped with (the two differ
+   * whenever `fieldId` used a `name` prop or a dedupe suffix). Used to
+   * synthesize a submit for a card that has no dispatchable one. Only the first
+   * entry that survived the body clamp is bound — see `synthesizeSubmit`.
    */
   boundFields: { fieldId: string; actionId: string }[];
 }
@@ -41,24 +43,39 @@ const SYNTHETIC_SUBMIT_TITLE = "Submit";
  * Teams **Adaptive Card** (1.5).
  *
  * Structural nodes map to body elements (`<Header>`→bold `TextBlock`,
- * `<Section>`/`<Markdown>`→wrapped `TextBlock`, `<Fields>`→`FactSet`,
- * `<Table>`→native `Table`, `<Image>`→`Image`). Interactive nodes split by
- * Adaptive Card shape: `<Button>`→a top-level `Action.Submit` (per the V1
- * decision to use `Action.Submit`), while `<Input>`/`<Select>` become
- * `Input.Text`/`Input.ChoiceSet` in the body. Each action/input carries the
- * registry-stamped opaque id in its `data`/`id` so a later interaction can be
- * decoded back into the engine by `parseCardAction`. A card whose only controls
- * are inputs gets a synthesized `Action.Submit`, without which Teams offers no
- * way to submit it at all.
+ * `<Section>`/`<Markdown>` and a bare text child→wrapped `TextBlock`,
+ * `<Context>`→small subtle `TextBlock`, `<Divider>`→a blank separated
+ * `TextBlock`, `<Fields>`/`<Field>`→`FactSet`, `<Table>`→native `Table`,
+ * `<Chart>`→a Teams `Chart.*` host element, `<Image>`→`Image`). Interactive
+ * nodes split by Adaptive Card shape: `<Button>`→a top-level action — an
+ * `Action.Submit` (per the V1 decision to use `Action.Submit`, not
+ * `Action.Execute`), or an `Action.OpenUrl` when it is a link button — while
+ * `<Input>`/`<Select>` become `Input.Text`/`Input.ChoiceSet` in the body.
+ *
+ * An emitted `Action.Submit` carries the registry-stamped opaque id in its
+ * `data.ckActionId`, so a later interaction can be decoded back into the engine
+ * by `parseCardAction`; an `Action.OpenUrl` carries no `data` and never
+ * round-trips. A field's `id` is a separate, card-local name minted by
+ * `fieldId` — the explicit `name` prop when given, else the stamped id, else a
+ * positional `input_N`/`select_N`, plus a `_1`, `_2`, … suffix on collision —
+ * so it coincides with the stamped id only in the middle case, and then only
+ * when no suffix was needed. A card whose only controls are inputs gets a
+ * synthesized `Action.Submit`, which carries both ids (see `synthesizeSubmit`)
+ * and without which Teams offers no way to submit the card at all.
  *
  * A control that cannot route its interaction anywhere is not emitted as one: a
  * `<Button>` with neither a `url` nor an `onClick` is dropped (see
- * `renderButton`), and a field that cannot produce a value cannot back the
- * synthesized submit (see `synthesizeSubmit`).
+ * `renderButton`). A field is different — it is always rendered, and only its
+ * candidacy to back the synthesized submit is conditional, on both carrying a
+ * stamped handler id and being able to produce a value (see `fieldId`).
  *
- * The renderer is total: unknown intrinsics are skipped. Collections clamp and
- * text truncates to {@link TEAMS_LIMITS} so the card stays within Teams' payload
- * ceiling.
+ * The renderer is total: unknown intrinsics are skipped. Collections clamp to
+ * {@link TEAMS_LIMITS} and displayed prose truncates to it — TextBlock text,
+ * fact titles/values, button titles, table cells, choice labels and chart
+ * titles/labels — so the card stays within Teams' payload ceiling. Other
+ * author-supplied strings pass through unbounded: `placeholder`, a choice's
+ * `value`, an `<Image>`'s `url`/`altText`, a chart's axis titles, and a
+ * `<Button value>`.
  */
 export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
   const body: CardElement[] = [];
@@ -115,11 +132,12 @@ export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
  * `<Button>` that routes nowhere is not emitted at all — see `renderButton`.)
  *
  * This covers `<Select>` too, since it is unsubmittable for the same reason,
- * but only when it has something to pick: `renderNode` withholds an option-less
- * one, whose (absent) choice would reach its handler as `undefined`. Note a
- * `<Select multi>` still arrives as Teams' comma-joined string rather than the
- * `string[]` `onSelect` declares — a pre-existing Teams fidelity gap (see
- * `renderSelect`) that this only makes reachable, not worse.
+ * but only when it has something to pick: an option-less one is still rendered
+ * as an empty `Input.ChoiceSet`, but `renderNode` withholds it from the
+ * candidate pool, since its (absent) choice would reach its handler as
+ * `undefined`. Note a `<Select multi>` still arrives as Teams' comma-joined
+ * string rather than the `string[]` `onSelect` declares — a pre-existing Teams
+ * fidelity gap (see `renderSelect`) that this only makes reachable, not worse.
  */
 function synthesizeSubmit(
   clampedBody: CardElement[],
@@ -252,8 +270,9 @@ function renderNode(
       return;
     }
     case "input":
-      // An Input.Text always submits a string (empty when untouched), so it is
-      // always a candidate to back a synthesized submit.
+      // An Input.Text always submits a string (empty when untouched), so it
+      // never fails the can-produce-a-value test. Candidacy still needs a
+      // minted handler id, which `fieldId` checks separately.
       body.push(
         renderInput(node, fieldId(node, "onSubmit", "input", context, true)),
       );
