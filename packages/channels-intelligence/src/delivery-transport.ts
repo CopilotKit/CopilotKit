@@ -1313,7 +1313,7 @@ function assertPreparedDelivery(
     !isChannelId(prepared.channelId) ||
     !isChannelName(prepared.channelName) ||
     !isSafeExternalId(prepared.canonicalThreadId) ||
-    !isSafeExternalId(prepared.appUserId) ||
+    !isSafeAppUserId(prepared.appUserId) ||
     (prepared.adapter !== "slack" && prepared.adapter !== "teams") ||
     (prepared.tenant !== undefined && !isPreparedTenant(prepared.tenant)) ||
     (prepared.installation !== undefined &&
@@ -1486,6 +1486,19 @@ function isSafeExternalId(value: unknown): value is string {
   return (
     typeof value === "string" &&
     /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(value)
+  );
+}
+
+const APP_USER_ID_MAX_LENGTH = 2048;
+
+/**
+ * Check a server-generated app-user id composed from provider-scoped parts.
+ */
+function isSafeAppUserId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= APP_USER_ID_MAX_LENGTH &&
+    /^[A-Za-z0-9][A-Za-z0-9_.:-]*$/.test(value)
   );
 }
 
