@@ -8,6 +8,10 @@
  * every merged card input — so unit tests on either side alone kept passing
  * while the round-trip was broken.
  *
+ * `submitCard` below is this suite's model of the Teams client; the same model
+ * is asserted against the raw wire shape in `button-action-envelope.contract.test.ts`,
+ * and the two must not disagree about what Teams sends.
+ *
  * The cases below cover the synthesized submit on an input-only card, an
  * input's text arriving beside a clicked `<Button>`'s own value, JSON-shaped
  * text passing through uncoerced, and a multi-input card where only the first

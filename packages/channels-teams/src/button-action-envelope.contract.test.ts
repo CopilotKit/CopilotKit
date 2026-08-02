@@ -155,18 +155,59 @@ describe("synthesized submit envelope (contract)", () => {
     ).toEqual({ id: "ck:pick", value: "1", values: { "ck:pick": "1" } });
   });
 
-  it("yields `undefined` (not the raw envelope) when ckValueField names an absent field", () => {
-    // The documented miss fallback: `data.value`, which a synthesized submit
-    // never carries. An out-of-band decoder must reproduce exactly this.
-    const action = renderAdaptiveCard([
+  it('resolves ckValueField against an untouched field, which Teams submits as ""', () => {
+    // Teams merges EVERY `Input.*` on the card into the submit's `data`, keyed
+    // by the element's `id`: a field the user never touched still arrives, as
+    // an empty string. So on a card THIS renderer emits, `ckValueField` always
+    // names a key the payload carries, and blank text is the action value —
+    // never a miss. (`input-submit.e2e.test.ts` drives the same client model
+    // end-to-end; the two must not disagree about what Teams sends.)
+    const card = renderAdaptiveCard([
       el("input", [], { onSubmit: { id: "ck:note" } }),
-    ]).actions![0]!;
+    ]);
+    const action = card.actions![0]!;
+    const field = (action.data as { ckValueField: string }).ckValueField;
+    // `synthesizeSubmit` binds only a field that survived the body clamp, so
+    // the named field is one the card really rendered and Teams really sends.
+    expect(card.body.map((element) => element.id)).toContain(field);
 
-    expect(parseCardAction({ value: { ...(action.data as object) } })).toEqual({
-      id: "ck:note",
-      value: undefined,
-      values: {},
-    });
+    expect(
+      parseCardAction({ value: { ...(action.data as object), [field]: "" } }),
+    ).toEqual({ id: "ck:note", value: "", values: { [field]: "" } });
+  });
+
+  it("falls back to `data.value` when an out-of-band envelope names an absent field", () => {
+    // Not reachable through this renderer: `synthesizeSubmit` only ever names a
+    // field it rendered, and Teams submits every rendered field. But the
+    // envelope is a published wire contract (`docs/button-action-envelope.md`)
+    // that consumers mint and decode themselves, so a hand-authored card can
+    // carry a `ckValueField` naming nothing on the card. The decode must
+    // neither throw nor surface the raw envelope: it yields `data.value`.
+    expect(
+      parseCardAction({
+        value: { ckActionId: "ck:note", ckValueField: "gone" },
+      }),
+    ).toEqual({ id: "ck:note", value: undefined, values: {} });
+
+    // It is a real fallback, not a hardcoded `undefined` — an out-of-band
+    // envelope carrying both keys dispatches with its own `value`.
+    expect(
+      parseCardAction({
+        value: {
+          ckActionId: "ck:note",
+          ckValueField: "gone",
+          value: { decision: "yes" },
+        },
+      }),
+    ).toEqual({ id: "ck:note", value: { decision: "yes" }, values: {} });
+
+    // A `ckValueField` naming a reserved envelope key misses the same way:
+    // reserved keys are stripped before the lookup, so they are never fields.
+    expect(
+      parseCardAction({
+        value: { ckActionId: "ck:note", ckValueField: "value", value: "env" },
+      }),
+    ).toEqual({ id: "ck:note", value: "env", values: {} });
   });
 });
 
@@ -271,8 +312,13 @@ describe("routeless <Button> (contract)", () => {
     for (const action of card.actions!) {
       if (action.type !== "Action.Submit") continue;
       // Every Action.Submit we emit carries a routable `ckActionId`, so a
-      // consumer decoding the click never gets `undefined`.
-      expect(parseCardAction({ value: action.data })).toBeDefined();
+      // consumer decoding the click never gets `undefined` — including with
+      // the card's untouched input merged in, the way Teams sends it.
+      expect(
+        parseCardAction({
+          value: { ...(action.data as object), "ck:note": "" },
+        }),
+      ).toBeDefined();
     }
   });
 });
