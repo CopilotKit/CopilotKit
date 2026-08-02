@@ -15,16 +15,21 @@ interactive behavior, state, and deployment.
 
 ## Choose how to configure it
 
-Two supported paths do the same work. Both create the Channel, store the
+Three supported paths do the same work. All three create the Channel, store the
 provider credentials, and leave the Channel waiting for your runtime.
 
+- **`copilotkit init`**, when the project does not exist yet. It offers a
+  Channel during setup and then leads you through the rest of it -- opening the
+  provider console, taking the two credentials at a masked prompt, and
+  attaching them -- after your dependencies install. The project it scaffolds
+  ships the long-running host too, so `npm run channel` is the only step left.
 - **The browser wizard**, below. Best when you want to see the Channel, its
   health, and its threads while you set it up. Requires no terminal.
-- **The CLI**, `copilotkit channels`. Best when you want the configuration
-  checked into the repository, want to re-run setup on another machine, or are
-  working with an agent. It records the Channel in
-  `.copilotkit/channels.json`, generates the same provider app manifest, and
-  reports what remains at each stop.
+- **The CLI**, `copilotkit channels`. Best for a project that already exists,
+  when you want the configuration checked into the repository, want to re-run
+  setup on another machine, or are working with an agent. It records the
+  Channel in `.copilotkit/channels.json`, generates the same provider app
+  manifest, and reports what remains at each stop.
 
 ```bash
 npx copilotkit channels add support
@@ -37,10 +42,12 @@ to open, which environment variables to set, and the exact command to resume
 with. No flag accepts a credential value, and `--json` emits a versioned envelope
 for scripts and agents.
 
-<Callout type="info" title="The CLI and the wizard are interchangeable">
-  Either can finish what the other started -- both reconcile against the same
-  server state. A Channel created in the wizard can be managed with the CLI, and
-  a Channel created with the CLI appears in the dashboard immediately.
+<Callout type="info" title="The paths are interchangeable">
+  Any of them can finish what another started -- all three reconcile against the
+  same server state. A Channel created in the wizard can be managed with the CLI,
+  a Channel created with the CLI appears in the dashboard immediately, and a
+  Channel begun by `init` is finished by `channels add` if you skip its guided
+  step.
 </Callout>
 
 ## Create and configure your Channel
