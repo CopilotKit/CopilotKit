@@ -517,9 +517,8 @@ describe("decoded `values` bag (contract)", () => {
     // The bag stays an ORDINARY object: `values` is public API (it reaches
     // handlers as `ctx.values`, a `Record<string, unknown>`), and consumer
     // code calls `Object.prototype` methods on it. A null-prototype bag would
-    // block the injection too, but at the cost of breaking that. (See
-    // `setField`; the doc bullet still describes the older `Object.create(null)`
-    // build and is stale on this point.)
+    // block the injection too, but at the cost of breaking that. See
+    // `setField`, and the prototype rule in `docs/button-action-envelope.md`.
     expect(typeof decoded.values.hasOwnProperty).toBe("function");
     expect(decoded.value).toBeUndefined();
   });
