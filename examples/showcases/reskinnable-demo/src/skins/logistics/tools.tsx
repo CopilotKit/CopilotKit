@@ -23,11 +23,6 @@ import {
   ESCALATION_CODES,
   ESCALATION_CODE_LABELS,
 } from "./data/escalation-codes";
-import {
-  renderBriefParams,
-  buildBriefOps,
-  A2UI_OPERATIONS_KEY,
-} from "./build-brief-ops";
 
 /**
  * Registers everything Meridian Control can do on the client: gen-UI rendered
@@ -43,6 +38,7 @@ export function LogisticsTools() {
     decisions,
     commitMitigation,
     fileEscalation,
+    fileDecision,
   } = useLogistics();
   const { currentPlanner } = usePlannerAuth();
 
@@ -307,19 +303,51 @@ export function LogisticsTools() {
     },
   });
 
-  // ── Frontend tool: render the decision brief on the canvas ───────────────
+  // ── Frontend tool: file a durable decision record ────────────────────────
+  // Logs a decision the agent did NOT execute through commitMitigation (a
+  // verbally-accepted recommendation, an escalation outcome). Registered here so
+  // it works from any page. The server derives decidedBy/role from the planner
+  // and ignores any client cost — so we file at 0 and let the server own trust.
   useFrontendTool({
-    name: "renderBrief",
+    name: "createDecisionRecord",
     description:
-      "Build a decision brief on the canvas. Pick which KPIs, charts, and tables to show; the figures bind to " +
-      "live data on the client, so supply selections and LABEL-ONLY text — never numbers.",
-    parameters: renderBriefParams,
-    handler: async (spec) => ({ [A2UI_OPERATIONS_KEY]: buildBriefOps(spec) }),
+      "File a durable decision record in the Decision Log for a decision NOT already committed through " +
+      "commitMitigation — e.g. a recommendation the planner accepted verbally, or an escalation outcome. Pass " +
+      "the shipment reference and a one-sentence rationale.",
+    parameters: z.object({
+      shipment: z
+        .string()
+        .describe("Shipment reference or id, e.g. 'PO-88213'."),
+      kind: z
+        .enum(["expedite", "reroute", "split", "absorb", "escalation"])
+        .describe("What was decided."),
+      rationale: z.string().describe("One short sentence on why."),
+      costUsd: z
+        .number()
+        .optional()
+        .describe(
+          "The cost if known. The server does not trust this and files the record at 0.",
+        ),
+    }),
+    handler: async ({ shipment: ref, kind, rationale }) => {
+      const shipment = findShipment(ref ?? "");
+      if (!shipment)
+        return "No shipment matches that reference; nothing was filed.";
+      const result = await fileDecision({
+        shipmentId: shipment.id,
+        kind: kind ?? "absorb",
+        costUsd: 0,
+        rationale: rationale ?? "",
+      });
+      return result.ok
+        ? `Filed ${kind} on ${ref} to the Decision Log.`
+        : `REJECTED: ${result.error}`;
+    },
     render: ({ status }) => (
       <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
         {status === ToolCallStatus.Complete
-          ? "Decision brief is on the canvas."
-          : "Building the decision brief…"}
+          ? "Filed to the Decision Log."
+          : "Filing to the decision log…"}
       </div>
     ),
   });

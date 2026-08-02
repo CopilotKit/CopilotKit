@@ -167,8 +167,9 @@ export function useLogistics() {
           body: JSON.stringify({
             ...input,
             status: input.status ?? "committed",
-            decidedBy: currentPlanner.name,
-            role: currentPlanner.role,
+            // decidedBy/role are derived server-side from the planner; the
+            // client only forwards which planner is acting.
+            plannerId: currentPlanner.id,
           }),
         });
         notifyDataChanged();
@@ -180,7 +181,7 @@ export function useLogistics() {
         return { ok: false as const, error: "Network error." };
       }
     },
-    [currentPlanner.name, currentPlanner.role],
+    [currentPlanner.id],
   );
 
   return {

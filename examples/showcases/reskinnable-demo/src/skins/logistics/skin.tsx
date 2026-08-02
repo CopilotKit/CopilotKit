@@ -6,7 +6,11 @@ import { logisticsIdentity } from "./identity";
 import { logisticsNav } from "./nav";
 import { LogisticsLayout } from "./layout";
 import { LogisticsTools } from "./tools";
-import { LogisticsProviders, LogisticsRuntimeProviders, useLogisticsRuntimeProperties } from "./providers";
+import {
+  LogisticsProviders,
+  LogisticsRuntimeProviders,
+  useLogisticsRuntimeProperties,
+} from "./providers";
 import { LogisticsCanvasSurface } from "./canvas-surface";
 import { catalog } from "./catalog";
 import { logisticsSuggestions } from "./suggestions";
@@ -36,6 +40,7 @@ const TOOL_LABELS: Record<string, string> = {
   compareMitigations: "Weighing the options",
   commitMitigation: "Committing the decision",
   fileEscalation: "Filing an escalation",
+  createDecisionRecord: "Filing to the decision log",
   renderBrief: "Building the decision brief",
   generateSandboxedUi: "Generating an interactive view",
   recall_memory: "Recalling from long-term memory",
@@ -51,7 +56,8 @@ const logistics: Skin = {
   themeClass: "theme-logistics",
   Layout: LogisticsLayout,
   nav: logisticsNav,
-  resolvePage: (segments) => PAGES[segments.length === 0 ? "" : segments.join("/")] ?? null,
+  resolvePage: (segments) =>
+    PAGES[segments.length === 0 ? "" : segments.join("/")] ?? null,
   Tools: LogisticsTools,
   catalog,
   suggestions: logisticsSuggestions,

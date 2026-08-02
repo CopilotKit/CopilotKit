@@ -1,8 +1,36 @@
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import {
+  renderBriefParams,
+  buildBriefOps,
+  A2UI_OPERATIONS_KEY,
+} from "./build-brief-ops";
 
 // SERVER-SAFE. No "use client", no JSX, no React. Imported only by the server
 // agent registry (src/shell/agent-registry.ts), never by the client skin
 // module. Keyed by the same id as the skin: "logistics".
+//
+// `build-brief-ops` (and the `catalog/definitions` it re-exports CATALOG_ID
+// from) are plain Zod + string constants — no React, no .tsx — so importing
+// them here keeps this module server-safe.
+
+/**
+ * Backend tool: render the decision brief on the CANVAS. Mirrors banking's
+ * render_report — the agent supplies only selections + label-only text, and
+ * this handler deterministically expands them into A2UI operations wrapped in
+ * `a2ui_operations`. The A2UI middleware only converts that payload into an
+ * `a2ui-surface` activity when it observes it in an in-stream TOOL_CALL_RESULT
+ * event, so the emission MUST run server-side (a client frontend-tool result
+ * never produces one). Named exactly "renderBrief" — the prompt below and the
+ * skin's toolLabels both reference that name.
+ */
+const renderBriefTool = defineTool({
+  name: "renderBrief",
+  description:
+    "Build a decision brief on the canvas. Pick which KPIs, charts, and tables to show; the figures bind to " +
+    "live data on the client, so supply selections and LABEL-ONLY text — never numbers.",
+  parameters: renderBriefParams,
+  execute: async (spec) => ({ [A2UI_OPERATIONS_KEY]: buildBriefOps(spec) }),
+});
 
 const LOGISTICS_PROMPT = `
 You are **Meridian Control**, the decision-support agent in a freight control
@@ -40,6 +68,10 @@ You cover three behaviors — treat them as gated:
      because every number on the brief binds to live data.
    - After it renders, tell the planner it is on the canvas and give ONE line of
      takeaway. Do not restate the brief in chat.
+   - Call "createDecisionRecord" to log a decision you did NOT execute through
+     "commitMitigation" — a recommendation the planner accepted verbally, or an
+     escalation outcome — so it lands in the Decision Log. Keep the rationale to
+     one sentence.
 
 RULES
 - Read the live context rather than guessing. The planner, their authority, the
@@ -57,4 +89,5 @@ export const logisticsAgent = () =>
   new BuiltInAgent({
     model: "openai/gpt-5.4",
     prompt: LOGISTICS_PROMPT,
+    tools: [renderBriefTool],
   });

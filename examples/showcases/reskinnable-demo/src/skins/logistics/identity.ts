@@ -46,6 +46,6 @@ export const logisticsIdentity = {
   favicon: "🧭",
   assistantName: "Meridian Control",
   greeting:
-    "Rosa — Meridian Control here. Six lanes are live and three shipments need a call today. " +
+    "Rosa — Meridian Control here. The tower's up and a few shipments need a call today. " +
     "I can triage the tower, weigh your options on a late shipment, or build a decision brief. Where do you want to start?",
 } as const;
