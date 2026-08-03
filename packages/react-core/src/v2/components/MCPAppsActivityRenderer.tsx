@@ -286,6 +286,30 @@ function isNotification(msg: JSONRPCMessage): msg is JSONRPCNotification {
 }
 
 /**
+ * Join the human-readable text of an MCP tool result.
+ *
+ * `result.content` is a heterogeneous MCP content-block list (text, image,
+ * resource, …) so each block is narrowed before its `text` is read; anything
+ * that is not a text block is skipped.
+ */
+export function ɵmcpToolResultText(
+  result: MCPAppsActivityContent["result"],
+): string {
+  if (!Array.isArray(result.content)) return "";
+  return result.content
+    .filter(
+      (block): block is { type: "text"; text: string } =>
+        typeof block === "object" &&
+        block !== null &&
+        (block as { type?: unknown }).type === "text" &&
+        typeof (block as { text?: unknown }).text === "string",
+    )
+    .map((block) => block.text)
+    .join("\n")
+    .trim();
+}
+
+/**
  * Props for the activity renderer component
  */
 interface MCPAppsActivityRendererProps {
@@ -840,6 +864,28 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       }
     }, [iframeReady, content.result, sendNotification]);
 
+    // The tool call that produced this activity can itself have failed
+    // (`isError: true` from the MCP server, e.g. rejected arguments). The
+    // result is still forwarded to the app above, but an app that has no data
+    // to draw typically renders nothing for it — leaving an empty box that
+    // reads as success. Surface the failure host-side so it is visible.
+    const toolFailed = content.result.isError === true;
+    const toolFailureMessage = toolFailed
+      ? ɵmcpToolResultText(content.result) ||
+        "The tool call reported an error but returned no message."
+      : null;
+
+    // Effect 5: Log tool failures. Kept out of Effect 4 so a failure is logged
+    // even if the app iframe never becomes ready.
+    useEffect(() => {
+      if (toolFailureMessage) {
+        console.error(
+          "[MCPAppsRenderer] Tool call failed:",
+          toolFailureMessage,
+        );
+      }
+    }, [toolFailureMessage]);
+
     // Determine border styling based on prefersBorder metadata from fetched resource
     // true = show border/background, false = none, undefined = host decides (we default to none)
     const prefersBorder = fetchedResource?._meta?.ui?.prefersBorder;
@@ -857,7 +903,12 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
         ref={containerRef}
         style={{
           width: "100%",
-          height: iframeSize.height ? `${iframeSize.height}px` : "auto",
+          // A failure notice is stacked above the app iframe, so the container
+          // must grow to fit both instead of being pinned to the app's height.
+          height:
+            iframeSize.height && !toolFailed
+              ? `${iframeSize.height}px`
+              : "auto",
           minHeight: "100px",
           overflow: "hidden",
           position: "relative",
@@ -870,6 +921,25 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
         {error && (
           <div style={{ color: "red", padding: "1rem" }}>
             Error: {error.message}
+          </div>
+        )}
+        {toolFailureMessage && (
+          <div
+            data-testid="copilot-mcp-apps-tool-error"
+            role="alert"
+            style={{
+              color: "#b91c1c",
+              backgroundColor: "#fef2f2",
+              border: "1px solid #fecaca",
+              borderRadius: "8px",
+              padding: "0.75rem 1rem",
+              marginBottom: "0.5rem",
+              fontSize: "13px",
+              lineHeight: 1.45,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            Tool call failed: {toolFailureMessage}
           </div>
         )}
       </div>
