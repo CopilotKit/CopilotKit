@@ -15,7 +15,7 @@ import type {
   ProviderActor,
   ThreadMessage,
 } from "@copilotkit/channels-ui";
-import { toPlatformEmoji } from "@copilotkit/channels-ui";
+import { isNativeNode, toPlatformEmoji } from "@copilotkit/channels-ui";
 import type {
   CanonicalRunIdentity,
   ChannelAgentLifecycleArgs,
@@ -39,11 +39,13 @@ import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
   createRunRenderer as createSlackRunRenderer,
   renderSlackMessage,
+  slackFallbackText,
 } from "@copilotkit/channels-slack/render";
 import {
   createRunRenderer as createTeamsRunRenderer,
   isPlainText,
   renderAdaptiveCard,
+  renderTeamsNativeCard,
   renderTeamsMarkdown,
 } from "@copilotkit/channels-teams/render";
 import type { ChannelProviderPayload } from "./delivery-contracts.js";
@@ -1030,7 +1032,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       return providerMessageResultFromResult(
         await claimedDelivery.effect(responseId, {
           kind: "slack.message.create",
-          text: collectText(ir),
+          text: slackFallbackText(ir),
           blocks: rendered.blocks as unknown as Array<Record<string, unknown>>,
         }),
       );
@@ -1057,7 +1059,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       const rendered = renderSlackMessage(ir);
       await claimedDelivery.effect(responseId, {
         kind: "slack.message.replace",
-        text: collectText(ir),
+        text: slackFallbackText(ir),
         blocks: rendered.blocks as unknown as Array<Record<string, unknown>>,
         providerReference,
       });
@@ -1382,7 +1384,10 @@ function teamsMessageEffect(
   ir: ChannelNode[],
   providerReference?: string,
 ): ChannelProviderPayload {
-  const portable = ir.filter((node) => node.type !== "raw");
+  const nativeJsx = ir.filter(isNativeNode);
+  const portable = ir.filter(
+    (node) => node.type !== "raw" && !isNativeNode(node),
+  );
   const nativeCards = ir.flatMap((node) =>
     node.type === "raw" && node.props.provider === "teams"
       ? [assertNativeCard(node.props.value)]
@@ -1394,6 +1399,9 @@ function teamsMessageEffect(
       ? [renderAdaptiveCard(portable) as unknown as Record<string, unknown>]
       : []),
     ...nativeCards,
+    ...(nativeJsx.length > 0
+      ? [renderTeamsNativeCard(nativeJsx) as unknown as Record<string, unknown>]
+      : []),
   ];
   const cards = renderedCards.length > 0 ? { cards: renderedCards } : {};
   if (operation === "create") {
@@ -1413,18 +1421,35 @@ function assertProviderElements(
   ir: ChannelNode[],
   activeProvider: "slack" | "teams",
 ): void {
-  for (const node of ir) {
-    if (node.type !== "raw") continue;
-    const requestedProvider =
-      node.props.provider === "teams" ? "teams" : "slack";
-    if (requestedProvider !== activeProvider) {
-      throw new ChannelProviderMismatchError(
-        activeProvider,
-        requestedProvider,
-        "element",
-      );
+  const visit = (node: ChannelNode): void => {
+    if (node.type === "raw" || isNativeNode(node)) {
+      const requestedProvider =
+        node.props.provider === "teams" ? "teams" : "slack";
+      if (requestedProvider !== activeProvider) {
+        throw new ChannelProviderMismatchError(
+          activeProvider,
+          requestedProvider,
+          "element",
+        );
+      }
     }
-  }
+    for (const value of Object.values(node.props)) {
+      if (isChannelNode(value)) visit(value);
+      if (Array.isArray(value)) {
+        for (const item of value) if (isChannelNode(item)) visit(item);
+      }
+    }
+  };
+  for (const node of ir) visit(node);
+}
+
+function isChannelNode(value: unknown): value is ChannelNode {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    "props" in value
+  );
 }
 
 /** Validate one provider-native Adaptive Card without translating its contents. */
@@ -1527,18 +1552,4 @@ function normalizeTaskStatus(
     value === "failed"
     ? value
     : "in_progress";
-}
-
-function collectText(nodes: readonly ChannelNode[]): string {
-  let text = "";
-  for (const node of nodes) {
-    if (node.type === "text" && typeof node.props.value === "string") {
-      text += node.props.value;
-    }
-    const children = node.props.children;
-    if (Array.isArray(children)) {
-      text += collectText(children as ChannelNode[]);
-    }
-  }
-  return text;
 }
