@@ -14,7 +14,7 @@ Keep your existing React Native UI connected to your public app Runtime while yo
 
 Keep the native client pointed at the public URL for your app Runtime. A physical device cannot use a web app's relative `/api/copilotkit` URL, so use the deployed HTTPS endpoint that the device can reach. Do not add the managed project key, hosted API URL, or hosted WebSocket URL to the app bundle.
 
-React Native supports persistent Threads through the headless `useThreads` hook exported by `@copilotkit/react-native`. It does not provide the web Threads Drawer, so build the list with native components. Follow the [React Native `useThreads` reference](/reference/react-native/hooks/useThreads) for the supported API, then return here to verify persistence and user isolation.
+React Native supports persistent Threads through the headless `useThreads` hook exported by `@copilotkit/react-native/headless`. It does not provide the web Threads Drawer, so build the list with native components. Follow the [React Native `useThreads` reference](/reference/react-native/hooks/useThreads) for the supported API, then return here to verify persistence and user isolation.
 
 Keep sending your current bearer token or cookies to the public app Runtime URL. The native client should authenticate only to your app Runtime; the Runtime reports the selected project's managed entitlement and realtime connection details. The shared server setup below configures the hosted API URL and hosted WebSocket URL inside that Runtime.
 

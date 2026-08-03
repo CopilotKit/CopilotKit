@@ -10,8 +10,11 @@ description: "The React Native provider that configures the CopilotKit runtime c
 Importing the package auto-installs the [polyfills](/reference/react-native#polyfills) CopilotKit needs on Hermes, so you do not have to import them manually before using the provider.
 
 <Callout type="info">
-  Cloud features (`publicLicenseKey` / license-gated functionality) are not yet
-  supported on React Native. Point `runtimeUrl` at a self-hosted runtime.
+  Do not put `publicLicenseKey` or another browser license token in a React
+  Native bundle. For cloud-hosted Intelligence, point `runtimeUrl` at your
+  public app Runtime; that server reports the managed entitlement and keeps
+  hosted project credentials off the device. You can also point it at a
+  self-hosted Runtime.
 </Callout>
 
 ## Import

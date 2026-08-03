@@ -36,6 +36,10 @@ const hostedGuideWrappers = [
   { name: "React", path: canonicalGuideContentPath },
   ...hostedGuideVariants,
 ] as const;
+const reactNativeHostedGuidePath =
+  "docs/frontends/react-native/premium/existing-app-hosted-intelligence.mdx";
+const reactNativeProviderReferencePath =
+  "reference/react-native/components/CopilotKitProvider.mdx";
 const runtimeSetupLead =
   "Replace the single-method handler with the Intelligence and multi-method handler setup shown here.";
 const runnerException =
@@ -2587,6 +2591,17 @@ test("native thread references stay on native headless APIs", async () => {
   expect(await extractMarkdownLinkDestinations(reference)).not.toContain(
     "/headless-threads",
   );
+});
+
+test("the React Native hosted journey uses headless Threads and managed entitlement", () => {
+  const guide = readContent(reactNativeHostedGuidePath);
+  const provider = readContent(reactNativeProviderReferencePath);
+
+  expect(guide).toContain("`@copilotkit/react-native/headless`");
+  expect(guide).not.toMatch(/exported by `@copilotkit\/react-native`\./);
+  expect(provider).toContain("managed entitlement");
+  expect(provider).not.toContain("Cloud features (`publicLicenseKey`");
+  expect(provider).not.toContain("Point `runtimeUrl` at a self-hosted runtime");
 });
 
 test("thread references describe realtime as a runtime capability", () => {
