@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { mount } from "@vue/test-utils";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -6,6 +6,7 @@ import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
+  ɵmcpToolResultText,
 } from "../MCPAppsActivityRenderer";
 
 const runCopilotAgent = vi.fn();
@@ -233,5 +234,120 @@ describe("MCPAppsActivityRenderer", () => {
       "frame-src * blob: data: http://localhost:* https://localhost:*;",
     );
     expect(iframe.srcdoc).not.toContain("widgets.example.com");
+  });
+
+  // A tool call whose MCP result carries `isError: true` used to be forwarded to
+  // the app and otherwise ignored host-side: the activity rendered an empty box
+  // while the chat chip still read "Done". Captured verbatim off prod:
+  // mcp.excalidraw.com rejecting a malformed `elements` argument.
+  describe("Tool Failure Surfacing", () => {
+    const TOOL_ERROR_TESTID = '[data-testid="copilot-mcp-apps-tool-error"]';
+    const RECORDED_ERROR_TEXT =
+      "Invalid JSON in elements: Unexpected non-whitespace character after JSON " +
+      "at position 540 (line 1 column 541). Ensure no comments, no trailing " +
+      "commas, and proper quoting.";
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    async function mountWithResult(result: {
+      content?: unknown[];
+      structuredContent?: unknown;
+      isError?: boolean;
+    }) {
+      const agent = createAgentMock({
+        runResult: {
+          result: {
+            contents: [
+              { uri: "ui://excalidraw/view", text: "<div>excalidraw</div>" },
+            ],
+          },
+        },
+        threadId: `tool-failure-${Math.random()}`,
+      });
+
+      const wrapper = mount(MCPAppsActivityRenderer, {
+        props: {
+          activityType: MCPAppsActivityType,
+          content: {
+            resourceUri: "ui://excalidraw/view",
+            serverHash: "excalidraw-hash",
+            result,
+          },
+          message: {
+            id: "activity-tool-failure",
+            role: "assistant",
+            content: "",
+            activityType: MCPAppsActivityType,
+          },
+          agent,
+        },
+      });
+
+      await flushAsync();
+      await flushAsync();
+      return wrapper;
+    }
+
+    it("shows the failure message when the tool result has isError: true", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const wrapper = await mountWithResult({
+        content: [{ type: "text", text: RECORDED_ERROR_TEXT }],
+        isError: true,
+      });
+
+      const notice = wrapper.find(TOOL_ERROR_TESTID);
+      expect(notice.exists()).toBe(true);
+      expect(notice.attributes("role")).toBe("alert");
+      expect(notice.text()).toContain(RECORDED_ERROR_TEXT);
+      expect(consoleError).toHaveBeenCalledWith(
+        "[MCPAppsRenderer] Tool call failed:",
+        RECORDED_ERROR_TEXT,
+      );
+    });
+
+    it("falls back to a generic message when the failed result carries no text", async () => {
+      const wrapper = await mountWithResult({ content: [], isError: true });
+
+      expect(wrapper.find(TOOL_ERROR_TESTID).text()).toContain(
+        "returned no message",
+      );
+    });
+
+    it("shows nothing for a successful tool result", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const wrapper = await mountWithResult({
+        content: [{ type: "text", text: "Diagram displayed!" }],
+        structuredContent: { checkpointId: "71a8a6d624df4e5281" },
+        isError: false,
+      });
+
+      // The app iframe must still be created — the happy path is untouched.
+      expect(wrapper.find("iframe").exists()).toBe(true);
+      expect(wrapper.find(TOOL_ERROR_TESTID).exists()).toBe(false);
+      expect(consoleError).not.toHaveBeenCalled();
+    });
+
+    it("joins only the text blocks of a mixed-content failure", () => {
+      expect(
+        ɵmcpToolResultText({
+          content: [
+            { type: "text", text: "first line" },
+            { type: "image", data: "…", mimeType: "image/png" },
+            { type: "text", text: "second line" },
+          ],
+          isError: true,
+        }),
+      ).toBe("first line\nsecond line");
+
+      expect(ɵmcpToolResultText({ isError: true })).toBe("");
+    });
   });
 });

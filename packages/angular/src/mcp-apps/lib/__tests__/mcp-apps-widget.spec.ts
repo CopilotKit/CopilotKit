@@ -571,3 +571,153 @@ test("provideMCPApps registers a lower-precedence built-in renderer", () => {
     CopilotMCPAppsActivityRenderer,
   ]);
 });
+
+// A tool call whose MCP result carries `isError: true` used to be forwarded to
+// the app and otherwise ignored host-side: the widget rendered an empty frame
+// while the chat chip still read "Done". Captured verbatim off prod:
+// mcp.excalidraw.com rejecting a malformed `elements` argument.
+const TOOL_ERROR_SELECTOR = "[data-testid='copilot-mcp-apps-tool-error']";
+const RECORDED_ERROR_TEXT =
+  "Invalid JSON in elements: Unexpected non-whitespace character after JSON " +
+  "at position 540 (line 1 column 541). Ensure no comments, no trailing " +
+  "commas, and proper quoting.";
+
+async function bootWidgetWithResult(
+  result: MCPAppsSnapshotContent["result"],
+): Promise<{
+  fixture: ReturnType<typeof TestBed.createComponent<CopilotMCPAppsWidget>>;
+  frame: HTMLIFrameElement;
+  postMessage: ReturnType<typeof vi.spyOn>;
+}> {
+  const fixture = TestBed.createComponent(CopilotMCPAppsWidget);
+  fixture.componentRef.setInput("data", { ...snapshot, result });
+  fixture.componentRef.setInput("agent", createAgent());
+  await settle(fixture);
+
+  const frame = fixture.nativeElement.querySelector<HTMLIFrameElement>(
+    "[data-testid='mcp-app-iframe']",
+  );
+  if (!frame?.contentWindow) throw new Error("MCP Apps iframe was not created");
+  await waitFor(
+    () => frame.srcdoc.includes("sandbox-proxy-ready"),
+    "sandbox proxy was not installed",
+  );
+
+  const postMessage = vi.spyOn(frame.contentWindow, "postMessage");
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    method: "ui/notifications/sandbox-proxy-ready",
+    params: {},
+  });
+  await settle(fixture);
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    method: "ui/notifications/initialized",
+    params: {},
+  });
+  await settle(fixture);
+
+  return { fixture, frame, postMessage };
+}
+
+test("shows the failure message when the tool result has isError: true", async () => {
+  configureTestingModule();
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+  const { fixture } = await bootWidgetWithResult({
+    content: [{ type: "text", text: RECORDED_ERROR_TEXT }],
+    isError: true,
+  });
+
+  const notice =
+    fixture.nativeElement.querySelector<HTMLElement>(TOOL_ERROR_SELECTOR);
+  expect(notice).not.toBeNull();
+  expect(notice!.getAttribute("role")).toBe("alert");
+  expect(notice!.textContent).toContain(RECORDED_ERROR_TEXT);
+  expect(consoleError).toHaveBeenCalledWith(
+    "[CopilotKit MCP App] Tool call failed:",
+    RECORDED_ERROR_TEXT,
+  );
+
+  consoleError.mockRestore();
+});
+
+test("falls back to a generic message when the failed result carries no text", async () => {
+  configureTestingModule();
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+  const { fixture } = await bootWidgetWithResult({
+    content: [],
+    isError: true,
+  });
+
+  expect(
+    fixture.nativeElement.querySelector<HTMLElement>(TOOL_ERROR_SELECTOR)!
+      .textContent,
+  ).toContain("returned no message");
+
+  consoleError.mockRestore();
+});
+
+test("joins only the text blocks of a mixed-content failure", async () => {
+  configureTestingModule();
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+  const { fixture } = await bootWidgetWithResult({
+    content: [
+      { type: "text", text: "first line" },
+      { type: "image", data: "iVBORw0KGgo=", mimeType: "image/png" },
+      { type: "text", text: "second line" },
+    ],
+    isError: true,
+  });
+
+  expect(
+    fixture.nativeElement
+      .querySelector<HTMLElement>(TOOL_ERROR_SELECTOR)!
+      .textContent!.replace(/\s+/g, " ")
+      .trim(),
+  ).toBe("Tool call failed: first line second line");
+
+  consoleError.mockRestore();
+});
+
+test("still forwards a failed tool result to the app", async () => {
+  configureTestingModule();
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  const failedResult: MCPAppsSnapshotContent["result"] = {
+    content: [{ type: "text", text: RECORDED_ERROR_TEXT }],
+    isError: true,
+  };
+
+  const { postMessage } = await bootWidgetWithResult(failedResult);
+
+  expect(postMessage).toHaveBeenCalledWith(
+    {
+      jsonrpc: "2.0",
+      method: "ui/notifications/tool-result",
+      params: failedResult,
+    },
+    "*",
+  );
+
+  consoleError.mockRestore();
+});
+
+test("shows nothing for a successful tool result", async () => {
+  configureTestingModule();
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+  const { fixture, frame } = await bootWidgetWithResult({
+    content: [{ type: "text", text: "Diagram displayed!" }],
+    structuredContent: { checkpointId: "71a8a6d624df4e5281" },
+    isError: false,
+  });
+
+  // The app frame must still be booted — the happy path is untouched.
+  expect(frame.srcdoc).toContain("Content-Security-Policy");
+  expect(fixture.nativeElement.querySelector(TOOL_ERROR_SELECTOR)).toBeNull();
+  expect(consoleError).not.toHaveBeenCalled();
+
+  consoleError.mockRestore();
+});
