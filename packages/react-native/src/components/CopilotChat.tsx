@@ -9,15 +9,15 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  type ListRenderItemInfo,
-  type ViewStyle,
 } from "react-native";
+import type { ListRenderItemInfo, ViewStyle } from "react-native";
 import { useAgent } from "@copilotkit/react-core/v2/headless";
 import { useCopilotKit } from "@copilotkit/react-core/v2/context";
 import { AssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage } from "./messages/UserMessage";
 import { useRenderToolRegistry } from "../hooks/RenderToolContext";
 import type { Message } from "@copilotkit/shared";
+import { partialJSONParse } from "@copilotkit/shared";
 
 /** Shape of an assistant message with optional tool calls. */
 interface AssistantMessageShape {
@@ -232,18 +232,25 @@ export function CopilotChat({
         const tc = item.toolCalls[0];
         const renderer = toolRenderers.get(tc.function.name);
         if (renderer) {
-          let args: Record<string, unknown> = {};
+          // Partial parse, NOT JSON.parse: while the model is still writing the call, the argument
+          // string is incomplete JSON. JSON.parse threw on every streamed delta, warned, and fell
+          // back to {} — so a registered component rendered nothing until the call finished. Partial
+          // parsing lets it paint as the arguments arrive, which is what the web renderer does.
+          const raw = tc.function.arguments || "{}";
+          const args = partialJSONParse(raw);
+          // Incomplete JSON IS the signal that the model is still writing this call — no extra
+          // stream state needed. Once it parses strictly, fall back to the previous semantics.
+          let argsComplete = true;
           try {
-            args = JSON.parse(tc.function.arguments || "{}");
-          } catch (e) {
-            console.warn(
-              `[CopilotChat] Failed to parse tool call arguments for ${tc.function.name}:`,
-              e,
-            );
+            JSON.parse(raw);
+          } catch {
+            argsComplete = false;
           }
-          const status = executingToolCallIds.has(tc.id)
-            ? "executing"
-            : "complete";
+          const status = !argsComplete
+            ? "inProgress"
+            : executingToolCallIds.has(tc.id)
+              ? "executing"
+              : "complete";
           return renderer({ args, status });
         }
         // Subtle indicator for unregistered tool calls

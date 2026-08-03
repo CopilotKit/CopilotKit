@@ -102,6 +102,11 @@ export type {
 // Render tool hook (React Native version with render registry integration).
 // No DOM and no chat-UI stack: the app supplies the renderers.
 export { useRenderTool } from "./hooks/useRenderTool";
+export { useRenderToolCall } from "./hooks/useRenderToolCall";
+export type {
+  RenderToolCallInput,
+  RenderableToolCall,
+} from "./hooks/useRenderToolCall";
 export type { UseRenderToolOptions } from "./hooks/useRenderTool";
 export {
   RenderToolProvider,
