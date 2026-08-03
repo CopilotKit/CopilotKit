@@ -872,7 +872,9 @@ describe("e2e-full driver", () => {
     });
 
     it("returns undefined when ANY failure is product-classed or unknown", () => {
-      expect(rollupInfraErrorClass(["abort", "missing-script"])).toBeUndefined();
+      expect(
+        rollupInfraErrorClass(["abort", "missing-script"]),
+      ).toBeUndefined();
       expect(rollupInfraErrorClass(["abort", undefined])).toBeUndefined();
       expect(
         rollupInfraErrorClass(["abort", "promise-rejected"]),
@@ -919,7 +921,9 @@ describe("e2e-full driver", () => {
       registerD5Script(makeScript(["agentic-chat"]));
       const driver = createE2eFullDriver({
         launcher: async () => {
-          throw new Error("Failed to launch chromium: Resource temporarily unavailable");
+          throw new Error(
+            "Failed to launch chromium: Resource temporarily unavailable",
+          );
         },
         scriptLoader: noopScriptLoader(),
       });
