@@ -81,6 +81,11 @@ overrides:
 
 pnpmfileChecksum: sha256-Yeprb3L5TyOmoppd3E/Q880zwJi1e3M2rgrViqRvicc=
 
+patchedDependencies:
+  eventsource@3.0.7:
+    hash: 427032a8df76e38f39988ff5fb919a02ccb70eb8a235e2b484007e4bebb1e67e
+    path: patches/eventsource@3.0.7.patch
+
 importers:
 
   .:
@@ -35313,7 +35318,7 @@ snapshots:
       content-type: 1.0.5
       cors: 2.8.5
       cross-spawn: 7.0.6
-      eventsource: 3.0.7
+      eventsource: 3.0.7(patch_hash=427032a8df76e38f39988ff5fb919a02ccb70eb8a235e2b484007e4bebb1e67e)
       eventsource-parser: 3.0.6
       express: 5.2.1
       express-rate-limit: 8.4.1(express@5.2.1)
@@ -45376,7 +45381,7 @@ snapshots:
 
   eventsource-parser@3.0.8: {}
 
-  eventsource@3.0.7:
+  eventsource@3.0.7(patch_hash=427032a8df76e38f39988ff5fb919a02ccb70eb8a235e2b484007e4bebb1e67e):
     dependencies:
       eventsource-parser: 3.0.8
 
