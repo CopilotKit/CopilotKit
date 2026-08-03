@@ -168,6 +168,10 @@ export class Thread implements ThreadInterface {
       ui,
       this.deps.conversationKey,
       this.activeContinuation,
+      {
+        platform: this.platform as ChannelComponentRenderContext["platform"],
+        signal: new AbortController().signal,
+      },
     );
   }
 
@@ -234,14 +238,19 @@ export class Thread implements ThreadInterface {
     renderContext: ChannelComponentRenderContext,
   ): Promise<MessageRef> {
     return this.trackOperation(async () => {
-      const bound = await this.deps.registry.bindTree(
+      const bound = await this.deps.registry.bindRegisteredRenderable(
         componentName,
         props,
         this.deps.conversationKey,
         this.activeContinuation,
         renderContext,
       );
-      return this.deps.adapter.post(this.deps.replyTarget, bound);
+      const ref = await this.deps.adapter.post(
+        this.deps.replyTarget,
+        bound.root,
+      );
+      await this.bindReaction(ref.id, bound);
+      return ref;
     });
   }
 

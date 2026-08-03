@@ -1553,17 +1553,3 @@ function normalizeTaskStatus(
     ? value
     : "in_progress";
 }
-
-function collectText(nodes: readonly ChannelNode[]): string {
-  let text = "";
-  for (const node of nodes) {
-    if (node.type === "text" && typeof node.props.value === "string") {
-      text += node.props.value;
-    }
-    const children = node.props.children;
-    if (Array.isArray(children)) {
-      text += collectText(children as ChannelNode[]);
-    }
-  }
-  return text;
-}

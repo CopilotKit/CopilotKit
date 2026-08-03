@@ -116,6 +116,43 @@ for sideloading into real Teams via Azure Bot Service.
   in-memory `TeamsConversationStore` keeps one per conversation and seeds each
   agent run with it. Swap in a durable `ConversationStore` for production.
 
+## Native Teams JSX
+
+Use the `Teams` namespace for Adaptive Card types outside the portable JSX
+set. A native card has one explicit `Teams.AdaptiveCard` root. Actions can be
+root children or children of `Teams.ActionSet`.
+
+```tsx
+import { Teams } from "@copilotkit/channels-teams";
+
+await thread.post(
+  <Teams.AdaptiveCard fallbackText="Deploy approval">
+    <Teams.TextBlock text="Deploy ready" wrap />
+    <Teams.ActionSet>
+      <Teams.Action.Submit
+        key="approve"
+        title="Approve"
+        value={{ decision: "approve" }}
+        onSubmit={({ action }) => approve(action.value)}
+      />
+    </Teams.ActionSet>
+  </Teams.AdaptiveCard>,
+);
+```
+
+The serializer computes the card version from the types and properties in use.
+An explicit lower root version fails with the component and property that raised
+the minimum. Named child slots stay traversable, so handlers inside an action
+set survive managed delivery and action recovery. `Teams.Raw` accepts a
+reviewed non-interactive Adaptive Card object.
+
+The generated [native catalog](../channels/native-catalogs.md) labels the 38
+stable Teams body types, 7 stable actions, preview entries, and supporting
+nodes. Host badges and catalog presence come from adaptivecards.microsoft.com.
+“Supported” here means Microsoft marks the entry for Teams; verification in a
+live tenant remains a separate release check. Direct Teams and managed Teams
+use the same serializer and Bot Framework attachment shape.
+
 ## Options
 
 ```ts

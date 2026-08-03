@@ -99,6 +99,7 @@ export class ActionRegistry {
       component: string;
       props: Record<string, unknown>;
       conversationKey: string;
+      platform?: string;
     },
   ): Promise<void> {
     await this.store.put(reactionKey(messageId), {
@@ -106,6 +107,7 @@ export class ActionRegistry {
       props: snap.props,
       path: [],
       conversationKey: snap.conversationKey,
+      platform: snap.platform,
     });
   }
 
@@ -126,7 +128,8 @@ export class ActionRegistry {
     if (!registered) return undefined;
     const root = renderToIR(
       await registered.render(snap.props as Record<string, unknown>, {
-        platform: "slack",
+        platform: (snap.platform ??
+          "slack") as ChannelComponentRenderContext["platform"],
         signal: new AbortController().signal,
       }),
     );
@@ -183,6 +186,39 @@ export class ActionRegistry {
     return root;
   }
 
+  /** Bind a named component and detach its root reaction for message routing. */
+  async bindRegisteredRenderable(
+    componentName: string,
+    props: Record<string, unknown>,
+    conversationKey: string,
+    continuation: ActionContinuationContext | undefined,
+    renderContext: ChannelComponentRenderContext,
+  ): Promise<{
+    root: ChannelNode[];
+    onReaction?: MessageReactionHandler;
+    reactionComponent?: {
+      component: string;
+      props: Record<string, unknown>;
+      platform: string;
+    };
+  }> {
+    const root = await this.bindTree(
+      componentName,
+      props,
+      conversationKey,
+      continuation,
+      renderContext,
+    );
+    const onReaction = takeMessageReaction(root);
+    return {
+      root,
+      onReaction,
+      reactionComponent: onReaction
+        ? { component: componentName, props, platform: renderContext.platform }
+        : undefined,
+    };
+  }
+
   // Binds an arbitrary Renderable for posting. If `ui` is a component element
   // (`{ type: fn, props }`), it is registered + bound by name (cold-path
   // re-render supported). Otherwise the IR is bound inline with `component:""`,
@@ -194,6 +230,10 @@ export class ActionRegistry {
     ui: Renderable,
     conversationKey: string,
     continuation?: ActionContinuationContext,
+    renderContext: ChannelComponentRenderContext = {
+      platform: "slack",
+      signal: new AbortController().signal,
+    },
   ): Promise<{
     root: ChannelNode[];
     onReaction?: MessageReactionHandler;
@@ -202,7 +242,11 @@ export class ActionRegistry {
      * only when `ui` was a component element with an `onReaction` (an inline IR
      * tree has no component to re-render, so its handler stays in-memory).
      */
-    reactionComponent?: { component: string; props: Record<string, unknown> };
+    reactionComponent?: {
+      component: string;
+      props: Record<string, unknown>;
+      platform: string;
+    };
   }> {
     let root: ChannelNode[];
     let component: string | undefined;
@@ -221,8 +265,8 @@ export class ActionRegistry {
         conversationKey,
         continuation,
         {
-          platform: "slack",
-          signal: new AbortController().signal,
+          platform: renderContext.platform,
+          signal: renderContext.signal,
         },
       );
     } else {
@@ -235,7 +279,7 @@ export class ActionRegistry {
         conversationKey,
         continuation,
         false,
-        "slack",
+        renderContext.platform,
         new Set(),
       );
     }
@@ -244,7 +288,9 @@ export class ActionRegistry {
       root,
       onReaction,
       reactionComponent:
-        onReaction && component && props ? { component, props } : undefined,
+        onReaction && component && props
+          ? { component, props, platform: renderContext.platform }
+          : undefined,
     };
   }
 

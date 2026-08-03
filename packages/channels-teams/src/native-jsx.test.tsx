@@ -75,5 +75,18 @@ test("native Teams JSX rejects a root version below a child requirement", () => 
     </Teams.AdaptiveCard>,
   );
 
-  expect(() => adapter.render(ir)).toThrow(/Badge.*1\.5|1\.5.*Badge/);
+  expect(() => adapter.render(ir)).toThrow(
+    /Badge\.text.*1\.5|1\.5.*Badge\.text/,
+  );
+});
+
+test("native Teams JSX rejects layout helpers outside their named slot", () => {
+  const adapter = new TeamsAdapter();
+  const ir = renderToIR(
+    <Teams.AdaptiveCard>
+      <Teams.Layout.TextRun text="wrong level" />
+    </Teams.AdaptiveCard>,
+  );
+
+  expect(() => adapter.render(ir)).toThrow(/body\[0\].*TextRun.*not allowed/);
 });

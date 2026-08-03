@@ -6,6 +6,16 @@ const manifest = new Map(
   SLACK_NATIVE_MANIFEST.map((entry) => [`${entry.kind}:${entry.type}`, entry]),
 );
 const HANDLERS = new Set(["onClick", "onSelect", "onSubmit"]);
+const REQUIRED_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  actions: ["elements"],
+  button: ["text"],
+  context: ["elements"],
+  header: ["text"],
+  image: ["image_url", "alt_text"],
+  input: ["label", "element"],
+  option: ["text", "value"],
+  video: ["alt_text", "thumbnail_url", "title", "title_url", "video_url"],
+};
 
 /** Serialize and validate one traversable Slack native node. */
 export function serializeSlackNativeNode(
@@ -63,7 +73,28 @@ export function serializeSlackNativeNode(
   if (output.value !== undefined && typeof output.value !== "string") {
     output.value = JSON.stringify(output.value);
   }
+  validateRequiredFields(entry.component, entry.type, output, path);
   return output;
+}
+
+function validateRequiredFields(
+  component: string,
+  type: string,
+  output: Record<string, unknown>,
+  path: string,
+): void {
+  for (const field of REQUIRED_FIELDS[type] ?? []) {
+    if (output[field] === undefined) {
+      throw new Error(`${path}.${component}.${field} is required.`);
+    }
+  }
+  if (
+    type === "section" &&
+    output.text === undefined &&
+    output.fields === undefined
+  ) {
+    throw new Error(`${path}.${component} requires text or fields.`);
+  }
 }
 
 /** Read useful plain text from native nodes for Slack notifications and a11y. */

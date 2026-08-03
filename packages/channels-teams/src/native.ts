@@ -114,7 +114,7 @@ function group<
   rows: Rows,
 ): { [Name in Rows[number][0]]: NativeComponent } {
   return Object.fromEntries(
-    rows.map(([name, type]) => [name, component(kind, type)]),
+    rows.map(([name]) => [name, component(kind, name)]),
   ) as { [Name in Rows[number][0]]: NativeComponent };
 }
 

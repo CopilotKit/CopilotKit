@@ -453,10 +453,9 @@ export interface CreateChannelOptions<
   tools?: ChannelTool[];
   context?: ContextEntry[];
   /**
-   * Named JSX components used in interactive messages. Registering them here
-   * lets the channel re-render and re-fire their handlers after a restart (durable
-   * actions); without registration, a click on a message posted before the
-   * restart degrades to "action expired".
+   * Agent-rendered component definitions or legacy named JSX components.
+   * Definitions become tools. Both forms let the channel recover keyed handlers
+   * after a restart when the configured store is durable.
    */
   components?:
     | ChannelComponentRegistration[]

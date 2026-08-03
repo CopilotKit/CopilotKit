@@ -144,6 +144,40 @@ plain channel/private-channel thread replies.
 `Button → button (action_id = minted opaque id)`, `Select → static_select`,
 `Input → plain_text_input`, `Image → image`, `Divider → divider`.
 
+### Native Slack JSX
+
+Use `Slack.Block`, `Slack.Element`, and `Slack.Object` when a message needs a
+Block Kit feature that the portable JSX set does not expose. Field names keep
+Slack's JSON casing. Event props become opaque `action_id` values; object
+`value` props are JSON encoded and restored on interaction.
+
+```tsx
+import { Slack } from "@copilotkit/channels-slack";
+
+await thread.post(
+  <Slack.Block.Section
+    text={<Slack.Object.MarkdownText text="*Deploy ready*" />}
+    accessory={
+      <Slack.Element.Button
+        key="approve"
+        text={<Slack.Object.PlainText text="Approve" />}
+        value={{ decision: "approve" }}
+        onClick={({ action }) => approve(action.value)}
+      />
+    }
+  />,
+);
+```
+
+Native trees reject wrong-provider nodes, missing required fields, invalid
+top-level elements, and messages over Slack's 50-block limit. `Slack.Raw`
+accepts a reviewed Block Kit object but does not bind callbacks. Direct Slack
+and managed Slack use the same serializer and fallback-text rules.
+
+The generated [native catalog](../channels/native-catalogs.md) lists the 20
+message blocks and all exported elements and objects. Run
+`pnpm audit:channel-native-catalogs` to compare it with Slack's live docs.
+
 ### Per-element budget
 
 Slack caps every element. The renderer degrades by truncate-with-overflow /

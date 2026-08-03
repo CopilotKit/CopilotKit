@@ -4,6 +4,8 @@ import { renderToIR } from "@copilotkit/channels-ui";
 import type { ClickHandler } from "@copilotkit/channels-ui";
 import { SlackAdapter } from "./adapter.js";
 import { Slack } from "./native.js";
+import { serializeSlackNativeNode } from "./native-codec.js";
+import { renderBlockKit } from "./render/block-kit.js";
 
 test("native Slack JSX reaches chat.postMessage as Block Kit", async () => {
   const postMessage = vi.fn(async () => ({ ts: "200.5", channel: "C1" }));
@@ -69,4 +71,22 @@ test("native Slack JSX rejects a Teams node before the provider call", async () 
     adapter.post({ channel: "C1" }, [wrongProvider] as never),
   ).rejects.toThrow(/Slack.*Teams|teams.*Slack/i);
   expect(postMessage).not.toHaveBeenCalled();
+});
+
+test("native Slack JSX rejects missing required fields with a component path", () => {
+  const [button] = renderToIR(<Slack.Element.Button />);
+
+  expect(() => serializeSlackNativeNode(button as never)).toThrow(
+    /Slack\.Button\.text.*required/,
+  );
+});
+
+test("native Slack JSX rejects more than 50 message blocks", () => {
+  const ir = renderToIR(
+    Array.from({ length: 51 }, (_, index) => (
+      <Slack.Block.Divider key={`divider-${index}`} />
+    )),
+  );
+
+  expect(() => renderBlockKit(ir)).toThrow(/51.*50|50.*51/);
 });

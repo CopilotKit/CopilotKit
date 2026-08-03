@@ -6,7 +6,10 @@ import { TEAMS_NATIVE_MANIFEST } from "./native-manifest.js";
 const SCHEMA = "http://adaptivecards.io/schemas/adaptive-card.json";
 const HANDLERS = new Set(["onClick", "onSelect", "onSubmit"]);
 const manifest = new Map(
-  TEAMS_NATIVE_MANIFEST.map((entry) => [`${entry.kind}:${entry.type}`, entry]),
+  TEAMS_NATIVE_MANIFEST.map((entry) => [
+    `${entry.kind}:${entry.component}`,
+    entry,
+  ]),
 );
 
 /** Validate and serialize one explicit native Adaptive Card root. */
@@ -62,7 +65,10 @@ function serializeTeamsNode(
   if (!entry) {
     throw new Error(`${path}: unknown Teams node ${node.props.nativeType}.`);
   }
-  const output: Record<string, unknown> = { type: entry.type };
+  const output: Record<string, unknown> = {
+    type: entry.type,
+    ...entry.fixedProps,
+  };
   const children = node.props.children;
   for (const [name, value] of Object.entries(node.props)) {
     if (
@@ -85,10 +91,15 @@ function serializeTeamsNode(
     }
     const nodes = asNativeNodes(children, `${path}.${entry.childrenSlot}`);
     if (node.props.nativeKind === "root") {
-      const actions = nodes.filter(
-        (child) => child.props.nativeKind === "action",
-      );
-      const body = nodes.filter((child) => child.props.nativeKind !== "action");
+      const actions = nodes.filter(isAction);
+      const body = nodes.filter((child) => !isAction(child));
+      for (const [index, child] of body.entries()) {
+        if (!isRootBody(child)) {
+          throw new Error(
+            `${path}.body[${index}]: ${child.props.nativeType} is not allowed in an AdaptiveCard body.`,
+          );
+        }
+      }
       output.body = body.map((child, index) =>
         serializeTeamsNode(child, `${path}.body[${index}]`),
       );
@@ -144,7 +155,16 @@ function isAction(node: NativeChannelNode): boolean {
   return (
     node.props.nativeKind === "action" ||
     (node.props.nativeKind === "preview" &&
-      node.props.nativeType.startsWith("Action."))
+      node.props.nativeType === "RunCommands")
+  );
+}
+
+function isRootBody(node: NativeChannelNode): boolean {
+  return (
+    node.props.nativeKind === "element" ||
+    node.props.nativeKind === "input" ||
+    node.props.nativeKind === "chart" ||
+    (node.props.nativeKind === "preview" && !isAction(node))
   );
 }
 
@@ -176,6 +196,18 @@ function highestVersionNode(root: NativeChannelNode): {
     }
     if (compareVersions(entry.version, highest.version) > 0) {
       highest = { name: entry.component, version: entry.version };
+    }
+    for (const name of Object.keys(node.props)) {
+      const propertyVersion = entry.propertyVersions[name];
+      if (
+        propertyVersion &&
+        compareVersions(propertyVersion, highest.version) > 0
+      ) {
+        highest = {
+          name: `${entry.component}.${name}`,
+          version: propertyVersion,
+        };
+      }
     }
   });
   return highest;

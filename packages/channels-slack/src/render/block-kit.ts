@@ -66,8 +66,15 @@ export function buildFeedbackBlocks(opts?: {
  */
 export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
   const blocks: KnownBlock[] = [];
+  const native = containsNativeNode(ir);
   for (const node of ir) {
     renderNode(node, blocks);
+  }
+
+  if (native && blocks.length > SLACK_LIMITS.blocksPerMessage) {
+    throw new Error(
+      `Slack native JSX rendered ${blocks.length} blocks; the message limit is ${SLACK_LIMITS.blocksPerMessage}.`,
+    );
   }
 
   // Top-level budget: clamp to the per-message block ceiling, leaving room for
@@ -81,6 +88,28 @@ export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
   const dropped = overflow + 1;
   kept.push(overflowSignal(dropped));
   return kept;
+}
+
+function containsNativeNode(nodes: readonly ChannelNode[]): boolean {
+  return nodes.some(
+    (node) =>
+      isNativeNode(node) ||
+      containsNativeNode(channelChildren(node.props.children)),
+  );
+}
+
+function channelChildren(value: unknown): ChannelNode[] {
+  if (Array.isArray(value)) return value.filter(isChannelNode);
+  return isChannelNode(value) ? [value] : [];
+}
+
+function isChannelNode(value: unknown): value is ChannelNode {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    "props" in value
+  );
 }
 
 /** Render IR to Slack blocks, extracting a top-level <Message accent="#hex"> color for an attachment wrapper. */
