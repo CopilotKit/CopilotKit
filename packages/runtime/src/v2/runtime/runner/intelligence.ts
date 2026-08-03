@@ -300,12 +300,21 @@ export class IntelligenceAgentRunner extends AgentRunner {
       channel
         .join()
         .receive("ok", (response) => {
-          state.supportsRunnerEventBatch = this.supportsRunnerEventBatch(
-            response,
-          );
+          const supportsRunnerEventBatch =
+            this.supportsRunnerEventBatch(response);
+          const activeEventBatch =
+            state.supportsRunnerEventBatch === supportsRunnerEventBatch
+              ? state.activeEventBatch
+              : null;
+          state.supportsRunnerEventBatch = supportsRunnerEventBatch;
           if (state.hasJoined) {
             this.resetPendingEventRetry(state);
-            this.replayPendingEvents(state);
+            if (activeEventBatch !== null) {
+              state.activeEventBatch = activeEventBatch;
+              this.retryActiveEventBatch(state);
+            } else {
+              this.replayPendingEvents(state);
+            }
             return;
           }
 
@@ -553,7 +562,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     events: Array<{ payload: Record<string, unknown>; queuedAt: number }>,
     state: ThreadState,
   ): void {
-    if (state.channel.state !== "joined") {
+    if (state.channel.state !== "joined" || !state.socket.isConnected()) {
       return;
     }
 
@@ -635,10 +644,17 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
+    const oldestQueuedAt = Math.min(
+      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
+    );
+    const delay = Math.max(
+      0,
+      oldestQueuedAt + RUNNER_EVENT_BATCH_FLUSH_MS - Date.now(),
+    );
     state.eventFlushTimer = setTimeout(() => {
       state.eventFlushTimer = null;
       this.flushPendingEventBatch(state);
-    }, RUNNER_EVENT_BATCH_FLUSH_MS);
+    }, delay);
   }
 
   private clearPendingEventFlush(state: ThreadState): void {

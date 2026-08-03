@@ -76,6 +76,21 @@ class MockSocketImpl extends MockSocket {
     mockChannels.push(ch);
     return ch;
   }
+
+  isConnected(): boolean {
+    return this.connected && !this.disconnected;
+  }
+
+  triggerClose(event?: { code?: number }): void {
+    this.connected = false;
+    super.triggerClose(event);
+  }
+
+  triggerOpen(): void {
+    this.connected = true;
+    this.disconnected = false;
+    super.triggerOpen();
+  }
 }
 
 vi.mock("phoenix", () => ({
@@ -533,6 +548,63 @@ describe("IntelligenceAgentRunner", () => {
       expect(ch.pushLog[1].payload.events).toHaveLength(2);
 
       ch.pushLog[1].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("flushes an aged partial batch immediately after the active batch is acknowledged", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-batch-aged-behind-active";
+      const input = createRunInput({
+        threadId,
+        runId: "r-batch-aged-behind-active",
+      });
+      const agent = new PausingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        ...Array.from(
+          { length: 30 },
+          (_, index) =>
+            ({
+              type: EventType.TEXT_MESSAGE_CONTENT,
+              messageId: "msg-1",
+              delta: String(index),
+            }) as TextMessageContentEvent,
+        ),
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+
+      expect(ch.pushLog[0].payload.events).toHaveLength(32);
+      agent.emit({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "msg-1",
+      } as TextMessageEndEvent);
+      await vi.advanceTimersByTimeAsync(10);
+      expect(ch.pushLog).toHaveLength(1);
+
+      ch.pushLog[0].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(ch.pushLog).toHaveLength(2);
+      expect(ch.pushLog[1].payload.events).toHaveLength(1);
+
+      agent.emit({
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: input.runId,
+      } as RunFinishedEvent);
+      agent.finish();
+      ch.pushLog[1].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(5);
+      ch.pushLog[2].push.trigger("ok");
       await eventsPromise;
     });
 
@@ -1047,6 +1119,115 @@ describe("IntelligenceAgentRunner", () => {
       agent.finish();
       ch.pushLog.at(-1)!.push.trigger("ok");
       ch.pushLog.at(-1)!.push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("preserves failed batch membership across a same-capability rejoin", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-rejoin-same-protocol";
+      const input = createRunInput({
+        threadId,
+        runId: "r-rejoin-same-protocol",
+      });
+      const agent = new PausingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "hello",
+        } as TextMessageContentEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      const originalEvents = ch.pushLog[0].payload.events;
+      expect(originalEvents).toHaveLength(3);
+      agent.emit({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "msg-1",
+      } as TextMessageEndEvent);
+      agent.emit({
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: input.runId,
+      } as RunFinishedEvent);
+      agent.finish();
+
+      ch.pushLog[0].push.trigger("error", { reason: "channel_closed" });
+      ch.triggerError("channel_closed");
+      ch.beginRejoin();
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(ch.pushLog).toHaveLength(2);
+      expect(ch.pushLog[1].event).toBe("events");
+      expect(ch.pushLog[1].payload.events).toEqual(originalEvents);
+      ch.pushLog[1].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(ch.pushLog[2].payload.events).toHaveLength(2);
+      expect(
+        ch.pushLog[2].payload.events.map(
+          (event: any) => event.metadata.cpki_event_seq,
+        ),
+      ).toEqual([4, 5]);
+      ch.pushLog[2].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("waits for socket reconnect and rejoin before pushing pending events", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-rejoin-disconnected-socket";
+      const input = createRunInput({
+        threadId,
+        runId: "r-rejoin-disconnected-socket",
+      });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      const socket = mockSockets[0] as MockSocketImpl;
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      socket.triggerClose({ code: 1006 });
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(ch.state).toBe("joined");
+      expect(socket.isConnected()).toBe(false);
+      expect(ch.pushLog).toHaveLength(0);
+
+      socket.triggerOpen();
+      expect(ch.pushLog).toHaveLength(0);
+      ch.beginRejoin();
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(ch.pushLog).toHaveLength(1);
+      expect(ch.pushLog[0].event).toBe("events");
+      expect(
+        ch.pushLog[0].payload.events.map(
+          (event: any) => event.metadata.cpki_event_seq,
+        ),
+      ).toEqual([1, 2]);
+      ch.pushLog[0].push.trigger("ok");
       await eventsPromise;
     });
 
