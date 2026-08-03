@@ -205,6 +205,7 @@ demos:
     highlight:
       - agent/Program.cs
       - src/app/demos/tool-rendering/page.tsx
+      - src/app/demos/_shared/parse-json-result.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI

@@ -33,6 +33,7 @@ import { parseJsonResult } from "../_shared/parse-json-result";
 import { useSuggestions } from "./suggestions";
 // @endregion[tool-rendering-imports]
 
+// @region[tool-rendering-result-types]
 interface WeatherResult {
   city?: string;
   temperature?: number;
@@ -46,6 +47,7 @@ interface FlightSearchResult {
   destination?: string;
   flights?: Flight[];
 }
+// @endregion[tool-rendering-result-types]
 
 interface StockResult {
   ticker?: string;
