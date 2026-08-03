@@ -30,8 +30,10 @@
 # Mode connection with an app-level (xapp-) token. A managed Intelligence
 # Channel works the other way round — Slack posts events over HTTPS to
 # Intelligence's Request URL, verified by the signing secret, and no app-level
-# token exists. Interactivity is enabled here for the same direct-adapter
-# reason; the managed path does not deliver interactive payloads at all.
+# token exists. Interactivity is enabled here without a request URL, which is
+# the direct-adapter shape; a managed app enables it *with* an
+# Intelligence-hosted request URL, which is what delivers HITL button and select
+# clicks. Neither shape delivers modals — `view_submission` is not handled.
 display_information:
   name: Channels Demo (Dev)
   description: Local CopilotKit Channels agent — development app.

@@ -101,12 +101,12 @@ issues a **new bot token** — so reinstall _before_ copying the token, never af
 
 ## Settings that must stay as the manifest sets them
 
-| Setting                               | Expected                                                                | Why                                                                                                                                 |
-| ------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Socket Mode**                       | **disabled**                                                            | Managed delivery is HTTPS to Intelligence's Request URL. Socket Mode is the direct-adapter path; enabling it here delivers nothing. |
-| **Event subscriptions → Request URL** | `https://intelligence.copilotkit.ai/api/channels/adapters/slack/events` | This is the whole delivery mechanism. Absent or wrong = permanent silence.                                                          |
-| **Event subscriptions → bot events**  | includes `app_mention`, `message.im`                                    | `app_mention` for channel mentions, `message.im` for DMs. Editing the app after install can drop these.                             |
-| **Interactivity**                     | disabled                                                                | The managed adapter does not deliver interactive payloads. Enabling it does not make buttons work, it just implies they should.     |
+| Setting                               | Expected                                                                                                | Why                                                                                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Socket Mode**                       | **disabled**                                                                                            | Managed delivery is HTTPS to Intelligence's Request URL. Socket Mode is the direct-adapter path; enabling it here delivers nothing.                                  |
+| **Event subscriptions → Request URL** | `https://intelligence.copilotkit.ai/api/channels/adapters/slack/events`                                 | This is the whole delivery mechanism. Absent or wrong = permanent silence.                                                                                           |
+| **Event subscriptions → bot events**  | includes `app_mention`, `message.im`                                                                    | `app_mention` for channel mentions, `message.im` for DMs. Editing the app after install can drop these.                                                              |
+| **Interactivity**                     | **enabled**, request URL `https://intelligence.copilotkit.ai/api/channels/adapters/slack/interactivity` | This is how HITL buttons and selects reach your runtime. Turning it off silently breaks them. Modals stay undelivered either way — `view_submission` is not handled. |
 
 ## Invite the bot to a test channel
 
