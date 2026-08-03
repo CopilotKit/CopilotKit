@@ -502,8 +502,8 @@ describe("Channels documentation journey", () => {
     expect(teams).toContain("Microsoft Entra");
     expect(teams).toContain("Azure Bot");
     expect(teams).toMatch(/Follow the guided setup/);
-    expect(teams).toMatch(/Teams\s+Developer Portal/);
-    expect(teams).toContain("never stores them");
+    expect(teams).toMatch(/Teams\s+Developer\s+Portal/);
+    expect(teams).toMatch(/never\s+stores them/);
     expect(teams).toContain("Add to a team");
     expect(teams).toContain("Microsoft Teams");
     expect(teams).toContain("fresh package");
