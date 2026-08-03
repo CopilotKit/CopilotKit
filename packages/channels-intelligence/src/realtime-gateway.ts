@@ -139,12 +139,15 @@ export interface RealtimeGatewayConnectionDetail {
  * endpoint that was tried and the underlying transport error so the message
  * points at the misconfigured URL rather than at a stopwatch (OSS-623).
  *
- * An unreachable host is a caller configuration error that must reject
- * `ready()`.
+ * Permanent reachability failures such as NXDOMAIN reject `ready()`. Transient
+ * failures such as an HTTP 5xx response carry `retryable=true`, allowing the
+ * runtime manager to attempt a fresh initial connection with backoff.
  */
 export class RealtimeGatewayUnreachableError extends Error {
   /** Cross-package marker, mirroring the `code` convention of its siblings. */
   readonly code = "GATEWAY_UNREACHABLE";
+  /** Whether reconnecting later can succeed without changing configuration. */
+  readonly retryable: boolean;
   /** The gateway endpoint that was tried, minus any query string. */
   readonly endpoint: string;
   /**
@@ -158,14 +161,13 @@ export class RealtimeGatewayUnreachableError extends Error {
    * @param transportError - Rendered transport failure, if one was reported.
    * @param connectTimeoutMs - The elapsed connect window, named when no
    *   transport error was reported (the only signal the caller has left).
-   * @param options - Standard error options; carries the raw transport error
-   *   as `cause`.
+   * @param options - Retry classification plus the raw transport error.
    */
   constructor(
     endpoint: string,
     transportError: string | undefined,
     connectTimeoutMs: number,
-    options?: { cause?: unknown },
+    options?: { cause?: unknown; retryable?: boolean },
   ) {
     super(
       `realtime gateway unreachable: the socket never connected to ${endpoint} ` +
@@ -178,6 +180,7 @@ export class RealtimeGatewayUnreachableError extends Error {
     this.name = "RealtimeGatewayUnreachableError";
     this.endpoint = endpoint;
     this.transportError = transportError;
+    this.retryable = options?.retryable ?? false;
   }
 }
 
@@ -570,12 +573,19 @@ export async function connectRealtimeGateway(
           ? await diagnosis
           : await startDiagnosis();
       const cause = probed?.cause ?? lastTransportRaw;
+      const retryable =
+        probed === undefined ||
+        (!probed.nonRetryable &&
+          (probed.status === undefined || probed.status >= 500));
       failConnect(
         new RealtimeGatewayUnreachableError(
           endpoint,
           probed?.text ?? lastTransportError,
           connectTimeoutMs,
-          cause !== undefined ? { cause } : undefined,
+          {
+            ...(cause !== undefined ? { cause } : {}),
+            retryable,
+          },
         ),
       );
     })();

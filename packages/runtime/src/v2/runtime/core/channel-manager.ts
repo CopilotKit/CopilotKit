@@ -194,6 +194,12 @@ interface ChannelEntry {
   reconnectLogTimer?: ReturnType<typeof setTimeout>;
   /** Delay before the next reminder; doubles after each emitted reminder. */
   reconnectLogDelayMs?: number;
+  /** Next retry after a transient initial activation failure. */
+  activationRetryTimer?: ReturnType<typeof setTimeout>;
+  /** Delay before the next activation retry; doubles after each failed attempt. */
+  activationRetryDelayMs?: number;
+  /** Reject the retry wrapper when teardown cancels a pending retry. */
+  cancelActivationRetry?: () => void;
 }
 
 /**
@@ -717,6 +723,16 @@ function isSetupRequired(err: unknown): boolean {
   );
 }
 
+/** Whether a failed initial activation can recover without new configuration. */
+function isRetryableActivationError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { code?: unknown }).code === "GATEWAY_UNREACHABLE" &&
+    (err as { retryable?: unknown }).retryable === true
+  );
+}
+
 /**
  * Whether `err` is a Node/runtime module-resolution failure — i.e. the error
  * a dynamic `import()` throws when the target package is not installed.
@@ -739,6 +755,12 @@ const DEFAULT_RECONNECT_LOG_INTERVAL_MS = 30_000;
 
 /** Longest delay (ms) between reminders during one continuous outage. */
 const DEFAULT_RECONNECT_LOG_MAX_INTERVAL_MS = 15 * 60_000;
+
+/** First delay (ms) before retrying a transient initial activation failure. */
+const DEFAULT_ACTIVATION_RETRY_DELAY_MS = 1_000;
+
+/** Longest delay (ms) between transient initial activation attempts. */
+const DEFAULT_ACTIVATION_RETRY_MAX_DELAY_MS = 30_000;
 
 /**
  * Reject with `timeoutMessage` after `timeoutMs` if `inner` has not settled,
@@ -785,17 +807,18 @@ function withTimeout<T>(
  * {@link activate} starts it and a second call is a no-op. Activation throws
  * SYNCHRONOUSLY (a {@link ChannelConfigError}) only for a misconfiguration it
  * can detect up front — a duplicate or missing Channel name. Every OTHER
- * activation failure is recorded as the Channel's status (`error`, or
- * `setup_required` for a missing provider) and surfaced through {@link status}
- * and {@link ready} rather than thrown.
+ * permanent activation failure is recorded as the Channel's status (`error`,
+ * or `setup_required` for a missing provider) and surfaced through
+ * {@link status} and {@link ready} rather than thrown. A retryable initial
+ * gateway outage stays unsettled and retries until it connects or the manager
+ * stops.
  *
- * Reconnection is NOT handled here — it is delegated to the Phoenix connection
+ * Established-session reconnection is delegated to the Phoenix connection
  * layer that backs the launcher. When a managed control socket drops, Phoenix's
- * `Socket` reconnects and rejoins with the same Runtime declaration. Active
- * deliveries request fresh one-use join tokens through that control link. A
- * re-activation here would be both redundant AND broken: re-invoking the engine
- * on an already-started `Channel` throws in `channel.addAdapter` (started=true).
- * The manager therefore never re-activates on a drop.
+ * `Socket` reconnects and rejoins with the same Runtime declaration. The manager
+ * never re-activates an already-started Channel. It does retry a transient
+ * INITIAL gateway activation failure: that happens before the launcher adds or
+ * starts the managed adapter, so a later attempt is safe.
  *
  * It DOES, however, reflect real connection health through the session's
  * `onStateChange` observer so {@link ChannelManager.status} stays honest rather
@@ -865,8 +888,8 @@ export class ChannelManager implements ChannelsControl {
   /**
    * Start activation of every declared Channel (lazy + idempotent). Mints a
    * distinct runtime instance id per Channel, derives its activation config,
-   * and calls the engine. Records each Channel as `connecting`, transitioning
-   * to `online`/`setup_required`/`error` as its activation settles.
+   * and calls the engine. Transient gateway failures retry with exponential
+   * backoff; other outcomes transition to `online`/`setup_required`/`error`.
    */
   activate(): void {
     // Short-circuit on BOTH latches: `activated` makes activation idempotent,
@@ -903,32 +926,29 @@ export class ChannelManager implements ChannelsControl {
       // promise is always considered handled — ready() still sees the reason.
       settled.catch(() => {});
 
-      // Invoke the engine synchronously so activation is observably started the
-      // moment activate() returns (callers assert the engine was called and see
-      // `connecting` before awaiting ready). A synchronous config/engine throw is
-      // turned into a rejected activation so it becomes this channel's status
-      // rather than throwing out of activate().
-      let activation: Promise<ChannelsHandle>;
-      let config: ChannelActivationConfig | undefined;
-      try {
-        config = deriveChannelActivationConfig({
-          intelligence: this.intelligence,
-          channel,
-          runtimeInstanceId,
-        });
-        activation = this.activateChannel(config, channel);
-      } catch (err) {
-        activation = Promise.reject(err);
-      }
-
-      // The deferred `.then` callbacks capture `entry` and run only after the
-      // literal has fully initialized, so referencing it here is safe.
+      // The deferred activation callbacks capture `entry` and run only after
+      // the literal has fully initialized, so referencing it there is safe.
       const entry: ChannelEntry = {
         status: "connecting",
         handle: undefined,
         handleStopped: false,
         settled,
       };
+
+      // Invoke the engine synchronously so activation is observably started the
+      // moment activate() returns. Only a typed transient gateway failure is
+      // retried; config errors stay on the existing terminal path.
+      let activation: Promise<ChannelsHandle>;
+      try {
+        const config = deriveChannelActivationConfig({
+          intelligence: this.intelligence,
+          channel,
+          runtimeInstanceId,
+        });
+        activation = this.activateWithRetry(config, channel, name, entry);
+      } catch (err) {
+        activation = Promise.reject(err);
+      }
 
       // Anchor the settle handlers. Both branches route every teardown through
       // the idempotent `stopEntry`, so a late settle can never resurrect a
@@ -1010,6 +1030,72 @@ export class ChannelManager implements ChannelsControl {
 
       this.entries.set(name, entry);
     }
+  }
+
+  /**
+   * Retry only transient failures from the pre-adapter gateway connection.
+   * Permanent errors reject on the first attempt; teardown cancels a pending
+   * timer while preserving the existing late-settle handling for in-flight work.
+   */
+  private activateWithRetry(
+    config: ChannelActivationConfig,
+    channel: Channel,
+    name: string,
+    entry: ChannelEntry,
+  ): Promise<ChannelsHandle> {
+    return new Promise<ChannelsHandle>((resolve, reject) => {
+      const attempt = (): void => {
+        let activation: Promise<ChannelsHandle>;
+        try {
+          activation = this.activateChannel(config, channel);
+        } catch (err) {
+          activation = Promise.reject(err);
+        }
+        activation.then(
+          (handle) => {
+            this.clearActivationRetry(entry);
+            resolve(handle);
+          },
+          (err: unknown) => {
+            if (this.stopped || !isRetryableActivationError(err)) {
+              this.clearActivationRetry(entry);
+              reject(err);
+              return;
+            }
+
+            const delayMs =
+              entry.activationRetryDelayMs ?? DEFAULT_ACTIVATION_RETRY_DELAY_MS;
+            entry.status = "reconnecting";
+            entry.activationRetryDelayMs = Math.min(
+              delayMs * 2,
+              DEFAULT_ACTIVATION_RETRY_MAX_DELAY_MS,
+            );
+            this.log?.(
+              `channel "${name}" failed to activate; retrying in ${delayMs}ms`,
+              err,
+            );
+            const timer = setTimeout(() => {
+              entry.activationRetryTimer = undefined;
+              entry.cancelActivationRetry = undefined;
+              if (this.stopped || entry.status === "stopped") {
+                reject(err);
+                return;
+              }
+              entry.status = "connecting";
+              attempt();
+            }, delayMs);
+            (timer as unknown as { unref?: () => void }).unref?.();
+            entry.activationRetryTimer = timer;
+            entry.cancelActivationRetry = () => {
+              this.clearActivationRetry(entry);
+              reject(err);
+            };
+          },
+        );
+      };
+
+      attempt();
+    });
   }
 
   /**
@@ -1277,6 +1363,26 @@ export class ChannelManager implements ChannelsControl {
     entry.reconnectLogDelayMs = undefined;
   }
 
+  /** Cancel a pending transient activation retry and reset its backoff. */
+  private clearActivationRetry(entry: ChannelEntry): void {
+    if (entry.activationRetryTimer !== undefined) {
+      clearTimeout(entry.activationRetryTimer);
+      entry.activationRetryTimer = undefined;
+    }
+    entry.activationRetryDelayMs = undefined;
+    entry.cancelActivationRetry = undefined;
+  }
+
+  /** Cancel a scheduled activation retry and settle its wrapper. */
+  private cancelActivationRetry(entry: ChannelEntry): void {
+    const cancel = entry.cancelActivationRetry;
+    if (cancel) {
+      cancel();
+    } else {
+      this.clearActivationRetry(entry);
+    }
+  }
+
   /**
    * Drive a single entry to its terminal `stopped` state, tearing down its
    * handle AT MOST ONCE. Idempotent: it always sets `status = "stopped"`, and
@@ -1314,6 +1420,7 @@ export class ChannelManager implements ChannelsControl {
     // An unref'd interval would not hold the process open, but a stopped
     // manager must not keep logging about a session it no longer owns.
     this.clearReconnectLog(entry);
+    this.cancelActivationRetry(entry);
     if (entry.handle && !entry.handleStopped) {
       entry.handleStopped = true;
       const handle = entry.handle;
