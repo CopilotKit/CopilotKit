@@ -1,7 +1,7 @@
 {
  "_meta": {
   "description": "D6 fixtures for strands-typescript / a2ui-recovery (A2UI error recovery)",
-  "_note": "The Strands (TS) adapter auto-injects generate_a2ui and runs the toolkit validate->retry recovery loop. NO `context` match field: a real browser (the dojo) does not send x-aimock-context, so context-scoped fixtures would 404 in-browser; the recovery pills' prompts are UNIQUE per framework, so userMessage alone disambiguates. Outer emits generate_a2ui with no-arg {}. HEAL: seq 0 invalid -> retry -> seq 1 valid -> paints. EXHAUST: invalid every attempt -> exhausts. Mirrors langgraph-python/a2ui-recovery.json.",
+  "_note": "The Strands (TS) adapter auto-injects generate_a2ui and runs the toolkit validate->retry recovery loop. NO `context` match field: a real browser (the dojo) does not send x-aimock-context, so context-scoped fixtures would 404 in-browser; the recovery pills' prompts are UNIQUE per framework, so userMessage alone disambiguates. Outer emits generate_a2ui with no-arg {}. HEAL: seq 0 invalid -> retry -> seq 1 valid -> paints. EXHAUST: invalid every attempt -> exhausts. Mirrors langgraph-python/a2ui-recovery.json. Repeat invocations: the HEAL sequenceIndex variants are followed by a NON-SEQUENCED fallback serving the same valid surface, so once slots 0 and 1 are spent (counters are per-X-Test-Id and never reset; a real browser sends no X-Test-Id) the inner render call still paints instead of falling through to the userMessage-only outer-emit fixture and exhausting. GOTCHAS.md's sanctioned repeat-invocation pattern.",
   "created": "2026-06-26"
  },
  "fixtures": [
