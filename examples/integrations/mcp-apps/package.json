@@ -9,14 +9,18 @@
     "build": "next build",
     "start": "next start",
     "install:mcp": "cd threejs-server && npm install",
-    "postinstall": "npm run install:mcp"
+    "postinstall": "npm run install:mcp",
+    "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts",
+    "typecheck:channel": "tsc -p tsconfig.channel.json --noEmit"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",
     "@ag-ui/mcp-apps-middleware": "^0.0.3",
-    "@copilotkit/react-core": "1.62.3",
-    "@copilotkit/react-ui": "1.62.3",
-    "@copilotkit/runtime": "1.62.3",
+    "@copilotkit/channels": "0.6.0",
+    "@copilotkit/react-core": "1.65.0",
+    "@copilotkit/react-ui": "1.65.0",
+    "@copilotkit/runtime": "1.65.0",
+    "dotenv": "^16.4.7",
     "hono": "^4.12.10",
     "lucide-react": "^0.561.0",
     "next": "16.1.1",
@@ -30,6 +34,7 @@
     "@types/react-dom": "^19",
     "concurrently": "^9.1.2",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }

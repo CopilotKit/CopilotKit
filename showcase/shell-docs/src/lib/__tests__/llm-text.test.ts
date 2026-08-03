@@ -197,7 +197,10 @@ test("renders selected channel guide axes and scopes prose links", () => {
 
   expect(output).toContain("](/teams/mastra/interactive)");
   expect(output).toContain("](/reference/channels/classes/Channel)");
-  expect(output).toContain('provider: "teams"');
+  expect(output).toMatch(/native origin \(`"slack"` or\s+`"teams"`\)/i);
+  expect(output).toContain("Microsoft Teams Adaptive Card");
+  expect(output).not.toContain("Slack Block Kit");
+  expect(output).not.toContain('provider: "teams"');
   expect(output).not.toContain('provider: "slack"');
 });
 

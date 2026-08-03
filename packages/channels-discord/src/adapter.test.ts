@@ -145,12 +145,17 @@ describe("DiscordAdapter", () => {
     );
 
     const first = await a.resolveUser("u1");
-    expect(first).toEqual({ id: "u1" }); // bare-id fallback
+    expect(first).toEqual({ id: "u1", kind: "unknown" }); // bare-id fallback
 
     const second = await a.resolveUser("u1");
     // A retry happened (not served from cache) and resolved the real user.
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(second).toEqual({ id: "u1", name: "Ada", handle: "ada" });
+    expect(second).toEqual({
+      id: "u1",
+      kind: "human",
+      name: "Ada",
+      handle: "ada",
+    });
   });
 
   it("getMessages excludes the bot's own streaming placeholders from history", async () => {

@@ -14,8 +14,9 @@ import type {
   ReplyTarget,
   ConversationStore,
   MessageRef,
-  PlatformUser,
+  ProviderActor,
   UserQuery,
+  IngressIdentityContext,
 } from "@copilotkit/channels-core";
 import type {
   ChannelNode,
@@ -135,10 +136,13 @@ export class TeamsAdapter implements PlatformAdapter {
 
     const conversationKey = conversationKeyOf(activity);
     const reference = activity.getConversationReference();
-    const from = activity.from;
-    const user: PlatformUser | undefined = from?.id
-      ? { id: from.id, name: from.name }
-      : undefined;
+    const actor = this.actorFrom(activity);
+    const identityContext = this.identityContext(
+      activity,
+      conversationKey,
+      actor,
+      "message",
+    );
 
     // An Adaptive Card `Action.Submit` arrives as a Message activity carrying
     // our action `data` in `value` (and no user text). Route it as an
@@ -152,7 +156,11 @@ export class TeamsAdapter implements PlatformAdapter {
             id: action.id,
             conversationKey,
             value: action.value,
-            user,
+            actor,
+            identityContext: {
+              ...identityContext,
+              trigger: "interaction",
+            },
             replyTarget: {
               conversationKey,
               reference,
@@ -242,7 +250,8 @@ export class TeamsAdapter implements PlatformAdapter {
             revisionId: activity.id ?? conversationKey,
             mentioned: false,
           },
-          user,
+          actor,
+          identityContext,
           platform: this.platform,
           contentParts,
         });
@@ -533,12 +542,18 @@ export class TeamsAdapter implements PlatformAdapter {
     if (!action) return undefined;
     const conversationKey = conversationKeyOf(activity);
     const reference = activity.getConversationReference?.();
-    const from = activity.from;
+    const actor = this.actorFrom(activity);
     return {
       id: action.id,
       conversationKey,
       value: action.value,
-      user: from?.id ? { id: from.id, name: from.name } : undefined,
+      actor,
+      identityContext: this.identityContext(
+        activity,
+        conversationKey,
+        actor,
+        "interaction",
+      ),
       replyTarget: { conversationKey, reference } satisfies TeamsReplyTarget,
       messageRef: {
         id: activity.replyToId ?? "",
@@ -548,9 +563,74 @@ export class TeamsAdapter implements PlatformAdapter {
     };
   }
 
-  async lookupUser(_q: UserQuery): Promise<PlatformUser | undefined> {
+  async lookupUser(_q: UserQuery): Promise<ProviderActor | undefined> {
     // Directory lookups require Microsoft Graph; not wired in milestone-1.
     return undefined;
+  }
+
+  /** Classify the provider principal from the role Microsoft supplies. */
+  private actorFrom(activity: Activity): ProviderActor {
+    const from = activity.from as
+      | { id?: string; name?: string; role?: string }
+      | undefined;
+    const kind: ProviderActor["kind"] =
+      from?.role === "user"
+        ? "human"
+        : from?.role === "bot"
+          ? "bot"
+          : from?.role === "application"
+            ? "app"
+            : from?.role === "system"
+              ? "system"
+              : "unknown";
+    return {
+      id: from?.id ?? "",
+      kind,
+      ...(from?.name ? { name: from.name } : {}),
+    };
+  }
+
+  /** Build bounded identity facts from one Teams activity. */
+  private identityContext(
+    activity: Activity,
+    conversationKey: string,
+    _actor: ProviderActor,
+    trigger: string,
+  ): IngressIdentityContext {
+    const value = activity as Activity & {
+      id?: string;
+      timestamp?: Date | string;
+      conversation?: { id?: string; tenantId?: string };
+      channelData?: { tenant?: { id?: string }; channel?: { id?: string } };
+    };
+    const occurredAt = value.timestamp
+      ? new Date(value.timestamp).toISOString()
+      : undefined;
+    return {
+      tenant: {
+        id:
+          value.conversation?.tenantId ??
+          value.channelData?.tenant?.id ??
+          this.opts.tenantId ??
+          "unknown",
+      },
+      installation: {
+        id: this.opts.clientId ?? process.env.clientId ?? "anonymous",
+      },
+      conversation: {
+        id: value.conversation?.id ?? conversationKey,
+        kind: "conversation",
+      },
+      trigger,
+      event: {
+        ...(value.id ? { id: value.id } : {}),
+        ...(occurredAt ? { occurredAt } : {}),
+      },
+      raw: {
+        type: value.type,
+        channelId: value.channelData?.channel?.id,
+      },
+    };
   }
 
   get conversationStore(): ConversationStore {

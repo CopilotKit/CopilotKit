@@ -235,8 +235,6 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   maxConcurrentDeliveries?: number;
   /** Maximum claimed deliveries buffered behind active execution. */
   maxPendingDeliveries?: number;
-  /** Adapter kind declared to the gateway on join (default `"slack"`). */
-  adapter?: string;
   /** Intelligence app-api HTTP base URL for managed file and Thread history
    * calls made with the {@link apiKey} above. Omit it to leave those calls
    * unavailable. */
@@ -283,8 +281,6 @@ export async function startChannelsOverRealtimeGateway(
   channels: Channel[],
   config: StartChannelsOverRealtimeGatewayOptions,
 ): Promise<ChannelsHandle> {
-  const adapter = config.adapter ?? "slack";
-
   // Fail fast BEFORE opening the socket: a missing/duplicate name would
   // otherwise send a broken channel declaration and — because the same
   // check inside startChannels runs only after we've connected — throw with
@@ -312,10 +308,10 @@ export async function startChannelsOverRealtimeGateway(
       ...(config.maxConcurrentDeliveries !== undefined
         ? { maxConcurrentDeliveries: config.maxConcurrentDeliveries }
         : {}),
-      channels: activation.declaredChannels.map((channel) => ({
-        channelName: channel.channelName,
-        adapter,
-      })),
+      channels: activation.declaredChannels.flatMap((channel) => [
+        { channelName: channel.channelName, adapter: "slack" },
+        { channelName: channel.channelName, adapter: "teams" },
+      ]),
     },
     ...(config.timeoutMs !== undefined ? { timeoutMs: config.timeoutMs } : {}),
     ...(config.connectTimeoutMs !== undefined

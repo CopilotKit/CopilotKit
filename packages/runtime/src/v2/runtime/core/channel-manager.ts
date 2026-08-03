@@ -14,11 +14,20 @@ import type {
   RunAgentResult,
 } from "@ag-ui/client";
 import { EMPTY } from "rxjs";
+import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import type { AgentRunner } from "../runner/agent-runner";
+import {
+  INTELLIGENCE_MEMORY_GRANT_HEADER,
+  INTELLIGENCE_USER_ID_HEADER,
+} from "../intelligence-platform/client";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
 // for the same constraint).
-import type { Channel, ReplyContinuationOptions } from "@copilotkit/channels";
+import type {
+  Channel,
+  ReplyContinuationOptions,
+  ResolvedChannelMemory,
+} from "@copilotkit/channels";
 
 /**
  * Lifecycle status of a single Channel activation, or of the manager overall.
@@ -37,21 +46,10 @@ import type { Channel, ReplyContinuationOptions } from "@copilotkit/channels";
  * - `error`: activation rejected with a non-setup error, or a previously-online
  *   control link gave up reconnecting after its bounded reconnect window.
  *
- * Both MANAGED (Intelligence-gateway) and DIRECT (developer-supplied adapter)
- * Channels move through these states. A direct Channel is driven by the manager
- * too — it is started via {@link Channel.ɵruntime}`.start()` and reaches `online`
- * once its own transport is up — but it is NOT wired into the Intelligence
- * gateway/canonical/reliability layer: it simply runs its own adapter transport,
- * started and stopped by the manager. A direct Channel has no managed-session
- * drop signal, so it never reports `reconnecting`.
- *
- * That gap is BY DESIGN, not a deferral. Run-correctness (canonical
- * cross-surface history, one outer run and one terminal outcome, durable
- * HITL-resume-across-restart, selection pinning) and the reliability layer are
- * Intelligence-side only — see OSS-599's boundary discipline. A direct Channel's
- * ceiling is the SDK's in-process run loop. Do not "finish" this by pulling the
- * canonical/reliability layer down into the SDK: that is explicitly the thing
- * OSS-599 forbids.
+ * A Channel may carry developer-supplied direct adapters alongside the managed
+ * Intelligence adapter. The managed engine owns the shared Channel lifecycle;
+ * each adapter still receives only its own ingress and sends only its own
+ * provider output.
  */
 export type ChannelStatus =
   | "connecting"
@@ -217,7 +215,6 @@ export interface ChannelsIntelligenceModule {
       apiKey: string;
       scope: { projectId: number; channelName: string };
       runtimeInstanceId: string;
-      adapter?: string;
       /** Optional per-Channel override for managed tool-call visibility. */
       showToolStatus?: boolean;
       /** Optional per-Channel tuning for continuation messages on long replies. */
@@ -326,7 +323,6 @@ export async function defaultActivateChannel(
     apiKey: config.apiKey,
     scope: { projectId: config.projectId, channelName: config.channelName },
     runtimeInstanceId: config.runtimeInstanceId,
-    adapter: config.adapter,
     ...(config.showToolStatus !== undefined
       ? { showToolStatus: config.showToolStatus }
       : {}),
@@ -372,6 +368,7 @@ interface CanonicalRunArgs {
   threadId: string;
   runId: string;
   userId: string;
+  memory?: ResolvedChannelMemory;
   agentId: string;
   tools: readonly {
     name: string;
@@ -388,6 +385,42 @@ interface CanonicalRunArgs {
     interrupted: boolean;
     deliveryError?: unknown;
   }>;
+}
+
+/** Attach grant-scoped Intelligence Memory tools to one isolated Channel agent. */
+export function attachChannelMemory(
+  agent: AbstractAgent,
+  intelligence: CopilotKitIntelligence,
+  memory: ResolvedChannelMemory | undefined,
+): void {
+  if (!memory) return;
+  const middlewareAgent = agent as AbstractAgent & {
+    use?: (middleware: unknown) => void;
+  };
+  if (typeof middlewareAgent.use !== "function") {
+    const error = new Error(
+      "Channel Memory requires an agent with middleware support",
+    ) as Error & { code?: string };
+    error.name = "ChannelMemoryAgentUnsupportedError";
+    error.code = "channel_memory_agent_unsupported";
+    throw error;
+  }
+  middlewareAgent.use(
+    new MCPMiddleware([
+      {
+        type: "http",
+        url: `${intelligence.ɵgetApiUrl()}/mcp`,
+        serverId: "intelligence",
+        headers: {
+          Authorization: `Bearer ${intelligence.ɵgetApiKey()}`,
+          [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(memory.grant),
+          ...(memory.user
+            ? { [INTELLIGENCE_USER_ID_HEADER]: memory.user.id }
+            : {}),
+        },
+      },
+    ]),
+  );
 }
 
 /** One outer agent that lets the standard runner own the whole local tool loop. */
@@ -453,6 +486,7 @@ async function runCanonicalChannelAgent(
   const canonicalThreadId = lock.threadId;
   const canonicalRunId = lock.runId;
   let result = { iterations: 0, interrupted: false };
+  attachChannelMemory(args.agent, intelligence, args.memory);
   const outer = new ChannelOuterAgent(
     args.agent,
     canonicalThreadId,
@@ -737,15 +771,10 @@ function withTimeout<T>(
 
 /**
  * Drives Channel activation for an Intelligence runtime: lazily activates each
- * declared Channel, tracks per-Channel lifecycle status, exposes readiness, and
- * tears everything down. A MANAGED Channel (empty `adapters`) is activated
- * through the injected engine over the Intelligence gateway; a DIRECT Channel
- * (developer-supplied adapter) is started through its own transport seam
- * (`channel.ɵruntime.start()`) — driven by the manager, but running only its own
- * adapter transport, not the gateway path (direct Channels stay below the
- * canonical/reliability layer by design — see {@link ChannelStatus} and OSS-599).
- * Its very existence means Intelligence is configured, so there is no
- * standalone/self-started path.
+ * declared Channel through the managed engine, tracks per-Channel lifecycle
+ * status, exposes readiness, and tears everything down. Existing direct
+ * adapters remain on the Channel; the launcher attaches the one managed
+ * adapter before starting the combined adapter array.
  *
  * Activation is lazy and idempotent — constructing the manager does nothing;
  * {@link activate} starts it and a second call is a no-op. Activation throws
@@ -850,29 +879,11 @@ export class ChannelManager implements ChannelsControl {
     this.assertUniqueChannelNames();
     this.activated = true;
 
-    // Partition declared Channels by transport. A Channel carrying ANY adapter
-    // that is NOT the Intelligence managed adapter (a developer-supplied
-    // slack/discord/... adapter, which lacks `__intelligenceChannel`) is a
-    // DIRECT channel. The manager still owns its lifecycle — but a direct Channel
-    // runs its OWN adapter transport rather than the Intelligence gateway path:
-    // it is started here via `channel.ɵruntime.start()` (not the managed engine)
-    // and torn down via `channel.ɵruntime.stop()`. The distinction is EXCLUSIVE
-    // PER CHANNEL, not per platform — a Channel served by a direct adapter is not
-    // also managed: ANY direct adapter makes the WHOLE Channel direct, regardless
-    // of platform. Attaching the managed adapter alongside a direct one would
-    // double-deliver every turn (and trip the SDK's `assertExclusive` guard,
-    // moving the Channel to `error`). Per the SoT rule, never infer managed intent
-    // from a local direct adapter — a managed-eligible Channel has an empty
-    // `adapters` at declaration time. Managed+direct coexistence on the same
-    // Channel is NOT supported today; it is deferred (OSS-484). Direct Channels
-    // run only their own transport here and stay below the Intelligence
-    // canonical/reliability layer by design, not pending work (OSS-599).
+    // Every declared Channel gets the managed adapter. Any developer-supplied
+    // direct adapters stay in the same adapter array and are started by the
+    // launcher's single `channel.ɵruntime.start()` call.
     for (const channel of this.channels) {
-      const isDirect = channel.adapters.some((a) => !a.__intelligenceChannel);
-      if (isDirect) {
-        this.startDirectChannel(channel);
-        continue;
-      }
+      channel.ɵruntime.enableIntelligenceMemory();
       const name = channel.name!;
       const runtimeInstanceId = this.mintRuntimeInstanceId();
 
@@ -946,6 +957,40 @@ export class ChannelManager implements ChannelsControl {
               return;
             }
             if (isSetupRequired(err)) {
+              const hasDirectAdapter = channel.adapters.some(
+                (adapter) => !adapter.__intelligenceChannel,
+              );
+              if (hasDirectAdapter) {
+                try {
+                  // Managed setup may be incomplete while a developer-owned
+                  // transport is fully configured. Keep that transport alive;
+                  // a later runtime restart can attach the managed adapter once
+                  // Intelligence setup is complete.
+                  await channel.ɵruntime.start();
+                  entry.handle = {
+                    metadata: {},
+                    stop: () => channel.ɵruntime.stop(),
+                  };
+                  if (this.stopped) {
+                    await this.stopEntry(entry);
+                    resolveSettled();
+                    return;
+                  }
+                } catch (directError) {
+                  if (this.stopped) {
+                    await this.stopEntry(entry);
+                    resolveSettled();
+                    return;
+                  }
+                  entry.status = "error";
+                  this.log?.(
+                    `channel "${name}" failed to start its direct adapters while managed setup is incomplete`,
+                    directError,
+                  );
+                  rejectSettled(directError);
+                  return;
+                }
+              }
               entry.status = "setup_required";
               this.log?.(`channel "${name}" requires setup`, err);
               resolveSettled();
@@ -960,109 +1005,6 @@ export class ChannelManager implements ChannelsControl {
 
       this.entries.set(name, entry);
     }
-  }
-
-  /**
-   * Start a DIRECT-adapter Channel through its own transport seam
-   * ({@link Channel.ɵruntime}`.start()`), recording a live entry so
-   * {@link ready}/{@link status}/{@link stop} all cover it. A direct Channel is
-   * driven by the manager — but only because the Intelligence runtime constructed
-   * this manager at all — and runs its OWN adapter transport, NOT the Intelligence
-   * gateway path. It is deliberately NOT wired into the gateway/canonical/
-   * reliability layer — that boundary is permanent, not a deferral (OSS-599).
-   *
-   * Mirrors the managed path's settle machinery so teardown resilience is shared:
-   * the entry's `handle` is a synthetic {@link ChannelsHandle} whose `stop()`
-   * calls `channel.ɵruntime.stop()`, so the SAME idempotent, bounded, resilient
-   * {@link stopEntry} that tears down a managed handle tears down a direct Channel
-   * too. The handle is assigned only AFTER `start()` resolves (exactly as the
-   * managed path assigns its handle only on resolve), so a `stop()` during a
-   * still-starting direct Channel returns promptly with nothing to stop and the
-   * post-settle guard tears down the late transport. A direct Channel exposes no
-   * managed-session drop signal, so no connection observer is wired and it never
-   * reaches `reconnecting`.
-   *
-   * @param channel - The direct-adapter Channel to start.
-   */
-  private startDirectChannel(channel: Channel): void {
-    const name = channel.name!;
-    this.log?.(
-      `channel "${name}" carries a direct adapter — starting its own transport via channel.ɵruntime.start() (the Intelligence runtime drives its lifecycle; it runs its own adapter transport, NOT the managed gateway path — direct Channels stay below the canonical/reliability layer by design (OSS-599); managed+direct coexistence deferred (OSS-484))`,
-    );
-
-    let resolveSettled!: () => void;
-    let rejectSettled!: (err: unknown) => void;
-    const settled = new Promise<void>((resolve, reject) => {
-      resolveSettled = resolve;
-      rejectSettled = reject;
-    });
-    // ready() awaits `settled`; attach a no-op catch so a rejection is always
-    // considered handled (ready() still sees the reason).
-    settled.catch(() => {});
-
-    // Synthetic handle wrapping the Channel's own stop seam. Assigned to the
-    // entry only on successful start (below) so the shared teardown machinery
-    // (handleStopped guard, withTimeout bounding, resilient allSettled) stops a
-    // direct Channel exactly as it stops a managed handle.
-    const directHandle: ChannelsHandle = {
-      metadata: {},
-      stop: () => channel.ɵruntime.stop(),
-    };
-
-    // Start the direct transport synchronously so it is observably started the
-    // moment activate() returns (callers see `connecting` before awaiting ready).
-    // A synchronous throw becomes this Channel's status rather than throwing out
-    // of activate().
-    let activation: Promise<void>;
-    try {
-      activation = channel.ɵruntime.start();
-    } catch (err) {
-      activation = Promise.reject(err);
-    }
-
-    const entry: ChannelEntry = {
-      status: "connecting",
-      handle: undefined,
-      handleStopped: false,
-      settled,
-    };
-
-    activation
-      .then(
-        async () => {
-          entry.handle = directHandle;
-          if (this.stopped) {
-            // stop() ran before start() settled, so it could not tear down a
-            // transport that was not up yet. Release it now (idempotent) and keep
-            // the Channel `stopped`.
-            await this.stopEntry(entry);
-            resolveSettled();
-            return;
-          }
-          entry.status = "online";
-          resolveSettled();
-        },
-        async (err: unknown) => {
-          if (this.stopped) {
-            // A start rejection that arrives AFTER stop() must NOT resurrect the
-            // entry into `error`: the Channel is already being torn down. Keep it
-            // `stopped` and resolve `settled` so a later ready() does not reject.
-            entry.handle = directHandle;
-            await this.stopEntry(entry);
-            resolveSettled();
-            return;
-          }
-          entry.status = "error";
-          this.log?.(
-            `channel "${name}" failed to start its direct transport`,
-            err,
-          );
-          rejectSettled(err);
-        },
-      )
-      .catch(() => {});
-
-    this.entries.set(name, entry);
   }
 
   /**
@@ -1099,12 +1041,8 @@ export class ChannelManager implements ChannelsControl {
   }
 
   /**
-   * Resolve when every declared Channel — managed OR direct — has settled to
-   * `online`/`setup_required`.
-   *
-   * A direct-adapter Channel is awaited too: its `settled` resolves once its own
-   * transport is up (`channel.ɵruntime.start()` settling) and rejects if that
-   * start fails, exactly as a managed Channel's `settled` tracks its activation.
+   * Resolve when every declared Channel has settled to
+   * `online`/`setup_required` through its managed activation.
    *
    * Activates lazily if not already started — so a first call rejects with the
    * same {@link ChannelConfigError} as the synchronous throw from
@@ -1163,17 +1101,15 @@ export class ChannelManager implements ChannelsControl {
   }
 
   /**
-   * Snapshot status. Every declared Channel — managed OR direct — appears keyed
-   * by name in `channels`; a direct-adapter Channel reads `online` once its own
-   * transport is up, exactly like a managed one.
+   * Snapshot status. Every declared Channel appears keyed by name in
+   * `channels` after its combined adapter lifecycle starts.
    *
    * `overall` is folded over ALL declared Channels (see {@link computeOverall}),
    * by precedence `error` > `reconnecting` > `setup_required` > `connecting` >
    * `online`. `online` means every Channel can currently send. `reconnecting`
    * outranks `setup_required` because a dropped-but-retrying Channel is an active
-   * outage, louder than a steadily-degraded unprovisioned one (only managed
-   * Channels ever reach `reconnecting`; a direct Channel has no managed-session
-   * drop signal). With no declared Channels at all, `overall` is `online` (nothing
+   * outage, louder than a steadily-degraded unprovisioned one. With no declared
+   * Channels at all, `overall` is `online` (nothing
    * is degraded); once every Channel has been stopped, `overall` is `stopped`.
    */
   status(): {
@@ -1209,12 +1145,9 @@ export class ChannelManager implements ChannelsControl {
   /**
    * Fold per-Channel statuses into a single overall status (see {@link status}).
    *
-   * Every declared Channel — managed OR direct — participates: a started direct
-   * Channel reads `online` and counts toward health exactly like a managed one,
-   * and its `error` is a real outage that must dominate. Statuses are ranked
+   * Every declared Channel participates. Statuses are ranked
    * `error` > `reconnecting` > `setup_required` > `connecting` > `online`, so a
-   * genuine failure still dominates a healthy sibling. (Only managed Channels ever
-   * reach `reconnecting`; a direct Channel has no managed-session drop signal.)
+   * genuine failure still dominates a healthy sibling.
    * The empty-input case (no declared Channels at all) stays `online` (nothing is
    * degraded).
    */
@@ -1334,14 +1267,11 @@ export class ChannelManager implements ChannelsControl {
    * not-yet-stopped handle (gated by {@link ChannelEntry.handleStopped}).
    *
    * This is the ONE guarded teardown path shared by both `stop()` and the
-   * post-settle guard in {@link activate}/{@link startDirectChannel}. Because the
+   * post-settle guard in {@link activate}. Because the
    * guard is per-entry and idempotent, a handle assigned in the same tick as
    * `stop()` is stopped exactly once even when both callers reach the entry, and a
-   * late settle can never resurrect a `stopped` entry. It is transport-agnostic: a
-   * managed entry's `handle.stop()` releases the gateway session, and a direct
-   * entry's synthetic handle (assigned in {@link startDirectChannel}) routes the
-   * same `handle.stop()` to `channel.ɵruntime.stop()` — so direct and managed
-   * Channels share one bounded, resilient teardown.
+   * late settle can never resurrect a `stopped` entry. The activation handle
+   * releases the gateway session and stops the Channel's combined adapter array.
    *
    * `handle.stop()` failures are logged (via {@link ChannelManager.log}) but NOT
    * rethrown: the real launcher's `stop()` rethrows after `session.disconnect()`,

@@ -13,6 +13,43 @@ In the managed path, Intelligence owns the provider connection and durable
 delivery edge. Your long-running process owns the agent, application tools,
 interactive behavior, state, and deployment.
 
+## Choose how to configure it
+
+Three supported paths do the same work. All three create the Channel, store the
+provider credentials, and leave the Channel waiting for your runtime.
+
+- **`copilotkit init`**, when the project does not exist yet. It offers a
+  Channel during setup and then leads you through the rest of it -- opening the
+  provider console, taking the two credentials at a masked prompt, and
+  attaching them -- after your dependencies install. The project it scaffolds
+  ships the long-running host too, so `npm run channel` is the only step left.
+- **The browser wizard**, below. Best when you want to see the Channel, its
+  health, and its threads while you set it up. Requires no terminal.
+- **The CLI**, `copilotkit channels`. Best for a project that already exists,
+  when you want the configuration checked into the repository, want to re-run
+  setup on another machine, or are working with an agent. It records the
+  Channel in `.copilotkit/channels.json`, generates the same provider app
+  manifest, and reports what remains at each stop.
+
+```bash
+npx copilotkit channels add support
+npx copilotkit channels status
+```
+
+`channels add` performs the next undone step and is safe to re-run. Where the
+flow needs you in a provider console it stops and prints what is needed, the URL
+to open, which environment variables to set, and the exact command to resume
+with. No flag accepts a credential value, and `--json` emits a versioned envelope
+for scripts and agents.
+
+<Callout type="info" title="The paths are interchangeable">
+  Any of them can finish what another started -- all three reconcile against the
+  same server state. A Channel created in the wizard can be managed with the CLI,
+  a Channel created with the CLI appears in the dashboard immediately, and a
+  Channel begun by `init` is finished by `channels add` if you skip its guided
+  step.
+</Callout>
+
 ## Create and configure your Channel
 
 <FrontendOnly frontend="slack">
@@ -45,10 +82,10 @@ interactive behavior, state, and deployment.
   className="my-8 w-full rounded-xl border border-fd-border"
 />
 
-<Callout type="info" title="Create one Channel per platform">
-  Create a separate Intelligence Channel for Slack and Microsoft Teams. Give
-  each Channel a unique Code. Both Channels can connect to the same agent
-  backend.
+<Callout type="info" title="One Channel can serve both providers">
+  Attach Slack, Microsoft Teams, or both to one Intelligence Channel. The
+  Channel uses one Code and one SDK handler set; each event and reply remains in
+  its originating provider conversation.
 </Callout>
 
 <Steps>
@@ -78,64 +115,43 @@ interactive behavior, state, and deployment.
 
     Your SDK declaration must use that exact Code:
 
-    <FrontendOnly frontend="slack">
-
     ```ts title="channel.ts"
     import { createChannel } from "@copilotkit/channels";
     import { makeAgent } from "./agent.js";
 
     const channel = createChannel({
-      name: "support-slack",
-      provider: "slack",
+      name: "support",
+      identifyUser: "platform",
       agent: makeAgent,
     });
     ```
-
-    </FrontendOnly>
-
-    <FrontendOnly frontend="teams">
-
-    ```ts title="channel.ts"
-    import { createChannel } from "@copilotkit/channels";
-    import { makeAgent } from "./agent.js";
-
-    const channel = createChannel({
-      name: "support-teams",
-      provider: "teams",
-      agent: makeAgent,
-    });
-    ```
-
-    </FrontendOnly>
 
     A mismatch leaves the Channel at **Waiting for runtime**.
 
   </Step>
 
   <Step>
-    ### Choose a platform
+    ### Choose providers
 
-    Select Slack or Microsoft Teams. To support both platforms, finish this
-    Channel first, then create another Channel with a different Code for the
-    other platform.
+    Select Slack, Microsoft Teams, or both. Each connection has its own setup
+    and installation steps but shares this Channel's Code and runtime
+    declaration.
 
     <FrontendOnly frontend="slack">
 
-    Select and configure only Slack for this guide. Use `support-slack` or
-    another unique Code.
+    Configure Slack for this guide. You can attach Teams to the same Channel
+    now or later without changing the Code.
 
     </FrontendOnly>
 
     <FrontendOnly frontend="teams">
 
-    Select and configure only Microsoft Teams for this guide. Use
-    `support-teams` or another unique Code.
+    Configure Microsoft Teams for this guide. You can attach Slack to the same
+    Channel now or later without changing the Code.
 
     </FrontendOnly>
 
-    Slack is the generally available managed provider. Teams is SDK-ready for
-    the coordinated gateway path (OSS-450); confirm your project entitlement
-    before relying on managed Teams in production. If a provider says
+    Slack and Teams use the same managed delivery path. If a provider says
     **Not on your plan**, change the project entitlement before continuing.
 
     Managed Intelligence support for Discord and WhatsApp shows **Coming
@@ -158,9 +174,10 @@ interactive behavior, state, and deployment.
     4. Invite the app to a channel with `/invite @<app-handle>`, or open a
        direct message with it.
 
-    Slack sends signed Events API and slash-command requests to the public
-    Intelligence URLs in the generated manifest. Hosted Intelligence provides
-    those URLs; a self-hosted deployment must expose them.
+    Slack sends signed Events API requests to the public Intelligence URL in
+    the generated manifest. Hosted Intelligence provides that URL; a
+    self-hosted deployment must expose it. Managed slash commands are not part
+    of the Channels product surface.
 
   </Step>
 

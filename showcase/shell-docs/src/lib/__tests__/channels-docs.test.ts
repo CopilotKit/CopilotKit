@@ -183,9 +183,9 @@ describe("Channels documentation journey", () => {
 
   it("installs the exact stable Channels SDK pair in both provider quickstarts", () => {
     const testedInstall =
-      "npm install --save-exact @copilotkit/channels@0.4.0 @copilotkit/runtime@1.64.1";
+      "npm install --save-exact @copilotkit/channels@0.5.0 @copilotkit/runtime@1.64.2";
     const nonExactInstall =
-      "npm install @copilotkit/channels@0.4.0 @copilotkit/runtime@1.64.1";
+      "npm install @copilotkit/channels@0.5.0 @copilotkit/runtime@1.64.2";
 
     for (const slug of providerQuickstartSlugs) {
       const source = bodyFor(slug);
@@ -314,20 +314,20 @@ describe("Channels documentation journey", () => {
     expect(directAdapters).toContain("Server Members Intent");
   });
 
-  it("renders only the selected provider declaration in every shared guide", () => {
+  it("keeps managed provider selection out of shared SDK declarations", () => {
     for (const slug of providerSensitiveSlugs) {
       const source = bodyFor(slug);
       const slack = filterFrontendScopedBlocks(source, "slack");
       const teams = filterFrontendScopedBlocks(source, "teams");
 
-      expect(slack, `${slug} Slack declaration`).toContain('provider: "slack"');
-      expect(slack, `${slug} leaked Teams declaration`).not.toContain(
-        'provider: "teams"',
-      );
-      expect(teams, `${slug} Teams declaration`).toContain('provider: "teams"');
-      expect(teams, `${slug} leaked Slack declaration`).not.toContain(
-        'provider: "slack"',
-      );
+      for (const filtered of [slack, teams]) {
+        expect(filtered, `${slug} leaked Slack SDK declaration`).not.toContain(
+          'provider: "slack"',
+        );
+        expect(filtered, `${slug} leaked Teams SDK declaration`).not.toContain(
+          'provider: "teams"',
+        );
+      }
     }
   });
 
@@ -341,7 +341,7 @@ describe("Channels documentation journey", () => {
     expect(slack).toContain("`/invite @<app-handle>`");
     expect(slack).toContain("Signing Secret");
     expect(slack).toContain("signed Events API");
-    expect(slack).toMatch(/public\s+Intelligence URLs/);
+    expect(slack).toMatch(/public\s+Intelligence URL/);
     expect(slack).not.toContain("Socket Mode");
     expect(slack).not.toContain("### Connect Microsoft Teams");
     expect(slack).not.toContain("Directory (tenant) ID");
@@ -369,17 +369,20 @@ describe("Channels documentation journey", () => {
     const slack = filterFrontendScopedBlocks(source, "slack");
     const teams = filterFrontendScopedBlocks(source, "teams");
 
-    expect(source).toMatch(/separate Intelligence Channel/i);
-    expect(source).toMatch(/unique Code/i);
-    expect(source).toMatch(/same\s+agent\s+backend/i);
+    expect(source).toMatch(/One Channel can serve both providers/i);
+    expect(source).toMatch(/one Code and one SDK handler set/i);
+    expect(source).toMatch(/Select Slack, Microsoft Teams, or both/i);
+    expect(source).not.toMatch(/separate Intelligence Channel/i);
     expect(source).not.toMatch(
       /current managed SDK activation|runtime ownership|gateway session/i,
     );
 
-    expect(slack).toMatch(/select and configure only Slack/i);
-    expect(slack).toContain('name: "support-slack"');
-    expect(teams).toMatch(/select and configure only Microsoft Teams/i);
-    expect(teams).toContain('name: "support-teams"');
+    expect(slack).toMatch(/Configure Slack for this guide/i);
+    expect(slack).toMatch(/attach Teams to the same Channel/i);
+    expect(slack).toContain('name: "support"');
+    expect(teams).toMatch(/Configure Microsoft Teams for this guide/i);
+    expect(teams).toMatch(/attach Slack to the same\s+Channel/i);
+    expect(teams).toContain('name: "support"');
   });
 
   it("hands off from Intelligence to the provider runtime guide", () => {
@@ -485,21 +488,23 @@ describe("Channels documentation journey", () => {
     const slackCommands = filterFrontendScopedBlocks(commands, "slack");
     const teamsCommands = filterFrontendScopedBlocks(commands, "teams");
 
-    expect(rich).toMatch(/managed Teams[\s\S]{0,240}routes only `Button`/i);
+    expect(rich).toMatch(
+      /Managed Teams renders Adaptive Card[\s\S]{0,240}other named fields in `ctx\.values`/i,
+    );
     expect(slackRich).toMatch(/Slack renderer[\s\S]{0,160}skips chart nodes/i);
     expect(slackRich).toMatch(/post, update, and delete/i);
     expect(teamsRich).toContain("Adaptive Card version 1.5");
-    expect(teamsRich).toMatch(/Delete is not implemented/i);
+    expect(teamsRich).toMatch(/post, update, and delete/i);
 
     expect(slackCommands).toMatch(
-      /generated Slack manifest[\s\S]{0,180}one slash command/i,
+      /generated Slack manifest[\s\S]{0,80}does not register slash commands/i,
     );
-    expect(slackCommands).toMatch(/messages authored by[\s\S]{0,40}bot/i);
-    expect(teamsCommands).toMatch(/exactly `\/name` or `\/name arguments`/i);
+    expect(slackCommands).toMatch(
+      /user-authored roots and replies[\s\S]{0,180}unrelated workspace messages are ignored/i,
+    );
+    expect(teamsCommands).toMatch(/does not interpret `\/name` prefixes/i);
     expect(teamsCommands).toContain("`messageReaction`");
-    expect(commands).toMatch(
-      /`thread\.react\(\)`[\s\S]{0,180}not supported by the managed Slack or Teams adapter/i,
-    );
+    expect(commands).toMatch(/portable set works on managed Slack and Teams/i);
     expect(commands).toMatch(/Output-free handlers are supported/i);
     expect(commands).toMatch(
       /finalizes and acknowledges[\s\S]{0,140}posts\s+no message/i,
@@ -521,16 +526,16 @@ describe("Channels documentation journey", () => {
     expect(slack).toContain("`files:read`");
     expect(slack).toMatch(/external-upload flow/i);
     expect(teams).toContain("`ChannelMessage.Read.Group`");
-    expect(teams).toContain("`Files.Read.All`");
+    expect(teams).toContain("`Files.ReadWrite.All`");
     expect(teams).toMatch(
       /Inline media[\s\S]{0,180}Bot Connector[\s\S]{0,140}does not require Graph consent/i,
     );
     expect(teams).toMatch(
       /Other group-chat file-upload shapes remain unsupported/i,
     );
-    expect(teams).toMatch(
-      /outbound file delivery currently supports images only/i,
-    );
+    expect(teams).toMatch(/Managed Teams supports general outbound files/i);
+    expect(teams).toMatch(/channel's SharePoint\s+files area/i);
+    expect(teams).toMatch(/native consent-card flow/i);
   });
 
   it("separates managed history, SDK persistence, and runtime health", () => {
@@ -559,7 +564,7 @@ describe("Channels documentation journey", () => {
     expect(history).toContain("`thread.getMessages()`");
     expect(history).toContain("`runAgent({ transcript: ... })`");
     expect(history).toMatch(
-      /managed entries use the adapter platform `"intelligence"`/i,
+      /managed entries use the native `"slack"` or `"teams"` provider/i,
     );
     expect(history).not.toContain('platforms: ["slack", "teams"]');
 
@@ -670,7 +675,10 @@ describe("Channels documentation journey", () => {
       expect(filteredTools).toContain("`message.platform`");
       expect(filteredTools).toContain("`thread.platform`");
       expect(filteredTools).toContain("`ctx.platform`");
-      expect(filteredTools).toContain('"intelligence"');
+      expect(filteredTools).toMatch(
+        /report the native origin \(`"slack"` or\s+`"teams"`\)/i,
+      );
+      expect(filteredTools).not.toContain('"intelligence"');
       expect(filteredThreads).toContain("`thread.conversationKey`");
       expect(filteredThreads).toMatch(/conversationKey[\s\S]{0,120}opaque/i);
       expect(filteredThreads).toContain("durable `StateStore`");

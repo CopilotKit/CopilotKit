@@ -15,7 +15,12 @@ it("decodes a unicode reaction add", () => {
   expect(evt).toMatchObject({
     rawEmoji: "👍",
     added: true,
-    user: { id: "U1", name: "ada" },
+    actor: { id: "U1", kind: "human", name: "ada" },
+    identityContext: {
+      tenant: { id: "G1" },
+      conversation: { id: "C1", kind: "guild" },
+      trigger: "reaction",
+    },
     conversationKey: "C1",
     messageId: "m1",
     replyTarget: { channelId: "C1", guildId: "G1" },

@@ -21,10 +21,11 @@ const delivery: PreparedChannelDelivery = {
     input: {
       kind: "text",
       text: "hi",
+      messageRef: { id: "pref_v1_message_history_123" },
       operation: {
         kind: "created",
-        logicalMessageId: "message-history",
-        revisionId: "revision-history",
+        logicalMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+        revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
         mentioned: false,
       },
     },
@@ -74,7 +75,7 @@ test("managed history keeps multimodal and activity content structured", async (
       ...delivery,
       turn: {
         ...delivery.turn,
-        input: { kind: "command" as const, command: "history" },
+        input: { kind: "welcome" as const },
       },
     },
   };
@@ -111,10 +112,12 @@ test("canonical run input stores managed asset references instead of hydrated by
       input: {
         kind: "text",
         text: "What is this?",
+        messageRef: { id: "pref_v1_message_historyFile_123" },
         operation: {
           kind: "created",
-          logicalMessageId: "message-history-file",
-          revisionId: "revision-history-file",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
           mentioned: false,
         },
         files: [

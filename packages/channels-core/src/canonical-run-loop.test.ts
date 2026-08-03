@@ -417,7 +417,12 @@ test("terminal delivery tool failure stops the loop and closes renderer fanout",
       tools: new Map([["echo", postFile]]),
       toolDescriptors: [],
       context: [],
-      makeToolCtx: () => ({ thread: {} as never, platform: "fake" }),
+      makeToolCtx: () => ({
+        thread: {} as never,
+        user: null,
+        actor: { id: "actor", kind: "unknown" },
+        platform: "fake",
+      }),
       subscriber: {
         onEvent: ({ event }) => {
           ingestedEvents.push(event);

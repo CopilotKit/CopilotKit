@@ -16,6 +16,20 @@ Channel itself only runs inside a CopilotKit Intelligence-configured
 standalone / DIY runner and no `channel.start()`; the runtime starts and owns
 the channel because Intelligence is configured.
 
+## Managed Channels: the alternative to holding your own credentials
+
+This adapter is the **self-hosted** path: your process holds the Microsoft Teams credentials, runs the Microsoft Teams ingress, and talks to Microsoft Teams directly.
+
+**Managed Intelligence Channels** is the alternative. Intelligence owns the provider edge — signed ingress, egress, and encrypted credential storage — so your process holds no Microsoft Teams credentials and exposes no public Microsoft Teams endpoint. You also get durable threads, the Channels dashboard with per-Channel health and transcripts, and guided provider setup from either the browser wizard or the CLI:
+
+```bash
+npx copilotkit channels add support --adapter teams
+```
+
+Your bot code is otherwise identical — the agent, tools, context, commands, and turn handlers do not change. Only the transport does. See `examples/teams/app/managed.ts` for the same bot wired both ways, and the **copilotkit-channels** skill for the runtime wiring.
+
+This self-hosted adapter remains fully supported. Choose it when you want the provider connection inside your own infrastructure.
+
 ## Install
 
 ```sh
@@ -32,6 +46,7 @@ import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
+  identifyUser: "platform",
   adapters: [teams({ port: 3978 })],
 });
 
@@ -44,7 +59,6 @@ const runtime = new CopilotRuntime({
     // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [bot],
 });
 

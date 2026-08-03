@@ -54,6 +54,44 @@ bun run dev
 
 This will start both the UI and agent servers concurrently.
 
+## Running a Channel
+
+`channel-host.mts` mounts the same agent as an Intelligence Channel
+(Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
+`.copilotkit/channels.json` — set both up with `copilotkit init` or
+`copilotkit channels add`, which write that file and the credentials your
+`.env` needs, then:
+
+```bash
+npm run channel
+```
+
+The host reads which Channel to hold from `.copilotkit/channels.json`. If a
+project declares more than one, set `INTELLIGENCE_CHANNEL_NAME` to pick one.
+
+The host holds no provider credentials and exposes no provider endpoint —
+Intelligence owns the provider edge — so the same file works for every provider.
+
+The Channel itself is declared in `channels.mts` — that is where to add commands,
+reactions, or an `onMention` handler. `channel-host.mts` only owns the process
+lifetime, and is byte-identical in every starter.
+
+Once startup finishes, the log reports the truth per Channel:
+
+- `Channel "<name>" is online.` — the session is up and can send.
+- `Channel "<name>" is declared but no provider is attached yet.` —
+  a normal waiting state, not a failure. Run `copilotkit channels status` to
+  see what setup remains.
+
+Neither message proves the provider app is installed, reachable, or that
+anyone can message it — verify that separately (invite the bot, then message
+it) before treating the Channel as working.
+
+Unlike the other starters, this one has no `typecheck:channel` script: the
+host's import chain reaches `src/mastra/**`, which carries a pre-existing
+type error unrelated to the Channel host (see the comment in
+`tsconfig.channel.json`).
+
 ## Available Scripts
 
 The following scripts can also be run using your preferred package manager:
@@ -64,6 +102,7 @@ The following scripts can also be run using your preferred package manager:
 - `dev:debug` - Starts development servers with debug logging enabled
 - `build` - Builds the application for production
 - `start` - Starts the production server
+- `channel` - Holds an Intelligence Channel open (see "Running a Channel" above)
 
 ## Documentation
 

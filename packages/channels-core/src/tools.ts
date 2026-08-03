@@ -3,7 +3,8 @@ import { toJsonSchema, validateSchema } from "./standard-schema.js";
 import type {
   Thread,
   IncomingMessage,
-  PlatformUser,
+  ApplicationUser,
+  ProviderActor,
 } from "@copilotkit/channels-ui";
 
 export type { ObjectSchema } from "./standard-schema.js";
@@ -11,7 +12,8 @@ export type { ObjectSchema } from "./standard-schema.js";
 export interface ChannelToolContext {
   thread: Thread;
   message?: IncomingMessage;
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   signal?: AbortSignal;
   platform: string;
 }
@@ -45,7 +47,8 @@ export type ChannelTool<Schema extends ObjectSchema = ObjectSchema> = {
 /**
  * Define a {@link ChannelTool} with full type inference. The handler's `args` are
  * inferred from `parameters`, and `ctx` is the generic {@link ChannelToolContext}
- * ({@link Thread} + optional message/user/signal + platform). Reach for
+ * ({@link Thread} + optional message/signal + application user + provider actor
+ * + platform). Reach for
  * platform power via capability-gated `thread` methods (e.g.
  * `thread.getMessages()`, `thread.lookupUser(query)`).
  *

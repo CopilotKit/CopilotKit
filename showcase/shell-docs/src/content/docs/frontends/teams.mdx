@@ -37,7 +37,7 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     cd my-teams-channel
     npm init -y
     npm pkg set type=module
-    npm install --save-exact @copilotkit/channels@0.4.0 @copilotkit/runtime@1.64.1
+    npm install --save-exact @copilotkit/channels@0.5.0 @copilotkit/runtime@1.64.2
     npm install -D tsx typescript @types/node
     ```
 
@@ -92,14 +92,8 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
 
     const channel = createChannel({
       name: required("CHANNEL_CODE"),
-      provider: "teams",
+      identifyUser: "platform",
       agent: makeAgent,
-      context: [
-        {
-          description: "Channel behavior",
-          value: "You are working in Microsoft Teams. Keep responses concise.",
-        },
-      ],
     });
 
     channel.onMessage(async ({ thread, message }) => {
@@ -129,7 +123,6 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     const runtime = new CopilotRuntime({
       agents: {},
       intelligence,
-      identifyUser: () => ({ id: "channels-runtime", name: "Channels Runtime" }),
       channels: [channel],
     });
 
@@ -250,8 +243,9 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
 
 <Accordions>
   <Accordion title="The Channel stays at Waiting for runtime">
-    Confirm the Code matches `CHANNEL_CODE`, the declaration uses `provider:
-    "teams"`, and the API key belongs to the same Intelligence project.
+    Confirm the Code matches `CHANNEL_CODE` and the API key belongs to the same
+    Intelligence project. Provider routing comes from the Teams connection
+    attached in Intelligence, not from a `createChannel` option.
   </Accordion>
   <Accordion title="Teams cannot reach the bot">
     In Azure Bot Configuration, use the exact read-only Messaging endpoint from
