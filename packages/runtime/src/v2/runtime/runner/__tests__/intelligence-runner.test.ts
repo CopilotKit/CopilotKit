@@ -688,6 +688,76 @@ describe("IntelligenceAgentRunner", () => {
       ).toBe(false);
     });
 
+    it("does not let failed-run teardown remove a synchronous replacement run", async () => {
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-failure-replacement";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-failure-replacement",
+      });
+      const replacementInput = createRunInput({
+        threadId,
+        runId: "r-event-failure-replacement-next",
+      });
+      let replacementSubscription:
+        | ReturnType<ReturnType<typeof runner.run>["subscribe"]>
+        | undefined;
+
+      runner.run({ threadId, agent: new MockAgent(), input }).subscribe({
+        error: () => {
+          replacementSubscription = runner
+            .run({
+              threadId,
+              agent: new BlockingMockAgent(),
+              input: replacementInput,
+            })
+            .subscribe();
+        },
+      });
+      const failedChannel = mockChannels[0];
+      failedChannel.triggerJoin("ok");
+      await waitForCondition(() => failedChannel.pushLog.length === 1);
+      failedChannel.pushLog[0].push.trigger("error", { retryable: false });
+
+      expect(replacementSubscription).toBeDefined();
+      expect(await runner.isRunning({ threadId })).toBe(true);
+      expect(mockChannels[1].left).toBe(false);
+      expect(mockSockets[1].disconnected).toBe(false);
+
+      replacementSubscription?.unsubscribe();
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("rejects a second subscription to the same run observable without replacing its owner", async () => {
+      const threadId = "t-duplicate-run-subscription";
+      const input = createRunInput({
+        threadId,
+        runId: "r-duplicate-run-subscription",
+      });
+      const events = runner.run({
+        threadId,
+        agent: new BlockingMockAgent(),
+        input,
+      });
+      let secondError: Error | undefined;
+
+      const firstSubscription = events.subscribe();
+      const firstSocket = mockSockets[0];
+      const secondSubscription = events.subscribe({
+        error: (error) => (secondError = error),
+      });
+
+      expect(secondError?.message).toBe("Thread already running");
+      expect(secondSubscription.closed).toBe(true);
+      expect(mockSockets).toHaveLength(1);
+      expect(await runner.isRunning({ threadId })).toBe(true);
+      expect(firstSocket.disconnected).toBe(false);
+
+      firstSubscription.unsubscribe();
+      expect(await runner.isRunning({ threadId })).toBe(false);
+      expect(firstSocket.disconnected).toBe(true);
+    });
+
     it("keeps retrying the original payload until its original durability deadline", async () => {
       vi.useFakeTimers();
       autoAcknowledgePushes = false;
@@ -780,6 +850,86 @@ describe("IntelligenceAgentRunner", () => {
       await vi.advanceTimersByTimeAsync(1_000);
 
       expect(errors).toBe(1);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("fails instead of replaying on rejoin at the exact durability deadline", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-deadline-exact-rejoin";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-deadline-exact-rejoin",
+      });
+      let errors = 0;
+
+      runner
+        .run({
+          threadId,
+          agent: new MockAgent([
+            {
+              type: EventType.RUN_FINISHED,
+              threadId,
+              runId: input.runId,
+            } as RunFinishedEvent,
+          ]),
+          input,
+        })
+        .subscribe({ error: () => errors++ });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+      expect(ch.pushLog).toHaveLength(1);
+
+      ch.triggerError("channel_closed");
+      ch.beginRejoin();
+      vi.setSystemTime(60_000);
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+
+      expect(errors).toBe(1);
+      expect(ch.pushLog).toHaveLength(1);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("fails instead of accepting an acknowledgement at the exact durability deadline", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-deadline-exact-ack";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-deadline-exact-ack",
+      });
+      let errors = 0;
+      let completions = 0;
+
+      runner
+        .run({
+          threadId,
+          agent: new MockAgent([
+            {
+              type: EventType.RUN_FINISHED,
+              threadId,
+              runId: input.runId,
+            } as RunFinishedEvent,
+          ]),
+          input,
+        })
+        .subscribe({
+          error: () => errors++,
+          complete: () => completions++,
+        });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+      expect(ch.pushLog).toHaveLength(1);
+
+      vi.setSystemTime(60_000);
+      ch.pushLog[0].push.trigger("ok");
+
+      expect(errors).toBe(1);
+      expect(completions).toBe(0);
       expect(await runner.isRunning({ threadId })).toBe(false);
     });
 

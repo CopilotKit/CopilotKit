@@ -214,6 +214,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
 
     return new Observable((observer) => {
+      if (this.threads.get(threadId)?.isRunning) {
+        observer.error(new Error("Thread already running"));
+        return;
+      }
+
       const socket = this.createSocket(request.authToken);
 
       const channel = socket.channel(`ingestion:${input.runId}`, {
@@ -361,7 +366,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
           } as BaseEvent;
           observer.next(errorEvent);
           state.currentEvents.push(errorEvent);
-          this.removeThread(threadId);
+          this.removeThread(threadId, state);
           startupBoundary?.rejectStartup(error);
           observer.complete();
         })
@@ -381,13 +386,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
           } as BaseEvent;
           observer.next(errorEvent);
           state.currentEvents.push(errorEvent);
-          this.removeThread(threadId);
+          this.removeThread(threadId, state);
           startupBoundary?.rejectStartup(error);
           observer.complete();
         });
 
       return () => {
-        this.removeThread(threadId);
+        this.removeThread(threadId, state);
       };
     });
   }
@@ -602,6 +607,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
   ): void {
     if (
       !this.isCurrentThreadState(state.threadId, state) ||
+      this.failIfEventDeadlineExceeded(state) ||
       state.channel.state !== "joined" ||
       !state.socket.isConnected()
     ) {
@@ -623,6 +629,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
           !this.isCurrentThreadState(state.threadId, state) ||
           state.activeEventBatch?.attempt !== attempt
         ) {
+          return;
+        }
+        if (this.failIfEventDeadlineExceeded(state)) {
           return;
         }
         for (const eventId of eventIds) {
@@ -656,6 +665,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
+    if (this.failIfEventDeadlineExceeded(state)) {
+      return;
+    }
     if (this.isPermanentEventFailure(response)) {
       this.failThread(
         state.threadId,
@@ -797,7 +809,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
   }
 
   private retryActiveEventBatch(state: ThreadState): void {
-    if (!this.isCurrentThreadState(state.threadId, state)) {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      this.failIfEventDeadlineExceeded(state)
+    ) {
       return;
     }
     const activeBatch = state.activeEventBatch;
@@ -835,7 +850,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
-    this.removeThread(threadId);
+    this.removeThread(threadId, state);
     state.completeRun();
   }
 
@@ -902,18 +917,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
           return;
         }
 
-        const oldestPending = Math.min(
-          ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
-        );
-        if (Date.now() < oldestPending + EVENT_DURABILITY_DEADLINE_MS) {
+        if (!this.failIfEventDeadlineExceeded(state)) {
           this.scheduleEventDeadline(state);
-          return;
         }
-        this.failThread(
-          state.threadId,
-          state,
-          new Error("Timed out trying to durably deliver runner events"),
-        );
       },
       Math.max(0, deadline - Date.now()),
     );
@@ -923,8 +929,26 @@ export class IntelligenceAgentRunner extends AgentRunner {
     if (!this.isCurrentThreadState(threadId, state)) {
       return;
     }
-    this.removeThread(threadId);
+    this.removeThread(threadId, state);
     state.failRun(error);
+  }
+
+  private failIfEventDeadlineExceeded(state: ThreadState): boolean {
+    if (state.pendingEvents.size === 0) {
+      return false;
+    }
+    const oldestQueuedAt = Math.min(
+      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
+    );
+    if (Date.now() < oldestQueuedAt + EVENT_DURABILITY_DEADLINE_MS) {
+      return false;
+    }
+    this.failThread(
+      state.threadId,
+      state,
+      new Error("Timed out trying to durably deliver runner events"),
+    );
+    return true;
   }
 
   private isCurrentThreadState(threadId: string, state: ThreadState): boolean {
@@ -938,9 +962,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
    * Idempotent — safe to call multiple times for the same threadId
    * (e.g. from join error handlers, finalize, and Observable teardown).
    */
-  private removeThread(threadId: string): void {
-    const state = this.threads.get(threadId);
-    if (!state) {
+  private removeThread(threadId: string, state: ThreadState): void {
+    if (this.threads.get(threadId) !== state) {
       return;
     }
 
