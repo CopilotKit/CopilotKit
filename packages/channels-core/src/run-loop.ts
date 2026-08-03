@@ -36,8 +36,13 @@ export interface RunLoopArgs {
   isAborted?: () => boolean;
   /** Hard cap on loop iterations. Default 6. */
   maxIterations?: number;
-  /** When re-entering via thread.resume, the resume command to replay. */
-  initialResume?: { resume: unknown };
+  /**
+   * When re-entering via thread.resume, the resume command to replay. Sent
+   * verbatim as `forwardedProps.command`, so any field here reaches the agent.
+   * `interruptEvent` echoes the originating interrupt back for bridges that key
+   * their resume off it (@ag-ui/mastra); it is absent unless one was captured.
+   */
+  initialResume?: { resume: unknown; interruptEvent?: unknown };
   /** Subscriber used for each underlying agent step. Defaults to the renderer. */
   subscriber?: AgentSubscriber;
   /**
