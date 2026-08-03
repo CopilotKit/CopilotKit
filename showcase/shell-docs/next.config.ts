@@ -18,6 +18,7 @@ const CHANNEL_REDIRECT_GUIDE_SLUGS = [
   "intelligence",
   "connect",
   "tools",
+  "identity-and-memory",
   "rich-messages",
   "interactive",
   "commands-and-reactions",

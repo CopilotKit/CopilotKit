@@ -50,9 +50,11 @@ prepared delivery only to its originating provider.
 | Option           | Type                                           | Notes                                                                                                                                |
 | ---------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `name`           | `string`                                       | Required for managed delivery. Must match the project-unique Intelligence Code.                                                      |
-| `identifyUser`   | `"platform" \| ChannelIdentifyUser`            | Required. Maps each provider actor to an application user or `null`.                                                                 |
+| `identifyUser`   | `"platform" \| ChannelIdentifyUser`            | Required. Maps each provider actor to an application user or `null`. See the Identity and Memory guide for [Slack](/slack/identity-and-memory) or [Teams](/teams/identity-and-memory). |
 | `showToolStatus` | `boolean`                                      | Managed Slack hides tool-call progress by default. Set `true` to show it; tool history remains available in Intelligence either way. |
-| `agent`          | `AbstractAgent \| (threadId) => AbstractAgent` | Prefer a factory; a singleton is isolated per run via `clone()`.                                                                     |
+| `replyContinuation` | `ReplyContinuationOptions`                  | Managed Slack continuation limits. Direct Slack configures the same option on `slack()`.                                             |
+| `agent`          | `AbstractAgent \| (threadId) => AbstractAgent` | Prefer a factory. Every turn clones its configured agent, including the agent returned by a factory.                                 |
+| `sanitizeAgentEvents` | `boolean`                                  | Defaults to `true`. Repairs the known nullable AG-UI parent-message field before strict HTTP-stream validation.                       |
 | `tools`          | `ChannelTool[]`                                | Channel-level typed tools.                                                                                                           |
 | `context`        | `ContextEntry[]`                               | Stable context added to every agent run.                                                                                             |
 | `components`     | `ChannelComponent[]`                           | Named JSX components used to reconstruct callbacks.                                                                                  |
@@ -71,6 +73,46 @@ name, or handle.
 Malformed callback output rejects with `channel_identity_invalid`. A callback
 exception rejects with `channel_identity_failed` and never falls back to the
 standard platform policy.
+
+### Tune long Slack replies
+
+Slack replies continue into additional messages when they exceed one message's
+soft byte limit. The defaults are 11,000 UTF-8 bytes per message and 20 messages
+per reply, followed by a visible English truncation notice. Most Channels should
+keep those defaults; customize them when the product needs a tighter bound or a
+localized notice:
+
+| Field | Behavior |
+| ----- | -------- |
+| `messageByteLimit` | Soft UTF-8 byte limit before continuing into another Slack message. |
+| `maxMessages` | Maximum messages occupied by one reply before truncation. |
+| `truncationMarker` | Visible notice appended when the message limit is reached. |
+
+```ts
+const channel = createChannel({
+  name: "support",
+  identifyUser: "platform",
+  agent: makeAgent,
+  replyContinuation: {
+    maxMessages: 8,
+    truncationMarker: "\n\n_This reply was shortened for Slack._",
+  },
+});
+```
+
+### Sanitize HTTP agent events
+
+`sanitizeAgentEvents` defaults to `true`. It repairs the nullable
+`parentMessageId` emitted by some LangGraph tool-call and interrupt streams so
+strict client validation does not abort the run. The sanitizer applies only to
+agents that stream over HTTP and only to the known malformed field. Set it to
+`false` to forward events unchanged and let malformed events fail validation.
+
+Every run uses a distinct result from `agent.clone()`, including when `agent` is
+a factory. A custom agent whose subclass fields contain configuration should
+override `clone()` to preserve that configuration without sharing mutable
+per-run state. Channels 0.6.1 warns when enumerable fields are dropped; that
+warning alone no longer refuses the turn.
 
 ## Registration methods
 

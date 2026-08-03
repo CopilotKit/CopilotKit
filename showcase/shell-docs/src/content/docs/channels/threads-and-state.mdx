@@ -45,6 +45,29 @@ the managed same-Thread delivery limit.
 The native provider is available on both `message.platform` and
 `thread.platform`. Managed turns report `"slack"` or `"teams"`.
 
+<Callout type="info" title="Keep conversation and user identity separate">
+  A Thread can contain several provider actors and has no personal owner. See
+  [Identity and Memory](/channels/identity-and-memory) before attaching
+  application-user data or personal Memory to a turn.
+</Callout>
+
+## Welcome a new installation or conversation
+
+`onWelcome` handles a provider installation or conversation-activation event.
+It is a lifecycle event, not a synthetic user message, so it does not run
+`onMessage` or add a made-up user turn to the conversation.
+
+```ts title="channel.ts"
+channel.onWelcome(async ({ thread, user }) => {
+  await thread.post(
+    user ? `Welcome, ${user.name}.` : "Welcome. How can I help?",
+  );
+});
+```
+
+The `user` is the nullable application user selected by `identifyUser` for that
+event. The provider account that caused the event remains available as `actor`.
+
 ## What Intelligence restores
 
 For each new turn, the managed transport reconstructs recent conversation
