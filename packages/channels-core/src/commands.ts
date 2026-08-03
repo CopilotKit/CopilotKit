@@ -1,6 +1,11 @@
 import type { InferSchemaOutput, ObjectSchema } from "./standard-schema.js";
 import { toJsonSchema } from "./standard-schema.js";
-import type { Thread, PlatformUser, ModalView } from "@copilotkit/channels-ui";
+import type {
+  ApplicationUser,
+  ModalView,
+  ProviderActor,
+  Thread,
+} from "@copilotkit/channels-ui";
 
 /**
  * Context handed to a slash-command handler. `text` is the raw argument string
@@ -17,8 +22,10 @@ export interface CommandContext<TOptions = Record<string, never>> {
   text: string;
   /** Parsed, typed options (empty on surfaces that only deliver `text`). */
   options: TOptions;
-  /** The invoking user, when the surface provides it. */
-  user?: PlatformUser;
+  /** Canonical application user selected for this event. */
+  user: ApplicationUser | null;
+  /** Provider account that invoked the command. */
+  actor: ProviderActor;
   platform: string;
   /** Open a modal in response to this command (requires the surface's trigger; `undefined` when unavailable). */
   openModal?(view: ModalView): Promise<{ ok: boolean; error?: string }>;

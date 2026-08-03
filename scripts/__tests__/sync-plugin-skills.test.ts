@@ -132,7 +132,11 @@ describe("syncPluginSkills", () => {
   it("exports the reserved lifecycle slug set", () => {
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-setup");
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-self-update");
-    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(8);
+    // A standalone skill MUST be listed here. It is not generated from
+    // packages/*/skills, so without an entry the sync treats it as an orphan and
+    // deletes it.
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-channels");
+    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(9);
   });
 
   // Version sync — the plugin version tracks packages/runtime/package.json.

@@ -1,0 +1,30 @@
+{
+  // Unlike every other starter, this config has no matching `typecheck:channel`
+  // script in package.json. `channel-host.mts` imports `src/agent.ts`, which
+  // transitively pulls in `src/mastra/**` — and that tree has a pre-existing
+  // `Type 'Memory' is not assignable to type 'MastraMemory'` error
+  // (src/mastra/agents/index.ts:18) unrelated to the Channel host. TypeScript
+  // follows imports regardless of `include`, so `tsc -p tsconfig.channel.json
+  // --noEmit` can never pass here and there is no scoping fix. This config is
+  // still used by the `channel` script (via `tsx --tsconfig`), which only
+  // needs it for module resolution, not a clean typecheck.
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    // mastra-specific addition (not in the reference tsconfig.channel.json):
+    // src/agent.ts pulls in src/mastra/**, which uses the "@/*" alias
+    // internally (e.g. src/mastra/agents/index.ts imports "@/mastra/tools").
+    // Without this, both tsc and tsx fail to resolve that import — verified
+    // by running `npm run channel`, which crashes with
+    // "Cannot find module '@/mastra/tools'" without it.
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["channel-host.mts", "channels.mts", "src/agent.ts"]
+}

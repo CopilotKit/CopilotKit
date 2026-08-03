@@ -27,13 +27,13 @@ describe("decodeViewSubmission", () => {
           },
         },
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt).toMatchObject({
       callbackId: "triage",
       privateMetadata: "meta",
       values: { summary: "boom", prio: "high", team: "core" },
-      user: { id: "U1" },
+      actor: { id: "U1", kind: "human" },
       platform: "slack",
     });
   });
@@ -48,7 +48,7 @@ describe("decodeViewSubmission", () => {
         }),
         state: { values: {} },
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt.conversationKey).toBe("C123::1700.5");
     expect(evt.replyTarget).toEqual({ channel: "C123", threadTs: "1700.5" });
@@ -64,7 +64,7 @@ describe("decodeViewSubmission", () => {
         }),
         state: { values: {} },
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt.conversationKey).toBe("D999::dm");
     expect(evt.replyTarget).toEqual({ channel: "D999" });
@@ -78,7 +78,7 @@ describe("decodeViewSubmission", () => {
         private_metadata: "just-a-string",
         state: { values: {} },
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt.privateMetadata).toBe("just-a-string");
     expect(evt.conversationKey).toBeUndefined();
@@ -96,7 +96,7 @@ describe("decodeViewClosed", () => {
           pm: "authorMeta",
         }),
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt.conversationKey).toBe("C123::1700.5");
     expect(evt.replyTarget).toEqual({ channel: "C123", threadTs: "1700.5" });
@@ -109,7 +109,7 @@ describe("decodeViewClosed", () => {
         callback_id: "triage",
         private_metadata: "plain",
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt.privateMetadata).toBe("plain");
     expect(evt.conversationKey).toBeUndefined();

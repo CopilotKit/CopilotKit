@@ -1,7 +1,15 @@
-import type { FrontendIcon } from "@/lib/frontend-options";
+import type { ComingSoonChannelId, FrontendIcon } from "@/lib/frontend-options";
 import type React from "react";
 import { BiLogoMicrosoftTeams } from "react-icons/bi";
-import { SiAngular, SiReact, SiVuedotjs } from "react-icons/si";
+import { MdSms } from "react-icons/md";
+import {
+  SiAngular,
+  SiDiscord,
+  SiReact,
+  SiTelegram,
+  SiVuedotjs,
+  SiWhatsapp,
+} from "react-icons/si";
 import { TbBrandReactNative } from "react-icons/tb";
 
 type BrandIcon = React.ComponentType<{
@@ -80,6 +88,16 @@ const FRONTEND_ICONS: Record<FrontendIcon, { Icon: BrandIcon; color: string }> =
     teams: { Icon: BiLogoMicrosoftTeams, color: "#6264A7" },
   };
 
+const COMING_SOON_CHANNEL_ICONS: Record<
+  ComingSoonChannelId,
+  { Icon: BrandIcon; color: string }
+> = {
+  discord: { Icon: SiDiscord, color: "#5865F2" },
+  whatsapp: { Icon: SiWhatsapp, color: "#25D366" },
+  telegram: { Icon: SiTelegram, color: "#26A5E4" },
+  sms: { Icon: MdSms, color: "#34C759" },
+};
+
 export function FrontendLogo({
   icon,
   size = 18,
@@ -90,6 +108,28 @@ export function FrontendLogo({
   className?: string;
 }) {
   const { Icon, color } = FRONTEND_ICONS[icon];
+  return (
+    <Icon
+      aria-hidden={true}
+      className={className}
+      color={color}
+      focusable={false}
+      size={size}
+      title=""
+    />
+  );
+}
+
+export function ComingSoonChannelLogo({
+  icon,
+  size = 18,
+  className,
+}: {
+  icon: ComingSoonChannelId;
+  size?: number;
+  className?: string;
+}) {
+  const { Icon, color } = COMING_SOON_CHANNEL_ICONS[icon];
   return (
     <Icon
       aria-hidden={true}

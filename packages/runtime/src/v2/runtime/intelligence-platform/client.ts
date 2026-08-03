@@ -12,6 +12,23 @@ import { randomUUID } from "crypto";
  * @internal
  */
 export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
+/** Immutable user/project Memory grant forwarded to Intelligence. */
+export const INTELLIGENCE_MEMORY_GRANT_HEADER = "x-cpki-memory-grant";
+
+interface RuntimeMemoryGrant {
+  readonly user: "none" | "read" | "read-write";
+  readonly project: "none" | "read" | "read-write";
+}
+
+const memoryRequestHeaders = (
+  userId: string,
+  grant?: RuntimeMemoryGrant,
+): Record<string, string> => ({
+  [INTELLIGENCE_USER_ID_HEADER]: userId,
+  ...(grant
+    ? { [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(grant) }
+    : {}),
+});
 
 /**
  * REST base URL of CopilotKit's managed Intelligence platform — the default
@@ -97,6 +114,9 @@ export interface CopilotKitIntelligenceConfig {
    *
    * Defaults to `false` — opt-in. Existing intelligence setups continue
    * to work without these tools unless they flip this flag.
+   *
+   * @deprecated Configure `memory.access` on `CopilotRuntime` so each web
+   * request receives an explicit agent or client Memory grant.
    */
   enableEnterpriseLearning?: boolean;
   /**
@@ -175,10 +195,17 @@ export interface MemorySummary {
   sourceThreadIds: string[];
   /** ISO-8601 timestamp when the memory was retired, or `null` if live. */
   invalidatedAt: string | null;
+  /** Relevance score from a `recall` (hybrid RAG) query. Present only on recall responses. */
+  score?: number;
 }
 
 /** Response from {@link CopilotKitIntelligence.listMemories}. */
 export interface ListMemoriesResponse {
+  memories: MemorySummary[];
+}
+
+/** Response from {@link CopilotKitIntelligence.recallMemories}. */
+export interface RecallMemoriesResponse {
   memories: MemorySummary[];
 }
 
@@ -240,6 +267,7 @@ export interface SubscribeToThreadsResponse {
 
 export interface SubscribeToMemoriesRequest {
   userId: string;
+  memoryGrant?: RuntimeMemoryGrant;
 }
 
 /**
@@ -249,8 +277,17 @@ export interface SubscribeToMemoriesRequest {
  * `user_meta:memories:<joinCode>` channel topic.
  */
 export interface SubscribeToMemoriesResponse {
-  joinToken: string;
-  joinCode: string;
+  joinToken?: string;
+  joinCode?: string;
+  /**
+   * Project-scoped realtime credentials, minted by the platform only when the
+   * caller's API key resolves to a project scope. Absent when project scope is
+   * unavailable — a silent-degrade contract: the client then opens only the
+   * user channel. When present, the client builds the second
+   * `project_meta:memories:<projectJoinCode>` channel topic from them.
+   */
+  projectJoinToken?: string;
+  projectJoinCode?: string;
 }
 
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
@@ -314,8 +351,10 @@ export interface ThreadMessage {
   id: string;
   /** Message role, e.g. `"user"`, `"assistant"`, `"tool"`. */
   role: string;
-  /** Text content of the message. May be absent for tool-call-only messages. */
-  content?: string;
+  /** Structured AG-UI content. May be absent for tool-call-only messages. */
+  content?: unknown;
+  /** Standard AG-UI activity type when `role` is `"activity"`. */
+  activityType?: string;
   /** Tool calls initiated by this message (assistant role only). */
   toolCalls?: Array<{
     id: string;
@@ -371,6 +410,8 @@ export interface AcquireThreadLockRequest {
   runId: string;
   userId: string;
   agentId: string;
+  /** Internal managed-Channel delivery context for shared Thread access. */
+  channelDeliveryId?: string;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -438,6 +479,7 @@ export class CopilotKitIntelligence {
   #apiUrl: string;
   #runnerWsUrl: string;
   #clientWsUrl: string;
+  #channelsWsUrl: string;
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
@@ -459,6 +501,7 @@ export class CopilotKitIntelligence {
     );
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
+    this.#channelsWsUrl = deriveChannelsWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
 
@@ -543,6 +586,10 @@ export class CopilotKitIntelligence {
 
   ɵgetClientWsUrl(): string {
     return this.#clientWsUrl;
+  }
+
+  ɵgetChannelsWsUrl(): string {
+    return this.#channelsWsUrl;
   }
 
   ɵgetRunnerAuthToken(): string {
@@ -660,6 +707,7 @@ export class CopilotKitIntelligence {
    */
   async listMemories(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     includeInvalidated?: boolean;
   }): Promise<ListMemoriesResponse> {
     const qs = params.includeInvalidated ? "?includeInvalidated=true" : "";
@@ -667,7 +715,7 @@ export class CopilotKitIntelligence {
       "GET",
       `/api/memories${qs}`,
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -679,6 +727,7 @@ export class CopilotKitIntelligence {
    */
   async createMemory(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     content: string;
     kind: string;
     /** Optional: when omitted, the platform applies its default (`"user"`). */
@@ -694,7 +743,7 @@ export class CopilotKitIntelligence {
         ...(params.scope !== undefined ? { scope: params.scope } : {}),
         sourceThreadIds: params.sourceThreadIds ?? [],
       },
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -708,6 +757,7 @@ export class CopilotKitIntelligence {
    */
   async updateMemory(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     id: string;
     content: string;
     kind: string;
@@ -724,7 +774,7 @@ export class CopilotKitIntelligence {
         ...(params.scope !== undefined ? { scope: params.scope } : {}),
         sourceThreadIds: params.sourceThreadIds ?? [],
       },
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -732,12 +782,41 @@ export class CopilotKitIntelligence {
    * Non-lossily retire (forget) a memory (platform `DELETE /api/memories/:id`).
    * @throws {@link PlatformRequestError} on non-2xx responses.
    */
-  async removeMemory(params: { userId: string; id: string }): Promise<void> {
+  async removeMemory(params: {
+    userId: string;
+    id: string;
+    memoryGrant?: RuntimeMemoryGrant;
+  }): Promise<void> {
     await this.#request<void>(
       "DELETE",
       `/api/memories/${encodeURIComponent(params.id)}`,
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
+    );
+  }
+
+  /**
+   * Semantically recall the given user's memories (platform `POST
+   * /api/memories/recall`, hybrid RAG). Each returned memory carries a
+   * relevance `score`. `scope` narrows to `"user"`/`"project"`; omitted → platform default.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async recallMemories(params: {
+    userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
+    query: string;
+    limit?: number;
+    scope?: string;
+  }): Promise<RecallMemoriesResponse> {
+    return this.#request<RecallMemoriesResponse>(
+      "POST",
+      `/api/memories/recall`,
+      {
+        query: params.query,
+        ...(params.limit !== undefined ? { limit: params.limit } : {}),
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
+      },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -757,7 +836,10 @@ export class CopilotKitIntelligence {
    * Mint memory-realtime join credentials (platform `POST
    * /api/memories/subscribe`). Returns both the single-use `joinToken` and the
    * per-user `joinCode` the client needs to build the
-   * `user_meta:memories:<joinCode>` channel topic.
+   * `user_meta:memories:<joinCode>` channel topic. When the platform also
+   * resolves a project scope it returns optional `projectJoinToken` /
+   * `projectJoinCode`; both are passed through verbatim (omitted when absent,
+   * the silent-degrade contract).
    *
    * The user is supplied via the `x-cpki-user-id` header — the same way every
    * other memory endpoint (`listMemories`/`createMemory`/…) identifies the app
@@ -774,7 +856,7 @@ export class CopilotKitIntelligence {
       "POST",
       "/api/memories/subscribe",
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -903,12 +985,40 @@ export class CopilotKitIntelligence {
   async getThreadMessages(params: {
     threadId: string;
     userId: string;
+    /** Internal managed-Channel delivery context for shared Thread access. */
+    channelDeliveryId?: string;
   }): Promise<ThreadMessagesResponse> {
     const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadMessagesResponse>(
       "GET",
       `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
+      undefined,
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
     );
+  }
+
+  /** @internal Fetches one authorized managed Channel asset for history hydration. */
+  async ɵgetManagedChannelAsset(assetId: string): Promise<{
+    bytes: Uint8Array;
+    mimeType?: string;
+  }> {
+    const path = `/api/channels/files/${encodeURIComponent(assetId)}`;
+    const response = await fetch(`${this.#apiUrl}${path}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${this.#apiKey}` },
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new PlatformRequestError(
+        `Intelligence platform error ${response.status}: ${text || response.statusText}`,
+        response.status,
+      );
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const mimeType = response.headers.get("content-type") ?? undefined;
+    return { bytes, ...(mimeType ? { mimeType } : {}) };
   }
 
   /**
@@ -1073,6 +1183,9 @@ export class CopilotKitIntelligence {
           ? { ttlSeconds: params.ttlSeconds }
           : {}),
       },
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
     );
   }
 
@@ -1186,6 +1299,10 @@ function deriveRunnerWsUrl(wsUrl: string): string {
     return `${wsUrl.slice(0, -"/client".length)}/runner`;
   }
 
+  if (wsUrl.endsWith("/channels")) {
+    return `${wsUrl.slice(0, -"/channels".length)}/runner`;
+  }
+
   return `${wsUrl}/runner`;
 }
 
@@ -1198,5 +1315,20 @@ function deriveClientWsUrl(wsUrl: string): string {
     return `${wsUrl.slice(0, -"/runner".length)}/client`;
   }
 
+  if (wsUrl.endsWith("/channels")) {
+    return `${wsUrl.slice(0, -"/channels".length)}/client`;
+  }
+
   return `${wsUrl}/client`;
+}
+
+function deriveChannelsWsUrl(wsUrl: string): string {
+  if (wsUrl.endsWith("/channels")) return wsUrl;
+  if (wsUrl.endsWith("/runner")) {
+    return `${wsUrl.slice(0, -"/runner".length)}/channels`;
+  }
+  if (wsUrl.endsWith("/client")) {
+    return `${wsUrl.slice(0, -"/client".length)}/channels`;
+  }
+  return `${wsUrl}/channels`;
 }

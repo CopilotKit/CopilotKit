@@ -15,7 +15,7 @@ describe("decodeReaction", () => {
     expect(evt).toMatchObject({
       rawEmoji: "thumbsup",
       added: true,
-      user: { id: "U1" },
+      actor: { id: "U1", kind: "human" },
       messageId: "171.1",
       replyTarget: { channel: "C9" },
     });
@@ -178,25 +178,31 @@ describe("adapter reaction ingress loop guard", () => {
     expect(sink.onReaction).toHaveBeenCalledTimes(1);
   });
 
-  it("enriches the reaction user via resolveUser (name + email), not a bare {id}", async () => {
+  it("keeps profile lookup lazy until identity code requests it", async () => {
     const { fireReaction, sink, usersInfo } = await startWithFakes();
     await fireReaction("reaction_added", {
       user: "UHUMAN",
       reaction: "thumbsup",
       item: { type: "message", channel: "C9", ts: "171.1" },
     });
-    expect(usersInfo).toHaveBeenCalledWith({ user: "UHUMAN" });
+    expect(usersInfo).not.toHaveBeenCalled();
     const evt = sink.onReaction.mock.calls[0]?.[0] as {
-      user?: { id: string; name?: string; email?: string };
+      actor: { id: string; kind: string };
+      identityContext: {
+        lookupProfile?: () => Promise<unknown>;
+      };
     };
-    expect(evt.user).toEqual({
+    expect(evt.actor).toEqual({ id: "UHUMAN", kind: "human" });
+    await expect(evt.identityContext.lookupProfile?.()).resolves.toEqual({
       id: "UHUMAN",
+      kind: "human",
       name: "Human User",
       email: "human@example.com",
     });
+    expect(usersInfo).toHaveBeenCalledWith({ user: "UHUMAN" });
   });
 
-  it("enriches the reaction user on reaction_removed too", async () => {
+  it("classifies the reaction_removed actor without fetching a profile", async () => {
     const { fireReaction, sink } = await startWithFakes();
     await fireReaction("reaction_removed", {
       user: "UHUMAN",
@@ -204,9 +210,11 @@ describe("adapter reaction ingress loop guard", () => {
       item: { type: "message", channel: "C9", ts: "171.1" },
     });
     const evt = sink.onReaction.mock.calls[0]?.[0] as {
-      user?: { id: string; name?: string; email?: string };
+      actor: { id: string; kind: string };
+      identityContext: { tenant: { id: string } };
     };
-    expect(evt.user).toMatchObject({ name: "Human User" });
+    expect(evt.actor).toEqual({ id: "UHUMAN", kind: "human" });
+    expect(evt.identityContext.tenant).toEqual({ id: "T1" });
   });
 });
 

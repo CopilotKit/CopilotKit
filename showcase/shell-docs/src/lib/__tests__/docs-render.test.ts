@@ -434,20 +434,17 @@ describe("cookbook nav", () => {
 
 describe("framework nav", () => {
   it("leaves Slack and Teams platform guides ungated", () => {
-    const slack = loadDoc("frontends/slack")?.fm;
-    const teams = loadDoc("frontends/teams")?.fm;
+    const slack = loadDoc("frontends/slack");
+    const teams = loadDoc("frontends/teams");
 
-    expect(slack?.earlyAccess).toBeUndefined();
-    expect(slack?.hideTOC).toBe(true);
-    expect(teams?.earlyAccess).toBeUndefined();
-    expect(teams?.hideTOC).toBe(true);
+    expect(slack?.fm.earlyAccess).toBeUndefined();
+    expect(slack?.source).toContain("doc_type: tutorial");
+    expect(teams?.fm.earlyAccess).toBeUndefined();
+    expect(teams?.source).toContain("doc_type: tutorial");
   });
 
-  it("loads early-access frontmatter for gated platform guides", () => {
-    const whatsapp = loadDoc("frontends/whatsapp")?.fm;
-
-    expect(whatsapp?.earlyAccess).toBe("whatsapp");
-    expect(whatsapp?.hideTOC).toBe(true);
+  it("does not publish a selectable WhatsApp guide before launch", () => {
+    expect(loadDoc("frontends/whatsapp")).toBeNull();
   });
 
   it("keeps frontend platform guides out of generated framework nav", () => {

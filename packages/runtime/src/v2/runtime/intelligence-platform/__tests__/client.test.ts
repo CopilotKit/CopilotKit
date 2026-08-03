@@ -53,7 +53,7 @@ describe("CopilotKitIntelligence", () => {
     );
   });
 
-  it("derives runner and client websocket URLs from a single intelligence websocket URL", () => {
+  it("derives runner, client, and Channels websocket URLs from one host", () => {
     const c = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com",
@@ -62,6 +62,7 @@ describe("CopilotKitIntelligence", () => {
 
     expect(c.ɵgetRunnerWsUrl()).toBe("wss://ws.example.com/runner");
     expect(c.ɵgetClientWsUrl()).toBe("wss://ws.example.com/client");
+    expect(c.ɵgetChannelsWsUrl()).toBe("wss://ws.example.com/channels");
   });
 
   describe("managed platform URL defaults", () => {
@@ -81,6 +82,9 @@ describe("CopilotKitIntelligence", () => {
       );
       expect(c.ɵgetClientWsUrl()).toBe(
         "wss://realtime.intelligence.copilotkit.ai/client",
+      );
+      expect(c.ɵgetChannelsWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/channels",
       );
     });
 
@@ -376,6 +380,26 @@ describe("CopilotKitIntelligence", () => {
       expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
       expect(opts.body).toBeUndefined();
     });
+
+    it("passes through optional project credentials when the platform returns them", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          joinToken: "jt-mem",
+          joinCode: "jc-mem",
+          projectJoinToken: "pjt-mem",
+          projectJoinCode: "pjc-mem",
+        }),
+      );
+
+      const result = await client.ɵsubscribeToMemories({ userId: "user-1" });
+
+      expect(result).toEqual({
+        joinToken: "jt-mem",
+        joinCode: "jc-mem",
+        projectJoinToken: "pjt-mem",
+        projectJoinCode: "pjc-mem",
+      });
+    });
   });
 
   describe("updateThread", () => {
@@ -527,6 +551,7 @@ describe("CopilotKitIntelligence", () => {
       const result = await client.getThreadMessages({
         threadId: "t-1",
         userId: "user-1",
+        channelDeliveryId: "dlv_delivery_1",
       });
 
       expect(result).toEqual(payload);
@@ -535,6 +560,9 @@ describe("CopilotKitIntelligence", () => {
         "https://api.example.com/api/threads/t-1/messages?userId=user-1",
       );
       expect(opts.method).toBe("GET");
+      expect(opts.headers).toMatchObject({
+        "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
+      });
     });
   });
 
@@ -663,6 +691,7 @@ describe("CopilotKitIntelligence", () => {
         runId: "r-1",
         userId: "user-1",
         agentId: "agent-1",
+        channelDeliveryId: "dlv_delivery_1",
       });
 
       expect(result).toEqual({
@@ -677,6 +706,9 @@ describe("CopilotKitIntelligence", () => {
         runId: "r-1",
         userId: "user-1",
         agentId: "agent-1",
+      });
+      expect(opts.headers).toMatchObject({
+        "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
       });
     });
 
@@ -1007,6 +1039,53 @@ describe("CopilotKitIntelligence", () => {
       await expect(client.annotate(validParams)).rejects.toMatchObject({
         status: 502,
       });
+    });
+  });
+
+  describe("recallMemories", () => {
+    it("POSTs to /api/memories/recall with the user header and returns the envelope", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          memories: [
+            {
+              id: "m1",
+              kind: "topical",
+              scope: "user",
+              content: "User likes jazz.",
+              sourceThreadIds: [],
+              invalidatedAt: null,
+              score: 0.87,
+            },
+          ],
+        }),
+      );
+
+      const result = await client.recallMemories({
+        userId: "user-1",
+        query: "music taste",
+        limit: 5,
+        scope: "user",
+      });
+
+      expect(result.memories[0]).toMatchObject({ id: "m1", score: 0.87 });
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/recall");
+      expect(init.method).toBe("POST");
+      expect(init.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(JSON.parse(init.body)).toEqual({
+        query: "music taste",
+        limit: 5,
+        scope: "user",
+      });
+    });
+
+    it("omits limit and scope from the body when not provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ memories: [] }));
+
+      await client.recallMemories({ userId: "user-1", query: "hi" });
+
+      const [, init] = fetchMock.mock.calls[0];
+      expect(JSON.parse(init.body)).toEqual({ query: "hi" });
     });
   });
 });

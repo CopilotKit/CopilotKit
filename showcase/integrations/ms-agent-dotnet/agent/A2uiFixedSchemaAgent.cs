@@ -53,7 +53,7 @@ public class A2uiFixedSchemaAgent
         return new ChatClientAgent(
             chatClient,
             name: "A2uiFixedSchemaAgent",
-            description: @"You help users find flights. When asked about a flight, call
+            instructions: @"You help users find flights. When asked about a flight, call
 `display_flight` with origin, destination, airline, and price.
 Use short airport codes (e.g. ""SFO"", ""JFK"") for origin/destination and a price
 string like ""$289"". Keep any chat reply to one short sentence.",

@@ -1,56 +1,47 @@
 ---
-title: "Input"
-description: "Text input control in a bot message with an inline onSubmit handler."
+title: Input
+description: Render a portable text input and understand its current managed-provider callback limits.
 ---
 
-## Overview
-
-`Input` is a free-text control. The submitted text arrives in the inline `onSubmit` handler as a `string`. Place it as a **direct child of [`Message`](/reference/channels/components/Message)** (a sibling of `Section` / `Actions`) — on Slack it renders as its own input block, and an `Input` placed inside an [`Actions`](/reference/channels/components/Actions) row is dropped by the renderer.
-
-## Import
+`Input` describes a single- or multiline text field.
 
 ```tsx
-import { Input } from "@copilotkit/channels-ui";
+import { Button, Input, Message } from "@copilotkit/channels/ui";
+
+<Message>
+  <Input
+    name="reason"
+    placeholder="Why should this be approved?"
+    multiline
+    onSubmit={async (ctx) => {
+      await ctx.thread.post(`Recorded: ${String(ctx.action.value)}`);
+    }}
+  />
+  <Button
+    value="approve"
+    onClick={async (ctx) => {
+      const reason = ctx.values?.reason;
+      if (reason !== undefined) {
+        await ctx.thread.post(`Recorded: ${String(reason)}`);
+      }
+    }}
+  >
+    Approve
+  </Button>
+</Message>;
 ```
 
 ## Props
 
-<PropertyReference name="onSubmit" type="ClickHandler<string>">
-  Inline handler run on submit. `ctx.action.value` is the entered text. See [`InteractionContext`](/reference/channels/types/InteractionContext). Must return `void` or `Promise<void>`.
-</PropertyReference>
+| Prop          | Type                   | Description                                                |
+| ------------- | ---------------------- | ---------------------------------------------------------- |
+| `name`        | `string`               | Logical field name.                                        |
+| `placeholder` | `string`               | Native placeholder or label text.                          |
+| `multiline`   | `boolean`              | Requests a multiline native input.                         |
+| `onSubmit`    | `ClickHandler<string>` | Text submission callback where the provider dispatches it. |
 
-<PropertyReference name="placeholder" type="string">
-  Placeholder text shown while empty.
-</PropertyReference>
-
-<PropertyReference name="multiline" type="boolean">
-  Render as a multi-line text area.
-</PropertyReference>
-
-<PropertyReference name="name" type="string">
-  Identifier for the input. Currently unused by the Slack adapter.
-</PropertyReference>
-
-## Usage
-
-```tsx
-<Message>
-  <Section>Anything to add before I file this?</Section>
-  <Input
-    placeholder="Add a note for the postmortem…"
-    multiline
-    onSubmit={async ({ thread, action }) => {
-      await thread.post(`Noted: ${action.value}`);
-    }}
-  />
-</Message>
-```
-
-## On Slack
-
-Renders as an `input` block wrapping a `plain_text_input` element. Must be a top-level block — inside an `Actions` row the Slack renderer silently drops it.
-
-## Related
-
-- [Button](/reference/channels/components/Button) — single-click control
-- [InteractionContext](/reference/channels/types/InteractionContext) — what the handler receives
+Managed Slack renders a dispatching plain-text input block. Managed Teams
+renders `Input.Text`. Give the field a `name` and place it with a submitting
+`Button`; Teams sends the text to the Button callback in `ctx.values[name]`,
+while Slack invokes `Input.onSubmit` as soon as the input is dispatched. Teams
+does not dispatch `Input.onSubmit` independently.

@@ -181,6 +181,82 @@ export function BudgetUsageChart({ policies }: { policies: ExpensePolicy[] }) {
  * explains the dominance — the previous chart showed the imbalance without ever
  * saying where it came from.
  */
+/**
+ * The largest individual charges, ranked.
+ *
+ * This exists to be a DIFFERENT CUT from the share-of-total donut, not a second
+ * rendering of it. The donut answers "which team is spending"; this answers
+ * "which line items are actually driving that", which a three-team aggregate
+ * can never show — one $15,000 charge and thirty $500 charges look identical
+ * once summed into a team.
+ *
+ * Bars are still coloured by owning team, so a reader can tie a row back to its
+ * slice in the donut without the two charts carrying the same information.
+ */
+export function TopChargesChart({
+  transactions,
+  policies,
+  limit = 6,
+}: {
+  transactions: Transaction[];
+  policies: ExpensePolicy[];
+  limit?: number;
+}) {
+  const rows = useMemo(() => {
+    const teamOf = new Map(policies.map((p) => [p.id, p.type]));
+    return transactions
+      .filter((t) => t.amount < 0)
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        amount: Math.abs(t.amount),
+        // Charges folded in from an attached document have no policyId; they
+        // carry their team in the title the report generated for them.
+        team: teamOf.get(t.policyId ?? "") ?? "",
+        pending: t.status === "pending",
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, limit);
+  }, [transactions, policies, limit]);
+
+  const max = rows.reduce((m, r) => Math.max(m, r.amount), 0);
+
+  if (!rows.length) {
+    return <p className="text-sm text-ink-muted">No charges to rank yet.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {rows.map((r) => (
+        <div key={r.id} className="space-y-1">
+          <div className="flex items-baseline justify-between gap-2 text-[0.8125rem]">
+            <span className="min-w-0 truncate text-ink">
+              {r.title}
+              {r.pending && (
+                <span className="ml-1 text-[0.6875rem] text-ink-muted">
+                  pending
+                </span>
+              )}
+            </span>
+            <span className="flex-none font-semibold tabular-nums text-ink">
+              {formatCurrency(r.amount)}
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${max ? (r.amount / max) * 100 : 0}%`,
+                backgroundColor: r.team ? teamColor(r.team) : "hsl(248 84% 60%)",
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SpendByTeamBars({
   policies,
   additionsByTeam = {},

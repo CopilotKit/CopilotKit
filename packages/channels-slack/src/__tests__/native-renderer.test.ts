@@ -99,6 +99,34 @@ const chunksOf = (events: Event[]): AnyChunk[] =>
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 describe("createRunRenderer — native streaming", () => {
+  it("forwards replyContinuation to the turn stream", async () => {
+    // The renderer is the seam between a caller's `replyContinuation` and
+    // NativeMessageStream's own options; without the pass-through the limits are
+    // silently ignored and a long reply stays in one (over-cap) message.
+    const fake = makeFakeClient();
+    const nt = makeFakeNativeTransport();
+    const { subscriber: sub, finish } = createRunRenderer({
+      transport: fake.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      nativeStreaming: {
+        transport: nt.transport,
+        replyContinuation: { messageByteLimit: 400, maxMessages: 2 },
+      },
+    });
+
+    await sub.onTextMessageStartEvent!({ event: { messageId: "m1" } } as never);
+    sub.onTextMessageContentEvent!({
+      event: { messageId: "m1", delta: "word ".repeat(500) },
+    } as never);
+    await sub.onTextMessageEndEvent!({ event: { messageId: "m1" } } as never);
+    await finish!();
+
+    // Split by the configured byte limit and capped by maxMessages, rather than
+    // the 11k/20 defaults which would have produced a single message.
+    expect(nt.messages).toHaveLength(2);
+    expect(textOf(nt.messages[1]!.events)).toContain("reply truncated");
+  });
+
   it("streams multiple AG-UI messages into ONE turn message, separated by a blank line", async () => {
     const fake = makeFakeClient();
     const nt = makeFakeNativeTransport();
@@ -133,6 +161,7 @@ describe("createRunRenderer — native streaming", () => {
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport },
+      showToolStatus: true,
     });
 
     sub.onTextMessageContentEvent!({
@@ -169,14 +198,13 @@ describe("createRunRenderer — native streaming", () => {
     ]);
   });
 
-  it("showToolStatus:false suppresses tool progress entirely (no chunks, no rows)", async () => {
+  it("suppresses tool progress by default (no chunks, no rows)", async () => {
     const fake = makeFakeClient();
     const nt = makeFakeNativeTransport();
     const { subscriber: sub, finish } = createRunRenderer({
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport },
-      showToolStatus: false,
     });
 
     sub.onTextMessageContentEvent!({
@@ -239,6 +267,7 @@ describe("createRunRenderer — native streaming", () => {
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport, onChunkFailure },
+      showToolStatus: true,
     });
 
     // First tool call tries a chunk, which fails and flips the degradation flag.
@@ -255,6 +284,57 @@ describe("createRunRenderer — native streaming", () => {
     await finish!();
 
     expect(fake.posts.some((p) => p.text.includes(":wrench:"))).toBe(true);
+  });
+
+  it("strict mode drops rejected task UI without posting a wrench row", async () => {
+    const fake = makeFakeClient();
+    const nt = makeFakeNativeTransport({ failChunks: true });
+    const onChunkFailure = vi.fn();
+    const { subscriber: sub, finish } = createRunRenderer({
+      transport: fake.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      nativeStreaming: {
+        transport: nt.transport,
+        strict: true,
+        onChunkFailure,
+      },
+      showToolStatus: true,
+    });
+
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "search" },
+    } as never);
+    await tick();
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t2", toolCallName: "lookup" },
+    } as never);
+    await finish!();
+
+    expect(onChunkFailure).toHaveBeenCalledOnce();
+    expect(fake.posts).toHaveLength(0);
+  });
+
+  it("strict mode appends an interruption marker and keeps one bubble on run error", async () => {
+    const fake = makeFakeClient();
+    const nt = makeFakeNativeTransport();
+    const { subscriber: sub } = createRunRenderer({
+      transport: fake.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      nativeStreaming: { transport: nt.transport, strict: true },
+    });
+
+    sub.onTextMessageContentEvent!({
+      event: { messageId: "m1", delta: "Partial answer" },
+    } as never);
+    await sub.onRunErrorEvent!({ event: { message: "boom" } } as never);
+
+    expect(fake.posts).toHaveLength(0);
+    expect(nt.messages).toHaveLength(1);
+    expect(nt.messages[0]!.stopped).toBe(true);
+    expect(textOf(nt.messages[0]!.events)).toBe(
+      "Partial answer\n\n_(response interrupted)_",
+    );
+    expect(nt.messages[0]!.stopBlocks).toBeUndefined();
   });
 
   it("posts transformed fallback text and clears status after native start failure", async () => {

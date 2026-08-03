@@ -12,6 +12,8 @@ export interface StateStore {
     get<T>(key: string): Promise<T | undefined>;
     set<T>(key: string, value: T, ttlMs?: number): Promise<void>;
     delete(key: string): Promise<void>;
+    /** Atomically return and delete one live value. */
+    consume<T>(key: string): Promise<T | undefined>;
   };
   list: {
     /**

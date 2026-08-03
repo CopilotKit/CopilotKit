@@ -8,7 +8,6 @@ import {
   HelpCircle,
   LayoutDashboard,
   RotateCcw,
-  Telescope,
   Users,
 } from "lucide-react";
 
@@ -29,7 +28,6 @@ import {
 import type { Member } from "@/app/api/v1/data";
 import { MemberRole } from "@/app/api/v1/data";
 import { useAuthContext } from "@/components/auth-context";
-import { useGlassEngine } from "@/components/glass-engine-context";
 import { useRecording } from "@/components/recording-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAgentContext } from "@copilotkit/react-core/v2";
@@ -145,11 +143,6 @@ export function LayoutComponent({
   resetEnabled = false,
 }: LayoutProps) {
   const { users, currentUser, setCurrentUser } = useAuthContext();
-  const {
-    available: glassAvailable,
-    active: glassActive,
-    toggle: toggleGlass,
-  } = useGlassEngine();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   useAgentContext({
@@ -161,10 +154,9 @@ export function LayoutComponent({
 
   // The chat docks LEFT and its CopilotSidebar already reserves space for BOTH
   // its columns (thread rail + conversation) by setting body's
-  // margin-inline-start to its full width — so the page needs no left padding
-  // of its own. The only thing that still needs reserving is the Glass Engine
-  // inspector, a fixed pane on the RIGHT. Desktop-only.
-  const padClass = glassActive ? "md:pr-96" : "";
+  // margin-inline-start to its full width — so the page needs no padding of its
+  // own. The product web-inspector floats above the page rather than occupying
+  // layout space, so nothing needs reserving on the RIGHT either.
 
   const handleReset = async () => {
     // Native confirm keeps the booth tool dependency-free and reliable; a stray
@@ -208,12 +200,7 @@ export function LayoutComponent({
   }, [pathname, searchParams?.toString()]);
 
   return (
-    <div
-      className={cn(
-        "flex h-screen overflow-hidden bg-canvas transition-[padding] duration-300",
-        padClass,
-      )}
-    >
+    <div className="flex h-screen overflow-hidden bg-canvas transition-[padding] duration-300">
       {/*
         Floating icon rail — visually on the RIGHT, because the chat (thread
         rail + conversation) now owns the left edge. Positioned with flex
@@ -273,31 +260,6 @@ export function LayoutComponent({
                   </TooltipTrigger>
                   <TooltipContent side="left">
                     <p>Reset demo state</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            {glassAvailable && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={toggleGlass}
-                      aria-pressed={glassActive}
-                      aria-label="Glass Engine"
-                      className={cn(
-                        "hidden h-10 w-10 items-center justify-center rounded-2xl transition-all md:flex",
-                        glassActive
-                          ? "brand-gradient text-surface shadow-[0_8px_18px_hsl(252_83%_60%/0.4)]"
-                          : "text-ink-muted hover:bg-brand-soft hover:text-brand-indigo",
-                      )}
-                    >
-                      <Telescope className="h-5 w-5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                    <p>Glass Engine (advanced)</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

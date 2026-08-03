@@ -1,5 +1,6 @@
 export {
   handleListMemories,
+  handleRecallMemories,
   handleSubscribeToMemories,
   handleCreateMemory,
   handleUpdateMemory,

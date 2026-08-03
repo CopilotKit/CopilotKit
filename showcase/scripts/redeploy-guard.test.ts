@@ -1,8 +1,5 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
+import { jobOf } from "./__tests__/showcase-build-workflow";
 
 // ---------------------------------------------------------------------------
 // Regression guard for the `redeploy-staging` job in
@@ -24,22 +21,9 @@ import { parse as parseYaml } from "yaml";
 // model of GitHub Actions' matrix→job result rollup.
 // ---------------------------------------------------------------------------
 
-const WORKFLOW_PATH = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  ".github",
-  "workflows",
-  "showcase_build.yml",
-);
-
 /** Read the LIVE `if:` expression of the given job from the workflow YAML. */
 function readJobGuard(jobId: string): string {
-  const doc = parseYaml(readFileSync(WORKFLOW_PATH, "utf8")) as {
-    jobs: Record<string, { if?: string }>;
-  };
-  const job = doc.jobs[jobId];
-  if (!job) throw new Error(`Job '${jobId}' not found in ${WORKFLOW_PATH}`);
+  const job = jobOf(jobId);
   if (typeof job.if !== "string") {
     throw new Error(`Job '${jobId}' has no string 'if:' guard`);
   }

@@ -3,6 +3,7 @@ import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { createCopilotNodeListener } from "../endpoints/node";
 import { CopilotRuntime } from "../core/runtime";
 import type { IdentifyUserCallback } from "../core/runtime";
+import type { CopilotRuntimeOptions } from "../core/runtime";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import type { Channel } from "@copilotkit/channels";
 
@@ -28,6 +29,8 @@ type KeyIsRequired<T, K extends keyof T> = {} extends Pick<T, K> ? false : true;
 
 /** Compile error (constraint violation) unless `T` resolves to exactly `true`. */
 function assertTrue<_T extends true>(): void {}
+
+type IsRuntimeOption<T> = T extends CopilotRuntimeOptions ? true : false;
 
 // Purely type-only fixtures — never constructed at runtime.
 declare const intelligence: CopilotKitIntelligence;
@@ -61,6 +64,20 @@ async function _channelsHandlerTypeContracts(): Promise<void> {
   // branded overload lands.
   assertTrue<KeyIsRequired<typeof handler, "channels">>();
 
+  const hybridWithMemory = new CopilotRuntime({
+    agents: {},
+    intelligence,
+    identifyUser,
+    memory: {
+      access: () => ({ user: "read", project: "none" }),
+    },
+    channels: [support],
+  });
+  const hybridHandler = createCopilotRuntimeHandler({
+    runtime: hybridWithMemory,
+  });
+  assertTrue<KeyIsRequired<typeof hybridHandler, "channels">>();
+
   // A plain SSE runtime's handler must keep `.channels` OPTIONAL (not required).
   const sseHandler = createCopilotRuntimeHandler({
     runtime: new CopilotRuntime({ agents: {} }),
@@ -77,6 +94,61 @@ async function _channelsHandlerTypeContracts(): Promise<void> {
   });
   assertTrue<
     KeyIsRequired<typeof optedOut, "channels"> extends false ? true : false
+  >();
+}
+
+function _runtimeSurfaceTypeContracts(): void {
+  assertTrue<
+    IsRuntimeOption<{
+      agents: {};
+      intelligence: CopilotKitIntelligence;
+      identifyUser: IdentifyUserCallback;
+      memory: {
+        access: () => { user: "read"; project: "none" };
+      };
+    }>
+  >();
+  assertTrue<
+    IsRuntimeOption<{
+      agents: {};
+      intelligence: CopilotKitIntelligence;
+      channels: [Channel];
+    }>
+  >();
+  assertTrue<
+    IsRuntimeOption<{
+      agents: {};
+      intelligence: CopilotKitIntelligence;
+      channels: [Channel];
+      memory: { access: () => { user: "read"; project: "none" } };
+    }> extends false
+      ? true
+      : false
+  >();
+  assertTrue<
+    IsRuntimeOption<{
+      agents: {};
+      intelligence: CopilotKitIntelligence;
+      identifyUser: IdentifyUserCallback;
+      channels: [Channel];
+    }>
+  >();
+  assertTrue<
+    IsRuntimeOption<{
+      agents: {};
+      intelligence: CopilotKitIntelligence;
+    }> extends false
+      ? true
+      : false
+  >();
+  assertTrue<
+    IsRuntimeOption<{
+      agents: {};
+      intelligence: CopilotKitIntelligence;
+      channels: [];
+    }> extends false
+      ? true
+      : false
   >();
 }
 
@@ -129,4 +201,5 @@ async function _channelsNodeListenerTypeContracts(): Promise<void> {
 test("handler.channels type contracts are enforced at compile time", () => {
   expect(typeof _channelsHandlerTypeContracts).toBe("function");
   expect(typeof _channelsNodeListenerTypeContracts).toBe("function");
+  expect(typeof _runtimeSurfaceTypeContracts).toBe("function");
 });

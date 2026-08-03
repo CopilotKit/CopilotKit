@@ -10,10 +10,10 @@
  * RUN MODEL — a Channel runs ONLY through the Intelligence runtime. The Teams
  * `teams({ port })` adapter stays DIRECT (it keeps its own transport / the
  * Playground ingress), but the runtime OWNS its lifecycle: the Channel is
- * declared on `new CopilotRuntime({ intelligence, identifyUser, channels })`,
- * and you drive readiness/shutdown through the handler's `channels` control
- * (`listener.channels.ready()` / `.stop()`) — there is no `bot.start()`/
- * `bot.stop()` and no standalone path.
+ * declared on `new CopilotRuntime({ intelligence, identifyUser, channels })` and
+ * started by mounting the node listener; you observe readiness and drive shutdown
+ * through the handler's `channels` control (`listener.channels.ready()` /
+ * `.stop()`) — there is no `bot.start()`/`bot.stop()` and no standalone path.
  *
  * Requires `OPENAI_API_KEY` (the BuiltInAgent's LLM) AND an Intelligence key
  * (`COPILOTKIT_API_KEY` — free tier; the platform URLs default to the managed
@@ -25,8 +25,12 @@
  */
 import "dotenv/config";
 import { createServer } from "node:http";
-import { createChannel, defineChannelTool } from "@copilotkit/channels";
-import { teams, SanitizingHttpAgent } from "@copilotkit/channels/teams";
+import {
+  createChannel,
+  defineChannelTool,
+  HttpAgent,
+} from "@copilotkit/channels";
+import { teams } from "@copilotkit/channels/teams";
 import {
   BuiltInAgent,
   CopilotSseRuntime,
@@ -112,12 +116,12 @@ const SYSTEM_PROMPT =
   "acknowledge and do not send.";
 
 // The agent is a CopilotKit `BuiltInAgent` served over a local
-// `CopilotSseRuntime`, and the bot connects to it with a `SanitizingHttpAgent`
-// (the re-runnable `HttpAgent` this package exports, as bot-slack does). A
-// `BuiltInAgent` can't be handed to `createChannel` directly: the bot's run loop
-// re-invokes the agent once per tool round (call → result → respond), and a
-// single `BuiltInAgent` instance rejects a second concurrent run. An
-// `HttpAgent` is re-runnable, so it drives the multi-step + HITL loops cleanly.
+// `CopilotSseRuntime`, and the bot connects to it with an `HttpAgent` (as the
+// Slack example does). A `BuiltInAgent` can't be handed to `createChannel`
+// directly: the bot's run loop re-invokes the agent once per tool round (call →
+// result → respond), and a single `BuiltInAgent` instance rejects a second
+// concurrent run. An `HttpAgent` is re-runnable, so it drives the multi-step +
+// HITL loops cleanly.
 const agentId = "assistant";
 const runtimePort = Number(process.env.RUNTIME_PORT ?? 8200);
 const runtimeAgentUrl = `http://localhost:${runtimePort}/api/copilotkit/agent/${agentId}/run`;
@@ -197,12 +201,13 @@ const showCard = defineChannelTool({
 });
 
 const bot = createChannel({
+  identifyUser: "platform",
   // Every declared Channel needs a unique `name` — the Intelligence runtime
   // keys its lifecycle (and, for managed Channels, its activation config) by it.
   name: "teams-assistant",
   adapters: [teams({ port })],
   agent: (threadId: string) => {
-    const agent = new SanitizingHttpAgent({ url: runtimeAgentUrl });
+    const agent = new HttpAgent({ url: runtimeAgentUrl });
     agent.threadId = threadId;
     return agent;
   },
@@ -249,42 +254,28 @@ const intelligence = new CopilotKitIntelligence({
 // Declare the Channel on the Intelligence runtime. The runtime OWNS the
 // Channel's lifecycle: because Intelligence is configured, it starts the direct
 // Teams adapter for us (there is no `bot.start()`). It hosts no agents itself —
-// the Channel supplies its own agent (the SanitizingHttpAgent above, pointed at
+// the Channel supplies its own agent (the HttpAgent above, pointed at
 // the local BuiltInAgent runtime) — so `agents` is empty.
 const channelRuntime = new CopilotRuntime({
   agents: {},
   intelligence,
-  // Demo stub — replace with your own auth-derived user identity (e.g. OIDC)
-  // before any multi-user deployment, or all users share one thread history.
-  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
   channels: [bot],
-});
-
-// Mounting the Node listener creates the runtime handler and exposes
-// `.channels` for readiness + shutdown. It opens NO connection yet — the
-// `ready()` call below activates the Channel (starting the direct Teams
-// adapter). Bind loopback: this runtime holds the Intelligence key
-// and needs no public ingress (the Teams adapter has its own on :${port}); the
-// listener only owns the Channel lifecycle and keeps the process alive.
-const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
-const listener = createCopilotNodeListener({
-  runtime: channelRuntime,
-  basePath: "/api/copilotkit",
-});
-createServer(listener).listen(channelPort, "127.0.0.1", () => {
-  console.log(
-    `Channel runtime (owns lifecycle) listening on 127.0.0.1:${channelPort}`,
-  );
 });
 
 // Stop the bot cleanly on exit — through the runtime's Channel control, which
 // tears down the direct Teams adapter it started. A teardown failure is logged
 // and reported as a nonzero exit rather than swallowed.
+//
+// Wired BEFORE the listener exists, because creating the listener is what starts
+// the Channel; `stopChannels` is assigned in the same tick as that creation, so
+// no signal can land in a window where the Channel is connecting untearable.
+let stopChannels: (() => Promise<void>) | undefined;
+
 const shutdown = async (signal: string): Promise<void> => {
   console.log(`\nReceived ${signal}, stopping…`);
   let exitCode = 0;
   try {
-    await listener.channels.stop();
+    await stopChannels?.();
   } catch (err) {
     console.error("Error stopping Channel", err);
     exitCode = 1;
@@ -299,16 +290,33 @@ const runShutdown = (signal: string): void => {
     process.exit(1);
   });
 };
-// Registered BEFORE activation on purpose: `ready()` below can take up to its
-// timeout, and a Ctrl-C inside that window must still tear the Channel down
-// rather than hit Node's default handler and skip teardown.
+// Registered BEFORE activation on purpose: activation begins the moment the
+// listener is created and `ready()` below can take up to its timeout — a Ctrl-C
+// anywhere in that window must still tear the Channel down rather than hit
+// Node's default handler and skip teardown.
 process.on("SIGINT", () => runShutdown("SIGINT"));
 process.on("SIGTERM", () => runShutdown("SIGTERM"));
 
-// Activate through the runtime's Channel control instead of a (now-removed)
-// bot.start(): this is what connects the Channel, and it resolves once the
-// direct Teams adapter's transport is up. Required — skip it and nothing
-// connects.
+// Mounting the Node listener creates the runtime handler and STARTS the Channel
+// (connecting the direct Teams adapter); `.channels` is how you observe and stop
+// it. Bind loopback: this runtime holds the Intelligence key and needs no public
+// ingress (the Teams adapter has its own on :${port}); the listener only owns the
+// Channel lifecycle and keeps the process alive.
+const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
+const listener = createCopilotNodeListener({
+  runtime: channelRuntime,
+  basePath: "/api/copilotkit",
+});
+stopChannels = () => listener.channels.stop();
+createServer(listener).listen(channelPort, "127.0.0.1", () => {
+  console.log(
+    `Channel runtime (owns lifecycle) listening on 127.0.0.1:${channelPort}`,
+  );
+});
+
+// Wait for that activation to settle instead of a (now-removed) bot.start(): it
+// resolves once the direct Teams adapter's transport is up, and rejects if it
+// failed — so a broken deploy exits non-zero instead of looking live.
 // Bound startup so a wedged adapter connect can't hang readiness forever.
 await listener.channels.ready({ timeoutMs: 30_000 });
 

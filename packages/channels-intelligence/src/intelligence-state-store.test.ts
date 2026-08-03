@@ -1,7 +1,7 @@
 import { test, expect } from "vitest";
 import { runStateStoreConformance } from "@copilotkit/channels-core/testing";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
-import type { FetchLike } from "./http-transports.js";
+import type { FetchLike } from "./intelligence-state-store.js";
 
 /**
  * A fake `/api/channels/kv/*` server over an in-memory Map, honoring TTL the same
@@ -35,6 +35,10 @@ function fakeKvFetch(): FetchLike {
       });
     } else if (url.endsWith("/api/channels/kv/delete")) {
       map.delete(body.key);
+    } else if (url.endsWith("/api/channels/kv/consume")) {
+      const e = map.get(body.key);
+      map.delete(body.key);
+      payload = live(e) ? { value: e!.value } : { value: null };
     } else {
       throw new Error(`unexpected KV route: ${url}`);
     }

@@ -1,4 +1,6 @@
 import { Socket } from "phoenix";
+import type { Channel } from "phoenix";
+import type { CHANNEL_DELIVERY_PROTOCOL } from "./delivery-contracts.js";
 
 /**
  * Minimal Realtime Gateway session surface used by the delivery/render
@@ -8,32 +10,45 @@ import { Socket } from "phoenix";
 export interface RealtimeGatewaySession {
   push(event: string, payload: unknown): Promise<unknown>;
   on(event: string, handler: (payload: unknown) => void): void;
+  /** Join one delivery-scoped Phoenix topic on the existing socket. */
+  join?(
+    topic: string,
+    payload: unknown,
+  ): Promise<RealtimeGatewayDeliveryChannel>;
+}
+
+/** One joined delivery topic. */
+export interface RealtimeGatewayDeliveryChannel extends RealtimeGatewaySession {
+  /** Prepared delivery returned by the token-consuming join. */
+  readonly joinReply: unknown;
+  /** Observe a delivery-topic drop before requesting a fresh one-use token. */
+  onClose(handler: () => void): void;
+  leave(): void;
 }
 
 /** @internal Options for {@link connectRealtimeGateway}. */
 export interface ConnectRealtimeGatewayOptions {
   /**
-   * Fully-resolved gateway **runner** socket URL, e.g.
-   * `wss://gateway.example/runner`. This is not the public `wsUrl` a developer
-   * configures — the Intelligence client appends the `/runner` (or `/client`)
-   * suffix to that base before it reaches here, and Phoenix appends
+   * Fully-resolved gateway Channels socket URL, e.g.
+   * `wss://gateway.example/channels`. This is not the public `wsUrl` a developer
+   * configures — the Intelligence client appends `/channels` before it reaches
+   * here, and Phoenix appends
    * `/websocket` to this value on connect. `/socket` is not a mounted path.
    */
   wsUrl: string;
   /** Runtime API key (`cpk-…`) authenticating the socket. */
   apiKey: string;
-  /** Numeric project id — the session topic is `channels:project:{id}`. */
+  /** Numeric project id bound by API-key authentication. */
   projectId: number;
   /** Listener declaration sent as the channel join payload. */
   join: {
+    /** Exact protocol required by the Gateway control topic. */
+    protocol: typeof CHANNEL_DELIVERY_PROTOCOL;
     runtimeInstanceId: string;
-    declaredChannels: ReadonlyArray<{
+    channels: ReadonlyArray<{
       channelName: string;
       adapter: string;
-      renderCapabilities?: readonly string[];
     }>;
-    runtimeMetadata?: Record<string, unknown>;
-    observedAt: string;
   };
   /** Per-push / join timeout in ms (default 10000). */
   timeoutMs?: number;
@@ -97,86 +112,24 @@ export interface ConnectRealtimeGatewayOptions {
  *   rejoin transitions back to `online` (self-healing a transient outage without
  *   a process restart) and re-arms the window so a genuinely fresh drop episode
  *   can transition back to `reconnecting`.
- * - `fenced`: app-api superseded this listener activation generation. Terminal
- *   for this Channel; Phoenix receives a clean close and does not auto-rejoin it.
  */
 export type RealtimeGatewayConnectionState =
   | "online"
   | "reconnecting"
-  | "gave_up"
-  | "fenced";
-
-const LISTENER_FENCED_EVENT = "channel.listener_fenced.v1";
+  | "gave_up";
 
 /**
- * Signals that a join was rejected because the declared channel/provider is not
- * configured server-side — a setup-required condition, distinct from a generic
- * join failure. Carries `code === "SETUP_REQUIRED"` (the cross-package
- * convention a supervising `ChannelManager` detects to move a channel to
- * `setup_required` rather than `error`) and preserves the raw gateway
- * {@link RealtimeGatewaySetupRequiredError.reason}.
- *
- * A dedicated class is defined here rather than importing the runtime's
- * `ChannelSetupRequiredError` because this pure-ESM package must not take a
- * dependency on the CJS runtime package; the `code` convention keeps the two
- * decoupled.
+ * Why a connection-health transition happened. Present on `reconnecting` and
+ * `gave_up` when the transport (or the endpoint probe in
+ * {@link connectRealtimeGateway}) reported something; absent on `online` and
+ * whenever nothing was reported. Contains no secrets — the auth token travels as
+ * a WebSocket subprotocol, never in a URL or an error message.
  */
-export class RealtimeGatewaySetupRequiredError extends Error {
-  /** Cross-package setup-required marker read by `ChannelManager`. */
-  readonly code = "SETUP_REQUIRED";
-  /** The raw gateway join-error reason that classified this as setup-required. */
-  readonly reason: string;
-  /**
-   * The non-live per-channel `state`s that classified this as setup-required
-   * (e.g. `["adapter_setup_required"]`), preserved for diagnostics. Empty when
-   * the gateway reported no per-channel detail. Contains no secrets.
-   */
-  readonly channelStates: readonly string[];
-  /**
-   * @param reason - The gateway's setup-required join reason.
-   * @param channelStates - The offending non-live per-channel states, if any.
-   */
-  constructor(reason: string, channelStates: readonly string[] = []) {
-    super(
-      `realtime gateway session join requires setup: ${reason}` +
-        (channelStates.length > 0
-          ? ` (channel states: ${channelStates.join(", ")})`
-          : ""),
-    );
-    this.name = "RealtimeGatewaySetupRequiredError";
-    this.reason = reason;
-    this.channelStates = channelStates;
-  }
-}
-
-/**
- * Signals that a `channel_declaration_unavailable` join reject named at least
- * one declared channel in a HARD-error per-channel `state` (e.g.
- * `runtime_conflict`, `platform_setup_failed`) — a genuine failure the caller
- * must surface, NOT a setup-waiting condition. Deliberately does NOT carry the
- * `SETUP_REQUIRED` marker, so a supervising `ChannelManager` routes it to
- * `error` (rejecting `ready()`) rather than resolving to `setup_required`.
- */
-export class RealtimeGatewayChannelStateError extends Error {
-  /** The raw gateway join-error reason (`channel_declaration_unavailable`). */
-  readonly reason: string;
-  /**
-   * The offending hard-error per-channel `state`s (e.g. `["runtime_conflict"]`),
-   * preserved for diagnostics. Contains no secrets.
-   */
-  readonly channelStates: readonly string[];
-  /**
-   * @param reason - The gateway's join-error reason.
-   * @param channelStates - The offending hard-error per-channel states.
-   */
-  constructor(reason: string, channelStates: readonly string[]) {
-    super(
-      `realtime gateway session join failed: ${reason} (channel states: ${channelStates.join(", ")})`,
-    );
-    this.name = "RealtimeGatewayChannelStateError";
-    this.reason = reason;
-    this.channelStates = channelStates;
-  }
+export interface RealtimeGatewayConnectionDetail {
+  /** Rendered cause, phrased for whoever operates the runtime. */
+  reason?: string;
+  /** OS-level code behind the failure, when the transport exposed one. */
+  code?: string;
 }
 
 /**
@@ -186,10 +139,8 @@ export class RealtimeGatewayChannelStateError extends Error {
  * endpoint that was tried and the underlying transport error so the message
  * points at the misconfigured URL rather than at a stopwatch (OSS-623).
  *
- * Deliberately does NOT carry the `SETUP_REQUIRED` marker: an unreachable host
- * is a caller configuration error that must reject `ready()`, not a
- * setup-waiting condition a supervising `ChannelManager` would resolve to
- * `setup_required` (coordinated with OSS-622's join-failure classification).
+ * An unreachable host is a caller configuration error that must reject
+ * `ready()`.
  */
 export class RealtimeGatewayUnreachableError extends Error {
   /** Cross-package marker, mirroring the `code` convention of its siblings. */
@@ -230,6 +181,20 @@ export class RealtimeGatewayUnreachableError extends Error {
   }
 }
 
+/** Typed rejection returned by a joined realtime gateway channel push. */
+export class RealtimeGatewayPushError extends Error {
+  constructor(
+    readonly event: string,
+    readonly code: string | undefined,
+    reason: unknown,
+  ) {
+    super(
+      `realtime gateway session push ${event} failed: ${safeReason(reason)}`,
+    );
+    this.name = "RealtimeGatewayPushError";
+  }
+}
+
 /**
  * Error codes that mean the configured host CANNOT come up on its own, so the
  * initial connect fails immediately instead of waiting out
@@ -247,6 +212,31 @@ const NON_RETRYABLE_TRANSPORT_CODES: ReadonlySet<string> = new Set([
   "EAI_NONAME",
 ]);
 
+/**
+ * Phrase a post-connect probe result for whoever operates the runtime.
+ *
+ * The probe is deliberately UNAUTHENTICATED (see {@link diagnoseEndpoint}), so a
+ * `401`/`403` from it says nothing about whether OUR key is still valid — an
+ * unauthenticated GET is refused either way. What the probe does establish is
+ * reachability: the host answered, so a socket that still will not open is
+ * failing at the handshake rather than in the network. Say exactly that, and
+ * separate "answered but unhealthy" (5xx — typically a gateway restart) from
+ * "answered fine, handshake refused", where a credential is worth checking.
+ */
+function describeRefusedUpgrade(result: EndpointDiagnosis): string | undefined {
+  if (result.status === undefined) return result.text;
+  if (result.status >= 500) {
+    return (
+      `the gateway host answered HTTP ${result.status}, so it is reachable but not healthy — ` +
+      "it may be restarting"
+    );
+  }
+  return (
+    `the gateway host answered HTTP ${result.status} but the WebSocket handshake was refused, ` +
+    "so this is not a network outage — verify the project API key"
+  );
+}
+
 /** What {@link diagnoseEndpoint} learned about an endpoint that would not connect. */
 interface EndpointDiagnosis {
   /** Human-readable cause, phrased for the person who set `wsUrl`. */
@@ -255,6 +245,8 @@ interface EndpointDiagnosis {
   readonly code?: string;
   /** Whether the cause cannot clear on its own (fail now, don't wait). */
   readonly nonRetryable: boolean;
+  /** HTTP status the host answered with, when it answered at all. */
+  readonly status?: number;
   /** The raw failure, attached to the thrown error as `cause`. */
   readonly cause?: unknown;
 }
@@ -313,6 +305,7 @@ async function diagnoseEndpoint(
         "connections — only the WebSocket handshake failed, so the wsUrl path may not be the " +
         "gateway's socket endpoint",
       nonRetryable: false,
+      status: response.status,
     };
   } catch (err) {
     const { text, code } = describeTransportError(err);
@@ -367,48 +360,6 @@ function toHttpProbeUrl(wsUrl: string): string | undefined {
   }
 }
 
-/**
- * Per-channel `state` values that mean a declared channel is genuinely
- * unconfigured or waiting — a degraded `setup_required` condition, not a hard
- * failure. Any other non-`channel_live` state (`runtime_conflict`,
- * `platform_setup_failed`, `delivery_failed`, `egress_failed`, `runtime_offline`,
- * `runtime_not_declared`) is treated as a hard error; see
- * {@link classifyJoinError}.
- *
- * Sourced from two Intelligence vocabularies, not one. Most are read-model
- * `CHANNEL_STATE_KINDS` members. `channel_not_declared` is declaration-only
- * (`CHANNEL_LISTENER_DECLARATION_STATES`) and has no read-model counterpart:
- * only a join needs to name a channel the project does not have.
- *
- * Verified against Intelligence `sdk_channel.ex` +
- * `libs/app-api-contracts/src/channels.ts`: the gateway rejects a join with
- * `{:error, %{"reason" => "channel_declaration_unavailable", "channels" =>
- * [%{"state" => <state>, ...}, ...]}}` whenever ANY declared channel's
- * `state != "channel_live"`, so the per-channel `state` — not the top-level
- * reason — is the real signal.
- */
-const SETUP_REQUIRED_CHANNEL_STATES: ReadonlySet<string> = new Set([
-  "no_channels_yet",
-  "channel_not_declared",
-  "adapter_setup_required",
-  "slack_setup_complete_waiting_for_runtime",
-  "channel_setup_complete_waiting_for_runtime",
-  "disabled_by_entitlement",
-  "disabled_by_feature_flag",
-]);
-
-/**
- * TOP-LEVEL join-error reasons (distinct from the per-channel
- * `channel_declaration_unavailable` shape) that app-api may use to signal an
- * unconfigured provider. Modeled defensively for non-
- * `channel_declaration_unavailable` rejects; the canonical live-gateway signal
- * is the per-channel state classified via {@link SETUP_REQUIRED_CHANNEL_STATES}.
- */
-const SETUP_REQUIRED_TOP_LEVEL_REASONS: ReadonlySet<string> = new Set([
-  "adapter_setup_required",
-  "not_configured",
-]);
-
 /** A connected {@link RealtimeGatewaySession} plus a shutdown operation. */
 export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession {
   disconnect(): void;
@@ -440,14 +391,17 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
    *   outage do NOT re-emit `reconnecting`. NOT terminal — a later SUCCESSFUL
    *   rejoin transitions back to `online` (a transient outage self-heals) and
    *   re-arms the window so a fresh drop episode can transition to `reconnecting`.
-   * - an explicit `channel.listener_fenced.v1` gateway event → terminal `fenced`;
-   *   the following clean Phoenix close is not reported as reconnecting.
    *
    * Our own {@link disconnect} is silent (it is not a drop). Distinct from
    * {@link onClose}, which is a single per-episode drop breadcrumb; this observer
    * tracks the full health lifecycle so a manager's `status()` can reflect it.
    */
-  onStateChange(cb: (state: RealtimeGatewayConnectionState) => void): void;
+  onStateChange(
+    cb: (
+      state: RealtimeGatewayConnectionState,
+      detail?: RealtimeGatewayConnectionDetail,
+    ) => void,
+  ): void;
 }
 
 /**
@@ -455,7 +409,8 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
  * values stay private here; callers receive only {@link RealtimeGatewaySession}.
  *
  * The session is joined (declaring the runtime's channels) before the promise
- * resolves, so the caller can immediately stream render frames.
+ * resolves, so the caller can receive delivery invitations and send ordered
+ * provider effects.
  *
  * @param config - Gateway URL, auth, project scope, and join declaration.
  * @returns The connected channel with a `disconnect()` teardown.
@@ -463,7 +418,7 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
 export async function connectRealtimeGateway(
   config: ConnectRealtimeGatewayOptions,
 ): Promise<ConnectedRealtimeGatewaySession> {
-  if (!Number.isInteger(config.projectId) || config.projectId <= 0) {
+  if (!Number.isSafeInteger(config.projectId) || config.projectId <= 0) {
     throw new Error(
       "connectRealtimeGateway: projectId must be a positive integer",
     );
@@ -488,6 +443,7 @@ export async function connectRealtimeGateway(
       ? T
       : never,
   });
+  const channel = socket.channel("control", config.join as object);
 
   // --- Initial-connect watchdog (OSS-623) ----------------------------------
   // Phoenix treats a failed FIRST connect exactly like a dropped one: it retries
@@ -522,6 +478,10 @@ export async function connectRealtimeGateway(
   let lastTransportError: string | undefined;
   let lastTransportCode: string | undefined;
   let lastTransportRaw: unknown;
+  // Set by the per-outage endpoint probe (see `probeOutage`), which can explain
+  // a refused reconnect the WebSocket layer reports without detail. Preferred
+  // over `lastTransportError` when present, and cleared when the outage ends.
+  let lastOutageDiagnosis: string | undefined;
   let connectDeadline: ReturnType<typeof setTimeout> | undefined;
   // The initial connect settles from several places (the join push's reply
   // hooks, a non-retryable transport error, the connect deadline), so the
@@ -559,6 +519,37 @@ export async function connectRealtimeGateway(
     }
     return diagnosis;
   };
+  // A reconnect probe is per OUTAGE, not per process: `diagnosis` above is
+  // memoised for the life of the connect, so reusing it would report a stale
+  // verdict for a later, different outage. Reset by `enterOnline`.
+  let outageProbe: Promise<void> | undefined;
+  // Counts healed outages, so a probe that resolves late can tell whether the
+  // episode it was investigating is still the current one.
+  let outageEpisode = 0;
+  /**
+   * Ask the endpoint over HTTP why it will not take us back. A refused upgrade
+   * (a rejected/rotated project API key) is indistinguishable at the WebSocket
+   * layer from a gateway that is simply down, and Phoenix retries both forever —
+   * so without this the operator sees nothing at all (OSS-670).
+   */
+  const probeOutage = (): void => {
+    if (outageProbe !== undefined) return;
+    // Stamp the episode this probe belongs to. A probe is slower than a
+    // reconnect can be, so its verdict may land AFTER the link healed; applying
+    // it then would latch this outage's cause onto the next, unrelated one.
+    const episode = outageEpisode;
+    outageProbe = diagnoseEndpoint(
+      config.wsUrl,
+      probeTimeoutMs,
+      config.diagnosticFetch,
+    ).then(
+      (result) => {
+        if (result === undefined || episode !== outageEpisode) return;
+        lastOutageDiagnosis = describeRefusedUpgrade(result);
+      },
+      () => undefined,
+    );
+  };
   /** Reject the initial connect as unreachable and stop the retry loop. */
   const failUnreachable = (): void => {
     if (initialJoinSettled) return;
@@ -594,10 +585,21 @@ export async function connectRealtimeGateway(
     clearConnectDeadline();
   });
   socket.onError((error, _transport, establishedConnections) => {
-    // A drop after a successful connect belongs to the reconnect path.
-    if (everConnected || establishedConnections > 0) return;
-    lastTransportRaw = error;
     const detail = describeTransportError(error);
+    // A drop after a successful connect belongs to the reconnect path — but it
+    // must still be RECORDED, or the health observer reports an outage with no
+    // cause at all (the `{ meta: undefined }` give-up log, OSS-670).
+    if (everConnected || establishedConnections > 0) {
+      lastTransportError = detail.text ?? lastTransportError;
+      lastTransportCode = detail.code ?? lastTransportCode;
+      // Only probe when the transport did NOT name the cause. A transport that
+      // exposes an OS code (`ECONNRESET`, `ECONNREFUSED`) has already said what
+      // happened, and the probe would both waste a request and overwrite a
+      // better answer — the same trust rule the initial-connect path applies.
+      if (detail.code === undefined) probeOutage();
+      return;
+    }
+    lastTransportRaw = error;
     lastTransportError = detail.text ?? lastTransportError;
     lastTransportCode = detail.code ?? lastTransportCode;
     // A host that does not exist cannot start existing: fail now rather than
@@ -619,12 +621,34 @@ export async function connectRealtimeGateway(
   }, connectTimeoutMs);
   (connectDeadline as unknown as { unref?: () => void }).unref?.();
 
-  socket.connect();
+  const pendingInvitations: unknown[] = [];
+  const invitationHandlers: Array<(payload: unknown) => void> = [];
+  const maxPendingInvitations = 1_000;
+  channel.on("delivery_invitation", (payload: unknown) => {
+    if (invitationHandlers.length > 0) {
+      for (const handler of invitationHandlers) handler(payload);
+      return;
+    }
+    if (pendingInvitations.length >= maxPendingInvitations) {
+      if (!initialJoinSettled) {
+        initialJoinSettled = true;
+        clearConnectDeadline();
+        closingIntentionally = true;
+        socket.disconnect();
+        failConnect(
+          new Error(
+            `realtime gateway sent more than ${maxPendingInvitations} invitations before control setup completed`,
+          ),
+        );
+      }
+      return;
+    }
+    pendingInvitations.push(payload);
+  });
 
-  const channel = socket.channel(
-    `channels:project:${config.projectId}`,
-    config.join as object,
-  );
+  // The control channel and its invitation handler exist before the transport
+  // can open or the join can succeed, so an immediate Gateway wake is retained.
+  socket.connect();
 
   // --- Connection-health state machine -------------------------------------
   // `disconnect()` flips `closingIntentionally` first so our own teardown —
@@ -640,29 +664,42 @@ export async function connectRealtimeGateway(
   // (`closingIntentionally` is declared with the connect watchdog above, which
   // also tears the socket down and must mark that teardown intentional.)
   let connectionState: RealtimeGatewayConnectionState = "online";
-  const stateCallbacks: Array<(s: RealtimeGatewayConnectionState) => void> = [];
+  const stateCallbacks: Array<
+    (
+      s: RealtimeGatewayConnectionState,
+      detail?: RealtimeGatewayConnectionDetail,
+    ) => void
+  > = [];
   let giveUpTimer: ReturnType<typeof setTimeout> | undefined;
   // Set true when the give-up window fires; suppresses further `reconnecting`
   // emissions until a successful rejoin (`enterOnline`) clears it.
   let gaveUp = false;
-  // A generation-fenced Channel is terminal. Phoenix deliberately does not
-  // auto-rejoin a clean `phx_close`, and this latch prevents a later socket
-  // callback from misreporting that terminal close as a reconnecting outage.
-  let listenerFenced = false;
   const clearGiveUpTimer = (): void => {
     if (giveUpTimer !== undefined) {
       clearTimeout(giveUpTimer);
       giveUpTimer = undefined;
     }
   };
+  /** Build the cause attached to a non-`online` transition, or `undefined`. */
+  const currentDetail = (): RealtimeGatewayConnectionDetail | undefined => {
+    const reason = lastOutageDiagnosis ?? lastTransportError;
+    if (reason === undefined && lastTransportCode === undefined) {
+      return undefined;
+    }
+    return {
+      ...(reason !== undefined ? { reason } : {}),
+      ...(lastTransportCode !== undefined ? { code: lastTransportCode } : {}),
+    };
+  };
   const emitState = (next: RealtimeGatewayConnectionState): void => {
     if (closingIntentionally || connectionState === next) {
       return;
     }
     connectionState = next;
+    const detail = next === "online" ? undefined : currentDetail();
     for (const cb of stateCallbacks) {
       try {
-        cb(next);
+        cb(next, detail);
       } catch {
         // Isolate observers: a throwing callback must not skip later ones or
         // propagate back into Phoenix's socket/join dispatch.
@@ -670,7 +707,7 @@ export async function connectRealtimeGateway(
     }
   };
   const enterReconnecting = (): void => {
-    if (closingIntentionally || listenerFenced) return;
+    if (closingIntentionally) return;
     // Sticky give-up: once the window has fired we stay `gave_up` while Phoenix
     // keeps retrying a dead link, so a failed retry during the SAME outage must
     // NOT re-enter `reconnecting`. Only a successful rejoin (`enterOnline`)
@@ -690,12 +727,20 @@ export async function connectRealtimeGateway(
     emitState("reconnecting");
   };
   const enterOnline = (): void => {
-    if (listenerFenced) return;
     // A successful (re)join heals the outage: clear the sticky latch and the
     // give-up timer so a FUTURE drop episode re-arms its own bounded window and
     // can transition `reconnecting` → `gave_up` again.
     gaveUp = false;
     clearGiveUpTimer();
+    // The outage is over: drop its evidence so the NEXT one is diagnosed on its
+    // own rather than inheriting this one's. Without clearing the transport
+    // fields too, a later clean drop that reports nothing would be attributed to
+    // this outage's error.
+    outageEpisode += 1;
+    outageProbe = undefined;
+    lastOutageDiagnosis = undefined;
+    lastTransportError = undefined;
+    lastTransportCode = undefined;
     emitState("online");
   };
 
@@ -726,10 +771,13 @@ export async function connectRealtimeGateway(
         // the teardown intentional so it does not arm the give-up window.
         closingIntentionally = true;
         socket.disconnect();
-        // Classify per-channel state (setup-waiting vs hard error) rather than
-        // blanket-mapping the whole reject — a duplicate-listener conflict must
-        // NOT be downgraded to `setup_required`.
-        failConnect(classifyJoinError(reason));
+        // The hard-cut control topic has one join-error path and no compatibility
+        // mapping for prior setup or listener-generation states.
+        failConnect(
+          new Error(
+            `realtime gateway session join failed: ${safeReason(reason)}`,
+          ),
+        );
       } else {
         // A rejoin failed (e.g. credentials revoked server-side). Phoenix
         // keeps retrying; surface reconnecting and let the window bound it.
@@ -751,6 +799,66 @@ export async function connectRealtimeGateway(
   // Settles on the join reply, or — when the socket never opens at all — on the
   // connect watchdog above.
   await initialConnect;
+
+  const wrapChannel = (
+    joinedChannel: Channel,
+    joinReply: unknown,
+  ): RealtimeGatewayDeliveryChannel => ({
+    joinReply,
+    push: (event, payload) =>
+      new Promise((resolve, reject) => {
+        joinedChannel
+          .push(event, payload as object, timeout)
+          .receive("ok", (reply: unknown) => resolve(reply))
+          .receive("error", (reason: unknown) =>
+            reject(
+              new RealtimeGatewayPushError(
+                event,
+                extractReasonCode(reason),
+                reason,
+              ),
+            ),
+          )
+          .receive("timeout", () =>
+            reject(
+              new Error(`realtime gateway session push ${event} timed out`),
+            ),
+          );
+      }),
+    on: (event, handler) => {
+      if (joinedChannel === channel && event === "delivery_invitation") {
+        invitationHandlers.push(handler);
+        const buffered = pendingInvitations.splice(
+          0,
+          pendingInvitations.length,
+        );
+        for (const payload of buffered) handler(payload);
+        return;
+      }
+      joinedChannel.on(event, handler);
+    },
+    join: async (topic, payload) => {
+      const child = socket.channel(topic, payload as object);
+      try {
+        const childReply = await joinPhoenixChannel(child, timeout);
+        return wrapChannel(child, childReply);
+      } catch (error) {
+        // Phoenix retains channels created via socket.channel until leave.
+        try {
+          child.leave();
+        } catch {
+          // Best-effort cleanup of a failed join.
+        }
+        throw error;
+      }
+    },
+    onClose: (handler) => {
+      joinedChannel.onClose(handler);
+    },
+    leave: () => {
+      joinedChannel.leave();
+    },
+  });
 
   // Drop notification: Phoenix fires the socket's `onClose`/`onError` AND the
   // channel's `onError` for the same underlying drop (see `socket.js`'s
@@ -791,14 +899,6 @@ export async function connectRealtimeGateway(
     notifyClose();
     enterReconnecting();
   });
-  // The gateway sends this immediately before cleanly closing a superseded
-  // Channel. Record the terminal reason before Phoenix dispatches `phx_close`
-  // so the close hook below cannot imply that an auto-rejoin will occur.
-  channel.on(LISTENER_FENCED_EVENT, () => {
-    listenerFenced = true;
-    clearGiveUpTimer();
-    emitState("fenced");
-  });
   // A CHANNEL-level close/error is ALSO non-sendable: Phoenix can error and
   // rejoin a channel while the socket stays open (so the socket handlers above
   // never fire), yet pushes can't send in the meantime. Route it through the
@@ -815,32 +915,27 @@ export async function connectRealtimeGateway(
   });
 
   return {
-    push: (event, payload) =>
-      new Promise((resolve, reject) => {
-        channel
-          .push(event, payload as object, timeout)
-          .receive("ok", (reply: unknown) => resolve(reply))
-          .receive("error", (reason: unknown) =>
-            reject(
-              new Error(
-                `realtime gateway session push ${event} failed: ${safeReason(reason)}`,
-              ),
-            ),
-          )
-          .receive("timeout", () =>
-            reject(
-              new Error(`realtime gateway session push ${event} timed out`),
-            ),
-          );
-      }),
-    on: (event, handler) => {
-      channel.on(event, handler);
-    },
+    ...wrapChannel(channel, undefined),
     onClose: (cb) => {
       closeCallbacks.push(cb);
     },
     onStateChange: (cb) => {
       stateCallbacks.push(cb);
+      // Replay current health so late subscribers (e.g. ChannelManager after
+      // activation) cannot miss a drop that occurred before registration.
+      if (connectionState !== "online") {
+        try {
+          const reason = lastOutageDiagnosis ?? lastTransportError;
+          cb(connectionState, {
+            ...(reason !== undefined ? { reason } : {}),
+            ...(lastTransportCode !== undefined
+              ? { code: lastTransportCode }
+              : {}),
+          });
+        } catch {
+          // Observer isolation: one bad callback must not break others.
+        }
+      }
     },
     disconnect: () => {
       closingIntentionally = true;
@@ -848,6 +943,28 @@ export async function connectRealtimeGateway(
       socket.disconnect();
     },
   };
+}
+
+/** Join a Phoenix channel and reject with its bounded reply reason. */
+function joinPhoenixChannel(
+  channel: Channel,
+  timeoutMs: number,
+): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    channel
+      .join(timeoutMs)
+      .receive("ok", (reply: unknown) => resolve(reply))
+      .receive("error", (reason: unknown) =>
+        reject(
+          new Error(
+            `realtime gateway delivery join failed: ${safeReason(reason)}`,
+          ),
+        ),
+      )
+      .receive("timeout", () =>
+        reject(new Error("realtime gateway delivery join timed out")),
+      );
+  });
 }
 
 /**
@@ -921,104 +1038,6 @@ function describeTransportError(error: unknown): {
   };
 }
 
-/**
- * Classify a Phoenix join-error reject into the error the caller should see.
- *
- * The live gateway rejects with `{ reason: "channel_declaration_unavailable",
- * channels: [{ state, … }, …] }` whenever ANY declared channel's
- * `state != "channel_live"`, so the per-channel `state` is the real signal —
- * NOT the top-level reason. Blanket-mapping the whole reject to
- * `setup_required` (the previous behavior) hid genuine failures such as a
- * duplicate-listener `runtime_conflict`.
- *
- * Classification for `channel_declaration_unavailable`:
- * - Setup-waiting (→ {@link RealtimeGatewaySetupRequiredError}) ONLY when every
- *   non-live channel is in {@link SETUP_REQUIRED_CHANNEL_STATES}.
- * - Hard error (→ {@link RealtimeGatewayChannelStateError}) if ANY non-live
- *   channel is in a hard-error state (`runtime_conflict`, `platform_setup_failed`,
- *   `delivery_failed`, `egress_failed`, `runtime_offline`, `runtime_not_declared`)
- *   — fail loud on the worst even if other channels are merely waiting.
- *
- * `runtime_not_declared` is treated as a HARD error here: during our own join
- * the runtime IS declaring itself, so the gateway reporting the channel as
- * runtime-not-declared is a server/runtime disagreement, not user setup.
- *
- * OSS-622 settled the open question this comment used to carry. app-api WAS
- * sending `runtime_not_declared` on the join path for a benign condition — a
- * declared channel the project does not have — because the declaration contract
- * had no token for it. The token meant the inverse of its read-model sense, so
- * reading it literally (correctly) turned every first run of a new channel into a
- * crashed startup. app-api now sends `channel_not_declared` for that case, which
- * is classified setup-required above. `runtime_not_declared` keeps its literal
- * reading and stays a hard error.
- *
- * When a `channel_declaration_unavailable` reject carries no parseable
- * per-channel detail, we degrade to `setup_required` (the conservative
- * "waiting" reading, matching prior behavior) rather than fail loud on absent
- * diagnostics.
- *
- * Non-`channel_declaration_unavailable` rejects fall back to the defensive
- * top-level {@link SETUP_REQUIRED_TOP_LEVEL_REASONS} set, else a generic error.
- */
-function classifyJoinError(reason: unknown): Error {
-  const reasonCode = extractReasonCode(reason);
-  if (reasonCode === "channel_declaration_unavailable") {
-    const nonLive = extractNonLiveChannelStates(reason);
-    const hardErrorStates = nonLive.filter(
-      (state) => !SETUP_REQUIRED_CHANNEL_STATES.has(state),
-    );
-    if (hardErrorStates.length > 0) {
-      return new RealtimeGatewayChannelStateError(reasonCode, hardErrorStates);
-    }
-    return new RealtimeGatewaySetupRequiredError(reasonCode, nonLive);
-  }
-  if (
-    reasonCode !== undefined &&
-    SETUP_REQUIRED_TOP_LEVEL_REASONS.has(reasonCode)
-  ) {
-    return new RealtimeGatewaySetupRequiredError(reasonCode);
-  }
-  return new Error(
-    `realtime gateway session join failed: ${safeReason(reason)}`,
-  );
-}
-
-/**
- * Extract the non-`channel_live` per-channel `state`s from a join-error reject
- * payload (`{ channels: [{ state, … }, …] }`). Non-string / missing states and
- * a missing `channels` array yield an empty list (handled defensively by
- * {@link classifyJoinError}).
- */
-function extractNonLiveChannelStates(reason: unknown): string[] {
-  if (typeof reason !== "object" || reason === null) return [];
-  const channels = (reason as { channels?: unknown }).channels;
-  if (!Array.isArray(channels)) return [];
-  return channels
-    .map((entry) =>
-      typeof entry === "object" && entry !== null
-        ? (entry as { state?: unknown }).state
-        : undefined,
-    )
-    .filter(
-      (state): state is string =>
-        typeof state === "string" && state !== "channel_live",
-    );
-}
-
-/**
- * Extract the string reason code from a Phoenix join-error payload. The gateway
- * replies with `{ reason: "<code>" }` (surfaced as the `.receive("error", …)`
- * argument), but a bare string reason is tolerated defensively.
- */
-function extractReasonCode(reason: unknown): string | undefined {
-  if (typeof reason === "string") return reason;
-  if (typeof reason === "object" && reason !== null) {
-    const inner = (reason as { reason?: unknown }).reason;
-    if (typeof inner === "string") return inner;
-  }
-  return undefined;
-}
-
 /** Render an unknown channel reply reason as a short string for errors. */
 function safeReason(reason: unknown): string {
   if (typeof reason === "string") return reason;
@@ -1031,4 +1050,16 @@ function safeReason(reason: unknown): string {
   } catch {
     return "unknown";
   }
+}
+
+/**
+ * Extract a structured Phoenix reply code for packet error diagnostics.
+ */
+function extractReasonCode(reason: unknown): string | undefined {
+  if (typeof reason === "string") return reason;
+  if (typeof reason !== "object" || reason === null) return undefined;
+  const coded = reason as { code?: unknown; reason?: unknown };
+  if (typeof coded.code === "string") return coded.code;
+  if (typeof coded.reason === "string") return coded.reason;
+  return undefined;
 }

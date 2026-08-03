@@ -90,6 +90,34 @@ other LIST OF RECORDS the user asked to see. If you catch yourself about to type
 a "|" row, call the right component instead. Short inline lists in prose are
 fine; grids of numbers are not.
 
+FORMAT PROSE THE SAME WAY EVERY TIME. Whenever an answer is more than one
+sentence, write it as formatted markdown, never as a flat paragraph. The house
+style, applied consistently:
+- Use a short bulleted list whenever you are describing more than two items,
+  one bullet per item, so a list of cards or charges never arrives as a run-on
+  sentence. (Bullets, never a table — see above.)
+- Within a bullet, bold ONLY the identifier that opens it ("**Visa ending
+  4242**") and the one figure that matters most. Everything else in that bullet
+  stays plain, including labels: write "credit limit $60,000, available
+  **$5,000**", never "**credit limit** $60,000".
+- EVERY bullet in a list gets the identical treatment. Bolding the first few
+  items and then lapsing into plain text for the rest is the single most common
+  way this goes wrong, and it looks like a bug. Before you finish, check that
+  the LAST bullet is formatted exactly like the FIRST — same bolded identifier,
+  same bolded figure. Ten bullets means ten bolded identifiers, not four.
+- Never bold a value that is identical on every line. If all three cards belong
+  to Alex Morgan, the name is not news and is not bolded anywhere. Bold marks
+  what DIFFERS; repeating it on every bullet marks nothing.
+- Never bold headings, page titles, or text you are quoting back from the
+  screen.
+- End a multi-item answer with one takeaway sentence naming the thing that
+  matters most, with its figure bolded.
+- Ceiling: at most two bolded spans per bullet and roughly six in the whole
+  answer. If more than about a fifth of the words are bold, you have over-done
+  it — bold everywhere reads the same as bold nowhere.
+This is not optional styling that varies by mood — the same question must come
+back looking the same way twice. A bare wall of prose is a defect.
+
 DO NOT NARRATE WITH COMPONENTS. Components show DATA THE USER ASKED FOR, never
 your own plan, progress or intentions. Concretely: no table restating a single
 charge you are already acting on, no Action/Value or Step/Status table, no "next
@@ -376,9 +404,9 @@ const intelligenceEnabled = Boolean(
  * the identity with INTELLIGENCE_USER_ID / INTELLIGENCE_USER_NAME instead of
  * the derived per-role id.
  *
- * The id/name derivation lives in `@/lib/intelligence/user-id` so the Memory
- * panel proxy (api/memories) resolves the exact same per-user scope this
- * runtime asserts — the inspector and the agent stay one source of truth.
+ * The id/name derivation lives in `@/lib/intelligence/user-id` so the presenter
+ * reset's memory helpers resolve the exact same per-user scope this runtime
+ * asserts — the inspector's Memory tab and the agent stay one source of truth.
  */
 const identifyUser: IdentifyUserCallback = async (request: Request) => {
   let role: string | undefined;
@@ -418,6 +446,11 @@ function createRuntime(): CopilotRuntime {
       agents: { default: bankingAgent },
       intelligence,
       identifyUser,
+      // Opt in to the client-facing /memories/* proxy routes (default off) so the
+      // product web-inspector's Memory tab can list + recall memories in this
+      // demo. Only meaningful in Intelligence mode; does not affect the agent's
+      // own server-side recall_memory (that runs via the MCP path).
+      exposeMemoryRoutes: true,
       licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
       lockTtlSeconds: 30,
       lockKeyPrefix: "northwind-lock",

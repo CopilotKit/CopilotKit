@@ -83,7 +83,7 @@ const REACT_ONLY_CONTENT =
   /@copilotkit\/react|from ["']react["']|\bReact (?:components?|SDK|UI|frontend|app)\b|\b(?:frontend|headless) hooks?\b|`use(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)`|\buse(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)\s*\(|<Copilot(?:Kit|Chat|Sidebar|Popup)\b(?=[^>]*(?:runtimeUrl|publicApiKey|enableInspector|renderActivityMessages|onError|a2ui|selfManagedAgents|agents__unsafe_dev_only|showDevConsole))[^>]*>|<FrontendOnly|<AngularSnippet/g;
 
 const ANGULAR_GLOBAL_LINK =
-  /^\/(?:angular(?:[/?#]|$)|reference(?:[/?#]|$)|cookbook(?:[/?#]|$)|images(?:[/?#]|$)|videos(?:[/?#]|$))/;
+  /^\/(?:angular(?:[/?#]|$)|slack(?:[/?#]|$)|teams(?:[/?#]|$)|channels(?:[/?#]|$)|reference(?:[/?#]|$)|cookbook(?:[/?#]|$)|images(?:[/?#]|$)|videos(?:[/?#]|$))/;
 
 function rootRelativeLinks(markdown: string): string[] {
   const links: string[] = [];

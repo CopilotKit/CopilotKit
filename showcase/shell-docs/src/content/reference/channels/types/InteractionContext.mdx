@@ -1,71 +1,61 @@
 ---
-title: "InteractionContext"
-description: "The context passed to interaction handlers — the thread, the clicked control's typed value, and the clicking user."
+title: InteractionContext
+description: The thread, message reference, typed action value, user, and capabilities passed to a component callback.
 ---
 
-## Overview
-
-`InteractionContext` is what every interaction handler receives — inline `onClick` / `onSelect` / `onSubmit` handlers on [components](/reference/channels/components/Button), handlers registered with `bot.onInteraction`, and handlers wrapped with [`bind()`](/reference/channels/functions/bind). It is generic over the clicked control's value type.
+Buttons, selects, and inputs receive an `InteractionContext<TValue>`.
 
 ## Shape
 
 ```ts
-type ClickHandler<TValue = unknown> = (
-  ctx: InteractionContext<TValue>,
-) => void | Promise<void>;
-
 interface InteractionContext<TValue = unknown> {
   thread: Thread;
   message: IncomingMessage;
-  action: { id: string; value?: TValue };
+  action: {
+    id: string;
+    value?: TValue;
+  };
   values: Record<string, unknown>;
-  user: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   platform: string;
+  openModal?(view: ModalView): Promise<{ ok: boolean; error?: string }>;
 }
 ```
 
-## Properties
-
-<PropertyReference name="thread" type="Thread" required>
-  The conversation the interaction happened in — post a reply, [`update`](/reference/channels/classes/Thread) the card in place, or run the agent.
-</PropertyReference>
-
-<PropertyReference name="message" type="IncomingMessage" required>
-  The message the clicked control lives on (`{ text, user, ref, platform }`); `ref` is what you'd pass to `thread.update` to rewrite the card.
-</PropertyReference>
-
-<PropertyReference name="action" type="{ id: string; value?: TValue }" required>
-  The clicked control: its opaque minted `id` and the `value` it carried. For [`Button`](/reference/channels/components/Button), `TValue` is inferred from the `value` prop; [`Select`](/reference/channels/components/Select) and [`Input`](/reference/channels/components/Input) resolve it to `string`; [`bind()`](/reference/channels/functions/bind) sets it to the bound `args`.
-</PropertyReference>
-
-<PropertyReference name="values" type="Record<string, unknown>" required>
-  Reserved for sibling control values. Always `{}` in v1 — no adapter populates it yet.
-</PropertyReference>
-
-<PropertyReference name="user" type="PlatformUser" required>
-  Who clicked (`{ id, name?, handle?, email? }`).
-</PropertyReference>
-
-<PropertyReference name="platform" type="string" required>
-  The active surface, e.g. `"slack"`.
-</PropertyReference>
-
-## Handler return type
-
-A `ClickHandler` must return `void` or `Promise<void>`. A concise arrow whose body ends in a value-returning call — like `thread.post(...)`, which returns a `MessageRef` — won't type-check; use a block body:
+| Field          | Notes                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| `thread`       | Post, update, or resume the current conversation.                                                      |
+| `message`      | Message containing the control. Check `message.ref.id` before updating it.                             |
+| `action.id`    | Opaque SDK action id.                                                                                  |
+| `action.value` | Round-tripped `Button.value`, selected value, or submitted text. Guard `undefined`.                    |
+| `values`       | Other submitted form values. Teams `Action.Submit` callbacks include named Adaptive Card input values. |
+| `user`         | Nullable application user selected by `identifyUser`.                                                  |
+| `actor`        | Provider account that caused the interaction.                                                          |
+| `platform`     | Native provider; managed callbacks report `"slack"` or `"teams"`.                                      |
+| `openModal`    | Capability-gated and omitted on the managed Slack and Teams path.                                      |
 
 ```tsx
 <Button
-  onClick={async ({ thread }) => {
-    await thread.post("done");
+  value={{ approved: true }}
+  onClick={async ({ thread, message, action }) => {
+    if (action.value === undefined) return;
+
+    if (message.ref.id) {
+      try {
+        await thread.update(message.ref, "Approved");
+      } catch {
+        // Best-effort visual update.
+      }
+    }
+
+    await thread.resume(action.value);
   }}
 >
-  Done
+  Approve
 </Button>
 ```
 
-## Related
-
-- [Button](/reference/channels/components/Button) — typed `value` inference
-- [bind()](/reference/channels/functions/bind) — handlers with persisted args
-- [Thread](/reference/channels/classes/Thread) — everything you can do with `ctx.thread`
+Managed interactions arrive as a later delivery. Return after posting the
+original control and use `resume()` in its callback; do not block with
+`awaitChoice()`.

@@ -41,7 +41,7 @@ public sealed class D5ParityAgentFactory
         var inner = new ChatClientAgent(
             _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
             name: "GenUiToolBasedAgent",
-            description: """
+            instructions: """
                 You are a data visualization assistant.
                 When the user asks for a chart, call render_bar_chart or render_pie_chart
                 with a concise title, description, and data array of {label, value} items.
@@ -58,7 +58,7 @@ public sealed class D5ParityAgentFactory
         var inner = new ChatClientAgent(
             _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
             name: "ReadonlyStateAgentContext",
-            description: "You are a helpful concise assistant. Use any frontend-provided context about the user when it is relevant.",
+            instructions: "You are a helpful concise assistant. Use any frontend-provided context about the user when it is relevant.",
             tools: []);
 
         return new ReadonlyContextAgent(inner, _loggerFactory.CreateLogger<ReadonlyContextAgent>());
@@ -90,7 +90,7 @@ public sealed class D5ParityAgentFactory
         var inner = new ChatClientAgent(
             _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
             name: "GenUiAgent",
-            description: """
+            instructions: """
                 You are an agentic planner. For each user request, plan exactly 3 concrete
                 steps and call set_steps every time a step changes status. Walk each step
                 through pending, in_progress, and completed, then send one concise final
@@ -141,7 +141,7 @@ public sealed class D5ParityAgentFactory
         var inner = new ChatClientAgent(
             _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
             name: "SharedStateStreamingAgent",
-            description: "You are a collaborative writing assistant. Whenever the user asks you to write, draft, or revise text, ALWAYS call write_document with the full content as a single string in the `document` argument. Never paste the document into a chat message directly - the document belongs in shared state and the UI renders it live as you type.",
+            instructions: "You are a collaborative writing assistant. Whenever the user asks you to write, draft, or revise text, ALWAYS call write_document with the full content as a single string in the `document` argument. Never paste the document into a chat message directly - the document belongs in shared state and the UI renders it live as you type.",
             tools: [writeDocument]);
 
         return new SnapshotAfterRunAgent<string>(
@@ -174,7 +174,7 @@ public sealed class D5ParityAgentFactory
         var inner = new ChatClientAgent(
             _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
             name: reasoning ? "ToolRenderingReasoningChainAgent" : "ToolRenderingAgent",
-            description: reasoning ? ReasoningAgentFactory.SystemPrompt + "\n\n" + prompt : prompt,
+            instructions: reasoning ? ReasoningAgentFactory.SystemPrompt + "\n\n" + prompt : prompt,
             tools: tools);
 
         return reasoning
@@ -217,7 +217,7 @@ public sealed class D5ParityAgentFactory
         return new ChatClientAgent(
             _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
             name: "HeadlessCompleteAgent",
-            description: prompt,
+            instructions: prompt,
             tools: tools);
     }
 
@@ -226,7 +226,7 @@ public sealed class D5ParityAgentFactory
         return new ChatClientAgent(
             _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
             name: "VoiceAgent",
-            description: "You are a concise voice demo assistant. Answer directly and do not call tools.",
+            instructions: "You are a concise voice demo assistant. Answer directly and do not call tools.",
             tools: []);
     }
 

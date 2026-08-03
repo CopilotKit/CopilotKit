@@ -10,6 +10,7 @@ import { jsonSchemaToZod } from "./tanstack-factory";
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+import { DEMO_AGENT_LOOP_STRATEGY, throwOnRunError } from "./demo-stream";
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -590,6 +591,9 @@ async function* convertStream(
     const raw = chunk as any;
     const type = raw.type as string;
 
+    // Fail loud on an upstream rejection — see ./demo-stream.
+    throwOnRunError(raw);
+
     if (type === "RUN_FINISHED") continue;
 
     if (type === "TEXT_MESSAGE_CONTENT" && raw.delta != null) {
@@ -731,6 +735,7 @@ export function createBeautifulChatAgent() {
         systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
         tools: [...serverTools, ...declaredTools],
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
 
       return convertStream(stream, abortController.signal);

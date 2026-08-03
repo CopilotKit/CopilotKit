@@ -14,11 +14,31 @@ export interface EphemeralResult {
   ref?: MessageRef;
   error?: string;
 }
-export interface PlatformUser {
-  id: string;
-  name?: string;
-  handle?: string;
-  email?: string;
+/** Canonical application identity selected by the Channel developer. */
+export interface ApplicationUser {
+  readonly id: string;
+  readonly name: string;
+}
+
+/** Provider account that caused the current Channel event. */
+export interface ProviderActor {
+  readonly id: string;
+  /** Provider-reported category; untrusted identity metadata, never authorization. */
+  readonly kind: "human" | "bot" | "app" | "system" | "unknown";
+  readonly name?: string;
+  readonly handle?: string;
+  readonly email?: string;
+}
+
+/** Provider-neutral identity and dispatch semantics for one message revision. */
+export interface MessageOperation {
+  kind: "created" | "updated" | "deleted";
+  /** Stable provider identity shared by every revision of one logical message. */
+  logicalMessageId: string;
+  /** Provider identity for this exact revision, including delete tombstones. */
+  revisionId: string;
+  /** Whether this revision explicitly addresses the Channel. */
+  mentioned: boolean;
 }
 
 /** A base64 data source, shared by every binary media part. */
@@ -43,20 +63,20 @@ export type AgentContentPart =
 
 export interface IncomingMessage {
   text: string;
-  user: PlatformUser;
+  /** Canonical application user for this event, or null when identity did not map. */
+  user: ApplicationUser | null;
+  /** Provider account that caused this event. Never used as a canonical user implicitly. */
+  actor: ProviderActor;
   ref: MessageRef;
   platform: string;
+  /** Present for provider message hooks; specialized interaction contexts omit it. */
+  operation?: MessageOperation;
   /**
    * Optional multimodal content parts (e.g. inbound image/file attachments)
    * built by the adapter. When present, the app should prefer these over
    * `text` as the agent prompt so the model receives the attachments.
    */
   contentParts?: AgentContentPart[];
-  /**
-   * Cross-platform identity key resolved by the channel's `identity` resolver, if
-   * any. Stable across platforms for the same human (e.g. an email address).
-   */
-  userKey?: string;
   /**
    * Stable platform event id (managed/Intelligence path), for customer-side
    * idempotency. Omitted by adapters that don't surface one.
@@ -67,11 +87,50 @@ export interface IncomingMessage {
   /** Lease/delivery id (managed/Intelligence path). */
   deliveryId?: string;
 }
+
+/** Incoming message delivered specifically to `onMention` or `onMessage`. */
+export interface ChannelMessage extends IncomingMessage {
+  operation: MessageOperation;
+}
 export interface ThreadMessage {
-  user?: PlatformUser;
+  user?: ProviderActor;
   text: string;
+  /** Structured AG-UI message content when the platform preserves it. */
+  content?: unknown;
+  /** Standard AG-UI activity type for activity messages. */
+  activityType?: string;
   ts?: string;
   isBot?: boolean;
+  /** Update/reaction-capable reference when the adapter exposes one safely. */
+  messageRef?: MessageRef;
+  /** Structured provider revision facts for delivery-scoped transcript input. */
+  providerMessage?: {
+    logicalMessageId: string;
+    revisionId: string;
+    occurredAt: string;
+    deleted: boolean;
+    currentTrigger: boolean;
+    actor: {
+      id: string;
+      kind: "human" | "bot" | "app" | "system";
+      displayName: string | null;
+      handle: string | null;
+    };
+    files: Array<{
+      providerFileId: string;
+      name: string | null;
+      mimeType: string | null;
+      byteSize: number | null;
+      availability: "managed" | "provider_only" | "unavailable";
+      handle?: string;
+    }>;
+  };
+  /** Present on the model-visible omission marker when earlier context was cut. */
+  transcriptTruncation?: {
+    messageLimit: boolean;
+    byteLimit: boolean;
+    omittedMessageCount: number;
+  };
 }
 export interface Thread {
   readonly platform: string;
@@ -93,18 +152,32 @@ export interface Thread {
    */
   awaitChoice<T = unknown>(ui: Renderable): Promise<T>;
   runAgent(input?: unknown): Promise<MessageRef | undefined>;
-  resume(value: unknown): Promise<MessageRef | undefined>;
+  resume(
+    value: unknown,
+    options?: {
+      memory?: {
+        user?: "none" | "read" | "read-write";
+        project?: "none" | "read" | "read-write";
+      };
+      subject?: "initiator" | "actor";
+    },
+  ): Promise<MessageRef | undefined>;
   stream(src: string | AsyncIterable<string>): Promise<MessageRef>;
   postFile(args: {
     bytes: Uint8Array;
     filename: string;
     title?: string;
     altText?: string;
-  }): Promise<{ ok: boolean; fileId?: string; error?: string }>;
+  }): Promise<{
+    ok: boolean;
+    fileId?: string;
+    assetId?: string;
+    error?: string;
+  }>;
   /** Read the conversation's messages (capability-gated; returns `[]` when the adapter can't read history). */
   getMessages(): Promise<ThreadMessage[]>;
   /** Resolve a platform user by a free-form query (capability-gated; returns `undefined` when unsupported). */
-  lookupUser(query: string): Promise<PlatformUser | undefined>;
+  lookupUser(query: string): Promise<ProviderActor | undefined>;
   /** Pin suggested prompts (capability-gated; returns `{ ok: false }` on surfaces without support). */
   setSuggestedPrompts(
     prompts: ReadonlyArray<{ title: string; message: string }>,
@@ -128,7 +201,7 @@ export interface Thread {
    * resolve to `null` when native ephemeral is unsupported.
    */
   postEphemeral(
-    user: PlatformUser | string,
+    user: ProviderActor | string,
     ui: Renderable,
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null>;
@@ -149,7 +222,8 @@ export interface InteractionContext<TValue = unknown> {
   /** The clicked control: its opaque `id` and the `value` it carried (typed as `TValue`). */
   action: { id: string; value?: TValue };
   values: Record<string, unknown>;
-  user: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   platform: string;
   /**
    * Open a modal in response to this interaction (capability-gated; requires a
@@ -172,7 +246,8 @@ export interface MessageReaction {
   /** `true` = added, `false` = removed. */
   added: boolean;
   /** The reacting user, when the platform reports one. */
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   /** Id of the reacted-to message. */
   messageId: string;
   /**

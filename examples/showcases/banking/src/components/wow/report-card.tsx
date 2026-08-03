@@ -4,9 +4,9 @@ import { AlertTriangle, Clock, FileText, TrendingUp } from "lucide-react";
 
 import type { ExpensePolicy, Report, Transaction } from "@/app/api/v1/data";
 import {
-  SpendByTeamBars,
-  IncomeExpenseChart,
-  BudgetUsageChart,
+  SpendBreakdownChart,
+  SpendingTrendChart,
+  TopChargesChart,
 } from "@/components/analytics-charts";
 import { isOverLimit } from "@/lib/over-limit";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,11 @@ function augmentForReport(
           title: a.label ?? `${a.team} (attached document)`,
           amount: -Math.abs(a.amount),
           date: report.createdAt,
+          // Carry the owning policy so charts key colour off the team the same
+          // way ledger transactions do. Without it, invoice line items fall
+          // back to a generic swatch and a Marketing charge stops matching
+          // Marketing's slice in the donut.
+          policyId: augPolicies.find((p) => p.type === a.team)?.id,
           status: "approved",
         }) as Transaction,
     ),
@@ -146,14 +151,6 @@ export function ReportCard({
     (sum, a) => sum + a.amount,
     0,
   );
-  // Per-team invoice contribution, so the spend chart can show which part of a
-  // team's total came from the attached document rather than the ledger.
-  const additionsByTeam = (report.additions ?? []).reduce<
-    Record<string, number>
-  >((acc, a) => {
-    acc[a.team] = (acc[a.team] ?? 0) + a.amount;
-    return acc;
-  }, {});
   const overLimit = transactions.filter(
     (t) => t.status === "pending" && isOverLimit(t, policies),
   );
@@ -215,28 +212,37 @@ export function ReportCard({
         />
       </div>
 
-      {/* Charts at full width, three across — the substance, not a footnote. */}
+      {/* Charts at full width, three across — the substance, not a footnote.
+          Each column answers a DIFFERENT question, on a different axis: who is
+          spending (share of total), when (time series), and what (the largest
+          individual line items). An earlier version paired the donut with
+          budget-usage bars, but both were the same three team totals drawn
+          twice, so the third column carried almost no new information. Ranking
+          charges changes the unit of analysis from team to transaction, which
+          the team aggregate genuinely cannot show. Budget-vs-limit is not lost:
+          it is the "Over policy limit" KPI above and the "Needs a decision"
+          rows below. */}
       <div className="grid gap-5 border-t border-hairline pt-5 lg:grid-cols-3">
         <div>
           <p className="mb-2 text-xs font-medium text-ink-muted">
             Spend by team
           </p>
-          <SpendByTeamBars
+          <SpendBreakdownChart policies={chart.policies} />
+        </div>
+        <div>
+          <p className="mb-2 text-xs font-medium text-ink-muted">
+            Spend over time
+          </p>
+          <SpendingTrendChart transactions={chart.transactions} />
+        </div>
+        <div>
+          <p className="mb-2 text-xs font-medium text-ink-muted">
+            Largest charges
+          </p>
+          <TopChargesChart
+            transactions={chart.transactions}
             policies={chart.policies}
-            additionsByTeam={additionsByTeam}
           />
-        </div>
-        <div>
-          <p className="mb-2 text-xs font-medium text-ink-muted">
-            Budget usage
-          </p>
-          <BudgetUsageChart policies={chart.policies} />
-        </div>
-        <div>
-          <p className="mb-2 text-xs font-medium text-ink-muted">
-            Income vs expenses
-          </p>
-          <IncomeExpenseChart transactions={chart.transactions} />
         </div>
       </div>
 

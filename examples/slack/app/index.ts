@@ -18,8 +18,9 @@
  * Slack/Discord/Telegram/WhatsApp credentials + transports); the runtime OWNS
  * the Channel's lifecycle and STARTS all of its direct adapters for us. So all
  * four platforms stay on the ONE Channel — you declare it on
- * `new CopilotRuntime({ intelligence, identifyUser, channels: [bot] })`, mount a
- * node listener, and drive `listener.channels.ready()` / `.stop()`. There is no
+ * `new CopilotRuntime({ intelligence, identifyUser, channels: [bot] })` and mount
+ * a node listener — which starts the Channel. `listener.channels.ready()` waits
+ * for it to be live and `.stop()` tears it down. There is no
  * `bot.start()`/`bot.stop()` and no standalone path.
  *
  * Defaults are not auto-applied — you spread them explicitly. That's
@@ -28,7 +29,7 @@
  */
 import "dotenv/config";
 import { createServer } from "node:http";
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import type {
@@ -40,7 +41,6 @@ import {
   slack,
   defaultSlackTools,
   defaultSlackContext,
-  SanitizingHttpAgent,
 } from "@copilotkit/channels/slack";
 import {
   discord,
@@ -97,10 +97,6 @@ async function main() {
       slack({
         botToken: required("SLACK_BOT_TOKEN"),
         appToken: required("SLACK_APP_TOKEN"),
-        // Don't surface tool-call progress in the UI (no task_update timeline,
-        // `:wrench:` rows, or pane "is using `tool`…" status). Tools still run;
-        // only the display is hidden.
-        showToolStatus: false,
         // Kite keeps DMs conversational and responds to explicit app mentions
         // in channels/threads. Plain channel thread replies stay quiet unless
         // they mention Kite again.
@@ -197,6 +193,7 @@ async function main() {
   }
 
   const bot = createChannel({
+    identifyUser: "platform",
     // Every declared Channel needs a unique `name` — the Intelligence runtime
     // keys its lifecycle by it. All four platforms ride this ONE Channel; the
     // runtime starts each of its direct adapters when the Channel activates.
@@ -204,12 +201,11 @@ async function main() {
     adapters,
     // One AG-UI agent per conversation. The backend is a CopilotKit
     // `BuiltInAgent` (CopilotSseRuntime), which does NOT require a UUID-format
-    // threadId, so the raw conversation thread id is fine.
-    // `SanitizingHttpAgent` is a lenient superset of `HttpAgent` (tolerates a
-    // null `parentMessageId` from `@ag-ui/langgraph`); it's safe for every
-    // platform, so one factory covers Slack, Discord, Telegram, and WhatsApp alike.
+    // threadId, so the raw conversation thread id is fine. Nothing here is
+    // platform-specific, so one factory covers Slack, Discord, Telegram, and
+    // WhatsApp alike.
     agent: (threadId) => {
-      const a = new SanitizingHttpAgent({
+      const a = new HttpAgent({
         url: agentUrl,
         headers: agentHeaders,
       });
@@ -294,32 +290,18 @@ async function main() {
   // because Intelligence is configured, it starts EVERY direct adapter on the
   // Channel (Slack + Discord + Telegram + WhatsApp alike) — there is no
   // `bot.start()`. The runtime hosts no agents itself; the Channel supplies its
-  // own (the SanitizingHttpAgent above), so `agents` is empty.
+  // own (the HttpAgent above), so `agents` is empty.
   const channelRuntime = new CopilotRuntime({
     agents: {},
     intelligence,
-    // Demo stub — replace with your own auth-derived user identity (e.g. OIDC)
-    // before any multi-user deployment, or all users share one thread history.
-    identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
     channels: [bot],
   });
 
-  // Mounting the Node listener creates the runtime handler and exposes
-  // `.channels` for readiness + shutdown. It opens NO connection yet — the
-  // `ready()` call below is what activates the Channel (starting all its direct
-  // adapters). This listener holds the Intelligence key and needs no
-  // public ingress (each platform adapter has its own — e.g. WhatsApp's webhook
-  // on $PORT); it only owns the Channel lifecycle and keeps the process alive.
-  const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
-  const listener = createCopilotNodeListener({
-    runtime: channelRuntime,
-    basePath: "/api/copilotkit",
-  });
-  createServer(listener).listen(channelPort, "127.0.0.1", () => {
-    console.log(
-      `[channel] runtime (owns lifecycle) listening on 127.0.0.1:${channelPort}`,
-    );
-  });
+  // Teardown is wired BEFORE the listener exists, because creating the listener
+  // is what starts the Channel: `stopChannels` is assigned in the same tick as
+  // the creation below, so a Ctrl-C can never land in a window where the Channel
+  // is connecting but nothing knows how to tear it down.
+  let stopChannels: (() => Promise<void>) | undefined;
 
   const shutdown = async (signal: string) => {
     console.log(`\n[channel] received ${signal}, stopping…`);
@@ -327,7 +309,7 @@ async function main() {
     try {
       // Stop through the runtime's Channel control, which tears down every direct
       // adapter it started.
-      await listener.channels.stop();
+      await stopChannels?.();
     } catch (err) {
       console.error("[channel] error stopping Channel", err);
       exitCode = 1;
@@ -350,17 +332,35 @@ async function main() {
       process.exit(1);
     });
   };
-  // Registered BEFORE activation on purpose: `ready()` below can take up to its
-  // timeout, and a Ctrl-C inside that window must still tear the Channel down
-  // rather than hit Node's default handler and skip teardown.
+  // Registered BEFORE activation on purpose: activation begins the moment the
+  // listener is created and `ready()` below can take up to its timeout — a
+  // Ctrl-C anywhere in that window must still tear the Channel down rather than
+  // hit Node's default handler and skip teardown.
   process.on("SIGINT", () => runShutdown("SIGINT"));
   process.on("SIGTERM", () => runShutdown("SIGTERM"));
 
-  // Activate through the runtime's Channel control instead of a (now-removed)
-  // bot.start(): this is what connects the Channel, and it resolves once every
-  // direct adapter's transport is up across all active platforms. Required —
-  // skip it and the process serves HTTP with nothing connected.
-  // Bound startup so a wedged adapter connect can't hang readiness forever.
+  // Mounting the Node listener creates the runtime handler and STARTS the Channel
+  // (connecting all its direct adapters); `.channels` is how you observe and stop
+  // it. This listener holds the Intelligence key and needs no public ingress
+  // (each platform adapter has its own — e.g. WhatsApp's webhook on $PORT); it
+  // only owns the Channel lifecycle and keeps the process alive.
+  const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
+  const listener = createCopilotNodeListener({
+    runtime: channelRuntime,
+    basePath: "/api/copilotkit",
+  });
+  stopChannels = () => listener.channels.stop();
+  createServer(listener).listen(channelPort, "127.0.0.1", () => {
+    console.log(
+      `[channel] runtime (owns lifecycle) listening on 127.0.0.1:${channelPort}`,
+    );
+  });
+
+  // Wait for the activation started above to settle, instead of a (now-removed)
+  // bot.start(): this resolves once every direct adapter's transport is up across
+  // all active platforms, and rejects if one failed — so a broken deploy exits
+  // non-zero instead of pretending to be a live bot.
+  // Bound it so a wedged adapter connect can't hang readiness forever.
   await listener.channels.ready({ timeoutMs: 30_000 });
   console.log(
     `[channel] started on: ${adapters.map((a) => a.platform).join(", ")}`,

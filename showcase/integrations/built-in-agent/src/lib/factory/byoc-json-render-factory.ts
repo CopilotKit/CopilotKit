@@ -1,4 +1,5 @@
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import type { TanStackChatMessage } from "@copilotkit/runtime/v2";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { chat } from "@tanstack/ai";
@@ -8,6 +9,7 @@ import { openaiText } from "@tanstack/ai-openai";
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+import { DEMO_AGENT_LOOP_STRATEGY, throwOnRunError } from "./demo-stream";
 
 const SYSTEM_PROMPT = `\
 You are a sales-dashboard UI generator for a BYOC json-render demo.
@@ -114,10 +116,40 @@ Respond with the JSON object only.
  * was always right, only its final brace was missing — and it is exactly what
  * the reference enforces. `parseSpec` in `json-render-renderer.tsx` still
  * validates the shape on the client.
+ *
+ * MUST be paired with `JSON_MODE_INPUT_DIRECTIVE` below. `json_object` has a
+ * server-side precondition that is easy to miss: the word "json" has to appear
+ * in the request's `input`, and this adapter sends `systemPrompts` as
+ * `instructions`, NOT as input. With the JSON directive living only in
+ * SYSTEM_PROMPT, real OpenAI rejected every run with
+ *   400 "Response input messages must contain the word 'json' in some form to
+ *        use 'text.format' of type 'json_object'."  (param: input)
+ * and the demo rendered nothing at all. Verified against the live API with the
+ * pinned adapter.
  */
 const JSON_OBJECT_FORMAT = {
   text: { format: { type: "json_object" } },
 } as const;
+
+/**
+ * Carries the JSON-only directive in the MESSAGE list (→ Responses API
+ * `input`) rather than in `systemPrompts` (→ `instructions`), which is what
+ * satisfies `json_object`'s "input must mention json" precondition documented
+ * on `JSON_OBJECT_FORMAT`. The wording is deliberately redundant with
+ * SYSTEM_PROMPT: the model needs the instruction, and the API needs the literal
+ * token in `input`. Prepended so a later user turn can never displace it.
+ *
+ * `role: "user"` because `TanStackChatMessage` only admits
+ * `user | assistant | tool` — the runtime deliberately hoists system/developer
+ * messages out of the message list and into `systemPrompts`, which is the very
+ * half that does NOT count as input here. It is invisible in the UI: the chat
+ * renders from AG-UI events, not from what the backend sends the model.
+ */
+const JSON_MODE_INPUT_DIRECTIVE: TanStackChatMessage = {
+  role: "user",
+  content:
+    "Respond with a single valid JSON object and nothing else. Output JSON only.",
+};
 
 /**
  * Convert a TanStack AI stream to AG-UI events for a tool-free agent.
@@ -138,6 +170,9 @@ async function* convertStream(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const raw = chunk as any;
     const type = raw.type as string;
+
+    // Fail loud on an upstream rejection — see ./demo-stream.
+    throwOnRunError(raw);
 
     if (type === "RUN_FINISHED") continue;
 
@@ -181,7 +216,10 @@ export function createByocJsonRenderAgent() {
 
       const stream = chat({
         adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
-        messages,
+        // JSON_MODE_INPUT_DIRECTIVE goes in `messages` (→ `input`), not in
+        // `systemPrompts` (→ `instructions`) — that is the half `json_object`
+        // validates against. See JSON_OBJECT_FORMAT.
+        messages: [JSON_MODE_INPUT_DIRECTIVE, ...messages],
         systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
         tools: [],
         modelOptions: {
@@ -189,6 +227,7 @@ export function createByocJsonRenderAgent() {
           ...JSON_OBJECT_FORMAT,
         },
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
 
       return convertStream(stream, abortController.signal);
