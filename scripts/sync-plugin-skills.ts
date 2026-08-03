@@ -17,6 +17,7 @@ export const RESERVED_LIFECYCLE_SLUGS: ReadonlySet<string> = new Set([
   "copilotkit-upgrade",
   "copilotkit-contribute",
   "copilotkit-self-update",
+  "setup-slack-channel",
 ]);
 
 // Version sync — plugin version tracks this package's version.

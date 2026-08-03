@@ -5,9 +5,13 @@ on:
     branches: [main]
     paths:
       - "packages/*/skills/**"
-      - "skills/runtime/**"
-      - "skills/react-core/**"
-      - "skills/a2ui-renderer/**"
+      # Every directory under skills/, not an enumerated few. The check's
+      # orphan scan reads the whole mirror, so any skills/ directory can fail
+      # it — including a standalone skill that is missing from
+      # RESERVED_LIFECYCLE_SLUGS, which write mode then prunes. Listing
+      # individual slugs here left that case untested by the PR that
+      # introduced it and armed the failure for the next unrelated PR instead.
+      - "skills/**"
       - "scripts/sync-plugin-skills.ts"
       - "scripts/__tests__/sync-plugin-skills.test.ts"
       - ".claude-plugin/**"
@@ -18,9 +22,7 @@ on:
   pull_request:
     paths:
       - "packages/*/skills/**"
-      - "skills/runtime/**"
-      - "skills/react-core/**"
-      - "skills/a2ui-renderer/**"
+      - "skills/**"
       - "scripts/sync-plugin-skills.ts"
       - "scripts/__tests__/sync-plugin-skills.test.ts"
       - ".claude-plugin/**"
