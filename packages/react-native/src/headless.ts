@@ -48,7 +48,9 @@ export {
 export {
   useAgent,
   useFrontendTool,
-  useComponent,
+  // NOT react-core's useComponent — it registers into react-core's render registry, which this
+  // package's renderers do not read, so components registered with it rendered nowhere on RN.
+  // Our own is exported below and registers into this package's registry.
   useHumanInTheLoop,
   useInterrupt,
   useSuggestions,
@@ -102,6 +104,9 @@ export type {
 // Render tool hook (React Native version with render registry integration).
 // No DOM and no chat-UI stack: the app supplies the renderers.
 export { useRenderTool } from "./hooks/useRenderTool";
+// RN-native useComponent: registers into THIS package's render registry. react-core's version
+// registers into its own, which RN renderers do not read, so it rendered nowhere here.
+export { useComponent } from "./hooks/useComponent";
 export { useRenderToolCall } from "./hooks/useRenderToolCall";
 export type {
   RenderToolCallInput,

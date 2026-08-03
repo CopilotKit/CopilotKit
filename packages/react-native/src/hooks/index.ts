@@ -1,4 +1,5 @@
 export { useRenderTool } from "./useRenderTool";
+export { useComponent } from "./useComponent";
 export { useRenderToolCall } from "./useRenderToolCall";
 export type {
   RenderToolCallInput,

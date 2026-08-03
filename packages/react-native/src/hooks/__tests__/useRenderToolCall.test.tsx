@@ -7,6 +7,7 @@ import { describe, it, expect, vi } from "vitest";
 const hoisted = vi.hoisted(() => ({
   executingToolCallIds: new Set<string>(),
   registry: new Map<string, any>(),
+  lastConfig: null as any,
 }));
 
 vi.mock("@copilotkit/react-core/v2/headless", () => ({
@@ -97,5 +98,63 @@ describe("useRenderToolCall", () => {
     } as any);
     expect(props.args).toEqual({});
     expect(props.status).toBe("complete");
+  });
+});
+
+// ─── useComponent (RN) ────────────────────────────────────────────────────────
+
+vi.mock("../useRenderTool", () => ({
+  useRenderTool: (config: any) => {
+    hoisted.registry.set(config.name, config.render);
+    hoisted.lastConfig = config;
+  },
+}));
+
+import { useComponent } from "../useComponent";
+
+describe("useComponent (React Native)", () => {
+  it("registers into THIS package's registry so a custom surface can render it", () => {
+    function Probe() {
+      useComponent({
+        name: "showCity",
+        parameters: {} as any,
+        render: ({ city }: { city?: string }) => <>{city ?? null}</>,
+      });
+      return null;
+    }
+    render(<Probe />);
+    expect(hoisted.registry.has("showCity")).toBe(true);
+  });
+
+  it("spreads the tool arguments as props, so components need no CopilotKit knowledge", () => {
+    let received: any = null;
+    function Probe() {
+      useComponent({
+        name: "showCity2",
+        parameters: {} as any,
+        render: (props: any) => {
+          received = props;
+          return null;
+        },
+      });
+      return null;
+    }
+    render(<Probe />);
+    const renderFn = hoisted.registry.get("showCity2");
+    render(<>{renderFn({ args: { city: "Berlin" }, status: "inProgress" })}</>);
+    expect(received).toEqual({ city: "Berlin" });
+  });
+
+  it("is render-only: it registers no handler", () => {
+    function Probe() {
+      useComponent({
+        name: "showCity3",
+        parameters: {} as any,
+        render: () => null,
+      });
+      return null;
+    }
+    render(<Probe />);
+    expect(hoisted.lastConfig.handler).toBeUndefined();
   });
 });
