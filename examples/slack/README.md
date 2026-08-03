@@ -289,8 +289,14 @@ several from one process).
 
 - <https://api.slack.com/apps?new_app=1> → **From a manifest** → paste
   `slack-app-manifest.yaml`.
-- _OAuth & Permissions_ → **Install to Workspace** → copy the `xoxb-`
-  bot token (`SLACK_BOT_TOKEN`).
+- _OAuth & Permissions_ → **Reinstall to Workspace** → **Allow**. Slack says
+  "Reinstall" because creating the app from a manifest already installed it —
+  with only a couple of the scopes the manifest declares. This is the grant that
+  applies the rest.
+- Copy the `xoxb-` bot token (`SLACK_BOT_TOKEN`) **after** that reinstall.
+  Reinstalling issues a new token, and one copied beforehand authenticates fine
+  and can post, but lacks `app_mentions:read` — so the bot never receives a
+  mention and stays silent with no error anywhere.
 - _Basic Information → App-Level Tokens_ → generate one with
   `connections:write` → copy the `xapp-` app token (`SLACK_APP_TOKEN`).
 - The manifest is tuned for mention-only channel threads. If you enable

@@ -98,7 +98,9 @@ That compares three things that must agree — the declared configuration, the p
 2. Invite the bot to a channel (`channels status` prints the invite command with the right handle).
 3. Message the bot. You should get a reply.
 
-If nothing happens and there is no error, check in this order: is `activateChannels: false` set anywhere; on a deferring mount, is `ready()` awaited; is `intelligence` passed (not a `runner`); is the realtime URL correct; is the app installed and invited.
+If nothing happens and there is no error, check in this order: is `activateChannels: false` set anywhere; on a deferring mount, is `ready()` awaited; is `intelligence` passed (not a `runner`); is the realtime URL correct; on Slack, was the app **reinstalled** after creation and the bot invited.
+
+"Reinstalled" is not a typo. Slack installs the app when it creates it, with two of its scopes, and only a reinstall grants the rest — see "Online, silent, and nothing in the log at all" below.
 
 Do not report a Channel as working because credentials were stored. A stored adapter proves the credentials are real — the server probed them — and nothing more. It does not prove the app is installed, that a channel was invited, or that a runtime is connected.
 
@@ -123,6 +125,26 @@ So:
 3. Move them onto matching lines. Pinning the client to a prerelease is the common way into this state.
 
 `errorCategory` is a classification, not the message — the underlying error text is deliberately not logged, so the category plus this note is the whole signal you get.
+
+### Online, silent, and nothing in the log at all — a short-scoped Slack token
+
+If the host logs online, the bot says nothing, and there is **no delivery line of any kind** in its output, the turn never reached you: Slack never sent it. On Slack that is almost always a bot token that was copied too early.
+
+Creating a Slack app from a manifest **installs it**, and that install grants only two scopes — `channels:history` and `chat:write`. The manifest's declared scopes reach the app's configuration but not the grant, which is what Slack's yellow "you've changed the permission scopes" banner is reporting. One **Reinstall to Workspace → Allow** raises the grant to the full set.
+
+A token copied before that reinstall is the trap, because every check still passes:
+
+- `auth.test` succeeds, so attaching stores it and reports the adapter healthy.
+- `chat:write` is present, so the bot can post — it is not obviously broken.
+- `app_mentions:read` is absent, so Slack never delivers `app_mention`, and no handler ever runs.
+
+The result is a Channel that is genuinely online and structurally deaf. Distinguishing it from the version disagreement above is easy once you know to look: that failure logs a rejected delivery, this one logs nothing, because there is nothing to reject.
+
+Fix it by reinstalling the Slack app, copying the reissued Bot User OAuth Token — reinstalling issues a new one — and rotating the stored credential (`npx copilotkit channels rotate <name> --adapter slack`).
+
+Intelligence now refuses a short-scoped token when it is pasted, with `CHANNEL_ADAPTER_SLACK_TOKEN_SCOPES_INCOMPLETE`, and names the missing scopes. Treat that error as this problem caught early rather than as a setup failure. A Channel attached before that check existed can still be sitting in this state, and only a rotation clears it.
+
+If a reinstall does not fix it, the app predates the current manifest and its stored configuration is short too: paste the current manifest into **App Manifest** in the Slack app, then reinstall.
 
 ## Wiring a project the CLI did not generate
 
