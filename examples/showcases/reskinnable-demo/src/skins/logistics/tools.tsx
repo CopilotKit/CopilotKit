@@ -87,270 +87,302 @@ export function LogisticsTools() {
   });
 
   // ── Gen-UI (rendered inline in chat) ─────────────────────────────────────
-  useComponent({
-    name: "showExceptions",
-    description:
-      "Display the exception queue — shipments needing a decision, worst first.",
-    render: () => <ExceptionBoard shipments={shipments} lanes={lanes} />,
-  });
-
-  useComponent({
-    name: "showShipment",
-    description:
-      "Display one shipment as a card. Pass its reference (e.g. 'PO-88213') or id (e.g. 'shp-4821').",
-    parameters: z.object({
-      shipment: z.string().describe("Shipment reference or id."),
-    }),
-    render: ({ shipment: ref }) => {
-      const shipment = findShipment(ref ?? "");
-      if (!shipment) {
-        return (
-          <div className="rounded-lg border border-dashed border-hairline p-4 text-sm text-ink-muted">
-            No shipment matches that reference.
-          </div>
-        );
-      }
-      return (
-        <ShipmentCard
-          shipment={shipment}
-          lane={lanes.find((l) => l.id === shipment.laneId)}
-        />
-      );
+  useComponent(
+    {
+      name: "showExceptions",
+      description:
+        "Display the exception queue — shipments needing a decision, worst first.",
+      render: () => <ExceptionBoard shipments={shipments} lanes={lanes} />,
     },
-  });
+    [shipments, lanes],
+  );
 
-  useComponent({
-    name: "showLane",
-    description: "Display lane health across the network.",
-    render: () => <LaneTable lanes={lanes} />,
-  });
-
-  useComponent({
-    name: "showInventoryRisk",
-    description:
-      "Display SKUs whose days of cover fall below their safety-stock floor.",
-    render: () => <InventoryRiskList items={inventory} />,
-  });
-
-  useComponent({
-    name: "compareMitigations",
-    description:
-      "Display the mitigation trade-off table for one shipment — cost, resulting ETA, whether the promised " +
-      "date is met, and risk for each option. ALWAYS call this before recommending an option.",
-    parameters: z.object({
-      shipment: z.string().describe("Shipment reference or id."),
-    }),
-    render: ({ shipment: ref }) => {
-      const shipment = findShipment(ref ?? "");
-      if (!shipment) {
+  useComponent(
+    {
+      name: "showShipment",
+      description:
+        "Display one shipment as a card. Pass its reference (e.g. 'PO-88213') or id (e.g. 'shp-4821').",
+      parameters: z.object({
+        shipment: z.string().describe("Shipment reference or id."),
+      }),
+      render: ({ shipment: ref }) => {
+        const shipment = findShipment(ref ?? "");
+        if (!shipment) {
+          return (
+            <div className="rounded-lg border border-dashed border-hairline p-4 text-sm text-ink-muted">
+              No shipment matches that reference.
+            </div>
+          );
+        }
         return (
-          <div className="rounded-lg border border-dashed border-hairline p-4 text-sm text-ink-muted">
-            No shipment matches that reference.
-          </div>
+          <ShipmentCard
+            shipment={shipment}
+            lane={lanes.find((l) => l.id === shipment.laneId)}
+          />
         );
-      }
-      return (
-        <TradeoffTable
-          options={computeMitigationOptions(shipment, lanes)}
-          authorityUsd={currentPlanner.authorityUsd}
-        />
-      );
+      },
     },
-  });
+    [shipments, lanes],
+  );
+
+  useComponent(
+    {
+      name: "showLane",
+      description: "Display lane health across the network.",
+      render: () => <LaneTable lanes={lanes} />,
+    },
+    [lanes],
+  );
+
+  useComponent(
+    {
+      name: "showInventoryRisk",
+      description:
+        "Display SKUs whose days of cover fall below their safety-stock floor.",
+      render: () => <InventoryRiskList items={inventory} />,
+    },
+    [inventory],
+  );
+
+  useComponent(
+    {
+      name: "compareMitigations",
+      description:
+        "Display the mitigation trade-off table for one shipment — cost, resulting ETA, whether the promised " +
+        "date is met, and risk for each option. ALWAYS call this before recommending an option.",
+      parameters: z.object({
+        shipment: z.string().describe("Shipment reference or id."),
+      }),
+      render: ({ shipment: ref }) => {
+        const shipment = findShipment(ref ?? "");
+        if (!shipment) {
+          return (
+            <div className="rounded-lg border border-dashed border-hairline p-4 text-sm text-ink-muted">
+              No shipment matches that reference.
+            </div>
+          );
+        }
+        return (
+          <TradeoffTable
+            options={computeMitigationOptions(shipment, lanes)}
+            authorityUsd={currentPlanner.authorityUsd}
+          />
+        );
+      },
+    },
+    [shipments, lanes, currentPlanner.authorityUsd],
+  );
 
   // ── HITL: commit a mitigation (confirm before writing) ───────────────────
-  useHumanInTheLoop({
-    name: "commitMitigation",
-    description:
-      "Ask the planner to confirm committing a mitigation for a shipment. Pass the shipment reference and the " +
-      "kind you recommend. The server recomputes the cost and may REJECT it as over the planner's approval " +
-      "authority — report that honestly and offer to file an escalation. Never claim success without confirmation.",
-    parameters: z.object({
-      shipment: z
-        .string()
-        .describe("Shipment reference or id, e.g. 'PO-88213'."),
-      kind: z
-        .enum(["expedite", "reroute", "split", "absorb"])
-        .describe("Which mitigation to commit."),
-      rationale: z.string().describe("One short sentence on why this option."),
-    }),
-    render: ({ args, status, respond }) => {
-      const kind = args?.kind ?? "absorb";
-      const ref = args?.shipment ?? "";
-      if (status === ToolCallStatus.Executing && respond) {
+  useHumanInTheLoop(
+    {
+      name: "commitMitigation",
+      description:
+        "Ask the planner to confirm committing a mitigation for a shipment. Pass the shipment reference and the " +
+        "kind you recommend. The server recomputes the cost and may REJECT it as over the planner's approval " +
+        "authority — report that honestly and offer to file an escalation. Never claim success without confirmation.",
+      parameters: z.object({
+        shipment: z
+          .string()
+          .describe("Shipment reference or id, e.g. 'PO-88213'."),
+        kind: z
+          .enum(["expedite", "reroute", "split", "absorb"])
+          .describe("Which mitigation to commit."),
+        rationale: z
+          .string()
+          .describe("One short sentence on why this option."),
+      }),
+      render: ({ args, status, respond }) => {
+        const kind = args?.kind ?? "absorb";
+        const ref = args?.shipment ?? "";
+        if (status === ToolCallStatus.Executing && respond) {
+          return (
+            <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+              <div className="text-sm text-ink">
+                Commit <span className="font-semibold text-brand">{kind}</span>{" "}
+                on <span className="font-mono font-semibold">{ref}</span>?
+              </div>
+              <div className="text-xs text-ink-muted">{args?.rationale}</div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
+                  onClick={async () => {
+                    const shipment = findShipment(ref);
+                    if (!shipment)
+                      return void respond(
+                        "No shipment matches that reference.",
+                      );
+                    const result = await commitMitigation({
+                      shipmentId: shipment.id,
+                      kind,
+                      rationale: args?.rationale ?? "",
+                    });
+                    void respond(
+                      result.ok
+                        ? `Committed ${kind} on ${ref} at $${result.option?.costUsd.toLocaleString("en-US")}.`
+                        : // Surface the server's block verbatim so the agent learns it
+                          // instead of reporting a false success.
+                          `REJECTED: ${result.error}`,
+                    );
+                  }}
+                >
+                  Commit {kind}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
+                  onClick={() =>
+                    void respond("Planner declined this mitigation.")
+                  }
+                >
+                  Not this one
+                </button>
+              </div>
+            </div>
+          );
+        }
         return (
-          <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
-            <div className="text-sm text-ink">
-              Commit <span className="font-semibold text-brand">{kind}</span> on{" "}
-              <span className="font-mono font-semibold">{ref}</span>?
-            </div>
-            <div className="text-xs text-ink-muted">{args?.rationale}</div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
-                onClick={async () => {
-                  const shipment = findShipment(ref);
-                  if (!shipment)
-                    return void respond("No shipment matches that reference.");
-                  const result = await commitMitigation({
-                    shipmentId: shipment.id,
-                    kind,
-                    rationale: args?.rationale ?? "",
-                  });
-                  void respond(
-                    result.ok
-                      ? `Committed ${kind} on ${ref} at $${result.option?.costUsd.toLocaleString("en-US")}.`
-                      : // Surface the server's block verbatim so the agent learns it
-                        // instead of reporting a false success.
-                        `REJECTED: ${result.error}`,
-                  );
-                }}
-              >
-                Commit {kind}
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
-                onClick={() =>
-                  void respond("Planner declined this mitigation.")
-                }
-              >
-                Not this one
-              </button>
-            </div>
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {status === ToolCallStatus.Complete
+              ? `Mitigation on ${ref} handled.`
+              : "Preparing the decision…"}
           </div>
         );
-      }
-      return (
-        <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
-          {status === ToolCallStatus.Complete
-            ? `Mitigation on ${ref} handled.`
-            : "Preparing the decision…"}
-        </div>
-      );
+      },
     },
-  });
+    [shipments, commitMitigation],
+  );
 
   // ── HITL: file an escalation (the recovery path from an authority block) ──
-  useHumanInTheLoop({
-    name: "fileEscalation",
-    description:
-      "File an escalation so an over-authority mitigation can proceed. Pass the shipment and a code from the " +
-      "valid escalation-code catalogue in your context. Only some codes actually authorize the spend; an " +
-      "invalid code is rejected.",
-    parameters: z.object({
-      shipment: z.string().describe("Shipment reference or id."),
-      code: z
-        .enum(ESCALATION_CODES)
-        .describe("An escalation code from the catalogue."),
-      rationale: z
-        .string()
-        .describe("One short sentence justifying the escalation."),
-    }),
-    render: ({ args, status, respond }) => {
-      const ref = args?.shipment ?? "";
-      const code = args?.code ?? "";
-      if (status === ToolCallStatus.Executing && respond) {
+  useHumanInTheLoop(
+    {
+      name: "fileEscalation",
+      description:
+        "File an escalation so an over-authority mitigation can proceed. Pass the shipment and a code from the " +
+        "valid escalation-code catalogue in your context. Only some codes actually authorize the spend; an " +
+        "invalid code is rejected.",
+      parameters: z.object({
+        shipment: z.string().describe("Shipment reference or id."),
+        code: z
+          .enum(ESCALATION_CODES)
+          .describe("An escalation code from the catalogue."),
+        rationale: z
+          .string()
+          .describe("One short sentence justifying the escalation."),
+      }),
+      render: ({ args, status, respond }) => {
+        const ref = args?.shipment ?? "";
+        const code = args?.code ?? "";
+        if (status === ToolCallStatus.Executing && respond) {
+          return (
+            <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+              <div className="text-sm text-ink">
+                File escalation{" "}
+                <span className="font-mono font-semibold text-brand">
+                  {code}
+                </span>{" "}
+                on <span className="font-mono font-semibold">{ref}</span>?
+              </div>
+              <div className="text-xs text-ink-muted">{args?.rationale}</div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
+                  onClick={async () => {
+                    const shipment = findShipment(ref);
+                    if (!shipment)
+                      return void respond(
+                        "No shipment matches that reference.",
+                      );
+                    const result = await fileEscalation({
+                      shipmentId: shipment.id,
+                      code,
+                      rationale: args?.rationale ?? "",
+                    });
+                    void respond(
+                      result.ok
+                        ? `Escalation ${code} approved on ${ref}. Re-attempt the mitigation to see whether it now clears.`
+                        : `REJECTED: ${result.error}`,
+                    );
+                  }}
+                >
+                  File it
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
+                  onClick={() => void respond("Planner declined to escalate.")}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          );
+        }
         return (
-          <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
-            <div className="text-sm text-ink">
-              File escalation{" "}
-              <span className="font-mono font-semibold text-brand">{code}</span>{" "}
-              on <span className="font-mono font-semibold">{ref}</span>?
-            </div>
-            <div className="text-xs text-ink-muted">{args?.rationale}</div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
-                onClick={async () => {
-                  const shipment = findShipment(ref);
-                  if (!shipment)
-                    return void respond("No shipment matches that reference.");
-                  const result = await fileEscalation({
-                    shipmentId: shipment.id,
-                    code,
-                    rationale: args?.rationale ?? "",
-                  });
-                  void respond(
-                    result.ok
-                      ? `Escalation ${code} approved on ${ref}. Re-attempt the mitigation to see whether it now clears.`
-                      : `REJECTED: ${result.error}`,
-                  );
-                }}
-              >
-                File it
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
-                onClick={() => void respond("Planner declined to escalate.")}
-              >
-                Cancel
-              </button>
-            </div>
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {status === ToolCallStatus.Complete
+              ? "Escalation handled."
+              : "Preparing the escalation…"}
           </div>
         );
-      }
-      return (
-        <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
-          {status === ToolCallStatus.Complete
-            ? "Escalation handled."
-            : "Preparing the escalation…"}
-        </div>
-      );
+      },
     },
-  });
+    [shipments, fileEscalation],
+  );
 
   // ── Frontend tool: file a durable decision record ────────────────────────
   // Logs a decision the agent did NOT execute through commitMitigation (a
   // verbally-accepted recommendation, an escalation outcome). Registered here so
   // it works from any page. The server derives decidedBy/role from the planner
   // and ignores any client cost — so we file at 0 and let the server own trust.
-  useFrontendTool({
-    name: "createDecisionRecord",
-    description:
-      "File a durable decision record in the Decision Log for a decision NOT already committed through " +
-      "commitMitigation — e.g. a recommendation the planner accepted verbally, or an escalation outcome. Pass " +
-      "the shipment reference and a one-sentence rationale.",
-    parameters: z.object({
-      shipment: z
-        .string()
-        .describe("Shipment reference or id, e.g. 'PO-88213'."),
-      kind: z
-        .enum(["expedite", "reroute", "split", "absorb", "escalation"])
-        .describe("What was decided."),
-      rationale: z.string().describe("One short sentence on why."),
-      costUsd: z
-        .number()
-        .optional()
-        .describe(
-          "The cost if known. The server does not trust this and files the record at 0.",
-        ),
-    }),
-    handler: async ({ shipment: ref, kind, rationale }) => {
-      const shipment = findShipment(ref ?? "");
-      if (!shipment)
-        return "No shipment matches that reference; nothing was filed.";
-      const result = await fileDecision({
-        shipmentId: shipment.id,
-        kind: kind ?? "absorb",
-        costUsd: 0,
-        rationale: rationale ?? "",
-      });
-      return result.ok
-        ? `Filed ${kind} on ${ref} to the Decision Log.`
-        : `REJECTED: ${result.error}`;
+  useFrontendTool(
+    {
+      name: "createDecisionRecord",
+      description:
+        "File a durable decision record in the Decision Log for a decision NOT already committed through " +
+        "commitMitigation — e.g. a recommendation the planner accepted verbally, or an escalation outcome. Pass " +
+        "the shipment reference and a one-sentence rationale.",
+      parameters: z.object({
+        shipment: z
+          .string()
+          .describe("Shipment reference or id, e.g. 'PO-88213'."),
+        kind: z
+          .enum(["expedite", "reroute", "split", "absorb", "escalation"])
+          .describe("What was decided."),
+        rationale: z.string().describe("One short sentence on why."),
+        costUsd: z
+          .number()
+          .optional()
+          .describe(
+            "The cost if known. The server does not trust this and files the record at 0.",
+          ),
+      }),
+      handler: async ({ shipment: ref, kind, rationale }) => {
+        const shipment = findShipment(ref ?? "");
+        if (!shipment)
+          return "No shipment matches that reference; nothing was filed.";
+        const result = await fileDecision({
+          shipmentId: shipment.id,
+          kind: kind ?? "absorb",
+          costUsd: 0,
+          rationale: rationale ?? "",
+        });
+        return result.ok
+          ? `Filed ${kind} on ${ref} to the Decision Log.`
+          : `REJECTED: ${result.error}`;
+      },
+      render: ({ status }) => (
+        <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+          {status === ToolCallStatus.Complete
+            ? "Filed to the Decision Log."
+            : "Filing to the decision log…"}
+        </div>
+      ),
     },
-    render: ({ status }) => (
-      <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
-        {status === ToolCallStatus.Complete
-          ? "Filed to the Decision Log."
-          : "Filing to the decision log…"}
-      </div>
-    ),
-  });
+    [shipments, fileDecision],
+  );
 
   return null;
 }
