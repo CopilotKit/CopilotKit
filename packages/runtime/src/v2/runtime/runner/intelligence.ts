@@ -34,6 +34,7 @@ export interface RunnerStartupBoundary {
 }
 
 interface ThreadState {
+  threadId: string;
   runId: string;
   socket: Socket;
   channel: Channel;
@@ -54,9 +55,11 @@ interface ThreadState {
   nextEventPushAttempt: number;
   eventRetryTimer: ReturnType<typeof setTimeout> | null;
   eventFlushTimer: ReturnType<typeof setTimeout> | null;
+  eventDeadlineTimer: ReturnType<typeof setTimeout> | null;
   socketReconnectWatchdog: ReturnType<typeof setTimeout> | null;
   eventRetryAttempt: number;
   completeRun: () => void;
+  failRun: (error: Error) => void;
 }
 
 const MAX_CONSECUTIVE_SOCKET_ERRORS = 5;
@@ -65,6 +68,7 @@ const EVENT_RETRY_MAX_MS = 2_000;
 const RUNNER_EVENT_BATCH_CAPABILITY = "runner_event_batch_v1";
 const MAX_RUNNER_EVENT_BATCH_SIZE = 32;
 const RUNNER_EVENT_BATCH_FLUSH_MS = 5;
+const EVENT_DURABILITY_DEADLINE_MS = 60_000;
 
 export class IntelligenceAgentRunner extends AgentRunner {
   private options: IntelligenceAgentRunnerOptions;
@@ -218,6 +222,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       });
 
       const state: ThreadState = {
+        threadId,
         runId: input.runId,
         socket,
         channel,
@@ -235,9 +240,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
         nextEventPushAttempt: 0,
         eventRetryTimer: null,
         eventFlushTimer: null,
+        eventDeadlineTimer: null,
         socketReconnectWatchdog: null,
         eventRetryAttempt: 0,
         completeRun: () => observer.complete(),
+        failRun: (error) => observer.error(error),
       };
       this.threads.set(threadId, state);
 
@@ -245,6 +252,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
       let plannedRestart = false;
 
       socket.onClose((event) => {
+        if (!this.isCurrentThreadState(threadId, state)) {
+          return;
+        }
         plannedRestart = plannedRestart || event?.code === 1012;
         if (event?.code !== 1000 && state.socketReconnectWatchdog === null) {
           state.socketReconnectWatchdog = setTimeout(() => {
@@ -261,6 +271,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
         }
       });
       socket.onOpen(() => {
+        if (!this.isCurrentThreadState(threadId, state)) {
+          return;
+        }
         if (state.socketReconnectWatchdog !== null) {
           clearTimeout(state.socketReconnectWatchdog);
           state.socketReconnectWatchdog = null;
@@ -269,6 +282,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
         plannedRestart = false;
       });
       socket.onError(() => {
+        if (!this.isCurrentThreadState(threadId, state)) {
+          return;
+        }
         // Once the gateway has accepted the run, transport recovery is not a
         // terminal condition. The agent may still be producing the
         // authoritative answer while Phoenix reconnects and replays durable
@@ -300,6 +316,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
       channel
         .join()
         .receive("ok", (response) => {
+          if (!this.isCurrentThreadState(threadId, state)) {
+            return;
+          }
           const supportsRunnerEventBatch =
             this.supportsRunnerEventBatch(response);
           const activeEventBatch =
@@ -325,6 +344,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
           });
         })
         .receive("error", (resp) => {
+          if (!this.isCurrentThreadState(threadId, state)) {
+            return;
+          }
           if (state.hasJoined || this.isRetryableJoinError(resp)) {
             return;
           }
@@ -344,6 +366,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
           observer.complete();
         })
         .receive("timeout", () => {
+          if (!this.isCurrentThreadState(threadId, state)) {
+            return;
+          }
           if (state.hasJoined) {
             return;
           }
@@ -447,6 +472,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
   ): Promise<void> {
     const { currentEvents } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
+      if (!this.isCurrentThreadState(threadId, state)) {
+        return;
+      }
       const canonicalEvent = this.stampRunnerMetadata(
         this.stampCanonicalRunOwnership(event, request),
         state,
@@ -511,6 +539,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
         },
       });
     } catch (error) {
+      if (!this.isCurrentThreadState(threadId, state)) {
+        return;
+      }
       ensureRunStarted();
       const existingError = currentEvents.find(
         (event) => event.type === EventType.RUN_ERROR,
@@ -526,6 +557,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
         onRunError(errorEvent);
       }
     } finally {
+      if (!this.isCurrentThreadState(threadId, state)) {
+        return;
+      }
       ensureRunStarted();
       const appended = finalizeRunEvents(currentEvents, {
         stopRequested: state.stopRequested,
@@ -550,10 +584,14 @@ export class IntelligenceAgentRunner extends AgentRunner {
     payload: Record<string, unknown>,
     state: ThreadState,
   ): void {
+    if (!this.isCurrentThreadState(state.threadId, state)) {
+      return;
+    }
     const eventId = this.runnerEventId(payload);
     if (!state.pendingEvents.has(eventId)) {
       state.pendingEvents.set(eventId, { payload, queuedAt: Date.now() });
     }
+    this.scheduleEventDeadline(state);
     this.replayPendingEvents(state);
   }
 
@@ -562,7 +600,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
     events: Array<{ payload: Record<string, unknown>; queuedAt: number }>,
     state: ThreadState,
   ): void {
-    if (state.channel.state !== "joined" || !state.socket.isConnected()) {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      state.channel.state !== "joined" ||
+      !state.socket.isConnected()
+    ) {
       return;
     }
 
@@ -572,9 +614,15 @@ export class IntelligenceAgentRunner extends AgentRunner {
     const isBatch = state.supportsRunnerEventBatch;
 
     state.channel
-      .push(isBatch ? "events" : "event", isBatch ? { events: payloads } : payloads[0])
+      .push(
+        isBatch ? "events" : "event",
+        isBatch ? { events: payloads } : payloads[0],
+      )
       .receive("ok", () => {
-        if (state.activeEventBatch?.attempt !== attempt) {
+        if (
+          !this.isCurrentThreadState(state.threadId, state) ||
+          state.activeEventBatch?.attempt !== attempt
+        ) {
           return;
         }
         for (const eventId of eventIds) {
@@ -586,27 +634,42 @@ export class IntelligenceAgentRunner extends AgentRunner {
           this.clearPendingEventRetry(state);
           this.clearPendingEventFlush(state);
         }
-        this.completeWhenDurable(
-          (payloads[0]?.thread_id as string) ?? "",
-          state,
-        );
+        this.scheduleEventDeadline(state);
+        this.completeWhenDurable(state.threadId, state);
         this.replayPendingEvents(state);
       })
-      .receive("error", () => this.handlePendingEventFailure(state, attempt))
+      .receive("error", (response) =>
+        this.handlePendingEventFailure(state, attempt, response),
+      )
       .receive("timeout", () => this.handlePendingEventFailure(state, attempt));
   }
 
-  private handlePendingEventFailure(state: ThreadState, attempt: number): void {
-    if (state.activeEventBatch?.attempt !== attempt) {
+  private handlePendingEventFailure(
+    state: ThreadState,
+    attempt: number,
+    response?: unknown,
+  ): void {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      state.activeEventBatch?.attempt !== attempt
+    ) {
       return;
     }
 
+    if (this.isPermanentEventFailure(response)) {
+      this.failThread(
+        state.threadId,
+        state,
+        new Error("Gateway permanently rejected queued runner events"),
+      );
+      return;
+    }
     this.schedulePendingEventRetry(state);
   }
 
   private schedulePendingEventRetry(state: ThreadState): void {
     if (
-      !state.isRunning ||
+      !this.isCurrentThreadState(state.threadId, state) ||
       state.pendingEvents.size === 0 ||
       state.eventRetryTimer !== null
     ) {
@@ -620,7 +683,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
     state.eventRetryAttempt += 1;
     state.eventRetryTimer = setTimeout(() => {
       state.eventRetryTimer = null;
-      if (!state.isRunning || state.pendingEvents.size === 0) {
+      if (
+        !this.isCurrentThreadState(state.threadId, state) ||
+        state.pendingEvents.size === 0
+      ) {
         return;
       }
       this.retryActiveEventBatch(state);
@@ -636,7 +702,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
   private schedulePendingEventFlush(state: ThreadState): void {
     if (
-      !state.isRunning ||
+      !this.isCurrentThreadState(state.threadId, state) ||
       state.pendingEvents.size === 0 ||
       state.activeEventBatch !== null ||
       state.eventFlushTimer !== null
@@ -653,6 +719,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
     );
     state.eventFlushTimer = setTimeout(() => {
       state.eventFlushTimer = null;
+      if (!this.isCurrentThreadState(state.threadId, state)) {
+        return;
+      }
       this.flushPendingEventBatch(state);
     }, delay);
   }
@@ -672,7 +741,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
   }
 
   private replayPendingEvents(state: ThreadState): void {
-    if (state.activeEventBatch !== null) {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      state.activeEventBatch !== null
+    ) {
       return;
     }
 
@@ -702,14 +774,19 @@ export class IntelligenceAgentRunner extends AgentRunner {
   }
 
   private flushPendingEventBatch(state: ThreadState): void {
-    if (state.activeEventBatch !== null || state.pendingEvents.size === 0) {
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      state.activeEventBatch !== null ||
+      state.pendingEvents.size === 0
+    ) {
       return;
     }
 
     const batch = [...state.pendingEvents.entries()]
       .sort(
         ([, left], [, right]) =>
-          this.runnerEventSeq(left.payload) - this.runnerEventSeq(right.payload),
+          this.runnerEventSeq(left.payload) -
+          this.runnerEventSeq(right.payload),
       )
       .slice(0, MAX_RUNNER_EVENT_BATCH_SIZE);
     this.pushPendingEventBatch(
@@ -720,6 +797,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
   }
 
   private retryActiveEventBatch(state: ThreadState): void {
+    if (!this.isCurrentThreadState(state.threadId, state)) {
+      return;
+    }
     const activeBatch = state.activeEventBatch;
     if (activeBatch === null) {
       this.replayPendingEvents(state);
@@ -744,7 +824,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
   }
 
   private completeWhenDurable(threadId: string, state: ThreadState): void {
-    if (!state.producerFinished || state.pendingEvents.size !== 0) {
+    if (
+      !this.isCurrentThreadState(threadId, state) ||
+      !state.producerFinished ||
+      state.pendingEvents.size !== 0
+    ) {
       return;
     }
     if (this.threads.get(threadId) !== state) {
@@ -781,7 +865,70 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return false;
     }
     const value = response as { reason?: unknown; retryable?: unknown };
+    if (value.retryable === false) {
+      return false;
+    }
     return value.retryable === true || value.reason === "gateway_draining";
+  }
+
+  private isPermanentEventFailure(response: unknown): boolean {
+    return (
+      typeof response === "object" &&
+      response !== null &&
+      (response as { retryable?: unknown }).retryable === false
+    );
+  }
+
+  private scheduleEventDeadline(state: ThreadState): void {
+    if (state.eventDeadlineTimer !== null) {
+      clearTimeout(state.eventDeadlineTimer);
+      state.eventDeadlineTimer = null;
+    }
+    if (
+      !this.isCurrentThreadState(state.threadId, state) ||
+      state.pendingEvents.size === 0
+    ) {
+      return;
+    }
+
+    const oldestQueuedAt = Math.min(
+      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
+    );
+    const deadline = oldestQueuedAt + EVENT_DURABILITY_DEADLINE_MS;
+    state.eventDeadlineTimer = setTimeout(
+      () => {
+        state.eventDeadlineTimer = null;
+        if (!this.isCurrentThreadState(state.threadId, state)) {
+          return;
+        }
+
+        const oldestPending = Math.min(
+          ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
+        );
+        if (Date.now() < oldestPending + EVENT_DURABILITY_DEADLINE_MS) {
+          this.scheduleEventDeadline(state);
+          return;
+        }
+        this.failThread(
+          state.threadId,
+          state,
+          new Error("Timed out trying to durably deliver runner events"),
+        );
+      },
+      Math.max(0, deadline - Date.now()),
+    );
+  }
+
+  private failThread(threadId: string, state: ThreadState, error: Error): void {
+    if (!this.isCurrentThreadState(threadId, state)) {
+      return;
+    }
+    this.removeThread(threadId);
+    state.failRun(error);
+  }
+
+  private isCurrentThreadState(threadId: string, state: ThreadState): boolean {
+    return state.isRunning && this.threads.get(threadId) === state;
   }
 
   /**
@@ -802,6 +949,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
     state.isRunning = false;
     this.clearPendingEventRetry(state);
     this.clearPendingEventFlush(state);
+    if (state.eventDeadlineTimer !== null) {
+      clearTimeout(state.eventDeadlineTimer);
+      state.eventDeadlineTimer = null;
+    }
     state.activeEventBatch = null;
     if (state.socketReconnectWatchdog !== null) {
       clearTimeout(state.socketReconnectWatchdog);
