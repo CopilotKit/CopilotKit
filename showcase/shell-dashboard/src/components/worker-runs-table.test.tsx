@@ -243,6 +243,61 @@ describe("WorkerRunsTable", () => {
     expect(reds.textContent).toContain("−2");
   });
 
+  // 2026-08-03: this strip read `online · 4/40 contexts` — indistinguishable
+  // from healthy — for workers pinned at cgroup pids 1000/1000 that could not
+  // launch a single browser. The context budget was never the binding
+  // constraint, so the chip has to show the constraint that actually bound.
+  it("worker strip surfaces PID saturation next to the context count", () => {
+    const data = runsResponse({
+      workers: [
+        worker({
+          workerId: "worker-saturated",
+          capacity: {
+            inUse: 4,
+            available: 36,
+            max: 40,
+            pidsCurrent: 1_000,
+            pidsMax: 1_000,
+            pidsSaturated: true,
+          },
+        }),
+        worker({
+          workerId: "worker-healthy",
+          capacity: {
+            inUse: 4,
+            available: 36,
+            max: 40,
+            pidsCurrent: 199,
+            pidsMax: 1_000,
+            pidsSaturated: false,
+          },
+        }),
+      ],
+    });
+    const { getByTestId } = render(
+      <WorkerRunsTable data={data} probeEntries={null} />,
+    );
+    const sat = getByTestId("worker-chip-worker-saturated");
+    expect(sat.getAttribute("data-pids-saturated")).toBe("true");
+    expect(sat.textContent).toContain("1000/1000 pids");
+    // A healthy worker stays quiet — no new noise on the normal path.
+    const ok = getByTestId("worker-chip-worker-healthy");
+    expect(ok.getAttribute("data-pids-saturated")).toBe("false");
+    expect(ok.textContent).not.toContain("pids");
+  });
+
+  it("worker strip omits the PID reading when the cgroup gauges are unknown", () => {
+    const data = runsResponse({
+      workers: [worker({ workerId: "worker-unknown" })],
+    });
+    const { getByTestId } = render(
+      <WorkerRunsTable data={data} probeEntries={null} />,
+    );
+    const chip = getByTestId("worker-chip-worker-unknown");
+    expect(chip.getAttribute("data-pids-saturated")).toBe("false");
+    expect(chip.textContent).not.toContain("pids");
+  });
+
   it("worker strip renders online/stale/offline verbatim with amber/red treatments", () => {
     const data = runsResponse({
       workers: [

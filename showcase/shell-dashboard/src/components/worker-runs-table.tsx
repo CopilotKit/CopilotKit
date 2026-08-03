@@ -261,6 +261,7 @@ function WorkerStrip({ workers }: { workers: WorkerView[] }) {
           key={w.workerId}
           data-testid={`worker-chip-${w.workerId}`}
           data-health={w.health}
+          data-pids-saturated={String(w.capacity.pidsSaturated === true)}
           className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 ${HEALTH_CHIP_CLASS[w.health]}`}
         >
           <span className="font-mono">{w.workerId}</span>
@@ -270,6 +271,23 @@ function WorkerStrip({ workers }: { workers: WorkerView[] }) {
           <span className="tabular-nums">
             {w.capacity.inUse}/{w.capacity.max} contexts
           </span>
+          {/*
+            PID annotation appears ONLY when the fleet is saturated. `health`
+            is heartbeat freshness and the context count is the browser budget;
+            neither could see the 2026-08-03 PID ceiling, which is what
+            actually stopped every probe from launching a browser.
+          */}
+          {w.capacity.pidsSaturated === true && (
+            <>
+              <span>·</span>
+              <span
+                className="tabular-nums font-semibold"
+                title="cgroup pids.current/pids.max — at this ceiling a worker cannot fork a browser, however healthy its heartbeat and context budget look"
+              >
+                {w.capacity.pidsCurrent}/{w.capacity.pidsMax} pids
+              </span>
+            </>
+          )}
         </span>
       ))}
     </div>
