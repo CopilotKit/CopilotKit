@@ -311,10 +311,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
       // runner is guaranteed to receive it while still joined.
       channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
         if (
+          this.isCurrentThreadState(threadId, state) &&
           payload.type === EventType.CUSTOM &&
           (payload as BaseEvent & { name?: string }).name === "stop"
         ) {
-          this.stop({ threadId });
+          this.stop({ threadId, runId: state.runId });
         }
       });
 

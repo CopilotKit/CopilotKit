@@ -728,6 +728,52 @@ describe("IntelligenceAgentRunner", () => {
       expect(await runner.isRunning({ threadId })).toBe(false);
     });
 
+    it("ignores a late stop control event from a failed run after replacement startup", async () => {
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-failure-stale-stop";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-failure-stale-stop",
+      });
+      const replacementInput = createRunInput({
+        threadId,
+        runId: "r-event-failure-stale-stop-next",
+      });
+      const replacementAgent = new BlockingMockAgent();
+      let replacementSubscription:
+        | ReturnType<ReturnType<typeof runner.run>["subscribe"]>
+        | undefined;
+
+      runner.run({ threadId, agent: new MockAgent(), input }).subscribe({
+        error: () => {
+          replacementSubscription = runner
+            .run({
+              threadId,
+              agent: replacementAgent,
+              input: replacementInput,
+            })
+            .subscribe();
+          mockChannels[1].triggerJoin("ok");
+        },
+      });
+      const failedChannel = mockChannels[0];
+      failedChannel.triggerJoin("ok");
+      await waitForCondition(() => failedChannel.pushLog.length === 1);
+      failedChannel.pushLog[0].push.trigger("error", { retryable: false });
+
+      expect(mockChannels[1].state).toBe("joined");
+      expect(await runner.isRunning({ threadId })).toBe(true);
+      failedChannel.serverPush("ag-ui", {
+        type: EventType.CUSTOM,
+        name: "stop",
+      });
+
+      expect(replacementAgent.aborted).toBe(false);
+      expect(await runner.isRunning({ threadId })).toBe(true);
+
+      replacementSubscription?.unsubscribe();
+    });
+
     it("rejects a second subscription to the same run observable without replacing its owner", async () => {
       const threadId = "t-duplicate-run-subscription";
       const input = createRunInput({
