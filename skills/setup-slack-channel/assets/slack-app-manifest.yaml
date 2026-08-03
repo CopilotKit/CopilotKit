@@ -1,0 +1,101 @@
+# ⚠️  REFERENCE ONLY — DO NOT USE THIS FOR A MANAGED CHANNEL.
+#
+# This is the DIRECT-ADAPTER shape: it enables Socket Mode and declares no
+# event_subscriptions.request_url. A managed Intelligence Channel needs the
+# opposite (socket_mode_enabled: false + a request_url pointing at
+# https://intelligence.copilotkit.ai/api/channels/adapters/slack/events).
+#
+# An app created from this manifest installs cleanly, shows green in Slack, and
+# delivers NOTHING to Intelligence — the exact silent failure this skill exists
+# to prevent.
+#
+# For the managed workflow, copy the manifest that the Intelligence "Create a
+# channel" wizard generates (Setup step → "Copy manifest"). It is already
+# pointed at the right Request URL. See SKILL.md Phases 1–2.
+#
+# Kept here only so the two shapes can be compared when diagnosing an app that
+# was built the wrong way.
+#
+# Derived from examples/OpenTag/slack-app-manifest.yaml, with OpenTag's
+# app-specific slash commands and its E2E-only user token scope removed.
+#
+# Never paste any manifest over an app that is already installed and in use —
+# that reinstalls it and rotates its tokens.
+#
+# Change `name` / `display_name` before creating the app so the bot is
+# obviously a dev app in the workspace member list.
+#
+# Socket Mode below is what makes this the DIRECT-adapter shape: the app holds
+# its own platform credentials and a consumer connects to Slack over a Socket
+# Mode connection with an app-level (xapp-) token. A managed Intelligence
+# Channel works the other way round — Slack posts events over HTTPS to
+# Intelligence's Request URL, verified by the signing secret, and no app-level
+# token exists. Interactivity is enabled here for the same direct-adapter
+# reason; the managed path does not deliver interactive payloads at all.
+display_information:
+  name: Channels Demo (Dev)
+  description: Local CopilotKit Channels agent — development app.
+  background_color: "#1a1a1a"
+features:
+  bot_user:
+    display_name: Channels Demo
+    always_online: true
+  # Enable the Messages tab so the bot can be DMed, and leave it writable —
+  # otherwise Slack shows "Sending messages to this app has been turned off".
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  # Enables Slack's assistant pane ("Agents & AI Apps"). Optional: remove this
+  # block if you only care about channel mentions.
+  assistant_view:
+    assistant_description: Local CopilotKit Channels agent.
+    suggested_prompts:
+      - title: What can you do?
+        message: What can you do?
+oauth_config:
+  scopes:
+    bot:
+      # --- Read what the user said ---
+      - app_mentions:read # see @mentions of the bot
+      - assistant:write # assistant pane: status, title, suggested prompts
+      - channels:history # read messages in public channels the bot is in
+      - groups:history # read messages in private channels the bot is in
+      - im:history # read DMs
+      - mpim:history # read group DMs
+      - channels:read # list/lookup public channels
+      - groups:read # list/lookup private channels
+      - im:read # list DMs
+      - mpim:read # list group DMs
+      - users:read # resolve user IDs to names for context
+      - users:read.email # resolve user emails for identity
+      - team:read # workspace info
+      # --- Write replies and generative UI ---
+      - chat:write # post and edit messages in channels the bot is in
+      - chat:write.public # post in channels the bot isn't a member of
+      - chat:write.customize # per-message username/icon
+      - im:write # open DMs
+      - mpim:write # open group DMs
+      # --- Files (inbound attachments, outbound uploads) ---
+      - files:read
+      - files:write
+      # --- Bot can join channels on its own ---
+      - channels:join
+      # --- Slash commands (required only if your Channel defines commands) ---
+      - commands
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - assistant_thread_started # user opened the assistant pane
+      - assistant_thread_context_changed # channel/context the user is viewing
+      - message.im # DMs to the bot + assistant-pane messages
+      - message.mpim # messages in group DMs the bot is in
+      # Add message.channels / message.groups only for a direct adapter using
+      # respondTo.threadReplies: "afterBotReply". Managed delivery does not
+      # need them, and they make the app see every message in every channel.
+  interactivity:
+    is_enabled: true
+  socket_mode_enabled: true
+  org_deploy_enabled: false
+  token_rotation_enabled: false

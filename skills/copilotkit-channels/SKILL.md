@@ -1,10 +1,13 @@
 ---
 name: copilotkit-channels
 description: >
-  Use when connecting a CopilotKit agent to Slack or Microsoft Teams with managed
-  Intelligence Channels. Covers customising the Channel a CLI-scaffolded project
-  already ships, and — for a project the CLI did not generate — the Channel
-  declaration, the long-running host requirement, and the awaited activation call.
+  Use for the CODE half of a managed Intelligence Channel with Slack or Microsoft
+  Teams: customising the Channel a CLI-scaffolded project already ships, or — for a
+  project the CLI did not generate — writing the Channel declaration, the
+  long-running host, and the awaited activation call. Assumes the provider app
+  already exists. If no Slack app has been created yet and the developer is setting
+  Slack up for the first time, use setup-slack-channel for the provider half and
+  return here for the code.
 version: 1.0.0
 ---
 
