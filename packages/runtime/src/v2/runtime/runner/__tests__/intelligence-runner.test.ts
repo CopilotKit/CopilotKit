@@ -25,12 +25,42 @@ let mockChannels: MockRunnerChannel[] = [];
 let mockSockets: MockSocket[] = [];
 
 class MockRunnerChannel extends MockChannel {
+  state = "closed";
+
+  join(payload?: Record<string, any>): MockPush {
+    this.state = "joining";
+    return super.join(payload);
+  }
+
   push(event: string, payload: any): MockPush {
     const push = super.push(event, payload);
     if (autoAcknowledgePushes) {
       queueMicrotask(() => push.trigger("ok"));
     }
     return push;
+  }
+
+  beginRejoin(): void {
+    this.state = "joining";
+  }
+
+  triggerJoin(
+    status: "ok" | "error" | "timeout",
+    response?: unknown,
+  ): void {
+    this.state =
+      status === "ok" ? "joined" : status === "error" ? "errored" : "closed";
+    super.triggerJoin(status, response);
+  }
+
+  triggerError(reason?: string): void {
+    this.state = "errored";
+    super.triggerError(reason);
+  }
+
+  leave(): void {
+    this.state = "closed";
+    super.leave();
   }
 }
 
@@ -948,6 +978,75 @@ describe("IntelligenceAgentRunner", () => {
       ch.pushLog[2].push.trigger("ok");
       await waitForCondition(() => ch.pushLog.length === 4);
       ch.pushLog[3].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("waits for rejoin before replaying with the latest event protocol", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-rejoin-latest-protocol";
+      const input = createRunInput({
+        threadId,
+        runId: "r-rejoin-latest-protocol",
+      });
+      const agent = new PausingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "hello",
+        } as TextMessageContentEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(ch.pushLog).toHaveLength(1);
+      expect(ch.pushLog[0].event).toBe("events");
+      const originalEvents = ch.pushLog[0].payload.events;
+      const originalMetadata = originalEvents.map((event: any) =>
+        event.metadata,
+      );
+
+      ch.pushLog[0].push.trigger("error", { reason: "channel_closed" });
+      ch.triggerError("channel_closed");
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(ch.state).toBe("errored");
+      expect(ch.pushLog).toHaveLength(1);
+
+      ch.beginRejoin();
+      expect(ch.state).toBe("joining");
+      ch.triggerJoin("ok", { capabilities: [] });
+
+      for (const [index, metadata] of originalMetadata.entries()) {
+        const replay = ch.pushLog[index + 1];
+        expect(replay.event).toBe("event");
+        expect(replay.payload.metadata).toEqual(metadata);
+        replay.push.trigger("ok");
+      }
+      expect(ch.pushLog).toHaveLength(originalEvents.length + 1);
+
+      agent.emit({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "msg-1",
+      } as TextMessageEndEvent);
+      agent.emit({
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: input.runId,
+      } as RunFinishedEvent);
+      agent.finish();
+      ch.pushLog.at(-1)!.push.trigger("ok");
+      ch.pushLog.at(-1)!.push.trigger("ok");
       await eventsPromise;
     });
 

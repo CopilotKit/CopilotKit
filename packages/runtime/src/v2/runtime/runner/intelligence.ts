@@ -553,6 +553,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
     events: Array<{ payload: Record<string, unknown>; queuedAt: number }>,
     state: ThreadState,
   ): void {
+    if (state.channel.state !== "joined") {
+      return;
+    }
+
     const attempt = ++state.nextEventPushAttempt;
     state.activeEventBatch = { eventIds, attempt };
     const payloads = events.map((event) => event.payload);
