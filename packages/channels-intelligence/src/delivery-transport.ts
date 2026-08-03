@@ -613,14 +613,15 @@ export class ClaimedChannelDelivery {
     packet: ChannelDeliveryPacket,
   ): Promise<ChannelDeliveryPacketAck> {
     let attempt = 0;
+    let pendingPacket = packet;
     while (Date.now() < Date.parse(this.delivery.deliveryExpiresAt)) {
       throwIfStopped(this.signal);
       try {
         const acknowledgement = (await this.channel.push(
           PACKET_EVENT,
-          packet,
+          pendingPacket,
         )) as ChannelDeliveryPacketAck;
-        this.assertExactAcknowledgement(packet, acknowledgement);
+        this.assertExactAcknowledgement(pendingPacket, acknowledgement);
         if (acknowledgement.phase !== "retry_wait") {
           return acknowledgement;
         }
@@ -654,6 +655,17 @@ export class ClaimedChannelDelivery {
           refreshed.deliveryExpiresAt,
           refreshed.capabilities,
         );
+        pendingPacket = packet;
+        if (
+          packet.payload.kind === "slack.stream.append" &&
+          packet.payload.fullText !== undefined &&
+          !refreshed.capabilities?.includes(
+            SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
+          )
+        ) {
+          const { fullText: _fullText, ...legacyPayload } = packet.payload;
+          pendingPacket = { ...packet, payload: legacyPayload };
+        }
       }
     }
     throw new Error("Channel delivery ownership expired");
