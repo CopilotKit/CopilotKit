@@ -49,6 +49,20 @@ import {
     @if (threads.listError()) {
       <button type="button" (click)="threads.refetchThreads()">Retry</button>
     }
+
+    @if (threads.fetchMoreError(); as error) {
+      <p role="alert">{{ error.message }}</p>
+    }
+
+    @if (threads.hasMoreThreads()) {
+      <button
+        type="button"
+        (click)="threads.fetchMoreThreads()"
+        [disabled]="threads.isFetchingMoreThreads()"
+      >
+        {{ threads.isFetchingMoreThreads() ? "Loading..." : "Load more" }}
+      </button>
+    }
   `,
 })
 export class ThreadListComponent {

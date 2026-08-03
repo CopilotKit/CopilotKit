@@ -40,6 +40,18 @@ import "@copilotkit/react-core/v2/styles.css";
   chat configuration so the welcome screen shows with no host wiring.
 </PropertyReference>
 
+<PropertyReference name="onLicensed" type="() => void">
+  Called when the user selects the locked view's Upgrade action. Use it to
+  record the action or handle navigation yourself.
+</PropertyReference>
+
+<PropertyReference name="licenseUrl" type="string">
+  Destination opened in a new tab by the locked view's Upgrade action. Omit it
+  to use the built-in CopilotKit Intelligence docs URL. Set it to an empty
+  string to suppress default navigation and handle the action with
+  `onLicensed`.
+</PropertyReference>
+
 <PropertyReference name="renderRow" type="(thread: Thread) => React.ReactNode">
   Optional per-row content. Rendered as light-DOM children projected into the
   element's `slot="row:{id}"`, so the element keeps the row chrome (selection,

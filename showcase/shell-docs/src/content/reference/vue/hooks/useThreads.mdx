@@ -13,7 +13,7 @@ description: "Vue 3 composable for listing, managing, and syncing conversation t
 
 ## Overview
 
-`useThreads` is a Vue 3 composable for managing conversation threads on the Enterprise Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime via the core thread store's realtime channel, and exposes mutation methods for renaming, archiving, restoring, and deleting threads.
+`useThreads` is a Vue 3 composable for managing conversation threads on the Enterprise Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized through the core thread store's realtime channel when the Runtime supplies a WebSocket URL, and exposes mutation methods for renaming, archiving, restoring, and deleting threads.
 
 Threads are sorted by recency: `lastRunAt` when present, falling back to `updatedAt`, then `createdAt` (most recent first). Cursor-based pagination is always active. The default page size is 50 threads per page; `limit` only overrides the page size. All inputs accept refs, computeds, or getters (`MaybeRefOrGetter`), so changing the thread context reactively re-fetches the list.
 
@@ -112,10 +112,24 @@ import { useThreads } from "@copilotkit/vue/v2"; // [!code highlight]
 const {
   threads,
   isLoading,
+  error,
   renameThread,
   archiveThread,
   deleteThread,
 } = useThreads({ agentId: "my-agent" }); // [!code highlight]
+
+async function runMutation(operation: () => Promise<void>) {
+  try {
+    await operation();
+  } catch {
+    // The composable's error ref renders the failure below.
+  }
+}
+
+async function confirmDelete(threadId: string) {
+  if (!window.confirm("Delete this conversation?")) return;
+  await runMutation(() => deleteThread(threadId));
+}
 </script>
 
 <template>
@@ -123,11 +137,12 @@ const {
   <ul v-else>
     <li v-for="thread in threads" :key="thread.id">
       <span>{{ thread.name ?? "Untitled" }}</span>
-      <button @click="renameThread(thread.id, 'New name')">Rename</button>
-      <button @click="archiveThread(thread.id)">Archive</button>
-      <button @click="deleteThread(thread.id)">Delete</button>
+      <button @click="runMutation(() => renameThread(thread.id, 'New name'))">Rename</button>
+      <button @click="runMutation(() => archiveThread(thread.id))">Archive</button>
+      <button @click="confirmDelete(thread.id)">Delete</button>
     </li>
   </ul>
+  <p v-if="error" role="alert">{{ error.message }}</p>
 </template>
 ```
 
@@ -173,21 +188,21 @@ const { threads, hasMoreThreads, fetchMoreThreads } = useThreads({
 
 ## Behavior
 
-- On mount, fetches the thread list and establishes a realtime subscription via the core thread store.
+- On mount, fetches the thread list. When the Runtime supplies a WebSocket URL, the core thread store also establishes a realtime subscription.
 - Thread creates, renames, archives, unarchives, and deletes from any client are reflected immediately without polling.
-- Rename, archive, unarchive, and delete update the local thread list optimistically. A rejected delete restores the removed row; other mutation failures surface an error, and realtime updates or a refetch reconcile the server state. Promises resolve on confirmation and reject on failure.
+- Rename, archive, unarchive, and delete update the local thread list optimistically. A rejected delete restores the removed row; other mutation failures surface an error, and realtime updates or a refetch reconcile the server state. Promises resolve on confirmation and reject on failure. The composable has no built-in mutation timeout, so a stalled request can remain pending until its fetch settles.
 - The composable defers its first fetch until the runtime reports a Connected status, so it issues a single list request plus a single subscribe request rather than refetching once realtime details resolve.
 - While the runtime is connecting (a runtime URL is set but no context has been dispatched yet), `isLoading` stays `true` to avoid an empty-list flash.
 - When no runtime URL is configured, `error` reports a configuration error and the thread store is cleared.
 - The `threads` array stays sorted by recency: `lastRunAt` when present, falling back to `updatedAt`, then `createdAt` (most recent first).
-- New threads are **automatically named** by the LLM after their first run (a 2 to 5 word title). This is configurable via `generateThreadNames` on the runtime.
+- After a new thread record is created, the Runtime starts a best-effort naming task from the first run's input messages without waiting for the run to finish. It accepts one to eight words and falls back to `Untitled` if every attempt fails. Disable this with `generateThreadNames: false` on the Runtime.
 - The composable cleans up its store subscriptions and stops the store automatically when the owning scope is disposed (`onScopeDispose`).
 
 ## Next steps
 
 <Cards>
   <Card title="CopilotKitProvider" href="/reference/vue/components/CopilotKitProvider">
-    Configure the runtime URL and license key that power thread syncing.
+    Configure the Runtime endpoint that powers thread syncing. Managed entitlement stays on the server.
   </Card>
   <Card title="useAgent" href="/reference/vue/hooks/useAgent">
     Access and run the agent whose threads you are listing.

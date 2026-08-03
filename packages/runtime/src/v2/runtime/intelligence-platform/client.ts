@@ -1056,10 +1056,11 @@ export class CopilotKitIntelligence {
   }
 
   /**
-   * Permanently delete a thread and its message history.
+   * Soft-delete a thread while retaining its stored row.
    *
-   * This is irreversible. Triggers the `onThreadDeleted` lifecycle callback
-   * on success.
+   * This is irreversible to the app user because the public API exposes no
+   * restore action. Triggers the `onThreadDeleted` lifecycle callback on
+   * success.
    *
    * @throws {@link PlatformRequestError} on non-2xx responses.
    */

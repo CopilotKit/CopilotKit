@@ -5,7 +5,7 @@ description: "React hook for listing, managing, and syncing conversation threads
 
 ## Overview
 
-`useThreads` is a React hook for managing conversation threads on the Enterprise Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime via WebSocket, and exposes mutation methods for renaming, archiving, restoring, and deleting threads.
+`useThreads` is a React hook for managing conversation threads on the Enterprise Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime when the Runtime supplies a WebSocket URL, and exposes mutation methods for renaming, archiving, restoring, and deleting threads.
 
 <Callout type="info">
   Thread persistence requires a Runtime connected to an Enterprise Intelligence
@@ -24,7 +24,7 @@ The `threads` array is sorted by recency: `lastRunAt` when present, falling back
 ## Signature
 
 ```tsx
-import { useThreads } from "@copilotkit/react-native";
+import { useThreads } from "@copilotkit/react-native/headless";
 
 function useThreads(input: UseThreadsInput): UseThreadsResult
 ```
@@ -106,17 +106,37 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
 ## Usage
 
 ```tsx title="ThreadList.tsx"
-import { useThreads } from "@copilotkit/react-native"; // [!code highlight]
-import { FlatList, Text, TouchableOpacity, View } from "react-native";
+import { useThreads } from "@copilotkit/react-native/headless"; // [!code highlight]
+import { Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
 
 function ThreadList() {
   const {
     threads,
     isLoading,
+    error,
     renameThread,
     archiveThread,
     deleteThread,
   } = useThreads({ agentId: "my-agent" }); // [!code highlight]
+
+  const runMutation = async (operation: () => Promise<void>) => {
+    try {
+      await operation();
+    } catch {
+      // The hook's error state renders the failure below.
+    }
+  };
+
+  const confirmDelete = (threadId: string) => {
+    Alert.alert("Delete conversation?", "This cannot be restored.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => void runMutation(() => deleteThread(threadId)),
+      },
+    ]);
+  };
 
   if (isLoading) {
     return (
@@ -133,15 +153,22 @@ function ThreadList() {
       renderItem={({ item: thread }) => (
         <View>
           <Text>{thread.name ?? "Untitled"}</Text>
-          <TouchableOpacity onPress={() => renameThread(thread.id, "New name")}>
+          <TouchableOpacity
+            onPress={() =>
+              void runMutation(() => renameThread(thread.id, "New name"))
+            }
+          >
             <Text>Rename</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => archiveThread(thread.id)}>
+          <TouchableOpacity
+            onPress={() => void runMutation(() => archiveThread(thread.id))}
+          >
             <Text>Archive</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => deleteThread(thread.id)}>
+          <TouchableOpacity onPress={() => confirmDelete(thread.id)}>
             <Text>Delete</Text>
           </TouchableOpacity>
+          {error && <Text accessibilityRole="alert">{error.message}</Text>}
         </View>
       )}
     />
@@ -151,15 +178,15 @@ function ThreadList() {
 
 ## Behavior
 
-- On mount, fetches the thread list and establishes a realtime WebSocket subscription.
+- On mount, fetches the thread list. When the Runtime supplies a WebSocket URL, the hook also establishes a realtime subscription.
 - Thread creates, renames, archives, unarchives, and deletes from any client are reflected immediately without polling.
 - Rename, archive, unarchive, and delete update the local thread list optimistically. A rejected delete restores the removed row; other mutation failures surface an error, and realtime updates or a refetch reconcile the server state. Promises resolve on confirmation and reject on failure. The hook has no built-in mutation timeout, so a stalled request can remain pending until its fetch settles.
 - The `error` state updates with the most recent error from any operation.
 - The `threads` array stays sorted by recency: `lastRunAt` when present, falling back to `updatedAt`, then `createdAt` (most recent first).
-- New threads are **automatically named** by the LLM after their first run (a short title of 2 to 5 words). This is configurable via `generateThreadNames` on the runtime.
+- After a new thread record is created, the Runtime starts a best-effort naming task from the first run's input messages without waiting for the run to finish. It accepts one to eight words and falls back to `Untitled` if every attempt fails. Disable this with `generateThreadNames: false` on the Runtime.
 
 ## Next steps
 
 - **Thread architecture:** [Threads & Persistence Architecture](/premium/threads-explained) covers the event replay model and WebSocket sync
-- **Step-by-step guide:** [Headless Threads](/headless-threads) walks you through building a custom thread-management UI
+- **Provider setup:** [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider) configures the native Runtime boundary
 - **React (V2) reference:** [`useThreads`](/reference/v2/hooks/useThreads), the web `useThreads` this hook mirrors

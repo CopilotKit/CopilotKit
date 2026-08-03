@@ -243,7 +243,8 @@ function extractPublicTsdoc(
     if (!isExportedDeclaration(statement)) return false;
     if (
       ts.isFunctionDeclaration(statement) ||
-      ts.isInterfaceDeclaration(statement)
+      ts.isInterfaceDeclaration(statement) ||
+      ts.isClassDeclaration(statement)
     ) {
       return statement.name?.text === declarationName;
     }
@@ -257,8 +258,11 @@ function extractPublicTsdoc(
 
   let target: ts.Node = declaration;
   if (memberName !== undefined) {
-    if (!ts.isInterfaceDeclaration(declaration)) {
-      throw new Error(`Expected ${declarationName} to be an interface`);
+    if (
+      !ts.isInterfaceDeclaration(declaration) &&
+      !ts.isClassDeclaration(declaration)
+    ) {
+      throw new Error(`Expected ${declarationName} to have members`);
     }
     const members = declaration.members.filter(
       (member) =>
@@ -619,7 +623,7 @@ async function expectFrameworkNativeGuide(
   const executableCode = [
     ...extractMdxCodeFences(renderedContent)
       .filter((fence) =>
-        /^(?:[cm]?[jt]sx?|javascript|typescript)$/.test(fence.language),
+        /^(?:[cm]?[jt]sx?|javascript|typescript|vue)$/.test(fence.language),
       )
       .map((fence) => fence.content),
     await extractExecutableMdx(renderedContent),
@@ -640,7 +644,9 @@ async function expectFrameworkNativeGuide(
     ),
   ).toEqual([]);
   expect(executableCode).not.toMatch(
-    /\b[A-Za-z_$][\w$]*\.(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b|<(?:CopilotKitProvider|CopilotThreadsDrawer)\b|\buseThreads\s*\(/,
+    variant.name === "Angular"
+      ? /\b[A-Za-z_$][\w$]*\.(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b|<(?:CopilotKitProvider|CopilotThreadsDrawer)\b|\buseThreads\s*\(/
+      : /\b[A-Za-z_$][\w$]*\.(?:CopilotKitProvider|CopilotThreadsDrawer)\b|<(?:CopilotKitProvider|CopilotThreadsDrawer)\b/,
   );
 }
 
@@ -767,9 +773,23 @@ test("allows the React Native package in the React Native hosted guide", async (
   if (!variant) return;
 
   const wrapperContent = `[Continue](${variant.handoff})`;
-  const renderedContent = `${wrapperContent}\n\n\`\`\`ts\nimport { NativeSurface } from "@copilotkit/react-native/v2";\n\`\`\``;
+  const renderedContent = `${wrapperContent}\n\n\`\`\`ts\nimport { useThreads } from "@copilotkit/react-native/headless";\nconst threads = useThreads({ agentId: "default" });\nvoid threads;\n\`\`\``;
 
   await expectFrameworkNativeGuide(variant, wrapperContent, renderedContent);
+});
+
+test("rejects React imports in executable Vue code fences", async () => {
+  const variant = hostedGuideVariants.find(({ name }) => name === "Vue");
+
+  expect(variant).toBeDefined();
+  if (!variant) return;
+
+  const wrapperContent = `[Continue](${variant.handoff})`;
+  const renderedContent = `${wrapperContent}\n\n\`\`\`vue\n<script setup lang="ts">\nimport { useThreads } from "@copilotkit/react-core/v2";\nuseThreads({ agentId: "default" });\n</script>\n\`\`\``;
+
+  await expect(
+    expectFrameworkNativeGuide(variant, wrapperContent, renderedContent),
+  ).rejects.toThrow();
 });
 
 test.each([
@@ -871,9 +891,35 @@ function expectNoRetiredThreadSetup(
       fences.length > 0 ? fences.map((fence) => fence.content) : [content]
     ).map((source) => parseTypeScriptModel(source));
   };
-  expect(contentsByPath.get(drawerEntryPointPath) ?? "").not.toMatch(
-    /\bpublicLicenseKey\b\s*(?:=|:|(?=\}))/,
-  );
+  const retiredDrawerProps: string[] = [];
+  for (const model of executableModels(
+    contentsByPath.get(drawerEntryPointPath) ?? "",
+  )) {
+    visitTypeScript(model, (node) => {
+      if (!ts.isJsxOpeningLikeElement(node)) return;
+      for (const attribute of node.attributes.properties) {
+        if (
+          ts.isJsxAttribute(attribute) &&
+          attribute.name.getText(model) === "publicLicenseKey"
+        ) {
+          retiredDrawerProps.push(attribute.name.getText(model));
+        } else if (ts.isJsxSpreadAttribute(attribute)) {
+          const expression = unwrapTypeScriptExpression(attribute.expression);
+          if (
+            ts.isObjectLiteralExpression(expression) &&
+            expression.properties.some(
+              (property) =>
+                property.name !== undefined &&
+                getStaticTypeScriptName(property.name) === "publicLicenseKey",
+            )
+          ) {
+            retiredDrawerProps.push("publicLicenseKey");
+          }
+        }
+      }
+    });
+  }
+  expect(retiredDrawerProps).toEqual([]);
 
   const runtimeViolations: string[] = [];
   for (const model of executableModels(
@@ -1194,8 +1240,7 @@ function expectExecutableOnRequestAuth(source: string): void {
     ts.isIdentifier(guardStatement.expression.operand) &&
     guardStatement.expression.operand.text === verifiedDeclaration.name.text &&
     !!firstBranchStatement &&
-    (ts.isThrowStatement(firstBranchStatement) ||
-      ts.isReturnStatement(firstBranchStatement)) &&
+    ts.isThrowStatement(firstBranchStatement) &&
     !!firstBranchStatement.expression &&
     isUnauthorizedResponse(firstBranchStatement.expression);
 
@@ -1204,6 +1249,245 @@ function expectExecutableOnRequestAuth(source: string): void {
       callback.body.statements.length === 2 &&
       hasBound401Exit,
   ).toBe(true);
+}
+
+/** Assert that `identifyUser` returns the identity produced by the verifier. */
+function expectExecutableIdentifyUser(source: string): void {
+  const model = parseTypeScriptModel(source, "runtime-route.ts");
+  const callbacks: ts.ArrowFunction[] = [];
+
+  visitTypeScript(model, (node) => {
+    if (
+      ts.isPropertyAssignment(node) &&
+      getTypeScriptName(node.name) === "identifyUser" &&
+      ts.isArrowFunction(node.initializer) &&
+      ts.isBlock(node.initializer.body)
+    ) {
+      callbacks.push(node.initializer);
+    }
+  });
+
+  const [callback] = callbacks;
+  if (!callback || callbacks.length !== 1 || !ts.isBlock(callback.body)) {
+    throw new Error("Expected one identifyUser callback body");
+  }
+
+  const [parameter] = callback.parameters;
+  const [declarationStatement, guardStatement, returnStatement] =
+    callback.body.statements;
+  const [declaration] =
+    declarationStatement && ts.isVariableStatement(declarationStatement)
+      ? declarationStatement.declarationList.declarations
+      : [];
+  const initializer = declaration?.initializer
+    ? unwrapTypeScriptExpression(declaration.initializer)
+    : undefined;
+  const verifierCall =
+    initializer && ts.isAwaitExpression(initializer)
+      ? unwrapTypeScriptExpression(initializer.expression)
+      : undefined;
+  const [guardExit] =
+    guardStatement &&
+    ts.isIfStatement(guardStatement) &&
+    ts.isBlock(guardStatement.thenStatement)
+      ? guardStatement.thenStatement.statements
+      : [];
+  const returned =
+    returnStatement && ts.isReturnStatement(returnStatement)
+      ? returnStatement.expression
+      : undefined;
+  const returnedObject = returned
+    ? unwrapTypeScriptExpression(returned)
+    : undefined;
+  const returnedMembers = new Map<string, string>();
+  if (returnedObject && ts.isObjectLiteralExpression(returnedObject)) {
+    for (const property of returnedObject.properties) {
+      if (!ts.isPropertyAssignment(property)) continue;
+      const name = getStaticTypeScriptName(property.name);
+      const value = unwrapTypeScriptExpression(property.initializer);
+      if (
+        name &&
+        ts.isPropertyAccessExpression(value) &&
+        ts.isIdentifier(value.expression)
+      ) {
+        returnedMembers.set(
+          name,
+          `${value.expression.text}.${value.name.text}`,
+        );
+      }
+    }
+  }
+
+  expect(
+    callback.parameters.length === 1 &&
+      !!parameter &&
+      ts.isIdentifier(parameter.name) &&
+      parameter.name.text === "request" &&
+      callback.body.statements.length === 3 &&
+      !!declarationStatement &&
+      ts.isVariableStatement(declarationStatement) &&
+      (declarationStatement.declarationList.flags & ts.NodeFlags.Const) !== 0 &&
+      declarationStatement.declarationList.declarations.length === 1 &&
+      !!declaration &&
+      ts.isIdentifier(declaration.name) &&
+      declaration.name.text === "user" &&
+      !!verifierCall &&
+      ts.isCallExpression(verifierCall) &&
+      ts.isIdentifier(verifierCall.expression) &&
+      verifierCall.expression.text === "getVerifiedAppUser" &&
+      verifierCall.arguments.length === 1 &&
+      ts.isIdentifier(verifierCall.arguments[0]) &&
+      verifierCall.arguments[0].text === "request" &&
+      !!guardStatement &&
+      ts.isIfStatement(guardStatement) &&
+      ts.isPrefixUnaryExpression(guardStatement.expression) &&
+      guardStatement.expression.operator === ts.SyntaxKind.ExclamationToken &&
+      ts.isIdentifier(guardStatement.expression.operand) &&
+      guardStatement.expression.operand.text === "user" &&
+      !!guardExit &&
+      ts.isThrowStatement(guardExit) &&
+      returnedMembers.size === 2 &&
+      returnedMembers.get("id") === "user.id" &&
+      returnedMembers.get("name") === "user.name",
+  ).toBe(true);
+}
+
+/** Return the static JSX tag name for one element. */
+function getJsxTagName(node: ts.JsxElement | ts.JsxSelfClosingElement): string {
+  const tag = ts.isJsxElement(node)
+    ? node.openingElement.tagName
+    : node.tagName;
+  return tag.getText().split(".").at(-1) ?? "";
+}
+
+/** Return JSX elements nested under a node, excluding comments. */
+function getNestedJsxElements(
+  node: ts.Node,
+): Array<ts.JsxElement | ts.JsxSelfClosingElement> {
+  const elements: Array<ts.JsxElement | ts.JsxSelfClosingElement> = [];
+  ts.forEachChild(node, (child) => {
+    if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
+      elements.push(child);
+    }
+    elements.push(...getNestedJsxElements(child));
+  });
+  return elements;
+}
+
+/** Assert the executable Runtime and handler declarations in the server route. */
+function expectCanonicalServerRoute(source: string): void {
+  const model = parseTypeScriptModel(source, "runtime-route.ts");
+  let runtimeHasAgents = false;
+  let handlerHasBasePath = false;
+
+  visitTypeScript(model, (node) => {
+    if (!ts.isNewExpression(node) || !ts.isIdentifier(node.expression)) return;
+    if (node.expression.text !== "CopilotRuntime") return;
+    const [argument] = node.arguments ?? [];
+    if (!argument || !ts.isObjectLiteralExpression(argument)) return;
+    runtimeHasAgents = argument.properties.some(
+      (property) =>
+        (ts.isShorthandPropertyAssignment(property) &&
+          property.name.text === "agents") ||
+        (ts.isPropertyAssignment(property) &&
+          getStaticTypeScriptName(property.name) === "agents" &&
+          ts.isIdentifier(unwrapTypeScriptExpression(property.initializer)) &&
+          (unwrapTypeScriptExpression(property.initializer) as ts.Identifier)
+            .text === "agents"),
+    );
+  });
+
+  visitTypeScript(model, (node) => {
+    if (
+      !ts.isCallExpression(node) ||
+      !ts.isIdentifier(node.expression) ||
+      node.expression.text !== "createCopilotRuntimeHandler"
+    ) {
+      return;
+    }
+    const [argument] = node.arguments;
+    if (!argument || !ts.isObjectLiteralExpression(argument)) return;
+    handlerHasBasePath = argument.properties.some((property) => {
+      if (
+        !ts.isPropertyAssignment(property) ||
+        getStaticTypeScriptName(property.name) !== "basePath"
+      ) {
+        return false;
+      }
+      const value = unwrapTypeScriptExpression(property.initializer);
+      return ts.isStringLiteral(value) && value.text === "/api/copilotkit";
+    });
+  });
+
+  const exportedHandlerMethods = new Set<string>();
+  for (const statement of model.statements) {
+    if (
+      !ts.isVariableStatement(statement) ||
+      !isExportedDeclaration(statement)
+    ) {
+      continue;
+    }
+    for (const declaration of statement.declarationList.declarations) {
+      if (
+        ts.isIdentifier(declaration.name) &&
+        declaration.initializer &&
+        ts.isIdentifier(unwrapTypeScriptExpression(declaration.initializer)) &&
+        (unwrapTypeScriptExpression(declaration.initializer) as ts.Identifier)
+          .text === "handler"
+      ) {
+        exportedHandlerMethods.add(declaration.name.text);
+      }
+    }
+  }
+
+  expect(runtimeHasAgents).toBe(true);
+  expect(handlerHasBasePath).toBe(true);
+  expect(exportedHandlerMethods).toEqual(
+    new Set(["GET", "POST", "PATCH", "DELETE"]),
+  );
+}
+
+/** Assert the executable provider hierarchy in the client example. */
+function expectCanonicalClientTree(source: string): void {
+  const model = parseTypeScriptModel(source, "app-page.tsx");
+  const provider = getNestedJsxElements(model).find(
+    (element) => getJsxTagName(element) === "CopilotKitProvider",
+  );
+  expect(provider).toBeDefined();
+  if (!provider) return;
+
+  const attributes = ts.isJsxElement(provider)
+    ? provider.openingElement.attributes.properties
+    : provider.attributes.properties;
+  const attributeValues = new Map<string, string>();
+  for (const attribute of attributes) {
+    if (!ts.isJsxAttribute(attribute)) continue;
+    const name = attribute.name.getText(model);
+    const initializer = attribute.initializer;
+    if (initializer && ts.isStringLiteral(initializer)) {
+      attributeValues.set(name, initializer.text);
+    } else if (
+      initializer &&
+      ts.isJsxExpression(initializer) &&
+      initializer.expression
+    ) {
+      attributeValues.set(name, initializer.expression.getText(model));
+    }
+  }
+  expect(attributeValues.get("runtimeUrl")).toBe("/api/copilotkit");
+  expect(attributeValues.get("useSingleEndpoint")).toBe("false");
+
+  const configurations = getNestedJsxElements(provider).filter(
+    (element) => getJsxTagName(element) === "CopilotChatConfigurationProvider",
+  );
+  expect(configurations).toHaveLength(1);
+  const [configuration] = configurations;
+  if (!configuration) return;
+  const children = getNestedJsxElements(configuration).map(getJsxTagName);
+  expect(
+    children.filter((name) => name === "CopilotThreadsDrawer"),
+  ).toHaveLength(1);
+  expect(children.filter((name) => name === "CopilotChat")).toHaveLength(1);
 }
 
 /** Return explicit agent ID overrides on the hosted React thread surfaces. */
@@ -1312,7 +1596,14 @@ function expectCanonicalGuideContracts(guide: string): void {
   );
   const appPage = findMdxCodeFence(fences, "tsx", "app/page.tsx");
 
-  expectNoManagedClientSecrets(appPage);
+  for (const fence of fences) {
+    if (
+      /^(?:[cm]?[jt]sx?|javascript|typescript)$/.test(fence.language) &&
+      /^\s*["']use client["'];/m.test(fence.content)
+    ) {
+      expectNoManagedClientSecrets(fence.content);
+    }
+  }
 
   expect(frontmatter.doc_type).toBe("how-to");
   expect(content).toContain('surface="docs_existing_app_hosted_intelligence"');
@@ -1339,36 +1630,10 @@ function expectCanonicalGuideContracts(guide: string): void {
   expect(serverRoute).toContain(
     'wsUrl: "wss://realtime.intelligence.copilotkit.ai"',
   );
-  expect(serverRoute).toMatch(
-    /identifyUser\s*:\s*async\s*\(request\)\s*=>\s*\{[\s\S]*?getVerifiedAppUser\(request\)[\s\S]*?return\s*\{\s*id:\s*user\.id,\s*name:\s*user\.name\s*\}/,
-  );
+  expectExecutableIdentifyUser(serverRoute);
   expectExecutableOnRequestAuth(serverRoute);
-
-  for (const method of ["GET", "POST", "PATCH", "DELETE"]) {
-    expect(serverRoute).toContain(`export const ${method} = handler`);
-  }
-
-  const runtimeProvider = appPage.match(
-    /<CopilotKitProvider\b([^>]*)>([\s\S]*?)<\/CopilotKitProvider>/,
-  );
-  const runtimeProviderProps = runtimeProvider?.[1] ?? "";
-  const runtimeProviderChildren = runtimeProvider?.[2] ?? "";
-  const configurationProviders = Array.from(
-    runtimeProviderChildren.matchAll(
-      /<CopilotChatConfigurationProvider\b[^>]*>([\s\S]*?)<\/CopilotChatConfigurationProvider>/g,
-    ),
-  );
-  const sharedChatChildren = configurationProviders[0]?.[1] ?? "";
-
-  expect(runtimeProvider).not.toBeNull();
-  expect(runtimeProviderProps).toContain('runtimeUrl="/api/copilotkit"');
-  expect(runtimeProviderProps).toContain("useSingleEndpoint={false}");
-  expect(
-    appPage.match(/<CopilotChatConfigurationProvider\b/g) ?? [],
-  ).toHaveLength(1);
-  expect(configurationProviders).toHaveLength(1);
-  expect(sharedChatChildren).toMatch(/<CopilotThreadsDrawer\b[^>]*\/>/);
-  expect(sharedChatChildren).toMatch(/<CopilotChat\b[^>]*\/>/);
+  expectCanonicalServerRoute(serverRoute);
+  expectCanonicalClientTree(appPage);
   expect(
     new Set(extractHostedAgentIdOverrides(appPage)).size,
   ).toBeLessThanOrEqual(1);
@@ -1637,6 +1902,68 @@ test("rejects an onRequest auth gate satisfied only by later code", () => {
   expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
 });
 
+test("rejects returning a 401 Response from onRequest", () => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    "            throw new Response(",
+    "            return new Response(",
+  );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
+test("binds identifyUser output to the verified user", () => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    "        return { id: user.id, name: user.name };",
+    `        const exampleOnly = () => {
+          return { id: user.id, name: user.name };
+        };
+        void exampleOnly;
+        return { id: "constant-user", name: "Constant User" };`,
+  );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
+test.each([
+  [
+    "agent map",
+    "      agents, // Keep the agent map and tools your app already uses.",
+    "      // agents omitted",
+  ],
+  [
+    "handler base path",
+    '      basePath: "/api/copilotkit",',
+    '      basePath: "/wrong",',
+  ],
+] as const)(
+  "rejects a canonical server example with the wrong %s",
+  (_name, before, after) => {
+    const mutatedGuide = readCanonicalGuide().replace(before, after);
+
+    expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+  },
+);
+
+test("rejects named HTTP exports that exist only in comments", () => {
+  const mutatedGuide = readCanonicalGuide().replace(
+    /    export const (GET|POST|PATCH|DELETE) = handler;/g,
+    "    // export const $1 = handler;",
+  );
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
+test("rejects thread UI that exists only in JSX comments", () => {
+  const mutatedGuide = readCanonicalGuide()
+    .replace(
+      "          <CopilotThreadsDrawer />",
+      "          {/* <CopilotThreadsDrawer /> */}",
+    )
+    .replace("          <CopilotChat />", "          {/* <CopilotChat /> */}");
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
 test.each([
   {
     caseName: "an ignored verifier result and unrelated 401 condition",
@@ -1829,6 +2156,18 @@ test("rejects malformed executable syntax in a published snippet", () => {
   expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
 });
 
+test("checks every executable client module for managed secrets", () => {
+  const mutatedGuide = `${readCanonicalGuide()}
+
+\`\`\`tsx title="app/another-client-component.tsx"
+"use client";
+const leakedKey = process.env.CPK_INTELLIGENCE_API_KEY;
+void leakedKey;
+\`\`\``;
+
+  expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
+});
+
 test("rejects an onRequest auth gate that is fully commented out", () => {
   const mutatedGuide = readCanonicalGuide().replace(
     /(        onRequest: async \(\{ request \}\) => \{\n)([\s\S]*?)(\n        \},)/,
@@ -1906,12 +2245,39 @@ test("checks every thread page and rejects successful cross-user route access", 
   expect(verificationCode).toContain("if (!Array.isArray(listBody.threads)) {");
   expect(verificationCode).toContain("const nextCursor = listBody.nextCursor;");
   expect(verificationCode).toContain("} while (cursor);");
-  expect(verificationCode).toMatch(
-    /if \(messagesResponse\.ok\) \{[\s\S]*?throw new Error/,
+  expect(verificationCode).toContain("const allowedDenialStatuses = new Set([");
+  expect(verificationCode).toContain("401, 403, 404");
+  expect(verificationCode).toContain("assertDenied(messagesResponse");
+  expect(verificationCode).toContain("assertDenied(eventsResponse");
+  expect(verificationCode).toContain("assertDenied(stateResponse");
+  expect(verificationCode).toContain("assertDenied(connectResponse");
+  expect(verificationCode).toContain("assertDenied(stopResponse");
+  expect(verificationCode).toContain(
+    "`${runtimeUrl}/threads/${encodedThreadId}/events`",
   );
-  expect(verificationCode).toMatch(
-    /if \(connectResponse\.ok\) \{[\s\S]*?throw new Error/,
+  expect(verificationCode).toContain(
+    "`${runtimeUrl}/threads/${encodedThreadId}/state`",
   );
+  expect(verificationCode).toContain(
+    "`${runtimeUrl}/agent/${encodedAgentId}/stop/${encodedThreadId}`",
+  );
+  expect(verificationCode).toMatch(/method:\s*"POST"/);
+});
+
+test("proves user A can reach each isolation endpoint before testing user B", () => {
+  const verificationCode = findMdxCodeFence(
+    extractMdxCodeFences(readCanonicalGuide()),
+    "js",
+    "Authenticated client — user A's session",
+  );
+
+  expect(verificationCode).toContain(
+    'for (const route of ["messages", "events", "state"])',
+  );
+  expect(verificationCode).toContain(
+    "`${runtimeUrl}/threads/${encodedThreadId}/${route}`",
+  );
+  expect(verificationCode).toContain("if (!response.ok) throw new Error");
 });
 
 test("replaces the Quickstart Runtime route with one hosted catch-all route", () => {
@@ -1940,6 +2306,15 @@ test("links each public entry point back to the canonical guide", async () => {
     [],
   );
   expectNoRetiredThreadSetup(contentsByPath);
+});
+
+test("rejects a valueless retired Drawer license prop", () => {
+  const fixture = createEntryPointFixture(
+    "```tsx\n<CopilotThreadsDrawer publicLicenseKey />\n```",
+    "```tsx\nconst headless = true;\n```",
+  );
+
+  expect(() => expectNoRetiredThreadSetup(fixture)).toThrow();
 });
 
 test("documents only customization accepted and forwarded by the React Drawer wrapper", () => {
@@ -2107,11 +2482,13 @@ test("the Vue thread reference uses managed entitlement instead of a browser key
     'body="Create a cloud-hosted project or connect a self-hosted deployment to start syncing threads."',
   );
   expect(reference).not.toMatch(/\bpublic license key\b/i);
+  expect(reference).not.toMatch(/\blicense (?:key|token)\b/i);
 });
 
 test.each([
   ["React", useThreadsReferencePath],
   ["React Native", reactNativeUseThreadsReferencePath],
+  ["Vue", vueUseThreadsReferencePath],
   ["architecture", threadsExplainedPath],
 ])(
   "the %s thread docs do not promise a client mutation timeout",
@@ -2162,8 +2539,221 @@ test("the architecture guide keeps mutation timeout guidance outside the cause l
 test("the headless guide gives the actual thread auto-name timing", () => {
   const guide = readContent(headlessEntryPointPath);
 
-  expect(guide).toContain("after the first run completes by default");
-  expect(guide).not.toContain("after the first message by default");
+  expect(guide).toContain(
+    "starts a best-effort naming task from the first run's input messages",
+  );
+  expect(guide).toContain("one to eight words");
+  expect(guide).not.toContain("after the first run completes by default");
+});
+
+test("the headless example can return to a new conversation", () => {
+  const guide = readContent(headlessEntryPointPath);
+  const sidebar = findMdxCodeFence(
+    extractMdxCodeFences(guide),
+    "tsx",
+    "ThreadSidebar.tsx",
+    "interface ThreadSidebarProps",
+  );
+  const app = findMdxCodeFence(extractMdxCodeFences(guide), "tsx", "App.tsx");
+
+  expect(sidebar).toContain("onNewThread: () => void");
+  expect(sidebar).toContain("onClick={onNewThread}");
+  expect(app).toContain("onNewThread={startNewThread}");
+  expect(app).toContain("setActiveThreadId(crypto.randomUUID())");
+  expect(guide).toContain(
+    "creates the stored row lazily on the next agent run",
+  );
+  expect(guide).not.toMatch(/useThreads[^.]*\bcreates\b/i);
+});
+
+test("the Angular custom list exposes cursor pagination and page errors", () => {
+  const example = findMdxCodeFence(
+    extractMdxCodeFences(readContent(angularThreadsGuidePath)),
+    "ts",
+    "src/app/thread-list.component.ts",
+  );
+
+  expect(example).toContain("threads.hasMoreThreads()");
+  expect(example).toContain("threads.fetchMoreThreads()");
+  expect(example).toContain("threads.isFetchingMoreThreads()");
+  expect(example).toContain("threads.fetchMoreError()");
+});
+
+test("native thread references stay on native headless APIs", async () => {
+  const reference = readContent(reactNativeUseThreadsReferencePath);
+
+  expect(reference).toContain('from "@copilotkit/react-native/headless"');
+  expect(reference).not.toContain("/headless-threads");
+  expect(await extractMarkdownLinkDestinations(reference)).not.toContain(
+    "/headless-threads",
+  );
+});
+
+test("thread references describe realtime as a runtime capability", () => {
+  for (const path of [
+    useThreadsReferencePath,
+    reactNativeUseThreadsReferencePath,
+  ]) {
+    const reference = collapseWhitespace(readContent(path));
+
+    expect(reference).toMatch(
+      /when the runtime supplies (?:a )?WebSocket (?:URL|capability)/i,
+    );
+    expect(reference).not.toMatch(
+      /On mount, fetches the thread list and establishes a realtime WebSocket subscription/i,
+    );
+  }
+});
+
+test("the React useThreads TSDoc imports the v2 hook", () => {
+  const source = fs.readFileSync(useThreadsSourceUrl, "utf8");
+  const tsdoc = extractPublicTsdoc(parseTypeScriptModel(source), "useThreads");
+
+  expect(tsdoc).toContain(
+    'import { useThreads } from "@copilotkit/react-core/v2"',
+  );
+  expect(tsdoc).not.toContain(
+    'import { useThreads } from "@copilotkit/react-core"',
+  );
+});
+
+test("the Drawer reference documents its license callbacks", () => {
+  const reference = readContent(drawerReferencePath);
+
+  for (const prop of ["onLicensed", "licenseUrl"]) {
+    expect(reference).toContain(`<PropertyReference name="${prop}"`);
+  }
+});
+
+test("the Drawer reference lists every public wrapper prop", () => {
+  const source = fs.readFileSync(drawerWrapperSourceUrl, "utf8");
+  const model = parseTypeScriptModel(source);
+  const declaration = model.statements.find(
+    (statement): statement is ts.InterfaceDeclaration =>
+      ts.isInterfaceDeclaration(statement) &&
+      statement.name.text === "CopilotThreadsDrawerProps",
+  );
+
+  expect(declaration).toBeDefined();
+  if (!declaration) return;
+
+  const publicProps = new Set(
+    declaration.members.flatMap((member) =>
+      member.name
+        ? [getTypeScriptName(member.name).replace(/^['"]|['"]$/g, "")]
+        : [],
+    ),
+  );
+  const documentedProps = new Set(
+    Array.from(
+      readContent(drawerReferencePath).matchAll(
+        /<PropertyReference name="([^"]+)"/g,
+      ),
+      (match) => match[1] ?? "",
+    ),
+  );
+
+  expect(documentedProps).toEqual(publicProps);
+});
+
+test("published thread examples handle rejected mutations and confirm delete", () => {
+  for (const path of [useThreadsReferencePath, vueUseThreadsReferencePath]) {
+    const reference = readContent(path);
+
+    expect(reference).toContain("runMutation");
+    expect(reference).toContain("error");
+    expect(reference).toContain("confirm(");
+  }
+
+  const nativeReference = readContent(reactNativeUseThreadsReferencePath);
+  expect(nativeReference).toContain("runMutation");
+  expect(nativeReference).toContain("error");
+  expect(nativeReference).toContain("Alert.alert(");
+});
+
+test("every public thread surface documents actual auto-name behavior", () => {
+  for (const path of [
+    threadsExplainedPath,
+    headlessEntryPointPath,
+    useThreadsReferencePath,
+    reactNativeUseThreadsReferencePath,
+    vueUseThreadsReferencePath,
+  ]) {
+    const content = collapseWhitespace(readContent(path));
+
+    expect(content).toContain("first run's input messages");
+    expect(content).toContain("one to eight words");
+    expect(content).toContain("falls back to `Untitled`");
+    expect(content).not.toMatch(/after (?:the|their) first run/i);
+    expect(content).not.toMatch(/2(?:–|-| to )5(?:-word| words?)/i);
+  }
+});
+
+test("the hosted guide states the agent-ID compatibility constraint", () => {
+  const guide = readCanonicalGuide();
+
+  expect(guide).toContain(
+    "Every agent key used with hosted Threads must follow the same 1–128-character identifier grammar",
+  );
+  expect(guide).toContain(
+    "Rename or map an incompatible agent key before enabling the thread UI",
+  );
+});
+
+test("the architecture guide does not promise ephemeral Intelligence chat by omitting threadId", () => {
+  const guide = readContent(threadsExplainedPath);
+
+  expect(guide).not.toContain("Use `CopilotChat` without a `threadId`");
+  expect(guide).toContain(
+    "An Intelligence-enabled Runtime persists the first run even when the frontend omits an explicit `threadId`",
+  );
+});
+
+test.each([threadsExplainedPath, headlessEntryPointPath])(
+  "%s documents the thread-lock heartbeat invariant",
+  (path) => {
+    const guide = collapseWhitespace(readContent(path));
+
+    expect(guide).toContain(
+      "Keep `lockHeartbeatIntervalSeconds` strictly below `lockTtlSeconds`",
+    );
+  },
+);
+
+test("all public removal docs describe delete as a retained soft delete", () => {
+  const runtimeClient = fs.readFileSync(
+    new URL(
+      "../../../../../packages/runtime/src/v2/runtime/intelligence-platform/client.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const angularReference = readContent(
+    "reference/angular/functions/injectThreads.mdx",
+  );
+  const runtimeDeleteTsdoc = extractPublicTsdoc(
+    parseTypeScriptModel(runtimeClient),
+    "CopilotKitIntelligence",
+    "deleteThread",
+  );
+  const angularDeleteRow =
+    angularReference
+      .split("\n")
+      .find((line) => line.includes("`deleteThread(id)`")) ?? "";
+
+  expectNoThreadRemovalContradictions(runtimeDeleteTsdoc);
+  expectNoThreadRemovalContradictions(angularDeleteRow);
+  expect(runtimeDeleteTsdoc).toMatch(
+    /soft-delete[^.]*retains?[^.]*stored row/i,
+  );
+  expect(angularDeleteRow).toMatch(/soft-delete[^.]*retaining[^.]*stored row/i);
+});
+
+test("the Drawer guide labels its prop table as non-exhaustive", () => {
+  const guide = readContent(drawerEntryPointPath);
+
+  expect(guide).toContain("Common optional props:");
+  expect(guide).not.toContain("The optional ones:");
 });
 
 test.each([
@@ -2545,12 +3135,12 @@ test("documents a typed headless thread-selection component boundary", () => {
   expect
     .soft(threadSidebar)
     .toMatch(
-      /interface ThreadSidebarProps\s*\{\s*onSelectThread:\s*\(threadId:\s*string\)\s*=>\s*void;\s*\}/,
+      /interface ThreadSidebarProps\s*\{\s*onSelectThread:\s*\(threadId:\s*string\)\s*=>\s*void;\s*onNewThread:\s*\(\)\s*=>\s*void;\s*\}/,
     );
   expect
     .soft(threadSidebar)
     .toMatch(
-      /export function ThreadSidebar\(\{\s*onSelectThread\s*\}:\s*ThreadSidebarProps\)/,
+      /export function ThreadSidebar\(\{\s*onSelectThread,\s*onNewThread,\s*\}:\s*ThreadSidebarProps\)/,
     );
   expect
     .soft(threadSidebar)
@@ -2566,7 +3156,7 @@ test("documents a typed headless thread-selection component boundary", () => {
     .toContain('import { ThreadSidebar } from "./ThreadSidebar";');
   expect.soft(app.match(/<ThreadSidebar\b/g) ?? []).toHaveLength(1);
   expect(app).toMatch(
-    /<ThreadSidebar\s+onSelectThread=\{setActiveThreadId\}\s*\/>/,
+    /<ThreadSidebar\s+onSelectThread=\{setActiveThreadId\}\s+onNewThread=\{startNewThread\}\s*\/>/,
   );
 });
 

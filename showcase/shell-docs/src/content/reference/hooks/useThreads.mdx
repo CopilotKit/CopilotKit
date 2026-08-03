@@ -14,7 +14,7 @@ doc_type: reference
 
 ## Overview
 
-`useThreads` is a React hook for managing conversation threads on the Enterprise Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime via WebSocket, and exposes mutation methods for renaming, archiving, restoring, and deleting threads.
+`useThreads` is a React hook for managing conversation threads on the Enterprise Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime when the Runtime supplies a WebSocket URL, and exposes mutation methods for renaming, archiving, restoring, and deleting threads.
 
 The `threads` array is sorted by recency: `lastRunAt` when present, falling back to `updatedAt`, then `createdAt` (most recent first). The hook always uses cursor-based pagination. The default page size is 50 threads; set `limit` to override the page size.
 
@@ -111,10 +111,24 @@ function ThreadList() {
   const {
     threads,
     isLoading,
+    error,
     renameThread,
     archiveThread,
     deleteThread,
   } = useThreads({ agentId: "my-agent" }); // [!code highlight]
+
+  const runMutation = async (operation: () => Promise<void>) => {
+    try {
+      await operation();
+    } catch {
+      // The hook's error state renders the failure below.
+    }
+  };
+
+  const confirmDelete = async (threadId: string) => {
+    if (!window.confirm("Delete this conversation?")) return;
+    await runMutation(() => deleteThread(threadId));
+  };
 
   if (isLoading) return <div>Loading threads...</div>;
 
@@ -123,13 +137,22 @@ function ThreadList() {
       {threads.map((thread) => (
         <li key={thread.id}>
           <span>{thread.name ?? "Untitled"}</span>
-          <button onClick={() => renameThread(thread.id, "New name")}>
+          <button
+            onClick={() =>
+              void runMutation(() => renameThread(thread.id, "New name"))
+            }
+          >
             Rename
           </button>
-          <button onClick={() => archiveThread(thread.id)}>Archive</button>
-          <button onClick={() => deleteThread(thread.id)}>Delete</button>
+          <button
+            onClick={() => void runMutation(() => archiveThread(thread.id))}
+          >
+            Archive
+          </button>
+          <button onClick={() => void confirmDelete(thread.id)}>Delete</button>
         </li>
       ))}
+      {error && <li role="alert">{error.message}</li>}
     </ul>
   );
 }
@@ -137,13 +160,13 @@ function ThreadList() {
 
 ## Behavior
 
-- On mount, fetches the thread list and establishes a realtime WebSocket subscription.
+- On mount, fetches the thread list. When the Runtime supplies a WebSocket URL, the hook also establishes a realtime subscription.
 - If the runtime does not advertise thread endpoints, no `/threads` request is made and `error` explains that thread endpoints are unavailable.
 - Thread creates, renames, archives, unarchives, and deletes from any client are reflected immediately without polling.
 - Rename, archive, unarchive, and delete update the local thread list optimistically. A rejected delete restores the removed row; other rejected mutations surface an error and realtime updates or a refetch reconcile the server state. Promises resolve on confirmation and reject on failure. The hook has no built-in mutation timeout, so a stalled request can remain pending until its fetch settles.
 - The `error` state updates with the most recent error from any operation.
 - The `threads` array stays sorted by recency: `lastRunAt` when present, falling back to `updatedAt`, then `createdAt` (most recent first).
-- New threads are **automatically named** by the LLM after their first run (2–5 word title). This is configurable via `generateThreadNames` on the runtime.
+- After a new thread record is created, the Runtime starts a best-effort naming task from the first run's input messages without waiting for the run to finish. It accepts one to eight words and falls back to `Untitled` if every attempt fails. Disable this with `generateThreadNames: false` on the Runtime.
 
 ## Next steps
 

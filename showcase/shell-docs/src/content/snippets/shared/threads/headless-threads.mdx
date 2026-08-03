@@ -1,6 +1,6 @@
 ## What is this?
 
-CopilotKit Rich Threads enable persistent, resumable multi-turn conversations. The `useThreads` hook lists, creates, renames, archives, and deletes Enterprise Intelligence Platform threads with realtime synchronization via WebSocket. Threads work with any agent framework — the Enterprise Intelligence Platform stores conversation history server-side, so users can close their browser and pick up where they left off. It does not list or mutate native LangGraph, ADK, or other framework stores unless your backend explicitly bridges those systems. Thread metadata updates (renames, archives, new threads) appear on connected clients without polling.
+CopilotKit Rich Threads enable persistent, resumable multi-turn conversations. The `useThreads` hook lists, renames, archives, and deletes Enterprise Intelligence Platform threads, with realtime synchronization when the Runtime supplies a WebSocket URL. Threads work with any agent framework — the Enterprise Intelligence Platform stores conversation history server-side, so users can close their browser and pick up where they left off. It does not list or mutate native LangGraph, ADK, or other framework stores unless your backend explicitly bridges those systems. Thread metadata updates (renames, archives, new threads) appear on connected clients without polling.
 
 <OpsPlatformCTA
   variant="inline"
@@ -58,7 +58,7 @@ before exposing thread lists or lifecycle actions.
 
         Cloud-hosted Threads use the entitlement state returned by the managed project, not a license token in browser code. Self-hosted and offline enterprise setups may use an explicit license token.
 
-        Thread names are generated after the first run completes by default. Add `generateThreadNames: false` to your existing Runtime options to turn that off.
+        After a new thread record is created, the Runtime starts a best-effort naming task from the first run's input messages without waiting for that run to finish. It accepts a generated title of one to eight words and falls back to `Untitled` if every attempt fails. Add `generateThreadNames: false` to your existing Runtime options to turn that off.
 
         **Thread lock options:** When an agent run starts, the runtime acquires a lock on the thread to prevent concurrent runs. You can tune this behavior:
 
@@ -67,6 +67,8 @@ before exposing thread lists or lifecycle actions.
         | `lockTtlSeconds` | `20` | `3600` (1 hour) | How long the lock is held before it expires automatically. |
         | `lockHeartbeatIntervalSeconds` | `15` | `3000` (50 min) | How often the runtime renews the lock during a run. |
         | `lockKeyPrefix` | — | — | Custom Redis key prefix for the thread lock. Useful when multiple apps share a Redis instance. |
+
+        Keep `lockHeartbeatIntervalSeconds` strictly below `lockTtlSeconds`; otherwise the lock can expire before its first renewal and allow overlapping runs.
       </Step>
 
       <Step>
@@ -79,9 +81,13 @@ before exposing thread lists or lifecycle actions.
 
         interface ThreadSidebarProps {
           onSelectThread: (threadId: string) => void;
+          onNewThread: () => void;
         }
 
-        export function ThreadSidebar({ onSelectThread }: ThreadSidebarProps) {
+        export function ThreadSidebar({
+          onSelectThread,
+          onNewThread,
+        }: ThreadSidebarProps) {
           const { // [!code highlight:6]
             threads,
             isLoading,
@@ -94,6 +100,7 @@ before exposing thread lists or lifecycle actions.
 
           return (
             <div>
+              <button onClick={onNewThread}>New conversation</button>
               {threads.map((thread) => (
                 <div key={thread.id}>
                   <span>{thread.name ?? "New conversation"}</span>
@@ -130,15 +137,23 @@ before exposing thread lists or lifecycle actions.
 
         function App() {
           const [activeThreadId, setActiveThreadId] = useState<string | undefined>();
+          const startNewThread = () => {
+            setActiveThreadId(crypto.randomUUID());
+          };
 
           return (
             <div className="flex">
-              <ThreadSidebar onSelectThread={setActiveThreadId} />
+              <ThreadSidebar
+                onSelectThread={setActiveThreadId}
+                onNewThread={startNewThread}
+              />
               <CopilotChat agentId="my-agent" threadId={activeThreadId} /> {/* [!code highlight] */}
             </div>
           );
         }
         ```
+
+        `useThreads` manages stored rows; it does not create an empty row. The new UUID switches the chat immediately, and Enterprise Intelligence creates the stored row lazily on the next agent run.
 
         When `threadId` changes, the chat component automatically loads the selected thread's history and reconnects to the agent's stream. If the agent is still running on that thread, the chat picks up the live stream.
 

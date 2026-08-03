@@ -276,12 +276,35 @@ describe("Channels documentation journey", () => {
         shutdownIndex,
         `${slug} registers shutdown before listener auto-start`,
       ).toBeLessThan(listenerIndex);
+      expect(source, `${slug} registers Ctrl-C shutdown`).toContain(
+        'process.once("SIGINT", shutdown)',
+      );
+      expect(source, `${slug} invokes deferred teardown`).toMatch(
+        /const shutdown = async \(\) => \{\s*await teardown\?\.\(\);\s*\};/,
+      );
+      expect(source, `${slug} stops Channels on shutdown`).toContain(
+        "await channels.stop()",
+      );
+      expect(source, `${slug} closes the lifecycle server`).toContain(
+        "if (server.listening) server.close()",
+      );
     }
 
     expect(
       bodyFor("channels/intelligence"),
       "Intelligence walkthrough bypasses the optional control guard",
     ).not.toMatch(/listener\.channels\.(?:ready|status)\(/);
+
+    const channelReference = referenceBodyFor("channel").replace(/\s+/g, " ");
+    expect(channelReference).toMatch(
+      /Creating the Node listener starts the Channel/i,
+    );
+    expect(channelReference).toMatch(
+      /`ready\(\)`\s+is optional and purely await-and-observe/i,
+    );
+    expect(channelReference).not.toMatch(
+      /first `ready\(\)` call is required|opens no connection/i,
+    );
   });
 
   it("treats the Intelligence REST and realtime endpoints as separate bases", () => {

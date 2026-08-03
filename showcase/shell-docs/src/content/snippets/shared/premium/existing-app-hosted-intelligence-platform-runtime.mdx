@@ -57,6 +57,8 @@ The server example uses a Next.js App Router catch-all route at `app/api/copilot
 
     Keep your existing agent map, tools, middleware, hooks, and other compatible Runtime options in the moved file. One exception: if those options include an explicit `runner`, remove it before adding `intelligence`; the two select different Runtime modes. Replace the single-method handler with the Intelligence and multi-method handler setup shown here. Replace the first two imports with your app's current agent map and server auth helper:
 
+    Every agent key used with hosted Threads must follow the same 1–128-character identifier grammar described below for user IDs. Rename or map an incompatible agent key before enabling the thread UI; the general Runtime may accept a key that hosted thread list and mutation routes reject.
+
     ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
     import { getVerifiedAppUser } from "@/lib/auth";
     import { agents } from "@/lib/copilotkit/agents";
@@ -156,13 +158,83 @@ The server example uses a Next.js App Router catch-all route at `app/api/copilot
     1. Sign in as user A, send a message, refresh or restart the app, and reopen the Thread from your thread list.
     2. Open the selected project in the [hosted dashboard](https://dashboard.operations.copilotkit.ai) and confirm that the Thread shows user A and the expected agent.
     3. Copy user A's Thread ID, then sign in to the app as user B in a separate session.
-    4. Confirm that B's Thread list does not include A's Thread. Then run the checks below as user B from a browser console or an integration-test client. Set `runtimeUrl` to the public URL for your app Runtime, replace both IDs, and attach B's bearer token in `authHeaders` when you do not use cookie auth.
+    4. Confirm that B's Thread list does not include A's Thread. Before testing B, run the first check as user A to prove the test routes exist and the disposable Thread is readable through your Runtime. Set `runtimeUrl` to the public URL for your app Runtime, replace both IDs, and attach the current user's bearer token in `authHeaders` when you do not use cookie auth.
+
+    ```js title="Authenticated client — user A's session"
+    const runtimeUrl = "https://app.example.com/api/copilotkit";
+    const threadId = "user-a-disposable-thread-id";
+    const agentId = "default";
+    const authHeaders = {};
+    const encodedThreadId = encodeURIComponent(threadId);
+    const encodedAgentId = encodeURIComponent(agentId);
+
+    for (const route of ["messages", "events", "state"]) {
+      const response = await fetch(
+        `${runtimeUrl}/threads/${encodedThreadId}/${route}`,
+        { credentials: "include", headers: authHeaders },
+      );
+      if (!response.ok) throw new Error(`${route} failed: ${response.status}`);
+      await response.body?.cancel();
+    }
+
+    const connectResponse = await fetch(
+      `${runtimeUrl}/agent/${encodedAgentId}/connect`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json", ...authHeaders },
+        body: JSON.stringify({
+          threadId,
+          runId: crypto.randomUUID(),
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {},
+        }),
+      },
+    );
+    if (!connectResponse.ok) {
+      throw new Error(`connect failed: ${connectResponse.status}`);
+    }
+    await connectResponse.body?.cancel();
+
+    const stopResponse = await fetch(
+      `${runtimeUrl}/agent/${encodedAgentId}/stop/${encodedThreadId}`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: authHeaders,
+      },
+    );
+    if (!stopResponse.ok) {
+      throw new Error(`stop failed: ${stopResponse.status}`);
+    }
+    await stopResponse.body?.cancel();
+    ```
+
+    Now run the isolation check as user B:
 
     ```js title="Authenticated client — user B's session"
     const runtimeUrl = "https://app.example.com/api/copilotkit";
     const threadId = "user-a-thread-id";
     const agentId = "default";
     const authHeaders = {};
+    const encodedThreadId = encodeURIComponent(threadId);
+    const encodedAgentId = encodeURIComponent(agentId);
+    const allowedDenialStatuses = new Set([
+      401, 403, 404,
+    ]);
+
+    async function assertDenied(response, route) {
+      if (!allowedDenialStatuses.has(response.status)) {
+        await response.body?.cancel();
+        throw new Error(
+          `${route} returned ${response.status}; expected 401, 403, or 404`,
+        );
+      }
+      return response.text();
+    }
 
     const seenCursors = new Set();
     let cursor;
@@ -207,18 +279,25 @@ The server example uses a Next.js App Router catch-all route at `app/api/copilot
     } while (cursor);
 
     const messagesResponse = await fetch(
-      `${runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
+      `${runtimeUrl}/threads/${encodedThreadId}/messages`,
       { credentials: "include", headers: authHeaders },
     );
-    const messagesBody = await messagesResponse.text();
-    if (messagesResponse.ok) {
-      throw new Error(
-        `User B can read user A's messages: ${messagesResponse.status}`,
-      );
-    }
+    const messagesBody = await assertDenied(messagesResponse, "messages");
+
+    const eventsResponse = await fetch(
+      `${runtimeUrl}/threads/${encodedThreadId}/events`,
+      { credentials: "include", headers: authHeaders },
+    );
+    const eventsBody = await assertDenied(eventsResponse, "events");
+
+    const stateResponse = await fetch(
+      `${runtimeUrl}/threads/${encodedThreadId}/state`,
+      { credentials: "include", headers: authHeaders },
+    );
+    const stateBody = await assertDenied(stateResponse, "state");
 
     const connectResponse = await fetch(
-      `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/connect`,
+      `${runtimeUrl}/agent/${encodedAgentId}/connect`,
       {
         method: "POST",
         credentials: "include",
@@ -234,22 +313,30 @@ The server example uses a Next.js App Router catch-all route at `app/api/copilot
         }),
       },
     );
-    await connectResponse.body?.cancel();
-    if (connectResponse.ok) {
-      throw new Error(
-        `User B can connect to user A's Thread: ${connectResponse.status}`,
-      );
-    }
+    const connectBody = await assertDenied(connectResponse, "connect");
+
+    const stopResponse = await fetch(
+      `${runtimeUrl}/agent/${encodedAgentId}/stop/${encodedThreadId}`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: authHeaders,
+      },
+    );
+    const stopBody = await assertDenied(stopResponse, "stop");
 
     console.table({
       listPagesChecked,
       messagesStatus: messagesResponse.status,
+      eventsStatus: eventsResponse.status,
+      stateStatus: stateResponse.status,
       connectStatus: connectResponse.status,
+      stopStatus: stopResponse.status,
     });
-    console.log({ messagesBody });
+    console.log({ messagesBody, eventsBody, stateBody, connectBody, stopBody });
     ```
 
-    Every list page must succeed, and no parsed `threads` array may contain A's Thread. The message and connect calls must return a non-`2xx` response without A's data or events. Then sign back in as A and reopen the Thread. Test every path through your app Runtime, not the hosted REST API. Any response that exposes A's Thread or messages to B is a release blocker.
+    Every list page must succeed, and no parsed `threads` array may contain A's Thread. Each B request must return `401`, `403`, or `404`; a `2xx` response exposes another user's data or control, while a `5xx` response does not prove isolation. Then sign back in as A and reopen the Thread. Test every path through your app Runtime, not the hosted REST API. Any response that exposes A's Thread, messages, events, state, connection, or run control to B is a release blocker.
   </Step>
 </Steps>
 

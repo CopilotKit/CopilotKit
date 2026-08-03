@@ -65,7 +65,7 @@ The returned `InjectThreadsResult` contains:
 | `renameThread(id, name)` | `Promise<void>` | Rename a thread |
 | `archiveThread(id)` | `Promise<void>` | Hide a thread through a reversible archive |
 | `unarchiveThread(id)` | `Promise<void>` | Restore an archived thread |
-| `deleteThread(id)` | `Promise<void>` | Permanently delete a thread |
+| `deleteThread(id)` | `Promise<void>` | Soft-delete a thread while retaining its stored row; irreversible to the app user |
 
 Each `Thread` has `id`, `agentId`, `name`, `archived`, `createdAt`,
 `updatedAt`, and an optional `lastRunAt`. Prefer `lastRunAt` for

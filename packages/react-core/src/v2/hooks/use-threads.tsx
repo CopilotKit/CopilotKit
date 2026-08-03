@@ -226,7 +226,7 @@ function useThreadStoreSelector<T>(
  *
  * @example
  * ```tsx
- * import { useThreads } from "@copilotkit/react-core";
+ * import { useThreads } from "@copilotkit/react-core/v2";
  *
  * function ThreadList() {
  *   const { threads, isLoading, renameThread, deleteThread } = useThreads({

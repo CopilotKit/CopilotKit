@@ -42,9 +42,9 @@ You interact with the first two. The runtime and platform handle persistence and
 
 ### Auto-naming
 
-When a new thread is created and the first run completes, the runtime automatically generates a short name (2–5 words) using the LLM. This runs asynchronously, so it doesn't block thread creation or the agent's response. The generated name appears through the frontend thread API via realtime sync.
+After a new thread record is created, the Runtime starts a best-effort naming task from the first run's input messages without waiting for that run to finish. The normalizer accepts a generated title of one to eight words and falls back to `Untitled` if every attempt fails. The task runs asynchronously, so it does not block the agent run. The generated name appears through the frontend thread API via realtime sync.
 
-Auto-naming is enabled by default. Disable it with `generateThreadNames: false` on the runtime. Users can always override the generated name via `renameThread()`.
+Auto-naming is enabled by default. Disable it with `generateThreadNames: false` on the Runtime. After the naming task settles, users can override the generated name with `renameThread()`.
 
 ### Archive vs. delete
 
@@ -53,7 +53,7 @@ Threads support two removal operations with different semantics:
 - **Archive** is a reversible visibility state. The thread disappears from the default list, while `includeArchived: true` includes archived rows. Unarchive restores the active row.
 - **Delete** is irreversible to the app user. The platform soft-deletes the thread and retains its stored row; the current UI and API expose no restore action.
 
-Neither operation has a built-in confirmation dialog, so your application should implement its own if needed.
+The headless archive and delete methods do not show confirmation UI, so your application should add it when needed. The prebuilt Threads Drawer asks for confirmation before delete.
 
 ## How it works
 
@@ -126,6 +126,8 @@ The runtime acquires a Redis-backed lock on the thread for the duration of each 
 | `lockHeartbeatIntervalSeconds` | `15` | `3000` (50 min) | How often the runtime renews the lock during a run. The heartbeat always runs; you only need to adjust the interval. |
 | `lockKeyPrefix` | — | — | Custom Redis key prefix for the thread lock. Useful when multiple apps share a Redis instance. |
 
+Keep `lockHeartbeatIntervalSeconds` strictly below `lockTtlSeconds`; otherwise the lock can expire before its first renewal and allow overlapping runs.
+
 If a run completes normally, the lock is released immediately. The TTL is a safety net for cases where the runtime crashes without releasing the lock.
 
 ## Design decisions
@@ -141,7 +143,7 @@ The trade-off is that replay is more complex than loading a message array. The p
 
 ### When threads are the wrong tool
 
-- **Ephemeral interactions.** If your users don't need conversation history (e.g., a one-shot Q&A widget), threads add unnecessary complexity. Use `CopilotChat` without a `threadId`.
+- **Ephemeral interactions.** An Intelligence-enabled Runtime persists the first run even when the frontend omits an explicit `threadId`. Route one-shot interactions through a separate Runtime path without Intelligence thread persistence.
 - **Client-only state.** If you need local-only chat history without server persistence, manage messages in frontend state or localStorage instead.
 
 ## Next steps
