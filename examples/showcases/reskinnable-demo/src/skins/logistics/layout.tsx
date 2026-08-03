@@ -65,9 +65,15 @@ export function LogisticsLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-canvas text-ink">
+    // h-screen + overflow-hidden (not min-h-screen): the shell must be exactly
+    // one viewport tall so the nav stays pinned and <main> scrolls INSIDE it.
+    // With min-h-screen the container grows past the viewport on a long page,
+    // which scrolls the whole document — taking the nav with it — and leaves
+    // <main>'s own overflow-y-auto inert because its parent is unbounded.
+    // Mirrors banking's layout.
+    <div className="flex h-screen overflow-hidden bg-canvas text-ink">
       <aside
-        className="hidden shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5 md:flex"
+        className="hidden h-full shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5 md:flex"
         style={{ width: SIDEBAR_WIDTH_PX }}
       >
         <div className="mb-7 flex items-center gap-2.5 px-2 text-brand">
