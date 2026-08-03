@@ -16,14 +16,14 @@ platform page in the public docs covers only the direct adapter. So confirm what
 you see rather than inventing labels. As of dashboard `0.10.1`, **Create a
 channel** is a three-step wizard:
 
-| Step | What it contains |
-| --- | --- |
+| Step                 | What it contains                                                                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Name & platforms** | **Display name** (free text) and **Code** (auto-derived, read-only unless you click Edit). Platform cards: Slack and Teams selectable; Google Chat, Discord, WhatsApp, Telegram, iMessage, SMS marked coming soon. |
-| **Setup** | The generated Slack app manifest, plus **Bot token \*** and **Signing secret \*** (both `type="password"`), plus the `/invite @<code>` line. |
-| **Review** | The runtime handoff snippet showing `createChannel({ name: '<code>' })`, and the **Create channel** button. |
+| **Setup**            | The generated Slack app manifest, plus **Bot token \*** and **Signing secret \*** (both `type="password"`), plus the `/invite @<code>` line.                                                                       |
+| **Review**           | The runtime handoff snippet showing `createChannel({ name: '<code>' })`, and the **Create channel** button.                                                                                                        |
 
 **Nothing is saved until you finish.** If you navigate away mid-wizard you start
-over, so do the Slack app work in a *second tab* and keep the wizard open.
+over, so do the Slack app work in a _second tab_ and keep the wizard open.
 
 **Code is the field that matters.** The dashboard describes it as "exactly what
 `createChannel({ name })` declares," and enforces 3–64 chars, starting with a
@@ -76,7 +76,8 @@ check all four rather than assuming:
 
    Naming it after the display name instead of the code's name is a common and
    confusing failure — a Channel shown as "OpenTag (Dev)" whose name is
-   `open-tag` is fine; a Channel whose *name* is `OpenTag (Dev)` is not.
+   `open-tag` is fine; a Channel whose _name_ is `OpenTag (Dev)` is not.
+
 3. **Attach the Slack adapter** — the wizard's **Setup** step. Two fields, both
    **typed by the developer**: **Bot token** (`xoxb-…`, from OAuth & Permissions)
    and **Signing secret** (from Basic Information → App Credentials). There is no
@@ -108,7 +109,7 @@ them:
   message threads. Its presence means the runtime activated, not that anyone was
   answered.
 
-The tab that *does* prove a round trip is **Usage**: `Completed turns`, `Inbound`,
+The tab that _does_ prove a round trip is **Usage**: `Completed turns`, `Inbound`,
 `Outbound`, and `quota blocked`. One completed turn with a non-zero Outbound means
 Slack got a reply.
 

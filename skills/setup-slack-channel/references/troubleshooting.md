@@ -20,7 +20,7 @@ combine to produce that silence:
    not a failure." So `await ready()` succeeding does not mean Slack is
    connected.
 2. Every Channel lifecycle breadcrumb — including `channel "<name>" requires
-   setup` — is emitted through `logger.warn`, and the runtime's logger defaults
+setup` — is emitted through `logger.warn`, and the runtime's logger defaults
    to `level: process.env.LOG_LEVEL || level || "error"`. **At the default
    level, warn is discarded.** The diagnosis is already being written and
    thrown away.
@@ -33,13 +33,13 @@ LOG_LEVEL=debug pnpm runtime
 
 Then send one fresh mention and read the output.
 
-| Log line | Layer | Meaning and fix |
-| --- | --- | --- |
-| `channel "<name>" requires setup` | Intelligence | The Channel exists but has no working platform provider for this project. Fix in the dashboard — attach or repair the Slack adapter. Never a code fix. |
-| `channel "<name>" failed to activate` | Intelligence | Activation was rejected: wrong or revoked API key, or an unreachable gateway. The attached error names which. |
-| `managed session dropped; reconnecting` / `gave up reconnecting` | Runtime/network | Transport, not configuration. Check egress to `wss://realtime.intelligence.copilotkit.ai`. |
-| `channel delivery claim or join failed` | Intelligence | The turn **did** arrive and this process lost the claim. Almost always a second consumer on the same Channel name. |
-| Nothing at all on mention | Slack or Intelligence | The event never reached this process. Continue below. |
+| Log line                                                         | Layer                 | Meaning and fix                                                                                                                                        |
+| ---------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `channel "<name>" requires setup`                                | Intelligence          | The Channel exists but has no working platform provider for this project. Fix in the dashboard — attach or repair the Slack adapter. Never a code fix. |
+| `channel "<name>" failed to activate`                            | Intelligence          | Activation was rejected: wrong or revoked API key, or an unreachable gateway. The attached error names which.                                          |
+| `managed session dropped; reconnecting` / `gave up reconnecting` | Runtime/network       | Transport, not configuration. Check egress to `wss://realtime.intelligence.copilotkit.ai`.                                                             |
+| `channel delivery claim or join failed`                          | Intelligence          | The turn **did** arrive and this process lost the claim. Almost always a second consumer on the same Channel name.                                     |
+| Nothing at all on mention                                        | Slack or Intelligence | The event never reached this process. Continue below.                                                                                                  |
 
 ## Ground truth: `status()`, not "it started"
 
@@ -66,14 +66,14 @@ if (status.overall !== "online") {
 
 `ChannelStatus` is a closed union. Each value points at exactly one layer:
 
-| Status | Layer | What it means | What to do |
-| --- | --- | --- | --- |
-| `online` | — | Activated **and** the managed session can currently send. | The runtime is fine. Move to the Slack layer. |
-| `setup_required` | Intelligence | Declared, but no managed provider is bound. | Attach the Slack adapter to *this* Channel in *this* project. |
-| `connecting` | Runtime | Never settled. | `ready()`'s timeout is too short for this network, or the gateway is unreachable. |
-| `reconnecting` | Runtime/network | The managed session dropped; Phoenix is retrying. Not sendable. | Transport problem. Check egress and stability. |
-| `error` | Intelligence/runtime | Activation rejected with a non-setup error, or reconnect gave up. | Read the rejection from `ready()` — it does reject on `error`. |
-| `stopped` | Runtime | `stop()` has run. | Something tore the Channel down — usually a shutdown path firing early. |
+| Status           | Layer                | What it means                                                     | What to do                                                                        |
+| ---------------- | -------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `online`         | —                    | Activated **and** the managed session can currently send.         | The runtime is fine. Move to the Slack layer.                                     |
+| `setup_required` | Intelligence         | Declared, but no managed provider is bound.                       | Attach the Slack adapter to _this_ Channel in _this_ project.                     |
+| `connecting`     | Runtime              | Never settled.                                                    | `ready()`'s timeout is too short for this network, or the gateway is unreachable. |
+| `reconnecting`   | Runtime/network      | The managed session dropped; Phoenix is retrying. Not sendable.   | Transport problem. Check egress and stability.                                    |
+| `error`          | Intelligence/runtime | Activation rejected with a non-setup error, or reconnect gave up. | Read the rejection from `ready()` — it does reject on `error`.                    |
+| `stopped`        | Runtime              | `stop()` has run.                                                 | Something tore the Channel down — usually a shutdown path firing early.           |
 
 ## Slack layer
 
@@ -84,7 +84,7 @@ Check in this order; each is cheap and each fully explains "nothing happens".
    the human an invite prompt instead, and nothing enters the pipeline. Run
    `/invite @YourBot` in that channel.
 2. **Does a DM work?** This is the cleanest discriminator. DMs arrive via
-   `message.im` without channel membership. *DM works, channel doesn't* is a
+   `message.im` without channel membership. _DM works, channel doesn't_ is a
    near-certain membership problem — **but read the handler-routing section
    below first**, because for some apps the reverse is expected.
 3. **Is the events Request URL set, and is Socket Mode off?** This is the single
@@ -103,6 +103,7 @@ Check in this order; each is cheap and each fully explains "nothing happens".
    is delivering to a Socket Mode connection nobody is holding. Fix by pasting the
    Channel wizard's manifest over it, saving, and **reinstalling** — then re-enter
    the new bot token in the adapter, because reinstalling rotates it.
+
 4. **Did the bot token and signing secret come from the same Slack app?** A
    mismatched pair cannot be detected during setup. It looks configured and never
    delivers. (There is no `xapp-` token to check — managed delivery does not use
@@ -150,11 +151,11 @@ turns on one conversation run together with no exclusive turn lock. So an
 overlapping turn being silently discarded is **not** the default behavior. Only
 reach for this explanation if the app opts in:
 
-| Setting | Overlapping turn on the same conversation |
-| --- | --- |
-| `"parallel"` (default) | Runs alongside the in-flight turn |
-| `"serial"` | Waits for the in-flight turn to finish |
-| `"drop"` | **Discarded, with no log** |
+| Setting                | Overlapping turn on the same conversation |
+| ---------------------- | ----------------------------------------- |
+| `"parallel"` (default) | Runs alongside the in-flight turn         |
+| `"serial"`             | Waits for the in-flight turn to finish    |
+| `"drop"`               | **Discarded, with no log**                |
 
 `store.onLockConflict` (`"drop"` / `"force"`) is the legacy form of the same
 setting; `concurrency` wins when both are set. Check which the app configures
@@ -216,7 +217,7 @@ of dashboard clicking:
 2. The Channel has a Slack adapter attached and reporting connected — created is
    not the same as connected.
 3. The Channel lives in the **same project** as the API key the runtime is
-   using. A key from another project activates a *different* Channel set.
+   using. A key from another project activates a _different_ Channel set.
 4. Both endpoint overrides agree. `INTELLIGENCE_API_URL` and
    `INTELLIGENCE_GATEWAY_WS_URL` are separate hosts, so the ws URL cannot be
    derived from the API URL. Override **both or neither**, as bare base URLs
@@ -227,37 +228,37 @@ of dashboard clicking:
 
 ## Dashboard fields that lie, and the one that doesn't
 
-| Field | Reading |
-| --- | --- |
-| **Agent run** (Channel → Threads) | Reads `—` even after a turn completes successfully. Not a health signal. |
-| **AGENT** (Channel → Overview) | Reads *Not declared* even while your agent is serving turns. Not a health signal. |
-| `…:activation` pseudo-thread | Means the runtime activated, not that anyone was answered. |
-| **Usage** tab | **This is the ground truth.** `Completed turns` / `Inbound` / `Outbound` / `quota blocked`. A completed turn with non-zero Outbound means Slack received a reply. |
+| Field                             | Reading                                                                                                                                                           |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Agent run** (Channel → Threads) | Reads `—` even after a turn completes successfully. Not a health signal.                                                                                          |
+| **AGENT** (Channel → Overview)    | Reads _Not declared_ even while your agent is serving turns. Not a health signal.                                                                                 |
+| `…:activation` pseudo-thread      | Means the runtime activated, not that anyone was answered.                                                                                                        |
+| **Usage** tab                     | **This is the ground truth.** `Completed turns` / `Inbound` / `Outbound` / `quota blocked`. A completed turn with non-zero Outbound means Slack received a reply. |
 
 If Inbound is 0 while your process is `online`, the failure is upstream of
 Intelligence — go back to the Slack layer and check the Request URL.
 
 ## Startup failures before any Slack involvement
 
-| Symptom | Cause |
-| --- | --- |
-| `EADDRINUSE :::3000` or `[Errno 48] Address already in use` on 8123 | Another checkout is already running. Identify it (`lsof -a -p <pid> -d cwd -Fn`), then run yours on other ports — `PORT`, `SERVER_PORT`, and a matching `AGENT_URL`. Do not kill a process you did not start. See `local-runtime.md`. |
-| `Missing required env var: AGENT_URL` (or `INTELLIGENCE_API_KEY`) | Expected and useful — the parser fails loud by name. Prefer leaving a value *empty* over filling a placeholder like `cpk-...`, which passes the presence check and fails later as an opaque auth error. |
-| `pnpm check-types` fails on `PlatformUser` / `ProviderActor.kind` / `Channel.provider` | OpenTag `main` type-drift against its own pinned `@copilotkit/channels`. Types-only — `tsx` strips them and the runtime is unaffected. Not your setup; do not "fix" it mid-setup. |
-| Slack manifest editor: "We can't translate a manifest with errors", no field named | An empty string somewhere — usually `usage_hint: ""`. Delete the key. The editor also auto-closes brackets, so paste minified single-line JSON. |
+| Symptom                                                                                | Cause                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EADDRINUSE :::3000` or `[Errno 48] Address already in use` on 8123                    | Another checkout is already running. Identify it (`lsof -a -p <pid> -d cwd -Fn`), then run yours on other ports — `PORT`, `SERVER_PORT`, and a matching `AGENT_URL`. Do not kill a process you did not start. See `local-runtime.md`. |
+| `Missing required env var: AGENT_URL` (or `INTELLIGENCE_API_KEY`)                      | Expected and useful — the parser fails loud by name. Prefer leaving a value _empty_ over filling a placeholder like `cpk-...`, which passes the presence check and fails later as an opaque auth error.                               |
+| `pnpm check-types` fails on `PlatformUser` / `ProviderActor.kind` / `Channel.provider` | OpenTag `main` type-drift against its own pinned `@copilotkit/channels`. Types-only — `tsx` strips them and the runtime is unaffected. Not your setup; do not "fix" it mid-setup.                                                     |
+| Slack manifest editor: "We can't translate a manifest with errors", no field named     | An empty string somewhere — usually `usage_hint: ""`. Delete the key. The editor also auto-closes brackets, so paste minified single-line JSON.                                                                                       |
 
 ## Agent layer
 
 Reached only once the Channel is `online` and the turn is arriving. The tell is
-that Slack gets *something* — a reply, an error message, a stall — rather than
+that Slack gets _something_ — a reply, an error message, a stall — rather than
 silence.
 
-| Symptom | Cause |
-| --- | --- |
+| Symptom                                    | Cause                                                                                                                                                                         |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A user-facing error reply appears in Slack | The agent run threw. Read the runtime console: OpenTag's mention handler posts an apology and reports the error via `console.error`, which is visible at **any** `LOG_LEVEL`. |
-| Long stall, then nothing | `AGENT_URL` points somewhere that is not answering. Verify the agent is up (`curl` its health path) before blaming the Channel. |
-| Replies mix up conversations | The agent factory is returning a shared instance. It must return a fresh agent per `threadId`. |
-| The agent answers but renders no UI | A component or tool isn't registered, or the surface degraded the node. The renderer is total: an unrenderable node is skipped, not thrown. |
+| Long stall, then nothing                   | `AGENT_URL` points somewhere that is not answering. Verify the agent is up (`curl` its health path) before blaming the Channel.                                               |
+| Replies mix up conversations               | The agent factory is returning a shared instance. It must return a fresh agent per `threadId`.                                                                                |
+| The agent answers but renders no UI        | A component or tool isn't registered, or the surface degraded the node. The renderer is total: an unrenderable node is skipped, not thrown.                                   |
 
 ## The trap to remember
 

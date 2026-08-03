@@ -6,14 +6,14 @@ owner never intended.
 
 ## Who owns what
 
-| Value | Shape | Issued by | Its one correct home | Never put it |
-| --- | --- | --- | --- | --- |
-| Slack **bot** token | `xoxb-…` | The Slack app, on install | The Slack adapter form in Intelligence, typed by the developer | In `.env`, in the repo, in chat |
-| Slack **signing secret** | 32-char hex | The Slack app, Basic Information → App Credentials | The Slack adapter form in Intelligence, typed by the developer | In `.env`, in the repo, in chat |
-| Intelligence **runtime API key** | `cpk-…` | The Intelligence project (API Keys) | The app's `.env` as `INTELLIGENCE_API_KEY` | In the repo, in chat |
-| **OpenAI** key | `sk-…` | platform.openai.com | The agent's env as `OPENAI_API_KEY` | In the repo, in chat |
-| Slack **user** token | `xoxp-…` | The Slack app, user scopes | `.env`, **only** for the optional E2E harness | Anywhere else |
-| `BOT_USER_ID`, `E2E_CHANNEL` | `U…`, `C…` | Slack workspace | `.env` for the E2E harness | — Not secrets |
+| Value                            | Shape       | Issued by                                          | Its one correct home                                           | Never put it                    |
+| -------------------------------- | ----------- | -------------------------------------------------- | -------------------------------------------------------------- | ------------------------------- |
+| Slack **bot** token              | `xoxb-…`    | The Slack app, on install                          | The Slack adapter form in Intelligence, typed by the developer | In `.env`, in the repo, in chat |
+| Slack **signing secret**         | 32-char hex | The Slack app, Basic Information → App Credentials | The Slack adapter form in Intelligence, typed by the developer | In `.env`, in the repo, in chat |
+| Intelligence **runtime API key** | `cpk-…`     | The Intelligence project (API Keys)                | The app's `.env` as `INTELLIGENCE_API_KEY`                     | In the repo, in chat            |
+| **OpenAI** key                   | `sk-…`      | platform.openai.com                                | The agent's env as `OPENAI_API_KEY`                            | In the repo, in chat            |
+| Slack **user** token             | `xoxp-…`    | The Slack app, user scopes                         | `.env`, **only** for the optional E2E harness                  | Anywhere else                   |
+| `BOT_USER_ID`, `E2E_CHANNEL`     | `U…`, `C…`  | Slack workspace                                    | `.env` for the E2E harness                                     | — Not secrets                   |
 
 The load-bearing split: **Slack credentials go to Intelligence, not to your app.**
 A managed Channel holds no platform credentials. If you find yourself adding
@@ -22,7 +22,7 @@ taken a wrong turn — see `intelligence-channel.md`.
 
 There is **no Slack app-level (`xapp-`) token in this workflow.** Managed delivery
 reaches Intelligence over HTTPS, not Socket Mode, so the pair Intelligence needs
-is *bot token + signing secret*. If you are hunting for `connections:write`, stop
+is _bot token + signing secret_. If you are hunting for `connections:write`, stop
 and re-read `SKILL.md`.
 
 ## Rules for the agent
@@ -41,18 +41,18 @@ page (`/apps/<id>/install-on-team`) renders the bot token in **plain text**, not
 masked. A screenshot, an accessibility-tree read, or a page-text extraction of
 that page captures a live credential into the transcript. Treat it as
 off-limits: do not open it to "check" anything. When you must confirm a token
-exists, test for its *shape* and report a boolean — never the value:
+exists, test for its _shape_ and report a boolean — never the value:
 
 ```js
 // Returns true/false. Never returns token material.
-/xoxb-[A-Za-z0-9-]+/.test(document.body.innerText)
+/xoxb-[A-Za-z0-9-]+/.test(document.body.innerText);
 ```
 
 The Channel adapter form is safe by contrast: its fields are `type="password"`.
 And if a token does reach the transcript, the app's **Reinstall** flow rotates
 the bot token, which is the fastest real remediation — but say so out loud first.
 
-**Never print, echo, `cat`, or `grep` a secret's value.** Check *presence*, never
+**Never print, echo, `cat`, or `grep` a secret's value.** Check _presence_, never
 content. This prints names and nothing else:
 
 ```bash
@@ -64,7 +64,7 @@ done
 
 To inspect the app's config, read **`.env.example`** — it documents every
 variable by name with no live values. Read `.env` itself only when you need to
-know whether a variable is *set*, report only the variable names, and never
+know whether a variable is _set_, report only the variable names, and never
 quote a value or a value fragment back to the developer or into a file.
 
 **Never use the runtime API key to call Intelligence HTTP endpoints.** It is a

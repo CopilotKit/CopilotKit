@@ -21,12 +21,12 @@ configuration.
 
 The developer adds these to the root `.env` themselves:
 
-| Variable | What it is | Why the harness needs it |
-| --- | --- | --- |
-| `SLACK_BOT_TOKEN` | `xoxb-…` | Read channel history and thread replies |
-| `SLACK_USER_TOKEN` | `xoxp-…` | Post **as a real user**, so Slack emits a genuine user event |
-| `BOT_USER_ID` | `U…` | Identify the bot in replies |
-| `E2E_CHANNEL` | `C…` | The test channel id |
+| Variable           | What it is | Why the harness needs it                                     |
+| ------------------ | ---------- | ------------------------------------------------------------ |
+| `SLACK_BOT_TOKEN`  | `xoxb-…`   | Read channel history and thread replies                      |
+| `SLACK_USER_TOKEN` | `xoxp-…`   | Post **as a real user**, so Slack emits a genuine user event |
+| `BOT_USER_ID`      | `U…`       | Identify the bot in replies                                  |
+| `E2E_CHANNEL`      | `C…`       | The test channel id                                          |
 
 The user token is the one to be deliberate about: it acts as the developer in
 their workspace. It must be obtained through their approved app-management flow
@@ -68,11 +68,11 @@ authority on the harness's current requirements.
 The harness exercises the **whole** path, so a failure is not necessarily a
 harness problem. Separate the layers before concluding anything:
 
-| Symptom | Likely layer |
-| --- | --- |
-| No reply at all to any case | The Channel is not `online`, or the bot is not in `E2E_CHANNEL`. Not a harness bug. |
-| Auth errors from the Slack API | A token is wrong, expired, or from a different app than the one installed in that workspace. |
-| Replies arrive but assertions fail on content | The agent or the Channel's rendering — the delivery path is fine. |
+| Symptom                                       | Likely layer                                                                                                                                                      |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No reply at all to any case                   | The Channel is not `online`, or the bot is not in `E2E_CHANNEL`. Not a harness bug.                                                                               |
+| Auth errors from the Slack API                | A token is wrong, expired, or from a different app than the one installed in that workspace.                                                                      |
+| Replies arrive but assertions fail on content | The agent or the Channel's rendering — the delivery path is fine.                                                                                                 |
 | Some cases pass, some time out inconsistently | Suspect a second consumer racing for deliveries, an inbound dedup drop, or a shared agent instance serializing unrelated conversations. See `troubleshooting.md`. |
 
 ## Scope limits

@@ -5,19 +5,19 @@ Two processes for the `examples/OpenTag` starter: a **Python AG-UI agent** and a
 over a websocket — nothing inbound to your machine, so no tunnel and no public URL
 of your own.
 
-Be precise about why: the *runtime↔Intelligence* leg is an outbound websocket, and
-the *Slack↔Intelligence* leg is Slack posting HTTPS to Intelligence's own public
+Be precise about why: the _runtime↔Intelligence_ leg is an outbound websocket, and
+the _Slack↔Intelligence_ leg is Slack posting HTTPS to Intelligence's own public
 Request URL. Neither leg needs a tunnel, and neither leg uses Socket Mode. The
 runtime's HTTP port (below) exists for health/serving, not for receiving Slack
 events — nothing from Slack ever hits it.
 
 ## Prerequisites
 
-| Requirement | Why |
-| --- | --- |
-| Node.js 22+ | Managed delivery needs the global `WebSocket` |
-| pnpm | The starter pins a `packageManager` version — use it, not a system pnpm |
-| Python 3.12 + `uv` | Only for a Python agent backend such as OpenTag's |
+| Requirement        | Why                                                                     |
+| ------------------ | ----------------------------------------------------------------------- |
+| Node.js 22+        | Managed delivery needs the global `WebSocket`                           |
+| pnpm               | The starter pins a `packageManager` version — use it, not a system pnpm |
+| Python 3.12 + `uv` | Only for a Python agent backend such as OpenTag's                       |
 
 The packages are **ESM-only**. `"type": "module"` and `import`; `require()` is not
 supported.
@@ -49,14 +49,14 @@ cp .env.example .env
 
 The developer fills these in themselves:
 
-| Variable | Required | Notes |
-| --- | --- | --- |
-| `INTELLIGENCE_API_KEY` | Yes | `cpk-…`, from API Keys in the dashboard. Selects the project. |
-| `AGENT_URL` | Yes | The AG-UI endpoint. OpenTag's local agent is `http://localhost:8123/` |
-| `OPENAI_API_KEY` | Yes for OpenTag's agent | Model access for the Python agent |
-| `INTELLIGENCE_CHANNEL_NAME` | No | Defaults to `open-tag`. Must equal the dashboard Channel's name. |
-| `INTELLIGENCE_API_URL` / `INTELLIGENCE_GATEWAY_WS_URL` | No | **Leave unset.** They default to production. |
-| `PORT` | No | Runtime HTTP port, default 3000 |
+| Variable                                               | Required                | Notes                                                                 |
+| ------------------------------------------------------ | ----------------------- | --------------------------------------------------------------------- |
+| `INTELLIGENCE_API_KEY`                                 | Yes                     | `cpk-…`, from API Keys in the dashboard. Selects the project.         |
+| `AGENT_URL`                                            | Yes                     | The AG-UI endpoint. OpenTag's local agent is `http://localhost:8123/` |
+| `OPENAI_API_KEY`                                       | Yes for OpenTag's agent | Model access for the Python agent                                     |
+| `INTELLIGENCE_CHANNEL_NAME`                            | No                      | Defaults to `open-tag`. Must equal the dashboard Channel's name.      |
+| `INTELLIGENCE_API_URL` / `INTELLIGENCE_GATEWAY_WS_URL` | No                      | **Leave unset.** They default to production.                          |
+| `PORT`                                                 | No                      | Runtime HTTP port, default 3000                                       |
 
 Verify by presence only:
 
@@ -139,10 +139,10 @@ on SIGINT and SIGTERM.
 
 ## Ports
 
-| Port | Process | Override |
-| --- | --- | --- |
+| Port | Process                      | Override      |
+| ---- | ---------------------------- | ------------- |
 | 8123 | OpenTag's Python AG-UI agent | `SERVER_PORT` |
-| 3000 | Node runtime HTTP | `PORT` |
+| 3000 | Node runtime HTTP            | `PORT`        |
 
 Before starting, make sure nothing already holds them — a stale process from an
 earlier attempt is a common cause of confusing behavior:
@@ -170,5 +170,5 @@ present in the environment — so this needs no file edit. `AGENT_URL` must be m
 in step with `SERVER_PORT`, or the runtime dials a port with nothing on it.
 
 Two runtimes declaring the **same Code in the same project** race for deliveries
-and the loser gets nothing, silently — but two runtimes on *different* Channels
+and the loser gets nothing, silently — but two runtimes on _different_ Channels
 (or different environments) are fine, and only the ports collide.

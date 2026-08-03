@@ -9,28 +9,28 @@ version: 1.0.0
 Take a developer from a code checkout to a working local Slack agent. **Five
 separate systems** have to line up, and they are owned by four different parties:
 
-| System | Who owns it | Where you work on it |
-| --- | --- | --- |
-| Slack workspace | Workspace owner / app manager | Slack, in a browser |
-| Slack app + its tokens | The developer | api.slack.com, in a browser |
-| Intelligence project, API key, Channel, Slack adapter | The developer | The Intelligence dashboard, in a browser |
-| Local Channels runtime | The developer | This repo, in the shell |
-| AG-UI agent backend | The developer | This repo, in the shell |
+| System                                                | Who owns it                   | Where you work on it                     |
+| ----------------------------------------------------- | ----------------------------- | ---------------------------------------- |
+| Slack workspace                                       | Workspace owner / app manager | Slack, in a browser                      |
+| Slack app + its tokens                                | The developer                 | api.slack.com, in a browser              |
+| Intelligence project, API key, Channel, Slack adapter | The developer                 | The Intelligence dashboard, in a browser |
+| Local Channels runtime                                | The developer                 | This repo, in the shell                  |
+| AG-UI agent backend                                   | The developer                 | This repo, in the shell                  |
 
 ## How delivery actually works — two legs, two mechanisms
 
 Getting this wrong is the most expensive mistake available here, because a
 misconfigured Slack app installs cleanly and answers nothing.
 
-| Leg | Mechanism | What authenticates it |
-| --- | --- | --- |
-| **Slack → Intelligence** | Slack posts events over **HTTPS** to an Intelligence-hosted Request URL: `https://intelligence.copilotkit.ai/api/channels/adapters/slack/events` | The app's **signing secret**, held by Intelligence |
-| **Intelligence → your runtime** | Your runtime dials **out** to the realtime gateway over a websocket | `INTELLIGENCE_API_KEY` |
+| Leg                             | Mechanism                                                                                                                                        | What authenticates it                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| **Slack → Intelligence**        | Slack posts events over **HTTPS** to an Intelligence-hosted Request URL: `https://intelligence.copilotkit.ai/api/channels/adapters/slack/events` | The app's **signing secret**, held by Intelligence |
+| **Intelligence → your runtime** | Your runtime dials **out** to the realtime gateway over a websocket                                                                              | `INTELLIGENCE_API_KEY`                             |
 
 Two consequences:
 
 - **No tunnel and no public URL of your own is needed** — but not because of Socket
-  Mode. It is because *Intelligence* owns the public URL, and because the second
+  Mode. It is because _Intelligence_ owns the public URL, and because the second
   leg is outbound from your machine.
 - **Socket Mode is off, and there is no `xapp-` app-level token in this workflow at
   all.** A managed Slack app needs `socket_mode_enabled: false` and a
@@ -79,7 +79,7 @@ Slack app created from a manifest; a local runtime and agent.
 **Out of scope in v1. These are hard limits, not defaults to weigh:**
 
 - **Do not switch to a direct Slack adapter** (`adapters: [slack({ botToken,
-  appToken })]`). Not as a fallback, not to save time, not because the dashboard
+appToken })]`). Not as a fallback, not to save time, not because the dashboard
   is confusing. See the prohibitions below — this is the single most common way
   this workflow goes wrong.
 - **Do not reuse, reinstall, or modify a Slack app that is already installed and
@@ -96,8 +96,8 @@ run a dedicated **dev bot** alongside their production one and hand developers a
 ready-made environment file — the Slack app, the Channel, and the adapter already
 exist, and the dev bot comes online only while someone runs it locally.
 
-Ask: *is there an existing dev bot and a provided config for this, or am I
-setting one up from scratch?*
+Ask: _is there an existing dev bot and a provided config for this, or am I
+setting one up from scratch?_
 
 If a config is provided, **skip Phases 1 and 2 entirely**: put the provided
 values in `.env` (the developer retrieves them from their team's secret-sharing
@@ -129,7 +129,7 @@ between OpenTag revisions, which is why the next step reads them rather than
 assuming them.
 
 Then read the app's **own** environment contract instead of assuming variable
-names. They differ between apps, and so does the vocabulary for the *same*
+names. They differ between apps, and so does the vocabulary for the _same_
 concept: OpenTag uses `INTELLIGENCE_CHANNEL_NAME`, the Channels SDK README's
 quickstart calls it `CHANNEL_CODE`, and it is also referred to as the Channel's
 **slug**. All of them mean the `name` passed to `createChannel()`, which must
@@ -182,9 +182,9 @@ manifest.** Do not hand-write one, and do not use the starter's
    credential fields you will fill in Phase 3. **Nothing is saved until you
    finish**, so leave this tab open.
 
-Read the wizard's own warning before you install anything: *Slack bot names and
+Read the wizard's own warning before you install anything: _Slack bot names and
 slash commands are workspace-wide. If either generated name is already in use,
-choose a more specific Channel display name before installing.* A collision here
+choose a more specific Channel display name before installing._ A collision here
 blocks the install, so resolve it by renaming the Channel, not the manifest.
 
 Full detail in `references/intelligence-channel.md`.
@@ -243,7 +243,7 @@ level it is written and discarded.
    this, add the assertion — `examples/OpenTag`'s `server.ts` calls `ready()` and
    never checks status, which is exactly how a broken setup looks healthy.
 2. The dashboard shows the Channel Online while the process runs. Its **Runtime**
-   panel should read *Connected*. Ignore the **Agent run** column — it reads `—`
+   panel should read _Connected_. Ignore the **Agent run** column — it reads `—`
    even after a turn completes successfully, so it is not a health signal.
 3. **The developer** sends a real mention from their own Slack account and reports
    the reply.
@@ -269,7 +269,7 @@ blocked, say it is blocked and say why.
 
 **Never create the Slack app from the starter's own `slack-app-manifest.yaml`.**
 OpenTag's manifest sets `socket_mode_enabled: true` and declares **no
-`request_url`**, which is the shape for a *direct* adapter, not a managed Channel.
+`request_url`**, which is the shape for a _direct_ adapter, not a managed Channel.
 An app created from it installs cleanly, shows green in Slack, and delivers
 nothing to Intelligence forever. Use the manifest the Channel wizard generates.
 The same applies to `assets/slack-app-manifest.yaml` in this skill — it is kept
@@ -296,20 +296,20 @@ without naming the change and getting a yes.
 
 ## Rationalizations
 
-| Thought | Reality |
-| --- | --- |
-| "They're on a deadline, the direct adapter is faster" | You would be validating a different architecture and handing them credentials in the wrong place. Deadline pressure is when scope discipline matters most. |
-| "The dashboard is confusing, code is more reliable" | The confusion is the developer's actual problem. Solving it in code hides it. |
-| "The prod Slack app is already installed, so reusing it saves the approval" | Repointing its Request URL hijacks that app's whole event stream. The approval exists because installs affect other people. |
-| "It's just for testing / just for a minute" | An app has one events URL. While yours is set, production is not receiving its events at all. |
-| "The starter ships a manifest, so I'll create the app from that" | It sets `socket_mode_enabled: true` with no `request_url` — the direct-adapter shape. The app will install green and never deliver. Use the wizard's manifest. |
-| "I need to generate an `xapp-` app-level token" | There is no `xapp-` token in this workflow and nowhere to put one. The adapter takes a bot token and a signing secret. |
-| "The runtime started and `/info` returns 200, so we're connected" | `ready()` resolves on `setup_required` and `/info` reports license state. Neither says anything about Slack. |
-| "`ready()` resolved without throwing, so the Channel is online" | It resolves on `setup_required` by design. Read `status()`. |
-| "I'll check the Channel state with the API key" | Dashboard endpoints reject a project key. Use `status()` or the dashboard. |
-| "Let me just read `.env` to see what's configured" | Read `.env.example` for names; check `.env` only for presence, and never quote a value. |
-| "I'll send the test mention myself to save a round trip" | The success criterion is a real human mention. Posting for them proves less and acts on their behalf in their workspace. |
-| "No reply — let me try changing the config" | Diagnose by layer first. `LOG_LEVEL=debug` names the failure in one line. |
+| Thought                                                                     | Reality                                                                                                                                                        |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "They're on a deadline, the direct adapter is faster"                       | You would be validating a different architecture and handing them credentials in the wrong place. Deadline pressure is when scope discipline matters most.     |
+| "The dashboard is confusing, code is more reliable"                         | The confusion is the developer's actual problem. Solving it in code hides it.                                                                                  |
+| "The prod Slack app is already installed, so reusing it saves the approval" | Repointing its Request URL hijacks that app's whole event stream. The approval exists because installs affect other people.                                    |
+| "It's just for testing / just for a minute"                                 | An app has one events URL. While yours is set, production is not receiving its events at all.                                                                  |
+| "The starter ships a manifest, so I'll create the app from that"            | It sets `socket_mode_enabled: true` with no `request_url` — the direct-adapter shape. The app will install green and never deliver. Use the wizard's manifest. |
+| "I need to generate an `xapp-` app-level token"                             | There is no `xapp-` token in this workflow and nowhere to put one. The adapter takes a bot token and a signing secret.                                         |
+| "The runtime started and `/info` returns 200, so we're connected"           | `ready()` resolves on `setup_required` and `/info` reports license state. Neither says anything about Slack.                                                   |
+| "`ready()` resolved without throwing, so the Channel is online"             | It resolves on `setup_required` by design. Read `status()`.                                                                                                    |
+| "I'll check the Channel state with the API key"                             | Dashboard endpoints reject a project key. Use `status()` or the dashboard.                                                                                     |
+| "Let me just read `.env` to see what's configured"                          | Read `.env.example` for names; check `.env` only for presence, and never quote a value.                                                                        |
+| "I'll send the test mention myself to save a round trip"                    | The success criterion is a real human mention. Posting for them proves less and acts on their behalf in their workspace.                                       |
+| "No reply — let me try changing the config"                                 | Diagnose by layer first. `LOG_LEVEL=debug` names the failure in one line.                                                                                      |
 
 ## Red flags — stop
 
@@ -334,12 +334,12 @@ Read the reference for the phase you are actually in — not all of them up fron
 Each is self-contained, and reading six files before saying anything to the
 developer is how this workflow gets slow.
 
-| File | Read it when |
-| --- | --- |
-| `references/intelligence-channel.md` | Phases 1 and 3 — wizard, Code, adapter, project, key |
-| `references/slack-workspace-and-app.md` | Phase 2 — workspace, install, bot token, signing secret |
-| `references/secrets-and-credentials.md` | Any time a credential is in play |
-| `references/local-runtime.md` | Phase 4 — env, agent, runtime, startup, ports |
-| `references/optional-e2e.md` | Phase 6 — the live Slack harness |
-| `references/troubleshooting.md` | Anything fails, or a mention gets no reply |
-| `assets/slack-app-manifest.yaml` | Reference only — the **direct-adapter** shape. Not for a managed Channel. |
+| File                                    | Read it when                                                              |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| `references/intelligence-channel.md`    | Phases 1 and 3 — wizard, Code, adapter, project, key                      |
+| `references/slack-workspace-and-app.md` | Phase 2 — workspace, install, bot token, signing secret                   |
+| `references/secrets-and-credentials.md` | Any time a credential is in play                                          |
+| `references/local-runtime.md`           | Phase 4 — env, agent, runtime, startup, ports                             |
+| `references/optional-e2e.md`            | Phase 6 — the live Slack harness                                          |
+| `references/troubleshooting.md`         | Anything fails, or a mention gets no reply                                |
+| `assets/slack-app-manifest.yaml`        | Reference only — the **direct-adapter** shape. Not for a managed Channel. |
