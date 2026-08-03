@@ -1,0 +1,151 @@
+---
+title: Identity and Memory
+icon: "lucide/Users"
+description: Resolve provider actors to application users and grant Intelligence Memory safely for each Channel run.
+doc_type: how-to
+---
+
+Your Channel already receives provider-scoped conversations and actors. This
+guide maps those actors to your application's users, then grants user or project
+Memory explicitly for each agent run.
+
+## Separate the conversation, actor, and application user
+
+One provider conversation can contain several people. Channels therefore keeps
+three identities separate:
+
+| Concept | Meaning | Lifetime |
+| ------- | ------- | -------- |
+| Conversation | The Slack thread, channel, DM, or Teams chat or thread represented by the Channels `Thread` | Shared provider conversation |
+| Actor | Provider account that caused the current message, reaction, or interaction | Resolved for each event |
+| Application user | Canonical user returned by your `identifyUser` policy | Developer-owned project identity |
+
+A `Thread` does not have a personal owner. The person who installed the app,
+started the conversation, or sent the first message does not become the Memory
+subject for later participants. Resolve the current actor independently on every
+event.
+
+## Map a provider actor to an application user
+
+`identifyUser` receives the normalized provider, tenant, installation, actor,
+conversation, and event. Return an application-controlled `{ id, name }` when a
+trusted mapping exists, or `null` when the actor is intentionally unlinked.
+
+This runnable example uses a map to stand in for your account-linking table:
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { makeAgent } from "./agent.js";
+
+const linkedAccounts = new Map([
+  [
+    "slack:T0123:U0456",
+    { id: "user_42", name: "Ada Lovelace" },
+  ],
+  [
+    "teams:tenant-123:user-456",
+    { id: "user_42", name: "Ada Lovelace" },
+  ],
+]);
+
+export const channel = createChannel({
+  name: "support",
+  identifyUser: async ({ provider, tenant, actor }) =>
+    linkedAccounts.get(`${provider}:${tenant.id}:${actor.id}`) ?? null,
+  agent: makeAgent,
+});
+```
+
+In production, replace the map with a lookup in the account-linking data your
+application owns. Do not automatically link accounts by email address, display
+name, or handle. Those attributes can change or collide across provider tenants.
+
+Returning `null` means that the actor is deliberately unlinked. Throw only when
+the identity system itself failed. When the adapter provides `lookupProfile`,
+you may use it to enrich a confirmed provider identity, but profile data does
+not establish a canonical application account by itself.
+
+<FrontendOnly frontend="slack">
+
+For Slack, `tenant.id` identifies the workspace and `actor.id` identifies the
+Slack account. Channels, private channels, group DMs, and shared threads can all
+contain several actors, so include the workspace in the external-identity key.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+For Microsoft Teams, `tenant.id` identifies the Microsoft tenant and `actor.id`
+identifies the Teams account. Team channels and group chats can contain several
+actors, so include the tenant in the external-identity key.
+
+</FrontendOnly>
+
+## Grant Memory for one run
+
+Intelligence Memory is off unless the current `runAgent` call grants access.
+Each `user` or `project` scope accepts `"none"`, `"read"`, or `"read-write"`:
+
+```ts title="channel.ts"
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({
+    prompt: message.text,
+    memory: {
+      user: "read",
+      project: "read-write",
+    },
+  });
+});
+```
+
+Omitting a scope disables it for that run. Project-only Memory works when
+`identifyUser` returns `null`; user Memory fails before the agent starts unless
+the current event resolved to an application user.
+
+In a shared channel or group chat, project Memory is the safer default. Grant
+user Memory only when the current turn clearly acts for the resolved individual.
+Never reuse the installer, thread creator, or first participant as the personal
+Memory subject for everyone else.
+
+## Choose the subject when resuming an approval
+
+A resumed run can grant Memory too. If it grants user Memory, choose which
+trusted participant supplies the subject:
+
+```ts title="approval-card.tsx"
+await thread.resume(value, {
+  memory: {
+    user: "read",
+    project: "read",
+  },
+  subject: "initiator",
+});
+```
+
+- `"initiator"` keeps the application user who started the continuation chain.
+- `"actor"` uses the application user resolved for the current interaction.
+- Project-only Memory needs no subject.
+- Callers cannot provide an arbitrary raw user ID.
+
+Use `"initiator"` when an approval belongs to the person who started the
+workflow. Use `"actor"` when the current approver should supply the personal
+context.
+
+## Handle stable identity and Memory failures
+
+Identity and Memory validation fails before the agent runs. The public errors
+expose stable codes:
+
+| Code | Meaning |
+| ---- | ------- |
+| `channel_identity_invalid` | `identifyUser` returned neither `null` nor a non-empty `{ id, name }` user. |
+| `channel_identity_failed` | The custom identity resolver threw. |
+| `channel_memory_grant_invalid` | A Memory scope used an unsupported access value. |
+| `channel_memory_user_required` | The run requested user Memory without a resolved application user. |
+| `channel_memory_unavailable` | The configured agent or runtime cannot provide Intelligence Memory. |
+| `channel_memory_subject_required` | A resumed run requested user Memory without `"initiator"` or `"actor"`. |
+
+Use [Threads and state](/channels/threads-and-state) for conversation-scoped
+workflow state and [History and transcripts](/channels/history-and-transcripts)
+for provider history and SDK-owned user transcripts. Those records are separate
+from per-run Intelligence Memory.

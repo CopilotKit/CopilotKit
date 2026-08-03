@@ -19,6 +19,29 @@ therefore reaches `onMessage` or `onMention` as normal text.
 adapters that emit native command events. They do not opt a managed Slack or
 Teams Channel into command routing.
 
+## Route mentions and ordinary messages
+
+Register `onMessage` for ordinary provider messages. A bot mention selects
+`onMention` when that handler is registered; otherwise the mention falls back
+to `onMessage`. Non-mention messages select `onMessage`, and one inbound message
+runs exactly one of those handler paths.
+
+<FrontendOnly frontend="slack">
+
+The current generated manifest subscribes to ordinary channel, private-channel,
+group-DM, and direct-message events in addition to `app_mention`. A Slack app
+created from an older manifest may need the current event subscriptions and bot
+scopes applied, followed by an app reinstall.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+Teams messages use the same `onMessage` and `onMention` selection after managed
+ingress normalizes the activity.
+
+</FrontendOnly>
+
 ## Handle incoming reactions
 
 Known Slack shortcodes and Teams reaction tokens are normalized to portable

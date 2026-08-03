@@ -69,13 +69,14 @@ in the conversation and have permission to read the file. Slack documents
 [`files:read`](https://api.slack.com/scopes/files%3Aread) as the scope that
 allows an app to download files from conversations it can access.
 
-The Intelligence-generated manifest does not currently request `files:read` or
-`files:write`. Before relying on files:
+The current Intelligence-generated manifest requests both `files:read` and
+`files:write`. If the app predates that manifest:
 
-1. Add `files:read` and `files:write` to the app's bot token scopes.
-2. Reinstall the app so the workspace grants the new scopes.
-3. Invite the app to the source conversation.
-4. Send a new file and verify the model receives it.
+1. Apply the current manifest so both bot token scopes are present.
+2. Reinstall the app so the workspace grants the scopes.
+3. Copy the current Bot User OAuth token into Intelligence if Slack reissued it.
+4. Invite the app to the source conversation.
+5. Send a new file and verify the model receives it.
 
 If attachments are omitted or arrive as retrieval-failure notes:
 
@@ -156,9 +157,9 @@ asset in canonical Thread history.
 <FrontendOnly frontend="slack">
 
 Managed Slack uses Slack's external-upload flow and can send general file types.
-The generated manifest includes the `files:write` bot scope. Add that scope and
-reinstall if the Slack app predates the current manifest. Check `result.ok`,
-then verify the real Slack message when provider-side display matters.
+The generated manifest includes the `files:write` bot scope. Apply the current
+manifest and reinstall if the Slack app predates it. Check `result.ok`, then
+verify the real Slack message when provider-side display matters.
 
 </FrontendOnly>
 

@@ -27,7 +27,9 @@ both Slack and Teams for this Channel and keeps each delivery provider-scoped.
 | `name`           | `string`                                               | Project-unique Intelligence Code. Required for managed Channels; lowercase kebab-case, 3–64 characters, and not `channels`. |
 | `identifyUser`   | `"platform" \| ChannelIdentifyUser`                    | Required identity policy. Returns one application user or `null` for each provider event.                                   |
 | `showToolStatus` | `boolean`                                              | Controls managed Slack tool-call progress. It is hidden by default; set `true` to show it.                                  |
-| `agent`          | `AbstractAgent \| (threadId: string) => AbstractAgent` | Agent instance or factory. Factory preferred; a singleton is isolated per run via `clone()`.                                |
+| `replyContinuation` | `ReplyContinuationOptions`                         | Managed Slack long-reply limits: `messageByteLimit`, `maxMessages`, and `truncationMarker`.                                 |
+| `agent`          | `AbstractAgent \| (threadId: string) => AbstractAgent` | Agent instance or factory. Factory preferred; every turn clones the configured result.                                     |
+| `sanitizeAgentEvents` | `boolean`                                         | Defaults to `true`; repairs a known malformed AG-UI parent-message field in HTTP event streams.                             |
 | `tools`          | `ChannelTool[]`                                        | Typed tools forwarded to the agent.                                                                                         |
 | `context`        | `ContextEntry[]`                                       | Stable `{ description, value }` context sent on each run.                                                                   |
 | `components`     | `ChannelComponent[]`                                   | Named JSX components whose callbacks can be reconstructed from stored snapshots.                                            |
@@ -37,6 +39,13 @@ both Slack and Teams for this Channel and keeps each delivery provider-scoped.
 
 One Channel may receive managed Slack and Teams deliveries. Names must be
 unique inside one `CopilotRuntime`.
+
+Every turn calls `clone()`, including turns whose `agent(threadId)` factory
+returned a new agent. The clone must be a distinct instance. If a custom agent
+stores required configuration in subclass fields, override `clone()` so the
+configuration survives without sharing mutable per-run state. Channels 0.6.1
+warns when enumerable fields are dropped instead of refusing the turn solely
+for that warning.
 
 ## StoreConfig
 
@@ -113,6 +122,7 @@ release a lock only when the supplied token still owns it.
 | ---------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `name`           | `string \| undefined`        | Declared Intelligence Code.                                                                                   |
 | `showToolStatus` | `boolean \| undefined`       | Managed Slack tool-call visibility preference from `createChannel()`.                                         |
+| `replyContinuation` | `ReplyContinuationOptions \| undefined` | Managed Slack continuation preference from `createChannel()`.                                      |
 | `adapters`       | `readonly PlatformAdapter[]` | Attached transport snapshot. Managed Channels start empty and receive the Intelligence adapter at activation. |
 | `commandNames`   | `string[]`                   | Normalized names declared through `commands` or `onCommand`.                                                  |
 | `transcripts`    | `Transcripts`                | Optional SDK transcript API. It is not the managed provider-history store.                                    |
@@ -175,9 +185,26 @@ See [Tools and context for Slack](/slack/tools) or
 
 ## Runtime lifecycle
 
-A Channel has no public `start()` method. Creating the long-running runtime
-listener exposes lifecycle control but opens no connection. The first
-`ready()` call is required and lazily opens the Realtime Gateway connection:
+A Channel has no public `start()` method. Node and Express listeners own a
+long-running process lifetime, so creating either listener starts the managed
+Channel automatically. On those mounts, `ready()` is optional: await it when
+startup must observe the initial managed status before the rest of the process
+continues.
+
+Hono and generic Fetch mounts are request-oriented and remain lazy. Call and
+await `ready()` during an explicit long-running startup path before expecting
+managed traffic; creating one of those handlers alone does not open the
+Realtime Gateway connection.
+
+| Runtime mount | Start behavior | Role of `ready()` |
+| ------------- | -------------- | ----------------- |
+| Node listener | Starts when the listener is created | Optional readiness wait and initial status check |
+| Express listener | Starts when the listener is created | Optional readiness wait and initial status check |
+| Hono mount | Lazy | Explicitly await before expecting managed traffic |
+| Generic Fetch mount | Lazy | Explicitly await before expecting managed traffic |
+
+Install shutdown handlers before waiting for readiness so a slow or incomplete
+provider setup cannot prevent graceful teardown:
 
 ```ts title="channel.ts"
 const listener = createCopilotNodeListener({ runtime });
@@ -185,25 +212,30 @@ const listener = createCopilotNodeListener({ runtime });
 const channels = listener.channels;
 if (!channels) throw new Error("Channels were not configured.");
 
+const shutdown = async () => {
+  await channels.stop();
+  process.exit(0);
+};
+
+process.once("SIGTERM", shutdown);
+process.once("SIGINT", shutdown);
+
 await channels.ready({ timeoutMs: 30_000 });
 const status = channels.status();
 if (status.overall !== "online") {
   throw new Error(`Channel not online: ${JSON.stringify(status)}`);
 }
-
-// During graceful shutdown:
-await channels.stop();
 ```
 
-`ready()` reports the initial `online` or `setup_required` outcome once; inspect
-`status()` before accepting managed traffic. A configured direct adapter still
-starts when managed setup is incomplete, while the Channel remains
-`setup_required` until its managed providers are configured. Observe later
-drops and reconnects through `status()`.
+`ready()` observes the first `online` or `setup_required` outcome; it does not
+initiate Node or Express activation. Inspect `status()` before accepting managed
+traffic. A configured direct adapter still starts when managed setup is
+incomplete, while the Channel remains `setup_required` until its managed
+providers are configured. Observe later drops and reconnects through `status()`.
 
 | Status           | Meaning                                                                    |
 | ---------------- | -------------------------------------------------------------------------- |
-| `connecting`     | `ready()` has not activated the Channel yet, or activation is in progress. |
+| `connecting`     | Activation is in progress, or a lazy mount has not started the Channel yet. |
 | `online`         | The managed session is healthy and can receive delivery invitations.       |
 | `setup_required` | The runtime declaration exists but provider setup is incomplete.           |
 | `reconnecting`   | The gateway connection dropped and is retrying.                            |

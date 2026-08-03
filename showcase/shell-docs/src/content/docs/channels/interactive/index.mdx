@@ -15,11 +15,12 @@ by hand.
 On Slack, Channels JSX renders as Block Kit. Button clicks return as
 `block_actions` events through the signed managed webhook.
 
-<Callout type="warn" title="Enable Slack Interactivity before testing buttons">
-  Slack interactions require **Interactivity** to be enabled in the Slack app
-  configuration. The generated manifest currently sets Interactivity to
-  disabled. Enable it in Slack, then reinstall the app before expecting button
-  callbacks.
+<Callout type="info" title="Use the current Slack manifest">
+  Newly generated Slack manifests enable **Interactivity** and configure the
+  managed callback URL. If the app was created from an older manifest, apply
+  the current manifest and reinstall the app before testing buttons. After the
+  reinstall, use the current Bot User OAuth token in Intelligence in case Slack
+  reissued it.
 </Callout>
 
 </FrontendOnly>
@@ -211,7 +212,8 @@ Managed deliveries cannot wait inside `thread.awaitChoice()`. The click arrives
 as a separate claimed delivery, so blocking the first delivery would prevent the
 approval from being processed.
 
-The safe flow is:
+For an agent that emits the SDK-supported `on_interrupt` event, the safe flow
+is:
 
 1. The agent emits an `on_interrupt` event.
 2. `channel.onInterrupt` posts the registered component and returns.
@@ -224,6 +226,15 @@ The selected agent framework decides how it emits and consumes the interrupt.
 Follow its [human-in-the-loop guide](/human-in-the-loop) for the agent-side
 interrupt; keep the Channel handler limited to portable presentation and
 `resume`.
+
+<Callout type="info" title="Framework interrupt support is not universal">
+  The DeepAgent tool-driven approval flow has been validated with this
+  post-and-resume pattern. Some legacy LangGraph interrupt flows expose only
+  partial behavior, and this guide does not promise full native AG-UI interrupt
+  compatibility across every framework. The default `sanitizeAgentEvents`
+  behavior repairs a known event-validation issue; it does not add framework
+  interrupt support by itself.
+</Callout>
 
 <Callout type="warn" title="Restart durability needs a StateStore">
   The managed realtime connection does not automatically persist SDK action
@@ -241,8 +252,9 @@ on the selected provider's app configuration:
 
 <FrontendOnly frontend="slack">
 
-- Slack can deliver buttons, selects, and inputs through Block Kit once
-  Interactivity is enabled for the app.
+- Slack can deliver buttons, selects, and inputs through Block Kit. Current
+  generated manifests enable Interactivity; older apps must apply the current
+  manifest and be reinstalled.
 
 </FrontendOnly>
 
