@@ -10,12 +10,12 @@ import type { ActivateChannelEngine, ChannelsHandle } from "../channel-manager";
  * re-activate a Channel on a drop — but it MUST reflect real connection health
  * through the session's `onStateChange` observer so `status()` is honest rather
  * than reporting `online` forever after a drop. These tests pin that contract:
- * a drop → `reconnecting`, a rejoin → `online`, and either a bounded give-up or
- * a generation fence → `error`, with NO further engine call and the manager
+ * a drop → `reconnecting`, a rejoin → `online`, and a bounded give-up →
+ * `error`, with NO further engine call and the manager
  * left coherent and usable.
  * --------------------------------------------------------------------------------------------- */
 
-type ConnectionState = "online" | "reconnecting" | "gave_up" | "fenced";
+type ConnectionState = "online" | "reconnecting" | "gave_up";
 
 /** The cause the session attaches to a non-`online` transition (OSS-670). */
 type ConnectionDetail = { reason?: string; code?: string };
@@ -58,7 +58,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -85,7 +85,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -105,7 +105,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -121,7 +121,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -141,7 +141,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -162,7 +162,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
       log: (m: string) => logs.push(m),
       reconnectLogIntervalMs: 5,
@@ -199,7 +199,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
       log: (m: string) => logs.push(m),
     });

@@ -18,10 +18,12 @@ import type {
   ConversationStore,
   AgentSession,
   MessageRef,
-  PlatformUser,
+  ProviderActor,
   UserQuery,
   EphemeralResult,
   NativePayload,
+  ReplyContinuationOptions,
+  IngressIdentityContext,
 } from "@copilotkit/channels-core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
@@ -82,6 +84,11 @@ export interface SlackAdapterOptions {
   /** Surface tool-call progress in Slack. Default false. */
   showToolStatus?: boolean;
   /**
+   * Tuning for splitting a long reply across continuation messages once Slack's
+   * per-message ceiling is reached. See {@link ReplyContinuationOptions}.
+   */
+  replyContinuation?: ReplyContinuationOptions;
+  /**
    * Assistant-pane behavior ("Agents & AI Apps"). ON by default — the pane
    * activates whenever the app's Slack config has the toggle (see the README),
    * and lies dormant without it. Pass an object to customize, or `false` to
@@ -118,10 +125,12 @@ export class SlackAdapter implements PlatformAdapter {
   readonly app: App;
   client: WebClient;
   botUserId = "";
+  private botId: string | undefined;
+  private appId: string | undefined;
   private readonly store: SlackConversationStore;
   private sink: IngressSink | undefined;
   /** Per-id cache for sender-profile resolution (repeat turns are cheap). */
-  private readonly userCache = new Map<string, PlatformUser>();
+  private readonly userCache = new Map<string, ProviderActor>();
   /** Set once the Assistant middleware is attached (when assistant !== false). */
   private assistantHandle: AssistantHandle | undefined;
   /** Our team id (from auth.test); native channel streams need it. */
@@ -143,6 +152,7 @@ export class SlackAdapter implements PlatformAdapter {
   constructor(private readonly opts: SlackAdapterOptions) {
     const assistantEnabled = opts.assistant !== false;
     this.capabilities = {
+      supportsMessageEvents: true,
       supportsModals: true,
       supportsTyping: false,
       supportsReactions: true,
@@ -183,6 +193,14 @@ export class SlackAdapter implements PlatformAdapter {
     // guard (skip our own posts) is in place from the first event.
     const auth = await this.client.auth.test();
     this.botUserId = auth.user_id as string;
+    this.botId =
+      typeof auth.bot_id === "string" && auth.bot_id.length > 0
+        ? auth.bot_id
+        : undefined;
+    this.appId =
+      typeof auth.app_id === "string" && auth.app_id.length > 0
+        ? auth.app_id
+        : undefined;
     this.teamId = auth.team_id as string | undefined;
     (this.store as unknown as { botUserId: string }).botUserId = this.botUserId;
 
@@ -194,7 +212,7 @@ export class SlackAdapter implements PlatformAdapter {
         app: this.app,
         sink,
         opts: this.opts.assistant ?? {},
-        resolveUser: (id) => this.resolveUser(id),
+        identityContext: (input) => this.identityContext(input),
       });
     }
 
@@ -202,11 +220,17 @@ export class SlackAdapter implements PlatformAdapter {
       app: this.app,
       store: this.store,
       botUserId: this.botUserId,
+      botId: this.botId,
+      appId: this.appId,
       respondTo: resolveSlackRespondToOptions(this.opts.respondTo),
       isAssistantThread: this.assistantHandle?.isAssistantThread,
       onTurn: async (turn) => {
+        const conversationKey = conversationKeyOf(turn.conversation);
+        const actor = turn.senderUserId
+          ? { id: turn.senderUserId, kind: "human" as const }
+          : { id: "", kind: "unknown" as const };
         await sink.onTurn({
-          conversationKey: conversationKeyOf(turn.conversation),
+          conversationKey,
           // Carry the sender id so native channel streams can pass
           // `recipient_user_id` to chat.startStream.
           replyTarget: {
@@ -214,9 +238,17 @@ export class SlackAdapter implements PlatformAdapter {
             recipientUserId: turn.senderUserId,
           },
           userText: turn.userText,
-          user: turn.senderUserId
-            ? await this.resolveUser(turn.senderUserId)
-            : undefined,
+          operation: turn.operation,
+          actor,
+          identityContext: this.identityContext({
+            conversationKey,
+            conversationKind:
+              turn.conversation.scope === DM_SCOPE ? "direct" : "thread",
+            trigger: "message",
+            eventId: turn.eventId,
+            actor,
+            raw: { operation: turn.operation },
+          }),
           // Stable per-delivery id for inbound dedup (Events API event_id, or a
           // fallback derived by the listener); undefined when unavailable.
           eventId: turn.eventId,
@@ -224,16 +256,27 @@ export class SlackAdapter implements PlatformAdapter {
         });
       },
       onCommand: async (cmd) => {
+        const conversationKey = conversationKeyOf(cmd.conversation);
+        const actor = cmd.senderUserId
+          ? { id: cmd.senderUserId, kind: "human" as const }
+          : { id: "", kind: "unknown" as const };
         await sink.onCommand({
           command: cmd.command,
           text: cmd.text,
           // Slack delivers args as free text only; structured `rawOptions`
           // are a Discord-style capability, so they're left unset here.
-          conversationKey: conversationKeyOf(cmd.conversation),
+          conversationKey,
           replyTarget: cmd.replyTarget,
-          user: cmd.senderUserId
-            ? await this.resolveUser(cmd.senderUserId)
-            : undefined,
+          actor,
+          identityContext: this.identityContext({
+            conversationKey,
+            conversationKind:
+              cmd.conversation.scope === DM_SCOPE ? "direct" : "thread",
+            trigger: "command",
+            eventId: cmd.eventId,
+            actor,
+            raw: { command: cmd.command },
+          }),
           // Stable per-invocation id for inbound dedup (command:user:trigger_id).
           eventId: cmd.eventId,
           platform: "slack",
@@ -265,14 +308,28 @@ export class SlackAdapter implements PlatformAdapter {
       // Enrich the reactor to parity with onTurn/onCommand so per-user
       // attribution (e.g. senderContext(evt.user) → filter by email) works
       // for reaction-triggered runs, not just mentions and commands.
-      if (event.user) evt.user = await this.resolveUser(event.user);
+      if (event.user) evt.actor = { id: event.user, kind: "human" };
+      evt.identityContext = this.identityContext({
+        conversationKey: evt.conversationKey,
+        conversationKind: "thread",
+        trigger: "reaction",
+        actor: evt.actor ?? { id: "", kind: "unknown" },
+        raw: { rawEmoji: evt.rawEmoji, added: evt.added },
+      });
       await sink.onReaction(evt);
     });
     this.app.event("reaction_removed", async ({ event }) => {
       if (event.user === this.botUserId) return;
       const evt = decodeReaction(event, false);
       if (!evt) return;
-      if (event.user) evt.user = await this.resolveUser(event.user);
+      if (event.user) evt.actor = { id: event.user, kind: "human" };
+      evt.identityContext = this.identityContext({
+        conversationKey: evt.conversationKey,
+        conversationKind: "thread",
+        trigger: "reaction",
+        actor: evt.actor ?? { id: "", kind: "unknown" },
+        raw: { rawEmoji: evt.rawEmoji, added: evt.added },
+      });
       await sink.onReaction(evt);
     });
 
@@ -281,10 +338,18 @@ export class SlackAdapter implements PlatformAdapter {
     // open with inline messages); otherwise a plain ack closes the modal.
     // A catch-all `/.*/` callback_id constraint defaults to `view_submission`.
     this.app.view(/.*/, async ({ ack, body, view }) => {
-      const user = body.user?.id
-        ? { id: body.user.id, name: body.user.name }
+      const actor = body.user?.id
+        ? { id: body.user.id, kind: "human" as const, name: body.user.name }
         : undefined;
-      const result = await sink.onModalSubmit(decodeViewSubmission(view, user));
+      const event = decodeViewSubmission(view, actor);
+      event.identityContext = this.identityContext({
+        conversationKey: event.conversationKey ?? `modal:${event.callbackId}`,
+        conversationKind: "modal",
+        trigger: "modal-submit",
+        actor: actor ?? { id: "", kind: "unknown" },
+        raw: { callbackId: event.callbackId },
+      });
+      const result = await sink.onModalSubmit(event);
       if (result?.errors) {
         await ack({ response_action: "errors", errors: result.errors });
       } else {
@@ -295,10 +360,18 @@ export class SlackAdapter implements PlatformAdapter {
     this.app.view(
       { type: "view_closed", callback_id: /.*/ },
       async ({ ack, body, view }) => {
-        const user = body.user?.id
-          ? { id: body.user.id, name: body.user.name }
+        const actor = body.user?.id
+          ? { id: body.user.id, kind: "human" as const, name: body.user.name }
           : undefined;
-        await sink.onModalClose(decodeViewClosed(view, user));
+        const event = decodeViewClosed(view, actor);
+        event.identityContext = this.identityContext({
+          conversationKey: event.conversationKey ?? `modal:${event.callbackId}`,
+          conversationKind: "modal",
+          trigger: "modal-close",
+          actor: actor ?? { id: "", kind: "unknown" },
+          raw: { callbackId: event.callbackId },
+        });
+        await sink.onModalClose(event);
         await ack();
       },
     );
@@ -416,6 +489,15 @@ export class SlackAdapter implements PlatformAdapter {
         onStartFailure: () => {
           this.nativeStreamingOk = false;
         },
+        ...(this.opts.replyContinuation?.messageByteLimit !== undefined
+          ? { messageByteLimit: this.opts.replyContinuation.messageByteLimit }
+          : {}),
+        ...(this.opts.replyContinuation?.maxMessages !== undefined
+          ? { maxMessages: this.opts.replyContinuation.maxMessages }
+          : {}),
+        ...(this.opts.replyContinuation?.truncationMarker !== undefined
+          ? { truncationMarker: this.opts.replyContinuation.truncationMarker }
+          : {}),
       });
     } else {
       sink = makeLegacy();
@@ -451,24 +533,25 @@ export class SlackAdapter implements PlatformAdapter {
     // channel and implicit in DMs / assistant threads — pass them only for
     // non-DM targets (DM channel ids start with "D").
     const isChannel = !t.channel.startsWith("D");
+    const startStream = async (markdownText?: string): Promise<string> => {
+      const args: ChatStartStreamArguments = {
+        channel: t.channel,
+        thread_ts: threadTs,
+        task_display_mode: "timeline",
+        ...(markdownText !== undefined ? { markdown_text: markdownText } : {}),
+        ...(isChannel && t.recipientUserId
+          ? { recipient_user_id: t.recipientUserId }
+          : {}),
+        ...(isChannel && this.teamId ? { recipient_team_id: this.teamId } : {}),
+      };
+      const res = await this.client.chat.startStream(args);
+      if (!res.ts) throw new Error("startStream returned no ts");
+      onFirstTs(res.ts, res.channel);
+      return res.ts;
+    };
     return {
-      startStream: async () => {
-        const args: ChatStartStreamArguments = {
-          channel: t.channel,
-          thread_ts: threadTs,
-          task_display_mode: "timeline",
-          ...(isChannel && t.recipientUserId
-            ? { recipient_user_id: t.recipientUserId }
-            : {}),
-          ...(isChannel && this.teamId
-            ? { recipient_team_id: this.teamId }
-            : {}),
-        };
-        const res = await this.client.chat.startStream(args);
-        if (!res.ts) throw new Error("startStream returned no ts");
-        onFirstTs(res.ts, res.channel);
-        return res.ts;
-      },
+      startStream: () => startStream(),
+      startStreamWithText: startStream,
       appendText: async (ts, markdownText) => {
         const args: ChatAppendStreamArguments = {
           channel: t.channel,
@@ -557,7 +640,11 @@ export class SlackAdapter implements PlatformAdapter {
         messageTs,
         threadTs: body.message?.thread_ts,
         user: body.user?.id
-          ? { id: body.user.id, name: body.user.name ?? body.user.username }
+          ? {
+              id: body.user.id,
+              kind: "human",
+              name: body.user.name ?? body.user.username,
+            }
           : undefined,
       }),
     ).catch((err) =>
@@ -624,6 +711,9 @@ export class SlackAdapter implements PlatformAdapter {
             onChunkFailure: () => {
               this.nativeTaskChunksOk = false;
             },
+            ...(this.opts.replyContinuation !== undefined
+              ? { replyContinuation: this.opts.replyContinuation }
+              : {}),
           }
         : undefined,
       // Native AI feedback row (opt-in); only attached to native streamed
@@ -695,10 +785,48 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   decodeInteraction(raw: unknown): InteractionEvent | undefined {
-    return decodeInteraction(raw);
+    const event = decodeInteraction(raw);
+    if (!event) return undefined;
+    const actor = event.actor ?? { id: "", kind: "unknown" };
+    event.identityContext = this.identityContext({
+      conversationKey: event.conversationKey,
+      conversationKind: "thread",
+      trigger: "interaction",
+      eventId: event.eventId,
+      actor,
+      raw: { actionId: event.id },
+    });
+    return event;
   }
 
-  async lookupUser(q: UserQuery): Promise<PlatformUser | undefined> {
+  /** Build bounded identity facts without fetching a Slack profile eagerly. */
+  private identityContext(input: {
+    conversationKey: string;
+    conversationKind: string;
+    trigger: string;
+    eventId?: string;
+    actor: ProviderActor;
+    raw: unknown;
+  }): IngressIdentityContext {
+    return {
+      tenant: { id: this.teamId ?? "unknown" },
+      installation: {
+        id: this.appId ?? this.botId ?? this.botUserId ?? "unknown",
+      },
+      conversation: {
+        id: input.conversationKey,
+        kind: input.conversationKind,
+      },
+      trigger: input.trigger,
+      event: input.eventId ? { id: input.eventId } : {},
+      raw: input.raw,
+      ...(input.actor.id && input.actor.kind === "human"
+        ? { lookupProfile: () => this.resolveUser(input.actor.id) }
+        : {}),
+    };
+  }
+
+  async lookupUser(q: UserQuery): Promise<ProviderActor | undefined> {
     const query = q.query.trim().toLowerCase();
     if (!query) return undefined;
     try {
@@ -728,6 +856,7 @@ export class SlackAdapter implements PlatformAdapter {
           if (candidates.some((c) => c === query || c.startsWith(query))) {
             return {
               id: m.id,
+              kind: "human",
               name: m.real_name ?? m.name,
               handle: m.name,
               email: m.profile?.email,
@@ -743,14 +872,14 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   /**
-   * Resolve a Slack user id to a richer `PlatformUser` (name + email) for each
+   * Resolve a Slack user id to a richer `ProviderActor` (name + email) for each
    * turn, cached by id so repeat turns in the same conversation are cheap.
    * Tolerates lookup failure by falling back to a bare `{ id }`.
    */
-  async resolveUser(userId: string): Promise<PlatformUser> {
+  async resolveUser(userId: string): Promise<ProviderActor> {
     const cached = this.userCache.get(userId);
     if (cached) return cached;
-    let user: PlatformUser = { id: userId };
+    let user: ProviderActor = { id: userId, kind: "human" };
     try {
       const r = (await this.client.users.info({ user: userId })) as {
         user?: {
@@ -768,6 +897,7 @@ export class SlackAdapter implements PlatformAdapter {
       if (u?.id) {
         user = {
           id: u.id,
+          kind: "human",
           name:
             u.real_name ??
             u.profile?.real_name ??
@@ -944,7 +1074,7 @@ export class SlackAdapter implements PlatformAdapter {
    */
   async postEphemeral(
     target: BotReplyTarget,
-    user: PlatformUser | string,
+    user: ProviderActor | string,
     ir: ChannelNode[],
     _opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {

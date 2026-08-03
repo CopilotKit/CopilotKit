@@ -8,12 +8,29 @@ import type {
 } from "@copilotkit/channels-ui";
 import { isBound, getBoundArgs, renderToIR } from "@copilotkit/channels-ui";
 import { mintId } from "./mint-id.js";
-import type { ActionStore } from "./action-store.js";
+import type {
+  ActionContinuationContext,
+  ActionContinuationBinding,
+  ActionContinuationSnapshot,
+  ActionStore,
+} from "./action-store.js";
 
 export class ActionExpiredError extends Error {
+  readonly code = "channel_action_expired";
+
   constructor(id: string) {
     super(`Action "${id}" has expired or is no longer available.`);
     this.name = "ActionExpiredError";
+  }
+}
+
+/** A continuation capability was presented outside its trusted Channel binding. */
+export class ActionContinuationMismatchError extends Error {
+  readonly code = "channel_continuation_mismatch";
+
+  constructor() {
+    super("The Channel continuation does not match this interaction");
+    this.name = "ActionContinuationMismatchError";
   }
 }
 
@@ -36,14 +53,20 @@ export class ActionRegistry {
   // needed to resolve HITL `awaitChoice` waiters on platforms whose callback
   // payload can't carry it (e.g. Telegram's 64-byte callback_data only holds
   // the action id), where `evt.value` arrives undefined.
-  private hot = new Map<string, { handler: ClickHandler; value: unknown }>();
+  private hot = new Map<
+    string,
+    { handler: ClickHandler; value: unknown; continuation?: true }
+  >();
   // Same-process fast path for `<Message onReaction>` handlers, keyed by the
   // posted message's id. Mirrors the `hot` action cache; the durable snapshot
   // (below) is the cross-restart counterpart, exactly like onClick.
   private messageReactions = new Map<string, MessageReactionHandler>();
 
-  constructor(opts: { store: ActionStore }) {
+  private readonly retentionMs?: number;
+
+  constructor(opts: { store: ActionStore; retentionMs?: number }) {
     this.store = opts.store;
+    this.retentionMs = opts.retentionMs;
   }
 
   /** Cache a `<Message onReaction>` handler for the posted message (same-process). */
@@ -111,10 +134,18 @@ export class ActionRegistry {
     componentName: string,
     props: Record<string, unknown>,
     conversationKey: string,
+    continuation?: ActionContinuationContext,
   ): Promise<ChannelNode[]> {
     const fn = this.components.get(componentName);
     const root = renderToIR((fn ? fn(props) : props) as Renderable);
-    await this.walk(root, [], componentName, props, conversationKey);
+    await this.walk(
+      root,
+      [],
+      componentName,
+      props,
+      conversationKey,
+      continuation,
+    );
     return root;
   }
 
@@ -128,6 +159,7 @@ export class ActionRegistry {
   async bindRenderable(
     ui: Renderable,
     conversationKey: string,
+    continuation?: ActionContinuationContext,
   ): Promise<{
     root: ChannelNode[];
     onReaction?: MessageReactionHandler;
@@ -146,10 +178,15 @@ export class ActionRegistry {
       component = fn.name || "anonymous";
       props = (ui.props ?? {}) as Record<string, unknown>;
       this.registerComponent(component, fn);
-      root = await this.bindTree(component, props, conversationKey);
+      root = await this.bindTree(
+        component,
+        props,
+        conversationKey,
+        continuation,
+      );
     } else {
       root = renderToIR(ui);
-      await this.walk(root, [], "", undefined, conversationKey);
+      await this.walk(root, [], "", undefined, conversationKey, continuation);
     }
     const onReaction = takeMessageReaction(root);
     return {
@@ -166,6 +203,7 @@ export class ActionRegistry {
     comp: string,
     props: unknown,
     conv: string,
+    continuation?: ActionContinuationContext,
   ): Promise<void> {
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i]!;
@@ -174,18 +212,28 @@ export class ActionRegistry {
         const handler = node.props[ep];
         if (typeof handler === "function") {
           const fullPath: (string | number)[] = [...path, ep];
-          const id = mintId(comp, fullPath, props);
+          const id = continuation
+            ? `ck:${globalThis.crypto.randomUUID()}`
+            : mintId(comp, fullPath, props);
           this.hot.set(id, {
             handler: handler as ClickHandler,
             value: node.props.value,
+            ...(continuation ? { continuation: true as const } : {}),
           });
-          await this.store.put(id, {
-            component: comp,
-            props,
-            path: fullPath,
-            conversationKey: conv,
-            boundArgs: isBound(handler) ? getBoundArgs(handler) : undefined,
-          });
+          await this.store.put(
+            id,
+            {
+              component: comp,
+              props,
+              path: fullPath,
+              conversationKey: conv,
+              boundArgs: isBound(handler) ? getBoundArgs(handler) : undefined,
+              ...(continuation
+                ? { continuation: { ...continuation, actionId: id } }
+                : {}),
+            },
+            continuation ? this.retentionMs : undefined,
+          );
           node.props[ep] = { id };
         }
       }
@@ -197,6 +245,7 @@ export class ActionRegistry {
           comp,
           props,
           conv,
+          continuation,
         );
       }
     }
@@ -213,6 +262,10 @@ export class ActionRegistry {
     let value: unknown;
     const hot = this.hot.get(id);
     if (hot) {
+      if (hot.continuation && !(await this.store.get(id))) {
+        this.hot.delete(id);
+        throw new ActionExpiredError(id);
+      }
       handler = hot.handler;
       value = hot.value;
     } else {
@@ -229,6 +282,51 @@ export class ActionRegistry {
     }
     await handler({ ...ctx, action: { ...ctx.action, id } });
     return value;
+  }
+
+  /** Read and validate one continuation capability without consuming it. */
+  async getContinuation(
+    id: string,
+    expected: ActionContinuationBinding,
+  ): Promise<ActionContinuationSnapshot> {
+    const available = await this.store.get(id);
+    if (!available?.continuation) throw new ActionExpiredError(id);
+    assertContinuationBinding(available.continuation, id, expected);
+    return available.continuation;
+  }
+
+  /** Validate and atomically consume one continuation capability. */
+  async claimContinuation(
+    id: string,
+    expected: ActionContinuationBinding,
+  ): Promise<ActionContinuationSnapshot> {
+    await this.getContinuation(id, expected);
+
+    const claimed = await this.store.consume(id);
+    if (!claimed?.continuation) throw new ActionExpiredError(id);
+    assertContinuationBinding(claimed.continuation, id, expected);
+    this.hot.delete(id);
+    return claimed.continuation;
+  }
+}
+
+function assertContinuationBinding(
+  actual: ActionContinuationSnapshot,
+  actionId: string,
+  expected: ActionContinuationBinding,
+): void {
+  if (
+    actual.actionId !== actionId ||
+    actual.channelName !== expected.channelName ||
+    actual.conversationKey !== expected.conversationKey ||
+    actual.threadId !== expected.threadId ||
+    typeof actual.runChainId !== "string" ||
+    actual.runChainId.length === 0 ||
+    typeof actual.initiator?.actor?.id !== "string" ||
+    (actual.initiator.user !== null &&
+      typeof actual.initiator.user?.id !== "string")
+  ) {
+    throw new ActionContinuationMismatchError();
   }
 }
 

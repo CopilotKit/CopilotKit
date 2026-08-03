@@ -1,0 +1,235 @@
+"use client";
+import { use, useEffect } from "react";
+import { notFound } from "next/navigation";
+import { z } from "zod";
+import {
+  CopilotKitProvider,
+  CopilotChatConfigurationProvider,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+import type { Skin } from "@/shell/skin-contract";
+import { getSkin } from "@/shell/registry";
+import { SkinProvider } from "@/shell/skin-provider";
+import { FloatingSelector } from "@/shell/floating-selector";
+import { ChatPanel } from "@/shell/chat/chat-panel";
+import { ChatInboxProvider } from "@/shell/chat/chat-inbox-context";
+import { TOOL_CALL_RENDERERS } from "@/shell/chat/tool-activity";
+import { CanvasProvider } from "@/shell/canvas/canvas-context";
+import { CanvasRegion } from "@/shell/canvas/canvas";
+import { useThreadSelection } from "@/shell/threads/use-thread-selection";
+
+/**
+ * The agent's render_report result becomes an `a2ui-surface` activity that the
+ * shared canvas renders full-region; generateSandboxedUi becomes an
+ * `open-generative-ui` activity that ALSO renders full-region on the canvas
+ * (this build ships the workspace OGUI renderer). In the chat we leave only a
+ * small handoff pill in place of each built-in inline surface renderer.
+ *
+ * Module-level so the array reference stays stable across renders
+ * (CopilotKitProvider requires a stable renderActivityMessages array). Both
+ * activity types are handled here — the OGUI pill is not dropped.
+ */
+function ReportHandoffPill() {
+  return (
+    <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-medium text-ink">
+      <span className="h-2 w-2 rounded-full bg-brand" />
+      <span className="uppercase tracking-wide text-ink-muted">report</span>
+      <span aria-hidden className="text-ink-muted">
+        →
+      </span>
+      <span>rendered on the canvas</span>
+    </div>
+  );
+}
+
+function OguiHandoffPill() {
+  return (
+    <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-medium text-ink">
+      <span className="h-2 w-2 rounded-full bg-brand" />
+      <span className="uppercase tracking-wide text-ink-muted">
+        interactive
+      </span>
+      <span aria-hidden className="text-ink-muted">
+        →
+      </span>
+      <span>rendered on the canvas</span>
+    </div>
+  );
+}
+
+const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
+  { activityType: "a2ui-surface", content: z.any(), render: ReportHandoffPill },
+  {
+    activityType: "open-generative-ui",
+    content: z.any(),
+    render: OguiHandoffPill,
+  },
+];
+
+function SkinSuggestions({ skin }: { skin: Skin }) {
+  useConfigureSuggestions({
+    available: "always",
+    suggestions: skin.suggestions,
+  });
+  return null;
+}
+
+// Module-level passthrough so a skin without a Providers stack doesn't create a
+// new component during render (react-hooks/static-components).
+function PassThrough({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+/**
+ * Render the skin's emoji `identity.favicon` into a `<link rel="icon">` so each
+ * skin owns its browser-tab icon (e.g. /airline → ✈️). Client-side because the
+ * per-skin layout is a client component (Next's metadata API is server-only).
+ * Restores the app's static favicon.ico on unmount / when a skin omits one, so
+ * navigating away from a skin doesn't strand its emoji.
+ */
+function FaviconSync({ emoji }: { emoji?: string }) {
+  useEffect(() => {
+    if (!emoji) return;
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    // Next injects a `<link rel="icon">` from the app/favicon.ico convention;
+    // create one only if that is somehow absent.
+    const created = !link;
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    const previousHref = link.href;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${emoji}</text></svg>`;
+    link.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    return () => {
+      if (created) link.remove();
+      else link.href = previousHref;
+    };
+  }, [emoji]);
+  return null;
+}
+
+/**
+ * The per-skin runtime subtree. Mounted with key={skin.id} by SkinLayout, so
+ * switching skins fully remounts the CopilotKit provider + a fresh thread —
+ * each skin runs in its own clean world.
+ *
+ * `RuntimeProviders` (optional) mounts ABOVE `CopilotKitProvider` so a skin can
+ * establish the context its `useRuntimeProperties` hook reads. The provider
+ * subtree itself lives in `SkinCopilotRuntime`, a child of `RuntimeProviders`.
+ */
+function SkinRuntime({
+  skin,
+  children,
+}: {
+  skin: Skin;
+  children: React.ReactNode;
+}) {
+  const RuntimeProviders = skin.RuntimeProviders ?? PassThrough;
+  return (
+    <div className={skin.themeClass}>
+      <FaviconSync emoji={skin.identity.favicon} />
+      <RuntimeProviders>
+        <SkinCopilotRuntime skin={skin}>{children}</SkinCopilotRuntime>
+      </RuntimeProviders>
+    </div>
+  );
+}
+
+/**
+ * The CopilotKit provider subtree for a skin. Split out of `SkinRuntime` so it
+ * renders BELOW `skin.RuntimeProviders` — that is what lets `useRuntimeProperties`
+ * read a skin's above-provider context (e.g. banking's auth) and have the shell
+ * thread the result straight into `CopilotKitProvider`'s `properties` prop. The
+ * provider then OWNS the property bag from its first commit; no child races an
+ * imperative `setProperties`, so client identity is ordering-independent.
+ */
+function SkinCopilotRuntime({
+  skin,
+  children,
+}: {
+  skin: Skin;
+  children: React.ReactNode;
+}) {
+  const { threadId, selectThread, createThread } = useThreadSelection();
+
+  // Skin-contributed runtime properties (identity scoping). The skin is fixed for
+  // this subtree's lifetime (keyed remount on skin change), so the optional hook
+  // call is order-stable. Undefined when a skin contributes none.
+  const properties = skin.useRuntimeProperties?.();
+
+  const Providers = skin.Providers ?? PassThrough;
+  const Layout = skin.Layout;
+  const Tools = skin.Tools;
+
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      // The runtime route is the multi-endpoint REST handler; the
+      // single-endpoint transport 404s against it, so stay in REST mode.
+      useSingleEndpoint={false}
+      // Provider-OWNED identity: a skin's `useRuntimeProperties` result flows
+      // straight in here, so the runtime's per-user Intelligence scoping never
+      // depends on a child effect firing in the right order. The provider adds
+      // `a2uiCatalogAvailable` itself, so a skin need not set it.
+      properties={properties}
+      a2ui={{ catalog: skin.catalog }}
+      // Replace the built-in inline surface renderers with small handoff pills
+      // (report + OGUI both render full-region on the shared canvas).
+      renderActivityMessages={A2UI_RENDERERS}
+      // Wildcard tool-call chip: a visible activity line for every tool call
+      // with no richer renderer of its own — this is what makes the agent's
+      // tool use visible in the transcript.
+      renderToolCalls={TOOL_CALL_RENDERERS}
+      openGenerativeUI={{
+        sandboxFunctions: skin.sandboxFunctions ?? [],
+        designSkill: skin.designSkill,
+      }}
+      // Surface the product web-inspector (<CopilotKitInspector>) on every
+      // host — this reference demo showcases it. `true` (not "auto") so
+      // deployed demo hosts show it too.
+      showDevConsole={true}
+    >
+      <CopilotChatConfigurationProvider agentId={skin.id} threadId={threadId}>
+        <SkinProvider skin={skin}>
+          <ChatInboxProvider
+            selectedThreadId={threadId}
+            onSelectThread={selectThread}
+            onCreateThread={createThread}
+          >
+            <CanvasProvider>
+              <Providers>
+                <SkinSuggestions skin={skin} />
+                <Tools />
+                <Layout>
+                  <CanvasRegion>{children}</CanvasRegion>
+                </Layout>
+                <ChatPanel threadId={threadId} />
+                <FloatingSelector activeId={skin.id} />
+              </Providers>
+            </CanvasProvider>
+          </ChatInboxProvider>
+        </SkinProvider>
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>
+  );
+}
+
+export default function SkinLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ skin: string }>;
+}) {
+  const { skin: skinId } = use(params);
+  const skin = getSkin(skinId);
+  if (!skin) notFound();
+  return (
+    <SkinRuntime key={skin.id} skin={skin}>
+      {children}
+    </SkinRuntime>
+  );
+}

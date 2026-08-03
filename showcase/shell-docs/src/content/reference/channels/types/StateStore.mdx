@@ -13,6 +13,7 @@ interface StateStore {
   kv: {
     get<T>(key: string): Promise<T | undefined>;
     set<T>(key: string, value: T, ttlMs?: number): Promise<void>;
+    consume<T>(key: string): Promise<T | undefined>;
     delete(key: string): Promise<void>;
   };
   list: {
@@ -53,6 +54,8 @@ interface StateStore {
 ## Semantics
 
 - `list.range` is oldest-first and uses non-negative, inclusive indices.
+- `kv.consume` atomically returns and deletes one value. Concurrent callers
+  must observe at most one non-`undefined` result.
 - `list.append({ ttlMs })` sets the expiry for the whole list. An append without
   `ttlMs` preserves an existing expiry.
 - `lock.acquire` returns `null` while another token holds an unexpired lock.
@@ -72,7 +75,7 @@ import { runStateStoreConformance } from "@copilotkit/channels/testing";
 runStateStoreConformance("postgres", () => createPostgresStateStore());
 ```
 
-Locks, deduplication, and queues must be atomic across processes. Use
+KV consumption, locks, deduplication, and queues must be atomic across processes. Use
 project/Channel namespacing to prevent key collisions.
 
 Pass the adapter through `createChannel({ store: { adapter } })`. See

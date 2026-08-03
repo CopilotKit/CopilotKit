@@ -12,6 +12,7 @@ export function kvActionStore(
     put: (id, snap, ttlMs) =>
       state.kv.set<ActionSnapshot>(key(id), snap, ttlMs ?? opts?.defaultTtlMs),
     get: (id) => state.kv.get<ActionSnapshot>(key(id)),
+    consume: (id) => state.kv.consume<ActionSnapshot>(key(id)),
     delete: (id) => state.kv.delete(key(id)),
   };
 }

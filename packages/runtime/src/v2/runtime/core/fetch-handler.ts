@@ -33,14 +33,21 @@
  * is LAZY: it is triggered by the first `await handler.channels.ready()` and
  * never before — not at handler creation, not on the first HTTP request.
  *
- * - On a LONG-RUNNING host (a Node server / container / the node/express/hono
- *   endpoint wrappers), call `await handler.channels.ready()` ONCE at startup to
- *   open the listener; the process owns it for its lifetime.
+ * - On a LONG-RUNNING host (a Node server / container / a Bun or Deno server),
+ *   call `await handler.channels.ready()` ONCE at startup to open the listener;
+ *   the process owns it for its lifetime.
  * - On a SERVERLESS / EDGE host (Cloudflare Workers, Next.js App Router), do NOT
  *   call `ready()` — those hosts freeze/recycle per-request isolates and cannot
  *   own a persistent listener, and separate cold starts would mint conflicting
  *   listeners. The generic Fetch handler stays a pure request/response function
  *   there, exactly as documented above.
+ *
+ * This laziness is a property of THIS handler, because it is the one entry point
+ * that must stay serverless-safe. The process-owning wrappers do not inherit it:
+ * `createCopilotNodeListener` and `createCopilotExpressHandler` START activation
+ * at creation (OSS-641), so `ready()` there is optional and await-and-observe.
+ * `createCopilotHonoHandler` keeps this handler's lazy behavior — a Hono app is
+ * multi-runtime and is our Next.js/edge surface in practice.
  *
  * @example
  * ```typescript
@@ -153,6 +160,11 @@ export interface CopilotRuntimeHandlerOptions {
    * TSDoc). Set `false` to opt out entirely: no {@link ChannelManager} is
    * constructed and the returned handler has no `.channels`. Non-intelligence or
    * channel-less runtimes never build a control surface regardless of this flag.
+   *
+   * The process-owning wrappers (`createCopilotNodeListener`,
+   * `createCopilotExpressHandler`) also START activation when this is left on,
+   * so `false` is the opt-out that keeps a mounted listener socket-free in a test
+   * or a short-lived script.
    */
   activateChannels?: boolean;
 
@@ -238,6 +250,9 @@ function getOrCreateChannelManager(
     runner: runtime.runner,
     lockTtlSeconds: runtime.lockTtlSeconds,
     lockHeartbeatIntervalSeconds: runtime.lockHeartbeatIntervalSeconds,
+    ...(runtime.lockKeyPrefix !== undefined
+      ? { lockKeyPrefix: runtime.lockKeyPrefix }
+      : {}),
     channels: runtime.channels,
     // Bridge the manager's diagnostic sink to the shared logger. Without this
     // every `this.log?.(...)` breadcrumb in the manager (setup_required,
@@ -511,6 +526,14 @@ function dispatchRoute(
   route: RouteInfo,
   options: { threadEndpointsEnabled: boolean },
 ): Promise<Response> {
+  if (
+    isIntelligenceRuntime(runtime) &&
+    runtime.identifyUser === undefined &&
+    route.method !== "info"
+  ) {
+    throw jsonResponse({ error: "Not found" }, 404);
+  }
+
   // Opt-in gate for the client-facing memory proxy routes (secure default:
   // off). When not explicitly enabled, every `/memories/*` route 404s as if it
   // did not exist — this MUST run before the per-handler `isIntelligenceRuntime`

@@ -75,6 +75,27 @@ async function captureRunCanonical(
     },
   });
 
+  const intelligence =
+    options.intelligence ??
+    new CopilotKitIntelligence({
+      apiUrl: "https://runtime.example",
+      wsUrl: "wss://runtime.example",
+      apiKey: "cpk-42_short_long",
+    });
+  vi.spyOn(intelligence, "ɵacquireThreadLock").mockResolvedValue({
+    ...canonicalIdentity,
+    joinToken: "join_token_not_used_by_channels",
+  });
+  // Always mock cleanup/renew so unit tests never issue real HTTP to apiUrl.
+  if (!vi.isMockFunction(intelligence.ɵcleanupThreadLock)) {
+    vi.spyOn(intelligence, "ɵcleanupThreadLock").mockResolvedValue(undefined);
+  }
+  if (!vi.isMockFunction(intelligence.ɵrenewThreadLock)) {
+    vi.spyOn(intelligence, "ɵrenewThreadLock").mockResolvedValue({
+      ttlSeconds: 20,
+    });
+  }
+
   await defaultActivateChannel(
     {
       wsUrl: "wss://runtime.example",
@@ -82,21 +103,14 @@ async function captureRunCanonical(
       apiKey: "cpk-42_short_long",
       projectId: 42,
       channelName: "support",
-      adapter: "slack",
       runtimeInstanceId: "rti_test",
     },
-    createChannel({ name: "support" }),
+    createChannel({ identifyUser: "platform", name: "support" }),
     importer,
     undefined,
     {
       runner,
-      intelligence:
-        options.intelligence ??
-        new CopilotKitIntelligence({
-          apiUrl: "https://runtime.example",
-          wsUrl: "wss://runtime.example",
-          apiKey: "cpk-42_short_long",
-        }),
+      intelligence,
       ...(options.lockHeartbeatIntervalSeconds !== undefined
         ? {
             lockHeartbeatIntervalSeconds: options.lockHeartbeatIntervalSeconds,
@@ -120,13 +134,13 @@ function runArgs(
     iterations: 1,
     interrupted: false,
   }),
-  abortSignal: AbortSignal = new AbortController().signal,
 ): Parameters<RunCanonical>[0] {
   return {
     agent: new NoopAgent(),
     ...canonicalIdentity,
-    runnerToken: "runner-token",
-    abortSignal,
+    deliveryId: "dlv_delivery_1",
+    userId: "app-user-1",
+    agentId: "support-agent",
     tools: [],
     context: [],
     persistedInputMessages: [],
@@ -135,6 +149,14 @@ function runArgs(
 }
 
 test("runCanonical rejects a RUN_ERROR event even when the runner completes", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+  });
+  const cleanup = vi
+    .spyOn(intelligence, "ɵcleanupThreadLock")
+    .mockResolvedValue(undefined);
   const runner = new TestRunner(() =>
     of({
       type: EventType.RUN_ERROR,
@@ -142,12 +164,13 @@ test("runCanonical rejects a RUN_ERROR event even when the runner completes", as
       code: "AGENT_FAILED",
     }),
   );
-  const runCanonical = await captureRunCanonical(runner);
+  const runCanonical = await captureRunCanonical(runner, { intelligence });
 
   await expect(runCanonical(runArgs())).rejects.toMatchObject({
     message: "agent failed",
     code: "AGENT_FAILED",
   });
+  expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
 });
 
 test("runCanonical renews the standard thread lock until the run settles", async () => {
@@ -192,6 +215,35 @@ test("runCanonical renews the standard thread lock until the run settles", async
   }
 });
 
+test("runCanonical stops only its exact run when the delivery is superseded", async () => {
+  const controller = new AbortController();
+  let complete: (() => void) | undefined;
+  const stopRun = vi.fn(async () => {
+    complete?.();
+    return true;
+  });
+  const runner = new TestRunner(
+    () =>
+      new Observable<BaseEvent>((observer) => {
+        complete = () => observer.complete();
+      }),
+    stopRun,
+  );
+  const runCanonical = await captureRunCanonical(runner);
+  const running = runCanonical({
+    ...runArgs(),
+    signal: controller.signal,
+  });
+
+  controller.abort("superseded");
+  await running;
+
+  expect(stopRun).toHaveBeenCalledWith({
+    threadId: canonicalIdentity.threadId,
+    runId: canonicalIdentity.runId,
+  });
+});
+
 test("runCanonical stops the standard runner when lock renewal fails", async () => {
   vi.useFakeTimers();
   try {
@@ -228,6 +280,7 @@ test("runCanonical stops the standard runner when lock renewal fails", async () 
     await failed;
     expect(stopRun).toHaveBeenCalledWith({
       threadId: canonicalIdentity.threadId,
+      runId: canonicalIdentity.runId,
     });
   } finally {
     vi.useRealTimers();
@@ -259,6 +312,40 @@ test("runCanonical passes canonical identity into the outer Channel loop", async
   );
 
   expect(observedIdentity).toEqual(canonicalIdentity);
+});
+
+test("runCanonical acquires the standard lock and uses the runner project key", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+  });
+  let request: AgentRunnerRunRequest | undefined;
+  const runner = new TestRunner((value) => {
+    request = value;
+    return EMPTY;
+  });
+  const runCanonical = await captureRunCanonical(runner, { intelligence });
+
+  await runCanonical(runArgs());
+
+  expect(intelligence.ɵacquireThreadLock).toHaveBeenCalledWith({
+    threadId: canonicalIdentity.threadId,
+    runId: canonicalIdentity.runId,
+    userId: "app-user-1",
+    agentId: "support-agent",
+    ttlSeconds: 20,
+    channelDeliveryId: "dlv_delivery_1",
+  });
+  expect(request).not.toHaveProperty("authToken");
+  // The thread id reaching the runner must stay the canonical product thread id,
+  // never decorated with a run id or any other process-local key.
+  // `IntelligenceAgentRunner` does not treat it as a local map key: it sends it as
+  // `thread_id` when joining `ingestion:<runId>`, and the gateway resolves that
+  // against `cpki.threads`, rejecting anything else with `thread_not_found`.
+  // `buildRunStartedEvent` also re-stamps `input.threadId` from it, so both must hold.
+  expect(request?.threadId).toBe(canonicalIdentity.threadId);
+  expect(request?.input.threadId).toBe(canonicalIdentity.threadId);
 });
 
 test("runCanonical returns a deferred delivery error only after the runner records RUN_FINISHED", async () => {
@@ -329,50 +416,6 @@ test("runCanonical returns a deferred delivery error only after the runner recor
   ]);
 });
 
-test("runCanonical stops and aborts only the signaled canonical runner", async () => {
-  const controller = new AbortController();
-  const inner = new NoopAgent();
-  const abortRun = vi.spyOn(inner, "abortRun");
-  let activeRequest: AgentRunnerRunRequest | undefined;
-  let completeRun: (() => void) | undefined;
-  const stopRun = vi.fn(async (request: AgentRunnerStopRequest) => {
-    if (request.threadId !== activeRequest?.threadId) return false;
-    activeRequest.agent.abortRun();
-    completeRun?.();
-    return true;
-  });
-  const runner = new TestRunner(
-    (request) =>
-      new Observable<BaseEvent>((observer) => {
-        activeRequest = request;
-        completeRun = () => observer.complete();
-      }),
-    stopRun,
-  );
-  const runCanonical = await captureRunCanonical(runner);
-  const running = runCanonical({
-    ...runArgs(undefined, controller.signal),
-    agent: inner,
-  });
-  const cancelled = expect(running).rejects.toThrow("gateway_drain_timeout");
-
-  await vi.waitFor(() => expect(activeRequest).toBeDefined());
-  controller.abort("gateway_drain_timeout");
-
-  try {
-    await vi.waitFor(() =>
-      expect(stopRun).toHaveBeenCalledWith({
-        threadId: canonicalIdentity.threadId,
-      }),
-    );
-    await cancelled;
-    expect(abortRun).toHaveBeenCalledOnce();
-  } finally {
-    completeRun?.();
-    await running.catch(() => undefined);
-  }
-});
-
 test("runCanonical rejects a runner join failure", async () => {
   const runner = new TestRunner(() =>
     throwError(() => new Error("runner join failed")),
@@ -380,6 +423,43 @@ test("runCanonical rejects a runner join failure", async () => {
   const runCanonical = await captureRunCanonical(runner);
 
   await expect(runCanonical(runArgs())).rejects.toThrow("runner join failed");
+});
+
+test("runCanonical cleans up the lock when the runner cannot start", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+  });
+  const cleanup = vi
+    .spyOn(intelligence, "ɵcleanupThreadLock")
+    .mockResolvedValue(undefined);
+  const runner = new TestRunner(() => {
+    throw new Error("runner startup failed");
+  });
+  const runCanonical = await captureRunCanonical(runner, { intelligence });
+
+  await expect(runCanonical(runArgs())).rejects.toThrow(
+    "runner startup failed",
+  );
+  expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
+});
+
+test("runCanonical cleans up the lock after a successful runner stream", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+  });
+  const cleanup = vi
+    .spyOn(intelligence, "ɵcleanupThreadLock")
+    .mockResolvedValue(undefined);
+  const runner = new TestRunner(() => EMPTY);
+  const runCanonical = await captureRunCanonical(runner, { intelligence });
+
+  await runCanonical(runArgs());
+
+  expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
 });
 
 test("runCanonical rejects an outer agent error completed by the standard runner", async () => {
@@ -393,8 +473,9 @@ test("runCanonical rejects an outer agent error completed by the standard runner
       agent,
       threadId,
       runId,
-      runnerToken: "runner-token",
-      abortSignal: new AbortController().signal,
+      deliveryId: "dlv_standard_runner_delivery",
+      userId: "app-user-1",
+      agentId: "support-agent",
       tools: [],
       context: [],
       persistedInputMessages: [],

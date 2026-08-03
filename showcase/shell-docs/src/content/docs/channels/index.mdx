@@ -2,14 +2,14 @@
 title: Channels
 nav_title: Overview
 icon: "lucide/MessagesSquare"
-description: Run one AG-UI agent in Slack or Microsoft Teams through managed CopilotKit Intelligence connections.
+description: Run one AG-UI agent in Slack, Microsoft Teams, and more through managed CopilotKit Intelligence connections.
 doc_type: explanation
 ---
 
 Channels brings your agent into the conversations where work already happens.
 Your agent still runs in your infrastructure. CopilotKit Intelligence owns the
-Slack or Microsoft Teams connection, delivers each turn to your Channels SDK
-listener, and sends the response back as native channel UI.
+channel connection (Slack, Teams, Discord, etc.), delivers each turn to your
+Channels SDK listener, and sends the response back as native channel UI.
 
 ## How Channels connects your agent
 
@@ -30,6 +30,16 @@ between those systems and the path each message takes.
   width={4000}
   height={2400}
   className="hidden dark:block my-8 w-full rounded-xl"
+/>
+
+<OpsPlatformCTA
+  variant="inline"
+  title="More channels are on the way"
+  body="Managed Slack is available now. Managed Teams is a controlled integration target. Direct SDK adapters also support Teams, Discord, WhatsApp, and Telegram."
+  ctaLabel="Book time with an engineer"
+  surface="docs_channels_more_channels_contact"
+  href="https://copilotkit.ai/talk-to-an-engineer"
+  analyticsEvent="talk_to_us_clicked"
 />
 
 Each message moves through the same five stages:
@@ -53,6 +63,14 @@ your agent, tools, or business logic into CopilotKit.
 | A long-running Channels SDK listener   | Platform ingress and credentialed delivery    |
 | Tools and approval business logic      | Runtime registration, health, and reconnects  |
 | Deployment, logs, and application auth | Conversation-history delivery to the listener |
+
+## Production self-hosting: Run Enterprise Intelligence in your own infrastructure
+
+Production self-hosting keeps your Channels configuration, provider credentials,
+delivery state, and platform operations inside your network, giving your
+organization control over data residency, security, and infrastructure.
+CopilotKit Engineering helps your team deploy Enterprise Intelligence in your
+Kubernetes environment. <DocsTrackedLink href="https://copilotkit.ai/talk-to-an-engineer" surface="docs_channels_self_hosting_contact">Book time with a CopilotKit engineer</DocsTrackedLink> to get started.
 
 ## Next step
 

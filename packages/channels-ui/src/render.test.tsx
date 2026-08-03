@@ -43,7 +43,27 @@ describe("renderToIR", () => {
   });
   it("passes {raw} through as a raw node", () => {
     expect(renderToIR({ raw: [{ block: 1 }] })).toEqual([
-      { type: "raw", props: { value: [{ block: 1 }] } },
+      {
+        type: "raw",
+        props: { provider: "slack", value: [{ block: 1 }] },
+      },
+    ]);
+  });
+
+  it("retains the provider identity of native elements", () => {
+    expect(
+      renderToIR({
+        provider: "teams",
+        raw: { type: "AdaptiveCard", version: "1.5", body: [] },
+      }),
+    ).toEqual([
+      {
+        type: "raw",
+        props: {
+          provider: "teams",
+          value: { type: "AdaptiveCard", version: "1.5", body: [] },
+        },
+      },
     ]);
   });
 });

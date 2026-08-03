@@ -5,7 +5,7 @@ import type { ChannelNode } from "@copilotkit/channels-ui";
  * the Intelligence side. It exists so platform *semantics* (how to render IR to
  * a native payload, and — later — how to normalize a native event to the
  * neutral ingress shape) live in ONE place, instead of being duplicated between
- * a credentialed local adapter and the Gateway-owned live delivery session.
+ * a credentialed local adapter and Gateway-owned provider delivery.
  *
  * Only the two creds/connection-bound concerns stay per-side: the transport
  * (who holds the platform connection) and the credentialed send. The codec

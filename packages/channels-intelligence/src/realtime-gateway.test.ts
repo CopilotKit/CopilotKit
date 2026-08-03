@@ -1,33 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   connectRealtimeGateway,
-  RealtimeGatewayChannelStateError,
   RealtimeGatewayPushError,
-  RealtimeGatewaySetupRequiredError,
   RealtimeGatewayUnreachableError,
 } from "./realtime-gateway.js";
 import type { RealtimeGatewayConnectionState } from "./realtime-gateway.js";
 
 type JoinMode =
   | "ok"
+  | "invitation-before-join"
   | "error"
   | "never"
   | "error-undefined-reason"
-  // `channel_declaration_unavailable` where the sole non-live channel is a
-  // genuine unconfigured/waiting state → setup_required.
-  | "error-setup-required"
-  // `channel_declaration_unavailable` with NO channels array — the defensive
-  // fallback path (nothing to classify) degrades to setup_required.
-  | "error-setup-required-no-channels"
-  // `channel_declaration_unavailable` where the declared channel does not exist
-  // in the project at all (OSS-622) → setup_required, not a hard failure.
-  | "error-channel-not-declared"
-  // `channel_declaration_unavailable` where a non-live channel is a hard-error
-  // state (`runtime_conflict`) → must NOT downgrade to setup_required.
-  | "error-conflict"
-  // `channel_declaration_unavailable` with one waiting AND one hard-error
-  // channel → fail loud on the worst (hard error).
-  | "error-mixed"
   // Replies `ok` to the FIRST join then never replies to a rejoin — the socket
   // reopens but the (re)join never completes, so the reconnect give-up window
   // can elapse. Used to exercise the `gave_up` transition.
@@ -62,32 +46,6 @@ function makeFakeWebSocket(
     switch (mode) {
       case "error-undefined-reason":
         return undefined;
-      case "error-setup-required":
-        return {
-          reason: "channel_declaration_unavailable",
-          channels: [{ state: "adapter_setup_required" }],
-        };
-      case "error-setup-required-no-channels":
-        return { reason: "channel_declaration_unavailable" };
-      case "error-channel-not-declared":
-        return {
-          reason: "channel_declaration_unavailable",
-          channels: [{ state: "channel_not_declared" }],
-        };
-      case "error-conflict":
-        return {
-          reason: "channel_declaration_unavailable",
-          channels: [{ state: "runtime_conflict" }],
-        };
-      case "error-mixed":
-        return {
-          reason: "channel_declaration_unavailable",
-          channels: [
-            { state: "adapter_setup_required" },
-            { state: "runtime_conflict" },
-            { state: "channel_live" },
-          ],
-        };
       default:
         return { reason: "unauthorized" };
     }
@@ -164,6 +122,7 @@ function makeFakeWebSocket(
       }
       const isOkMode =
         mode === "ok" ||
+        mode === "invitation-before-join" ||
         mode === "ok-then-silent" ||
         mode === "give-up-then-recover";
       const status = isOkMode ? "ok" : "error";
@@ -174,11 +133,28 @@ function makeFakeWebSocket(
               status,
               ...(errorResponse() ? { response: errorResponse() } : {}),
             };
-      queueMicrotask(() =>
+      queueMicrotask(() => {
+        if (mode === "invitation-before-join" && isInitialJoin) {
+          this.onmessage?.({
+            data: JSON.stringify([
+              joinRef,
+              null,
+              topic,
+              "delivery_invitation",
+              {
+                protocol: "channel_delivery_v1",
+                deliveryId: "dlv_first_invitation",
+                canonicalThreadId: "thread_first_invitation",
+                channelName: "opentag",
+                adapter: "slack",
+              },
+            ]),
+          });
+        }
         this.onmessage?.({
           data: JSON.stringify([joinRef, ref, topic, "phx_reply", reply]),
-        }),
-      );
+        });
+      });
     }
 
     /**
@@ -195,34 +171,6 @@ function makeFakeWebSocket(
           null,
           this.lastTopic,
           "phx_error",
-          {},
-        ]),
-      });
-    }
-
-    /**
-     * Simulate the gateway's explicit generation-fence notification followed by
-     * its clean `phx_close`. Phoenix treats that close as terminal and will not
-     * auto-rejoin this Channel instance.
-     */
-    triggerListenerFenced(): void {
-      if (this.lastJoinRef === undefined || this.lastTopic === undefined)
-        return;
-      this.onmessage?.({
-        data: JSON.stringify([
-          this.lastJoinRef,
-          null,
-          this.lastTopic,
-          "channel.listener_fenced.v1",
-          { reason: "listener_activation_fenced" },
-        ]),
-      });
-      this.onmessage?.({
-        data: JSON.stringify([
-          this.lastJoinRef,
-          null,
-          this.lastTopic,
-          "phx_close",
           {},
         ]),
       });
@@ -248,14 +196,13 @@ describe("connectRealtimeGateway", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/runner",
+        wsUrl: "wss://gateway.example/channels",
         apiKey: "cpk-test",
         projectId: 0,
         join: {
-          protocol: "channel_session_v1",
+          protocol: "channel_delivery_v1",
           runtimeInstanceId: "rti_1",
-          declaredChannels: [],
-          observedAt: "2026-07-10T00:00:00.000Z",
+          channels: [],
         },
         webSocket: NeverWebSocket,
       }),
@@ -266,14 +213,13 @@ describe("connectRealtimeGateway", () => {
   it("joins the channel topic with declared channels and disconnects the gateway session", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const join = {
-      protocol: "channel_session_v1" as const,
+      protocol: "channel_delivery_v1" as const,
       runtimeInstanceId: "rti_1",
-      declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-      observedAt: "2026-07-10T00:00:00.000Z",
+      channels: [{ channelName: "opentag", adapter: "slack" }],
     };
 
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join,
@@ -284,11 +230,40 @@ describe("connectRealtimeGateway", () => {
     const joinFrame = instances[0]!.frames.find(
       (frame) => Array.isArray(frame) && frame[3] === "phx_join",
     ) as [string, string, string, string, unknown];
-    expect(joinFrame[2]).toBe("channels:project:7");
+    expect(joinFrame[2]).toBe("control");
     expect(joinFrame[4]).toEqual(join);
 
     session.disconnect();
     expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("delivers an invitation sent before the control join reply", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("invitation-before-join");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+    });
+    const invitations: unknown[] = [];
+
+    session.on("delivery_invitation", (value) => invitations.push(value));
+
+    expect(invitations).toEqual([
+      {
+        protocol: "channel_delivery_v1",
+        deliveryId: "dlv_first_invitation",
+        canonicalThreadId: "thread_first_invitation",
+        channelName: "opentag",
+        adapter: "slack",
+      },
+    ]);
+    session.disconnect();
   });
 });
 
@@ -296,14 +271,13 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("fires a registered onClose callback exactly once when the socket drops unexpectedly", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -324,14 +298,13 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("fires onClose again for a second drop after the socket reopens", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -369,14 +342,13 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("does not fire onClose when the drop is our own disconnect()", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -395,14 +367,13 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("still fires later onClose callbacks when an earlier one throws", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -428,14 +399,13 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/runner",
+        wsUrl: "wss://gateway.example/channels",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
-          protocol: "channel_session_v1",
+          protocol: "channel_delivery_v1",
           runtimeInstanceId: "rti_1",
-          declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-          observedAt: "2026-07-10T00:00:00.000Z",
+          channels: [{ channelName: "opentag", adapter: "slack" }],
         },
         webSocket: FakeWebSocket,
       }),
@@ -452,14 +422,13 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/runner",
+        wsUrl: "wss://gateway.example/channels",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
-          protocol: "channel_session_v1",
+          protocol: "channel_delivery_v1",
           runtimeInstanceId: "rti_1",
-          declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-          observedAt: "2026-07-10T00:00:00.000Z",
+          channels: [{ channelName: "opentag", adapter: "slack" }],
         },
         webSocket: FakeWebSocket,
       }),
@@ -473,14 +442,13 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/runner",
+        wsUrl: "wss://gateway.example/channels",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
-          protocol: "channel_session_v1",
+          protocol: "channel_delivery_v1",
           runtimeInstanceId: "rti_1",
-          declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-          observedAt: "2026-07-10T00:00:00.000Z",
+          channels: [{ channelName: "opentag", adapter: "slack" }],
         },
         webSocket: FakeWebSocket,
         timeoutMs: 10,
@@ -492,185 +460,21 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
   });
 });
 
-describe("connectRealtimeGateway — per-channel state classification (OSS-473)", () => {
-  it("rejects with a SETUP_REQUIRED-coded error when a non-live channel is genuinely unconfigured", async () => {
-    const { FakeWebSocket, instances } = makeFakeWebSocket(
-      "error-setup-required",
-    );
-
-    const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: {
-        protocol: "channel_session_v1",
-        runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
-      },
-      webSocket: FakeWebSocket,
-    }).then(
-      () => undefined,
-      (e: unknown) => e,
-    );
-
-    expect(err).toBeInstanceOf(RealtimeGatewaySetupRequiredError);
-    expect((err as RealtimeGatewaySetupRequiredError).code).toBe(
-      "SETUP_REQUIRED",
-    );
-    // The raw gateway reason is preserved for diagnostics.
-    expect((err as RealtimeGatewaySetupRequiredError).reason).toBe(
-      "channel_declaration_unavailable",
-    );
-    // The offending waiting state is preserved for diagnostics.
-    expect((err as RealtimeGatewaySetupRequiredError).channelStates).toEqual([
-      "adapter_setup_required",
-    ]);
-    // The socket-leak-teardown behavior is unchanged: a failed join still tears
-    // the socket down rather than leaking it.
-    expect(instances[0]!.closed).toBe(true);
-  });
-
-  it("classifies channel_not_declared as SETUP_REQUIRED (OSS-622)", async () => {
-    // app-api reports `channel_not_declared` when the declared channel name does
-    // not exist in the project. Creating the channel and attaching credentials is
-    // the setup step every new channel goes through, so this is the first-run
-    // path — it must resolve `ready()` as setup_required, not crash startup.
-    const { FakeWebSocket, instances } = makeFakeWebSocket(
-      "error-channel-not-declared",
-    );
-
-    const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: {
-        protocol: "channel_session_v1",
-        runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "never-created", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
-      },
-      webSocket: FakeWebSocket,
-    }).then(
-      () => undefined,
-      (e: unknown) => e,
-    );
-
-    expect(err).toBeInstanceOf(RealtimeGatewaySetupRequiredError);
-    expect((err as RealtimeGatewaySetupRequiredError).code).toBe(
-      "SETUP_REQUIRED",
-    );
-    // Preserved so an operator can tell this apart from the other ways a channel
-    // reaches setup_required.
-    expect((err as RealtimeGatewaySetupRequiredError).channelStates).toEqual([
-      "channel_not_declared",
-    ]);
-    expect(instances[0]!.closed).toBe(true);
-  });
-
-  it("degrades to SETUP_REQUIRED when channel_declaration_unavailable carries no channel detail", async () => {
-    const { FakeWebSocket } = makeFakeWebSocket(
-      "error-setup-required-no-channels",
-    );
-
-    const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: {
-        protocol: "channel_session_v1",
-        runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
-      },
-      webSocket: FakeWebSocket,
-    }).then(
-      () => undefined,
-      (e: unknown) => e,
-    );
-
-    expect(err).toBeInstanceOf(RealtimeGatewaySetupRequiredError);
-    expect((err as RealtimeGatewaySetupRequiredError).channelStates).toEqual(
-      [],
-    );
-  });
-
-  it("does NOT downgrade a runtime_conflict to setup_required — it is a hard error", async () => {
-    const { FakeWebSocket, instances } = makeFakeWebSocket("error-conflict");
-
-    const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: {
-        protocol: "channel_session_v1",
-        runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
-      },
-      webSocket: FakeWebSocket,
-    }).then(
-      () => undefined,
-      (e: unknown) => e,
-    );
-
-    expect(err).toBeInstanceOf(RealtimeGatewayChannelStateError);
-    // A hard error must NOT carry the SETUP_REQUIRED marker (the manager keys
-    // `ready()` off it — a conflict must surface as `error`, not resolve).
-    expect((err as { code?: string }).code).not.toBe("SETUP_REQUIRED");
-    expect(err).not.toBeInstanceOf(RealtimeGatewaySetupRequiredError);
-    // The offending state is preserved for diagnostics.
-    expect((err as RealtimeGatewayChannelStateError).channelStates).toEqual([
-      "runtime_conflict",
-    ]);
-    expect((err as Error).message).toMatch(/runtime_conflict/);
-    expect(instances[0]!.closed).toBe(true);
-  });
-
-  it("fails loud on the worst state when waiting and hard-error channels are mixed", async () => {
-    const { FakeWebSocket } = makeFakeWebSocket("error-mixed");
-
-    const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: {
-        protocol: "channel_session_v1",
-        runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
-      },
-      webSocket: FakeWebSocket,
-    }).then(
-      () => undefined,
-      (e: unknown) => e,
-    );
-
-    expect(err).toBeInstanceOf(RealtimeGatewayChannelStateError);
-    // Only the hard-error state(s) are surfaced (channel_live is dropped, and
-    // the waiting adapter_setup_required is subsumed by the louder failure).
-    expect((err as RealtimeGatewayChannelStateError).channelStates).toEqual([
-      "runtime_conflict",
-    ]);
-  });
-});
-
 describe("connectRealtimeGateway — structured push errors", () => {
-  it("preserves the gateway code from a live-session effect rejection", async () => {
+  it("preserves the gateway code from a delivery packet rejection", async () => {
     const { FakeWebSocket } = makeFakeWebSocket("ok", {
       reason: "app_api_error",
       status: 409,
       code: "CHANNEL_EFFECT_SEQUENCE_GAP",
     });
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -700,14 +504,13 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("transitions to reconnecting on an unexpected drop and back to online on a successful rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -730,14 +533,13 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("transitions to reconnecting on a channel-level error while the socket stays open, then back to online on channel rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -762,47 +564,16 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
     session.disconnect();
   });
 
-  it("surfaces a superseded listener as fenced instead of pretending Phoenix will rejoin it", async () => {
-    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
-    const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: {
-        protocol: "channel_session_v1",
-        runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
-      },
-      webSocket: FakeWebSocket,
-    });
-
-    const states: string[] = [];
-    session.onStateChange((state) => states.push(state));
-
-    instances[0]!.triggerListenerFenced();
-
-    expect(states).toEqual(["fenced"]);
-    expect(
-      instances[0]!.frames.filter(
-        (frame) => Array.isArray(frame) && frame[3] === "phx_join",
-      ),
-    ).toHaveLength(1);
-
-    session.disconnect();
-  });
-
   it("gives up (emits gave_up) when the reconnect window elapses without a successful rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
       reconnectGiveUpMs: 40,
@@ -827,14 +598,13 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       "give-up-then-recover",
     );
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
       // Small window so give-up fires fast; small push timeout so silent rejoins
@@ -865,14 +635,13 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       "give-up-then-recover",
     );
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
       // Small window so give-up fires fast; small push timeout so silent rejoins
@@ -917,14 +686,13 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("does not emit a connection-state transition for our own disconnect()", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -1098,10 +866,9 @@ function makeFailingWebSocket(
 }
 
 const JOIN = {
-  protocol: "channel_session_v1" as const,
+  protocol: "channel_delivery_v1" as const,
   runtimeInstanceId: "rti_1",
-  declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-  observedAt: "2026-07-10T00:00:00.000Z",
+  channels: [{ channelName: "opentag", adapter: "slack" }],
 };
 
 describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => {
@@ -1115,7 +882,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
 
     const started = Date.now();
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://realtime.copilotkit.ai/runner",
+      wsUrl: "wss://realtime.copilotkit.ai/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: JOIN,
@@ -1134,13 +901,13 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     expect(elapsed).toBeLessThan(1_000);
     // The probe targets the same host AND path over http(s) — the path is what
     // separates "wrong host" from "no socket mounted here".
-    expect(urls).toEqual(["https://realtime.copilotkit.ai/runner"]);
+    expect(urls).toEqual(["https://realtime.copilotkit.ai/channels"]);
     // The message names the endpoint and the real cause, not a stopwatch.
     expect((err as Error).message).toMatch(/wss:\/\/realtime\.copilotkit\.ai/);
     expect((err as Error).message).toMatch(/does not resolve/);
     expect((err as Error).message).toMatch(/ENOTFOUND/);
     expect((err as RealtimeGatewayUnreachableError).endpoint).toBe(
-      "wss://realtime.copilotkit.ai/runner",
+      "wss://realtime.copilotkit.ai/channels",
     );
     expect((err as RealtimeGatewayUnreachableError).code).toBe(
       "GATEWAY_UNREACHABLE",
@@ -1149,9 +916,6 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     expect(
       (err as { cause?: { cause?: { code?: string } } }).cause?.cause?.code,
     ).toBe("ENOTFOUND");
-    // A misconfigured host is NOT a setup-waiting condition: it must reject
-    // `ready()`, never resolve as `setup_required` (coordinated with OSS-622).
-    expect(err).not.toBeInstanceOf(RealtimeGatewaySetupRequiredError);
     expect((err as { code?: string }).code).not.toBe("SETUP_REQUIRED");
     // The socket must not be left retrying a host that will never resolve.
     expect(instances.every((instance) => instance.closed)).toBe(true);
@@ -1165,7 +929,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
 
     const started = Date.now();
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: JOIN,
@@ -1194,7 +958,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     const { fetchImpl, urls } = makeRespondingFetch(404);
 
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://api.intelligence.example/runner",
+      wsUrl: "wss://api.intelligence.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: JOIN,
@@ -1207,7 +971,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     );
 
     expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
-    expect(urls).toEqual(["https://api.intelligence.example/runner"]);
+    expect(urls).toEqual(["https://api.intelligence.example/channels"]);
     expect((err as Error).message).toMatch(/answered HTTP 404/);
     expect((err as Error).message).toMatch(/handshake/);
   });
@@ -1224,7 +988,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
 
     const started = Date.now();
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: JOIN,
@@ -1249,7 +1013,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     );
 
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: JOIN,
@@ -1268,7 +1032,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     expect((err as Error).message).toMatch(/wss:\/\/gateway\.example/);
     // Nothing arrived from the socket, so the deadline itself starts the probe
     // and the reported cause still comes from it.
-    expect(urls).toEqual(["https://gateway.example/runner"]);
+    expect(urls).toEqual(["https://gateway.example/channels"]);
     expect((err as Error).message).toMatch(/ETIMEDOUT/);
   });
 
@@ -1278,7 +1042,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     const { fetchImpl } = makeFailingFetch({});
 
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: JOIN,
@@ -1291,7 +1055,9 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     );
 
     expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
-    expect((err as Error).message).toMatch(/wss:\/\/gateway\.example\/runner/);
+    expect((err as Error).message).toMatch(
+      /wss:\/\/gateway\.example\/channels/,
+    );
     expect((err as Error).message).toMatch(/no transport error within 150ms/);
     expect(
       (err as RealtimeGatewayUnreachableError).transportError,
@@ -1304,7 +1070,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     const { FailingWebSocket } = makeFailingWebSocket("undici");
 
     const err = await connectRealtimeGateway({
-      wsUrl: "ws://127.0.0.1:45999/runner",
+      wsUrl: "ws://127.0.0.1:45999/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: JOIN,
@@ -1332,7 +1098,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     );
 
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: JOIN,
@@ -1352,7 +1118,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     );
 
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: JOIN,
@@ -1367,7 +1133,7 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
   it("disarms the connect deadline once connected — a later drop is a reconnect, not an unreachable host", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: JOIN,
@@ -1396,14 +1162,13 @@ describe("connection-health detail (OSS-670)", () => {
   it("reports the drop cause alongside reconnecting/gave_up", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
       reconnectGiveUpMs: 40,
@@ -1434,14 +1199,13 @@ describe("connection-health detail (OSS-670)", () => {
       "give-up-then-recover",
     );
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
       reconnectGiveUpMs: 40,
@@ -1483,14 +1247,13 @@ describe("connection-health detail (OSS-670)", () => {
   it("reports an unhealthy gateway as unhealthy, not as a bad credential", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
       reconnectGiveUpMs: 40,
@@ -1517,19 +1280,18 @@ describe("connection-health detail (OSS-670)", () => {
   it("probes the endpoint when a reconnect is refused and names the cause", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
       reconnectGiveUpMs: 40,
       // The host is up and answers HTTP; only the WS upgrade is refused — the
-      // signature of a rejected runner credential.
+      // signature of a rejected project API key.
       diagnosticFetch: (async () =>
         new Response("", { status: 403 })) as typeof fetch,
     });

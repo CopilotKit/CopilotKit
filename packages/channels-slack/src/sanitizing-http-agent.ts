@@ -6,6 +6,15 @@ import type { Observable } from "rxjs";
 /**
  * An `HttpAgent` that tolerates the AG-UI event streams real agents emit.
  *
+ * @deprecated Pass a plain `HttpAgent` instead. Channels now tolerate these
+ * streams by default — `createChannel` coerces the offending field on the wire
+ * (opt out with `sanitizeAgentEvents: false`), so nothing needs a special agent
+ * class. This class is kept, unchanged, so existing code keeps working; it will
+ * be removed once `@ag-ui/langgraph` stops emitting the null (OSS-691). Note it
+ * still replaces the whole stock transform, so it also forgoes protobuf
+ * content-type negotiation and the graceful `AbortError` → `RUN_ERROR`
+ * conversion that the default path keeps.
+ *
  * `@ag-ui/client`'s stock transform re-validates every streamed event
  * against a strict Zod schema. Some events that `@ag-ui/langgraph`
  * legitimately emits fail it — notably a `TOOL_CALL_START` whose

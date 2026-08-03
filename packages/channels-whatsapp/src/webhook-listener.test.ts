@@ -37,9 +37,21 @@ describe("handleWebhookValue", () => {
     expect(sink.onTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         conversationKey: "whatsapp:111",
+        operation: {
+          kind: "created",
+          logicalMessageId: "wamid.1",
+          revisionId: "wamid.1",
+          mentioned: false,
+        },
         userText: "hello",
         platform: "whatsapp",
-        user: { id: "111", name: "Ada" },
+        actor: { id: "111", kind: "human", name: "Ada" },
+        identityContext: expect.objectContaining({
+          tenant: { id: "PNID" },
+          installation: { id: "PNID" },
+          conversation: { id: "whatsapp:111", kind: "direct" },
+          trigger: "message",
+        }),
         replyTarget: { to: "111", phoneNumberId: "PNID" },
       }),
     );

@@ -27,8 +27,10 @@ import packageJson from "../../package.json" with { type: "json" };
 // owned-prefix gate (oss-path-to-production) can accept them server-side
 // without a per-event sink deploy.
 export const TELEMETRY_EVENTS = {
+  opened: "oss.inspector.opened",
   bannerViewed: "oss.inspector.banner_viewed",
   bannerClicked: "oss.inspector.banner_clicked",
+  bannerDismissed: "oss.inspector.banner_dismissed",
   threadsTabClicked: "oss.inspector.threads_tab_clicked",
   threadsLockedViewed: "oss.inspector.threads_locked_viewed",
   threadsIntelligenceSignupClicked:
@@ -69,8 +71,15 @@ const PACKAGE_VERSION = packageJson.version;
 // runtime's existing scarf-client convention.
 const FETCH_TIMEOUT_MS = 3000;
 
-function isThreadsTelemetryEvent(event: TelemetryEvent): boolean {
+// Events that carry package identity (`package_name` / `package_version`) and
+// the inspector's anonymous distinct-ID alongside their own properties.
+// Threads / memories events have always been enriched this way; `opened`
+// joins them so panel-open volume can be segmented by inspector version.
+// Banner events deliberately keep the flat shape their existing dashboards
+// read.
+function isEnrichedTelemetryEvent(event: TelemetryEvent): boolean {
   return (
+    event === TELEMETRY_EVENTS.opened ||
     event === TELEMETRY_EVENTS.threadsTabClicked ||
     event === TELEMETRY_EVENTS.threadsLockedViewed ||
     event === TELEMETRY_EVENTS.threadsIntelligenceSignupClicked ||
@@ -143,7 +152,7 @@ export function track(
   if (isTelemetryOptedOut()) return;
 
   const distinctId = getOrCreateTelemetryDistinctId();
-  const threadsProperties = isThreadsTelemetryEvent(event)
+  const enrichedProperties = isEnrichedTelemetryEvent(event)
     ? {
         package_name: PACKAGE_NAME,
         package_version: PACKAGE_VERSION,
@@ -156,12 +165,14 @@ export function track(
       event,
       properties: {
         ...properties,
-        ...threadsProperties,
+        ...enrichedProperties,
         distinct_id: distinctId,
       },
       package: {
         name: PACKAGE_NAME,
-        ...(isThreadsTelemetryEvent(event) ? { version: PACKAGE_VERSION } : {}),
+        ...(isEnrichedTelemetryEvent(event)
+          ? { version: PACKAGE_VERSION }
+          : {}),
       },
       ts: Math.floor(Date.now() / 1000),
     });
@@ -176,8 +187,18 @@ export function track(
 // These enforce the known property shape for each V1 event at the call
 // site, so callers can't accidentally include PII under a wrong key.
 
+/**
+ * Where an announcement was rendered when the event fired. The announcement
+ * has two surfaces — the preview bubble beside the *collapsed* floating
+ * button, and the card *inside* the opened panel — and reach on one says
+ * nothing about attention on the other. Always stamped at fire time, never
+ * inferred at fetch time.
+ */
+export type BannerSurface = "collapsed_preview" | "expanded_card";
+
 export function trackBannerViewed(props: {
   banner_id: string;
+  surface: BannerSurface;
   cta_label?: string;
 }): void {
   track(TELEMETRY_EVENTS.bannerViewed, props);
@@ -189,6 +210,58 @@ export function trackBannerClicked(props: {
   cta_label?: string;
 }): void {
   track(TELEMETRY_EVENTS.bannerClicked, props);
+}
+
+/**
+ * First-class dismissal signal. Emitted *in addition to*
+ * `banner_clicked { cta: "dismiss" }` rather than replacing it — the
+ * existing dashboards read the `cta` value, so removing it would silently
+ * zero them out. New reporting should prefer this event, whose `surface`
+ * says whether the user swatted the bubble away or dismissed the card
+ * after opening the panel.
+ */
+export function trackBannerDismissed(props: {
+  banner_id: string;
+  surface: BannerSurface;
+  cta_label?: string;
+}): void {
+  track(TELEMETRY_EVENTS.bannerDismissed, props);
+}
+
+/**
+ * How the panel was opened. Restoring a persisted-open panel on mount is
+ * deliberately NOT a source: it is not an open *intent*, and counting it
+ * would turn every dev-server hot reload into an "open".
+ */
+export type InspectorOpenSource = "floating_button" | "announcement_preview";
+
+export type InspectorOpenedTelemetryProps = {
+  open_source: InspectorOpenSource;
+  package_name?: typeof PACKAGE_NAME;
+  package_version?: string;
+  inspector_distinct_id?: string;
+  license_status?:
+    | "valid"
+    | "none"
+    | "expired"
+    | "expiring"
+    | "invalid"
+    | "unknown";
+  runtime_mode?: "sse" | "intelligence";
+  runtime_url_type?: RuntimeUrlType;
+  /** True when an unseen announcement was on screen at open time. */
+  has_unseen_announcement?: boolean;
+};
+
+/**
+ * Panel-open signal (OSS-566). Before this event, opens could only be
+ * inferred from in-panel activity (a floor) or from `banner_clicked`
+ * cta=`body` (which misses the floating-button path entirely).
+ */
+export function trackInspectorOpened(
+  props: InspectorOpenedTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.opened, props);
 }
 
 export type InspectorThreadTelemetryProps = {

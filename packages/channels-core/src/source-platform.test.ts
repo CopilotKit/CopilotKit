@@ -13,6 +13,8 @@ test("an ingress source platform reaches the text thread and its tool context", 
     threadPlatform?: string;
     toolPlatform?: string;
     toolThreadPlatform?: string;
+    toolUser?: string;
+    toolActor?: string;
   } = {};
   const adapter = new FakeAdapter({ platform: "intelligence" });
   const agent = new FakeAgent([
@@ -29,6 +31,7 @@ test("an ingress source platform reaches the text thread and its tool context", 
     },
   ]);
   const channel = createChannel({
+    identifyUser: "platform",
     adapters: [adapter],
     agent: () => agent,
     tools: [
@@ -39,6 +42,8 @@ test("an ingress source platform reaches the text thread and its tool context", 
         handler: (_args: Record<string, never>, ctx: ChannelToolContext) => {
           observed.toolPlatform = ctx.platform;
           observed.toolThreadPlatform = ctx.thread.platform;
+          observed.toolUser = ctx.user?.id;
+          observed.toolActor = ctx.actor.id;
           return "captured";
         },
       },
@@ -56,6 +61,15 @@ test("an ingress source platform reaches the text thread and its tool context", 
     replyTarget: {},
     userText: "hello",
     platform: "slack",
+    actor: { id: "U1", kind: "human", name: "Ada" },
+    identityContext: {
+      tenant: { id: "T1" },
+      installation: { id: "I1" },
+      conversation: { id: "conversation-1", kind: "channel" },
+      trigger: "message",
+      event: { id: "E1" },
+      raw: {},
+    },
   });
 
   expect(observed).toEqual({
@@ -63,25 +77,27 @@ test("an ingress source platform reaches the text thread and its tool context", 
     threadPlatform: "slack",
     toolPlatform: "slack",
     toolThreadPlatform: "slack",
+    toolUser: "slack:T1:U1",
+    toolActor: "U1",
   });
 });
 
 test("an ingress source platform scopes identity resolution and event dedupe", async () => {
   const state = new MemoryStore();
   const dedupeSeen = vi.spyOn(state.dedup, "seen").mockResolvedValue(false);
-  const identity = vi.fn(() => "person-1");
+  const identifyUser = vi.fn(() => ({ id: "person-1", name: "Person One" }));
   const adapter = new FakeAdapter({ platform: "intelligence" });
   const channel = createChannel({
     adapters: [adapter],
+    identifyUser,
     store: {
       adapter: state,
-      identity,
       transcripts: {},
     },
   });
-  let userKey: string | undefined;
+  let userId: string | undefined;
   channel.onMessage(({ message }) => {
-    userKey = message.userKey;
+    userId = message.user?.id;
   });
   await channel.ɵruntime.start();
 
@@ -91,17 +107,20 @@ test("an ingress source platform scopes identity resolution and event dedupe", a
     userText: "hello",
     platform: "teams",
     eventId: "event-1",
-    user: { id: "user-1" },
+    actor: { id: "user-1", kind: "human" },
   });
 
-  expect(dedupeSeen).toHaveBeenCalledWith("evt:teams:event-1", 300_000);
-  expect(identity).toHaveBeenCalledWith(
+  expect(dedupeSeen).toHaveBeenCalledWith(
+    "message:teams:created:event-1:event-1",
+    300_000,
+  );
+  expect(identifyUser).toHaveBeenCalledWith(
     expect.objectContaining({
-      adapter: "teams",
-      message: expect.objectContaining({ platform: "teams" }),
+      provider: "teams",
+      actor: expect.objectContaining({ id: "user-1" }),
     }),
   );
-  expect(userKey).toBe("person-1");
+  expect(userId).toBe("person-1");
 });
 
 test("non-text ingress keeps source platform in handler contexts and dedupe keys", async () => {
@@ -110,6 +129,7 @@ test("non-text ingress keeps source platform in handler contexts and dedupe keys
   const adapter = new FakeAdapter({ platform: "intelligence" });
   const observed: Record<string, string> = {};
   const channel = createChannel({
+    identifyUser: "platform",
     adapters: [adapter],
     store: { adapter: state },
   });

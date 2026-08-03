@@ -1011,7 +1011,7 @@ jobs:
       # "unknown revision" and advances anyway — i.e. without this step it
       # would silently FAIL OPEN and never actually guard.
       - name: Login to GHCR
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1255,7 +1255,7 @@ jobs:
       # these packages are private, and an unauthenticated read makes the
       # guard fail open instead of guarding.
       - name: Login to GHCR
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

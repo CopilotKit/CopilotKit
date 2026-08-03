@@ -24,21 +24,24 @@ function setup() {
   connectRealtimeGatewayMock.mockReset();
   connectRealtimeGatewayMock.mockResolvedValue(session);
 
+  const channel = createChannel({ identifyUser: "platform", name: "support" });
+  channel.onMessage(async () => {});
+
   return {
-    channel: createChannel({ name: "support" }),
+    channel,
     disconnect,
     webSocket: vi.fn(),
   };
 }
 
-test("joins the Gateway project with the live-session protocol", async () => {
+test("joins the Gateway control topic with the delivery protocol", async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-07-29T12:00:00.000Z"));
   const { channel, disconnect, webSocket } = setup();
 
   try {
     const handle = await startChannelsOverRealtimeGateway([channel], {
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       scope: { projectId: 7, channelName: "support" },
       runtimeInstanceId: "rti_test",
@@ -54,21 +57,16 @@ test("joins the Gateway project with the live-session protocol", async () => {
     });
 
     expect(connectRealtimeGatewayMock).toHaveBeenCalledExactlyOnceWith({
-      wsUrl: "wss://gateway.example/runner",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
-        protocol: "channel_session_v1",
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_test",
-        declaredChannels: [{ channelName: "support", adapter: "slack" }],
-        runtimeMetadata: {
-          runtimeEnv: "test",
-          nodeVersion: "v22.0.0",
-          runtimePackageVersion: "1.2.3",
-          channelsPackageVersion: "4.5.6",
-          commands: { support: [] },
-        },
-        observedAt: "2026-07-29T12:00:00.000Z",
+        channels: [
+          { channelName: "support", adapter: "slack" },
+          { channelName: "support", adapter: "teams" },
+        ],
       },
       webSocket,
     });

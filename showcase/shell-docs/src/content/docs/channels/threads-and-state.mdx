@@ -21,8 +21,8 @@ and interrupt callbacks.
 `thread.conversationKey` is the opaque, stable key Intelligence supplies for
 the native conversation. Do not parse it or infer workspace, team, channel, or
 thread identifiers from its value. The SDK passes that same value to your
-`agent(threadId)` factory, which is why every quickstart creates a fresh agent
-and assigns its `threadId`.
+`agent(threadId)` factory (or sets it on a cloned singleton), which is why
+every quickstart creates a fresh agent and assigns its `threadId`.
 
 ```ts title="agent.ts"
 export function makeAgent(threadId: string) {
@@ -32,13 +32,18 @@ export function makeAgent(threadId: string) {
 }
 ```
 
-Do not reuse one mutable agent instance across conversations. Managed history
-is loaded onto the newly created agent, and concurrent threads would overwrite
-a singleton's messages.
+Prefer an agent **factory** so each turn gets an explicit new instance. You may
+also pass a singleton (`agent: shared`); under the hood the SDK calls
+`shared.clone()` per run so concurrent turns do not share one mutable object.
+Managed history is loaded onto that per-run agent after isolation.
 
-The native provider is `message.platform`. On the managed path,
-`thread.platform` is `"intelligence"` because it identifies the delivery
-adapter rather than Slack or Teams.
+Managed delivery admission keeps one canonical conversation exclusive while
+unrelated conversations run in parallel. The SDK `store.concurrency` setting
+still governs other adapter paths and shared workflow state; it does not raise
+the managed same-Thread delivery limit.
+
+The native provider is available on both `message.platform` and
+`thread.platform`. Managed turns report `"slack"` or `"teams"`.
 
 ## What Intelligence restores
 
@@ -96,7 +101,7 @@ const workflowState = z.object({
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
-  provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   store: {
     state: workflowState,
@@ -137,7 +142,7 @@ const workflowState = z.object({
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
-  provider: "teams",
+  identifyUser: "platform",
   agent: makeAgent,
   store: {
     state: workflowState,
@@ -176,17 +181,19 @@ The contract includes key/value, list, lock, deduplication, and queue
 operations. Values must round-trip through JSON.
 
 <Callout type="warn" title="Do not infer durability from Online status">
-  **Online** confirms a healthy managed connection; the runtime may be active or
-  standby. Send a real provider message to test delivery. This status does not
-  prove your application workflow state survives a process restart, so test a
-  restart while an approval card is pending before shipping a durable workflow.
+  **Online** confirms a healthy managed connection that can receive delivery
+  invitations. Send a real provider message to test delivery. This status does
+  not prove your application workflow state survives a process restart, so test
+  a restart while an approval card is pending before shipping a durable
+  workflow.
 </Callout>
 
 ## Operational checklist
 
 - Use one fresh agent per `conversationKey`.
 - Pass the current inbound message to `runAgent`.
-- Branch on `message.platform`, not `thread.platform`.
+- Branch on `message.platform` for the current turn; `thread.platform` carries
+  the same native provider when only the Thread is available.
 - Store only JSON-serializable workflow data.
 - Replace, do not patch, values passed to `setState`.
 - Configure a durable `StateStore` before promising restart-safe approvals.

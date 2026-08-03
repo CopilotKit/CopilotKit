@@ -1,0 +1,32 @@
+/* Aeronova (airline) theme — a deep-blue / teal aviation palette. Re-values
+   only the shared design tokens the shell defines in globals.css; adds no new
+   token names. Imported (side-effect) from layout.tsx so it loads whenever the
+   airline skin mounts. Distinct from banking's violet: brand is a jet teal,
+   canvas is a cool sky-tint. */
+
+.theme-airline {
+  --radius: 1.125rem;
+
+  /* Brand: jet teal, deepening toward a marine indigo. */
+  --brand: 190 88% 38%;
+  --brand-violet: 190 84% 40%;
+  --brand-indigo: 208 82% 34%;
+  --brand-foreground: 0 0% 100%;
+  --brand-soft: 190 70% 94%;
+
+  /* Surfaces: cool, sky-tinted neutrals. */
+  --background: 205 45% 99%;
+  --foreground: 210 40% 12%;
+
+  --canvas: 205 48% 96%;
+  --surface: 0 0% 100%;
+  --surface-muted: 205 40% 97%;
+  --ink: 210 40% 13%;
+  --ink-muted: 208 16% 42%;
+  --hairline: 205 32% 89%;
+
+  --positive: 158 64% 38%;
+  --positive-soft: 158 66% 94%;
+  --negative: 4 74% 54%;
+  --negative-soft: 4 84% 96%;
+}

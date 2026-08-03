@@ -26,6 +26,7 @@ describe("createChannel telemetry wiring", () => {
     // telemetry) is resolved there, not at construction, so an adapter attached
     // via addAdapter can still provide the persistence backend.
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [new FakeAdapter()],
       components: [
         function Card() {
@@ -45,7 +46,7 @@ describe("createChannel telemetry wiring", () => {
 
   it("emits oss.channel.started on start, start_failed (category only) on a throwing adapter", async () => {
     const ok = new FakeAdapter();
-    const channel = createChannel({ adapters: [ok] });
+    const channel = createChannel({ identifyUser: "platform", adapters: [ok] });
     await channel.ɵruntime.start();
     expect(
       capture.mock.calls.find((c) => c[0] === "oss.channel.started")?.[1]
@@ -58,7 +59,7 @@ describe("createChannel telemetry wiring", () => {
       Promise.reject(
         Object.assign(new Error("xoxb-SECRET token bad"), { code: "EAUTH" }),
       );
-    const bot2 = createChannel({ adapters: [bad] });
+    const bot2 = createChannel({ identifyUser: "platform", adapters: [bad] });
     // All adapters failed → start() rejects (the channel is dead; the runtime
     // reports status "error"). The start_failed telemetry is still captured
     // before the throw.
@@ -74,6 +75,7 @@ describe("createChannel telemetry wiring", () => {
   it("emits oss.channel.agent_run on a successful run", async () => {
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => new FakeAgent(),
     });
