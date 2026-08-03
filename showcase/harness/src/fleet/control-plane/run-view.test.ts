@@ -696,6 +696,70 @@ describe("projectWorker", () => {
     ).toBe("");
   });
 
+  // 2026-08-03 incident: the prod prober fleet sat pinned at cgroup
+  // `pids.current == pids.max == 1000` (~730 zombies) for hours and could not
+  // launch a browser, yet `/api/runs` reported `online, 4/40 contexts` because
+  // the projection dropped the PID gauges the heartbeat already persists. The
+  // context budget was never the binding constraint; the PID ceiling was.
+  describe("cgroup PID gauges (2026-08-03 PID-exhaustion blindness)", () => {
+    it("projects capacity_pids_current / capacity_pids_max onto the view", () => {
+      const projected = projectWorker(
+        workerRow({ capacity_pids_current: 640, capacity_pids_max: 1_000 }),
+        STALE_AFTER_MS,
+        NOW_MS,
+      );
+      expect(projected.capacity.pidsCurrent).toBe(640);
+      expect(projected.capacity.pidsMax).toBe(1_000);
+    });
+
+    it("flags saturation at/above the threshold and not below it", () => {
+      // 0.85 is the canonical threshold: prod crossed it on 2026-08-01,
+      // ~36h before the flip that produced 428 abort cells.
+      const at = (current: number) =>
+        projectWorker(
+          workerRow({
+            capacity_pids_current: current,
+            capacity_pids_max: 1_000,
+          }),
+          STALE_AFTER_MS,
+          NOW_MS,
+        ).capacity.pidsSaturated;
+      expect(at(1_000)).toBe(true); // the incident reading
+      expect(at(850)).toBe(true); // exactly at the threshold
+      expect(at(849)).toBe(false); // just under
+      expect(at(199)).toBe(false); // post-restart healthy reading
+    });
+
+    it("reports unknown gauges as null and never as a saturated fleet", () => {
+      // `gaugeOrNull` (worker/registration.ts) writes null for the -1
+      // "unreadable cgroup" sentinel, and a pre-migration row has no column at
+      // all. Neither may read as "0 of 0 PIDs", and neither may claim
+      // saturation — an unreadable gauge is not evidence of exhaustion.
+      const projected = projectWorker(
+        workerRow({
+          capacity_pids_current: undefined,
+          capacity_pids_max: undefined,
+        }),
+        STALE_AFTER_MS,
+        NOW_MS,
+      );
+      expect(projected.capacity.pidsCurrent).toBeNull();
+      expect(projected.capacity.pidsMax).toBeNull();
+      expect(projected.capacity.pidsSaturated).toBe(false);
+    });
+
+    it("treats a negative sentinel that reached the column as unknown", () => {
+      const projected = projectWorker(
+        workerRow({ capacity_pids_current: -1, capacity_pids_max: -1 }),
+        STALE_AFTER_MS,
+        NOW_MS,
+      );
+      expect(projected.capacity.pidsCurrent).toBeNull();
+      expect(projected.capacity.pidsMax).toBeNull();
+      expect(projected.capacity.pidsSaturated).toBe(false);
+    });
+  });
+
   it("maps an empty current_job_id to null and a set one to its value", () => {
     expect(
       projectWorker(workerRow({ current_job_id: "j9" }), STALE_AFTER_MS, NOW_MS)
@@ -1105,6 +1169,50 @@ describe("createMemoizedFamilySummary", () => {
       },
     ]);
     expect(JSON.stringify(summary.workers)).not.toContain("endpoint");
+  });
+
+  // The 2026-08-03 read-model reproduction, at the surface `/api/runs`
+  // actually serializes. During the incident this body read
+  // `{"health":"online","capacity":{"inUse":4,"available":36,"max":40}}` for a
+  // worker pinned at pids 1000/1000 — the exhaustion was persisted in PB and
+  // dropped in the projection, so no operator or watcher could see it.
+  it("serializes the cgroup PID gauges and saturation flag for a PID-exhausted worker", async () => {
+    const { pb } = makeFakePb({
+      workers: [
+        {
+          id: "w1",
+          worker_id: "worker-de14c95897c2",
+          endpoint: "http://worker-internal:8790",
+          capacity_in_use: 4,
+          capacity_available: 36,
+          capacity_max: 40,
+          // The verbatim incident reading (resource_snapshots, 16:19:51Z).
+          capacity_pids_current: 1_000,
+          capacity_pids_max: 1_000,
+          current_job_id: "",
+          last_heartbeat_at: iso(-1_000),
+          registered_at: iso(-5_000),
+        },
+      ],
+    });
+    const summary = await createMemoizedFamilySummary(
+      makeDeps({ pb, workerStaleAfterMs: 180_000 }),
+    ).get();
+    // Heartbeat freshness still says "online" and the context budget still
+    // looks roomy — that is correct and is exactly why the PID gauges have to
+    // be on the same object.
+    expect(summary.workers[0]!.health).toBe("online");
+    expect(summary.workers[0]!.capacity).toEqual({
+      inUse: 4,
+      available: 36,
+      max: 40,
+      pidsCurrent: 1_000,
+      pidsMax: 1_000,
+      pidsSaturated: true,
+    });
+    const body = JSON.stringify(summary.workers);
+    expect(body).toContain("pidsSaturated");
+    expect(body).not.toContain("endpoint");
   });
 
   it('a PB list failure for one family yields that entry as {error:"history_unavailable"} while other families project normally', async () => {
