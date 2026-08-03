@@ -44,6 +44,23 @@
    "chunkSize": 9999
   },
   {
+   "_comment": "HEAL pill - inner _design_a2ui_surface repeat-invocation FALLBACK. No sequenceIndex, ordered AFTER the two sequenced variants, serving the SAME valid surface as sequenceIndex 1. Load-bearing: aimock's sequenceIndex counters are bucketed per X-Test-Id and never reset within a bucket, and a real browser sends no X-Test-Id, so slots 0 and 1 are spent by the FIRST heal and every later heal skipped both gates and fell through to the userMessage-only outer-emit fixture below -- which serves generate_a2ui, not _design_a2ui_surface, so the recovery loop saw empty_components on all 3 attempts and painted the amber \"Couldn't generate the UI\" card while the narration still claimed success. With this fallback the first heal still stages invalid->retry->valid and every heal after it paints immediately. This is GOTCHAS.md's sanctioned repeat-invocation pattern (sequenceIndex variants + a non-sequenced fallback ordered after them) and the same stateless shape the EXHAUST pill above/below already uses.",
+   "match": {
+    "userMessage": "Generate the Vantage .NET quarterly revenue board and self-heal a malformed first render.",
+    "toolName": "_design_a2ui_surface"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_msdotnet_recover_heal_good_repeat",
+      "name": "_design_a2ui_surface",
+      "arguments": "{\"surfaceId\":\"recovery-surface\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"m1\",\"m2\"]},{\"id\":\"m1\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12% QoQ\"},{\"id\":\"m2\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\",\"trendValue\":\"-2 pts\"}],\"data\":{}}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
    "_comment": "EXHAUST pill - inner _design_a2ui_surface: structurally INVALID on every attempt (root references an id that is never defined) -> validation fails on all MaxAttempts (3) -> recovery exhausts to the a2ui_recovery_exhausted `failed` card. No sequenceIndex so it matches every attempt of this prompt.",
    "match": {
     "userMessage": "Generate a .NET board that fails every validation pass so I can preview the recovery fallback.",
