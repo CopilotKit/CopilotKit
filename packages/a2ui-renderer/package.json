@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/a2ui-renderer",
-  "version": "1.64.2",
+  "version": "1.65.0",
   "private": false,
   "description": "A2UI Renderer for CopilotKit - render A2UI surfaces in React applications",
   "keywords": [
