@@ -164,10 +164,10 @@ export interface ChannelManagerArgs {
    * path (not just activation-level events). */
   log?: (msg: string, meta?: unknown) => void;
   /**
-   * How often (ms) to repeat a "still down" log while a managed session is
-   * disconnected. A dropped session was previously silent for as long as the
-   * outage lasted, which made a dead bot indistinguishable from an idle one
-   * (OSS-670). Injectable so tests need no fake timers. Default 30000.
+   * Initial delay (ms) before a "still down" log while a managed session is
+   * disconnected. Later reminders back off exponentially to a 15-minute cap,
+   * keeping a prolonged outage visible without flooding logs. Injectable so
+   * tests can use a shorter first delay. Default 30000.
    */
   reconnectLogIntervalMs?: number;
   /** Per-handle deadline (ms) for `handle.stop()` during {@link ChannelManager.stop}
@@ -190,8 +190,10 @@ interface ChannelEntry {
   handleStopped: boolean;
   /** Epoch ms this outage episode began; unset while the session is healthy. */
   downSince?: number;
-  /** Repeating "still down" logger for this outage; cleared on recovery/teardown. */
-  reconnectLogTimer?: ReturnType<typeof setInterval>;
+  /** Next "still down" logger for this outage; cleared on recovery/teardown. */
+  reconnectLogTimer?: ReturnType<typeof setTimeout>;
+  /** Delay before the next reminder; doubles after each emitted reminder. */
+  reconnectLogDelayMs?: number;
 }
 
 /**
@@ -732,8 +734,11 @@ export function isModuleNotFound(err: unknown): boolean {
 /** Default deadline (ms) for a single `handle.stop()` during teardown. */
 const DEFAULT_STOP_HANDLE_TIMEOUT_MS = 5_000;
 
-/** Default cadence (ms) for the "still down" log while a session is dropped. */
+/** First delay (ms) before logging that a dropped session is still down. */
 const DEFAULT_RECONNECT_LOG_INTERVAL_MS = 30_000;
+
+/** Longest delay (ms) between reminders during one continuous outage. */
+const DEFAULT_RECONNECT_LOG_MAX_INTERVAL_MS = 15 * 60_000;
 
 /**
  * Reject with `timeoutMessage` after `timeoutMs` if `inner` has not settled,
@@ -1232,14 +1237,17 @@ export class ChannelManager implements ChannelsControl {
   }
 
   /**
-   * Repeat a "still down" line for as long as this outage lasts. Runs THROUGH
-   * `gave_up` on purpose: that transition is where the old behavior went quiet,
-   * and an operator watching a silent process cannot tell a dead bot from an
-   * idle one.
+   * Repeat a "still down" line for as long as this outage lasts, with an
+   * exponential delay capped at 15 minutes. Runs THROUGH `gave_up` on purpose:
+   * that transition is where the old behavior went quiet, and an operator
+   * watching a silent process cannot tell a dead bot from an idle one.
    */
   private startReconnectLog(name: string, entry: ChannelEntry): void {
     if (entry.reconnectLogTimer !== undefined) return;
-    const timer = setInterval(() => {
+
+    const delayMs = entry.reconnectLogDelayMs ?? this.reconnectLogIntervalMs;
+    const timer = setTimeout(() => {
+      entry.reconnectLogTimer = undefined;
       if (this.stopped || entry.status === "stopped") {
         this.clearReconnectLog(entry);
         return;
@@ -1247,7 +1255,15 @@ export class ChannelManager implements ChannelsControl {
       this.log?.(
         `channel "${name}" managed session still down after ${this.downFor(entry)}; Phoenix is retrying`,
       );
-    }, this.reconnectLogIntervalMs);
+      entry.reconnectLogDelayMs = Math.min(
+        delayMs * 2,
+        Math.max(
+          this.reconnectLogIntervalMs,
+          DEFAULT_RECONNECT_LOG_MAX_INTERVAL_MS,
+        ),
+      );
+      this.startReconnectLog(name, entry);
+    }, delayMs);
     (timer as unknown as { unref?: () => void }).unref?.();
     entry.reconnectLogTimer = timer;
   }
@@ -1255,9 +1271,10 @@ export class ChannelManager implements ChannelsControl {
   /** Stop this entry's "still down" repeat, if one is running. */
   private clearReconnectLog(entry: ChannelEntry): void {
     if (entry.reconnectLogTimer !== undefined) {
-      clearInterval(entry.reconnectLogTimer);
+      clearTimeout(entry.reconnectLogTimer);
       entry.reconnectLogTimer = undefined;
     }
+    entry.reconnectLogDelayMs = undefined;
   }
 
   /**

@@ -155,7 +155,8 @@ describe("ChannelManager connection health (onStateChange)", () => {
     expect(mgr.status().overall).toBe("stopped");
   });
 
-  it("logs the drop cause and keeps logging while the session is down (OSS-670)", async () => {
+  it("logs the drop cause and backs off while the session stays down (OSS-670)", async () => {
+    vi.useFakeTimers();
     const handle = observableHandle();
     const engine: ActivateChannelEngine = vi.fn(async () => handle);
     const logs: string[] = [];
@@ -165,31 +166,46 @@ describe("ChannelManager connection health (onStateChange)", () => {
       channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
       log: (m: string) => logs.push(m),
-      reconnectLogIntervalMs: 5,
+      reconnectLogIntervalMs: 30_000,
     });
-    mgr.activate();
-    await mgr.ready();
+    try {
+      mgr.activate();
+      await mgr.ready();
 
-    handle.fireState("reconnecting", {
-      reason: "read ECONNRESET",
-      code: "ECONNRESET",
-    });
-    expect(logs.some((m) => m.includes("ECONNRESET"))).toBe(true);
+      handle.fireState("reconnecting", {
+        reason: "read ECONNRESET",
+        code: "ECONNRESET",
+      });
+      expect(logs.some((m) => m.includes("ECONNRESET"))).toBe(true);
 
-    // Still down: the operator must keep hearing about it.
-    await new Promise((r) => setTimeout(r, 20));
-    expect(logs.filter((m) => m.includes("still down")).length).toBeGreaterThan(
-      0,
-    );
+      const stillDownLogs = () => logs.filter((m) => m.includes("still down"));
 
-    const before = logs.length;
-    handle.fireState("online");
-    await new Promise((r) => setTimeout(r, 20));
-    // Recovery stops the repeat: only the "back online" line lands after it.
-    expect(
-      logs.slice(before).filter((m) => m.includes("still down")),
-    ).toHaveLength(0);
-    await mgr.stop();
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(stillDownLogs()).toHaveLength(1);
+
+      // The next reminder waits twice as long instead of repeating every 30s.
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(stillDownLogs()).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(stillDownLogs()).toHaveLength(2);
+
+      // Each reminder doubles the delay again: 30s, 60s, then 120s.
+      await vi.advanceTimersByTimeAsync(119_999);
+      expect(stillDownLogs()).toHaveLength(2);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(stillDownLogs()).toHaveLength(3);
+
+      const before = logs.length;
+      handle.fireState("online");
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      // Recovery cancels future reminders; only "back online" lands after it.
+      expect(
+        logs.slice(before).filter((m) => m.includes("still down")),
+      ).toHaveLength(0);
+      await mgr.stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("says retries continue when the give-up window elapses (OSS-670)", async () => {
