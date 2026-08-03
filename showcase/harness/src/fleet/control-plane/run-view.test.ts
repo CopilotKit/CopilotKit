@@ -672,7 +672,15 @@ describe("projectWorker", () => {
       lastHeartbeatAt: iso(-100),
       registeredAt: iso(-3_600_000),
       currentJobId: null,
-      capacity: { inUse: 1, available: 23, max: 24 },
+      capacity: {
+        inUse: 1,
+        available: 23,
+        max: 24,
+        // This fixture row has no PID columns, so both gauges are unknown.
+        pidsCurrent: null,
+        pidsMax: null,
+        pidsSaturated: false,
+      },
     });
   });
 
@@ -1165,7 +1173,14 @@ describe("createMemoizedFamilySummary", () => {
         // The bounce signal the §7.4 banner / §9 monitor grace off.
         registeredAt: iso(-5_000),
         currentJobId: null,
-        capacity: { inUse: 0, available: 24, max: 24 },
+        capacity: {
+          inUse: 0,
+          available: 24,
+          max: 24,
+          pidsCurrent: null,
+          pidsMax: null,
+          pidsSaturated: false,
+        },
       },
     ]);
     expect(JSON.stringify(summary.workers)).not.toContain("endpoint");
