@@ -76,7 +76,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@a2ui/web_core": "0.9.0",
+    "@a2ui/web_core": "0.10.4",
     "clsx": "^2.1.1",
     "lit": "^3.3.2",
     "zod": "^3.25.75",

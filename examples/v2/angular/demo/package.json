@@ -15,7 +15,7 @@
     "@ag-ui/core": "0.0.53",
     "@ag-ui/encoder": "0.0.53",
     "@ag-ui/proto": "0.0.53",
-    "@a2ui/web_core": "0.9.0",
+    "@a2ui/web_core": "0.10.4",
     "@angular/animations": "^21.2.15",
     "@angular/cdk": "^21.2.13",
     "@angular/common": "^21.2.15",
