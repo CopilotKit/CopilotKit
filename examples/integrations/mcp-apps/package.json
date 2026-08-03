@@ -16,7 +16,7 @@
   "dependencies": {
     "@ag-ui/client": "0.0.57",
     "@ag-ui/mcp-apps-middleware": "^0.0.3",
-    "@copilotkit/channels": "0.6.0",
+    "@copilotkit/channels": "0.6.1",
     "@copilotkit/react-core": "1.65.0",
     "@copilotkit/react-ui": "1.65.0",
     "@copilotkit/runtime": "1.65.0",
