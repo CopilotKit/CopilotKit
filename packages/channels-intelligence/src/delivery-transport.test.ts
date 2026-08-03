@@ -11,6 +11,7 @@ import type {
   RealtimeGatewayDeliveryChannel,
   RealtimeGatewaySession,
 } from "./realtime-gateway.js";
+import { SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY } from "./delivery-contracts.js";
 
 function preparedDelivery() {
   return {
@@ -521,7 +522,10 @@ test("wrong-provider handler output uses only the trusted active-provider fallba
 });
 
 test("claims an invitation and consumes the one-use token on delivery join", async () => {
-  const deliveryChannel = channel();
+  const deliveryChannel = channel({
+    ...preparedDelivery(),
+    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
+  });
   const control: RealtimeGatewaySession = {
     push: vi.fn().mockResolvedValue(claimResult("dlv_delivery_01")),
     on: vi.fn(),
@@ -549,11 +553,15 @@ test("claims an invitation and consumes the one-use token on delivery join", asy
     runtimeInstanceId: "rti_runtime_01",
     ownerGeneration: 7,
     joinToken: "chj_token_delivery_01",
+    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
   });
 });
 
 test("reconnect accepts the distinct join-token response without a claim result", async () => {
-  const first = channel();
+  const first = channel({
+    ...preparedDelivery(),
+    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
+  });
   const second = channel();
   vi.mocked(first.push).mockRejectedValueOnce(new Error("socket dropped"));
   const control: RealtimeGatewaySession = {
@@ -578,11 +586,15 @@ test("reconnect accepts the distinct join-token response without a claim result"
     session: control,
     runtimeInstanceId: "rti_runtime_01",
   });
-  transport.start(async (claimed) => {
+  let capabilitiesAfterReconnect:
+    | PreparedChannelDelivery["capabilities"]
+    | undefined;
+  transport.start(async (claimed, delivery) => {
     await claimed.effect("response_01", {
       kind: "slack.message.create",
       text: "Hello after reconnect",
     });
+    capabilitiesAfterReconnect = delivery.capabilities;
   });
 
   const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
@@ -600,9 +612,11 @@ test("reconnect accepts the distinct join-token response without a claim result"
     runtimeInstanceId: "rti_runtime_01",
     ownerGeneration: 8,
     joinToken: "chj_reconnect_delivery_01",
+    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
   });
   expect(first.leave).toHaveBeenCalledOnce();
   expect(second.push).toHaveBeenCalledTimes(2);
+  expect(capabilitiesAfterReconnect).toBeUndefined();
   await transport.stop();
 });
 
@@ -1445,6 +1459,13 @@ test("rejects malformed capabilities on every prepared input that carries one", 
     kind: "interaction",
     actionId: "ck:approve",
     messageRef: { id: "raw-provider-message-id" },
+  });
+});
+
+test("rejects an unrecognized prepared delivery capability", async () => {
+  await expectPreparedDeliveryRejected({
+    ...preparedDelivery(),
+    capabilities: ["slack_stream_append_future_v2"],
   });
 });
 

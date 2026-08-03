@@ -35,7 +35,7 @@ test("accepts one destination-free packet", () => {
   expect(() => assertDeliveryPacket(packet())).not.toThrow();
 });
 
-test("requires an authoritative Slack snapshot on every stream append", () => {
+test("accepts a legacy Slack stream append without an authoritative snapshot", () => {
   const missingSnapshot = {
     ...packet(),
     payload: {
@@ -45,9 +45,7 @@ test("requires an authoritative Slack snapshot on every stream append", () => {
     },
   };
 
-  expect(() => assertDeliveryPacket(missingSnapshot)).toThrow(
-    "delivery payload is invalid",
-  );
+  expect(() => assertDeliveryPacket(missingSnapshot)).not.toThrow();
 });
 
 test("rejects trusted addressing and credentials", () => {

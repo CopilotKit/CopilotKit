@@ -650,6 +650,52 @@ describe("IntelligenceAgentRunner", () => {
       expect(await runner.isRunning({ threadId })).toBe(false);
     });
 
+    it("snapshots nested event data before a durable retry", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-batch-retry-snapshot";
+      const input = createRunInput({
+        threadId,
+        runId: "r-batch-retry-snapshot",
+      });
+      const snapshot = { nested: { value: "original" } };
+      const agent = new PausingMockAgent([
+        {
+          type: EventType.STATE_SNAPSHOT,
+          snapshot,
+        } as BaseEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      snapshot.nested.value = "mutated";
+      ch.pushLog[0].push.trigger("error", { reason: "redis_unavailable" });
+      await vi.advanceTimersByTimeAsync(105);
+
+      const retriedSnapshot = ch.pushLog[1].payload.events.find(
+        (event: BaseEvent) => event.type === EventType.STATE_SNAPSHOT,
+      );
+      expect(retriedSnapshot.snapshot).toEqual({
+        nested: { value: "original" },
+      });
+
+      ch.pushLog[1].push.trigger("ok");
+      agent.emit({
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: input.runId,
+      } as RunFinishedEvent);
+      agent.finish();
+      await vi.advanceTimersByTimeAsync(5);
+      ch.pushLog[2].push.trigger("ok");
+      await eventsPromise;
+    });
+
     it("errors once and cleans up when the gateway permanently rejects queued events", async () => {
       vi.useFakeTimers();
       autoAcknowledgePushes = false;

@@ -12,6 +12,7 @@ import type {
 import { RealtimeGatewayPushError } from "./realtime-gateway.js";
 import {
   CHANNEL_DELIVERY_PROTOCOL,
+  SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
   assertDeliveryPacket,
   assertProviderMessageId,
   assertProviderReference,
@@ -85,6 +86,7 @@ export interface PreparedChannelDelivery {
   channelId: string;
   channelName: string;
   adapter: ChannelDeliveryAdapter;
+  capabilities?: readonly (typeof SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY)[];
   tenant?: { id: string; name?: string };
   installation?: { id: string };
   conversation?: { id: string; kind?: string };
@@ -260,6 +262,7 @@ export class ClaimedChannelDelivery {
       channel: RealtimeGatewayDeliveryChannel;
       owner: DeliveryOwner;
       deliveryExpiresAt?: string;
+      capabilities?: PreparedChannelDelivery["capabilities"];
     }>,
     private readonly files?: ChannelDeliveryFileClient,
     private readonly transcripts?: ChannelDeliveryTranscriptClient,
@@ -280,8 +283,21 @@ export class ClaimedChannelDelivery {
   }
 
   /** Refresh ownership metadata after a successful join_token reconnect. */
-  updateOwner(owner: DeliveryOwner, deliveryExpiresAt?: string): void {
+  updateOwner(
+    owner: DeliveryOwner,
+    deliveryExpiresAt?: string,
+    capabilities?: PreparedChannelDelivery["capabilities"],
+  ): void {
     this.owner = owner;
+    if (capabilities === undefined) {
+      delete (this.delivery as { capabilities?: unknown }).capabilities;
+    } else {
+      (
+        this.delivery as {
+          capabilities?: PreparedChannelDelivery["capabilities"];
+        }
+      ).capabilities = capabilities;
+    }
     if (
       deliveryExpiresAt !== undefined &&
       Number.isFinite(Date.parse(deliveryExpiresAt))
@@ -633,7 +649,11 @@ export class ClaimedChannelDelivery {
         if (Date.now() >= Date.parse(this.delivery.deliveryExpiresAt)) break;
         const refreshed = await this.reconnect();
         this.channel = refreshed.channel;
-        this.updateOwner(refreshed.owner, refreshed.deliveryExpiresAt);
+        this.updateOwner(
+          refreshed.owner,
+          refreshed.deliveryExpiresAt,
+          refreshed.capabilities,
+        );
       }
     }
     throw new Error("Channel delivery ownership expired");
@@ -967,6 +987,7 @@ export class ChannelDeliveryTransport {
         channel: RealtimeGatewayDeliveryChannel;
         owner: DeliveryOwner;
         deliveryExpiresAt?: string;
+        capabilities?: PreparedChannelDelivery["capabilities"];
       }> => {
         const previous = joined;
         const refreshed = assertJoinTokenResult(
@@ -1001,6 +1022,7 @@ export class ChannelDeliveryTransport {
             runtimeInstanceId: refreshed.runtimeInstanceId,
           },
           deliveryExpiresAt: rejoinDelivery.deliveryExpiresAt,
+          capabilities: rejoinDelivery.capabilities,
         };
       };
       claimedDelivery = new ClaimedChannelDelivery(
@@ -1129,6 +1151,7 @@ export class ChannelDeliveryTransport {
       runtimeInstanceId: owner.runtimeInstanceId,
       ownerGeneration: owner.ownerGeneration,
       joinToken,
+      capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
     });
   }
 }
@@ -1324,7 +1347,7 @@ function assertPreparedDelivery(
         "adapter",
         "turn",
       ],
-      ["tenant", "installation", "conversation", "surfaceKind"],
+      ["tenant", "installation", "conversation", "surfaceKind", "capabilities"],
     )
   ) {
     throw new TypeError("Gateway returned an invalid prepared delivery");
@@ -1340,6 +1363,13 @@ function assertPreparedDelivery(
     !isSafeExternalId(prepared.canonicalThreadId) ||
     !isSafeAppUserId(prepared.appUserId) ||
     (prepared.adapter !== "slack" && prepared.adapter !== "teams") ||
+    (prepared.capabilities !== undefined &&
+      (!Array.isArray(prepared.capabilities) ||
+        prepared.capabilities.length > 1 ||
+        prepared.capabilities.some(
+          (capability) =>
+            capability !== SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
+        ))) ||
     (prepared.tenant !== undefined && !isPreparedTenant(prepared.tenant)) ||
     (prepared.installation !== undefined &&
       !isPreparedInstallation(prepared.installation)) ||

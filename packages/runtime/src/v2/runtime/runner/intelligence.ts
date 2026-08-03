@@ -611,7 +611,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
     const eventId = this.runnerEventId(payload);
     if (!state.pendingEvents.has(eventId)) {
-      state.pendingEvents.set(eventId, { payload, queuedAt: Date.now() });
+      state.pendingEvents.set(eventId, {
+        payload: structuredClone(payload),
+        queuedAt: Date.now(),
+      });
     }
     this.scheduleEventDeadline(state);
     this.replayPendingEvents(state);

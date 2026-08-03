@@ -1,6 +1,10 @@
 /** Hard-cut protocol for the dedicated `/channels` socket. */
 export const CHANNEL_DELIVERY_PROTOCOL = "channel_delivery_v1" as const;
 
+/** Negotiates authoritative snapshots for retry-safe Slack stream appends. */
+export const SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY =
+  "slack_stream_append_full_text_v1" as const;
+
 /** Fixed one-use delivery join-token lifetime. */
 export const CHANNEL_DELIVERY_JOIN_TOKEN_TTL_SECONDS = 60;
 
@@ -25,7 +29,7 @@ export type ChannelProviderPayload =
       kind: "slack.stream.append";
       providerReference: string;
       delta: string;
-      fullText: string;
+      fullText?: string;
     }
   | {
       kind: "slack.stream.task";
@@ -249,15 +253,15 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
       );
     case "slack.stream.append":
       return (
-        hasExactFields(value, [
-          "kind",
-          "providerReference",
-          "delta",
-          "fullText",
-        ]) &&
+        hasExactFields(
+          value,
+          ["kind", "providerReference", "delta", "fullText"],
+          ["fullText"],
+        ) &&
         validReference(value.providerReference) &&
         boundedString(value.delta, 1, 40_000) &&
-        boundedString(value.fullText, 1, 40_000)
+        (value.fullText === undefined ||
+          boundedString(value.fullText, 1, 40_000))
       );
     case "slack.stream.task":
       return (
