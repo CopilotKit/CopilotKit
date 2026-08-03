@@ -1,0 +1,21 @@
+{
+  // The parent tsconfig EXCLUDES this directory, which has two consequences:
+  // tsx/esbuild never sees `jsx: react-jsx` here (so JSX compiles with the
+  // classic React transform and blows up at runtime), and `pnpm check-types`
+  // skips the harnesses entirely. This file re-applies the parent's options to
+  // `e2e/` so both work. Typecheck with:
+  //   pnpm exec tsc --noEmit -p e2e/tsconfig.json
+  "extends": "../tsconfig.json",
+  // `../app` is listed because the harnesses import components from there, and
+  // tsx applies JSX settings per matched file — omit it and `app/`'s JSX falls
+  // back to the classic transform even though this file is correct.
+  "include": ["**/*.ts", "**/*.tsx", "../app/**/*.ts", "../app/**/*.tsx"],
+  // `restart-recovery.ts` is excluded because it does not compile TODAY, before
+  // any change of mine: it imports `@copilotkit/slack` (a package that no longer
+  // exists under that name) plus `appComponents` / `appHitl` (exports that no
+  // longer exist). It is the harness the README already flags as legacy/WIP —
+  // which means the interrupt path it covers had no working test at all. Fix or
+  // delete it, then drop this line; keeping it here only so a real typecheck of
+  // the rest of the directory is possible.
+  "exclude": ["restart-recovery.ts"]
+}

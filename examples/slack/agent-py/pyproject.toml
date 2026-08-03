@@ -1,0 +1,15 @@
+[project]
+name = "route-b-agent"
+version = "0.1.0"
+description = "Minimal LangGraph agent for the channels probe: a create_thing tool that suspends on interrupt()"
+requires-python = ">=3.12"
+dependencies = [
+  "langgraph>=1.2.10",
+  "langchain>=1.3.14",
+  "langchain-openai>=1.1.9",
+  "ag-ui-langgraph>=0.0.42",
+  "fastapi>=0.115.5",
+  "uvicorn>=0.29.0",
+  "python-dotenv>=1.0.0",
+  "httpx>=0.28.1",
+]
