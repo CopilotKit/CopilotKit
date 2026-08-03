@@ -44,11 +44,16 @@ interface ThreadState {
   nextEventSeq: number;
   hasRunStarted: boolean;
   hasJoined: boolean;
+  supportsRunnerEventBatch: boolean;
   producerFinished: boolean;
-  pendingEvents: Map<string, Record<string, unknown>>;
-  activeEventPush: { eventId: string; attempt: number } | null;
+  pendingEvents: Map<
+    string,
+    { payload: Record<string, unknown>; queuedAt: number }
+  >;
+  activeEventBatch: { eventIds: string[]; attempt: number } | null;
   nextEventPushAttempt: number;
   eventRetryTimer: ReturnType<typeof setTimeout> | null;
+  eventFlushTimer: ReturnType<typeof setTimeout> | null;
   socketReconnectWatchdog: ReturnType<typeof setTimeout> | null;
   eventRetryAttempt: number;
   completeRun: () => void;
@@ -57,6 +62,9 @@ interface ThreadState {
 const MAX_CONSECUTIVE_SOCKET_ERRORS = 5;
 const EVENT_RETRY_BASE_MS = 100;
 const EVENT_RETRY_MAX_MS = 2_000;
+const RUNNER_EVENT_BATCH_CAPABILITY = "runner_event_batch_v1";
+const MAX_RUNNER_EVENT_BATCH_SIZE = 32;
+const RUNNER_EVENT_BATCH_FLUSH_MS = 5;
 
 export class IntelligenceAgentRunner extends AgentRunner {
   private options: IntelligenceAgentRunnerOptions;
@@ -220,11 +228,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
         nextEventSeq: 1,
         hasRunStarted: false,
         hasJoined: false,
+        supportsRunnerEventBatch: false,
         producerFinished: false,
         pendingEvents: new Map(),
-        activeEventPush: null,
+        activeEventBatch: null,
         nextEventPushAttempt: 0,
         eventRetryTimer: null,
+        eventFlushTimer: null,
         socketReconnectWatchdog: null,
         eventRetryAttempt: 0,
         completeRun: () => observer.complete(),
@@ -289,7 +299,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
       channel
         .join()
-        .receive("ok", () => {
+        .receive("ok", (response) => {
+          state.supportsRunnerEventBatch = this.supportsRunnerEventBatch(
+            response,
+          );
           if (state.hasJoined) {
             this.resetPendingEventRetry(state);
             this.replayPendingEvents(state);
@@ -530,31 +543,40 @@ export class IntelligenceAgentRunner extends AgentRunner {
   ): void {
     const eventId = this.runnerEventId(payload);
     if (!state.pendingEvents.has(eventId)) {
-      state.pendingEvents.set(eventId, payload);
+      state.pendingEvents.set(eventId, { payload, queuedAt: Date.now() });
     }
     this.replayPendingEvents(state);
   }
 
-  private pushPendingEvent(
-    eventId: string,
-    payload: Record<string, unknown>,
+  private pushPendingEventBatch(
+    eventIds: string[],
+    events: Array<{ payload: Record<string, unknown>; queuedAt: number }>,
     state: ThreadState,
   ): void {
     const attempt = ++state.nextEventPushAttempt;
-    state.activeEventPush = { eventId, attempt };
+    state.activeEventBatch = { eventIds, attempt };
+    const payloads = events.map((event) => event.payload);
+    const isBatch = state.supportsRunnerEventBatch;
 
     state.channel
-      .push("event", payload)
+      .push(isBatch ? "events" : "event", isBatch ? { events: payloads } : payloads[0])
       .receive("ok", () => {
-        state.pendingEvents.delete(eventId);
-        if (state.activeEventPush?.eventId === eventId) {
-          state.activeEventPush = null;
+        if (state.activeEventBatch?.attempt !== attempt) {
+          return;
         }
+        for (const eventId of eventIds) {
+          state.pendingEvents.delete(eventId);
+        }
+        state.activeEventBatch = null;
         state.eventRetryAttempt = 0;
         if (state.pendingEvents.size === 0) {
           this.clearPendingEventRetry(state);
+          this.clearPendingEventFlush(state);
         }
-        this.completeWhenDurable((payload.thread_id as string) ?? "", state);
+        this.completeWhenDurable(
+          (payloads[0]?.thread_id as string) ?? "",
+          state,
+        );
         this.replayPendingEvents(state);
       })
       .receive("error", () => this.handlePendingEventFailure(state, attempt))
@@ -562,11 +584,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
   }
 
   private handlePendingEventFailure(state: ThreadState, attempt: number): void {
-    if (state.activeEventPush?.attempt !== attempt) {
+    if (state.activeEventBatch?.attempt !== attempt) {
       return;
     }
 
-    state.activeEventPush = null;
     this.schedulePendingEventRetry(state);
   }
 
@@ -589,7 +610,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       if (!state.isRunning || state.pendingEvents.size === 0) {
         return;
       }
-      this.replayPendingEvents(state);
+      this.retryActiveEventBatch(state);
     }, delay);
   }
 
@@ -600,24 +621,106 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
   }
 
-  private resetPendingEventRetry(state: ThreadState): void {
-    this.clearPendingEventRetry(state);
-    state.eventRetryAttempt = 0;
-    state.activeEventPush = null;
-  }
-
-  private replayPendingEvents(state: ThreadState): void {
-    if (state.activeEventPush !== null) {
+  private schedulePendingEventFlush(state: ThreadState): void {
+    if (
+      !state.isRunning ||
+      state.pendingEvents.size === 0 ||
+      state.activeEventBatch !== null ||
+      state.eventFlushTimer !== null
+    ) {
       return;
     }
 
-    const [next] = [...state.pendingEvents.entries()].sort(
-      ([, left], [, right]) =>
-        this.runnerEventSeq(left) - this.runnerEventSeq(right),
-    );
-    if (next) {
-      this.pushPendingEvent(next[0], next[1], state);
+    state.eventFlushTimer = setTimeout(() => {
+      state.eventFlushTimer = null;
+      this.flushPendingEventBatch(state);
+    }, RUNNER_EVENT_BATCH_FLUSH_MS);
+  }
+
+  private clearPendingEventFlush(state: ThreadState): void {
+    if (state.eventFlushTimer !== null) {
+      clearTimeout(state.eventFlushTimer);
+      state.eventFlushTimer = null;
     }
+  }
+
+  private resetPendingEventRetry(state: ThreadState): void {
+    this.clearPendingEventRetry(state);
+    this.clearPendingEventFlush(state);
+    state.eventRetryAttempt = 0;
+    state.activeEventBatch = null;
+  }
+
+  private replayPendingEvents(state: ThreadState): void {
+    if (state.activeEventBatch !== null) {
+      return;
+    }
+
+    const pendingEvents = [...state.pendingEvents.entries()].sort(
+      ([, left], [, right]) =>
+        this.runnerEventSeq(left.payload) - this.runnerEventSeq(right.payload),
+    );
+    if (pendingEvents.length === 0) {
+      return;
+    }
+
+    const batchSize = state.supportsRunnerEventBatch
+      ? MAX_RUNNER_EVENT_BATCH_SIZE
+      : 1;
+    if (!state.supportsRunnerEventBatch || pendingEvents.length >= batchSize) {
+      this.clearPendingEventFlush(state);
+      const batch = pendingEvents.slice(0, batchSize);
+      this.pushPendingEventBatch(
+        batch.map(([eventId]) => eventId),
+        batch.map(([, event]) => event),
+        state,
+      );
+      return;
+    }
+
+    this.schedulePendingEventFlush(state);
+  }
+
+  private flushPendingEventBatch(state: ThreadState): void {
+    if (state.activeEventBatch !== null || state.pendingEvents.size === 0) {
+      return;
+    }
+
+    const batch = [...state.pendingEvents.entries()]
+      .sort(
+        ([, left], [, right]) =>
+          this.runnerEventSeq(left.payload) - this.runnerEventSeq(right.payload),
+      )
+      .slice(0, MAX_RUNNER_EVENT_BATCH_SIZE);
+    this.pushPendingEventBatch(
+      batch.map(([eventId]) => eventId),
+      batch.map(([, event]) => event),
+      state,
+    );
+  }
+
+  private retryActiveEventBatch(state: ThreadState): void {
+    const activeBatch = state.activeEventBatch;
+    if (activeBatch === null) {
+      this.replayPendingEvents(state);
+      return;
+    }
+
+    const events = activeBatch.eventIds
+      .map((eventId) => state.pendingEvents.get(eventId))
+      .filter(
+        (
+          event,
+        ): event is { payload: Record<string, unknown>; queuedAt: number } =>
+          event !== undefined,
+      );
+    if (events.length !== activeBatch.eventIds.length) {
+      state.activeEventBatch = null;
+      this.replayPendingEvents(state);
+      return;
+    }
+
+    this.pushPendingEventBatch(activeBatch.eventIds, events, state);
   }
 
   private completeWhenDurable(threadId: string, state: ThreadState): void {
@@ -640,6 +743,17 @@ export class IntelligenceAgentRunner extends AgentRunner {
   private runnerEventSeq(payload: Record<string, unknown>): number {
     const metadata = payload.metadata as Record<string, unknown>;
     return metadata.cpki_event_seq as number;
+  }
+
+  private supportsRunnerEventBatch(response: unknown): boolean {
+    if (typeof response !== "object" || response === null) {
+      return false;
+    }
+    const capabilities = (response as { capabilities?: unknown }).capabilities;
+    return (
+      Array.isArray(capabilities) &&
+      capabilities.includes(RUNNER_EVENT_BATCH_CAPABILITY)
+    );
   }
 
   private isRetryableJoinError(response: unknown): boolean {
@@ -667,6 +781,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
     this.threads.delete(threadId);
     state.isRunning = false;
     this.clearPendingEventRetry(state);
+    this.clearPendingEventFlush(state);
+    state.activeEventBatch = null;
     if (state.socketReconnectWatchdog !== null) {
       clearTimeout(state.socketReconnectWatchdog);
       state.socketReconnectWatchdog = null;

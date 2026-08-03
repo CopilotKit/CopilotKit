@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { afterEach, describe, it, expect, beforeEach, vi } from "vitest";
 import type {
   BaseEvent,
   RunAgentInput,
@@ -82,6 +82,53 @@ class MockAgent extends AbstractAgent {
 
   clone(): AbstractAgent {
     return new MockAgent(this.events);
+  }
+
+  run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    return EMPTY;
+  }
+}
+
+class PausingMockAgent extends AbstractAgent {
+  private subscriber:
+    | { onEvent?: (arg: { event: BaseEvent }) => void }
+    | undefined;
+  private resolveRun: (() => void) | undefined;
+
+  constructor(private initialEvents: BaseEvent[]) {
+    super();
+  }
+
+  async runAgent(
+    _input: RunAgentInput,
+    subscriber?: { onEvent?: (arg: { event: BaseEvent }) => void },
+  ): Promise<RunAgentResult> {
+    this.subscriber = subscriber;
+    for (const event of this.initialEvents) {
+      subscriber?.onEvent?.({ event });
+    }
+    await new Promise<void>((resolve) => {
+      this.resolveRun = resolve;
+    });
+    return { result: undefined, newMessages: [] };
+  }
+
+  emit(event: BaseEvent): void {
+    this.subscriber?.onEvent?.({ event });
+  }
+
+  finish(): void {
+    this.resolveRun?.();
+  }
+
+  abortRun(): void {}
+
+  clone(): AbstractAgent {
+    return new PausingMockAgent(this.initialEvents);
   }
 
   run(): ReturnType<AbstractAgent["run"]> {
@@ -188,6 +235,10 @@ describe("IntelligenceAgentRunner", () => {
     mockSockets = [];
     autoAcknowledgePushes = true;
     runner = new IntelligenceAgentRunner({ url: "ws://localhost:4000/runner" });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("passes Phoenix authToken to the runner socket when configured", () => {
@@ -328,6 +379,215 @@ describe("IntelligenceAgentRunner", () => {
       expect(ch.pushLog[0].payload.metadata.cpki_event_seq).toBe(1);
       expect(ch.pushLog[1].payload.metadata.cpki_event_seq).toBe(2);
       expect(ch.pushLog[2].payload.metadata.cpki_event_seq).toBe(3);
+    });
+
+    it("batches separate durable events after negotiating runner_event_batch_v1", async () => {
+      const threadId = "t-batch-negotiated";
+      const input = createRunInput({ threadId, runId: "r-batch-negotiated" });
+      const agent = new MockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "first",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "second",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "msg-1",
+        } as TextMessageEndEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+
+      await eventsPromise;
+
+      expect(ch.pushLog).toHaveLength(1);
+      expect(ch.pushLog[0].event).toBe("events");
+      const events = ch.pushLog[0].payload.events;
+      expect(events.map((event: any) => event.type)).toEqual([
+        EventType.RUN_STARTED,
+        EventType.TEXT_MESSAGE_START,
+        EventType.TEXT_MESSAGE_CONTENT,
+        EventType.TEXT_MESSAGE_CONTENT,
+        EventType.TEXT_MESSAGE_END,
+        EventType.RUN_FINISHED,
+      ]);
+      expect(events.map((event: any) => event.metadata.cpki_event_id)).toEqual(
+        expect.arrayContaining([
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+        ]),
+      );
+      expect(
+        new Set(events.map((event: any) => event.metadata.cpki_event_id)).size,
+      ).toBe(events.length);
+      expect(events.map((event: any) => event.metadata.cpki_event_seq)).toEqual([
+        1, 2, 3, 4, 5, 6,
+      ]);
+    });
+
+    it("waits five milliseconds for a partial negotiated batch and flushes a full batch immediately", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-batch-flush";
+      const input = createRunInput({ threadId, runId: "r-batch-flush" });
+      const agent = new MockAgent(
+        [
+          {
+            type: EventType.TEXT_MESSAGE_START,
+            messageId: "msg-1",
+            role: "assistant",
+          } as TextMessageStartEvent,
+          ...Array.from(
+            { length: 30 },
+            (_, index) =>
+              ({
+                type: EventType.TEXT_MESSAGE_CONTENT,
+                messageId: "msg-1",
+                delta: String(index),
+              }) as TextMessageContentEvent,
+          ),
+          {
+            type: EventType.TEXT_MESSAGE_END,
+            messageId: "msg-1",
+          } as TextMessageEndEvent,
+          {
+            type: EventType.RUN_FINISHED,
+            threadId,
+            runId: input.runId,
+          } as RunFinishedEvent,
+        ],
+      );
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await Promise.resolve();
+
+      expect(ch.pushLog).toHaveLength(1);
+      expect(ch.pushLog[0]).toMatchObject({
+        event: "events",
+        payload: { events: expect.any(Array) },
+      });
+      expect(ch.pushLog[0].payload.events).toHaveLength(32);
+
+      ch.pushLog[0].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(4);
+      expect(ch.pushLog).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(ch.pushLog).toHaveLength(2);
+      expect(ch.pushLog[1].payload.events).toHaveLength(2);
+
+      ch.pushLog[1].push.trigger("ok");
+      await eventsPromise;
+    });
+
+    it("retries a negotiated batch with the same payload objects and keeps all members until acknowledgement", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-batch-retry";
+      const input = createRunInput({ threadId, runId: "r-batch-retry" });
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(ch.pushLog).toHaveLength(1);
+      const originalEvents = ch.pushLog[0].payload.events;
+      ch.pushLog[0].push.trigger("error", { reason: "redis_unavailable" });
+      await vi.advanceTimersByTimeAsync(105);
+
+      expect(ch.pushLog).toHaveLength(2);
+      expect(ch.pushLog[1]).toMatchObject({ event: "events" });
+      expect(ch.pushLog[1].payload.events).toEqual(originalEvents);
+      expect(ch.pushLog[1].payload.events[0]).toBe(originalEvents[0]);
+      expect(ch.pushLog[1].payload.events[1]).toBe(originalEvents[1]);
+      expect(await runner.isRunning({ threadId })).toBe(true);
+
+      ch.pushLog[1].push.trigger("ok");
+      await eventsPromise;
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("retries the original negotiated batch before events queued during its failed push", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-batch-retry-members";
+      const input = createRunInput({ threadId, runId: "r-batch-retry-members" });
+      const agent = new PausingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "first",
+        } as TextMessageContentEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      const originalEvents = ch.pushLog[0].payload.events;
+      agent.emit({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "msg-1",
+      } as TextMessageEndEvent);
+      agent.emit({
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: input.runId,
+      } as RunFinishedEvent);
+      agent.finish();
+      ch.pushLog[0].push.trigger("error", { reason: "redis_unavailable" });
+      await vi.advanceTimersByTimeAsync(105);
+
+      expect(ch.pushLog[1].payload.events).toEqual(originalEvents);
+      ch.pushLog[1].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(5);
+      expect(ch.pushLog[2].payload.events).toHaveLength(2);
+      ch.pushLog[2].push.trigger("ok");
+      await eventsPromise;
     });
 
     it("overrides conflicting event thread and run ownership before pushing to the channel", async () => {
