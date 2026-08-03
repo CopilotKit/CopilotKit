@@ -1,7 +1,9 @@
+import { isNativeNode } from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { ContextActionsBlock, KnownBlock } from "@slack/types";
 import { markdownToMrkdwn } from "../markdown-to-mrkdwn.js";
 import { SLACK_LIMITS, clampArray, truncateText } from "./budget.js";
+import { serializeSlackNativeNode } from "../native-codec.js";
 
 /**
  * Stable `action_id` of the native AI feedback row's `feedback_buttons`
@@ -105,6 +107,15 @@ function overflowSignal(count: number): KnownBlock {
 
 /** Render a single IR node, pushing zero or more blocks onto `out`. */
 function renderNode(node: ChannelNode, out: KnownBlock[]): void {
+  if (isNativeNode(node)) {
+    if (node.props.nativeKind !== "block" && node.props.nativeKind !== "raw") {
+      throw new Error(
+        `Slack.${node.props.nativeType}: a top-level message child must be a block.`,
+      );
+    }
+    out.push(serializeSlackNativeNode(node) as unknown as KnownBlock);
+    return;
+  }
   if (typeof node.type !== "string") return; // non-intrinsic — already expanded away
   const props = node.props ?? {};
   switch (node.type) {

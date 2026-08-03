@@ -43,6 +43,15 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
       value?: string;
       selected_option?: { value?: string };
       selected_options?: Array<{ value?: string }>;
+      selected_user?: string;
+      selected_users?: string[];
+      selected_conversation?: string;
+      selected_conversations?: string[];
+      selected_channel?: string;
+      selected_channels?: string[];
+      selected_date?: string;
+      selected_time?: string;
+      selected_date_time?: number;
       action_ts?: string;
     }>;
   };
@@ -80,7 +89,25 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   // value), JSON-parsed if it round-trips, otherwise the raw string. A
   // multi_static_select reports `selected_options` (an array) → a `string[]`.
   let value: unknown;
-  if (action.selected_options) {
+  if (action.selected_users) {
+    value = action.selected_users;
+  } else if (action.selected_conversations) {
+    value = action.selected_conversations;
+  } else if (action.selected_channels) {
+    value = action.selected_channels;
+  } else if (action.selected_user !== undefined) {
+    value = action.selected_user;
+  } else if (action.selected_conversation !== undefined) {
+    value = action.selected_conversation;
+  } else if (action.selected_channel !== undefined) {
+    value = action.selected_channel;
+  } else if (action.selected_date !== undefined) {
+    value = action.selected_date;
+  } else if (action.selected_time !== undefined) {
+    value = action.selected_time;
+  } else if (action.selected_date_time !== undefined) {
+    value = action.selected_date_time;
+  } else if (action.selected_options) {
     value = action.selected_options.map((o) => parseValue(o.value));
   } else {
     value = parseValue(action.value ?? action.selected_option?.value);

@@ -95,3 +95,11 @@ export {
 } from "./render/block-kit.js";
 export { renderSlackModal } from "./render/modal.js";
 export { SLACK_LIMITS } from "./render/budget.js";
+export { Slack } from "./native.js";
+export type { SlackNativeProps, SlackRawProps } from "./native.js";
+export {
+  SLACK_NATIVE_MANIFEST,
+  SLACK_BLOCK_MANIFEST,
+  SLACK_ELEMENT_MANIFEST,
+  SLACK_OBJECT_MANIFEST,
+} from "./native-manifest.js";

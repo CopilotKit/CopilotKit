@@ -36,6 +36,7 @@ import { createRunRenderer } from "./event-renderer.js";
 import { renderTeamsMarkdown } from "./render/markdown.js";
 import { renderAdaptiveCard, isPlainText } from "./render/adaptive-card.js";
 import type { AdaptiveCard } from "./render/adaptive-card.js";
+import { containsTeamsNative, renderTeamsNativeCard } from "./native-codec.js";
 import { TeamsMessageStream } from "./message-stream.js";
 import type { TeamsAdapterOptions, TeamsReplyTarget } from "./types.js";
 
@@ -156,6 +157,7 @@ export class TeamsAdapter implements PlatformAdapter {
             id: action.id,
             conversationKey,
             value: action.value,
+            values: action.values,
             actor,
             identityContext: {
               ...identityContext,
@@ -402,6 +404,9 @@ export class TeamsAdapter implements PlatformAdapter {
    * or interactive UI becomes a card.)
    */
   render(ir: ChannelNode[]): TeamsActivityPayload {
+    if (containsTeamsNative(ir)) {
+      return { card: renderTeamsNativeCard(ir) };
+    }
     return isPlainText(ir)
       ? { text: renderTeamsMarkdown(ir) }
       : { card: renderAdaptiveCard(ir) };

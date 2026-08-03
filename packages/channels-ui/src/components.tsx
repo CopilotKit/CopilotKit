@@ -27,6 +27,8 @@ interface WithChildren {
 export interface MessageProps extends WithChildren {
   /** Accent color (hex, e.g. `#27AE60`) for the message's colored rail. */
   accent?: string;
+  /** Plain-text notification and screen-reader summary for rich Slack output. */
+  fallbackText?: string;
   /**
    * Called when a user reacts to this message (add or remove). The first arg is
    * the emoji, e.g. `onReaction={(r) => r === "bug" ? triage() : ack()}`; the
