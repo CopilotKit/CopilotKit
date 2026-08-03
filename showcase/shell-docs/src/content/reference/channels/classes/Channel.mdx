@@ -34,6 +34,7 @@ both Slack and Teams for this Channel and keeps each delivery provider-scoped.
 | `commands`       | `ChannelCommand[]`                                     | Declared commands for providers that support them.                                                                          |
 | `store`          | `StoreConfig`                                          | State schema, persistence, turn concurrency (`parallel` default), dedup, and optional transcript bridge.                    |
 | `adapters`       | `PlatformAdapter[]`                                    | Low-level direct transports. They may coexist with the managed Intelligence adapter on this Channel.                        |
+| `tasks`          | `{ model: AnyTextAdapter }`                            | Managed Task matcher model. Requires exactly one `onTask` handler.                                                          |
 
 One Channel may receive managed Slack and Teams deliveries. Names must be
 unique inside one `CopilotRuntime`.
@@ -116,6 +117,9 @@ release a lock only when the supplied token still owns it.
 | `adapters`       | `readonly PlatformAdapter[]` | Attached transport snapshot. Managed Channels start empty and receive the Intelligence adapter at activation. |
 | `commandNames`   | `string[]`                   | Normalized names declared through `commands` or `onCommand`.                                                  |
 | `transcripts`    | `Transcripts`                | Optional SDK transcript API. It is not the managed provider-history store.                                    |
+| `tasksEnabled`   | `boolean`                    | True when the Channel has a Task model and exactly one handler.                                               |
+| `tasks`          | `ChannelTasksClient`         | Programmatic Task CRUD and four opt-in management tools.                                                       |
+| `readChannelMessagesTool` | `ChannelTool`         | Separate opt-in tool for bounded provider history on the current managed surface.                              |
 
 The `transcripts` getter is only available after Channel activation and throws
 if it is read before the runtime listener starts the Channel.
@@ -172,6 +176,9 @@ channel.tool(getIncident);
 
 See [Tools and context for Slack](/slack/tools) or
 [Tools and context for Teams](/teams/tools).
+
+See [Channel Tasks](/reference/channels/sdk/tasks) for `onTask`, Task CRUD,
+management tools, scheduled work, and provider history.
 
 ## Runtime lifecycle
 

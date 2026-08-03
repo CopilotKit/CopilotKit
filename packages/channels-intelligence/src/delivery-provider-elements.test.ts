@@ -14,6 +14,7 @@ function delivery(adapter: "slack" | "teams"): PreparedChannelDelivery {
     deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
     channelId: "channel_provider_element",
     channelName: "support",
+    surfaceId: "surface_support_01",
     canonicalThreadId: "thread_provider_element",
     appUserId: `${adapter}:tenant:user`,
     adapter,

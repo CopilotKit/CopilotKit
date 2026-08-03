@@ -164,6 +164,9 @@ export async function startChannelsWithGatewayControl(
       ...(opts.log ? { log: opts.log } : {}),
       showToolStatus: opts.showToolStatus ?? channel.showToolStatus,
       replyContinuation: opts.replyContinuation ?? channel.replyContinuation,
+      ...(opts.appApiBaseUrl ? { appApiBaseUrl: opts.appApiBaseUrl } : {}),
+      ...(opts.apiKey ? { apiKey: opts.apiKey } : {}),
+      ...(opts.appApiFetch ? { appApiFetch: opts.appApiFetch } : {}),
     }),
   );
   await channel.ɵruntime.start();
@@ -309,8 +312,16 @@ export async function startChannelsOverRealtimeGateway(
         ? { maxConcurrentDeliveries: config.maxConcurrentDeliveries }
         : {}),
       channels: activation.declaredChannels.flatMap((channel) => [
-        { channelName: channel.channelName, adapter: "slack" },
-        { channelName: channel.channelName, adapter: "teams" },
+        {
+          channelName: channel.channelName,
+          adapter: "slack",
+          ...(channel.tasks ? { tasks: true as const } : {}),
+        },
+        {
+          channelName: channel.channelName,
+          adapter: "teams",
+          ...(channel.tasks ? { tasks: true as const } : {}),
+        },
       ]),
     },
     ...(config.timeoutMs !== undefined ? { timeoutMs: config.timeoutMs } : {}),

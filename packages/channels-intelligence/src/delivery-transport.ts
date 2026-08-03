@@ -5,6 +5,7 @@ import {
 } from "@copilotkit/channels-core";
 import type { AgentContentPart } from "@copilotkit/channels-ui";
 import type { MessageOperation } from "@copilotkit/channels-ui";
+import type { ChannelScheduledTask } from "@copilotkit/channels-core";
 import type {
   RealtimeGatewayDeliveryChannel,
   RealtimeGatewaySession,
@@ -74,6 +75,11 @@ export type ChannelDeliveryTurnInput =
       kind: "file_consent";
       action: "accept" | "decline";
       fileHandle: string;
+    }
+  | {
+      kind: "scheduled_task";
+      scheduledAt: string;
+      task: ChannelScheduledTask;
     };
 
 export interface PreparedChannelDelivery {
@@ -85,6 +91,7 @@ export interface PreparedChannelDelivery {
   channelId: string;
   channelName: string;
   adapter: ChannelDeliveryAdapter;
+  surfaceId: string;
   tenant?: { id: string; name?: string };
   installation?: { id: string };
   conversation?: { id: string; kind?: string };
@@ -809,13 +816,22 @@ export class ChannelDeliveryTransport {
         this.active.size >=
         this.maxConcurrentDeliveries + this.maxPendingDeliveries
       ) {
-        this.reportCapacityOverflow(value.deliveryId, value.canonicalThreadId);
+        this.reportCapacityOverflow(
+          value.deliveryId,
+          "canonicalThreadId" in value
+            ? value.canonicalThreadId
+            : value.deliveryId,
+        );
         return;
       }
+      const admissionKey =
+        "canonicalThreadId" in value
+          ? value.canonicalThreadId
+          : value.deliveryId;
       const activeHandler = this.deliveryHandler;
       const signal = this.abortController.signal;
       const predecessor =
-        this.threadTails.get(value.canonicalThreadId) ?? Promise.resolve();
+        this.threadTails.get(admissionKey) ?? Promise.resolve();
       // Register into active before any await so stop() waits for this delivery.
       let running!: Promise<void>;
       running = this.claimAndHandle(
@@ -825,12 +841,12 @@ export class ChannelDeliveryTransport {
         predecessor,
       ).finally(() => {
         this.active.delete(value.deliveryId);
-        if (this.threadTails.get(value.canonicalThreadId) === running) {
-          this.threadTails.delete(value.canonicalThreadId);
+        if (this.threadTails.get(admissionKey) === running) {
+          this.threadTails.delete(admissionKey);
         }
       });
       this.active.set(value.deliveryId, running);
-      this.threadTails.set(value.canonicalThreadId, running);
+      this.threadTails.set(admissionKey, running);
     };
     this.options.session.on(INVITATION_EVENT, this.invitationHandler);
   }
@@ -1266,6 +1282,7 @@ const PREPARED_TURN_KINDS = new Set([
   "interaction",
   "welcome",
   "file_consent",
+  "scheduled_task",
 ]);
 const PREPARED_SURFACE_KINDS = new Set([
   "direct_message",
@@ -1297,6 +1314,7 @@ function assertPreparedDelivery(
         "canonicalThreadId",
         "appUserId",
         "adapter",
+        "surfaceId",
         "turn",
       ],
       ["tenant", "installation", "conversation", "surfaceKind"],
@@ -1312,6 +1330,7 @@ function assertPreparedDelivery(
     !isIsoDateTime(prepared.deliveryExpiresAt) ||
     !isChannelId(prepared.channelId) ||
     !isChannelName(prepared.channelName) ||
+    !isSurfaceId(prepared.surfaceId) ||
     !isSafeExternalId(prepared.canonicalThreadId) ||
     !isSafeAppUserId(prepared.appUserId) ||
     (prepared.adapter !== "slack" && prepared.adapter !== "teams") ||
@@ -1339,7 +1358,9 @@ function assertPreparedDelivery(
     !isRecord(prepared.turn.input) ||
     typeof prepared.turn.input.kind !== "string" ||
     !PREPARED_TURN_KINDS.has(prepared.turn.input.kind) ||
-    !isValidPreparedTurnInput(prepared.turn.input)
+    !isValidPreparedTurnInput(prepared.turn.input) ||
+    (prepared.turn.input.kind === "scheduled_task" &&
+      prepared.turn.input.task.surfaceId !== prepared.surfaceId)
   ) {
     throw new TypeError("Gateway returned an invalid prepared delivery");
   }
@@ -1396,6 +1417,12 @@ function isValidPreparedTurnInput(input: Record<string, unknown>): boolean {
         (input.action === "accept" || input.action === "decline") &&
         typeof input.fileHandle === "string" &&
         /^fileref_[A-Za-z0-9_-]+$/.test(input.fileHandle)
+      );
+    case "scheduled_task":
+      return (
+        hasExactFields(input, ["kind", "scheduledAt", "task"]) &&
+        isIsoDateTime(input.scheduledAt) &&
+        isScheduledTask(input.task)
       );
     default:
       return false;
@@ -1463,6 +1490,16 @@ function isChannelId(value: unknown): value is string {
   );
 }
 
+/** Validate one opaque Intelligence provider-surface identifier. */
+function isSurfaceId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 12 &&
+    value.length <= 132 &&
+    /^surface_[A-Za-z0-9_-]+$/.test(value)
+  );
+}
+
 function isEventId(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -1519,6 +1556,59 @@ function isPreparedActor(value: unknown): boolean {
     (value.handle === undefined || isBoundedString(value.handle, 1, 512)) &&
     (value.email === undefined || isBoundedString(value.email, 1, 512))
   );
+}
+
+/** Validate the exact scheduled Task snapshot accepted from Gateway. */
+function isScheduledTask(value: unknown): value is ChannelScheduledTask {
+  if (
+    !isRecord(value) ||
+    !hasExactFields(value, [
+      "id",
+      "surfaceId",
+      "goal",
+      "when",
+      "enabled",
+      "createdBy",
+      "createdAt",
+      "updatedAt",
+    ]) ||
+    typeof value.id !== "string" ||
+    !/^task_[A-Za-z0-9_-]+$/.test(value.id) ||
+    !isSurfaceId(value.surfaceId) ||
+    !isBoundedString(value.goal, 1, 40_000) ||
+    value.enabled !== true ||
+    !isIsoDateTime(value.createdAt) ||
+    !isIsoDateTime(value.updatedAt) ||
+    !isRecord(value.when) ||
+    !hasExactFields(value.when, ["kind", "cron", "timeZone"]) ||
+    value.when.kind !== "schedule" ||
+    typeof value.when.cron !== "string" ||
+    !/^\S+(?:\s+\S+){4}$/.test(value.when.cron) ||
+    !isBoundedString(value.when.timeZone, 1, 128) ||
+    !isRecord(value.createdBy)
+  ) {
+    return false;
+  }
+  if (value.createdBy.kind === "application") {
+    return (
+      hasExactFields(value.createdBy, ["kind", "applicationId"]) &&
+      isBoundedString(value.createdBy.applicationId, 1, 256)
+    );
+  }
+  if (value.createdBy.kind === "provider_actor") {
+    return (
+      hasExactFields(value.createdBy, ["kind", "actor"]) &&
+      isRecord(value.createdBy.actor) &&
+      hasExactFields(
+        value.createdBy.actor,
+        ["id", "kind"],
+        ["displayName", "handle"],
+      ) &&
+      isBoundedString(value.createdBy.actor.id, 1, 512) &&
+      ["human", "bot", "app"].includes(String(value.createdBy.actor.kind))
+    );
+  }
+  return false;
 }
 
 function isPreparedTenant(value: unknown): boolean {
@@ -1639,27 +1729,55 @@ function shouldSendGenericFailure(
   );
 }
 
-function isInvitation(value: unknown): value is {
-  protocol: typeof CHANNEL_DELIVERY_PROTOCOL;
-  deliveryId: string;
-  canonicalThreadId: string;
-  channelName: string;
-  adapter: ChannelDeliveryAdapter;
-} {
+type DeliveryInvitation =
+  | {
+      protocol: typeof CHANNEL_DELIVERY_PROTOCOL;
+      deliveryId: string;
+      canonicalThreadId: string;
+      surfaceId: string;
+      channelName: string;
+      adapter: ChannelDeliveryAdapter;
+    }
+  | {
+      protocol: typeof CHANNEL_DELIVERY_PROTOCOL;
+      kind: "scheduled_task";
+      deliveryId: string;
+      surfaceId: string;
+      channelName: string;
+      adapter: ChannelDeliveryAdapter;
+    };
+
+/** Validate either a normal Thread invitation or a scheduled Task invitation. */
+function isInvitation(value: unknown): value is DeliveryInvitation {
+  if (
+    !isRecord(value) ||
+    value.protocol !== CHANNEL_DELIVERY_PROTOCOL ||
+    !isDeliveryId(value.deliveryId) ||
+    !isSurfaceId(value.surfaceId) ||
+    !isChannelName(value.channelName) ||
+    (value.adapter !== "slack" && value.adapter !== "teams")
+  ) {
+    return false;
+  }
+  if (value.kind === "scheduled_task") {
+    return hasExactFields(value, [
+      "protocol",
+      "kind",
+      "deliveryId",
+      "surfaceId",
+      "channelName",
+      "adapter",
+    ]);
+  }
   return (
-    isRecord(value) &&
     hasExactFields(value, [
       "protocol",
       "deliveryId",
       "canonicalThreadId",
+      "surfaceId",
       "channelName",
       "adapter",
-    ]) &&
-    value.protocol === CHANNEL_DELIVERY_PROTOCOL &&
-    isDeliveryId(value.deliveryId) &&
-    isSafeExternalId(value.canonicalThreadId) &&
-    isChannelName(value.channelName) &&
-    (value.adapter === "slack" || value.adapter === "teams")
+    ]) && isSafeExternalId(value.canonicalThreadId)
   );
 }
 

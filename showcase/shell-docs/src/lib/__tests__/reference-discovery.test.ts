@@ -64,6 +64,7 @@ test("publishes the maintained Channels SDK reference in its original surface", 
       "channels/functions/createChannel",
       "channels/functions/defineChannelTool",
       "channels/sdk/direct-adapters",
+      "channels/sdk/tasks",
       "channels/types/JSXCallbacks",
       "channels/types/StateStore",
     ]),
@@ -72,7 +73,7 @@ test("publishes the maintained Channels SDK reference in its original surface", 
   expect(referenceOverview).toContain('href: referenceVersionHref("channels")');
 
   const navigationUrls = collectPageUrls(buildReferencePageTree("channels"));
-  expect(navigationUrls).toHaveLength(34);
+  expect(navigationUrls).toHaveLength(35);
   expect(navigationUrls).toEqual(
     expect.arrayContaining([
       "/reference/channels/classes/Channel",
@@ -87,6 +88,7 @@ test("publishes the maintained Channels SDK reference in its original surface", 
       "/reference/channels/functions/defineChannelCommand",
       "/reference/channels/functions/defineChannelTool",
       "/reference/channels/sdk/direct-adapters",
+      "/reference/channels/sdk/tasks",
       "/reference/channels/types/ActionStore",
       "/reference/channels/types/AgentContentPart",
       "/reference/channels/types/JSXCallbacks",
