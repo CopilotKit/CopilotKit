@@ -1,5 +1,6 @@
 import { isNativeNode } from "@copilotkit/channels-ui";
 import type { ChannelNode, NativeChannelNode } from "@copilotkit/channels-ui";
+import { validateSlackDataVisualization } from "./data-visualization.js";
 import { SLACK_NATIVE_MANIFEST } from "./native-manifest.js";
 
 const manifest = new Map(
@@ -10,6 +11,7 @@ const REQUIRED_FIELDS: Readonly<Record<string, readonly string[]>> = {
   actions: ["elements"],
   button: ["text"],
   context: ["elements"],
+  data_visualization: ["title", "chart"],
   header: ["text"],
   image: ["image_url", "alt_text"],
   input: ["label", "element"],
@@ -74,6 +76,9 @@ export function serializeSlackNativeNode(
     output.value = JSON.stringify(output.value);
   }
   validateRequiredFields(entry.component, entry.type, output, path);
+  if (entry.type === "data_visualization") {
+    validateSlackDataVisualization(output, path);
+  }
   return output;
 }
 

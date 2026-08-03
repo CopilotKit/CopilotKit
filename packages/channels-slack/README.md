@@ -178,6 +178,60 @@ The generated [native catalog](../channels/native-catalogs.md) lists the 20
 message blocks and all exported elements and objects. Run
 `pnpm audit:channel-native-catalogs` to compare it with Slack's live docs.
 
+#### Data visualization blocks
+
+`Slack.Block.DataVisualization` implements Slack's full pie, bar, area, and
+line chart contract. The SDK checks the provider limits and cross-field rules
+before sending the message, including matching every series point to the
+ordered axis categories and allowing at most two charts per message.
+
+```tsx
+import { createChannel, defineChannelComponent } from "@copilotkit/channels";
+import { Slack } from "@copilotkit/channels-slack";
+import { z } from "zod";
+
+const WeatherCard = defineChannelComponent({
+  name: "show_weather",
+  description: "Show a three-day weather forecast.",
+  parameters: z.object({
+    city: z.string(),
+    monday: z.number(),
+    tuesday: z.number(),
+    wednesday: z.number(),
+  }),
+  render: ({ city, monday, tuesday, wednesday }) => (
+    <Slack.Block.DataVisualization
+      title={`${city} forecast`}
+      chart={{
+        type: "line",
+        series: [
+          {
+            name: "Temperature",
+            data: [
+              { label: "Mon", value: monday },
+              { label: "Tue", value: tuesday },
+              { label: "Wed", value: wednesday },
+            ],
+          },
+        ],
+        axis_config: {
+          categories: ["Mon", "Tue", "Wed"],
+          y_label: "Temperature (F)",
+        },
+      }}
+    />
+  ),
+});
+
+const bot = createChannel({
+  // ...existing options
+  components: [WeatherCard],
+});
+```
+
+See Slack's [data visualization block reference](https://docs.slack.dev/reference/block-kit/blocks/data-visualization-block/)
+for the provider field definitions and limits.
+
 ### Per-element budget
 
 Slack caps every element. The renderer degrades by truncate-with-overflow /

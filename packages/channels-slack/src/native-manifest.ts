@@ -23,7 +23,7 @@ export const SLACK_BLOCK_MANIFEST = [
   ["Context", "context", "elements"],
   ["ContextActions", "context_actions", "elements"],
   ["DataTable", "data_table", "rows"],
-  ["DataVisualization", "data_visualization", "visualizations"],
+  ["DataVisualization", "data_visualization"],
   ["Divider", "divider"],
   ["File", "file"],
   ["Header", "header", "text"],

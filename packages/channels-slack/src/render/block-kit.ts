@@ -71,6 +71,15 @@ export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
     renderNode(node, blocks);
   }
 
+  const dataVisualizations = blocks.filter(
+    (block) => String(block.type) === "data_visualization",
+  ).length;
+  if (dataVisualizations > 2) {
+    throw new Error(
+      `Slack native JSX rendered ${dataVisualizations} data visualization blocks; the message limit is 2.`,
+    );
+  }
+
   if (native && blocks.length > SLACK_LIMITS.blocksPerMessage) {
     throw new Error(
       `Slack native JSX rendered ${blocks.length} blocks; the message limit is ${SLACK_LIMITS.blocksPerMessage}.`,
