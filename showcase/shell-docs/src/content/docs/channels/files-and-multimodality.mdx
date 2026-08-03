@@ -72,7 +72,9 @@ allows an app to download files from conversations it can access.
 The current Intelligence-generated manifest requests both `files:read` and
 `files:write`. If the app predates that manifest:
 
-1. Apply the current manifest so both bot token scopes are present.
+1. Open the Channel in Intelligence, return to its Slack setup instructions,
+   and apply the generated manifest so both bot token scopes are present. See
+   [Configure the Channel in Intelligence](/channels/intelligence).
 2. Reinstall the app so the workspace grants the scopes.
 3. Copy the current Bot User OAuth token into Intelligence if Slack reissued it.
 4. Invite the app to the source conversation.

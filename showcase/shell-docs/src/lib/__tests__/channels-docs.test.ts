@@ -303,8 +303,14 @@ describe("Channels documentation journey", () => {
     expect(interactive).toMatch(
       /generated Slack manifests enable[\s\S]*Interactivity/i,
     );
+    expect(interactive).toMatch(
+      /open the[\s\S]*Channel in Intelligence[\s\S]*Slack setup instructions/i,
+    );
     expect(files).toContain("`files:read`");
     expect(files).toContain("`files:write`");
+    expect(files).toMatch(
+      /Open the Channel in Intelligence[\s\S]*Slack setup instructions/i,
+    );
     expect(files).not.toMatch(
       /generated manifest does not currently request `files:read` or `files:write`/i,
     );
@@ -323,7 +329,7 @@ describe("Channels documentation journey", () => {
     expect(threads).toMatch(/not a synthetic user message/i);
   });
 
-  it("keeps the unreleased Channels CLI out of the public setup journey", () => {
+  it("keeps the setup journey limited to released paths", () => {
     const sources = [
       bodyFor("channels/intelligence"),
       bodyFor("frontends/slack"),
@@ -331,14 +337,7 @@ describe("Channels documentation journey", () => {
     ];
 
     for (const source of sources) {
-      expect(source).not.toContain("copilotkit channels");
-      expect(source).not.toContain("channels add");
-      expect(source).not.toContain("channels status");
-      expect(source).not.toContain("channels list");
-      expect(source).not.toContain("channels rotate");
-      expect(source).not.toContain("--credential-env");
-      expect(source).not.toContain("--credentials-stdin");
-      expect(source).not.toContain(".copilotkit/channels.json");
+      expect(source).not.toMatch(/\bcopilotkit\s+channels\b/i);
     }
 
     expect(bodyFor("channels/intelligence")).toMatch(
@@ -348,6 +347,8 @@ describe("Channels documentation journey", () => {
 
   it("documents provider-scoped identity and per-run Memory", () => {
     const source = bodyFor("channels/identity-and-memory");
+    const slackQuickstart = bodyFor("frontends/slack");
+    const teamsQuickstart = bodyFor("frontends/teams");
     const slack = filterFrontendScopedBlocks(source, "slack");
     const teams = filterFrontendScopedBlocks(source, "teams");
 
@@ -360,13 +361,31 @@ describe("Channels documentation journey", () => {
     expect(source).toMatch(/Return[\s\S]{0,100}`null`/i);
     expect(source).toContain("Do not automatically link accounts");
     expect(source).toContain("email address, display");
-    expect(source).toContain("name, or handle");
+    expect(source).toMatch(/display name, or\s+handle/i);
     expect(source).toMatch(
       /shared channel or group chat[\s\S]*project Memory/i,
     );
     expect(source).toContain("A `Thread` does not have a personal owner");
     expect(slack).toMatch(/workspace[\s\S]*Slack account/i);
+    expect(slack).toContain("slack:T0123:U0456");
+    expect(slack).not.toContain("teams:tenant-123:user-456");
     expect(teams).toMatch(/Microsoft tenant[\s\S]*Teams account/i);
+    expect(teams).toContain("teams:tenant-123:user-456");
+    expect(teams).not.toContain("slack:T0123:U0456");
+    expect(source).toContain("<Steps>");
+    expect(source).toContain("### Verify the identity boundary");
+    expect(source).toContain("`channel_memory_user_required`");
+    expect(source).toContain(
+      "The Channel has no attached Intelligence Memory-capable runtime or adapter.",
+    );
+    expect(source).toContain(
+      "[Interactive messages and approvals](/channels/interactive)",
+    );
+    for (const quickstart of [slackQuickstart, teamsQuickstart]) {
+      expect(quickstart).toContain(
+        "[map application users and choose Memory grants](/channels/identity-and-memory)",
+      );
+    }
   });
 
   it("treats the Intelligence REST and realtime endpoints as separate bases", () => {
@@ -430,12 +449,15 @@ describe("Channels documentation journey", () => {
       expect(source).toContain("`messageByteLimit`");
       expect(source).toContain("`maxMessages`");
       expect(source).toContain("`truncationMarker`");
-      expect(source).toMatch(/Every (?:turn|run)[\s\S]*`clone\(\)`/i);
-      expect(source).toMatch(/0\.6\.1[\s\S]*warn/i);
     }
 
+    expect(channel).toContain(
+      "[`createChannel` options](/reference/channels/functions/createChannel)",
+    );
     expect(createChannel).toMatch(/11,000 UTF-8 bytes[\s\S]*20 messages/i);
     expect(createChannel).toMatch(/nullable[\s\S]*`parentMessageId`/i);
+    expect(createChannel).toMatch(/Every (?:turn|run)[\s\S]*`clone\(\)`/i);
+    expect(createChannel).toMatch(/0\.6\.1[\s\S]*warn/i);
     expect(thread).toContain("assetId?");
     expect(thread).toMatch(
       /`assetId` identifies the canonical Intelligence asset/i,
@@ -785,9 +807,14 @@ describe("Channels documentation journey", () => {
     const source = bodyFor("channels/interactive");
 
     expect(source).toContain("DeepAgent");
-    expect(source).toMatch(/legacy LangGraph[\s\S]*partial behavior/i);
     expect(source).toMatch(
-      /does not promise full native AG-UI\s+interrupt\s+compatibility/i,
+      /emits\s+`on_interrupt`[\s\S]*returns from delivery[\s\S]*resumes from a later interaction/i,
+    );
+    expect(source).toMatch(
+      /real\s+provider test[\s\S]*reaches `onInterrupt`[\s\S]*handler\s+returns[\s\S]*later click calls `resume`[\s\S]*agent consumes the value/i,
+    );
+    expect(source).toMatch(
+      /Do\s+not assume native AG-UI interrupts are portable/i,
     );
     expect(source).toMatch(
       /`sanitizeAgentEvents`[\s\S]*does\s+not\s+add\s+framework\s+interrupt\s+support/i,

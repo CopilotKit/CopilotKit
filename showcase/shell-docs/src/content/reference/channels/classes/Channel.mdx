@@ -40,12 +40,8 @@ both Slack and Teams for this Channel and keeps each delivery provider-scoped.
 One Channel may receive managed Slack and Teams deliveries. Names must be
 unique inside one `CopilotRuntime`.
 
-Every turn calls `clone()`, including turns whose `agent(threadId)` factory
-returned a new agent. The clone must be a distinct instance. If a custom agent
-stores required configuration in subclass fields, override `clone()` so the
-configuration survives without sharing mutable per-run state. Channels 0.6.1
-warns when enumerable fields are dropped instead of refusing the turn solely
-for that warning.
+For long-reply defaults, event sanitization, and agent clone requirements, see
+the detailed [`createChannel` options](/reference/channels/functions/createChannel).
 
 ## StoreConfig
 
