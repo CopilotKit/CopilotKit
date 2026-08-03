@@ -27,6 +27,7 @@ export interface InspectorMetadataV1 {
       | { readonly kind: "finite"; readonly value: number }
       | { readonly kind: "unlimited" }
       | { readonly kind: "unknown" };
+    readonly expiringSoonCount?: number;
   };
 }
 
@@ -48,6 +49,17 @@ function isRecord(value: unknown): value is UnknownRecord {
     return prototype === Object.prototype || prototype === null;
   } catch {
     return false;
+  }
+}
+
+function readOwnDataProperty(value: UnknownRecord, key: string): unknown {
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor !== undefined && "value" in descriptor
+      ? descriptor.value
+      : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -212,13 +224,20 @@ function parseUsage(value: unknown): InspectorUsage | undefined {
   }
 
   const limit = parseUsageLimit(value.limit);
-  if (!isFiniteNonnegativeInteger(value.used) || limit === undefined) {
+  const used = value.used;
+  if (!isFiniteNonnegativeInteger(used) || limit === undefined) {
     return undefined;
   }
 
+  const rawExpiringSoonCount = readOwnDataProperty(value, "expiringSoonCount");
+  const expiringSoonCount = isFiniteNonnegativeInteger(rawExpiringSoonCount)
+    ? rawExpiringSoonCount
+    : undefined;
+
   return {
-    used: value.used,
+    used,
     limit,
+    ...(expiringSoonCount === undefined ? {} : { expiringSoonCount }),
   };
 }
 

@@ -169,6 +169,7 @@ interface InspectorMetadataV1 {
       | { readonly kind: "finite"; readonly value: number }
       | { readonly kind: "unlimited" }
       | { readonly kind: "unknown" };
+    readonly expiringSoonCount?: number;
   };
 }
 ```
@@ -183,8 +184,12 @@ HTTPS, or HTTP on `localhost`, `127.0.0.1`, or `[::1]`; URLs with credentials, a
 query string, or a fragment are rejected. Consumers use the accepted URL as
 supplied and must not derive a destination from identity or plan values.
 
-The contract carries usage data so producers and consumers can evolve without a
-second schema. The Web Inspector does not render usage in this release.
+The optional `usage.expiringSoonCount` field lets V1 producers report a known
+count. Older producers may omit it; absence remains valid V1 usage, while `0`
+is a known count and stays distinct from absence. The parser drops a malformed,
+inherited, or accessor-backed expiry leaf without removing `used`, `limit`, or
+valid sibling modules. Older V1 consumers ignore the additive field, so
+producers and consumers do not need a V2 schema or lock-step deployment.
 
 `RuntimeInfo.inspectorMetadata?: boolean` is the capability signal. Clients only
 request the optional metadata route when a runtime reports

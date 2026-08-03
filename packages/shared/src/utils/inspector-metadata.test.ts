@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 
 import { parseInspectorMetadataV1 } from "./inspector-metadata";
 
@@ -450,6 +450,204 @@ test.each([
   const result = parseInspectorMetadataV1(value);
 
   expect(result?.usage?.limit).toStrictEqual(limit);
+});
+
+test.each([
+  {
+    name: "finite absent",
+    limit: { kind: "finite", value: 200 },
+    expiringSoonCount: undefined,
+  },
+  {
+    name: "finite zero",
+    limit: { kind: "finite", value: 200 },
+    expiringSoonCount: 0,
+  },
+  {
+    name: "finite positive",
+    limit: { kind: "finite", value: 200 },
+    expiringSoonCount: 37,
+  },
+  {
+    name: "unlimited absent",
+    limit: { kind: "unlimited" },
+    expiringSoonCount: undefined,
+  },
+  {
+    name: "unlimited zero",
+    limit: { kind: "unlimited" },
+    expiringSoonCount: 0,
+  },
+  {
+    name: "unlimited positive",
+    limit: { kind: "unlimited" },
+    expiringSoonCount: 37,
+  },
+  {
+    name: "unknown absent",
+    limit: { kind: "unknown" },
+    expiringSoonCount: undefined,
+  },
+  {
+    name: "unknown zero",
+    limit: { kind: "unknown" },
+    expiringSoonCount: 0,
+  },
+  {
+    name: "unknown positive",
+    limit: { kind: "unknown" },
+    expiringSoonCount: 37,
+  },
+])("parses $name expiring-soon usage", ({ limit, expiringSoonCount }) => {
+  const expiry = expiringSoonCount === undefined ? {} : { expiringSoonCount };
+  const value = {
+    schemaVersion: 1,
+    usage: { used: 148, limit, ...expiry },
+  };
+
+  const result = parseInspectorMetadataV1(value);
+
+  expect(result).toStrictEqual({
+    schemaVersion: 1,
+    usage: { used: 148, limit, ...expiry },
+  });
+  expect(
+    Object.prototype.hasOwnProperty.call(
+      result?.usage ?? {},
+      "expiringSoonCount",
+    ),
+  ).toBe(expiringSoonCount !== undefined);
+});
+
+test("parses the maximum safe expiring-soon count", () => {
+  const value = {
+    schemaVersion: 1,
+    usage: {
+      used: 148,
+      limit: { kind: "finite", value: 200 },
+      expiringSoonCount: Number.MAX_SAFE_INTEGER,
+    },
+  };
+
+  const result = parseInspectorMetadataV1(value);
+
+  expect(result?.usage).toStrictEqual({
+    used: 148,
+    limit: { kind: "finite", value: 200 },
+    expiringSoonCount: Number.MAX_SAFE_INTEGER,
+  });
+});
+
+test.each([
+  { name: "negative", expiringSoonCount: -1 },
+  { name: "fractional", expiringSoonCount: 1.5 },
+  {
+    name: "unsafe",
+    expiringSoonCount: Number.MAX_SAFE_INTEGER + 1,
+  },
+  { name: "string", expiringSoonCount: "37" },
+  { name: "NaN", expiringSoonCount: Number.NaN },
+  { name: "infinite", expiringSoonCount: Number.POSITIVE_INFINITY },
+])(
+  "drops a $name expiring-soon leaf without dropping usage",
+  ({ expiringSoonCount }) => {
+    const value = {
+      schemaVersion: 1,
+      usage: {
+        used: 148,
+        limit: { kind: "finite", value: 200 },
+        expiringSoonCount,
+      },
+      plan: { code: "free", label: "Free" },
+    };
+
+    const result = parseInspectorMetadataV1(value);
+
+    expect(result).toStrictEqual({
+      schemaVersion: 1,
+      usage: {
+        used: 148,
+        limit: { kind: "finite", value: 200 },
+      },
+      plan: { code: "free", label: "Free" },
+    });
+  },
+);
+
+test("ignores an inherited expiring-soon count", () => {
+  const prototype = { expiringSoonCount: 37 };
+  const target = Object.assign(
+    Object.create(prototype),
+    validUsage({ kind: "finite", value: 200 }),
+  );
+  const usage = new Proxy(target, {
+    getPrototypeOf() {
+      return Object.prototype;
+    },
+  });
+  const value = { schemaVersion: 1, usage };
+
+  const result = parseInspectorMetadataV1(value);
+
+  expect(result?.usage).toStrictEqual(
+    validUsage({ kind: "finite", value: 200 }),
+  );
+});
+
+test("does not invoke an expiring-soon getter", () => {
+  const readExpiringSoonCount = vi.fn(() => 37);
+  const usage = validUsage({ kind: "finite", value: 200 });
+  Object.defineProperty(usage, "expiringSoonCount", {
+    enumerable: true,
+    get: readExpiringSoonCount,
+  });
+  const value = { schemaVersion: 1, usage };
+
+  const result = parseInspectorMetadataV1(value);
+
+  expect(result?.usage).toStrictEqual(
+    validUsage({ kind: "finite", value: 200 }),
+  );
+  expect(readExpiringSoonCount).not.toHaveBeenCalled();
+});
+
+test("keeps usage when the expiring-soon descriptor cannot be read", () => {
+  const usage = new Proxy(validUsage({ kind: "finite", value: 200 }), {
+    getOwnPropertyDescriptor(target, property) {
+      if (property === "expiringSoonCount") {
+        throw new Error("descriptor unavailable");
+      }
+
+      return Reflect.getOwnPropertyDescriptor(target, property);
+    },
+  });
+  const value = { schemaVersion: 1, usage };
+
+  const result = parseInspectorMetadataV1(value);
+
+  expect(result?.usage).toStrictEqual(
+    validUsage({ kind: "finite", value: 200 }),
+  );
+});
+
+test("returns validated usage when expiry descriptor work mutates input", () => {
+  const usage = new Proxy(validUsage({ kind: "finite", value: 200 }), {
+    getOwnPropertyDescriptor(target, property) {
+      if (property === "expiringSoonCount") {
+        target.used = -1;
+        throw new Error("descriptor unavailable");
+      }
+
+      return Reflect.getOwnPropertyDescriptor(target, property);
+    },
+  });
+  const value = { schemaVersion: 1, usage };
+
+  const result = parseInspectorMetadataV1(value);
+
+  expect(result?.usage).toStrictEqual(
+    validUsage({ kind: "finite", value: 200 }),
+  );
 });
 
 test.each([
