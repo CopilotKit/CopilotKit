@@ -115,7 +115,8 @@ export type ChannelConcurrency = "parallel" | "serial" | "drop";
  *
  * Fails loud on all three ways cloning can fail to isolate: a missing `clone()`,
  * a `clone()` that hands back the same object, and a `clone()` that silently
- * drops subclass state (see {@link assertCloneKeptOwnFields}).
+ * drops subclass state (see {@link warnOnCloneDroppedOwnFields}, which reports
+ * rather than refuses).
  */
 export function isolateAgentInstance(
   prototype: AbstractAgent,
@@ -134,7 +135,7 @@ export function isolateAgentInstance(
       "createChannel: agent.clone() must return a distinct instance for concurrent turns",
     );
   }
-  assertCloneKeptOwnFields(prototype, cloned);
+  warnOnCloneDroppedOwnFields(prototype, cloned);
   cloned.threadId = threadId;
   // `clone()` copies `isRunning` from the source, and a source that has already
   // run can be mid-run at the moment it is cloned. A fresh turn is not.
@@ -157,7 +158,7 @@ export function isolateAgentInstance(
 }
 
 /**
- * Fail loud when `clone()` silently drops subclass state.
+ * Report — but do not refuse — a `clone()` that drops subclass state.
  *
  * `AbstractAgent.prototype.clone()` copies a fixed field list, so a subclass
  * that declares its own fields (an auth client, config, a cache) gets them back
@@ -165,17 +166,37 @@ export function isolateAgentInstance(
  * exists and returns a correctly-typed instance, nothing else surfaces it. The
  * agent just runs gutted.
  *
- * Comparing own enumerable keys catches exactly that and stays quiet for the
- * agents that do override `clone()` (`HttpAgent`, `LangGraphAgent`,
- * `BuiltInAgent`, `IntelligenceAgent`). Symbol-keyed and non-enumerable fields
- * are not covered.
+ * This used to throw. It no longer does, because whether a dropped field matters
+ * depends on what the field HOLDS, and from here the two cases are
+ * indistinguishable:
+ *
+ * - **Config** (`orchestrationAgentUrl`, an auth client) is read during the run
+ *   and never rewritten, so losing it does gut the agent.
+ * - **Per-run scratch state** is re-initialized at the start of every run, so
+ *   losing it changes nothing. `LangGraphAgent`'s `emittedToolCallStartIds` and
+ *   `eventsStreamActive` are exactly this: both are reset when a run binds its
+ *   subscriber, before anything reads them.
+ *
+ * Throwing on the second case took a Channel that works and refused every turn
+ * — while the identical clone happens on every ordinary runtime request
+ * (`agent-utils.ts` clones per request) with no ill effect at all, which is why
+ * it had never been noticed outside Channels. A warning keeps the signal for the
+ * config case without failing the harmless one.
+ *
+ * Deliberately NOT done: copying the dropped fields onto the clone. That would
+ * share one mutable object across concurrent turns, which is the exact hazard
+ * this isolation exists to prevent.
+ *
+ * Comparing own enumerable keys stays quiet for the agents that override
+ * `clone()` fully (`HttpAgent`, `BuiltInAgent`, `IntelligenceAgent`).
+ * Symbol-keyed and non-enumerable fields are not covered.
  *
  * Own *functions* are deliberately exempt. Assigning a method on the instance is
  * how spies and instrumentation wrap an agent, and losing that wrapper leaves
  * the class's prototype method intact — the clone still behaves correctly, it
  * just isn't wrapped. Only dropped state leaves an agent genuinely gutted.
  */
-function assertCloneKeptOwnFields(
+function warnOnCloneDroppedOwnFields(
   prototype: AbstractAgent,
   cloned: AbstractAgent,
 ): void {
@@ -187,11 +208,13 @@ function assertCloneKeptOwnFields(
   );
   if (dropped.length === 0) return;
   const name = prototype.constructor?.name ?? "the configured agent";
-  throw new Error(
+  console.warn(
     `createChannel: ${name}.clone() dropped ${dropped.join(", ")}. ` +
       "Every turn runs on a clone, and AbstractAgent's clone() only copies its " +
-      `own fixed field list, so those fields would read as undefined. Override ` +
-      `clone() on ${name} to copy them (HttpAgent.clone() is the reference).`,
+      "own fixed field list, so those fields read as undefined on the clone. " +
+      "That is harmless for state a run re-initializes, and gutting for anything " +
+      `read as configuration — override clone() on ${name} to carry them if it is ` +
+      "the latter (HttpAgent.clone() is the reference).",
   );
 }
 
