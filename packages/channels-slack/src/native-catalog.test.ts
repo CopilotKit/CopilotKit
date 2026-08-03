@@ -38,6 +38,15 @@ test("every Slack catalog entry serializes its fixed discriminator", () => {
 function requiredProps(type: string): Record<string, unknown> {
   if (type === "actions" || type === "context") return { elements: [] };
   if (type === "button" || type === "header") return { text: "text" };
+  if (type === "data_visualization") {
+    return {
+      title: "Weather",
+      chart: {
+        type: "pie",
+        segments: [{ label: "Sunny", value: 1 }],
+      },
+    };
+  }
   if (type === "image")
     return { image_url: "https://example.com/image.png", alt_text: "image" };
   if (type === "input") return { label: "label", element: {} };

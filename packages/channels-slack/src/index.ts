@@ -96,7 +96,18 @@ export {
 export { renderSlackModal } from "./render/modal.js";
 export { SLACK_LIMITS } from "./render/budget.js";
 export { Slack } from "./native.js";
-export type { SlackNativeProps, SlackRawProps } from "./native.js";
+export type {
+  SlackDataVisualizationAxisConfig,
+  SlackDataVisualizationChart,
+  SlackDataVisualizationDataPoint,
+  SlackDataVisualizationPieChart,
+  SlackDataVisualizationProps,
+  SlackDataVisualizationSegment,
+  SlackDataVisualizationSeries,
+  SlackDataVisualizationSeriesChart,
+  SlackNativeProps,
+  SlackRawProps,
+} from "./native.js";
 export {
   SLACK_NATIVE_MANIFEST,
   SLACK_BLOCK_MANIFEST,

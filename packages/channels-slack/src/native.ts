@@ -26,7 +26,6 @@ export interface SlackNativeProps<TValue = unknown> {
   blocks?: ChannelNode[];
   rows?: ChannelNode[] | ReadonlyArray<Record<string, unknown>>;
   tasks?: ChannelNode[] | ReadonlyArray<Record<string, unknown>>;
-  visualizations?: ChannelNode[] | ReadonlyArray<Record<string, unknown>>;
   title?: string | ChannelNode;
   label?: string | ChannelNode;
   description?: string | ChannelNode;
@@ -58,6 +57,57 @@ export interface SlackNativeProps<TValue = unknown> {
   onClick?: ClickHandler<TValue>;
   onSelect?: ClickHandler<TValue>;
   onSubmit?: ClickHandler<TValue>;
+}
+
+/** One positive slice in a Slack pie chart. */
+export interface SlackDataVisualizationSegment {
+  readonly label: string;
+  readonly value: number;
+}
+
+/** One labeled numeric value in a Slack bar, area, or line chart. */
+export interface SlackDataVisualizationDataPoint {
+  readonly label: string;
+  readonly value: number;
+}
+
+/** One uniquely named data series in a Slack bar, area, or line chart. */
+export interface SlackDataVisualizationSeries {
+  readonly name: string;
+  readonly data: readonly SlackDataVisualizationDataPoint[];
+}
+
+/** Ordered categories and optional axis labels for a series chart. */
+export interface SlackDataVisualizationAxisConfig {
+  readonly categories: readonly string[];
+  readonly x_label?: string;
+  readonly y_label?: string;
+}
+
+/** Slack pie chart payload with 1 to 12 positive segments. */
+export interface SlackDataVisualizationPieChart {
+  readonly type: "pie";
+  readonly segments: readonly SlackDataVisualizationSegment[];
+}
+
+/** Slack bar, area, or line chart payload with 1 to 12 series. */
+export interface SlackDataVisualizationSeriesChart {
+  readonly type: "bar" | "area" | "line";
+  readonly series: readonly SlackDataVisualizationSeries[];
+  readonly axis_config: SlackDataVisualizationAxisConfig;
+}
+
+/** Every chart payload accepted by a Slack data visualization block. */
+export type SlackDataVisualizationChart =
+  | SlackDataVisualizationPieChart
+  | SlackDataVisualizationSeriesChart;
+
+/** Props for `Slack.Block.DataVisualization`. */
+export interface SlackDataVisualizationProps {
+  readonly title: string;
+  readonly chart: SlackDataVisualizationChart;
+  readonly block_id?: string;
+  readonly children?: never;
 }
 
 type NativeComponent = <TValue = unknown>(
@@ -93,9 +143,20 @@ export interface SlackRawProps {
   children?: never;
 }
 
+const blocks = group("block", SLACK_BLOCK_MANIFEST);
+
+function dataVisualization(props: SlackDataVisualizationProps): ChannelNode {
+  return createNativeNode(
+    "slack",
+    "block",
+    "data_visualization",
+    props as unknown as Record<string, unknown>,
+  );
+}
+
 /** Complete message-surface Slack JSX namespace. */
 export const Slack = {
-  Block: group("block", SLACK_BLOCK_MANIFEST),
+  Block: { ...blocks, DataVisualization: dataVisualization },
   Element: group("element", SLACK_ELEMENT_MANIFEST),
   Object: group("object", SLACK_OBJECT_MANIFEST),
   Raw: (props: SlackRawProps): ChannelNode =>

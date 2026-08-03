@@ -125,6 +125,48 @@ test("managed Slack delivery serializes native JSX with fallback text", async ()
   });
 });
 
+test("managed Slack delivery preserves a data visualization chart", async () => {
+  const effect = vi.fn().mockResolvedValue({
+    providerReference: "pref_v1_slack_data_visualization_123",
+    providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+  });
+  const chart = {
+    type: "line" as const,
+    series: [
+      {
+        name: "Temperature",
+        data: [
+          { label: "Mon", value: 62 },
+          { label: "Tue", value: 65 },
+        ],
+      },
+    ],
+    axis_config: {
+      categories: ["Mon", "Tue"],
+      y_label: "Temperature (F)",
+    },
+  };
+
+  await makeAdapter().post(target("slack", effect), [
+    Slack.Block.DataVisualization({
+      title: "San Francisco forecast",
+      chart,
+    }),
+  ]);
+
+  expect(effect).toHaveBeenCalledWith(expect.any(String), {
+    kind: "slack.message.create",
+    text: "San Francisco forecast",
+    blocks: [
+      {
+        type: "data_visualization",
+        title: "San Francisco forecast",
+        chart,
+      },
+    ],
+  });
+});
+
 test("managed Teams delivery serializes the native Adaptive Card root", async () => {
   const effect = vi.fn().mockResolvedValue({
     providerReference: "pref_v1_teams_native_jsx_123",
