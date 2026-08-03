@@ -1,5 +1,6 @@
 import { Fragment } from "./ir.js";
 import type { ChannelNode, Renderable } from "./ir.js";
+import { isNativeNode } from "./native.js";
 
 function isChannelNode(v: unknown): v is ChannelNode {
   return typeof v === "object" && v !== null && "type" in v && "props" in v;
@@ -14,9 +15,26 @@ function expand(node: unknown): ChannelNode[] {
   if (!isChannelNode(node)) return [];
   if (node.type === Fragment) return expand(node.props.children);
   if (typeof node.type === "function") {
-    return expand(
+    const expanded = expand(
       (node.type as (p: Record<string, unknown>) => unknown)(node.props),
     );
+    if (node.key !== undefined && expanded.length === 1 && expanded[0]) {
+      expanded[0] = { ...expanded[0], key: expanded[0].key ?? node.key };
+    }
+    return expanded;
+  }
+  if (isNativeNode(node)) {
+    return [
+      {
+        ...node,
+        props: Object.fromEntries(
+          Object.entries(node.props).map(([name, value]) => [
+            name,
+            expandNativeValue(value),
+          ]),
+        ),
+      },
+    ];
   }
   const { children, ...rest } = node.props;
   const expandedChildren =
@@ -31,6 +49,21 @@ function expand(node: unknown): ChannelNode[] {
       key: node.key,
     },
   ];
+}
+
+/** Expand JSX-valued native slots while leaving scalar native objects intact. */
+function expandNativeValue(value: unknown): unknown {
+  if (isChannelNode(value)) {
+    const expanded = expand(value);
+    return expanded.length === 1 ? expanded[0] : expanded;
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => {
+      if (!isChannelNode(item)) return [item];
+      return expand(item);
+    });
+  }
+  return value;
 }
 
 export function renderToIR(ui: Renderable): ChannelNode[] {

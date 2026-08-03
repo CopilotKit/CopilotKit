@@ -7,6 +7,7 @@ import type {
   MessageReactionHandler,
 } from "@copilotkit/channels-ui";
 import { isBound, getBoundArgs, renderToIR } from "@copilotkit/channels-ui";
+import type { ChannelComponentRenderContext } from "./channel-component.js";
 import { mintId } from "./mint-id.js";
 import type {
   ActionContinuationContext,
@@ -48,7 +49,13 @@ function isComponentElement(
 
 export class ActionRegistry {
   private store: ActionStore;
-  private components = new Map<string, ComponentFn>();
+  private components = new Map<
+    string,
+    (
+      props: Record<string, unknown>,
+      context: ChannelComponentRenderContext,
+    ) => Renderable | Promise<Renderable>
+  >();
   // Cache the handler AND the element's `value` per minted id. The value is
   // needed to resolve HITL `awaitChoice` waiters on platforms whose callback
   // payload can't carry it (e.g. Telegram's 64-byte callback_data only holds
@@ -115,12 +122,21 @@ export class ActionRegistry {
     const fn = this.components.get(snap.component);
     if (!fn) return undefined;
     const root = renderToIR(
-      fn(snap.props as Record<string, unknown>) as Renderable,
+      await fn(snap.props as Record<string, unknown>, {
+        platform: "slack",
+        signal: new AbortController().signal,
+      }),
     );
     return takeMessageReaction(root);
   }
 
-  registerComponent(name: string, fn: ComponentFn): void {
+  registerComponent(
+    name: string,
+    fn: (
+      props: Record<string, unknown>,
+      context: ChannelComponentRenderContext,
+    ) => Renderable | Promise<Renderable>,
+  ): void {
     this.components.set(name, fn);
   }
 
@@ -135,9 +151,16 @@ export class ActionRegistry {
     props: Record<string, unknown>,
     conversationKey: string,
     continuation?: ActionContinuationContext,
+    renderContext: ChannelComponentRenderContext = {
+      platform: "slack",
+      signal: new AbortController().signal,
+    },
   ): Promise<ChannelNode[]> {
     const fn = this.components.get(componentName);
-    const root = renderToIR((fn ? fn(props) : props) as Renderable);
+    const rendered = fn
+      ? await fn(props, renderContext)
+      : (props as unknown as Renderable);
+    const root = renderToIR(rendered);
     await this.walk(
       root,
       [],
@@ -177,12 +200,19 @@ export class ActionRegistry {
       const fn = ui.type;
       component = fn.name || "anonymous";
       props = (ui.props ?? {}) as Record<string, unknown>;
-      this.registerComponent(component, fn);
+      this.registerComponent(
+        component,
+        (componentProps) => fn(componentProps) as Renderable,
+      );
       root = await this.bindTree(
         component,
         props,
         conversationKey,
         continuation,
+        {
+          platform: "slack",
+          signal: new AbortController().signal,
+        },
       );
     } else {
       root = renderToIR(ui);
@@ -274,7 +304,10 @@ export class ActionRegistry {
       const fn = this.components.get(snap.component);
       if (!fn) throw new ActionExpiredError(id);
       const tree = renderToIR(
-        fn(snap.props as Record<string, unknown>) as Renderable,
+        await fn(snap.props as Record<string, unknown>, {
+          platform: ctx.platform as ChannelComponentRenderContext["platform"],
+          signal: new AbortController().signal,
+        }),
       );
       handler = pluck(tree, snap.path);
       value = pluckValue(tree, snap.path);

@@ -35,6 +35,7 @@ import type {
   ModalView,
   ComponentFn,
   MessageRef,
+  Renderable,
 } from "@copilotkit/channels-ui";
 import {
   normalizeEmoji,
@@ -49,6 +50,11 @@ import type {
   ChannelIdentityContext,
 } from "./identity.js";
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
+import { isChannelComponentDefinition } from "./channel-component.js";
+import type {
+  ChannelComponentDefinition,
+  ChannelComponentRenderContext,
+} from "./channel-component.js";
 import { ChannelTelemetry } from "./telemetry/channel-telemetry.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import { createRequire } from "node:module";
@@ -246,6 +252,9 @@ export function resolveChannelConcurrency(cfg: {
  * with the props persisted in the store, so the specific shape isn't needed here.
  */
 export type ChannelComponent = (props: never) => ReturnType<ComponentFn>;
+export type ChannelComponentRegistration =
+  | ChannelComponent
+  | ChannelComponentDefinition;
 
 export type ChannelHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
@@ -449,7 +458,9 @@ export interface CreateChannelOptions<
    * actions); without registration, a click on a message posted before the
    * restart degrades to "action expired".
    */
-  components?: ChannelComponent[];
+  components?:
+    | ChannelComponentRegistration[]
+    | Record<string, ChannelComponent>;
   /** Slash commands. Forwarded to adapters that support them; ignored elsewhere. */
   commands?: ChannelCommand[];
   /** Persistence, per-thread state schema, transcripts, and lock/dedup tuning. */
@@ -704,7 +715,72 @@ export function createChannel<
   }
 
   const toolMap = new Map<string, ChannelTool>();
-  for (const t of opts.tools ?? []) toolMap.set(t.name, t);
+  let componentConfigurationError: Error | undefined;
+  for (const tool of opts.tools ?? []) {
+    if (toolMap.has(tool.name)) {
+      componentConfigurationError = new Error(
+        `duplicate channel tool or component name "${tool.name}"`,
+      );
+      continue;
+    }
+    toolMap.set(tool.name, tool);
+  }
+  const componentEntries: Array<{
+    name: string;
+    render: (
+      props: Record<string, unknown>,
+      context: ChannelComponentRenderContext,
+    ) => Renderable | Promise<Renderable>;
+  }> = [];
+  const configuredComponents = Array.isArray(opts.components)
+    ? opts.components.map((component) => ({
+        name: component.name,
+        component,
+      }))
+    : Object.entries(opts.components ?? {}).map(([name, component]) => ({
+        name,
+        component,
+      }));
+  const componentNames = new Set<string>();
+  for (const { name, component } of configuredComponents) {
+    if (!name) continue;
+    if (componentNames.has(name) || toolMap.has(name)) {
+      componentConfigurationError = new Error(
+        `duplicate channel tool or component name "${name}"`,
+      );
+      continue;
+    }
+    componentNames.add(name);
+    if (isChannelComponentDefinition(component)) {
+      componentEntries.push({
+        name,
+        render: (props, renderContext) =>
+          component.render(props, renderContext),
+      });
+      toolMap.set(name, {
+        name,
+        description: component.description,
+        parameters: component.parameters,
+        async handler(args, toolContext) {
+          await (toolContext.thread as Thread).postRegisteredComponent(
+            name,
+            args,
+            {
+              platform:
+                toolContext.platform as ChannelComponentRenderContext["platform"],
+              signal: toolContext.signal ?? new AbortController().signal,
+            },
+          );
+          return `Rendered component "${name}".`;
+        },
+      });
+      continue;
+    }
+    componentEntries.push({
+      name,
+      render: (props) => component(props as never) as Renderable,
+    });
+  }
   const context = opts.context ?? [];
 
   const mentionHandlers: ChannelHandler[] = [];
@@ -1269,6 +1345,7 @@ export function createChannel<
         // — with a MemoryStore that wipes all lock/dedup/transcript/action state,
         // and real adapters would connect/port-bind twice.
         if (started) return;
+        if (componentConfigurationError) throw componentConfigurationError;
         if (
           adapters.some(
             (adapter) => adapter.capabilities.supportsMessageEvents,
@@ -1301,25 +1378,22 @@ export function createChannel<
           retentionMs: cfg.actionRetentionMs ?? 7 * 24 * 60 * 60 * 1000,
         });
         registry = registryInstance;
-        for (const c of opts.components ?? []) {
-          if (!c.name) {
+        for (const component of componentEntries) {
+          if (!component.name) {
             console.warn(
               "[channel] createChannel: skipping anonymous component — give it a name to enable durable actions after restart.",
             );
             continue;
           }
-          registryInstance.registerComponent(
-            c.name,
-            c as unknown as ComponentFn,
-          );
+          registryInstance.registerComponent(component.name, component.render);
         }
         toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
         tel.capture("oss.channel.configured", {
           platforms: adapters.map((a) => normalizePlatform(a.platform)),
           adapterCount: adapters.length,
           store: storeKind(backend),
-          hasComponents: (opts.components?.length ?? 0) > 0,
-          componentsCount: opts.components?.length ?? 0,
+          hasComponents: componentEntries.length > 0,
+          componentsCount: componentEntries.length,
           toolsCount: toolMap.size,
           commandsCount: commandHandlers.size,
           contextCount: context.length,
