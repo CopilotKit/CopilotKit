@@ -1,42 +1,141 @@
 # HITL button action envelope
 
-Authoritative wire shape for buttons rendered by `@copilotkit/channels-teams` and
-the click Teams delivers back. A consumer that decodes clicks out-of-band (e.g.
-the Intelligence managed-Teams ingress, which deep-imports this package's renderer
-but runs its own inbound decode) must match this exactly.
+Authoritative wire shape for the Adaptive Card actions `@copilotkit/channels-teams`
+emits and the click Teams delivers back. A consumer that decodes clicks out-of-band
+(e.g. the Intelligence managed-Teams ingress, which deep-imports this package's
+renderer but runs its own inbound decode) must match this exactly.
 
 Contract test: [`src/button-action-envelope.contract.test.ts`](../src/button-action-envelope.contract.test.ts).
-Emitter: `renderButton` in [`src/render/adaptive-card.ts`](../src/render/adaptive-card.ts).
+Emitters (both in [`src/render/adaptive-card.ts`](../src/render/adaptive-card.ts)):
+`renderButton` for a `<Button>`, `synthesizeSubmit` for the submit the renderer
+adds to a card that has none it can dispatch.
 Decoder: `parseCardAction` in [`src/interaction.ts`](../src/interaction.ts).
 
 ## Outbound — what the renderer emits
 
-A `<Button>` (with an `onClick` handler, i.e. not a link button) renders as a
-**top-level Adaptive Card `Action.Submit`** — deliberately `Action.Submit`, **not
-`Action.Execute`** (no `verb`). The opaque action id and optional value ride in
-the action's `data`:
+A **non-link** `<Button>` — one with no non-empty `url` prop — renders as a
+**top-level Adaptive Card `Action.Submit`**, deliberately `Action.Submit` and
+**not `Action.Execute`** (no `verb`) — but only when it carries an `onClick`
+handler that the action registry has already stamped with an id (the renderer
+reads `onClick.id`, and that minted id is the one thing that can route the click
+back; an unstamped handler is indistinguishable from none here). The opaque
+action id and optional value ride in the action's `data`:
 
 ```jsonc
 {
   "type": "Action.Submit",
-  "title": "Approve",
+  "title": "Approve", // the button's text, truncated to TEAMS_LIMITS.buttonText
   "data": {
-    "ckActionId": "ck:approve", // opaque id; present only when the Button had an onClick handler
+    "ckActionId": "ck:approve", // opaque id; always present — see the drop rule below
     "value": { "decision": "yes" }, // present only when the Button had a `value` prop
   },
-  "style": "positive", // optional: "positive" (primary) | "destructive" (danger)
+  "style": "positive", // optional: "positive" (style="primary") | "destructive" (style="danger")
 }
 ```
 
-- A **link** `<Button>` (has a `url` prop) renders as `Action.OpenUrl` instead and
-  carries **no** `data` — it is not an interactive submit and never round-trips.
-- `data` is omitted entirely if the button has neither an `onClick` id nor a `value`.
+`ButtonProps.style` offers exactly `"primary" | "danger"` — those are the only
+two values a typed caller can send, and they map to Adaptive Cards' `"positive"`
+and `"destructive"`. `renderButton` additionally tolerates the raw
+`"destructive"` (same result as `"danger"`), for untyped callers reaching the
+renderer through a deep import; that is not a `<Button>` prop value and should
+not be relied on. Anything else leaves `style` off the action entirely.
+
+- A **link** `<Button>` (a non-empty `url` prop) renders as `Action.OpenUrl`
+  instead and carries **no** `data` — it is not a submit and never round-trips.
+- **A `<Button>` with neither a non-empty `url` nor an `onClick` emits no action
+  at all** — not a dead `Action.Submit`. Adaptive Cards has no inert button: such
+  a submit would still post an activity, one the decoder rejects as
+  not-a-card-action (no `ckActionId`) and the adapter then drives as a blank user
+  turn; and because Teams merges every card input into whichever submit fires,
+  the click would also swallow whatever the user had typed. A `value` prop is not
+  a route — the decode keys on `ckActionId` — so a `<Button value>` with no
+  `onClick` is dropped just the same. A card left with no actions this way emits
+  no `actions` key at all, unless a submit is synthesized below.
+- So `data` is never emitted without a `ckActionId`: every `Action.Submit` on a
+  card this renderer produces can route its own click.
+- `renderButton` never emits `ckValueField`. That key belongs solely to the
+  synthesized submit below.
+
+### The synthesized submit
+
+Adaptive Cards has no per-input submit affordance: an `Input.*` only reaches us
+when some `Action.Submit` on the card fires, and `renderButton` is the only other
+producer of one. A card with no submit able to route the click therefore cannot
+deliver its inputs anywhere, so `renderAdaptiveCard` adds one (`synthesizeSubmit`)
+bound to a field that can both route a dispatch and produce a value:
+
+```jsonc
+{
+  "type": "Action.Submit",
+  "title": "Submit", // always this literal
+  "data": {
+    "ckActionId": "ck:note", // the field's minted handler id — what gets dispatched
+    "ckValueField": "reason", // the card `id` of the field whose submitted value IS the action value
+  },
+}
+```
+
+A synthesized submit never carries a `value` key: its action value comes from
+`ckValueField` instead. The two ids differ whenever an explicit `name` prop (or a
+collision-dedupe suffix) renames the field, so both are carried.
+
+**When it is added.** Only when the card has **no dispatchable submit** — an
+`Action.Submit` whose `data.ckActionId` is a string. Having _some_ action is not
+enough: an `Action.OpenUrl` (a link `<Button>`) opens a URL and submits nothing,
+so a field beside one still needs a synthesized submit. A `<Button>` that routes
+nowhere does not enter into it either way — it is never emitted, so it can
+neither suppress synthesis nor compete for the click.
+
+**Which field it binds.** The _first_ field, in render order, meeting **all
+three** of: (a) it had a minted handler — `<Input onSubmit>` **or**
+`<Select onSelect>`; a field with neither is never a candidate; (b) it can
+produce a value — an `Input.Text` always can (it submits a string, empty when
+untouched), but an **option-less `<Select>`** cannot, since an empty
+`Input.ChoiceSet` offers nothing to pick; and (c) it survived the
+`TEAMS_LIMITS.bodyElements` clamp. (b) and (c) share a reason: a Submit bound to
+a field that is not there, or has nothing to give, would dispatch `undefined` to
+a `ClickHandler<string>`. A field failing any of the three is _skipped_, not
+consumed — an option-less `<Select>` above a usable `<Input>` leaves the
+`<Input>` to back the submit. Note the option-less `<Select>` is still rendered
+in the body, as an empty `Input.ChoiceSet`; only its candidacy is withheld. If no
+candidate survives, **nothing is synthesized** and the card can end up with no
+actions at all.
+
+**One submit per card.** Adaptive Cards fires a single action, so only that first
+field is bound; later `<Input onSubmit>` / `<Select onSelect>` handlers never
+fire. Their values are _not_ lost — Teams merges every input into this one submit,
+so all of them arrive as submitted fields, including any the user left blank (as
+`""` — see the inbound rules below). Read them from `activity.value` (or
+`InteractionEvent.values`) rather than expecting a per-field handler.
+
+**Action budget.** Top-level actions are clamped to `TEAMS_LIMITS.actions`, so a
+card never emits more than that many. _When a submit is synthesized_, its slot is
+reserved **inside** that ceiling — the authored actions are clamped to
+`TEAMS_LIMITS.actions - 1` and the submit is appended afterwards — so the submit,
+the card's only route back into the engine, is never the entry the clamp drops,
+and it is always **last** in `actions`. When nothing is synthesized the authored
+actions get the whole ceiling and keep the author's order, with no guarantee
+about which action is last.
+
+**Overflow does not create one.** Whether to synthesize is decided against the
+_unclamped_ action list. A dispatchable `<Button>` that the action clamp then
+drops still suppresses synthesis: the author bound that handler, and dispatching
+a field's handler in its place would be a wrong dispatch, which is worse than
+none. Such a card is emitted with no route back into the engine.
+
+**`<Select multi>` caveat.** `renderSelect` emits `isMultiSelect: true` and Teams
+submits the chosen values as a **comma-joined string**. Nothing on this path
+splits it, so a `<Select multi onSelect>` handler receives that single string, not
+the `string[]` that `SelectProps.onSelect` (`ClickHandler<string | string[]>`)
+advertises. This is a pre-existing Teams fidelity gap; the synthesized submit only
+makes it reachable.
 
 ## Inbound — what Teams delivers on click
 
 Clicking an `Action.Submit` arrives as a **Message activity** (`activity.type ===
 "message"`), NOT an `invoke` / `adaptiveCard/action` / `Action.Execute` activity.
-The action's `data` becomes `activity.value`, and the message `text` is empty:
+The action's `data` becomes `activity.value`; the click carries no user text and
+the adapter never reads `activity.text` on this path:
 
 ```jsonc
 {
@@ -53,14 +152,88 @@ The action's `data` becomes `activity.value`, and the message `text` is empty:
 
 ### Decode rules
 
-- **Is it a card action?** `typeof activity.value.ckActionId === "string"`. If not,
-  it's an ordinary chat message.
-- **Fields:** `id = activity.value.ckActionId`, `value = activity.value.value`.
-  Carry only these two — no resume-data smuggling; durability rides on the
-  consumer's action store keyed by `id`.
+- **Is it a card action?** `activity.value` is a non-null object _and_
+  `typeof activity.value.ckActionId === "string"`. If not, it is an ordinary chat
+  message and `parseCardAction` returns `undefined`.
+- **Id:** `id = activity.value.ckActionId`. No resume-data smuggling — durability
+  rides on the consumer's action store keyed by `id`.
 - **Card inputs:** if the card also had `<Input>`/`<Select>` fields, Teams merges
-  their values into `activity.value` alongside `ckActionId`/`value`. Read the
-  named input keys directly from `activity.value` if needed.
+  their values into `activity.value` alongside the envelope keys. Every key that
+  is **not** `ckActionId` / `value` / `ckValueField` is a submitted field. Those
+  three names are reserved (`CARD_ENVELOPE_KEYS`): the renderer seeds its used-id
+  set with them and ignores an explicit `name` that matches one, so no field is
+  ever minted under them.
+- **Which key a field arrives under.** Teams keys a submitted field by the card
+  `id` the renderer minted for it, so this rule is part of the wire contract for
+  anyone reading `values` (or `ckValueField`) out-of-band. `fieldId` picks, in
+  order: (1) the `name` prop, trimmed, when it is non-empty and not one of the
+  reserved keys; (2) otherwise the field's own minted handler id — the
+  `<Input onSubmit>` / `<Select onSelect>` id, the same string that would appear
+  in `ckActionId`; (3) otherwise a positional `input_N` / `select_N`, where `N`
+  counts every field on the card in render order, 1-based, with `<Input>`s and
+  `<Select>`s sharing one counter (so a `<Select>` then an `<Input>` yields
+  `select_1` then `input_2`). Whatever the source, a name already taken on the
+  card takes the first free `_1`, `_2`, … suffix: two `<Input>`s bound to the
+  same handler arrive as `ck:note` and `ck:note_1`. Field ids are card-local —
+  do not assume one is an action id, and do not assume it is stable across
+  renders of a card whose fields moved.
+- **Action value:** `activity.value[ckValueField]` when `ckValueField` is a string
+  **and** that key is present among the submitted fields. That is the synthesized
+  submit: the dispatched handler is an `<Input onSubmit>` or `<Select onSelect>`,
+  whose contract is the submitted value, not a (nonexistent) button value.
+  Otherwise the action value is `activity.value.value` — the clicked button's own
+  value.
+- **`ckValueField` miss.** The `else` above is also the miss fallback: if
+  `ckValueField` names a field absent from the payload, the decode neither throws
+  nor surfaces the raw envelope — it silently yields `activity.value.value`, which
+  on a synthesized submit is `undefined`, so a `ClickHandler<string>` receives
+  `undefined`. A `ckValueField` naming a reserved key misses for the same reason
+  (reserved keys are stripped before the lookup), though the renderer never emits
+  one.
+- **An untouched input still arrives — as `""`.** Teams merges _every_ `Input.*`
+  on the card into the submit, not only the ones the user touched, so a field
+  left blank is present in `values` carrying an empty string: not absent, and not
+  `null`. `<Input onSubmit>` is a `ClickHandler<string>` and `""` is the reading
+  that contract promises for an empty box. `@copilotkit/channels-slack` matches
+  this — Slack reports an empty `plain_text_input` as `value: null` and its
+  decoder normalizes that to `""` — so identical JSX reads identically on both
+  surfaces. Modelled by the Teams-client simulation in
+  [`src/input-submit.e2e.test.ts`](../src/input-submit.e2e.test.ts), which
+  derives its payload from the rendered card rather than from what was typed.
+- **Typed text is a string.** Teams delivers `Input.Text` values as strings and
+  nothing may coerce them: `42`, `true`, `null` and `{"a":1}` must reach the
+  handler as those four strings.
+- **Write each field with `defineProperty`; keep the bag an ordinary object.**
+  `__proto__` survives `JSON.parse` as an own key, so a crafted submit really
+  can carry one. A decoder that copies fields with `bag[key] = fieldValue` runs
+  `Object.prototype`'s `__proto__` **setter** instead of creating a field: the
+  submitted value vanishes from `Object.keys(bag)` and — being an object —
+  becomes the bag's prototype, so everything it carries reads back off the bag
+  as though it had been submitted. `parseCardAction` writes every field with
+  `Object.defineProperty` (see `setField` in `src/interaction.ts`), which
+  performs `[[DefineOwnProperty]]` and never consults a setter, so `__proto__`
+  lands as ordinary enumerable own data like any other field id. Reproduce with
+  `JSON.parse('{"ckActionId":"ck:x","__proto__":{"injected":true},"reason":"ok"}')`:
+  `values.injected` is `undefined`, `Object.keys(values)` is
+  `["__proto__", "reason"]`, and the global `Object.prototype` is untouched.
+  **Do _not_ reach for `Object.create(null)`.** It blocks the same injection,
+  but at a price you cannot pay here: `values` is public API — it reaches
+  application handlers as `ctx.values`, typed `Record<string, unknown>` — and a
+  prototype-less bag makes ordinary consumer code like
+  `ctx.values.hasOwnProperty(id)` throw and `String(ctx.values)` break.
+  `Object.getPrototypeOf(values)` is `Object.prototype`.
+- **What the ordinary prototype costs, and what it does not.** Because the bag
+  keeps its prototype, a field id that was **not** submitted but is spelled like
+  a builtin reads back the builtin rather than `undefined` — `values.toString`
+  is a function on a bag carrying no `toString` field. That is true of every
+  `Record<string, unknown>` on this API, and it is not the injection; test
+  presence with `Object.hasOwn(values, id)` or `Object.keys(values)`, never
+  truthiness. The half that _is_ guaranteed: a field that **was** submitted
+  always wins, because `defineProperty` creates an own property that shadows its
+  `Object.prototype` namesake — a submitted `toString` reads back as the
+  submitted string. The `ckValueField` lookup is `hasOwnProperty`-guarded for
+  the same reason, so a `ckValueField` naming an unsubmitted builtin misses and
+  takes the fallback above rather than dispatching `Object.prototype.toString`.
 - **Conversation key:** derive it from `activity.conversation.id` (see
-  `conversationKeyOf`). Ingress and interaction decode MUST use the same key or the
-  waiter is stranded.
+  `conversationKeyOf`). Ingress and interaction decode MUST use the same key or
+  the waiter is stranded.

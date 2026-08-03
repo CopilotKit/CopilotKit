@@ -1,5 +1,6 @@
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { ContextActionsBlock, KnownBlock } from "@slack/types";
+import { FIELD_BLOCK_PREFIX } from "../interaction.js";
 import { markdownToMrkdwn } from "../markdown-to-mrkdwn.js";
 import { SLACK_LIMITS, clampArray, truncateText } from "./budget.js";
 
@@ -64,8 +65,9 @@ export function buildFeedbackBlocks(opts?: {
  */
 export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
   const blocks: KnownBlock[] = [];
+  const context: RenderContext = { nextFieldIndex: 0, usedFieldIds: new Set() };
   for (const node of ir) {
-    renderNode(node, blocks);
+    renderNode(node, blocks, context);
   }
 
   // Top-level budget: clamp to the per-message block ceiling, leaving room for
@@ -96,6 +98,12 @@ export function renderSlackMessage(ir: ChannelNode[]): {
   return { blocks };
 }
 
+/** Per-message state for minting field ids — see {@link fieldId}. */
+interface RenderContext {
+  nextFieldIndex: number;
+  usedFieldIds: Set<string>;
+}
+
 function overflowSignal(count: number): KnownBlock {
   return {
     type: "context",
@@ -104,13 +112,17 @@ function overflowSignal(count: number): KnownBlock {
 }
 
 /** Render a single IR node, pushing zero or more blocks onto `out`. */
-function renderNode(node: ChannelNode, out: KnownBlock[]): void {
+function renderNode(
+  node: ChannelNode,
+  out: KnownBlock[],
+  context: RenderContext,
+): void {
   if (typeof node.type !== "string") return; // non-intrinsic — already expanded away
   const props = node.props ?? {};
   switch (node.type) {
     case "message": {
       // The message container is not a block; flatten its children.
-      for (const child of childNodes(node)) renderNode(child, out);
+      for (const child of childNodes(node)) renderNode(child, out, context);
       return;
     }
     case "header": {
@@ -180,26 +192,47 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       return;
     }
     case "actions": {
-      const { items } = clampArray(
-        childNodes(node),
-        SLACK_LIMITS.actionsElements,
-      );
-      // A multi-select can't live in an `actions` block (Slack allows
-      // multi_static_select only in section/input blocks), so peel each one off
-      // into its own dispatching input block; the rest stay as action elements.
-      // Flush the pending actions block BEFORE each peeled-off input so blocks
-      // stay in source order (e.g. [Button, Select multi] → actions, then input).
+      // Every field is peeled into a block of its own, leaving `actions` blocks
+      // to the buttons. Slack forbids a text input and a multi-select inside an
+      // `actions` block at all (they belong in input blocks), which forces the
+      // peel for those two. A single `static_select` Slack *would* allow inline,
+      // and it is peeled anyway: a field's `values` key rides on its block id
+      // (see `fieldBlockId`), which one shared block could only spell for one
+      // field. Flush the pending actions block BEFORE each peeled field so
+      // blocks stay in source order (e.g. [Button, Select multi] → actions,
+      // then input).
+      //
+      // Peeling rather than dropping is what puts every field inside
+      // `<Actions>` onto Slack, which is what Teams does with the same JSX —
+      // its `actions` case just recurses into its full node switch. The match
+      // ends at that wrapper. Slack's `renderNode` has no top-level `select`,
+      // `button` or `chart` case, so all three render to nothing when they
+      // appear OUTSIDE an `<Actions>`, while Teams renders all three there;
+      // and `<Chart>` has no Slack rendering at any depth, since
+      // `renderActionElement` drops it inside `<Actions>` too. Identical JSX
+      // therefore still diverges across the two surfaces in those cases —
+      // closing that is separate follow-up work, not something this peel did.
       let elements: object[] = [];
       const flush = () => {
         if (elements.length > 0) {
-          out.push({ type: "actions", elements } as KnownBlock);
+          // `actionsElements` bounds one emitted `actions` block, so clamp
+          // here rather than over the children: peeled-off fields and
+          // unrenderable children never take a slot in any block, and a peel
+          // splits the rest across several blocks that are budgeted apart.
+          const { items } = clampArray(elements, SLACK_LIMITS.actionsElements);
+          out.push({ type: "actions", elements: items } as KnownBlock);
           elements = [];
         }
       };
-      for (const child of items) {
-        if (child.type === "select" && child.props.multi) {
+      for (const child of childNodes(node)) {
+        if (child.type === "input") {
           flush();
-          out.push(multiSelectInput(child));
+          out.push(textInput(child, context));
+          continue;
+        }
+        if (child.type === "select") {
+          flush();
+          out.push(selectBlock(child, context));
           continue;
         }
         const el = renderActionElement(child);
@@ -222,22 +255,7 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       return;
     }
     case "input": {
-      out.push({
-        type: "input",
-        dispatch_action: true,
-        element: {
-          type: "plain_text_input",
-          action_id: truncateText(
-            idFromHandler(props.onSubmit) ?? "input",
-            SLACK_LIMITS.actionId,
-          ),
-          multiline: !!props.multiline,
-        },
-        label: {
-          type: "plain_text",
-          text: truncateText(String(props.placeholder ?? " "), 150),
-        },
-      } as KnownBlock);
+      out.push(textInput(node, context));
       return;
     }
     case "text": {
@@ -274,7 +292,12 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       }
 
       const rowNodes = childNodes(node).filter((c) => c.type === "row");
-      const { items: dataRows } = clampArray(rowNodes, SLACK_LIMITS.tableRows);
+      // The header is a row of the emitted block too, so budget data rows
+      // against what it leaves of the table's row ceiling.
+      const { items: dataRows } = clampArray(
+        rowNodes,
+        SLACK_LIMITS.tableRows - rows.length,
+      );
       for (const rowNode of dataRows) {
         const cells = childNodes(rowNode).filter((c) => c.type === "cell");
         rows.push(cells.map((cell) => cellOf(collectText(cell))));
@@ -304,8 +327,11 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
 }
 
 /**
- * Render one interactive element inside an `actions` block. Returns `null` for
- * children that aren't renderable as action elements (so callers can filter).
+ * Render one interactive element inside a shared `actions` block. Only a
+ * `<Button>` qualifies — every field is peeled into a block of its own by the
+ * caller. Returns `null` for every other child, which the caller then drops:
+ * a `<Chart>` inside `<Actions>` reaches Slack as nothing, where Teams renders
+ * it, because Teams' `actions` case recurses into its full node switch.
  */
 function renderActionElement(node: ChannelNode): object | null {
   if (typeof node.type !== "string") return null;
@@ -340,68 +366,196 @@ function renderActionElement(node: ChannelNode): object | null {
       }
       return el;
     }
-    case "select": {
-      const action_id = truncateText(
-        idFromHandler(props.onSelect) ?? "select",
-        SLACK_LIMITS.actionId,
-      );
-      const options =
-        (props.options as { label: string; value: unknown }[] | undefined) ??
-        [];
-      const { items } = clampArray(options, SLACK_LIMITS.selectOptions);
-      const el: Record<string, unknown> = {
-        type: "static_select",
-        action_id,
-        placeholder: {
-          type: "plain_text",
-          text: String(props.placeholder ?? " "),
-        },
-        options: items.map((o) => ({
-          text: { type: "plain_text", text: truncateText(o.label, 75) },
-          value: truncateText(String(o.value), 150),
-        })),
-      };
-      return el;
-    }
     default:
       return null;
   }
 }
 
 /**
- * Render a `<Select multi>` as a dispatching input block holding a
- * `multi_static_select` (which Slack forbids inside an `actions` block). The
- * block_actions payload carries `selected_options`, decoded to a `string[]`.
+ * Render an `<Input>` as a dispatching input block holding a
+ * `plain_text_input` (which Slack forbids inside an `actions` block). Typing
+ * and submitting fires a `block_actions` payload carrying the typed text
+ * verbatim on the element's `action_id` — the registry-minted `onSubmit` id.
+ *
+ * `dispatch_action` on the block only permits that payload; WHEN it fires is
+ * the element's `dispatch_action_config` — a `plain_text_input`'s dispatch is
+ * "determined by the dispatch_action_config field" (Slack's `block_actions`
+ * reference), whose only two triggers are `on_enter_pressed` and
+ * `on_character_entered`. We name `on_enter_pressed` rather than lean on
+ * Slack's unspecified default: Enter-to-submit is the affordance `onSubmit`
+ * means, and naming it is what makes the multiline case below decidable.
+ *
+ * `multiline` is a presentation hint and `onSubmit` is a data contract, and on
+ * Slack a `plain_text_input` cannot honour both: a BOUND multiline input is
+ * therefore rendered single-line, so Enter submits it. Neither trigger works in
+ * a tall box —
+ *   - `on_enter_pressed` never fires, because Enter inserts a newline there.
+ *     That is the shape this replaces: the handler never ran, and a
+ *     `thread.awaitChoice` waiting on it hung forever.
+ *   - `on_character_entered` fires once per KEYSTROKE, so it would run
+ *     `onSubmit` on every prefix of the text and resolve an `awaitChoice` on
+ *     the first character. `onSubmit` is a `ClickHandler<string>` whose value
+ *     is the submitted text, not a fragment of it — a wrong value delivered
+ *     N times is worse than the hang it replaces.
+ * Slack also has no per-input submit button, and a synthesized one could not
+ * carry the text: only a static `value` rides on a `block_actions` action, so
+ * such a click would reach `onSubmit` (and any `awaitChoice`) as `undefined`
+ * while the text arrived separately in `state.values`. A one-line box that
+ * submits the whole string beats a taller box that submits nothing, a
+ * fragment, or nothing but a hole where the string should be.
+ *
+ * An UNBOUND `<Input multiline>` keeps its tall box: with no `onSubmit` there
+ * is nothing to make unreachable — its text rides to a sibling `<Button>`'s
+ * click in `state.values`, keyed by {@link fieldBlockId} — and it claims no
+ * trigger, since the one it could claim could not fire.
  */
-function multiSelectInput(node: ChannelNode): KnownBlock {
+function textInput(node: ChannelNode, context: RenderContext): KnownBlock {
   const props = node.props ?? {};
-  const action_id = truncateText(
-    idFromHandler(props.onSelect) ?? "select",
-    SLACK_LIMITS.actionId,
-  );
-  const options =
-    (props.options as { label: string; value: unknown }[] | undefined) ?? [];
-  const { items } = clampArray(options, SLACK_LIMITS.selectOptions);
+  const id = fieldId(node, "onSubmit", "input", context);
+  // Only a handler-bound input has a submit to keep reachable; `multiline`
+  // costs an unbound one nothing, so it is honoured there.
+  const bound = idFromHandler(props.onSubmit) !== undefined;
+  const multiline = !!props.multiline && !bound;
   return {
     type: "input",
-    dispatch_action: true,
+    block_id: fieldBlockId(id),
+    // Bound inputs only. An unbound box has no handler to reach, so a trigger
+    // here would post an interaction whose id dispatches nothing — and the
+    // engine resolves a pending `thread.awaitChoice` on ANY interaction in the
+    // conversation, so a decorative notes field would answer someone else's
+    // approval with whatever was typed in it. Its text still reaches handlers:
+    // Slack reports every input in `state.values` when a sibling `<Button>` is
+    // clicked, whether or not the input itself dispatches.
+    dispatch_action: bound,
     element: {
-      type: "multi_static_select",
-      action_id,
-      placeholder: {
-        type: "plain_text",
-        text: String(props.placeholder ?? " "),
-      },
-      options: items.map((o) => ({
-        text: { type: "plain_text", text: truncateText(o.label, 75) },
-        value: truncateText(String(o.value), 150),
-      })),
+      type: "plain_text_input",
+      action_id: elementActionId(props.onSubmit, id),
+      multiline,
+      // Claimed only where it can fire — see the multiline discussion above.
+      // Slack renders its own "press enter to submit" hint under a box
+      // configured this way.
+      ...(multiline
+        ? {}
+        : {
+            dispatch_action_config: {
+              trigger_actions_on: ["on_enter_pressed"],
+            },
+          }),
     },
     label: {
       type: "plain_text",
       text: truncateText(String(props.placeholder ?? " "), 150),
     },
   } as KnownBlock;
+}
+
+/**
+ * Render a `<Select>` as a block of its own naming the field: an `input` block
+ * when `multi` (Slack forbids a `multi_static_select` inside an `actions` block
+ * and an input block is what dispatches it), else a single-element `actions`
+ * block, which is how a `static_select` renders inline. Either way the payload
+ * carries the chosen option value(s), in the shape the element reports it:
+ * `selected_option` for the single case (decoded to a `string`),
+ * `selected_options` for the multi case (decoded to a `string[]`).
+ */
+function selectBlock(node: ChannelNode, context: RenderContext): KnownBlock {
+  const props = node.props ?? {};
+  const id = fieldId(node, "onSelect", "select", context);
+  const options =
+    (props.options as { label: string; value: unknown }[] | undefined) ?? [];
+  const { items } = clampArray(options, SLACK_LIMITS.selectOptions);
+  const element = {
+    type: props.multi ? "multi_static_select" : "static_select",
+    action_id: elementActionId(props.onSelect, id),
+    placeholder: {
+      type: "plain_text",
+      text: String(props.placeholder ?? " "),
+    },
+    // A plain string on the wire, never JSON: `SelectOption.value` is a
+    // `string`, so `interaction.ts` reads it back verbatim. (A `<Button>`'s
+    // value is the opposite — `JSON.stringify`d above, JSON-parsed on the way
+    // in.) `String(...)` keeps that true for an untyped JS caller.
+    options: items.map((o) => ({
+      text: { type: "plain_text", text: truncateText(o.label, 75) },
+      value: truncateText(String(o.value), 150),
+    })),
+  };
+  if (!props.multi) {
+    return {
+      type: "actions",
+      block_id: fieldBlockId(id),
+      elements: [element],
+    } as KnownBlock;
+  }
+  return {
+    type: "input",
+    block_id: fieldBlockId(id),
+    // Bound selects only, for the same reason as `textInput`: an unbound
+    // multi-select that dispatches would resolve a pending `awaitChoice` with
+    // its own selection. Its reading still rides along in `state.values`.
+    dispatch_action: idFromHandler(props.onSelect) !== undefined,
+    element,
+    label: {
+      type: "plain_text",
+      text: truncateText(String(props.placeholder ?? " "), 150),
+    },
+  } as KnownBlock;
+}
+
+/**
+ * The key this field's reading appears under in an interaction's `values`,
+ * derived the way Teams derives the Adaptive Card element `id` that plays the
+ * same role (`fieldId()` in channels-teams' `render/adaptive-card.ts`): an
+ * explicit `name` wins, else the registry-minted handler id, else a positional
+ * fallback numbered off a counter every field advances. Deduped with a numbered
+ * suffix, because two fields keyed alike would overwrite one another's reading.
+ *
+ * One Teams rule is deliberately absent here: Teams also refuses a `name` that
+ * collides with a `CARD_ENVELOPE_KEYS` entry, and seeds its used-id set with
+ * those keys, because every Teams reading shares one submit-data object with
+ * that envelope. A Slack field's key rides on its own block id instead, so
+ * there is nothing to collide with. The two surfaces therefore key a
+ * `<Select name="ckActionId">` differently — `ckActionId` here, the minted
+ * handler id on Teams.
+ */
+function fieldId(
+  node: ChannelNode,
+  handlerProp: "onSubmit" | "onSelect",
+  fallback: "input" | "select",
+  context: RenderContext,
+): string {
+  const props = node.props ?? {};
+  const index = ++context.nextFieldIndex;
+  const name = typeof props.name === "string" ? props.name.trim() : "";
+  const base =
+    name || idFromHandler(props[handlerProp]) || `${fallback}_${index}`;
+  let candidate = base;
+  let suffix = 1;
+  while (context.usedFieldIds.has(candidate)) {
+    candidate = `${base}_${suffix++}`;
+  }
+  context.usedFieldIds.add(candidate);
+  return candidate;
+}
+
+/**
+ * The `block_id` naming the single field a block holds, so `decodeInteraction`
+ * can key `values` by it. Slack caps a block id at the same 255 chars as an
+ * action id; the decode reads the key straight back off the block id, so a
+ * truncated one stays self-consistent.
+ */
+function fieldBlockId(id: string): string {
+  return truncateText(FIELD_BLOCK_PREFIX + id, SLACK_LIMITS.actionId);
+}
+
+/**
+ * A field element's `action_id`. The registry-minted handler id when there is
+ * one — the engine dispatches on exactly that string, so honouring `name` must
+ * not touch it — else the field id, which is unique where the old `"input"` /
+ * `"select"` literals collided.
+ */
+function elementActionId(handler: unknown, id: string): string {
+  return truncateText(idFromHandler(handler) ?? id, SLACK_LIMITS.actionId);
 }
 
 /** Derive a button's `action_id`: prefer the registry-stamped id, else a stable fallback. */

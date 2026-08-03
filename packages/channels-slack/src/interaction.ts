@@ -8,6 +8,20 @@ import { DM_SCOPE } from "./types.js";
 import type { ConversationKey, ReplyTarget } from "./types.js";
 
 /**
+ * Prefix marking a `block_id` the renderer minted to name the one field its
+ * block holds (see `fieldBlockId` in `render/block-kit.ts`).
+ *
+ * A field's `values` key must follow the author's `<Input name>`/`<Select name>`,
+ * as it does on Teams — but `action_id` cannot carry it, because that is the
+ * string the engine dispatches on and it has to stay the registry-minted `ck:`
+ * id. Slack keys `state.values` by block then by element, so the block id is the
+ * only other stable slot on the wire: the renderer writes the field id there and
+ * {@link flattenBlockState} reads it back. The prefix is what distinguishes a
+ * block we named from one Slack auto-numbered or a `<Raw>` author set.
+ */
+export const FIELD_BLOCK_PREFIX = "ckf:";
+
+/**
  * Stable string key shared by ingress (onTurn) and interaction decoding so the
  * bot's awaitChoice waiters resolve. Both paths MUST derive the conversation key
  * from this single helper — a mismatch silently strands the waiter.
@@ -40,11 +54,14 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     };
     actions?: Array<{
       action_id?: string;
-      value?: string;
-      selected_option?: { value?: string };
+      type?: string;
+      /** `null`, not absent, when the control is a text input the user left empty. */
+      value?: string | null;
+      selected_option?: SelectedOption;
       selected_options?: Array<{ value?: string }>;
       action_ts?: string;
     }>;
+    state?: SlackBlockState;
   };
   if (body.type !== "block_actions") return undefined;
   const action = body.actions?.[0];
@@ -76,14 +93,28 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     threadTs: isDm && !explicitThreadTs ? undefined : threadTs,
   };
 
-  // Tiny, non-sensitive value: the clicked button's value (or selected option
-  // value), JSON-parsed if it round-trips, otherwise the raw string. A
-  // multi_static_select reports `selected_options` (an array) → a `string[]`.
+  // Tiny, non-sensitive value: the clicked control's reading, decoded with the
+  // codec that encoded it (see block-kit.ts). Only a `<Button>`'s value is
+  // JSON-encoded there, so only `action.value` is JSON-parsed — falling back to
+  // the raw string when it isn't JSON.
+  //
+  // Everything else is a string on the wire and stays one. Free text is a
+  // string by contract (`<Input onSubmit>` is a `ClickHandler<string>`), and so
+  // is a select's option value (`SelectOption.value` is a `string`, written out
+  // verbatim). JSON-parsing either would silently hand the handler `42` as a
+  // number, `true` as a boolean, `null`, or `{"a":1}` as an object. A
+  // multi_static_select reports `selected_options` (an array) → a `string[]`;
+  // a single select reports `selected_option` → a `string` (see
+  // {@link selectedOptionValue} for the choice-less case).
   let value: unknown;
-  if (action.selected_options) {
-    value = action.selected_options.map((o) => parseValue(o.value));
+  if (action.type === PLAIN_TEXT_INPUT) {
+    value = textInputValue(action.value);
+  } else if (action.selected_options) {
+    value = action.selected_options.map((o) => o.value);
+  } else if (action.value !== undefined) {
+    value = parseValue(action.value);
   } else {
-    value = parseValue(action.value ?? action.selected_option?.value);
+    value = selectedOptionValue(action);
   }
 
   const actor = body.user?.id
@@ -116,6 +147,11 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     conversationKey,
     replyTarget,
     value,
+    // Every input still on the message, so a `<Button onClick>` handler beside
+    // an `<Input>` can read what was typed. Keyed by field id — the author's
+    // `name` when set, else the minted `ck:` id — matching how Teams keys its
+    // merged card inputs. See {@link FIELD_BLOCK_PREFIX}.
+    values: flattenBlockState(body.state),
     actor,
     messageRef,
     triggerId: body.trigger_id,
@@ -131,14 +167,177 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   };
 }
 
-/** JSON-parse a control value so non-string option values round-trip; else keep the raw string. */
-function parseValue(raw: string | undefined): unknown {
+/**
+ * JSON-parse a `<Button>` value — the one control whose value block-kit
+ * serializes with `JSON.stringify`, so `{decision:"yes"}` round-trips as an
+ * object. Falls back to the raw string when it isn't JSON (e.g. Slack's own
+ * `feedback_buttons`, whose "positive"/"negative" we never encoded).
+ */
+function parseValue(raw: string | null | undefined): unknown {
   if (typeof raw !== "string") return raw;
   try {
     return JSON.parse(raw);
   } catch {
     return raw;
   }
+}
+
+/** Slack's element type for a free-text input — the one control whose value is user-typed. */
+const PLAIN_TEXT_INPUT = "plain_text_input";
+
+/**
+ * A `plain_text_input`'s reading, as the string its contract promises. Slack
+ * reports a field the user left EMPTY as `value: null`, but `<Input onSubmit>`
+ * is a `ClickHandler<string>` and an empty field is emptiness, not absence — so
+ * the reading is `""`. That is also what identical JSX delivers on Teams, which
+ * merges an untouched `Input.Text` into the submit as `""` (see
+ * `render/adaptive-card.ts` in channels-teams); handing a handler `null` here
+ * would make the two surfaces disagree about the same blank box.
+ */
+function textInputValue(raw: string | null | undefined): string {
+  return raw ?? "";
+}
+
+/**
+ * The `selected_option` slot a single-choice control carries: the chosen
+ * option, or `null` when it is a select nobody has picked from yet. Slack
+ * sends the key either way — `null` is how it says "this control is on the
+ * message and holds no choice", which is exactly the distinction
+ * {@link selectedOptionValue} keys the empty reading on.
+ */
+type SelectedOption = { value?: string } | null;
+
+/**
+ * A single `<Select>`'s reading, as the string its contract promises — or
+ * `undefined` for a control that has no `selected_option` slot at all.
+ *
+ * Slack reports an untouched single select as `selected_option: null`, and the
+ * reading is `""` — by the same rule that makes a blank text input `""` (see
+ * {@link textInputValue}) and an untouched multi select `[]`: empty is a
+ * reading, not absence. `onSelect` is a `ClickHandler<string | string[]>` (see
+ * `SelectProps` in channels-ui), which `undefined` does not satisfy, and it is
+ * what identical JSX delivers on Teams, where an untouched `Input.ChoiceSet`
+ * is merged into the submit as `""` like every other `Input.*` (see
+ * `render/adaptive-card.ts` and `input-submit.e2e.test.ts` in channels-teams).
+ *
+ * Keyed on the SLOT, not on a missing value: a `<Button>` with no `value` prop
+ * carries no `selected_option` at all and must stay `undefined`, since
+ * `ButtonProps.value` is genuinely optional and absence is its reading.
+ */
+function selectedOptionValue(el: {
+  selected_option?: SelectedOption;
+}): string | undefined {
+  const chosen = el.selected_option?.value;
+  if (chosen !== undefined) return chosen;
+  return Object.prototype.hasOwnProperty.call(el, "selected_option")
+    ? ""
+    : undefined;
+}
+
+/**
+ * Write one decoded field onto a `values` bag as an OWN data property.
+ *
+ * `key` is a block/element id from an inbound Slack payload, and `__proto__`
+ * survives `JSON.parse` as an own key. A plain `bag[key] = value` for that key
+ * runs `Object.prototype`'s `__proto__` SETTER instead of creating a field: the
+ * element's reading disappears from `Object.keys(bag)` and — when it is an
+ * object — becomes the bag's prototype, so every property it carries reads back
+ * off `bag` as though the workspace had submitted it. (In the modal reader,
+ * where the flattened reading is a string, the setter drops it outright and the
+ * handler never sees the field at all.) `defineProperty` writes the property
+ * itself and never consults a setter, so `__proto__` lands as ordinary
+ * enumerable data like any other field id.
+ *
+ * Deliberately a plain `{}` and NOT `Object.create(null)`. These bags are
+ * public API — `flattenBlockState`'s reaches handlers as `ctx.values` and
+ * `flattenViewValues`' as an `onModalSubmit` handler's `values`, both typed
+ * `Record<string, unknown>` (see channels-core's `InteractionContext` and
+ * `IncomingModalSubmit`) — and `values.hasOwnProperty(...)`/`toString()` is
+ * ordinary consumer code that a prototype-less bag would break. Dropping the
+ * prototype buys only that an ABSENT field id spelled like a builtin reads back
+ * `undefined` rather than the builtin, which is true of every other
+ * `Record<string, unknown>` in this API and is not what the injection was
+ * about. A field that WAS submitted still wins: an own property shadows its
+ * `Object.prototype` namesake.
+ */
+function setField(
+  bag: Record<string, unknown>,
+  key: string,
+  value: unknown,
+): void {
+  Object.defineProperty(bag, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+/** One entry of a Slack view/message `state.values` block. */
+interface SlackStateElement {
+  type?: string;
+  /** `null`, not absent, when the element is a text input the user left empty. */
+  value?: string | null;
+  /** `null`, not absent, when the element is a single select nobody has picked from. */
+  selected_option?: SelectedOption;
+  selected_options?: Array<{ value?: string }>;
+}
+
+/** Slack's `state` envelope: block id → element id → the element's current value. */
+interface SlackBlockState {
+  values?: Record<string, Record<string, SlackStateElement>>;
+}
+
+/**
+ * The current value of one `state.values` element, resolved by exactly the rule
+ * the clicked action uses above. Nothing here is JSON-decoded: a `<Button>` is
+ * the only control whose value we JSON-encode and it holds no state, so every
+ * reading Slack reports — typed text, option values — is a string on the wire
+ * and stays one. The two readers must agree, or the same `<Select>` would reach
+ * a handler as `42` via `ctx.action.value` and `"42"` via `ctx.values`.
+ *
+ * One rule governs every control the user left alone, here and above: empty is
+ * a reading, not absence. A blank text input reads `""`, an untouched multi
+ * select reads `[]`, and an unpicked single select reads `""` (see
+ * {@link textInputValue} and {@link selectedOptionValue}) — never `null` and
+ * never `undefined`, which would make an on-screen control indistinguishable
+ * from one that is not on the message at all.
+ */
+function stateElementValue(el: SlackStateElement): unknown {
+  // Explicit ahead of the shared fallback: Slack reports an EMPTY text input as
+  // `value: null`, and the `??` below would resolve that to the (absent)
+  // `selected_option` rather than to the empty string a text field owes.
+  if (el.type === PLAIN_TEXT_INPUT) return textInputValue(el.value);
+  if (el.selected_options) return el.selected_options.map((o) => o.value);
+  return el.value ?? selectedOptionValue(el);
+}
+
+/**
+ * Flatten a `block_actions` payload's `state.values` to a flat `fieldId → value`
+ * map, keyed the way Teams keys the same JSX's merged card inputs: the author's
+ * `name` first, else the registry-minted `ck:` id, else a positional fallback.
+ *
+ * The renderer stamps that field id into the block id (see
+ * {@link FIELD_BLOCK_PREFIX}), so — as in a modal view, whose vocabulary also
+ * names block id == field id (see {@link flattenViewValues}) — the block is what
+ * names the field. A block without the prefix was not ours to name, and there
+ * the element's own `action_id` is the only stable key left.
+ */
+function flattenBlockState(state: SlackBlockState | undefined): {
+  [fieldId: string]: unknown;
+} {
+  const out: Record<string, unknown> = {};
+  for (const [blockId, block] of Object.entries(state?.values ?? {})) {
+    // A `ckf:` block names its single field (the renderer never puts two in
+    // one), so every element under it resolves to that same field id.
+    const named = blockId.startsWith(FIELD_BLOCK_PREFIX)
+      ? blockId.slice(FIELD_BLOCK_PREFIX.length)
+      : undefined;
+    for (const [actionId, el] of Object.entries(block)) {
+      setField(out, named ?? actionId, stateElementValue(el));
+    }
+  }
+  return out;
 }
 
 interface SlackReactionEvent {
@@ -203,19 +402,7 @@ export function decodeReaction(
 interface SlackViewState {
   callback_id?: string;
   private_metadata?: string;
-  state?: {
-    values?: Record<
-      string,
-      Record<
-        string,
-        {
-          type?: string;
-          value?: string;
-          selected_option?: { value?: string };
-        }
-      >
-    >;
-  };
+  state?: SlackBlockState;
 }
 
 /**
@@ -224,15 +411,25 @@ interface SlackViewState {
  * each block we take the inner element keyed by that same block id, falling
  * back to the first element. Text inputs expose `value`; selects/radios expose
  * `selected_option.value`.
+ *
+ * Deliberately NOT {@link stateElementValue}: modal submissions are a separate
+ * surface with its own settled semantics, and routing them through the
+ * `block_actions` reader would silently change what `view_submission` delivers.
  */
 function flattenViewValues(view: SlackViewState): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   const values = view.state?.values ?? {};
   for (const blockId of Object.keys(values)) {
     const inner = values[blockId]!;
-    const el = inner[blockId] ?? Object.values(inner)[0];
+    // Own-key lookup only: an unguarded `inner[blockId]` resolves ids like
+    // `constructor`/`toString` to an `Object.prototype` member, which is truthy
+    // and so would shadow the documented first-element fallback below.
+    const own = Object.prototype.hasOwnProperty.call(inner, blockId)
+      ? inner[blockId]
+      : undefined;
+    const el = own ?? Object.values(inner)[0];
     if (!el) continue;
-    out[blockId] = el.value ?? el.selected_option?.value;
+    setField(out, blockId, el.value ?? el.selected_option?.value);
   }
   return out;
 }

@@ -106,9 +106,18 @@ optional visual must still carry the important result.
 
 `Select` and `Input` have different interaction behavior by provider. Managed
 Slack dispatches those controls directly. Managed Teams renders Adaptive Card
-fields and submits them with a `Button`'s `Action.Submit`; that Button callback
-receives the other named fields in `ctx.values`. Teams does not dispatch
-`Select.onSelect` or `Input.onSubmit` independently.
+fields and submits them together, because Adaptive Cards has no per-field
+submit: whichever `Action.Submit` fires carries every field on the card, and
+that callback receives the other named fields in `ctx.values`.
+
+So on Teams a card holding both a field and a `Button` runs the **Button's**
+callback, not `Select.onSelect` or `Input.onSubmit`. A card with no button
+would otherwise be unsubmittable, so Teams adds one for you, bound to the first
+field that has a handler — that field's callback runs and the rest still arrive
+in `ctx.values`. Only that first field's handler fires.
+
+On either provider, a field with no handler never dispatches on its own. Its
+value rides along in `ctx.values` when something else on the message is used.
 
 <FrontendOnly frontend="slack">
 

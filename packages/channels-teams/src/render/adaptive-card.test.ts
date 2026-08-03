@@ -5,6 +5,7 @@ import {
   isPlainText,
   collectPlainText,
 } from "./adaptive-card.js";
+import { TEAMS_LIMITS } from "./budget.js";
 
 const text = (value: string): ChannelNode => ({
   type: "text",
@@ -177,6 +178,241 @@ describe("renderAdaptiveCard", () => {
     ]);
   });
 
+  it("synthesizes an Action.Submit for a card whose only control is an <Input>", () => {
+    // Without it the card has zero actions and the user physically cannot
+    // submit it — `renderButton` is otherwise the only producer of a submit.
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" }, placeholder: "Why?" }),
+    ]);
+
+    expect(card.body[0]).toMatchObject({ type: "Input.Text", id: "ck:note" });
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
+  });
+
+  it("points the synthesized submit at the field id when <Input name> renames it", () => {
+    const card = renderAdaptiveCard([
+      el("input", [], { name: "reason", onSubmit: { id: "ck:note" } }),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "reason" },
+      },
+    ]);
+  });
+
+  it("does not synthesize a submit when the card already has a <Button>", () => {
+    // The button's own action id must stay the routed one; the input's text
+    // still rides along in the merged card inputs.
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("button", [text("Approve")], { onClick: { id: "ck:approve" } }),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Approve",
+        data: { ckActionId: "ck:approve" },
+      },
+    ]);
+  });
+
+  it("synthesizes a submit for a <Select>-only card too", () => {
+    // Same defect, same fix: without an action the choice can never be sent.
+    const card = renderAdaptiveCard([
+      el("select", [], {
+        onSelect: { id: "ck:pick" },
+        options: [{ label: "One", value: "1" }],
+      }),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:pick", ckValueField: "ck:pick" },
+      },
+    ]);
+  });
+
+  it("synthesizes a submit beside a link <Button>, which submits nothing", () => {
+    // Action.OpenUrl opens a URL; it is not a submit. Counting actions rather
+    // than dispatchable submits would leave this card unsubmittable — the
+    // original defect, for a very ordinary "input + learn more link" shape.
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("actions", [el("button", [text("Docs")], { url: "https://x.com" })]),
+    ]);
+
+    expect(card.actions).toEqual([
+      { type: "Action.OpenUrl", title: "Docs", url: "https://x.com" },
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
+  });
+
+  it("drops a <Button> with neither a url nor an onClick", () => {
+    // It would render as an Action.Submit with no ckActionId: clicking it
+    // submits the card, and Teams delivers that as a Message activity with
+    // empty text, which the decode reads as an ordinary chat message.
+    const card = renderAdaptiveCard([
+      el("actions", [el("button", [text("Dismiss")], {})]),
+    ]);
+
+    expect(card.actions).toBeUndefined();
+  });
+
+  it("drops a <Button> carrying a value but no onClick", () => {
+    // `value` is not a route: without a ckActionId the submit is rejected by
+    // `parseCardAction` exactly as a bare one is.
+    const card = renderAdaptiveCard([
+      el("button", [text("Later")], { value: "later" }),
+    ]);
+
+    expect(card.actions).toBeUndefined();
+  });
+
+  it("leaves only the synthesized submit when a <Button> routes nowhere", () => {
+    // The dead button is the path by which typed text is silently discarded:
+    // Teams merges the card's inputs into whichever submit fires, so clicking
+    // it would carry the input's text into a turn the engine reads as blank.
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("button", [text("Dismiss")], {}),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
+  });
+
+  it("does not synthesize a submit for an option-less <Select>", () => {
+    // An empty ChoiceSet has nothing to pick, so the submit would dispatch
+    // `undefined` to a handler whose contract is the chosen value.
+    const card = renderAdaptiveCard([
+      el("select", [], { onSelect: { id: "ck:pick" }, options: [] }),
+    ]);
+
+    expect(card.body[0]).toMatchObject({
+      type: "Input.ChoiceSet",
+      choices: [],
+    });
+    expect(card.actions).toBeUndefined();
+  });
+
+  it("skips an option-less <Select> when picking the synthesized submit's field", () => {
+    // Only the first *usable* field backs the submit; an unpickable one must
+    // not consume the single binding and strand the field below it.
+    const card = renderAdaptiveCard([
+      el("select", [], { onSelect: { id: "ck:pick" } }),
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+      },
+    ]);
+  });
+
+  it("binds the synthesized submit to only the FIRST input; the rest ride in `values`", () => {
+    // Adaptive Cards fires one action, and a Submit per input would be nonsense
+    // UI. Later handlers never fire — but Teams merges every input into this
+    // submit, so no typed text is lost.
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:a" } }),
+      el("input", [], { onSubmit: { id: "ck:b" } }),
+    ]);
+
+    expect(card.actions).toEqual([
+      {
+        type: "Action.Submit",
+        title: "Submit",
+        data: { ckActionId: "ck:a", ckValueField: "ck:a" },
+      },
+    ]);
+  });
+
+  it("does not synthesize a submit for a field the body clamp dropped", () => {
+    // Otherwise the card shows a Submit with no input above it, and clicking it
+    // dispatches `undefined` to a `ClickHandler<string>`.
+    const overflow = Array.from({ length: TEAMS_LIMITS.bodyElements }, (_, i) =>
+      text(`t${i}`),
+    );
+    const card = renderAdaptiveCard([
+      ...overflow,
+      el("input", [], { onSubmit: { id: "ck:late" } }),
+    ]);
+
+    expect(card.body.some((element) => element.type === "Input.Text")).toBe(
+      false,
+    );
+    expect(card.actions).toBeUndefined();
+  });
+
+  it("keeps the synthesized submit inside the top-level action ceiling", () => {
+    // The synthesized submit competes for the same budget as authored buttons.
+    // It is also the card's only route back into the engine, so it is the
+    // authored actions that give way, not the submit.
+    const links = Array.from({ length: TEAMS_LIMITS.actions }, (_, i) =>
+      el("button", [text(`l${i}`)], { url: `https://x.com/${i}` }),
+    );
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("actions", links),
+    ]);
+
+    expect(card.actions).toHaveLength(TEAMS_LIMITS.actions);
+    expect(card.actions!.at(-1)).toEqual({
+      type: "Action.Submit",
+      title: "Submit",
+      data: { ckActionId: "ck:note", ckValueField: "ck:note" },
+    });
+  });
+
+  it("does not synthesize a submit when a dispatchable <Button> was clamped away", () => {
+    // The author did bind a handler; a submit synthesized from the input would
+    // dispatch the input's handler in the button's place.
+    const links = Array.from({ length: TEAMS_LIMITS.actions }, (_, i) =>
+      el("button", [text(`l${i}`)], { url: `https://x.com/${i}` }),
+    );
+    const card = renderAdaptiveCard([
+      el("input", [], { onSubmit: { id: "ck:note" } }),
+      el("actions", [
+        ...links,
+        el("button", [text("Save")], { onClick: { id: "ck:save" } }),
+      ]),
+    ]);
+
+    expect(card.actions).toHaveLength(TEAMS_LIMITS.actions);
+    expect(card.actions!.every((a) => a.type === "Action.OpenUrl")).toBe(true);
+  });
+
+  it("does not synthesize a submit when no input is bound to a handler", () => {
+    // Nothing to dispatch: a submit would post an activity the engine ignores.
+    const card = renderAdaptiveCard([el("input", [], { name: "reason" })]);
+
+    expect(card.actions).toBeUndefined();
+  });
+
   it("keeps form fields from overwriting Action.Submit routing data", () => {
     const card = renderAdaptiveCard([
       el("input", [], { onSubmit: { id: "ckActionId" } }),
@@ -208,6 +444,17 @@ describe("renderAdaptiveCard", () => {
     const rows = table.rows as Array<Record<string, unknown>>;
     expect(rows).toHaveLength(2); // header + 1 data row
     expect(rows[0]!.type).toBe("TableRow");
+  });
+
+  it("counts the header row against the table row ceiling", () => {
+    const rows = Array.from({ length: TEAMS_LIMITS.tableRows }, (_, i) =>
+      el("row", [el("cell", [text(`r${i}`)])]),
+    );
+    const card = renderAdaptiveCard([
+      el("table", rows, { columns: [{ header: "A" }] }),
+    ]);
+    const table = card.body[0] as Record<string, unknown>;
+    expect(table.rows as unknown[]).toHaveLength(TEAMS_LIMITS.tableRows);
   });
 
   it("clamps top-level actions to the Teams ceiling", () => {

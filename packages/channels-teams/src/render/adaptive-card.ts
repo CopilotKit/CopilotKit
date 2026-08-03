@@ -1,4 +1,5 @@
 import type { ChannelNode } from "@copilotkit/channels-ui";
+import { CARD_ENVELOPE_KEYS, isCardEnvelopeKey } from "../interaction.js";
 import { TEAMS_LIMITS, truncateText, clampArray } from "./budget.js";
 
 /** Teams attachment content type for an Adaptive Card. */
@@ -20,10 +21,21 @@ type CardAction = Record<string, unknown>;
 interface RenderContext {
   nextFieldIndex: number;
   usedFieldIds: Set<string>;
+  /**
+   * Fields (`<Input>`/`<Select>`) that both carry a registry-minted handler and
+   * can produce a value, in render order: the card `id` minted for the element
+   * paired with the action id its handler was stamped with (the two differ
+   * whenever `fieldId` used a `name` prop or a dedupe suffix). Used to
+   * synthesize a submit for a card that has no dispatchable one. Only the first
+   * entry that survived the body clamp is bound — see `synthesizeSubmit`.
+   */
+  boundFields: { fieldId: string; actionId: string }[];
 }
 
 const SCHEMA = "http://adaptivecards.io/schemas/adaptive-card.json";
 const VERSION = "1.5";
+/** Title of the submit synthesized for a card whose only controls are inputs. */
+const SYNTHETIC_SUBMIT_TITLE = "Submit";
 
 /**
  * Render a cross-platform component IR tree (already expanded by `renderToIR`
@@ -31,36 +43,136 @@ const VERSION = "1.5";
  * Teams **Adaptive Card** (1.5).
  *
  * Structural nodes map to body elements (`<Header>`→bold `TextBlock`,
- * `<Section>`/`<Markdown>`→wrapped `TextBlock`, `<Fields>`→`FactSet`,
- * `<Table>`→native `Table`, `<Image>`→`Image`). Interactive nodes split by
- * Adaptive Card shape: `<Button>`→a top-level `Action.Submit` (per the V1
- * decision to use `Action.Submit`), while `<Input>`/`<Select>` become
- * `Input.Text`/`Input.ChoiceSet` in the body. Each action/input carries the
- * registry-stamped opaque id in its `data`/`id` so a later interaction can be
- * decoded back into the engine (round-trip is a follow-up; rendering is here).
+ * `<Section>`/`<Markdown>` and a bare text child→wrapped `TextBlock`,
+ * `<Context>`→small subtle `TextBlock`, `<Divider>`→a blank separated
+ * `TextBlock`, `<Fields>`/`<Field>`→`FactSet`, `<Table>`→native `Table`,
+ * `<Chart>`→a Teams `Chart.*` host element, `<Image>`→`Image`). Interactive
+ * nodes split by Adaptive Card shape: `<Button>`→a top-level action — an
+ * `Action.Submit` (per the V1 decision to use `Action.Submit`, not
+ * `Action.Execute`), or an `Action.OpenUrl` when it is a link button — while
+ * `<Input>`/`<Select>` become `Input.Text`/`Input.ChoiceSet` in the body.
  *
- * The renderer is total: unknown intrinsics are skipped. Collections clamp and
- * text truncates to {@link TEAMS_LIMITS} so the card stays within Teams' payload
- * ceiling.
+ * An emitted `Action.Submit` carries the registry-stamped opaque id in its
+ * `data.ckActionId`, so a later interaction can be decoded back into the engine
+ * by `parseCardAction`; an `Action.OpenUrl` carries no `data` and never
+ * round-trips. A field's `id` is a separate, card-local name minted by
+ * `fieldId` — the explicit `name` prop when given, else the stamped id, else a
+ * positional `input_N`/`select_N`, plus a `_1`, `_2`, … suffix on collision —
+ * so it coincides with the stamped id only in the middle case, and then only
+ * when no suffix was needed. A card whose only controls are inputs gets a
+ * synthesized `Action.Submit`, which carries both ids (see `synthesizeSubmit`)
+ * and without which Teams offers no way to submit the card at all.
+ *
+ * A control that cannot route its interaction anywhere is not emitted as one: a
+ * `<Button>` with neither a `url` nor an `onClick` is dropped (see
+ * `renderButton`). A field is different — it is always rendered, and only its
+ * candidacy to back the synthesized submit is conditional, on both carrying a
+ * stamped handler id and being able to produce a value (see `fieldId`).
+ *
+ * The renderer is total: unknown intrinsics are skipped. Collections clamp to
+ * {@link TEAMS_LIMITS} and displayed prose truncates to it — TextBlock text,
+ * fact titles/values, button titles, table cells, choice labels and chart
+ * titles/labels — so the card stays within Teams' payload ceiling. Other
+ * author-supplied strings pass through unbounded: `placeholder`, a choice's
+ * `value`, an `<Image>`'s `url`/`altText`, a chart's axis titles, and a
+ * `<Button value>`.
  */
 export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
   const body: CardElement[] = [];
   const actions: CardAction[] = [];
   const context: RenderContext = {
     nextFieldIndex: 0,
-    usedFieldIds: new Set(["ckActionId", "value"]),
+    usedFieldIds: new Set(CARD_ENVELOPE_KEYS),
+    boundFields: [],
   };
   for (const node of ir) renderNode(node, body, actions, context);
 
+  const clampedBody = clampArray(body, TEAMS_LIMITS.bodyElements).items;
   const card: AdaptiveCard = {
     type: "AdaptiveCard",
     $schema: SCHEMA,
     version: VERSION,
-    body: clampArray(body, TEAMS_LIMITS.bodyElements).items,
+    body: clampedBody,
   };
-  const clampedActions = clampArray(actions, TEAMS_LIMITS.actions).items;
+  // Decide synthesis against the UNCLAMPED actions: a dispatchable `<Button>`
+  // pushed past the ceiling below is still the handler the author bound, and
+  // synthesizing from an input would dispatch the input's handler in its place.
+  // Such a card keeps the author's action order, so the overflowing button's
+  // handler still never fires — but a wrong dispatch is worse than none.
+  const synthesized = actions.some(isDispatchableSubmit)
+    ? undefined
+    : synthesizeSubmit(clampedBody, context);
+  // One clamp governs the emitted list, with the synthesized submit's slot
+  // reserved inside the ceiling: appending it afterwards would emit
+  // `TEAMS_LIMITS.actions + 1` actions, and letting the clamp choose between
+  // them could drop the card's only route back into the engine.
+  const clampedActions = clampArray(
+    actions,
+    TEAMS_LIMITS.actions - (synthesized ? 1 : 0),
+  ).items;
+  if (synthesized) clampedActions.push(synthesized);
   if (clampedActions.length > 0) card.actions = clampedActions;
   return card;
+}
+
+/**
+ * The `Action.Submit` to add to a card that has none it can dispatch, or
+ * `undefined` when no rendered field can back one.
+ *
+ * Adaptive Cards has no per-input submit affordance: an `Input.*` only reaches
+ * us when some `Action.Submit` on the card fires, and Teams merges every input
+ * into that submit's payload. A card with no *dispatchable* submit therefore
+ * cannot deliver its inputs anywhere — synthesize one, naming the field whose
+ * text becomes the action's value (an absent button value would otherwise
+ * reach a `ClickHandler<string>` as `undefined`).
+ *
+ * "Dispatchable" is the caller's test, not "has actions": a link `<Button>`
+ * renders as `Action.OpenUrl`, which opens a URL and submits nothing, so one
+ * beside an `<Input>` would otherwise reproduce the original defect. (A
+ * `<Button>` that routes nowhere is not emitted at all — see `renderButton`.)
+ *
+ * This covers `<Select>` too, since it is unsubmittable for the same reason,
+ * but only when it has something to pick: an option-less one is still rendered
+ * as an empty `Input.ChoiceSet`, but `renderNode` withholds it from the
+ * candidate pool, since its (absent) choice would reach its handler as
+ * `undefined`. Note a `<Select multi>` still arrives as Teams' comma-joined
+ * string rather than the `string[]` `onSelect` declares — a pre-existing Teams
+ * fidelity gap (see `renderSelect`) that this only makes reachable, not worse.
+ */
+function synthesizeSubmit(
+  clampedBody: CardElement[],
+  context: RenderContext,
+): CardAction | undefined {
+  // Only a field that survived the body clamp can back a submit; a dropped
+  // one would render a Submit with nothing above it.
+  const rendered = new Set(
+    clampedBody
+      .map((element) => element.id)
+      .filter((id): id is string => typeof id === "string"),
+  );
+  // One submit per card, bound to the FIRST handler-bound field: Adaptive
+  // Cards fires a single action, and a button per input would be nonsense UI.
+  // Later fields' handlers therefore never fire — but their text is not lost,
+  // since Teams merges every input into this submit and `parseCardAction`
+  // surfaces them all as the event's `values`.
+  const field = context.boundFields.find((f) => rendered.has(f.fieldId));
+  if (!field) return undefined;
+  return {
+    type: "Action.Submit",
+    title: SYNTHETIC_SUBMIT_TITLE,
+    data: { ckActionId: field.actionId, ckValueField: field.fieldId },
+  };
+}
+
+/**
+ * Can this action route an interaction back into the engine when it fires?
+ * `renderButton` only emits a submit that can, so the `data` test holds by
+ * construction; it is checked here so the predicate stands on its own.
+ */
+function isDispatchableSubmit(action: CardAction): boolean {
+  if (action.type !== "Action.Submit") return false;
+  const data = action.data as { ckActionId?: unknown } | undefined;
+  return typeof data?.ckActionId === "string";
 }
 
 /** Render a single IR node, pushing body elements and/or top-level actions. */
@@ -138,16 +250,32 @@ function renderNode(
       for (const child of childNodes(node))
         renderNode(child, body, actions, context);
       return;
-    case "button":
-      actions.push(renderButton(node));
+    case "button": {
+      // Absent for a button that can route nowhere — see `renderButton`.
+      const action = renderButton(node);
+      if (action) actions.push(action);
       return;
-    case "select":
+    }
+    case "select": {
+      // An option-less ChoiceSet offers nothing to pick, so it can never carry
+      // a value and must not back a synthesized submit.
+      const options = props.options;
+      const pickable = Array.isArray(options) && options.length > 0;
       body.push(
-        renderSelect(node, fieldId(node, "onSelect", "select", context)),
+        renderSelect(
+          node,
+          fieldId(node, "onSelect", "select", context, pickable),
+        ),
       );
       return;
+    }
     case "input":
-      body.push(renderInput(node, fieldId(node, "onSubmit", "input", context)));
+      // An Input.Text always submits a string (empty when untouched), so it
+      // never fails the can-produce-a-value test. Candidacy still needs a
+      // minted handler id, which `fieldId` checks separately.
+      body.push(
+        renderInput(node, fieldId(node, "onSubmit", "input", context, true)),
+      );
       return;
     default:
       // Unknown intrinsic: skip (total renderer).
@@ -181,7 +309,18 @@ function factSet(fieldNodes: ChannelNode[]): CardElement {
   return { type: "FactSet", facts };
 }
 
-function renderButton(node: ChannelNode): CardAction {
+/**
+ * A `<Button>` → a top-level action, or `undefined` when it can route nowhere.
+ *
+ * A `<Button>` with neither a `url` nor an `onClick` has no destination, and
+ * there is no inert button in Adaptive Cards: emitted as an `Action.Submit` it
+ * would still submit the card, and Teams delivers that as an ordinary Message
+ * activity with empty `text`, which `parseCardAction` rejects (no `ckActionId`)
+ * and the adapter then drives as a blank user turn. Worse, Teams merges every
+ * card input into whichever submit fires, so the click also swallows what the
+ * user typed. Emitting nothing is the only shape that cannot do either.
+ */
+function renderButton(node: ChannelNode): CardAction | undefined {
   const props = node.props ?? {};
   // Link button → Action.OpenUrl (opens the URL; carries no submit data).
   if (typeof props.url === "string" && props.url.length > 0) {
@@ -191,17 +330,19 @@ function renderButton(node: ChannelNode): CardAction {
       url: props.url,
     };
   }
+  // The opaque action id is what routes the submit back into the engine, so a
+  // button without one is dropped. `value` alone is not a route: the decode
+  // keys on `ckActionId`.
+  const id = idFromHandler(props.onClick);
+  if (!id) return undefined;
   const action: CardAction = {
     type: "Action.Submit",
     title: truncateText(collectText(node), TEAMS_LIMITS.buttonText),
+    data: {
+      ckActionId: id,
+      ...(props.value !== undefined ? { value: props.value } : {}),
+    },
   };
-  // Forward-ready: carry the opaque action id + value so a later
-  // `decodeInteraction` can route the submit back into the engine.
-  const id = idFromHandler(props.onClick);
-  const data: Record<string, unknown> = {};
-  if (id) data.ckActionId = id;
-  if (props.value !== undefined) data.value = props.value;
-  if (Object.keys(data).length > 0) action.data = data;
   if (props.style === "danger" || props.style === "destructive") {
     action.style = "destructive";
   } else if (props.style === "primary") {
@@ -245,22 +386,28 @@ function fieldId(
   handlerProp: "onSelect" | "onSubmit",
   fallback: "select" | "input",
   context: RenderContext,
+  /** Can this field produce a value? Only then may it back a synthesized submit. */
+  canProduceValue: boolean,
 ): string {
   const props = node.props ?? {};
   const index = ++context.nextFieldIndex;
   const rawName = typeof props.name === "string" ? props.name.trim() : "";
   const explicitName =
-    rawName && rawName !== "ckActionId" && rawName !== "value"
-      ? rawName
-      : undefined;
-  const base =
-    explicitName ?? idFromHandler(props[handlerProp]) ?? `${fallback}_${index}`;
+    rawName && !isCardEnvelopeKey(rawName) ? rawName : undefined;
+  const actionId = idFromHandler(props[handlerProp]);
+  const base = explicitName ?? actionId ?? `${fallback}_${index}`;
   let candidate = base;
   let suffix = 1;
   while (context.usedFieldIds.has(candidate)) {
     candidate = `${base}_${suffix++}`;
   }
   context.usedFieldIds.add(candidate);
+  // An explicit `name` (or a dedupe suffix) makes the field id diverge from the
+  // minted action id, so record both: dispatch needs the action id, reading the
+  // submitted text needs the field id.
+  if (actionId && canProduceValue) {
+    context.boundFields.push({ fieldId: candidate, actionId });
+  }
   return candidate;
 }
 
@@ -286,15 +433,21 @@ function renderTable(node: ChannelNode): CardElement {
     ? clampArray(columnsProp, TEAMS_LIMITS.tableColumns).items
     : undefined;
 
+  const headerColumns = columns && columns.length > 0 ? columns : undefined;
   const rows: Record<string, unknown>[] = [];
-  if (columns && columns.length > 0) {
+  if (headerColumns) {
     rows.push({
       type: "TableRow",
-      cells: columns.map((c) => cell(c.header, true)),
+      cells: headerColumns.map((c) => cell(c.header, true)),
     });
   }
   const rowNodes = childNodes(node).filter((c) => c.type === "row");
-  const { items: dataRows } = clampArray(rowNodes, TEAMS_LIMITS.tableRows);
+  // The header is one of the emitted rows, so it takes a slot from the same
+  // budget rather than riding on top of a full set of data rows.
+  const { items: dataRows } = clampArray(
+    rowNodes,
+    TEAMS_LIMITS.tableRows - (headerColumns ? 1 : 0),
+  );
   for (const rowNode of dataRows) {
     const cells = childNodes(rowNode).filter((c) => c.type === "cell");
     rows.push({
@@ -312,7 +465,7 @@ function renderTable(node: ChannelNode): CardElement {
         : {}),
     })),
     rows,
-    firstRowAsHeader: !!(columns && columns.length > 0),
+    firstRowAsHeader: !!headerColumns,
     gridStyle: "default",
   };
   return table;
