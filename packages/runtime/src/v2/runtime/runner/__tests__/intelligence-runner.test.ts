@@ -667,9 +667,13 @@ describe("IntelligenceAgentRunner", () => {
       ]);
       let errors = 0;
       let completions = 0;
+      let receivedError: Error | undefined;
 
       runner.run({ threadId, agent, input }).subscribe({
-        error: () => errors++,
+        error: (error) => {
+          errors++;
+          receivedError = error;
+        },
         complete: () => completions++,
       });
       const ch = mockChannels[0];
@@ -685,6 +689,9 @@ describe("IntelligenceAgentRunner", () => {
       await Promise.resolve();
 
       expect(errors).toBe(1);
+      expect(receivedError?.message).toBe(
+        "Runner event durability failed: invalid_event_batch",
+      );
       expect(completions).toBe(0);
       expect(await runner.isRunning({ threadId })).toBe(false);
       expect(ch.left).toBe(true);

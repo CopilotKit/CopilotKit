@@ -686,10 +686,16 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
     if (this.isPermanentEventFailure(response)) {
+      const reason =
+        typeof response === "object" &&
+        response !== null &&
+        typeof (response as { reason?: unknown }).reason === "string"
+          ? (response as { reason: string }).reason
+          : "permanent_gateway_rejection";
       this.failThread(
         state.threadId,
         state,
-        new Error("Gateway permanently rejected queued runner events"),
+        new Error(`Runner event durability failed: ${reason}`),
       );
       return;
     }
