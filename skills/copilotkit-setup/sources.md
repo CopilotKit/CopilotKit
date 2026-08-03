@@ -46,3 +46,6 @@ Generated: 2026-03-28
   the managed platform, separate API and realtime hosts)
 - examples/slack/app/managed.ts (canonical managed wiring and env var names)
 - apps/cli help output in CopilotKit/Intelligence (the command is `login`, not `auth`)
+- CopilotKit/Intelligence `2026-08-01-teams-one-command-setup-prd.md` (Teams provider setup
+  starts from a durable browser draft; Fast CLI and Guided manual are peer paths; provider
+  completion is separate from runtime and message verification)

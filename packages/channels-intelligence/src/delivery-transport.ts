@@ -474,9 +474,11 @@ export class ClaimedChannelDelivery {
         new Error("Channel transcript requires both appApiBaseUrl and apiKey"),
       );
     }
-    this.transcriptPromise ??= this.transcripts.fetchTranscript(
-      this.delivery.deliveryId,
-    );
+    this.transcriptPromise ??= this.transcripts
+      .fetchTranscript(this.delivery.deliveryId)
+      .then((transcript) =>
+        restorePreparedTriggerFiles(transcript, this.delivery.turn.input),
+      );
     return this.transcriptPromise;
   }
 
@@ -671,6 +673,29 @@ export class ClaimedChannelDelivery {
       assertProviderMessageId(providerMessageId);
     }
   }
+}
+
+function restorePreparedTriggerFiles(
+  transcript: ChannelDeliveryTranscript,
+  input: PreparedChannelDelivery["turn"]["input"],
+): ChannelDeliveryTranscript {
+  if (input.kind !== "text" || !input.files?.length) return transcript;
+  const files = input.files.map((file) => ({
+    providerFileId: `managed:${file.handle}`.slice(0, 512),
+    name: file.filename,
+    mimeType: file.mimeType ?? null,
+    byteSize: file.byteSize ?? null,
+    availability: "managed" as const,
+    handle: file.handle,
+  }));
+  return {
+    ...transcript,
+    messages: transcript.messages.map((message) =>
+      message.currentTrigger && message.files.length === 0
+        ? { ...message, files }
+        : message,
+    ),
+  };
 }
 
 type ClaimResult =
