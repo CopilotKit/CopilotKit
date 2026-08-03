@@ -232,6 +232,35 @@ function isNotification(
   return !("id" in message) && "method" in message;
 }
 
+function isTextContentBlock(
+  block: unknown,
+): block is { type: "text"; text: string } {
+  return (
+    typeof block === "object" &&
+    block !== null &&
+    (block as { type?: unknown }).type === "text" &&
+    typeof (block as { text?: unknown }).text === "string"
+  );
+}
+
+/**
+ * Join the human-readable text of an MCP tool result.
+ *
+ * `result.content` is a heterogeneous MCP content-block list (text, image,
+ * resource, …) so each block is narrowed before its `text` is read; anything
+ * that is not a text block is skipped.
+ */
+export function ɵmcpToolResultText(
+  result: MCPAppsActivityContent["result"],
+): string {
+  if (!Array.isArray(result.content)) return "";
+  return result.content
+    .filter(isTextContentBlock)
+    .map((block) => block.text)
+    .join("\n")
+    .trim();
+}
+
 export const MCPAppsActivityRenderer = defineComponent({
   name: "MCPAppsActivityRenderer",
   props: {
@@ -721,6 +750,31 @@ export const MCPAppsActivityRenderer = defineComponent({
       { deep: true },
     );
 
+    // The tool call that produced this activity can itself have failed
+    // (`isError: true` from the MCP server, e.g. rejected arguments). The result
+    // is still forwarded to the app above, but an app that has no data to draw
+    // typically renders nothing for it — leaving an empty box that reads as
+    // success. Surface the failure host-side so it is visible.
+    const toolFailed = computed(() => props.content.result.isError === true);
+    const toolFailureMessage = computed(() =>
+      toolFailed.value
+        ? ɵmcpToolResultText(props.content.result) ||
+          "The tool call reported an error but returned no message."
+        : null,
+    );
+
+    // Logged from its own watcher so a failure is reported even if the app
+    // iframe never becomes ready.
+    watch(
+      toolFailureMessage,
+      (message) => {
+        if (message) {
+          console.error("[MCPAppsRenderer] Tool call failed:", message);
+        }
+      },
+      { immediate: true },
+    );
+
     const borderStyle = computed(() => {
       const prefersBorder = fetchedResource.value?._meta?.ui?.prefersBorder;
       if (prefersBorder !== true) return {};
@@ -743,8 +797,10 @@ export const MCPAppsActivityRenderer = defineComponent({
           ref: containerRef,
           style: {
             width: "100%",
+            // A failure notice is stacked above the app iframe, so the container
+            // must grow to fit both instead of being pinned to the app's height.
             height:
-              iframeSize.value.height !== undefined
+              iframeSize.value.height !== undefined && !toolFailed.value
                 ? `${iframeSize.value.height}px`
                 : "auto",
             minHeight: "100px",
@@ -766,6 +822,27 @@ export const MCPAppsActivityRenderer = defineComponent({
                 "div",
                 { style: { color: "red", padding: "1rem" } },
                 `Error: ${error.value.message}`,
+              )
+            : null,
+          toolFailureMessage.value
+            ? h(
+                "div",
+                {
+                  "data-testid": "copilot-mcp-apps-tool-error",
+                  role: "alert",
+                  style: {
+                    color: "#b91c1c",
+                    backgroundColor: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: "8px",
+                    padding: "0.75rem 1rem",
+                    marginBottom: "0.5rem",
+                    fontSize: "13px",
+                    lineHeight: 1.45,
+                    whiteSpace: "pre-wrap",
+                  },
+                },
+                `Tool call failed: ${toolFailureMessage.value}`,
               )
             : null,
         ],

@@ -7,6 +7,7 @@ import {
   PLATFORM_ID,
   afterRenderEffect,
   computed,
+  effect,
   inject,
   input,
   signal,
@@ -64,6 +65,15 @@ interface JSONRPCMessage {
       @if (error()) {
         <p class="copilot-mcp-apps-error" role="alert">{{ error() }}</p>
       }
+      @if (toolFailureMessage(); as toolFailure) {
+        <p
+          class="copilot-mcp-apps-tool-error"
+          data-testid="copilot-mcp-apps-tool-error"
+          role="alert"
+        >
+          Tool call failed: {{ toolFailure }}
+        </p>
+      }
       <iframe
         #appFrame
         class="copilot-mcp-apps-frame"
@@ -101,6 +111,18 @@ interface JSONRPCMessage {
     .copilot-mcp-apps-error {
       color: #991b1b;
     }
+
+    .copilot-mcp-apps-tool-error {
+      margin: 0 0 8px;
+      padding: 12px 16px;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      background: #fef2f2;
+      color: #b91c1c;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
   `,
 })
 export class CopilotMCPAppsWidget {
@@ -128,7 +150,36 @@ export class CopilotMCPAppsWidget {
   protected readonly loading = signal(true);
   protected readonly error = signal("");
 
+  /**
+   * The tool call that produced this snapshot can itself have failed
+   * (`isError: true` from the MCP server, e.g. rejected arguments). The result is
+   * still forwarded to the app, but an app that has no data to draw typically
+   * renders nothing for it — leaving an empty frame that reads as success.
+   * Surface the failure host-side so it is visible.
+   *
+   * Deliberately separate from `error()`: that one reports a host-side failure to
+   * load the app at all and tears the frame down, whereas a failed tool call
+   * still gets a live app.
+   */
+  protected readonly toolFailureMessage = computed(() => {
+    const result = this.data().result;
+    if (!result || result.isError !== true) return "";
+    return (
+      mcpToolResultText(result) ||
+      "The tool call reported an error but returned no message."
+    );
+  });
+
   constructor() {
+    // Logged from its own effect so a failure is reported even if the app frame
+    // never becomes ready.
+    effect(() => {
+      const message = this.toolFailureMessage();
+      if (message) {
+        console.error("[CopilotKit MCP App] Tool call failed:", message);
+      }
+    });
+
     afterRenderEffect((onCleanup) => {
       const frame = this.appFrame().nativeElement;
       const { data, agent } = this.renderSession();
@@ -559,6 +610,22 @@ function isTextContent(
   return (
     isRecord(value) && value.type === "text" && typeof value.text === "string"
   );
+}
+
+/**
+ * Join the human-readable text of an MCP tool result.
+ *
+ * `result.content` is a heterogeneous MCP content-block list (text, image,
+ * audio, resource, …) so each block is narrowed before its `text` is read;
+ * anything that is not a text block is skipped.
+ */
+function mcpToolResultText(result: MCPAppsSnapshotContent["result"]): string {
+  if (!Array.isArray(result.content)) return "";
+  return result.content
+    .filter(isTextContent)
+    .map((block) => block.text)
+    .join("\n")
+    .trim();
 }
 
 function safeExternalURL(value: unknown): string | undefined {
