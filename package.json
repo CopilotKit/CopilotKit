@@ -173,6 +173,9 @@
       "@ai-sdk/mcp": "1.0.21",
       "storybook@>=8.0.0 <8.6.17": "8.6.17",
       "path-to-regexp@>=8.0.0 <8.4.0": ">=8.4.0"
+    },
+    "patchedDependencies": {
+      "eventsource@3.0.7": "patches/eventsource@3.0.7.patch"
     }
   }
 }
