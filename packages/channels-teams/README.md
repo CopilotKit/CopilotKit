@@ -20,11 +20,13 @@ the channel because Intelligence is configured.
 
 This adapter is the **self-hosted** path: your process holds the Microsoft Teams credentials, runs the Microsoft Teams ingress, and talks to Microsoft Teams directly.
 
-**Managed Intelligence Channels** is the alternative. Intelligence owns the provider edge — signed ingress, egress, and encrypted credential storage — so your process holds no Microsoft Teams credentials and exposes no public Microsoft Teams endpoint. You also get durable threads, the Channels dashboard with per-Channel health and transcripts, and guided provider setup from either the browser wizard or the CLI:
+**Managed Intelligence Channels** is the alternative. Intelligence owns the provider edge — signed ingress, egress, and encrypted credential storage — so your process holds no Microsoft Teams credentials and exposes no public Microsoft Teams endpoint. You also get durable threads, the Channels dashboard with per-Channel health and transcripts, and guided provider setup from either the browser wizard or the CLI. For a newly created managed app, the browser creates the durable Channel draft and issues the fully scoped provisioning command:
 
 ```bash
-npx copilotkit channels add support --adapter teams
+npx copilotkit@latest channels add --project-id <project-id> --channel-id <channel-id> --adapter teams --provision
 ```
+
+That managed path creates a Teams-managed bot and Entra identity; it does not require Azure Bot. The peer manual path uses Teams Developer Portal plus Entra. Both keep provider secrets and one-time app-package bytes out of your project.
 
 Your bot code is otherwise identical — the agent, tools, context, commands, and turn handlers do not change. Only the transport does. See `examples/teams/app/managed.ts` for the same bot wired both ways, and the **copilotkit-channels** skill for the runtime wiring.
 

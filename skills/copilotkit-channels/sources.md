@@ -29,3 +29,9 @@ Generated: 2026-08-01
   (an isolate recycles per request, so separate cold starts would mint competing listeners
   for one Channel) and that `activateChannels: false` is the clean opt-out.
 - `packages/channels-*/README.md` — the self-hosted adapter family, for the scope boundary.
+- `showcase/shell-docs/src/content/docs/channels/intelligence.mdx` — the managed browser
+  contract: durable draft, Fast CLI and Guided manual peer paths, provider completion, and
+  the separate runtime handoff.
+- `CopilotKit/Intelligence/docs/superpowers/specs/2026-08-01-teams-one-command-setup-prd.md`
+  — the accepted Teams setup contract, including local-only branding artifacts, resumable
+  blocked outcomes, and the Created-and-installed boundary.
