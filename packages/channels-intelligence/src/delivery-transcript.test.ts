@@ -1,6 +1,7 @@
 import { expect, test, vi } from "vitest";
 import { FakeAgent } from "@copilotkit/channels-core";
 import { DeliveryAdapter } from "./delivery-adapter.js";
+import { ChannelDeliveryFileClient } from "./delivery-files.js";
 import { ClaimedChannelDelivery } from "./delivery-transport.js";
 import type { PreparedChannelDelivery } from "./delivery-transport.js";
 import { ChannelDeliveryTranscriptClient } from "./delivery-transcript.js";
@@ -88,6 +89,105 @@ test("transcript client calls the delivery-scoped route with runtime auth", asyn
       headers: { authorization: "Bearer cpk-runtime" },
     },
   );
+});
+
+test("prepared delivery restores current-trigger files omitted by the transcript", async () => {
+  const imageBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const imageHandle = "fileref_current_image";
+  const fetch = vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith(`/api/channels/files/${imageHandle}`)) {
+      return new Response(imageBytes, {
+        headers: { "content-type": "image/png" },
+      });
+    }
+    return new Response(JSON.stringify(transcript));
+  });
+  const delivery: PreparedChannelDelivery = {
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_transcript_file_01",
+    deliveryExpiresAt: "2099-07-30T20:00:00.000Z",
+    canonicalThreadId: "thread_transcript_file",
+    appUserId: "slack:T1:U1",
+    channelId: "channel_transcript_file",
+    channelName: "support",
+    adapter: "slack",
+    turn: {
+      eventId: "evt_transcript_file",
+      receivedAt: "2026-07-30T20:00:00.000Z",
+      input: {
+        kind: "text",
+        text: "Can you help again?",
+        messageRef: { id: "pref_v1_message_transcript_file_123" },
+        files: [
+          {
+            handle: imageHandle,
+            filename: "image.png",
+            mimeType: "image/png",
+            byteSize: imageBytes.byteLength,
+          },
+        ],
+        operation: {
+          kind: "created",
+          logicalMessageId:
+            "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
+          revisionId: "pid_v1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG",
+          mentioned: true,
+        },
+      },
+      actor: { externalUserId: "U1", kind: "human", displayName: "Ada" },
+    },
+  };
+  const claimed = new ClaimedChannelDelivery(
+    delivery,
+    { ownerGeneration: 1, runtimeInstanceId: "rti_transcript_file_01" },
+    {
+      joinReply: delivery,
+      push: vi.fn(),
+      on: vi.fn(),
+      onClose: vi.fn(),
+      leave: vi.fn(),
+    },
+    vi.fn(),
+    new ChannelDeliveryFileClient({
+      baseUrl: "https://api.example",
+      apiKey: "cpk-runtime",
+      fetch,
+    }),
+    new ChannelDeliveryTranscriptClient({
+      baseUrl: "https://api.example",
+      apiKey: "cpk-runtime",
+      fetch,
+    }),
+  );
+  const adapter = new DeliveryAdapter({
+    channelName: "support",
+    transport: {} as never,
+    loadHistory: vi.fn(async () => []),
+    runCanonical: async () => ({ iterations: 0, interrupted: false }),
+  });
+
+  const session = await adapter.conversationStore.getOrCreate(
+    delivery.canonicalThreadId,
+    { claimedDelivery: claimed, delivery },
+    () => new FakeAgent(),
+  );
+
+  expect(session.agent.messages.at(-1)?.content).toEqual([
+    {
+      type: "text",
+      text: `${adaActorEnvelope}\nCan you help again?`,
+    },
+    {
+      type: "image",
+      source: {
+        type: "data",
+        value: Buffer.from(imageBytes).toString("base64"),
+        mimeType: "image/png",
+      },
+    },
+  ]);
+  session.release?.();
 });
 
 test("transcript client makes three total attempts for retryable failures", async () => {

@@ -244,7 +244,10 @@ export class DeliveryAdapter implements PlatformAdapter {
   private async loadProviderAgentHistory(
     target: DeliveryReplyTarget,
   ): Promise<{ messages: Message[]; historyIds: ReadonlySet<string> }> {
-    const transcript = await target.claimedDelivery.getTranscript();
+    const transcript = restorePreparedTriggerFiles(
+      await target.claimedDelivery.getTranscript(),
+      target.delivery.turn.input,
+    );
     const messages = await transcriptAgentMessages(
       transcript,
       target,
@@ -1187,6 +1190,29 @@ async function transcriptContent(
   );
   const parts = await target.claimedDelivery.getContentParts(managedFiles, log);
   return parts.length > 0 ? [{ type: "text", text }, ...parts] : text;
+}
+
+function restorePreparedTriggerFiles(
+  transcript: ChannelDeliveryTranscript,
+  input: PreparedChannelDelivery["turn"]["input"],
+): ChannelDeliveryTranscript {
+  if (input.kind !== "text" || !input.files?.length) return transcript;
+  const files = input.files.map((file) => ({
+    providerFileId: `managed:${file.handle}`.slice(0, 512),
+    name: file.filename,
+    mimeType: file.mimeType ?? null,
+    byteSize: file.byteSize ?? null,
+    availability: "managed" as const,
+    handle: file.handle,
+  }));
+  return {
+    ...transcript,
+    messages: transcript.messages.map((message) =>
+      message.currentTrigger && message.files.length === 0
+        ? { ...message, files }
+        : message,
+    ),
+  };
 }
 
 async function transcriptAgentMessages(
