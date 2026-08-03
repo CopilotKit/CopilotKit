@@ -221,7 +221,17 @@ class BlockingMockAgent extends AbstractAgent {
   aborted = false;
   private rejectFn: ((reason: Error) => void) | null = null;
 
-  async runAgent(): Promise<RunAgentResult> {
+  constructor(private initialEvents: BaseEvent[] = []) {
+    super();
+  }
+
+  async runAgent(
+    _input: RunAgentInput,
+    subscriber?: { onEvent?: (arg: { event: BaseEvent }) => void },
+  ): Promise<RunAgentResult> {
+    for (const event of this.initialEvents) {
+      subscriber?.onEvent?.({ event });
+    }
     return new Promise<RunAgentResult>((_resolve, reject) => {
       this.rejectFn = reject;
     });
@@ -233,7 +243,7 @@ class BlockingMockAgent extends AbstractAgent {
   }
 
   clone(): AbstractAgent {
-    return new BlockingMockAgent();
+    return new BlockingMockAgent(this.initialEvents);
   }
 
   run(): ReturnType<AbstractAgent["run"]> {
@@ -699,16 +709,24 @@ describe("IntelligenceAgentRunner", () => {
         threadId,
         runId: "r-event-failure-replacement-next",
       });
+      const failedAgent = new BlockingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-failed",
+          role: "assistant",
+        } as TextMessageStartEvent,
+      ]);
+      const replacementAgent = new BlockingMockAgent();
       let replacementSubscription:
         | ReturnType<ReturnType<typeof runner.run>["subscribe"]>
         | undefined;
 
-      runner.run({ threadId, agent: new MockAgent(), input }).subscribe({
+      runner.run({ threadId, agent: failedAgent, input }).subscribe({
         error: () => {
           replacementSubscription = runner
             .run({
               threadId,
-              agent: new BlockingMockAgent(),
+              agent: replacementAgent,
               input: replacementInput,
             })
             .subscribe();
@@ -718,9 +736,13 @@ describe("IntelligenceAgentRunner", () => {
       failedChannel.triggerJoin("ok");
       await waitForCondition(() => failedChannel.pushLog.length === 1);
       failedChannel.pushLog[0].push.trigger("error", { retryable: false });
+      await Promise.resolve();
 
+      expect(failedAgent.aborted).toBe(true);
+      expect(failedChannel.pushLog).toHaveLength(1);
       expect(replacementSubscription).toBeDefined();
       expect(await runner.isRunning({ threadId })).toBe(true);
+      expect(replacementAgent.aborted).toBe(false);
       expect(mockChannels[1].left).toBe(false);
       expect(mockSockets[1].disconnected).toBe(false);
 
@@ -857,6 +879,40 @@ describe("IntelligenceAgentRunner", () => {
       expect(vi.getTimerCount()).toBe(0);
     });
 
+    it("aborts a blocked producer when its queued event reaches the durability deadline", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-deadline-abort-producer";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-deadline-abort-producer",
+      });
+      const agent = new BlockingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-blocked",
+          role: "assistant",
+        } as TextMessageStartEvent,
+      ]);
+      let errors = 0;
+
+      runner
+        .run({ threadId, agent, input })
+        .subscribe({ error: () => errors++ });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+      expect(ch.pushLog).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(60_000 - 5);
+
+      expect(errors).toBe(1);
+      expect(agent.aborted).toBe(true);
+      expect(ch.pushLog).toHaveLength(1);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
     it("does not reset a queued event's durability deadline after rejoin", async () => {
       vi.useFakeTimers();
       autoAcknowledgePushes = false;
@@ -896,6 +952,37 @@ describe("IntelligenceAgentRunner", () => {
       await vi.advanceTimersByTimeAsync(1_000);
 
       expect(errors).toBe(1);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("fails and aborts an accepted blocked run on an explicit permanent rejoin error", async () => {
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-permanent-rejoin";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-permanent-rejoin",
+      });
+      const agent = new BlockingMockAgent();
+      let receivedError: Error | undefined;
+
+      runner.run({ threadId, agent, input }).subscribe({
+        error: (error) => (receivedError = error),
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+      expect(ch.pushLog).toHaveLength(0);
+
+      ch.triggerJoin("error", {
+        reason: "runner_evicted",
+        retryable: false,
+      });
+      await Promise.resolve();
+
+      expect(receivedError?.message).toContain("runner_evicted");
+      expect(agent.aborted).toBe(true);
+      expect(ch.pushLog).toHaveLength(0);
+      expect(ch.left).toBe(true);
+      expect(mockSockets[0].disconnected).toBe(true);
       expect(await runner.isRunning({ threadId })).toBe(false);
     });
 

@@ -353,7 +353,23 @@ export class IntelligenceAgentRunner extends AgentRunner {
           if (!this.isCurrentThreadState(threadId, state)) {
             return;
           }
-          if (state.hasJoined || this.isRetryableJoinError(resp)) {
+          if (state.hasJoined) {
+            if (this.isPermanentEventFailure(resp)) {
+              const reason =
+                typeof (resp as { reason?: unknown }).reason === "string"
+                  ? `: ${(resp as { reason: string }).reason}`
+                  : "";
+              this.failThread(
+                threadId,
+                state,
+                new Error(
+                  `Gateway permanently rejected channel rejoin${reason}`,
+                ),
+              );
+            }
+            return;
+          }
+          if (this.isRetryableJoinError(resp)) {
             return;
           }
 
@@ -931,6 +947,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
     this.removeThread(threadId, state);
+    try {
+      state.agent?.abortRun();
+    } catch {
+      // The terminal durability error must still reach the subscriber.
+    }
     state.failRun(error);
   }
 
