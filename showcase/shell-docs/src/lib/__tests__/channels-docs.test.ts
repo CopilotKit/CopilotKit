@@ -244,9 +244,10 @@ describe("Channels documentation journey", () => {
       );
       expect(source, slug).toContain('status.overall !== "online"');
       expect(source, slug).toMatch(
-        /Creating the Node listener starts the Channel/i,
+        /creating the Node listener starts the Channel/i,
       );
       expect(source, slug).toMatch(/`ready\(\)`\s+is therefore optional/i);
+      expect(source, slug).not.toMatch(/`ready\(\)` is required/i);
       expect(source, `${slug} bypasses the optional control guard`).not.toMatch(
         /listener\.channels\.(?:ready|status)\(/,
       );
