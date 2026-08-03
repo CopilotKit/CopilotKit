@@ -727,6 +727,7 @@ export function createChannel<
   }
   const componentEntries: Array<{
     name: string;
+    requireKeys: boolean;
     render: (
       props: Record<string, unknown>,
       context: ChannelComponentRenderContext,
@@ -754,6 +755,7 @@ export function createChannel<
     if (isChannelComponentDefinition(component)) {
       componentEntries.push({
         name,
+        requireKeys: true,
         render: (props, renderContext) =>
           component.render(props, renderContext),
       });
@@ -778,6 +780,7 @@ export function createChannel<
     }
     componentEntries.push({
       name,
+      requireKeys: false,
       render: (props) => component(props as never) as Renderable,
     });
   }
@@ -1385,7 +1388,9 @@ export function createChannel<
             );
             continue;
           }
-          registryInstance.registerComponent(component.name, component.render);
+          registryInstance.registerComponent(component.name, component.render, {
+            requireKeys: component.requireKeys,
+          });
         }
         toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
         tel.capture("oss.channel.configured", {
