@@ -1,6 +1,6 @@
 ---
 name: setup-slack-channel
-description: Use for the PROVIDER half of getting a locally running CopilotKit Channels agent to answer in Slack, when no Slack app exists yet — setting up a Channels bot in Slack for the first time, creating the Slack app and its tokens, attaching it to a managed Intelligence Channel, or when a Channel reports setup_required, sits at "Waiting for runtime", the Channel is Online but a Slack mention gets no reply, or a Slack app was built with Socket Mode instead of an Intelligence Request URL. If the Slack app and Channel already exist and the question is about declaring or customising the Channel in code, use the copilotkit-channels skill instead.
+description: Use for the PROVIDER half of getting a locally running CopilotKit Channels agent to answer in Slack, when no Slack app exists yet — setting up a Channels bot in Slack for the first time, creating the Slack app and its tokens, attaching it to a managed Intelligence Channel, or when a Channel reports setup_required, sits at "Waiting for runtime", the Channel is Online but a Slack mention gets no reply, or a Slack app was built with Socket Mode instead of an Intelligence Request URL. Scoped to an OpenTag checkout, or the OpenTag example inside a channels-sdk clone — the phases assume those conventions (app/channel.tsx, app/env.ts, INTELLIGENCE_CHANNEL_NAME, a local agent on port 8123) and do not describe a project scaffolded by copilotkit init, which already ships its own channel host. If the Slack app and Channel already exist and the question is about declaring or customising the Channel in code, use the copilotkit-channels skill instead.
 version: 1.0.0
 ---
 
@@ -40,13 +40,12 @@ Two consequences:
 The Slack adapter form in Intelligence therefore asks for exactly two values: the
 **bot token** (`xoxb-`) and the **signing secret**. Nothing else.
 
-Most of this workflow happens in a **browser**, not a shell. A CLI may help with
-local concerns like selecting a project or writing runtime configuration, but
-**creating a Channel, attaching a Slack adapter, issuing an API key, and reading
-Channel status exist only in the Intelligence browser experience.** Never imply a
-command can complete a step that is browser-only, and never invent a command name
-to fill the gap — if you are unsure whether a CLI covers something, check its
-`--help` rather than guessing.
+Most of this workflow happens in a **browser**, not a shell. **The supported path
+for v1 is the Intelligence browser experience.** `copilotkit channels` does list
+commands for Channel creation, adapter attach, and key issuance — **do not use
+them here**; they are not hardened for this workflow yet. Never invent a command
+name to fill a gap, and if you are unsure whether a command covers something,
+check its `--help` rather than guessing.
 
 ## Done means three things, all verified
 
@@ -145,15 +144,18 @@ grep -n "onMention\|onMessage\|onCommand\|createChannel(" app/channel.tsx
 Record, and state back to the developer: the exact env var names, the Channel
 name the code will declare, and which handlers are registered.
 
-**Know what the managed adapter does not deliver.** The wizard's generated
-manifest declares **no `slash_commands`** and sets `interactivity.is_enabled:
-false`. As shipped, a managed Slack Channel receives mentions, messages and
-reactions — **not slash commands and not interactive component payloads**. So an
-app registering `onCommand`, `onModalSubmit`, or button/select components will
+**Know what the managed adapter does not deliver.** The generated manifest
+declares **no `slash_commands`**, so slash commands never arrive. It does enable
+`interactivity`, and the managed ingress handles `block_actions` — so **HITL
+buttons and selects do fire**. What it does not handle is `view_submission`, so
+**modals do not**. As shipped, a managed Slack Channel receives mentions,
+messages, reactions, and interactive component clicks — not slash commands and
+not modal submissions. An app registering `onCommand` or `onModalSubmit` will
 compile, start, report `online`, and never fire those handlers on the managed
-path. OpenTag registers `onModalSubmit` and ships four commands; none of them work
-here. Say this up front rather than letting the developer debug it, and do **not**
-invent a Request URL for commands or interactivity to fill the gap.
+path. OpenTag registers `onModalSubmit` and ships four commands; none of those
+work here, though its buttons do. Say this up front rather than letting the
+developer debug it, and do **not** invent a Request URL for commands to fill the
+gap.
 
 That last one decides what "working" even looks like. Turn routing is not
 symmetric: a **mentioned** turn goes to `onMention` if registered and otherwise

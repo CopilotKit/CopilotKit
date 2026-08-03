@@ -110,11 +110,14 @@ Check in this order; each is cheap and each fully explains "nothing happens".
    one.)
 5. **Are the event subscriptions present?** `app_mention` for channel mentions,
    `message.im` for DMs. Editing the manifest after install can drop them.
-6. **Was a slash command or a button involved?** Those are not delivered on the
-   managed path at all — the generated manifest declares no `slash_commands` and
-   disables interactivity. `onCommand` / `onModalSubmit` / component handlers will
-   never fire. This is a capability limit, not a misconfiguration; do not "fix" it
-   by inventing a Request URL.
+6. **Was a slash command or a modal involved?** Neither is delivered on the
+   managed path — the generated manifest declares no `slash_commands`, and the
+   managed ingress does not handle `view_submission`. `onCommand` and
+   `onModalSubmit` will never fire. This is a capability limit, not a
+   misconfiguration; do not "fix" it by inventing a Request URL. Buttons and
+   selects are a different case: interactivity **is** enabled and `block_actions`
+   **is** handled, so a button that did nothing is a real failure worth
+   debugging, not an unsupported feature.
 
 ## Handler routing — the silent no-op that looks like a Slack failure
 

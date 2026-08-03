@@ -50,9 +50,11 @@ Do **not** use either of these:
 - **`assets/slack-app-manifest.yaml`** in this skill. Same problem; it is retained
   only as a reference for what the direct-adapter shape looks like.
 
-The generated manifest deliberately contains **no `slash_commands`** and sets
-`interactivity.is_enabled: false`, because the managed adapter does not deliver
-those payloads. Do not add them back, and do not invent a Request URL for them.
+The generated manifest deliberately contains **no `slash_commands`**, because the
+managed adapter does not deliver them. Do not add them back, and do not invent a
+Request URL for them. It does set `interactivity.is_enabled: true` with an
+Intelligence-hosted interactivity request URL — that one is deliberate, and it is
+what makes HITL buttons and selects work.
 
 Then, in a browser at `api.slack.com/apps`: create a new app **from an app
 manifest**, choose the workspace, paste the manifest, review the requested
