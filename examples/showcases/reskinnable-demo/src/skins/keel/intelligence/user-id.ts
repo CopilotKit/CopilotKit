@@ -18,9 +18,19 @@
 import type { IdentifyRunUser } from "@/shell/agent-registry";
 import { KEEL_PERSONAS } from "@/skins/keel/data/personas";
 
-/** Persona id -> display name, derived from the frozen persona roster. */
-const PERSONA_NAME: Record<string, string> = Object.fromEntries(
-  KEEL_PERSONAS.map((p) => [p.id, p.name]),
+/**
+ * Persona id -> display name, derived from the frozen persona roster.
+ *
+ * A `Map` (not a plain object) is load-bearing for security: `userId` is
+ * untrusted client-forwarded input, and a plain-object lookup (`obj[userId]`)
+ * walks the prototype chain, so inherited keys like `"constructor"`,
+ * `"toString"`, or `"__proto__"` resolve truthy and would spoof a persona
+ * (minting a bogus memory scope, or returning a function where a name string
+ * is declared). `Map.has`/`Map.get` only ever see own entries, making that
+ * bad state unrepresentable rather than relying on a per-call-site guard.
+ */
+const PERSONA_NAME: Map<string, string> = new Map(
+  KEEL_PERSONAS.map((p) => [p.id, p.name] as const),
 );
 
 /** The fallback scope used when no persona and no role are forwarded. */
@@ -42,7 +52,7 @@ export function resolveKeelUserId({
   const pinned = process.env.INTELLIGENCE_USER_ID;
   if (pinned) return pinned;
 
-  if (userId && PERSONA_NAME[userId]) return `keel-${userId}`;
+  if (userId && PERSONA_NAME.has(userId)) return `keel-${userId}`;
 
   const slug = roleSlug(userRole);
   return slug ? `keel-${slug}` : DEMO_DEFAULT_USER_ID;
@@ -55,7 +65,8 @@ export function resolveKeelUserName({
   const pinnedId = process.env.INTELLIGENCE_USER_ID;
   if (pinnedId) return process.env.INTELLIGENCE_USER_NAME ?? pinnedId;
 
-  if (userId && PERSONA_NAME[userId]) return PERSONA_NAME[userId];
+  const personaName = userId ? PERSONA_NAME.get(userId) : undefined;
+  if (personaName) return personaName;
   return userRole ? `Keel ${userRole}` : "Keel Demo User";
 }
 

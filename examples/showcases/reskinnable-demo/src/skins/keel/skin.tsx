@@ -23,13 +23,28 @@ import { PlaybooksPage } from "@/skins/keel/pages/playbooks";
 import { RunsPage } from "@/skins/keel/pages/runs";
 import { RunDetailPage } from "@/skins/keel/pages/run-detail";
 
-/** Single-segment routes. Parameterized routes are handled below. */
-const PAGES: Record<string, ComponentType> = {
-  "": DeskPage,
-  knowledge: KnowledgePage,
-  playbooks: PlaybooksPage,
-  runs: RunsPage,
-};
+/**
+ * Single-segment routes. Parameterized routes are handled below.
+ *
+ * A `Map` (not a plain object) is load-bearing for security: `segments` comes
+ * straight from the URL path after `/keel`, so `segments[0]` is untrusted
+ * caller input. A plain-object lookup (`PAGES[segments[0]]`) walks the
+ * prototype chain, so `"constructor"`, `"toString"`, `"valueOf"`,
+ * `"hasOwnProperty"`, `"__proto__"`, … all resolve truthy and slip past the
+ * `?? null` 404 guard — handing the shell a `Function` where a `ComponentType`
+ * is declared, so `/keel/constructor` renders a Function and React crashes
+ * instead of showing a 404. `Map.get` only ever sees own entries, making that
+ * bad state unrepresentable rather than relying on a per-call-site guard.
+ * `Record<string, ComponentType>` could not catch this — the annotation was a
+ * lie about a plain object. Mirrors the persona-lookup hardening in
+ * `intelligence/user-id.ts` (commit ee83907ed8).
+ */
+const PAGES: Map<string, ComponentType> = new Map([
+  ["", DeskPage],
+  ["knowledge", KnowledgePage],
+  ["playbooks", PlaybooksPage],
+  ["runs", RunsPage],
+]);
 
 /**
  * Keel is the first skin in this app with PARAMETERIZED routes, so unlike
@@ -43,8 +58,8 @@ const PAGES: Record<string, ComponentType> = {
  * would break a citation deep-link into a document that was merely renamed.
  */
 function resolvePage(segments: string[]): ComponentType | null {
-  if (segments.length === 0) return PAGES[""];
-  if (segments.length === 1) return PAGES[segments[0]] ?? null;
+  if (segments.length === 0) return PAGES.get("") ?? null;
+  if (segments.length === 1) return PAGES.get(segments[0]) ?? null;
   if (segments.length === 2) {
     if (segments[0] === "knowledge") return DocumentPage;
     if (segments[0] === "runs") return RunDetailPage;
