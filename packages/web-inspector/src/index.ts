@@ -2066,6 +2066,7 @@ export class CpkThreadInspector extends LitElement {
   `;
 
   updated(_changed: Map<string, unknown>): void {
+    if (!this.isConnected) return;
     const loadKey = this.currentLoadKey();
     if (loadKey !== this._lastLoadKey) {
       this._lastLoadKey = loadKey;
@@ -2105,6 +2106,12 @@ export class CpkThreadInspector extends LitElement {
       this._messagesAbort = null;
       void this.fetchMessages(this.threadId, true);
     }
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.resetLoadedThreadData();
+    this._lastLoadKey = null;
   }
 
   private canFetchMessages(): boolean {
@@ -4542,6 +4549,8 @@ export class WebInspectorElement extends LitElement {
   private _threadsErrorByAgent: Map<string, Error> = new Map();
   // Thread stores created and owned by the inspector (keyed by agentId)
   private _ownedThreadStores: Map<string, ɵThreadStore> = new Map();
+  private threadCapabilityEnabled: boolean | null = null;
+  private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
   private dockMode: DockMode = "floating";
   private previousBodyMargins: { left: string; bottom: string } | null = null;
@@ -4729,7 +4738,49 @@ export class WebInspectorElement extends LitElement {
   }
 
   private areThreadEndpointsAvailable(): boolean {
-    return this.getThreadServiceStatus() !== "unavailable";
+    const endpoints = this._core?.threadEndpoints;
+    return (
+      endpoints !== null &&
+      typeof endpoints === "object" &&
+      endpoints.list !== false
+    );
+  }
+
+  private synchronizeThreadCapability(): void {
+    const enabled = this.areThreadEndpointsAvailable();
+    if (this.threadCapabilityEnabled === enabled) return;
+
+    this.threadCapabilityEnabled = enabled;
+    this.threadCapabilityGeneration += 1;
+
+    if (enabled) {
+      const core = this.core;
+      if (!core) return;
+
+      const threadStores =
+        typeof core.getThreadStores === "function"
+          ? core.getThreadStores()
+          : {};
+      for (const [agentId, store] of Object.entries(threadStores)) {
+        this.subscribeToThreadStore(agentId, store);
+      }
+      for (const agent of Object.values(core.agents)) {
+        if (agent?.agentId) {
+          this.ensureOwnedThreadStore(agent.agentId);
+        }
+      }
+      return;
+    }
+
+    this.teardownThreadStoreSubscriptions();
+    this.teardownOwnedThreadStores();
+    if (
+      this.selectedThreadId !== null &&
+      !this.isExampleThreadId(this.selectedThreadId)
+    ) {
+      this.selectedThreadId = null;
+    }
+    this.requestUpdate();
   }
 
   private getActiveThreadsState(): {
@@ -4820,13 +4871,26 @@ export class WebInspectorElement extends LitElement {
   private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
     if (!this.areThreadEndpointsAvailable()) return;
     if (this._threadStoreSubscriptions.has(agentId)) return;
+    const capabilityGeneration = this.threadCapabilityGeneration;
     const threadsSub = store.select(ɵselectThreads).subscribe((threads) => {
+      if (
+        capabilityGeneration !== this.threadCapabilityGeneration ||
+        !this.areThreadEndpointsAvailable()
+      ) {
+        return;
+      }
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
       this._threads = Array.from(this._threadsByAgent.values()).flat();
       this.autoSelectLatestThread();
       this.requestUpdate();
     });
     const errorSub = store.select(ɵselectThreadsError).subscribe((error) => {
+      if (
+        capabilityGeneration !== this.threadCapabilityGeneration ||
+        !this.areThreadEndpointsAvailable()
+      ) {
+        return;
+      }
       if (error) {
         this._threadsErrorByAgent.set(agentId, error);
       } else {
@@ -4839,6 +4903,12 @@ export class WebInspectorElement extends LitElement {
       errorSub.unsubscribe();
     });
     // Populate immediately from current state
+    if (
+      capabilityGeneration !== this.threadCapabilityGeneration ||
+      !this.areThreadEndpointsAvailable()
+    ) {
+      return;
+    }
     const initialState = store.getState();
     this._threadsByAgent.set(agentId, ɵselectThreads(initialState));
     const initialError = ɵselectThreadsError(initialState);
@@ -4852,6 +4922,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private autoSelectLatestThread(): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     if (this._threads.length === 0) return;
     const stillValid =
       this.selectedThreadId != null &&
@@ -4874,12 +4945,12 @@ export class WebInspectorElement extends LitElement {
   }
 
   private ensureOwnedThreadStore(agentId: string): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     if (this._ownedThreadStores.has(agentId)) return;
     // Don't overwrite a store already registered by useThreads() or another external caller
     if (this.core?.getThreadStore(agentId)) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
-    if (!this.areThreadEndpointsAvailable()) return;
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
@@ -4898,6 +4969,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private refreshOwnedThreadStore(agentId: string): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
     // refresh() re-fetches without resetting threads to [] first, so the list
@@ -4912,6 +4984,7 @@ export class WebInspectorElement extends LitElement {
   private updateOwnedThreadStoreHeaders(
     headers: Readonly<Record<string, string>>,
   ): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
     for (const [agentId, store] of this._ownedThreadStores) {
@@ -4987,18 +5060,22 @@ export class WebInspectorElement extends LitElement {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
         this.updateInspectorMetadataProjection(this.inspectorMetadataValue);
+        const threadCapabilityWasEnabled =
+          this.threadCapabilityEnabled === true;
+        this.synchronizeThreadCapability();
         if (status === "connected") {
           if (!core.telemetryDisabled) {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
           this.flushPendingBannerViewed();
-          if (this.areThreadEndpointsAvailable()) {
+          if (
+            threadCapabilityWasEnabled &&
+            this.areThreadEndpointsAvailable()
+          ) {
             for (const agentId of this._ownedThreadStores.keys()) {
               this.refreshOwnedThreadStore(agentId);
             }
-          } else {
-            this.teardownOwnedThreadStores();
           }
         } else {
           // Clear stale thread data immediately when the server goes away
@@ -5046,6 +5123,7 @@ export class WebInspectorElement extends LitElement {
         this.requestUpdate();
       },
       onThreadStoreRegistered: ({ agentId, store }) => {
+        if (!this.areThreadEndpointsAvailable()) return;
         this.subscribeToThreadStore(agentId, store);
         this.requestUpdate();
       },
@@ -5078,8 +5156,10 @@ export class WebInspectorElement extends LitElement {
     // an older @copilotkit/core don't throw when assigning `inspector.core`.
     const threadStores =
       typeof core.getThreadStores === "function" ? core.getThreadStores() : {};
-    for (const [agentId, store] of Object.entries(threadStores)) {
-      this.subscribeToThreadStore(agentId, store);
+    if (this.areThreadEndpointsAvailable()) {
+      for (const [agentId, store] of Object.entries(threadStores)) {
+        this.subscribeToThreadStore(agentId, store);
+      }
     }
 
     // Initialize context from core
@@ -5226,6 +5306,14 @@ export class WebInspectorElement extends LitElement {
   }
 
   private detachFromCore(): void {
+    this.threadCapabilityGeneration += 1;
+    this.threadCapabilityEnabled = null;
+    if (
+      this.selectedThreadId !== null &&
+      !this.isExampleThreadId(this.selectedThreadId)
+    ) {
+      this.selectedThreadId = null;
+    }
     if (this.coreUnsubscribe) {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
@@ -5280,6 +5368,7 @@ export class WebInspectorElement extends LitElement {
   private processAgentsChanged(
     agents: Readonly<Record<string, AbstractAgent>>,
   ): void {
+    this.synchronizeThreadCapability();
     const seenAgentIds = new Set<string>();
 
     for (const agent of Object.values(agents)) {
@@ -5385,7 +5474,9 @@ export class WebInspectorElement extends LitElement {
           event: params.event,
           result: "result" in params ? params.result : undefined,
         });
-        this.refreshOwnedThreadStore(agentId);
+        if (this.areThreadEndpointsAvailable()) {
+          this.refreshOwnedThreadStore(agentId);
+        }
       },
       onRunErrorEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RUN_ERROR", event);
@@ -9925,7 +10016,8 @@ ${argsString}</pre
                     .headers=${this._core?.headers ?? {}}
                     .threadInspectionAvailable=${
                       selectedThreadIsExample ||
-                      this._core?.threadEndpoints?.inspect !== false
+                      (this.areThreadEndpointsAvailable() &&
+                        this._core?.threadEndpoints?.inspect !== false)
                     }
                     .liveMessageVersion=${
                       this.liveMessageVersion.get(selectedThread.id) ?? 0
