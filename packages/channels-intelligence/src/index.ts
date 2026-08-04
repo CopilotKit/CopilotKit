@@ -16,6 +16,7 @@ export type {
 
 export {
   connectRealtimeGateway,
+  RealtimeGatewayJoinError,
   RealtimeGatewayUnreachableError,
 } from "./realtime-gateway.js";
 export type {
