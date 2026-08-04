@@ -28,6 +28,7 @@ not_supported_features:
   # green, not red) rather than a regression. Demos remain wired below.
   - gen-ui-interrupt
   - interrupt-headless
+  - multimodal
 features:
   - beautiful-chat
   - cli-start
