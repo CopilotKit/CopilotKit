@@ -528,13 +528,11 @@ test("metadata usage stays independent from Threads capability and debug navigat
     ).toHaveLength(0);
     expect(talk).toBeInstanceOf(HTMLAnchorElement);
     expect(talk).not.toBe(lockedAction);
-    for (const label of [
-      "AG-UI Events",
-      "Agent",
-      "Context",
-      "Threads",
-      "Memory",
-    ]) {
+    for (const label of ["Threads", "Agents", "Learning"]) {
+      expect(findControl(root, label), label).toBeDefined();
+    }
+    await context.selectTab("Agents");
+    for (const label of ["AG-UI Events", "Agent", "Context"]) {
       expect(findControl(root, label), label).toBeDefined();
     }
   } finally {

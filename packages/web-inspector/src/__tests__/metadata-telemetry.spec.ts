@@ -346,22 +346,38 @@ test("enable Intelligence stays on its existing event without a generic double c
     await context.open();
     expect(
       metadataBodies(context).map(({ properties }) => properties.module),
-    ).toEqual(["identity", "plan"]);
-
-    await context.selectTab("Threads");
+    ).toEqual(["identity", "plan", "action"]);
 
     expect(metadataBodies(context).at(-1)?.properties).toMatchObject({
       module: "action",
       action_kind: "enable_intelligence",
       license_bucket: "none",
     });
+
+    const toggleSettings = async (): Promise<void> => {
+      const settings = context.inspector.shadowRoot?.querySelector<HTMLElement>(
+        'button[aria-label="Settings"]',
+      );
+      if (!settings) throw new Error("Settings was not rendered");
+      settings.click();
+      await context.inspector.updateComplete;
+    };
+    await toggleSettings();
+    await toggleSettings();
+    expect(
+      metadataBodies(context).filter(
+        ({ properties }) => properties.module === "action",
+      ),
+    ).toHaveLength(2);
+
+    await context.selectTab("Agents");
     await context.selectTab("AG-UI Events");
     await context.selectTab("Threads");
     expect(
       metadataBodies(context).filter(
         ({ properties }) => properties.module === "action",
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="locked"]',

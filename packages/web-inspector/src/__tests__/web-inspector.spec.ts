@@ -2183,6 +2183,10 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       false,
     );
 
+    localStorage.setItem(
+      "cpk:inspector:state",
+      JSON.stringify({ selectedMenu: "ag-ui-events" }),
+    );
     const inspector = new WebInspectorElement();
     document.body.appendChild(inspector);
     inspector.core = harness.core as unknown as WebInspectorElement["core"];
@@ -2693,7 +2697,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 //
 // 6.1  Helpers: makeCoreWithMemory / makeCoreNoIntelligence / mountMemories
 // 6.2  Subscription: inspector._memories is seeded from store
-// 6.3  Tab presence: "Memory" label appears in the rendered menu
+// 6.3  Tab presence: "Learning" primary navigation appears in the rendered menu
 // 6.4  View states: locked teaser vs. enabled empty vs. enabled with cards
 // 6.5  cpk-memory-list: cards, kind filter, search filter, empty state
 // 6.6  Passive guard: inspector reads from core.getMemoryStore(), never creates its own
@@ -2912,18 +2916,21 @@ describe("WebInspectorElement memories — tab presence", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders a Memory tab button in the inspector menu", async () => {
+  it("renders Learning primary navigation in the inspector menu", async () => {
     const core = makeCoreWithMemory([]);
     const el = await mountMemories(core);
 
     const buttons = Array.from(
       el.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
     );
-    const memoriesButton = buttons.find((btn) =>
-      btn.textContent?.trim().includes("Memory"),
+    const learningButton = buttons.find((btn) =>
+      btn.textContent?.trim().includes("Learning"),
     );
 
-    expect(memoriesButton, "Memory tab button should render").toBeDefined();
+    expect(
+      learningButton,
+      "Learning primary navigation should render",
+    ).toBeDefined();
   });
 });
 

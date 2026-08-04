@@ -107,29 +107,69 @@ export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
 /**
- * User-facing label for the memory surface (nav item + view header). The menu
- * KEY stays "memories" for persistence/telemetry stability; only the label
- * changed from "Learning" to "Memory".
+ * User-facing label for the memory view header. The legacy menu key stays
+ * "memories" for persistence and telemetry stability.
  */
 const MEMORY_VIEW_LABEL = "Memory";
 
 type LucideIconName = keyof typeof icons;
 
-type MenuKey =
-  | "ag-ui-events"
-  | "agents"
-  | "frontend-tools"
-  | "capabilities"
-  | "agent-context"
-  | "threads"
-  | "memories"
-  | "settings";
+const INSPECTOR_GROUPS = {
+  threads: ["threads"],
+  agents: [
+    "ag-ui-events",
+    "agents",
+    "frontend-tools",
+    "capabilities",
+    "agent-context",
+  ],
+  learning: ["memories"],
+} as const;
+
+type InspectorGroupKey = keyof typeof INSPECTOR_GROUPS;
+type MenuKey = (typeof INSPECTOR_GROUPS)[InspectorGroupKey][number];
+
+const INSPECTOR_MENU_KEYS: ReadonlyArray<MenuKey> = [
+  ...INSPECTOR_GROUPS.threads,
+  ...INSPECTOR_GROUPS.agents,
+  ...INSPECTOR_GROUPS.learning,
+];
+
+/** Return whether persisted state names a legacy Inspector leaf. */
+function isInspectorMenuKey(value: unknown): value is MenuKey {
+  return (
+    typeof value === "string" &&
+    INSPECTOR_MENU_KEYS.some((menuKey) => menuKey === value)
+  );
+}
 
 type MenuItem = {
   key: MenuKey;
   label: string;
   icon: LucideIconName;
 };
+
+const INSPECTOR_PRIMARY_NAVIGATION = [
+  {
+    key: "threads",
+    label: "Threads",
+    icon: "MessageSquare",
+  },
+  {
+    key: "agents",
+    label: "Agents",
+    icon: "Bot",
+  },
+  {
+    key: "learning",
+    label: "Learning",
+    icon: "Brain",
+  },
+] as const satisfies ReadonlyArray<{
+  key: InspectorGroupKey;
+  label: string;
+  icon: LucideIconName;
+}>;
 
 const EDGE_MARGIN = 16;
 const DRAG_THRESHOLD = 6;
@@ -143,6 +183,8 @@ const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
 const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
+const INTERACTIVE_FOCUS_BASE_STYLE =
+  "outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;";
 // Cap on banner impressions held while waiting for the runtime handshake, so a
 // runtime that never connects can't accumulate an unbounded queue.
 const MAX_PENDING_BANNER_VIEWED = 20;
@@ -4542,7 +4584,17 @@ export class WebInspectorElement extends LitElement {
   private isOpen = false;
   private draggedDuringInteraction = false;
   private ignoreNextButtonClick = false;
-  private selectedMenu: MenuKey = "ag-ui-events";
+  private selectedMenu: MenuKey = "threads";
+  private pendingPersistedMenu: MenuKey | null = null;
+  private hasResolvedCore = false;
+  private settingsOpen = false;
+  private readonly lastSelectedMenuByGroup: Record<InspectorGroupKey, MenuKey> =
+    {
+      threads: "threads",
+      agents: "ag-ui-events",
+      learning: "memories",
+    };
+  private lastScrolledAgentNavigationLayout: string | null = null;
   private selectedThreadId: string | null = null;
   private selectedRealThreadIsExplicit = false;
   private selectedLocalExampleThreadId: string | null = null;
@@ -4657,7 +4709,17 @@ export class WebInspectorElement extends LitElement {
 
     this.detachFromCore();
 
+    const hadResolvedCore = this.hasResolvedCore;
     this._core = value ?? null;
+    if (this._core) {
+      this.hasResolvedCore = true;
+    }
+
+    if (!hadResolvedCore && this._core) {
+      this.resolvePendingPersistedMenu();
+    } else if (hadResolvedCore) {
+      this.reconcileSelectedMenuVisibility();
+    }
     this.requestUpdate("core", oldValue);
 
     if (this._core) {
@@ -4739,6 +4801,65 @@ export class WebInspectorElement extends LitElement {
         icon: "Brain" as LucideIconName,
       },
     ];
+  }
+
+  /** Return the primary navigation group that owns a legacy leaf key. */
+  private getGroupForMenu(key: MenuKey): InspectorGroupKey {
+    for (const group of INSPECTOR_PRIMARY_NAVIGATION) {
+      if (INSPECTOR_GROUPS[group.key].some((menuKey) => menuKey === key)) {
+        return group.key;
+      }
+    }
+
+    return "threads";
+  }
+
+  /** Return the primary group for the current legacy leaf selection. */
+  private get selectedGroup(): InspectorGroupKey {
+    return this.getGroupForMenu(this.selectedMenu);
+  }
+
+  /** Return only currently visible legacy leaves owned by a group. */
+  private getVisibleMenuItemsForGroup(group: InspectorGroupKey): MenuItem[] {
+    return this.menuItems.filter((item) =>
+      INSPECTOR_GROUPS[group].some((menuKey) => menuKey === item.key),
+    );
+  }
+
+  /** Resolve a group's last visible leaf, falling back to its first leaf. */
+  private getMenuForGroup(group: InspectorGroupKey): MenuKey {
+    const visibleItems = this.getVisibleMenuItemsForGroup(group);
+    const rememberedMenu = this.lastSelectedMenuByGroup[group];
+    return (
+      visibleItems.find((item) => item.key === rememberedMenu)?.key ??
+      visibleItems[0]?.key ??
+      "threads"
+    );
+  }
+
+  /** Replace a leaf that became hidden with its group's first visible leaf. */
+  private reconcileSelectedMenuVisibility(): void {
+    if (this.menuItems.some((item) => item.key === this.selectedMenu)) {
+      return;
+    }
+
+    const group = this.getGroupForMenu(this.selectedMenu);
+    const fallbackMenu = this.getVisibleMenuItemsForGroup(group)[0]?.key;
+    this.selectedMenu = fallbackMenu ?? "threads";
+    this.lastSelectedMenuByGroup[group] = this.selectedMenu;
+    this.persistState();
+  }
+
+  /** Open a primary group at its last currently visible legacy leaf. */
+  private handleGroupSelect(group: InspectorGroupKey): void {
+    this.handleMenuSelect(this.getMenuForGroup(group));
+  }
+
+  /** Toggle Settings without replacing or persisting the active legacy leaf. */
+  private handleSettingsToggle(): void {
+    this.settingsOpen = !this.settingsOpen;
+    this.contextMenuOpen = false;
+    this.requestUpdate();
   }
 
   private getThreadServiceStatus(): ThreadServiceStatus {
@@ -6727,16 +6848,41 @@ ${argsString}</pre
         opacity: 1;
       }
 
-      /* ── Header control buttons (dock, close) — first row only ───── */
-      .drag-handle > div:first-child button {
-        color: #838389 !important;
+      /* ── Header controls on the dark account strip ──────────────── */
+      .drag-handle > div[data-inspector-account-strip] button {
+        color: #afafb7 !important;
+        cursor: pointer;
       }
-      .drag-handle > div:first-child button:hover {
-        background-color: #f0f0f4 !important;
-        color: #57575b !important;
+      .drag-handle > div[data-inspector-account-strip] button,
+      .inspector-nav-control,
+      [data-inspector-thread-cta] {
+        outline: 2px solid transparent;
+        outline-offset: 2px;
       }
-      .drag-handle > div:first-child button:focus-visible {
+      .drag-handle > div[data-inspector-account-strip] button:hover {
+        background-color: rgba(255, 255, 255, 0.12) !important;
+        color: #ffffff !important;
+      }
+      .drag-handle > div[data-inspector-account-strip] button:focus-visible,
+      [data-inspector-action-placement="header"]:focus-visible {
         outline-color: #bec2ff !important;
+      }
+      .drag-handle > div[data-inspector-account-strip] button:focus,
+      .drag-handle > div[data-inspector-account-strip] button:focus-visible,
+      [data-inspector-action-placement="header"]:focus,
+      [data-inspector-action-placement="header"]:focus-visible {
+        outline: 2px solid #bec2ff !important;
+        outline-offset: 2px;
+      }
+      .inspector-nav-control:focus,
+      .inspector-nav-control:focus-visible,
+      [data-inspector-thread-cta]:focus,
+      [data-inspector-thread-cta]:focus-visible {
+        outline: 2px solid #6430ab !important;
+        outline-offset: 2px;
+      }
+      [data-inspector-action-placement="header"] {
+        cursor: pointer;
       }
 
       /* ── Agent/context dropdown ──────────────────────────────────── */
@@ -6758,6 +6904,28 @@ ${argsString}</pre
       [data-context-dropdown-root="true"] > div button:hover,
       [data-context-dropdown-root="true"] > div button:focus {
         background-color: #f7f7f9 !important;
+      }
+      [data-inspector-account-strip]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button {
+        border-color: rgba(255, 255, 255, 0.28) !important;
+        background-color: transparent !important;
+        color: #e7e7ec !important;
+      }
+      [data-inspector-account-strip]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button:hover {
+        border-color: rgba(190, 194, 255, 0.7) !important;
+        background-color: rgba(255, 255, 255, 0.08) !important;
+      }
+      [data-inspector-account-strip]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button
+        > span:last-child {
+        color: #afafb7 !important;
       }
 
       /* ── Status bar (bottom chrome) ──────────────────────────────── */
@@ -7014,8 +7182,48 @@ ${argsString}</pre
     return this.isOpen ? this.renderWindow() : this.renderButton();
   }
 
+  protected willUpdate(): void {
+    this.reconcileSelectedMenuVisibility();
+  }
+
   protected updated(): void {
     this.maybeTrackInspectorMetadataViews();
+
+    if (!this.isOpen || this.selectedGroup !== "agents") {
+      this.lastScrolledAgentNavigationLayout = null;
+      return;
+    }
+
+    const navigation = this.shadowRoot?.querySelector<HTMLElement>(
+      'nav[aria-label="Agent navigation"]',
+    );
+    if (!navigation) {
+      return;
+    }
+
+    const activeControl = navigation.querySelector<HTMLElement>(
+      '[aria-current="page"]',
+    );
+    if (!activeControl) {
+      return;
+    }
+
+    const layoutKey = [
+      this.selectedMenu,
+      this.dockMode,
+      Math.round(this.contextState.window.size.width),
+      typeof window === "undefined" ? 0 : window.innerWidth,
+      navigation.clientWidth,
+      navigation.scrollWidth,
+    ].join(":");
+    if (this.lastScrolledAgentNavigationLayout === layoutKey) {
+      return;
+    }
+
+    if (typeof activeControl.scrollIntoView === "function") {
+      activeControl.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+    this.lastScrolledAgentNavigationLayout = layoutKey;
   }
 
   private renderButton() {
@@ -7100,8 +7308,8 @@ ${argsString}</pre
         aria-label="${action.label} (opens in a new tab)"
         style=${
           placement === "header"
-            ? "display:inline-flex;min-height:28px;align-items:center;justify-content:center;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:5px 9px;color:#57575b;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;"
-            : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;"
+            ? "display:inline-flex;min-height:28px;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.28);border-radius:4px;background:rgba(255,255,255,0.08);padding:5px 9px;color:#ffffff;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"
+            : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"
         }
         @click=${() => this.handleInspectorMetadataActionClick(action)}
       >
@@ -7126,13 +7334,13 @@ ${argsString}</pre
             ? html`
                 <div
                   data-inspector-metadata="identity"
-                  style="display:flex;min-width:0;max-width:100%;align-items:center;gap:6px;color:#57575b;font-size:11px;line-height:1.3;"
+                  style="display:flex;min-width:0;max-width:100%;align-items:center;gap:6px;color:#e7e7ec;font-size:11px;line-height:1.3;"
                   title="${identity.organizationName} / ${identity.projectName}"
                 >
                   <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                     >${identity.organizationName}</span
                   >
-                  <span aria-hidden="true" style="color:#afafb7;">/</span>
+                  <span aria-hidden="true" style="color:#838389;">/</span>
                   <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                     >${identity.projectName}</span
                   >
@@ -7145,7 +7353,7 @@ ${argsString}</pre
             ? html`
                 <span
                   data-inspector-metadata="plan"
-                  style="display:inline-flex;min-height:22px;align-items:center;border:1px solid rgba(91,228,187,0.5);border-radius:4px;background:rgba(91,228,187,0.2);padding:2px 7px;color:#176f59;font-size:10px;font-weight:600;line-height:1.2;white-space:nowrap;"
+                  style="display:inline-flex;min-height:22px;align-items:center;border:1px solid rgba(133,236,206,0.5);border-radius:4px;background:rgba(133,236,206,0.14);padding:2px 7px;color:#85ecce;font-size:10px;font-weight:600;line-height:1.2;white-space:nowrap;"
                   >${plan.label}</span
                 >
               `
@@ -7166,15 +7374,18 @@ ${argsString}</pre
     const isTransitioning = this.hasAttribute("data-transitioning");
 
     const windowStyles = isDocked
-      ? this.getDockedWindowStyles()
+      ? { ...this.getDockedWindowStyles(), overflowX: "hidden" }
       : {
           width: `${Math.round(windowState.size.width)}px`,
           height: `${Math.round(windowState.size.height)}px`,
           minWidth: `${MIN_WINDOW_WIDTH}px`,
           minHeight: `${MIN_WINDOW_HEIGHT}px`,
+          overflowX: "hidden",
         };
 
-    const hasContextDropdown = this.contextOptions.length > 0;
+    const hasContextDropdown = this.contextOptions.some(
+      (option) => option.key !== "all-agents",
+    );
     const contextDropdown = hasContextDropdown
       ? this.renderContextDropdown()
       : nothing;
@@ -7183,7 +7394,7 @@ ${argsString}</pre
       ? contextDropdown
       : html`
           <div
-            class="flex items-center gap-2 rounded-md border border-dashed border-gray-200 px-2 py-1 text-xs text-gray-400"
+            class="inspector-agent-placeholder flex items-center gap-2 rounded-md border border-dashed px-2 py-1 text-xs"
           >
             <span>${this.renderIcon("Bot")}</span>
             <span class="truncate">No agents available</span>
@@ -7229,42 +7440,45 @@ ${argsString}</pre
             @pointerup=${isDocked ? undefined : this.handlePointerUp}
             @pointercancel=${isDocked ? undefined : this.handlePointerCancel}
           >
-            <div class="flex flex-wrap items-center gap-3 px-4 py-3">
+            <div
+              class="inspector-account-strip flex flex-wrap items-center gap-3 px-4 py-3"
+              data-inspector-account-strip
+              style="width:100%;min-width:0;background-color:#010507;color:#ffffff;"
+            >
               <div class="flex items-center min-w-0">
                 <img
                   src=${inspectorLogoUrl}
                   alt="Inspector logo"
-                  class="h-6 w-auto"
+                  class="inspector-account-logo h-6 w-auto"
                   loading="lazy"
                 />
               </div>
               ${this.renderInspectorMetadataHeader()}
               <div class="ml-auto flex min-w-0 items-center gap-2">
-                <div class="min-w-[160px] max-w-xs">${agentSelector}</div>
+                <div class="inspector-agent-selector min-w-[160px] max-w-xs">
+                  ${agentSelector}
+                </div>
                 <div class="flex items-center gap-1">
                   ${this.renderDockControls()}
                   <button
-                    class="flex h-8 w-8 items-center justify-center rounded-md transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 ${
-                      this.selectedMenu === "settings"
-                        ? "bg-gray-100 text-gray-700"
-                        : "text-gray-400 hover:text-gray-600"
+                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                      this.settingsOpen
+                        ? "inspector-account-control-active"
+                        : ""
                     }"
                     type="button"
                     aria-label="Settings"
-                    aria-pressed=${this.selectedMenu === "settings"}
-                    @click=${() =>
-                      this.handleMenuSelect(
-                        this.selectedMenu === "settings"
-                          ? "ag-ui-events"
-                          : "settings",
-                      )}
+                    aria-pressed=${this.settingsOpen}
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                    @click=${this.handleSettingsToggle}
                   >
                     ${this.renderIcon("Settings")}
                   </button>
                   <button
-                    class="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                     type="button"
                     aria-label="Close Web Inspector"
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
                     @pointerdown=${this.handleClosePointerDown}
                     @click=${this.handleCloseClick}
                   >
@@ -7273,27 +7487,36 @@ ${argsString}</pre
                 </div>
               </div>
             </div>
-            <div
-              class="flex flex-wrap items-center gap-2 border-t border-gray-100 px-3 py-2 text-xs"
+            <nav
+              class="inspector-primary-navigation"
+              aria-label="Inspector primary navigation"
+              style="overflow-x:auto;overflow-y:hidden;cursor:default;"
             >
-              ${this.menuItems.map(({ key, label, icon }) => {
-                const isSelected = this.selectedMenu === key;
-                const tabClasses = [
-                  "inline-flex items-center gap-2 rounded-md px-3 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300",
-                  isSelected ? "cpk-tab-active" : "cpk-tab-inactive",
-                ].join(" ");
+              ${INSPECTOR_PRIMARY_NAVIGATION.map(({ key, label, icon }) => {
+                const isSelected = this.selectedGroup === key;
+                const legacyMenuKey =
+                  key === "threads"
+                    ? "threads"
+                    : key === "learning"
+                      ? "memories"
+                      : undefined;
 
                 return html`
                   <button
                     type="button"
-                    class=${tabClasses}
-                    aria-pressed=${isSelected}
-                    @click=${() => this.handleMenuSelect(key)}
+                    class="inspector-nav-control inspector-primary-control ${
+                      isSelected ? "inspector-nav-control-active" : ""
+                    }"
+                    data-inspector-group=${key}
+                    data-inspector-menu-key=${legacyMenuKey ?? nothing}
+                    aria-current=${isSelected ? "page" : nothing}
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                    @click=${() => this.handleGroupSelect(key)}
                   >
-                    <span class="cpk-tab-icon">
+                    <span class="inspector-nav-icon" aria-hidden="true">
                       ${
-                        key in this.customTabIcons
-                          ? unsafeHTML(this.customTabIcons[key])
+                        key === "threads"
+                          ? unsafeHTML(this.customTabIcons.threads)
                           : this.renderIcon(icon)
                       }
                     </span>
@@ -7302,13 +7525,15 @@ ${argsString}</pre
                 `;
               })}
               ${
-                this.selectedMenu === "threads"
+                this.selectedGroup === "threads"
                   ? html`
                       <a
+                        data-inspector-thread-cta
                         href=${this.getThreadsTalkToEngineerUrl()}
                         target="_blank"
-                        rel="noopener"
-                        style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid #dbdbe5;background:#ffffff;padding:7px 10px;font-size:12px;font-weight:600;color:#57575b;text-decoration:none;"
+                        rel="noopener noreferrer"
+                        aria-label="Talk to an Engineer (opens in a new tab)"
+                        style=${INTERACTIVE_FOCUS_BASE_STYLE}
                         @click=${this.handleTalkToEngineerClick}
                       >
                         Talk to an Engineer
@@ -7316,7 +7541,43 @@ ${argsString}</pre
                     `
                   : nothing
               }
-            </div>
+            </nav>
+            ${
+              this.selectedGroup === "agents"
+                ? html`
+                    <nav
+                      class="inspector-child-navigation"
+                      aria-label="Agent navigation"
+                      style="overflow-x:auto;overflow-y:hidden;white-space:nowrap;cursor:default;"
+                    >
+                      ${this.getVisibleMenuItemsForGroup("agents").map(
+                        ({ key, label, icon }) => {
+                          const isSelected = this.selectedMenu === key;
+                          return html`
+                            <button
+                              type="button"
+                              class="inspector-nav-control inspector-child-control ${
+                                isSelected ? "inspector-nav-control-active" : ""
+                              }"
+                              data-inspector-menu-key=${key}
+                              aria-current=${isSelected ? "page" : nothing}
+                              style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                              @click=${() => this.handleMenuSelect(key)}
+                            >
+                              <span
+                                class="inspector-nav-icon"
+                                aria-hidden="true"
+                                >${this.renderIcon(icon)}</span
+                              >
+                              <span>${label}</span>
+                            </button>
+                          `;
+                        },
+                      )}
+                    </nav>
+                  `
+                : nothing
+            }
           </div>
           <div class="flex flex-1 flex-col overflow-hidden">
             <div id="cpk-main-scroll" class="flex-1 overflow-auto">
@@ -7387,15 +7648,7 @@ ${argsString}</pre
       this.dockMode = persisted.dockMode;
     }
 
-    // Restore selected menu
-    if (typeof persisted.selectedMenu === "string") {
-      const validMenu = this.menuItems.find(
-        (item) => item.key === persisted.selectedMenu,
-      );
-      if (validMenu) {
-        this.selectedMenu = validMenu.key;
-      }
-    }
+    this.restorePersistedMenu(persisted.selectedMenu);
 
     // Restore selected context (agent), will be validated later against available agents
     if (typeof persisted.selectedContext === "string") {
@@ -7413,6 +7666,8 @@ ${argsString}</pre
     if (!persisted) {
       return;
     }
+
+    this.restorePersistedMenu(persisted.selectedMenu);
 
     const persistedButton = persisted.button;
     if (persistedButton) {
@@ -7457,6 +7712,41 @@ ${argsString}</pre
     }
   }
 
+  /** Restore a visible legacy leaf, or use Threads for stale state. */
+  private restorePersistedMenu(value: unknown): void {
+    this.selectedMenu = "threads";
+    this.lastSelectedMenuByGroup.threads = "threads";
+    this.pendingPersistedMenu = null;
+
+    if (!isInspectorMenuKey(value)) {
+      return;
+    }
+
+    const validMenu = this.menuItems.find((item) => item.key === value);
+    if (!validMenu) {
+      if (!this.hasResolvedCore) {
+        this.pendingPersistedMenu = value;
+      }
+      return;
+    }
+
+    this.selectedMenu = validMenu.key;
+    this.lastSelectedMenuByGroup[this.getGroupForMenu(validMenu.key)] =
+      validMenu.key;
+  }
+
+  /** Resolve a valid stored leaf after the first Core exposes its sources. */
+  private resolvePendingPersistedMenu(): void {
+    const pendingMenu = this.pendingPersistedMenu;
+    if (!pendingMenu) {
+      return;
+    }
+
+    this.pendingPersistedMenu = null;
+    this.restorePersistedMenu(pendingMenu);
+    this.persistState();
+  }
+
   private get activeContext(): ContextKey {
     return this.isOpen ? "window" : "button";
   }
@@ -7472,7 +7762,7 @@ ${argsString}</pre
     const context: ContextKey = contextAttr === "window" ? "window" : "button";
 
     const eventTarget = event.target as HTMLElement | null;
-    if (context === "window" && eventTarget?.closest("button, a")) {
+    if (context === "window" && eventTarget?.closest("button, a, nav")) {
       return;
     }
 
@@ -7717,6 +8007,7 @@ ${argsString}</pre
       this.centerContext("window");
     }
 
+    this.requestUpdate();
     this.updateHostTransform();
   };
 
@@ -7827,7 +8118,7 @@ ${argsString}</pre
       },
       isOpen: this.isOpen,
       dockMode: this.dockMode,
-      selectedMenu: this.selectedMenu,
+      selectedMenu: this.pendingPersistedMenu ?? this.selectedMenu,
       selectedContext: this.selectedContext,
     };
     saveInspectorState(INSPECTOR_STORAGE_KEY, state);
@@ -8157,6 +8448,7 @@ ${argsString}</pre
           type="button"
           aria-label="Dock to left"
           title="Dock Left"
+          style=${INTERACTIVE_FOCUS_BASE_STYLE}
           @click=${() => this.handleDockClick("docked-left")}
         >
           ${this.renderIcon("PanelLeft")}
@@ -8170,6 +8462,7 @@ ${argsString}</pre
           type="button"
           aria-label="Float window"
           title="Float"
+          style=${INTERACTIVE_FOCUS_BASE_STYLE}
           @click=${() => this.handleDockClick("floating")}
         >
           ${this.renderIcon("Maximize2")}
@@ -8527,6 +8820,10 @@ ${argsString}</pre
   }
 
   private renderMainContent() {
+    if (this.settingsOpen) {
+      return this.renderSettingsPanel();
+    }
+
     if (this.selectedMenu === "ag-ui-events") {
       return this.renderEventsTable();
     }
@@ -8553,10 +8850,6 @@ ${argsString}</pre
 
     if (this.selectedMenu === "memories") {
       return this.renderMemoriesView();
-    }
-
-    if (this.selectedMenu === "settings") {
-      return this.renderSettingsPanel();
     }
 
     return nothing;
@@ -8641,6 +8934,7 @@ ${argsString}</pre
     }
     if (
       lockedAction &&
+      !this.settingsOpen &&
       this.selectedMenu === "threads" &&
       !this.areThreadEndpointsAvailable()
     ) {
@@ -10769,15 +11063,15 @@ ${prettyEvent}</pre
   }
 
   private handleMenuSelect(key: MenuKey): void {
-    if (
-      key !== "settings" &&
-      !this.menuItems.some((item) => item.key === key)
-    ) {
+    if (!this.menuItems.some((item) => item.key === key)) {
       return;
     }
 
     const previousMenu = this.selectedMenu;
+    this.pendingPersistedMenu = null;
     this.selectedMenu = key;
+    this.settingsOpen = false;
+    this.lastSelectedMenuByGroup[this.getGroupForMenu(key)] = key;
 
     // If switching to agents view and "all-agents" is selected, switch to the most recently active agent
     if (key === "agents" && this.selectedContext === "all-agents") {

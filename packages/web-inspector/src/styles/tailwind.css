@@ -8,6 +8,154 @@
   }
 }
 
+.inspector-account-strip {
+  width: 100%;
+  min-width: 0;
+  background-color: #010507;
+  color: #ffffff;
+}
+
+.inspector-account-logo {
+  filter: brightness(0) invert(1);
+}
+
+.inspector-agent-placeholder {
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #afafb7;
+}
+
+.inspector-primary-navigation,
+.inspector-child-navigation {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid #dbdbe5;
+  background-color: #ffffff;
+  padding: 6px 12px;
+  cursor: default;
+}
+
+.inspector-primary-navigation {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.inspector-child-navigation {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  white-space: nowrap;
+}
+
+.inspector-nav-control {
+  display: inline-flex;
+  min-height: 32px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: transparent;
+  padding: 6px 9px;
+  color: #57575b;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  cursor: pointer;
+}
+
+.inspector-nav-control:hover {
+  background-color: #f0f0f4;
+  color: #010507;
+}
+
+.inspector-nav-control-active {
+  border-color: #bec2ff;
+  background-color: #eee6fe;
+  color: #3f176f;
+}
+
+.inspector-nav-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.inspector-nav-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.inspector-nav-control:focus-visible,
+.inspector-nav-control:focus,
+.inspector-account-control:focus-visible,
+.inspector-account-control:focus,
+[data-inspector-thread-cta]:focus-visible,
+[data-inspector-thread-cta]:focus {
+  outline: 2px solid #6430ab !important;
+  outline-offset: 2px;
+}
+
+[data-inspector-action-placement="header"]:focus-visible,
+[data-inspector-action-placement="header"]:focus {
+  outline: 2px solid #bec2ff !important;
+  outline-offset: 2px;
+}
+
+.inspector-account-control {
+  color: #afafb7;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  cursor: pointer;
+}
+
+.inspector-account-control:hover,
+.inspector-account-control-active {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+[data-inspector-thread-cta] {
+  display: inline-flex;
+  min-height: 32px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  border: 1px solid #dbdbe5;
+  border-radius: 4px;
+  background-color: #ffffff;
+  padding: 6px 9px;
+  color: #57575b;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  cursor: pointer;
+}
+
+[data-inspector-account-strip] button,
+[data-inspector-account-strip] a,
+[data-inspector-action-placement="header"] {
+  cursor: pointer;
+}
+
+[data-inspector-thread-cta]:hover {
+  border-color: #afafb7;
+  background-color: #f7f7f9;
+  color: #010507;
+}
+
 @layer utilities {
   .sr-only {
     position: absolute;
