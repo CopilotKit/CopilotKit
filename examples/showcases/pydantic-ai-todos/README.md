@@ -85,8 +85,9 @@ This app connects three technologies to create a full-stack agentic todo applica
    - Tools ([`agent/src/tools.py`](agent/src/tools.py)): `add_todos`, `update_todo`, `delete_todos`, etc.
    - Uses Pydantic models ([`agent/src/models.py`](agent/src/models.py)) for type-safe state
 
-2. **[AG-UI](https://ai.pydantic.dev/agents-ui/)** ([`agent/src/main.py`](agent/src/main.py)) - Bridge between Python and web
-   - `agent.to_ag_ui()` converts PydanticAI agent to FastAPI server (port 8000)
+2. **[AG-UI](https://ai.pydantic.dev/agents-ui/)** ([`agent/main.py`](agent/main.py)) - Bridge between Python and web
+   - `AGUIAdapter.dispatch_request()` serves the agent from a Starlette route (port 8000)
+   - Builds the `StateDeps` fresh per request so state never leaks between users
    - Handles state synchronization via `StateSnapshotEvent`
 
 3. **[CopilotKit](https://copilotkit.ai/)** ([`src/app/page.tsx`](src/app/page.tsx), [`src/app/api/copilotkit/route.ts`](src/app/api/copilotkit/route.ts)) - React chat UI

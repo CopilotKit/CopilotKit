@@ -94,7 +94,7 @@ Before you begin, you'll need the following:
                 Our examples will also use uvicorn to run the agent.
 
                 ```sh
-                pip install 'pydantic-ai-slim[ag-ui]' uvicorn
+                pip install 'pydantic-ai-slim[ag-ui,openai]>=2,<3' 'starlette>=0.46.2' uvicorn
                 ```
             </Step>
             <Step>
@@ -102,12 +102,41 @@ Before you begin, you'll need the following:
 
                 ```python title="agent.py"
                 from pydantic_ai import Agent
+                from pydantic_ai.ui.ag_ui import AGUIAdapter
+                from starlette.applications import Starlette
+                from starlette.requests import Request
+                from starlette.responses import Response
+                from starlette.routing import Route
 
                 agent = Agent('openai:gpt-4.1', instructions='Be fun!')
-                app = agent.to_ag_ui()
+
+
+                async def run_agent(request: Request) -> Response:
+                    return await AGUIAdapter.dispatch_request(request, agent=agent)
+
+
+                app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
 
                 # If you want the server to run on invocation, you can do the following:
                 if __name__ == "__main__":
+                    import uvicorn
+
+                    uvicorn.run("agent:app", host="0.0.0.0", port=8000, reload=True)
+                ```
+            </Step>
+            <Step>
+                ### Setup the Copilot Runtime
+
+                Create an API route that connects CopilotKit to the AG-UI endpoint you just exposed.
+
+                ```tsx title="app/api/copilotkit/route.ts"
+                import {
+                  CopilotRuntime,
+                  ExperimentalEmptyAdapter,
+                  copilotRuntimeNextJSAppRouterEndpoint,
+                } from "@copilotkit/runtime";
+                import { HttpAgent } from "@ag-ui/client";
+                import { NextRequest } from "next/server";
 
                 // 1. You can use any service adapter here for multi-agent support. We use
                 //    the empty adapter since we're only using one agent.
@@ -132,7 +161,7 @@ Before you begin, you'll need the following:
 
                   return handleRequest(req);
                 };
-               ```
+                ```
             </Step>
             <Step>
                 ### Setup the CopilotKit provider
