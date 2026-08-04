@@ -58,7 +58,9 @@ _PNG_B64 = (
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-multimodal-mapping")
 
 ag_core = pytest.importorskip("ag_ui.core")
-pydantic_ag_ui = pytest.importorskip("pydantic_ai.ag_ui")
+# `pydantic_ai.ui.ag_ui`, not the v1 `pydantic_ai.ag_ui` — the latter no longer
+# exists, so importorskip against it would skip this whole file green.
+pydantic_ag_ui = pytest.importorskip("pydantic_ai.ui.ag_ui")
 pydantic_openai = pytest.importorskip("pydantic_ai.models.openai")
 
 from pydantic_ai import BinaryContent, ImageUrl  # noqa: E402
@@ -79,7 +81,8 @@ DocumentInputContent = ag_core.DocumentInputContent
 BinaryInputContent = ag_core.BinaryInputContent
 InputContentDataSource = ag_core.InputContentDataSource
 InputContentUrlSource = ag_core.InputContentUrlSource
-_messages_from_ag_ui = pydantic_ag_ui._messages_from_ag_ui
+# v2 equivalent of v1's private `_messages_from_ag_ui`, and public this time.
+_messages_from_ag_ui = pydantic_ag_ui.AGUIAdapter.load_messages
 OpenAIResponsesModel = pydantic_openai.OpenAIResponsesModel
 
 
