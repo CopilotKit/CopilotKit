@@ -133,47 +133,48 @@ export function ChannelsStartPrompt({
       }}
     >
       {/* Mirrors the featured-Accordion treatment from #6356: icon, eyebrow,
-          title, supporting line, and the action on the right at wide widths. */}
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
-        <div className="flex min-w-0 flex-1 items-start gap-4">
-          <span
-            aria-hidden="true"
-            className="shell-docs-radius-control flex h-12 w-12 shrink-0 items-center justify-center bg-[var(--accent)] text-[var(--primary-foreground)] shadow-[var(--shadow-control)]"
-          >
-            <SquareTerminal className="h-5 w-5" />
-          </span>
-
-          <div className="min-w-0">
-            <span className="mb-1.5 block font-mono text-[11px] font-semibold tracking-[0.12em] text-[var(--accent)] uppercase">
-              Ready-to-use starter prompt
-            </span>
-            <h2
-              id="channels-start-prompt-heading"
-              className="m-0 text-lg leading-snug font-semibold tracking-[-0.015em] text-[var(--text)] sm:text-xl"
-            >
-              Start building with your coding agent
-            </h2>
-            <p className="mt-1.5 mb-0 max-w-[62ch] text-sm leading-relaxed text-[var(--text-secondary)]">
-              Copy the prompt and paste it into your coding agent. It installs
-              the onboarding skill and walks the whole setup with you —
-              scaffolding the project, building the agent, and connecting it to{" "}
-              {channelLabel}.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={copyPrompt}
-          className="shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto"
+          title, action, supporting line. The action sits directly under the
+          heading rather than off to the right — the prompt itself is not on the
+          page, so the button is the whole point of the panel and reads better as
+          the next thing after the headline than as trailing furniture. */}
+      <div className="flex min-w-0 items-start gap-4">
+        <span
+          aria-hidden="true"
+          className="shell-docs-radius-control flex h-12 w-12 shrink-0 items-center justify-center bg-[var(--accent)] text-[var(--primary-foreground)] shadow-[var(--shadow-control)]"
         >
-          <Copy aria-hidden="true" className="h-4 w-4" />
-          {copyState === "copied"
-            ? "Copied"
-            : copyState === "error"
-              ? "Copy blocked"
-              : "Copy prompt"}
-        </button>
+          <SquareTerminal className="h-5 w-5" />
+        </span>
+
+        <div className="min-w-0">
+          <span className="mb-1.5 block font-mono text-[11px] font-semibold tracking-[0.12em] text-[var(--accent)] uppercase">
+            Ready-to-use starter prompt
+          </span>
+          <h2
+            id="channels-start-prompt-heading"
+            className="m-0 text-lg leading-snug font-semibold tracking-[-0.015em] text-[var(--text)] sm:text-xl"
+          >
+            Start building with your coding agent
+          </h2>
+
+          <button
+            type="button"
+            onClick={copyPrompt}
+            className="shell-docs-radius-control mt-3 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto"
+          >
+            <Copy aria-hidden="true" className="h-4 w-4" />
+            {copyState === "copied"
+              ? "Copied"
+              : copyState === "error"
+                ? "Copy blocked"
+                : "Copy prompt"}
+          </button>
+
+          <p className="mt-3 mb-0 max-w-[62ch] text-sm leading-relaxed text-[var(--text-secondary)]">
+            It installs the onboarding skill and walks the whole setup with you
+            — scaffolding the project, building the agent, and connecting it to{" "}
+            {channelLabel}.
+          </p>
+        </div>
       </div>
 
       <span aria-live="polite" className="sr-only">
