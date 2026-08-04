@@ -6,8 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "uvicorn",
-  "pydantic-ai-slim[ag-ui,openai]>=2.0.0",
-  "ag-ui-protocol>=0.1.19",
+  "pydantic-ai-slim[ag-ui,openai]==2.22.0",
+  "ag-ui-protocol==0.1.19",
   "python-dotenv",
   "logfire>=4.10.0",
 ]

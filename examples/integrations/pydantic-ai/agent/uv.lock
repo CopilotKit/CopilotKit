@@ -28,9 +28,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ag-ui-protocol", specifier = ">=0.1.19" },
+    { name = "ag-ui-protocol", specifier = "==0.1.19" },
     { name = "logfire", specifier = ">=4.10.0" },
-    { name = "pydantic-ai-slim", extras = ["ag-ui", "openai"], specifier = ">=2.0.0" },
+    { name = "pydantic-ai-slim", extras = ["ag-ui", "openai"], specifier = "==2.22.0" },
     { name = "python-dotenv" },
     { name = "uvicorn" },
 ]
