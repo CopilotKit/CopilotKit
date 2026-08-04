@@ -949,9 +949,16 @@ export async function connectRealtimeGateway(
   // A socket-level drop begins a reconnect episode; the "back online" signal
   // comes from a successful (re)join (the join-push `"ok"` hook above), NOT from
   // the socket merely reopening — the channel may still be rejoining.
-  socket.onClose(() => {
+  socket.onClose((event) => {
     notifyClose();
     enterReconnecting();
+    // Phoenix treats code 1000 as terminal and does not schedule its reconnect
+    // timer. For a live managed session, only our own disconnect is terminal.
+    if (!closingIntentionally && event?.code === 1000) {
+      socket.disconnect(() => {
+        if (!closingIntentionally) socket.connect();
+      });
+    }
   });
   socket.onError(() => {
     notifyClose();
