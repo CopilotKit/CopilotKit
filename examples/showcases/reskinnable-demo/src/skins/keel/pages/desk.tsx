@@ -48,7 +48,11 @@ export function DeskPage() {
 
   const handleApprove = (runId: string, stepId: string) => {
     const key = `${runId}:${stepId}`;
-    const result = data.approveStep(runId, stepId, `Approved by ${persona.name}`);
+    const result = data.approveStep(
+      runId,
+      stepId,
+      `Approved by ${persona.name}`,
+    );
     setErrors((prev) => {
       const next = { ...prev };
       if (result.ok) delete next[key];
@@ -113,7 +117,9 @@ export function DeskPage() {
                         {step.title}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-xs text-ink-muted">{run.subject}</p>
+                    <p className="mt-0.5 text-xs text-ink-muted">
+                      {run.subject}
+                    </p>
                     {err && <p className="mt-1 text-xs text-negative">{err}</p>}
                   </div>
                   <Button

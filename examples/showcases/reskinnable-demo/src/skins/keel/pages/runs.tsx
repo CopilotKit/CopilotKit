@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSkinData } from "@/shell/skin-provider";
 import { StatusPill } from "@/skins/keel/components/status-pill";
+import { formatDate } from "@/skins/keel/pages/format-date";
 import type { KeelData, Run, RunStep } from "@/skins/keel/data/types";
 
 /** The step a run is "on": the active/gated one, else the next pending, else the last. */
@@ -14,11 +15,6 @@ function currentStep(run: Run): RunStep | undefined {
     run.steps.find((s) => s.status === "pending") ??
     run.steps[run.steps.length - 1]
   );
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString();
 }
 
 export function RunsPage() {

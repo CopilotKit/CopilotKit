@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Run, RunStep } from "@/skins/keel/data/types";
+import { formatStepTime } from "./format-step-time";
 import { StatusPill } from "./status-pill";
 
 export interface RunTimelineProps {
@@ -26,6 +27,7 @@ export function RunTimeline({
     <ol className="flex flex-col">
       {run.steps.map((step, i) => {
         const isLast = i === run.steps.length - 1;
+        const stepTime = compact ? null : formatStepTime(step.completedAt);
         return (
           <li key={step.id} className="flex gap-3">
             {/* Rail */}
@@ -68,12 +70,9 @@ export function RunTimeline({
                     {step.policyRef.ref} §{step.policyRef.sectionId}
                   </Link>
                 )}
-                {!compact && step.completedAt && (
-                  <span className="font-mono">
-                    {new Date(step.completedAt).toLocaleTimeString()}
-                  </span>
-                )}
+                {stepTime && <span className="font-mono">{stepTime}</span>}
                 {step.approvedBy && <span>Approved by {step.approvedBy}</span>}
+                {step.rejectedBy && <span>Rejected by {step.rejectedBy}</span>}
               </div>
 
               {renderStepAction?.(step)}

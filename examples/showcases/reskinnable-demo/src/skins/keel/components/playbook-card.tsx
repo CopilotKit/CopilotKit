@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
+import { ChatSurface } from "@/skins/keel/components/chat-surface";
 import type { Playbook } from "@/skins/keel/data/types";
 
 /**
@@ -13,7 +14,10 @@ export function PlaybookCard({ playbook }: { playbook: Playbook }) {
   const gateCount = playbook.steps.filter((s) => s.requiresApproval).length;
 
   return (
-    <div className="rounded-lg border border-hairline bg-surface p-3 shadow-soft">
+    // Rooted in `ChatSurface` so the per-step policy `<Link>` below is clickable
+    // in chat: this is a `showPlaybook` `useComponent` render, which CopilotKit
+    // paints `pointer-events: none`. ChatSurface carries `pointer-events-auto`.
+    <ChatSurface className="rounded-lg border border-hairline bg-surface p-3 shadow-soft">
       <div className="text-sm font-semibold text-ink">{playbook.title}</div>
       <p className="mt-0.5 text-xs leading-snug text-ink-muted">
         {playbook.summary}
@@ -61,6 +65,6 @@ export function PlaybookCard({ playbook }: { playbook: Playbook }) {
           </li>
         ))}
       </ol>
-    </div>
+    </ChatSurface>
   );
 }

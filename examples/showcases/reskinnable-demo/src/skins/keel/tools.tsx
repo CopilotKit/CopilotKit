@@ -12,14 +12,16 @@ import {
 } from "@copilotkit/react-core/v2";
 import { useSkinData } from "@/shell/skin-provider";
 import { getDoc } from "@/skins/keel/knowledge/corpus";
+import { requestSection } from "@/skins/keel/knowledge/citation-target";
 import type { Citation } from "@/skins/keel/knowledge/types";
 import type { KeelData } from "@/skins/keel/data/types";
 import { SourcesCard } from "@/skins/keel/components/sources-card";
 import { PlaybookCard } from "@/skins/keel/components/playbook-card";
 import { RunPlanPreview } from "@/skins/keel/components/run-plan-preview";
 import { ApprovalCard } from "@/skins/keel/components/approval-card";
-import { ApprovalsQueue } from "@/skins/keel/components/approvals-queue";
+import { ApprovalsQueueSurface } from "@/skins/keel/components/approvals-queue";
 import { RunTimeline } from "@/skins/keel/components/run-timeline";
+import { ChatSurface } from "@/skins/keel/components/chat-surface";
 import { KeelSandboxDataSync } from "@/skins/keel/sandbox-functions";
 
 /** ~200 characters of a section body, for a resolved citation snippet. */
@@ -57,7 +59,13 @@ export function KeelTools() {
   const { summaryKey, persona } = data;
 
   const openCitation = useCallback(
-    (c: Citation) => router.push(`/keel/knowledge/${c.docId}#${c.sectionId}`),
+    (c: Citation) => {
+      // Signal the target BEFORE navigating: a second citation into the same
+      // open doc is a hash-only push, which fires no hashchange and remounts
+      // nothing, so the reader would otherwise never see it (finding A5).
+      requestSection(c.docId, c.sectionId);
+      router.push(`/keel/knowledge/${c.docId}#${c.sectionId}`);
+    },
     [router],
   );
 
@@ -159,7 +167,9 @@ export function KeelTools() {
               sectionId: z.string().describe('e.g. "minimum-necessary"'),
             }),
           )
-          .describe("The passages you actually used, in the order you used them."),
+          .describe(
+            "The passages you actually used, in the order you used them.",
+          ),
       }),
       // useComponent renders receive the parsed tool args directly as props
       // (not wrapped in `{ args }` — that shape is for useFrontendTool /
@@ -196,6 +206,9 @@ export function KeelTools() {
       handler: async ({ docId, sectionId }) => {
         const doc = getDoc(docId);
         if (!doc) return `No document is filed under "${docId}".`;
+        // Same signal as openCitation, so re-opening a section of the doc that
+        // is already on screen still scrolls + highlights (finding A5).
+        if (sectionId) requestSection(docId, sectionId);
         router.push(
           `/keel/knowledge/${docId}${sectionId ? `#${sectionId}` : ""}`,
         );
@@ -264,7 +277,7 @@ export function KeelTools() {
         if (status === ToolCallStatus.Executing && respond) {
           if (!playbook) {
             return (
-              <div className="pointer-events-auto rounded-md border border-hairline bg-surface p-3 text-sm text-negative">
+              <ChatSurface className="rounded-md border border-hairline bg-surface p-3 text-sm text-negative">
                 No playbook is registered under &quot;{args?.playbookId}&quot;.
                 <button
                   className="ml-2 underline"
@@ -274,7 +287,7 @@ export function KeelTools() {
                 >
                   Dismiss
                 </button>
-              </div>
+              </ChatSurface>
             );
           }
           return (
@@ -329,7 +342,13 @@ export function KeelTools() {
           );
         }
         return (
-          <div className="rounded-md border border-hairline bg-surface p-3">
+          // `RunTimeline` is context-agnostic (also used by the run-detail
+          // PAGE, where pointer events are normal), so the pointer-events fix
+          // belongs on THIS chat wrapper, not inside the timeline. Rooting it in
+          // `ChatSurface` re-enables the timeline's per-step policy `<Link>`,
+          // which is otherwise dead under the `useComponent` `pointer-events:
+          // none`.
+          <ChatSurface className="rounded-md border border-hairline bg-surface p-3">
             <div className="mb-2 flex items-baseline gap-2">
               <span className="font-mono text-xs font-semibold text-brand">
                 {run.id}
@@ -339,7 +358,7 @@ export function KeelTools() {
               </span>
             </div>
             <RunTimeline run={run} compact />
-          </div>
+          </ChatSurface>
         );
       },
     },
@@ -364,7 +383,7 @@ export function KeelTools() {
 
           if (!run || !step) {
             return (
-              <div className="pointer-events-auto rounded-md border border-hairline bg-surface p-3 text-sm text-negative">
+              <ChatSurface className="rounded-md border border-hairline bg-surface p-3 text-sm text-negative">
                 That step is no longer available.
                 <button
                   className="ml-2 underline"
@@ -374,7 +393,7 @@ export function KeelTools() {
                 >
                   Dismiss
                 </button>
-              </div>
+              </ChatSurface>
             );
           }
 
@@ -398,7 +417,8 @@ export function KeelTools() {
                 void respond(
                   result.ok
                     ? `Rejected ${step.title} on ${run.id}; the run was cancelled.`
-                    : (result.reason ?? "That rejection could not be recorded."),
+                    : (result.reason ??
+                        "That rejection could not be recorded."),
                 );
               }}
             />
@@ -433,9 +453,9 @@ export function KeelTools() {
           );
         }
         return (
-          <ApprovalsQueue
+          <ApprovalsQueueSurface
             items={data.approvals}
-            onApprove={(runId, stepId) => data.approveStep(runId, stepId)}
+            approve={data.approveStep}
           />
         );
       },

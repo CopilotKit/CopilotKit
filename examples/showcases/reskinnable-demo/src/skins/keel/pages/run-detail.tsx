@@ -7,12 +7,8 @@ import { useRole } from "@/skins/keel/role-context";
 import { StatusPill } from "@/skins/keel/components/status-pill";
 import { RunTimeline } from "@/skins/keel/components/run-timeline";
 import { Button } from "@/components/ui/button";
+import { formatDate } from "@/skins/keel/pages/format-date";
 import type { KeelData, RunStep } from "@/skins/keel/data/types";
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString();
-}
 
 export function RunDetailPage() {
   // All hooks run unconditionally BEFORE the not-found early return.
@@ -30,16 +26,19 @@ export function RunDetailPage() {
       <div className="mx-auto flex max-w-3xl flex-col items-center gap-3 py-16 text-center">
         <h1 className="text-2xl font-bold text-ink">Run not found</h1>
         <p className="text-sm text-ink-muted">
-          {runId
-            ? `No run matches "${runId}".`
-            : "No run was specified."}{" "}
-          It may have been cancelled, or the link is stale.
+          {runId ? `No run matches "${runId}".` : "No run was specified."} It
+          may have been cancelled, or the link is stale.
         </p>
       </div>
     );
   }
 
   const runForActions = run;
+
+  const playbook = data.getPlaybook(run.playbookId);
+  const inputEntries = Object.entries(run.inputs ?? {});
+  const inputLabel = (key: string) =>
+    playbook?.inputs.find((i) => i.key === key)?.label ?? key;
 
   const handleAction = (kind: "approve" | "reject", stepId: string) => {
     const note = `${kind === "approve" ? "Approved" : "Rejected"} by ${persona.name}`;
@@ -103,6 +102,20 @@ export function RunDetailPage() {
           </span>
         </div>
       </header>
+
+      {inputEntries.length > 0 && (
+        <section className="rounded-lg border border-hairline bg-surface p-5 shadow-soft">
+          <h2 className="mb-4 text-sm font-semibold text-ink">Inputs</h2>
+          <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
+            {inputEntries.map(([key, value]) => (
+              <div key={key} className="contents">
+                <dt className="text-ink-muted">{inputLabel(key)}</dt>
+                <dd className="text-ink">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
 
       <section className="rounded-lg border border-hairline bg-surface p-5 shadow-soft">
         <h2 className="mb-4 text-sm font-semibold text-ink">Steps</h2>

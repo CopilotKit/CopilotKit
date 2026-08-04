@@ -2,6 +2,7 @@
 
 import { ListChecks, ShieldCheck, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ChatSurface } from "@/skins/keel/components/chat-surface";
 import type { Playbook } from "@/skins/keel/data/types";
 
 /**
@@ -42,9 +43,10 @@ export function RunPlanPreview({
   ];
 
   return (
-    // `pointer-events-auto`: re-enable clicks on this interactive
-    // `useComponent` render — see SourcesCard for the full rationale.
-    <div className="pointer-events-auto rounded-lg border border-hairline bg-surface p-3 shadow-soft">
+    // Rooted in `ChatSurface` (which carries `pointer-events-auto`) to keep the
+    // Confirm/Cancel buttons clickable in chat — see ChatSurface for the full
+    // rationale.
+    <ChatSurface className="rounded-lg border border-hairline bg-surface p-3 shadow-soft">
       <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
         Start process
       </div>
@@ -80,6 +82,6 @@ export function RunPlanPreview({
           Cancel
         </Button>
       </div>
-    </div>
+    </ChatSurface>
   );
 }

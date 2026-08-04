@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ShieldCheck, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ChatSurface } from "@/skins/keel/components/chat-surface";
 import type { Run, RunStep } from "@/skins/keel/data/types";
 
 /**
@@ -31,9 +32,10 @@ export function ApprovalCard({
   const noteArg = trimmed.length > 0 ? trimmed : undefined;
 
   return (
-    // `pointer-events-auto`: re-enable clicks on this interactive
-    // `useComponent` render — see SourcesCard for the full rationale.
-    <div className="pointer-events-auto rounded-lg border border-hairline bg-surface p-3 shadow-soft">
+    // Rooted in `ChatSurface` (which carries `pointer-events-auto`) so the
+    // policy `<Link>`, note `<Input>`, and Approve/Reject buttons all stay
+    // clickable in chat — see ChatSurface for the full rationale.
+    <ChatSurface className="rounded-lg border border-hairline bg-surface p-3 shadow-soft">
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-[11px] font-semibold text-ink-muted">
           {run.id}
@@ -97,6 +99,6 @@ export function ApprovalCard({
           </span>
         </div>
       )}
-    </div>
+    </ChatSurface>
   );
 }
