@@ -3,7 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CopilotKit Web Inspector Standalone</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23023047' d='M4 4h16v16H4z'/%3E%3Cpath fill='%23fff' d='M8 8h8v2H8zm0 4h8v2H8zm0 4h5v2H8z'/%3E%3C/svg%3E"
+    />
+    <title>Inspector Threads state lab</title>
     <script type="module" src="/main.ts"></script>
     <style>
       :root {
@@ -16,8 +20,8 @@
           BlinkMacSystemFont,
           "Segoe UI",
           sans-serif;
-        background: #f7f7f9;
-        color: #010507;
+        background: #f2f7f9;
+        color: #023047;
       }
 
       * {
@@ -26,90 +30,406 @@
 
       body {
         margin: 0;
+        min-width: 320px;
         min-height: 100vh;
       }
 
-      main {
-        display: grid;
-        grid-template-rows: auto 1fr;
-        min-height: 100vh;
-      }
-
-      header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        padding: 14px 18px;
-        border-bottom: 1px solid #dbdbe5;
+      button,
+      select {
+        min-height: 40px;
+        border: 1px solid #69818c;
+        border-radius: 2px;
         background: #ffffff;
-      }
-
-      h1 {
-        margin: 0;
-        font-size: 15px;
-        font-weight: 650;
-      }
-
-      p {
-        margin: 4px 0 0;
-        color: #57575b;
-        font-size: 12px;
-      }
-
-      .controls {
-        display: flex;
-        gap: 8px;
+        color: #023047;
+        font: inherit;
+        font-size: 13px;
       }
 
       button {
-        border: 1px solid #dbdbe5;
-        border-radius: 6px;
-        background: #ffffff;
-        color: #010507;
         cursor: pointer;
-        font: inherit;
-        font-size: 12px;
-        padding: 7px 10px;
+        padding: 8px 12px;
       }
 
       button:hover {
-        border-color: #bec2ff;
+        border-color: #023047;
+        background: #f8fbfc;
+      }
+
+      button:focus-visible,
+      select:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid #087e99;
+        outline-offset: 2px;
+      }
+
+      select {
+        width: min(440px, 100%);
+        padding: 7px 34px 7px 10px;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: minmax(180px, 0.65fr) minmax(320px, 1.35fr) auto;
+        align-items: end;
+        gap: 16px;
+        padding: 14px 18px;
+        border-bottom: 1px solid #b7c8cf;
+        background: #ffffff;
+      }
+
+      .title h1 {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+
+      .title p,
+      .field-label,
+      .status-line {
+        margin: 4px 0 0;
+        color: #48636f;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .field-label {
+        display: block;
+        margin: 0 0 5px;
+        font-weight: 600;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .route-alert {
+        margin: 12px 18px 0;
+        padding: 10px 12px;
+        border-left: 3px solid #fb8500;
+        background: #fff7e3;
+        color: #553600;
+        font-size: 13px;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(620px, 1fr) minmax(320px, 390px);
+        gap: 12px;
+        padding: 12px;
+      }
+
+      .inspector-stage {
+        position: relative;
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+        border: 1px solid #b7c8cf;
+        border-radius: 2px;
+        background:
+          linear-gradient(#eaf3f7 1px, transparent 1px),
+          linear-gradient(90deg, #eaf3f7 1px, transparent 1px), #ffffff;
+        background-size: 24px 24px;
+      }
+
+      .stage-label {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        z-index: 0;
+        max-width: 280px;
+        padding: 8px 10px;
+        border-left: 3px solid #219ebc;
+        background: rgba(255, 255, 255, 0.92);
+        color: #48636f;
+        font-size: 12px;
+        line-height: 1.45;
       }
 
       #inspector-host {
-        min-height: 0;
-        padding: 16px;
+        position: relative;
+        z-index: 1;
+        display: block;
+        min-height: calc(100vh - 114px);
       }
 
-      cpk-thread-inspector {
-        display: block;
-        height: calc(100vh - 98px);
-        min-height: 520px;
-        border: 1px solid #dbdbe5;
-        border-radius: 8px;
-        overflow: hidden;
+      .console {
+        max-height: calc(100vh - 112px);
+        overflow: auto;
+        border: 1px solid #b7c8cf;
+        border-radius: 2px;
         background: #ffffff;
+      }
+
+      .console > section,
+      .console > details {
+        padding: 12px;
+        border-bottom: 1px solid #d7e2e6;
+      }
+
+      .console > :last-child {
+        border-bottom: 0;
+      }
+
+      h2 {
+        margin: 0 0 8px;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .state-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 5px 10px;
+        margin: 0;
+        font-size: 12px;
+      }
+
+      .state-grid dt {
+        color: #48636f;
+      }
+
+      .state-grid dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-weight: 600;
+      }
+
+      [data-state="connected"],
+      [data-state="match"] {
+        color: #087653;
+      }
+
+      [data-state="pending"],
+      [data-state="connecting"] {
+        color: #785700;
+      }
+
+      [data-state="interaction"] {
+        color: #315b88;
+      }
+
+      [data-state="error"] {
+        color: #a1262d;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+
+      th,
+      td {
+        padding: 6px 5px;
+        border-bottom: 1px solid #e5ecef;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      th:first-child,
+      td:first-child {
+        text-align: left;
+      }
+
+      thead th {
+        color: #48636f;
+        font-weight: 600;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      summary {
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      pre {
+        max-height: 360px;
+        margin: 10px 0 0;
+        overflow: auto;
+        color: #023047;
+        font:
+          11px/1.55 "SFMono-Regular",
+          Consolas,
+          monospace;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      #request-log {
+        max-height: 240px;
+        margin: 10px 0 0;
+        padding-left: 20px;
+        overflow: auto;
+        color: #48636f;
+        font:
+          11px/1.55 "SFMono-Regular",
+          Consolas,
+          monospace;
+      }
+
+      @media (max-width: 980px) {
+        .topbar {
+          grid-template-columns: 1fr;
+          align-items: start;
+        }
+
+        .actions {
+          justify-content: flex-start;
+        }
+
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .inspector-stage,
+        #inspector-host {
+          min-height: 720px;
+        }
+
+        .console {
+          max-height: none;
+        }
+      }
+
+      @media (max-width: 680px) {
+        .topbar {
+          gap: 11px;
+          padding: 12px;
+        }
+
+        .workspace {
+          padding: 8px;
+        }
+
+        .actions > button {
+          flex: 1 1 140px;
+        }
+
+        .stage-label {
+          display: none;
+        }
+
+        .inspector-stage,
+        #inspector-host {
+          min-height: 760px;
+        }
       }
     </style>
   </head>
   <body>
-    <main>
-      <header>
-        <div>
-          <h1>Web Inspector Standalone Thread Detail</h1>
-          <p>
-            Demo provider data only. Product validation still needs a real
-            Intelligence backend.
-          </p>
+    <header class="topbar">
+      <div class="title">
+        <h1>Inspector Threads state lab</h1>
+        <p>31 local fixtures · no Intelligence service</p>
+      </div>
+      <label>
+        <span class="field-label">Scenario</span>
+        <select id="scenario-select"></select>
+      </label>
+      <div>
+        <div class="actions">
+          <button id="copy-link" type="button">Copy direct link</button>
+          <button id="reset-scenario" type="button">Reset</button>
         </div>
-        <div class="controls" aria-label="Demo scenarios">
-          <button type="button" data-scenario="events">AG-UI events</button>
-          <button type="button" data-scenario="messages">Messages only</button>
-          <button type="button" data-scenario="raw">Raw event only</button>
-        </div>
-      </header>
-      <section id="inspector-host"></section>
+        <p id="action-status" class="status-line" aria-live="polite">
+          Loading the local fixture…
+        </p>
+      </div>
+    </header>
+
+    <p id="route-alert" class="route-alert" role="alert" hidden></p>
+
+    <main class="workspace">
+      <section class="inspector-stage" aria-label="Actual Web Inspector">
+        <p class="stage-label">
+          This is the real <code>cpk-web-inspector</code> connected to the
+          selected loopback Runtime.
+        </p>
+        <div id="inspector-host"></div>
+      </section>
+
+      <aside class="console" aria-label="Scenario validation console">
+        <section>
+          <h2>Live state</h2>
+          <dl class="state-grid">
+            <dt>Runtime</dt>
+            <dd id="runtime-status">connecting</dd>
+            <dt>Media</dt>
+            <dd id="media-status">checking</dd>
+            <dt>Ledger</dt>
+            <dd id="ledger-status" aria-live="polite">waiting</dd>
+          </dl>
+        </section>
+
+        <section>
+          <h2>Thread request ledger</h2>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Kind</th>
+                <th scope="col">Expected</th>
+                <th scope="col">Actual</th>
+                <th scope="col">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>list</td>
+                <td id="expected-list">0</td>
+                <td id="actual-list">0</td>
+                <td id="outcome-list">Pending</td>
+              </tr>
+              <tr>
+                <td>subscribe</td>
+                <td id="expected-subscribe">0</td>
+                <td id="actual-subscribe">0</td>
+                <td id="outcome-subscribe">Pending</td>
+              </tr>
+              <tr>
+                <td>inspect</td>
+                <td id="expected-inspect">0</td>
+                <td id="actual-inspect">0</td>
+                <td id="outcome-inspect">Pending</td>
+              </tr>
+              <tr>
+                <td>messages</td>
+                <td id="expected-messages">0</td>
+                <td id="actual-messages">0</td>
+                <td id="outcome-messages">Pending</td>
+              </tr>
+              <tr>
+                <td>events</td>
+                <td id="expected-events">0</td>
+                <td id="actual-events">0</td>
+                <td id="outcome-events">Pending</td>
+              </tr>
+              <tr>
+                <td>state</td>
+                <td id="expected-state">0</td>
+                <td id="actual-state">0</td>
+                <td id="outcome-state">Pending</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <details open>
+          <summary>Normalized fixture</summary>
+          <pre id="fixture-json" tabindex="0"></pre>
+        </details>
+
+        <details>
+          <summary>Chronological request log</summary>
+          <ol id="request-log"></ol>
+        </details>
+      </aside>
     </main>
   </body>
 </html>
