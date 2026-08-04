@@ -386,6 +386,49 @@ test("selects the newest real thread across agents without reordering the list",
   }
 });
 
+test("tracks real source through an example-ID collision", async () => {
+  const collidingRealThread = thread(
+    "example-realtime-sync",
+    "alpha",
+    "Real thread with example ID",
+    "2026-08-03T13:00:00.000Z",
+  );
+  const harness = await setup({
+    alphaThreads: [collidingRealThread],
+    betaThreads: [],
+  });
+  try {
+    expect(harness.rowNames()).toEqual(["Real thread with example ID"]);
+    expect(harness.activeRowNames()).toEqual(["Real thread with example ID"]);
+
+    await vi.waitFor(() => {
+      expect(harness.details()?.threadId).toBe("example-realtime-sync");
+      expect(harness.detailRequestIds()).toContain("example-realtime-sync");
+    });
+
+    const detailRequestCountBeforeRemoval = harness.detailRequestIds().length;
+    await harness.refresh("alpha", []);
+
+    await vi.waitFor(() => {
+      expect(harness.details()).toBeNull();
+    });
+    expect(harness.rowNames()).toEqual([
+      "Realtime thread sync",
+      "Manage saved conversations",
+      "Inspect durable run history",
+    ]);
+    expect(harness.activeRowNames()).toEqual([]);
+    expect(harness.inspector.shadowRoot?.textContent).toContain(
+      "Threads are persistent, inspectable conversations",
+    );
+    expect(harness.detailRequestIds()).toHaveLength(
+      detailRequestCountBeforeRemoval,
+    );
+  } finally {
+    await harness.teardown();
+  }
+});
+
 test("reselects from the active agent after the rendered context changes", async () => {
   const alphaNewest = thread(
     "alpha-newest",

@@ -4545,6 +4545,7 @@ export class WebInspectorElement extends LitElement {
   private selectedMenu: MenuKey = "ag-ui-events";
   private selectedThreadId: string | null = null;
   private selectedRealThreadIsExplicit = false;
+  private selectedLocalExampleThreadId: string | null = null;
   private threadListWidth = 290;
   private threadDividerResizing = false;
   private threadDividerPointerId = -1;
@@ -4785,11 +4786,9 @@ export class WebInspectorElement extends LitElement {
 
     this.teardownThreadStoreSubscriptions();
     this.teardownOwnedThreadStores();
-    if (
-      this.selectedThreadId !== null &&
-      !this.isExampleThreadId(this.selectedThreadId)
-    ) {
+    if (this.selectedThreadId !== this.selectedLocalExampleThreadId) {
       this.selectedThreadId = null;
+      this.selectedLocalExampleThreadId = null;
     }
     this.selectedRealThreadIsExplicit = false;
     this.requestUpdate();
@@ -4939,13 +4938,18 @@ export class WebInspectorElement extends LitElement {
     const previousSelectedThreadId = this.selectedThreadId;
 
     if (
-      this.isExampleThreadId(previousSelectedThreadId) &&
+      this.selectedLocalExampleThreadId !== null &&
+      previousSelectedThreadId === this.selectedLocalExampleThreadId &&
       displayThreads.length === 0
     ) {
       this.selectedRealThreadIsExplicit = false;
       return;
     }
 
+    if (this.selectedLocalExampleThreadId !== null) {
+      this.exampleTourActive = false;
+    }
+    this.selectedLocalExampleThreadId = null;
     const explicitSelectedThreadId = this.selectedRealThreadIsExplicit
       ? previousSelectedThreadId
       : null;
@@ -5343,11 +5347,9 @@ export class WebInspectorElement extends LitElement {
   private detachFromCore(): void {
     this.threadCapabilityGeneration += 1;
     this.threadCapabilityEnabled = null;
-    if (
-      this.selectedThreadId !== null &&
-      !this.isExampleThreadId(this.selectedThreadId)
-    ) {
+    if (this.selectedThreadId !== this.selectedLocalExampleThreadId) {
       this.selectedThreadId = null;
+      this.selectedLocalExampleThreadId = null;
     }
     this.selectedRealThreadIsExplicit = false;
     if (this.coreUnsubscribe) {
@@ -9021,9 +9023,14 @@ ${argsString}</pre
     threadId: string,
     showingExamples: boolean,
   ): void {
-    if (showingExamples && this.selectedThreadId === threadId) {
+    if (
+      showingExamples &&
+      this.selectedThreadId === threadId &&
+      this.selectedLocalExampleThreadId === threadId
+    ) {
       this.selectedThreadId = null;
       this.selectedRealThreadIsExplicit = false;
+      this.selectedLocalExampleThreadId = null;
       this.exampleTourActive = false;
       this.requestUpdate();
       return;
@@ -9032,6 +9039,7 @@ ${argsString}</pre
     this.selectedThreadId = threadId;
     if (showingExamples && this.isExampleThreadId(threadId)) {
       this.selectedRealThreadIsExplicit = false;
+      this.selectedLocalExampleThreadId = threadId;
       this.trackThreadsExampleSelectedOnce(threadId);
       if (!this.exampleTourDismissed && !this.exampleTourAutoShown) {
         this.startExampleTour(true);
@@ -9043,6 +9051,7 @@ ${argsString}</pre
       this.selectedRealThreadIsExplicit = displayThreads.some(
         (thread) => thread.id === threadId,
       );
+      this.selectedLocalExampleThreadId = null;
       this.exampleTourActive = false;
     }
     this.requestUpdate();
@@ -9226,7 +9235,7 @@ ${argsString}</pre
   private renderThreadsExampleTour() {
     if (
       !this.selectedThreadId ||
-      !this.isExampleThreadId(this.selectedThreadId)
+      this.selectedThreadId !== this.selectedLocalExampleThreadId
     ) {
       return nothing;
     }
@@ -10013,7 +10022,9 @@ ${argsString}</pre
       this.selectedThreadId != null
         ? (visibleThreads.find((t) => t.id === this.selectedThreadId) ?? null)
         : null;
-    const selectedThreadIsExample = this.isExampleThreadId(selectedThread?.id);
+    const selectedThreadIsLocalExample =
+      selectedThread !== null &&
+      selectedThread.id === this.selectedLocalExampleThreadId;
 
     if (!threadsErrorMessage) {
       this.trackThreadsViewStateOnce(
@@ -10058,14 +10069,14 @@ ${argsString}</pre
                     .threadId=${selectedThread.id}
                     .thread=${selectedThread}
                     .provider=${
-                      selectedThreadIsExample
+                      selectedThreadIsLocalExample
                         ? this.getExampleThreadProvider(selectedThread.id)
                         : null
                     }
                     .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                     .headers=${this._core?.headers ?? {}}
                     .threadInspectionAvailable=${
-                      selectedThreadIsExample ||
+                      selectedThreadIsLocalExample ||
                       (this.areThreadEndpointsAvailable() &&
                         this._core?.threadEndpoints?.inspect !== false)
                     }
@@ -10079,7 +10090,11 @@ ${argsString}</pre
                       this.agentEvents.get(selectedThread.agentId) ?? []
                     }
                   ></cpk-thread-details>
-                  ${selectedThreadIsExample ? this.renderThreadsExampleTour() : nothing}`
+                  ${
+                    selectedThreadIsLocalExample
+                      ? this.renderThreadsExampleTour()
+                      : nothing
+                  }`
                 : showingExamples
                   ? this.renderThreadsExampleOverview()
                   : html`
