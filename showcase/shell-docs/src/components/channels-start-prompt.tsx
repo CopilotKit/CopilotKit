@@ -8,10 +8,9 @@
 // six copies across three repos, which drifted apart and went stale against the
 // CLI, so developers were told to run commands that no longer existed.
 //
-// The text is rendered, not just copied. The prompts this replaced were hidden
-// behind an accordion because they were twenty lines long; at one line there is
-// nothing to hide, and a copy button whose payload is invisible reads as
-// decoration.
+// The prompts this replaced were twenty lines long and hidden behind an
+// accordion. At one line there is nothing to disclose, so the panel is always
+// open and the button hands the text straight to the clipboard.
 
 import React from "react";
 import { usePathname } from "next/navigation";
@@ -19,8 +18,8 @@ import { usePostHog } from "posthog-js/react";
 import { Copy, SquareTerminal } from "lucide-react";
 import {
   CHANNELS_ACTIVATION_EVENTS,
+  CHANNELS_ACTIVATION_SURFACES,
   buildChannelsActivationPrompt,
-  buildChannelsActivationPromptParts,
 } from "@/lib/channels-activation-contracts";
 import type { ChannelsActivationChannelId } from "@/lib/channels-activation-contracts";
 
@@ -48,6 +47,14 @@ export function ChannelsStartPrompt({
   const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const panelRef = React.useRef<HTMLElement | null>(null);
+  const viewedRef = React.useRef(false);
+
+  // This component only renders on channel-scoped pages, so anything that is
+  // not Teams is the Slack variant.
+  const channel: ChannelsActivationChannelId =
+    frontend === "teams" ? "teams" : "slack";
+  const channelLabel = CHANNEL_LABELS[channel];
 
   React.useEffect(
     () => () => {
@@ -56,16 +63,41 @@ export function ChannelsStartPrompt({
     [],
   );
 
-  // This component only renders on channel-scoped pages, so anything that is
-  // not Teams is the Slack variant.
-  const channel: ChannelsActivationChannelId =
-    frontend === "teams" ? "teams" : "slack";
-  const channelLabel = CHANNEL_LABELS[channel];
+  // Impression, so the copy count has a denominator. The panel sits at the top
+  // of the overview page but still below the fold on short viewports, so mount
+  // is not the same as seen.
+  React.useEffect(() => {
+    const node = panelRef.current;
+    if (!node || viewedRef.current) return;
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting || viewedRef.current) continue;
+          viewedRef.current = true;
+          observer.disconnect();
+          try {
+            posthog?.capture(CHANNELS_ACTIVATION_EVENTS.viewed, {
+              channel,
+              backend: "built-in-agent",
+              from_path: pathname,
+              surface: CHANNELS_ACTIVATION_SURFACES.docsChannelsOverview,
+            });
+          } catch {
+            // Analytics must never interrupt docs rendering.
+          }
+        }
+      },
+      { threshold: 0.5 },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channel]);
+
   const prompt = buildChannelsActivationPrompt({
-    channelLabel,
-    backendLabel,
-  });
-  const { command, instruction } = buildChannelsActivationPromptParts({
     channelLabel,
     backendLabel,
   });
@@ -80,7 +112,7 @@ export function ChannelsStartPrompt({
         channel,
         backend: "built-in-agent",
         from_path: pathname,
-        surface: "docs_channels_overview",
+        surface: CHANNELS_ACTIVATION_SURFACES.docsChannelsOverview,
       });
       resetTimerRef.current = setTimeout(() => setCopyState("idle"), 1800);
     } catch {
@@ -91,6 +123,7 @@ export function ChannelsStartPrompt({
 
   return (
     <section
+      ref={panelRef}
       aria-labelledby="channels-start-prompt-heading"
       className="shell-docs-radius-surface my-6 border p-5 sm:p-6"
       style={{
@@ -99,10 +132,8 @@ export function ChannelsStartPrompt({
           "linear-gradient(145deg, color-mix(in oklch, var(--accent) 10%, var(--bg-surface)) 0%, var(--bg-surface) 62%)",
       }}
     >
-      {/* Header mirrors the featured-Accordion treatment: icon, eyebrow,
-          title, supporting line, and the action on the right at wide widths.
-          The action lives here rather than beside the command so the command
-          gets the panel's full width — at half width it wrapped mid-flag. */}
+      {/* Mirrors the featured-Accordion treatment from #6356: icon, eyebrow,
+          title, supporting line, and the action on the right at wide widths. */}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
         <div className="flex min-w-0 flex-1 items-start gap-4">
           <span
@@ -123,9 +154,10 @@ export function ChannelsStartPrompt({
               Start building with your coding agent
             </h2>
             <p className="mt-1.5 mb-0 max-w-[62ch] text-sm leading-relaxed text-[var(--text-secondary)]">
-              Paste this into your coding agent. It installs the onboarding
-              skill and walks the whole setup with you — scaffolding the
-              project, building the agent, and connecting it to {channelLabel}.
+              Copy the prompt and paste it into your coding agent. It installs
+              the onboarding skill and walks the whole setup with you —
+              scaffolding the project, building the agent, and connecting it to{" "}
+              {channelLabel}.
             </p>
           </div>
         </div>
@@ -143,17 +175,6 @@ export function ChannelsStartPrompt({
               : "Copy prompt"}
         </button>
       </div>
-
-      {/* Exactly the text the button copies, rendered as the sentence it is.
-          Shown as a command in a code block with the ask underneath, it read
-          as a shell command with a footnote — which made "Copy prompt" look
-          like it was lying. Only the command is monospace; the prose around it
-          wraps like prose. */}
-      <p className="shell-docs-radius-control mt-4 mb-0 border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5 text-sm leading-relaxed text-[var(--text)]">
-        {"Run "}
-        <code className="font-mono text-xs text-[var(--text)]">{command}</code>
-        {`, then ${instruction}`}
-      </p>
 
       <span aria-live="polite" className="sr-only">
         {copyState === "copied"

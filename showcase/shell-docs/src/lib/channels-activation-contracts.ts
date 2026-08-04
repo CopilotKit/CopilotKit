@@ -6,6 +6,24 @@ export const CHANNELS_ACTIVATION_EVENTS = {
   setupGuideOpened: "docs.channels_activation_setup_guide_opened",
   promptCopied: "docs.channels_activation_prompt_copied",
   openTagClicked: "docs.channels_activation_opentag_clicked",
+  /**
+   * Impression, so `promptCopied` has a denominator. Both entry points sit
+   * below the fold on their pages, so a surface nobody scrolls to and a surface
+   * everybody ignores are indistinguishable without this. Emitted by both the
+   * landing strip and the overview panel, separated by `surface`.
+   */
+  viewed: "docs.channels_activation_viewed",
+} as const;
+
+/**
+ * Which road into onboarding an event came from. Every Channels entry point
+ * emits the same events with one of these, including copilotkit.ai/channels,
+ * which sends its own event name with the same property so the two can be
+ * unioned into one funnel.
+ */
+export const CHANNELS_ACTIVATION_SURFACES = {
+  docsLandingStrip: "docs_landing_strip",
+  docsChannelsOverview: "docs_channels_overview",
 } as const;
 
 export const CHANNELS_ACTIVATION_CHANNELS = [

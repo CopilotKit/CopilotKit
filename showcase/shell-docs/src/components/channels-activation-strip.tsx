@@ -10,6 +10,7 @@ import { FrameworkLogo } from "./icons/framework-icons";
 import {
   CHANNELS_ACTIVATION_CHANNELS,
   CHANNELS_ACTIVATION_EVENTS,
+  CHANNELS_ACTIVATION_SURFACES,
   CHANNELS_OPENTAG_HREF,
   buildChannelsActivationPrompt,
   getChannelsActivationGuideHref,
@@ -227,6 +228,8 @@ export function ChannelsActivationStrip({
   const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const stripRef = React.useRef<HTMLElement | null>(null);
+  const viewedRef = React.useRef(false);
 
   const backend =
     backends.find((option) => option.slug === backendSlug) ?? backends[0];
@@ -240,6 +243,37 @@ export function ChannelsActivationStrip({
     },
     [],
   );
+
+  // Impression, so the copy count has a denominator. The strip sits below the
+  // fold on the landing page, so mount is not the same as seen.
+  React.useEffect(() => {
+    const node = stripRef.current;
+    if (!node || viewedRef.current) return;
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting || viewedRef.current) continue;
+          viewedRef.current = true;
+          observer.disconnect();
+          capture(CHANNELS_ACTIVATION_EVENTS.viewed, {
+            channel,
+            backend: backendSlug,
+            from_path: pathname,
+            surface: CHANNELS_ACTIVATION_SURFACES.docsLandingStrip,
+          });
+        }
+      },
+      { threshold: 0.5 },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+    // Fires once for the first selection the reader is shown; later channel and
+    // backend switches already emit their own selection events.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!backend) return null;
 
@@ -331,7 +365,7 @@ export function ChannelsActivationStrip({
         guide_url: guideUrl,
         // Every road into onboarding emits the same event with a distinct
         // surface, so the funnel can answer which one people actually take.
-        surface: "docs_landing_strip",
+        surface: CHANNELS_ACTIVATION_SURFACES.docsLandingStrip,
       });
       resetTimerRef.current = setTimeout(() => setCopyState("idle"), 1800);
     } catch {
@@ -349,6 +383,7 @@ export function ChannelsActivationStrip({
 
   return (
     <section
+      ref={stripRef}
       aria-labelledby="channels-activation-heading"
       className="shell-docs-radius-surface not-prose relative overflow-visible border p-5 sm:p-6"
       style={{
