@@ -14,7 +14,7 @@ const serviceAdapter = new ExperimentalEmptyAdapter();
 //    integration to setup the connection.
 const runtime = new CopilotRuntime({
   agents: {
-    // Our FastAPI endpoint URL
+    // Our AG-UI endpoint URL
     sample_agent: new HttpAgent({ url: "http://localhost:8000/" }),
   },
 });
