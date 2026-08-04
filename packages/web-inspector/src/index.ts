@@ -204,6 +204,8 @@ const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
 // Renameable — keep the display string in this one place.
 const CAPABILITIES_TAB_LABEL = "Capabilities";
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
+const THREADS_RUNTIME_SETUP_DOCS_URL =
+  "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes";
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
@@ -5300,6 +5302,13 @@ export class WebInspectorElement extends LitElement {
     return this.appendRefParam(THREADS_DOCS_URL, "cpk-inspector-threads");
   }
 
+  private getThreadsRuntimeSetupDocsUrl(): string {
+    return this.appendRefParam(
+      THREADS_RUNTIME_SETUP_DOCS_URL,
+      "cpk-inspector-threads",
+    );
+  }
+
   private getThreadsIntelligenceSignupUrl(): string {
     return this.appendRefParam(
       INTELLIGENCE_SIGNUP_URL,
@@ -10229,9 +10238,42 @@ ${argsString}</pre
           <div style="display:flex;flex-wrap:wrap;gap:8px;">
             ${
               locked
-                ? lockedAction
-                  ? this.renderInspectorAction(lockedAction, "locked")
-                  : nothing
+                ? html`
+                    ${
+                      this.inspectorMetadataProjection.licenseState === "valid"
+                        ? html`
+                            <a
+                              data-inspector-threads-setup-link
+                              href=${this.getThreadsRuntimeSetupDocsUrl()}
+                              target="_blank"
+                              rel="noopener"
+                              aria-label="View setup (opens in a new tab)"
+                              style="
+                                display: inline-flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 6px;
+                                min-height: 34px;
+                                border-radius: 6px;
+                                background: #010507;
+                                padding: 8px 12px;
+                                font-size: 12px;
+                                font-weight: 600;
+                                color: #ffffff;
+                                text-decoration: none;
+                              "
+                            >
+                              View setup
+                            </a>
+                          `
+                        : nothing
+                    }
+                    ${
+                      lockedAction
+                        ? this.renderInspectorAction(lockedAction, "locked")
+                        : nothing
+                    }
+                  `
                 : html`
                     <a
                       href=${this.getThreadsDocsUrl()}
@@ -10572,9 +10614,9 @@ ${argsString}</pre
     switch (this.inspectorMetadataProjection.licenseState) {
       case "valid":
         return {
-          heading: "Enable Threads to inspect saved history.",
+          heading: "Finish setting up Rich Threads",
           description:
-            "Your Intelligence license is active. Enable the Threads endpoints in this runtime to inspect saved history.",
+            "Your Intelligence license is active, but this Runtime doesn't expose the routes the Inspector uses for saved Threads. Configure the Runtime's multi-route endpoint, then reload.",
         };
       case "none":
         return {

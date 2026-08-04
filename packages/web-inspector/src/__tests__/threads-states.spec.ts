@@ -1037,6 +1037,8 @@ type LockedActionCase = Readonly<{
   actionKind?: "manage_plan" | "renew" | "enable_intelligence";
   actionUrl?: string;
   heading: string;
+  description?: string;
+  setupLabel?: "View setup";
   bodyLabel?: string;
   footerLabel?: string;
 }>;
@@ -1048,7 +1050,10 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "valid",
     actionKind: "manage_plan",
     actionUrl: "https://cloud.copilotkit.ai/actions/manage",
-    heading: "Enable Threads to inspect saved history.",
+    heading: "Finish setting up Rich Threads",
+    description:
+      "Your Intelligence license is active, but this Runtime doesn't expose the routes the Inspector uses for saved Threads. Configure the Runtime's multi-route endpoint, then reload.",
+    setupLabel: "View setup",
     footerLabel: "Manage Your Plan",
   },
   {
@@ -1132,11 +1137,32 @@ test.each(lockedActionCases)(
       const footerAction = root.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="threads-footer"]',
       );
+      const setupAction = root.querySelector<HTMLAnchorElement>(
+        "[data-inspector-threads-setup-link]",
+      );
 
       expect(root.textContent).toContain(case_.heading);
+      if (case_.description) {
+        expect(root.textContent).toContain(case_.description);
+      }
       expect(harness.rows()).toHaveLength(3);
+      expect(setupAction?.textContent?.trim()).toBe(case_.setupLabel);
       expect(bodyAction?.textContent?.trim()).toBe(case_.bodyLabel);
       expect(footerAction?.textContent?.trim()).toBe(case_.footerLabel);
+      if (case_.setupLabel) {
+        const setupUrl = new URL(setupAction!.href);
+        expect(setupUrl.origin).toBe("https://docs.copilotkit.ai");
+        expect(setupUrl.pathname).toBe("/backend/runtime-endpoints");
+        expect(setupUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
+        expect(setupUrl.hash).toBe("#enable-rich-threads-routes");
+        expect(setupAction?.target).toBe("_blank");
+        expect(setupAction?.rel.split(/\s+/)).toContain("noopener");
+        expect(setupAction?.getAttribute("aria-label")).toBe(
+          "View setup (opens in a new tab)",
+        );
+      } else {
+        expect(setupAction).toBeNull();
+      }
       if (case_.bodyLabel) {
         expect(bodyAction?.href).toBe(case_.actionUrl);
         expect(bodyAction?.target).toBe("_blank");
@@ -1229,9 +1255,7 @@ test.each(footerCases)(
       }
 
       if (state === "locked") {
-        expect(root.textContent).toContain(
-          "Enable Threads to inspect saved history.",
-        );
+        expect(root.textContent).toContain("Finish setting up Rich Threads");
       }
       if (state === "loading") {
         expect(root.querySelector('[role="status"]')).not.toBeNull();

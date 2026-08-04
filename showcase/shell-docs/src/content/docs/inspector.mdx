@@ -71,17 +71,23 @@ visible.
 
 <Callout type="info">
   If Threads is locked, the Inspector uses the Runtime's license state and can
-  show **Enable Intelligence**, **Renew**, or **Manage Your Plan**. It shows a link
-  only when the Runtime supplies a matching trusted action URL; there is no
-  fixed signup destination.
+  show **Enable Intelligence**, **Renew**, or **Manage Your Plan**. Those license
+  and billing links appear only when the Runtime supplies a matching trusted
+  action URL; there is no fixed signup destination. An active license with
+  missing Runtime routes instead shows **View setup**, which opens the public
+  Runtime setup guide.
 </Callout>
 
 | License state | Locked Threads behavior |
 | --- | --- |
-| Active | Explains that the runtime has no Threads endpoints and shows no locked action. |
+| Active | Shows **Finish setting up Rich Threads** and links to the Runtime route setup. |
 | Not enabled | Shows **Enable Intelligence** only for a matching trusted action. |
 | Expired | Shows **Renew** or **Manage Your Plan** only for a matching trusted action. |
 | Unknown | Shows neutral unavailable copy without an action. |
+
+If an active license shows the setup state, follow [Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)
+to use multi-route mode, configure application-user identity, mount every
+required HTTP method, and verify the capability response.
 
 The Inspector opens the exact trusted URL supplied by the Runtime. It does not
 build a URL from project details or add a fixed signup fallback. If metadata

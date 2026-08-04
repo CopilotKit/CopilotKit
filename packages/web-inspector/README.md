@@ -12,8 +12,9 @@ valid module on its own:
 - `usage` shows trusted Thread counts and expiry data in the Threads footer.
 
 Missing or invalid metadata hides these trusted modules. The existing tabs,
-debug views, and Threads endpoint behavior remain available; a locked Threads
-view has no metadata action when trusted action data is absent.
+debug views, and Threads endpoint behavior remain available. A licensed Runtime
+without Threads endpoints still links to the public route setup guide; that
+static docs link does not depend on metadata.
 
 The footer sits at the bottom of the Threads list sidebar. It stays out of the
 account strip, other navigation groups, and Settings. Usage and the footer
@@ -27,12 +28,12 @@ produce zero list, subscribe, inspect, messages, events, and state requests.
 
 ### License and action matrix
 
-| Effective license state | Threads footer                                                                                                              | Locked Threads view                                                                            |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `valid`                 | Shows `Manage Your Plan` below 90% finite usage and `Upgrade Your Plan` at 90% or higher for a trusted `manage_plan` action | Prompts the user to enable Threads when the runtime has no Threads endpoints; no locked action |
-| `none`                  | No footer action                                                                                                            | Shows `Enable Intelligence` only for a trusted `enable_intelligence` action                    |
-| `expired`               | No footer action                                                                                                            | Shows `Renew` for `renew`, or `Manage Your Plan` for `manage_plan`                             |
-| `unknown`               | No footer action                                                                                                            | Uses neutral unavailable copy with no action                                                   |
+| Effective license state | Threads footer                                                                                                              | Locked Threads view                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `valid`                 | Shows `Manage Your Plan` below 90% finite usage and `Upgrade Your Plan` at 90% or higher for a trusted `manage_plan` action | Links to the Rich Threads route setup guide when the Runtime has no Threads endpoints |
+| `none`                  | No footer action                                                                                                            | Shows `Enable Intelligence` only for a trusted `enable_intelligence` action           |
+| `expired`               | No footer action                                                                                                            | Shows `Renew` for `renew`, or `Manage Your Plan` for `manage_plan`                    |
+| `unknown`               | No footer action                                                                                                            | Uses neutral unavailable copy with no action                                          |
 
 Finite usage shows `used / limit Threads` with a native progress bar. The bar is
 green below 90%, orange from 90% up to the limit, and red at or above the limit.

@@ -115,6 +115,124 @@ You should get back a JSON body describing the registered agents. If you get a
 isn't mounted). If you get a connection error, the server isn't listening on that
 host/port.
 
+## Enable Rich Threads routes
+
+If the Inspector says **Finish setting up Rich Threads**, your Intelligence
+license is active but the Runtime is not exposing the routes used to list and
+inspect saved Threads. Complete these steps so `/info` advertises the Threads
+capabilities and the Inspector can load saved history.
+
+<Steps>
+<Step>
+### Use the multi-route Runtime handler
+
+Remove `mode: "single-route"` from your Runtime handler. Multi-route mode is the
+default, so no replacement option is required:
+
+```ts
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+```
+
+<FrontendOnly frontend="react">
+With the v2 React provider, remove `useSingleEndpoint` so it can detect the
+multi-route Runtime:
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+<CopilotKitProvider runtimeUrl="/api/copilotkit">
+  <YourApp />
+</CopilotKitProvider>
+```
+
+If you still use the v1 `<CopilotKit>` wrapper from `@copilotkit/react-core`,
+set `useSingleEndpoint={false}`. Omitting that prop keeps the v1 wrapper's
+single-route default.
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+Keep `provideCopilotKit` pointed at the Runtime base URL. The Angular SDK
+discovers the multi-route transport from `/info`; it has no
+`useSingleEndpoint` option to remove.
+</FrontendOnly>
+</Step>
+
+<Step>
+### Identify the signed-in application user
+
+An Intelligence-backed web Runtime exposes Threads only when it can scope them
+to an application user. Add `identifyUser` and resolve the user from a
+server-verified session or token:
+
+```ts
+const runtime = new CopilotRuntime({
+  agents,
+  intelligence,
+  identifyUser: async (request) => {
+    const user = await authenticateApplicationUser(request);
+    if (!user) throw new Error("Unauthorized");
+    return { id: user.id, name: user.name };
+  },
+});
+```
+
+See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
+for the full identity and authorization pattern.
+</Step>
+
+<Step>
+### Mount every Runtime sub-route
+
+Your framework route or reverse proxy must pass the full `basePath` subtree to
+the Runtime. In file-based routers, use a catch-all or splat route. Export or
+allow GET, POST, PATCH, and DELETE so list, subscription, rename, archive, and
+delete requests can reach the handler. For example, a Next.js App Router route
+exports the same handler for each method:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+export {
+  handler as GET,
+  handler as POST,
+  handler as PATCH,
+  handler as DELETE,
+};
+```
+
+See [Deploy to any runtime](/runtime-server-adapter#multi-route-vs-single-route)
+for complete adapter examples.
+</Step>
+
+<Step>
+### Verify the advertised capabilities
+
+Restart the Runtime, then request its info endpoint:
+
+```bash
+curl -s http://localhost:4000/api/copilotkit/info
+```
+
+An Intelligence-backed web Runtime that is ready for Rich Threads includes:
+
+```json
+{
+  "threadEndpoints": {
+    "list": true,
+    "inspect": true,
+    "mutations": true,
+    "realtimeMetadata": true
+  }
+}
+```
+
+Reload your app after this response is available. The Inspector will replace
+the setup state with the saved Threads list. Managed and self-hosted
+Intelligence use the same Runtime route setup.
+</Step>
+</Steps>
+
 ## Single-route mode
 
 If you prefer to expose a single `POST` endpoint, for example to simplify a

@@ -288,12 +288,7 @@ test.each([
 );
 
 test.each([
-  [
-    "valid",
-    "manage_plan",
-    "Enable Threads to inspect saved history.",
-    undefined,
-  ],
+  ["valid", "manage_plan", "Finish setting up Rich Threads", undefined],
   [
     "none",
     "enable_intelligence",

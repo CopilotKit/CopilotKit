@@ -384,9 +384,9 @@ function expectedOverviewCopy(
   }
   if (scenario.capability !== "enabled") {
     return {
-      heading: "Enable Threads to inspect saved history.",
+      heading: "Finish setting up Rich Threads",
       description:
-        "Your Intelligence license is active. Enable the Threads endpoints in this runtime to inspect saved history.",
+        "Your Intelligence license is active, but this Runtime doesn't expose the routes the Inspector uses for saved Threads. Configure the Runtime's multi-route endpoint, then reload.",
     };
   }
   if (scenario.data === "existing") return null;
@@ -1316,6 +1316,30 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
             );
             expect(text, `${key}: overview description`).toContain(
               overviewCopy.description,
+            );
+          }
+          const setupLinks = collectDeep(
+            root,
+            "[data-inspector-threads-setup-link]",
+          );
+          expect(setupLinks, `${key}: setup link presence`).toHaveLength(
+            scenario.capability !== "enabled" &&
+              scenario.runtimeInfo.licenseStatus === "valid"
+              ? 1
+              : 0,
+          );
+          if (setupLinks.length === 1) {
+            const setupLink = setupLinks[0];
+            expect(
+              setupLink?.textContent?.trim(),
+              `${key}: setup link label`,
+            ).toBe("View setup");
+            const setupUrl = new URL(setupLink?.getAttribute("href") ?? "");
+            expect(setupUrl.pathname, `${key}: setup link path`).toBe(
+              "/backend/runtime-endpoints",
+            );
+            expect(setupUrl.hash, `${key}: setup link anchor`).toBe(
+              "#enable-rich-threads-routes",
             );
           }
 
