@@ -382,8 +382,19 @@ test("managed renderer failure freezes later rendering while canonical ingestion
 });
 
 test("terminal delivery tool failure stops the loop and closes renderer fanout", async () => {
+  const details = {
+    category: "validation",
+    provider: "slack",
+    operation: "chat.postMessage",
+    effectKind: "slack.message.create",
+    providerCode: "invalid_blocks",
+    validationMessages: ["invalid field at /blocks/2/elements/0/children"],
+    retryable: false,
+    deliveryId: "dlv_delivery_1",
+  } as const;
   const deliveryError = new ChannelDeliveryTerminatedError(
     "provider delivery timed out",
+    { cause: details, details },
   );
   let agent!: FakeAgent;
   agent = new FakeAgent([
@@ -455,6 +466,14 @@ test("terminal delivery tool failure stops the loop and closes renderer fanout",
       )
       .map(({ type }) => type),
   ).toEqual([EventType.RUN_STARTED, EventType.RUN_ERROR]);
+  expect(
+    ingestedEvents.find(({ type }) => type === EventType.RUN_ERROR),
+  ).toMatchObject({
+    message: "provider delivery timed out",
+    category: "validation",
+    details,
+    cause: details,
+  });
 });
 
 test("inner RUN_ERROR becomes one canonical outer RUN_ERROR", async () => {
