@@ -9,7 +9,11 @@ doc_type: explanation
 <FrontendOnly frontend="slack">
 
 <Accordions>
-<Accordion title="Start building with your coding agent — copy this prompt">
+<Accordion
+  featured
+  title="Start building with your coding agent"
+  description="Give your local coding agent a guided path from a blank directory to a working Slack channel."
+>
 
 Copy and paste this prompt to your agent. Local agents are best so they can use your browser to set up Slack.
 
@@ -32,7 +36,7 @@ When you implement the plan:
 - Use `setup-slack-channel` for the provider half, including the dedicated Slack app, managed Channel, credentials, and real workspace verification. Do not replace the managed path with a direct Slack adapter.
 
 Before your first step, tell me which mode you are in:
-- You can drive a browser yourself. Then do so, and confirm with me before each consequential change in a live account — signing in, creating an Intelligence project, creating the Slack app, attaching the adapter, or issuing a key.
+- You can drive a browser yourself. Then do so, and confirm with me before each consequential change in a live account: signing in, creating an Intelligence project, creating the Slack app, attaching the adapter, or issuing a key.
 - You cannot. Then say so plainly and walk me through the browser steps one at a time, waiting for me to confirm each before you continue.
 
 Do not guess which one you are. Check what tools you actually have.
@@ -52,7 +56,11 @@ Start by reading the three skills, then tell me which are available, what you fo
 <FrontendOnly frontend="teams">
 
 <Accordions>
-<Accordion title="Start building with your coding agent — copy this prompt">
+<Accordion
+  featured
+  title="Start building with your coding agent"
+  description="Give your local coding agent a guided path from a blank directory to a working Microsoft Teams channel."
+>
 
 Copy and paste this prompt to your agent. Local agents are best so they can use your browser to set up Microsoft Teams.
 
@@ -75,7 +83,7 @@ When you implement the plan:
 - Use the published Teams documentation as the provider half. Start at https://docs.copilotkit.ai/teams, select my agent backend in the docs, and follow the linked Intelligence configuration and Teams connection pages in order. Use the current documented steps instead of relying on memory of Azure Bot or Teams app setup.
 
 Before your first step, tell me which mode you are in:
-- You can drive a browser yourself. Then do so, and confirm with me before each consequential change in a live account — signing in, creating an Intelligence project, creating or changing an Azure Bot registration, attaching the Teams connection, issuing a key, or installing the app in Microsoft Teams.
+- You can drive a browser yourself. Then do so, and confirm with me before each consequential change in a live account: signing in, creating an Intelligence project, creating or changing an Azure Bot registration, attaching the Teams connection, issuing a key, or installing the app in Microsoft Teams.
 - You cannot. Then say so plainly and walk me through the browser steps one at a time, waiting for me to confirm each before you continue.
 
 Do not guess which one you are. Check what tools you actually have.
