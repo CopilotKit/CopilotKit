@@ -2,6 +2,7 @@ import { expect, test, vi } from "vitest";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
+import { telemetry } from "../telemetry";
 
 type RuntimeMode = "multi-route" | "single-route";
 
@@ -31,6 +32,9 @@ function createMetadataRequest(mode: RuntimeMode): Request {
 }
 
 function setup(upstreamPayload: unknown) {
+  const captureTelemetry = vi
+    .spyOn(telemetry, "capture")
+    .mockResolvedValue(undefined);
   const fetchIntelligence = vi.spyOn(globalThis, "fetch").mockResolvedValue(
     new Response(JSON.stringify(upstreamPayload), {
       status: 200,
@@ -54,6 +58,7 @@ function setup(upstreamPayload: unknown) {
     intelligence,
     runtime,
     teardown() {
+      captureTelemetry.mockRestore();
       fetchIntelligence.mockRestore();
     },
   };
