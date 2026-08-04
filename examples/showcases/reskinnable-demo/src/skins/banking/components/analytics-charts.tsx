@@ -78,20 +78,32 @@ export function SpendingTrendChart({
       const [by, bm] = b.split("-").map(Number);
       return ay - by || am - bm;
     });
-    if (sorted.length >= 3) {
-      return {
-        stats: sorted.map(([, v]) => v),
-        labels: sorted.map(([k]) => {
-          const [y, m] = k.split("-").map(Number);
-          return monthFmt.format(new Date(y, m, 1));
-        }),
-      };
-    }
+    // Chart whatever months the ledger actually has — even one or two.
+    //
+    // This used to substitute a hard-coded [3200, 4100, 3600, 5200, 4800, 6400]
+    // Jan–Jun series whenever fewer than three months were present. That was
+    // meant as an empty-state placeholder, but the seeded ledger only ever
+    // spanned two months, so the fallback was the DEFAULT path: the report
+    // rendered six invented figures under a card whose own contract promises
+    // "every number is computed from the live ledger", and they were ~20x
+    // smaller than the total shown directly above them. A sparse honest chart
+    // beats a dense invented one.
     return {
-      stats: [3200, 4100, 3600, 5200, 4800, 6400],
-      labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+      stats: sorted.map(([, v]) => v),
+      labels: sorted.map(([k]) => {
+        const [y, m] = k.split("-").map(Number);
+        return monthFmt.format(new Date(y, m, 1));
+      }),
     };
   }, [transactions]);
+
+  if (!stats.length) {
+    return (
+      <div className="flex h-[120px] items-center justify-center rounded-xl border border-dashed border-hairline text-xs text-ink-muted">
+        No spend recorded yet
+      </div>
+    );
+  }
 
   return <StatisticsChart data={stats} labels={labels} />;
 }
@@ -210,9 +222,12 @@ export function TopChargesChart({
         id: t.id,
         title: t.title,
         amount: Math.abs(t.amount),
-        // Charges folded in from an attached document have no policyId; they
-        // carry their team in the title the report generated for them.
-        team: teamOf.get(t.policyId ?? "") ?? "",
+        // Every charge carries a policyId, including ones folded in from an
+        // attached document — `augmentForReport` resolves the addition's team to
+        // a policy so its bar colours by the same rule as a ledger charge. The
+        // fallback covers an addition whose team matches no policy, which is
+        // possible because that field is model-authored free text.
+        team: teamOf.get(t.policyId) ?? "",
         pending: t.status === "pending",
       }))
       .sort((a, b) => b.amount - a.amount)
@@ -351,9 +366,16 @@ export function SpendByTeamBars({
  * legend. Built with stroke-dasharray segments on a rotated circle (no arc
  * math, no dependency); the total sits in the center hole.
  *
- * Still used by the in-chat "where is the money going?" answer, where the teams
- * are comparable. The REPORT uses SpendByTeamBars instead, because an attached
- * invoice can push one team to ~96% and a donut cannot survive that.
+ * Used by BOTH the in-chat "where is the money going?" answer and the report.
+ *
+ * This used to warn that the report must use SpendByTeamBars instead, "because
+ * an attached invoice can push one team to ~96% and a donut cannot survive
+ * that" — while the report rendered the donut anyway. The warning was real but
+ * its cause was the thin ledger, not the chart: against the old $137,000 base a
+ * $900,000 invoice took one slice to 89%. The ledger now carries the full
+ * ~$533,000 of approved Q2 spend across three policy envelopes, so reaching 89%
+ * would take an invoice near $2.8M. Robust because the data is real, not
+ * because a floor was added to the arc.
  */
 export function SpendBreakdownChart({
   policies,

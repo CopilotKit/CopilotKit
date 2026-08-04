@@ -7,6 +7,7 @@ import type {
   Report,
   Transaction,
 } from "@/skins/banking/data/data";
+import { PolicyType, policyForTeam } from "@/skins/banking/data/data";
 import {
   SpendBreakdownChart,
   SpendingTrendChart,
@@ -30,41 +31,52 @@ function augmentForReport(
   const additions = report.additions ?? [];
   if (!additions.length) return { policies, transactions };
 
-  const byTeam = new Map<string, number>();
-  for (const a of additions)
-    byTeam.set(a.team, (byTeam.get(a.team) ?? 0) + a.amount);
-
-  const augPolicies: ExpensePolicy[] = policies.map((p) =>
-    byTeam.has(p.type) ? { ...p, spent: p.spent + byTeam.get(p.type)! } : p,
-  );
-  for (const [team, amount] of byTeam) {
-    if (!policies.some((p) => p.type === team)) {
-      augPolicies.push({
-        id: `add-${team}`,
-        type: team as ExpensePolicy["type"],
-        limit: 0,
-        spent: amount,
-      });
-    }
+  // An addition's `team` is model-authored free text naming an ORG team
+  // ("Marketing"), while a policy is a budget envelope ("Go-to-Market"), so the
+  // two are joined through `policyForTeam` rather than compared directly.
+  // Additions whose team maps to no envelope are grouped under one
+  // "Unattributed" segment instead of inventing an envelope per stray name.
+  const byPolicy = new Map<string, number>();
+  for (const a of additions) {
+    const key = policyForTeam(a.team) ?? PolicyType.Unattributed;
+    byPolicy.set(key, (byPolicy.get(key) ?? 0) + a.amount);
   }
 
+  const augPolicies: ExpensePolicy[] = policies.map((p) =>
+    byPolicy.has(p.type) ? { ...p, spent: p.spent + byPolicy.get(p.type)! } : p,
+  );
+  const unattributed = byPolicy.get(PolicyType.Unattributed);
+  if (unattributed) {
+    augPolicies.push({
+      id: "add-unattributed",
+      type: PolicyType.Unattributed,
+      limit: 0,
+      spent: unattributed,
+    });
+  }
+
+  // No `as Transaction` here on purpose. The cast this replaces was hiding a
+  // real hole: `policyId` came from an `?.id` lookup, so it could be undefined
+  // where the field is a required string, and the cast stopped the compiler
+  // saying so. Resolving the policy up front and defaulting keeps it a string,
+  // which is why the annotation alone now type-checks.
   const augTransactions: Transaction[] = [
     ...transactions,
-    ...additions.map(
-      (a, i) =>
-        ({
-          id: `add-tx-${report.id}-${i}`,
-          title: a.label ?? `${a.team} (attached document)`,
-          amount: -Math.abs(a.amount),
-          date: report.createdAt,
-          // Carry the owning policy so charts key colour off the team the same
-          // way ledger transactions do. Without it, invoice line items fall
-          // back to a generic swatch and a Marketing charge stops matching
-          // Marketing's slice in the donut.
-          policyId: augPolicies.find((p) => p.type === a.team)?.id,
-          status: "approved",
-        }) as Transaction,
-    ),
+    ...additions.map((a, i) => {
+      const type = policyForTeam(a.team) ?? PolicyType.Unattributed;
+      const policy = augPolicies.find((p) => p.type === type);
+      return {
+        id: `add-tx-${report.id}-${i}`,
+        title: a.label ?? `${a.team} (attached document)`,
+        amount: -Math.abs(a.amount),
+        date: report.createdAt,
+        // Carry the owning envelope so an invoice line colours by the same rule
+        // as a ledger charge instead of falling back to a generic swatch.
+        policyId: policy?.id ?? "add-unattributed",
+        cardId: "",
+        status: "approved" as const,
+      };
+    }),
   ];
 
   return { policies: augPolicies, transactions: augTransactions };
@@ -229,7 +241,7 @@ export function ReportCard({
       <div className="grid gap-5 border-t border-hairline pt-5 lg:grid-cols-3">
         <div>
           <p className="mb-2 text-xs font-medium text-ink-muted">
-            Spend by team
+            Spend by policy
           </p>
           <SpendBreakdownChart policies={chart.policies} />
         </div>
