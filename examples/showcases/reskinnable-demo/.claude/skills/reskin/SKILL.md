@@ -57,6 +57,16 @@ variables, and import it as a **side-effect** from the skin's `layout.tsx`
 shell applies your block. Never invent new token names — only re-value existing
 ones.
 
+**Dark mode is an explicit opt-in — `--nw-dark-capable: 1`.**
+`src/hooks/use-theme.ts` forces any skin WITHOUT that flag to light and ignores
+the stored dark preference, so a skin that writes a `.dark .theme-<id>` block but
+forgets the flag stays stuck in light. To support dark you must do BOTH: set
+`--nw-dark-capable: 1` on the `.theme-<id>` root AND ship a `.dark .theme-<id>`
+block (which re-values only surfaces / ink / semantic tokens and lets the brand
+ramp and `--radius` inherit). Omit both to stay light-only — a legitimate choice
+(airline does exactly that). If you kept the theme toggle in your layout, note
+it is a **dead control** until this flag and the dark block both exist.
+
 **OGUI renders full-region on the shared canvas.** A `generateSandboxedUi` call
 becomes an `open-generative-ui` activity that the shell renders full-region on
 the canvas via the workspace `OpenGenerativeUIActivityRenderer` (this build ships
@@ -64,6 +74,16 @@ it). A skin does **not** supply an OGUI renderer — it only contributes
 `sandboxFunctions?` + `designSkill`, which the shell wires onto the provider. (An
 a2ui _report_ surface is different: a skin renders its own via the optional
 `CanvasSurface`.)
+
+**An a2ui `CanvasSurface` must be fed by a SERVER tool, never a client one.** If
+your skin ships a `CanvasSurface`, emit its `{ [A2UI_OPERATIONS_KEY]:
+buildOps(spec) }` payload from a **server-side `defineTool` on the `BuiltInAgent`
+in `agent.ts`** — not from a client `useFrontendTool`. The a2ui middleware only
+converts that payload into an `a2ui-surface` activity when it observes it in an
+in-stream `TOOL_CALL_RESULT` event, which a client frontend-tool result never
+produces — do it client-side and the canvas stays permanently blank. Both banking
+(`render_report`) and logistics (`renderBrief`) do it server-side; the `agent.ts`
+template shows the shape.
 
 ---
 
@@ -74,18 +94,18 @@ against that file; it wins.
 
 **Required:**
 
-| Field         | Type                                            | Purpose                                                                                 |
-| ------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `id`          | `string`                                        | Stable id — **MUST equal the route segment AND the agent id.**                          |
-| `identity`    | object (below)                                  | Brand identity the shell renders.                                                       |
-| `themeClass`  | `string`                                        | CSS class scoping this skin's tokens — set to `"theme-<id>"`.                           |
-| `Layout`      | `ComponentType<{ children: ReactNode }>`        | The app-shell chrome (nav/header) wrapping page content.                                |
-| `nav`         | `NavRoute[]`                                    | Nav entries; also the source of truth for valid segments.                               |
-| `resolvePage` | `(segments: string[]) => ComponentType \| null` | Maps URL segments (after `/[skin]`) to a page, or `null` → 404.                         |
-| `Tools`       | `ComponentType`                                 | Registers frontend tools / HITL / gen-UI + agent-context readables. **Renders `null`.** |
-| `catalog`     | `A2uiCatalog`                                   | The skin's a2ui catalog from `createCatalog()`.                                         |
-| `suggestions` | `Suggestion[]`                                  | Static suggestion pills (`{ title, message }`), shown `available:"always"`.             |
-| `designSkill` | `string`                                        | OGUI design brief — injected as agent context to style generated UIs.                   |
+| Field         | Type                                            | Purpose                                                                                         |
+| ------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `id`          | `string`                                        | Stable id — **MUST equal the route segment AND the agent id.**                                  |
+| `identity`    | object (below)                                  | Brand identity the shell renders.                                                               |
+| `themeClass`  | `string`                                        | CSS class scoping this skin's tokens — set to `"theme-<id>"`.                                   |
+| `Layout`      | `ComponentType<{ children: ReactNode }>`        | The app-shell chrome (nav/header) wrapping page content.                                        |
+| `nav`         | `NavRoute[]`                                    | Nav entries the layout renders. **Display-only — NOT the segment validator** (see below).       |
+| `resolvePage` | `(segments: string[]) => ComponentType \| null` | Maps URL segments (after `/[skin]`) to a page, or `null` → 404. **The sole segment validator.** |
+| `Tools`       | `ComponentType`                                 | Registers frontend tools / HITL / gen-UI + agent-context readables. **Renders `null`.**         |
+| `catalog`     | `A2uiCatalog`                                   | The skin's a2ui catalog from `createCatalog()`.                                                 |
+| `suggestions` | `Suggestion[]`                                  | Static suggestion pills (`{ title, message }`), shown `available:"always"`.                     |
+| `designSkill` | `string`                                        | OGUI design brief — injected as agent context to style generated UIs.                           |
 
 `identity` object:
 
@@ -134,6 +154,84 @@ export type A2uiCatalog = ReturnType<typeof createCatalog>;
 
 > The agent is deliberately absent from this interface — see the boundary
 > section above. It lives in `agent.ts` and registers separately.
+
+**`nav` does not decide what resolves.** It is display-only — the list the layout
+draws as navigation. `resolvePage` is the single source of truth for which
+segments are valid (the contract says so, `skin-contract.ts` around lines 86-92),
+and it may accept segments `nav` omits (banking's `resolvePage` accepts a `cards`
+index alias its `nav` never lists). So every segment a user can reach — nav
+entries, aliases, deep links — must be handled in `resolvePage`; anything it
+returns `null` for is a 404, regardless of what `nav` contains.
+
+---
+
+## The layout contract (viewport height + nav insets)
+
+Two things every shipped `Layout` gets right and the naive version gets wrong —
+both fixed once in `src/skins/logistics/layout.tsx`, which the template mirrors:
+
+- **The root is `h-screen overflow-hidden`, not `min-h-screen`.** `min-h-screen`
+  is a MINIMUM: on a page taller than the viewport the container grows, the whole
+  document scrolls, and the pinned nav scrolls away with it — worse, `<main>`'s
+  own `overflow-y-auto` goes inert because its parent is unbounded. Make the shell
+  exactly one viewport tall (`h-screen overflow-hidden`, plus `h-full` on the
+  `<aside>`) so only `<main>` scrolls.
+- **Publish the nav insets, and remove them on cleanup.** In a `useEffect`, set
+  `--nw-nav-inset-left` / `--nw-nav-inset-right` on `document.documentElement` to
+  the width your nav reserves, so the shell's floating skin selector docks in the
+  content band instead of on top of your nav. Return a cleanup that REMOVES both —
+  a missing cleanup leaks your inset into whatever skin the user switches to next.
+
+## The meta-utility strip
+
+The presenter/dev utilities — Reset, theme toggle, Help — are **skin-authored
+chrome, not shell-provided**. A new skin gets none of them for free; you add them
+in the layout (the template puts them in an `mt-auto` group at the bottom of the
+sidebar). Three controls:
+
+- **Reset** (`RotateCcw`) — render it only when `usePresenterReset()` (from
+  `@/shell/presenter-reset-context`) is true; on click, `window.confirm` then
+  `POST /api/<id>/v1/dev/reset` then `window.location.assign(`/${skin.id}`)` for a
+  pristine slate. Keep the button and the endpoint in agreement: your skin's own
+  `dev/reset` route should allow the reset when `presenterResetEnabled() ||
+process.env.NODE_ENV !== "production"` (mirror
+  `src/app/api/logistics/v1/dev/reset/route.ts`), or a production booth shows a
+  button that 403s.
+- **ThemeToggle** — `import { ThemeToggle } from "@/components/ui/theme-toggle"`.
+  It is a SHARED component under `src/components/ui`, so importing it is fine and
+  is NOT a cross-skin import. Remember it is a dead control unless your skin also
+  ships a dark palette (`--nw-dark-capable: 1` + a `.dark .theme-<id>` block — see
+  the theming rules above).
+- **Help** (`HelpCircle`) — calls a `useAskCopilot()` that opens the panel and
+  sends a message as the user. **Port** it into your own
+  `src/skins/<id>/components/use-ask-copilot.ts` (copy logistics'); do NOT import
+  from `src/skins/banking/**` — a skin's only inbound dependency is the contract.
+
+## Registering tools: the deps array + render signatures
+
+Two rules that the `tools.tsx` template bakes in; miss either and the failure is
+silent.
+
+- **Every `useComponent` / `useFrontendTool` / `useHumanInTheLoop` registration
+  closes with a deps array.** Each takes an **optional deps array as a second
+  argument** (`useFrontendTool(tool, deps?: ReadonlyArray<unknown>)`,
+  `useHumanInTheLoop(tool, deps?)`, `useComponent(spec, deps?)` — the installed
+  types in `@copilotkit/react-core/dist/copilotkit-CBCT7BlL.d.cts` confirm it).
+  Omit it and the closure captures whatever the data was at REGISTRATION time —
+  for a REST-backed skin, the EMPTY array from before the first fetch — forever.
+  This is the nastiest bug in the app because it **compiles, lints, and passes
+  every test**: the agent narrates confidently ("the trade-offs are on screen")
+  while the component renders its "not found" branch over stale data. Banking
+  documents the same trap in a code comment (search "closure captures empty
+  arrays" in `src/skins/banking/tools.tsx`); logistics passes deps on every
+  registration.
+- **A parameterized `useComponent` render receives the schema output DIRECTLY** —
+  `render: ({ myParam }) => …`, NOT wrapped in `{ args }`. Per the installed
+  types, `InferRenderProps<T> = T extends StandardSchemaV1 ? InferSchemaOutput<T>
+: any` and `render: ComponentType<NoInfer<InferRenderProps<TSchema>>>`. By
+  contrast `useHumanInTheLoop` and `useFrontendTool` renders DO receive `{ args,
+status, respond }`. Airline has no parameterized `useComponent`, so don't learn
+  the render shape from it — see the template and logistics' `showShipment`.
 
 ---
 
@@ -201,11 +299,13 @@ src/skins/<id>/
 └── agent.ts          # SERVER-ONLY: export const <id>Agent = () => new BuiltInAgent(...)
 ```
 
-Optional slots you may omit — airline omits all of these EXCEPT `toolLabels`:
-`providers.tsx` (→ `Providers` and/or `RuntimeProviders` + `useRuntimeProperties`),
-`intelligence/user-id.ts` (→ server `identifyUser`), `canvas-surface.tsx`
-(→ `CanvasSurface`), `data/` (→ `useData` — banking omits it and reads REST +
-auth directly), `sandboxFunctions`, `chatHeaderActions`, `onSuggestionSelect`.
+Optional slots you may omit — airline omits all of these EXCEPT `toolLabels` and
+`useData`: `providers.tsx` (→ `Providers` and/or `RuntimeProviders` +
+`useRuntimeProperties`), `intelligence/user-id.ts` (→ server `identifyUser`),
+`canvas-surface.tsx` (→ `CanvasSurface`), `sandboxFunctions`,
+`chatHeaderActions`, `onSuggestionSelect`. (`useData` / `data/` is where the two
+shipped skins split: airline SETS `useData: useAirlineData`; banking omits it and
+reads REST + auth directly, so its `useSkinData<T>()` returns `undefined`.)
 Airline DOES set `toolLabels` (a 9-entry map) so its tool-activity chips read as
 human phrases ("Pulling up your flight") instead of raw tool names (`showFlight`)
 — treat `toolLabels` as expected for any skin with named frontend tools, not
