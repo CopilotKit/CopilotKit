@@ -138,6 +138,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 def mount_agent(path, agent_obj, state_type=None):
     """Mount ``agent_obj`` at ``path`` as an AG-UI endpoint.
 
@@ -189,7 +190,9 @@ mount_agent("/multimodal", multimodal_agent)
 mount_agent("/agent_config", agent_config_agent, AgentConfigState)
 
 # ── Shared state (read + write) and sub-agents ───────────────────────
-mount_agent("/shared_state_read_write", shared_state_read_write_agent, SharedStateRWState)
+mount_agent(
+    "/shared_state_read_write", shared_state_read_write_agent, SharedStateRWState
+)
 mount_agent("/subagents", subagents_agent, SubagentsState)
 
 # ── Tool-Based Generative UI — chart-viz system prompt ───────────────
