@@ -909,8 +909,8 @@ describe("CpkThreadInspector provider contract", () => {
     expect(internals._fetchedEvents).toHaveLength(6);
 
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Timeline");
-    expect(text).toContain("Raw AG-UI Events");
+    expect(text).toContain("Messages");
+    expect(text).toContain("AG-UI Events");
     expect(text).toContain("State");
     expect(text).toContain("Run started");
     expect(text).toContain("assistant message");

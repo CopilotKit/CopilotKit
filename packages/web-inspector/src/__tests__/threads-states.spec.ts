@@ -324,9 +324,9 @@ async function exerciseLocalExamples(
     expect(
       await detail.provider.getState?.(detail.threadId, loadOptions),
     ).not.toEqual({});
-    await harness.selectDetailTab("Raw AG-UI Events");
+    await harness.selectDetailTab("AG-UI Events");
     await harness.selectDetailTab("State");
-    await harness.selectDetailTab("Timeline");
+    await harness.selectDetailTab("Messages");
     assertDetailStaysLocal();
 
     if (name === "Realtime thread sync") {

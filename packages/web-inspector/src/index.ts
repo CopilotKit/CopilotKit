@@ -775,13 +775,13 @@ const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
 }> = [
   {
     tab: "timeline",
-    label: "Timeline",
+    label: "Messages",
     title: "Read the run as a story",
     body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
   },
   {
     tab: "raw-events",
-    label: "Raw AG-UI Events",
+    label: "AG-UI Events",
     title: "Drop into the protocol payloads",
     body: "Raw events show the exact AG-UI stream behind the timeline when you need to verify ordering or payload shape.",
   },
@@ -1354,14 +1354,16 @@ export class CpkThreadInspector extends LitElement {
   private _dividerPointerId = -1;
   private _dividerStartX = 0;
   private _dividerStartWidth = 0;
+  private static nextDomId = 1;
+  private readonly domIdPrefix = `cpk-thread-detail-${CpkThreadInspector.nextDomId++}`;
 
   static readonly COLLAPSE_THRESHOLD = 800;
   static readonly TAB_LIST: ReadonlyArray<{
     id: ThreadDetailsTab;
     label: string;
   }> = [
-    { id: "timeline", label: "Timeline" },
-    { id: "raw-events", label: "Raw AG-UI Events" },
+    { id: "timeline", label: "Messages" },
+    { id: "raw-events", label: "AG-UI Events" },
     { id: "state", label: "State" },
   ];
 
@@ -1404,6 +1406,49 @@ export class CpkThreadInspector extends LitElement {
     if (id === "timeline") return this.renderTimeline();
     if (id === "state") return this.renderState();
     return this.renderEvents();
+  }
+
+  /** Returns the stable DOM ID for one tab in this inspector instance. */
+  private tabDomId(id: ThreadDetailsTab): string {
+    return `${this.domIdPrefix}-tab-${id}`;
+  }
+
+  /** Returns the stable DOM ID for the panel controlled by one tab. */
+  private panelDomId(id: ThreadDetailsTab): string {
+    return `${this.domIdPrefix}-panel-${id}`;
+  }
+
+  /** Selects and focuses the tab targeted by an ARIA tabs navigation key. */
+  private handleTabKeyDown(
+    event: KeyboardEvent,
+    currentId: ThreadDetailsTab,
+  ): void {
+    const currentIndex = CpkThreadInspector.TAB_LIST.findIndex(
+      (tab) => tab.id === currentId,
+    );
+    if (currentIndex < 0) return;
+
+    let targetIndex: number | null = null;
+    if (event.key === "ArrowRight") {
+      targetIndex = (currentIndex + 1) % CpkThreadInspector.TAB_LIST.length;
+    } else if (event.key === "ArrowLeft") {
+      targetIndex =
+        (currentIndex - 1 + CpkThreadInspector.TAB_LIST.length) %
+        CpkThreadInspector.TAB_LIST.length;
+    } else if (event.key === "Home") {
+      targetIndex = 0;
+    } else if (event.key === "End") {
+      targetIndex = CpkThreadInspector.TAB_LIST.length - 1;
+    }
+    if (targetIndex === null) return;
+
+    const target = CpkThreadInspector.TAB_LIST[targetIndex];
+    if (!target) return;
+    event.preventDefault();
+    this.activateTab(target.id);
+    this.shadowRoot
+      ?.querySelector<HTMLButtonElement>(`#${this.tabDomId(target.id)}`)
+      ?.focus();
   }
 
   private activateTab(id: ThreadDetailsTab): void {
@@ -1521,6 +1566,12 @@ export class CpkThreadInspector extends LitElement {
       color: #010507;
     }
 
+    .cpk-td__tab:focus-visible {
+      outline: 2px solid #5558b2;
+      outline-offset: -3px;
+      border-radius: 4px;
+    }
+
     .cpk-td__tab--active {
       color: #010507;
       border-bottom-color: #bec2ff;
@@ -1619,6 +1670,18 @@ export class CpkThreadInspector extends LitElement {
       text-overflow: ellipsis;
     }
 
+    .cpk-td__metadata-pill--wrap {
+      max-width: 100%;
+      white-space: normal;
+    }
+
+    .cpk-td__metadata-value--wrap {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
     /*
      * Each tab's content is wrapped in this panel so the keep-mounted
      * inactive panels can be hidden via display:none without disturbing
@@ -1634,6 +1697,10 @@ export class CpkThreadInspector extends LitElement {
     }
     .cpk-td__panel > * {
       flex-shrink: 0;
+    }
+
+    .cpk-td__panel[hidden] {
+      display: none;
     }
 
     /* ── Empty state ─────────────────────────────────────────────────── */
@@ -3083,15 +3150,26 @@ export class CpkThreadInspector extends LitElement {
         <div class="cpk-td__left">
           <!-- Tab bar -->
           <div class="cpk-td__tabs-header">
-            <div class="cpk-td__tab-group" role="tablist">
+            <div
+              class="cpk-td__tab-group"
+              role="tablist"
+              aria-label="Thread detail views"
+            >
               ${CpkThreadInspector.TAB_LIST.map(
                 (tab) => html`
                   <button
+                    id=${this.tabDomId(tab.id)}
+                    type="button"
                     role="tab"
+                    aria-controls=${this.panelDomId(tab.id)}
+                    aria-selected=${this._tab === tab.id ? "true" : "false"}
+                    tabindex=${this._tab === tab.id ? "0" : "-1"}
                     class="cpk-td__tab ${
                       this._tab === tab.id ? "cpk-td__tab--active" : ""
                     }"
                     @click=${() => this.activateTab(tab.id)}
+                    @keydown=${(event: KeyboardEvent) =>
+                      this.handleTabKeyDown(event, tab.id)}
                   >
                     ${tab.label}
                   </button>
@@ -3114,12 +3192,11 @@ export class CpkThreadInspector extends LitElement {
             ${CpkThreadInspector.TAB_LIST.map((tab) =>
               this._activatedTabs.has(tab.id)
                 ? html`<div
+                    id=${this.panelDomId(tab.id)}
                     class="cpk-td__panel"
-                    style=${
-                      this._tab === tab.id && !this._panelInitializing
-                        ? ""
-                        : "display:none"
-                    }
+                    role="tabpanel"
+                    aria-labelledby=${this.tabDomId(tab.id)}
+                    ?hidden=${this._tab !== tab.id || this._panelInitializing}
                   >
                     ${this.renderTabContent(tab.id)}
                   </div>`
@@ -3161,28 +3238,52 @@ export class CpkThreadInspector extends LitElement {
 
   private renderMetadataStrip() {
     const metadata = this.metadata;
-    const pills: Array<{ label: string; value: string | null | undefined }> = [
-      { label: "Thread", value: metadata?.id ?? this.threadId },
-      { label: "Agent", value: metadata?.agentId },
+    const pills: Array<{ label: string; value: string; wrap?: boolean }> = [
       {
-        label: "End user",
-        value: metadata?.endUserId ?? metadata?.createdById,
+        label: "Name",
+        value: metadata?.name ?? this.thread?.name ?? "Untitled",
       },
-      { label: "Status", value: metadata?.status },
-    ].filter((pill) => pill.value != null && pill.value !== "");
+      { label: "ID", value: metadata?.id ?? this.threadId ?? "—", wrap: true },
+    ];
+    for (const fact of [
+      { label: "Agent", value: metadata?.agentId },
+      { label: "Created", value: metadata?.createdAt },
+      { label: "Updated", value: metadata?.updatedAt },
+    ]) {
+      if (fact.value == null || fact.value === "") continue;
+      pills.push({
+        label: fact.label,
+        value:
+          fact.label === "Created" || fact.label === "Updated"
+            ? this.fmtTime(fact.value)
+            : fact.value,
+      });
+    }
     const bulkControls = this.renderActiveBulkControls();
 
-    if (pills.length === 0 && bulkControls === nothing) return nothing;
-
     return html`
-      <div class="cpk-td__metadata-strip" aria-label="Thread metadata">
+      <div
+        class="cpk-td__metadata-strip"
+        role="group"
+        aria-label="Thread metadata"
+      >
         <div class="cpk-td__metadata-pills">
           ${pills.map(
             (pill) => html`
-              <span class="cpk-td__metadata-pill" title=${pill.value ?? ""}>
+              <span
+                class="cpk-td__metadata-pill ${
+                  pill.wrap ? "cpk-td__metadata-pill--wrap" : ""
+                }"
+                role="group"
+                title=${pill.value}
+                aria-label=${`${pill.label}: ${pill.value}`}
+              >
                 <span class="cpk-td__metadata-label">${pill.label}</span>
-                <span class="cpk-td__metadata-value"
-                  >${this.shortId(pill.value)}</span
+                <span
+                  class="cpk-td__metadata-value ${
+                    pill.wrap ? "cpk-td__metadata-value--wrap" : ""
+                  }"
+                  >${pill.value}</span
                 >
               </span>
             `,
@@ -3311,8 +3412,8 @@ export class CpkThreadInspector extends LitElement {
         <div class="cpk-td__empty-state">
           <span>No timeline events captured</span>
           <span class="cpk-td__empty-hint"
-            >Timeline rows are normalized from AG-UI events. Open Raw AG-UI Events or
-            State to inspect the available thread data.</span
+            >Timeline rows are normalized from AG-UI events. Open AG-UI Events or State
+            to inspect the available thread data.</span
           >
         </div>
       `;
@@ -3842,7 +3943,7 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">ID</span>
         <span class="cpk-tdp__value cpk-tdp__value--wrap"
-          >${this.shortId(metadata?.id)}</span
+          >${metadata?.id ?? this.threadId ?? "—"}</span
         >
       </div>
       <div class="cpk-tdp__row">
@@ -9268,6 +9369,7 @@ ${argsString}</pre
               agentId: thread.agentId,
               endUserId: "example-user",
               status: "completed",
+              createdAt: thread.createdAt,
               updatedAt: thread.updatedAt,
             }
           : null,
