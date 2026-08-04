@@ -92,12 +92,18 @@ import {
 } from "./lib/telemetry.js";
 import type {
   BannerSurface,
+  ExampleKind,
+  ExampleTourStep,
+  ExampleTourTab,
   InspectorMetadataLicenseBucket,
   InspectorMetadataModuleViewedTelemetryProps,
   InspectorMetadataTelemetryModule,
   InspectorMemoryTelemetryProps,
   InspectorOpenSource,
   InspectorThreadTelemetryProps,
+  MetadataActionPlacement,
+  ThreadsExpiryBucket,
+  ThreadsUsageBucket,
 } from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
@@ -608,6 +614,20 @@ const THREADS_EXAMPLE_THREADS: ExampleThread[] = [
   },
 ];
 
+/** Map Sam's fixed example IDs to a closed telemetry vocabulary. */
+function getExampleKind(threadId: string): ExampleKind | undefined {
+  switch (threadId) {
+    case "example-realtime-sync":
+      return "realtime_sync";
+    case "example-manage-history":
+      return "manage_history";
+    case "example-inspect-runs":
+      return "inspect_runs";
+    default:
+      return undefined;
+  }
+}
+
 const THREADS_EXAMPLE_DETAILS: Record<string, ExampleThreadDetails> = {
   "example-realtime-sync": {
     messages: [
@@ -792,6 +812,34 @@ const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
     body: "The state tab shows the saved values that make a thread resumable across sessions.",
   },
 ];
+
+type ExampleTourTelemetryPair = Readonly<{
+  tour_step: ExampleTourStep;
+  tour_tab: ExampleTourTab;
+}>;
+
+/** Return only the three supported tour step/tab pairs. */
+function getExampleTourTelemetryPair(
+  index: number,
+): ExampleTourTelemetryPair | undefined {
+  switch (index) {
+    case 0:
+      return { tour_step: 1, tour_tab: "timeline" };
+    case 1:
+      return { tour_step: 2, tour_tab: "raw-events" };
+    case 2:
+      return { tour_step: 3, tour_tab: "state" };
+    default:
+      return undefined;
+  }
+}
+
+/** Convert rendered action placement to its stable telemetry key. */
+function getMetadataActionPlacement(
+  placement: "threads-footer" | "locked",
+): MetadataActionPlacement {
+  return placement === "threads-footer" ? "threads_footer" : "threads_locked";
+}
 
 // ─── JSON syntax highlighter ─────────────────────────────────────────────────
 // Inline-styled so shadow DOM encapsulation preserves colors when the output
@@ -4857,8 +4905,8 @@ export class WebInspectorElement extends LitElement {
   // don't inflate funnel counts beyond one signal per intent type per banner.
   private clickedBannerIds: Set<string> = new Set();
   private viewedThreadsTelemetryStates: Set<string> = new Set();
-  private viewedExampleThreadIds: Set<string> = new Set();
-  private selectedExampleThreadIds: Set<string> = new Set();
+  private viewedExampleKinds: Set<ExampleKind> = new Set();
+  private selectedExampleKinds: Set<ExampleKind> = new Set();
   private viewedExampleTourSteps: Set<string> = new Set();
   private exampleThreadProviders: Map<string, ThreadDebuggerProvider> =
     new Map();
@@ -5129,17 +5177,54 @@ export class WebInspectorElement extends LitElement {
     return { displayThreads, threadsErrorMessage, threadsLoading };
   }
 
-  private getThreadsTelemetryProps(
-    extra: Partial<InspectorThreadTelemetryProps> = {},
-    options: { includeUrlAttribution?: boolean } = {},
-  ): InspectorThreadTelemetryProps {
-    const distinctId =
-      options.includeUrlAttribution && !this.core?.telemetryDisabled
-        ? getTelemetryDistinctIdForUrl()
-        : null;
+  /** Bucket trusted usage without retaining exact counts or limits. */
+  private getThreadsUsageBucket(): ThreadsUsageBucket {
+    const usage = this.inspectorMetadataProjection.usage;
+    if (!usage) return "absent";
+    if (usage.used === 0) return "empty";
+    if (usage.limit.kind === "finite") {
+      return usage.used < usage.limit.value
+        ? "within_limit"
+        : "at_or_over_limit";
+    }
+    if (usage.limit.kind === "unlimited") return "unlimited";
+    return "unknown_limit";
+  }
+
+  /** Bucket trusted expiry data independently from the usage-limit bucket. */
+  private getThreadsExpiryBucket(): ThreadsExpiryBucket {
+    const usage = this.inspectorMetadataProjection.usage;
+    if (
+      !usage ||
+      !Object.prototype.hasOwnProperty.call(usage, "expiringSoonCount")
+    ) {
+      return "unavailable";
+    }
+    if (usage.expiringSoonCount === 0) return "zero";
+    return typeof usage.expiringSoonCount === "number" &&
+      usage.expiringSoonCount > 0
+      ? "positive"
+      : "unavailable";
+  }
+
+  /** Report only real rows visible in the active, settled Threads view. */
+  private hasActiveVisibleThreads(): boolean {
+    if (
+      this.selectedMenu !== "threads" ||
+      this.settingsOpen ||
+      !this.areThreadEndpointsAvailable()
+    ) {
+      return false;
+    }
+    const { displayThreads, threadsErrorMessage, threadsLoading } =
+      this.getActiveThreadsState();
+    return !threadsErrorMessage && !threadsLoading && displayThreads.length > 0;
+  }
+
+  /** Build the closed common property set shared by all Thread events. */
+  private getThreadsTelemetryProps(): InspectorThreadTelemetryProps {
     const threadServiceStatus = this.getThreadServiceStatus();
     return {
-      posthog_distinct_id: distinctId ?? undefined,
       intelligence_status:
         threadServiceStatus === "available"
           ? "intelligence_enabled"
@@ -5150,8 +5235,26 @@ export class WebInspectorElement extends LitElement {
       license_status: this.core?.licenseStatus ?? undefined,
       runtime_mode: this.core?.runtimeMode ?? undefined,
       runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
-      telemetry_disabled: this.core?.telemetryDisabled ?? false,
-      ...extra,
+      telemetry_disabled: false,
+      has_threads: this.hasActiveVisibleThreads(),
+      usage_bucket: this.getThreadsUsageBucket(),
+      expiry_bucket: this.getThreadsExpiryBucket(),
+      group_key: "threads",
+      leaf_key: "threads",
+    };
+  }
+
+  /** Add the frozen CTA leaves and anonymous URL attribution when allowed. */
+  private getThreadsCtaTelemetryProps(
+    cta: "signup" | "talk_to_engineer",
+    ctaSurface: "threads_locked" | "threads_header",
+  ): InspectorThreadTelemetryProps {
+    const distinctId = getTelemetryDistinctIdForUrl();
+    return {
+      ...this.getThreadsTelemetryProps(),
+      cta,
+      cta_surface: ctaSurface,
+      posthog_distinct_id: distinctId ?? undefined,
     };
   }
 
@@ -7495,7 +7598,8 @@ ${argsString}</pre
             ? ""
             : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"
         }
-        @click=${() => this.handleInspectorMetadataActionClick(action)}
+        @click=${() =>
+          this.handleInspectorMetadataActionClick(action, placement)}
       >
         ${action.label}
       </a>
@@ -9127,6 +9231,37 @@ ${argsString}</pre
     return undefined;
   }
 
+  /** Return paired stable navigation keys, or neither for an invalid leaf. */
+  private getMetadataTelemetryNavigation(): Readonly<{
+    group_key?: InspectorGroupKey;
+    leaf_key?: MenuKey;
+  }> {
+    const selectedLeaf: unknown = this.selectedMenu;
+    if (!isInspectorMenuKey(selectedLeaf)) return {};
+    for (const group of INSPECTOR_PRIMARY_NAVIGATION) {
+      if (
+        INSPECTOR_GROUPS[group.key].some((menuKey) => menuKey === selectedLeaf)
+      ) {
+        return { group_key: group.key, leaf_key: selectedLeaf };
+      }
+    }
+    return {};
+  }
+
+  /** Build metadata's shared coarse buckets and stable navigation context. */
+  private getMetadataTelemetryContext(): Readonly<{
+    usage_bucket: ThreadsUsageBucket;
+    expiry_bucket: ThreadsExpiryBucket;
+    group_key?: InspectorGroupKey;
+    leaf_key?: MenuKey;
+  }> {
+    return {
+      usage_bucket: this.getThreadsUsageBucket(),
+      expiry_bucket: this.getThreadsExpiryBucket(),
+      ...this.getMetadataTelemetryNavigation(),
+    };
+  }
+
   private trackMetadataModuleIfChanged(
     props: InspectorMetadataModuleViewedTelemetryProps,
     fingerprint: string,
@@ -9154,12 +9289,20 @@ ${argsString}</pre
     const { identity, plan } = this.inspectorMetadataProjection;
     const license_bucket: InspectorMetadataLicenseBucket =
       this.inspectorMetadataProjection.licenseState;
+    const telemetryContext = this.getMetadataTelemetryContext();
+    const contextFingerprint = [
+      telemetryContext.usage_bucket,
+      telemetryContext.expiry_bucket,
+      telemetryContext.group_key ?? null,
+      telemetryContext.leaf_key ?? null,
+    ];
 
     if (identity) {
       this.trackMetadataModuleIfChanged(
-        { module: "identity", license_bucket },
+        { module: "identity", license_bucket, ...telemetryContext },
         JSON.stringify([
           license_bucket,
+          ...contextFingerprint,
           identity.organizationName,
           identity.projectName,
         ]),
@@ -9170,8 +9313,13 @@ ${argsString}</pre
 
     if (plan) {
       this.trackMetadataModuleIfChanged(
-        { module: "plan", license_bucket },
-        JSON.stringify([license_bucket, plan.code, plan.label]),
+        { module: "plan", license_bucket, ...telemetryContext },
+        JSON.stringify([
+          license_bucket,
+          ...contextFingerprint,
+          plan.code,
+          plan.label,
+        ]),
       );
     } else {
       this.metadataTelemetryFingerprints.delete("plan");
@@ -9180,13 +9328,22 @@ ${argsString}</pre
     const visibleAction = this.getVisibleInspectorMetadataAction();
     if (visibleAction) {
       const { action, placement } = visibleAction;
+      const action_placement = getMetadataActionPlacement(placement);
       this.trackMetadataModuleIfChanged(
         {
           module: "action",
           action_kind: action.kind,
           license_bucket,
+          ...telemetryContext,
+          action_placement,
         },
-        JSON.stringify([license_bucket, placement, action.kind, action.url]),
+        JSON.stringify([
+          license_bucket,
+          ...contextFingerprint,
+          action_placement,
+          action.kind,
+          action.url,
+        ]),
       );
     } else {
       this.metadataTelemetryFingerprints.delete("action");
@@ -9195,6 +9352,7 @@ ${argsString}</pre
 
   private handleInspectorMetadataActionClick = (
     action: InspectorMetadataAction,
+    placement: "threads-footer" | "locked",
   ): void => {
     if (
       !this.isOpen ||
@@ -9211,6 +9369,8 @@ ${argsString}</pre
       trackMetadataActionClicked({
         action_kind: action.kind,
         license_bucket: this.inspectorMetadataProjection.licenseState,
+        ...this.getMetadataTelemetryContext(),
+        action_placement: getMetadataActionPlacement(placement),
       });
     } catch {
       // Telemetry is best-effort and must never break action navigation.
@@ -9253,39 +9413,21 @@ ${argsString}</pre
   private handleTalkToEngineerClick = (): void => {
     if (this.core?.telemetryDisabled) return;
     trackTalkToEngineerClicked(
-      this.getThreadsTelemetryProps(
-        {
-          cta: "talk_to_engineer",
-          cta_surface: "threads_header",
-        },
-        { includeUrlAttribution: true },
-      ),
+      this.getThreadsCtaTelemetryProps("talk_to_engineer", "threads_header"),
     );
   };
 
   private handleThreadsIntelligenceSignupClick = (): void => {
     if (this.core?.telemetryDisabled) return;
     trackThreadsIntelligenceSignupClicked(
-      this.getThreadsTelemetryProps(
-        {
-          cta: "signup",
-          cta_surface: "threads_locked",
-        },
-        { includeUrlAttribution: true },
-      ),
+      this.getThreadsCtaTelemetryProps("signup", "threads_locked"),
     );
   };
 
   private handleThreadsTalkToEngineerClick = (): void => {
     if (this.core?.telemetryDisabled) return;
     trackThreadsTalkToEngineerClicked(
-      this.getThreadsTelemetryProps(
-        {
-          cta: "talk_to_engineer",
-          cta_surface: "threads_locked",
-        },
-        { includeUrlAttribution: true },
-      ),
+      this.getThreadsCtaTelemetryProps("talk_to_engineer", "threads_locked"),
     );
   };
 
@@ -9323,13 +9465,12 @@ ${argsString}</pre
 
   private trackThreadsViewStateOnce(
     state: "locked" | "empty_enabled" | "enabled",
-    threadCount: number,
   ): void {
     if (this.core?.telemetryDisabled) return;
     const key = `${state}:${this.getThreadServiceStatus()}`;
     if (this.viewedThreadsTelemetryStates.has(key)) return;
     this.viewedThreadsTelemetryStates.add(key);
-    const props = this.getThreadsTelemetryProps({ thread_count: threadCount });
+    const props = this.getThreadsTelemetryProps();
     if (state === "locked") {
       trackThreadsLockedViewed(props);
     } else if (state === "empty_enabled") {
@@ -9384,51 +9525,55 @@ ${argsString}</pre
   private trackThreadsExampleViewedOnce(): void {
     if (this.core?.telemetryDisabled) return;
     for (const thread of THREADS_EXAMPLE_THREADS) {
-      if (this.viewedExampleThreadIds.has(thread.id)) continue;
-      this.viewedExampleThreadIds.add(thread.id);
-      trackThreadsExampleViewed(
-        this.getThreadsTelemetryProps({
-          example_thread_id: thread.id,
-          thread_count: 0,
-        }),
-      );
+      const exampleKind = getExampleKind(thread.id);
+      if (!exampleKind || this.viewedExampleKinds.has(exampleKind)) continue;
+      this.viewedExampleKinds.add(exampleKind);
+      trackThreadsExampleViewed({
+        ...this.getThreadsTelemetryProps(),
+        example_kind: exampleKind,
+      });
     }
   }
 
   private trackThreadsExampleSelectedOnce(threadId: string): void {
     if (this.core?.telemetryDisabled) return;
-    if (this.selectedExampleThreadIds.has(threadId)) return;
-    this.selectedExampleThreadIds.add(threadId);
-    trackThreadsExampleSelected(
-      this.getThreadsTelemetryProps({
-        example_thread_id: threadId,
-        thread_count: 0,
-      }),
-    );
+    const exampleKind = getExampleKind(threadId);
+    if (!exampleKind || this.selectedExampleKinds.has(exampleKind)) return;
+    this.selectedExampleKinds.add(exampleKind);
+    trackThreadsExampleSelected({
+      ...this.getThreadsTelemetryProps(),
+      example_kind: exampleKind,
+    });
   }
 
-  private getCurrentExampleTourProps(): InspectorThreadTelemetryProps {
-    const step =
-      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
-      THREADS_EXAMPLE_TOUR_STEPS[0]!;
-    return this.getThreadsTelemetryProps({
-      example_thread_id: this.selectedThreadId ?? undefined,
-      thread_count: 0,
-      tour_step: this.exampleTourStep + 1,
-      tour_tab: step?.tab,
-    });
+  private getCurrentExampleTourProps():
+    | (InspectorThreadTelemetryProps &
+        Readonly<{
+          example_kind: ExampleKind;
+          tour_step: ExampleTourStep;
+          tour_tab: ExampleTourTab;
+        }>)
+    | undefined {
+    const exampleKind = this.selectedThreadId
+      ? getExampleKind(this.selectedThreadId)
+      : undefined;
+    const tourPair = getExampleTourTelemetryPair(this.exampleTourStep);
+    if (!exampleKind || !tourPair) return undefined;
+    return {
+      ...this.getThreadsTelemetryProps(),
+      example_kind: exampleKind,
+      ...tourPair,
+    };
   }
 
   private trackThreadsExampleTourStepViewedOnce(): void {
     if (this.core?.telemetryDisabled || !this.selectedThreadId) return;
-    const step =
-      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
-      THREADS_EXAMPLE_TOUR_STEPS[0]!;
-    if (!step) return;
-    const key = `${this.selectedThreadId}:${this.exampleTourStep}`;
+    const props = this.getCurrentExampleTourProps();
+    if (!props) return;
+    const key = `${props.example_kind}:${props.tour_step}`;
     if (this.viewedExampleTourSteps.has(key)) return;
     this.viewedExampleTourSteps.add(key);
-    trackThreadsExampleTourStepViewed(this.getCurrentExampleTourProps());
+    trackThreadsExampleTourStepViewed(props);
   }
 
   private syncExampleTourTab(): void {
@@ -9451,10 +9596,12 @@ ${argsString}</pre
     if (autoStarted) {
       this.exampleTourAutoShown = true;
       if (!this.core?.telemetryDisabled) {
-        trackThreadsExampleTourStarted(this.getCurrentExampleTourProps());
+        const props = this.getCurrentExampleTourProps();
+        if (props) trackThreadsExampleTourStarted(props);
       }
     } else if (!this.core?.telemetryDisabled) {
-      trackThreadsExampleTourReopened(this.getCurrentExampleTourProps());
+      const props = this.getCurrentExampleTourProps();
+      if (props) trackThreadsExampleTourReopened(props);
     }
     this.trackThreadsExampleTourStepViewedOnce();
     this.syncExampleTourTab();
@@ -9462,29 +9609,31 @@ ${argsString}</pre
   }
 
   private setExampleTourStep(nextStep: number): void {
+    const telemetryStepIsValid =
+      getExampleTourTelemetryPair(nextStep) !== undefined;
     this.exampleTourStep = Math.max(
       0,
       Math.min(THREADS_EXAMPLE_TOUR_STEPS.length - 1, nextStep),
     );
-    this.trackThreadsExampleTourStepViewedOnce();
+    if (telemetryStepIsValid) this.trackThreadsExampleTourStepViewedOnce();
     this.syncExampleTourTab();
     this.requestUpdate();
   }
 
   private dismissExampleTour(method: "skip" | "done"): void {
     if (!this.selectedThreadId) return;
-    const props = {
-      ...this.getCurrentExampleTourProps(),
-      dismiss_method: method,
-    };
     this.exampleTourActive = false;
     this.exampleTourDismissed = true;
     this.writeThreadsExampleTourDismissed();
     if (!this.core?.telemetryDisabled) {
-      if (method === "done") {
-        trackThreadsExampleTourCompleted(props);
-      } else {
-        trackThreadsExampleTourDismissed(props);
+      const currentProps = this.getCurrentExampleTourProps();
+      if (currentProps) {
+        const props = { ...currentProps, dismiss_method: method };
+        if (method === "done") {
+          trackThreadsExampleTourCompleted(props);
+        } else {
+          trackThreadsExampleTourDismissed(props);
+        }
       }
     }
     this.requestUpdate();
@@ -10851,14 +11000,13 @@ ${argsString}</pre
       selectedThread.id === this.selectedLocalExampleThreadId;
 
     if (locked) {
-      this.trackThreadsViewStateOnce("locked", 0);
+      this.trackThreadsViewStateOnce("locked");
     } else if (
       !threadsErrorMessage &&
       (!threadsLoading || displayThreads.length > 0)
     ) {
       this.trackThreadsViewStateOnce(
         displayThreads.length === 0 ? "empty_enabled" : "enabled",
-        displayThreads.length,
       );
     }
 

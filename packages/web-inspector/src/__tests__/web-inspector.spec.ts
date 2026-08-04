@@ -2535,14 +2535,14 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       (post) => post.event === "oss.inspector.threads_example_tour_step_viewed",
     );
     expect(stepViewed?.properties).toMatchObject({
-      example_thread_id: "example-realtime-sync",
+      example_kind: "realtime_sync",
       tour_step: 1,
     });
     const dismissed = posts.find(
       (post) => post.event === "oss.inspector.threads_example_tour_dismissed",
     );
     expect(dismissed?.properties).toMatchObject({
-      example_thread_id: "example-realtime-sync",
+      example_kind: "realtime_sync",
       dismiss_method: "skip",
     });
   });

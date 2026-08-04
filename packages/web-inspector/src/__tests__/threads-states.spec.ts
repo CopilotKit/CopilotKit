@@ -996,7 +996,11 @@ test.each(lockedCapabilityCases)(
       );
       expect(lockedEvents).toHaveLength(1);
       expect(lockedEvents[0]?.properties).toMatchObject({
-        thread_count: 0,
+        has_threads: false,
+        usage_bucket: "empty",
+        expiry_bucket: "zero",
+        group_key: "threads",
+        leaf_key: "threads",
         thread_service_status: case_.threadServiceStatus,
         intelligence_status: case_.intelligenceStatus,
         runtime_url_type: "remote",
@@ -1004,12 +1008,8 @@ test.each(lockedCapabilityCases)(
       });
       expect(exampleEvents).toHaveLength(3);
       expect(
-        exampleEvents.map(({ properties }) => properties.example_thread_id),
-      ).toEqual([
-        "example-realtime-sync",
-        "example-manage-history",
-        "example-inspect-runs",
-      ]);
+        exampleEvents.map(({ properties }) => properties.example_kind),
+      ).toEqual(["realtime_sync", "manage_history", "inspect_runs"]);
       expect(
         telemetryFor(
           harness.telemetryBodies,

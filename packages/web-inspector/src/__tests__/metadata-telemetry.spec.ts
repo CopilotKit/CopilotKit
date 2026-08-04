@@ -10,7 +10,7 @@ import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../lib/telemetry.js";
 
 type TelemetryBody = {
   event: string;
-  properties: Record<string, unknown>;
+  properties: Readonly<{ [key: string]: unknown }>;
 };
 
 type SetupOptions = {
@@ -65,6 +65,31 @@ function jsonResponse(value: unknown): Response {
   });
 }
 
+function isProperties(
+  value: unknown,
+): value is Readonly<{ [key: string]: unknown }> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseTelemetryBody(raw: string): TelemetryBody {
+  const parsed: unknown = JSON.parse(raw);
+  if (
+    !isProperties(parsed) ||
+    typeof parsed.event !== "string" ||
+    !isProperties(parsed.properties)
+  ) {
+    throw new Error("Telemetry request body had an unexpected shape");
+  }
+  return { event: parsed.event, properties: parsed.properties };
+}
+
+function requireShadowRoot(inspector: WebInspectorElement): ShadowRoot {
+  if (!inspector.shadowRoot) {
+    throw new Error("Web Inspector shadow root was not rendered");
+  }
+  return inspector.shadowRoot;
+}
+
 async function waitFor(
   predicate: () => boolean,
   message: string,
@@ -104,7 +129,7 @@ async function setup(
       if (url === TELEMETRY_INGEST_URL) {
         const request = input instanceof Request ? input : undefined;
         const body = request ? await request.clone().text() : "";
-        if (body) telemetryBodies.push(JSON.parse(body) as TelemetryBody);
+        if (body) telemetryBodies.push(parseTelemetryBody(body));
         if (options.rejectTelemetry) throw new Error("telemetry unavailable");
         return new Response(null, { status: 204 });
       }
@@ -139,7 +164,7 @@ async function setup(
   );
   vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
     if (String(input) === TELEMETRY_INGEST_URL) {
-      const body = JSON.parse(String(init?.body)) as TelemetryBody;
+      const body = parseTelemetryBody(String(init?.body));
       telemetryBodies.push(body);
       if (options.rejectTelemetry) {
         return Promise.reject(new Error("telemetry unavailable"));
@@ -155,9 +180,8 @@ async function setup(
     deferInitialConnection: true,
   });
   const inspector = new WebInspectorElement();
-  Reflect.set(inspector, "autoAttachCore", false);
-  document.body.appendChild(inspector);
   inspector.core = core;
+  document.body.appendChild(inspector);
   core.connect();
 
   await waitFor(
@@ -286,7 +310,7 @@ test("Threads footer action emits one impression per visible transition and one 
   try {
     await context.open();
 
-    const root = context.inspector.shadowRoot!;
+    const root = requireShadowRoot(context.inspector);
     const actions = root.querySelectorAll<HTMLAnchorElement>(
       "[data-inspector-action-placement]",
     );
@@ -295,11 +319,17 @@ test("Threads footer action emits one impression per visible transition and one 
     );
     expect(actions).toHaveLength(1);
     expect(action?.textContent?.trim()).toBe("Manage Your Plan");
-    expect(
-      metadataBodies(context).filter(
-        ({ properties }) => properties.module === "action",
-      ),
-    ).toHaveLength(1);
+    const actionViews = metadataBodies(context).filter(
+      ({ properties }) => properties.module === "action",
+    );
+    expect(actionViews).toHaveLength(1);
+    expect(actionViews[0]?.properties).toMatchObject({
+      usage_bucket: "within_limit",
+      expiry_bucket: "unavailable",
+      group_key: "threads",
+      leaf_key: "threads",
+      action_placement: "threads_footer",
+    });
 
     action?.dispatchEvent(new Event("click"));
     await Promise.resolve();
@@ -312,14 +342,24 @@ test("Threads footer action emits one impression per visible transition and one 
       module: clicks[0]?.properties.module,
       action_kind: clicks[0]?.properties.action_kind,
       license_bucket: clicks[0]?.properties.license_bucket,
+      usage_bucket: clicks[0]?.properties.usage_bucket,
+      expiry_bucket: clicks[0]?.properties.expiry_bucket,
+      group_key: clicks[0]?.properties.group_key,
+      leaf_key: clicks[0]?.properties.leaf_key,
+      action_placement: clicks[0]?.properties.action_placement,
     }).toStrictEqual({
       module: "action",
       action_kind: "manage_plan",
       license_bucket: "valid",
+      usage_bucket: "within_limit",
+      expiry_bucket: "unavailable",
+      group_key: "threads",
+      leaf_key: "threads",
+      action_placement: "threads_footer",
     });
     expect(clicks[0]?.properties).not.toHaveProperty("placement");
     expect(JSON.stringify(clicks[0]?.properties)).not.toMatch(
-      /cloud\.copilotkit\.ai|148|200/,
+      /cloud\.copilotkit\.ai/,
     );
 
     await context.selectTab("Agents");
@@ -361,16 +401,16 @@ test("a valid manage action emits one footer impression when Threads endpoints a
   try {
     await context.open();
 
-    const root = context.inspector.shadowRoot!;
+    const root = requireShadowRoot(context.inspector);
     const footer = root.querySelectorAll("[data-inspector-threads-footer]");
     const action = root.querySelectorAll("[data-inspector-threads-footer] a");
     expect(footer).toHaveLength(1);
     expect(action).toHaveLength(1);
-    expect(
-      metadataBodies(context).filter(
-        ({ properties }) => properties.module === "action",
-      ),
-    ).toHaveLength(1);
+    const actionViews = metadataBodies(context).filter(
+      ({ properties }) => properties.module === "action",
+    );
+    expect(actionViews).toHaveLength(1);
+    expect(actionViews[0]?.properties.action_placement).toBe("threads_footer");
     expect(
       context.telemetryBodies.filter(
         ({ event }) => event === TELEMETRY_EVENTS.metadataActionClicked,
@@ -381,13 +421,13 @@ test("a valid manage action emits one footer impression when Threads endpoints a
   }
 });
 
-test.each([
+const metadataActionCases = [
   {
     name: "manage plan",
     metadata: fullMetadata(),
     threadsAvailable: true,
     label: "Manage plan",
-    expectedKind: "manage_plan" as const,
+    expectedKind: "manage_plan",
   },
   {
     name: "renew",
@@ -397,9 +437,17 @@ test.each([
     }),
     threadsAvailable: false,
     label: "Renew",
-    expectedKind: "renew" as const,
+    expectedKind: "renew",
   },
-])(
+] satisfies ReadonlyArray<{
+  name: string;
+  metadata: InspectorMetadataV1;
+  threadsAvailable: boolean;
+  label: string;
+  expectedKind: "manage_plan" | "renew";
+}>;
+
+test.each(metadataActionCases)(
   "$name metadata action clicks emit a countable coarse event",
   async (case_) => {
     const context = await setup({
@@ -430,6 +478,13 @@ test.each([
           module: "action",
           action_kind: case_.expectedKind,
           license_bucket: case_.threadsAvailable ? "valid" : "expired",
+          usage_bucket: "within_limit",
+          expiry_bucket: "unavailable",
+          group_key: "threads",
+          leaf_key: "threads",
+          action_placement: case_.threadsAvailable
+            ? "threads_footer"
+            : "threads_locked",
         });
       }
     } finally {
@@ -537,11 +592,6 @@ test("runtime telemetry opt-out suppresses metadata impressions and action click
 test("a stale rendered action does not emit after the Inspector disconnects", async () => {
   const context = await setup({ metadataResponses: [fullMetadata()] });
   try {
-    Reflect.set(
-      context.inspector,
-      "runtimeStatus",
-      CopilotKitCoreRuntimeConnectionStatus.Disconnected,
-    );
     await context.open();
 
     const action =
@@ -549,10 +599,18 @@ test("a stale rendered action does not emit after the Inspector disconnects", as
         '[data-inspector-action-placement="threads-footer"]',
       );
     if (!action) throw new Error("Stale metadata action was not rendered");
+    const impressionsBeforeDisconnect = metadataBodies(context).length;
+    context.core.setRuntimeUrl(undefined);
+    await waitFor(
+      () =>
+        context.core.runtimeConnectionStatus ===
+        CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+      "the Core disconnect",
+    );
     action.dispatchEvent(new Event("click"));
     await Promise.resolve();
 
-    expect(metadataBodies(context)).toEqual([]);
+    expect(metadataBodies(context)).toHaveLength(impressionsBeforeDisconnect);
     expect(
       context.telemetryBodies.filter(
         ({ event }) => event === TELEMETRY_EVENTS.metadataActionClicked,
@@ -640,6 +698,11 @@ test("metadata events never include local identity, URLs, usage, limits, counts,
       "module",
       "action_kind",
       "license_bucket",
+      "usage_bucket",
+      "expiry_bucket",
+      "group_key",
+      "leaf_key",
+      "action_placement",
       "distinct_id",
       "inspector_distinct_id",
       "package_name",
@@ -655,9 +718,14 @@ test("metadata events never include local identity, URLs, usage, limits, counts,
       module: properties.module,
       action_kind: properties.action_kind,
       license_bucket: properties.license_bucket,
+      usage_bucket: properties.usage_bucket,
+      expiry_bucket: properties.expiry_bucket,
+      group_key: properties.group_key,
+      leaf_key: properties.leaf_key,
+      action_placement: properties.action_placement,
     }));
     expect(JSON.stringify(featureProperties)).not.toMatch(
-      /Acme|Support|enterprise|cloud\.copilotkit\.ai|usage|241|200|37|thread[_-]?id|content/i,
+      /Acme|Support|enterprise|cloud\.copilotkit\.ai|241|200|37|thread[_-]?id|content/i,
     );
   } finally {
     context.teardown();
