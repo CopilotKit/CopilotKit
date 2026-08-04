@@ -15,8 +15,8 @@ PydanticAI has first-class AG-UI support built into `pydantic-ai-slim[ag-ui]`. T
 [project]
 dependencies = [
     "uvicorn",
-    "pydantic-ai-slim[ag-ui,openai]==2.22.0",
-    "ag-ui-protocol==0.1.19",
+    "pydantic-ai-slim[ag-ui,openai]>=2,<3",
+    "ag-ui-protocol>=0.1.19",
     "starlette>=0.46.2",
     "python-dotenv",
 ]
