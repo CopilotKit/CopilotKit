@@ -5000,17 +5000,22 @@ export class WebInspectorElement extends LitElement {
   private removeOwnedThreadStore(agentId: string): void {
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
-    store.stop();
-    this.core?.unregisterThreadStore(agentId);
     this._ownedThreadStores.delete(agentId);
+    store.stop();
+    if (this.core?.getThreadStore(agentId) === store) {
+      this.core.unregisterThreadStore(agentId);
+    }
   }
 
   private teardownOwnedThreadStores(): void {
-    for (const [agentId, store] of this._ownedThreadStores) {
-      store.stop();
-      this.core?.unregisterThreadStore(agentId);
-    }
+    const ownedThreadStores = Array.from(this._ownedThreadStores);
     this._ownedThreadStores.clear();
+    for (const [agentId, store] of ownedThreadStores) {
+      store.stop();
+      if (this.core?.getThreadStore(agentId) === store) {
+        this.core.unregisterThreadStore(agentId);
+      }
+    }
   }
 
   private coreSupportsInspectorMetadata(core: CopilotKitCore): boolean {
@@ -5127,11 +5132,15 @@ export class WebInspectorElement extends LitElement {
         this.subscribeToThreadStore(agentId, store);
         this.requestUpdate();
       },
-      onThreadStoreUnregistered: ({ agentId }) => {
+      onThreadStoreUnregistered: ({ agentId, prevStore }) => {
         const unsub = this._threadStoreSubscriptions.get(agentId);
         if (unsub) {
           unsub();
           this._threadStoreSubscriptions.delete(agentId);
+        }
+        if (this._ownedThreadStores.get(agentId) === prevStore) {
+          this._ownedThreadStores.delete(agentId);
+          prevStore.stop();
         }
         this._threadsByAgent.delete(agentId);
         this._threadsErrorByAgent.delete(agentId);

@@ -311,6 +311,7 @@ async function flushInspector(inspector: WebInspectorElement): Promise<void> {
 type RegisteredStoreHarness = Readonly<{
   store: ɵThreadStore;
   selectCalls: () => number;
+  stopCalls: () => number;
 }>;
 
 type SetupOptions = Readonly<{
@@ -468,9 +469,11 @@ async function setup(options: SetupOptions): Promise<CapabilityHarness> {
       routeSignals.splice(0);
     }
     const selectSpy = vi.spyOn(registeredStore, "select");
+    const stopSpy = vi.spyOn(registeredStore, "stop");
     registered = {
       store: registeredStore,
       selectCalls: () => selectSpy.mock.calls.length,
+      stopCalls: () => stopSpy.mock.calls.length,
     };
     core.registerThreadStore(options.registeredAgentId, registeredStore);
   }
@@ -547,11 +550,13 @@ async function setup(options: SetupOptions): Promise<CapabilityHarness> {
       const store = ɵcreateThreadStore({ fetch: fetchMock });
       externalStores.add(store);
       const selectSpy = vi.spyOn(store, "select");
+      const stopSpy = vi.spyOn(store, "stop");
       core.registerThreadStore(agentId, store);
       await flushInspector(inspector);
       return {
         store,
         selectCalls: () => selectSpy.mock.calls.length,
+        stopCalls: () => stopSpy.mock.calls.length,
       };
     },
     async runAgentToFinish() {
@@ -804,35 +809,56 @@ test("enabled to absent stops and clears real work while blocking late callbacks
   }
 });
 
-test("enabled to false keeps caller-owned store registered but replaces its inspector subscription", async () => {
-  const harness = await setup({
-    initialEndpoints: LIST_ONLY,
-    registeredAgentId: REGISTERED_AGENT_ID,
-  });
+test("caller replacement survives enabled to false to enabled lifecycle", async () => {
+  const harness = await setup({ initialEndpoints: LIST_ONLY });
   try {
-    const registered = requireRegistered(harness);
+    await vi.waitFor(() => expect(harness.requests().list).toBe(1));
+    const ownedStore = harness.core.getThreadStore(REGISTERED_AGENT_ID);
+    if (!ownedStore) throw new Error("Expected an Inspector-owned store");
+    const ownedStopSpy = vi.spyOn(ownedStore, "stop");
+    const ownedSetContextSpy = vi.spyOn(ownedStore, "setContext");
+    const ownedRefreshSpy = vi.spyOn(ownedStore, "refresh");
+
+    const replacement = await harness.registerStore(REGISTERED_AGENT_ID);
     await harness.openThreads();
-    expect(registered.selectCalls()).toBe(2);
-    expect(harness.threadListText()).toContain("Real thread alpha");
+
+    expect.soft(ownedStopSpy).toHaveBeenCalledTimes(1);
+    expect(harness.core.getThreadStore(REGISTERED_AGENT_ID)).toBe(
+      replacement.store,
+    );
+    expect(replacement.selectCalls()).toBe(2);
+
+    harness.core.setHeaders({ Authorization: "Bearer replacement" });
+    await harness.core.emitRuntimeStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    await harness.runAgentToFinish();
+    await harness.flush();
+
+    expect.soft(ownedSetContextSpy).not.toHaveBeenCalled();
+    expect.soft(ownedRefreshSpy).not.toHaveBeenCalled();
 
     await harness.core.publishEndpoints(LIST_DISABLED);
     await harness.flush();
 
     expect(harness.core.getThreadStore(REGISTERED_AGENT_ID)).toBe(
-      registered.store,
+      replacement.store,
     );
+    expect(replacement.stopCalls()).toBe(0);
+    expect(replacement.selectCalls()).toBe(2);
     expect(harness.details()).toBeNull();
     expect(harness.threadListText()).not.toContain("Real thread alpha");
 
     await harness.core.publishEndpoints(LIST_ONLY);
-    await vi.waitFor(() => expect(registered.selectCalls()).toBe(4));
+    await vi.waitFor(() => expect(replacement.selectCalls()).toBe(4));
+    await harness.core.emitAgentsChanged();
     await harness.flush();
 
     expect(harness.core.getThreadStore(REGISTERED_AGENT_ID)).toBe(
-      registered.store,
+      replacement.store,
     );
-    expect(harness.threadListText()).toContain("Real thread alpha");
-    expect(harness.requests()).toEqual(ZERO_REQUESTS);
+    expect(replacement.stopCalls()).toBe(0);
+    expect(replacement.selectCalls()).toBe(4);
   } finally {
     await harness.teardown();
   }
