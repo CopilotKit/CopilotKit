@@ -13,6 +13,12 @@ export const CHANNELS_ACTIVATION_EVENTS = {
    * landing strip and the overview panel, separated by `surface`.
    */
   viewed: "docs.channels_activation_viewed",
+  /**
+   * The disclosure step the overview panel reintroduces. Neither `viewed` nor
+   * `promptCopied` can see it — a reader who never expanded the panel looks
+   * identical to one who expanded it and walked away.
+   */
+  promptExpanded: "docs.channels_activation_prompt_expanded",
 } as const;
 
 /**

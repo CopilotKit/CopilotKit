@@ -115,9 +115,7 @@ describe("Channels activation impressions", () => {
 
   it("reports the overview panel with its own surface", () => {
     render(<ChannelsStartPrompt frontend="teams" />);
-    const panel = screen.getByRole("region", {
-      name: "Start building with your coding agent",
-    });
+    const panel = screen.getByTestId("channels-start-prompt");
 
     intersect(panel, true);
 
@@ -134,9 +132,7 @@ describe("Channels activation impressions", () => {
 
   it("does not re-fire when a surface scrolls back into view", () => {
     render(<ChannelsStartPrompt />);
-    const panel = screen.getByRole("region", {
-      name: "Start building with your coding agent",
-    });
+    const panel = screen.getByTestId("channels-start-prompt");
 
     intersect(panel, true);
     intersect(panel, false);
@@ -162,7 +158,9 @@ describe("Channels activation impressions", () => {
     });
 
     render(<ChannelsStartPrompt />);
-    fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Copy the starter prompt/i }),
+    );
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("Copied")).toBeTruthy();
@@ -176,7 +174,9 @@ describe("Channels activation impressions", () => {
     });
 
     render(<ChannelsStartPrompt />);
-    fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Copy the starter prompt/i }),
+    );
 
     expect(await screen.findByText("Copy blocked")).toBeTruthy();
     expect(
@@ -188,9 +188,7 @@ describe("Channels activation impressions", () => {
 
   it("stays silent while a surface is below the fold", () => {
     render(<ChannelsStartPrompt />);
-    const panel = screen.getByRole("region", {
-      name: "Start building with your coding agent",
-    });
+    const panel = screen.getByTestId("channels-start-prompt");
 
     intersect(panel, false);
 
