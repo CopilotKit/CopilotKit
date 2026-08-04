@@ -60,6 +60,7 @@ import type {
   InspectorMetadataAction,
   InspectorMetadataProjection,
 } from "./lib/inspector-metadata.js";
+import { selectVisibleRealThreadId } from "./lib/thread-selection.js";
 import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
@@ -4543,6 +4544,7 @@ export class WebInspectorElement extends LitElement {
   private ignoreNextButtonClick = false;
   private selectedMenu: MenuKey = "ag-ui-events";
   private selectedThreadId: string | null = null;
+  private selectedRealThreadIsExplicit = false;
   private threadListWidth = 290;
   private threadDividerResizing = false;
   private threadDividerPointerId = -1;
@@ -4789,6 +4791,7 @@ export class WebInspectorElement extends LitElement {
     ) {
       this.selectedThreadId = null;
     }
+    this.selectedRealThreadIsExplicit = false;
     this.requestUpdate();
   }
 
@@ -4932,15 +4935,28 @@ export class WebInspectorElement extends LitElement {
 
   private autoSelectLatestThread(): void {
     if (!this.areThreadEndpointsAvailable()) return;
-    if (this._threads.length === 0) return;
-    const stillValid =
-      this.selectedThreadId != null &&
-      !this.isExampleThreadId(this.selectedThreadId) &&
-      this._threads.some((t) => t.id === this.selectedThreadId);
-    if (!stillValid) {
-      // Threads are sorted most-recently-updated first
-      this.selectedThreadId = this._threads[0]!.id;
+    const { displayThreads } = this.getActiveThreadsState();
+    const previousSelectedThreadId = this.selectedThreadId;
+
+    if (
+      this.isExampleThreadId(previousSelectedThreadId) &&
+      displayThreads.length === 0
+    ) {
+      this.selectedRealThreadIsExplicit = false;
+      return;
     }
+
+    const explicitSelectedThreadId = this.selectedRealThreadIsExplicit
+      ? previousSelectedThreadId
+      : null;
+    const nextSelectedThreadId = selectVisibleRealThreadId({
+      threads: displayThreads,
+      selectedThreadId: explicitSelectedThreadId,
+    });
+    this.selectedThreadId = nextSelectedThreadId;
+    this.selectedRealThreadIsExplicit =
+      explicitSelectedThreadId !== null &&
+      nextSelectedThreadId === explicitSelectedThreadId;
   }
 
   private teardownThreadStoreSubscriptions(): void {
@@ -5154,6 +5170,7 @@ export class WebInspectorElement extends LitElement {
         this._threadsByAgent.delete(agentId);
         this._threadsErrorByAgent.delete(agentId);
         this._threads = Array.from(this._threadsByAgent.values()).flat();
+        this.autoSelectLatestThread();
         this.requestUpdate();
       },
     } satisfies CopilotKitCoreSubscriber;
@@ -5332,6 +5349,7 @@ export class WebInspectorElement extends LitElement {
     ) {
       this.selectedThreadId = null;
     }
+    this.selectedRealThreadIsExplicit = false;
     if (this.coreUnsubscribe) {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
@@ -5733,6 +5751,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private updateContextOptions(agentIds: Set<string>): void {
+    let selectedContextChanged = false;
     const nextOptions: Array<{ key: string; label: string }> = [
       { key: "all-agents", label: "All Agents" },
       ...Array.from(agentIds)
@@ -5763,6 +5782,7 @@ export class WebInspectorElement extends LitElement {
       if (shouldRestore) {
         if (this.selectedContext !== pendingContext) {
           this.selectedContext = pendingContext;
+          selectedContextChanged = true;
           this.expandedRows.clear();
         }
         this.pendingSelectedContext = null;
@@ -5771,6 +5791,7 @@ export class WebInspectorElement extends LitElement {
         // agents — reset to "all-agents" so nothing is silently filtered.
         if (this.selectedContext !== "all-agents") {
           this.selectedContext = "all-agents";
+          selectedContextChanged = true;
           this.expandedRows.clear();
         }
         this.pendingSelectedContext = null;
@@ -5793,9 +5814,14 @@ export class WebInspectorElement extends LitElement {
 
       if (this.selectedContext !== nextSelected) {
         this.selectedContext = nextSelected;
+        selectedContextChanged = true;
         this.expandedRows.clear();
         this.persistState();
       }
+    }
+
+    if (selectedContextChanged) {
+      this.autoSelectLatestThread();
     }
   }
 
@@ -8997,6 +9023,7 @@ ${argsString}</pre
   ): void {
     if (showingExamples && this.selectedThreadId === threadId) {
       this.selectedThreadId = null;
+      this.selectedRealThreadIsExplicit = false;
       this.exampleTourActive = false;
       this.requestUpdate();
       return;
@@ -9004,6 +9031,7 @@ ${argsString}</pre
 
     this.selectedThreadId = threadId;
     if (showingExamples && this.isExampleThreadId(threadId)) {
+      this.selectedRealThreadIsExplicit = false;
       this.trackThreadsExampleSelectedOnce(threadId);
       if (!this.exampleTourDismissed && !this.exampleTourAutoShown) {
         this.startExampleTour(true);
@@ -9011,6 +9039,10 @@ ${argsString}</pre
         this.exampleTourActive = false;
       }
     } else {
+      const { displayThreads } = this.getActiveThreadsState();
+      this.selectedRealThreadIsExplicit = displayThreads.some(
+        (thread) => thread.id === threadId,
+      );
       this.exampleTourActive = false;
     }
     this.requestUpdate();
@@ -10807,6 +10839,7 @@ ${prettyEvent}</pre
     if (this.selectedContext !== key) {
       this.selectedContext = key;
       this.expandedRows.clear();
+      this.autoSelectLatestThread();
     }
 
     this.contextMenuOpen = false;
