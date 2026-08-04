@@ -365,20 +365,11 @@ test("trusted identity and plan render in the dark account strip with all window
       ),
       "Trusted account plan was not rendered",
     );
-    const headerAction = requireElement(
-      accountStrip.querySelector<HTMLAnchorElement>(
-        '[data-inspector-action-placement="header"]',
-      ),
-      "Existing account action was not rendered",
-    );
 
     expect(getComputedStyle(accountStrip).backgroundColor).toBe("rgb(1, 5, 7)");
     expect(identity.textContent).toContain("Acme Inc.");
     expect(identity.textContent).toContain("Support");
     expect(plan.textContent?.trim()).toBe("Enterprise");
-    expect(headerAction.textContent?.trim()).toBe("Manage Your Plan");
-    expectVisibleFocus(root, headerAction);
-    expect(getComputedStyle(headerAction).cursor).toBe("pointer");
     expect(
       accountStrip.querySelector<HTMLImageElement>('img[alt="Inspector logo"]'),
     ).not.toBeNull();

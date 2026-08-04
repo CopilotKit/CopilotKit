@@ -8,21 +8,29 @@ valid module on its own:
 
 - `identity` shows the organization and project in the Inspector header.
 - `plan` shows the plan label in the header.
-- `action` can show one trusted link in the header or locked Threads view.
-- `usage` is carried by the shared contract but is not rendered in this release.
+- `action` can show one trusted link in the Threads footer or locked Threads view.
+- `usage` shows trusted Thread counts and expiry data in the Threads footer.
 
 Missing or invalid metadata hides these trusted modules. The existing tabs,
 debug views, and Threads endpoint behavior remain available; a locked Threads
 view has no metadata action when trusted action data is absent.
 
+The footer sits at the bottom of the Threads list sidebar. It stays out of the
+account strip, other navigation groups, and Settings. Usage and the footer
+action render on their own, so either module can appear without the other.
+
 ### License and action matrix
 
-| Effective license state | Header                                                      | Locked Threads view                                                                            |
-| ----------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `valid`                 | Shows `Manage plan` only for a trusted `manage_plan` action | Explains that the license is active but the runtime has no Threads endpoints; no locked action |
-| `none`                  | No plan action                                              | Shows `Enable Intelligence` only for a trusted `enable_intelligence` action                    |
-| `expired`               | No plan action                                              | Shows `Renew` for `renew`, or `Manage plan` for `manage_plan`                                  |
-| `unknown`               | No plan action                                              | Uses neutral unavailable copy with no action                                                   |
+| Effective license state | Threads footer                                                   | Locked Threads view                                                                            |
+| ----------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `valid`                 | Shows `Manage Your Plan` only for a trusted `manage_plan` action | Explains that the license is active but the runtime has no Threads endpoints; no locked action |
+| `none`                  | No footer action                                                 | Shows `Enable Intelligence` only for a trusted `enable_intelligence` action                    |
+| `expired`               | No footer action                                                 | Shows `Renew` for `renew`, or `Manage Your Plan` for `manage_plan`                             |
+| `unknown`               | No footer action                                                 | Uses neutral unavailable copy with no action                                                   |
+
+Finite usage shows a native progress bar. Counts above the limit clamp to the
+limit and use a `+` suffix. Unlimited and unknown limits use text only. A known
+zero expiry count stays visible; missing expiry data stays hidden.
 
 The Inspector compares metadata license state with `licenseStatus` from the
 runtime-info response. If both are known and disagree, it uses the Runtime
@@ -60,9 +68,9 @@ coarse: its feature-specific properties may include only `module`,
 project IDs, thread IDs, URLs, usage values, limits, counts, or conversation
 content into those events.
 
-Usage impressions are not sent because there is no usage UI. Grouped Inspector
-navigation is also not enabled. This change does not add a usage panel or alter
-the current tab layout.
+The usage UI does not add usage impressions or values to telemetry. Grouped
+Inspector navigation shows the footer only on Threads. The existing metadata
+action impression and click events keep their coarse allowlist.
 
 ## Standalone Thread Inspector QA
 

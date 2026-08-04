@@ -30,11 +30,6 @@ export type InspectorMetadataProjection = Readonly<{
   licenseState: InspectorLicenseState;
   hasLicenseConflict: boolean;
   threadsFooterAction?: InspectorMetadataAction;
-  /**
-   * Transitional bridge for the existing account-header consumer.
-   * Remove when the Threads footer consumes `threadsFooterAction`.
-   */
-  headerAction?: InspectorMetadataAction;
   lockedAction?: InspectorMetadataAction;
 }>;
 
@@ -65,10 +60,7 @@ function projectAction(
         readonly url: string;
       }
     | undefined,
-): Pick<
-  InspectorMetadataProjection,
-  "threadsFooterAction" | "headerAction" | "lockedAction"
-> {
+): Pick<InspectorMetadataProjection, "threadsFooterAction" | "lockedAction"> {
   if (state === "valid" && action?.kind === "manage_plan") {
     const threadsFooterAction: InspectorMetadataAction = {
       kind: action.kind,
@@ -78,7 +70,6 @@ function projectAction(
 
     return {
       threadsFooterAction,
-      headerAction: threadsFooterAction,
     };
   }
 

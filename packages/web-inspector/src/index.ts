@@ -6863,26 +6863,22 @@ ${argsString}</pre
         background-color: rgba(255, 255, 255, 0.12) !important;
         color: #ffffff !important;
       }
-      .drag-handle > div[data-inspector-account-strip] button:focus-visible,
-      [data-inspector-action-placement="header"]:focus-visible {
+      .drag-handle > div[data-inspector-account-strip] button:focus-visible {
         outline-color: #bec2ff !important;
       }
       .drag-handle > div[data-inspector-account-strip] button:focus,
-      .drag-handle > div[data-inspector-account-strip] button:focus-visible,
-      [data-inspector-action-placement="header"]:focus,
-      [data-inspector-action-placement="header"]:focus-visible {
+      .drag-handle > div[data-inspector-account-strip] button:focus-visible {
         outline: 2px solid #bec2ff !important;
         outline-offset: 2px;
       }
       .inspector-nav-control:focus,
       .inspector-nav-control:focus-visible,
       [data-inspector-thread-cta]:focus,
-      [data-inspector-thread-cta]:focus-visible {
+      [data-inspector-thread-cta]:focus-visible,
+      [data-inspector-action-placement="threads-footer"]:focus,
+      [data-inspector-action-placement="threads-footer"]:focus-visible {
         outline: 2px solid #6430ab !important;
         outline-offset: 2px;
-      }
-      [data-inspector-action-placement="header"] {
-        cursor: pointer;
       }
 
       /* ── Agent/context dropdown ──────────────────────────────────── */
@@ -7297,7 +7293,7 @@ ${argsString}</pre
 
   private renderInspectorAction(
     action: InspectorMetadataAction,
-    placement: "header" | "locked",
+    placement: "threads-footer" | "locked",
   ) {
     return html`
       <a
@@ -7307,8 +7303,8 @@ ${argsString}</pre
         rel="noopener noreferrer"
         aria-label="${action.label} (opens in a new tab)"
         style=${
-          placement === "header"
-            ? "display:inline-flex;min-height:28px;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.28);border-radius:4px;background:rgba(255,255,255,0.08);padding:5px 9px;color:#ffffff;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"
+          placement === "threads-footer"
+            ? ""
             : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"
         }
         @click=${() => this.handleInspectorMetadataActionClick(action)}
@@ -7319,8 +7315,8 @@ ${argsString}</pre
   }
 
   private renderInspectorMetadataHeader() {
-    const { identity, plan, headerAction } = this.inspectorMetadataProjection;
-    if (!identity && !plan && !headerAction) {
+    const { identity, plan } = this.inspectorMetadataProjection;
+    if (!identity && !plan) {
       return nothing;
     }
 
@@ -7357,11 +7353,6 @@ ${argsString}</pre
                   >${plan.label}</span
                 >
               `
-            : nothing
-        }
-        ${
-          headerAction
-            ? this.renderInspectorAction(headerAction, "header")
             : nothing
         }
       </div>
@@ -8925,12 +8916,18 @@ ${argsString}</pre
   private getVisibleInspectorMetadataAction():
     | Readonly<{
         action: InspectorMetadataAction;
-        placement: "header" | "locked";
+        placement: "threads-footer" | "locked";
       }>
     | undefined {
-    const { headerAction, lockedAction } = this.inspectorMetadataProjection;
-    if (headerAction) {
-      return { action: headerAction, placement: "header" };
+    const { threadsFooterAction, lockedAction } =
+      this.inspectorMetadataProjection;
+    if (
+      threadsFooterAction &&
+      !this.settingsOpen &&
+      this.selectedMenu === "threads" &&
+      this.areThreadEndpointsAvailable()
+    ) {
+      return { action: threadsFooterAction, placement: "threads-footer" };
     }
     if (
       lockedAction &&
@@ -10292,6 +10289,79 @@ ${argsString}</pre
     `;
   }
 
+  /** Renders trusted Threads usage and its independent plan action. */
+  private renderThreadsUsageFooter() {
+    const { usage, threadsFooterAction } = this.inspectorMetadataProjection;
+    if (!usage && !threadsFooterAction) {
+      return nothing;
+    }
+
+    let countLabel: string | undefined;
+    let progressMax: number | undefined;
+    let progressValue: number | undefined;
+    if (usage) {
+      if (usage.limit.kind === "finite") {
+        const overLimit = usage.used > usage.limit.value;
+        const visibleUsed = overLimit
+          ? `${usage.limit.value}+`
+          : String(usage.used);
+        countLabel = `${visibleUsed} / ${usage.limit.value} Threads`;
+        progressMax = usage.limit.value;
+        progressValue = Math.min(usage.used, usage.limit.value);
+      } else if (usage.limit.kind === "unlimited") {
+        countLabel = `${usage.used} Threads · Unlimited`;
+      } else {
+        countLabel = `${usage.used} Threads · Limit unavailable`;
+      }
+    }
+
+    return html`
+      <footer
+        class="inspector-threads-footer"
+        data-inspector-threads-footer
+        aria-label="Threads usage"
+      >
+        ${
+          usage && countLabel
+            ? html`
+                <div class="inspector-threads-usage">
+                  <span data-inspector-thread-count>${countLabel}</span>
+                  ${
+                    progressMax !== undefined && progressValue !== undefined
+                      ? html`
+                          <progress
+                            class="inspector-thread-progress"
+                            data-inspector-thread-progress
+                            max=${progressMax}
+                            value=${progressValue}
+                            aria-label=${countLabel}
+                            >${countLabel}</progress
+                          >
+                        `
+                      : nothing
+                  }
+                  ${
+                    usage.expiringSoonCount !== undefined
+                      ? html`
+                          <span data-inspector-thread-expiry
+                            >${usage.expiringSoonCount} Expiring Soon</span
+                          >
+                        `
+                      : nothing
+                  }
+                </div>
+              `
+            : nothing
+        }
+        ${
+          threadsFooterAction
+            ? this.renderInspectorAction(threadsFooterAction, "threads-footer")
+            : nothing
+        }
+      </footer>
+    `;
+  }
+
   private renderThreadsView() {
     if (!this.areThreadEndpointsAvailable()) {
       return this.renderThreadsLockedView();
@@ -10335,7 +10405,7 @@ ${argsString}</pre
             style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
           >
             <cpk-thread-list
-              style="height:100%;"
+              style="min-height:0;flex:1;"
               .threads=${visibleThreads}
               .selectedThreadId=${this.selectedThreadId}
               .errorMessage=${threadsErrorMessage}
@@ -10343,6 +10413,7 @@ ${argsString}</pre
                 this.handleThreadsThreadSelected(e.detail, showingExamples);
               }}
             ></cpk-thread-list>
+            ${this.renderThreadsUsageFooter()}
           </div>
 
           <!-- Resize divider -->

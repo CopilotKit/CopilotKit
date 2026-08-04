@@ -52,13 +52,7 @@ test("projects normalized metadata, usage, and one trusted manage action", () =>
       url: "https://cloud.copilotkit.ai/settings/billing",
       label: "Manage Your Plan",
     },
-    headerAction: {
-      kind: "manage_plan",
-      url: "https://cloud.copilotkit.ai/settings/billing",
-      label: "Manage Your Plan",
-    },
   });
-  expect(result.headerAction).toBe(result.threadsFooterAction);
   expect(result.lockedAction).toBeUndefined();
 });
 
@@ -154,7 +148,6 @@ test("projects an action-only valid manage action into one canonical footer slot
     url,
     label: "Manage Your Plan",
   });
-  expect(result.headerAction).toBe(result.threadsFooterAction);
   expect(result.usage).toBeUndefined();
   expect(result.lockedAction).toBeUndefined();
 });
@@ -236,7 +229,6 @@ test("uses Runtime copy and suppresses metadata actions for a known disagreement
     hasLicenseConflict: true,
   });
   expect(result.threadsFooterAction).toBeUndefined();
-  expect(result.headerAction).toBeUndefined();
   expect(result.lockedAction).toBeUndefined();
 });
 
@@ -286,7 +278,6 @@ test.each([
     hasLicenseConflict: false,
   });
   expect(result.threadsFooterAction).toBeUndefined();
-  expect(result.headerAction).toBeUndefined();
   expect(result.lockedAction).toBeUndefined();
 });
 
@@ -298,8 +289,6 @@ test("preserves the parser-approved action href without adding query data", () =
   );
 
   expect(result.threadsFooterAction?.url).toBe(url);
-  expect(result.headerAction?.url).toBe(url);
-  expect(result.headerAction).toBe(result.threadsFooterAction);
 });
 
 test.each([
@@ -315,7 +304,6 @@ test.each([
   );
 
   expect(result.threadsFooterAction).toBeUndefined();
-  expect(result.headerAction).toBeUndefined();
   expect(result.lockedAction).toBeUndefined();
 });
 

@@ -278,6 +278,107 @@ test("a metadata module re-emits after an open-panel absent transition", async (
   }
 });
 
+test("Threads footer action emits one impression per visible transition and one coarse click", async () => {
+  const context = await setup({
+    metadataResponses: [fullMetadata()],
+    threadsAvailable: true,
+  });
+  try {
+    await context.open();
+
+    const root = context.inspector.shadowRoot!;
+    const actions = root.querySelectorAll<HTMLAnchorElement>(
+      "[data-inspector-action-placement]",
+    );
+    const action = root.querySelector<HTMLAnchorElement>(
+      '[data-inspector-action-placement="threads-footer"]',
+    );
+    expect(actions).toHaveLength(1);
+    expect(action?.textContent?.trim()).toBe("Manage Your Plan");
+    expect(
+      metadataBodies(context).filter(
+        ({ properties }) => properties.module === "action",
+      ),
+    ).toHaveLength(1);
+
+    action?.dispatchEvent(new Event("click"));
+    await Promise.resolve();
+
+    const clicks = context.telemetryBodies.filter(
+      ({ event }) => event === TELEMETRY_EVENTS.metadataActionClicked,
+    );
+    expect(clicks).toHaveLength(1);
+    expect({
+      module: clicks[0]?.properties.module,
+      action_kind: clicks[0]?.properties.action_kind,
+      license_bucket: clicks[0]?.properties.license_bucket,
+    }).toStrictEqual({
+      module: "action",
+      action_kind: "manage_plan",
+      license_bucket: "valid",
+    });
+    expect(clicks[0]?.properties).not.toHaveProperty("placement");
+    expect(JSON.stringify(clicks[0]?.properties)).not.toMatch(
+      /cloud\.copilotkit\.ai|148|200/,
+    );
+
+    await context.selectTab("Agents");
+    expect(
+      root.querySelector('[data-inspector-action-placement="threads-footer"]'),
+    ).toBeNull();
+    expect(
+      metadataBodies(context).filter(
+        ({ properties }) => properties.module === "action",
+      ),
+    ).toHaveLength(1);
+
+    await context.selectTab("Threads");
+    expect(
+      root.querySelectorAll(
+        '[data-inspector-action-placement="threads-footer"]',
+      ),
+    ).toHaveLength(1);
+    expect(
+      metadataBodies(context).filter(
+        ({ properties }) => properties.module === "action",
+      ),
+    ).toHaveLength(2);
+    expect(
+      context.telemetryBodies.filter(
+        ({ event }) => event === TELEMETRY_EVENTS.metadataActionClicked,
+      ),
+    ).toHaveLength(1);
+  } finally {
+    context.teardown();
+  }
+});
+
+test("a valid manage action emits no footer impression when Threads endpoints are locked", async () => {
+  const context = await setup({
+    metadataResponses: [fullMetadata()],
+    threadsAvailable: false,
+  });
+  try {
+    await context.open();
+
+    const root = context.inspector.shadowRoot!;
+    expect(root.querySelector("[data-inspector-threads-footer]")).toBeNull();
+    expect(root.querySelector("[data-inspector-action-placement]")).toBeNull();
+    expect(
+      metadataBodies(context).filter(
+        ({ properties }) => properties.module === "action",
+      ),
+    ).toEqual([]);
+    expect(
+      context.telemetryBodies.filter(
+        ({ event }) => event === TELEMETRY_EVENTS.metadataActionClicked,
+      ),
+    ).toEqual([]);
+  } finally {
+    context.teardown();
+  }
+});
+
 test.each([
   {
     name: "manage plan",
@@ -309,7 +410,7 @@ test.each([
       const action =
         context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
           `[data-inspector-action-placement="${
-            case_.threadsAvailable ? "header" : "locked"
+            case_.threadsAvailable ? "threads-footer" : "locked"
           }"]`,
         );
       if (!action) throw new Error(`${case_.label} action was not rendered`);
@@ -415,7 +516,7 @@ test("runtime telemetry opt-out suppresses metadata impressions and action click
     await context.open();
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-        '[data-inspector-action-placement="header"]',
+        '[data-inspector-action-placement="threads-footer"]',
       );
     action?.dispatchEvent(new Event("click"));
     await Promise.resolve();
@@ -443,7 +544,7 @@ test("a stale rendered action does not emit after the Inspector disconnects", as
 
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-        '[data-inspector-action-placement="header"]',
+        '[data-inspector-action-placement="threads-footer"]',
       );
     if (!action) throw new Error("Stale metadata action was not rendered");
     action.dispatchEvent(new Event("click"));
@@ -492,7 +593,7 @@ test("telemetry delivery failures do not break metadata rendering or action clic
     await context.open();
     const root = context.inspector.shadowRoot;
     const action = root?.querySelector<HTMLAnchorElement>(
-      '[data-inspector-action-placement="header"]',
+      '[data-inspector-action-placement="threads-footer"]',
     );
     action?.dispatchEvent(new Event("click"));
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
@@ -507,12 +608,23 @@ test("telemetry delivery failures do not break metadata rendering or action clic
 });
 
 test("metadata events never include local identity, URLs, usage, limits, counts, or thread data", async () => {
-  const context = await setup({ metadataResponses: [fullMetadata()] });
+  const context = await setup({
+    metadataResponses: [
+      {
+        ...fullMetadata(),
+        usage: {
+          used: 241,
+          limit: { kind: "finite", value: 200 },
+          expiringSoonCount: 37,
+        },
+      },
+    ],
+  });
   try {
     await context.open();
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-        '[data-inspector-action-placement="header"]',
+        '[data-inspector-action-placement="threads-footer"]',
       );
     action?.dispatchEvent(new Event("click"));
     await Promise.resolve();
@@ -543,7 +655,7 @@ test("metadata events never include local identity, URLs, usage, limits, counts,
       license_bucket: properties.license_bucket,
     }));
     expect(JSON.stringify(featureProperties)).not.toMatch(
-      /Acme|Support|enterprise|cloud\.copilotkit\.ai|usage|148|200|37|thread[_-]?id|content/i,
+      /Acme|Support|enterprise|cloud\.copilotkit\.ai|usage|241|200|37|thread[_-]?id|content/i,
     );
   } finally {
     context.teardown();

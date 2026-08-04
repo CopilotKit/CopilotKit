@@ -196,7 +196,7 @@ async function setup(options: SetupOptions = {}): Promise<InspectorContext> {
   };
 }
 
-test("renders the trusted manage link through the transitional header bridge", async () => {
+test("renders the trusted manage link in the Threads usage footer", async () => {
   const context = await setup({
     metadata: fullMetadata(),
     runtimeLicense: "valid",
@@ -209,7 +209,7 @@ test("renders the trusted manage link through the transitional header bridge", a
     const identity = root.querySelector('[data-inspector-metadata="identity"]');
     const plan = root.querySelector('[data-inspector-metadata="plan"]');
     const action = root.querySelector<HTMLAnchorElement>(
-      '[data-inspector-action-placement="header"]',
+      '[data-inspector-action-placement="threads-footer"]',
     );
     expect(identity?.textContent?.replace(/\s+/g, " ").trim()).toBe(
       "Acme Inc. / Support",
@@ -229,7 +229,7 @@ test("renders the trusted manage link through the transitional header bridge", a
   }
 });
 
-test("keeps the transitional header bridge clickable inside the drag handle", async () => {
+test("keeps the Threads footer action clickable outside the drag handle", async () => {
   const context = await setup({
     metadata: fullMetadata(),
     runtimeLicense: "valid",
@@ -240,10 +240,10 @@ test("keeps the transitional header bridge clickable inside the drag handle", as
 
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-        '[data-inspector-action-placement="header"]',
+        '[data-inspector-action-placement="threads-footer"]',
       );
     if (!action) {
-      throw new Error("Header metadata action was not rendered");
+      throw new Error("Threads footer metadata action was not rendered");
     }
     const pointerDown = new Event("pointerdown", {
       bubbles: true,
@@ -252,6 +252,7 @@ test("keeps the transitional header bridge clickable inside the drag handle", as
 
     expect(action.dispatchEvent(pointerDown)).toBe(true);
     expect(pointerDown.defaultPrevented).toBe(false);
+    expect(action.closest('[data-drag-context="window"]')).toBeNull();
   } finally {
     context.teardown();
   }
