@@ -1,6 +1,8 @@
 "use client";
 
 import { FileText, ArrowUpRight } from "lucide-react";
+import { ChatSurface } from "@/skins/keel/components/chat-surface";
+import { dedupeCitations } from "@/skins/keel/knowledge/dedupe-citations";
 import type { Citation } from "@/skins/keel/knowledge/types";
 
 /**
@@ -15,7 +17,12 @@ export function SourcesCard({
   citations: Citation[];
   onOpen: (c: Citation) => void;
 }) {
-  if (citations.length === 0) {
+  // The agent supplies (docId, sectionId) pairs and may repeat one; a duplicate
+  // passage adds no information and would collide the `docId#sectionId` key
+  // below, so collapse to one row per distinct passage before rendering.
+  const rows = dedupeCitations(citations);
+
+  if (rows.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-hairline bg-surface p-3 text-xs text-ink-muted">
         The policy library has nothing covering that.
@@ -24,19 +31,16 @@ export function SourcesCard({
   }
 
   return (
-    // `pointer-events-auto`: CopilotKit paints `useComponent` (display-only)
-    // renders with `pointer-events: none` on the assistant message (banking
-    // documents this at src/skins/banking/tools.tsx ~line 652). This card is
-    // interactive (clickable citation rows), so opt its subtree back into
-    // pointer events or the rows are unclickable in chat. Same reason on
-    // RunPlanPreview, ApprovalCard, and ApprovalsQueue below.
-    <div className="pointer-events-auto rounded-lg border border-hairline bg-surface p-3 shadow-soft">
+    // Rooted in `ChatSurface` (which carries `pointer-events-auto`) so the
+    // clickable citation rows survive the `pointer-events: none` CopilotKit
+    // paints on `useComponent` renders. See ChatSurface for the full rationale.
+    <ChatSurface className="rounded-lg border border-hairline bg-surface p-3 shadow-soft">
       <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
         <FileText className="h-3.5 w-3.5" />
         Sources
       </div>
       <ul className="flex flex-col gap-1.5">
-        {citations.map((c) => (
+        {rows.map((c) => (
           <li key={`${c.docId}#${c.sectionId}`}>
             <button
               type="button"
@@ -59,6 +63,6 @@ export function SourcesCard({
           </li>
         ))}
       </ul>
-    </div>
+    </ChatSurface>
   );
 }

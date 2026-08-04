@@ -41,7 +41,9 @@ export function DocReader({
       <article className="flex flex-col gap-2">
         <header className="border-b border-hairline pb-4">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
-            <span className="font-mono font-semibold text-brand">{doc.ref}</span>
+            <span className="font-mono font-semibold text-brand">
+              {doc.ref}
+            </span>
             <span aria-hidden="true">·</span>
             <span>{doc.owner}</span>
             <span aria-hidden="true">·</span>
@@ -55,10 +57,14 @@ export function DocReader({
             key={section.id}
             id={section.id}
             className={`scroll-mt-6 rounded-lg p-4 transition-colors duration-700 ${
-              highlightSectionId === section.id ? "bg-brand-soft" : "bg-transparent"
+              highlightSectionId === section.id
+                ? "bg-brand-soft"
+                : "bg-transparent"
             }`}
           >
-            <h2 className="text-lg font-semibold text-ink">{section.heading}</h2>
+            <h2 className="text-lg font-semibold text-ink">
+              {section.heading}
+            </h2>
             <p className="mt-2 text-sm leading-relaxed text-ink-muted">
               {section.body}
             </p>
