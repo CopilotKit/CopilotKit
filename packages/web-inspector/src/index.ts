@@ -202,11 +202,24 @@ const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
+const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
+  "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.";
 const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
   "cpk:inspector:threads-example-tour:v1";
 const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
 
 type ThreadServiceStatus = "available" | "unavailable" | "unknown" | "error";
+type ThreadsExampleOverviewVideoState =
+  | "deferred"
+  | "ready"
+  | "playing"
+  | "failed";
+type ThreadsExampleOverviewVideoListeners = Readonly<{
+  loadeddata: EventListener;
+  play: EventListener;
+  pause: EventListener;
+  error: EventListener;
+}>;
 
 type ThreadStoreStatus = Readonly<{
   error: Error | null;
@@ -4752,10 +4765,19 @@ export class WebInspectorElement extends LitElement {
   private exampleTourActive = false;
   private exampleTourStep = 0;
   private exampleTourAutoShown = false;
-  private threadsExampleOverviewVideoShouldLoad = false;
-  private threadsExampleOverviewVideoReady = false;
+  private threadsExampleOverviewVideoState: ThreadsExampleOverviewVideoState =
+    "deferred";
+  private threadsExampleOverviewVideoLoaded = false;
+  private threadsExampleOverviewVideoReducedMotion = false;
   private threadsExampleOverviewVideoLoadTimer: number | null = null;
   private threadsExampleOverviewVideoIdleCallbackId: number | null = null;
+  private threadsExampleOverviewVideoElement: HTMLVideoElement | null = null;
+  private threadsExampleOverviewVideoListeners: ThreadsExampleOverviewVideoListeners | null =
+    null;
+  private threadsExampleOverviewVideoLifecycleGeneration = 0;
+  private threadsExampleOverviewVideoPlayAttemptGeneration = 0;
+  private threadsExampleOverviewVideoPlayPromise: Promise<void> | null = null;
+  private threadsExampleOverviewVideoPlayOnNextBind = false;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -6916,11 +6938,6 @@ ${argsString}</pre
         width: 100%;
         height: 100%;
         object-fit: cover;
-        opacity: 0;
-        transition: opacity 220ms ease;
-      }
-      .cpk-threads-overview-video[data-ready="true"] {
-        opacity: 1;
       }
 
       /* ── Header controls on the dark account strip ──────────────── */
@@ -7138,6 +7155,9 @@ ${argsString}</pre
   connectedCallback(): void {
     super.connectedCallback();
     if (typeof window !== "undefined") {
+      this.threadsExampleOverviewVideoReducedMotion =
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
+        false;
       this.ensureBrandFonts();
       window.addEventListener("resize", this.handleResize);
       window.addEventListener(
@@ -7151,6 +7171,7 @@ ${argsString}</pre
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
     }
+    this.requestUpdate();
   }
 
   private ensureBrandFonts(): void {
@@ -7182,17 +7203,7 @@ ${argsString}</pre
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
     }
-    if (this.threadsExampleOverviewVideoLoadTimer !== null) {
-      window.clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
-      this.threadsExampleOverviewVideoLoadTimer = null;
-    }
-    if (
-      this.threadsExampleOverviewVideoIdleCallbackId !== null &&
-      typeof window.cancelIdleCallback === "function"
-    ) {
-      window.cancelIdleCallback(this.threadsExampleOverviewVideoIdleCallbackId);
-      this.threadsExampleOverviewVideoIdleCallbackId = null;
-    }
+    this.cleanupThreadsExampleOverviewVideo();
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
   }
@@ -7258,6 +7269,7 @@ ${argsString}</pre
   }
 
   protected updated(): void {
+    this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
 
     if (!this.isOpen || this.selectedGroup !== "agents") {
@@ -9438,9 +9450,161 @@ ${argsString}</pre
     }
   }
 
-  private scheduleThreadsExampleOverviewVideoLoad(): void {
+  /** Cancels the one deferred gate without disturbing a newer lifecycle. */
+  private cancelThreadsExampleOverviewVideoGate(): void {
+    if (this.threadsExampleOverviewVideoLoadTimer !== null) {
+      if (typeof window !== "undefined") {
+        window.clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
+      }
+      this.threadsExampleOverviewVideoLoadTimer = null;
+    }
+    if (this.threadsExampleOverviewVideoIdleCallbackId !== null) {
+      if (
+        typeof window !== "undefined" &&
+        typeof window.cancelIdleCallback === "function"
+      ) {
+        window.cancelIdleCallback(
+          this.threadsExampleOverviewVideoIdleCallbackId,
+        );
+      }
+      this.threadsExampleOverviewVideoIdleCallbackId = null;
+    }
+  }
+
+  /** Returns whether media work still belongs to the mounted lifecycle. */
+  private isCurrentThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+  ): boolean {
+    return (
+      this.isConnected &&
+      video.isConnected &&
+      this.threadsExampleOverviewVideoElement === video &&
+      this.threadsExampleOverviewVideoLifecycleGeneration ===
+        lifecycleGeneration
+    );
+  }
+
+  /** Invalidates any unresolved play request without exposing another state. */
+  private invalidateThreadsExampleOverviewVideoPlay(): void {
+    this.threadsExampleOverviewVideoPlayAttemptGeneration += 1;
+    this.threadsExampleOverviewVideoPlayPromise = null;
+  }
+
+  /** Moves a current media lifecycle into its readable failure state. */
+  private failThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+  ): void {
     if (
-      this.threadsExampleOverviewVideoShouldLoad ||
+      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
+    ) {
+      return;
+    }
+    this.invalidateThreadsExampleOverviewVideoPlay();
+    this.threadsExampleOverviewVideoLoaded = false;
+    this.threadsExampleOverviewVideoState = "failed";
+    this.requestUpdate();
+  }
+
+  /** Settles one guarded play promise and ignores stale completion. */
+  private async settleThreadsExampleOverviewVideoPlay(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+    playAttemptGeneration: number,
+    playback: Promise<void>,
+  ): Promise<void> {
+    try {
+      await playback;
+      if (
+        this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration) &&
+        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
+          playAttemptGeneration &&
+        this.threadsExampleOverviewVideoState !== "failed"
+      ) {
+        this.threadsExampleOverviewVideoState = "playing";
+        this.requestUpdate();
+      }
+    } catch {
+      if (
+        this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration) &&
+        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
+          playAttemptGeneration
+      ) {
+        this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
+      }
+    } finally {
+      if (
+        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
+        playAttemptGeneration
+      ) {
+        this.threadsExampleOverviewVideoPlayPromise = null;
+      }
+    }
+  }
+
+  /** Starts at most one play request for the current media lifecycle. */
+  private playThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+  ): void {
+    if (
+      this.threadsExampleOverviewVideoPlayPromise !== null ||
+      this.threadsExampleOverviewVideoState === "deferred" ||
+      this.threadsExampleOverviewVideoState === "failed" ||
+      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
+    ) {
+      return;
+    }
+
+    const playAttemptGeneration =
+      this.threadsExampleOverviewVideoPlayAttemptGeneration + 1;
+    this.threadsExampleOverviewVideoPlayAttemptGeneration =
+      playAttemptGeneration;
+    try {
+      const playback = Promise.resolve(video.play());
+      this.threadsExampleOverviewVideoPlayPromise =
+        this.settleThreadsExampleOverviewVideoPlay(
+          video,
+          lifecycleGeneration,
+          playAttemptGeneration,
+          playback,
+        );
+    } catch {
+      this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
+    }
+  }
+
+  /** Attaches the sole source for a generation and optionally starts playback. */
+  private activateThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+    play: boolean,
+  ): void {
+    if (
+      this.threadsExampleOverviewVideoState !== "deferred" ||
+      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
+    ) {
+      return;
+    }
+
+    this.threadsExampleOverviewVideoState = "ready";
+    this.threadsExampleOverviewVideoLoaded = false;
+    video.autoplay = !this.threadsExampleOverviewVideoReducedMotion;
+    video.setAttribute("src", THREADS_EXAMPLE_OVERVIEW_VIDEO_URL);
+    this.requestUpdate();
+    if (play) {
+      this.playThreadsExampleOverviewVideo(video, lifecycleGeneration);
+    }
+  }
+
+  /** Schedules exactly one idle or timer gate for the current video. */
+  private scheduleThreadsExampleOverviewVideoLoad(): void {
+    const video = this.threadsExampleOverviewVideoElement;
+    if (
+      !video ||
+      !this.isConnected ||
+      this.threadsExampleOverviewVideoState !== "deferred" ||
       this.threadsExampleOverviewVideoLoadTimer !== null ||
       this.threadsExampleOverviewVideoIdleCallbackId !== null ||
       typeof window === "undefined"
@@ -9448,57 +9612,264 @@ ${argsString}</pre
       return;
     }
 
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      return;
-    }
-
-    const loadVideo = () => {
-      this.threadsExampleOverviewVideoLoadTimer = null;
-      this.threadsExampleOverviewVideoIdleCallbackId = null;
-      this.threadsExampleOverviewVideoShouldLoad = true;
-      this.requestUpdate();
-    };
-
+    const lifecycleGeneration =
+      this.threadsExampleOverviewVideoLifecycleGeneration;
     if (typeof window.requestIdleCallback === "function") {
-      this.threadsExampleOverviewVideoIdleCallbackId =
-        window.requestIdleCallback(loadVideo, { timeout: 1200 });
+      let idleCallbackId = 0;
+      const loadVideo = () => {
+        if (this.threadsExampleOverviewVideoIdleCallbackId !== idleCallbackId) {
+          return;
+        }
+        this.threadsExampleOverviewVideoIdleCallbackId = null;
+        this.activateThreadsExampleOverviewVideo(
+          video,
+          lifecycleGeneration,
+          !this.threadsExampleOverviewVideoReducedMotion,
+        );
+      };
+      idleCallbackId = window.requestIdleCallback(loadVideo, { timeout: 1200 });
+      this.threadsExampleOverviewVideoIdleCallbackId = idleCallbackId;
       return;
     }
 
-    this.threadsExampleOverviewVideoLoadTimer = window.setTimeout(
-      loadVideo,
-      450,
-    );
+    const loadTimer = window.setTimeout(() => {
+      if (this.threadsExampleOverviewVideoLoadTimer !== loadTimer) {
+        return;
+      }
+      this.threadsExampleOverviewVideoLoadTimer = null;
+      this.activateThreadsExampleOverviewVideo(
+        video,
+        lifecycleGeneration,
+        !this.threadsExampleOverviewVideoReducedMotion,
+      );
+    }, 450);
+    this.threadsExampleOverviewVideoLoadTimer = loadTimer;
   }
 
-  private handleThreadsExampleOverviewVideoLoaded = (): void => {
-    this.threadsExampleOverviewVideoReady = true;
-    this.requestUpdate();
+  /** Attaches one generation-scoped media listener set to the stable video. */
+  private bindThreadsExampleOverviewVideo(video: HTMLVideoElement): void {
+    const lifecycleGeneration =
+      this.threadsExampleOverviewVideoLifecycleGeneration;
+    const listeners: ThreadsExampleOverviewVideoListeners = {
+      loadeddata: () => {
+        if (
+          !this.isCurrentThreadsExampleOverviewVideo(
+            video,
+            lifecycleGeneration,
+          ) ||
+          this.threadsExampleOverviewVideoState === "deferred" ||
+          this.threadsExampleOverviewVideoState === "failed"
+        ) {
+          return;
+        }
+        this.threadsExampleOverviewVideoLoaded = true;
+        this.requestUpdate();
+      },
+      play: () => {
+        if (
+          this.isCurrentThreadsExampleOverviewVideo(
+            video,
+            lifecycleGeneration,
+          ) &&
+          this.threadsExampleOverviewVideoState !== "deferred" &&
+          this.threadsExampleOverviewVideoState !== "failed"
+        ) {
+          this.threadsExampleOverviewVideoState = "playing";
+          this.requestUpdate();
+        }
+      },
+      pause: () => {
+        if (
+          this.isCurrentThreadsExampleOverviewVideo(
+            video,
+            lifecycleGeneration,
+          ) &&
+          this.threadsExampleOverviewVideoState !== "deferred" &&
+          this.threadsExampleOverviewVideoState !== "failed"
+        ) {
+          this.invalidateThreadsExampleOverviewVideoPlay();
+          this.threadsExampleOverviewVideoState = "ready";
+          this.requestUpdate();
+        }
+      },
+      error: () => {
+        this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
+      },
+    };
+    this.threadsExampleOverviewVideoElement = video;
+    this.threadsExampleOverviewVideoListeners = listeners;
+    video.addEventListener("loadeddata", listeners.loadeddata);
+    video.addEventListener("play", listeners.play);
+    video.addEventListener("pause", listeners.pause);
+    video.addEventListener("error", listeners.error);
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.autoplay =
+      this.threadsExampleOverviewVideoState !== "deferred" &&
+      !this.threadsExampleOverviewVideoReducedMotion;
+  }
+
+  /** Tears down gates, listeners, playback, and source in cleanup order. */
+  private cleanupThreadsExampleOverviewVideo(): void {
+    const video = this.threadsExampleOverviewVideoElement;
+    if (video) {
+      this.threadsExampleOverviewVideoLifecycleGeneration += 1;
+    }
+    this.invalidateThreadsExampleOverviewVideoPlay();
+    this.cancelThreadsExampleOverviewVideoGate();
+    this.threadsExampleOverviewVideoPlayOnNextBind = false;
+
+    const listeners = this.threadsExampleOverviewVideoListeners;
+    if (video && listeners) {
+      video.removeEventListener("loadeddata", listeners.loadeddata);
+      video.removeEventListener("play", listeners.play);
+      video.removeEventListener("pause", listeners.pause);
+      video.removeEventListener("error", listeners.error);
+    }
+    this.threadsExampleOverviewVideoElement = null;
+    this.threadsExampleOverviewVideoListeners = null;
+
+    if (video) {
+      try {
+        video.pause();
+      } catch {
+        // Some DOM shims expose media methods that throw instead of no-oping.
+      }
+      video.removeAttribute("src");
+      try {
+        video.load();
+      } catch {
+        // Cleanup must stay synchronous and never surface media abort errors.
+      }
+    }
+    this.threadsExampleOverviewVideoLoaded = false;
+    this.threadsExampleOverviewVideoState = "deferred";
+  }
+
+  /** Reconciles the rendered media node with its current lifecycle. */
+  private syncThreadsExampleOverviewVideo(): void {
+    const video = this.shadowRoot?.querySelector<HTMLVideoElement>(
+      ".cpk-threads-overview-video",
+    );
+    if (!video) {
+      if (
+        this.threadsExampleOverviewVideoElement ||
+        this.threadsExampleOverviewVideoState !== "deferred" ||
+        this.threadsExampleOverviewVideoLoadTimer !== null ||
+        this.threadsExampleOverviewVideoIdleCallbackId !== null ||
+        this.threadsExampleOverviewVideoPlayOnNextBind
+      ) {
+        this.cleanupThreadsExampleOverviewVideo();
+      }
+      return;
+    }
+
+    if (this.threadsExampleOverviewVideoElement !== video) {
+      if (this.threadsExampleOverviewVideoElement) {
+        this.cleanupThreadsExampleOverviewVideo();
+      }
+      this.bindThreadsExampleOverviewVideo(video);
+    }
+    if (this.threadsExampleOverviewVideoPlayOnNextBind) {
+      this.threadsExampleOverviewVideoPlayOnNextBind = false;
+      this.activateThreadsExampleOverviewVideo(
+        video,
+        this.threadsExampleOverviewVideoLifecycleGeneration,
+        true,
+      );
+      return;
+    }
+    this.scheduleThreadsExampleOverviewVideoLoad();
+  }
+
+  /** Handles the external native Play/Pause control. */
+  private handleThreadsExampleOverviewVideoControl = (): void => {
+    const video = this.threadsExampleOverviewVideoElement;
+    if (!video) return;
+
+    if (this.threadsExampleOverviewVideoState === "playing") {
+      this.invalidateThreadsExampleOverviewVideoPlay();
+      try {
+        video.pause();
+      } catch {
+        // Keep the visible state usable when a media shim cannot pause.
+      }
+      this.threadsExampleOverviewVideoState = "ready";
+      this.requestUpdate();
+      return;
+    }
+
+    if (this.threadsExampleOverviewVideoState === "failed") {
+      this.cleanupThreadsExampleOverviewVideo();
+      if (!this.isConnected || !video.isConnected) return;
+      this.threadsExampleOverviewVideoPlayOnNextBind = true;
+      this.requestUpdate();
+      return;
+    }
+
+    this.cancelThreadsExampleOverviewVideoGate();
+    const lifecycleGeneration =
+      this.threadsExampleOverviewVideoLifecycleGeneration;
+    if (this.threadsExampleOverviewVideoState === "deferred") {
+      this.activateThreadsExampleOverviewVideo(
+        video,
+        lifecycleGeneration,
+        true,
+      );
+      return;
+    }
+    this.playThreadsExampleOverviewVideo(video, lifecycleGeneration);
   };
 
   private renderThreadsExampleOverviewVideo() {
-    this.scheduleThreadsExampleOverviewVideoLoad();
-
+    const isPlaying = this.threadsExampleOverviewVideoState === "playing";
+    const sourceIsAttached =
+      this.threadsExampleOverviewVideoState !== "deferred";
+    const video = html`<video
+      class="cpk-threads-overview-video"
+      data-loaded=${this.threadsExampleOverviewVideoLoaded}
+      ?autoplay=${
+        sourceIsAttached && !this.threadsExampleOverviewVideoReducedMotion
+      }
+      .autoplay=${
+        sourceIsAttached && !this.threadsExampleOverviewVideoReducedMotion
+      }
+      loop
+      .loop=${true}
+      muted
+      .muted=${true}
+      playsinline
+      .playsInline=${true}
+      preload="metadata"
+    ></video>`;
+    // Alternating template identities retire the prior media node after cleanup.
+    // The node remains stable for every render within one lifecycle generation.
+    const generationScopedVideo =
+      this.threadsExampleOverviewVideoLifecycleGeneration % 2 === 0
+        ? html`<!-- cpk-video-generation-even -->${video}`
+        : html`<!-- cpk-video-generation-odd -->${video}`;
     return html`
       <div class="cpk-threads-overview-video-frame" aria-hidden="true">
-        ${
-          this.threadsExampleOverviewVideoShouldLoad
-            ? html`
-                <video
-                  class="cpk-threads-overview-video"
-                  data-ready=${this.threadsExampleOverviewVideoReady}
-                  src=${THREADS_EXAMPLE_OVERVIEW_VIDEO_URL}
-                  autoplay
-                  loop
-                  muted
-                  playsinline
-                  preload="metadata"
-                  @loadeddata=${this.handleThreadsExampleOverviewVideoLoaded}
-                ></video>
-              `
-            : nothing
-        }
+        ${generationScopedVideo}
       </div>
+      <button
+        class="cpk-threads-overview-video-control"
+        type="button"
+        aria-pressed=${isPlaying ? "false" : "true"}
+        @click=${this.handleThreadsExampleOverviewVideoControl}
+      >
+        ${isPlaying ? "Pause demo" : "Play demo"}
+      </button>
+      ${
+        this.threadsExampleOverviewVideoState === "failed"
+          ? html`
+              <p class="cpk-threads-overview-video-fallback" role="status">
+                ${THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK}
+              </p>
+            `
+          : nothing
+      }
     `;
   }
 

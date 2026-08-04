@@ -209,6 +209,60 @@
   color: #010507;
 }
 
+.cpk-threads-overview-video {
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.cpk-threads-overview-video[data-loaded="true"] {
+  opacity: 1;
+}
+
+.cpk-threads-overview-video-control {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 14px;
+  border: 1px solid #dbdbe5;
+  border-radius: 4px;
+  background-color: #ffffff;
+  padding: 6px 10px;
+  color: #3f176f;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  cursor: pointer;
+}
+
+.cpk-threads-overview-video-control:hover {
+  border-color: #afafb7;
+  background-color: #f7f7f9;
+  color: #010507;
+}
+
+.cpk-threads-overview-video-control:focus-visible {
+  outline: 2px solid #6430ab;
+  outline-offset: 2px;
+}
+
+.cpk-threads-overview-video-fallback {
+  max-width: 440px;
+  margin: -4px 0 14px;
+  color: #57575b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cpk-threads-overview-video {
+    transition: none;
+  }
+}
+
 @layer utilities {
   .sr-only {
     position: absolute;
