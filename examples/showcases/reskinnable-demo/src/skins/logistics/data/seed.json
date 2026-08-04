@@ -1,0 +1,269 @@
+{
+  "lanes": [
+    {
+      "id": "ln-sha-lax-ocean",
+      "origin": "Shanghai (SHA)",
+      "destination": "Los Angeles (LAX)",
+      "mode": "ocean",
+      "transitDays": 24,
+      "reliability": 0.71,
+      "costPerKg": 0.45,
+      "status": "degraded",
+      "note": "Berth congestion at LAX; 4-6 day dwell."
+    },
+    {
+      "id": "ln-sha-lax-air",
+      "origin": "Shanghai (SHA)",
+      "destination": "Los Angeles (LAX)",
+      "mode": "air",
+      "transitDays": 2,
+      "reliability": 0.94,
+      "costPerKg": 6.0,
+      "status": "healthy"
+    },
+    {
+      "id": "ln-sha-sea-ocean",
+      "origin": "Shanghai (SHA)",
+      "destination": "Seattle (SEA)",
+      "mode": "ocean",
+      "transitDays": 19,
+      "reliability": 0.88,
+      "costPerKg": 0.52,
+      "status": "healthy",
+      "note": "Direct Pacific Northwest service; berths are clear."
+    },
+    {
+      "id": "ln-rtm-nyc-ocean",
+      "origin": "Rotterdam (RTM)",
+      "destination": "New York (NYC)",
+      "mode": "ocean",
+      "transitDays": 14,
+      "reliability": 0.91,
+      "costPerKg": 0.61,
+      "status": "healthy"
+    },
+    {
+      "id": "ln-rtm-nyc-air",
+      "origin": "Rotterdam (RTM)",
+      "destination": "New York (NYC)",
+      "mode": "air",
+      "transitDays": 1,
+      "reliability": 0.96,
+      "costPerKg": 5.2,
+      "status": "healthy"
+    },
+    {
+      "id": "ln-mty-dfw-truck",
+      "origin": "Monterrey (MTY)",
+      "destination": "Dallas (DFW)",
+      "mode": "truck",
+      "transitDays": 3,
+      "reliability": 0.83,
+      "costPerKg": 0.9,
+      "status": "degraded",
+      "note": "Customs staffing shortage at Laredo."
+    },
+    {
+      "id": "ln-sha-lax-ocean-exp",
+      "origin": "Shanghai (SHA)",
+      "destination": "Los Angeles (LAX)",
+      "mode": "ocean",
+      "transitDays": 18,
+      "reliability": 0.89,
+      "costPerKg": 0.68,
+      "status": "healthy",
+      "note": "Premium service with a priority berthing window at LAX."
+    },
+    {
+      "id": "ln-sha-lax-searail",
+      "origin": "Shanghai (SHA)",
+      "destination": "Los Angeles (LAX)",
+      "mode": "rail",
+      "transitDays": 20,
+      "reliability": 0.84,
+      "costPerKg": 0.62,
+      "status": "healthy",
+      "note": "Transload at Seattle, rail south to LAX — bypasses the LA berth queue."
+    },
+    {
+      "id": "ln-rtm-nyc-ocean-alt",
+      "origin": "Rotterdam (RTM)",
+      "destination": "New York (NYC)",
+      "mode": "ocean",
+      "transitDays": 12,
+      "reliability": 0.87,
+      "costPerKg": 0.72,
+      "status": "healthy",
+      "note": "Second carrier on a faster string at a higher rate."
+    },
+    {
+      "id": "ln-mty-dfw-rail",
+      "origin": "Monterrey (MTY)",
+      "destination": "Dallas (DFW)",
+      "mode": "rail",
+      "transitDays": 4,
+      "reliability": 0.92,
+      "costPerKg": 0.55,
+      "status": "healthy",
+      "note": "Crosses at Eagle Pass, avoiding the Laredo backlog."
+    }
+  ],
+  "shipments": [
+    {
+      "id": "shp-4821",
+      "reference": "PO-88213",
+      "laneId": "ln-sha-lax-ocean",
+      "carrier": "Pacific Star Line",
+      "skuId": "sku-a14",
+      "units": 4800,
+      "weightKg": 1400,
+      "valueUsd": 240000,
+      "etaPlanned": "2026-08-06",
+      "etaCurrent": "2026-08-12",
+      "slaDate": "2026-08-08",
+      "status": "delayed",
+      "exception": {
+        "code": "PORT_CONGESTION",
+        "detail": "Vessel waiting for berth at LAX; six days lost.",
+        "since": "2026-07-28"
+      }
+    },
+    {
+      "id": "shp-4822",
+      "reference": "PO-88240",
+      "laneId": "ln-rtm-nyc-ocean",
+      "carrier": "Northline",
+      "skuId": "sku-b02",
+      "units": 1200,
+      "weightKg": 610,
+      "valueUsd": 74000,
+      "etaPlanned": "2026-08-09",
+      "etaCurrent": "2026-08-11",
+      "slaDate": "2026-08-14",
+      "status": "at_risk",
+      "exception": {
+        "code": "CUSTOMS_HOLD",
+        "detail": "Commercial invoice mismatch on two pallets.",
+        "since": "2026-07-30"
+      }
+    },
+    {
+      "id": "shp-4823",
+      "reference": "PO-88251",
+      "laneId": "ln-mty-dfw-truck",
+      "carrier": "Norte Freight",
+      "skuId": "sku-c31",
+      "units": 900,
+      "weightKg": 320,
+      "valueUsd": 28000,
+      "etaPlanned": "2026-08-03",
+      "etaCurrent": "2026-08-05",
+      "slaDate": "2026-08-04",
+      "status": "delayed",
+      "exception": {
+        "code": "DOC_MISMATCH",
+        "detail": "Certificate of origin rejected at Laredo.",
+        "since": "2026-07-31"
+      }
+    },
+    {
+      "id": "shp-4824",
+      "reference": "PO-88266",
+      "laneId": "ln-sha-sea-ocean",
+      "carrier": "Pacific Star Line",
+      "skuId": "sku-a14",
+      "units": 2600,
+      "weightKg": 780,
+      "valueUsd": 131000,
+      "etaPlanned": "2026-08-15",
+      "etaCurrent": "2026-08-15",
+      "slaDate": "2026-08-20",
+      "status": "on_track"
+    },
+    {
+      "id": "shp-4825",
+      "reference": "PO-88274",
+      "laneId": "ln-rtm-nyc-ocean",
+      "carrier": "Northline",
+      "skuId": "sku-d07",
+      "units": 400,
+      "weightKg": 210,
+      "valueUsd": 19500,
+      "etaPlanned": "2026-08-18",
+      "etaCurrent": "2026-08-18",
+      "slaDate": "2026-08-24",
+      "status": "on_track"
+    },
+    {
+      "id": "shp-4826",
+      "reference": "PO-88281",
+      "laneId": "ln-sha-lax-ocean",
+      "carrier": "Blue Meridian",
+      "skuId": "sku-b02",
+      "units": 3100,
+      "weightKg": 940,
+      "valueUsd": 96000,
+      "etaPlanned": "2026-08-20",
+      "etaCurrent": "2026-08-23",
+      "slaDate": "2026-08-26",
+      "status": "at_risk",
+      "exception": {
+        "code": "CAPACITY_SHORTFALL",
+        "detail": "Rolled to the next sailing.",
+        "since": "2026-07-29"
+      }
+    }
+  ],
+  "inventory": [
+    {
+      "skuId": "sku-a14",
+      "name": "A14 Drive Assembly",
+      "onHandUnits": 3200,
+      "dailyDemand": 800,
+      "safetyStockDays": 5,
+      "inboundShipmentIds": ["shp-4821", "shp-4824"]
+    },
+    {
+      "skuId": "sku-b02",
+      "name": "B02 Control Board",
+      "onHandUnits": 5400,
+      "dailyDemand": 300,
+      "safetyStockDays": 7,
+      "inboundShipmentIds": ["shp-4822", "shp-4826"]
+    },
+    {
+      "skuId": "sku-c31",
+      "name": "C31 Harness Kit",
+      "onHandUnits": 260,
+      "dailyDemand": 130,
+      "safetyStockDays": 4,
+      "inboundShipmentIds": ["shp-4823"]
+    },
+    {
+      "skuId": "sku-d07",
+      "name": "D07 Sensor Pack",
+      "onHandUnits": 4100,
+      "dailyDemand": 90,
+      "safetyStockDays": 6,
+      "inboundShipmentIds": ["shp-4825"]
+    }
+  ],
+  "planners": [
+    {
+      "id": "pl-rosa",
+      "name": "Rosa Delgado",
+      "role": "Planner",
+      "region": "Trans-Pacific",
+      "authorityUsd": 5000
+    },
+    {
+      "id": "pl-ibrahim",
+      "name": "Ibrahim Okonjo",
+      "role": "Director",
+      "region": "Global",
+      "authorityUsd": null
+    }
+  ],
+  "escalations": [],
+  "decisions": []
+}

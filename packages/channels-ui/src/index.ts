@@ -5,3 +5,4 @@ export * from "./bind.js";
 export * from "./components.js";
 export * from "./emoji.js";
 export * from "./modal.js";
+export * from "./native.js";

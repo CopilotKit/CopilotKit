@@ -10,24 +10,23 @@ CopilotKit Intelligence is CopilotKit's hosted platform that provides:
 
 The license key is a lightweight identifier that connects your local CopilotKit instance to CopilotKit Intelligence. It does not gate any open-source functionality -- CopilotKit works fully without it.
 
-## The `npx copilotkit auth` flow
+## The `npx copilotkit login` flow
 
-Running the CLI command starts an interactive authentication (verify the exact command with `npx copilotkit --help` as it may vary by version):
+Running the CLI command starts an interactive authentication (verify the available commands with `npx copilotkit --help` if a version differs):
 
 ```bash
-npx copilotkit auth
+npx copilotkit login
+npx copilotkit project select
 ```
 
-1. The CLI opens your default browser to the CopilotKit Intelligence login/signup page.
+1. `login` opens your default browser to the CopilotKit Intelligence login/signup page.
 2. Sign in with GitHub, Google, or email.
-3. Select or create a project in the CopilotKit Intelligence dashboard.
-4. The CLI receives the license key and prints it to stdout:
-   ```
-   Successfully authenticated!
-   Your license key: <your-license-key>
-   ```
+3. `project select` picks or creates a hosted project and records it in `.copilotkit/project.json`.
+4. The CLI provisions a project API key for the runtime and reports the license key for the client.
 
 If the browser does not open automatically, the CLI prints a URL you can copy-paste manually.
+
+There is no `copilotkit auth` command. The command is `login`.
 
 ## Where to put the license key
 

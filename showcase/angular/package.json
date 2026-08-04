@@ -15,7 +15,7 @@
     "typecheck": "pnpm run build:dependencies && pnpm run generate && tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
-    "@a2ui/web_core": "0.9.0",
+    "@a2ui/web_core": "0.10.4",
     "@angular/cdk": "21.2.14",
     "@angular/common": "21.2.18",
     "@angular/core": "21.2.18",

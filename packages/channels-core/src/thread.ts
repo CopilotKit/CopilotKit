@@ -33,6 +33,7 @@ import { validateSchema } from "./standard-schema.js";
 import type { StandardSchemaV1 } from "./standard-schema.js";
 import { hasMemoryAccess, resolveMemoryGrant } from "./memory.js";
 import type { MemoryGrant, ResolvedChannelMemory } from "./memory.js";
+import type { ChannelComponentRenderContext } from "./channel-component.js";
 
 /** A Channel run requested Memory without an attached Intelligence backend. */
 export class ChannelMemoryUnavailableError extends Error {
@@ -167,6 +168,10 @@ export class Thread implements ThreadInterface {
       ui,
       this.deps.conversationKey,
       this.activeContinuation,
+      {
+        platform: this.platform as ChannelComponentRenderContext["platform"],
+        signal: new AbortController().signal,
+      },
     );
   }
 
@@ -217,6 +222,29 @@ export class Thread implements ThreadInterface {
   post(ui: Renderable): Promise<MessageRef> {
     return this.trackOperation(async () => {
       const bound = await this.bindForPost(ui);
+      const ref = await this.deps.adapter.post(
+        this.deps.replyTarget,
+        bound.root,
+      );
+      await this.bindReaction(ref.id, bound);
+      return ref;
+    });
+  }
+
+  /** @internal Post a registered component through the normal bind and adapter path. */
+  postRegisteredComponent(
+    componentName: string,
+    props: Record<string, unknown>,
+    renderContext: ChannelComponentRenderContext,
+  ): Promise<MessageRef> {
+    return this.trackOperation(async () => {
+      const bound = await this.deps.registry.bindRegisteredRenderable(
+        componentName,
+        props,
+        this.deps.conversationKey,
+        this.activeContinuation,
+        renderContext,
+      );
       const ref = await this.deps.adapter.post(
         this.deps.replyTarget,
         bound.root,
@@ -734,6 +762,12 @@ export class Thread implements ThreadInterface {
             message: this.deps.message,
             user: this.deps.user,
             actor: this.deps.actor,
+            signal:
+              (
+                session.agent as AbstractAgent & {
+                  abortController?: AbortController;
+                }
+              ).abortController?.signal ?? new AbortController().signal,
             platform: this.platform,
           }),
           handleInterrupt: async (interrupt) => {
