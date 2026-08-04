@@ -101,6 +101,20 @@ const __typeGuards = () => {
     // @ts-expect-error data visualization blocks do not accept children
     children: Slack.Block.Divider({}),
   });
+  const card = Slack.Block.Card({
+    title: Slack.Object.PlainText({ text: "Deploy ready" }),
+    actions: [Slack.Element.Button({ text: "Approve" })],
+  });
+  Slack.Block.Carousel({ elements: [card] });
+  Slack.Block.Card({
+    title: Slack.Object.PlainText({ text: "Deploy ready" }),
+    // @ts-expect-error card blocks use actions, not children
+    children: Slack.Element.Button({ text: "Approve" }),
+  });
+  Slack.Block.Carousel({
+    // @ts-expect-error carousel blocks use elements, not cards
+    cards: [card],
+  });
 };
 void __typeGuards;
 

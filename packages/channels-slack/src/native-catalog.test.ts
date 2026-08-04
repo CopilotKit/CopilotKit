@@ -35,13 +35,13 @@ test("every Slack catalog entry serializes its fixed discriminator", () => {
   }
 });
 
-test("Slack carousel serializes card children as elements", () => {
+test("Slack carousel serializes cards from its elements field", () => {
   const title = createNativeNode("slack", "object", "plain_text", {
     text: "First card",
   });
   const card = createNativeNode("slack", "block", "card", { title });
   const carousel = createNativeNode("slack", "block", "carousel", {
-    children: [card],
+    elements: [card],
   });
 
   const serialized = serializeSlackNativeNode(carousel);

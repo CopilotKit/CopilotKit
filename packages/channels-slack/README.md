@@ -174,6 +174,22 @@ top-level elements, and messages over Slack's 50-block limit. `Slack.Raw`
 accepts a reviewed Block Kit object but does not bind callbacks. Direct Slack
 and managed Slack use the same serializer and fallback-text rules.
 
+Card buttons belong in `actions`, and Carousel cards belong in `elements`.
+The shared renderer checks both shapes before direct or managed delivery and
+reports invalid fields with a JSON pointer.
+
+```tsx
+const approve = Slack.Element.Button({
+  text: <Slack.Object.PlainText text="Approve" />,
+});
+const card = Slack.Block.Card({
+  title: <Slack.Object.MarkdownText text="*Deploy ready*" />,
+  actions: [approve],
+});
+
+await thread.post(<Slack.Block.Carousel elements={[card]} />);
+```
+
 The generated [native catalog](../channels/native-catalogs.md) lists the 20
 message blocks and all exported elements and objects. Run
 `pnpm audit:channel-native-catalogs` to compare it with Slack's live docs.
