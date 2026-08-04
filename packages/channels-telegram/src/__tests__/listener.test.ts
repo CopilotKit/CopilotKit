@@ -18,6 +18,7 @@ function fakeBot() {
 const sink = () => ({
   onTurn: vi.fn(),
   onInteraction: vi.fn(),
+  onWelcome: vi.fn(),
   onCommand: vi.fn(),
   onThreadStarted: vi.fn(),
   onReaction: vi.fn(),
@@ -51,6 +52,12 @@ describe("attachTelegramListener", () => {
       expect.objectContaining({
         userText: "hello",
         conversationKey: "tg:9:dm",
+        operation: {
+          kind: "created",
+          logicalMessageId: "2",
+          revisionId: "2",
+          mentioned: false,
+        },
       }),
     );
   });

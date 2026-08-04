@@ -51,6 +51,31 @@ describe("TeamsMessageStream", () => {
     }
   });
 
+  it("uses the final transport lane after a mid-stream post", async () => {
+    vi.useFakeTimers();
+    try {
+      const post = vi.fn(async () => "act-1");
+      const update = vi.fn(async () => {});
+      const finalize = vi.fn(async () => {});
+      const s = new TeamsMessageStream({
+        post,
+        update,
+        finalize,
+        minIntervalMs: 100,
+      });
+
+      s.append("A");
+      await vi.advanceTimersByTimeAsync(150);
+      s.append("AB");
+      await s.finish();
+
+      expect(finalize).toHaveBeenCalledWith("act-1", "AB");
+      expect(update).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("rejects finish() when the final post fails (no silent 'sent')", async () => {
     const post = vi.fn(async () => {
       throw new Error("provider_down");

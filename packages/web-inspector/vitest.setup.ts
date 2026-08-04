@@ -18,6 +18,14 @@
 
 import { beforeEach } from "vitest";
 
+import { createTelemetryEgressGuard } from "./src/lib/testing/telemetry-egress-guard.js";
+
+// No test may POST a real `oss.inspector.*` event to the live telemetry sink —
+// see the helper for why no environment variable can cover this.
+if (typeof globalThis.fetch === "function") {
+  globalThis.fetch = createTelemetryEgressGuard(globalThis.fetch);
+}
+
 function createStorageShim(): Storage {
   const store = new Map<string, string>();
   const shim = {

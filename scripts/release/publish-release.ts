@@ -13,7 +13,8 @@
  *   NOTION_API_KEY    — for reading edited release notes from Notion (optional)
  *   GITHUB_OUTPUT     — CI output file
  *
- * Auth: Uses npm OIDC trusted publishers (id-token: write) via npx npm@11.
+ * Auth: Uses npm OIDC trusted publishers (id-token: write) via the pinned npm 11
+ * resolved by lib/npm-cli.ts.
  * No NPM_TOKEN needed — NODE_AUTH_TOKEN must be empty to avoid blocking OIDC.
  *
  * Usage: tsx scripts/release/publish-release.ts --scope <scope from release.config.json>
@@ -31,6 +32,7 @@ import { readReleaseDraft } from "./lib/notion.js";
 import { ROOT, getScopeConfig, loadConfig } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
+import { resolvePublishNpm } from "./lib/npm-cli.js";
 
 type PublishPhase = "all" | "dependencies" | "umbrella";
 
@@ -194,10 +196,14 @@ async function main() {
   // build process tree.
 
   // Publish each package in scope.
-  // Uses pnpm pack (workspace-aware) + npx npm@11 publish (OIDC-aware).
+  // Uses pnpm pack (workspace-aware) + the pinned npm 11 publish (OIDC-aware).
   // npm 11 uses GitHub Actions OIDC tokens for auth when id-token: write
   // is granted, eliminating the need for long-lived NPM_TOKEN secrets.
   // Skips packages already published at this version (idempotent retries).
+  //
+  // The npm CLI is resolved ONCE up front rather than via `npx npm@<v>` per
+  // package — see lib/npm-cli.ts for the measured cost of the old approach.
+  const npmBin = resolvePublishNpm();
   console.log("\nPublishing packages...");
   let skipped = 0;
   for (const p of packagesToPublish) {
@@ -210,20 +216,9 @@ async function main() {
     console.log(`  Publishing ${p.name}@${version}...`);
     run("pnpm", ["pack"], { cwd: p.dir });
     const tarball = `${p.name.replace("@", "").replace("/", "-")}-${version}.tgz`;
-    run(
-      "npx",
-      [
-        "--yes",
-        "npm@11.15.0",
-        "publish",
-        tarball,
-        "--tag",
-        "latest",
-        "--access",
-        "public",
-      ],
-      { cwd: p.dir },
-    );
+    run(npmBin, ["publish", tarball, "--tag", "latest", "--access", "public"], {
+      cwd: p.dir,
+    });
   }
   if (skipped > 0) {
     console.log(`\n${skipped} package(s) skipped (already at ${version}).`);

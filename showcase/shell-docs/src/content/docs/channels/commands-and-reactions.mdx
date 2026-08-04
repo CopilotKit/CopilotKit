@@ -1,123 +1,52 @@
 ---
 title: Commands and reactions
 icon: "lucide/Command"
-description: Route Slack slash commands, Teams slash-prefixed messages, and provider reactions into typed Channels handlers.
+description: Understand managed command routing and handle provider reactions through typed Channels APIs.
 doc_type: how-to
 ---
 
-Commands give users a deliberate entry point into a workflow. Reaction handlers
-let an agent respond to lightweight feedback without treating every emoji as a
-new chat message.
+Managed Slack and Teams treat leading-slash text as ordinary message content.
+Reaction handlers let an agent respond to lightweight feedback without treating
+every emoji as a new chat message.
 
-## Register a command
+## Managed commands are not dispatched
 
-`defineChannelCommand` normalizes the command name by removing a leading slash
-and lowercasing it. Slack and Teams currently deliver command arguments as one
-free-text string, so read `ctx.text`.
+The generated Slack manifest does not register slash commands, and managed
+Teams does not interpret `/name` prefixes. A message such as `/triage customer`
+therefore reaches `onMessage` or `onMention` as normal text.
 
-```ts title="commands.ts"
-import { defineChannelCommand } from "@copilotkit/channels";
+`defineChannelCommand`, `commands`, and `onCommand` remain available for direct
+adapters that emit native command events. They do not opt a managed Slack or
+Teams Channel into command routing.
 
-export const triage = defineChannelCommand({
-  name: "triage",
-  description: "Summarize the current conversation and suggest an owner.",
-  async handler({ thread, text, user, platform }) {
-    await thread.runAgent({
-      prompt: text
-        ? `Triage this conversation with this instruction: ${text}`
-        : "Triage this conversation.",
-      context: [
-        { description: "Command provider", value: platform },
-        {
-          description: "Invoking user",
-          value: user?.name ?? user?.id ?? "unknown",
-        },
-      ],
-    });
-  },
-});
-```
+## Route mentions and ordinary messages
 
-Register it at Channel creation:
+Register `onMessage` for ordinary provider messages. A bot mention selects
+`onMention` when that handler is registered; otherwise the mention falls back
+to `onMessage`. Non-mention messages select `onMessage`, and one inbound message
+runs exactly one of those handler paths.
 
 <FrontendOnly frontend="slack">
 
-```ts title="channel.ts"
-const channel = createChannel({
-  name: required("CHANNEL_CODE"),
-  provider: "slack",
-  agent: makeAgent,
-  commands: [triage],
-});
-```
+The current generated manifest subscribes to ordinary channel, private-channel,
+group-DM, and direct-message events in addition to `app_mention`. A Slack app
+created from an older manifest may need the current event subscriptions and bot
+scopes applied, followed by an app reinstall.
 
 </FrontendOnly>
 
 <FrontendOnly frontend="teams">
 
-```ts title="channel.ts"
-const channel = createChannel({
-  name: required("CHANNEL_CODE"),
-  provider: "teams",
-  agent: makeAgent,
-  commands: [triage],
-});
-```
+Teams messages use the same `onMessage` and `onMention` selection after managed
+ingress normalizes the activity.
 
 </FrontendOnly>
-
-You can also add a command before the listener starts with
-`channel.onCommand(command)`. Unregistered command names are ignored.
-
-## Configure the native command entry point
-
-<FrontendOnly frontend="slack">
-
-The Intelligence-generated Slack manifest creates one slash command derived
-from the Channel Display name. The handler name must match the command shown in
-the Slack setup recap. For example, a generated `/support-agent` command needs:
-
-```ts title="commands.ts"
-export const supportAgent = defineChannelCommand({
-  name: "support-agent",
-  async handler({ thread, text }) {
-    await thread.runAgent({ prompt: text || "How can you help?" });
-  },
-});
-```
-
-If you add more command names in code, add the same slash commands to the Slack
-app configuration and reinstall the app when Slack changes its requested
-permissions. Socket Mode carries the invocation; your Channels runner does not
-host the Slack request URL.
-
-Slack supplies arguments as `ctx.text`. `ctx.options` remains empty on this
-managed path.
-
-</FrontendOnly>
-
-<FrontendOnly frontend="teams">
-
-Teams has no separate slash-command registration in this integration. An
-addressed message whose text is exactly `/name` or `/name arguments` is routed
-to the matching command handler:
-
-```text title="Microsoft Teams"
-/triage focus on customer impact
-```
-
-The optional bot mention is stripped before command matching. Arguments arrive
-as `ctx.text`; `ctx.options` remains empty.
-
-</FrontendOnly>
-
-Managed command contexts do not expose modal opening. Use a posted card and a
-later interaction for structured follow-up.
 
 ## Handle incoming reactions
 
 Known Slack shortcodes and Teams reaction tokens are normalized to portable
-names such as `eyes`, `thumbs_up`, and `heart`.
+names. The portable outbound set is `thumbs_up`, `thumbs_down`, `heart`, `fire`,
+`eyes`, `refresh`, `thinking`, and `tada`.
 
 ```ts title="channel.ts"
 channel.onReaction("eyes", async ({ added, thread, user }) => {
@@ -150,8 +79,9 @@ the provider token for custom or unmapped emoji.
 <FrontendOnly frontend="slack">
 
 The generated Slack manifest subscribes to `reaction_added` and
-`reaction_removed`. Managed ingress routes reactions to messages authored by
-the configured bot; reactions on unrelated workspace messages are ignored.
+`reaction_removed`. Managed ingress routes reactions on bot output and on
+user-authored roots and replies back to their existing managed conversation;
+reactions on unrelated workspace messages are ignored.
 
 </FrontendOnly>
 
@@ -160,6 +90,10 @@ the configured bot; reactions on unrelated workspace messages are ignored.
 Teams `messageReaction` activities are normalized through the same handler.
 Classic reactions such as Like and Heart, plus recognized modern emoji tokens,
 map to the SDK's portable names.
+
+Outbound reaction add/remove uses Microsoft's public-preview reaction API.
+Managed setup verifies that API for the tenant and remains not ready when the
+tenant cannot use it.
 
 </FrontendOnly>
 
@@ -192,9 +126,20 @@ Register `FeedbackCard` in `createChannel({ components: [FeedbackCard] })`.
 Surviving a process restart also requires a durable `StateStore`, because the
 SDK must reload the component snapshot that owns the callback.
 
-Adding or removing the agent's own reactions with `thread.react()` and
-`thread.unreact()` is not supported by the managed Slack or Teams adapter
-today. Treat reactions as inbound signals.
+Add or remove the bot's reaction with the delivery-scoped reference from the
+current message or transcript:
+
+```ts title="channel.ts"
+channel.onMessage(async ({ message, thread }) => {
+  await thread.react(message.ref, "eyes");
+  await thread.unreact(message.ref, "eyes");
+});
+```
+
+The portable set works on managed Slack and Teams. A provider-native string is
+allowed when your code branches on the native provider: use `message.platform`
+in a message handler or `reaction.thread.platform` in `onReaction`.
+Unsupported values fail explicitly.
 
 See the [command reference](/reference/channels/functions/defineChannelCommand)
 and [Message reference](/reference/channels/components/Message) for the complete

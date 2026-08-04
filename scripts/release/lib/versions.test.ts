@@ -10,6 +10,7 @@ import {
   bumpPackages,
   findCrossScopePins,
   getPackagesForScope,
+  pinPrereleaseDependencies,
 } from "./versions.js";
 
 let tmpDir: string;
@@ -257,6 +258,25 @@ describe("bumpPackages", () => {
       "@copilotkit/react-core",
       "@copilotkit/shared",
     ]);
+  });
+
+  it("exact-pins only packages included in the canary publish set", () => {
+    const packages = getPackagesForScope("monorepo");
+    packages[0].pkg.version = "1.55.3-canary.123";
+    packages[0].pkg.dependencies["@copilotkit/shared"] = "workspace:^";
+    packages[1].pkg.version = "1.55.3-canary.123";
+
+    expect(pinPrereleaseDependencies(packages)).toBe(1);
+
+    const reactCore = JSON.parse(
+      fs.readFileSync(
+        path.join(tmpDir, "packages/react-core/package.json"),
+        "utf8",
+      ),
+    );
+    expect(reactCore.dependencies["@copilotkit/shared"]).toBe(
+      "1.55.3-canary.123",
+    );
   });
 });
 

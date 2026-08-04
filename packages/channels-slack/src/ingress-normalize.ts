@@ -9,9 +9,11 @@
 // reply target / egress route. Each side wraps these pure helpers with its own
 // policy + transport.
 
+import type { MessageOperation } from "@copilotkit/channels-ui";
+
 // Matches both the plain `<@U123>` form and Slack's labeled `<@U123|handle>`
 // form, so neither leaves a `|handle>` fragment behind after stripping.
-const MENTION_RE = /<@[UW][A-Z0-9]+(?:\|[^>]+)?>/g;
+const MENTION_RE = /<@[A-Z0-9]+(?:\|[^>]+)?>/g;
 
 /** Strip `<@U…>` / `<@U…|handle>` mention tokens and collapse whitespace. */
 export const stripMentions = (text: string): string =>
@@ -80,13 +82,14 @@ export type SlackNeutralEvent =
   | {
       kind: "turn";
       /** Which Slack trigger produced this turn. */
-      source: "app_mention" | "direct_message" | "thread_reply";
+      source: "app_mention" | "direct_message" | "thread_reply" | "message";
       channel: string;
       /** Thread anchor: present for mentions and thread replies. */
       threadTs?: string;
       /** Inbound message ts (lets a renderer anchor a "thinking…" status on DMs). */
       ts?: string;
       userText: string;
+      operation: MessageOperation;
       senderUserId?: string;
       eventId?: string;
       hasFiles: boolean;
@@ -111,6 +114,17 @@ interface RawSlackEventBody {
   event?: Record<string, unknown>;
 }
 
+export interface SlackSelfIdentity {
+  botUserId?: string;
+  botId?: string;
+  appId?: string;
+}
+
+const normalizeSelfIdentity = (
+  identity: string | SlackSelfIdentity | undefined,
+): SlackSelfIdentity =>
+  typeof identity === "string" ? { botUserId: identity } : (identity ?? {});
+
 const hasFilesOn = (o: unknown): boolean =>
   Array.isArray((o as { files?: unknown[] } | undefined)?.files) &&
   (o as { files: unknown[] }).files.length > 0;
@@ -124,8 +138,13 @@ const hasFilesOn = (o: unknown): boolean =>
  */
 export function normalizeSlackEvent(
   body: RawSlackEventBody,
-  botUserId?: string,
+  selfIdentity?: string | SlackSelfIdentity,
 ): SlackNeutralEvent | undefined {
+  const {
+    botUserId,
+    botId: ownBotId,
+    appId: ownAppId,
+  } = normalizeSelfIdentity(selfIdentity);
   // Slash command: a flat form body, no Events API `event`.
   if (body.command) {
     const channel = body.channel_id ?? "";
@@ -157,6 +176,12 @@ export function normalizeSlackEvent(
       threadTs: (event.thread_ts as string) ?? (event.ts as string),
       ts: event.ts as string | undefined,
       userText,
+      operation: {
+        kind: "created",
+        logicalMessageId: String(event.ts ?? ""),
+        revisionId: String(event.event_ts ?? event.ts ?? ""),
+        mentioned: true,
+      },
       senderUserId: event.user as string | undefined,
       eventId: deriveEventId(
         body,
@@ -168,46 +193,110 @@ export function normalizeSlackEvent(
   }
 
   if (event.type === "message") {
-    if (!isPlainUserMessage(event, botUserId)) return undefined;
-    const channel = event.channel;
-    const text = (event.text ?? "").trim();
-    const hasFiles = hasFilesOn(event);
-    if (!text && !hasFiles) return undefined;
+    const subtype =
+      typeof event.subtype === "string" ? event.subtype : undefined;
+    const changed =
+      subtype === "message_changed" &&
+      event.message &&
+      typeof event.message === "object"
+        ? (event.message as Record<string, unknown>)
+        : undefined;
+    const previous =
+      (subtype === "message_changed" || subtype === "message_deleted") &&
+      event.previous_message &&
+      typeof event.previous_message === "object"
+        ? (event.previous_message as Record<string, unknown>)
+        : undefined;
+    const message = changed ?? previous ?? event;
+    const channel =
+      typeof event.channel === "string" ? event.channel : undefined;
+    const logicalMessageId =
+      (typeof event.deleted_ts === "string" ? event.deleted_ts : undefined) ??
+      (typeof message.ts === "string" ? message.ts : undefined) ??
+      (typeof event.ts === "string" ? event.ts : undefined);
+    const messageUserId =
+      (typeof message.user === "string" ? message.user : undefined) ??
+      (typeof event.user === "string" ? event.user : undefined);
+    const botId =
+      (typeof message.bot_id === "string" ? message.bot_id : undefined) ??
+      (typeof event.bot_id === "string" ? event.bot_id : undefined);
+    const appId =
+      (typeof message.app_id === "string" ? message.app_id : undefined) ??
+      (typeof event.app_id === "string" ? event.app_id : undefined);
+    const actorId = messageUserId ?? botId ?? appId;
+    const edited =
+      message.edited && typeof message.edited === "object"
+        ? (message.edited as Record<string, unknown>)
+        : undefined;
+    const revisionId =
+      (typeof edited?.ts === "string" ? edited.ts : undefined) ??
+      (typeof event.event_ts === "string" ? event.event_ts : undefined) ??
+      logicalMessageId;
+    if (
+      !channel ||
+      !logicalMessageId ||
+      !revisionId ||
+      !actorId ||
+      (botUserId !== undefined && messageUserId === botUserId) ||
+      (ownBotId !== undefined && botId === ownBotId) ||
+      (ownAppId !== undefined && appId === ownAppId)
+    ) {
+      return undefined;
+    }
+    const deleted = subtype === "message_deleted";
+    const text = deleted ? "" : String(message.text ?? "").trim();
+    const hasFiles = hasFilesOn(message);
+    if (!deleted && !text && !hasFiles) return undefined;
     const isDM = event.channel_type === "im";
     const eventId = deriveEventId(body, event, channel);
+    const mentioned =
+      !deleted &&
+      !!botUserId &&
+      (text.includes(`<@${botUserId}>`) || text.includes(`<@${botUserId}|`));
+    const operation = {
+      kind:
+        subtype === "message_changed"
+          ? ("updated" as const)
+          : deleted
+            ? ("deleted" as const)
+            : ("created" as const),
+      logicalMessageId,
+      revisionId,
+      mentioned,
+    };
     if (isDM) {
       return {
         kind: "turn",
         source: "direct_message",
         channel,
-        ts: event.ts,
+        threadTs:
+          typeof event.thread_ts === "string" ? event.thread_ts : undefined,
+        ts: typeof event.ts === "string" ? event.ts : undefined,
         // Strip mention tokens for parity with app_mention/thread_reply — a DM
         // that @-mentions the bot shouldn't leak the raw `<@U…>` into userText.
         userText: stripMentions(text),
-        senderUserId: event.user,
+        operation,
+        senderUserId: actorId,
         eventId,
         hasFiles,
       };
     }
-    if (!event.thread_ts) return undefined; // top-level channel chatter
-    // A threaded @-mention is delivered as BOTH an `app_mention` and this
-    // `message` event; app_mention handles it, so skip the duplicate here
-    // (mirrors the native Slack listener) to avoid a double response. Match
-    // both the plain `<@U…>` and labeled `<@U…|handle>` mention forms — same
-    // form set as MENTION_RE — so a labeled mention doesn't slip through.
-    if (
-      botUserId &&
-      (text.includes(`<@${botUserId}>`) || text.includes(`<@${botUserId}|`))
-    ) {
-      return undefined;
-    }
+    const threadTs =
+      (typeof message.thread_ts === "string" ? message.thread_ts : undefined) ??
+      (typeof event.thread_ts === "string" ? event.thread_ts : undefined) ??
+      logicalMessageId;
     return {
       kind: "turn",
-      source: "thread_reply",
+      source:
+        typeof event.thread_ts === "string" ||
+        typeof message.thread_ts === "string"
+          ? "thread_reply"
+          : "message",
       channel,
-      threadTs: event.thread_ts,
+      threadTs,
       userText: stripMentions(text),
-      senderUserId: event.user,
+      operation,
+      senderUserId: actorId,
       eventId,
       hasFiles,
     };

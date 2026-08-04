@@ -1,4 +1,5 @@
-import type { PlatformUser } from "@copilotkit/channels-core";
+import type { ProviderActor } from "@copilotkit/channels-core";
+import type { MessageOperation } from "@copilotkit/channels-ui";
 
 /**
  * Where to post a reply in Slack. Used by the renderer; constructed by the
@@ -55,7 +56,7 @@ export interface SlackAssistantOptions {
 export interface SlackFeedback {
   sentiment: "positive" | "negative";
   /** The user who clicked, if Slack supplied their identity. */
-  user?: PlatformUser;
+  user?: ProviderActor;
   /** Channel (or DM) the reply lives in. */
   channel: string;
   /** Thread the reply belongs to, if any. */
@@ -164,6 +165,7 @@ export interface IncomingTurn {
   conversation: ConversationKey;
   replyTarget: ReplyTarget;
   userText: string;
+  operation: MessageOperation;
   /**
    * Slack user id of the person who sent this message (the requester).
    * Surfaced to the agent so it can act on behalf of the right person —

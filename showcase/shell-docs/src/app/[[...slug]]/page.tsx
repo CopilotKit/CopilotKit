@@ -7,6 +7,7 @@
 
 import React from "react";
 import type { Metadata } from "next";
+import { ChannelsActivationStrip } from "@/components/channels-activation-strip";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
 import {
@@ -23,6 +24,7 @@ import {
   loadDoc,
 } from "@/lib/docs-render";
 import { compareByDisplayOrder } from "@/lib/framework-order";
+import { getChannelsActivationBackendOptions } from "@/lib/channels-activation-options";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import {
   getDocsFolder,
@@ -32,6 +34,7 @@ import {
   ROOT_FRAMEWORK,
 } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
+import { getRuntimeConfig } from "@/lib/runtime-config";
 
 // Force dynamic rendering so unknown slugs reliably return HTTP 404
 // from `notFound()` instead of being cached as a 200 with the not-found
@@ -125,6 +128,8 @@ function DocsOverview() {
           ? "/quickstart"
           : `/${i.slug}/quickstart`,
     }));
+  const channelsBackends = getChannelsActivationBackendOptions();
+  const docsBaseUrl = getRuntimeConfig().baseUrl;
   return (
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
       <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
@@ -154,6 +159,10 @@ function DocsOverview() {
         </section>
 
         <div className="space-y-10 pt-8">
+          <ChannelsActivationStrip
+            backends={channelsBackends}
+            docsBaseUrl={docsBaseUrl}
+          />
           <LandingSampleTabs />
           <DocsLandingNext />
         </div>

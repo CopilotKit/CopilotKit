@@ -28,14 +28,12 @@ Configure TypeScript to use the Channels JSX runtime:
 ```tsx
 import { createChannel, Message, Section } from "@copilotkit/channels";
 import { slack } from "@copilotkit/channels/slack";
-import {
-  CopilotRuntime,
-  CopilotKitIntelligence,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const channel = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
+  identifyUser: "platform",
   adapters: [
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!,
@@ -59,12 +57,13 @@ const runtime = new CopilotRuntime({
     // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [channel],
 });
 
-const handler = createCopilotRuntimeHandler({ runtime });
-await handler.channels.ready(); // starts the channel; handler.channels.stop() tears it down
+// Creating the listener starts the Channel's connection.
+const listener = createCopilotNodeListener({ runtime });
+// Optional: await that activation so a broken config fails startup loudly.
+await listener.channels.ready(); // listener.channels.stop() tears it down
 ```
 
 ## Adapter entry points
@@ -74,7 +73,6 @@ await handler.channels.ready(); // starts the channel; handler.channels.stop() t
 - `@copilotkit/channels/discord`
 - `@copilotkit/channels/telegram`
 - `@copilotkit/channels/whatsapp`
-- `@copilotkit/channels/intelligence` for the curated `intelligenceAdapter` factory and `IntelligenceAdapterOptions` type
 
 One package version gives you a tested snapshot of the core engine, JSX/UI vocabulary,
 testing helpers, and every adapter listed above.

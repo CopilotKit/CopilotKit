@@ -68,19 +68,19 @@ wiring:
 
 ```ts
 import { createServer } from "node:http";
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import {
   slack,
   defaultSlackTools,
   defaultSlackContext,
-  SanitizingHttpAgent,
 } from "@copilotkit/channels/slack";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 
 const bot = createChannel({
+  identifyUser: "platform",
   name: "triage", // every declared Channel needs a unique name
   adapters: [
     slack({
@@ -95,7 +95,7 @@ const bot = createChannel({
   ],
   // One AG-UI agent per conversation, pointed at the runtime.
   agent: (threadId) => {
-    const a = new SanitizingHttpAgent({ url: process.env.AGENT_URL! });
+    const a = new HttpAgent({ url: process.env.AGENT_URL! });
     a.threadId = threadId;
     return a;
   },
@@ -110,7 +110,9 @@ const bot = createChannel({
 // One handler covers explicit @-mentions and normal DMs.
 // senderContext names the requesting user so the agent acts "as" them.
 bot.onMention(async ({ thread, message }) => {
-  await thread.runAgent({ context: senderContext(message.user) });
+  await thread.runAgent({
+    context: senderContext(message.user, thread.platform),
+  });
 });
 
 // A Channel runs only through the Intelligence runtime, which OWNS its
@@ -122,12 +124,11 @@ const intelligence = new CopilotKitIntelligence({
 const runtime = new CopilotRuntime({
   agents: {}, // the Channel supplies its own agent
   intelligence,
-  identifyUser: () => ({ id: "demo-user", name: "Demo User" }), // demo stub
   channels: [bot],
 });
 
-// Mounting the listener exposes `.channels` for activation + shutdown but opens
-// no connection; `ready()` activates the Channel (starting its adapters).
+// Mounting the listener starts the Channel (and its adapters) and exposes
+// `.channels` to observe or shut it down; `ready()` waits until it is live.
 // No bot.start()/bot.stop().
 const listener = createCopilotNodeListener({
   runtime,
@@ -146,7 +147,7 @@ plain replies in a thread can continue after the bot has posted there.
 
 The bot's tools are plain `ChannelTool`s, collected into `appTools` and spread
 into `createChannel({ tools })`. Each handler receives the generic
-`ChannelToolContext` (`{ thread, message?, user?, signal?, platform }`) the
+`ChannelToolContext` (`{ thread, message?, user, actor, signal?, platform }`) the
 adapter supplies at call time; tools reach platform power (post, postFile,
 `thread.getMessages()`, …) via the `thread` methods:
 
@@ -239,7 +240,10 @@ defineChannelCommand({
   description: "Ask the triage agent anything (no @mention needed).",
   async handler({ thread, text, user }) {
     if (!text) return void thread.post("Usage: `/agent <your question>`");
-    await thread.runAgent({ prompt: text, context: senderContext(user) });
+    await thread.runAgent({
+      prompt: text,
+      context: senderContext(user, thread.platform),
+    });
   },
 });
 ```
@@ -285,8 +289,14 @@ several from one process).
 
 - <https://api.slack.com/apps?new_app=1> → **From a manifest** → paste
   `slack-app-manifest.yaml`.
-- _OAuth & Permissions_ → **Install to Workspace** → copy the `xoxb-`
-  bot token (`SLACK_BOT_TOKEN`).
+- _OAuth & Permissions_ → **Reinstall to Workspace** → **Allow**. Slack says
+  "Reinstall" because creating the app from a manifest already installed it —
+  with only a couple of the scopes the manifest declares. This is the grant that
+  applies the rest.
+- Copy the `xoxb-` bot token (`SLACK_BOT_TOKEN`) **after** that reinstall.
+  Reinstalling issues a new token, and one copied beforehand authenticates fine
+  and can post, but lacks `app_mentions:read` — so the bot never receives a
+  mention and stays silent with no error anywhere.
 - _Basic Information → App-Level Tokens_ → generate one with
   `connections:write` → copy the `xapp-` app token (`SLACK_APP_TOKEN`).
 - The manifest is tuned for mention-only channel threads. If you enable
@@ -381,16 +391,14 @@ follow-up unless you enabled legacy thread continuation:
 
 ## Per-user identity
 
-The `onMention` handler forwards the **requesting user** (resolved to name +
-email where the platform exposes it) to the agent each turn via
-`senderContext(message.user)`, so the bot acts on behalf of whoever's asking:
-"my issues" is scoped to you, and issues it files are assigned to you. On Slack
-this needs the `users:read.email` scope (already in the manifest — reinstall
-the app once after adding it).
+The `onMention` handler forwards the canonical **application user** returned by
+the Channel `identifyUser` policy to the agent each turn via
+`senderContext(message.user, thread.platform)`. The standard `"platform"`
+policy namespaces each confirmed human by provider and workspace. Use a custom
+policy when Slack and another surface must map to one application user.
 
-Caveat: a single API key can't forge Linear's `creator`, so created issues
-are _authored_ by the bot and _assigned_ to the requester. True per-user
-attribution (and reliable Notion personalization) needs per-user OAuth.
+Caveat: a single API key cannot forge Linear's `creator`, so the bot authors
+created issues. True per-user attribution needs per-user OAuth.
 
 ## Files → charts, diagrams & tables
 

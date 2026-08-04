@@ -25,10 +25,26 @@ export function runStateStoreConformance(
       });
       it("missing key is undefined", async () =>
         expect(await s.kv.get("nope")).toBeUndefined());
+      it("atomically consumes one live value", async () => {
+        await s.kv.set("once", { n: 1 });
+        const results = await Promise.all([
+          s.kv.consume<{ n: number }>("once"),
+          s.kv.consume<{ n: number }>("once"),
+        ]);
+        expect(results.filter((value) => value !== undefined)).toEqual([
+          { n: 1 },
+        ]);
+        expect(await s.kv.get("once")).toBeUndefined();
+      });
       it("expires after ttl", async () => {
         await s.kv.set("t", 1, 30);
         await new Promise((r) => setTimeout(r, 60));
         expect(await s.kv.get("t")).toBeUndefined();
+      });
+      it("does not return an expired value from consume", async () => {
+        await s.kv.set("expired-once", 1, 30);
+        await new Promise((r) => setTimeout(r, 60));
+        expect(await s.kv.consume("expired-once")).toBeUndefined();
       });
     });
 

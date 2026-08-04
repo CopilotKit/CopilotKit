@@ -6,6 +6,7 @@ import {
   toCanonicalEmoji,
   normalizeEmoji,
   EMOJI_TABLE,
+  PORTABLE_REACTIONS,
 } from "./emoji.js";
 
 describe("emoji table", () => {
@@ -95,6 +96,27 @@ describe("emoji table", () => {
     expect(() => normalizeEmoji("ffffff_x", "teams")).not.toThrow();
     expect(normalizeEmoji("ffffff_x", "teams")).toBeUndefined();
     expect(normalizeEmoji("110000_x", "teams")).toBeUndefined();
+  });
+
+  it("renders the documented portable reactions as Teams reaction ids", () => {
+    expect(PORTABLE_REACTIONS).toEqual([
+      "thumbs_up",
+      "thumbs_down",
+      "heart",
+      "fire",
+      "eyes",
+      "refresh",
+      "thinking",
+      "tada",
+    ]);
+    expect(toPlatformEmoji(emoji.thumbs_up, "teams")).toBe("like");
+    expect(toPlatformEmoji(emoji.thumbs_down, "teams")).toBe("no");
+    expect(toPlatformEmoji(emoji.heart, "teams")).toBe("heart");
+    expect(toPlatformEmoji(emoji.fire, "teams")).toBe("fire");
+    expect(toPlatformEmoji(emoji.eyes, "teams")).toBe("eyes");
+    expect(toPlatformEmoji(emoji.refresh, "teams")).toBe("1f504_refresh");
+    expect(toPlatformEmoji(emoji.thinking, "teams")).toBe("think");
+    expect(toPlatformEmoji(emoji.tada, "teams")).toBe("1f389_partypopper");
   });
 
   it("normalizes WhatsApp reactions as raw unicode (like discord/telegram)", () => {

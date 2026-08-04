@@ -4,6 +4,7 @@ import type {
   RunRenderer,
   CapturedToolCall,
   CapturedInterrupt,
+  ReplyContinuationOptions,
 } from "@copilotkit/channels-core";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
@@ -34,6 +35,7 @@ const displayTransform = (text: string): string =>
   markdownToMrkdwn(autoCloseOpenMarkdown(text));
 
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
+const RUN_ERROR_SUFFIX = "\n\n_(response interrupted)_";
 
 /**
  * Construct a {@link RunRenderer} for a single agent run in Slack.
@@ -60,8 +62,8 @@ export function createRunRenderer(args: {
   /**
    * The credentialed Slack side-effects (setStatus / postMessage / update),
    * injected so this renderer never imports `@slack/web-api`. The native
-   * adapter wraps a `WebClient`; the managed Connector Outbox wraps its own
-   * sender.
+   * adapter wraps a `WebClient`; managed Intelligence delivery maps supported
+   * calls to provider effects.
    */
   transport: SlackRenderTransport;
   target: { channel: string; threadTs?: string };
@@ -108,6 +110,18 @@ export function createRunRenderer(args: {
    */
   nativeStreaming?: {
     transport: NativeStreamTransport;
+    /**
+     * Require native text delivery. Start, append, and stop failures propagate
+     * instead of creating or updating a second legacy message.
+     */
+    strict?: boolean;
+    /** Override the native text flush floor. */
+    minIntervalMs?: number;
+    /**
+     * Tuning for splitting a long reply across continuation messages. Passed
+     * straight through to the turn stream; unset leaves its defaults.
+     */
+    replyContinuation?: ReplyContinuationOptions;
     onStartFailure?: (err: unknown) => void;
     /**
      * Whether structured `task_update` chunks are known to work on this
@@ -129,6 +143,7 @@ export function createRunRenderer(args: {
     args.interruptEventNames ?? new Set<string>(["on_interrupt"]);
   const showToolStatus = args.showToolStatus ?? false;
   const nativeMode = args.nativeStreaming !== undefined;
+  const strictNative = args.nativeStreaming?.strict ?? false;
 
   // ── Native status mode ──────────────────────────────────────────────
   // Whenever the reply is anchored to a thread, the run lifecycle drives
@@ -142,7 +157,7 @@ export function createRunRenderer(args: {
   const setStatus = async (text: string): Promise<void> => {
     if (!status) return;
     try {
-      await transport.setStatus({
+      await transport.setStatus?.({
         channel_id: target.channel,
         thread_ts: status.threadTs,
         status: text,
@@ -194,6 +209,8 @@ export function createRunRenderer(args: {
   let pendingSeparator = false;
   /** True once the turn stream has been finalized (interrupt / error / finish). */
   let turnFinalised = false;
+  /** True after a run error, so a partial reply never receives feedback UI. */
+  let runFailed = false;
   /**
    * Whether native structured chunks (`task_update`) are usable. Flipped off
    * the first time a chunk append fails (old workspace / missing scope), after
@@ -254,12 +271,33 @@ export function createRunRenderer(args: {
           await onFirstReply();
           return ts;
         },
+        ...(ns.transport.startStreamWithText
+          ? {
+              startStreamWithText: async (markdownText: string) => {
+                const ts =
+                  await ns.transport.startStreamWithText!(markdownText);
+                await onFirstReply();
+                return ts;
+              },
+            }
+          : {}),
         appendText: (ts, md) => ns.transport.appendText(ts, md),
         appendChunks: (ts, chunks) => ns.transport.appendChunks(ts, chunks),
         stopStream: (ts, blocks) => ns.transport.stopStream(ts, blocks),
       },
       fallback: makeLegacyStream,
       onStartFailure: ns.onStartFailure,
+      strict: ns.strict,
+      minIntervalMs: ns.minIntervalMs,
+      ...(ns.replyContinuation?.messageByteLimit !== undefined
+        ? { messageByteLimit: ns.replyContinuation.messageByteLimit }
+        : {}),
+      ...(ns.replyContinuation?.maxMessages !== undefined
+        ? { maxMessages: ns.replyContinuation.maxMessages }
+        : {}),
+      ...(ns.replyContinuation?.truncationMarker !== undefined
+        ? { truncationMarker: ns.replyContinuation.truncationMarker }
+        : {}),
       onChunkFailure: () => {
         // Structured chunks unsupported on this workspace — degrade tool
         // progress to `:wrench:` rows for the rest of the run, and let the
@@ -440,6 +478,7 @@ export function createRunRenderer(args: {
         }
         return;
       }
+      if (strictNative) return;
       // Legacy path (or native degraded): a `:wrench:` status row.
       await postToolStartRow(event.toolCallId, event.toolCallName);
     },
@@ -482,6 +521,7 @@ export function createRunRenderer(args: {
         }
         return;
       }
+      if (strictNative) return;
       // Legacy path (or native degraded): edit the `:wrench:` row to a check.
       await finishToolStatusRow(event.toolCallId, toolCallName);
     },
@@ -512,9 +552,18 @@ export function createRunRenderer(args: {
       // `_(interrupted)_` marker on the partial reply is the user-visible
       // signal in that case.
       if (statusMode) await clearStatus();
+      if (aborted) return;
+
+      if (strictNative && turnStream) {
+        runFailed = true;
+        turnText += RUN_ERROR_SUFFIX;
+        turnStream.append(turnText);
+        await finalizeTurnStream();
+        return;
+      }
+
       // Close any open native turn stream so the partial reply is committed.
       await finalizeTurnStream();
-      if (aborted) return;
       try {
         await transport.postMessage({
           channel: target.channel,
@@ -535,7 +584,9 @@ export function createRunRenderer(args: {
       // Attach the feedback row only to a COMPLETE reply that streamed text —
       // never to an interrupted/aborted partial (no point rating a half answer).
       const blocks =
-        !aborted && turnText.length > 0 ? args.feedbackBlocks : undefined;
+        !aborted && !runFailed && turnText.length > 0
+          ? args.feedbackBlocks
+          : undefined;
       await turnStream.finish(blocks);
     }
   };

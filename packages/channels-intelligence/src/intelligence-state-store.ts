@@ -1,6 +1,19 @@
 import { MemoryStore } from "@copilotkit/channels-core";
 import type { StateStore } from "@copilotkit/channels-core";
-import type { FetchLike } from "./http-transports.js";
+export interface FetchLike {
+  (
+    input: string,
+    init: {
+      method: string;
+      headers: Record<string, string>;
+      body: string;
+    },
+  ): Promise<{
+    ok: boolean;
+    status: number;
+    text(): Promise<string>;
+  }>;
+}
 
 /** Minimal transport config the store needs (subset of the adapter's). */
 export interface IntelligenceStateStoreConfig {
@@ -13,19 +26,16 @@ export interface IntelligenceStateStoreConfig {
 }
 
 /**
- * Durable {@link StateStore} for Channel Bots, backed by Intelligence app-api's
+ * Durable {@link StateStore} for managed Channels, backed by Intelligence app-api's
  * runtime-authed KV routes (`/api/channels/kv/*`). Only the `kv` facet is durable —
  * that is what the action registry (button/`ck:` snapshots) and thread state
  * use, so a HITL card posted before a Channel-loop restart still re-renders on
  * cold-cache dispatch and can be flipped in place.
  *
  * `list` / `lock` / `dedup` / `queue` delegate to an in-memory
- * {@link MemoryStore}. On the Channel Slack path these are not durability
- * critical: dedup is skipped at ingress (`adapter.skipIngressDedup`), the
- * per-conversation turn lock is process-local (a single Channel runtime; the
- * app-api delivery lease already fences work cross-instance), and list/queue
- * (transcripts/proactive) are unused. // ponytail: promote these to durable KV
- * only if the Channel runtime is ever horizontally scaled.
+ * {@link MemoryStore}. Managed ingress owns durable dedupe, and Intelligence
+ * owns durable delivery and Thread state. The remaining list, lock, dedup, and
+ * queue facets support adapter-local helpers only.
  */
 export class IntelligenceStateStore implements StateStore {
   private readonly local = new MemoryStore();
@@ -93,6 +103,14 @@ export class IntelligenceStateStore implements StateStore {
     /** Delete a durable key (no-op if absent). */
     delete: async (key: string): Promise<void> => {
       await this.post("/api/channels/kv/delete", { key });
+    },
+    /** Atomically read and remove a one-use capability. */
+    consume: async <T>(key: string): Promise<T | undefined> => {
+      const { value } = await this.post<{ value: T | null }>(
+        "/api/channels/kv/consume",
+        { key },
+      );
+      return value === null ? undefined : value;
     },
   };
 
