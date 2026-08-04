@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  KEEL_PERSONAS,
-  DEFAULT_PERSONA_ID,
-  getPersona,
-} from "./personas";
+import { KEEL_PERSONAS, DEFAULT_PERSONA_ID, getPersona } from "./personas";
 
 describe("keel personas", () => {
   it("ships exactly four personas with unique ids", () => {
