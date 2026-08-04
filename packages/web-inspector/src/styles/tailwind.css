@@ -178,9 +178,35 @@
 }
 
 .inspector-thread-progress {
+  --inspector-thread-progress-color: #189370;
   width: 100%;
   height: 6px;
-  accent-color: #6430ab;
+  overflow: hidden;
+  border-radius: 999px;
+  accent-color: var(--inspector-thread-progress-color);
+}
+
+.inspector-thread-progress[data-inspector-thread-capacity="warning"] {
+  --inspector-thread-progress-color: #b45309;
+}
+
+.inspector-thread-progress[data-inspector-thread-capacity="critical"] {
+  --inspector-thread-progress-color: #be123c;
+}
+
+.inspector-thread-progress::-webkit-progress-bar {
+  border-radius: 999px;
+  background-color: #dbdbe5;
+}
+
+.inspector-thread-progress::-webkit-progress-value {
+  border-radius: 999px;
+  background-color: var(--inspector-thread-progress-color);
+}
+
+.inspector-thread-progress::-moz-progress-bar {
+  border-radius: 999px;
+  background-color: var(--inspector-thread-progress-color);
 }
 
 [data-inspector-action-placement="threads-footer"] {

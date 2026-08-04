@@ -291,7 +291,7 @@ test.each([
   [
     "valid",
     "manage_plan",
-    "Threads are unavailable for this runtime.",
+    "Enable Threads to inspect saved history.",
     undefined,
   ],
   [

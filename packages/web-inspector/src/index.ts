@@ -5191,6 +5191,21 @@ export class WebInspectorElement extends LitElement {
     return "unknown_limit";
   }
 
+  /** Classify finite usage for render-only capacity copy and color. */
+  private getThreadsCapacityState():
+    | "normal"
+    | "warning"
+    | "critical"
+    | undefined {
+    const usage = this.inspectorMetadataProjection.usage;
+    if (!usage || usage.limit.kind !== "finite") return undefined;
+    if (usage.used >= usage.limit.value) return "critical";
+
+    const warningThreshold =
+      usage.limit.value - Math.floor(usage.limit.value / 10);
+    return usage.used >= warningThreshold ? "warning" : "normal";
+  }
+
   /** Bucket trusted expiry data independently from the usage-limit bucket. */
   private getThreadsExpiryBucket(): ThreadsExpiryBucket {
     const usage = this.inspectorMetadataProjection.usage;
@@ -7616,9 +7631,13 @@ ${argsString}</pre
     `;
   }
 
+  /** Render a trusted action with optional context-specific copy. */
   private renderInspectorAction(
     action: InspectorMetadataAction,
     placement: "threads-footer" | "locked",
+    displayLabel:
+      | InspectorMetadataAction["label"]
+      | "Upgrade Your Plan" = action.label,
   ) {
     return html`
       <a
@@ -7626,7 +7645,7 @@ ${argsString}</pre
         href=${action.url}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="${action.label} (opens in a new tab)"
+        aria-label="${displayLabel} (opens in a new tab)"
         style=${
           placement === "threads-footer"
             ? ""
@@ -7635,7 +7654,7 @@ ${argsString}</pre
         @click=${() =>
           this.handleInspectorMetadataActionClick(action, placement)}
       >
-        ${action.label}
+        ${displayLabel}
       </a>
     `;
   }
@@ -10553,7 +10572,7 @@ ${argsString}</pre
     switch (this.inspectorMetadataProjection.licenseState) {
       case "valid":
         return {
-          heading: "Threads are unavailable for this runtime.",
+          heading: "Enable Threads to inspect saved history.",
           description:
             "Your Intelligence license is active. Enable the Threads endpoints in this runtime to inspect saved history.",
         };
@@ -10941,6 +10960,7 @@ ${argsString}</pre
     let countLabel: string | undefined;
     let progressMax: number | undefined;
     let progressValue: number | undefined;
+    const capacityState = this.getThreadsCapacityState();
     if (usage) {
       if (usage.limit.kind === "finite") {
         const overLimit = usage.used > usage.limit.value;
@@ -10975,9 +10995,16 @@ ${argsString}</pre
                           <progress
                             class="inspector-thread-progress"
                             data-inspector-thread-progress
+                            data-inspector-thread-capacity=${capacityState}
                             max=${progressMax}
                             value=${progressValue}
-                            aria-label=${countLabel}
+                            aria-label=${
+                              capacityState === "warning"
+                                ? `${countLabel}. Near thread limit.`
+                                : capacityState === "critical"
+                                  ? `${countLabel}. Thread limit reached.`
+                                  : countLabel
+                            }
                             >${countLabel}</progress
                           >
                         `
@@ -10998,7 +11025,13 @@ ${argsString}</pre
         }
         ${
           threadsFooterAction
-            ? this.renderInspectorAction(threadsFooterAction, "threads-footer")
+            ? this.renderInspectorAction(
+                threadsFooterAction,
+                "threads-footer",
+                capacityState === "warning" || capacityState === "critical"
+                  ? "Upgrade Your Plan"
+                  : threadsFooterAction.label,
+              )
             : nothing
         }
       </footer>

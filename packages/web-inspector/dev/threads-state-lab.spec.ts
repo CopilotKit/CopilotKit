@@ -65,6 +65,8 @@ const EXPECTED_CORE_KEYS = [
 const EXPECTED_EDGE_KEYS = [
   "free-figma-148-of-200",
   "free-overage-241-of-200",
+  "pro-warning-4500-of-5000",
+  "pro-at-limit-5000-of-5000",
   "oss-no-metadata-enabled-zero",
   "capability-absent",
   "unknown-limit",
@@ -334,10 +336,31 @@ async function requestCounters(
 /** Returns the expected action label for trusted fixture metadata. */
 function expectedActionLabel(scenario: ThreadsStateScenario): string | null {
   const kind = scenario.inspectorMetadata?.action?.kind;
-  if (kind === "manage_plan") return "Manage Your Plan";
+  if (kind === "manage_plan") {
+    const usage = scenario.inspectorMetadata?.usage;
+    if (usage?.limit.kind === "finite") {
+      const warningThreshold =
+        usage.limit.value - Math.floor(usage.limit.value / 10);
+      if (usage.used >= warningThreshold) return "Upgrade Your Plan";
+    }
+    return "Manage Your Plan";
+  }
   if (kind === "enable_intelligence") return "Enable Intelligence";
   if (kind === "renew") return "Renew";
   return null;
+}
+
+/** Returns the finite progress tone expected from trusted usage. */
+function expectedCapacityState(
+  scenario: ThreadsStateScenario,
+): "normal" | "warning" | "critical" | null {
+  const usage = scenario.inspectorMetadata?.usage;
+  if (usage?.limit.kind !== "finite") return null;
+  if (usage.used >= usage.limit.value) return "critical";
+
+  const warningThreshold =
+    usage.limit.value - Math.floor(usage.limit.value / 10);
+  return usage.used >= warningThreshold ? "warning" : "normal";
 }
 
 /** Returns the required overview copy for a route that cannot show saved rows. */
@@ -361,7 +384,7 @@ function expectedOverviewCopy(
   }
   if (scenario.capability !== "enabled") {
     return {
-      heading: "Threads are unavailable for this runtime.",
+      heading: "Enable Threads to inspect saved history.",
       description:
         "Your Intelligence license is active. Enable the Threads endpoints in this runtime to inspect saved history.",
     };
@@ -451,14 +474,14 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 31-scenario route catalog", () => {
+test("exports the exact ordered 33-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
   expect(ALL_SCENARIO_KEYS).toEqual([
     ...EXPECTED_CORE_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(31);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(33);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
 });
 
@@ -601,6 +624,22 @@ test("preserves all edge metadata states without normalizing fixtures", () => {
   ).toEqual({
     used: 241,
     limit: { kind: "finite", value: 200 },
+    expiringSoonCount: 0,
+  });
+  expect(
+    getThreadsStateScenario("pro-warning-4500-of-5000").inspectorMetadata
+      ?.usage,
+  ).toEqual({
+    used: 4_500,
+    limit: { kind: "finite", value: 5_000 },
+    expiringSoonCount: 12,
+  });
+  expect(
+    getThreadsStateScenario("pro-at-limit-5000-of-5000").inspectorMetadata
+      ?.usage,
+  ).toEqual({
+    used: 5_000,
+    limit: { kind: "finite", value: 5_000 },
     expiringSoonCount: 0,
   });
   expect(getThreadsStateScenario("usage-only").inspectorMetadata).toEqual({
@@ -1146,7 +1185,7 @@ test("runs teardown before real select and reset control navigation", async () =
   }
 });
 
-test("drives the real Core, Inspector, stores, surfaces, and ledger for all 31 routes", async () => {
+test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
     window,
@@ -1317,6 +1356,10 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 31 r
               expect(text, `${key}: finite usage copy`).toContain(
                 `${numerator} / ${limit} Threads`,
               );
+              expect(
+                progress[0]?.getAttribute("data-inspector-thread-capacity"),
+                `${key}: capacity state`,
+              ).toBe(expectedCapacityState(scenario));
             }
             if (
               Object.hasOwn(usage, "expiringSoonCount") &&

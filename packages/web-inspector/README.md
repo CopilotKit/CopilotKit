@@ -27,18 +27,21 @@ produce zero list, subscribe, inspect, messages, events, and state requests.
 
 ### License and action matrix
 
-| Effective license state | Threads footer                                                   | Locked Threads view                                                                            |
-| ----------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `valid`                 | Shows `Manage Your Plan` only for a trusted `manage_plan` action | Explains that the license is active but the runtime has no Threads endpoints; no locked action |
-| `none`                  | No footer action                                                 | Shows `Enable Intelligence` only for a trusted `enable_intelligence` action                    |
-| `expired`               | No footer action                                                 | Shows `Renew` for `renew`, or `Manage Your Plan` for `manage_plan`                             |
-| `unknown`               | No footer action                                                 | Uses neutral unavailable copy with no action                                                   |
+| Effective license state | Threads footer                                                                                                              | Locked Threads view                                                                            |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `valid`                 | Shows `Manage Your Plan` below 90% finite usage and `Upgrade Your Plan` at 90% or higher for a trusted `manage_plan` action | Prompts the user to enable Threads when the runtime has no Threads endpoints; no locked action |
+| `none`                  | No footer action                                                                                                            | Shows `Enable Intelligence` only for a trusted `enable_intelligence` action                    |
+| `expired`               | No footer action                                                                                                            | Shows `Renew` for `renew`, or `Manage Your Plan` for `manage_plan`                             |
+| `unknown`               | No footer action                                                                                                            | Uses neutral unavailable copy with no action                                                   |
 
-Finite usage shows `used / limit Threads` with a native progress bar. An overage
-shows `limit+ / limit Threads` and caps the bar at 100%. Unlimited limits use
-text only. An unknown limit shows the trusted used count with `Limit
-unavailable`; it invents neither a numeric limit nor progress. A known zero
-expiry count stays visible; missing or malformed expiry data stays hidden.
+Finite usage shows `used / limit Threads` with a native progress bar. The bar is
+green below 90%, orange from 90% up to the limit, and red at or above the limit.
+At 90%, a trusted `manage_plan` footer link changes from `Manage Your Plan` to
+`Upgrade Your Plan` without changing its URL or action kind. An overage shows
+`limit+ / limit Threads` and caps the bar at 100%. Unlimited limits use text
+only. An unknown limit shows the trusted used count with `Limit unavailable`;
+it invents neither a numeric limit nor progress. A known zero expiry count stays
+visible; missing or malformed expiry data stays hidden.
 
 `Expiring Soon` describes a future retention-policy threshold in the next 24
 hours. The Inspector does not enforce retention, lock or delete Threads, or run

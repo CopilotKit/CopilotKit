@@ -1048,7 +1048,7 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "valid",
     actionKind: "manage_plan",
     actionUrl: "https://cloud.copilotkit.ai/actions/manage",
-    heading: "Threads are unavailable for this runtime.",
+    heading: "Enable Threads to inspect saved history.",
     footerLabel: "Manage Your Plan",
   },
   {
@@ -1230,7 +1230,7 @@ test.each(footerCases)(
 
       if (state === "locked") {
         expect(root.textContent).toContain(
-          "Threads are unavailable for this runtime.",
+          "Enable Threads to inspect saved history.",
         );
       }
       if (state === "loading") {

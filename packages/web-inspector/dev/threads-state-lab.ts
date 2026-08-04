@@ -24,6 +24,8 @@ export const CORE_SCENARIO_KEYS = [
 export const EDGE_SCENARIO_KEYS = [
   "free-figma-148-of-200",
   "free-overage-241-of-200",
+  "pro-warning-4500-of-5000",
+  "pro-at-limit-5000-of-5000",
   "oss-no-metadata-enabled-zero",
   "capability-absent",
   "unknown-limit",
@@ -546,6 +548,40 @@ function edgeScenario(
         description: "Raw 241 / 200 renders as 200+ / 200 at 100%.",
         inspectorMetadata: overage,
         inspectorMetadataBody: overage,
+      });
+    }
+    case "pro-warning-4500-of-5000": {
+      const warning = metadata("pro", {
+        used: 4_500,
+        limit: { kind: "finite", value: 5_000 },
+        expiringSoonCount: 12,
+        action: { kind: "manage_plan", url: MANAGE_PLAN_URL },
+      });
+      return buildScenario({
+        ...base,
+        label: "Pro · near limit 4500 / 5000",
+        description:
+          "Exactly 90% usage renders an orange bar and Upgrade Your Plan.",
+        plan: "pro",
+        inspectorMetadata: warning,
+        inspectorMetadataBody: warning,
+      });
+    }
+    case "pro-at-limit-5000-of-5000": {
+      const atLimit = metadata("pro", {
+        used: 5_000,
+        limit: { kind: "finite", value: 5_000 },
+        expiringSoonCount: 0,
+        action: { kind: "manage_plan", url: MANAGE_PLAN_URL },
+      });
+      return buildScenario({
+        ...base,
+        label: "Pro · at limit 5000 / 5000",
+        description:
+          "Exactly 100% usage renders a red bar and Upgrade Your Plan.",
+        plan: "pro",
+        inspectorMetadata: atLimit,
+        inspectorMetadataBody: atLimit,
       });
     }
     case "oss-no-metadata-enabled-zero":

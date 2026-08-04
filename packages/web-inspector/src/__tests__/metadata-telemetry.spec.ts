@@ -686,6 +686,7 @@ test("metadata events never include local identity, URLs, usage, limits, counts,
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="threads-footer"]',
       );
+    expect(action?.textContent?.trim()).toBe("Upgrade Your Plan");
     action?.dispatchEvent(new Event("click"));
     await Promise.resolve();
 

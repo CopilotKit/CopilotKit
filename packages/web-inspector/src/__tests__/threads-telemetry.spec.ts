@@ -756,6 +756,12 @@ const usageCases = [
     expiryBucket: "positive",
   },
   {
+    name: "finite warning threshold stays in the coarse within-limit bucket",
+    usage: { used: 180, limit: { kind: "finite", value: 200 } },
+    usageBucket: "within_limit",
+    expiryBucket: "unavailable",
+  },
+  {
     name: "finite exact limit",
     usage: { used: 200, limit: { kind: "finite", value: 200 } },
     usageBucket: "at_or_over_limit",

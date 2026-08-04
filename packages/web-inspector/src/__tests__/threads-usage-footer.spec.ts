@@ -157,13 +157,67 @@ const usageDisplayCases = [
     name: "finite usage renders an exact count and native progress",
     usage: { used: 148, limit: { kind: "finite", value: 200 } },
     countLabel: "148 / 200 Threads",
-    progress: { max: 200, value: 148 },
+    progress: {
+      max: 200,
+      value: 148,
+      capacity: "normal",
+      ariaLabel: "148 / 200 Threads",
+    },
+  },
+  {
+    name: "finite usage stays normal immediately below ninety percent",
+    usage: { used: 4_499, limit: { kind: "finite", value: 5_000 } },
+    countLabel: "4499 / 5000 Threads",
+    progress: {
+      max: 5_000,
+      value: 4_499,
+      capacity: "normal",
+      ariaLabel: "4499 / 5000 Threads",
+    },
+  },
+  {
+    name: "finite usage warns at exactly ninety percent",
+    usage: { used: 4_500, limit: { kind: "finite", value: 5_000 } },
+    countLabel: "4500 / 5000 Threads",
+    progress: {
+      max: 5_000,
+      value: 4_500,
+      capacity: "warning",
+      ariaLabel: "4500 / 5000 Threads. Near thread limit.",
+    },
+  },
+  {
+    name: "finite usage keeps warning immediately below its limit",
+    usage: { used: 4_999, limit: { kind: "finite", value: 5_000 } },
+    countLabel: "4999 / 5000 Threads",
+    progress: {
+      max: 5_000,
+      value: 4_999,
+      capacity: "warning",
+      ariaLabel: "4999 / 5000 Threads. Near thread limit.",
+    },
+  },
+  {
+    name: "finite usage is critical at exactly its limit",
+    usage: { used: 5_000, limit: { kind: "finite", value: 5_000 } },
+    countLabel: "5000 / 5000 Threads",
+    progress: {
+      max: 5_000,
+      value: 5_000,
+      capacity: "critical",
+      ariaLabel: "5000 / 5000 Threads. Thread limit reached.",
+    },
   },
   {
     name: "finite overage clamps visible count and native progress",
     usage: { used: 241, limit: { kind: "finite", value: 200 } },
     countLabel: "200+ / 200 Threads",
-    progress: { max: 200, value: 200 },
+    progress: {
+      max: 200,
+      value: 200,
+      capacity: "critical",
+      ariaLabel: "200+ / 200 Threads. Thread limit reached.",
+    },
   },
   {
     name: "unlimited usage renders its trusted count without progress",
@@ -179,7 +233,12 @@ const usageDisplayCases = [
   name: string;
   usage: ThreadsUsage;
   countLabel: string;
-  progress?: Readonly<{ max: number; value: number }>;
+  progress?: Readonly<{
+    max: number;
+    value: number;
+    capacity: "normal" | "warning" | "critical";
+    ariaLabel: string;
+  }>;
 }>;
 
 test.each(usageDisplayCases)("$name", async (case_) => {
@@ -200,7 +259,12 @@ test.each(usageDisplayCases)("$name", async (case_) => {
       expect(progress).toBeInstanceOf(HTMLProgressElement);
       expect(progress?.max).toBe(case_.progress.max);
       expect(progress?.value).toBe(case_.progress.value);
-      expect(progress?.getAttribute("aria-label")).toBe(case_.countLabel);
+      expect(progress?.dataset.inspectorThreadCapacity).toBe(
+        case_.progress.capacity,
+      );
+      expect(progress?.getAttribute("aria-label")).toBe(
+        case_.progress.ariaLabel,
+      );
     }
     if (case_.usage.used === 241) {
       expect(footer.outerHTML).not.toContain("241");
@@ -273,6 +337,7 @@ const moduleCases = [
       url: "https://cloud.copilotkit.ai/organizations/acme/billing",
     },
     expectsAction: true,
+    expectedActionLabel: "Manage Your Plan",
   },
   {
     name: "usage and action metadata share one semantic footer",
@@ -287,6 +352,35 @@ const moduleCases = [
     },
     expectedCount: "148 / 200 Threads",
     expectsAction: true,
+    expectedActionLabel: "Manage Your Plan",
+  },
+  {
+    name: "usage at ninety percent upgrades the trusted plan action copy",
+    usage: {
+      used: 4_500,
+      limit: { kind: "finite", value: 5_000 },
+    },
+    action: {
+      kind: "manage_plan",
+      url: "https://cloud.copilotkit.ai/organizations/acme/billing",
+    },
+    expectedCount: "4500 / 5000 Threads",
+    expectsAction: true,
+    expectedActionLabel: "Upgrade Your Plan",
+  },
+  {
+    name: "usage at its limit keeps the upgrade plan action copy",
+    usage: {
+      used: 5_000,
+      limit: { kind: "finite", value: 5_000 },
+    },
+    action: {
+      kind: "manage_plan",
+      url: "https://cloud.copilotkit.ai/organizations/acme/billing",
+    },
+    expectedCount: "5000 / 5000 Threads",
+    expectsAction: true,
+    expectedActionLabel: "Upgrade Your Plan",
   },
 ] satisfies ReadonlyArray<{
   name: string;
@@ -294,6 +388,7 @@ const moduleCases = [
   action?: InspectorMetadataV1["action"];
   expectedCount?: string;
   expectsAction: boolean;
+  expectedActionLabel?: "Manage Your Plan" | "Upgrade Your Plan";
 }>;
 
 test.each(moduleCases)("$name", async (case_) => {
@@ -313,12 +408,12 @@ test.each(moduleCases)("$name", async (case_) => {
     ).toHaveLength(1);
     expect(count?.textContent?.trim()).toBe(case_.expectedCount);
     if (case_.expectsAction) {
-      expect(action?.textContent?.trim()).toBe("Manage Your Plan");
+      expect(action?.textContent?.trim()).toBe(case_.expectedActionLabel);
       expect(action?.href).toBe(case_.action?.url);
       expect(action?.target).toBe("_blank");
       expect(action?.rel).toContain("noopener");
       expect(action?.getAttribute("aria-label")).toBe(
-        "Manage Your Plan (opens in a new tab)",
+        `${case_.expectedActionLabel} (opens in a new tab)`,
       );
     } else {
       expect(action).toBeNull();
