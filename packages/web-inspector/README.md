@@ -72,27 +72,74 @@ The usage UI does not add usage impressions or values to telemetry. Grouped
 Inspector navigation shows the footer only on Threads. The existing metadata
 action impression and click events keep their coarse allowlist.
 
-## Standalone Thread Inspector QA
+## Standalone Inspector Threads lab
 
-Run the shared inspector without an app shell:
+Run the full Inspector against a deterministic loopback Runtime:
 
 ```bash
 pnpm nx run @copilotkit/web-inspector:dev:standalone
 ```
 
-Open [http://127.0.0.1:5177/](http://127.0.0.1:5177/).
+Open [http://127.0.0.1:5177/](http://127.0.0.1:5177/). The server binds only to
+`127.0.0.1` and uses strict port `5177`, so it fails instead of moving to a new
+port when that port is busy. It does not connect to an external Intelligence
+service.
 
-Validation steps:
+Each route mounts a real `CopilotKitCore` and `cpk-web-inspector` against local
+REST and Phoenix V2 WebSocket endpoints. The page shows the normalized fixture,
+the expected and actual counts for all six Thread request kinds, and the request
+log.
 
-1. Confirm the initial `AG-UI events` scenario opens on the Timeline tab and renders run, message, and tool rows.
-2. Click `Messages only` and confirm the first-visible Timeline renders persisted message content instead of an empty Timeline.
-3. Click `Raw event only` and confirm the Timeline renders a `THREAD_STATE_WRITTEN` row with a source-event link.
-4. Use a Timeline source-event link and confirm it opens the Raw AG-UI Events tab on the corresponding event.
-5. Open the State tab and confirm the demo state is visible.
+### Recording links
 
-This harness uses demo provider data only. Manual product validation for Intelligence-backed threads still needs a real Intelligence backend.
+Use this canonical link shape:
 
-The standalone harness cannot prove the full identity, plan, action, locked
-state, or mixed-version screenshot matrix because it mounts only the thread
-Inspector with demo data. Do not treat this harness as full visual sign-off for
-trusted metadata.
+```text
+http://127.0.0.1:5177/?scenario=<key>&reset=1
+```
+
+Start a recording with the approved Free usage state:
+
+[http://127.0.0.1:5177/?scenario=free-figma-148-of-200&reset=1](http://127.0.0.1:5177/?scenario=free-figma-148-of-200&reset=1)
+
+It shows `148 / 200 Threads`, `37 Expiring Soon`, the finite progress bar, and
+the managed plan action. The `free-overage-241-of-200` route shows the matching
+overage state: `200+ / 200 Threads`, `0 Expiring Soon`, and a full progress bar.
+
+### Core matrix
+
+The first 16 routes cover every combination of plan or deployment, Threads
+capability, and data state:
+
+| Route prefix  | Deployment  | Usage limit | Managed plan action |
+| ------------- | ----------- | ----------- | ------------------- |
+| `pro`         | Managed     | 5,000       | Yes                 |
+| `team`        | Managed     | 25,000      | Yes                 |
+| `enterprise`  | Managed     | Unlimited   | No                  |
+| `self-hosted` | Self-hosted | 25,000      | No                  |
+
+Each prefix has `enabled-zero`, `enabled-existing`, `disabled-zero`, and
+`disabled-existing` routes. Disabled routes can include seeded rows, but all six
+real request counts must remain zero.
+
+The other 15 routes cover absent capability and metadata, unknown or malformed
+usage, missing expiry, usage-only and action-only metadata, locked and expired
+licenses, list and video errors, reduced motion, and disabled telemetry. The
+scenario selector lists all 31 routes in the fixed test order.
+
+### Local demo and reset behavior
+
+Enabled routes with no real rows keep the product's video, three example
+threads, detail tabs, and guided tour. `video-error` blocks media in the lab so
+the fallback can be tested without changing the product video URL.
+`reduced-motion` starts the video paused and keeps the labelled play control.
+
+`Reset` tears down the current Core and stores, clears only these two keys, resets
+the server ledger, and reloads the canonical route:
+
+```text
+cpk:inspector:state
+cpk:inspector:threads-example-tour:v1
+```
+
+It preserves announcement, telemetry, app, and unrelated local-storage data.
