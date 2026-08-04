@@ -108,7 +108,8 @@ export const DEFAULT_SCENARIO_KEY: ScenarioKey = "free-figma-148-of-200";
 const AGENT_ID = "threads-lab-agent";
 const ORGANIZATION_ID = "threads-lab-organization";
 const USER_ID = "threads-lab-user";
-const MANAGE_PLAN_URL = "https://cloud.copilotkit.ai/settings/billing";
+const MANAGE_PLAN_URL =
+  "https://dashboard.operations.copilotkit.ai/account/organization/org_demo_inspector/organization-billing";
 const ENABLE_INTELLIGENCE_URL =
   "https://cloud.copilotkit.ai/intelligence/enable";
 const RENEW_URL = "https://cloud.copilotkit.ai/settings/license";
