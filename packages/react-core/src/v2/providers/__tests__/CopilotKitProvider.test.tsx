@@ -1,11 +1,27 @@
-import { render, renderHook, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { ToolCallStatus } from "@copilotkit/core";
+import { CopilotChat } from "../../components/chat/CopilotChat";
 import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
+import {
+  MockStepwiseAgent,
+  renderWithCopilotKit,
+  runFinishedEvent,
+  runStartedEvent,
+  testId,
+  toolCallChunkEvent,
+} from "../../__tests__/utils/test-helpers";
 
 // Mock console methods
 const originalConsoleError = console.error;
@@ -225,11 +241,18 @@ describe("CopilotKitProvider", () => {
         (rc) => rc.name === "approvalTool",
       );
       expect(approvalTool).toBeDefined();
-      expect(approvalTool?.render).toBe(TestComponent);
+      expect(approvalTool?.render).toBeDefined();
     });
 
-    it("creates placeholder handlers for humanInTheLoop tools", async () => {
-      const TestComponent: React.FC<any> = () => <div>Test</div>;
+    it("waits for humanInTheLoop renderers to respond", async () => {
+      const TestComponent: React.FC<any> = ({ respond }) => (
+        <button
+          data-testid="hitl-respond"
+          onClick={() => respond?.({ approved: true })}
+        >
+          Respond
+        </button>
+      );
       const humanInTheLoopTools: ReactHumanInTheLoop[] = [
         {
           name: "interactiveTool",
@@ -254,19 +277,149 @@ describe("CopilotKitProvider", () => {
       })?.handler;
       expect(handler).toBeDefined();
 
-      // Call the handler and check for warning
-      const handlerPromise = handler!({ data: "test" }, {} as any);
-
-      await waitFor(() => {
-        expect(consoleWarnSpy).toHaveBeenCalledWith(
-          expect.stringContaining(
-            "Human-in-the-loop tool 'interactiveTool' called",
-          ),
-        );
+      let settled = false;
+      const handlerPromise = handler!({ data: "test" }, {
+        toolCall: {
+          id: "tool-call-1",
+          type: "function",
+          function: {
+            name: "interactiveTool",
+            arguments: JSON.stringify({ data: "test" }),
+          },
+        },
+      } as any).then((value) => {
+        settled = true;
+        return value;
       });
 
-      const result2 = await handlerPromise;
-      expect(result2).toBeUndefined();
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      const renderToolCall = result.current.copilotkit.renderToolCalls.find(
+        (rc) => rc.name === "interactiveTool",
+      );
+      expect(renderToolCall).toBeDefined();
+
+      const Renderer = renderToolCall!.render;
+      render(
+        <Renderer
+          name="interactiveTool"
+          toolCallId="tool-call-1"
+          args={{ data: "test" }}
+          status={ToolCallStatus.Executing}
+          result={undefined}
+        />,
+      );
+
+      fireEvent.click(screen.getByTestId("hitl-respond"));
+
+      await expect(handlerPromise).resolves.toEqual({ approved: true });
+    });
+
+    it("rejects a pending humanInTheLoop handler when the run is aborted", async () => {
+      const humanInTheLoopTools: ReactHumanInTheLoop[] = [
+        {
+          name: "interactiveTool",
+          description: "Interactive tool",
+          render: () => <div>Interactive tool</div>,
+        },
+      ];
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider humanInTheLoop={humanInTheLoopTools}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+      const controller = new AbortController();
+      const handler = result.current.copilotkit.getTool({
+        toolName: "interactiveTool",
+      })?.handler;
+
+      const handlerPromise = handler!({} as Record<string, unknown>, {
+        toolCall: {
+          id: "tool-call-abort",
+          type: "function",
+          function: { name: "interactiveTool", arguments: "{}" },
+        },
+        signal: controller.signal,
+      } as any);
+
+      controller.abort();
+
+      await expect(handlerPromise).rejects.toThrow(
+        "Human-in-the-loop interaction aborted",
+      );
+    });
+
+    it("keeps a provider HITL UI interactive after the multi-route run finishes", async () => {
+      const agent = new MockStepwiseAgent();
+      const humanInTheLoopTools: ReactHumanInTheLoop<{ action: string }>[] = [
+        {
+          name: "approvalTool",
+          description: "Requires approval",
+          parameters: z.object({ action: z.string() }),
+          render: ({ args, status, respond }) => (
+            <div data-testid="provider-hitl-tool">
+              <span data-testid="provider-hitl-status">{status}</span>
+              <span data-testid="provider-hitl-action">{args.action ?? ""}</span>
+              {respond && (
+                <button
+                  data-testid="provider-hitl-respond"
+                  onClick={() => void respond({ approved: true })}
+                >
+                  Approve
+                </button>
+              )}
+            </div>
+          ),
+        },
+      ];
+
+      renderWithCopilotKit({
+        agent,
+        humanInTheLoop: humanInTheLoopTools,
+        children: <CopilotChat welcomeScreen={false} />,
+      });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Request approval" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Request approval")).toBeDefined();
+      });
+
+      const toolCallId = testId("provider-hitl");
+      agent.emit(runStartedEvent());
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "approvalTool",
+          parentMessageId: testId("message"),
+          delta: JSON.stringify({ action: "delete" }),
+        }),
+      );
+      agent.emit(runFinishedEvent());
+      agent.complete();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("provider-hitl-status").textContent).toBe(
+          ToolCallStatus.Executing,
+        );
+        expect(screen.getByTestId("provider-hitl-action").textContent).toBe(
+          "delete",
+        );
+        expect(screen.getByTestId("provider-hitl-respond")).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId("provider-hitl-respond"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("provider-hitl-status").textContent).toBe(
+          ToolCallStatus.Complete,
+        );
+      });
     });
 
     it("warns when humanInTheLoop prop changes", async () => {
@@ -441,7 +594,7 @@ describe("CopilotKitProvider", () => {
       expect(directRenderTool).toBeDefined();
 
       expect(frontendRenderTool?.render).toBe(TestComponent1);
-      expect(humanRenderTool?.render).toBe(TestComponent2);
+      expect(humanRenderTool?.render).toBeDefined();
       expect(directRenderTool?.render).toBe(TestComponent3);
     });
   });
