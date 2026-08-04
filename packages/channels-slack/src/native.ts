@@ -22,7 +22,6 @@ export interface SlackNativeProps<TValue = unknown> {
   fields?: ChannelNode | ChannelNode[];
   options?: ChannelNode[] | ReadonlyArray<Record<string, unknown>>;
   option_groups?: ChannelNode[] | ReadonlyArray<Record<string, unknown>>;
-  cards?: ChannelNode[];
   blocks?: ChannelNode[];
   rows?: ChannelNode[] | ReadonlyArray<Record<string, unknown>>;
   tasks?: ChannelNode[] | ReadonlyArray<Record<string, unknown>>;

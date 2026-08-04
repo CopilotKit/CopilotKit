@@ -18,7 +18,7 @@ const OBJECTS =
 export const SLACK_BLOCK_MANIFEST = [
   ["Actions", "actions", "elements"],
   ["Card", "card", "children"],
-  ["Carousel", "carousel", "cards"],
+  ["Carousel", "carousel", "elements"],
   ["Container", "container", "blocks"],
   ["Context", "context", "elements"],
   ["ContextActions", "context_actions", "elements"],
