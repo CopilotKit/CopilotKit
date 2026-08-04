@@ -303,7 +303,7 @@ async function setupExampleHarness(): Promise<ExampleHarness> {
       routeCounts[route] += 1;
       return responseForRoute(route);
     }),
-    { preconnect: currentFetch.preconnect },
+    currentFetch,
   );
   vi.stubGlobal("fetch", fetchMock);
 
@@ -704,7 +704,7 @@ test("real provider navigation shares events, lazily loads state once, and adds 
   const currentFetch = globalThis.fetch;
   const fetchMock = Object.assign(
     vi.fn(async (): Promise<Response> => jsonResponse({})),
-    { preconnect: currentFetch.preconnect },
+    currentFetch,
   );
   vi.stubGlobal("fetch", fetchMock);
   const getThreadMetadata = vi.fn().mockResolvedValue({

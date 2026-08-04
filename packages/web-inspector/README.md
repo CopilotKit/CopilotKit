@@ -126,8 +126,11 @@ Start a recording with the approved Free usage state:
 [http://127.0.0.1:5177/?scenario=free-figma-148-of-200&reset=1](http://127.0.0.1:5177/?scenario=free-figma-148-of-200&reset=1)
 
 It shows `148 / 200 Threads`, `37 Expiring Soon`, the finite progress bar, and
-the managed plan action. The `free-overage-241-of-200` route shows the matching
-overage state: `200+ / 200 Threads`, `0 Expiring Soon`, and a full progress bar.
+the managed plan action. Its sidebar shows 12 representative saved Threads for
+the fixed lab user and agent. The `148` usage count and `37` expiry count are
+organization-wide across projects, users, agents, and archived Threads. The
+`free-overage-241-of-200` route shows the matching overage state: `200+ / 200
+Threads`, `0 Expiring Soon`, and a full progress bar.
 
 ### Core matrix
 
@@ -142,8 +145,13 @@ capability, and data state:
 | `self-hosted` | Self-hosted | 25,000      | No                  |
 
 Each prefix has `enabled-zero`, `enabled-existing`, `disabled-zero`, and
-`disabled-existing` routes. Disabled routes can include seeded rows, but all six
-real request counts must remain zero.
+`disabled-existing` routes. Zero routes return no saved rows and report `0`
+organization-wide Threads. Disabled routes can include seeded rows, but all six
+real request counts must remain zero. Sam's three `Example` rows in zero and
+locked views are synthetic demos; they are not saved or included in usage.
+Enabled zero routes use the general Intelligence signup path by default. Only
+`self-hosted-enabled-zero`, whose trusted plan code is `team_self_hosted`, uses
+the self-hosted Intelligence onboarding path.
 
 The other 15 routes cover absent capability and metadata, unknown or malformed
 usage, missing expiry, usage-only and action-only metadata, locked and expired

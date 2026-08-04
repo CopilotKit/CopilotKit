@@ -264,7 +264,7 @@ async function setupFixture(options: FixtureOptions) {
       }
       throw new Error(`Unexpected video-test Thread route: ${route}`);
     }),
-    { preconnect: fetch.preconnect },
+    globalThis.fetch,
   );
   vi.stubGlobal("fetch", fetchMock);
 

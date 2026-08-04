@@ -5285,11 +5285,38 @@ export class WebInspectorElement extends LitElement {
     return this.appendRefParam(THREADS_DOCS_URL, "cpk-inspector-threads");
   }
 
+  private getThreadsIntelligenceSignupUrl(): string {
+    return this.appendRefParam(
+      INTELLIGENCE_SIGNUP_URL,
+      "cpk-inspector-threads",
+    );
+  }
+
   private getSelfHostedIntelligenceUrl(): string {
     return this.appendRefParam(
       SELF_HOSTED_INTELLIGENCE_URL,
       "cpk-inspector-threads",
     );
+  }
+
+  /** Selects the onboarding path for an enabled runtime with no saved Threads. */
+  private getThreadsEmptyOnboardingAction(): Readonly<{
+    href: string;
+    label: "Sign up for Intelligence" | "Explore self-hosted Intelligence";
+  }> {
+    const planCode = this.inspectorMetadataProjection.plan?.code
+      .trim()
+      .toLowerCase();
+    if (planCode === "team_self_hosted" || planCode === "team-self-hosted") {
+      return {
+        href: this.getSelfHostedIntelligenceUrl(),
+        label: "Explore self-hosted Intelligence",
+      };
+    }
+    return {
+      href: this.getThreadsIntelligenceSignupUrl(),
+      label: "Sign up for Intelligence",
+    };
   }
 
   private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
@@ -10138,6 +10165,7 @@ ${argsString}</pre
   private renderThreadsExampleOverview(locked: boolean) {
     const lockedCopy = locked ? this.getThreadsLockedCopy() : undefined;
     const { lockedAction } = this.inspectorMetadataProjection;
+    const onboardingAction = this.getThreadsEmptyOnboardingAction();
     return html`
       <div
         style="
@@ -10208,7 +10236,7 @@ ${argsString}</pre
                       Learn how Threads work
                     </a>
                     <a
-                      href=${this.getSelfHostedIntelligenceUrl()}
+                      href=${onboardingAction.href}
                       target="_blank"
                       rel="noopener"
                       style="
@@ -10227,7 +10255,7 @@ ${argsString}</pre
                         text-decoration: none;
                       "
                     >
-                      Explore self-hosted Intelligence
+                      ${onboardingAction.label}
                     </a>
                   `
             }

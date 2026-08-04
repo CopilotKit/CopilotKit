@@ -176,7 +176,7 @@ async function setup(options: SetupOptions): Promise<ThreadSelectionHarness> {
         throw new Error(`Unexpected Inspector request: ${url.href}`);
       },
     ),
-    { preconnect: fetch.preconnect },
+    globalThis.fetch,
   );
   vi.stubGlobal("fetch", fetchMock);
 

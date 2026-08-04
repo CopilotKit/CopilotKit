@@ -2263,17 +2263,17 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       "cpk-inspector-threads",
     );
     expectNoUtmParams(threadsDocsUrl);
-    const selfHosted = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
+    const intelligence = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
     );
-    expect(selfHosted?.textContent?.trim()).toBe(
-      "Explore self-hosted Intelligence",
+    expect(intelligence?.textContent?.trim()).toBe("Sign up for Intelligence");
+    const intelligenceUrl = new URL(intelligence!.href);
+    expect(intelligenceUrl.origin).toBe("https://go.copilotkit.ai");
+    expect(intelligenceUrl.pathname).toBe("/intelligence-signup");
+    expect(intelligenceUrl.searchParams.get("ref")).toBe(
+      "cpk-inspector-threads",
     );
-    const selfHostedUrl = new URL(selfHosted!.href);
-    expect(selfHostedUrl.origin).toBe("https://docs.copilotkit.ai");
-    expect(selfHostedUrl.pathname).toBe("/premium/self-hosting");
-    expect(selfHostedUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
-    expectNoUtmParams(selfHostedUrl);
+    expectNoUtmParams(intelligenceUrl);
     expect(threadListText(inspector)).toContain("Example");
     expect(text).not.toContain("No threads yet");
     expect(

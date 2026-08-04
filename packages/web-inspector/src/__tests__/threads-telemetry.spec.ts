@@ -411,7 +411,7 @@ async function setup(options: SetupOptions = {}): Promise<TelemetryHarness> {
         throw new Error(`Unexpected telemetry test request: ${url.href}`);
       },
     ),
-    { preconnect: fetch.preconnect },
+    globalThis.fetch,
   );
   vi.stubGlobal("fetch", fetchMock);
 

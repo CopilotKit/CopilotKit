@@ -80,6 +80,57 @@ const EXPECTED_EDGE_KEYS = [
   "telemetry-disabled",
 ] as const;
 
+const EXPECTED_RECORDING_THREADS = [
+  {
+    name: "Plan onboarding follow-up",
+    updatedAt: "2026-07-30T09:24:00.000Z",
+  },
+  {
+    name: "Product recommendation review",
+    updatedAt: "2026-07-31T18:55:00.000Z",
+  },
+  {
+    name: "Account access troubleshooting",
+    updatedAt: "2026-08-01T10:41:00.000Z",
+  },
+  {
+    name: "Subscription renewal question",
+    updatedAt: "2026-08-01T22:17:00.000Z",
+  },
+  {
+    name: "Checkout support follow-up",
+    updatedAt: "2026-08-02T13:22:00.000Z",
+  },
+  {
+    name: "Billing escalation handoff",
+    updatedAt: "2026-08-02T19:08:00.000Z",
+  },
+  {
+    name: "AI Tooling Retrospective Report",
+    updatedAt: "2026-08-03T09:45:00.000Z",
+  },
+  {
+    name: "Data Centers and Water",
+    updatedAt: "2026-08-03T17:12:00.000Z",
+  },
+  {
+    name: "View Storage Naming Suggestions",
+    updatedAt: "2026-08-03T21:30:00.000Z",
+  },
+  {
+    name: "Catching a Throwed Roll in Every Lambert's Cafe",
+    updatedAt: "2026-08-04T11:05:00.000Z",
+  },
+  {
+    name: "Queue Management in k8s",
+    updatedAt: "2026-08-04T14:18:00.000Z",
+  },
+  {
+    name: "Flights from Chicago to Orlando",
+    updatedAt: "2026-08-04T16:42:00.000Z",
+  },
+] as const;
+
 const ZERO_COUNTERS = {
   list: 0,
   subscribe: 0,
@@ -324,38 +375,36 @@ function expectedOverviewCopy(
 }
 
 /**
- * Bridges jsdom's DOM realms to the real Node fetch and ws implementations.
- * Vitest keeps Node networking but installs different-realm DOM primitives.
+ * Bridges jsdom's DOM realm to the real Node fetch and ws implementations.
+ *
+ * Node 24 rejects jsdom's AbortSignal before a loopback request reaches the
+ * server. Cancellation has focused Core coverage; this matrix instead checks
+ * the complete Inspector flow against bounded local responses, so its fetch
+ * bridge removes only that incompatible test-realm signal.
  */
 function installNodeIntegrationBridges(): () => void {
-  const abortDescriptor = Object.getOwnPropertyDescriptor(
-    globalThis,
-    "AbortController",
-  );
+  const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, "fetch");
   const webSocketDescriptor = Object.getOwnPropertyDescriptor(
     globalThis,
     "WebSocket",
   );
-  const signalConstructor = new Request("http://127.0.0.1").signal.constructor;
-  const timeout = Reflect.get(signalConstructor, "timeout");
-  if (typeof timeout !== "function") {
-    throw new Error("Node's native AbortSignal.timeout is unavailable.");
-  }
-  class NodeFetchAbortController {
-    readonly signal: AbortSignal = Reflect.apply(
-      timeout,
-      signalConstructor,
-      [60_000],
-    );
-
-    abort(): void {
-      return undefined;
-    }
-  }
-  Object.defineProperty(globalThis, "AbortController", {
+  const nodeFetch = globalThis.fetch;
+  const bridgedFetch = Object.assign(
+    (
+      input: Parameters<typeof fetch>[0],
+      init?: Parameters<typeof fetch>[1],
+    ): ReturnType<typeof fetch> => {
+      if (!init?.signal) return nodeFetch(input, init);
+      const compatibleInit: RequestInit = { ...init };
+      Reflect.deleteProperty(compatibleInit, "signal");
+      return nodeFetch(input, compatibleInit);
+    },
+    nodeFetch,
+  );
+  Object.defineProperty(globalThis, "fetch", {
     configurable: true,
     writable: true,
-    value: NodeFetchAbortController,
+    value: bridgedFetch,
   });
   Object.defineProperty(globalThis, "WebSocket", {
     configurable: true,
@@ -363,10 +412,10 @@ function installNodeIntegrationBridges(): () => void {
     value: WebSocket,
   });
   return () => {
-    if (abortDescriptor) {
-      Object.defineProperty(globalThis, "AbortController", abortDescriptor);
+    if (fetchDescriptor) {
+      Object.defineProperty(globalThis, "fetch", fetchDescriptor);
     } else {
-      Reflect.deleteProperty(globalThis, "AbortController");
+      Reflect.deleteProperty(globalThis, "fetch");
     }
     if (webSocketDescriptor) {
       Object.defineProperty(globalThis, "WebSocket", webSocketDescriptor);
@@ -441,10 +490,100 @@ test("models every plan deployment capability and data matrix cell", () => {
       expect(metadata?.action).toBeUndefined();
     }
     if (selfHosted) {
+      expect(metadata?.plan).toEqual({
+        code: "team_self_hosted",
+        label: "Team Self-Hosted",
+      });
       expect(metadata?.usage?.limit).toEqual({ kind: "finite", value: 25_000 });
       expect(metadata?.action).toBeUndefined();
+    } else {
+      expect(metadata?.plan?.code).not.toBe("team_self_hosted");
     }
   }
+});
+
+test("models zero-thread routes with available usage as true zero states", () => {
+  const zeroScenarios = Object.values(THREADS_STATE_SCENARIOS).filter(
+    (scenario) => scenario.data === "zero",
+  );
+
+  for (const scenario of zeroScenarios) {
+    const usage = scenario.inspectorMetadata?.usage;
+
+    expect(scenario.threads, scenario.key).toEqual([]);
+    if (!usage) continue;
+    expect(usage.used, scenario.key).toBe(0);
+    expect(usage.expiringSoonCount, scenario.key).toBe(0);
+  }
+});
+
+test("models the recording route with twelve realistic saved Threads", () => {
+  const scenario = getThreadsStateScenario("free-figma-148-of-200");
+  const threadIds = scenario.threads.map((thread) => thread.id);
+  const threadNames = scenario.threads.map((thread) => thread.name);
+  const creatorIds = scenario.threads.map((thread) => thread.createdById);
+  const updateTimes = scenario.threads.map((thread) =>
+    Date.parse(thread.updatedAt),
+  );
+  const newestThread = scenario.threads.reduce((newest, thread) =>
+    Date.parse(thread.updatedAt) > Date.parse(newest.updatedAt)
+      ? thread
+      : newest,
+  );
+  const detailEventTimestamps = Object.values(scenario.details).flatMap(
+    (details) => details.events.map((event) => event.timestamp),
+  );
+
+  expect(scenario.threads).toHaveLength(12);
+  expect(
+    scenario.threads.map(({ name, updatedAt }) => ({ name, updatedAt })),
+  ).toEqual(EXPECTED_RECORDING_THREADS);
+  expect(new Set(threadIds).size).toBe(12);
+  expect(new Set(threadNames).size).toBe(12);
+  expect(new Set(creatorIds).size).toBe(1);
+  expect(
+    scenario.threads.every(
+      (thread) =>
+        thread.agentId === scenario.agentId &&
+        thread.archived === false &&
+        thread.name.trim().length > 0,
+    ),
+  ).toBe(true);
+  expect(
+    scenario.threads.every(
+      (thread) =>
+        new Date(thread.createdAt).toISOString() === thread.createdAt &&
+        new Date(thread.updatedAt).toISOString() === thread.updatedAt &&
+        Date.parse(thread.createdAt) <= Date.parse(thread.updatedAt),
+    ),
+  ).toBe(true);
+  expect(new Set(updateTimes).size).toBe(12);
+  expect(updateTimes).toEqual(
+    [...updateTimes].sort((left, right) => left - right),
+  );
+  expect(scenario.expectedNewestThreadId).toBe(newestThread.id);
+  expect(newestThread.name).toBe("Flights from Chicago to Orlando");
+  expect(Object.keys(scenario.details)).toEqual(threadIds);
+  expect(
+    detailEventTimestamps.every(
+      (timestamp) =>
+        typeof timestamp === "string" &&
+        new Date(timestamp).toISOString() === timestamp,
+    ),
+  ).toBe(true);
+  for (const thread of scenario.threads) {
+    const details = scenario.details[thread.id];
+
+    expect(details?.events.at(-1)?.timestamp, thread.id).toBe(thread.updatedAt);
+    expect(details?.state.reviewStatus, thread.id).toBe(
+      thread.id === newestThread.id ? "ready" : "draft",
+    );
+  }
+  expect(scenario.inspectorMetadata?.usage).toEqual({
+    used: 148,
+    limit: { kind: "finite", value: 200 },
+    expiringSoonCount: 37,
+  });
 });
 
 test("preserves all edge metadata states without normalizing fixtures", () => {
@@ -474,7 +613,7 @@ test("preserves all edge metadata states without normalizing fixtures", () => {
   });
 });
 
-test("uses safe actions, catalog limits, and newest-second thread fixtures", () => {
+test("uses safe actions, catalog limits, and newest thread fixtures", () => {
   for (const scenario of Object.values(THREADS_STATE_SCENARIOS)) {
     const action = scenario.inspectorMetadata?.action;
     if (action) {
@@ -486,11 +625,14 @@ test("uses safe actions, catalog limits, and newest-second thread fixtures", () 
       expect(url.hash).toBe("");
     }
     if (scenario.expectedNewestThreadId) {
-      expect(scenario.threads).toHaveLength(2);
-      expect(scenario.threads[1]?.id).toBe(scenario.expectedNewestThreadId);
-      expect(Date.parse(scenario.threads[1]?.updatedAt ?? "")).toBeGreaterThan(
-        Date.parse(scenario.threads[0]?.updatedAt ?? ""),
+      const newestThread = scenario.threads.reduce((newest, thread) =>
+        Date.parse(thread.updatedAt) > Date.parse(newest.updatedAt)
+          ? thread
+          : newest,
       );
+
+      expect(scenario.threads.length).toBeGreaterThan(0);
+      expect(newestThread.id).toBe(scenario.expectedNewestThreadId);
     }
     if (
       scenario.deployment === "self_hosted" ||
@@ -1006,324 +1148,402 @@ test("runs teardown before real select and reset control navigation", async () =
 
 test("drives the real Core, Inspector, stores, surfaces, and ledger for all 31 routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
-  const lab = await startLabServer();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
     window,
     "matchMedia",
   );
-  if (typeof window.matchMedia !== "function") {
-    Object.defineProperty(window, "matchMedia", {
-      configurable: true,
-      writable: true,
-      value: (media: string): MediaQueryList => ({
-        matches: false,
-        media,
-        onchange: null,
-        addListener: () => undefined,
-        removeListener: () => undefined,
-        addEventListener: () => undefined,
-        removeEventListener: () => undefined,
-        dispatchEvent: () => true,
-      }),
-    });
-  }
   try {
-    for (const key of ALL_SCENARIO_KEYS) {
-      const scenario = getThreadsStateScenario(key);
-      const runtimeUrl = runtimeUrlFor(lab.origin, key);
-      const resetResponse = await fetch(`${runtimeUrl}/request-log/reset`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      });
-      expect(resetResponse.status, key).toBe(200);
-      for (const storageKey of LAB_RESET_STORAGE_KEYS) {
-        window.localStorage.removeItem(storageKey);
+    const lab = await startLabServer();
+    try {
+      if (typeof window.matchMedia !== "function") {
+        Object.defineProperty(window, "matchMedia", {
+          configurable: true,
+          writable: true,
+          value: (media: string): MediaQueryList => ({
+            matches: false,
+            media,
+            onchange: null,
+            addListener: () => undefined,
+            removeListener: () => undefined,
+            addEventListener: () => undefined,
+            removeEventListener: () => undefined,
+            dispatchEvent: () => true,
+          }),
+        });
       }
-      document.body.replaceChildren();
-
-      const restoreReducedMotion =
-        key === "reduced-motion"
-          ? installThreadsStateLabReducedMotion(window)
-          : null;
-      const core = new CopilotKitCore({
-        runtimeUrl,
-        runtimeTransport: "rest",
-        deferInitialConnection: true,
-      });
-      const inspector = document.createElement("cpk-web-inspector");
-      inspector.setAttribute("auto-attach-core", "false");
-      inspector.core = core;
-      document.body.append(inspector);
-
-      try {
-        core.connect();
-        await vi.waitFor(
-          () => {
-            expect(core.runtimeConnectionStatus, key).toBe(
-              CopilotKitCoreRuntimeConnectionStatus.Connected,
-            );
-          },
-          { timeout: 5_000, interval: 20 },
-        );
-        await flushInspector(inspector);
-
-        const launcher = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-          'button[aria-label="Web Inspector"]',
-        );
-        expect(launcher, `${key}: launcher`).toBeDefined();
-        launcher?.click();
-        await flushInspector(inspector);
-        const threadsButton = inspectorButton(inspector, "Threads");
-        expect(threadsButton, `${key}: Threads nav`).toBeDefined();
-        expect(
-          threadsButton?.classList.contains("inspector-nav-control-active"),
-          `${key}: Threads default`,
-        ).toBe(true);
-
-        const expectedStoreCount = scenario.capability === "enabled" ? 1 : 0;
-        await vi.waitFor(
-          () => {
-            expect(Object.keys(core.getThreadStores()).length, key).toBe(
-              expectedStoreCount,
-            );
-          },
-          { timeout: 5_000, interval: 20 },
-        );
-        await vi.waitFor(
-          async () => {
-            const storeStates = Object.values(core.getThreadStores()).map(
-              (store) => {
-                const state = store.getState();
-                return {
-                  context: state.context,
-                  error:
-                    state.error instanceof Error
-                      ? `${state.error.name}: ${state.error.message}`
-                      : state.error,
-                  isLoading: state.isLoading,
-                };
-              },
-            );
-            expect(
-              await requestCounters(lab.origin, scenario),
-              `${key}: ${JSON.stringify(storeStates)}`,
-            ).toEqual(scenario.expectedRequests);
-          },
-          { timeout: 5_000, interval: 20 },
-        );
-        await flushInspector(inspector);
-
-        const root = inspector.shadowRoot;
-        expect(root, key).not.toBeNull();
-        if (!root) throw new Error(`${key}: missing Inspector Shadow Root.`);
-        const text = inspectorText(inspector);
-        const navigation = collectDeep(
-          root,
-          '[aria-label="Inspector primary navigation"]',
-        );
-        expect(navigation, `${key}: grouped nav`).toHaveLength(1);
-        expect(text, `${key}: Threads nav`).toContain("Threads");
-        expect(text, `${key}: Agents nav`).toContain("Agents");
-        expect(text, `${key}: Learning nav`).toContain("Learning");
-        const overviewCopy = expectedOverviewCopy(scenario);
-        if (overviewCopy) {
-          expect(text, `${key}: overview heading`).toContain(
-            overviewCopy.heading,
-          );
-          expect(text, `${key}: overview description`).toContain(
-            overviewCopy.description,
-          );
+      for (const key of ALL_SCENARIO_KEYS) {
+        const scenario = getThreadsStateScenario(key);
+        const runtimeUrl = runtimeUrlFor(lab.origin, key);
+        const resetResponse = await fetch(`${runtimeUrl}/request-log/reset`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+        });
+        expect(resetResponse.status, key).toBe(200);
+        for (const storageKey of LAB_RESET_STORAGE_KEYS) {
+          window.localStorage.removeItem(storageKey);
         }
+        document.body.replaceChildren();
 
-        const identity = scenario.inspectorMetadata?.identity;
-        const account = collectDeep(
-          root,
-          '[aria-label="Inspector account details"]',
-        );
-        expect(account, `${key}: account presence`).toHaveLength(
-          identity ? 1 : 0,
-        );
-        if (identity) {
-          expect(text, `${key}: organization`).toContain(
-            identity.organizationName,
-          );
-          expect(text, `${key}: project`).toContain(identity.projectName);
-        }
+        const restoreReducedMotion =
+          key === "reduced-motion"
+            ? installThreadsStateLabReducedMotion(window)
+            : null;
+        const core = new CopilotKitCore({
+          runtimeUrl,
+          runtimeTransport: "rest",
+          deferInitialConnection: true,
+        });
+        const inspector = document.createElement("cpk-web-inspector");
+        inspector.setAttribute("auto-attach-core", "false");
+        inspector.core = core;
+        document.body.append(inspector);
 
-        const usage = scenario.inspectorMetadata?.usage;
-        const threadCount = collectDeep(root, "[data-inspector-thread-count]");
-        expect(threadCount, `${key}: usage presence`).toHaveLength(
-          usage ? 1 : 0,
-        );
-        if (usage) {
-          const used = String(usage.used);
-          expect(text, `${key}: used count`).toContain(used);
-          const progress = collectDeep(root, "progress");
-          expect(progress, `${key}: finite progress`).toHaveLength(
-            usage.limit.kind === "finite" ? 1 : 0,
-          );
-          if (usage.limit.kind === "finite") {
-            const limit = String(usage.limit.value);
-            const numerator =
-              usage.used > usage.limit.value ? `${limit}+` : used;
-            expect(text, `${key}: finite usage copy`).toContain(
-              `${numerator} / ${limit} Threads`,
-            );
-          }
-          if (
-            Object.hasOwn(usage, "expiringSoonCount") &&
-            typeof usage.expiringSoonCount === "number"
-          ) {
-            expect(text, `${key}: expiry copy`).toContain(
-              `${usage.expiringSoonCount.toLocaleString("en-US")} Expiring Soon`,
-            );
-          }
-        }
-
-        const actionLabel = expectedActionLabel(scenario);
-        const actions = collectDeep(root, "[data-inspector-action-placement]");
-        expect(actions, `${key}: action presence`).toHaveLength(
-          actionLabel ? 1 : 0,
-        );
-        if (actionLabel) {
-          expect(text, `${key}: action label`).toContain(actionLabel);
-        }
-
-        const examples = exampleButtons(inspector);
-        if (key === "video-error") {
-          const video = collectDeep(root, ".cpk-threads-overview-video")[0];
-          expect(video, `${key}: demo video`).toBeInstanceOf(HTMLVideoElement);
-          video?.dispatchEvent(new Event("error"));
-          await flushInspector(inspector);
-          expect(inspectorText(inspector), `${key}: fallback copy`).toContain(
-            "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.",
-          );
-          expect(
-            exampleButtons(inspector),
-            `${key}: fallback examples`,
-          ).toHaveLength(3);
-        }
-        if (key === "reduced-motion") {
+        try {
+          core.connect();
           await vi.waitFor(
             () => {
-              const video = collectDeep(root, ".cpk-threads-overview-video")[0];
-              expect(video, `${key}: reduced-motion video`).toBeInstanceOf(
-                HTMLVideoElement,
+              expect(core.runtimeConnectionStatus, key).toBe(
+                CopilotKitCoreRuntimeConnectionStatus.Connected,
               );
-              expect(
-                video instanceof HTMLVideoElement ? video.autoplay : true,
-                `${key}: reduced-motion autoplay`,
-              ).toBe(false);
-              const control = inspectorButton(inspector, "Play demo");
-              expect(control, `${key}: reduced-motion control`).toBeDefined();
-              expect(control?.getAttribute("aria-pressed")).toBe("true");
             },
             { timeout: 5_000, interval: 20 },
           );
-        }
-        if (scenario.data === "error") {
-          expect(examples, `${key}: list-error examples`).toHaveLength(0);
-        } else if (
-          scenario.capability !== "enabled" ||
-          scenario.data === "zero"
-        ) {
-          expect(examples, `${key}: local examples`).toHaveLength(3);
-          for (let index = 0; index < 3; index += 1) {
-            const current = exampleButtons(inspector)[index];
-            expect(current, `${key}: example ${index + 1}`).toBeDefined();
-            current?.click();
-            await flushInspector(inspector);
-            if (key === "video-error" && index === 0) {
-              const detailTabs = collectDeep(root, '[role="tab"]')
-                .map((element) =>
-                  element.textContent?.replace(/\s+/g, " ").trim(),
-                )
-                .filter((label) => label !== undefined);
-              expect(detailTabs, `${key}: fallback detail tabs`).toEqual([
-                "Messages",
-                "AG-UI Events",
-                "State",
-              ]);
-              expect(
-                collectDeep(
-                  root,
-                  '[role="dialog"][aria-label="Example thread tour"]',
-                ),
-                `${key}: fallback tour`,
-              ).toHaveLength(1);
-            }
-          }
-          expect(await requestCounters(lab.origin, scenario), key).toEqual(
-            scenario.expectedRequests,
+          await flushInspector(inspector);
+
+          const launcher =
+            inspector.shadowRoot?.querySelector<HTMLButtonElement>(
+              'button[aria-label="Web Inspector"]',
+            );
+          expect(launcher, `${key}: launcher`).toBeDefined();
+          launcher?.click();
+          await flushInspector(inspector);
+          const threadsButton = inspectorButton(inspector, "Threads");
+          expect(threadsButton, `${key}: Threads nav`).toBeDefined();
+          expect(
+            threadsButton?.classList.contains("inspector-nav-control-active"),
+            `${key}: Threads default`,
+          ).toBe(true);
+
+          const expectedStoreCount = scenario.capability === "enabled" ? 1 : 0;
+          await vi.waitFor(
+            () => {
+              expect(Object.keys(core.getThreadStores()).length, key).toBe(
+                expectedStoreCount,
+              );
+            },
+            { timeout: 5_000, interval: 20 },
           );
-        } else {
-          expect(examples, `${key}: no local examples`).toHaveLength(0);
-          for (const thread of scenario.threads) {
-            expect(inspectorText(inspector), `${key}: ${thread.id}`).toContain(
-              thread.name,
+          await vi.waitFor(
+            async () => {
+              const storeStates = Object.values(core.getThreadStores()).map(
+                (store) => {
+                  const state = store.getState();
+                  return {
+                    context: state.context,
+                    error:
+                      state.error instanceof Error
+                        ? `${state.error.name}: ${state.error.message}`
+                        : state.error,
+                    isLoading: state.isLoading,
+                  };
+                },
+              );
+              expect(
+                await requestCounters(lab.origin, scenario),
+                `${key}: ${JSON.stringify(storeStates)}`,
+              ).toEqual(scenario.expectedRequests);
+            },
+            { timeout: 5_000, interval: 20 },
+          );
+          await flushInspector(inspector);
+
+          const root = inspector.shadowRoot;
+          expect(root, key).not.toBeNull();
+          if (!root) throw new Error(`${key}: missing Inspector Shadow Root.`);
+          const text = inspectorText(inspector);
+          const navigation = collectDeep(
+            root,
+            '[aria-label="Inspector primary navigation"]',
+          );
+          expect(navigation, `${key}: grouped nav`).toHaveLength(1);
+          expect(text, `${key}: Threads nav`).toContain("Threads");
+          expect(text, `${key}: Agents nav`).toContain("Agents");
+          expect(text, `${key}: Learning nav`).toContain("Learning");
+          const overviewCopy = expectedOverviewCopy(scenario);
+          if (overviewCopy) {
+            expect(text, `${key}: overview heading`).toContain(
+              overviewCopy.heading,
+            );
+            expect(text, `${key}: overview description`).toContain(
+              overviewCopy.description,
             );
           }
-          expect(
-            inspectorText(inspector),
-            `${key}: newest selection`,
-          ).toContain(scenario.expectedNewestThreadId);
-          for (const [tab, kind] of [
-            ["Messages", null],
-            ["AG-UI Events", "events"],
-            ["State", "state"],
-          ] as const) {
-            const tabButton = collectDeep(root, '[role="tab"]')
-              .filter((element) => element instanceof HTMLButtonElement)
-              .find(
-                (button) =>
-                  button.textContent?.replace(/\s+/g, " ").trim() === tab,
+
+          const identity = scenario.inspectorMetadata?.identity;
+          const account = collectDeep(
+            root,
+            '[aria-label="Inspector account details"]',
+          );
+          expect(account, `${key}: account presence`).toHaveLength(
+            identity ? 1 : 0,
+          );
+          if (identity) {
+            expect(text, `${key}: organization`).toContain(
+              identity.organizationName,
+            );
+            expect(text, `${key}: project`).toContain(identity.projectName);
+          }
+
+          const usage = scenario.inspectorMetadata?.usage;
+          const threadCount = collectDeep(
+            root,
+            "[data-inspector-thread-count]",
+          );
+          expect(threadCount, `${key}: usage presence`).toHaveLength(
+            usage ? 1 : 0,
+          );
+          if (usage) {
+            const used = String(usage.used);
+            expect(text, `${key}: used count`).toContain(used);
+            const progress = collectDeep(root, "progress");
+            expect(progress, `${key}: finite progress`).toHaveLength(
+              usage.limit.kind === "finite" ? 1 : 0,
+            );
+            if (usage.limit.kind === "finite") {
+              const limit = String(usage.limit.value);
+              const numerator =
+                usage.used > usage.limit.value ? `${limit}+` : used;
+              expect(text, `${key}: finite usage copy`).toContain(
+                `${numerator} / ${limit} Threads`,
               );
-            expect(tabButton, `${key}: ${tab} tab`).toBeDefined();
-            tabButton?.click();
+            }
+            if (
+              Object.hasOwn(usage, "expiringSoonCount") &&
+              typeof usage.expiringSoonCount === "number"
+            ) {
+              expect(text, `${key}: expiry copy`).toContain(
+                `${usage.expiringSoonCount.toLocaleString("en-US")} Expiring Soon`,
+              );
+            }
+          }
+
+          const actionLabel = expectedActionLabel(scenario);
+          const actions = collectDeep(
+            root,
+            "[data-inspector-action-placement]",
+          );
+          expect(actions, `${key}: action presence`).toHaveLength(
+            actionLabel ? 1 : 0,
+          );
+          if (actionLabel) {
+            expect(text, `${key}: action label`).toContain(actionLabel);
+          }
+
+          const generalIntelligenceOnboarding = collectDeep(
+            root,
+            'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+          );
+          const selfHostedIntelligenceOnboarding = collectDeep(
+            root,
+            'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
+          );
+          const showsEnabledZeroOverview =
+            scenario.capability === "enabled" && scenario.data === "zero";
+          const showsSelfHostedOnboarding =
+            showsEnabledZeroOverview && scenario.deployment === "self_hosted";
+          expect(
+            generalIntelligenceOnboarding,
+            `${key}: general Intelligence onboarding`,
+          ).toHaveLength(
+            showsEnabledZeroOverview && !showsSelfHostedOnboarding ? 1 : 0,
+          );
+          expect(
+            selfHostedIntelligenceOnboarding,
+            `${key}: self-hosted Intelligence onboarding`,
+          ).toHaveLength(showsSelfHostedOnboarding ? 1 : 0);
+          if (showsSelfHostedOnboarding) {
+            expect(text, `${key}: self-hosted onboarding label`).toContain(
+              "Explore self-hosted Intelligence",
+            );
+          } else if (showsEnabledZeroOverview) {
+            expect(text, `${key}: general onboarding label`).toContain(
+              "Sign up for Intelligence",
+            );
+          }
+
+          const examples = exampleButtons(inspector);
+          if (key === "video-error") {
+            const video = collectDeep(root, ".cpk-threads-overview-video")[0];
+            expect(video, `${key}: demo video`).toBeInstanceOf(
+              HTMLVideoElement,
+            );
+            video?.dispatchEvent(new Event("error"));
             await flushInspector(inspector);
+            expect(inspectorText(inspector), `${key}: fallback copy`).toContain(
+              "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.",
+            );
             expect(
-              tabButton?.getAttribute("aria-selected"),
-              `${key}: ${tab} active`,
-            ).toBe("true");
-            if (kind === null) continue;
+              exampleButtons(inspector),
+              `${key}: fallback examples`,
+            ).toHaveLength(3);
+          }
+          if (key === "reduced-motion") {
             await vi.waitFor(
-              async () => {
+              () => {
+                const video = collectDeep(
+                  root,
+                  ".cpk-threads-overview-video",
+                )[0];
+                expect(video, `${key}: reduced-motion video`).toBeInstanceOf(
+                  HTMLVideoElement,
+                );
                 expect(
-                  (await requestCounters(lab.origin, scenario))[kind],
-                  `${key}: ${tab} request`,
-                ).toBe(1);
+                  video instanceof HTMLVideoElement ? video.autoplay : true,
+                  `${key}: reduced-motion autoplay`,
+                ).toBe(false);
+                const control = inspectorButton(inspector, "Play demo");
+                expect(control, `${key}: reduced-motion control`).toBeDefined();
+                expect(control?.getAttribute("aria-pressed")).toBe("true");
               },
               { timeout: 5_000, interval: 20 },
             );
           }
-          await vi.waitFor(
-            async () => {
-              expect(await requestCounters(lab.origin, scenario), key).toEqual({
-                list: 1,
-                subscribe: 1,
-                inspect: 0,
-                messages: 0,
-                events: 1,
-                state: 1,
-              });
-            },
-            { timeout: 5_000, interval: 20 },
+          if (scenario.data === "error") {
+            expect(examples, `${key}: list-error examples`).toHaveLength(0);
+          } else if (
+            scenario.capability !== "enabled" ||
+            scenario.data === "zero"
+          ) {
+            expect(examples, `${key}: local examples`).toHaveLength(3);
+            for (let index = 0; index < 3; index += 1) {
+              const current = exampleButtons(inspector)[index];
+              expect(current, `${key}: example ${index + 1}`).toBeDefined();
+              current?.click();
+              await flushInspector(inspector);
+              if (key === "video-error" && index === 0) {
+                const detailTabs = collectDeep(root, '[role="tab"]')
+                  .map((element) =>
+                    element.textContent?.replace(/\s+/g, " ").trim(),
+                  )
+                  .filter((label) => label !== undefined);
+                expect(detailTabs, `${key}: fallback detail tabs`).toEqual([
+                  "Messages",
+                  "AG-UI Events",
+                  "State",
+                ]);
+                expect(
+                  collectDeep(
+                    root,
+                    '[role="dialog"][aria-label="Example thread tour"]',
+                  ),
+                  `${key}: fallback tour`,
+                ).toHaveLength(1);
+              }
+            }
+            expect(await requestCounters(lab.origin, scenario), key).toEqual(
+              scenario.expectedRequests,
+            );
+          } else {
+            expect(examples, `${key}: no local examples`).toHaveLength(0);
+            for (const thread of scenario.threads) {
+              expect(
+                inspectorText(inspector),
+                `${key}: ${thread.id}`,
+              ).toContain(thread.name);
+            }
+            if (key === "free-figma-148-of-200") {
+              const renderedNames = collectDeep(root, ".cpk-tl__name").map(
+                (element) => element.textContent?.trim(),
+              );
+              expect(renderedNames, `${key}: rendered sidebar order`).toEqual(
+                EXPECTED_RECORDING_THREADS.map(
+                  (_, index, threads) =>
+                    threads[threads.length - index - 1]?.name,
+                ),
+              );
+            }
+            expect(
+              inspectorText(inspector),
+              `${key}: newest selection`,
+            ).toContain(scenario.expectedNewestThreadId);
+            const selectedRows = collectDeep(
+              root,
+              '.cpk-tl__item[aria-current="true"]',
+            );
+            const newestThread = scenario.threads.find(
+              (thread) => thread.id === scenario.expectedNewestThreadId,
+            );
+            expect(selectedRows, `${key}: selected sidebar row`).toHaveLength(
+              1,
+            );
+            expect(
+              selectedRows[0]?.textContent,
+              `${key}: selected newest name`,
+            ).toContain(newestThread?.name);
+            for (const [tab, kind] of [
+              ["Messages", null],
+              ["AG-UI Events", "events"],
+              ["State", "state"],
+            ] as const) {
+              const tabButton = collectDeep(root, '[role="tab"]')
+                .filter((element) => element instanceof HTMLButtonElement)
+                .find(
+                  (button) =>
+                    button.textContent?.replace(/\s+/g, " ").trim() === tab,
+                );
+              expect(tabButton, `${key}: ${tab} tab`).toBeDefined();
+              tabButton?.click();
+              await flushInspector(inspector);
+              expect(
+                tabButton?.getAttribute("aria-selected"),
+                `${key}: ${tab} active`,
+              ).toBe("true");
+              if (kind === null) continue;
+              await vi.waitFor(
+                async () => {
+                  expect(
+                    (await requestCounters(lab.origin, scenario))[kind],
+                    `${key}: ${tab} request`,
+                  ).toBe(1);
+                },
+                { timeout: 5_000, interval: 20 },
+              );
+            }
+            await vi.waitFor(
+              async () => {
+                expect(
+                  await requestCounters(lab.origin, scenario),
+                  key,
+                ).toEqual({
+                  list: 1,
+                  subscribe: 1,
+                  inspect: 0,
+                  messages: 0,
+                  events: 1,
+                  state: 1,
+                });
+              },
+              { timeout: 5_000, interval: 20 },
+            );
+          }
+        } finally {
+          stopThreadsStateLabClient(core, inspector);
+          restoreReducedMotion?.();
+          expect(
+            Object.keys(core.getThreadStores()),
+            `${key}: store cleanup`,
+          ).toEqual([]);
+          expect(inspector.isConnected, `${key}: Inspector cleanup`).toBe(
+            false,
           );
+          document.body.replaceChildren();
         }
-      } finally {
-        stopThreadsStateLabClient(core, inspector);
-        restoreReducedMotion?.();
-        expect(
-          Object.keys(core.getThreadStores()),
-          `${key}: store cleanup`,
-        ).toEqual([]);
-        expect(inspector.isConnected, `${key}: Inspector cleanup`).toBe(false);
-        document.body.replaceChildren();
       }
+    } finally {
+      await stopLabServer(lab);
     }
   } finally {
-    await stopLabServer(lab);
     restoreNodeBridges();
     if (matchMediaDescriptor) {
       Object.defineProperty(window, "matchMedia", matchMediaDescriptor);

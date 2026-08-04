@@ -432,7 +432,7 @@ async function setup(options: SetupOptions): Promise<CapabilityHarness> {
         headers: { "content-type": "application/json" },
       });
     }),
-    { preconnect: fetch.preconnect },
+    globalThis.fetch,
   );
   vi.stubGlobal("fetch", fetchMock);
 

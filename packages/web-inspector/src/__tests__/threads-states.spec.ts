@@ -458,7 +458,7 @@ async function setupSettledState(
         return new Response(null, { status: 503 });
       },
     ),
-    { preconnect: fetch.preconnect },
+    globalThis.fetch,
   );
   vi.stubGlobal("fetch", fetchMock);
 
@@ -617,7 +617,7 @@ async function setupLoadingState(
         throw new Error(`Unexpected state-test request: ${url.href}`);
       },
     ),
-    { preconnect: fetch.preconnect },
+    globalThis.fetch,
   );
   vi.stubGlobal("fetch", fetchMock);
 
@@ -841,7 +841,7 @@ test("loading projects across all agents and clears when a store unregisters", a
         );
       },
     ),
-    { preconnect: fetch.preconnect },
+    globalThis.fetch,
   );
   const betaStore = ɵcreateThreadStore({ fetch: betaFetch });
   betaStore.start();
@@ -1314,7 +1314,15 @@ test("enabled zero Threads keep all local data and tour paths off the network", 
       "Threads are persistent, inspectable conversations",
     );
     expect(root.textContent).toContain("Learn how Threads work");
-    expect(root.textContent).toContain("Explore self-hosted Intelligence");
+    expect(root.textContent).toContain("Sign up for Intelligence");
+    expect(root.textContent).not.toContain("Explore self-hosted Intelligence");
+    const intelligence = root.querySelector<HTMLAnchorElement>(
+      'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+    );
+    expect(intelligence?.textContent?.trim()).toBe("Sign up for Intelligence");
+    expect(new URL(intelligence!.href).searchParams.get("ref")).toBe(
+      "cpk-inspector-threads",
+    );
     const routesAfterEmptyResult = harness.routes();
     expect(routesAfterEmptyResult).toEqual({ ...ZERO_ROUTES, list: 1 });
     await exerciseLocalExamples(
@@ -1337,6 +1345,37 @@ test("enabled zero Threads keep all local data and tour paths off the network", 
         TELEMETRY_EVENTS.threadsExampleViewed,
       ),
     ).toHaveLength(3);
+  } finally {
+    await harness.teardown();
+  }
+});
+
+test("self-hosted enabled zero Threads use only self-hosted onboarding", async () => {
+  const harness = await setupSettledState({
+    endpoints: ENABLED_ENDPOINTS,
+    initialThreads: [],
+    metadata: {
+      schemaVersion: 1,
+      plan: { code: "team_self_hosted", label: "Team Self-Hosted" },
+      license: { state: "valid" },
+    },
+    runtimeLicense: "valid",
+  });
+  try {
+    const root = harness.inspector.shadowRoot!;
+    const selfHosted = root.querySelector<HTMLAnchorElement>(
+      'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
+    );
+
+    expect(selfHosted?.textContent?.trim()).toBe(
+      "Explore self-hosted Intelligence",
+    );
+    expect(root.textContent).not.toContain("Sign up for Intelligence");
+    expect(
+      root.querySelector(
+        'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+      ),
+    ).toBeNull();
   } finally {
     await harness.teardown();
   }

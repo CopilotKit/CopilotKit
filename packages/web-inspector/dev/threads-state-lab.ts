@@ -137,6 +137,59 @@ const DISABLED_ENDPOINTS = {
   realtimeMetadata: false,
 } as const;
 
+const RECORDING_THREADS = [
+  {
+    name: "Plan onboarding follow-up",
+    updatedAt: "2026-07-30T09:24:00.000Z",
+  },
+  {
+    name: "Product recommendation review",
+    updatedAt: "2026-07-31T18:55:00.000Z",
+  },
+  {
+    name: "Account access troubleshooting",
+    updatedAt: "2026-08-01T10:41:00.000Z",
+  },
+  {
+    name: "Subscription renewal question",
+    updatedAt: "2026-08-01T22:17:00.000Z",
+  },
+  {
+    name: "Checkout support follow-up",
+    updatedAt: "2026-08-02T13:22:00.000Z",
+  },
+  {
+    name: "Billing escalation handoff",
+    updatedAt: "2026-08-02T19:08:00.000Z",
+  },
+  {
+    name: "AI Tooling Retrospective Report",
+    updatedAt: "2026-08-03T09:45:00.000Z",
+  },
+  {
+    name: "Data Centers and Water",
+    updatedAt: "2026-08-03T17:12:00.000Z",
+  },
+  {
+    name: "View Storage Naming Suggestions",
+    updatedAt: "2026-08-03T21:30:00.000Z",
+  },
+  {
+    name: "Catching a Throwed Roll in Every Lambert's Cafe",
+    updatedAt: "2026-08-04T11:05:00.000Z",
+  },
+  {
+    name: "Queue Management in k8s",
+    updatedAt: "2026-08-04T14:18:00.000Z",
+  },
+  {
+    name: "Flights from Chicago to Orlando",
+    updatedAt: "2026-08-04T16:42:00.000Z",
+  },
+] as const;
+
+const MINUTE_MS = 60 * 1_000;
+
 /** Recursively freezes a fixture graph without changing its values. */
 export function deepFreeze<T>(value: T): T {
   if (typeof value !== "object" || value === null || Object.isFrozen(value)) {
@@ -213,53 +266,85 @@ function threadFixtures(prefix: string): readonly ThreadFixture[] {
   ];
 }
 
+function recordingThreadFixtures(prefix: string): readonly ThreadFixture[] {
+  return RECORDING_THREADS.map(({ name, updatedAt }, index) => {
+    const updatedAtMs = Date.parse(updatedAt);
+    const createdAtMs = updatedAtMs - (24 + (index % 5) * 9) * MINUTE_MS;
+
+    return {
+      id: `${prefix}-thread-${String(index + 1).padStart(2, "0")}`,
+      organizationId: ORGANIZATION_ID,
+      agentId: AGENT_ID,
+      createdById: USER_ID,
+      name,
+      archived: false,
+      createdAt: new Date(createdAtMs).toISOString(),
+      updatedAt,
+    };
+  });
+}
+
 function threadDetails(
   threads: readonly ThreadFixture[],
 ): Readonly<Record<string, ThreadDetailsFixture>> {
+  const readyThreadId = newestThreadId(threads);
   return Object.fromEntries(
-    threads.map((thread, index) => [
-      thread.id,
-      {
-        messages: [
-          {
-            id: `${thread.id}-user-message`,
-            role: "user",
-            content: "Show the saved Inspector thread details.",
-          },
-          {
-            id: `${thread.id}-assistant-message`,
-            role: "assistant",
-            content: "This response came from the local scenario lab.",
-          },
-        ],
-        events: [
-          {
-            type: "RUN_STARTED",
-            timestamp: `2026-08-03T16:4${index}:00.000Z`,
-            payload: { runId: `${thread.id}-run` },
-          },
-          {
-            type: "TEXT_MESSAGE_CONTENT",
-            timestamp: `2026-08-03T16:4${index}:01.000Z`,
-            payload: {
-              messageId: `${thread.id}-assistant-message`,
-              delta: "Local scenario detail event",
+    threads.map((thread) => {
+      const eventStartMs = Date.parse(thread.updatedAt) - 2_000;
+
+      return [
+        thread.id,
+        {
+          messages: [
+            {
+              id: `${thread.id}-user-message`,
+              role: "user",
+              content: "Show the saved Inspector thread details.",
             },
+            {
+              id: `${thread.id}-assistant-message`,
+              role: "assistant",
+              content: "This response came from the local scenario lab.",
+            },
+          ],
+          events: [
+            {
+              type: "RUN_STARTED",
+              timestamp: new Date(eventStartMs).toISOString(),
+              payload: { runId: `${thread.id}-run` },
+            },
+            {
+              type: "TEXT_MESSAGE_CONTENT",
+              timestamp: new Date(eventStartMs + 1_000).toISOString(),
+              payload: {
+                messageId: `${thread.id}-assistant-message`,
+                delta: "Local scenario detail event",
+              },
+            },
+            {
+              type: "RUN_FINISHED",
+              timestamp: new Date(eventStartMs + 2_000).toISOString(),
+              payload: { runId: `${thread.id}-run` },
+            },
+          ],
+          state: {
+            source: "threads-state-lab",
+            threadId: thread.id,
+            reviewStatus: thread.id === readyThreadId ? "ready" : "draft",
           },
-          {
-            type: "RUN_FINISHED",
-            timestamp: `2026-08-03T16:4${index}:02.000Z`,
-            payload: { runId: `${thread.id}-run` },
-          },
-        ],
-        state: {
-          source: "threads-state-lab",
-          threadId: thread.id,
-          reviewStatus: index === 1 ? "ready" : "draft",
         },
-      },
-    ]),
+      ];
+    }),
   );
+}
+
+function newestThreadId(threads: readonly ThreadFixture[]): string | undefined {
+  return threads.reduce<ThreadFixture | undefined>((newest, thread) => {
+    if (!newest) return thread;
+    return Date.parse(thread.updatedAt) > Date.parse(newest.updatedAt)
+      ? thread
+      : newest;
+  }, undefined)?.id;
 }
 
 function expectedRequests(
@@ -284,6 +369,7 @@ function metadata(
     action?: NonNullable<InspectorMetadataV1["action"]>;
   }>,
 ): InspectorMetadataV1 {
+  const selfHosted = options.deployment === "self_hosted";
   const label =
     plan === "free"
       ? "Free"
@@ -301,7 +387,9 @@ function metadata(
           : "Northstar Labs",
       projectName: "Inspector launch",
     },
-    plan: { code: plan, label },
+    plan: selfHosted
+      ? { code: "team_self_hosted", label: "Team Self-Hosted" }
+      : { code: plan, label },
     license: { state: "valid" },
     ...(options.action ? { action: options.action } : {}),
     usage: {
@@ -325,13 +413,13 @@ function buildScenario(
     | "joinToken"
   >,
 ): ThreadsStateScenario {
-  const hasThreads = input.threads.length > 0;
+  const expectedNewestThreadId = newestThreadId(input.threads);
   return {
     ...input,
     agentId: AGENT_ID,
     details: threadDetails(input.threads),
     expectedRequests: expectedRequests(input.capability, input.data),
-    ...(hasThreads ? { expectedNewestThreadId: input.threads[1]?.id } : {}),
+    ...(expectedNewestThreadId ? { expectedNewestThreadId } : {}),
     joinCode: `threads-lab-${input.key}`,
     joinToken: `threads-lab-token-${input.key}`,
   };
@@ -362,7 +450,14 @@ function buildCoreScenario(key: (typeof CORE_SCENARIO_KEYS)[number]) {
           kind: "finite",
           value: plan === "pro" ? 5_000 : 25_000,
         } as const);
-  const used = plan === "pro" ? 122 : plan === "enterprise" ? 1_204 : 604;
+  const used =
+    data === "zero"
+      ? 0
+      : plan === "pro"
+        ? 122
+        : plan === "enterprise"
+          ? 1_204
+          : 604;
   const action =
     !selfHosted && (plan === "pro" || plan === "team")
       ? ({ kind: "manage_plan", url: MANAGE_PLAN_URL } as const)
@@ -370,7 +465,8 @@ function buildCoreScenario(key: (typeof CORE_SCENARIO_KEYS)[number]) {
   const inspectorMetadata = metadata(plan, {
     used,
     limit,
-    expiringSoonCount: plan === "enterprise" ? 0 : plan === "pro" ? 7 : 18,
+    expiringSoonCount:
+      data === "zero" ? 0 : plan === "enterprise" ? 0 : plan === "pro" ? 7 : 18,
     deployment: selfHosted ? "self_hosted" : "managed",
     ...(action ? { action } : {}),
   });
@@ -407,6 +503,12 @@ function edgeScenario(
     expiringSoonCount: 4,
     action: { kind: "manage_plan", url: MANAGE_PLAN_URL },
   });
+  const zeroFree = metadata("free", {
+    used: 0,
+    limit: { kind: "finite", value: 200 },
+    expiringSoonCount: 0,
+    action: { kind: "manage_plan", url: MANAGE_PLAN_URL },
+  });
   const base = {
     key,
     deployment: "managed" as const,
@@ -425,9 +527,11 @@ function edgeScenario(
       return buildScenario({
         ...base,
         label: "Free · Figma 148 / 200",
-        description: "Approved 148 / 200 usage with 37 expiring soon.",
+        description:
+          "Twelve saved rows for the fixed lab user and agent with organization-wide 148 / 200 usage and 37 expiring soon.",
         inspectorMetadata: free148,
         inspectorMetadataBody: free148,
+        threads: recordingThreadFixtures(key),
       });
     case "free-overage-241-of-200": {
       const overage = metadata("free", {
@@ -609,6 +713,8 @@ function edgeScenario(
         label: "Video error",
         description: "CSP blocks media while examples and tour stay usable.",
         data: "zero",
+        inspectorMetadata: zeroFree,
+        inspectorMetadataBody: zeroFree,
         threads: [],
         media: "video_error",
       });
@@ -618,6 +724,8 @@ function edgeScenario(
         label: "Reduced motion",
         description: "The demo starts paused for reduced-motion users.",
         data: "zero",
+        inspectorMetadata: zeroFree,
+        inspectorMetadataBody: zeroFree,
         threads: [],
         media: "reduced_motion",
       });
