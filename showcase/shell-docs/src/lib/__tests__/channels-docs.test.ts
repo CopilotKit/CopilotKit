@@ -345,8 +345,10 @@ describe("Channels documentation journey", () => {
       expect(source).not.toMatch(/\bcopilotkit\s+channels\b/i);
     }
 
+    expect(overview).toContain("<Accordion\n  featured");
+    expect(overview).toContain('title="Start building with your coding agent"');
     expect(overview).toContain(
-      '<Accordion title="Start building with your coding agent — copy this prompt">',
+      'description="Give your local coding agent a guided path from a blank directory to a working Slack channel."',
     );
     expect(overview).toContain(
       "Copy and paste this prompt to your agent. Local agents are best so they can use your browser to set up Slack.",
@@ -388,8 +390,12 @@ describe("Channels documentation journey", () => {
     );
     expect(overview).toContain('"The runtime started" is not one of them.');
     expect(overview).not.toContain("npx copilotkit@latest channels setup");
+    expect(teamsOverview).toContain("<Accordion\n  featured");
     expect(teamsOverview).toContain(
-      '<Accordion title="Start building with your coding agent — copy this prompt">',
+      'title="Start building with your coding agent"',
+    );
+    expect(teamsOverview).toContain(
+      'description="Give your local coding agent a guided path from a blank directory to a working Microsoft Teams channel."',
     );
     expect(teamsOverview).toContain(
       "Copy and paste this prompt to your agent. Local agents are best so they can use your browser to set up Microsoft Teams.",
