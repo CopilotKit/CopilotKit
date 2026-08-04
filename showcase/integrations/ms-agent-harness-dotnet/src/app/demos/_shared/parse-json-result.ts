@@ -1,4 +1,3 @@
-// @region[parse-json-result-helper]
 // Coerces a tool-call result into a typed object. The .NET AG-UI adapter can
 // wrap JSON string tool results in another JSON string, so parse a few layers.
 export function parseJsonResult<T>(result: unknown): T {
@@ -20,4 +19,3 @@ export function parseJsonResult<T>(result: unknown): T {
 
   return parsed as T;
 }
-// @endregion[parse-json-result-helper]

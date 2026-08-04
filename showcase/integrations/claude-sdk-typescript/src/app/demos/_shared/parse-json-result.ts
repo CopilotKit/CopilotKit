@@ -1,4 +1,3 @@
-// @region[parse-json-result-helper]
 // Coerces a tool-call result into a typed object. Tool results arrive
 // as strings when the agent emits JSON or as already-parsed objects
 // when the runtime decoded them upstream — this helper handles both
@@ -11,4 +10,3 @@ export function parseJsonResult<T>(result: unknown): T {
     return {} as T;
   }
 }
-// @endregion[parse-json-result-helper]

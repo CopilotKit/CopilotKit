@@ -156,7 +156,6 @@ demos:
       - tools/schedule_meeting.py
       - tools/search_flights.py
       - src/app/demos/tool-rendering/page.tsx
-      - src/app/demos/_shared/parse-json-result.ts
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-default-catchall
     name: Tool Rendering (Default Catch-all)

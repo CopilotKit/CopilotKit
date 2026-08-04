@@ -190,7 +190,6 @@ demos:
     highlight:
       - src/agent_server.ts
       - src/app/demos/tool-rendering/page.tsx
-      - src/app/demos/_shared/parse-json-result.ts
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI)

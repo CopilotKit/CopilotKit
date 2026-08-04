@@ -1,6 +1,5 @@
 "use client";
 
-// @region[flight-list-card-component]
 import React from "react";
 
 // Rich per-tool renderer for the `search_flights` backend tool.
@@ -109,4 +108,3 @@ function Skeleton() {
     <div className="h-10 animate-pulse rounded-xl bg-[#F0F0F4]" aria-hidden />
   );
 }
-// @endregion[flight-list-card-component]

@@ -220,7 +220,6 @@ demos:
       - tools/schedule_meeting.py
       - tools/search_flights.py
       - src/app/demos/tool-rendering/page.tsx
-      - src/app/demos/_shared/parse-json-result.ts
       - src/app/api/copilotkit/route.ts
       - src/app/demos/tool-rendering/weather-card.tsx
       - src/app/demos/tool-rendering/flight-list-card.tsx

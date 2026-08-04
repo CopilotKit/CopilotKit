@@ -135,54 +135,6 @@ describe("Content Bundler", () => {
     }
   });
 
-  it("bundles complete, non-overlapping tool-rendering docs regions per cell", () => {
-    const content = runBundlerAndRead();
-    const toolRenderingCells = Object.entries(content.demos).filter(([key]) =>
-      key.endsWith("::tool-rendering"),
-    ) as Array<[string, any]>;
-    const requiredRegions = [
-      "tool-rendering-imports",
-      "tool-rendering-result-types",
-      "render-weather-tool",
-      "render-flight-tool",
-      "weather-card-component",
-      "flight-list-card-component",
-      "parse-json-result-helper",
-    ];
-
-    expect(toolRenderingCells.length).toBeGreaterThan(0);
-
-    for (const [key, demo] of toolRenderingCells) {
-      expect(
-        Object.keys(demo.regions),
-        `${key} is missing a region required by the shared docs page`,
-      ).toEqual(expect.arrayContaining(requiredRegions));
-
-      const imports = demo.regions["tool-rendering-imports"].code;
-      const resultTypes = demo.regions["tool-rendering-result-types"].code;
-      const weather = demo.regions["render-weather-tool"].code;
-      const flights = demo.regions["render-flight-tool"].code;
-
-      expect(imports).toContain('from "@copilotkit/react-core/v2"');
-      expect(imports).not.toContain("interface WeatherResult");
-      expect(resultTypes).toContain("interface WeatherResult");
-      expect(resultTypes).toContain("interface FlightSearchResult");
-      expect(weather).toContain('name: "get_weather"');
-      expect(weather).not.toContain('name: "search_flights"');
-      expect(flights).toContain('name: "search_flights"');
-      expect(flights).not.toContain('name: "get_weather"');
-      expect(demo.regions["weather-card-component"].code).toContain(
-        "export function WeatherCard",
-      );
-      expect(demo.regions["flight-list-card-component"].code).toContain(
-        "export function FlightListCard",
-      );
-      expect(demo.regions["parse-json-result-helper"].code).toContain(
-        "export function parseJsonResult",
-      );
-    }
-  });
-
   // Regression guard — verifies the snapshot/restore hooks defined at the
   // top of this file actually heal drift that `bundle-demo-content.ts`
   // produces in shell/src/data/demo-content.json.

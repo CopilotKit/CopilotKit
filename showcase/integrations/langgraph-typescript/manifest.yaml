@@ -189,7 +189,6 @@ demos:
     highlight:
       - src/agent/tool-rendering.ts
       - src/app/demos/tool-rendering/page.tsx
-      - src/app/demos/_shared/parse-json-result.ts
       - src/app/demos/tool-rendering/weather-card.tsx
       - src/app/demos/tool-rendering/flight-list-card.tsx
       - src/app/api/copilotkit/route.ts
