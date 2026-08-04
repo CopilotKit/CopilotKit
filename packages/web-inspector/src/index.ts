@@ -863,10 +863,10 @@ function highlightedJson(obj: unknown): string {
   }
   const colors = {
     key: "#5558B2",
-    str: "#189370",
-    num: "#996300",
+    str: "#087653",
+    num: "#8a5900",
     bool: "#c0333a",
-    nil: "#838389",
+    nil: "#68686e",
   };
   const json = JSON.stringify(obj, null, 2);
   if (!json) return "";
@@ -900,14 +900,14 @@ function highlightedJson(obj: unknown): string {
 function eventColors(type: string): { bg: string; fg: string } {
   if (type.startsWith("TEXT_MESSAGE")) return { bg: "#EEE6FE", fg: "#57575B" };
   if (type.startsWith("TOOL_CALL"))
-    return { bg: "rgba(133,236,206,0.15)", fg: "#189370" };
+    return { bg: "rgba(133,236,206,0.15)", fg: "#087653" };
   if (type.startsWith("STATE"))
     return { bg: "rgba(190,194,255,0.102)", fg: "#5558B2" };
   if (type === "RUN_ERROR" || type === "ERROR")
     return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
   if (type.startsWith("RUN_") || type.startsWith("STEP_"))
-    return { bg: "rgba(255,172,77,0.2)", fg: "#996300" };
-  return { bg: "#F7F7F9", fg: "#838389" };
+    return { bg: "rgba(255,172,77,0.2)", fg: "#8a5900" };
+  return { bg: "#F7F7F9", fg: "#68686e" };
 }
 
 function formatTimestamp(ts: string | number): string {
@@ -1056,7 +1056,7 @@ class CpkThreadList extends LitElement {
     }
 
     .cpk-tl__name--unnamed {
-      color: #838389;
+      color: #68686e;
       font-style: italic;
       font-weight: 400;
     }
@@ -1064,7 +1064,7 @@ class CpkThreadList extends LitElement {
     .cpk-tl__time {
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
-      color: #838389;
+      color: #68686e;
       flex-shrink: 0;
     }
 
@@ -1089,14 +1089,14 @@ class CpkThreadList extends LitElement {
 
     .cpk-tl__pill--example {
       background: rgba(133, 236, 206, 0.22);
-      color: #189370;
+      color: #087653;
     }
 
     /* ── Empty state ── */
     .cpk-tl__empty {
       padding: 32px 16px;
       text-align: center;
-      color: #838389;
+      color: #68686e;
       font-size: 12px;
       display: flex;
       flex-direction: column;
@@ -1603,7 +1603,7 @@ export class CpkThreadInspector extends LitElement {
       border-bottom: 2px solid transparent;
       cursor: pointer;
       background: transparent;
-      color: #838389;
+      color: #68686e;
       transition:
         color 0.12s,
         border-color 0.12s;
@@ -1639,7 +1639,7 @@ export class CpkThreadInspector extends LitElement {
       border: none;
       border-left: 1px solid #dbdbe5;
       background: transparent;
-      color: #838389;
+      color: #68686e;
       cursor: pointer;
       flex-shrink: 0;
       transition:
@@ -1708,7 +1708,7 @@ export class CpkThreadInspector extends LitElement {
     }
 
     .cpk-td__metadata-label {
-      color: #838389;
+      color: #68686e;
       text-transform: uppercase;
       font-size: 9px;
     }
@@ -1759,14 +1759,14 @@ export class CpkThreadInspector extends LitElement {
       align-items: center;
       justify-content: center;
       gap: 8px;
-      color: #838389;
+      color: #68686e;
       font-size: 13px;
       padding: 40px 0;
     }
 
     .cpk-td__empty-hint {
       font-size: 11px;
-      color: #838389;
+      color: #68686e;
       text-align: center;
       max-width: 220px;
       line-height: 1.5;
@@ -1776,7 +1776,7 @@ export class CpkThreadInspector extends LitElement {
     .cpk-td__status {
       padding: 16px;
       font-size: 12px;
-      color: #838389;
+      color: #68686e;
       text-align: center;
     }
 
@@ -1855,7 +1855,7 @@ export class CpkThreadInspector extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
       font-weight: 500;
-      color: #189370;
+      color: #087653;
       text-transform: uppercase;
       flex: 1;
     }
@@ -1864,15 +1864,15 @@ export class CpkThreadInspector extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       text-transform: uppercase;
-      color: #189370;
+      color: #087653;
     }
 
     .cpk-td__tool-status--pending {
-      color: #996300;
+      color: #8a5900;
     }
 
     .cpk-td__tool-chevron {
-      color: #838389;
+      color: #68686e;
       font-size: 10px;
     }
 
@@ -1886,7 +1886,7 @@ export class CpkThreadInspector extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       font-weight: 500;
-      color: #838389;
+      color: #68686e;
       text-transform: uppercase;
       margin-bottom: 4px;
       letter-spacing: 0.3px;
@@ -1918,7 +1918,7 @@ export class CpkThreadInspector extends LitElement {
       background: rgba(133, 236, 206, 0.15);
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
-      color: #189370;
+      color: #087653;
       text-transform: uppercase;
       font-weight: 500;
       border-bottom: 1px solid #e9e9ef;
@@ -1940,7 +1940,7 @@ export class CpkThreadInspector extends LitElement {
       align-items: center;
       gap: 8px;
       padding: 5px 0;
-      color: #838389;
+      color: #68686e;
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       text-transform: uppercase;
@@ -1997,7 +1997,7 @@ export class CpkThreadInspector extends LitElement {
     .cpk-td__timeline-time {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
-      color: #838389;
+      color: #68686e;
       flex-shrink: 0;
     }
 
@@ -2175,7 +2175,7 @@ export class CpkThreadInspector extends LitElement {
     .cpk-td__event-time {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
-      color: #838389;
+      color: #68686e;
     }
 
     .cpk-td__event-payload {
@@ -2247,7 +2247,7 @@ export class CpkThreadInspector extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
       font-weight: 500;
-      color: #838389;
+      color: #68686e;
       text-transform: uppercase;
       letter-spacing: 0.6px;
       margin-bottom: 8px;
@@ -2268,7 +2268,7 @@ export class CpkThreadInspector extends LitElement {
     }
 
     .cpk-tdp__label {
-      color: #838389;
+      color: #68686e;
       font-size: 11px;
       white-space: nowrap;
       flex-shrink: 0;
@@ -3709,7 +3709,7 @@ export class CpkThreadInspector extends LitElement {
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <path
               d="M1 9C1 9 2 7 5 7C8 7 9 9 9 9M5 1C5 1 7 2.5 7 4.5C7 6.5 5 7 5 7C5 7 3 6.5 3 4.5C3 2.5 5 1 5 1Z"
-              stroke="#189370"
+              stroke="#087653"
               stroke-width="1.2"
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -4219,7 +4219,7 @@ class CpkMemoryList extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       margin-left: 4px;
-      color: #838389;
+      color: #68686e;
     }
 
     /* ── List ── */
@@ -4286,7 +4286,7 @@ class CpkMemoryList extends LitElement {
       font-weight: 500;
       white-space: nowrap;
       background: #f0f0f5;
-      color: #838389;
+      color: #68686e;
     }
 
     /* Content */
@@ -4308,7 +4308,7 @@ class CpkMemoryList extends LitElement {
 
     .cpk-ml__footer-threads {
       font-size: 10px;
-      color: #838389;
+      color: #68686e;
     }
 
     .cpk-ml__footer-id {
@@ -4321,7 +4321,7 @@ class CpkMemoryList extends LitElement {
     .cpk-ml__empty {
       padding: 32px 16px;
       text-align: center;
-      color: #838389;
+      color: #68686e;
       font-size: 12px;
       display: flex;
       flex-direction: column;
@@ -4402,7 +4402,7 @@ class CpkMemoryList extends LitElement {
     .cpk-ml__recall-clear {
       font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 10px;
-      color: #838389;
+      color: #68686e;
       background: none;
       border: none;
       cursor: pointer;
@@ -4413,7 +4413,7 @@ class CpkMemoryList extends LitElement {
     }
     .cpk-ml__recall-msg {
       font-size: 11px;
-      color: #838389;
+      color: #68686e;
       line-height: 1.45;
     }
     .cpk-ml__recall-msg--error {
@@ -4437,7 +4437,7 @@ class CpkMemoryList extends LitElement {
     /* ── Scope badge variants ── */
     .cpk-ml__scope-badge--user {
       background: #f0f0f5;
-      color: #838389;
+      color: #68686e;
     }
     .cpk-ml__scope-badge--project {
       background: #fef3c7;
@@ -6720,7 +6720,7 @@ ${argsString}</pre
         align-items: center;
         justify-content: center;
         border-radius: 6px;
-        color: #838389;
+        color: #68686e;
         cursor: pointer;
         transition:
           background 120ms ease,
@@ -6741,7 +6741,7 @@ ${argsString}</pre
         background: none;
         border: none;
         cursor: pointer;
-        color: #838389;
+        color: #68686e;
         width: 28px;
         height: 28px;
         display: flex;
@@ -6790,7 +6790,7 @@ ${argsString}</pre
         height: 24px;
         border-radius: 50%;
         background-color: #f0f0f4;
-        color: #838389;
+        color: #68686e;
         flex-shrink: 0;
         transition: transform 0.2s;
       }
@@ -6907,7 +6907,7 @@ ${argsString}</pre
       }
 
       .announcement-content a {
-        color: #757cf2;
+        color: #5558b2;
         text-decoration: underline;
       }
 
@@ -7031,7 +7031,7 @@ ${argsString}</pre
         font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         font-size: 12px;
         font-weight: 500;
-        color: #757cf2;
+        color: #5558b2;
         cursor: pointer;
         text-align: center;
       }
@@ -7102,14 +7102,14 @@ ${argsString}</pre
         align-items: center;
       }
       .cpk-tab-active .cpk-tab-icon {
-        color: #757cf2;
+        color: #5558b2;
       }
       .cpk-tab-inactive {
         background-color: transparent;
         color: #2b2b2b;
       }
       .cpk-tab-inactive .cpk-tab-icon {
-        color: #838389;
+        color: #68686e;
       }
       .cpk-tab-inactive:hover {
         background-color: rgba(190, 194, 255, 0.08);
@@ -7187,7 +7187,7 @@ ${argsString}</pre
         background-color: #f7f7f9 !important;
       }
       [data-context-dropdown-root="true"] > button > span:last-child {
-        color: #838389 !important;
+        color: #68686e !important;
       }
       [data-context-dropdown-root="true"] > div {
         border-color: #dbdbe5 !important;
@@ -7228,7 +7228,7 @@ ${argsString}</pre
 
       /* ── Resize handle ───────────────────────────────────────────── */
       .resize-handle {
-        color: #838389 !important;
+        color: #68686e !important;
       }
       .resize-handle:hover {
         color: #57575b !important;
@@ -7249,7 +7249,7 @@ ${argsString}</pre
       /* Copy "copied" state: generic green → brand mint */
       button[class*="bg-green-100"] {
         background-color: rgba(133, 236, 206, 0.2) !important;
-        color: #189370 !important;
+        color: #087653 !important;
       }
 
       /* ── Agents tab ──────────────────────────────────────────────── */
@@ -7258,14 +7258,14 @@ ${argsString}</pre
         background-color: rgba(190, 194, 255, 0.15) !important;
       }
       span[class*="text-blue-600"] {
-        color: #757cf2 !important;
+        color: #5558b2 !important;
       }
       /* Running badge: emerald → mint */
       span[class*="bg-emerald-50"] {
         background-color: rgba(133, 236, 206, 0.15) !important;
       }
       span[class*="text-emerald-700"] {
-        color: #189370 !important;
+        color: #087653 !important;
       }
       /* Running status dot */
       span[class*="bg-emerald-500"] {
@@ -7285,7 +7285,7 @@ ${argsString}</pre
       span[class*="bg-green-100"][class*="text-green-800"] {
         background-color: rgba(133, 236, 206, 0.18) !important;
         border: 1px solid rgba(133, 236, 206, 0.4) !important;
-        color: #189370 !important;
+        color: #087653 !important;
       }
       /* Tool role badge (amber → orange brand) */
       span[class*="bg-amber-100"][class*="text-amber-800"] {
@@ -7326,13 +7326,17 @@ ${argsString}</pre
         > div:last-child:has(div[class*="bg-emerald-50"]) {
         background-color: rgba(91, 228, 187, 0.08) !important;
         border-top-color: rgba(91, 228, 187, 0.3) !important;
-        color: #189370 !important;
+        color: #087653 !important;
       }
       /* Inner badge — slightly more opaque on the mint bg */
       div[class*="bg-emerald-50"][class*="border-emerald-200"] {
         background-color: rgba(91, 228, 187, 0.12) !important;
         border-color: rgba(91, 228, 187, 0.4) !important;
-        color: #189370 !important;
+        color: #087653 !important;
+      }
+      div[class*="bg-emerald-50"][class*="border-emerald-200"]
+        span[class*="opacity-80"] {
+        opacity: 1 !important;
       }
       /* Icon bubble inside connected badge → mint tint */
       div[class*="bg-emerald-50"] span[class*="bg-white"] {
@@ -7347,7 +7351,7 @@ ${argsString}</pre
       span[class*="bg-slate-900"],
       div[class*="bg-slate-900"] {
         background-color: #eee6fe !important;
-        color: #757cf2 !important;
+        color: #5558b2 !important;
       }
       span[class*="text-slate-800"],
       div[class*="text-slate-800"] {
@@ -7431,6 +7435,9 @@ ${argsString}</pre
     this.contextState.window.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
     this.hydrateStateFromStorage();
+    this.contextState.window.size = this.clampWindowSize(
+      this.contextState.window.size,
+    );
 
     // `hydrateStateFromStorage` may have restored `selectedMenu: "memories"`.
     // The memory subscription is normally created on a Memories-tab CLICK via
@@ -7615,6 +7622,7 @@ ${argsString}</pre
     return html`
       <div
         style="display:flex;min-width:0;flex:1 1 220px;flex-wrap:wrap;align-items:center;gap:6px 8px;"
+        role="group"
         aria-label="Inspector account details"
       >
         ${
@@ -7628,7 +7636,7 @@ ${argsString}</pre
                   <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                     >${identity.organizationName}</span
                   >
-                  <span aria-hidden="true" style="color:#838389;">/</span>
+                  <span aria-hidden="true" style="color:#68686e;">/</span>
                   <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                     >${identity.projectName}</span
                   >
@@ -8284,6 +8292,9 @@ ${argsString}</pre
     this.applyAnchorPosition("button");
 
     this.measureContext("window");
+    this.contextState.window.size = this.clampWindowSize(
+      this.contextState.window.size,
+    );
     if (this.hasCustomPosition.window) {
       this.applyAnchorPosition("window");
     } else {
@@ -8455,7 +8466,7 @@ ${argsString}</pre
       this.applyDockStyles();
     } else {
       // When floating, set size first then center
-      this.contextState.window.size = { ...DEFAULT_WINDOW_SIZE };
+      this.contextState.window.size = this.clampWindowSize(DEFAULT_WINDOW_SIZE);
       this.centerContext("window");
     }
 
@@ -10291,7 +10302,7 @@ ${argsString}</pre
             font-family: 'Spline Sans Mono', monospace;
             font-size: 10px;
             font-weight: 600;
-            color: #189370;
+            color: #087653;
             text-transform: uppercase;
           "
         >
@@ -10322,7 +10333,7 @@ ${argsString}</pre
         >
           <button
             type="button"
-            style="border:0;background:transparent;color:#838389;font-size:12px;font-weight:600;cursor:pointer;padding:7px 0;"
+            style="border:0;background:transparent;color:#68686e;font-size:12px;font-weight:600;cursor:pointer;padding:7px 0;"
             @click=${() => this.dismissExampleTour("skip")}
           >
             Skip
@@ -10568,7 +10579,7 @@ ${argsString}</pre
           gap: 4px;
           font-size: 10px;
           font-weight: 500;
-          color: ${connected ? "#57575b" : "#838389"};
+          color: ${connected ? "#57575b" : "#68686e"};
         "
       >
         <span
@@ -10744,7 +10755,7 @@ ${argsString}</pre
             align-items: center;
             justify-content: center;
             gap: 8px;
-            color: #838389;
+            color: #68686e;
           "
         >
           <svg
@@ -10790,7 +10801,7 @@ ${argsString}</pre
             align-items: center;
             justify-content: center;
             gap: 8px;
-            color: #838389;
+            color: #68686e;
           "
         >
           <svg
@@ -10922,6 +10933,7 @@ ${argsString}</pre
       <footer
         class="inspector-threads-footer"
         data-inspector-threads-footer
+        role="group"
         aria-label="Threads usage"
       >
         ${
@@ -11127,7 +11139,7 @@ ${argsString}</pre
                         align-items: center;
                         justify-content: center;
                         gap: 8px;
-                        color: #838389;
+                        color: #68686e;
                       "
                     >
                       <svg

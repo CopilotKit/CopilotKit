@@ -289,6 +289,36 @@ function expectVisibleFocus(root: ShadowRoot, control: HTMLElement): void {
   expect(Number.parseFloat(styles.outlineWidth)).toBeGreaterThanOrEqual(2);
 }
 
+/** Read a property from the component's rendered shadow-DOM stylesheet. */
+function renderedStyleProperty(
+  root: ShadowRoot,
+  selector: string,
+  property: string,
+): string | undefined {
+  const normalizedSelector = selector.replace(/\s+/g, " ").trim();
+  const css = Array.from(root.querySelectorAll("style"))
+    .map((style) => style.textContent ?? "")
+    .join("\n");
+  const parserStyle = document.createElement("style");
+  parserStyle.textContent = css;
+  document.head.append(parserStyle);
+  try {
+    const rule = Array.from(parserStyle.sheet?.cssRules ?? [])
+      .filter(
+        (candidate): candidate is CSSStyleRule =>
+          candidate instanceof CSSStyleRule,
+      )
+      .find(
+        (candidate) =>
+          candidate.selectorText.replace(/\s+/g, " ").trim() ===
+          normalizedSelector,
+      );
+    return rule?.style.getPropertyValue(property);
+  } finally {
+    parserStyle.remove();
+  }
+}
+
 test("first launch shows grouped navigation with Threads, its CTA, and no account placeholders", async () => {
   const context = await setup();
   try {
@@ -365,8 +395,44 @@ test("trusted identity and plan render in the dark account strip with all window
       ),
       "Trusted account plan was not rendered",
     );
+    const accountDetails = requireElement(
+      accountStrip.querySelector<HTMLElement>(
+        '[aria-label="Inspector account details"]',
+      ),
+      "Labelled account details were not rendered",
+    );
+    const threadsUsage = requireElement(
+      root.querySelector<HTMLElement>('[aria-label="Threads usage"]'),
+      "Labelled Threads usage was not rendered",
+    );
+    const connectedStatus = requireElement(
+      root.querySelector<HTMLElement>(
+        '[title="Live runtime connection established."] .font-medium',
+      ),
+      "Connected status label was not rendered",
+    );
 
     expect(getComputedStyle(accountStrip).backgroundColor).toBe("rgb(1, 5, 7)");
+    expect(accountDetails.getAttribute("role")).toBe("group");
+    expect(threadsUsage.getAttribute("role")).toBe("group");
+    expect(connectedStatus.textContent?.trim()).toBe("Connected");
+    expect(
+      renderedStyleProperty(
+        root,
+        'div[class*="bg-emerald-50"][class*="border-emerald-200"]',
+        "color",
+      ),
+    ).toBe("rgb(8, 118, 83)");
+    expect(
+      renderedStyleProperty(
+        root,
+        'div[class*="bg-emerald-50"][class*="border-emerald-200"] span[class*="opacity-80"]',
+        "opacity",
+      ),
+    ).toBe("1");
+    expect(renderedStyleProperty(root, ".announcement-toggle", "color")).toBe(
+      "rgb(85, 88, 178)",
+    );
     expect(identity.textContent).toContain("Acme Inc.");
     expect(identity.textContent).toContain("Support");
     expect(plan.textContent?.trim()).toBe("Enterprise");
@@ -834,6 +900,7 @@ test("minimum-width Agent navigation scrolls horizontally and keeps the active c
     expect(getComputedStyle(navigation).overflowX).toBe("auto");
     expect(getComputedStyle(navigation).whiteSpace).toBe("nowrap");
     expect(getComputedStyle(inspectorWindow).overflowX).toBe("hidden");
+    expect(inspectorWindow.style.width).toBe("608px");
     expect(active.textContent?.trim()).toBe("Context");
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
     expect(scrollIntoView).toHaveBeenCalledWith({

@@ -1496,6 +1496,14 @@ test("real and example rows expose native focus and current-selection semantics"
       expect(focusRule?.style.outlineStyle).toBe("solid");
       expect(focusRule?.style.outlineWidth).toBe("2px");
       expect(focusRule?.style.outlineOffset).toBe("-2px");
+      const timeRule = styleRules.find(
+        (rule) => rule.selectorText === ".cpk-tl__time",
+      );
+      expect(timeRule?.style.color).toBe("rgb(104, 104, 110)");
+      const examplePillRule = styleRules.find(
+        (rule) => rule.selectorText === ".cpk-tl__pill--example",
+      );
+      expect(examplePillRule?.style.color).toBe("rgb(8, 118, 83)");
     } finally {
       parserStyle.remove();
     }

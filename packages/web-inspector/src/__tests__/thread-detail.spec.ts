@@ -465,6 +465,33 @@ test("real metadata renders the exact labels, full identity, and supplied option
     expect(header?.textContent).not.toContain("Created by");
     expect(header?.textContent).not.toContain("Status");
     expect(header?.textContent).toContain(threadId);
+    const renderedStyle =
+      detail.shadowRoot?.querySelector("style")?.textContent;
+    if (!renderedStyle)
+      throw new Error("Thread detail styles were not rendered");
+    const parserStyle = document.createElement("style");
+    parserStyle.textContent = renderedStyle;
+    document.head.append(parserStyle);
+    try {
+      const styleRules = Array.from(parserStyle.sheet?.cssRules ?? []).filter(
+        (rule): rule is CSSStyleRule => rule instanceof CSSStyleRule,
+      );
+      for (const selector of [
+        ".cpk-td__tab",
+        ".cpk-td__metadata-label",
+        ".cpk-td__timeline-time",
+        ".cpk-td__event-time",
+        ".cpk-tdp__section-title",
+        ".cpk-tdp__label",
+      ]) {
+        const rule = styleRules.find(
+          (candidate) => candidate.selectorText === selector,
+        );
+        expect(rule?.style.color, selector).toBe("rgb(104, 104, 110)");
+      }
+    } finally {
+      parserStyle.remove();
+    }
     const namedIdFact = detail.shadowRoot?.querySelector<HTMLElement>(
       `[role="group"][aria-label="ID: ${threadId}"]`,
     );
@@ -762,6 +789,12 @@ test("a source-event link selects AG-UI Events and reveals the indexed event", a
       false,
     );
     expect(event?.textContent).toContain("RUN_STARTED");
+    expect(
+      getComputedStyle(
+        event?.querySelector<HTMLElement>(".cpk-td__event-type") ??
+          document.body,
+      ).color,
+    ).toBe("rgb(138, 89, 0)");
   } finally {
     detail.remove();
     vi.restoreAllMocks();
