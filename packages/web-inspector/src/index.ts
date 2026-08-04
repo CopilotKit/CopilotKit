@@ -1234,6 +1234,7 @@ export class CpkThreadInspector extends LitElement {
   private _messagesAbort: AbortController | null = null;
   private _eventsAbort: AbortController | null = null;
   private _stateAbort: AbortController | null = null;
+  private _hasConnectedOnce = false;
   private _dividerResizing = false;
   private _dividerPointerId = -1;
   private _dividerStartX = 0;
@@ -2106,6 +2107,14 @@ export class CpkThreadInspector extends LitElement {
       this._messagesAbort = null;
       void this.fetchMessages(this.threadId, true);
     }
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    if (this._hasConnectedOnce) {
+      this.requestUpdate();
+    }
+    this._hasConnectedOnce = true;
   }
 
   disconnectedCallback(): void {

@@ -14,8 +14,8 @@ import type {
   ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
 import { expect, test, vi } from "vitest";
-import { WebInspectorElement } from "../index.js";
-import type { CpkThreadInspector, ThreadDebuggerEvent } from "../index.js";
+import { CpkThreadInspector, WebInspectorElement } from "../index.js";
+import type { ThreadDebuggerEvent, ThreadDebuggerProvider } from "../index.js";
 
 const RUNTIME_URL = "https://runtime.example.test";
 const REGISTERED_AGENT_ID = "alpha";
@@ -714,6 +714,51 @@ test("inspect true loads events, empty-events messages fallback, and state witho
       events: 1,
       state: 1,
     });
+
+    const providerSignals: AbortSignal[] = [];
+    const provider: ThreadDebuggerProvider = {
+      async getEvents(_threadId, { signal }) {
+        providerSignals.push(signal);
+        return [
+          {
+            type: providerSignals.length === 1 ? "RUN_STARTED" : "RUN_FINISHED",
+            timestamp: "2026-08-03T12:02:00.000Z",
+          },
+        ];
+      },
+    };
+    const directInspector = new CpkThreadInspector();
+    directInspector.threadId = "direct-thread";
+    directInspector.provider = provider;
+    directInspector.runtimeUrl = RUNTIME_URL;
+    directInspector.headers = { Authorization: "Bearer direct-test" };
+    directInspector.threadInspectionAvailable = true;
+    document.body.append(directInspector);
+    await directInspector.updateComplete;
+    await vi.waitFor(() => {
+      expect(providerSignals).toHaveLength(1);
+      expect(directInspector.shadowRoot?.textContent).toContain("Run started");
+    });
+    const firstSignal = providerSignals[0];
+    if (!firstSignal) throw new Error("Expected the first provider signal");
+
+    directInspector.remove();
+    await Promise.resolve();
+    await directInspector.updateComplete;
+
+    expect(firstSignal.aborted).toBe(true);
+
+    document.body.append(directInspector);
+    await directInspector.updateComplete;
+    await vi.waitFor(() => {
+      expect(providerSignals).toHaveLength(2);
+      expect(directInspector.shadowRoot?.textContent).toContain("Run finished");
+    });
+    const secondSignal = providerSignals[1];
+    if (!secondSignal) throw new Error("Expected the second provider signal");
+
+    expect(secondSignal).not.toBe(firstSignal);
+    expect(secondSignal.aborted).toBe(false);
   } finally {
     await harness.teardown();
   }
