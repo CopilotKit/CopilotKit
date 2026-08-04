@@ -31,13 +31,14 @@ lowercase letter, lowercase alphanumerics separated by single hyphens (`channels
 is reserved). It derives from the Display name, so `Jerel-Bot` becomes
 `jerel-bot`. A friendly Display name with a kebab-case Code is exactly right.
 
-Because these are consequential mutations in a live account: **read the page, state
-what you are about to change, get an explicit yes, then act.**
+Creating a Channel, attaching a platform, and issuing a key are consequential
+mutations in a live account, so **read the page before you act and never click a
+control you have not read.**
 
-Work by goal, and for each step: **read the page, state what you are about to
-change, get an explicit yes, then act.** Creating a Channel, attaching a platform,
-and issuing a key are consequential mutations in a live account. Never click a
-control you have not read.
+Reading is not a reason to check in. The Phase 0 authorization already covers this
+whole sequence, so work through the goals without pausing between them and report
+what you changed at the end. **Stop only** for the two password fields the
+developer types themselves, or for something that authorization did not cover.
 
 If a goal has no obvious control on the page, say so and ask the developer what
 they see. That is faster and safer than guessing.
