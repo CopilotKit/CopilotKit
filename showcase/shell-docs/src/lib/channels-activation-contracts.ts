@@ -60,66 +60,22 @@ export function getChannelsActivationGuideHref(
 }
 
 /**
- * The skill that owns first-time Channels onboarding end to end. Canonical
- * source lives in `CopilotKit/channels-sdk` and is mirrored into this repo's
- * `skills/` directory, which is what `copilotkit skills install` distributes.
+ * The onboarding guide every Channels entry point points at — the docs surfaces,
+ * copilotkit.ai/channels, and the channels-sdk README. Hosted on the marketing
+ * site so it is one file fetched at the moment an agent needs it, rather than a
+ * workflow copied into six places that drift apart.
  */
-export const CHANNELS_ONBOARDING_SKILL = "setup-slack-channel";
+export const CHANNELS_GUIDE_URL = "https://copilotkit.ai/channels-guide.md";
 
 /**
- * Installs that skill without prompting. `-y` respects `--skill`, so this
- * installs exactly one skill rather than dropping the developer into a picker
- * of everything CopilotKit publishes. `@latest` is not optional: a globally
- * installed or npx-cached older CLI shadows the current one and fails with an
- * unrelated "unknown option" error.
+ * A pointer, deliberately not a workflow, and deliberately unparameterised.
  *
- * The installer detects the coding agent it is running inside, so `--agent` is
- * deliberately omitted.
- */
-export const CHANNELS_ONBOARDING_INSTALL_COMMAND = `npx copilotkit@latest skills install --skill ${CHANNELS_ONBOARDING_SKILL} -y`;
-
-/**
- * A pointer, deliberately not a workflow.
+ * These surfaces used to carry the whole setup as prose — six copies across
+ * three repos, which drifted and went stale against the CLI independently.
  *
- * This prompt used to carry the whole setup as prose, and so did five other
- * surfaces across three repos. They drifted apart, and each one went stale the
- * moment the CLI moved — which is how developers ended up being told to run
- * commands that no longer exist. Two sentences naming a skill cannot drift, and
- * the workflow they point at is corrected in exactly one place.
+ * The channel and backend the reader picked are not interpolated: the guide asks
+ * for both itself. A pointer that named them would be promising coverage on the
+ * page's behalf, which is exactly what made the earlier skill-based pointer
+ * wrong for Teams — it named a skill scoped to Slack.
  */
-export function buildChannelsActivationPrompt({
-  channelLabel,
-  backendLabel,
-}: {
-  channelLabel: string;
-  backendLabel: string;
-}): string {
-  const { command, instruction } = buildChannelsActivationPromptParts({
-    channelLabel,
-    backendLabel,
-  });
-
-  return `Run \`${command}\`, then ${instruction}`;
-}
-
-/**
- * Split so the UI can show the command as a command and the ask as prose. A
- * single wrapped monospace paragraph reads like a rendering bug, and the two
- * halves are genuinely different things: one is typed by a machine, one is
- * addressed to it.
- *
- * `instruction` carries no leading word, so the clipboard string can join it
- * after a comma while the UI leads with a capitalised "Then" on its own line.
- */
-export function buildChannelsActivationPromptParts({
-  channelLabel,
-  backendLabel,
-}: {
-  channelLabel: string;
-  backendLabel: string;
-}): { command: string; instruction: string } {
-  return {
-    command: CHANNELS_ONBOARDING_INSTALL_COMMAND,
-    instruction: `follow that skill to build your first CopilotKit Channels agent and connect it to ${channelLabel} using ${backendLabel}.`,
-  };
-}
+export const CHANNELS_BUILD_PROMPT = `Read ${CHANNELS_GUIDE_URL} and help the user build their first channel`;

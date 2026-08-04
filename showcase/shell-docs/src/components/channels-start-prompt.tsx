@@ -22,7 +22,7 @@ import { Accordion } from "./mdx-components";
 import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
-  buildChannelsActivationPrompt,
+  CHANNELS_BUILD_PROMPT,
 } from "@/lib/channels-activation-contracts";
 import type { ChannelsActivationChannelId } from "@/lib/channels-activation-contracts";
 
@@ -31,8 +31,6 @@ type CopyState = "idle" | "copied" | "error";
 export interface ChannelsStartPromptProps {
   /** Injected from the page's docs frontend by the MDX component map. */
   frontend?: string;
-  /** Backend label to name in the prompt. Defaults to the built-in agent. */
-  backendLabel?: string;
 }
 
 const CHANNEL_LABELS: Record<ChannelsActivationChannelId, string> = {
@@ -40,10 +38,7 @@ const CHANNEL_LABELS: Record<ChannelsActivationChannelId, string> = {
   teams: "Microsoft Teams",
 };
 
-export function ChannelsStartPrompt({
-  frontend,
-  backendLabel = "CopilotKit's built-in agent",
-}: ChannelsStartPromptProps) {
+export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
   const posthog = usePostHog();
   const pathname = usePathname();
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
@@ -107,11 +102,6 @@ export function ChannelsStartPrompt({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel]);
 
-  const prompt = buildChannelsActivationPrompt({
-    channelLabel,
-    backendLabel,
-  });
-
   // Expanding is where a disclosure loses people, and neither `viewed` nor
   // `promptCopied` can see it: a reader who never opened the panel looks
   // identical to one who opened it and walked away. Fires once.
@@ -129,7 +119,7 @@ export function ChannelsStartPrompt({
     // one try block with the capture call meant a throwing analytics client
     // reported "Copy blocked" for a prompt that was already on the clipboard.
     try {
-      await navigator.clipboard.writeText(prompt);
+      await navigator.clipboard.writeText(CHANNELS_BUILD_PROMPT);
     } catch {
       setCopyState("error");
       resetTimerRef.current = setTimeout(() => setCopyState("idle"), 2600);
@@ -153,7 +143,7 @@ export function ChannelsStartPrompt({
         description={`Give your local coding agent a guided path from a blank directory to a working ${channelLabel} channel.`}
       >
         <p className="mt-0 mb-3">
-          It installs the onboarding skill and walks the whole setup with you —
+          It walks your agent through the whole setup — choosing a framework,
           scaffolding the project, building the agent, and connecting it to{" "}
           {channelLabel}.
         </p>
@@ -165,7 +155,9 @@ export function ChannelsStartPrompt({
               read the whole prompt before copying it. `pe-20` keeps every line
               clear of the copy button. */}
           <pre className="m-0 bg-transparent p-0 pe-20 text-xs leading-relaxed break-words whitespace-pre-wrap">
-            <code className="font-mono text-[var(--text)]">{prompt}</code>
+            <code className="font-mono text-[var(--text)]">
+              {CHANNELS_BUILD_PROMPT}
+            </code>
           </pre>
 
           <button

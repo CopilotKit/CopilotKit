@@ -12,7 +12,7 @@ import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
   CHANNELS_OPENTAG_HREF,
-  buildChannelsActivationPrompt,
+  CHANNELS_BUILD_PROMPT,
   getChannelsActivationGuideHref,
 } from "@/lib/channels-activation-contracts";
 import type {
@@ -279,13 +279,6 @@ export function ChannelsActivationStrip({
 
   const guideHref = getChannelsActivationGuideHref(channel, backend);
   const guideUrl = new URL(guideHref, docsBaseUrl).toString();
-  // Rendered, not just copied. A copy button whose payload is invisible reads
-  // as decoration — people missed it entirely. Now the prompt is short enough
-  // to show, so the button becomes a shortcut for something already on screen.
-  const prompt = buildChannelsActivationPrompt({
-    channelLabel: selectedChannel.label,
-    backendLabel: backend.label,
-  });
   const channelOptions: SelectOption[] = CHANNELS_ACTIVATION_CHANNELS.map(
     (option) => ({
       id: option.id,
@@ -356,7 +349,7 @@ export function ChannelsActivationStrip({
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
 
     try {
-      await navigator.clipboard.writeText(prompt);
+      await navigator.clipboard.writeText(CHANNELS_BUILD_PROMPT);
       setCopyState("copied");
       capture(CHANNELS_ACTIVATION_EVENTS.promptCopied, {
         channel,
@@ -416,7 +409,7 @@ export function ChannelsActivationStrip({
         <p className="max-w-[68ch] text-sm leading-relaxed text-[var(--text-secondary)] sm:col-start-2 sm:text-[15px]">
           Bring your agent into Slack or Microsoft Teams, with more platforms on
           the way. Choose a channel and agent backend to open the matching setup
-          guide, or copy a tailored prompt for your coding agent.
+          guide, or copy a prompt that walks your coding agent through it.
         </p>
       </div>
 
@@ -475,10 +468,6 @@ export function ChannelsActivationStrip({
           {copyStatus}
         </span>
       </div>
-
-      <p className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-[var(--radius-control)] border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5 font-mono text-xs leading-relaxed text-[var(--text-secondary)]">
-        {prompt}
-      </p>
 
       <div className="mt-5 border-t border-[var(--border)] pt-4 text-sm text-[var(--text-secondary)]">
         Prefer a complete working example?{" "}

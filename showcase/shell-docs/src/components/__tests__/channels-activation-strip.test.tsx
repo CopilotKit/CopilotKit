@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChannelsActivationStrip } from "../channels-activation-strip";
 import {
   CHANNELS_ACTIVATION_EVENTS,
-  CHANNELS_ONBOARDING_INSTALL_COMMAND,
+  CHANNELS_BUILD_PROMPT,
   CHANNELS_OPENTAG_HREF,
 } from "@/lib/channels-activation-contracts";
 import type { ChannelsActivationBackendOption } from "@/lib/channels-activation-contracts";
@@ -184,11 +184,10 @@ describe("ChannelsActivationStrip", () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     const prompt = writeText.mock.calls[0][0] as string;
-    // The copied text is a pointer at the onboarding skill, not a copy of the
-    // workflow. `guide_url` stays on the telemetry below so the picker's
-    // destination is still measurable.
-    expect(prompt).toContain(CHANNELS_ONBOARDING_INSTALL_COMMAND);
-    expect(prompt).toContain("connect it to Slack");
+    // The copied text is a pointer at the hosted guide, not a copy of the
+    // workflow, and it is the same for every selection. `guide_url` stays on the
+    // telemetry below so the picker's destination is still measurable.
+    expect(prompt).toBe(CHANNELS_BUILD_PROMPT);
     expect(await screen.findByText("Prompt copied")).toBeTruthy();
     expect(analytics.capture).toHaveBeenCalledWith(
       CHANNELS_ACTIVATION_EVENTS.promptCopied,

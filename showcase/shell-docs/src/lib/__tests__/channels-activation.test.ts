@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   CHANNELS_ACTIVATION_CHANNELS,
-  CHANNELS_ONBOARDING_INSTALL_COMMAND,
-  CHANNELS_ONBOARDING_SKILL,
-  buildChannelsActivationPrompt,
+  CHANNELS_BUILD_PROMPT,
+  CHANNELS_GUIDE_URL,
   getChannelsActivationGuideHref,
 } from "../channels-activation-contracts";
 import { getChannelsActivationBackendOptions } from "../channels-activation-options";
@@ -54,41 +53,33 @@ describe("Channels activation documentation options", () => {
     }
   });
 
-  // The prompt is a pointer to one skill, not a copy of the workflow. Six
-  // surfaces across three repos each carried their own prose version, drifted,
-  // and went stale against the CLI; these assertions pin the corrections that
-  // drift produced so they cannot be quietly undone here.
+  // The prompt is a pointer at one hosted guide, not a copy of the workflow.
+  // Six surfaces across three repos each carried their own prose version,
+  // drifted, and went stale against the CLI; these assertions pin the
+  // corrections that produced.
   describe("activation prompt", () => {
-    const prompt = buildChannelsActivationPrompt({
-      channelLabel: "Microsoft Teams",
-      backendLabel: "Mastra",
-    });
-
-    it("names the picker's channel and backend", () => {
-      expect(prompt).toContain("Microsoft Teams using Mastra");
-    });
-
-    it("names the one skill to install rather than leaving it to a picker", () => {
-      expect(prompt).toContain(`--skill ${CHANNELS_ONBOARDING_SKILL}`);
-      expect(prompt).toContain(CHANNELS_ONBOARDING_INSTALL_COMMAND);
-    });
-
-    it("installs non-interactively so the agent can run it unattended", () => {
-      expect(CHANNELS_ONBOARDING_INSTALL_COMMAND).toMatch(/ -y$/);
-    });
-
-    it("pins the CLI to @latest so a cached older binary cannot shadow it", () => {
-      expect(CHANNELS_ONBOARDING_INSTALL_COMMAND).toContain(
-        "npx copilotkit@latest",
+    it("points at the hosted guide", () => {
+      expect(CHANNELS_GUIDE_URL).toBe(
+        "https://copilotkit.ai/channels-guide.md",
       );
-      expect(CHANNELS_ONBOARDING_INSTALL_COMMAND).not.toMatch(
-        /npx copilotkit(?!@latest)/,
+      expect(CHANNELS_BUILD_PROMPT).toBe(
+        "Read https://copilotkit.ai/channels-guide.md and help the user build their first channel",
       );
+    });
+
+    it("names neither channel nor backend", () => {
+      // The guide asks for both. Naming them here would promise coverage on the
+      // page's behalf — the mismatch that made the earlier skill pointer wrong
+      // for Teams, since that skill was scoped to Slack.
+      for (const channel of CHANNELS_ACTIVATION_CHANNELS) {
+        expect(CHANNELS_BUILD_PROMPT).not.toContain(channel.label);
+      }
+      expect(CHANNELS_BUILD_PROMPT).not.toMatch(/mastra|langgraph|built-in/i);
     });
 
     it("stays a pointer instead of re-embedding the workflow", () => {
-      expect(prompt.split("\n")).toHaveLength(1);
-      expect(prompt.length).toBeLessThan(240);
+      expect(CHANNELS_BUILD_PROMPT.split("\n")).toHaveLength(1);
+      expect(CHANNELS_BUILD_PROMPT.length).toBeLessThan(160);
     });
   });
 });
