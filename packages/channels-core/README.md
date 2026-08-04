@@ -189,6 +189,43 @@ methods (e.g. `thread.getMessages()`, `thread.lookupUser(query)`,
 A `ContextEntry` is `{ description: string; value: string }` — knowledge
 folded into the agent's system context on each `runAgent`.
 
+## Agent-rendered components
+
+`defineChannelComponent` turns a server-rendered JSX function into an agent
+tool. Its Standard Schema validates tool args before `render` runs. The render
+context supplies the source `platform` and the run's `AbortSignal`.
+
+```tsx
+import { createChannel, defineChannelComponent } from "@copilotkit/channels";
+import { z } from "zod";
+
+const Approval = defineChannelComponent({
+  name: "show_approval",
+  description: "Post an approval request.",
+  parameters: z.object({ title: z.string() }),
+  render: ({ title }, { platform, signal }) => (
+    <Card title={`${title} (${platform})`}>
+      <Button key="approve" value="approve" onClick={approve}>
+        Approve
+      </Button>
+    </Card>
+  ),
+});
+
+const channel = createChannel({
+  name: "approvals",
+  components: [Approval],
+});
+```
+
+When the agent calls `show_approval`, Channels posts the rendered message as a
+separate provider message and returns a short tool acknowledgement. The agent
+run then continues. Interactive nodes in a component definition need stable,
+unique JSX keys. Channels stores those keys with the source platform and action
+value, so a click or reaction can recover the same handler after a restart.
+Legacy `components: { Name: Component }` registrations still use positional
+recovery for old snapshots.
+
 ## ActionStore
 
 Inline JSX handlers are bound by content. Each interactive node gets a

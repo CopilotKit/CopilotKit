@@ -15,6 +15,10 @@ interactive behavior, state, and deployment.
 
 ## Create and configure your Channel
 
+Use the browser wizard below to create the Channel, store its provider
+credentials, and inspect its health and threads. It is the released setup path
+for both Slack and Microsoft Teams.
+
 <FrontendOnly frontend="slack">
 
 <OpsPlatformCTA
@@ -130,8 +134,10 @@ interactive behavior, state, and deployment.
 
     1. Copy the generated manifest, open Slack's app-creation flow, and create
        the app **From a manifest** using the YAML.
-    2. In **OAuth & Permissions**, click **Install to Workspace**, approve the
-       app, and paste the `xoxb-…` **Bot User OAuth Token** into **Bot token**.
+    2. In **OAuth & Permissions**, click **Install to Workspace**. Approve the
+       complete scope set from the current manifest, reinstall after any scope
+       update, and paste the current `xoxb-…` **Bot User OAuth Token** into
+       **Bot token**. Slack can issue a new token after reinstall.
     3. In **Basic Information → App Credentials**, copy the
        **Signing Secret** into Intelligence.
     4. Invite the app to a channel with `/invite @<app-handle>`, or open a
@@ -151,23 +157,32 @@ interactive behavior, state, and deployment.
   <Step>
     ### Connect Microsoft Teams
 
-    1. In Microsoft Entra, create or open the bot's app registration. Copy its
-       **Application (client) ID** and **Directory (tenant) ID**, then create a
-       client secret.
-    2. In Azure, create an **Azure Bot** backed by that app registration.
-    3. In the bot's **Configuration**, set the exact read-only
-       **Messaging endpoint** shown by Intelligence and enable the
-       **Microsoft Teams** channel.
-    4. In Intelligence, enter the required **Client ID** (the app
-       registration's Application/client ID), **Client secret**, and **Tenant
-       ID**. These credentials are write-only after submission.
-    5. Before downloading, enter that same Application/client ID in
-       **Azure Bot App ID**, then click **Download app package (.zip)**. If you
-       leave it blank, replace both `<your-azure-bot-app-id>` placeholders in
-       the downloaded manifest before uploading it.
-    6. Upload the completed package in Teams Developer Portal, or through
-       **Apps → Manage your apps → Upload a custom app**, and add it to a team
-       or chat.
+    Intelligence creates the Channel draft before Microsoft setup. Keep the
+    default app name, descriptions, and CopilotKit kite icons, or expand the
+    branding control to customize them. Custom icons and the generated ZIP stay
+    in browser memory and operating-system temporary files; Intelligence never
+    stores them.
+
+    Follow the guided setup one current action at a time in Teams Developer
+    Portal and Microsoft Entra. Enter the write-only client ID, tenant ID, and
+    secret, then download the finished upload-ready package. Do not edit
+    `manifest.json`. Azure Bot is not part of the normal path.
+
+    The generated app configures personal and Team scopes,
+    `ChannelMessage.Read.Group`, and the required `Files.ReadWrite.All`
+    application permission. The latter lets the app read, create, update, and
+    delete files across SharePoint and OneDrive site collections and requires
+    administrator consent.
+
+    Finish by selecting **Add to a team**. A personal-only installation does
+    not complete setup. Intelligence reports **Created and installed** only
+    after it records a Team installation, required file access, and Team message
+    access. This result does not claim that your runtime is online or that a
+    real message was delivered.
+
+    If a custom-package attempt is interrupted, reopen the Channel and select
+    the icons again (or explicitly choose the default kite) before downloading
+    a fresh package. Package and icon bytes are never restored from the server.
 
     Do not replace the generated messaging endpoint with your Channels runner
     URL. Intelligence owns the public Teams edge.
@@ -192,8 +207,9 @@ interactive behavior, state, and deployment.
 
     <FrontendOnly frontend="teams">
 
-    A valid app registration can still fail if the Azure Bot or Teams app
-    package points at the wrong identity.
+    **Created and installed** is provider setup, not runtime verification. Start
+    the long-running runtime and send a real Teams message before calling the
+    Channel working.
 
     </FrontendOnly>
 

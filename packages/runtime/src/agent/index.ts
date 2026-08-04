@@ -40,7 +40,7 @@ import type {
 } from "ai";
 import { streamText, tool as createVercelAISDKTool, stepCountIs } from "ai";
 import { createMCPClient } from "@ai-sdk/mcp";
-import type { MCPClient } from "@ai-sdk/mcp";
+import type { MCPClient, MCPTransport } from "@ai-sdk/mcp";
 import { Observable } from "rxjs";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -55,7 +55,6 @@ import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { randomUUID } from "@copilotkit/shared";
 
 /**
@@ -1353,7 +1352,7 @@ export class BuiltInAgent extends AbstractAgent {
           ];
           if (allMcpServers.length > 0) {
             for (const serverConfig of allMcpServers) {
-              let transport;
+              let transport: MCPTransport | undefined;
 
               if (serverConfig.type === "http") {
                 const url = new URL(serverConfig.url);
@@ -1362,6 +1361,13 @@ export class BuiltInAgent extends AbstractAgent {
                   serverConfig.options,
                 );
               } else if (serverConfig.type === "sse") {
+                // Imported lazily: the SDK's SSE transport pulls in
+                // `eventsource`, whose `bun` export condition resolves to ESM
+                // and breaks the SDK's own CJS `require()` under Bun. Keeping
+                // it out of this module's static graph means only configs that
+                // actually ask for SSE ever load it.
+                const { SSEClientTransport } =
+                  await import("@modelcontextprotocol/sdk/client/sse.js");
                 transport = new SSEClientTransport(
                   new URL(serverConfig.url),
                   serverConfig.headers,
@@ -1373,7 +1379,7 @@ export class BuiltInAgent extends AbstractAgent {
                 // bad auth) must NOT fail the whole run — skip it and continue
                 // with the healthy servers and the agent's own tools. The run
                 // degrades gracefully instead of erroring out.
-                let mcpClient;
+                let mcpClient: MCPClient;
                 try {
                   mcpClient = await createMCPClient({ transport });
                 } catch (err) {

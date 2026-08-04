@@ -1,0 +1,70 @@
+/* Meridian (logistics) theme — a warm signal-amber on graphite control-tower
+   palette. Re-values only the shared design tokens the shell defines in
+   globals.css; adds no new token names. Imported (side-effect) from layout.tsx
+   so it loads whenever the logistics skin mounts. Deliberately distinct from
+   banking's violet and airline's jet teal: this one is WARM, and its radius is
+   tight where both others are generous — a dense operations console rather
+   than a friendly consumer app.
+
+   Ships both palettes: the light block below plus a `.dark .theme-logistics`
+   block at the end, so the theme toggle is a real control. */
+
+.theme-logistics {
+  --radius: 0.5rem;
+
+  /* Dark capability, declared on the theme root. The shared `.dark` signal on
+     <html> is global, but only a skin that ships a dark palette (the
+     `.dark .theme-logistics` block below) should react to it — otherwise a
+     light-only skin inherits a dark chat chrome and renders half-dark. The
+     shell's theme reconciler (useSkinThemeReconcile in hooks/use-theme.ts)
+     reads this inherited property and forces light for any skin that does NOT
+     set it. Opt-IN for the special case (dark support). */
+  --nw-dark-capable: 1;
+
+  /* Brand: signal amber, deepening toward copper. */
+  --brand: 32 94% 48%;
+  --brand-violet: 32 94% 48%;
+  --brand-indigo: 20 88% 40%;
+  /* Dark ink ON amber — white text on a 48%-lightness amber fails contrast. */
+  --brand-foreground: 30 50% 10%;
+  --brand-soft: 36 90% 94%;
+
+  /* Surfaces: warm graphite-tinted paper. */
+  --background: 40 20% 98%;
+  --foreground: 30 12% 12%;
+
+  --canvas: 40 14% 95%;
+  --surface: 0 0% 100%;
+  --surface-muted: 40 16% 96%;
+  --ink: 30 12% 13%;
+  --ink-muted: 32 8% 42%;
+  --hairline: 38 14% 86%;
+
+  --positive: 152 58% 36%;
+  --positive-soft: 152 60% 94%;
+  --negative: 8 78% 50%;
+  --negative-soft: 8 86% 96%;
+}
+
+/* DARK — warm graphite. `.dark` lands on <html> (an ancestor of the
+   `.theme-logistics` root), so this descendant selector re-values only the
+   tokens that differ; the amber brand ramp and --radius inherit from above. */
+.dark .theme-logistics {
+  --background: 30 12% 8%;
+  --foreground: 40 20% 95%;
+  color-scheme: dark;
+
+  --canvas: 30 12% 8%;
+  --surface: 30 10% 12%;
+  --surface-muted: 32 9% 15%;
+  --ink: 40 20% 95%;
+  --ink-muted: 36 8% 62%;
+  --hairline: 32 10% 22%;
+
+  --brand-soft: 32 60% 18%;
+
+  --positive: 152 52% 48%;
+  --positive-soft: 152 35% 15%;
+  --negative: 8 76% 62%;
+  --negative-soft: 8 40% 18%;
+}

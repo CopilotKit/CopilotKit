@@ -9,6 +9,7 @@ const toPosix = (p: string) => p.split("\\").join("/");
 export const RESERVED_LIFECYCLE_SLUGS: ReadonlySet<string> = new Set([
   // Standalone skills — not generated from packages/*/skills, exempt from orphan detection
   "copilotkit-setup",
+  "copilotkit-channels",
   "copilotkit-develop",
   "copilotkit-agui",
   "copilotkit-integrations",
@@ -16,6 +17,7 @@ export const RESERVED_LIFECYCLE_SLUGS: ReadonlySet<string> = new Set([
   "copilotkit-upgrade",
   "copilotkit-contribute",
   "copilotkit-self-update",
+  "setup-slack-channel",
 ]);
 
 // Version sync — plugin version tracks this package's version.

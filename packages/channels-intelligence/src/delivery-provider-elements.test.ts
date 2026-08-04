@@ -1,5 +1,7 @@
 import { expect, test, vi } from "vitest";
 import type { ChannelNode } from "@copilotkit/channels-ui";
+import { Slack } from "@copilotkit/channels-slack";
+import { Teams } from "@copilotkit/channels-teams";
 import { DeliveryAdapter } from "./delivery-adapter.js";
 import { ChannelProviderMismatchError } from "./delivery-transport.js";
 import type {
@@ -95,5 +97,101 @@ test("Teams delivery forwards a Teams-native Adaptive Card without translation",
     kind: "teams.message.create",
     text: "",
     cards: [card],
+  });
+});
+
+test("managed Slack delivery serializes native JSX with fallback text", async () => {
+  const effect = vi.fn().mockResolvedValue({
+    providerReference: "pref_v1_slack_native_jsx_123",
+    providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+  });
+  const ir = [
+    Slack.Block.Section({
+      text: Slack.Object.MarkdownText({ text: "*Deploy ready*" }),
+    }),
+  ];
+
+  await makeAdapter().post(target("slack", effect), ir);
+
+  expect(effect).toHaveBeenCalledWith(expect.any(String), {
+    kind: "slack.message.create",
+    text: "Deploy ready",
+    blocks: [
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "*Deploy ready*" },
+      },
+    ],
+  });
+});
+
+test("managed Slack delivery preserves a data visualization chart", async () => {
+  const effect = vi.fn().mockResolvedValue({
+    providerReference: "pref_v1_slack_data_visualization_123",
+    providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+  });
+  const chart = {
+    type: "line" as const,
+    series: [
+      {
+        name: "Temperature",
+        data: [
+          { label: "Mon", value: 62 },
+          { label: "Tue", value: 65 },
+        ],
+      },
+    ],
+    axis_config: {
+      categories: ["Mon", "Tue"],
+      y_label: "Temperature (F)",
+    },
+  };
+
+  await makeAdapter().post(target("slack", effect), [
+    Slack.Block.DataVisualization({
+      title: "San Francisco forecast",
+      chart,
+    }),
+  ]);
+
+  expect(effect).toHaveBeenCalledWith(expect.any(String), {
+    kind: "slack.message.create",
+    text: "San Francisco forecast",
+    blocks: [
+      {
+        type: "data_visualization",
+        title: "San Francisco forecast",
+        chart,
+      },
+    ],
+  });
+});
+
+test("managed Teams delivery serializes the native Adaptive Card root", async () => {
+  const effect = vi.fn().mockResolvedValue({
+    providerReference: "pref_v1_teams_native_jsx_123",
+    providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+  });
+  const ir = [
+    Teams.AdaptiveCard({
+      fallbackText: "Deploy approval",
+      children: Teams.TextBlock({ text: "Deploy ready", wrap: true }),
+    }),
+  ];
+
+  await makeAdapter().post(target("teams", effect), ir);
+
+  expect(effect).toHaveBeenCalledWith(expect.any(String), {
+    kind: "teams.message.create",
+    text: "",
+    cards: [
+      {
+        type: "AdaptiveCard",
+        $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+        version: "1.2",
+        fallbackText: "Deploy approval",
+        body: [{ type: "TextBlock", text: "Deploy ready", wrap: true }],
+      },
+    ],
   });
 });

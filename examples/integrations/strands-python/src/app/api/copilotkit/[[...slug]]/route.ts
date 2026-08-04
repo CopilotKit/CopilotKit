@@ -4,7 +4,7 @@ import {
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { HttpAgent } from "@ag-ui/client";
+import { createDefaultAgent } from "@/agent";
 import { handle } from "hono/vercel";
 
 // Strands-specific: the agent runs under uvicorn + ag_ui_strands, which
@@ -12,9 +12,7 @@ import { handle } from "hono/vercel";
 // or LangGraphHttpAgent — those target LangGraph-shaped endpoints).
 // Everything else — runtime config, v2 endpoint wiring, MCP apps,
 // openGenerativeUI, a2ui — mirrors the canonical demo.
-const defaultAgent = new HttpAgent({
-  url: `${process.env.AGENT_URL || process.env.STRANDS_AGENT_URL || "http://localhost:8000"}/`,
-});
+const defaultAgent = createDefaultAgent();
 
 const runtime = new CopilotRuntime({
   agents: { default: defaultAgent },
