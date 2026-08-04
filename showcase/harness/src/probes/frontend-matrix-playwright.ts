@@ -252,6 +252,7 @@ export function createPlaywrightProbeExecutor(
     let capture: SseCapture | undefined;
     let sseHandle: Awaited<ReturnType<typeof attachSseInterceptor>> | undefined;
     let timeout: ReturnType<typeof setTimeout> | undefined;
+    let runPromise: Promise<FrontendProbeResult> | undefined;
     try {
       const timedOut = new Promise<never>((_, reject) => {
         timeout = setTimeout(() => {
@@ -297,6 +298,7 @@ export function createPlaywrightProbeExecutor(
             durationMs: Date.now() - startedAt,
             testId: input.testId,
             errorClass: "conversation-error",
+            failureReason: failureSummary,
             error: `conversation failed on turn ${conversation.failure_turn} (${failureSummary})`,
             diagnostics: {
               frontend: input.cell.frontend,
@@ -327,7 +329,8 @@ export function createPlaywrightProbeExecutor(
           },
         };
       };
-      return await Promise.race([run(), timedOut]);
+      runPromise = run();
+      return await Promise.race([runPromise, timedOut]);
     } catch {
       return {
         featureType: input.featureType,
@@ -355,6 +358,12 @@ export function createPlaywrightProbeExecutor(
       };
     } finally {
       if (timeout) clearTimeout(timeout);
+      // Closing a context interrupts Playwright calls, but Promise.race does
+      // not cancel the losing `run()` promise. Wait for that interrupted task
+      // to unwind before the shard starts its next cell; otherwise its
+      // conversation loop can keep emitting diagnostics or touching shared
+      // fixture/backend state after this probe has already returned.
+      await runPromise?.catch(() => undefined);
       if (sseHandle && !sseHandle.consumed) {
         try {
           capture = await sseHandle.stop();

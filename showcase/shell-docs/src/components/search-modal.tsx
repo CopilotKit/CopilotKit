@@ -11,11 +11,17 @@ import { compareByDisplayOrder } from "@/lib/framework-order";
 import type { Registry } from "@/lib/registry";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
 import {
+  buildFrameworkSearchOptions,
   frameworkDocsHref,
+  isChannelDocsHref,
   normalizeHref,
+  parseChannelDocsHref,
   parseDocsHref,
   parseIntegrationDocsHref,
+  reconcileFrameworkSearchSelection,
+  resolveChannelSearchResults,
 } from "@/lib/search-hrefs";
+import type { FrameworkSearchOption } from "@/lib/search-hrefs";
 
 // Integrations explorer + per-integration demo pages live on the shell
 // host (showcase.copilotkit.ai), not on shell-docs. Search results that
@@ -38,12 +44,6 @@ interface SearchIndexEntry {
   subtitle: string;
   section?: string;
   href: string;
-}
-
-interface FrameworkOption {
-  slug: string;
-  name: string;
-  logo?: string | null;
 }
 
 interface SearchResult {
@@ -94,8 +94,8 @@ function getDocsFolderForSlug(slug: string): string {
 
 function buildDocsFolderMap(
   registryData: Registry | null,
-): Map<string, FrameworkOption[]> {
-  const map = new Map<string, FrameworkOption[]>();
+): Map<string, FrameworkSearchOption[]> {
+  const map = new Map<string, FrameworkSearchOption[]>();
   for (const integration of registryData?.integrations ?? []) {
     if (integration.docs_mode === "hidden") continue;
     const folder = getDocsFolderForSlug(integration.slug);
@@ -103,7 +103,7 @@ function buildDocsFolderMap(
     next.push({
       slug: integration.slug,
       name: integration.name,
-      logo: integration.logo,
+      logo: integration.logo ?? null,
     });
     map.set(folder, next);
   }
@@ -152,7 +152,8 @@ function scoreResult(result: SearchResult, query: string): number {
 }
 
 export function SearchModal({ onClose }: { onClose: () => void }) {
-  const { effectiveFramework, setStoredFramework } = useFramework();
+  const { effectiveFramework, knownFrameworks, setStoredFramework } =
+    useFramework();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedFramework, setSelectedFramework] = useState(
@@ -213,16 +214,12 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   const frameworkOptions = useMemo(() => {
-    const integrations = registryData?.integrations ?? [];
-    return integrations
-      .filter((i) => i.docs_mode !== "hidden")
-      .map((i) => ({
-        slug: i.slug,
-        name: i.name,
-        logo: i.logo,
-      }))
-      .sort((a, b) => compareByDisplayOrder(a.slug, b.slug));
-  }, [registryData]);
+    if (!registryData) return [];
+    return buildFrameworkSearchOptions(
+      registryData.integrations,
+      knownFrameworks,
+    );
+  }, [registryData, knownFrameworks]);
 
   const selectedFrameworkOption = useMemo(
     () =>
@@ -232,14 +229,13 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
   );
 
   useEffect(() => {
-    if (frameworkOptions.length === 0) return;
-    if (frameworkOptions.some((option) => option.slug === selectedFramework)) {
-      return;
+    const reconciledFramework = reconcileFrameworkSearchSelection(
+      selectedFramework,
+      frameworkOptions,
+    );
+    if (reconciledFramework !== selectedFramework) {
+      setSelectedFramework(reconciledFramework);
     }
-    const fallback =
-      frameworkOptions.find((option) => option.slug === DEFAULT_FRAMEWORK) ??
-      frameworkOptions[0];
-    setSelectedFramework(fallback.slug);
   }, [frameworkOptions, selectedFramework]);
 
   const chooseFramework = useCallback(
@@ -278,6 +274,8 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
         topic: string;
         entry: SearchIndexEntry;
         href: string;
+        id?: string;
+        title?: string;
         frameworkCount?: number;
       }
     >();
@@ -288,6 +286,37 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     const pages = searchIndex as SearchIndexEntry[];
 
     for (const p of pages) {
+      const channelDoc = parseChannelDocsHref(p.href);
+      if (channelDoc) {
+        const channelResults = resolveChannelSearchResults({
+          topic: channelDoc.topic,
+          title: p.title,
+          selectedFramework,
+          activeFrontend,
+        });
+        for (const channelResult of channelResults) {
+          if (
+            !matchesQuery(
+              [channelResult.title, p.subtitle, p.section, channelDoc.topic],
+              q,
+            )
+          ) {
+            continue;
+          }
+          docsGroups.set(channelResult.groupKey, {
+            topic: channelDoc.topic,
+            entry: p,
+            href: channelResult.href,
+            id: channelResult.id,
+            title: channelResult.title,
+          });
+        }
+        continue;
+      }
+      // A stale or malformed index must not route an unknown Channels source
+      // through the generic framework-docs path.
+      if (isChannelDocsHref(p.href)) continue;
+
       const integrationDoc = parseIntegrationDocsHref(p.href);
       if (integrationDoc) {
         const options = docsFolderMap.get(integrationDoc.folder) ?? [];
@@ -356,9 +385,9 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
 
     for (const group of docsGroups.values()) {
       items.push({
-        id: `docs:${group.topic}`,
+        id: group.id ?? `docs:${group.topic}`,
         type: "docs",
-        title: group.entry.title,
+        title: group.title ?? group.entry.title,
         subtitle: group.entry.subtitle,
         section: group.entry.section || "Framework docs",
         href: group.href,

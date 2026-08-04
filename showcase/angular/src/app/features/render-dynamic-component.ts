@@ -1,4 +1,5 @@
 import type {
+  Binding,
   ComponentRef,
   Injector,
   Type,
@@ -10,7 +11,7 @@ import { EnvironmentInjector, runInInjectionContext } from "@angular/core";
 export function createDynamicComponent<T>(
   container: ViewContainerRef,
   component: Type<T>,
-  options?: { injector?: Injector },
+  options?: { injector?: Injector; bindings?: Binding[] },
 ): ComponentRef<T> {
   const creationOptions = {
     ...options,

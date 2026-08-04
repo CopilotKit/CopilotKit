@@ -4,10 +4,10 @@ import { useEffect } from "react";
 import Link from "next/link";
 import {
   CreditCard,
+  Receipt,
   HelpCircle,
   LayoutDashboard,
   RotateCcw,
-  Telescope,
   Users,
 } from "lucide-react";
 
@@ -28,14 +28,14 @@ import {
 import type { Member } from "@/app/api/v1/data";
 import { MemberRole } from "@/app/api/v1/data";
 import { useAuthContext } from "@/components/auth-context";
-import { useGlassEngine } from "@/components/glass-engine-context";
 import { useRecording } from "@/components/recording-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAgentContext } from "@copilotkit/react-core/v2";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { IDENTITY } from "@/lib/identity";
 import { useCanvas } from "@/components/canvas/canvas-context";
 import { ReportCanvas } from "@/components/canvas/report-canvas";
+import { useAskCopilot } from "@/components/wow/use-ask-copilot";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -96,7 +96,7 @@ function UserNavigation({
           </Avatar>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64" align="end" side="right">
+      <PopoverContent className="w-64" align="end" side="left">
         <div className="grid gap-4">
           <div className="space-y-1">
             <h4 className="font-semibold leading-none text-ink">
@@ -143,17 +143,20 @@ export function LayoutComponent({
   resetEnabled = false,
 }: LayoutProps) {
   const { users, currentUser, setCurrentUser } = useAuthContext();
-  const {
-    available: glassAvailable,
-    active: glassActive,
-    toggle: toggleGlass,
-  } = useGlassEngine();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   useAgentContext({
     description: "The current page where the user is",
     value: pathname.split("/")[1] === "" ? "cards" : pathname.split("/")[1],
   });
   const { activeSurfaceId, clear } = useCanvas();
+  const askCopilot = useAskCopilot();
+
+  // The chat docks LEFT and its CopilotSidebar already reserves space for BOTH
+  // its columns (thread rail + conversation) by setting body's
+  // margin-inline-start to its full width — so the page needs no padding of its
+  // own. The product web-inspector floats above the page rather than occupying
+  // layout space, so nothing needs reserving on the RIGHT either.
 
   const handleReset = async () => {
     // Native confirm keeps the booth tool dependency-free and reliable; a stray
@@ -168,9 +171,13 @@ export function LayoutComponent({
     try {
       const res = await fetch("/api/v1/dev/reset", { method: "POST" });
       if (res.ok) {
-        // Full reload -> pristine client slate (fresh transactions, cleared
-        // canvas, new thread on next message).
-        window.location.reload();
+        // Hard navigate to the BARE ROOT, not reload(): reload keeps whatever
+        // route + query params were on screen (e.g. /dashboard?tab=transactions
+        // or ?operation=change-pin), so a reset would land mid-demo instead of
+        // at the top. Assigning "/" gives a pristine client slate (fresh
+        // transactions, cleared canvas, new thread on next message) AND the
+        // clean starting URL the demo should always open on.
+        window.location.assign("/");
       } else {
         window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
       }
@@ -179,21 +186,28 @@ export function LayoutComponent({
     }
   };
 
-  // Navigating via the rail dismisses any stale surface.
+  // Navigating dismisses any stale canvas surface.
+  //
+  // Watches the query string as well as the pathname: the canvas surface is
+  // derived from the LAST a2ui-surface message in the thread, so it stays live
+  // until dismissed and replaces the page body on every route. Dashboard tabs
+  // are `?tab=` on one pathname, so keying this to pathname alone meant moving
+  // from Overview to Reports left the old canvas covering the page — a filed
+  // report looked like it had landed "on a different page".
   useEffect(() => {
     clear();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, searchParams?.toString()]);
 
   return (
-    <div
-      className={cn(
-        "flex h-screen overflow-hidden bg-canvas transition-[padding] duration-300",
-        glassActive && "md:pr-96",
-      )}
-    >
-      {/* Floating icon rail. */}
-      <div className="flex flex-shrink-0 flex-col py-4 pl-4">
+    <div className="flex h-screen overflow-hidden bg-canvas transition-[padding] duration-300">
+      {/*
+        Floating icon rail — visually on the RIGHT, because the chat (thread
+        rail + conversation) now owns the left edge. Positioned with flex
+        `order` rather than by moving the markup so the nav still precedes
+        <main> in the DOM for screen readers and document order.
+      */}
+      <div className="order-2 flex flex-shrink-0 flex-col py-4 pr-4">
         <aside className="glass-surface flex h-full w-[72px] flex-col items-center rounded-[28px] border border-white/60 px-2 py-5 shadow-lift dark:border-hairline">
           <Link
             href="/"
@@ -208,6 +222,12 @@ export function LayoutComponent({
               icon={LayoutDashboard}
               label="Dashboard"
               active={pathname.startsWith("/dashboard")}
+            />
+            <NavItem
+              href="/charges"
+              icon={Receipt}
+              label="Charges"
+              active={pathname.startsWith("/charges")}
             />
             <NavItem
               href="/"
@@ -238,33 +258,8 @@ export function LayoutComponent({
                       <RotateCcw className="h-5 w-5" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="right">
+                  <TooltipContent side="left">
                     <p>Reset demo state</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            {glassAvailable && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={toggleGlass}
-                      aria-pressed={glassActive}
-                      aria-label="Glass Engine"
-                      className={cn(
-                        "hidden h-10 w-10 items-center justify-center rounded-2xl transition-all md:flex",
-                        glassActive
-                          ? "brand-gradient text-surface shadow-[0_8px_18px_hsl(252_83%_60%/0.4)]"
-                          : "text-ink-muted hover:bg-brand-soft hover:text-brand-indigo",
-                      )}
-                    >
-                      <Telescope className="h-5 w-5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p>Glass Engine (advanced)</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -275,19 +270,27 @@ export function LayoutComponent({
               currentUser={currentUser}
               onChangeUser={setCurrentUser}
             />
+            {/* Help was a dead control (rendered, tooltipped, no handler). It
+                now opens the copilot with the question it exists to answer,
+                which is also the only in-app help this demo has. */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    aria-label="Help"
+                    aria-label="Get help from the copilot"
+                    onClick={() =>
+                      void askCopilot(
+                        "What can you help me with in this app? Give me a short list.",
+                      )
+                    }
                     className="flex h-10 w-10 items-center justify-center rounded-2xl text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand-indigo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                   >
                     <HelpCircle className="h-5 w-5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>Help &amp; support</p>
+                <TooltipContent side="left">
+                  <p>Ask the copilot for help</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -295,7 +298,7 @@ export function LayoutComponent({
         </aside>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="order-1 flex flex-1 flex-col overflow-hidden">
         <header className="flex h-20 items-center justify-between px-6 md:px-10">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">
@@ -361,7 +364,7 @@ function NavItem({ href, icon: Icon, label, active = false }: NavItemProps) {
             <span className="sr-only">{label}</span>
           </Link>
         </TooltipTrigger>
-        <TooltipContent side="right">
+        <TooltipContent side="left">
           <p>{label}</p>
         </TooltipContent>
       </Tooltip>

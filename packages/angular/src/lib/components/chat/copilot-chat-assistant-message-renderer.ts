@@ -18,6 +18,69 @@ import { completePartialMarkdown } from "@copilotkit/core";
 import { copyToClipboard } from "@copilotkit/shared";
 import { injectChatLabels } from "../../chat-config";
 
+function processMathEquationsInHtml(html: string): string {
+  // First, temporarily replace code blocks with placeholders to protect them from math processing
+  const codeBlocks: string[] = [];
+  const placeholder = "___CODE_BLOCK_PLACEHOLDER_";
+
+  // Store code blocks and replace with placeholders
+  html = html.replace(/<pre><code[\s\S]*?<\/code><\/pre>/g, (match) => {
+    const index = codeBlocks.length;
+    codeBlocks.push(match);
+    return `${placeholder}${index}___`;
+  });
+
+  // Also protect inline code
+  const inlineCode: string[] = [];
+  const inlinePlaceholder = "___INLINE_CODE_PLACEHOLDER_";
+  html = html.replace(/<code>[\s\S]*?<\/code>/g, (match) => {
+    const index = inlineCode.length;
+    inlineCode.push(match);
+    return `${inlinePlaceholder}${index}___`;
+  });
+
+  // Process display math $$ ... $$
+  html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, equation) => {
+    try {
+      return katex.renderToString(equation, {
+        displayMode: true,
+        throwOnError: false,
+      });
+    } catch {
+      return match;
+    }
+  });
+
+  // A closing inline-math delimiter cannot be preceded by whitespace or
+  // followed by a digit. Those delimiter rules keep ordinary currency ranges
+  // such as "$349 ... $289" from becoming one large KaTeX expression.
+  html = html.replace(
+    /(?<!\\)\$(?!\s)([^$\n]*?\S)\$(?!\d)/g,
+    (match, equation) => {
+      try {
+        return katex.renderToString(equation, {
+          displayMode: false,
+          throwOnError: false,
+        });
+      } catch {
+        return match;
+      }
+    },
+  );
+
+  // Restore code blocks
+  codeBlocks.forEach((block, index) => {
+    html = html.replace(`${placeholder}${index}___`, block);
+  });
+
+  // Restore inline code
+  inlineCode.forEach((code, index) => {
+    html = html.replace(`${inlinePlaceholder}${index}___`, code);
+  });
+
+  return html;
+}
+
 @Component({
   standalone: true,
   selector: "copilot-chat-assistant-message-renderer",
@@ -278,65 +341,7 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
     let html = this.markedInstance!.parse(content) as string;
 
     // Process math equations
-    html = this.processMathEquations(html);
-
-    return html;
-  }
-
-  private processMathEquations(html: string): string {
-    // First, temporarily replace code blocks with placeholders to protect them from math processing
-    const codeBlocks: string[] = [];
-    const placeholder = "___CODE_BLOCK_PLACEHOLDER_";
-
-    // Store code blocks and replace with placeholders
-    html = html.replace(/<pre><code[\s\S]*?<\/code><\/pre>/g, (match) => {
-      const index = codeBlocks.length;
-      codeBlocks.push(match);
-      return `${placeholder}${index}___`;
-    });
-
-    // Also protect inline code
-    const inlineCode: string[] = [];
-    const inlinePlaceholder = "___INLINE_CODE_PLACEHOLDER_";
-    html = html.replace(/<code>[\s\S]*?<\/code>/g, (match) => {
-      const index = inlineCode.length;
-      inlineCode.push(match);
-      return `${inlinePlaceholder}${index}___`;
-    });
-
-    // Process display math $$ ... $$
-    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, equation) => {
-      try {
-        return katex.renderToString(equation, {
-          displayMode: true,
-          throwOnError: false,
-        });
-      } catch {
-        return match;
-      }
-    });
-
-    // Process inline math $ ... $
-    html = html.replace(/\$([^$]+)\$/g, (match, equation) => {
-      try {
-        return katex.renderToString(equation, {
-          displayMode: false,
-          throwOnError: false,
-        });
-      } catch {
-        return match;
-      }
-    });
-
-    // Restore code blocks
-    codeBlocks.forEach((block, index) => {
-      html = html.replace(`${placeholder}${index}___`, block);
-    });
-
-    // Restore inline code
-    inlineCode.forEach((code, index) => {
-      html = html.replace(`${inlinePlaceholder}${index}___`, code);
-    });
+    html = processMathEquationsInHtml(html);
 
     return html;
   }

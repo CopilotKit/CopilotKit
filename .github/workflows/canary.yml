@@ -225,7 +225,9 @@ jobs:
           RUN_ID=""
           ERR=$(mktemp)
           for i in $(seq 1 30); do
-            sleep 6
+            # Poll BEFORE sleeping: Actions has usually indexed the run by the
+            # time the dispatch call returns, so sleeping first paid a guaranteed
+            # 6s on every canary. Same 30-attempt / 3-min tolerance.
             RUN_ID=$(gh run list \
               --repo "$GITHUB_REPOSITORY" \
               --workflow=publish-release.yml \
@@ -241,6 +243,7 @@ jobs:
             if [ -n "$RUN_ID" ]; then
               break
             fi
+            sleep 6
           done
           if [ -z "$RUN_ID" ]; then
             echo "::error::Dispatched publish-release run never appeared on ${BRANCH}. Leaving the ref in place for debugging; delete it manually once resolved."

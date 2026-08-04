@@ -15,7 +15,7 @@
         "content": "Here is the SFO to JFK flight on United.",
         "toolCalls": [
           {
-            "id": "call_a2ui_fixed_langgraph_typescript_sfo_jfk_001",
+            "id": "call_a2ui_fixed_langgraph_python_sfo_jfk_001",
             "name": "display_flight",
             "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\",\"airline\":\"United\",\"price\":\"$289\"}"
           }
@@ -33,5 +33,8 @@
         "content": "Here's your flight: United Airlines, SFO → JFK, $289 — rendered in the card above. Tap \"Book flight\" to confirm."
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

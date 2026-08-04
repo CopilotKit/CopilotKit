@@ -5,9 +5,9 @@
  * stateful run renderer takes its credentialed side-effects as injected
  * transports ({@link SlackRenderTransport} + {@link NativeStreamTransport}), and
  * the IR→Block Kit / modal / mrkdwn helpers are pure functions. This is the
- * seam the native Slack adapter AND the managed Connector Outbox both consume,
- * so managed replies reach 1:1 UX parity with the native bot without forking
- * the renderer.
+ * seam the native Slack adapter and managed live sessions both consume, so
+ * managed replies reach 1:1 UX parity with the native bot without forking the
+ * renderer.
  */
 export { createRunRenderer } from "./event-renderer.js";
 export type { SlackRenderTransport } from "./render/transport.js";
@@ -32,3 +32,4 @@ export type {
 
 export { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
 export { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
+export { slackFallbackText } from "./native-codec.js";

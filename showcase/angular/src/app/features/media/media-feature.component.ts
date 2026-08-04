@@ -18,7 +18,7 @@ import {
 } from "@copilotkit/angular";
 import { z } from "zod";
 
-import { agentIdForRoute } from "../../feature-agent";
+import { agentIdForCurrentIntegration } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import { WeatherToolCard } from "../tools/tool-cards";
@@ -209,7 +209,7 @@ export class MediaFeatureComponent {
   private readonly chatHost = viewChild.required(ShowcaseChatHostComponent);
   protected readonly feature =
     (this.route.snapshot.data["feature"] as string | undefined) ?? "voice";
-  protected readonly agentId = agentIdForRoute(this.feature, this.route);
+  protected readonly agentId = agentIdForCurrentIntegration(this.feature);
   private readonly agentStore = injectAgentStore(this.agentId);
   protected readonly voiceSampleText = VOICE_SAMPLE_TEXT;
   protected readonly samples = SAMPLES;

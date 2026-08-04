@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels",
-  "version": "0.3.0",
+  "version": "0.7.2",
   "description": "Batteries-included CopilotKit Channels package with the core engine, JSX UI, and every supported platform adapter.",
   "license": "MIT",
   "repository": {
@@ -72,10 +72,6 @@
       "types": "./dist/teams/render.d.ts",
       "import": "./dist/teams/render.js"
     },
-    "./intelligence": {
-      "types": "./dist/intelligence.d.ts",
-      "import": "./dist/intelligence.js"
-    },
     "./discord": {
       "types": "./dist/discord.d.ts",
       "import": "./dist/discord.js"
@@ -105,7 +101,6 @@
     "@copilotkit/channels-ui": "workspace:*",
     "@copilotkit/channels-slack": "workspace:*",
     "@copilotkit/channels-teams": "workspace:*",
-    "@copilotkit/channels-intelligence": "workspace:*",
     "@copilotkit/channels-discord": "workspace:*",
     "@copilotkit/channels-telegram": "workspace:*",
     "@copilotkit/channels-whatsapp": "workspace:*"

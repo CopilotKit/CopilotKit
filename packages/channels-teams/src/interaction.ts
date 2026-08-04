@@ -19,6 +19,7 @@ export interface TeamsActivityLike {
 interface CardActionData {
   ckActionId?: string;
   value?: unknown;
+  [key: string]: unknown;
 }
 
 /**
@@ -40,8 +41,13 @@ export function conversationKeyOf(activity: TeamsActivityLike): string {
  */
 export function parseCardAction(
   activity: TeamsActivityLike,
-): { id: string; value: unknown } | undefined {
-  const data = activity.value as CardActionData | undefined;
+):
+  | { id: string; value: unknown; values?: Record<string, unknown> }
+  | undefined {
+  const activityValue = activity.value as
+    | (CardActionData & { action?: { data?: CardActionData } })
+    | undefined;
+  const data = activityValue?.action?.data ?? activityValue;
   if (
     !data ||
     typeof data !== "object" ||
@@ -49,5 +55,15 @@ export function parseCardAction(
   ) {
     return undefined;
   }
-  return { id: data.ckActionId, value: data.value };
+  const values = Object.fromEntries(
+    Object.entries(activityValue ?? {}).filter(
+      ([name]) =>
+        name !== "action" && name !== "ckActionId" && name !== "value",
+    ),
+  );
+  return {
+    id: data.ckActionId,
+    value: data.value,
+    ...(Object.keys(values).length > 0 ? { values } : {}),
+  };
 }

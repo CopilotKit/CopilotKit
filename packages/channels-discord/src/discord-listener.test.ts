@@ -28,6 +28,7 @@ const botId = "bot-1";
 
 function message(over: Record<string, unknown>) {
   return {
+    id: "m1",
     author: { id: "u1", bot: false, username: "ann", globalName: "Ann" },
     content: "hello",
     channelId: "c1",
@@ -61,8 +62,15 @@ describe("attachDiscordListener", () => {
     expect(onTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         conversationKey: "c1",
+        messageId: "m1",
+        mentioned: true,
         replyTarget: { channelId: "c1", guildId: "g1" },
-        senderUserId: "u1",
+        actor: {
+          id: "u1",
+          kind: "human",
+          name: "Ann",
+          handle: "ann",
+        },
       }),
     );
   });
@@ -157,7 +165,10 @@ describe("attachDiscordListener", () => {
       }),
     );
     expect(onTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ conversationKey: "c1", senderUserId: "u1" }),
+      expect.objectContaining({
+        conversationKey: "c1",
+        actor: expect.objectContaining({ id: "u1", kind: "human" }),
+      }),
     );
   });
 

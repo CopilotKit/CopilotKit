@@ -184,10 +184,8 @@ export class InMemoryAgentRunner extends AgentRunner {
                     ? { messages: sanitizedMessages }
                     : {}),
                 };
-                processedEvent = {
-                  ...runStartedEvent,
-                  input: updatedInput,
-                } as RunStartedEvent;
+                runStartedEvent.input = updatedInput;
+                processedEvent = runStartedEvent;
               }
             }
 
@@ -384,6 +382,9 @@ export class InMemoryAgentRunner extends AgentRunner {
   stop(request: AgentRunnerStopRequest): Promise<boolean | undefined> {
     const store = GLOBAL_STORE.get(request.threadId);
     if (!store || !store.isRunning) {
+      return Promise.resolve(false);
+    }
+    if (request.runId !== undefined && store.currentRunId !== request.runId) {
       return Promise.resolve(false);
     }
     if (store.stopRequested) {

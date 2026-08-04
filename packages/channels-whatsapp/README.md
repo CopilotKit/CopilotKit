@@ -28,13 +28,11 @@ import {
   whatsapp,
   defaultWhatsAppContext,
 } from "@copilotkit/channels-whatsapp";
-import {
-  CopilotRuntime,
-  CopilotKitIntelligence,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
+  identifyUser: "platform",
   name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     whatsapp({
@@ -58,16 +56,17 @@ bot.onMessage(async ({ thread }) => {
 // The runtime owns the channel's lifecycle — there is no `bot.start()`.
 const runtime = new CopilotRuntime({
   intelligence: new CopilotKitIntelligence({
-    apiUrl: "https://api.copilotkit.ai",
-    wsUrl: "wss://api.copilotkit.ai",
+    // apiUrl and wsUrl default to the managed Intelligence platform — override
+    // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [bot],
 });
 
-const handler = createCopilotRuntimeHandler({ runtime });
-await handler.channels.ready(); // starts the channel; handler.channels.stop() tears it down
+// Creating the listener starts the Channel's connection.
+const listener = createCopilotNodeListener({ runtime });
+// Optional: await that activation so a broken config fails startup loudly.
+await listener.channels.ready(); // listener.channels.stop() tears it down
 console.log("[whatsapp-bot] listening for webhooks");
 ```
 

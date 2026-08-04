@@ -1,0 +1,99 @@
+# ============================================================================
+# CopilotKit Intelligence local dev stack.
+#
+# Stand up this stack when COPILOTKIT_LICENSE_TOKEN is set and you want
+# durable thread history / memory features locally.
+#
+#   docker compose -f docker-compose.intelligence.yml up -d --wait
+#
+# The `intelligence` image is built from the Intelligence repo, which must be
+# checked out locally. Point INTELLIGENCE_REPO at your clone; it defaults to a
+# sibling layout three levels above this starter.
+#
+# Services:
+#   postgres  (pgvector/pgvector:0.8.2-pg16)    :5487
+#   redis     (redis:7-alpine)                   :6394
+#   intelligence (cpki/intelligence-composite)   :4206 (api), :4406 (gateway)
+# ============================================================================
+
+name: copilotkit-intelligence-dev-pydantic-ai
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.2-pg16
+    ports:
+      - "${POSTGRES_HOST_PORT:-5487}:5432"
+    environment:
+      POSTGRES_USER: intelligence
+      POSTGRES_PASSWORD: intelligence
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Creates intelligence_app + intelligence_app_shadow on first boot.
+      # The intelligence composite's migrations oneshot and app-api both
+      # connect to intelligence_app.
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intelligence -d intelligence_app"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_HOST_PORT:-6394}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # app-api (:4201) + realtime-gateway (:4401) + db-migrations oneshot,
+  # all under s6-overlay. Built from the Intelligence repo's Dockerfile.composite.
+  # Memory and structured-logging features are disabled for the minimal dev setup.
+  intelligence:
+    image: cpki/intelligence-composite:local
+    build:
+      context: ${INTELLIGENCE_REPO:-../../../Intelligence}
+      dockerfile: Dockerfile.composite
+    ports:
+      - "${APP_API_HOST_PORT:-4206}:4201"
+      - "${GATEWAY_HOST_PORT:-4406}:4401"
+    environment:
+      DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
+      REDIS_URL: redis://redis:6379
+      MEMORY_ENABLED: "false"
+      SL_ENABLED: "false"
+      COPILOTKIT_LICENSE_TOKEN: "${COPILOTKIT_LICENSE_TOKEN:-}"
+      AUTH_SECRET: "local-dev-auth-secret-at-least-32-bytes-long-000"
+      AUTH_TRUST_HOST: "true"
+      INTELLIGENCE_DEPLOYMENT_MODE: self_hosted
+      RUNNER_AUTH_SECRET: dev-runner-secret
+      SECRET_KEY_BASE: local-dev-gateway-secret-key-base-at-least-64-bytes-long
+      PHX_HOST: localhost
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:4201/api/health && nc -z 127.0.0.1 4401",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 90s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

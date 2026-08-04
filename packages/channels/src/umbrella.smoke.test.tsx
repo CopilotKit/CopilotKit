@@ -3,8 +3,6 @@ import { createChannel, Message, Button } from "@copilotkit/channels";
 import { runStateStoreConformance } from "@copilotkit/channels/testing";
 import { slack } from "@copilotkit/channels/slack";
 import { teams } from "@copilotkit/channels/teams";
-import { intelligenceAdapter } from "@copilotkit/channels/intelligence";
-import * as intelligence from "@copilotkit/channels/intelligence";
 import { discord } from "@copilotkit/channels/discord";
 import { telegram } from "@copilotkit/channels/telegram";
 import { whatsapp } from "@copilotkit/channels/whatsapp";
@@ -28,7 +26,6 @@ describe("@copilotkit/channels umbrella", () => {
     for (const value of [
       slack,
       teams,
-      intelligenceAdapter,
       discord,
       telegram,
       whatsapp,
@@ -38,9 +35,5 @@ describe("@copilotkit/channels umbrella", () => {
       expect(typeof value).toBe("function");
     }
     expect(typeof slackCodec).toBe("object");
-  });
-
-  it("keeps Intelligence gateway and bootstrap internals private", () => {
-    expect(Object.keys(intelligence).sort()).toEqual(["intelligenceAdapter"]);
   });
 });

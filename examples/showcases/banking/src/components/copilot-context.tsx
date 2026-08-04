@@ -1,17 +1,27 @@
 "use client";
+import { useRef } from "react";
 import {
   useAgentContext,
   useComponent,
   useHumanInTheLoop,
+  useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { usePathname, useRouter } from "next/navigation";
 import { z } from "zod";
 import useCreditCards from "@/app/actions";
+import { CHARGE_CATEGORIES } from "@/app/charges/charges-data";
 import { useAuthContext } from "@/components/auth-context";
 import { useRecording } from "@/components/recording-context";
 import { ApprovalButtons } from "@/components/approval-buttons";
 import { RecordingSteps } from "@/components/recording-feed";
 import { PendingApprovalsChat } from "@/components/wow/pending-approvals-chat";
+import {
+  PinChangeCard,
+  PinChangedCard,
+} from "@/components/wow/pin-change-card";
+import { NavigateConfirmCard } from "@/components/wow/navigate-confirm-card";
+import { DataTableChat } from "@/components/wow/data-table-chat";
+import { SpendSummaryCard } from "@/components/wow/spend-summary-card";
 import {
   SpendingTrendChart,
   BudgetUsageChart,
@@ -49,6 +59,27 @@ export const AVAILABLE_OPERATIONS_PER_PAGE = {
 // the over-limit gate (proven in scripts/over-limit-gate-smoke.mjs). This text
 // lands in the thread, which is how the agent recalls the procedure later in the
 // SAME session. The agent only ever sees the code, never its human label.
+// PIN changes that have been answered in this browser session, keyed by tool
+// call id.
+//
+// The setCardPin tool result does not come back when a thread is reopened: the
+// call replays with status "inProgress" and no result, even though the user
+// answered it. (Other human-in-the-loop tools in this file, e.g. showCharges,
+// DO replay with their result, so this is specific to this call rather than to
+// how the card is written.) Without a record the answered card fell back to
+// "Loading…" forever, which is exactly the moment the card is supposed to earn
+// its keep — reopening the thread and seeing what happened.
+//
+// So the outcome is remembered here as the user answers, and the render
+// consults it before trusting the replayed status. Module scope, so it survives
+// switching between threads (the case that matters); a full page reload clears
+// it and the replayed call falls back to the loading state as before. Only
+// non-secret identifiers are kept — never the PIN.
+const answeredPinChanges = new Map<
+  string,
+  { brand?: string; last4?: string; failed?: string; cancelled?: boolean }
+>();
+
 const canonicalProcedure = (code: string): string =>
   `Saved workflow for clearing an over-limit charge: (1) open a policy ` +
   `exception against the transaction with code ${code}, (2) finalize the ` +
@@ -74,11 +105,23 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
     cards,
     policies,
     transactions,
+    changePin,
+    addNoteToTransaction,
     changeTransactionStatus,
     openPolicyException,
     finalizePolicyException,
   } = useCreditCards();
   const { beginRecording, endRecording, getDemonstratedCode } = useRecording();
+
+  // Live handle on the cards for the PIN tool's render. It reads through this
+  // ref instead of closing over `cards` so the tool is registered ONCE:
+  // useFrontendTool re-registers whenever JSON.stringify(deps) changes and
+  // re-registration removes the tool, so a `[cards]` dependency tore this tool
+  // down and rebuilt it on every card mutation — including the PIN write it was
+  // itself servicing. The ref keeps the picker's data fresh without touching
+  // registration.
+  const cardsRef = useRef(cards);
+  cardsRef.current = cards;
 
   // A readable of app wide authentication and authorization context.
   // The LLM will now know which user is it working against, when performing operations.
@@ -209,6 +252,339 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
     },
   });
 
+  // Action tools used BY the saved suspicious-charge procedure, plus the
+  // distractors that widen the option space around the over-limit gate.
+  //
+  // These are registered globally on purpose. They used to live on the cards
+  // route, which meant the saved procedure could only run on that one page —
+  // from Reports or Charges the agent correctly reported that "the required
+  // action tools for that workflow aren't available in this session" and the
+  // beat died. Anything a recalled procedure can call has to exist everywhere
+  // the user might be standing when they ask.
+  useFrontendTool({
+    name: "sendSpendAlert",
+    description: "Send a spend alert notification for a card.",
+    parameters: z.object({
+      cardId: z.string(),
+      message: z.string(),
+    }),
+    handler: async ({ cardId }) => ({
+      ok: true,
+      cardId,
+      note: "Spend alert sent. Informational only; does not modify any transaction or policy.",
+    }),
+  });
+
+  useFrontendTool({
+    name: "requestCardReplacement",
+    description: "Request a replacement card for an existing card.",
+    parameters: z.object({
+      cardId: z.string(),
+    }),
+    handler: async ({ cardId }) => ({
+      ok: true,
+      cardId,
+      note: "Replacement card requested. Does not affect pending transactions or policy limits.",
+    }),
+  });
+
+  useFrontendTool({
+    name: "flagForReview",
+    description: "Flag a transaction for manual review.",
+    parameters: z.object({
+      transactionId: z.string(),
+      reason: z.string(),
+    }),
+    handler: async ({ transactionId }) => ({
+      ok: true,
+      transactionId,
+      note: "Flagged for manual review. Does not approve or change the transaction.",
+    }),
+  });
+
+  // Adds the note WITHOUT an approval card, on purpose.
+  //
+  // This is the closing step of the saved suspicious-charge procedure. As a
+  // human-in-the-loop card it left an unanswered tool call sitting in the thread
+  // whenever the presenter moved on to the next beat without clicking Approve —
+  // and the next message then died with "Tool result is missing for tool call
+  // ...", poisoning the thread at the climax of the demo. A note is an
+  // annotation, not a state change to money, so it does not need a gate; the
+  // approvals that DO move money (exceptions, transaction approval, PIN) keep
+  // theirs. The tool-activity line still shows it happened.
+  useFrontendTool({
+    name: "addNoteToTransaction",
+    description:
+      "Attach a note to a transaction. Runs immediately, no confirmation needed.",
+    available: PERMISSIONS.ADD_NOTE.includes(currentUser.role),
+    parameters: z.object({
+      transactionId: z
+        .string()
+        .describe("The transaction to add the note to (id from context)"),
+      content: z.string().describe("The content of the note"),
+    }),
+    handler: async ({ transactionId, content }) => {
+      // A note about a reported/unrecognized charge carries a 🚨 so it is
+      // impossible to skim past in the transaction's note list. The seeded
+      // procedure also asks for it, but a model is not a reliable emoji
+      // emitter, so the marker is applied here where it is guaranteed — and
+      // only when the text actually reads as an alert, so ordinary notes stay
+      // plain.
+      const alerting =
+        /\b(unrecognized|unrecognised|suspicious|report(ed)?|fraud|disput)/i.test(
+          content,
+        );
+      const text =
+        alerting && !content.startsWith("🚨") ? `🚨 ${content}` : content;
+      // `addNoteToTransaction` RESOLVES with the updated transaction and returns
+      // undefined if the request failed (it catches internally) — there is no
+      // {ok, error} envelope like the transaction-status helpers have. A
+      // previous version destructured `ok` here, which was therefore always
+      // undefined, so a note that had in fact been written reported "adding the
+      // note failed" while the note was visibly present on the transaction.
+      // Presence of a result is the success signal.
+      const updated = await addNoteToTransaction({
+        transactionId,
+        content: text,
+      });
+      return updated
+        ? { ok: true, transactionId, note: "Note added to the transaction." }
+        : { ok: false, error: "could not add the note" };
+    },
+  });
+
+  // Change a card PIN entirely INSIDE the chat, via an interactive card.
+  //
+  // Deliberately NOT a text round-trip: the agent never asks for the digits and
+  // never sees them. It only opens this card; the officer picks the card and
+  // types the PIN into the component itself, so the secret stays in the UI and
+  // out of the transcript and the model's context. Registered globally (not on
+  // the cards route) so the suggestion pill works from any page.
+  useHumanInTheLoop(
+    {
+      followUp: false,
+      name: "setCardPin",
+      description:
+        "Open the PIN-change card in the chat so the user can set a new PIN themselves. " +
+        "Call this as soon as the user asks to change a PIN. Do NOT ask for the " +
+        "PIN digits and do NOT ask which card — the card renders its own card " +
+        "picker and PIN entry. Pass cardId only if the user already named a " +
+        "specific card. Never repeat or request PIN digits in chat.",
+      available: PERMISSIONS.SET_PIN.includes(currentUser.role),
+      parameters: z.object({
+        cardId: z
+          .string()
+          .optional()
+          .describe(
+            "Optional. Only set when the user already named a card; otherwise omit and let the user choose.",
+          ),
+      }),
+      render: ({ args, respond, status, result, toolCallId }) => {
+        // What this session already knows about this call wins over the
+        // replayed status, which comes back as "inProgress" on a reopened
+        // thread even when the user answered it.
+        const remembered = answeredPinChanges.get(toolCallId);
+        if (remembered) return <PinChangedCard {...remembered} />;
+
+        // Resolved state is keyed on the RESULT, not on `status`. A thread
+        // reloaded from history replays this tool call with its stored result
+        // but not always with status "complete", so gating on the status alone
+        // left the answered card showing "Loading…" forever. The result is the
+        // durable fact; the status is not.
+        const text = typeof result === "string" ? result : "";
+        if (text) {
+          // Parsed out of `result` rather than component state precisely so the
+          // rehydrated thread re-renders the same card — local state is gone by
+          // then.
+          if (text.startsWith("PIN updated")) {
+            const match = /PIN updated on the (.+?) ending (\d{4})/.exec(text);
+            return <PinChangedCard brand={match?.[1]} last4={match?.[2]} />;
+          }
+          if (text.startsWith("Could not update the PIN")) {
+            return (
+              <PinChangedCard
+                failed={text.replace("Could not update the PIN: ", "")}
+              />
+            );
+          }
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              PIN change cancelled.
+            </div>
+          );
+        }
+        if (status === "inProgress" || status === "complete") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              Loading…
+            </div>
+          );
+        }
+        return (
+          <PinChangeCard
+            cards={cardsRef.current}
+            initialCardId={args?.cardId}
+            onSubmit={async (cardId, pin) => {
+              const card = cardsRef.current.find((c) => c.id === cardId);
+              const label = card
+                ? `${card.type} ending ${card.last4}`
+                : "the card";
+              // `changePin` RESOLVES with the updated card and THROWS on
+              // failure — it does not return an {ok} envelope like the
+              // transaction helpers, so success/failure is try/catch, not a
+              // destructured flag. Either way the PIN itself is never echoed
+              // back to the agent.
+              try {
+                await changePin({ cardId, pin });
+                answeredPinChanges.set(toolCallId, {
+                  brand: card?.type,
+                  last4: card?.last4,
+                });
+                respond?.(`PIN updated on the ${label}.`);
+              } catch (err) {
+                const reason =
+                  err instanceof Error ? err.message : String(err);
+                answeredPinChanges.set(toolCallId, { failed: reason });
+                respond?.(`Could not update the PIN: ${reason}`);
+              }
+            }}
+            onCancel={() => {
+              answeredPinChanges.set(toolCallId, { cancelled: true });
+              respond?.("cancelled");
+            }}
+          />
+        );
+      },
+    },
+    // No dependency on `cards`. useFrontendTool re-registers whenever
+    // JSON.stringify(deps) changes, and re-registration removes the tool — so
+    // with `[cards]` the PIN write itself (which mutates a card) tore down this
+    // tool while its own response was still in flight, the result was never
+    // recorded, and a reopened thread replayed the call as unanswered. The
+    // picker only needs card type and last4, neither of which a PIN change
+    // touches.
+  );
+
+  // Charges page: navigate + pre-filter + stack-rank. Human-in-the-loop rather
+  // than fire-and-forget: the action is safe, but it replaces the user's whole
+  // screen, and an agent that swaps the page out from under you without asking
+  // reads as the agent being in charge. The confirm card also states the sort
+  // and filters BEFORE the page changes, so the highlighted controls on arrival
+  // are recognisably the agent's doing. The page reads these as URL params
+  // (?sort=&top=&category=&status=&vendor=&from=&to=) so the on-screen controls
+  // reflect exactly what the agent chose. "the 10 most expensive charges" =>
+  // { sort: "amount_desc", top: 10 }.
+  useHumanInTheLoop({
+    name: "showCharges",
+    description: `Open the Charges page pre-filtered and sorted, then stack-ranked. Use for asks like "show me the 10 most expensive charges", "which charges are over limit", or "marketing charges in May". Set sort/top/filters accordingly.`,
+    parameters: z.object({
+      sort: z
+        .enum(["amount_desc", "amount_asc", "date_desc", "date_asc"])
+        .optional()
+        .describe(
+          "Sort order. 'most/least expensive' => amount_desc/amount_asc; 'newest/oldest' => date_desc/date_asc.",
+        ),
+      top: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Show only the top N rows after sorting (e.g. 10)."),
+      categories: z
+        .array(z.string())
+        .optional()
+        .describe(
+          `Filter to these categories (exact names): ${CHARGE_CATEGORIES.join(", ")}.`,
+        ),
+      statuses: z
+        .array(z.enum(["approved", "pending", "flagged", "over-limit"]))
+        .optional()
+        .describe("Filter to these statuses."),
+      vendor: z
+        .string()
+        .optional()
+        .describe("Only charges whose merchant contains this text."),
+      from: z
+        .string()
+        .optional()
+        .describe("Only charges on/after this ISO date (yyyy-mm-dd)."),
+      to: z
+        .string()
+        .optional()
+        .describe("Only charges on/before this ISO date (yyyy-mm-dd)."),
+    }),
+    followUp: false,
+    render: ({ args, result, respond }) => {
+      const { sort, top, categories, statuses, vendor, from, to } = args ?? {};
+
+      // Keyed on the RESULT rather than `status`: a thread reloaded from history
+      // replays the stored result, and an answered call must never come back
+      // showing live Open/Stay buttons that would navigate and respond a second
+      // time.
+      const answer = typeof result === "string" ? result : "";
+      if (answer) {
+        return (
+          <NavigateConfirmCard
+            title="Charges"
+            destination="Charges"
+            details={[]}
+            status={answer.startsWith("Opened") ? "confirmed" : "declined"}
+            onConfirm={() => {}}
+            onCancel={() => {}}
+          />
+        );
+      }
+
+      // Human-readable echo of the filter the agent picked, so the user knows
+      // what they are agreeing to before the screen changes.
+      const details = [
+        sort && {
+          label: "Sort",
+          value: {
+            amount_desc: "Highest amount first",
+            amount_asc: "Lowest amount first",
+            date_desc: "Newest first",
+            date_asc: "Oldest first",
+          }[sort],
+        },
+        top && { label: "Show", value: `Top ${top}` },
+        categories?.length && {
+          label: "Category",
+          value: categories.join(", "),
+        },
+        statuses?.length && { label: "Status", value: statuses.join(", ") },
+        vendor && { label: "Merchant", value: vendor },
+        (from || to) && {
+          label: "Dates",
+          value: [from ?? "any", to ?? "any"].join(" to "),
+        },
+      ].filter(Boolean) as { label: string; value: string }[];
+
+      return (
+        <NavigateConfirmCard
+          title="Open the charges list?"
+          destination="Charges"
+          details={details}
+          status="asking"
+          onConfirm={() => {
+            const params = new URLSearchParams();
+            if (sort) params.set("sort", sort);
+            if (top) params.set("top", String(top));
+            if (categories?.length) params.set("category", categories.join(","));
+            if (statuses?.length) params.set("status", statuses.join(","));
+            if (vendor) params.set("vendor", vendor);
+            if (from) params.set("from", from);
+            if (to) params.set("to", to);
+            const qs = params.toString();
+            router.push(qs ? `/charges?${qs}` : "/charges");
+            respond?.(`Opened the Charges page${qs ? ` (${qs})` : ""}.`);
+          }}
+          onCancel={() => respond?.("The user chose to stay on this page.")}
+        />
+      );
+    },
+  });
+
   // Generative-UI: the pending-approval queue, rendered IN the chat. Mirrors the
   // dashboard's "Pending approval" tab behaviors (identical over-limit gating,
   // exception filing, and teach-mode recording payloads) so the officer can
@@ -283,6 +659,103 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
     "one or two sentences grounded in the data — the chart replaces listing " +
     "the raw numbers, not your answer. If the user asked no specific " +
     "question, one short takeaway sentence is enough.";
+
+  // Spend summaries render as a component, not prose — and the shape of that
+  // component is driven by what the agent RECALLED about how Alex likes them
+  // (overLimitFirst / rounded), so the remembered preference is visible in the
+  // UI rather than only in the wording.
+  useComponent(
+    {
+      name: "showSpendSummary",
+      description:
+        "Render the spend summary as a component. Call this for ANY request to " +
+        "summarize, review or recap spend — never answer that in prose. First " +
+        "recall how this user likes spend summarized, then pass what you " +
+        "recalled: overLimitFirst and rounded. Figures are computed from the " +
+        "live ledger by the component, so you never pass numbers. Add one short " +
+        "sentence after it that answers the user's actual question.",
+      parameters: z.object({
+        overLimitFirst: z
+          .boolean()
+          .optional()
+          .describe(
+            "Put over-policy-limit charges above the per-team breakdown. Set from the user's recalled preference.",
+          ),
+        rounded: z
+          .boolean()
+          .optional()
+          .describe(
+            "Show whole dollars instead of cents. Set from the user's recalled preference.",
+          ),
+        note: z
+          .string()
+          .optional()
+          .describe(
+            "One short footnote, e.g. naming the remembered preference you applied.",
+          ),
+      }),
+      render: ({ overLimitFirst, rounded, note }) => (
+        <SpendSummaryCard
+          policies={policies}
+          transactions={transactions}
+          overLimitFirst={overLimitFirst ?? true}
+          rounded={rounded ?? true}
+          note={note}
+        />
+      ),
+    },
+    [policies, transactions],
+  );
+
+  // The agent's only route to tabular data. It is forbidden from emitting
+  // markdown tables (see the prompt), so anything row-and-column shaped that no
+  // richer component covers comes here and renders as a real component.
+  useComponent(
+    {
+      name: "showTable",
+      description:
+        "Render a LIST OF RECORDS the user asked to see, as a table component. " +
+        "Use it only when there are MULTIPLE real rows and no more specific " +
+        "component fits (showTransactions, showPendingApprovals, " +
+        "showSpendSummary, the charts). NEVER write a markdown table — call this " +
+        "instead. Keep cells as short pre-formatted strings (e.g. " +
+        '"$1,500", "12%", "2026-05-20"); identifying column first. After it ' +
+        "renders, answer the user's question in one or two sentences. " +
+        "DO NOT use this to narrate, plan, or report status: never a " +
+        "single-record table, never Action/Value or Step/Status column pairs, " +
+        "never a 'next step' or 'what I am about to do' table, and never a " +
+        "restatement of a charge you are already acting on. If you are about to " +
+        "describe your own actions, say it in one short sentence instead — or " +
+        "just call the tool and let its own activity line speak.",
+      parameters: z.object({
+        title: z
+          .string()
+          .optional()
+          .describe("Short title above the table, e.g. 'Spend by team'."),
+        columns: z.array(z.string()).describe("Column headers, in order."),
+        rows: z
+          .array(z.array(z.string()))
+          .describe(
+            "Rows, each an array of cell strings in the same order as columns.",
+          ),
+        note: z
+          .string()
+          .optional()
+          .describe("Optional one-line footnote under the table."),
+      }),
+      // useComponent hands the parsed args straight to render (no { args }
+      // wrapper — that shape belongs to useHumanInTheLoop / useFrontendTool).
+      render: ({ title, columns, rows, note }) => (
+        <DataTableChat
+          title={title}
+          columns={columns ?? []}
+          rows={rows ?? []}
+          note={note}
+        />
+      ),
+    },
+    [],
+  );
 
   useComponent(
     {
@@ -365,9 +838,12 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
     {
       name: "showApprovalFlow",
       description:
-        "Render a diagram of how an over-limit charge gets cleared (file " +
-        "exception → finalize → approve). Call this when the user asks how " +
-        "approvals or over-limit charges work, or to explain the process.",
+        "Static explainer diagram of how an OVER-LIMIT charge gets cleared " +
+        "(file exception → finalize → approve). Call this ONLY when the user " +
+        "explicitly asks how over-limit charges or approvals work. NEVER call it " +
+        "while carrying out any other procedure — in particular not when " +
+        "handling a suspicious or unrecognized charge, which is a different " +
+        "procedure entirely — and never as a substitute for taking action.",
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">

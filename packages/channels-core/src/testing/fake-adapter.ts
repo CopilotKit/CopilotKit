@@ -2,7 +2,7 @@ import type { AgentSubscriber } from "@ag-ui/client";
 import type {
   ChannelNode,
   MessageRef,
-  PlatformUser,
+  ProviderActor,
   ThreadMessage,
 } from "@copilotkit/channels-ui";
 import type {
@@ -11,6 +11,7 @@ import type {
   IngressSink,
   IncomingTurn,
   IncomingThreadStart,
+  IncomingWelcome,
   InteractionEvent,
   IncomingCommand,
   RunRenderer,
@@ -27,6 +28,33 @@ import type {
 } from "../platform-adapter.js";
 import type { CommandSpec } from "../commands.js";
 import type { StateStore } from "../state/state-store.js";
+
+type OptionalIdentity<T extends { actor: unknown; identityContext: unknown }> =
+  Omit<T, "actor" | "identityContext"> &
+    Partial<Pick<T, "actor" | "identityContext">>;
+
+type FakeIngressSink = {
+  onTurn(
+    turn: OptionalIdentity<Omit<IncomingTurn, "operation">> & {
+      operation?: IncomingTurn["operation"];
+    },
+  ): void | Promise<void>;
+  onInteraction(
+    event: OptionalIdentity<InteractionEvent>,
+  ): void | Promise<void>;
+  onCommand(event: OptionalIdentity<IncomingCommand>): void | Promise<void>;
+  onThreadStarted(
+    event: OptionalIdentity<IncomingThreadStart>,
+  ): void | Promise<void>;
+  onWelcome(event: OptionalIdentity<IncomingWelcome>): void | Promise<void>;
+  onReaction(event: OptionalIdentity<IncomingReaction>): void | Promise<void>;
+  onModalSubmit(
+    event: OptionalIdentity<IncomingModalSubmit>,
+  ): Promise<ModalSubmitResult | void>;
+  onModalClose(
+    event: OptionalIdentity<IncomingModalClose>,
+  ): void | Promise<void>;
+};
 
 /** A RunRenderer whose subscriber captures tool-call-end and custom (interrupt) events — used by run-loop tests. */
 export function makeFakeRunRenderer(): RunRenderer {
@@ -67,6 +95,8 @@ export class FakeAdapter implements PlatformAdapter {
   platform = "fake";
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs = 3000;
+  supportsIntelligenceMemory?: boolean;
+  runAgentLifecycle?: PlatformAdapter["runAgentLifecycle"];
 
   /** When true, `start()` rejects (set via constructor `failStart`). */
   readonly failStart: boolean;
@@ -97,6 +127,8 @@ export class FakeAdapter implements PlatformAdapter {
       reactions?: boolean;
       nativeEphemeral?: boolean;
       modals?: boolean;
+      /** When true, activation requires an onMention or onMessage handler. */
+      messageEvents?: boolean;
       /** Platform name override (defaults to "fake"); useful when a test needs distinct adapters. */
       platform?: string;
       /** When true, `start()` rejects — simulates an adapter that fails to come up. */
@@ -117,6 +149,7 @@ export class FakeAdapter implements PlatformAdapter {
       supportsTyping: false,
       supportsReactions: fakeOpts.reactions !== false,
       supportsStreaming: true,
+      supportsMessageEvents: fakeOpts.messageEvents === true,
       supportsSuggestedPrompts: paneMethods,
       supportsThreadTitle: paneMethods,
       supportsEphemeral: fakeOpts.nativeEphemeral === true,
@@ -181,19 +214,89 @@ export class FakeAdapter implements PlatformAdapter {
   /** History returned by getMessages(); override in tests. */
   messages: ThreadMessage[] = [];
   /** User returned by lookupUser(); override in tests. */
-  user?: PlatformUser;
+  user?: ProviderActor;
   /** Optional persistence backend the adapter provides (test-only); exercises createChannel's store resolution. */
   stateStore?: StateStore;
   private sink?: IngressSink;
   private counter = 0;
+  private turnCounter = 0;
 
   /** Expose the registered sink so tests can invoke onTurn() directly for overlap/lock tests. */
-  getSink(): IngressSink {
+  getSink(): FakeIngressSink {
     if (!this.sink)
       throw new Error(
         "FakeAdapter: sink not set — start the channel (channel.ɵruntime.start()) first",
       );
-    return this.sink;
+    const sink = this.sink;
+    const adapter = this;
+    return new Proxy(sink, {
+      get(target, property, receiver) {
+        if (property === "onTurn") {
+          return (turn: Parameters<FakeIngressSink["onTurn"]>[0]) => {
+            const syntheticId =
+              turn.eventId ?? `fake-message-${++adapter.turnCounter}`;
+            return sink.onTurn(
+              adapter.withIdentity(
+                {
+                  ...turn,
+                  operation: turn.operation ?? {
+                    kind: "created",
+                    logicalMessageId: syntheticId,
+                    revisionId: syntheticId,
+                    mentioned: true,
+                  },
+                },
+                "message",
+              ) as IncomingTurn,
+            );
+          };
+        }
+        const triggers: Partial<Record<keyof IngressSink, string>> = {
+          onInteraction: "interaction",
+          onCommand: "command",
+          onThreadStarted: "thread-start",
+          onWelcome: "welcome",
+          onReaction: "reaction",
+          onModalSubmit: "modal-submit",
+          onModalClose: "modal-close",
+        };
+        const trigger = triggers[property as keyof IngressSink];
+        if (trigger) {
+          return (event: Record<string, unknown>) =>
+            (
+              target[property as keyof IngressSink] as (
+                value: unknown,
+              ) => unknown
+            )(adapter.withIdentity(event, trigger));
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    }) as FakeIngressSink;
+  }
+
+  private withIdentity<T extends Record<string, unknown>>(
+    event: T,
+    trigger: string,
+  ): T & Pick<IncomingTurn, "actor" | "identityContext"> {
+    const conversationKey =
+      typeof event.conversationKey === "string" ? event.conversationKey : "c";
+    const actor =
+      (event.actor as IncomingTurn["actor"] | undefined) ??
+      ({ id: "", kind: "unknown" } as const);
+    return {
+      ...event,
+      actor,
+      identityContext: (event.identityContext as
+        | IncomingTurn["identityContext"]
+        | undefined) ?? {
+        tenant: { id: "fake-tenant" },
+        installation: { id: "fake-installation" },
+        conversation: { id: conversationKey, kind: "test" },
+        trigger,
+        event: {},
+        raw: {},
+      },
+    };
   }
 
   async start(sink: IngressSink): Promise<void> {
@@ -234,7 +337,7 @@ export class FakeAdapter implements PlatformAdapter {
   decodeInteraction(raw: unknown): InteractionEvent | undefined {
     return raw as InteractionEvent;
   }
-  async lookupUser(_q: UserQuery): Promise<PlatformUser | undefined> {
+  async lookupUser(_q: UserQuery): Promise<ProviderActor | undefined> {
     return this.user;
   }
   async getMessages(_target: ReplyTarget): Promise<ThreadMessage[]> {
@@ -274,38 +377,60 @@ export class FakeAdapter implements PlatformAdapter {
 
   // --- test helpers ---
   emitTurn(partial: Partial<IncomingTurn>): void {
-    void this.sink?.onTurn({
+    const syntheticId = partial.eventId ?? `fake-message-${++this.turnCounter}`;
+    void this.getSink().onTurn({
       conversationKey: "c",
       replyTarget: {},
       userText: "",
       platform: "fake",
       ...partial,
+      operation: partial.operation ?? {
+        kind: "created",
+        logicalMessageId: syntheticId,
+        revisionId: syntheticId,
+        mentioned: true,
+      },
     });
   }
   emitThreadStarted(
     partial?: Partial<IncomingThreadStart>,
   ): Promise<void> | void {
-    return this.sink?.onThreadStarted({
+    return this.getSink().onThreadStarted({
       conversationKey: "c",
       replyTarget: {},
       platform: "fake",
       ...partial,
     });
   }
+  emitWelcome(partial?: Partial<IncomingWelcome>): Promise<void> | void {
+    return this.getSink().onWelcome(
+      this.withIdentity(
+        {
+          conversationKey: "c",
+          replyTarget: {},
+          platform: "fake",
+          ...partial,
+        },
+        "welcome",
+      ) as IncomingWelcome,
+    );
+  }
   emitInteraction(partial: Partial<InteractionEvent>): void {
-    const evt: InteractionEvent = {
+    const evt = {
       id: "",
       conversationKey: "c",
       replyTarget: {},
       ...partial,
     };
-    this.interactionsSeen.push(evt);
-    void this.sink?.onInteraction(evt);
+    this.interactionsSeen.push(
+      this.withIdentity(evt, "interaction") as InteractionEvent,
+    );
+    void this.getSink().onInteraction(evt);
   }
   emitCommand(
     partial: Partial<IncomingCommand> & { command: string },
   ): Promise<void> | void {
-    return this.sink?.onCommand({
+    return this.getSink().onCommand({
       text: "",
       conversationKey: "c",
       replyTarget: {},
@@ -316,7 +441,7 @@ export class FakeAdapter implements PlatformAdapter {
   emitReaction(
     partial: Partial<IncomingReaction> & { rawEmoji: string },
   ): Promise<void> | void {
-    return this.sink?.onReaction({
+    return this.getSink().onReaction({
       added: true,
       conversationKey: "c",
       replyTarget: {},
@@ -328,7 +453,7 @@ export class FakeAdapter implements PlatformAdapter {
   emitModalSubmit(
     partial: Partial<IncomingModalSubmit> & { callbackId: string },
   ): Promise<ModalSubmitResult | void> | undefined {
-    return this.sink?.onModalSubmit({
+    return this.getSink().onModalSubmit({
       values: {},
       platform: "fake",
       raw: {},
@@ -338,7 +463,11 @@ export class FakeAdapter implements PlatformAdapter {
   emitModalClose(
     partial: Partial<IncomingModalClose> & { callbackId: string },
   ): Promise<void> | void {
-    return this.sink?.onModalClose({ platform: "fake", raw: {}, ...partial });
+    return this.getSink().onModalClose({
+      platform: "fake",
+      raw: {},
+      ...partial,
+    });
   }
 
   /** Commands handed to the adapter via `registerCommands`; asserts the capability hook fires. */

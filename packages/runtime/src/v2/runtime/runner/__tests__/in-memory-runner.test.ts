@@ -1017,6 +1017,29 @@ describe("InMemoryAgentRunner stop mid-stream (#5812)", () => {
     }
   }
 
+  it("does not stop a different run on the same thread", async () => {
+    const runner = new InMemoryAgentRunner();
+    runner.clearThreads();
+    const threadId = "in-memory-stop-exact-run";
+    const agent = new MidStreamAbortAgent();
+    const input: RunAgentInput = {
+      threadId,
+      runId: "run-current",
+      messages: [],
+      state: {},
+      tools: [],
+      context: [],
+    };
+    const sub = runner.run({ threadId, agent, input }).subscribe();
+
+    expect(await runner.stop({ threadId, runId: "run-superseded" })).toBe(
+      false,
+    );
+    expect(await runner.isRunning({ threadId })).toBe(true);
+    expect(await runner.stop({ threadId, runId: "run-current" })).toBe(true);
+    sub.unsubscribe();
+  });
+
   it("emits no events after RUN_ERROR and the stream passes the AG-UI verifier", async () => {
     const runner = new InMemoryAgentRunner();
     runner.clearThreads();

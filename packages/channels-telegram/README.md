@@ -42,13 +42,11 @@ import {
   defaultTelegramContext,
 } from "@copilotkit/channels-telegram";
 import { Message, Section } from "@copilotkit/channels-ui";
-import {
-  CopilotRuntime,
-  CopilotKitIntelligence,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
+  identifyUser: "platform",
   name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     telegram({
@@ -74,16 +72,17 @@ bot.onThreadStarted(async ({ thread }) => {
 // The runtime owns the channel's lifecycle — there is no `bot.start()`.
 const runtime = new CopilotRuntime({
   intelligence: new CopilotKitIntelligence({
-    apiUrl: "https://api.copilotkit.ai",
-    wsUrl: "wss://api.copilotkit.ai",
+    // apiUrl and wsUrl default to the managed Intelligence platform — override
+    // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [bot],
 });
 
-const handler = createCopilotRuntimeHandler({ runtime });
-await handler.channels.ready(); // starts the channel; handler.channels.stop() tears it down
+// Creating the listener starts the Channel's connection.
+const listener = createCopilotNodeListener({ runtime });
+// Optional: await that activation so a broken config fails startup loudly.
+await listener.channels.ready(); // listener.channels.stop() tears it down
 ```
 
 `telegram(opts)` returns a `TelegramAdapter`. By default it runs in
@@ -261,7 +260,7 @@ await bot.api.setWebhook(url, {
 
 `telegram`, `TelegramAdapter`, `TelegramAdapterOptions`;
 `createRunRenderer`, `CreateRunRendererArgs`;
-`decodeInteraction`, `conversationKeyOf`, `deriveConversationKey`, `toPlatformUser`;
+`decodeInteraction`, `conversationKeyOf`, `deriveConversationKey`, `toProviderActor`;
 `renderTelegram`; `TELEGRAM_LIMITS`, `truncateText`, `clampArray`, `byteLen`;
 `defaultTelegramTools`, `lookupTelegramUserTool`;
 `defaultTelegramContext`, `telegramTaggingContext`, `telegramFormattingContext`,

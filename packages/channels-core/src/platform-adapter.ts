@@ -5,11 +5,15 @@ import type {
   EmojiValue,
   EphemeralResult,
   MessageRef,
-  PlatformUser,
+  MessageOperation,
+  ProviderActor,
   ThreadMessage,
 } from "@copilotkit/channels-ui";
+import type { IngressIdentityContext } from "./identity.js";
+import type { ResolvedChannelMemory } from "./memory.js";
 import type { CommandSpec } from "./commands.js";
 import type { StateStore } from "./state/state-store.js";
+import type { AgentToolDescriptor, ContextEntry } from "./tools.js";
 
 /** Opaque to the channel core — created by an adapter during ingress and passed back to post/createRunRenderer. */
 export type ReplyTarget = unknown;
@@ -17,6 +21,8 @@ export type ReplyTarget = unknown;
 export type NativePayload = unknown;
 
 export interface SurfaceCapabilities {
+  /** This adapter can deliver provider messages through `onTurn`. */
+  supportsMessageEvents?: boolean;
   supportsModals: boolean;
   supportsTyping: boolean;
   supportsReactions: boolean;
@@ -70,6 +76,50 @@ export interface RunRenderer {
   finish?(): Promise<void>;
 }
 
+/** Result of one public Channel agent invocation, including local tool steps. */
+export interface ChannelAgentLoopResult {
+  iterations: number;
+  interrupted: boolean;
+  /**
+   * Managed renderer/provider failure deferred until the AgentRunner records
+   * its canonical terminal event. The managed lifecycle wrapper rejects the
+   * delivery with this error after the runner settles.
+   */
+  deliveryError?: unknown;
+}
+
+/** Canonical thread/run ownership opened by the managed AgentRunner. */
+export interface CanonicalRunIdentity {
+  threadId: string;
+  runId: string;
+  /** Fence the delivery immediately before an irreversible local tool call. */
+  beforeToolCall?: () => Promise<void>;
+}
+
+/**
+ * Adapter hook for wrapping the whole local Channel tool loop in one canonical
+ * runner lifecycle. Managed Intelligence implements this; direct adapters omit
+ * it and keep calling the agent in process.
+ */
+export interface ChannelAgentLifecycleArgs {
+  replyTarget: ReplyTarget;
+  agent: AbstractAgent;
+  renderer: RunRenderer;
+  tools: readonly AgentToolDescriptor[];
+  context: readonly ContextEntry[];
+  /**
+   * True only for `Thread.resume()`. The resume value remains private to the
+   * agent command and never crosses the managed run-open boundary.
+   */
+  isResume?: boolean;
+  /** Explicit Memory access resolved before agent execution. */
+  memory?: ResolvedChannelMemory;
+  execute(
+    subscriber: AgentSubscriber,
+    canonicalRun?: CanonicalRunIdentity,
+  ): Promise<ChannelAgentLoopResult>;
+}
+
 /**
  * Fields shared by every ingress event routed through the {@link IngressSink}:
  * the conversation it belongs to, the opaque target to reply on, and the user
@@ -78,7 +128,15 @@ export interface RunRenderer {
 export interface IngressEventBase {
   conversationKey: string;
   replyTarget: ReplyTarget;
-  user?: PlatformUser;
+  /** Provider account that caused this event. */
+  actor: ProviderActor;
+  /** Provider facts used by the Channel identity strategy. */
+  identityContext: IngressIdentityContext;
+  /**
+   * Provider that produced this event when it differs from the transport
+   * adapter identity. Multiplexing adapters set it per event.
+   */
+  platform?: string;
 }
 
 /**
@@ -90,12 +148,15 @@ export interface IngressIds {
   eventId?: string;
   /** Stable per-turn id (Intelligence Channel path); local adapters omit it. */
   turnId?: string;
-  /** Lease/delivery id (Intelligence Channel path); local adapters omit it. */
+  /** Durable delivery id (Intelligence Channel path); local adapters omit it. */
   deliveryId?: string;
 }
 
 export interface IncomingTurn extends IngressEventBase, IngressIds {
   userText: string;
+  operation: MessageOperation;
+  /** Delivery-scoped opaque capability for mutating or reacting to this message. */
+  messageRef?: MessageRef;
   /**
    * Optional multimodal content parts built by the adapter (e.g. inbound
    * image/file attachments). Carried through to `IncomingMessage.contentParts`.
@@ -107,6 +168,8 @@ export interface IncomingTurn extends IngressEventBase, IngressIds {
 export interface InteractionEvent extends IngressEventBase, IngressIds {
   id: string; // opaque minted action id (ck:...)
   value?: unknown;
+  /** Submitted input id → value, separate from the clicked action's envelope. */
+  values?: Record<string, unknown>;
   /** The message the interaction occurred on (the picker), so handlers can update it in place. */
   messageRef?: MessageRef;
   /** Opaque platform trigger for opening a modal (Slack `trigger_id`; Discord interaction id). */
@@ -131,6 +194,11 @@ export interface IncomingCommand extends IngressEventBase, IngressIds {
  * Adapters without the concept never emit it.
  */
 export interface IncomingThreadStart extends IngressEventBase {
+  platform: string;
+}
+
+/** A provider installation or conversation activation that should be welcomed. */
+export interface IncomingWelcome extends IngressEventBase, IngressIds {
   platform: string;
 }
 
@@ -160,15 +228,6 @@ export interface IncomingReaction extends IngressEventBase {
   messageRef?: MessageRef;
   /** Containing thread/conversation id, when distinct from the message. */
   threadId?: string;
-  /**
-   * Source provider a managed delivery originated from (e.g. `"teams"`,
-   * `"slack"`). Direct adapters omit it — core then normalizes by
-   * {@link PlatformAdapter.platform}. The Intelligence adapter (whose own
-   * `platform` is `"intelligence"`, not an emoji platform) sets it to the
-   * delivery's source provider so central normalization runs on the managed
-   * path.
-   */
-  readonly platform?: string;
   /** Native payload. */
   raw: unknown;
 }
@@ -178,7 +237,8 @@ export interface IncomingModalSubmit {
   callbackId: string;
   /** Field id → value (text string, selected option value, etc.). */
   values: Record<string, unknown>;
-  user?: PlatformUser;
+  actor: ProviderActor;
+  identityContext: IngressIdentityContext;
   privateMetadata?: string;
   /** Present when the submission carries a conversation context (so the engine can build a Thread). */
   conversationKey?: string;
@@ -190,7 +250,8 @@ export interface IncomingModalSubmit {
 /** A modal dismissal (Slack `view_closed`; requires `notifyOnClose`). */
 export interface IncomingModalClose {
   callbackId: string;
-  user?: PlatformUser;
+  actor: ProviderActor;
+  identityContext: IngressIdentityContext;
   privateMetadata?: string;
   /** Present when the dismissal carries a conversation context (so the engine can build a Thread). */
   conversationKey?: string;
@@ -207,6 +268,8 @@ export interface ModalSubmitResult {
 export interface IngressSink {
   onTurn(turn: IncomingTurn): void | Promise<void>;
   onInteraction(evt: InteractionEvent): void | Promise<void>;
+  /** A provider installation or conversation activation became usable. */
+  onWelcome(evt: IncomingWelcome): void | Promise<void>;
   /** A slash command fired. Routed to the matching `channel.onCommand` handler (ignored if none). */
   onCommand(cmd: IncomingCommand): void | Promise<void>;
   /** A conversation surface opened. Adapters without the concept never call it. */
@@ -230,10 +293,23 @@ export interface UserQuery {
 /** A resolved agent session for a conversation (the adapter may build the agent's history from its own state). */
 export interface AgentSession {
   agent: AbstractAgent;
+  /**
+   * Optional exclusive-session release hook.
+   *
+   * Managed adapters use it when an application supplied one mutable agent
+   * instance for more than one canonical thread.
+   */
+  release?(): void | Promise<void>;
 }
 
 /** Adapter-owned conversation state; the adapter resolves (or creates) the agent session for a conversation. */
 export interface ConversationStore {
+  /**
+   * Whether {@link getOrCreate} seeds the in-flight inbound turn into the
+   * agent's messages. When true, `Thread.runAgent()` must not inject that turn
+   * again.
+   */
+  readonly seedsInboundTurn?: boolean;
   getOrCreate(
     conversationKey: string,
     replyTarget: ReplyTarget,
@@ -256,6 +332,8 @@ export interface PlatformAdapter {
   readonly platform: string;
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs: number;
+  /** Return the trusted canonical Thread bound to an opaque reply target. */
+  getCanonicalThreadId?(target: ReplyTarget): string;
   start(sink: IngressSink, ctx?: AdapterStartContext): Promise<void>;
   stop(): Promise<void>;
   render(ir: ChannelNode[]): NativePayload;
@@ -267,8 +345,30 @@ export interface PlatformAdapter {
   ): Promise<MessageRef>;
   delete(ref: MessageRef): Promise<void>;
   createRunRenderer(target: ReplyTarget): RunRenderer;
+  /**
+   * Optional synchronous preflight for a public `Thread.runAgent()` call.
+   *
+   * Surface-policy rejections happen before delivery-operation tracking so a
+   * handler may catch them and use a supported fallback without failing the
+   * containing delivery.
+   */
+  assertRunAgentSupported?(target: ReplyTarget): void;
+  /** True when this adapter is attached to an Intelligence Memory backend. */
+  supportsIntelligenceMemory?: boolean;
+  runAgentLifecycle?(
+    args: ChannelAgentLifecycleArgs,
+  ): Promise<ChannelAgentLoopResult>;
+  /**
+   * Optional delivery-lifecycle hook. {@link Thread} invokes this synchronously
+   * when a public operation starts so a managed transport can keep the delivery
+   * open even when a handler intentionally does not await that operation.
+   */
+  trackThreadOperation?<T>(
+    target: ReplyTarget,
+    operation: () => Promise<T>,
+  ): Promise<T>;
   decodeInteraction(raw: unknown): InteractionEvent | undefined;
-  lookupUser(q: UserQuery): Promise<PlatformUser | undefined>;
+  lookupUser(q: UserQuery): Promise<ProviderActor | undefined>;
   readonly conversationStore: ConversationStore;
   /**
    * Optional persistence backend supplied by the adapter. `createChannel` uses it
@@ -286,6 +386,8 @@ export interface PlatformAdapter {
    * a legitimate retry.
    */
   readonly skipIngressDedup?: boolean;
+  /** Inject the implicit inbound turn into only the first run in one handler. */
+  readonly injectInboundTurnOnce?: boolean;
   /**
    * Optional conversation-history read. Backs the capability-gated
    * `Thread.getMessages()`; adapters that can't read history simply omit this,
@@ -305,7 +407,14 @@ export interface PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }>;
+  ): Promise<{
+    ok: boolean;
+    /** Provider file or message ID for native adapters. */
+    fileId?: string;
+    /** Provider-neutral managed asset ID for Intelligence adapters. */
+    assetId?: string;
+    error?: string;
+  }>;
   /**
    * Optional slash-command support. Called once on `start()` with the channel's
    * declared commands, so a surface that registers commands up front (e.g.
@@ -356,7 +465,7 @@ export interface PlatformAdapter {
    */
   postEphemeral?(
     target: ReplyTarget,
-    user: PlatformUser | string,
+    user: ProviderActor | string,
     ir: ChannelNode[],
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null>;

@@ -7,31 +7,10 @@
   },
   "fixtures": [
     {
-      "_comment": "HEAL pill - SECONDARY LLM (json_object): returns a VALID flat A2UI surface, a Column root with two Metric tiles -> declarative-metric x2. Matched by the brief substring + responseFormat; listed before the outer entry (outer call is NOT json_object).",
-      "match": {
-        "userMessage": "Q2 revenue summary",
-        "responseFormat": "json_object",
-        "context": "built-in-agent"
-      },
-      "response": {
-        "content": "{\"surfaceId\":\"recovery-demo\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"m1\",\"m2\"]},{\"id\":\"m1\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12% QoQ\"},{\"id\":\"m2\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\",\"trendValue\":\"-2 pts\"}],\"data\":{}}"
-      }
-    },
-    {
-      "_comment": "EXHAUST pill - SECONDARY LLM (json_object): returns a surface with NO components so the factory's output validation rejects it (parity target: the recovery loop exhausts and the middleware paints the a2ui_recovery_exhausted 'failed' card).",
-      "match": {
-        "userMessage": "report that keeps failing validation",
-        "responseFormat": "json_object",
-        "context": "built-in-agent"
-      },
-      "response": {
-        "content": "{\"surfaceId\":\"recovery-demo-fail\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[],\"data\":{}}"
-      }
-    },
-    {
       "_comment": "HEAL pill - outer agent emits generate_a2ui (turn 1, turnIndex 0 = first assistant action). Brief echoes 'Q2 revenue summary' so the secondary entry above matches.",
       "match": {
         "userMessage": "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+        "toolName": "generate_a2ui",
         "turnIndex": 0,
         "context": "built-in-agent"
       },
@@ -50,6 +29,7 @@
       "_comment": "HEAL pill - outer agent narration after the healed surface paints (turn 1, turnIndex 1).",
       "match": {
         "userMessage": "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+        "toolName": "generate_a2ui",
         "turnIndex": 1,
         "context": "built-in-agent"
       },
@@ -61,6 +41,7 @@
       "_comment": "EXHAUST pill - outer agent emits generate_a2ui (turn 2, turnIndex 2 = even/outer toolcall). Brief echoes 'report that keeps failing validation' so the secondary entry matches.",
       "match": {
         "userMessage": "Build a report that fails every validation pass so I can preview the fallback.",
+        "toolName": "generate_a2ui",
         "turnIndex": 2,
         "context": "built-in-agent"
       },
@@ -79,11 +60,32 @@
       "_comment": "EXHAUST pill - outer agent narration after the recovery exhausts (turn 2, turnIndex 3 = odd/narration).",
       "match": {
         "userMessage": "Build a report that fails every validation pass so I can preview the fallback.",
+        "toolName": "generate_a2ui",
         "turnIndex": 3,
         "context": "built-in-agent"
       },
       "response": {
         "content": "I couldn't produce a valid surface after several attempts - showing a graceful fallback instead."
+      }
+    },
+    {
+      "_comment": "HEAL pill - SECONDARY LLM (json_object): returns a VALID flat A2UI surface, a Column root with two Metric tiles -> declarative-metric x2. Matched by the brief substring + responseFormat; listed before the outer entry (outer call is NOT json_object).",
+      "match": {
+        "userMessage": "Q2 revenue summary",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "{\"surfaceId\":\"recovery-demo\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"m1\",\"m2\"]},{\"id\":\"m1\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12% QoQ\"},{\"id\":\"m2\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\",\"trendValue\":\"-2 pts\"}],\"data\":{}}"
+      }
+    },
+    {
+      "_comment": "EXHAUST pill - SECONDARY LLM (json_object): returns a surface with NO components so the factory's output validation rejects it (parity target: the recovery loop exhausts and the middleware paints the a2ui_recovery_exhausted 'failed' card).",
+      "match": {
+        "userMessage": "report that keeps failing validation",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "{\"surfaceId\":\"recovery-demo-fail\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[],\"data\":{}}"
       }
     }
   ]

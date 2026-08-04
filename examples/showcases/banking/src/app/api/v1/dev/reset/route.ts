@@ -1,7 +1,11 @@
 import * as store from "@/lib/store";
 import { forgetAllMemories } from "@/lib/intelligence/forget-memories";
+import { seedMemories } from "@/lib/intelligence/seed-memories";
 import { presenterResetEnabled } from "@/lib/presenter";
-import { SEEDED_USER_IDS } from "@/lib/intelligence/user-id";
+import {
+  DEMO_DEFAULT_USER_ID,
+  SEEDED_USER_IDS,
+} from "@/lib/intelligence/user-id";
 
 /**
  * Presenter/booth reset: restore the demo to a fresh "teachable" state.
@@ -35,12 +39,28 @@ export const POST = async () => {
   // mid-loop failure can leave the store reset AND some personas already
   // forgotten, so the error body must not read as "memory untouched".
   let forgot = 0;
+  let seeded = 0;
   try {
-    for (const userId of SEEDED_USER_IDS) {
+    // Clear the personas AND the default identity. The default bucket is where
+    // memory taught during a demo actually lands, so leaving it behind made
+    // "reset" a lie — a previous run's facts survived into the next demo.
+    for (const userId of [...SEEDED_USER_IDS, DEMO_DEFAULT_USER_ID]) {
       forgot += await forgetAllMemories({ apiUrl, apiKey, userId });
     }
+    // Then put back the memory the demo is supposed to START with, so the
+    // "it already knows this" beat works on a cold reset with no warm-up.
+    seeded = await seedMemories({
+      apiUrl,
+      apiKey,
+      userId: DEMO_DEFAULT_USER_ID,
+    });
     return new Response(
-      JSON.stringify({ ok: true, reset: ["store", "memory"], forgot }),
+      JSON.stringify({
+        ok: true,
+        reset: ["store", "memory"],
+        forgot,
+        seeded,
+      }),
       { status: 200, headers: { "content-type": "application/json" } },
     );
   } catch (err) {

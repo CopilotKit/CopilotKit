@@ -5,15 +5,19 @@ export interface ReplyTarget {
   guildId?: string;
 }
 
-/** A normalized inbound turn, before the adapter resolves the sender profile. */
+/** A normalized inbound turn with immutable provider identity facts. */
 export interface IncomingTurn {
   conversationKey: string;
+  messageId: string;
+  mentioned: boolean;
   replyTarget: ReplyTarget;
   userText: string;
-  senderUserId?: string;
+  actor: ProviderActor;
+  raw: unknown;
 }
 
 /** The conversation key is just the channel id (threads have their own id). */
 export function conversationKeyOf(target: ReplyTarget): string {
   return target.channelId;
 }
+import type { ProviderActor } from "@copilotkit/channels-ui";
