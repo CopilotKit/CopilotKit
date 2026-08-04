@@ -1,10 +1,4 @@
-import type {
-  Playbook,
-  PolicyRef,
-  Run,
-  RunStep,
-  StepStatus,
-} from "./types";
+import type { Playbook, PolicyRef, Run, RunStep, StepStatus } from "./types";
 
 /** PolicyRef builder. Field values are fixed by spec §6.2 + §5.1. */
 const ref = (docId: string, refNo: string, sectionId: string): PolicyRef => ({
@@ -306,9 +300,9 @@ function playbookById(id: string): Playbook {
   return pb;
 }
 
-/** base + minutes, as an ISO string. */
-function ts(baseIso: string, minutes: number): string {
-  return new Date(Date.parse(baseIso) + minutes * 60_000).toISOString();
+/** base epoch (ms) + minutes, as an ISO string. */
+function at(baseMs: number, minutes: number): string {
+  return new Date(baseMs + minutes * 60_000).toISOString();
 }
 
 interface StepDecor {
@@ -325,120 +319,144 @@ function instantiate(
   return pb.steps.map((step, i) => ({ ...step, ...decorate(i) }));
 }
 
-/** Live timestamp for the one seeded run that is mid-flight (RUN-1043). */
-const NOW_ISO = new Date().toISOString();
-
 const CRED = playbookById("credential-practitioner");
 const VENDOR = playbookById("vendor-baa-review");
 const ADVERSE = playbookById("adverse-event");
 const PHI = playbookById("phi-access-contractor");
 
-// RUN-1041 — credential-practitioner, fully completed.
-const run1041: Run = {
-  id: "RUN-1041",
-  playbookId: CRED.id,
-  title: CRED.title,
-  subject: "Dr. Amara Osei — Cardiology",
-  requestedBy: "Medical Staff Office",
-  createdAt: ts("2026-07-25T09:00:00.000Z", 0),
-  status: "completed",
-  steps: instantiate(CRED, (i) => ({
-    status: "done",
-    startedAt: ts("2026-07-25T09:00:00.000Z", i * 12),
-    completedAt: ts("2026-07-25T09:00:00.000Z", i * 12 + 9),
-    ...(CRED.steps[i].requiresApproval
-      ? { approvedBy: "Dr. Marcus Ellis" }
-      : {}),
-  })),
-};
+/**
+ * Build the four pre-existing runs anchored RELATIVE to `now` (ms epoch), so
+ * every span reads sensibly whenever the demo runs. The live app compares these
+ * timestamps against `Date.now()` (the engine's overdue check, `use-data`'s
+ * `runCycleTimeMs`), so fixed calendar anchors would drift: a "running" step
+ * seeded in the past is instantly overdue, and a completed run whose first step
+ * sat in the past yields a multi-day cycle time. Expressing every stamp as an
+ * offset from `now` keeps a completed run's cycle time in the order of minutes
+ * and a live run's current step un-elapsed at seed time. `now` is a PARAMETER
+ * (not a module-load constant) so every `seedKeelRuns()` call — including a skin
+ * remount — gets a fresh anchor and injectable tests stay deterministic.
+ */
+function buildSeedRuns(now: number): Run[] {
+  const HOUR = 60; // minutes
 
-// RUN-1042 — vendor-baa-review, blocked at `security-review` (index 2).
-const run1042: Run = {
-  id: "RUN-1042",
-  playbookId: VENDOR.id,
-  title: VENDOR.title,
-  subject: "Corvus Imaging Analytics",
-  requestedBy: "Procurement",
-  createdAt: ts("2026-07-30T14:00:00.000Z", 0),
-  status: "blocked",
-  steps: instantiate(VENDOR, (i) => {
-    if (i < 2) {
-      return {
-        status: "done",
-        startedAt: ts("2026-07-30T14:00:00.000Z", i * 12),
-        completedAt: ts("2026-07-30T14:00:00.000Z", i * 12 + 9),
-      };
-    }
-    if (i === 2) {
-      return {
-        status: "awaiting_approval",
-        startedAt: ts("2026-07-30T14:00:00.000Z", 24),
-      };
-    }
-    return { status: "pending" };
-  }),
-};
+  // RUN-1041 — credential-practitioner, fully completed. Anchored so its whole
+  // run sits in the recent past; the 6 steps span ~69 min start→last-completion,
+  // i.e. a cycle time on the order of an hour (plausible on the Desk KPI).
+  const base1041 = now - 3 * HOUR * 60_000; // started ~3h ago
+  const run1041: Run = {
+    id: "RUN-1041",
+    playbookId: CRED.id,
+    title: CRED.title,
+    subject: "Dr. Amara Osei — Cardiology",
+    requestedBy: "Medical Staff Office",
+    createdAt: at(base1041, 0),
+    status: "completed",
+    steps: instantiate(CRED, (i) => ({
+      status: "done",
+      startedAt: at(base1041, i * 12),
+      completedAt: at(base1041, i * 12 + 9),
+      ...(CRED.steps[i].requiresApproval
+        ? { approvedBy: "Dr. Marcus Ellis" }
+        : {}),
+    })),
+  };
 
-// RUN-1043 — adverse-event, running mid-sequence at `notify` (index 2).
-const run1043: Run = {
-  id: "RUN-1043",
-  playbookId: ADVERSE.id,
-  title: ADVERSE.title,
-  subject: "Fall, 4 West, 2026-07-28",
-  requestedBy: "Ana Reyes",
-  createdAt: ts("2026-07-28T20:00:00.000Z", 0),
-  status: "running",
-  steps: instantiate(ADVERSE, (i) => {
-    if (i < 2) {
-      return {
-        status: "done",
-        startedAt: ts("2026-07-28T20:00:00.000Z", i * 10),
-        completedAt: ts("2026-07-28T20:00:00.000Z", i * 10 + 7),
-      };
-    }
-    if (i === 2) return { status: "running", startedAt: NOW_ISO };
-    return { status: "pending" };
-  }),
-};
+  // RUN-1042 — vendor-baa-review, blocked at `security-review` (index 2).
+  // Created ~40 min ago; two steps done, the gate awaiting since ~16 min ago.
+  const base1042 = now - 40 * 60_000;
+  const run1042: Run = {
+    id: "RUN-1042",
+    playbookId: VENDOR.id,
+    title: VENDOR.title,
+    subject: "Corvus Imaging Analytics",
+    requestedBy: "Procurement",
+    createdAt: at(base1042, 0),
+    status: "blocked",
+    steps: instantiate(VENDOR, (i) => {
+      if (i < 2) {
+        return {
+          status: "done",
+          startedAt: at(base1042, i * 12),
+          completedAt: at(base1042, i * 12 + 9),
+        };
+      }
+      if (i === 2) {
+        return { status: "awaiting_approval", startedAt: at(base1042, 24) };
+      }
+      return { status: "pending" };
+    }),
+  };
 
-// RUN-1044 — phi-access-contractor, blocked at `scope-review` (index 3).
-const run1044: Run = {
-  id: "RUN-1044",
-  playbookId: PHI.id,
-  title: PHI.title,
-  subject: "Devin Cole — Radiology contractor",
-  requestedBy: "Ana Reyes",
-  createdAt: ts("2026-08-01T11:00:00.000Z", 0),
-  status: "blocked",
-  steps: instantiate(PHI, (i) => {
-    if (i < 3) {
-      return {
-        status: "done",
-        startedAt: ts("2026-08-01T11:00:00.000Z", i * 12),
-        completedAt: ts("2026-08-01T11:00:00.000Z", i * 12 + 9),
-      };
-    }
-    if (i === 3) {
-      return {
-        status: "awaiting_approval",
-        startedAt: ts("2026-08-01T11:00:00.000Z", 36),
-      };
-    }
-    return { status: "pending" };
-  }),
-};
+  // RUN-1043 — adverse-event, running mid-sequence at `notify` (index 2). The
+  // two done steps started a few minutes ago; the CURRENT running step is
+  // anchored to `now` itself, so it is NOT already overdue at seed time (the
+  // engine's `now - startedAt > durationMs` check is false) and animates instead
+  // of snapping to blocked. Because the run started only minutes ago, its cycle
+  // time when it eventually completes during the demo is minutes, not days.
+  const base1043 = now - 6 * 60_000; // started ~6 min ago
+  const run1043: Run = {
+    id: "RUN-1043",
+    playbookId: ADVERSE.id,
+    title: ADVERSE.title,
+    subject: "Fall, 4 West",
+    requestedBy: "Ana Reyes",
+    createdAt: at(base1043, 0),
+    status: "running",
+    steps: instantiate(ADVERSE, (i) => {
+      if (i < 2) {
+        return {
+          status: "done",
+          startedAt: at(base1043, i * 3),
+          completedAt: at(base1043, i * 3 + 2),
+        };
+      }
+      if (i === 2) return { status: "running", startedAt: at(now, 0) };
+      return { status: "pending" };
+    }),
+  };
 
-/** The four pre-existing runs, so the Desk is never empty (§6.3). */
-export const KEEL_SEED_RUNS: Run[] = [run1041, run1042, run1043, run1044];
+  // RUN-1044 — phi-access-contractor, blocked at `scope-review` (index 3).
+  // Created ~25 min ago; three steps done, the gate awaiting since ~1 min ago.
+  const base1044 = now - 25 * 60_000;
+  const run1044: Run = {
+    id: "RUN-1044",
+    playbookId: PHI.id,
+    title: PHI.title,
+    subject: "Devin Cole — Radiology contractor",
+    requestedBy: "Ana Reyes",
+    createdAt: at(base1044, 0),
+    status: "blocked",
+    steps: instantiate(PHI, (i) => {
+      if (i < 3) {
+        return {
+          status: "done",
+          startedAt: at(base1044, i * 8),
+          completedAt: at(base1044, i * 8 + 6),
+        };
+      }
+      if (i === 3) {
+        return { status: "awaiting_approval", startedAt: at(base1044, 24) };
+      }
+      return { status: "pending" };
+    }),
+  };
+
+  return [run1041, run1042, run1043, run1044];
+}
 
 /**
- * A fresh deep copy of the seeds for `useState` init, so a skin remount starts
- * from pristine data. The engine is pure (never mutates in place), so this is a
- * safety belt rather than a strict requirement.
+ * The four pre-existing runs, so the Desk is never empty (§6.3). A module-load
+ * snapshot used by unit tests for shape assertions; the live app always builds
+ * fresh via `seedKeelRuns()` so its anchor tracks the wall clock.
  */
-export function seedKeelRuns(): Run[] {
-  return KEEL_SEED_RUNS.map((r) => ({
-    ...r,
-    steps: r.steps.map((s) => ({ ...s })),
-  }));
+export const KEEL_SEED_RUNS: Run[] = buildSeedRuns(Date.now());
+
+/**
+ * A fresh copy of the seeds for `useState` init, so a skin remount starts from
+ * pristine data anchored to the moment it mounts. `now` is optional (defaults to
+ * `Date.now()`) so the zero-arg call site in `use-data` is untouched, while
+ * tests can inject a fixed anchor for determinism.
+ */
+export function seedKeelRuns(now: number = Date.now()): Run[] {
+  return buildSeedRuns(now);
 }

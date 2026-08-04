@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Run } from "./types";
-import { KEEL_PLAYBOOKS, KEEL_SEED_RUNS } from "./seed";
+import { KEEL_PLAYBOOKS, KEEL_SEED_RUNS, seedKeelRuns } from "./seed";
 
 /**
  * Corpus ids fixed by spec §5.1, for the docs the playbooks reference. This is
@@ -121,6 +121,91 @@ describe("keel seeded runs", () => {
 
   it("keeps every seeded run's step states consistent with its status", () => {
     for (const r of KEEL_SEED_RUNS) assertConsistent(r);
+  });
+});
+
+/**
+ * Time-anchoring: seeds are relative to the moment they are created, so the
+ * demo reads sensibly whenever it runs (the live app compares these timestamps
+ * against `Date.now()`). Anchor is injected for determinism — no global clock.
+ */
+describe("keel seed time-anchoring", () => {
+  // A fixed anchor unrelated to any calendar date the seed might have used.
+  const NOW = Date.parse("2026-08-04T12:00:00.000Z");
+  const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+
+  /** Mirror of use-data's `runCycleTimeMs`: first start → last completion. */
+  function cycleTimeMs(run: Run): number | null {
+    if (run.status !== "completed") return null;
+    const completions = run.steps
+      .map((s) => s.completedAt)
+      .filter((v): v is string => Boolean(v))
+      .map((v) => Date.parse(v));
+    if (completions.length === 0) return null;
+    const start = Date.parse(run.steps[0]?.startedAt ?? run.createdAt);
+    return Math.max(0, Math.max(...completions) - start);
+  }
+
+  it("keeps a completed seeded run's cycle time in the order of hours, not days", () => {
+    const runs = seedKeelRuns(NOW);
+    const completed = runs.filter((r) => r.status === "completed");
+    expect(completed.length, "seeds a completed run").toBeGreaterThan(0);
+    for (const r of completed) {
+      const cycle = cycleTimeMs(r);
+      expect(cycle, `${r.id} has a cycle time`).not.toBeNull();
+      expect(cycle as number, `${r.id} cycle time under 6h`).toBeLessThan(
+        SIX_HOURS_MS,
+      );
+    }
+  });
+
+  it("does not seed the live run's current step already overdue", () => {
+    const runs = seedKeelRuns(NOW);
+    const live = runs.filter((r) => r.status === "running");
+    expect(live.length, "seeds a running run").toBeGreaterThan(0);
+    for (const r of live) {
+      const current = r.steps.find((s) => s.status === "running");
+      expect(current, `${r.id} has a running step`).toBeTruthy();
+      if (!current) continue;
+      const elapsed = NOW - Date.parse(current.startedAt ?? "");
+      // The engine completes a running step once elapsed > durationMs. Seeded at
+      // NOW, the current step must be un-elapsed so it animates, not snaps ahead.
+      expect(
+        elapsed,
+        `${r.id}/${current.id} current step elapsed (>= 0)`,
+      ).toBeGreaterThanOrEqual(0);
+      expect(
+        elapsed,
+        `${r.id}/${current.id} not overdue (elapsed ${elapsed}ms <= durationMs ${current.durationMs}ms)`,
+      ).toBeLessThanOrEqual(current.durationMs);
+    }
+  });
+
+  it("bounds the live run's eventual cycle time by anchoring its first start recently", () => {
+    // Symptom 1: when the live run COMPLETES during a demo, its cycle time is
+    // last-completion (≈ now) − first-start. If first-start sat at a fixed past
+    // date, that span is days. Anchoring the run's start recently keeps it sane.
+    const runs = seedKeelRuns(NOW);
+    for (const r of runs.filter((x) => x.status === "running")) {
+      const firstStart = Date.parse(r.steps[0]?.startedAt ?? r.createdAt);
+      const age = NOW - firstStart;
+      expect(age, `${r.id} first-start age (>= 0)`).toBeGreaterThanOrEqual(0);
+      expect(age, `${r.id} started within 6h of now (${age}ms)`).toBeLessThan(
+        SIX_HOURS_MS,
+      );
+    }
+  });
+
+  it("re-anchors on every call, so a remount is never seeded stale", () => {
+    const early = seedKeelRuns(NOW);
+    const later = seedKeelRuns(NOW + 60 * 60 * 1000); // +1h remount
+    const stepStart = (runs: Run[]): number => {
+      const live = runs.find((r) => r.status === "running");
+      const step = live?.steps.find((s) => s.status === "running");
+      return Date.parse(step?.startedAt ?? "");
+    };
+    expect(stepStart(early)).toBe(NOW);
+    expect(stepStart(later)).toBe(NOW + 60 * 60 * 1000);
   });
 });
 
