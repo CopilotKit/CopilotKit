@@ -52,7 +52,11 @@ export { IntelligenceStateStore } from "./intelligence-state-store.js";
 export type { IntelligenceStateStoreConfig } from "./intelligence-state-store.js";
 
 export { ChannelDeliveryTranscriptError } from "./delivery-transcript.js";
-export { ChannelProviderMismatchError } from "./delivery-transport.js";
+export {
+  ChannelProviderDeliveryError,
+  ChannelProviderMismatchError,
+} from "./delivery-transport.js";
+export type { ChannelProviderDeliveryDetails } from "./delivery-transport.js";
 export { ChannelFileDeliveryUnknownError } from "./delivery-adapter.js";
 export type {
   ChannelDeliveryTranscript,

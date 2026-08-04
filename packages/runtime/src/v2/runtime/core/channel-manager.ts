@@ -76,6 +76,17 @@ export interface ChannelsControl {
   stop(): Promise<void>;
 }
 
+interface ChannelRunErrorDetails {
+  readonly category: "validation";
+  readonly provider: "slack" | "teams";
+  readonly operation: string;
+  readonly effectKind: string;
+  readonly providerCode: "invalid_arguments" | "invalid_blocks";
+  readonly validationMessages: readonly string[];
+  readonly retryable: false;
+  readonly deliveryId: string;
+}
+
 /**
  * Signals that a declared Channel cannot be activated because no managed
  * provider exists for it yet. The engine throws this (or any error whose
@@ -550,7 +561,20 @@ async function runCanonicalChannelAgent(
 
   try {
     await new Promise<void>((resolve, reject) => {
-      let terminalError: (Error & { code?: string }) | undefined;
+      let terminalError:
+        | (Error & {
+            code?: string;
+            category?: string;
+            provider?: string;
+            operation?: string;
+            effectKind?: string;
+            providerCode?: string;
+            validationMessages?: readonly string[];
+            retryable?: boolean;
+            deliveryId?: string;
+            details?: unknown;
+          })
+        | undefined;
       const stream = runner.run({
         threadId: canonicalThreadId,
         agent: outer,
@@ -572,7 +596,11 @@ async function runCanonicalChannelAgent(
             "message" in event && typeof event.message === "string"
               ? event.message
               : "Canonical Channel agent run failed";
-          terminalError = new Error(message);
+          const details = safeChannelRunErrorDetails(event);
+          terminalError = new Error(
+            message,
+            details ? { cause: details } : undefined,
+          );
           terminalError.name = "ChannelCanonicalRunError";
           if (
             "code" in event &&
@@ -580,6 +608,17 @@ async function runCanonicalChannelAgent(
             event.code.length > 0
           ) {
             terminalError.code = event.code;
+          }
+          if (details) {
+            terminalError.category = details.category;
+            terminalError.provider = details.provider;
+            terminalError.operation = details.operation;
+            terminalError.effectKind = details.effectKind;
+            terminalError.providerCode = details.providerCode;
+            terminalError.validationMessages = details.validationMessages;
+            terminalError.retryable = details.retryable;
+            terminalError.deliveryId = details.deliveryId;
+            terminalError.details = details;
           }
         },
         error: reject,
@@ -617,6 +656,58 @@ async function runCanonicalChannelAgent(
     throw heartbeatError;
   }
   return result;
+}
+
+function safeChannelRunErrorDetails(
+  event: BaseEvent,
+): ChannelRunErrorDetails | undefined {
+  if (
+    !("details" in event) ||
+    typeof event.details !== "object" ||
+    event.details === null ||
+    Array.isArray(event.details)
+  ) {
+    return undefined;
+  }
+  const details = event.details as Record<string, unknown>;
+  const allowed = new Set([
+    "category",
+    "provider",
+    "operation",
+    "effectKind",
+    "providerCode",
+    "validationMessages",
+    "retryable",
+    "deliveryId",
+  ]);
+  if (
+    !Object.keys(details).every((field) => allowed.has(field)) ||
+    details.category !== "validation" ||
+    (details.provider !== "slack" && details.provider !== "teams") ||
+    !boundedString(details.operation, 80) ||
+    !boundedString(details.effectKind, 80) ||
+    (details.providerCode !== "invalid_arguments" &&
+      details.providerCode !== "invalid_blocks") ||
+    details.retryable !== false ||
+    !boundedString(details.deliveryId, 512) ||
+    !Array.isArray(details.validationMessages) ||
+    details.validationMessages.length > 5 ||
+    !details.validationMessages.every(
+      (validationMessage) =>
+        typeof validationMessage === "string" &&
+        validationMessage.length <= 256 &&
+        validationMessage.startsWith("invalid field at /"),
+    )
+  ) {
+    return undefined;
+  }
+  return details as unknown as ChannelRunErrorDetails;
+}
+
+function boundedString(value: unknown, maxLength: number): value is string {
+  return (
+    typeof value === "string" && value.length > 0 && value.length <= maxLength
+  );
 }
 
 /** Convert canonical Intelligence history into AG-UI messages. */

@@ -166,7 +166,7 @@ export function createRunRenderer(args: {
           : {}),
       });
     } catch (err) {
-      console.error("[slack-renderer] setStatus failed:", err);
+      console.debug("[slack-renderer] setStatus failed:", err);
     }
   };
   /** Clear the native status (best-effort). */
@@ -571,7 +571,7 @@ export function createRunRenderer(args: {
           text: `:warning: Agent error: ${event.message ?? "unknown error"}`,
         });
       } catch (err) {
-        console.error("[slack-renderer] error notice failed:", err);
+        console.debug("[slack-renderer] error notice failed:", err);
       }
     },
   };

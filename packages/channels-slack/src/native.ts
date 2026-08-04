@@ -22,7 +22,6 @@ export interface SlackNativeProps<TValue = unknown> {
   fields?: ChannelNode | ChannelNode[];
   options?: ChannelNode[] | ReadonlyArray<Record<string, unknown>>;
   option_groups?: ChannelNode[] | ReadonlyArray<Record<string, unknown>>;
-  cards?: ChannelNode[];
   blocks?: ChannelNode[];
   rows?: ChannelNode[] | ReadonlyArray<Record<string, unknown>>;
   tasks?: ChannelNode[] | ReadonlyArray<Record<string, unknown>>;
@@ -110,6 +109,27 @@ export interface SlackDataVisualizationProps {
   readonly children?: never;
 }
 
+/** Props accepted by Slack's Card block. */
+export interface SlackCardProps {
+  readonly block_id?: string;
+  readonly hero_image?: ChannelNode;
+  readonly icon?: ChannelNode;
+  readonly title?: ChannelNode;
+  readonly subtitle?: ChannelNode;
+  readonly body?: ChannelNode;
+  readonly actions?: readonly ChannelNode[];
+  readonly slack_icon?: ChannelNode;
+  readonly subtext?: ChannelNode;
+  readonly children?: never;
+}
+
+/** Props accepted by Slack's Carousel block. */
+export interface SlackCarouselProps {
+  readonly block_id?: string;
+  readonly elements: readonly ChannelNode[];
+  readonly children?: never;
+}
+
 type NativeComponent = <TValue = unknown>(
   props: SlackNativeProps<TValue>,
 ) => ChannelNode;
@@ -154,9 +174,32 @@ function dataVisualization(props: SlackDataVisualizationProps): ChannelNode {
   );
 }
 
+function card(props: SlackCardProps): ChannelNode {
+  return createNativeNode(
+    "slack",
+    "block",
+    "card",
+    props as unknown as Record<string, unknown>,
+  );
+}
+
+function carousel(props: SlackCarouselProps): ChannelNode {
+  return createNativeNode(
+    "slack",
+    "block",
+    "carousel",
+    props as unknown as Record<string, unknown>,
+  );
+}
+
 /** Complete message-surface Slack JSX namespace. */
 export const Slack = {
-  Block: { ...blocks, DataVisualization: dataVisualization },
+  Block: {
+    ...blocks,
+    Card: card,
+    Carousel: carousel,
+    DataVisualization: dataVisualization,
+  },
   Element: group("element", SLACK_ELEMENT_MANIFEST),
   Object: group("object", SLACK_OBJECT_MANIFEST),
   Raw: (props: SlackRawProps): ChannelNode =>
