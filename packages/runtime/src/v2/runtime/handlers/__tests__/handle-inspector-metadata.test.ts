@@ -19,6 +19,7 @@ function createMetadata(): InspectorMetadataV1 {
     usage: {
       used: 41,
       limit: { kind: "finite", value: 100 },
+      expiringSoonCount: 37,
     },
   };
 }
@@ -94,6 +95,32 @@ test("handle-inspector-metadata sanitizes bad typed provider data at its boundar
   await expect(response.json()).resolves.toEqual({
     schemaVersion: 1,
     identity: { organizationName: "Acme", projectName: "Support" },
+  });
+});
+
+test("handle-inspector-metadata drops malformed expiry without dropping valid usage", async () => {
+  const { intelligence, request, runtime } = setupIntelligenceRuntime();
+  replaceMetadataProvider(intelligence, async () => ({
+    schemaVersion: 1,
+    plan: { code: "free", label: "Free" },
+    usage: {
+      used: 148,
+      limit: { kind: "finite", value: 200 },
+      expiringSoonCount: "37",
+    },
+  }));
+
+  const response = await handleInspectorMetadata({ runtime, request });
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Cache-Control")).toBe(PRIVATE_NO_STORE);
+  await expect(response.json()).resolves.toStrictEqual({
+    schemaVersion: 1,
+    plan: { code: "free", label: "Free" },
+    usage: {
+      used: 148,
+      limit: { kind: "finite", value: 200 },
+    },
   });
 });
 

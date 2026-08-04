@@ -69,6 +69,12 @@ cache policy. This optional request never changes the main runtime connection
 state. The upstream Intelligence request has a five-second deadline; a timeout
 uses the same private `204` path.
 
+Runtime keeps `schemaVersion: 1` and returns the object normalized by Shared.
+Older producers may omit `usage.expiringSoonCount`, and `0` stays a known zero.
+If this optional leaf is malformed, Shared removes only the leaf and keeps valid
+base usage and sibling modules. Runtime does not calculate or cache expiry, and
+older consumers ignore the additive leaf.
+
 The Intelligence request uses the API key configured on the server-side
 `CopilotKitIntelligence` client. The proxy does not forward browser headers or
 cookies to Intelligence, and it does not expose provider error bodies to the
