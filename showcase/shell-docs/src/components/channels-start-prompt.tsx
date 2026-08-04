@@ -16,9 +16,11 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
+import { Copy, SquareTerminal } from "lucide-react";
 import {
   CHANNELS_ACTIVATION_EVENTS,
   buildChannelsActivationPrompt,
+  buildChannelsActivationPromptParts,
 } from "@/lib/channels-activation-contracts";
 import type { ChannelsActivationChannelId } from "@/lib/channels-activation-contracts";
 
@@ -63,6 +65,10 @@ export function ChannelsStartPrompt({
     channelLabel,
     backendLabel,
   });
+  const { command, instruction } = buildChannelsActivationPromptParts({
+    channelLabel,
+    backendLabel,
+  });
 
   async function copyPrompt() {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
@@ -86,30 +92,50 @@ export function ChannelsStartPrompt({
   return (
     <section
       aria-labelledby="channels-start-prompt-heading"
-      className="shell-docs-radius-control my-8 border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)]"
+      className="shell-docs-radius-surface my-6 border p-5 sm:p-6"
+      style={{
+        borderColor: "color-mix(in oklch, var(--accent) 32%, var(--border))",
+        background:
+          "linear-gradient(145deg, color-mix(in oklch, var(--accent) 10%, var(--bg-surface)) 0%, var(--bg-surface) 62%)",
+      }}
     >
-      <h2
-        id="channels-start-prompt-heading"
-        className="m-0 text-base font-semibold text-[var(--text)]"
-      >
-        Build this with your coding agent
-      </h2>
-      <p className="mt-1.5 mb-0 text-sm leading-relaxed text-[var(--text-secondary)]">
-        Paste this into your coding agent. It installs the onboarding skill and
-        walks the whole setup with you — scaffolding the project, building the
-        agent, and connecting it to {channelLabel}.
-      </p>
+      {/* Header mirrors the featured-Accordion treatment: icon, eyebrow,
+          title, supporting line, and the action on the right at wide widths.
+          The action lives here rather than beside the command so the command
+          gets the panel's full width — at half width it wrapped mid-flag. */}
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 flex-1 items-start gap-4">
+          <span
+            aria-hidden="true"
+            className="shell-docs-radius-control flex h-12 w-12 shrink-0 items-center justify-center bg-[var(--accent)] text-[var(--primary-foreground)] shadow-[var(--shadow-control)]"
+          >
+            <SquareTerminal className="h-5 w-5" />
+          </span>
 
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-stretch">
-        <p className="shell-docs-radius-control m-0 min-w-0 flex-1 overflow-x-auto border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap text-[var(--text-secondary)]">
-          {prompt}
-        </p>
+          <div className="min-w-0">
+            <span className="mb-1.5 block font-mono text-[11px] font-semibold tracking-[0.12em] text-[var(--accent)] uppercase">
+              Ready-to-use starter prompt
+            </span>
+            <h2
+              id="channels-start-prompt-heading"
+              className="m-0 text-lg leading-snug font-semibold tracking-[-0.015em] text-[var(--text)] sm:text-xl"
+            >
+              Start building with your coding agent
+            </h2>
+            <p className="mt-1.5 mb-0 max-w-[62ch] text-sm leading-relaxed text-[var(--text-secondary)]">
+              Paste this into your coding agent. It installs the onboarding
+              skill and walks the whole setup with you — scaffolding the
+              project, building the agent, and connecting it to {channelLabel}.
+            </p>
+          </div>
+        </div>
 
         <button
           type="button"
           onClick={copyPrompt}
-          className="shell-docs-radius-control inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:self-start"
+          className="shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto"
         >
+          <Copy aria-hidden="true" className="h-4 w-4" />
           {copyState === "copied"
             ? "Copied"
             : copyState === "error"
@@ -117,6 +143,17 @@ export function ChannelsStartPrompt({
               : "Copy prompt"}
         </button>
       </div>
+
+      {/* Exactly the text the button copies, rendered as the sentence it is.
+          Shown as a command in a code block with the ask underneath, it read
+          as a shell command with a footnote — which made "Copy prompt" look
+          like it was lying. Only the command is monospace; the prose around it
+          wraps like prose. */}
+      <p className="shell-docs-radius-control mt-4 mb-0 border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5 text-sm leading-relaxed text-[var(--text)]">
+        {"Run "}
+        <code className="font-mono text-xs text-[var(--text)]">{command}</code>
+        {`, then ${instruction}`}
+      </p>
 
       <span aria-live="polite" className="sr-only">
         {copyState === "copied"

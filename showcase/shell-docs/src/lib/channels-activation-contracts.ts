@@ -70,5 +70,32 @@ export function buildChannelsActivationPrompt({
   channelLabel: string;
   backendLabel: string;
 }): string {
-  return `Run \`${CHANNELS_ONBOARDING_INSTALL_COMMAND}\`, then follow that skill to build my first CopilotKit Channels agent and connect it to ${channelLabel} using ${backendLabel}.`;
+  const { command, instruction } = buildChannelsActivationPromptParts({
+    channelLabel,
+    backendLabel,
+  });
+
+  return `Run \`${command}\`, then ${instruction}`;
+}
+
+/**
+ * Split so the UI can show the command as a command and the ask as prose. A
+ * single wrapped monospace paragraph reads like a rendering bug, and the two
+ * halves are genuinely different things: one is typed by a machine, one is
+ * addressed to it.
+ *
+ * `instruction` carries no leading word, so the clipboard string can join it
+ * after a comma while the UI leads with a capitalised "Then" on its own line.
+ */
+export function buildChannelsActivationPromptParts({
+  channelLabel,
+  backendLabel,
+}: {
+  channelLabel: string;
+  backendLabel: string;
+}): { command: string; instruction: string } {
+  return {
+    command: CHANNELS_ONBOARDING_INSTALL_COMMAND,
+    instruction: `follow that skill to build your first CopilotKit Channels agent and connect it to ${channelLabel} using ${backendLabel}.`,
+  };
 }
