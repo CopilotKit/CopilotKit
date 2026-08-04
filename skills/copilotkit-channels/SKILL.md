@@ -5,10 +5,11 @@ description: >
   Teams: customising the Channel a CLI-scaffolded project already ships, or — for a
   project the CLI did not generate — writing the Channel declaration, the
   long-running host, and the awaited activation call. Teams provider setup is in
-  scope, because the CLI or dashboard wizard performs it. Creating a Slack app for
-  the first time is not: if no Slack app exists yet, use setup-slack-channel for
-  the provider half and return here for the code.
-version: 1.1.0
+  scope, because the CLI or dashboard wizard performs it. A developer's first
+  Channels agent is not: if there is no working agent, Channel, or provider app
+  yet, use setup-slack-channel to build and prove that first round trip, then
+  return here for code-level customisation.
+version: 1.2.0
 ---
 
 # CopilotKit Channels
