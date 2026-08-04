@@ -1,13 +1,20 @@
 import { parseInspectorMetadataV1 } from "@copilotkit/shared";
-import type { RuntimeLicenseStatus } from "@copilotkit/shared";
+import type {
+  InspectorMetadataV1,
+  RuntimeLicenseStatus,
+} from "@copilotkit/shared";
 
 export type InspectorLicenseState = "valid" | "none" | "expired" | "unknown";
 
 export type InspectorMetadataAction = Readonly<{
   kind: "manage_plan" | "renew" | "enable_intelligence";
   url: string;
-  label: "Manage plan" | "Renew" | "Enable Intelligence";
+  label: "Manage Your Plan" | "Renew" | "Enable Intelligence";
 }>;
+
+export type InspectorThreadsUsage = Readonly<
+  NonNullable<InspectorMetadataV1["usage"]>
+>;
 
 /** Render-safe metadata slots for the Web Inspector. */
 export type InspectorMetadataProjection = Readonly<{
@@ -19,8 +26,14 @@ export type InspectorMetadataProjection = Readonly<{
     code: string;
     label: string;
   }>;
+  usage?: InspectorThreadsUsage;
   licenseState: InspectorLicenseState;
   hasLicenseConflict: boolean;
+  threadsFooterAction?: InspectorMetadataAction;
+  /**
+   * Transitional bridge for the existing account-header consumer.
+   * Remove when the Threads footer consumes `threadsFooterAction`.
+   */
   headerAction?: InspectorMetadataAction;
   lockedAction?: InspectorMetadataAction;
 }>;
@@ -52,14 +65,20 @@ function projectAction(
         readonly url: string;
       }
     | undefined,
-): Pick<InspectorMetadataProjection, "headerAction" | "lockedAction"> {
+): Pick<
+  InspectorMetadataProjection,
+  "threadsFooterAction" | "headerAction" | "lockedAction"
+> {
   if (state === "valid" && action?.kind === "manage_plan") {
+    const threadsFooterAction: InspectorMetadataAction = {
+      kind: action.kind,
+      url: action.url,
+      label: "Manage Your Plan",
+    };
+
     return {
-      headerAction: {
-        kind: action.kind,
-        url: action.url,
-        label: "Manage plan",
-      },
+      threadsFooterAction,
+      headerAction: threadsFooterAction,
     };
   }
 
@@ -88,7 +107,7 @@ function projectAction(
       lockedAction: {
         kind: action.kind,
         url: action.url,
-        label: "Manage plan",
+        label: "Manage Your Plan",
       },
     };
   }
@@ -97,8 +116,8 @@ function projectAction(
 }
 
 /**
- * Re-parses Core metadata at the UI boundary and projects independent,
- * render-safe slots. Usage is deliberately excluded until its UI gate opens.
+ * Re-parses Core metadata at the UI boundary and exposes independent,
+ * render-safe slots without display math.
  */
 export function projectInspectorMetadata(
   value: unknown,
@@ -121,6 +140,7 @@ export function projectInspectorMetadata(
       ? {}
       : { identity: metadata.identity }),
     ...(metadata?.plan === undefined ? {} : { plan: metadata.plan }),
+    ...(metadata?.usage === undefined ? {} : { usage: metadata.usage }),
     licenseState,
     hasLicenseConflict,
     ...(hasLicenseConflict

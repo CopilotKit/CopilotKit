@@ -484,7 +484,7 @@ test("telemetry delivery failures do not break metadata rendering or action clic
     expect(
       root?.querySelector('[data-inspector-metadata="identity"]'),
     ).not.toBeNull();
-    expect(action?.textContent).toContain("Manage plan");
+    expect(action?.textContent).toContain("Manage Your Plan");
   } finally {
     context.teardown();
   }

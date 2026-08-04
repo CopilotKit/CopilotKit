@@ -19,6 +19,7 @@ function metadata(overrides: Record<string, unknown> = {}): unknown {
     usage: {
       used: 148,
       limit: { kind: "finite", value: 200 },
+      expiringSoonCount: 37,
     },
     ...overrides,
   };
@@ -33,20 +34,32 @@ function emptyProjection(
   };
 }
 
-test("projects normalized identity, plan, license, and a trusted header action", () => {
+test("projects normalized metadata, usage, and one trusted manage action", () => {
   const result = projectInspectorMetadata(metadata(), "valid");
 
   expect(result).toStrictEqual({
     identity: { organizationName: "Acme Inc.", projectName: "Support" },
     plan: { code: "enterprise", label: "Enterprise" },
+    usage: {
+      used: 148,
+      limit: { kind: "finite", value: 200 },
+      expiringSoonCount: 37,
+    },
     licenseState: "valid",
     hasLicenseConflict: false,
+    threadsFooterAction: {
+      kind: "manage_plan",
+      url: "https://cloud.copilotkit.ai/settings/billing",
+      label: "Manage Your Plan",
+    },
     headerAction: {
       kind: "manage_plan",
       url: "https://cloud.copilotkit.ai/settings/billing",
-      label: "Manage plan",
+      label: "Manage Your Plan",
     },
   });
+  expect(result.headerAction).toBe(result.threadsFooterAction);
+  expect(result.lockedAction).toBeUndefined();
 });
 
 test("keeps valid metadata modules when neighboring modules are missing or malformed", () => {
@@ -61,6 +74,11 @@ test("keeps valid metadata modules when neighboring modules are missing or malfo
 
   expect(result).toStrictEqual({
     plan: { code: "developer", label: "Developer" },
+    usage: {
+      used: 148,
+      limit: { kind: "finite", value: 200 },
+      expiringSoonCount: 37,
+    },
     licenseState: "valid",
     hasLicenseConflict: false,
   });
@@ -72,6 +90,7 @@ test("renders identity only as a complete organization and project pair", () => 
       identity: { organizationName: "Acme", projectName: " " },
       plan: undefined,
       action: undefined,
+      usage: undefined,
     }),
     "valid",
   );
@@ -80,6 +99,7 @@ test("renders identity only as a complete organization and project pair", () => 
       identity: { organizationName: " ", projectName: "Support" },
       plan: undefined,
       action: undefined,
+      usage: undefined,
     }),
     "valid",
   );
@@ -94,6 +114,7 @@ test("omits a blank plan instead of inventing a placeholder or Free tier", () =>
       identity: undefined,
       plan: { code: "free", label: "  " },
       action: undefined,
+      usage: undefined,
     }),
     "valid",
   );
@@ -115,26 +136,41 @@ test.each([
   expect(result).toStrictEqual(emptyProjection(expected));
 });
 
+test("projects an action-only valid manage action into one canonical footer slot", () => {
+  const url = "https://cloud.copilotkit.ai/settings/billing";
+  const result = projectInspectorMetadata(
+    metadata({
+      identity: undefined,
+      plan: undefined,
+      license: undefined,
+      action: { kind: "manage_plan", url },
+      usage: undefined,
+    }),
+    "valid",
+  );
+
+  expect(result.threadsFooterAction).toStrictEqual({
+    kind: "manage_plan",
+    url,
+    label: "Manage Your Plan",
+  });
+  expect(result.headerAction).toBe(result.threadsFooterAction);
+  expect(result.usage).toBeUndefined();
+  expect(result.lockedAction).toBeUndefined();
+});
+
 test.each([
-  ["valid manage plan", "valid", "manage_plan", "headerAction", "Manage plan"],
   [
     "none enable Intelligence",
     "none",
     "enable_intelligence",
-    "lockedAction",
     "Enable Intelligence",
   ],
-  ["expired renew", "expired", "renew", "lockedAction", "Renew"],
-  [
-    "expired manage plan",
-    "expired",
-    "manage_plan",
-    "lockedAction",
-    "Manage plan",
-  ],
+  ["expired renew", "expired", "renew", "Renew"],
+  ["expired manage plan", "expired", "manage_plan", "Manage Your Plan"],
 ] as const)(
-  "places the %s action in the intended slot",
-  (_name, state, kind, slot, label) => {
+  "places the %s action in the locked slot only",
+  (_name, state, kind, label) => {
     const url = `https://cloud.copilotkit.ai/${kind}`;
     const result = projectInspectorMetadata(
       metadata({
@@ -142,6 +178,7 @@ test.each([
         plan: undefined,
         license: { state },
         action: { kind, url },
+        usage: undefined,
       }),
       state,
     );
@@ -149,7 +186,7 @@ test.each([
     expect(result).toStrictEqual({
       licenseState: state,
       hasLicenseConflict: false,
-      [slot]: { kind, url, label },
+      lockedAction: { kind, url, label },
     });
   },
 );
@@ -173,6 +210,7 @@ test.each([
         kind,
         url: "https://cloud.copilotkit.ai/settings/billing",
       },
+      usage: undefined,
     }),
     state,
   );
@@ -189,9 +227,17 @@ test("uses Runtime copy and suppresses metadata actions for a known disagreement
   expect(result).toStrictEqual({
     identity: { organizationName: "Acme Inc.", projectName: "Support" },
     plan: { code: "enterprise", label: "Enterprise" },
+    usage: {
+      used: 148,
+      limit: { kind: "finite", value: 200 },
+      expiringSoonCount: 37,
+    },
     licenseState: "expired",
     hasLicenseConflict: true,
   });
+  expect(result.threadsFooterAction).toBeUndefined();
+  expect(result.headerAction).toBeUndefined();
+  expect(result.lockedAction).toBeUndefined();
 });
 
 test("metadata unknown is not a known disagreement and does not fall back", () => {
@@ -200,6 +246,7 @@ test("metadata unknown is not a known disagreement and does not fall back", () =
       identity: undefined,
       plan: undefined,
       license: { state: "unknown" },
+      usage: undefined,
     }),
     "valid",
   );
@@ -218,6 +265,31 @@ test("missing and unsupported metadata preserve the normalized Runtime state", (
   expect(unsupported).toStrictEqual(emptyProjection("expired"));
 });
 
+test.each([
+  [{ code: "enterprise", label: "Enterprise" }],
+  [{ code: "team-self-hosted", label: "Team Self-Hosted" }],
+] as const)("does not infer an action from the %s plan", (plan) => {
+  const result = projectInspectorMetadata(
+    metadata({
+      identity: undefined,
+      plan,
+      license: undefined,
+      action: undefined,
+      usage: undefined,
+    }),
+    "valid",
+  );
+
+  expect(result).toStrictEqual({
+    plan,
+    licenseState: "valid",
+    hasLicenseConflict: false,
+  });
+  expect(result.threadsFooterAction).toBeUndefined();
+  expect(result.headerAction).toBeUndefined();
+  expect(result.lockedAction).toBeUndefined();
+});
+
 test("preserves the parser-approved action href without adding query data", () => {
   const url = "https://cloud.copilotkit.ai/organizations/acme/billing";
   const result = projectInspectorMetadata(
@@ -225,7 +297,9 @@ test("preserves the parser-approved action href without adding query data", () =
     "valid",
   );
 
+  expect(result.threadsFooterAction?.url).toBe(url);
   expect(result.headerAction?.url).toBe(url);
+  expect(result.headerAction).toBe(result.threadsFooterAction);
 });
 
 test.each([
@@ -240,14 +314,124 @@ test.each([
     "valid",
   );
 
+  expect(result.threadsFooterAction).toBeUndefined();
   expect(result.headerAction).toBeUndefined();
+  expect(result.lockedAction).toBeUndefined();
 });
 
-test("never projects usage, including sentinel values", () => {
-  const result = projectInspectorMetadata(metadata(), "valid");
-  const serialized = JSON.stringify(result);
+test.each([
+  [
+    "finite under-cap with expiry",
+    {
+      used: 148,
+      limit: { kind: "finite", value: 200 },
+      expiringSoonCount: 37,
+    },
+    true,
+  ],
+  [
+    "finite over-cap with known zero expiry",
+    {
+      used: 241,
+      limit: { kind: "finite", value: 200 },
+      expiringSoonCount: 0,
+    },
+    true,
+  ],
+  [
+    "unlimited with known zero expiry",
+    {
+      used: 412,
+      limit: { kind: "unlimited" },
+      expiringSoonCount: 0,
+    },
+    true,
+  ],
+  [
+    "unknown with absent expiry",
+    { used: 17, limit: { kind: "unknown" } },
+    false,
+  ],
+] as const)(
+  "projects %s usage unchanged",
+  (_name, usage, expectedOwnExpiry) => {
+    const result = projectInspectorMetadata(
+      metadata({
+        identity: undefined,
+        plan: undefined,
+        license: undefined,
+        action: undefined,
+        usage,
+      }),
+      "valid",
+    );
 
-  expect(serialized).not.toContain("148");
-  expect(serialized).not.toContain("200");
-  expect(serialized).not.toContain("usage");
+    expect(result).toStrictEqual({
+      usage,
+      licenseState: "valid",
+      hasLicenseConflict: false,
+    });
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        result.usage ?? {},
+        "expiringSoonCount",
+      ),
+    ).toBe(expectedOwnExpiry);
+  },
+);
+
+test("drops malformed expiry without dropping base usage or a valid sibling", () => {
+  const result = projectInspectorMetadata(
+    metadata({
+      identity: undefined,
+      plan: { code: "developer", label: " Developer " },
+      license: undefined,
+      action: undefined,
+      usage: {
+        used: 21,
+        limit: { kind: "finite", value: 50 },
+        expiringSoonCount: "37",
+      },
+    }),
+    "valid",
+  );
+
+  expect(result).toStrictEqual({
+    plan: { code: "developer", label: "Developer" },
+    usage: { used: 21, limit: { kind: "finite", value: 50 } },
+    licenseState: "valid",
+    hasLicenseConflict: false,
+  });
+  expect(
+    Object.prototype.hasOwnProperty.call(
+      result.usage ?? {},
+      "expiringSoonCount",
+    ),
+  ).toBe(false);
 });
+
+test.each([
+  ["invalid used count", { used: -1, limit: { kind: "finite", value: 200 } }],
+  ["invalid finite limit", { used: 148, limit: { kind: "finite", value: 0 } }],
+] as const)(
+  "drops usage with an %s while retaining a valid sibling",
+  (_name, usage) => {
+    const result = projectInspectorMetadata(
+      metadata({
+        identity: undefined,
+        plan: { code: "developer", label: " Developer " },
+        license: undefined,
+        action: undefined,
+        usage,
+      }),
+      "valid",
+    );
+
+    expect(result).toStrictEqual({
+      plan: { code: "developer", label: "Developer" },
+      licenseState: "valid",
+      hasLicenseConflict: false,
+    });
+    expect(result.usage).toBeUndefined();
+  },
+);

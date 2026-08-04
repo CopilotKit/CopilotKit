@@ -48,6 +48,7 @@ function fullMetadata(
     usage: {
       used: 148,
       limit: { kind: "finite", value: 200 },
+      expiringSoonCount: 37,
     },
   };
 }
@@ -195,7 +196,7 @@ async function setup(options: SetupOptions = {}): Promise<InspectorContext> {
   };
 }
 
-test("renders the identity pair, plan, and exact trusted manage link in the header", async () => {
+test("renders the trusted manage link through the transitional header bridge", async () => {
   const context = await setup({
     metadata: fullMetadata(),
     runtimeLicense: "valid",
@@ -214,7 +215,10 @@ test("renders the identity pair, plan, and exact trusted manage link in the head
       "Acme Inc. / Support",
     );
     expect(plan?.textContent).toContain("Enterprise");
-    expect(action?.textContent?.trim()).toBe("Manage plan");
+    expect(action?.textContent?.trim()).toBe("Manage Your Plan");
+    expect(action?.getAttribute("aria-label")).toBe(
+      "Manage Your Plan (opens in a new tab)",
+    );
     expect(action?.href).toBe(
       "https://cloud.copilotkit.ai/actions/manage_plan",
     );
@@ -225,7 +229,7 @@ test("renders the identity pair, plan, and exact trusted manage link in the head
   }
 });
 
-test("keeps the header metadata action clickable inside the drag handle", async () => {
+test("keeps the transitional header bridge clickable inside the drag handle", async () => {
   const context = await setup({
     metadata: fullMetadata(),
     runtimeLicense: "valid",
@@ -488,7 +492,7 @@ test("metadata refresh rerenders without resetting the selected example or reque
   }
 });
 
-test("usage stays hidden while Threads support and debug navigation remain intact", async () => {
+test("metadata usage stays independent from Threads capability and debug navigation", async () => {
   const context = await setup({
     metadata: fullMetadata("none", "enable_intelligence"),
     runtimeLicense: "none",
@@ -499,17 +503,29 @@ test("usage stays hidden while Threads support and debug navigation remain intac
     await context.selectTab("Threads");
 
     const root = context.inspector.shadowRoot!;
-    const text =
-      root
-        .querySelector(".inspector-window")
-        ?.textContent?.replace(/\s+/g, " ") ?? "";
+    const usage = context.core.inspectorMetadata?.usage;
     const talk = findControl(root, "Talk to an Engineer");
-    const lockedAction = root.querySelector(
+    const lockedAction = root.querySelector<HTMLAnchorElement>(
       '[data-inspector-action-placement="locked"]',
     );
-    expect(text).not.toContain("148/200");
-    expect(text).not.toContain("Expiring Soon");
-    expect(text).not.toContain("37");
+    expect(usage).toStrictEqual({
+      used: 148,
+      limit: { kind: "finite", value: 200 },
+      expiringSoonCount: 37,
+    });
+    expect(
+      Object.prototype.hasOwnProperty.call(usage ?? {}, "expiringSoonCount"),
+    ).toBe(true);
+    expect(root.textContent).toContain(
+      "Enable Intelligence to inspect Threads.",
+    );
+    expect(lockedAction?.textContent?.trim()).toBe("Enable Intelligence");
+    expect(lockedAction?.href).toBe(
+      "https://cloud.copilotkit.ai/actions/enable_intelligence",
+    );
+    expect(
+      context.requests.filter((url) => url.includes("/threads?")),
+    ).toHaveLength(0);
     expect(talk).toBeInstanceOf(HTMLAnchorElement);
     expect(talk).not.toBe(lockedAction);
     for (const label of [
