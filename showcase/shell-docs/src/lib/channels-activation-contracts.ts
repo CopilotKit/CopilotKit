@@ -40,7 +40,7 @@ export function getChannelsActivationGuideHref(
  * source lives in `CopilotKit/channels-sdk` and is mirrored into this repo's
  * `skills/` directory, which is what `copilotkit skills install` distributes.
  */
-export const CHANNELS_ONBOARDING_SKILL = "create-channels-agent";
+export const CHANNELS_ONBOARDING_SKILL = "setup-slack-channel";
 
 /**
  * Installs that skill without prompting. `-y` respects `--skill`, so this
