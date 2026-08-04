@@ -137,7 +137,8 @@ describe("syncPluginSkills", () => {
     // deletes it.
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-channels");
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("setup-slack-channel");
-    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(10);
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("channels-setup");
+    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(11);
   });
 
   // Version sync — the plugin version tracks packages/runtime/package.json.
