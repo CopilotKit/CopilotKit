@@ -36,7 +36,13 @@ const definitions = {
       runId: z.string(),
       subject: z.string(),
       requestedBy: z.string(),
-      status: z.enum(["queued", "running", "blocked", "completed", "cancelled"]),
+      status: z.enum([
+        "queued",
+        "running",
+        "blocked",
+        "completed",
+        "cancelled",
+      ]),
       steps: z.array(stepSchema),
       note: z.string().optional(),
     }),
@@ -49,7 +55,12 @@ type RunSummaryProps = {
   subject: string;
   requestedBy: string;
   status: RunStatus;
-  steps: { title: string; status: StepStatus; role: string; approver?: string }[];
+  steps: {
+    title: string;
+    status: StepStatus;
+    role: string;
+    approver?: string;
+  }[];
   note?: string;
 };
 
@@ -91,7 +102,9 @@ export const keelCatalog = createCatalog(
                 <span className="flex-1 text-sm text-ink">{step.title}</span>
                 <span className="text-xs text-ink-muted">{step.role}</span>
                 {step.approver ? (
-                  <span className="text-xs text-ink-muted">· {step.approver}</span>
+                  <span className="text-xs text-ink-muted">
+                    · {step.approver}
+                  </span>
                 ) : null}
                 <StatusPill status={step.status} />
               </li>

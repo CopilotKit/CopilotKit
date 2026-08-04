@@ -27,7 +27,9 @@ export function KnowledgePage() {
               <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
                 {space.label}
               </h2>
-              <p className="mt-0.5 text-sm text-ink-muted">{space.description}</p>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                {space.description}
+              </p>
             </div>
 
             <ul className="flex flex-col gap-2">

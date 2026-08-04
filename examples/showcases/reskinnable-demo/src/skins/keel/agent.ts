@@ -30,9 +30,7 @@ const searchKnowledgeTool = defineTool({
     "space: privacy, clinical, or vendor. Returns { passages, note }; when " +
     "passages is empty the note says nothing matched.",
   parameters: z.object({
-    query: z
-      .string()
-      .describe("The policy question, in the user's own words."),
+    query: z.string().describe("The policy question, in the user's own words."),
     space: z
       .enum(["privacy", "clinical", "vendor"])
       .optional()

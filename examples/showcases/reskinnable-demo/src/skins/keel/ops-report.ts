@@ -105,6 +105,17 @@ export function buildOpsReportOps(
   const components: Component[] = [];
   const rootChildren: string[] = [];
 
+  // De-duplicate the selections BEFORE expanding them. zod arrays do not
+  // deduplicate, and this tool is driven by an LLM: a plausible generation like
+  // kpis:["openRuns","openRuns"] would otherwise expand into duplicate component
+  // ids ("kpi-openRuns"), which are used as React key={id} in the Grid/Stack
+  // renderers AND as keys in the a2ui component map — colliding ids cause
+  // duplicate-key warnings and one map entry silently overwriting the other.
+  // `[...new Set(...)]` keeps first-occurrence order, so the module's
+  // deterministic ordering guarantee is preserved (dedupe never reorders).
+  const kpis = [...new Set(spec.kpis)];
+  const charts = [...new Set(spec.charts)];
+
   components.push({ id: "heading", component: "Heading", text: spec.title });
   rootChildren.push("heading");
 
@@ -118,8 +129,8 @@ export function buildOpsReportOps(
     rootChildren.push("summary");
   }
 
-  if (spec.kpis.length) {
-    const kpiIds = spec.kpis.map((metric) => {
+  if (kpis.length) {
+    const kpiIds = kpis.map((metric) => {
       const id = `kpi-${metric}`;
       components.push({
         id,
@@ -132,14 +143,14 @@ export function buildOpsReportOps(
     components.push({
       id: "kpi-grid",
       component: "Grid",
-      columns: Math.min(spec.kpis.length, 4),
+      columns: Math.min(kpis.length, 4),
       children: kpiIds,
     });
     rootChildren.push("kpi-grid");
   }
 
-  if (spec.charts.length) {
-    const chartIds = spec.charts.map((kind) => {
+  if (charts.length) {
+    const chartIds = charts.map((kind) => {
       const id = `chart-${kind}`;
       components.push({ id, component: "RunChart", kind });
       return id;
@@ -147,7 +158,7 @@ export function buildOpsReportOps(
     components.push({
       id: "chart-grid",
       component: "Grid",
-      columns: spec.charts.length >= 2 ? 2 : 1,
+      columns: charts.length >= 2 ? 2 : 1,
       children: chartIds,
     });
     rootChildren.push("chart-grid");

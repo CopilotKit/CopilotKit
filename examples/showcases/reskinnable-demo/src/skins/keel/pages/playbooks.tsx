@@ -45,7 +45,9 @@ export function PlaybooksPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {playbooks.map((playbook) => {
-            const gates = playbook.steps.filter((s) => s.requiresApproval).length;
+            const gates = playbook.steps.filter(
+              (s) => s.requiresApproval,
+            ).length;
             const roles = distinctRoles(playbook);
             const refs = distinctPolicyRefs(playbook);
             return (

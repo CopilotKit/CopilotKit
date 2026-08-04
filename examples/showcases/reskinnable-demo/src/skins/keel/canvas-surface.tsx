@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import {
   A2UIProvider,
@@ -39,10 +39,6 @@ const GAP = { sm: "gap-2", md: "gap-4", lg: "gap-6", xl: "gap-10" } as const;
 type TextRef = string | { path: string };
 const asText = (value: TextRef): string =>
   typeof value === "string" ? value : "";
-
-function Slot({ render }: { render: React.ReactNode }) {
-  return <>{render}</>;
-}
 
 /** Whole-minutes duration, or an em dash when no run has completed yet. */
 function formatDuration(ms: number | null): string {
@@ -153,7 +149,7 @@ const Stack = ({
 }: RendererProps<{ children: string[]; gap?: keyof typeof GAP }>) => (
   <div className={`flex flex-col ${GAP[props.gap ?? "md"]}`}>
     {props.children?.map((id) => (
-      <Slot key={id} render={children(id)} />
+      <Fragment key={id}>{children(id)}</Fragment>
     ))}
   </div>
 );
@@ -169,7 +165,7 @@ const Grid = ({
     }}
   >
     {props.children?.map((id) => (
-      <Slot key={id} render={children(id)} />
+      <Fragment key={id}>{children(id)}</Fragment>
     ))}
   </div>
 );
@@ -225,7 +221,10 @@ const KpiCard = ({
   );
 };
 
-type ChartKind = "throughputByPlaybook" | "bottleneckByStep" | "statusBreakdown";
+type ChartKind =
+  | "throughputByPlaybook"
+  | "bottleneckByStep"
+  | "statusBreakdown";
 
 const RUN_STATUS_ORDER = [
   "queued",
@@ -276,9 +275,7 @@ const RunsTable = ({ props }: RendererProps<{ filter?: RunFilter }>) => {
   const data = useSkinData<KeelData>();
   const filter = props.filter ?? "all";
   const rows =
-    filter === "all"
-      ? data.runs
-      : data.runs.filter((r) => r.status === filter);
+    filter === "all" ? data.runs : data.runs.filter((r) => r.status === filter);
   if (!rows.length) {
     return (
       <div className="rounded-md border border-hairline bg-surface p-4 text-sm text-ink-muted">
@@ -380,13 +377,39 @@ export function KeelCanvasSurface() {
 function CanvasInner() {
   const { operations, surfaceId } = useReportSurface();
   const hasContent = operations.length > 0 && !!surfaceId;
+  // Processing failures surface here (full-region), not just to the console —
+  // the canvas owns the whole page, so a blank region with no explanation is
+  // the worst outcome. Cleared on the next successful processMessages.
+  const [error, setError] = useState<string | null>(null);
+
+  // The error panel describes ONE surface's failed render, and only
+  // SurfaceMessageProcessor clears it (via onError(null)) — but that component
+  // renders only while surfaceId is truthy. If the latest a2ui-surface activity
+  // arrives with empty operations, surfaceId goes null and the processor
+  // unmounts, leaving nothing to retry and no one to clear the panel. Reset the
+  // error whenever surfaceId changes (React's sanctioned "adjust state during
+  // render" pattern — no effect, so no cascading re-render) so the panel can
+  // never outlive the surface it describes; the retry within a single surface
+  // is unaffected (surfaceId is unchanged, so SurfaceMessageProcessor still owns
+  // clearing it on the next successful processMessages).
+  const [prevSurfaceId, setPrevSurfaceId] = useState(surfaceId);
+  if (surfaceId !== prevSurfaceId) {
+    setPrevSurfaceId(surfaceId);
+    setError(null);
+  }
 
   return (
     <>
       {surfaceId ? (
-        <SurfaceMessageProcessor operations={operations} surfaceId={surfaceId} />
+        <SurfaceMessageProcessor
+          operations={operations}
+          surfaceId={surfaceId}
+          onError={setError}
+        />
       ) : null}
-      {hasContent ? (
+      {error ? (
+        <CanvasError message={error} />
+      ) : hasContent ? (
         <div className="h-full overflow-y-auto">
           <div className="a2ui-surface p-6 md:p-8" data-testid="a2ui-surface">
             <A2UIRenderer surfaceId={surfaceId} />
@@ -397,18 +420,50 @@ function CanvasInner() {
   );
 }
 
+/** Full-region, token-styled failure state for a report that could not render. */
+function CanvasError({ message }: { message: string }) {
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="p-6 md:p-8">
+        <div
+          className="rounded-lg border border-hairline bg-negative-soft p-6 shadow-soft"
+          data-testid="a2ui-surface-error"
+        >
+          <h2 className="text-lg font-semibold text-negative">
+            Report failed to render
+          </h2>
+          <p className="mt-2 text-sm text-ink-muted">
+            The operations report could not be processed. It will retry
+            automatically when the agent sends a corrected report.
+          </p>
+          <p className="mt-4 rounded-md border border-hairline bg-surface p-3 font-mono text-xs text-ink-muted">
+            {message}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Feeds the surface's operations into the A2UI provider. The activity content
  * carries the FULL operation list on each snapshot, so we strip a duplicate
  * createSurface once the surface exists (the MessageProcessor throws on it) and
  * skip re-processing identical op lists. Mirrors banking's canvas.
+ *
+ * The op-list hash is latched only AFTER a successful processMessages, so a
+ * throw stays retryable and a corrected op list self-heals; the failure is
+ * reported to the parent via `onError` (which renders a visible error state)
+ * rather than swallowed into the console.
  */
 function SurfaceMessageProcessor({
   operations,
   surfaceId,
+  onError,
 }: {
   operations: A2UIOp[];
   surfaceId: string;
+  onError: (message: string | null) => void;
 }) {
   const { processMessages, getSurface } = useA2UIActions();
   const lastHashRef = useRef("");
@@ -417,7 +472,6 @@ function SurfaceMessageProcessor({
     if (!operations.length) return;
     const hash = JSON.stringify(operations);
     if (hash === lastHashRef.current) return;
-    lastHashRef.current = hash;
 
     const isExisting = !!getSurface(surfaceId);
     const ops = isExisting
@@ -426,10 +480,17 @@ function SurfaceMessageProcessor({
     if (!ops.length) return;
     try {
       processMessages(ops as Array<Record<string, unknown>>);
+      // Latch only on success so a failed op list remains retryable.
+      lastHashRef.current = hash;
+      onError(null);
     } catch (err) {
-      console.warn("[keel-canvas] processMessages threw:", err);
+      onError(
+        err instanceof Error
+          ? err.message
+          : "The operations report could not be processed.",
+      );
     }
-  }, [operations, processMessages, getSurface, surfaceId]);
+  }, [operations, processMessages, getSurface, surfaceId, onError]);
 
   return null;
 }

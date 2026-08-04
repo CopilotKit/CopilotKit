@@ -29,7 +29,6 @@ export const keelSuggestions: Suggestion[] = [
   },
   {
     title: "Where are we stuck?",
-    message:
-      "Where are requests getting stuck? Build me a view on the canvas.",
+    message: "Where are requests getting stuck? Build me a view on the canvas.",
   },
 ];
