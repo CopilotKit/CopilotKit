@@ -11,6 +11,13 @@ response, Core loads the optional `InspectorMetadataV1` value in the background.
 The runtime connection and agent notifications finish first, so a slow or
 unavailable metadata route cannot delay the app.
 
+Core exposes the object returned by Shared normalization unchanged through the
+getter and subscriber event. Older runtimes may omit
+`usage.expiringSoonCount`; that absence remains valid V1 usage. A value of `0`
+means known zero and stays different from absence. Shared omits a malformed
+expiry leaf without removing valid `used`, `limit`, or sibling modules. Core
+does not calculate or rebuild expiry and does not require a V2 schema.
+
 Read the latest value with `inspectorMetadata`, refresh it without reconnecting,
 or subscribe to changes:
 

@@ -1,6 +1,7 @@
 import { expect, test, vi } from "vitest";
 import type { RuntimeInfo } from "@copilotkit/shared";
 import type { InspectorMetadataV1 } from "../types";
+import type { CopilotKitCoreSubscriber } from "../core";
 import { CopilotKitCore, CopilotKitCoreRuntimeConnectionStatus } from "../core";
 import { waitForCondition as waitFor } from "./test-utils";
 
@@ -23,6 +24,10 @@ type RuntimeInfoOverrides = {
   inspectorMetadata?: boolean;
   version?: string;
 };
+
+type InspectorMetadataChangedEvent = Parameters<
+  NonNullable<CopilotKitCoreSubscriber["onInspectorMetadataChanged"]>
+>[0];
 
 type SetupOptions = {
   runtimeUrl?: string;
@@ -63,6 +68,18 @@ function metadata(label: string): InspectorMetadataV1 {
     usage: {
       used: label.length,
       limit: { kind: "finite", value: 100 },
+    },
+  };
+}
+
+function expiryMetadata(expiringSoonCount?: number): InspectorMetadataV1 {
+  return {
+    schemaVersion: 1,
+    plan: { code: "free", label: "Free" },
+    usage: {
+      used: 148,
+      limit: { kind: "finite", value: 200 },
+      ...(expiringSoonCount === undefined ? {} : { expiringSoonCount }),
     },
   };
 }
@@ -255,6 +272,93 @@ test("a capable runtime updates the getter and subscribers until unsubscribe", a
 
     expect(context.core.inspectorMetadata).toEqual(second);
     expect(observed).toEqual([first]);
+  } finally {
+    subscription.unsubscribe();
+    context.teardown();
+  }
+});
+
+test("manual refresh publishes each optional expiry snapshot", async () => {
+  const absent = expiryMetadata();
+  const zero = expiryMetadata(0);
+  const positive = expiryMetadata(37);
+  const malformed = {
+    schemaVersion: 1,
+    plan: { code: "free", label: "Free" },
+    usage: {
+      used: 148,
+      limit: { kind: "finite", value: 200 },
+      expiringSoonCount: "37",
+    },
+  };
+  const context = setup({
+    metadataResponses: [
+      jsonResponse(absent),
+      jsonResponse(zero),
+      jsonResponse(positive),
+      jsonResponse(malformed),
+    ],
+  });
+  const observed: Array<{
+    inspectorMetadata: InspectorMetadataV1 | undefined;
+    matchesGetter: boolean;
+    ownsExpiringSoonCount: boolean;
+  }> = [];
+  const onInspectorMetadataChanged = vi.fn(
+    ({ copilotkit, inspectorMetadata }: InspectorMetadataChangedEvent) => {
+      observed.push({
+        inspectorMetadata,
+        matchesGetter: inspectorMetadata === copilotkit.inspectorMetadata,
+        ownsExpiringSoonCount: Object.prototype.hasOwnProperty.call(
+          inspectorMetadata?.usage ?? {},
+          "expiringSoonCount",
+        ),
+      });
+    },
+  );
+  const subscription = context.core.subscribe({
+    onInspectorMetadataChanged,
+  });
+
+  try {
+    context.core.connect();
+    await waitFor(() => observed.length === 1);
+
+    await context.core.refreshInspectorMetadata();
+    await waitFor(() => observed.length === 2);
+    await context.core.refreshInspectorMetadata();
+    await waitFor(() => observed.length === 3);
+    await context.core.refreshInspectorMetadata();
+    await waitFor(() => observed.length === 4);
+
+    expect(context.metadataRequests()).toHaveLength(4);
+    expect(observed).toStrictEqual([
+      {
+        inspectorMetadata: absent,
+        matchesGetter: true,
+        ownsExpiringSoonCount: false,
+      },
+      {
+        inspectorMetadata: zero,
+        matchesGetter: true,
+        ownsExpiringSoonCount: true,
+      },
+      {
+        inspectorMetadata: positive,
+        matchesGetter: true,
+        ownsExpiringSoonCount: true,
+      },
+      {
+        inspectorMetadata: absent,
+        matchesGetter: true,
+        ownsExpiringSoonCount: false,
+      },
+    ]);
+    expect(onInspectorMetadataChanged).toHaveBeenCalledTimes(4);
+    expect(onInspectorMetadataChanged).toHaveBeenLastCalledWith({
+      copilotkit: context.core,
+      inspectorMetadata: context.core.inspectorMetadata,
+    });
   } finally {
     subscription.unsubscribe();
     context.teardown();
