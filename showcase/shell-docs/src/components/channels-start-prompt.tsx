@@ -17,8 +17,7 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { Check, Copy } from "lucide-react";
-import { Accordion } from "./mdx-components";
+import { Copy, SquareTerminal } from "lucide-react";
 import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
@@ -47,7 +46,6 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
   );
   const panelRef = React.useRef<HTMLDivElement | null>(null);
   const viewedRef = React.useRef(false);
-  const expandedRef = React.useRef(false);
 
   // This component only renders on channel-scoped pages, so anything that is
   // not Teams is the Slack variant.
@@ -102,16 +100,6 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel]);
 
-  // Expanding is where a disclosure loses people, and neither `viewed` nor
-  // `promptCopied` can see it: a reader who never opened the panel looks
-  // identical to one who opened it and walked away. Fires once.
-  function handleToggle(event: React.SyntheticEvent<HTMLDivElement>) {
-    const details = (event.target as HTMLElement).closest("details");
-    if (!details?.open || expandedRef.current) return;
-    expandedRef.current = true;
-    capture(CHANNELS_ACTIVATION_EVENTS.promptExpanded, analyticsProperties);
-  }
-
   async function copyPrompt() {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
 
@@ -135,58 +123,51 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
     <div
       ref={panelRef}
       data-testid="channels-start-prompt"
-      onToggle={handleToggle}
+      className="shell-docs-radius-surface not-prose my-6 border border-[var(--border)] bg-[var(--bg-elevated)] p-4 shadow-[var(--shadow-control)]"
     >
-      <Accordion
-        featured
-        title="Start building with your coding agent"
-        description={`Give your local coding agent a guided path from a blank directory to a working ${channelLabel} channel.`}
-      >
-        <p className="mt-0 mb-3">
-          It walks your agent through the whole setup — choosing a framework,
-          scaffolding the project, building the agent, and connecting it to{" "}
-          {channelLabel}.
-        </p>
+      {/* No disclosure. The payload is one action, so there is nothing to reveal
+          — and the same in-content panel idiom as `OpsPlatformCTA`: neutral
+          surface, `--border`, accent carried only by a small glyph. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <SquareTerminal
+            aria-hidden="true"
+            className="mt-0.5 h-5 w-5 shrink-0 text-[var(--accent)]"
+          />
 
-        <div className="shell-docs-radius-control relative border border-[var(--border)] bg-[var(--bg-elevated)] p-3">
-          {/* Wraps rather than scrolls. The docs' usual code block scrolls
-              horizontally, which is right for code but hid half of this behind
-              the overflow — and the point of the disclosure is that a reader can
-              read the whole prompt before copying it. `pe-20` keeps every line
-              clear of the copy button. */}
-          <pre className="m-0 bg-transparent p-0 pe-20 text-xs leading-relaxed break-words whitespace-pre-wrap">
-            <code className="font-mono text-[var(--text)]">
-              {CHANNELS_BUILD_PROMPT}
-            </code>
-          </pre>
-
-          <button
-            type="button"
-            onClick={copyPrompt}
-            aria-label="Copy the starter prompt"
-            className="shell-docs-radius-control absolute top-2 right-2 inline-flex h-8 cursor-pointer items-center gap-1.5 border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-xs font-semibold text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none"
-          >
-            {copyState === "copied" ? (
-              <Check aria-hidden="true" className="h-3.5 w-3.5" />
-            ) : (
-              <Copy aria-hidden="true" className="h-3.5 w-3.5" />
-            )}
-            {copyState === "copied"
-              ? "Copied"
-              : copyState === "error"
-                ? "Copy blocked"
-                : "Copy"}
-          </button>
+          <div className="min-w-0">
+            <span className="block font-semibold text-[var(--text)]">
+              Start building with your coding agent
+            </span>
+            <span className="mt-1 block max-w-[62ch] text-sm leading-relaxed text-[var(--text-muted)]">
+              It walks your agent through the whole setup — choosing a
+              framework, scaffolding the project, building the agent, and
+              connecting it to {channelLabel}.
+            </span>
+          </div>
         </div>
 
-        <span aria-live="polite" className="sr-only">
+        <button
+          type="button"
+          onClick={copyPrompt}
+          className="shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto"
+        >
+          <Copy aria-hidden="true" className="h-4 w-4" />
           {copyState === "copied"
-            ? "Prompt copied"
+            ? "Copied"
             : copyState === "error"
-              ? "Prompt copy failed. Try again."
-              : ""}
-        </span>
-      </Accordion>
+              ? "Copy blocked"
+              : "Copy prompt"}
+        </button>
+      </div>
+
+      <span aria-live="polite" className="sr-only">
+        {copyState === "copied"
+          ? "Prompt copied"
+          : copyState === "error"
+            ? "Prompt copy failed. Try again."
+            : ""}
+      </span>
     </div>
   );
 }

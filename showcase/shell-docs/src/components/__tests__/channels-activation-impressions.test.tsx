@@ -158,9 +158,7 @@ describe("Channels activation impressions", () => {
     });
 
     render(<ChannelsStartPrompt />);
-    fireEvent.click(
-      screen.getByRole("button", { name: /Copy the starter prompt/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("Copied")).toBeTruthy();
@@ -174,9 +172,7 @@ describe("Channels activation impressions", () => {
     });
 
     render(<ChannelsStartPrompt />);
-    fireEvent.click(
-      screen.getByRole("button", { name: /Copy the starter prompt/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
 
     expect(await screen.findByText("Copy blocked")).toBeTruthy();
     expect(

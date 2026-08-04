@@ -90,87 +90,9 @@ describe("ChannelsActivationStrip", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        /Bring your agent into Slack or Microsoft Teams, with more platforms on the way\. Choose a channel and agent backend/,
+        /Copy this prompt and your coding agent builds your first\s+channel with you/,
       ),
     ).toBeTruthy();
-  });
-
-  it("updates the real guide route and captures only changed selections", () => {
-    renderStrip();
-
-    fireEvent.click(screen.getByRole("button", { name: "Choose a channel" }));
-    fireEvent.click(screen.getByRole("option", { name: /Microsoft Teams/ }));
-
-    let guide = screen.getByRole("link", { name: /Open setup guide/ });
-    expect(guide.getAttribute("href")).toBe("/teams/connect");
-    expect(analytics.capture).toHaveBeenCalledWith(
-      CHANNELS_ACTIVATION_EVENTS.channelSelected,
-      expect.objectContaining({
-        channel: "teams",
-        backend: "built-in-agent",
-        destination_path: "/teams/connect",
-      }),
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Choose an agent backend" }),
-    );
-    fireEvent.click(screen.getByRole("option", { name: /Mastra/ }));
-
-    guide = screen.getByRole("link", { name: /Open setup guide/ });
-    expect(guide.getAttribute("href")).toBe("/teams/mastra/connect");
-    expect(analytics.capture).toHaveBeenCalledWith(
-      CHANNELS_ACTIVATION_EVENTS.backendSelected,
-      expect.objectContaining({
-        channel: "teams",
-        backend: "mastra",
-        destination_path: "/teams/mastra/connect",
-      }),
-    );
-
-    const captureCount = analytics.capture.mock.calls.length;
-    fireEvent.click(
-      screen.getByRole("button", { name: "Choose an agent backend" }),
-    );
-    fireEvent.click(screen.getByRole("option", { name: /Mastra/ }));
-    expect(analytics.capture).toHaveBeenCalledTimes(captureCount);
-
-    fireEvent.click(guide);
-    expect(analytics.capture).toHaveBeenCalledWith(
-      CHANNELS_ACTIVATION_EVENTS.setupGuideOpened,
-      expect.objectContaining({
-        channel: "teams",
-        backend: "mastra",
-        destination_path: "/teams/mastra/connect",
-      }),
-    );
-  });
-
-  it("supports listbox keyboard navigation and restores trigger focus", () => {
-    renderStrip();
-    const channelTrigger = screen.getByRole("button", {
-      name: "Choose a channel",
-    });
-
-    channelTrigger.focus();
-    fireEvent.keyDown(channelTrigger, { key: "End" });
-    const teamsOption = screen.getByRole("option", {
-      name: /Microsoft Teams/,
-    });
-    expect(document.activeElement).toBe(teamsOption);
-    fireEvent.keyDown(teamsOption, { key: "Enter" });
-    expect(document.activeElement).toBe(channelTrigger);
-    expect(channelTrigger.textContent).toContain("Microsoft Teams");
-
-    fireEvent.keyDown(channelTrigger, { key: "ArrowDown" });
-    expect(
-      screen.getByRole("listbox", { name: "Choose a channel" }),
-    ).toBeTruthy();
-    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
-    expect(document.activeElement).toBe(channelTrigger);
-    expect(
-      screen.queryByRole("listbox", { name: "Choose a channel" }),
-    ).toBeNull();
   });
 
   it("announces a successful copy and emits telemetry after clipboard success", async () => {
@@ -178,9 +100,7 @@ describe("ChannelsActivationStrip", () => {
     setClipboard(writeText);
     renderStrip();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /Build with your agent/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Copy prompt/ }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     const prompt = writeText.mock.calls[0][0] as string;
@@ -203,9 +123,7 @@ describe("ChannelsActivationStrip", () => {
     setClipboard(vi.fn().mockRejectedValue(new Error("blocked")));
     renderStrip();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /Build with your agent/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Copy prompt/ }));
 
     expect(await screen.findByText("Copy failed")).toBeTruthy();
     expect(analytics.capture).not.toHaveBeenCalledWith(
@@ -216,7 +134,7 @@ describe("ChannelsActivationStrip", () => {
 
   it("tracks the OpenTag link with the current selection", () => {
     renderStrip();
-    const link = screen.getByRole("link", { name: "Clone OpenTag on GitHub" });
+    const link = screen.getByRole("link", { name: "clone OpenTag on GitHub" });
 
     expect(link.getAttribute("href")).toBe(CHANNELS_OPENTAG_HREF);
     fireEvent.click(link);
