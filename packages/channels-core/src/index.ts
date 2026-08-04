@@ -158,8 +158,13 @@ export {
   ChannelMemoryUserRequiredError,
 } from "./thread.js";
 export {
+  channelDeliveryErrorDetails,
   ChannelDeliveryTerminatedError,
   isChannelDeliveryTerminatedError,
+} from "./delivery-error.js";
+export type {
+  ChannelDeliveryErrorDetails,
+  ChannelDeliveryTerminatedErrorOptions,
 } from "./delivery-error.js";
 
 // Pure per-platform codec seam shared with managed Intelligence delivery.
