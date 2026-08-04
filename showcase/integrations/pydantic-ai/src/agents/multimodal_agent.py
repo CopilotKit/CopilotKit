@@ -13,13 +13,22 @@ Attachments arrive here after travelling through:
 
 CopilotChat emits modern ``{ type: "image" | "document", source: {...} }``
 parts; the frontend page may additionally rewrite them to the legacy
-``{ type: "binary", mimeType, data | url }`` shape. The PydanticAI AG-UI
-bridge (``pydantic_ai.ag_ui._messages_from_ag_ui``) drops the raw
-``UserMessage.content`` list — a list of AG-UI ``InputContent`` *model
-objects* (``TextInputContent``, ``ImageInputContent``,
+``{ type: "binary", mimeType, data | url }`` shape. On PydanticAI v1 the AG-UI
+bridge dropped the raw ``UserMessage.content`` list — a list of AG-UI
+``InputContent`` *model objects* (``TextInputContent``, ``ImageInputContent``,
 ``DocumentInputContent``, ``BinaryInputContent`` …) — straight into
-``UserPromptPart.content`` with NO conversion. PydanticAI's own
-``OpenAIResponsesModel._map_user_prompt`` then ``assert_never``s on those
+``UserPromptPart.content`` with NO conversion.
+
+On v2 the bridge is ``pydantic_ai.ui.ag_ui.AGUIAdapter.load_messages``, which
+DOES convert: inline attachments arrive as ``BinaryContent`` and url-source
+ones as ``ImageUrl`` / ``AudioUrl`` / ``VideoUrl`` / ``DocumentUrl``. That does
+not remove the need for this module — the provider still rejects unsupported
+image subtypes, cannot consume audio/video, and will not read a PDF's text —
+so the flatten below classifies those native objects too (see
+:func:`_classify_native_content`) rather than waving them through.
+
+Either way, PydanticAI's own
+``OpenAIResponsesModel._map_user_prompt`` ``assert_never``s on unmapped
 AG-UI objects because they are not native PydanticAI content types.
 
 So we normalise EVERY AG-UI content subtype — for BOTH ``data`` (inline
@@ -115,7 +124,15 @@ from contextlib import asynccontextmanager
 from textwrap import dedent
 from typing import Any
 
-from pydantic_ai import Agent, BinaryContent, DocumentUrl, ImageUrl
+from pydantic_ai import (
+    Agent,
+    AudioUrl,
+    BinaryContent,
+    DocumentUrl,
+    FileUrl,
+    ImageUrl,
+    VideoUrl,
+)
 from pydantic_ai._run_context import RunContext
 from pydantic_ai.messages import (
     ModelMessage,
@@ -433,7 +450,56 @@ def _text_of(part: Any) -> str | None:
 # already-native output is a stable fixpoint (a ``str``/``ImageUrl`` stays
 # itself), so running the model-boundary flatten over partially-native content
 # is safe.
-_NATIVE_CONTENT = (str, ImageUrl, BinaryContent, DocumentUrl)
+# Fixpoints of the flatten — outputs this module itself emits, safe to wave
+# through. ``BinaryContent`` is deliberately NOT here: PydanticAI v2's
+# ``AGUIAdapter.load_messages`` converts inline AG-UI attachments into
+# ``BinaryContent`` *before* the model boundary (v1 delivered the raw AG-UI part
+# dicts), so treating it as opaque would skip PDF text extraction and the
+# supported-image-subtype gate entirely. It is classified instead, by
+# :func:`_classify_native_content`.
+_NATIVE_CONTENT = (str, ImageUrl, DocumentUrl)
+
+
+def _classify_native_content(part: Any) -> tuple[str, str, str, str] | None:
+    """Classify a native PydanticAI content object into the classifier tuple.
+
+    Returns the same ``(kind, scheme, mime, value)`` shape as
+    :func:`_classify_content_part`, so every existing gate — PDF extraction,
+    image sniffing, the supported-subtype allow-list, the binary choke point —
+    applies to v2's native content unchanged.
+
+    Returns ``None`` for anything unrecognised, so the caller falls through to
+    :func:`_classify_content_part` and then to its fail-loud.
+    """
+    if isinstance(part, BinaryContent):
+        mime = (part.media_type or "").strip()
+        low = mime.lower()
+        # Re-encoded so the shared data-scheme branches consume it unchanged;
+        # `_extract_pdf_text` and the image sniffer both already take base64.
+        value = base64.b64encode(part.data).decode("ascii")
+        if low.startswith("audio/") or low.startswith("video/"):
+            # `_kind_for` routes these to "other", which would degrade them via
+            # the generic binary path. They are recognised modalities, so name
+            # them and let the caller emit the descriptive placeholder.
+            return (low.split("/", 1)[0], "data", mime, value)
+        # A missing mime defaults to "image" so the magic-byte sniffer runs; it
+        # degrades to a placeholder on anything it cannot recognise.
+        kind, mime = _kind_for(mime, default="image" if not mime else "other")
+        return (kind, "data", mime, value)
+    if isinstance(part, (AudioUrl, VideoUrl)):
+        # Recognised modality the Responses mapper cannot consume — the caller
+        # degrades it to a descriptive placeholder, as it does for the AG-UI
+        # audio/video part shapes.
+        kind = "audio" if isinstance(part, AudioUrl) else "video"
+        return (kind, "url", (getattr(part, "media_type", "") or "").strip(), part.url)
+    if isinstance(part, FileUrl):
+        # Any other FileUrl subclass. ImageUrl / DocumentUrl are fixpoints and
+        # never reach here, so this is the forward-compatible tail.
+        kind, mime = _kind_for(
+            (getattr(part, "media_type", "") or "").strip(), default="other"
+        )
+        return (kind, "url", mime, part.url)
+    return None
 
 
 def _rewrite_part_for_model(part: Any) -> Any:
@@ -491,7 +557,7 @@ def _rewrite_part_for_model(part: Any) -> Any:
     if text is not None:
         return text
 
-    classified = _classify_content_part(part)
+    classified = _classify_native_content(part) or _classify_content_part(part)
     if classified is not None:
         kind, scheme, mime, value = classified
         if kind == "empty":

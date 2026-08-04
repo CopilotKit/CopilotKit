@@ -16,7 +16,7 @@ Pattern:
   tool).
 
 PydanticAI notes:
-- `agent.to_ag_ui()` exposes StateDeps to tools via `ctx.deps`, but
+- the AG-UI adapter exposes StateDeps to tools via `ctx.deps`, but
   `StateDeps` carries ONLY a `state` field — it has no `copilotkit`
   attribute. The real forwarded conversation lives on the pydantic-ai
   `RunContext` itself, as `ctx.messages` (the `ModelMessage` history the
