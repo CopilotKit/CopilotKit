@@ -6,7 +6,7 @@ import type {
   Transaction,
   PolicyException,
 } from "@/skins/banking/data/data";
-import { MemberRole } from "@/skins/banking/data/data";
+import { MemberRole, policyForTeam } from "@/skins/banking/data/data";
 import { randomDigits } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
@@ -301,7 +301,11 @@ export default function useCreditCards() {
             const policy = policies.find(
               (policy) => policy.id === card.expensePolicyId,
             );
-            return policy?.type === currentUser.team;
+            // Joined through `policyForTeam`, not compared directly: the member
+            // carries an ORG team ("Marketing") while the policy carries a
+            // budget envelope ("Go-to-Market"), so an equality test between the
+            // two can never match and would hide every card from a non-admin.
+            return policy?.type === policyForTeam(currentUser.team);
           }),
     policies,
     transactions,

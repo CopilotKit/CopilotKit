@@ -29,11 +29,18 @@ import {
 type DB = {
   cards: Card[];
   team: Member[];
-  policies: ExpensePolicy[];
+  /**
+   * Seeded policies carry NO `spent` — it is derived from the ledger on every
+   * read (see `policies()`), so the stored shape omits it rather than holding a
+   * second copy of a number the transactions already determine.
+   */
+  policies: SeededPolicy[];
   transactions: Transaction[];
   exceptions: PolicyException[];
   reports: Report[];
 };
+
+type SeededPolicy = Omit<ExpensePolicy, "spent">;
 
 // Reports are copilot-generated at runtime and never seeded, so the JSON
 // seam cast covers only the seeded collections.
@@ -71,16 +78,53 @@ export const reset = (): void => {
 
 export const cards = (): Card[] => db.cards;
 export const team = (): Member[] => db.team;
-export const policies = (): ExpensePolicy[] => db.policies;
 export const transactions = (): Transaction[] => db.transactions;
 export const exceptions = (): PolicyException[] => db.exceptions;
 export const reports = (): Report[] => db.reports;
 
+/**
+ * Approved spend against one policy, summed from the ledger.
+ *
+ * APPROVED only, deliberately: `isWithinPolicyLimit` asks "would approving this
+ * pending charge breach the limit?", which double-counts if pending spend is
+ * already inside `spent`.
+ */
+const spentFor = (policyId: string): number =>
+  db.transactions
+    .filter((t) => t.status === "approved" && t.policyId === policyId)
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+const withSpent = (p: SeededPolicy): ExpensePolicy => ({
+  ...p,
+  spent: spentFor(p.id),
+});
+
+/**
+ * Expense policies, with `spent` DERIVED from the ledger on every read.
+ *
+ * Two bugs this closes, both from `spent` having been static seed data:
+ *
+ *  1. It could disagree with the charts. The report's "Total Q2 spend" KPI sums
+ *     `policy.spent` while its charts read transactions; as separate sources
+ *     they drifted silently — the KPI read $137,000 against a $30,089 ledger.
+ *  2. It never moved. Approving a charge left `spent` untouched, so the budget
+ *     never reflected the approval and `isWithinPolicyLimit` kept gating
+ *     against a stale figure.
+ *
+ * Deriving on read makes both impossible rather than merely fixed, which is why
+ * the seed no longer carries a `spent` value at all.
+ */
+export const policies = (): ExpensePolicy[] => db.policies.map(withSpent);
+
 export const findCard = (id: string): Card | undefined =>
   db.cards.find((c) => c.id === id);
 
-export const findPolicy = (id: string): ExpensePolicy | undefined =>
-  db.policies.find((p) => p.id === id);
+export const findPolicy = (id: string): ExpensePolicy | undefined => {
+  const p = db.policies.find((x) => x.id === id);
+  // Must go through the same derivation as `policies()` — this is what
+  // `isWithinPolicyLimit` reads, so a raw `db` hit would gate on stale spend.
+  return p && withSpent(p);
+};
 
 export const findTransaction = (id: string): Transaction | undefined =>
   db.transactions.find((t) => t.id === id);
