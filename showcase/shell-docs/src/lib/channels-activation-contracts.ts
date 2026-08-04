@@ -35,18 +35,40 @@ export function getChannelsActivationGuideHref(
   return backend.guideHrefs[channel];
 }
 
+/**
+ * The skill that owns first-time Channels onboarding end to end. Canonical
+ * source lives in `CopilotKit/channels-sdk` and is mirrored into this repo's
+ * `skills/` directory, which is what `copilotkit skills install` distributes.
+ */
+export const CHANNELS_ONBOARDING_SKILL = "create-channels-agent";
+
+/**
+ * Installs that skill without prompting. `-y` respects `--skill`, so this
+ * installs exactly one skill rather than dropping the developer into a picker
+ * of everything CopilotKit publishes. `@latest` is not optional: a globally
+ * installed or npx-cached older CLI shadows the current one and fails with an
+ * unrelated "unknown option" error.
+ *
+ * The installer detects the coding agent it is running inside, so `--agent` is
+ * deliberately omitted.
+ */
+export const CHANNELS_ONBOARDING_INSTALL_COMMAND = `npx copilotkit@latest skills install --skill ${CHANNELS_ONBOARDING_SKILL} -y`;
+
+/**
+ * A pointer, deliberately not a workflow.
+ *
+ * This prompt used to carry the whole setup as prose, and so did five other
+ * surfaces across three repos. They drifted apart, and each one went stale the
+ * moment the CLI moved — which is how developers ended up being told to run
+ * commands that no longer exist. Two sentences naming a skill cannot drift, and
+ * the workflow they point at is corrected in exactly one place.
+ */
 export function buildChannelsActivationPrompt({
   channelLabel,
   backendLabel,
-  guideUrl,
 }: {
   channelLabel: string;
   backendLabel: string;
-  guideUrl: string;
 }): string {
-  return `Build a working CopilotKit Channels integration for ${channelLabel} using ${backendLabel}.
-
-Follow the Shell Docs setup guide: ${guideUrl}
-
-Inspect the existing project before editing, preserve its agent architecture, implement the documented setup, run the relevant checks, and report any remaining provider credentials or platform configuration.`;
+  return `Run \`${CHANNELS_ONBOARDING_INSTALL_COMMAND}\`, then follow that skill to build my first CopilotKit Channels agent and connect it to ${channelLabel} using ${backendLabel}.`;
 }

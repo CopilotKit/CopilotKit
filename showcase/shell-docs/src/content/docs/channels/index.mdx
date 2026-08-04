@@ -6,91 +6,13 @@ description: Run one AG-UI agent in Slack, Microsoft Teams, and more through man
 doc_type: explanation
 ---
 
-<FrontendOnly frontend="slack">
+{/* One entry point, shared with the docs landing strip, copilotkit.ai/channels,
+    and the channels-sdk README: install one skill, then ask for the thing you
+    want. These pages used to carry the whole workflow inline — six copies
+    across three repos, which drifted apart and went stale against the CLI. The
+    workflow now lives in the skill and is corrected in one place. */}
 
-<Accordions>
-<Accordion title="Start building with your coding agent — copy this prompt">
-
-Copy and paste this prompt to your agent. Local agents are best so they can use your browser to set up Slack.
-
-```text
-Help me create a new CopilotKit app from scratch, then connect its agent to Slack so it answers in a real channel.
-
-Use these skills as your instructions, in this order:
-- `copilotkit-setup` for creating the app and wiring managed Intelligence.
-- `copilotkit-channels` for the CLI-scaffolded Channel and its long-running host.
-- `setup-slack-channel` for the Slack app and managed Intelligence provider setup.
-
-Read all three before you plan anything, and follow them rather than working from memory. If any skill is not installed, stop and tell me to run `npx copilotkit@latest skills install` in the directory where I want the project, then wait for me. Do not attempt the setup without them.
-
-Use the CopilotKit CLI through `npx copilotkit@latest`; do not assume or require a global CLI installation. Before you start, verify that Node.js 20 or newer is available. If it is not, stop and tell me what I need to install.
-
-When you implement the plan:
-- Run `npx copilotkit@latest create` to scaffold a brand-new project. Ask me for the project name and framework instead of choosing them for me.
-- Choose managed Intelligence because Channels are not available in self-hosted SSE mode. Follow the CLI's current prompts rather than guessing undocumented flags.
-- Treat the CLI-generated `channel-host.mts` and `channels.mts` as the code half. Do not add a second Channel declaration or move the Channel into a serverless route.
-- Use `setup-slack-channel` for the provider half, including the dedicated Slack app, managed Channel, credentials, and real workspace verification. Do not replace the managed path with a direct Slack adapter.
-
-Before your first step, tell me which mode you are in:
-- You can drive a browser yourself. Then do so, and confirm with me before each consequential change in a live account — signing in, creating an Intelligence project, creating the Slack app, attaching the adapter, or issuing a key.
-- You cannot. Then say so plainly and walk me through the browser steps one at a time, waiting for me to confirm each before you continue.
-
-Do not guess which one you are. Check what tools you actually have.
-
-Rules for the whole run:
-- Never ask me to paste a token, signing secret, or API key into this conversation. They go into the Intelligence dashboard and my `.env`, typed by me.
-- Do not report success until all three gates in `setup-slack-channel` hold. "The runtime started" is not one of them.
-
-Start by reading the three skills, then tell me which are available, what you found in the current directory, which browser mode you are in, and what you plan to do.
-```
-
-</Accordion>
-</Accordions>
-
-</FrontendOnly>
-
-<FrontendOnly frontend="teams">
-
-<Accordions>
-<Accordion title="Start building with your coding agent — copy this prompt">
-
-Copy and paste this prompt to your agent. Local agents are best so they can use your browser to set up Microsoft Teams.
-
-```text
-Help me create a new CopilotKit app from scratch, then connect its agent to Microsoft Teams so it answers in a real channel.
-
-Use these sources as your instructions, in this order:
-- `copilotkit-setup` for creating the app and wiring managed Intelligence.
-- `copilotkit-channels` for the CLI-scaffolded Channel and its long-running host.
-- The current Microsoft Teams Channels documentation at https://docs.copilotkit.ai/teams for the provider setup and end-to-end verification.
-
-Read both skills and the linked Teams documentation before you plan anything, and follow them rather than working from memory. If either skill is not installed, stop and tell me to run `npx copilotkit@latest skills install` in the directory where I want the project, then wait for me. Do not require a Teams-specific onboarding skill or substitute Slack setup instructions; use the linked Teams documentation as the provider source of truth.
-
-Use the CopilotKit CLI through `npx copilotkit@latest`; do not assume or require a global CLI installation. Before you start, verify that Node.js 22 or newer is available. If it is not, stop and tell me what I need to install.
-
-When you implement the plan:
-- Run `npx copilotkit@latest create` to scaffold a brand-new project. Ask me for the project name and framework instead of choosing them for me.
-- Choose managed Intelligence because Channels are not available in self-hosted SSE mode. Follow the CLI's current prompts rather than guessing undocumented flags.
-- Treat the CLI-generated `channel-host.mts` and `channels.mts` as the code half. Do not add a second Channel declaration or move the Channel into a serverless route.
-- Use the published Teams documentation as the provider half. Start at https://docs.copilotkit.ai/teams, select my agent backend in the docs, and follow the linked Intelligence configuration and Teams connection pages in order. Use the current documented steps instead of relying on memory of Azure Bot or Teams app setup.
-
-Before your first step, tell me which mode you are in:
-- You can drive a browser yourself. Then do so, and confirm with me before each consequential change in a live account — signing in, creating an Intelligence project, creating or changing an Azure Bot registration, attaching the Teams connection, issuing a key, or installing the app in Microsoft Teams.
-- You cannot. Then say so plainly and walk me through the browser steps one at a time, waiting for me to confirm each before you continue.
-
-Do not guess which one you are. Check what tools you actually have.
-
-Rules for the whole run:
-- Never ask me to paste a token, client secret, or API key into this conversation. They go into Azure, the Intelligence dashboard, and my `.env`, typed by me.
-- Do not report success until the app is installed in the intended Teams scope, Intelligence reports the Channel as Online, and a real Teams message or mention receives the agent's reply. "The runtime started" is not success.
-
-Start by reading the two skills and the Teams documentation, then tell me which skills are available, what you found in the current directory, which browser mode you are in, and what you plan to do.
-```
-
-</Accordion>
-</Accordions>
-
-</FrontendOnly>
+<ChannelsStartPrompt />
 
 Channels brings your agent into the conversations where work already happens.
 Your agent still runs in your infrastructure. CopilotKit Intelligence owns the

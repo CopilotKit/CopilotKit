@@ -245,6 +245,13 @@ export function ChannelsActivationStrip({
 
   const guideHref = getChannelsActivationGuideHref(channel, backend);
   const guideUrl = new URL(guideHref, docsBaseUrl).toString();
+  // Rendered, not just copied. A copy button whose payload is invisible reads
+  // as decoration — people missed it entirely. Now the prompt is short enough
+  // to show, so the button becomes a shortcut for something already on screen.
+  const prompt = buildChannelsActivationPrompt({
+    channelLabel: selectedChannel.label,
+    backendLabel: backend.label,
+  });
   const channelOptions: SelectOption[] = CHANNELS_ACTIVATION_CHANNELS.map(
     (option) => ({
       id: option.id,
@@ -314,12 +321,6 @@ export function ChannelsActivationStrip({
   async function copyBuildPrompt() {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
 
-    const prompt = buildChannelsActivationPrompt({
-      channelLabel: selectedChannel.label,
-      backendLabel: backend.label,
-      guideUrl,
-    });
-
     try {
       await navigator.clipboard.writeText(prompt);
       setCopyState("copied");
@@ -328,6 +329,9 @@ export function ChannelsActivationStrip({
         backend: backend.slug,
         from_path: pathname,
         guide_url: guideUrl,
+        // Every road into onboarding emits the same event with a distinct
+        // surface, so the funnel can answer which one people actually take.
+        surface: "docs_landing_strip",
       });
       resetTimerRef.current = setTimeout(() => setCopyState("idle"), 1800);
     } catch {
@@ -436,6 +440,10 @@ export function ChannelsActivationStrip({
           {copyStatus}
         </span>
       </div>
+
+      <p className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-[var(--radius-control)] border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5 font-mono text-xs leading-relaxed text-[var(--text-secondary)]">
+        {prompt}
+      </p>
 
       <div className="mt-5 border-t border-[var(--border)] pt-4 text-sm text-[var(--text-secondary)]">
         Prefer a complete working example?{" "}

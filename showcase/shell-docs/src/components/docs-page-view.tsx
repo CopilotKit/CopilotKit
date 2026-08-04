@@ -40,6 +40,8 @@ import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-fra
 import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import type { OpsPlatformCTAProps } from "@/components/react/ops-platform-cta";
+import { ChannelsStartPrompt } from "@/components/channels-start-prompt";
+import type { ChannelsStartPromptProps } from "@/components/channels-start-prompt";
 import { SignupLink } from "@/components/react/signup-link";
 import type { SignupLinkProps } from "@/components/react/signup-link";
 import { FrameworkSetup } from "@/lib/setup-concept";
@@ -331,6 +333,14 @@ export async function DocsPageView({
                               : props.href;
                           return <CardComp {...props} href={href} />;
                         },
+                        ChannelsStartPrompt: (
+                          props: ChannelsStartPromptProps,
+                        ) => (
+                          <ChannelsStartPrompt
+                            {...props}
+                            frontend={props.frontend ?? docsFrontend}
+                          />
+                        ),
                         OpsPlatformCTA: (props: OpsPlatformCTAProps) => (
                           <OpsPlatformCTA
                             {...props}
