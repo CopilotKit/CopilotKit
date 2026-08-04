@@ -49,6 +49,7 @@ import {
   renderTeamsMarkdown,
 } from "@copilotkit/channels-teams/render";
 import type { ChannelProviderPayload } from "./delivery-contracts.js";
+import { SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY } from "./delivery-contracts.js";
 import type {
   ClaimedChannelDelivery,
   ChannelDeliveryTransport,
@@ -576,9 +577,11 @@ export class DeliveryAdapter implements PlatformAdapter {
       let bodyError: unknown;
       let bodyFailed = false;
       let streamStarted = false;
+      let fullText = "";
       try {
         for await (const delta of chunks) {
           if (delta.length === 0) continue;
+          fullText += delta;
           if (!streamStarted) {
             const startResult = await target.claimedDelivery.effect(
               responseId,
@@ -593,11 +596,15 @@ export class DeliveryAdapter implements PlatformAdapter {
             continue;
           }
           assertProviderReference(providerReference);
-          await target.claimedDelivery.effect(responseId, {
-            kind: "slack.stream.append",
-            providerReference,
-            delta,
-          });
+          await target.claimedDelivery.effect(
+            responseId,
+            slackStreamAppendPayload(
+              target.delivery,
+              providerReference,
+              delta,
+              fullText,
+            ),
+          );
         }
         if (!streamStarted) {
           const startResult = await target.claimedDelivery.effect(responseId, {
@@ -880,7 +887,11 @@ export class DeliveryAdapter implements PlatformAdapter {
     const responseId = mintId("response_");
     const renderer =
       target.delivery.adapter === "slack"
-        ? this.createSlackRenderer(target.claimedDelivery, responseId)
+        ? this.createSlackRenderer(
+            target.claimedDelivery,
+            responseId,
+            target.delivery,
+          )
         : this.createTeamsRenderer(target.claimedDelivery, responseId);
     this.rendererResponses.set(renderer, responseId);
     return renderer;
@@ -889,8 +900,10 @@ export class DeliveryAdapter implements PlatformAdapter {
   private createSlackRenderer(
     claimedDelivery: ClaimedChannelDelivery,
     responseId: string,
+    delivery: PreparedChannelDelivery,
   ): RunRenderer {
     let providerReference: string | undefined;
+    let fullText = "";
     return createSlackRunRenderer({
       target: { channel: "managed", threadTs: "managed" },
       showToolStatus: this.options.showToolStatus ?? false,
@@ -933,6 +946,7 @@ export class DeliveryAdapter implements PlatformAdapter {
           : {}),
         transport: {
           startStream: async () => {
+            fullText = "";
             providerReference = providerReferenceFromResult(
               await claimedDelivery.effect(responseId, {
                 kind: "slack.stream.start",
@@ -941,6 +955,7 @@ export class DeliveryAdapter implements PlatformAdapter {
             return responseId;
           },
           startStreamWithText: async (initialText) => {
+            fullText = initialText;
             providerReference = providerReferenceFromResult(
               await claimedDelivery.effect(responseId, {
                 kind: "slack.stream.start",
@@ -951,12 +966,17 @@ export class DeliveryAdapter implements PlatformAdapter {
           },
           appendText: async (_id, delta) => {
             if (delta.length === 0) return;
+            fullText += delta;
             assertProviderReference(providerReference);
-            await claimedDelivery.effect(responseId, {
-              kind: "slack.stream.append",
-              providerReference,
-              delta,
-            });
+            await claimedDelivery.effect(
+              responseId,
+              slackStreamAppendPayload(
+                delivery,
+                providerReference,
+                delta,
+                fullText,
+              ),
+            );
           },
           appendChunks: async (_id, chunks) => {
             assertProviderReference(providerReference);
@@ -1377,6 +1397,24 @@ function historyText(content: unknown): string {
         : [],
     )
     .join("");
+}
+
+function slackStreamAppendPayload(
+  delivery: PreparedChannelDelivery,
+  providerReference: string,
+  delta: string,
+  fullText: string,
+): ChannelProviderPayload {
+  const append = {
+    kind: "slack.stream.append" as const,
+    providerReference,
+    delta,
+  };
+  return delivery.capabilities?.includes(
+    SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
+  )
+    ? { ...append, fullText }
+    : append;
 }
 
 function teamsMessageEffect(

@@ -8,12 +8,17 @@ import {
 import type { PreparedChannelDelivery } from "./delivery-transport.js";
 import { assertDeliveryPacket } from "./delivery-contracts.js";
 import type { ChannelProviderPayload } from "./delivery-contracts.js";
+import { SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY } from "./delivery-contracts.js";
 import type {
   RealtimeGatewayDeliveryChannel,
   RealtimeGatewaySession,
 } from "./realtime-gateway.js";
 
-function preparedDelivery(): PreparedChannelDelivery {
+function preparedDelivery(
+  capabilities: PreparedChannelDelivery["capabilities"] = [
+    SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
+  ],
+): PreparedChannelDelivery {
   return {
     protocol: "channel_delivery_v1",
     deliveryId: "dlv_slack_stream_01",
@@ -23,6 +28,7 @@ function preparedDelivery(): PreparedChannelDelivery {
     canonicalThreadId: "thread_slack_stream",
     appUserId: "slack:T1:U1",
     adapter: "slack",
+    capabilities,
     turn: {
       eventId: "evt_slack_stream",
       receivedAt: "2026-07-29T17:00:00.000Z",
@@ -42,8 +48,8 @@ function preparedDelivery(): PreparedChannelDelivery {
   };
 }
 
-function setup() {
-  const delivery = preparedDelivery();
+function setup(capabilities?: PreparedChannelDelivery["capabilities"]) {
+  const delivery = preparedDelivery(capabilities);
   const payloads: ChannelProviderPayload[] = [];
   const deliveryChannel: RealtimeGatewayDeliveryChannel = {
     joinReply: delivery,
@@ -159,12 +165,32 @@ test("starts an explicit managed Slack stream with its first text chunk", async 
         kind: "slack.stream.append",
         providerReference: "pref_v1_slack_stream_01",
         delta: " world",
+        fullText: "Hello world",
       },
       {
         kind: "slack.stream.stop",
         providerReference: "pref_v1_slack_stream_01",
       },
     ]);
+  } finally {
+    fixture.teardown();
+  }
+});
+
+test("uses the legacy append shape when the gateway does not negotiate snapshots", async () => {
+  const fixture = setup([]);
+
+  try {
+    await fixture.adapter.stream(
+      fixture.target,
+      streamChunks("Hello", " world"),
+    );
+
+    expect(fixture.payloads).toContainEqual({
+      kind: "slack.stream.append",
+      providerReference: "pref_v1_slack_stream_01",
+      delta: " world",
+    });
   } finally {
     fixture.teardown();
   }
