@@ -11,6 +11,7 @@ import type { CopilotKitCore } from "@copilotkit/core";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
   ɵselectThreads,
+  ɵselectThreadsIsLoading,
   ɵselectThreadsError,
   ɵcreateThreadStore,
   ɵselectMemories,
@@ -206,6 +207,40 @@ const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
 const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
 
 type ThreadServiceStatus = "available" | "unavailable" | "unknown" | "error";
+
+type ThreadStoreStatus = Readonly<{
+  error: Error | null;
+  isLoading: boolean;
+}>;
+
+/**
+ * Selects the Thread store status with a stable object identity so loading-only
+ * transitions reach one of the Inspector's two existing store subscriptions.
+ */
+function createThreadStoreStatusSelector(): (
+  state: ReturnType<ɵThreadStore["getState"]>,
+) => ThreadStoreStatus {
+  let previousError: Error | null | undefined;
+  let previousIsLoading: boolean | undefined;
+  let previousStatus: ThreadStoreStatus | undefined;
+
+  return (state) => {
+    const error = ɵselectThreadsError(state);
+    const isLoading = ɵselectThreadsIsLoading(state);
+    if (
+      previousStatus &&
+      previousError === error &&
+      previousIsLoading === isLoading
+    ) {
+      return previousStatus;
+    }
+
+    previousError = error;
+    previousIsLoading = isLoading;
+    previousStatus = { error, isLoading };
+    return previousStatus;
+  };
+}
 
 type InspectorAgentEventType =
   | "RUN_STARTED"
@@ -837,6 +872,7 @@ class CpkThreadList extends LitElement {
     threads: { attribute: false },
     selectedThreadId: { attribute: false },
     errorMessage: { attribute: false },
+    suppressEmptyState: { attribute: false },
     _query: { state: true },
   };
   threads: ɵThread[] = [];
@@ -848,6 +884,7 @@ class CpkThreadList extends LitElement {
    * empty data with no indication of what went wrong.
    */
   errorMessage: string | null = null;
+  suppressEmptyState = false;
   private _query = "";
 
   static styles = css`
@@ -902,7 +939,18 @@ class CpkThreadList extends LitElement {
 
     /* ── Thread item ── */
     .cpk-tl__item {
+      appearance: none;
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
       padding: 11px 13px;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
       cursor: pointer;
       border-bottom: 1px solid #e9e9ef;
       border-left: 3px solid transparent;
@@ -920,6 +968,13 @@ class CpkThreadList extends LitElement {
 
     .cpk-tl__item--active:hover {
       background: #bec2ff33;
+    }
+
+    .cpk-tl__item:focus-visible {
+      outline-color: #5558b2;
+      outline-offset: -2px;
+      outline-style: solid;
+      outline-width: 2px;
     }
 
     .cpk-tl__row1 {
@@ -1050,7 +1105,11 @@ class CpkThreadList extends LitElement {
         <div class="cpk-tl__list">
           ${filtered.map(
             (thread) => html`
-              <div
+              <button
+                type="button"
+                aria-current=${
+                  this.selectedThreadId === thread.id ? "true" : nothing
+                }
                 class="cpk-tl__item ${
                   this.selectedThreadId === thread.id
                     ? "cpk-tl__item--active"
@@ -1058,7 +1117,7 @@ class CpkThreadList extends LitElement {
                 }"
                 @click=${() => this.onThreadClick(thread.id)}
               >
-                <div class="cpk-tl__row1">
+                <span class="cpk-tl__row1">
                   <span
                     class="cpk-tl__name ${
                       !thread.name ? "cpk-tl__name--unnamed" : ""
@@ -1068,8 +1127,8 @@ class CpkThreadList extends LitElement {
                   <span class="cpk-tl__time"
                     >${this.relativeTime(thread.updatedAt)}</span
                   >
-                </div>
-                <div class="cpk-tl__meta">
+                </span>
+                <span class="cpk-tl__meta">
                   <span class="cpk-tl__pill">${thread.agentId}</span>
                   ${
                     (thread as Partial<ExampleThread>).isExample
@@ -1078,12 +1137,12 @@ class CpkThreadList extends LitElement {
                         `
                       : nothing
                   }
-                </div>
-              </div>
+                </span>
+              </button>
             `,
           )}
           ${
-            filtered.length === 0
+            filtered.length === 0 && !this.suppressEmptyState
               ? html`
                 <div class="cpk-tl__empty">
                   ${
@@ -4611,6 +4670,7 @@ export class WebInspectorElement extends LitElement {
   // selection, the threads view renders an error state instead of stale
   // data with no indication.
   private _threadsErrorByAgent: Map<string, Error> = new Map();
+  private _threadsLoadingByAgent: Map<string, boolean> = new Map();
   // Thread stores created and owned by the inspector (keyed by agentId)
   private _ownedThreadStores: Map<string, ɵThreadStore> = new Map();
   private threadCapabilityEnabled: boolean | null = null;
@@ -4918,6 +4978,7 @@ export class WebInspectorElement extends LitElement {
   private getActiveThreadsState(): {
     displayThreads: ɵThread[];
     threadsErrorMessage: string | null;
+    threadsLoading: boolean;
   } {
     const displayThreads =
       this.selectedContext === "all-agents"
@@ -4937,7 +4998,12 @@ export class WebInspectorElement extends LitElement {
         this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
     }
 
-    return { displayThreads, threadsErrorMessage };
+    const threadsLoading =
+      this.selectedContext === "all-agents"
+        ? Array.from(this._threadsLoadingByAgent.values()).some(Boolean)
+        : (this._threadsLoadingByAgent.get(this.selectedContext) ?? false);
+
+    return { displayThreads, threadsErrorMessage, threadsLoading };
   }
 
   private getThreadsTelemetryProps(
@@ -5016,23 +5082,26 @@ export class WebInspectorElement extends LitElement {
       this.autoSelectLatestThread();
       this.requestUpdate();
     });
-    const errorSub = store.select(ɵselectThreadsError).subscribe((error) => {
-      if (
-        capabilityGeneration !== this.threadCapabilityGeneration ||
-        !this.areThreadEndpointsAvailable()
-      ) {
-        return;
-      }
-      if (error) {
-        this._threadsErrorByAgent.set(agentId, error);
-      } else {
-        this._threadsErrorByAgent.delete(agentId);
-      }
-      this.requestUpdate();
-    });
+    const statusSub = store
+      .select(createThreadStoreStatusSelector())
+      .subscribe(({ error, isLoading }) => {
+        if (
+          capabilityGeneration !== this.threadCapabilityGeneration ||
+          !this.areThreadEndpointsAvailable()
+        ) {
+          return;
+        }
+        if (error) {
+          this._threadsErrorByAgent.set(agentId, error);
+        } else {
+          this._threadsErrorByAgent.delete(agentId);
+        }
+        this._threadsLoadingByAgent.set(agentId, isLoading);
+        this.requestUpdate();
+      });
     this._threadStoreSubscriptions.set(agentId, () => {
       threadsSub.unsubscribe();
-      errorSub.unsubscribe();
+      statusSub.unsubscribe();
     });
     // Populate immediately from current state
     if (
@@ -5043,6 +5112,10 @@ export class WebInspectorElement extends LitElement {
     }
     const initialState = store.getState();
     this._threadsByAgent.set(agentId, ɵselectThreads(initialState));
+    this._threadsLoadingByAgent.set(
+      agentId,
+      ɵselectThreadsIsLoading(initialState),
+    );
     const initialError = ɵselectThreadsError(initialState);
     if (initialError) {
       this._threadsErrorByAgent.set(agentId, initialError);
@@ -5091,6 +5164,7 @@ export class WebInspectorElement extends LitElement {
     this._threadStoreSubscriptions.clear();
     this._threadsByAgent.clear();
     this._threadsErrorByAgent.clear();
+    this._threadsLoadingByAgent.clear();
     this._threads = [];
   }
 
@@ -5294,6 +5368,7 @@ export class WebInspectorElement extends LitElement {
         }
         this._threadsByAgent.delete(agentId);
         this._threadsErrorByAgent.delete(agentId);
+        this._threadsLoadingByAgent.delete(agentId);
         this._threads = Array.from(this._threadsByAgent.values()).flat();
         this.autoSelectLatestThread();
         this.requestUpdate();
@@ -8924,8 +8999,7 @@ ${argsString}</pre
     if (
       threadsFooterAction &&
       !this.settingsOpen &&
-      this.selectedMenu === "threads" &&
-      this.areThreadEndpointsAvailable()
+      this.selectedMenu === "threads"
     ) {
       return { action: threadsFooterAction, placement: "threads-footer" };
     }
@@ -9153,23 +9227,15 @@ ${argsString}</pre
   }
 
   private shouldRenderExampleThreads(
+    locked: boolean,
     displayThreads: ɵThread[],
     threadsErrorMessage: string | null,
+    threadsLoading: boolean,
   ): boolean {
     return (
-      this.areThreadEndpointsAvailable() &&
-      !threadsErrorMessage &&
-      displayThreads.length === 0
+      locked ||
+      (!threadsErrorMessage && !threadsLoading && displayThreads.length === 0)
     );
-  }
-
-  private getVisibleThreads(
-    displayThreads: ɵThread[],
-    threadsErrorMessage: string | null,
-  ): ɵThread[] {
-    return this.shouldRenderExampleThreads(displayThreads, threadsErrorMessage)
-      ? THREADS_EXAMPLE_THREADS
-      : displayThreads;
   }
 
   private isExampleThreadId(threadId: string | null | undefined): boolean {
@@ -9436,7 +9502,9 @@ ${argsString}</pre
     `;
   }
 
-  private renderThreadsExampleOverview() {
+  private renderThreadsExampleOverview(locked: boolean) {
+    const lockedCopy = locked ? this.getThreadsLockedCopy() : undefined;
+    const { lockedAction } = this.inspectorMetadataProjection;
     return html`
       <div
         style="
@@ -9459,7 +9527,10 @@ ${argsString}</pre
               color: #010507;
             "
           >
-            Threads are persistent, inspectable conversations
+            ${
+              lockedCopy?.heading ??
+              "Threads are persistent, inspectable conversations"
+            }
           </h2>
           ${this.renderThreadsExampleOverviewVideo()}
           <p
@@ -9470,53 +9541,63 @@ ${argsString}</pre
               color: #57575b;
             "
           >
-            Take a tour with the example threads in the sidebar. Then, start
-            chatting in your app to create the first real thread.
+            ${
+              lockedCopy?.description ??
+              "Take a tour with the example threads in the sidebar. Then, start chatting in your app to create the first real thread."
+            }
           </p>
           <div style="display:flex;flex-wrap:wrap;gap:8px;">
-            <a
-              href=${this.getThreadsDocsUrl()}
-              target="_blank"
-              rel="noopener"
-              style="
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                min-height: 34px;
-                border-radius: 6px;
-                background: #010507;
-                padding: 8px 12px;
-                font-size: 12px;
-                font-weight: 600;
-                color: #ffffff;
-                text-decoration: none;
-              "
-            >
-              Learn how Threads work
-            </a>
-            <a
-              href=${this.getSelfHostedIntelligenceUrl()}
-              target="_blank"
-              rel="noopener"
-              style="
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                min-height: 34px;
-                border-radius: 6px;
-                border: 1px solid #dbdbe5;
-                background: #ffffff;
-                padding: 8px 12px;
-                font-size: 12px;
-                font-weight: 600;
-                color: #010507;
-                text-decoration: none;
-              "
-            >
-              Explore self-hosted Intelligence
-            </a>
+            ${
+              locked
+                ? lockedAction
+                  ? this.renderInspectorAction(lockedAction, "locked")
+                  : nothing
+                : html`
+                    <a
+                      href=${this.getThreadsDocsUrl()}
+                      target="_blank"
+                      rel="noopener"
+                      style="
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        min-height: 34px;
+                        border-radius: 6px;
+                        background: #010507;
+                        padding: 8px 12px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #ffffff;
+                        text-decoration: none;
+                      "
+                    >
+                      Learn how Threads work
+                    </a>
+                    <a
+                      href=${this.getSelfHostedIntelligenceUrl()}
+                      target="_blank"
+                      rel="noopener"
+                      style="
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        min-height: 34px;
+                        border-radius: 6px;
+                        border: 1px solid #dbdbe5;
+                        background: #ffffff;
+                        padding: 8px 12px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #010507;
+                        text-decoration: none;
+                      "
+                    >
+                      Explore self-hosted Intelligence
+                    </a>
+                  `
+            }
           </div>
         </div>
       </div>
@@ -9834,106 +9915,6 @@ ${argsString}</pre
             "This runtime does not expose Threads for the Inspector.",
         };
     }
-  }
-
-  private renderThreadsLockedView() {
-    this.trackThreadsViewStateOnce("locked", 0);
-    const copy = this.getThreadsLockedCopy();
-    const { lockedAction } = this.inspectorMetadataProjection;
-    return html`
-      <div
-        style="
-          position: relative;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 32px;
-          overflow: hidden;
-          background: #ffffff;
-        "
-      >
-        ${this.renderThreadsLockedBackgroundMockup()}
-        <div
-          aria-hidden="true"
-          style="
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            background:
-              radial-gradient(circle at center, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.78) 24%, rgba(255,255,255,0.34) 48%, rgba(255,255,255,0.56) 100%);
-          "
-        ></div>
-        <div
-          style="
-            position: relative;
-            z-index: 1;
-            max-width: 440px;
-            text-align: center;
-            color: #57575b;
-          "
-        >
-          <div
-            aria-hidden="true"
-            style="
-              margin: 0 auto 18px;
-              display: flex;
-              justify-content: center;
-            "
-          >
-            <div
-              style="
-                display: flex;
-                height: 44px;
-                width: 44px;
-                align-items: center;
-                justify-content: center;
-                border: 1px solid #dfd6fb;
-                border-radius: 8px;
-                background: #eee6fe;
-                color: #57575b;
-                box-shadow: 0 8px 18px rgba(87, 87, 91, 0.14);
-              "
-            >
-              ${this.renderIcon("Lock")}
-            </div>
-          </div>
-          <h2
-            style="
-              margin: 0 0 8px;
-              font-size: 16px;
-              line-height: 1.35;
-              font-weight: 600;
-              color: #010507;
-            "
-          >
-            ${copy.heading}
-          </h2>
-          <p
-            style="
-              margin: 0 auto 18px;
-              max-width: 380px;
-              font-size: 13px;
-              line-height: 1.55;
-              color: #57575b;
-            "
-          >
-            ${copy.description}
-          </p>
-          ${
-            lockedAction
-              ? html`
-                  <div
-                    style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;"
-                  >
-                    ${this.renderInspectorAction(lockedAction, "locked")}
-                  </div>
-                `
-              : nothing
-          }
-        </div>
-      </div>
-    `;
   }
 
   /**
@@ -10363,21 +10344,27 @@ ${argsString}</pre
   }
 
   private renderThreadsView() {
-    if (!this.areThreadEndpointsAvailable()) {
-      return this.renderThreadsLockedView();
-    }
-
-    const { displayThreads, threadsErrorMessage } =
+    const locked = !this.areThreadEndpointsAvailable();
+    const { displayThreads, threadsErrorMessage, threadsLoading } =
       this.getActiveThreadsState();
+    const loadingWithoutRows =
+      !locked &&
+      threadsLoading &&
+      !threadsErrorMessage &&
+      displayThreads.length === 0;
 
     const showingExamples = this.shouldRenderExampleThreads(
+      locked,
       displayThreads,
       threadsErrorMessage,
+      threadsLoading,
     );
-    const visibleThreads = this.getVisibleThreads(
-      displayThreads,
-      threadsErrorMessage,
-    );
+    const visibleThreads =
+      !locked && (threadsErrorMessage || loadingWithoutRows)
+        ? []
+        : showingExamples
+          ? THREADS_EXAMPLE_THREADS
+          : displayThreads;
     if (showingExamples) {
       this.trackThreadsExampleViewedOnce();
     }
@@ -10390,7 +10377,12 @@ ${argsString}</pre
       selectedThread !== null &&
       selectedThread.id === this.selectedLocalExampleThreadId;
 
-    if (!threadsErrorMessage) {
+    if (locked) {
+      this.trackThreadsViewStateOnce("locked", 0);
+    } else if (
+      !threadsErrorMessage &&
+      (!threadsLoading || displayThreads.length > 0)
+    ) {
       this.trackThreadsViewStateOnce(
         displayThreads.length === 0 ? "empty_enabled" : "enabled",
         displayThreads.length,
@@ -10409,6 +10401,7 @@ ${argsString}</pre
               .threads=${visibleThreads}
               .selectedThreadId=${this.selectedThreadId}
               .errorMessage=${threadsErrorMessage}
+              .suppressEmptyState=${loadingWithoutRows}
               @threadSelected=${(e: CustomEvent<string>) => {
                 this.handleThreadsThreadSelected(e.detail, showingExamples);
               }}
@@ -10428,8 +10421,46 @@ ${argsString}</pre
           <!-- Center + right: thread details or empty state -->
           <div style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;">
             ${
-              selectedThread
-                ? html`<cpk-thread-details
+              !locked && threadsErrorMessage
+                ? html`
+                    <div
+                      role="alert"
+                      style="
+                        display: flex;
+                        flex: 1;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        padding: 24px;
+                        color: #c0333a;
+                        text-align: center;
+                      "
+                    >
+                      <strong style="font-size:13px;">Failed to load threads</strong>
+                      <span style="max-width:440px;font-size:12px;line-height:1.5;"
+                        >${threadsErrorMessage}</span
+                      >
+                    </div>
+                  `
+                : loadingWithoutRows
+                  ? html`
+                      <div
+                        role="status"
+                        style="
+                          display: flex;
+                          flex: 1;
+                          align-items: center;
+                          justify-content: center;
+                          color: #57575b;
+                          font-size: 13px;
+                        "
+                      >
+                        Loading threads…
+                      </div>
+                    `
+                  : selectedThread
+                    ? html`<cpk-thread-details
                     style="flex:1;min-width:0;"
                     .threadId=${selectedThread.id}
                     .thread=${selectedThread}
@@ -10438,7 +10469,11 @@ ${argsString}</pre
                         ? this.getExampleThreadProvider(selectedThread.id)
                         : null
                     }
-                    .runtimeUrl=${this._core?.runtimeUrl ?? ""}
+                    .runtimeUrl=${
+                      selectedThreadIsLocalExample
+                        ? ""
+                        : (this._core?.runtimeUrl ?? "")
+                    }
                     .headers=${this._core?.headers ?? {}}
                     .threadInspectionAvailable=${
                       selectedThreadIsLocalExample ||
@@ -10460,9 +10495,9 @@ ${argsString}</pre
                       ? this.renderThreadsExampleTour()
                       : nothing
                   }`
-                : showingExamples
-                  ? this.renderThreadsExampleOverview()
-                  : html`
+                    : showingExamples
+                      ? this.renderThreadsExampleOverview(locked)
+                      : html`
                     <div
                       style="
                         flex: 1;

@@ -353,7 +353,7 @@ test("Threads footer action emits one impression per visible transition and one 
   }
 });
 
-test("a valid manage action emits no footer impression when Threads endpoints are locked", async () => {
+test("a valid manage action emits one footer impression when Threads endpoints are locked", async () => {
   const context = await setup({
     metadataResponses: [fullMetadata()],
     threadsAvailable: false,
@@ -362,13 +362,15 @@ test("a valid manage action emits no footer impression when Threads endpoints ar
     await context.open();
 
     const root = context.inspector.shadowRoot!;
-    expect(root.querySelector("[data-inspector-threads-footer]")).toBeNull();
-    expect(root.querySelector("[data-inspector-action-placement]")).toBeNull();
+    const footer = root.querySelectorAll("[data-inspector-threads-footer]");
+    const action = root.querySelectorAll("[data-inspector-threads-footer] a");
+    expect(footer).toHaveLength(1);
+    expect(action).toHaveLength(1);
     expect(
       metadataBodies(context).filter(
         ({ properties }) => properties.module === "action",
       ),
-    ).toEqual([]);
+    ).toHaveLength(1);
     expect(
       context.telemetryBodies.filter(
         ({ event }) => event === TELEMETRY_EVENTS.metadataActionClicked,

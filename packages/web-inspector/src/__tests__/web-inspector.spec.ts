@@ -2313,6 +2313,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     internals.isOpen = true;
     internals.handleMenuSelect("threads");
     await inspector.updateComplete;
+    await vi.waitFor(() =>
+      expect(threadListText(inspector)).toMatch(/Example/),
+    );
 
     expect(inspector.shadowRoot?.textContent ?? "").toContain(
       "Threads are persistent, inspectable conversations",
@@ -2354,6 +2357,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     internals.isOpen = true;
     internals.handleMenuSelect("threads");
     await inspector.updateComplete;
+    await vi.waitFor(() =>
+      expect(threadListText(inspector)).toMatch(/Example/),
+    );
 
     expect(inspector.shadowRoot?.textContent ?? "").toContain(
       "Threads are persistent, inspectable conversations",
@@ -2395,6 +2401,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     internals.isOpen = true;
     internals.handleMenuSelect("threads");
     await inspector.updateComplete;
+    await vi.waitFor(() =>
+      expect(threadListText(inspector)).toMatch(/Example/),
+    );
 
     expect(vi.getTimerCount()).toBe(1);
     inspector.remove();
@@ -2431,6 +2440,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     internals.isOpen = true;
     internals.handleMenuSelect("threads");
     await inspector.updateComplete;
+    await vi.waitFor(() =>
+      expect(threadListText(inspector)).toMatch(/Example/),
+    );
 
     expect(requestIdleCallback).toHaveBeenCalledTimes(1);
     inspector.remove();
