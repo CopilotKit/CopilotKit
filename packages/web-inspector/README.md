@@ -6,8 +6,8 @@ The Web Inspector reads optional `InspectorMetadataV1` data from
 `@copilotkit/core`. It parses the value again at the UI boundary and renders each
 valid module on its own:
 
-- `identity` shows the organization and project in the Inspector header.
-- `plan` shows the plan label in the header.
+- `identity` shows the organization and project in the account strip.
+- `plan` shows the plan label in the account strip.
 - `action` can show one trusted link in the Threads footer or locked Threads view.
 - `usage` shows trusted Thread counts and expiry data in the Threads footer.
 
@@ -19,6 +19,12 @@ The footer sits at the bottom of the Threads list sidebar. It stays out of the
 account strip, other navigation groups, and Settings. Usage and the footer
 action render on their own, so either module can appear without the other.
 
+The primary navigation groups the Inspector into Threads, Agents, and Learning.
+Metadata is display-only: it never authorizes or gates Thread work. Core starts
+real Thread work only for object-valued `threadEndpoints` with `list !== false`.
+Absent endpoints, literal `false`, or an endpoint object with `list: false`
+produce zero list, subscribe, inspect, messages, events, and state requests.
+
 ### License and action matrix
 
 | Effective license state | Threads footer                                                   | Locked Threads view                                                                            |
@@ -28,14 +34,24 @@ action render on their own, so either module can appear without the other.
 | `expired`               | No footer action                                                 | Shows `Renew` for `renew`, or `Manage Your Plan` for `manage_plan`                             |
 | `unknown`               | No footer action                                                 | Uses neutral unavailable copy with no action                                                   |
 
-Finite usage shows a native progress bar. Counts above the limit clamp to the
-limit and use a `+` suffix. Unlimited and unknown limits use text only. A known
-zero expiry count stays visible; missing expiry data stays hidden.
+Finite usage shows `used / limit Threads` with a native progress bar. An overage
+shows `limit+ / limit Threads` and caps the bar at 100%. Unlimited limits use
+text only. An unknown limit shows the trusted used count with `Limit
+unavailable`; it invents neither a numeric limit nor progress. A known zero
+expiry count stays visible; missing or malformed expiry data stays hidden.
+
+`Expiring Soon` describes a future retention-policy threshold in the next 24
+hours. The Inspector does not enforce retention, lock or delete Threads, or run
+the thread culler.
+
+Managed Enterprise metadata has no manage-plan action, and Team Self-Hosted
+metadata has no hosted action. Any supplied action must match the effective
+license state and action kind in the matrix above.
 
 The Inspector compares metadata license state with `licenseStatus` from the
 runtime-info response. If both are known and disagree, it uses the Runtime
 status for copy and hides the action. This avoids sending a user to an action
-that does not match the runtime's current state.
+that does not match the runtime's current state without hiding valid usage.
 
 Every action opens the exact URL accepted by the shared parser. The Inspector
 does not add query parameters, derive URLs from names or IDs, or provide a
@@ -48,25 +64,32 @@ thread. The Inspector keeps the existing selected row and detail view.
 
 ### Mixed versions
 
-| Combination                                                      | Result                                                                                                   |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| New Intelligence producer, Runtime, Core, and Inspector          | Trusted metadata is shown.                                                                               |
-| Old Intelligence producer with a new Runtime                     | The provider `404` becomes a private `204`; no metadata is shown.                                        |
-| New Intelligence producer with an old Runtime                    | The Runtime has no proxy or capability; no metadata is shown.                                            |
-| New Core with an old Runtime                                     | Core sees no capability and skips the metadata request.                                                  |
-| New Inspector with an old Core, or old Inspector with a new Core | The optional API is feature-detected or ignored; metadata stays absent and the Inspector remains usable. |
+| Combination                                    | Result                                                                                        |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Old producer with new Shared and Runtime       | V1 usage remains valid without `expiringSoonCount`; expiry stays absent.                      |
+| New producer with pre-expiry Shared or Runtime | The older consumer ignores or removes the additive expiry leaf and keeps valid base V1 usage. |
+| Old App API with new Runtime                   | The provider `404` becomes a private `204`; Core stays connected and metadata stays absent.   |
+| New App API with old Runtime                   | The Runtime makes no metadata request, and the current Inspector behavior stays unchanged.    |
+| New Runtime or Core with old Inspector         | The old Inspector ignores metadata it does not render.                                        |
+| New Inspector with old Core or Runtime         | The Inspector feature-detects support and renders the safe missing-metadata fallback.         |
 
-Roll out the Intelligence producer first, then release the OSS packages together
-as one monorepo release.
+These combinations do not require synchronized deployment. Roll out the
+Intelligence producer first, then release each consumer when ready. Explicit
+`threadEndpoints` remain the authority in every mix; metadata never enables
+Thread work, and a license conflict suppresses an incompatible action without
+suppressing valid usage.
 
 ### Privacy allowlist
 
 The UI may render only the parsed organization name, project name, plan label,
-license bucket, action kind, and trusted action URL. Metadata telemetry is
+license bucket, action kind, trusted action URL, and trusted Thread usage fields:
+used count, limit kind and value, and expiry count. Metadata telemetry is
 coarse: its feature-specific properties may include only `module`,
-`action_kind`, and `license_bucket`. It must never copy names, account or
-project IDs, thread IDs, URLs, usage values, limits, counts, or conversation
-content into those events.
+`action_kind`, `license_bucket`, `usage_bucket`, `expiry_bucket`, `group_key`,
+`leaf_key`, and `action_placement`. It must never copy exact usage, limits,
+expiry counts, content, names, URLs, or Thread, agent, message, account, project,
+or other product IDs into those events. It retains only the anonymous
+identifiers already used by Inspector telemetry.
 
 The usage UI does not add usage impressions or values to telemetry. Grouped
 Inspector navigation shows the footer only on Threads. The existing metadata
@@ -129,9 +152,9 @@ scenario selector lists all 31 routes in the fixed test order.
 
 ### Local demo and reset behavior
 
-Enabled routes with no real rows keep the product's video, three example
-threads, detail tabs, and guided tour. `video-error` blocks media in the lab so
-the fallback can be tested without changing the product video URL.
+Enabled routes with no real rows and locked routes keep the product's video,
+three example threads, detail tabs, and guided tour. `video-error` blocks media
+in the lab so the fallback can be tested without changing the product video URL.
 `reduced-motion` starts the video paused and keeps the labelled play control.
 
 `Reset` tears down the current Core and stores, clears only these two keys, resets

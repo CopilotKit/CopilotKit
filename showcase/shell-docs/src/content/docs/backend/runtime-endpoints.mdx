@@ -1,7 +1,7 @@
 ---
-title: "Runtime HTTP endpoints"
-icon: "lucide/Network"
-description: "The HTTP routes exposed by the CopilotKit runtime for self-hosting, proxying, and debugging."
+title: 'Runtime HTTP endpoints'
+icon: 'lucide/Network'
+description: 'The HTTP routes exposed by the CopilotKit runtime for self-hosting, proxying, and debugging.'
 ---
 
 When you mount the CopilotKit runtime with `createCopilotExpressHandler`,
@@ -18,23 +18,24 @@ exposes.
 By default the runtime runs in **multi-route** mode, exposing a separate route per
 operation. Given a `basePath` of `/api/copilotkit`, the routes are:
 
-| Method & path | Purpose |
-|---|---|
-| `GET /api/copilotkit/info` | Runtime info. The frontend calls this on startup to discover registered agents and their metadata. |
-| `GET /api/copilotkit/inspector-metadata` | Optional trusted project, plan, license, and action context for the Inspector. Intelligence-backed runtimes advertise this route with `inspectorMetadata: true` in the runtime-info response. |
-| `POST /api/copilotkit/agent/:agentId/run` | Start an agent run. The request body is an AG-UI `RunAgentInput`; the response is an SSE stream of AG-UI events. |
-| `POST /api/copilotkit/agent/:agentId/connect` | Connect to an agent's thread. Used to resume streaming after a reconnect or page refresh. Also an SSE stream. |
-| `POST /api/copilotkit/agent/:agentId/stop/:threadId` | Stop an in-progress run on a given thread. |
-| `POST /api/copilotkit/transcribe` | Transcribe audio (used by the voice / transcription input). |
+| Method & path                                        | Purpose                                                                                                                                                                                                      |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/copilotkit/info`                           | Runtime info. The frontend calls this on startup to discover registered agents and their metadata.                                                                                                           |
+| `GET /api/copilotkit/inspector-metadata`             | Optional trusted project, plan, license, action, usage, and expiry context for the Inspector. Intelligence-backed runtimes advertise this route with `inspectorMetadata: true` in the runtime-info response. |
+| `POST /api/copilotkit/agent/:agentId/run`            | Start an agent run. The request body is an AG-UI `RunAgentInput`; the response is an SSE stream of AG-UI events.                                                                                             |
+| `POST /api/copilotkit/agent/:agentId/connect`        | Connect to an agent's thread. Used to resume streaming after a reconnect or page refresh. Also an SSE stream.                                                                                                |
+| `POST /api/copilotkit/agent/:agentId/stop/:threadId` | Stop an in-progress run on a given thread.                                                                                                                                                                   |
+| `POST /api/copilotkit/transcribe`                    | Transcribe audio (used by the voice / transcription input).                                                                                                                                                  |
 
 `:agentId` is the key under which you registered the agent in
 `new CopilotRuntime({ agents: { ... } })`, for example `default` or
 `research-agent`. `:threadId` is the thread the run belongs to.
 
 <Callout type="info">
-The `GET /info` route is the same endpoint the frontend uses for agent
-discovery. If it isn't reachable from the runtime, the frontend reports a
-`runtime_info_fetch_failed` error. See [Error Debugging](/troubleshooting/error-debugging).
+  The `GET /info` route is the same endpoint the frontend uses for agent
+  discovery. If it isn't reachable from the runtime, the frontend reports a
+  `runtime_info_fetch_failed` error. See [Error
+  Debugging](/troubleshooting/error-debugging).
 </Callout>
 
 ### Inspector metadata
@@ -51,6 +52,42 @@ not backed by Intelligence, or the provider request fails. A metadata failure
 does not change the runtime connection or agent state. The upstream Intelligence
 request has a five-second deadline; a timeout follows the same private `204`
 path.
+
+```json
+{
+  "schemaVersion": 1,
+  "identity": {
+    "organizationName": "Acme",
+    "projectName": "Support"
+  },
+  "plan": {
+    "code": "team",
+    "label": "Team"
+  },
+  "license": {
+    "state": "valid"
+  },
+  "action": {
+    "kind": "manage_plan",
+    "url": "https://ops.example.com/account/organization/org_123/organization-billing"
+  },
+  "usage": {
+    "used": 42,
+    "limit": {
+      "kind": "finite",
+      "value": 1000
+    },
+    "expiringSoonCount": 7
+  }
+}
+```
+
+Every module is optional and independent. `usage.expiringSoonCount` is an
+additive V1 leaf for deadlines in the next 24 hours: `0` is a known count, while
+absence means no trusted expiry count is available. Shared removes a malformed
+expiry leaf without removing valid `used`, `limit`, or sibling modules. Older
+V1 producers may omit the leaf, and older consumers may ignore it without a
+synchronized deployment.
 
 ```bash
 curl -i http://localhost:4000/api/copilotkit/inspector-metadata
@@ -86,18 +123,18 @@ the runtime exposes one `POST {basePath}` endpoint that accepts a JSON envelope
 `{ method, params, body }` and dispatches internally to the same handlers:
 
 ```ts title="app/api/copilotkit/route.ts (Express)"
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
-import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+import { CopilotRuntime, BuiltInAgent } from '@copilotkit/runtime/v2';
+import { createCopilotExpressHandler } from '@copilotkit/runtime/v2/express';
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
+  agents: { default: new BuiltInAgent({ model: 'openai/gpt-4o-mini' }) },
 });
 
 app.use(
   createCopilotExpressHandler({
     runtime,
-    basePath: "/api/copilotkit",
-    mode: "single-route",
+    basePath: '/api/copilotkit',
+    mode: 'single-route',
   }),
 );
 ```
@@ -116,7 +153,7 @@ On the frontend, opt into the matching transport with the `useSingleEndpoint`
 prop:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKit } from '@copilotkit/react-core/v2';
 
 <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint>
   <YourApp />
@@ -138,8 +175,8 @@ needed:
 
 ```ts title="src/app/app.config.ts"
 provideCopilotKit({
-  runtimeUrl: "/api/copilotkit",
-})
+  runtimeUrl: '/api/copilotkit',
+});
 ```
 
 <Callout type="warn">
@@ -158,8 +195,11 @@ yourself, or pass a configuration object to scope it for production:
 ```ts
 createCopilotExpressHandler({
   runtime,
-  basePath: "/api/copilotkit",
-  cors: { origin: "https://app.example.com", methods: ["GET", "POST", "OPTIONS"] },
+  basePath: '/api/copilotkit',
+  cors: {
+    origin: 'https://app.example.com',
+    methods: ['GET', 'POST', 'OPTIONS'],
+  },
 });
 ```
 
@@ -172,11 +212,11 @@ every request and can reject the request by throwing a `Response`:
 ```ts
 createCopilotExpressHandler({
   runtime,
-  basePath: "/api/copilotkit",
+  basePath: '/api/copilotkit',
   hooks: {
     onRequest: ({ request }) => {
-      if (!request.headers.get("authorization")) {
-        throw new Response("Unauthorized", { status: 401 });
+      if (!request.headers.get('authorization')) {
+        throw new Response('Unauthorized', { status: 401 });
       }
     },
   },

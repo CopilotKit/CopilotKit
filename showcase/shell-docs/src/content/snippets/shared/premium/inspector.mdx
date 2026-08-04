@@ -12,50 +12,101 @@
 
 The CopilotKit Inspector is a built-in debugging tool that overlays on your app, giving you full visibility into what's happening between your frontend and your agents in real time.
 
-| Feature              | Description                                                                              |
-| -------------------- | ---------------------------------------------------------------------------------------- |
-| **AG-UI Events**     | View the raw AG-UI event stream between your frontend and agent in real time.            |
-| **Available Agents** | See which agents are connected and available to your app.                                |
-| **Agent State**      | Inspect your agent's current state as it updates.                                        |
-| **Frontend Tools**   | See what tools you've defined on the frontend and their parameter schemas.               |
-| **Context**          | View the context you've provided to the agent, including readables and document context. |
-| **Project Context**  | See trusted organization, project, plan, and license-aware actions when the runtime supplies them. |
+| Feature | Description |
+| --- | --- |
+| **Threads** | Inspect real Threads and their messages, AG-UI events, and state. |
+| **AG-UI Events** | View the raw AG-UI event stream between your frontend and agent in real time. |
+| **Available Agents** | See which agents are connected and available to your app. |
+| **Agent State** | Inspect your agent's current state as it updates. |
+| **Frontend Tools** | See what tools you've defined on the frontend and their parameter schemas. |
+| **Context** | View the context you've provided to the agent, including readables and document context. |
+| **Project Context** | See trusted organization, project, plan, Thread usage, expiry, and license-aware actions when the Runtime supplies them. |
 
-## Project and license context
+## Navigation and Threads
 
-An Intelligence-backed Runtime can supply optional trusted project metadata to
-the Inspector. Valid organization and project names appear in the header, along
-with the plan label. Each module is independent, so one missing or invalid value
-does not hide the others.
+The primary navigation groups the Inspector into **Threads**, **Agents**, and
+**Learning**. Threads is the default. Open a real Thread to inspect its
+**Messages**, **AG-UI Events**, and **State**. Metadata updates do not change the
+selected Thread.
+
+When Threads has no real rows, or when Threads is locked, the Inspector keeps
+the overview video, three local example threads, their detail tabs, and the
+guided tour. The examples do not send real Thread requests. With reduced motion
+enabled, the video starts paused with a labelled Play control. If the media
+fails, fallback text appears while the examples, details, and tour stay usable.
+
+## Project context and usage
+
+An Intelligence-backed Runtime can supply optional trusted project metadata.
+Valid organization and project names and the plan label appear in the account
+strip. Each module is independent, so missing or invalid identity data does not
+hide valid usage or action data.
+
+Trusted Thread usage and a compatible supplied action appear only in the
+Threads footer. They render independently: usage can appear without identity,
+plan, license, or action metadata, and action-only metadata does not invent
+usage.
+
+| Usage state | Inspector behavior |
+| --- | --- |
+| Finite | Shows `used / limit Threads` and a native progress bar. An overage shows `limit+ / limit Threads` and caps the bar at 100%. |
+| Unlimited | Shows the trusted used count with **Unlimited** and no progress bar. |
+| Unknown limit | Shows the trusted used count with **Limit unavailable**, but invents no numeric limit or progress. |
+| Known expiry count | Shows the count, including `0 Expiring Soon`. |
+| Missing or malformed expiry | Hides the expiry value without hiding valid base usage. |
+
+`Expiring Soon` describes a future retention-policy threshold in the next 24
+hours. It does not prove that the thread culler ran or that the Inspector locked
+or deleted a Thread.
 
 When Threads is locked, the Runtime's license state controls the copy and any
 action:
 
 | License state | Inspector behavior |
 | --- | --- |
-| Active | Shows **Manage plan** in the header only when the Runtime supplies that action. A locked Threads view explains that the license is active but the runtime does not expose Threads. |
-| Not enabled | Shows **Enable Intelligence** only when the Runtime supplies that action. |
-| Expired | Shows **Renew** or **Manage plan** only when the Runtime supplies a matching action. |
+| Active | Explains that the Runtime has no Threads endpoints and shows no locked action. |
+| Not enabled | Shows **Enable Intelligence** only for a matching trusted action. |
+| Expired | Shows **Renew** or **Manage Your Plan** only for a matching trusted action. |
 | Unknown | Shows neutral unavailable copy without an action. |
 
+A valid managed footer can show **Manage Your Plan** only for a matching trusted
+action. Managed Enterprise has no manage-plan action, and Team Self-Hosted has
+no hosted action; either can keep valid usage visible.
+
 The Inspector opens the exact trusted URL supplied by the Runtime. It does not
-build a URL from project details and has no hard-coded signup fallback for the
-locked Threads metadata action. If the new metadata license state conflicts
-with the Runtime's older license status, the Inspector uses the Runtime status
-for copy and hides the action.
+build a URL from project details and has no hard-coded signup fallback. If
+metadata license state conflicts with the Runtime's license status, the Runtime
+status controls the copy and the Inspector hides the action without hiding
+valid usage.
 
-Older Runtime, Core, and Inspector versions remain compatible. Missing support
-means the project context is absent and the existing Inspector still works.
-Metadata updates do not change the selected thread.
+Older Runtime, Core, and Inspector versions remain compatible without a
+synchronized deployment. Older V1 producers leave
+`usage.expiringSoonCount` absent, while pre-expiry Shared and Runtime versions
+ignore or remove the additive leaf from newer producers. Older Inspectors ignore
+metadata they do not render; newer Inspectors feature-detect older Core and
+Runtime support and use a safe missing-metadata fallback. Explicit
+`threadEndpoints` remain the authority in every mix, and metadata never enables
+Thread work.
 
-<Callout type="info">
-  Usage data and grouped Inspector navigation are not shown in this release.
-  The current tabs and thread-selection behavior stay unchanged.
-</Callout>
+## Local scenario lab
 
-## Disabling the Inspector
+From the CopilotKit repository root, run:
 
-The Inspector is enabled by default. To disable it, set `enableInspector` to `false`:
+```bash
+pnpm nx run @copilotkit/web-inspector:dev:standalone
+```
+
+Open [http://127.0.0.1:5177/](http://127.0.0.1:5177/), or start a clean recording
+with the approved Free usage state:
+[http://127.0.0.1:5177/?scenario=free-figma-148-of-200&reset=1](http://127.0.0.1:5177/?scenario=free-figma-148-of-200&reset=1).
+Use
+[http://127.0.0.1:5177/?scenario=free-overage-241-of-200&reset=1](http://127.0.0.1:5177/?scenario=free-overage-241-of-200&reset=1)
+to check the capped overage and known-zero expiry states.
+
+## Showing or hiding the Inspector
+
+By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
+`0.0.0.0`. Set `enableInspector` to `false` to hide it on those hosts:
 
 ```tsx
 <CopilotKit
@@ -66,4 +117,5 @@ The Inspector is enabled by default. To disable it, set `enableInspector` to `fa
 </CopilotKit>
 ```
 
-No matter what, **the inspector automatically disables when you create a production build.**
+Set `enableInspector` to `true` to show it on another host, including in a
+production build. CopilotKit always uses an explicit `true` or `false` value.
