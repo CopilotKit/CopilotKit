@@ -37,7 +37,7 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     cd my-slack-channel
     npm init -y
     npm pkg set type=module
-    npm install --save-exact @copilotkit/channels@0.5.0 @copilotkit/runtime@1.64.2
+    npm install --save-exact @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0
     npm install -D tsx typescript @types/node
     ```
 
@@ -273,9 +273,11 @@ const channel = createChannel({
     `ready()` settling does not by itself mean the provider is online.
   </Accordion>
   <Accordion title="The app is Online but never receives a mention">
-    Invite it to the channel, then verify the `xapp-…` and `xoxb-…` values came
-    from the same Slack app. Intelligence cannot fully detect a valid but
-    mismatched token pair during setup.
+    Invite it to the channel, then verify the `xoxb-…` Bot User OAuth token and
+    Signing Secret came from the same Slack app. Intelligence cannot fully
+    detect valid but mismatched credentials during setup. If you updated the
+    manifest or scopes, reinstall the app and save the current bot token in
+    Intelligence before retrying.
   </Accordion>
   <Accordion title="The agent mixes conversations">
     Ensure `makeAgent` creates a new agent for every `threadId` and assigns that
@@ -283,5 +285,6 @@ const channel = createChannel({
   </Accordion>
 </Accordions>
 
-Next, add [tools and context](/channels/tools) or
+Next, [map application users and choose Memory grants](/channels/identity-and-memory),
+add [tools and context](/channels/tools), or build
 [interactive approvals](/channels/interactive).

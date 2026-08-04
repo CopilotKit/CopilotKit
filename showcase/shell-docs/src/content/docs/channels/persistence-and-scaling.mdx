@@ -204,9 +204,10 @@ declares the matching Channel can receive the invitation, check local capacity,
 and attempt the claim. Different replicas can serve different conversations at
 the same time; there is no Channel-wide leader.
 
-Keep each replica's Channel declarations and agent code aligned. Set
-`maxConcurrentDeliveries` to a local bound each process can sustain. A Runtime
-that has reached that bound declines new invitations before claiming them.
+Keep each replica's Channel declarations and agent code aligned. The managed
+listener bounds active and pending delivery work internally. A Runtime that has
+reached its internal capacity declines new invitations before claiming them;
+that capacity is not currently a public Channel configuration option.
 
 Provider effects use one ordered packet at a time. The SDK retries that exact
 packet after a known retry wait or reconnect. If a provider call becomes
@@ -219,7 +220,8 @@ application may call them more than once; use `message.eventId`,
 
 Managed admission keeps one canonical Thread exclusive on a Runtime. A second
 invitation for that Thread is not claimed while the first delivery is active.
-Unrelated Threads continue in parallel up to `maxConcurrentDeliveries`.
+Unrelated Threads continue in parallel within the managed listener's bounded
+capacity.
 
 This delivery guard is separate from the SDK `store.concurrency` setting used
 by other adapter paths. Choose that setting for your application-state rules;
@@ -234,8 +236,8 @@ do not use it to raise the managed same-Thread delivery limit. See
 - Run the StateStore conformance suite against the real backend.
 - Test a restart while a card is awaiting a click.
 - Make external writes idempotent.
-- Keep Channel declarations aligned across replicas and set a local delivery
-  concurrency bound.
+- Keep Channel declarations aligned across replicas and scale horizontally when
+  the managed listener's bounded local capacity is insufficient.
 - Alert on Intelligence **Conflict**, **Offline**, and **Delivery failing**.
 - Stop the listener on `SIGINT` and `SIGTERM`.
 

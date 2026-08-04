@@ -1134,8 +1134,9 @@ describe("createChannel", () => {
     expect(shared.messages).toEqual([]);
   });
 
-  it("agent whose clone() drops subclass state fails loud", async () => {
+  it("agent whose clone() drops subclass state warns and still runs the turn", async () => {
     const state = new MemoryStore();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     // Inherits `FakeAgent.clone()`, which builds a plain `FakeAgent` and so
     // cannot carry this field — the same shape as a subclass inheriting
@@ -1158,6 +1159,8 @@ describe("createChannel", () => {
 
     await channel.ɵruntime.start();
     const sink = fake.getSink();
+    // Reports it, and does not refuse the turn: whether a dropped field matters
+    // depends on what it holds, and this cannot tell config from per-run state.
     await expect(
       sink.onTurn({
         conversationKey: "c1",
@@ -1166,7 +1169,49 @@ describe("createChannel", () => {
         platform: "fake" as const,
         eventId: "E1",
       }),
-    ).rejects.toThrow(/StatefulAgent\.clone\(\) dropped authClient/);
+    ).resolves.not.toThrow();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(/StatefulAgent\.clone\(\) dropped authClient/),
+    );
+
+    warn.mockRestore();
+  });
+
+  it("the dropped-state warning names every field, once per turn", async () => {
+    const state = new MemoryStore();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    class TwoFieldAgent extends FakeAgent {
+      authClient = { token: "secret" };
+      cache = new Map<string, string>();
+    }
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => new TwoFieldAgent(),
+      store: { adapter: state },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ prompt: "hi" });
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hi",
+      platform: "fake" as const,
+      eventId: "E1",
+    });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("authClient, cache"),
+    );
+
+    warn.mockRestore();
   });
 
   it("does not fail loud when clone() drops an instance-patched method", async () => {

@@ -2,23 +2,22 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, X } from "lucide-react";
+import { ArrowRight, MessageSquare, X } from "lucide-react";
 
 type BannerEntry = {
   mobileText: string;
   title: string;
-  source: string;
+  source?: string;
   buttonText: string;
   href: string;
 };
 
 const bannerContent: BannerEntry[] = [
   {
-    mobileText: "Free Generative UI course",
-    title: "Build Interactive Agents with Generative UI",
-    source: "DeepLearning.AI",
-    buttonText: "Start free course",
-    href: "https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/",
+    mobileText: "The Channels SDK is here",
+    title: "The Channels SDK brings your agents where work happens.",
+    buttonText: "Explore Channels",
+    href: "/channels",
   },
 ];
 
@@ -102,17 +101,19 @@ export function Banners() {
       <div className="relative z-1 flex w-full min-w-0 items-center justify-center gap-2 pr-8 md:gap-2.5">
         <span
           className="shell-docs-radius-icon hidden h-5 w-5 shrink-0 items-center justify-center border border-white/30 bg-white/16 text-white lg:inline-flex"
-          aria-label="Free course"
+          aria-label="Channels"
         >
-          <BookOpenCheck className="h-3 w-3" aria-hidden="true" />
+          <MessageSquare className="h-3 w-3" aria-hidden="true" />
         </span>
         <p className="min-w-0 truncate text-xs font-medium text-white md:text-[13px]">
           <span className="md:hidden">{content.mobileText}</span>
           <span className="hidden md:inline">{content.title}</span>
-          <span className="hidden text-white/72 md:inline">
-            {" "}
-            with {content.source}
-          </span>
+          {content.source && (
+            <span className="hidden text-white/72 md:inline">
+              {" "}
+              with {content.source}
+            </span>
+          )}
         </p>
         <Link
           href={content.href}

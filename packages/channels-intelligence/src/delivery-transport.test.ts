@@ -11,6 +11,7 @@ import type {
   RealtimeGatewayDeliveryChannel,
   RealtimeGatewaySession,
 } from "./realtime-gateway.js";
+import { SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY } from "./delivery-contracts.js";
 
 function preparedDelivery() {
   return {
@@ -521,7 +522,10 @@ test("wrong-provider handler output uses only the trusted active-provider fallba
 });
 
 test("claims an invitation and consumes the one-use token on delivery join", async () => {
-  const deliveryChannel = channel();
+  const deliveryChannel = channel({
+    ...preparedDelivery(),
+    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
+  });
   const control: RealtimeGatewaySession = {
     push: vi.fn().mockResolvedValue(claimResult("dlv_delivery_01")),
     on: vi.fn(),
@@ -549,11 +553,15 @@ test("claims an invitation and consumes the one-use token on delivery join", asy
     runtimeInstanceId: "rti_runtime_01",
     ownerGeneration: 7,
     joinToken: "chj_token_delivery_01",
+    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
   });
 });
 
 test("reconnect accepts the distinct join-token response without a claim result", async () => {
-  const first = channel();
+  const first = channel({
+    ...preparedDelivery(),
+    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
+  });
   const second = channel();
   vi.mocked(first.push).mockRejectedValueOnce(new Error("socket dropped"));
   const control: RealtimeGatewaySession = {
@@ -578,11 +586,15 @@ test("reconnect accepts the distinct join-token response without a claim result"
     session: control,
     runtimeInstanceId: "rti_runtime_01",
   });
-  transport.start(async (claimed) => {
+  let capabilitiesAfterReconnect:
+    | PreparedChannelDelivery["capabilities"]
+    | undefined;
+  transport.start(async (claimed, delivery) => {
     await claimed.effect("response_01", {
       kind: "slack.message.create",
       text: "Hello after reconnect",
     });
+    capabilitiesAfterReconnect = delivery.capabilities;
   });
 
   const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
@@ -600,9 +612,97 @@ test("reconnect accepts the distinct join-token response without a claim result"
     runtimeInstanceId: "rti_runtime_01",
     ownerGeneration: 8,
     joinToken: "chj_reconnect_delivery_01",
+    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
   });
   expect(first.leave).toHaveBeenCalledOnce();
   expect(second.push).toHaveBeenCalledTimes(2);
+  expect(capabilitiesAfterReconnect).toBeUndefined();
+  await transport.stop();
+});
+
+test("adapts an in-flight Slack append across new-old-new gateway rejoins", async () => {
+  const first = channel({
+    ...preparedDelivery(),
+    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
+  });
+  const second = channel();
+  const third = channel({
+    ...preparedDelivery(),
+    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
+  });
+  vi.mocked(first.push).mockRejectedValueOnce(new Error("socket dropped"));
+  vi.mocked(second.push).mockRejectedValueOnce(new Error("socket dropped"));
+  let ownerGeneration = 7;
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockImplementation((event, payload) => {
+      const deliveryId = (payload as { deliveryId: string }).deliveryId;
+      if (event === "claim") return Promise.resolve(claimResult(deliveryId));
+      if (event === "join_token") {
+        ownerGeneration += 1;
+        return Promise.resolve({
+          deliveryId,
+          ownerGeneration,
+          joinToken: `chj_reconnect_delivery_${ownerGeneration}`,
+          joinTokenExpiresAt: "2099-07-29T16:02:00.000Z",
+          deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
+        });
+      }
+      return Promise.resolve({});
+    }),
+    on: vi.fn(),
+    join: vi
+      .fn()
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second)
+      .mockResolvedValueOnce(third),
+  };
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+  });
+  transport.start(async (claimed) => {
+    await claimed.effect("response_01", {
+      kind: "slack.stream.append",
+      providerReference: "pref_v1_safe_reference",
+      delta: " world",
+      fullText: "Hello world",
+    });
+  });
+
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+  invitationHandler(invitation("dlv_delivery_01", "thread_01"));
+
+  await vi.waitFor(() => expect(third.leave).toHaveBeenCalledOnce());
+  const initialPacket = vi.mocked(first.push).mock.calls[0]![1] as {
+    packetId: string;
+    seq: number;
+    payload: Record<string, unknown>;
+  };
+  const retriedPacket = vi.mocked(second.push).mock.calls[0]![1] as {
+    packetId: string;
+    seq: number;
+    payload: Record<string, unknown>;
+  };
+  const restoredPacket = vi.mocked(third.push).mock.calls[0]![1] as {
+    packetId: string;
+    seq: number;
+    payload: Record<string, unknown>;
+  };
+  expect(initialPacket.payload).toMatchObject({
+    kind: "slack.stream.append",
+    delta: " world",
+    fullText: "Hello world",
+  });
+  expect(retriedPacket.payload).toEqual({
+    kind: "slack.stream.append",
+    providerReference: "pref_v1_safe_reference",
+    delta: " world",
+  });
+  expect(retriedPacket.packetId).toBe(initialPacket.packetId);
+  expect(retriedPacket.seq).toBe(initialPacket.seq);
+  expect(restoredPacket.payload).toEqual(initialPacket.payload);
+  expect(restoredPacket.packetId).toBe(initialPacket.packetId);
+  expect(restoredPacket.seq).toBe(initialPacket.seq);
   await transport.stop();
 });
 
@@ -1305,6 +1405,7 @@ test("still allows stream.stop after a permanent non-terminal failure", async ()
       kind: "slack.stream.append",
       providerReference: "pref_v1_message_01",
       delta: "x",
+      fullText: "x",
     }),
   ).rejects.toBeInstanceOf(RealtimeGatewayPushError);
 
@@ -1444,6 +1545,13 @@ test("rejects malformed capabilities on every prepared input that carries one", 
     kind: "interaction",
     actionId: "ck:approve",
     messageRef: { id: "raw-provider-message-id" },
+  });
+});
+
+test("rejects an unrecognized prepared delivery capability", async () => {
+  await expectPreparedDeliveryRejected({
+    ...preparedDelivery(),
+    capabilities: ["slack_stream_append_future_v2"],
   });
 });
 

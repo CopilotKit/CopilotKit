@@ -4,7 +4,7 @@ import {
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { HttpAgent } from "@ag-ui/client";
+import { createDefaultAgent } from "@/agent";
 import { handle } from "hono/vercel";
 
 // Claude Agent SDK: the agent runs as its own server (uvicorn) and speaks
@@ -12,11 +12,7 @@ import { handle } from "hono/vercel";
 // @ag-ui/client (not LangGraphAgent/LangGraphHttpAgent — those target
 // LangGraph-shaped endpoints). Everything else — runtime config, v2 endpoint
 // wiring, MCP apps, openGenerativeUI, a2ui — mirrors the canonical demo.
-const defaultAgent = new HttpAgent({
-  // Strip any trailing slash so a user-set AGENT_URL like "http://host:8000/"
-  // doesn't produce a double slash (which the agent's POST "/" won't match).
-  url: `${(process.env.AGENT_URL || "http://localhost:8000").replace(/\/+$/, "")}/`,
-});
+const defaultAgent = createDefaultAgent();
 
 const runtime = new CopilotRuntime({
   agents: { default: defaultAgent },
