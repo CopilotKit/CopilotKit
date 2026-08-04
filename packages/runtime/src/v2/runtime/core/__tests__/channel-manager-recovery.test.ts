@@ -1,6 +1,9 @@
 import { expect, test, vi } from "vitest";
 import { createChannel } from "@copilotkit/channels";
-import { RealtimeGatewayUnreachableError } from "@copilotkit/channels-intelligence";
+import {
+  RealtimeGatewayJoinError,
+  RealtimeGatewayUnreachableError,
+} from "@copilotkit/channels-intelligence";
 import { CopilotKitIntelligence } from "../../intelligence-platform";
 import { ChannelManager } from "../channel-manager";
 import type { ActivateChannelEngine, ChannelsHandle } from "../channel-manager";
@@ -28,6 +31,14 @@ function gatewayError(retryable: boolean): Error {
     30_000,
     { retryable },
   );
+}
+
+/** Create a structured gateway drain rejection from a connected socket. */
+function gatewayDrainError(): Error {
+  return new RealtimeGatewayJoinError({
+    reason: "gateway_draining",
+    retryable: true,
+  });
 }
 
 /** Build one isolated manager whose first gateway activation is unavailable. */
@@ -111,6 +122,25 @@ test("a transient initial gateway outage retries until the channel is online", a
     expect(activateChannel).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(1);
+    await expect(manager.ready()).resolves.toBeUndefined();
+    expect(activateChannel).toHaveBeenCalledTimes(2);
+    expect(manager.status().channels.support).toBe("online");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a retryable initial gateway drain join retries until online", async () => {
+  const { manager, activateChannel, cleanup } =
+    setupRecovery(gatewayDrainError());
+
+  try {
+    manager.activate();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(manager.status().channels.support).toBe("reconnecting");
+
+    await vi.advanceTimersByTimeAsync(1_000);
     await expect(manager.ready()).resolves.toBeUndefined();
     expect(activateChannel).toHaveBeenCalledTimes(2);
     expect(manager.status().channels.support).toBe("online");

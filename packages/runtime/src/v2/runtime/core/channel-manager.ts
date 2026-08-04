@@ -725,11 +725,14 @@ function isSetupRequired(err: unknown): boolean {
 
 /** Whether a failed initial activation can recover without new configuration. */
 function isRetryableActivationError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) {
+    return false;
+  }
+  const value = err as { code?: unknown; retryable?: unknown };
   return (
-    typeof err === "object" &&
-    err !== null &&
-    (err as { code?: unknown }).code === "GATEWAY_UNREACHABLE" &&
-    (err as { retryable?: unknown }).retryable === true
+    (value.code === "GATEWAY_UNREACHABLE" ||
+      value.code === "GATEWAY_JOIN_FAILED") &&
+    value.retryable === true
   );
 }
 
