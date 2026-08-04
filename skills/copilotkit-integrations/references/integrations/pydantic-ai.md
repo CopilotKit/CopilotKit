@@ -1,6 +1,6 @@
 # PydanticAI Integration
 
-PydanticAI has first-class AG-UI support built into `pydantic-ai-slim[ag-ui]`. The integration is minimal -- the agent exposes itself as an ASGI app with `agent.to_ag_ui()`.
+PydanticAI has first-class AG-UI support built into `pydantic-ai-slim[ag-ui]`. The integration is minimal -- one Starlette route hands the request to `AGUIAdapter.dispatch_request()`.
 
 ## Prerequisites
 
@@ -15,8 +15,9 @@ PydanticAI has first-class AG-UI support built into `pydantic-ai-slim[ag-ui]`. T
 [project]
 dependencies = [
     "uvicorn",
-    "pydantic-ai-slim[ag-ui]",
-    "pydantic-ai-slim[openai]",
+    "pydantic-ai-slim[ag-ui,openai]==2.22.0",
+    "ag-ui-protocol==0.1.19",
+    "starlette>=0.46.2",
     "python-dotenv",
 ]
 ```
@@ -27,7 +28,7 @@ dependencies = [
 from textwrap import dedent
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 from ag_ui.core import EventType, StateSnapshotEvent
 from pydantic_ai.models.openai import OpenAIResponsesModel
 from dotenv import load_dotenv
@@ -91,19 +92,34 @@ Key patterns:
 - State-modifying tools return `StateSnapshotEvent` with the updated state -- this triggers a state sync to the frontend
 - The `RunContext` provides access to both state and dependencies
 
-## FastAPI Server (agent/src/main.py)
+## Starlette Server (agent/src/main.py)
 
 ```python
 from agent import ProverbsState, StateDeps, agent
+from pydantic_ai.ui.ag_ui import AGUIAdapter
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.routing import Route
 
-app = agent.to_ag_ui(deps=StateDeps(ProverbsState()))
+
+async def run_agent(request: Request) -> Response:
+    # Build the deps fresh on every request: `dispatch_request` writes the state the
+    # client sent into `deps.state`, so a shared instance leaks state between users.
+    return await AGUIAdapter.dispatch_request(
+        request, agent=agent, deps=StateDeps(ProverbsState())
+    )
+
+
+app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 ```
 
-The `agent.to_ag_ui()` call creates a full ASGI application. Pass initial `deps` with default state.
+`AGUIAdapter.dispatch_request()` runs one AG-UI request and streams the protocol events
+back as SSE. Never share a single `StateDeps` instance across requests.
 
 ## Next.js Route (src/app/api/copilotkit/[[...slug]]/route.ts)
 
