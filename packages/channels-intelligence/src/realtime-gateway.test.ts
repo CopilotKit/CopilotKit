@@ -30,6 +30,8 @@ interface FakeControl {
 function makeFakeWebSocket(
   mode: JoinMode,
   pushErrorResponse?: Record<string, unknown>,
+  /** Body of a successful `phx_reply` to `phx_join`. Defaults to `{}`. */
+  joinOkResponse?: Record<string, unknown>,
 ) {
   const instances: FakeWebSocket[] = [];
   const control: FakeControl = { recover: false };
@@ -128,7 +130,7 @@ function makeFakeWebSocket(
       const status = isOkMode ? "ok" : "error";
       const reply =
         status === "ok"
-          ? { status, response: {} }
+          ? { status, response: joinOkResponse ?? {} }
           : {
               status,
               ...(errorResponse() ? { response: errorResponse() } : {}),
@@ -1313,6 +1315,48 @@ describe("connection-health detail (OSS-670)", () => {
     )!;
     expect(named.detail!.reason).toContain("403");
     expect(named.detail!.reason).toMatch(/API key/i);
+
+    session.disconnect();
+  });
+});
+
+describe("connectRealtimeGateway provider states", () => {
+  it("exposes the provider states the gateway reported on the control join reply", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("ok", undefined, {
+      protocol: "channel_delivery_v1",
+      runtimeInstanceId: "rti_1",
+      channels: { opentag: "not_attached" },
+    });
+
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FakeWebSocket,
+    });
+
+    // Proves the whole wiring: the reply argument is captured off the join hook
+    // (it used to be discarded) and surfaced through the session.
+    expect(session.providerStates()).toEqual({ opentag: "not_attached" });
+
+    session.disconnect();
+  });
+
+  it("reports undefined when the gateway sends no channels map", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("ok");
+
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FakeWebSocket,
+    });
+
+    // An older gateway omits the key; this must stay "not reported" so callers
+    // fall back to transport-only status.
+    expect(session.providerStates()).toBeUndefined();
 
     session.disconnect();
   });

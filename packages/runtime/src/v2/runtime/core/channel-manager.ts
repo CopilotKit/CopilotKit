@@ -33,11 +33,21 @@ import type {
  * Lifecycle status of a single Channel activation, or of the manager overall.
  *
  * - `connecting`: activation in flight, not yet settled.
- * - `online`: activation resolved AND the managed session can currently send.
- *   A drop moves the Channel to `reconnecting` (not `online`); a successful
- *   rejoin restores `online`.
+ * - `online`: activation resolved, the managed session can currently send, AND
+ *   the gateway did not report the Channel as missing a managed provider. A drop
+ *   moves the Channel to `reconnecting` (not `online`); a successful rejoin
+ *   restores `online`.
  * - `setup_required`: the Channel is declared but has no managed provider yet —
- *   a valid degraded state, not a failure.
+ *   a valid degraded state, not a failure. Reached when the gateway reports the
+ *   provider as unattached/disabled/undeclared on the control join reply (see
+ *   {@link ChannelLegs}), or when the activation engine throws a
+ *   `SETUP_REQUIRED` error.
+ *
+ *   NOTE: between the 2026-07-29 realtime-boundary cutover and the introduction
+ *   of {@link ChannelLegs}, this state had NO producer — the engine stopped
+ *   classifying it and nothing else set it, so a Channel with no Slack app at
+ *   all reported `online`. Do not reintroduce a code path that describes
+ *   `setup_required` without one that can actually emit it.
  * - `reconnecting`: the managed session dropped and Phoenix is retrying — not
  *   currently sendable. The manager does NOT re-activate (reconnection is
  *   delegated to the Phoenix connection layer); it only reflects the health the
@@ -60,6 +70,93 @@ export type ChannelStatus =
   | "error";
 
 /**
+ * Managed provider attachment state for one Channel, as reported by the gateway
+ * on the control join reply.
+ *
+ * `unknown` is this package's own value for "the gateway did not tell us" — a
+ * gateway predating the provider-state contract, one whose lookup failed, or a
+ * non-gateway handle. It must never be read as "no provider attached".
+ */
+export type ChannelProviderLeg =
+  | "attached"
+  | "unhealthy"
+  | "not_attached"
+  | "disabled"
+  | "channel_not_declared"
+  | "unknown";
+
+/**
+ * The two independent things that have to be true for a managed Channel to
+ * work, reported separately so a caller can assert the one it cares about.
+ *
+ * `status` is the fold of the two and matches this Channel's entry in
+ * {@link ChannelsControl.status}'s `channels` map.
+ *
+ * The legs exist because they are genuinely separable: the control socket can be
+ * joined and sendable while no Slack/Teams app is bound to the Channel at all.
+ * Before they were split, `overall: "online"` proved only the socket, and
+ * onboarding guidance used it to certify end-to-end success.
+ */
+export interface ChannelLegs {
+  /** Fold of {@link transport} and {@link provider}. */
+  status: ChannelStatus;
+  /** Runtime ⇄ Gateway control socket for this Channel. */
+  transport: ChannelStatus;
+  /** Whether a managed provider is bound to this Channel. */
+  provider: ChannelProviderLeg;
+}
+
+const PROVIDER_LEGS: ReadonlySet<string> = new Set<ChannelProviderLeg>([
+  "attached",
+  "unhealthy",
+  "not_attached",
+  "disabled",
+  "channel_not_declared",
+]);
+
+/**
+ * Fold a Channel's transport and provider legs into its single status.
+ *
+ * The transport leg dominates whenever it is not `online`: while the control
+ * socket is connecting, retrying, stopped, or failed, whatever the gateway last
+ * said about the provider is stale or irrelevant — the Channel cannot serve a
+ * turn either way, and reporting `setup_required` for a Channel that is actually
+ * mid-reconnect would hide the outage.
+ *
+ * Once the transport is `online` the provider leg decides, which is the whole
+ * point of the split: a joined socket with no provider bound is
+ * `setup_required`, not `online`.
+ *
+ * `unknown` keeps the transport-derived answer. That is what makes an older
+ * gateway (or a gateway whose lookup failed) behave exactly as it did before
+ * provider states existed, instead of turning every Channel into
+ * `setup_required`.
+ *
+ * @param transport - Control-socket status for the Channel.
+ * @param provider - Reported provider attachment state.
+ * @returns The folded Channel status.
+ */
+export function foldChannelLegs(
+  transport: ChannelStatus,
+  provider: ChannelProviderLeg,
+): ChannelStatus {
+  if (transport !== "online") {
+    return transport;
+  }
+  switch (provider) {
+    case "attached":
+    case "unknown":
+      return "online";
+    case "unhealthy":
+      return "error";
+    case "not_attached":
+    case "disabled":
+    case "channel_not_declared":
+      return "setup_required";
+  }
+}
+
+/**
  * The lifecycle control surface a Channel host uses to drive and observe
  * managed Channel activation.
  */
@@ -70,8 +167,20 @@ export interface ChannelsControl {
    * or — when `timeoutMs` is given — if the whole set has not settled in time.
    */
   ready(opts?: { timeoutMs?: number }): Promise<void>;
-  /** Snapshot the overall status and the per-Channel status map. */
-  status(): { overall: ChannelStatus; channels: Record<string, ChannelStatus> };
+  /**
+   * Snapshot the overall status, the per-Channel status map, and the per-Channel
+   * transport/provider legs.
+   *
+   * `overall === "online"` does NOT by itself prove a Channel can receive
+   * provider traffic unless the provider leg is `attached`: read `detail` when
+   * you need to assert that a Channel is genuinely reachable from Slack/Teams,
+   * because a `provider` of `unknown` leaves `status` transport-derived.
+   */
+  status(): {
+    overall: ChannelStatus;
+    channels: Record<string, ChannelStatus>;
+    detail: Record<string, ChannelLegs>;
+  };
   /** Tear down every activated Channel. Idempotent. */
   stop(): Promise<void>;
 }
@@ -135,6 +244,20 @@ export interface ChannelsHandle {
       detail?: { reason?: string; code?: string },
     ) => void,
   ): void;
+  /**
+   * Optional seam: managed provider attachment state per declared Channel, as
+   * reported on the newest gateway control join reply.
+   *
+   * A getter, so each read reflects the current join reply — the gateway's join
+   * hooks re-fire on every auto-rejoin, so a Channel provisioned while the
+   * runtime was disconnected is picked up without re-activating.
+   *
+   * `undefined` (or an absent method) means "not reported", NOT "no provider".
+   * A gateway predating this contract, a gateway whose database read failed, and
+   * a non-gateway/test handle all land here, and all must fall back to
+   * transport-only status rather than claim a Channel is unprovisioned.
+   */
+  providerStates?(): Readonly<Record<string, string>> | undefined;
 }
 
 /** Constructor arguments for {@link ChannelManager}. */
@@ -1104,21 +1227,37 @@ export class ChannelManager implements ChannelsControl {
    * Snapshot status. Every declared Channel appears keyed by name in
    * `channels` after its combined adapter lifecycle starts.
    *
+   * Each Channel's entry is the fold of its transport and provider legs (see
+   * {@link foldChannelLegs}), and `detail` reports those legs separately so a
+   * caller can assert the one it cares about.
+   *
    * `overall` is folded over ALL declared Channels (see {@link computeOverall}),
    * by precedence `error` > `reconnecting` > `setup_required` > `connecting` >
-   * `online`. `online` means every Channel can currently send. `reconnecting`
-   * outranks `setup_required` because a dropped-but-retrying Channel is an active
-   * outage, louder than a steadily-degraded unprovisioned one. With no declared
-   * Channels at all, `overall` is `online` (nothing
-   * is degraded); once every Channel has been stopped, `overall` is `stopped`.
+   * `online`. `online` means every Channel can currently send AND none was
+   * reported as missing its managed provider. `reconnecting` outranks
+   * `setup_required` because a dropped-but-retrying Channel is an active outage,
+   * louder than a steadily-degraded unprovisioned one. With no declared Channels
+   * at all, `overall` is `online` (nothing is degraded); once every Channel has
+   * been stopped, `overall` is `stopped`.
+   *
+   * `overall === "online"` is only end-to-end proof when every Channel's
+   * `provider` leg is `attached`. A gateway that reports no provider state leaves
+   * the legs `unknown` and `overall` transport-derived, exactly as before this
+   * contract existed — so a caller that must be certain checks `detail`.
    */
   status(): {
     overall: ChannelStatus;
     channels: Record<string, ChannelStatus>;
+    detail: Record<string, ChannelLegs>;
   } {
     const channels: Record<string, ChannelStatus> = {};
+    const detail: Record<string, ChannelLegs> = {};
     for (const [name, entry] of this.entries) {
-      channels[name] = entry.status;
+      const transport = entry.status;
+      const provider = this.providerLeg(name, entry);
+      const status = foldChannelLegs(transport, provider);
+      channels[name] = status;
+      detail[name] = { status, transport, provider };
     }
     // A stopped manager is `stopped` regardless of whether it was ever activated.
     // stop() before activate() (e.g. SIGTERM during startup) leaves `entries`
@@ -1127,7 +1266,7 @@ export class ChannelManager implements ChannelsControl {
     // activate→stop, every entry is already `stopped` and the fold agrees, so
     // this is also consistent with the populated case.)
     if (this.stopped) {
-      return { overall: "stopped", channels };
+      return { overall: "stopped", channels, detail };
     }
     // Before activate() has run, `entries` is empty. Folding an empty set gives
     // `online` — correct for a manager that declares NO channels (nothing is
@@ -1137,9 +1276,40 @@ export class ChannelManager implements ChannelsControl {
     // Report `connecting` ("not started") for that case so `status()` is honest
     // before any `ready()`.
     if (!this.activated && this.channels.length > 0) {
-      return { overall: "connecting", channels };
+      return { overall: "connecting", channels, detail };
     }
-    return { overall: this.computeOverall(Object.values(channels)), channels };
+    return {
+      overall: this.computeOverall(Object.values(channels)),
+      channels,
+      detail,
+    };
+  }
+
+  /**
+   * Read one Channel's provider leg from its handle.
+   *
+   * Defensive on every axis, because a wrong answer here silently changes what
+   * `status()` certifies: a handle without the seam, a gateway that reported
+   * nothing, a name the gateway did not mention, an unrecognised value, or a
+   * throwing getter all yield `unknown` — which {@link foldChannelLegs} treats as
+   * "keep the transport-derived status", i.e. pre-provider-state behaviour.
+   *
+   * @param name - The Channel name (map key).
+   * @param entry - The Channel's activation entry.
+   * @returns The provider leg, or `"unknown"` when it cannot be established.
+   */
+  private providerLeg(name: string, entry: ChannelEntry): ChannelProviderLeg {
+    let states: Readonly<Record<string, string>> | undefined;
+    try {
+      states = entry.handle?.providerStates?.();
+    } catch {
+      // A misbehaving handle must never break a status snapshot.
+      return "unknown";
+    }
+    const reported = states?.[name];
+    return reported !== undefined && PROVIDER_LEGS.has(reported)
+      ? (reported as ChannelProviderLeg)
+      : "unknown";
   }
 
   /**

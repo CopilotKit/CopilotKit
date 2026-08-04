@@ -364,6 +364,10 @@ export async function startChannelsOverRealtimeGateway(
         detail?: { reason?: string; code?: string },
       ) => void,
     ) => session.onStateChange(cb),
+    // Delegated as a getter, not a captured snapshot: the control join hooks
+    // re-fire on every Phoenix auto-rejoin, so a Channel provisioned while the
+    // runtime was disconnected is reflected on the next read.
+    providerStates: () => session.providerStates(),
     stop: async () => {
       // Always close the connection even if stopping the channels throws — the
       // launcher owns the socket (the transport is handed the session and does
