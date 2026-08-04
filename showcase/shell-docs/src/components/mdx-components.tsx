@@ -110,51 +110,48 @@ export function Accordion({
 }) {
   if (featured) {
     return (
-      <details
-        className="shell-docs-radius-surface group my-6 overflow-hidden border bg-[var(--bg-surface)]"
-        style={{
-          borderColor: "color-mix(in oklch, var(--accent) 32%, var(--border))",
-          background:
-            "linear-gradient(145deg, color-mix(in oklch, var(--accent) 10%, var(--bg-surface)) 0%, var(--bg-surface) 62%)",
-        }}
-      >
-        <summary className="not-prose cursor-pointer list-none select-none p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] sm:p-6 [&::-webkit-details-marker]:hidden">
-          <span className="flex flex-col gap-5 lg:flex-row lg:items-center">
-            <span className="flex min-w-0 flex-1 items-start gap-4">
-              <span
+      // Deliberately token-only, matching the in-content panel idiom in
+      // `OpsPlatformCTA`: neutral surface, `--border`, `--shadow-control`, and
+      // accent carried by a small glyph and the action, never by a filled block
+      // or a tinted gradient. `copilotkit-ui-theme` flags a purple accent bar
+      // or stripe as a known wrong direction, and `copilotkit-branding` scopes
+      // accent to restrained and atmospheric use — a saturated `--accent` tile
+      // plus an accent-mixed gradient was both at once. Padding is `p-4`, the
+      // same as every other docs panel, so a collapsed prompt no longer pushes
+      // the page's own introduction below the fold.
+      <details className="shell-docs-radius-surface not-prose group my-6 overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)] shadow-[var(--shadow-control)]">
+        <summary className="cursor-pointer list-none p-4 select-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-inset focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+          <span className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <span className="flex min-w-0 flex-1 items-start gap-3">
+              <SquareTerminal
                 aria-hidden="true"
-                className="shell-docs-radius-control flex h-12 w-12 shrink-0 items-center justify-center bg-[var(--accent)] text-[var(--primary-foreground)] shadow-[var(--shadow-control)]"
-              >
-                <SquareTerminal className="h-5 w-5" />
-              </span>
+                className="mt-0.5 h-5 w-5 shrink-0 text-[var(--accent)]"
+              />
 
               <span className="min-w-0">
-                <span className="mb-1.5 block font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">
-                  Ready-to-use starter prompt
-                </span>
-                <span className="block text-lg font-semibold leading-snug tracking-[-0.015em] text-[var(--text)] sm:text-xl">
+                <span className="block font-semibold text-[var(--text)]">
                   {title}
                 </span>
                 {description ? (
-                  <span className="mt-1.5 block max-w-[62ch] text-sm leading-relaxed text-[var(--text-secondary)]">
+                  <span className="mt-1 block max-w-[62ch] text-sm leading-relaxed text-[var(--text-muted)]">
                     {description}
                   </span>
                 ) : null}
               </span>
             </span>
 
-            <span className="shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors group-hover:bg-[var(--accent-strong)] sm:w-auto">
-              <Copy aria-hidden="true" className="h-4 w-4" />
+            <span className="shell-docs-radius-control inline-flex min-h-9 w-full shrink-0 items-center justify-center gap-1.5 border border-[var(--border)] bg-[var(--bg-surface)] px-3 text-sm font-medium text-[var(--text)] shadow-[var(--shadow-control)] transition-colors group-hover:border-[var(--accent)] group-hover:text-[var(--accent)] sm:w-auto">
+              <Copy aria-hidden="true" className="h-3.5 w-3.5" />
               <span className="group-open:hidden">Open &amp; copy prompt</span>
               <span className="hidden group-open:inline">Close prompt</span>
               <ChevronDown
                 aria-hidden="true"
-                className="h-4 w-4 transition-transform duration-200 group-open:rotate-180"
+                className="h-3.5 w-3.5 transition-transform duration-200 group-open:rotate-180"
               />
             </span>
           </span>
         </summary>
-        <div className="border-t border-[var(--border)] bg-[var(--bg-surface)] px-5 pb-5 pt-4 text-sm text-[var(--text-secondary)] sm:px-6 sm:pb-6 [&>p:first-child]:mt-0">
+        <div className="border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 pt-3 pb-4 text-sm text-[var(--text-secondary)] [&>p:first-child]:mt-0">
           {children}
         </div>
       </details>
