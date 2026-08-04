@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChannelsActivationStrip } from "../channels-activation-strip";
 import { ChannelsStartPrompt } from "../channels-start-prompt";
@@ -140,6 +146,44 @@ describe("Channels activation impressions", () => {
       ([event]) => event === CHANNELS_ACTIVATION_EVENTS.viewed,
     );
     expect(impressions).toHaveLength(1);
+  });
+
+  // Regression: the clipboard write and the capture call used to share one try
+  // block, so a throwing analytics client reported "Copy blocked" for a prompt
+  // that had already reached the clipboard. Only the write decides the state.
+  it("still reports a successful copy when analytics throws", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    analytics.capture.mockImplementation(() => {
+      throw new Error("posthog unavailable");
+    });
+
+    render(<ChannelsStartPrompt />);
+    fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("Copied")).toBeTruthy();
+    expect(screen.queryByText("Copy blocked")).toBeNull();
+  });
+
+  it("reports a blocked clipboard as blocked", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+    });
+
+    render(<ChannelsStartPrompt />);
+    fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
+
+    expect(await screen.findByText("Copy blocked")).toBeTruthy();
+    expect(
+      analytics.capture.mock.calls.filter(
+        ([event]) => event === CHANNELS_ACTIVATION_EVENTS.promptCopied,
+      ),
+    ).toEqual([]);
   });
 
   it("stays silent while a surface is below the fold", () => {

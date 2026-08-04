@@ -77,16 +77,12 @@ export function ChannelsStartPrompt({
           if (!entry.isIntersecting || viewedRef.current) continue;
           viewedRef.current = true;
           observer.disconnect();
-          try {
-            posthog?.capture(CHANNELS_ACTIVATION_EVENTS.viewed, {
-              channel,
-              backend: "built-in-agent",
-              from_path: pathname,
-              surface: CHANNELS_ACTIVATION_SURFACES.docsChannelsOverview,
-            });
-          } catch {
-            // Analytics must never interrupt docs rendering.
-          }
+          capture(CHANNELS_ACTIVATION_EVENTS.viewed, {
+            channel,
+            backend: "built-in-agent",
+            from_path: pathname,
+            surface: CHANNELS_ACTIVATION_SURFACES.docsChannelsOverview,
+          });
         }
       },
       { threshold: 0.5 },
@@ -102,23 +98,36 @@ export function ChannelsStartPrompt({
     backendLabel,
   });
 
+  function capture(event: string, properties: Record<string, unknown>) {
+    try {
+      posthog?.capture(event, properties);
+    } catch {
+      // Analytics must never interrupt docs rendering or clipboard actions.
+    }
+  }
+
   async function copyPrompt() {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
 
+    // Only the clipboard write decides the state shown to the reader. Sharing
+    // one try block with the capture call meant a throwing analytics client
+    // reported "Copy blocked" for a prompt that was already on the clipboard.
     try {
       await navigator.clipboard.writeText(prompt);
-      setCopyState("copied");
-      posthog?.capture(CHANNELS_ACTIVATION_EVENTS.promptCopied, {
-        channel,
-        backend: "built-in-agent",
-        from_path: pathname,
-        surface: CHANNELS_ACTIVATION_SURFACES.docsChannelsOverview,
-      });
-      resetTimerRef.current = setTimeout(() => setCopyState("idle"), 1800);
     } catch {
       setCopyState("error");
       resetTimerRef.current = setTimeout(() => setCopyState("idle"), 2600);
+      return;
     }
+
+    setCopyState("copied");
+    capture(CHANNELS_ACTIVATION_EVENTS.promptCopied, {
+      channel,
+      backend: "built-in-agent",
+      from_path: pathname,
+      surface: CHANNELS_ACTIVATION_SURFACES.docsChannelsOverview,
+    });
+    resetTimerRef.current = setTimeout(() => setCopyState("idle"), 1800);
   }
 
   return (
