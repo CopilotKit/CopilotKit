@@ -866,14 +866,31 @@ export const beautifulChatAgent = new Agent({
     search_flights: searchFlightsA2uiTool,
   },
   model: openai("gpt-4o"),
+  // Mirror gold `beautiful_chat.py` (`parallel_tool_calls=False`): the model
+  // commits to one tool per step instead of firing several at once. Without it,
+  // a "sales dashboard … include a pie chart and a bar chart" request tempts the
+  // model to call the standalone `pieChart`/`barChart` tools AND `generate_a2ui`
+  // in parallel, painting loose charts next to the dashboard.
+  defaultOptions: {
+    providerOptions: {
+      openai: {
+        parallelToolCalls: false,
+      },
+    },
+  },
   instructions:
     "You are a polished, professional demo assistant. Keep responses to 1-2 " +
     "sentences.\n\nTool guidance:\n" +
     "- Flights: call search_flights to show flight cards with a pre-built " +
     "schema.\n" +
     "- Dashboards & rich UI: call generate_a2ui to create dashboard UIs with " +
-    "metrics, charts, tables, and cards. It handles rendering automatically.\n" +
-    "- Charts: call query_data first, then render with the chart component.\n" +
+    "metrics, charts, tables, and cards. It handles rendering automatically. " +
+    "When a request asks for a dashboard or says 'using A2UI', call " +
+    "generate_a2ui ONLY — do NOT also call the standalone pieChart or barChart " +
+    "tools; generate_a2ui draws the charts inside the surface.\n" +
+    "- Standalone charts: only when the user asks for a single pie or bar chart " +
+    "(not a dashboard), call query_data first, then the pieChart or barChart " +
+    "tool.\n" +
     "- Todos: enable app mode first, then manage todos.\n" +
     "- A2UI actions: when you see a log_a2ui_event result, respond with a " +
     "brief confirmation. The UI already updated on the frontend.",
