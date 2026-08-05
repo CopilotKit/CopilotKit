@@ -31,10 +31,11 @@ import type { Page } from "@playwright/test";
  *     over-limit fixture group's shared counter, so run this spec with --workers=1.
  *
  * ── CONFIRMED BY A LOCAL RUN ────────────────────────────────────────────────────
- *  - The chat selectors resolve against the product chat: "Open chat" and
- *    "Type a message..." both come from @copilotkit/react-core defaults
- *    (CopilotChatConfigurationProvider / CopilotChatInput), not banking markup,
- *    so the demo's own shell can be restyled without breaking this gate.
+ *  - The chat selectors resolve against the product chat: "Type a message..." comes
+ *    from the @copilotkit/react-core default (CopilotChatInput), not banking markup,
+ *    so the demo's own shell can be restyled without breaking this gate. (The
+ *    "Open chat" launcher it also used to rely on belonged to CopilotSidebar and is
+ *    gone — the inline chat shows on load; see the guarded no-op below.)
  *  - The recall path completes unaided: the agent recalls the procedure, files the
  *    EXC-BOARD-APPROVED exception, and approves the charge, and the
  *    "Record a workflow?" card never appears.
@@ -145,8 +146,11 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
     // go straight to the banking skin rather than via the / redirect.
     await page.goto("/banking");
 
-    // The docked chat starts closed (clean-dashboard first impression); open it
-    // before interacting. CopilotSidebar's launcher is labelled "Open chat".
+    // The chat is an inline CopilotChat inside the frame's assistant card and shows
+    // on load, so there is normally nothing to open. This stays as a guarded no-op
+    // rather than being deleted: the count check makes it inert today, and it keeps
+    // the spec working if the chat is ever collapsed by default again. (It used to
+    // be a CopilotSidebar that started closed behind an "Open chat" launcher.)
     const openChat = page.getByRole("button", { name: /open chat/i });
     if (await openChat.count()) await openChat.first().click();
 
