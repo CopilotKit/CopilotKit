@@ -74,6 +74,21 @@ export class PlatformRequestError extends Error {
   }
 }
 
+/** Error raised by the private Intelligence ACP event stream. */
+export class AcpRunStreamError extends Error {
+  constructor(
+    message: string,
+    /** Whether reconnecting from the last durable cursor can succeed. */
+    public readonly retryable: boolean,
+    /** HTTP status when the failure came from a completed response. */
+    public readonly status?: number,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "AcpRunStreamError";
+  }
+}
+
 /** Payload passed to `onThreadDeleted` listeners. */
 export interface ThreadDeletedPayload {
   threadId: string;
@@ -160,16 +175,127 @@ export interface AcpStoredEvent {
   readonly event: BaseEvent;
 }
 
-/** One ordered page from the ACP reconnect journal. */
-export interface AcpRunEvents {
-  readonly events: readonly AcpStoredEvent[];
-}
-
 /** Result of asking Intelligence to cancel one public AG-UI run. */
 export interface AcpRunCancellation {
   readonly accepted: boolean;
   readonly duplicate?: boolean;
 }
+
+const MAX_ACP_SSE_BUFFER_CHARS = 16 * 1024 * 1024;
+
+const findSseBoundary = (
+  buffer: string,
+): { readonly index: number; readonly length: number } | null => {
+  const candidates = ["\r\n\r\n", "\n\n", "\r\r"]
+    .map((separator) => ({
+      index: buffer.indexOf(separator),
+      length: separator.length,
+    }))
+    .filter((candidate) => candidate.index >= 0)
+    .sort((left, right) => left.index - right.index);
+  return candidates[0] ?? null;
+};
+
+const parseAcpSseFrame = (frame: string): AcpStoredEvent | null => {
+  let id: string | undefined;
+  let eventName: string | undefined;
+  const data: string[] = [];
+  for (const line of frame.split(/\r\n|\r|\n/)) {
+    if (line.length === 0 || line.startsWith(":")) continue;
+    const colon = line.indexOf(":");
+    const field = colon < 0 ? line : line.slice(0, colon);
+    const rawValue = colon < 0 ? "" : line.slice(colon + 1);
+    const value = rawValue.startsWith(" ") ? rawValue.slice(1) : rawValue;
+    if (field === "id") id = value;
+    if (field === "event") eventName = value;
+    if (field === "data") data.push(value);
+  }
+  if (data.length === 0) return null;
+  if (eventName !== undefined && eventName !== "agui") return null;
+
+  let value: unknown;
+  try {
+    value = JSON.parse(data.join("\n"));
+  } catch (error) {
+    throw new AcpRunStreamError(
+      "Intelligence returned invalid ACP event JSON",
+      false,
+      undefined,
+      {
+        cause: error,
+      },
+    );
+  }
+  if (typeof value !== "object" || value === null) {
+    throw new AcpRunStreamError(
+      "Intelligence returned an invalid ACP event",
+      false,
+    );
+  }
+  const candidate = value as Partial<AcpStoredEvent>;
+  if (
+    !Number.isSafeInteger(candidate.sequence) ||
+    (candidate.sequence ?? 0) <= 0 ||
+    typeof candidate.eventId !== "string" ||
+    candidate.eventId.length === 0 ||
+    typeof candidate.event !== "object" ||
+    candidate.event === null ||
+    typeof (candidate.event as { readonly type?: unknown }).type !== "string"
+  ) {
+    throw new AcpRunStreamError(
+      "Intelligence returned an invalid ACP event",
+      false,
+    );
+  }
+  if (id !== undefined && Number(id) !== candidate.sequence) {
+    throw new AcpRunStreamError(
+      `Intelligence ACP event id ${id} did not match sequence ${candidate.sequence}.`,
+      false,
+    );
+  }
+  return candidate as AcpStoredEvent;
+};
+
+const parseAcpEventStream = async function* (
+  body: ReadableStream<Uint8Array>,
+): AsyncGenerator<AcpStoredEvent> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) {
+        buffer += decoder.decode();
+      } else {
+        buffer += decoder.decode(chunk.value, { stream: true });
+      }
+      if (buffer.length > MAX_ACP_SSE_BUFFER_CHARS) {
+        throw new AcpRunStreamError(
+          "Intelligence ACP event frame is too large",
+          false,
+        );
+      }
+
+      let boundary = findSseBoundary(buffer);
+      while (boundary) {
+        const frame = buffer.slice(0, boundary.index);
+        buffer = buffer.slice(boundary.index + boundary.length);
+        const event = parseAcpSseFrame(frame);
+        if (event) yield event;
+        boundary = findSseBoundary(buffer);
+      }
+      if (chunk.done) return;
+    }
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+      // The fetch signal may already have closed the reader.
+    }
+    reader.releaseLock();
+  }
+};
 
 /**
  * Summary metadata for a single thread returned by the platform.
@@ -646,16 +772,69 @@ export class CopilotKitIntelligence {
     return this.#request<AcpRunAdmission>("POST", "/api/acp/runs", params);
   }
 
-  /** @internal Used by {@link AcpAgent} to resume its durable event cursor. */
-  async ɵlistAcpRunEvents(params: {
+  /** @internal Used by {@link AcpAgent} to stream from its durable event cursor. */
+  async *ɵstreamAcpRunEvents(params: {
     readonly runId: string;
     readonly after: number;
-  }): Promise<AcpRunEvents> {
+    readonly signal: AbortSignal;
+  }): AsyncGenerator<AcpStoredEvent> {
     const query = new URLSearchParams({ after: String(params.after) });
-    return this.#request<AcpRunEvents>(
-      "GET",
-      `/api/acp/runs/${encodeURIComponent(params.runId)}/events?${query}`,
-    );
+    const path = `/api/acp/runs/${encodeURIComponent(params.runId)}/events?${query}`;
+    try {
+      const response = await fetch(`${this.#apiUrl}${path}`, {
+        method: "GET",
+        headers: {
+          Accept: "text/event-stream",
+          Authorization: `Bearer ${this.#apiKey}`,
+        },
+        signal: params.signal,
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        let retryable = response.status === 429 || response.status >= 500;
+        try {
+          const body = JSON.parse(text) as {
+            readonly error?: { readonly retryable?: unknown };
+          };
+          if (typeof body.error?.retryable === "boolean") {
+            retryable = body.error.retryable;
+          }
+        } catch {
+          // Status-based retry policy applies when the REST envelope is absent.
+        }
+        throw new AcpRunStreamError(
+          `Intelligence ACP event stream failed with status ${response.status}.`,
+          retryable,
+          response.status,
+        );
+      }
+      if (
+        !response.headers.get("content-type")?.startsWith("text/event-stream")
+      ) {
+        throw new AcpRunStreamError(
+          "Intelligence ACP event stream returned the wrong content type",
+          false,
+          response.status,
+        );
+      }
+      if (!response.body) {
+        throw new AcpRunStreamError(
+          "Intelligence ACP event stream returned no body",
+          true,
+          response.status,
+        );
+      }
+      yield* parseAcpEventStream(response.body);
+    } catch (error) {
+      if (params.signal.aborted || error instanceof AcpRunStreamError)
+        throw error;
+      throw new AcpRunStreamError(
+        "Intelligence ACP event stream disconnected",
+        true,
+        undefined,
+        { cause: error },
+      );
+    }
   }
 
   /** @internal Used by {@link AcpAgent} to cancel its exact active run. */

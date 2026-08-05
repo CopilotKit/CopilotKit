@@ -26,6 +26,26 @@ function emptyResponse(status = 204) {
   } as Response);
 }
 
+function sseResponse(chunks: readonly Uint8Array[]) {
+  return Promise.resolve(
+    new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const chunk of chunks) controller.enqueue(chunk);
+          controller.close();
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "text/event-stream" } },
+    ),
+  );
+}
+
+async function collect<T>(source: AsyncIterable<T>): Promise<T[]> {
+  const values: T[] = [];
+  for await (const value of source) values.push(value);
+  return values;
+}
+
 describe("CopilotKitIntelligence", () => {
   let client: CopilotKitIntelligence;
 
@@ -204,18 +224,51 @@ describe("CopilotKitIntelligence", () => {
       });
     });
 
-    it("reads one encoded run cursor and cancels that same public run", async () => {
+    it("streams chunked UTF-8 events from one encoded durable cursor", async () => {
+      const stored = {
+        sequence: 42,
+        eventId: "event-42",
+        event: {
+          type: "TEXT_MESSAGE_CONTENT",
+          messageId: "message-1",
+          delta: "Hello 👋",
+        },
+      };
+      const bytes = new TextEncoder().encode(
+        `: keepalive\n\nid: 42\nevent: agui\ndata: ${JSON.stringify(stored)}\n\n`,
+      );
+      const emojiStart = bytes.findIndex((byte) => byte === 0xf0);
       fetchMock
-        .mockReturnValueOnce(jsonResponse({ events: [] }))
+        .mockReturnValueOnce(
+          sseResponse([
+            bytes.slice(0, emojiStart + 1),
+            bytes.slice(emojiStart + 1, emojiStart + 3),
+            bytes.slice(emojiStart + 3),
+          ]),
+        )
         .mockReturnValueOnce(jsonResponse({ accepted: true }, 202));
+      const controller = new AbortController();
 
-      await client.ɵlistAcpRunEvents({ runId: "run/one", after: 41 });
+      await expect(
+        collect(
+          client.ɵstreamAcpRunEvents({
+            runId: "run/one",
+            after: 41,
+            signal: controller.signal,
+          }),
+        ),
+      ).resolves.toEqual([stored]);
+
       await client.ɵcancelAcpRun({ runId: "run/one" });
 
       expect(fetchMock.mock.calls[0][0]).toBe(
         "https://api.example.com/api/acp/runs/run%2Fone/events?after=41",
       );
       expect(fetchMock.mock.calls[0][1].method).toBe("GET");
+      expect(fetchMock.mock.calls[0][1].headers.Accept).toBe(
+        "text/event-stream",
+      );
+      expect(fetchMock.mock.calls[0][1].signal).toBe(controller.signal);
       expect(fetchMock.mock.calls[1][0]).toBe(
         "https://api.example.com/api/acp/runs/run%2Fone/cancel",
       );
@@ -223,6 +276,59 @@ describe("CopilotKitIntelligence", () => {
       expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
         runId: "run/one",
       });
+    });
+
+    it("marks retryable stream errors from the REST envelope", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse(
+          {
+            error: {
+              code: "ACP_EVENT_STREAM_UNAVAILABLE",
+              retryable: true,
+            },
+          },
+          503,
+        ),
+      );
+
+      await expect(
+        collect(
+          client.ɵstreamAcpRunEvents({
+            runId: "run-1",
+            after: 0,
+            signal: new AbortController().signal,
+          }),
+        ),
+      ).rejects.toMatchObject({
+        name: "AcpRunStreamError",
+        retryable: true,
+        status: 503,
+      });
+    });
+
+    it("rejects a mismatched SSE id instead of advancing the durable cursor", async () => {
+      const stored = {
+        sequence: 9,
+        eventId: "event-9",
+        event: { type: "RUN_STARTED", threadId: "thread-1", runId: "run-1" },
+      };
+      fetchMock.mockReturnValue(
+        sseResponse([
+          new TextEncoder().encode(
+            `id: 8\r\nevent: agui\r\ndata: ${JSON.stringify(stored)}\r\n\r\n`,
+          ),
+        ]),
+      );
+
+      await expect(
+        collect(
+          client.ɵstreamAcpRunEvents({
+            runId: "run-1",
+            after: 0,
+            signal: new AbortController().signal,
+          }),
+        ),
+      ).rejects.toMatchObject({ retryable: false });
     });
   });
 
