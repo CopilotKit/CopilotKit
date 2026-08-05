@@ -45,6 +45,21 @@ export default defineConfig({
         INTELLIGENCE_USER_ID:
           process.env.INTELLIGENCE_USER_ID ?? "jordan-beamson",
         NEXT_TELEMETRY_DISABLED: "1",
+        // Pin the single-tenant gate OFF for a dev server *Playwright starts*.
+        // But reuseExistingServer is set for local runs, so a warm run adopts an
+        // already-running `pnpm dev` and this whole env block is skipped — the
+        // developer's ambient LOCK_SKIN (or .env) then wins. So: if you have
+        // LOCK_SKIN set locally, stop your dev server before running the suite.
+        // How it breaks depends on the locked skin: a non-banking lock (e.g.
+        // logistics) 404s the hardcoded /banking readiness probe above, so
+        // Playwright never considers the server ready and the run dies at
+        // webServer startup with a timeout — before any spec runs. A banking
+        // lock passes the probe, and then the /airline specs fail on their
+        // switcher assertions instead. Either way, the fix is the same: stop the
+        // dev server first. In CI reuseExistingServer is false, so this pin
+        // always applies. (An explicit env wins on the servers we start because
+        // Next's dotenv loading never overrides an already-set process.env var.)
+        LOCK_SKIN: "",
       },
     },
   ],
