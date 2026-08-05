@@ -11,10 +11,11 @@ one **skin** per route segment `/[skin]/...`, and ships two of them:
 - **`airline`** — "Aeronova", a passenger concierge. **In-memory** (a seed-backed
   React store): check-in and seat selection, loyalty, and disruption rebooking.
 
-The two skins run behind the **same** `Skin` contract on purpose: one is
-REST-backed and one is in-memory, which proves the contract is
-substrate-agnostic. Both get the same shared chat panel, tool-activity lines,
-suggestion pills, and full-region canvas from the shell.
+These two run behind the **same** `Skin` contract on purpose: one is REST-backed
+and one is in-memory, which proves the contract is substrate-agnostic. (Two more
+ship alongside them — `logistics` and `keel`.) Every skin gets the same inset
+frame, shared chat panel, tool-activity lines, suggestion pills, and full-region
+canvas from the shell.
 
 ## What it demonstrates
 
@@ -103,9 +104,10 @@ in Intelligence mode: the agent gains durable long-term memory via the
 The images under `assets/` (`aurora-dashboard.png`, `copilot-chat.png`,
 `learning-mode-vignette.png`, `project-preview.png`) illustrate the **banking
 skin** specifically — its dashboard, chat panel, and learning-mode recording
-vignette. They predate parts of the current reskinnable shell chrome (e.g. the
-floating skin selector) and do not depict the airline skin, so treat them as
-banking-skin illustrations rather than a picture of the whole app.
+vignette. They predate the current shell chrome entirely: there is now an inset
+frame of resizable cards with a skin-selector dropdown at the top of the assistant
+column, and the app ships four skins rather than two. Treat them as historical
+banking-skin illustrations rather than a picture of the app as it looks today.
 
 ## Testing
 

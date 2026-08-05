@@ -1,8 +1,8 @@
 # Northwind Finance — the banking skin's design system ("Aurora")
 
 > Scope: this documents the **`banking` skin** (`src/skins/banking/`), one of the
-> two skins this app ships — not the whole app. See the top-level `CLAUDE.md`
-> for the shell / skin architecture and the theming contract.
+> four skins this app ships — not the whole app. See the demo's `CLAUDE.md` for the
+> shell / skin architecture, the inset frame, and the theming contract.
 
 A premium, airy, light-theme fintech aesthetic for the banking skin. It is a
 **visual layer**: it styles the skin without changing logic, data flow, REST
@@ -73,18 +73,20 @@ colors (`brand`, `brand-violet`, `brand-indigo`, `brand-soft`, `surface`,
 ## Helper classes (in `@layer components`)
 
 - `.brand-gradient` — the 135° violet→indigo gradient (buttons, card, CTAs).
-- `.brand-text-gradient` — same gradient clipped to text.
-- `.glass-surface` — translucent surface + backdrop blur (floating sidebar, cards).
+- `.glass-surface` — translucent surface + backdrop blur (the icon rail, cards).
 - `.section-heading` — medium-weight violet/indigo section title.
 
 ## Layout
 
-The shared chat panel and the floating skin selector are owned by the **shell**,
-not the banking skin; the skin supplies only the app chrome below.
+The shared chat panel and the skin selector are owned by the **shell**, not the
+banking skin. The shell renders this chrome inside its own inset **app card** (see
+the demo's `CLAUDE.md` § "The inset frame"), so the skin supplies only what sits
+within that card — and roots it at `h-full`, since the card, not the viewport, is
+the bound.
 
 - **Floating icon rail** (`src/skins/banking/layout.tsx`) — ~72px, white glass,
-  rounded, soft-shadowed, detached from the screen edge, sitting on the RIGHT
-  because the shell's chat owns the left edge. Brand mark at top; nav icons
+  rounded, soft-shadowed, detached from the card edge, sitting on the RIGHT
+  because the shell's assistant column defaults to the left. Brand mark at top; nav icons
   (Cards / Dashboard / Charges / Team) with a violet **gradient active state**.
   Role gating and the `useAgentContext` page readable are unchanged.
 - **Dashboard** (`src/skins/banking/pages/dashboard.tsx`, at `/banking/dashboard`)
