@@ -9,7 +9,15 @@ export * from "./transcription-service/transcription-service";
 
 // Export intelligence platform client and types
 export {
+  AcpAgent,
   CopilotKitIntelligence,
+  type AcpAgentConfig,
+  type AcpAgentPlatform,
+  type AcpRunAdmission,
+  type AcpRunCancellation,
+  type AcpRunEvents,
+  type AcpRunRequest,
+  type AcpStoredEvent,
   type CopilotKitIntelligenceConfig,
   type CreateThreadRequest,
   type ThreadSummary,

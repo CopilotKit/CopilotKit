@@ -1,5 +1,10 @@
 export {
   CopilotKitIntelligence,
+  type AcpRunAdmission,
+  type AcpRunCancellation,
+  type AcpRunEvents,
+  type AcpRunRequest,
+  type AcpStoredEvent,
   type CopilotKitIntelligenceConfig,
   type CreateThreadRequest,
   type ThreadSummary,
@@ -8,3 +13,8 @@ export {
   type SubscribeToThreadsResponse,
   type UpdateThreadRequest,
 } from "./client";
+export {
+  AcpAgent,
+  type AcpAgentConfig,
+  type AcpAgentPlatform,
+} from "./acp-agent";

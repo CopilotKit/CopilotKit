@@ -167,6 +167,65 @@ describe("CopilotKitIntelligence", () => {
     ).rejects.toThrow(/403/);
   });
 
+  describe("ACP Agent bridge", () => {
+    it("admits the complete AG-UI input for one server-owned profile", async () => {
+      const admission = {
+        duplicate: false,
+        promptId: "prompt-1",
+        runId: "internal-run-1",
+        sessionId: "session-1",
+        cursor: 0,
+      };
+      fetchMock.mockReturnValue(jsonResponse(admission, 202));
+      const input = {
+        threadId: "thread-1",
+        runId: "public-run-1",
+        state: {},
+        messages: [{ id: "message-1", role: "user" as const, content: "Hi" }],
+        tools: [],
+        context: [],
+        forwardedProps: {},
+      };
+
+      await expect(
+        client.ɵadmitAcpRun({
+          agentProfileId: "codex",
+          appUserId: "user-1",
+          input,
+        }),
+      ).resolves.toEqual(admission);
+      const [url, options] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/acp/runs");
+      expect(options.method).toBe("POST");
+      expect(JSON.parse(options.body)).toEqual({
+        agentProfileId: "codex",
+        appUserId: "user-1",
+        input,
+      });
+    });
+
+    it("reads one encoded run cursor and cancels that same public run", async () => {
+      fetchMock
+        .mockReturnValueOnce(jsonResponse({ events: [] }))
+        .mockReturnValueOnce(jsonResponse({ accepted: true }, 202));
+
+      await client.ɵlistAcpRunEvents({ runId: "run/one", after: 41 });
+      await client.ɵcancelAcpRun({ runId: "run/one" });
+
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        "https://api.example.com/api/acp/runs/run%2Fone/events?after=41",
+      );
+      expect(fetchMock.mock.calls[0][1].method).toBe("GET");
+      expect(fetchMock.mock.calls[1][0]).toBe(
+        "https://api.example.com/api/acp/runs/run%2Fone/cancel",
+      );
+      expect(fetchMock.mock.calls[1][1].method).toBe("POST");
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+        runId: "run/one",
+      });
+    });
+  });
+
   describe("listThreads", () => {
     it("sends GET with userId and agentId query params", async () => {
       const payload = {

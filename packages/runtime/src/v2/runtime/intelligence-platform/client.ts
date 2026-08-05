@@ -1,4 +1,5 @@
 import { logger } from "@copilotkit/shared";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { randomUUID } from "crypto";
 
 /**
@@ -134,6 +135,40 @@ export interface CopilotKitIntelligenceConfig {
    * Prefer {@link CopilotKitIntelligence.onThreadDeleted} for multiple listeners.
    */
   onThreadDeleted?: (params: ThreadDeletedPayload) => void;
+}
+
+/** Request accepted by the paid Intelligence ACP bridge. */
+export interface AcpRunRequest {
+  readonly agentProfileId: string;
+  readonly appUserId: string;
+  readonly input: RunAgentInput;
+}
+
+/** Durable identifiers returned when Intelligence admits an ACP run. */
+export interface AcpRunAdmission {
+  readonly duplicate: boolean;
+  readonly promptId: string;
+  readonly runId: string;
+  readonly sessionId: string;
+  readonly cursor: number;
+}
+
+/** One translated AG-UI event stored by the private ACP bridge. */
+export interface AcpStoredEvent {
+  readonly sequence: number;
+  readonly eventId: string;
+  readonly event: BaseEvent;
+}
+
+/** One ordered page from the ACP reconnect journal. */
+export interface AcpRunEvents {
+  readonly events: readonly AcpStoredEvent[];
+}
+
+/** Result of asking Intelligence to cancel one public AG-UI run. */
+export interface AcpRunCancellation {
+  readonly accepted: boolean;
+  readonly duplicate?: boolean;
 }
 
 /**
@@ -604,6 +639,34 @@ export class CopilotKitIntelligence {
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
   ɵisEnterpriseLearningEnabled(): boolean {
     return this.#enterpriseLearningEnabled;
+  }
+
+  /** @internal Used by {@link AcpAgent} to admit one paid ACP run. */
+  async ɵadmitAcpRun(params: AcpRunRequest): Promise<AcpRunAdmission> {
+    return this.#request<AcpRunAdmission>("POST", "/api/acp/runs", params);
+  }
+
+  /** @internal Used by {@link AcpAgent} to resume its durable event cursor. */
+  async ɵlistAcpRunEvents(params: {
+    readonly runId: string;
+    readonly after: number;
+  }): Promise<AcpRunEvents> {
+    const query = new URLSearchParams({ after: String(params.after) });
+    return this.#request<AcpRunEvents>(
+      "GET",
+      `/api/acp/runs/${encodeURIComponent(params.runId)}/events?${query}`,
+    );
+  }
+
+  /** @internal Used by {@link AcpAgent} to cancel its exact active run. */
+  async ɵcancelAcpRun(params: {
+    readonly runId: string;
+  }): Promise<AcpRunCancellation> {
+    return this.#request<AcpRunCancellation>(
+      "POST",
+      `/api/acp/runs/${encodeURIComponent(params.runId)}/cancel`,
+      { runId: params.runId },
+    );
   }
 
   async #request<T>(
