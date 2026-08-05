@@ -142,6 +142,7 @@ test.each([
       appUserId: "slack:T1:U1",
       channelId: "channel_transcript_file",
       channelName: "support",
+      surfaceId: "surface_support_01",
       adapter: "slack",
       turn: {
         eventId: "evt_transcript_file",
