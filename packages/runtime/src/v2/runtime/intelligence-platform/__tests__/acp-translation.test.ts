@@ -568,7 +568,7 @@ test("an uncertain ACP failure closes streams and emits one coded RUN_ERROR", ()
   });
   const failed = createAcpRunError(streamed.state, {
     code: "ACP_ACTIVE_PROMPT_UNCERTAIN",
-    message: "The ACP worker stopped during an active prompt.",
+    message: "The external ACP agent disconnected during an active prompt.",
     rawEvent: { acp: { recovery: "failed_uncertain" } },
   });
 
@@ -580,7 +580,7 @@ test("an uncertain ACP failure closes streams and emits one coded RUN_ERROR", ()
     {
       type: EventType.RUN_ERROR,
       code: "ACP_ACTIVE_PROMPT_UNCERTAIN",
-      message: "The ACP worker stopped during an active prompt.",
+      message: "The external ACP agent disconnected during an active prompt.",
       rawEvent: { acp: { recovery: "failed_uncertain" } },
     },
   ]);
