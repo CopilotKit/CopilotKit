@@ -338,6 +338,7 @@ const moduleCases = [
     },
     expectsAction: true,
     expectedActionLabel: "Manage Your Plan",
+    expectedActionIntent: undefined,
   },
   {
     name: "usage and action metadata share one semantic footer",
@@ -353,6 +354,7 @@ const moduleCases = [
     expectedCount: "148 / 200 Threads",
     expectsAction: true,
     expectedActionLabel: "Manage Your Plan",
+    expectedActionIntent: undefined,
   },
   {
     name: "usage at ninety percent upgrades the trusted plan action copy",
@@ -367,6 +369,7 @@ const moduleCases = [
     expectedCount: "4500 / 5000 Threads",
     expectsAction: true,
     expectedActionLabel: "Upgrade Your Plan",
+    expectedActionIntent: "upgrade",
   },
   {
     name: "usage at its limit keeps the upgrade plan action copy",
@@ -381,6 +384,7 @@ const moduleCases = [
     expectedCount: "5000 / 5000 Threads",
     expectsAction: true,
     expectedActionLabel: "Upgrade Your Plan",
+    expectedActionIntent: "upgrade",
   },
 ] satisfies ReadonlyArray<{
   name: string;
@@ -389,6 +393,7 @@ const moduleCases = [
   expectedCount?: string;
   expectsAction: boolean;
   expectedActionLabel?: "Manage Your Plan" | "Upgrade Your Plan";
+  expectedActionIntent?: "upgrade";
 }>;
 
 test.each(moduleCases)("$name", async (case_) => {
@@ -414,6 +419,9 @@ test.each(moduleCases)("$name", async (case_) => {
       expect(action?.rel).toContain("noopener");
       expect(action?.getAttribute("aria-label")).toBe(
         `${case_.expectedActionLabel} (opens in a new tab)`,
+      );
+      expect(action?.dataset.inspectorActionIntent).toBe(
+        case_.expectedActionIntent,
       );
     } else {
       expect(action).toBeNull();

@@ -151,6 +151,54 @@
   color: #010507;
 }
 
+[data-inspector-threads-setup-prompt],
+[data-inspector-threads-setup-link] {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #dbdbe5;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  cursor: pointer;
+}
+
+[data-inspector-threads-setup-prompt] {
+  border-color: #010507;
+  background-color: #010507;
+  color: #ffffff;
+}
+
+[data-inspector-threads-setup-prompt]:hover {
+  border-color: #2b2b2b;
+  background-color: #2b2b2b;
+}
+
+[data-inspector-threads-setup-link] {
+  background-color: #ffffff;
+  color: #57575b;
+}
+
+[data-inspector-threads-setup-link]:hover {
+  border-color: #afafb7;
+  background-color: #f7f7f9;
+  color: #010507;
+}
+
+[data-inspector-threads-setup-prompt]:focus-visible,
+[data-inspector-threads-setup-link]:focus-visible {
+  outline: 2px solid #6430ab;
+  outline-offset: 2px;
+}
+
 .inspector-threads-footer {
   display: grid;
   flex: 0 0 auto;
@@ -227,6 +275,18 @@
   outline: 2px solid transparent;
   outline-offset: 2px;
   cursor: pointer;
+}
+
+[data-inspector-action-placement="threads-footer"][data-inspector-action-intent="upgrade"] {
+  border-color: #6430ab;
+  background-color: #6430ab;
+  color: #ffffff;
+}
+
+[data-inspector-action-placement="threads-footer"][data-inspector-action-intent="upgrade"]:hover {
+  border-color: #3f176f;
+  background-color: #3f176f;
+  color: #ffffff;
 }
 
 [data-inspector-action-placement="threads-footer"]:hover {

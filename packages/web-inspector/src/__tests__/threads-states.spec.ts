@@ -262,6 +262,59 @@ function inspectorMetadata(
   };
 }
 
+type DeferredCopy = Readonly<{
+  promise: Promise<void>;
+  resolve: () => void;
+  reject: (reason?: unknown) => void;
+}>;
+
+/** Creates a clipboard promise whose settlement order the test controls. */
+function createDeferredCopy(): DeferredCopy {
+  let resolve!: () => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+/** Installs a clipboard writer and returns a precise descriptor restore hook. */
+function installClipboard(
+  writeText: (text: string) => Promise<void>,
+): () => void {
+  const clipboardDescriptor = Object.getOwnPropertyDescriptor(
+    navigator,
+    "clipboard",
+  );
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+  return () => {
+    if (clipboardDescriptor) {
+      Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
+    } else {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
+  };
+}
+
+/** Returns the licensed Runtime fixture that still lacks Threads routes. */
+function validLockedStateOptions(): SettledStateOptions {
+  return {
+    endpoints: DISABLED_ENDPOINTS,
+    initialThreads: [],
+    metadata: inspectorMetadata(
+      "valid",
+      "manage_plan",
+      "https://cloud.copilotkit.ai/actions/manage",
+    ),
+    runtimeLicense: "valid",
+    telemetryDisabled: true,
+  };
+}
+
 function telemetryFor(
   bodies: readonly TelemetryBody[],
   event: string,
@@ -1038,7 +1091,8 @@ type LockedActionCase = Readonly<{
   actionUrl?: string;
   heading: string;
   description?: string;
-  setupLabel?: "View setup";
+  setupLabel?: "Open setup guide";
+  promptLabel?: "Copy prompt for your agent";
   bodyLabel?: string;
   footerLabel?: string;
 }>;
@@ -1051,9 +1105,9 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     actionKind: "manage_plan",
     actionUrl: "https://cloud.copilotkit.ai/actions/manage",
     heading: "Finish setting up Rich Threads",
-    description:
-      "Your Intelligence license is active, but this Runtime doesn't expose the routes the Inspector uses for saved Threads. Configure the Runtime's multi-route endpoint, then reload.",
-    setupLabel: "View setup",
+    description: "Copy this prompt into your coding agent to finish the setup.",
+    setupLabel: "Open setup guide",
+    promptLabel: "Copy prompt for your agent",
     footerLabel: "Manage Your Plan",
   },
   {
@@ -1140,6 +1194,9 @@ test.each(lockedActionCases)(
       const setupAction = root.querySelector<HTMLAnchorElement>(
         "[data-inspector-threads-setup-link]",
       );
+      const promptAction = root.querySelector<HTMLButtonElement>(
+        "[data-inspector-threads-setup-prompt]",
+      );
 
       expect(root.textContent).toContain(case_.heading);
       if (case_.description) {
@@ -1147,6 +1204,7 @@ test.each(lockedActionCases)(
       }
       expect(harness.rows()).toHaveLength(3);
       expect(setupAction?.textContent?.trim()).toBe(case_.setupLabel);
+      expect(promptAction?.textContent?.trim()).toBe(case_.promptLabel);
       expect(bodyAction?.textContent?.trim()).toBe(case_.bodyLabel);
       expect(footerAction?.textContent?.trim()).toBe(case_.footerLabel);
       if (case_.setupLabel) {
@@ -1158,7 +1216,7 @@ test.each(lockedActionCases)(
         expect(setupAction?.target).toBe("_blank");
         expect(setupAction?.rel.split(/\s+/)).toContain("noopener");
         expect(setupAction?.getAttribute("aria-label")).toBe(
-          "View setup (opens in a new tab)",
+          "Open setup guide (opens in a new tab)",
         );
       } else {
         expect(setupAction).toBeNull();
@@ -1169,6 +1227,14 @@ test.each(lockedActionCases)(
         expect(bodyAction?.rel.split(/\s+/)).toContain("noopener");
       } else {
         expect(bodyAction).toBeNull();
+      }
+      if (case_.promptLabel) {
+        expect(promptAction?.type).toBe("button");
+        expect(promptAction?.getAttribute("aria-label")).toBe(
+          "Copy setup prompt for your coding agent",
+        );
+      } else {
+        expect(promptAction).toBeNull();
       }
       if (case_.footerLabel) {
         expect(footerAction?.href).toBe(case_.actionUrl);
@@ -1182,6 +1248,117 @@ test.each(lockedActionCases)(
     }
   },
 );
+
+test("valid locked Threads copy an autonomous setup prompt", async () => {
+  const writeText = vi
+    .fn<(text: string) => Promise<void>>()
+    .mockResolvedValue();
+  const restoreClipboard = installClipboard(writeText);
+  const harness = await setupSettledState(validLockedStateOptions());
+
+  try {
+    const root = harness.inspector.shadowRoot!;
+    const promptAction = root.querySelector<HTMLButtonElement>(
+      "[data-inspector-threads-setup-prompt]",
+    );
+    if (!promptAction) throw new Error("Setup prompt action was not rendered");
+
+    promptAction.click();
+
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const prompt = writeText.mock.calls[0]?.[0] ?? "";
+    expect(prompt).toContain(
+      "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes",
+    );
+    expect(prompt).toContain("identifyUser");
+    expect(prompt).toContain(
+      "Preserve existing authentication middleware and access checks",
+    );
+    expect(prompt).toContain("GET, POST, PATCH, and DELETE");
+    expect(prompt).toContain("threadEndpoints");
+
+    await harness.flush();
+    expect(
+      root.querySelector("[data-inspector-threads-setup-prompt]")?.textContent,
+    ).toContain("Copied");
+    const status = root.querySelector(
+      "[data-inspector-threads-setup-copy-status]",
+    );
+    expect(status?.getAttribute("aria-live")).toBe("polite");
+    expect(status?.textContent?.trim()).toBe("Setup prompt copied.");
+  } finally {
+    await harness.teardown();
+    restoreClipboard();
+  }
+});
+
+test("valid locked Threads ignore a stale clipboard failure", async () => {
+  const firstCopy = createDeferredCopy();
+  const writeText = vi
+    .fn<(text: string) => Promise<void>>()
+    .mockReturnValueOnce(firstCopy.promise)
+    .mockResolvedValueOnce();
+  const restoreClipboard = installClipboard(writeText);
+  const harness = await setupSettledState(validLockedStateOptions());
+
+  try {
+    const root = harness.inspector.shadowRoot!;
+    const promptAction = root.querySelector<HTMLButtonElement>(
+      "[data-inspector-threads-setup-prompt]",
+    );
+    if (!promptAction) throw new Error("Setup prompt action was not rendered");
+
+    promptAction.click();
+    promptAction.click();
+    await vi.waitFor(() =>
+      expect(
+        root.querySelector("[data-inspector-threads-setup-prompt]")
+          ?.textContent,
+      ).toContain("Copied"),
+    );
+
+    firstCopy.reject(new Error("stale clipboard rejection"));
+    await harness.flush();
+    expect(
+      root.querySelector("[data-inspector-threads-setup-prompt]")?.textContent,
+    ).toContain("Copied");
+  } finally {
+    await harness.teardown();
+    restoreClipboard();
+  }
+});
+
+test("valid locked Threads ignore a pending copy after disconnect", async () => {
+  const pendingCopy = createDeferredCopy();
+  const writeText = vi
+    .fn<(text: string) => Promise<void>>()
+    .mockReturnValue(pendingCopy.promise);
+  const restoreClipboard = installClipboard(writeText);
+  const harness = await setupSettledState(validLockedStateOptions());
+  const requestUpdate = vi.spyOn(harness.inspector, "requestUpdate");
+
+  try {
+    const promptAction =
+      harness.inspector.shadowRoot?.querySelector<HTMLButtonElement>(
+        "[data-inspector-threads-setup-prompt]",
+      );
+    if (!promptAction) throw new Error("Setup prompt action was not rendered");
+
+    promptAction.click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    await harness.teardown();
+    requestUpdate.mockClear();
+
+    pendingCopy.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(requestUpdate).not.toHaveBeenCalled();
+  } finally {
+    if (harness.inspector.isConnected) await harness.teardown();
+    restoreClipboard();
+  }
+});
 
 const footerBodyStates = [
   "locked",

@@ -206,6 +206,15 @@ const CAPABILITIES_TAB_LABEL = "Capabilities";
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 const THREADS_RUNTIME_SETUP_DOCS_URL =
   "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes";
+const THREADS_RUNTIME_SETUP_PROMPT = [
+  `Read ${THREADS_RUNTIME_SETUP_DOCS_URL} and finish setting up Rich Threads in this repository.`,
+  "",
+  "First inspect the repository's agent instructions, installed CopilotKit versions, Runtime adapter, frontend provider, route or proxy setup, and existing authentication. Preserve the current framework and deployment model. Preserve existing authentication middleware and access checks on every Runtime route.",
+  "",
+  "Follow the guide to enable the multi-route Runtime, align the frontend transport, scope identifyUser to the existing server-verified signed-in application user, and expose the full Runtime subtree for GET, POST, PATCH, and DELETE. Never use a fixed demo identity in production. If no trusted user identity exists, stop and ask me which auth source to use.",
+  "",
+  "Start the app and verify GET {basePath}/info reports threadEndpoints.list, inspect, mutations, and realtimeMetadata as true. Run focused tests, lint, and typecheck. Report the files changed, commands run, and verification result. If blocked, explain the missing input; do not invent setup.",
+].join("\n");
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
@@ -222,6 +231,7 @@ type ThreadsExampleOverviewVideoState =
   | "ready"
   | "playing"
   | "failed";
+type ThreadsSetupPromptCopyState = "idle" | "copied" | "error";
 type ThreadsExampleOverviewVideoListeners = Readonly<{
   loadeddata: EventListener;
   play: EventListener;
@@ -4929,6 +4939,9 @@ export class WebInspectorElement extends LitElement {
   private threadsExampleOverviewVideoPlayAttemptGeneration = 0;
   private threadsExampleOverviewVideoPlayPromise: Promise<void> | null = null;
   private threadsExampleOverviewVideoPlayOnNextBind = false;
+  private threadsSetupPromptCopyState: ThreadsSetupPromptCopyState = "idle";
+  private threadsSetupPromptCopyResetTimeoutId: number | null = null;
+  private threadsSetupPromptCopyGeneration = 0;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -7462,6 +7475,12 @@ ${argsString}</pre
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
     }
+    this.threadsSetupPromptCopyGeneration += 1;
+    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
+      this.threadsSetupPromptCopyResetTimeoutId = null;
+    }
+    this.threadsSetupPromptCopyState = "idle";
     this.cleanupThreadsExampleOverviewVideo();
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
@@ -7648,9 +7667,12 @@ ${argsString}</pre
       | InspectorMetadataAction["label"]
       | "Upgrade Your Plan" = action.label,
   ) {
+    const actionIntent =
+      displayLabel === "Upgrade Your Plan" ? "upgrade" : undefined;
     return html`
       <a
         data-inspector-action-placement=${placement}
+        data-inspector-action-intent=${actionIntent ?? nothing}
         href=${action.url}
         target="_blank"
         rel="noopener noreferrer"
@@ -10190,6 +10212,58 @@ ${argsString}</pre
     `;
   }
 
+  /** Show a copy result briefly and announce it to assistive technology. */
+  private showThreadsSetupPromptCopyState(
+    state: Exclude<ThreadsSetupPromptCopyState, "idle">,
+    generation: number,
+  ): void {
+    if (
+      !this.isConnected ||
+      generation !== this.threadsSetupPromptCopyGeneration
+    ) {
+      return;
+    }
+    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
+    }
+    this.threadsSetupPromptCopyState = state;
+    this.requestUpdate();
+    this.threadsSetupPromptCopyResetTimeoutId = window.setTimeout(() => {
+      if (
+        !this.isConnected ||
+        generation !== this.threadsSetupPromptCopyGeneration
+      ) {
+        return;
+      }
+      this.threadsSetupPromptCopyState = "idle";
+      this.threadsSetupPromptCopyResetTimeoutId = null;
+      this.requestUpdate();
+    }, 2_000);
+  }
+
+  /** Copy the static, docs-backed Rich Threads repair prompt. */
+  private handleThreadsSetupPromptCopy = async (): Promise<void> => {
+    const generation = (this.threadsSetupPromptCopyGeneration += 1);
+    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
+      this.threadsSetupPromptCopyResetTimeoutId = null;
+    }
+    this.threadsSetupPromptCopyState = "idle";
+    this.requestUpdate();
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      this.showThreadsSetupPromptCopyState("error", generation);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(THREADS_RUNTIME_SETUP_PROMPT);
+      this.showThreadsSetupPromptCopyState("copied", generation);
+    } catch {
+      this.showThreadsSetupPromptCopyState("error", generation);
+    }
+  };
+
   private renderThreadsExampleOverview(locked: boolean) {
     const lockedCopy = locked ? this.getThreadsLockedCopy() : undefined;
     const { lockedAction } = this.inspectorMetadataProjection;
@@ -10242,29 +10316,52 @@ ${argsString}</pre
                     ${
                       this.inspectorMetadataProjection.licenseState === "valid"
                         ? html`
+                            <button
+                              data-inspector-threads-setup-prompt
+                              type="button"
+                              aria-label=${
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Setup prompt copied"
+                                  : this.threadsSetupPromptCopyState === "error"
+                                    ? "Copy setup prompt failed. Try again"
+                                    : "Copy setup prompt for your coding agent"
+                              }
+                              @click=${this.handleThreadsSetupPromptCopy}
+                            >
+                              ${this.renderIcon(
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Check"
+                                  : "Copy",
+                              )}
+                              ${
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Copied"
+                                  : this.threadsSetupPromptCopyState === "error"
+                                    ? "Copy blocked"
+                                    : "Copy prompt for your agent"
+                              }
+                            </button>
                             <a
                               data-inspector-threads-setup-link
                               href=${this.getThreadsRuntimeSetupDocsUrl()}
                               target="_blank"
                               rel="noopener"
-                              aria-label="View setup (opens in a new tab)"
-                              style="
-                                display: inline-flex;
-                                align-items: center;
-                                justify-content: center;
-                                gap: 6px;
-                                min-height: 34px;
-                                border-radius: 6px;
-                                background: #010507;
-                                padding: 8px 12px;
-                                font-size: 12px;
-                                font-weight: 600;
-                                color: #ffffff;
-                                text-decoration: none;
-                              "
+                              aria-label="Open setup guide (opens in a new tab)"
                             >
-                              View setup
+                              Open setup guide
                             </a>
+                            <span
+                              class="sr-only"
+                              data-inspector-threads-setup-copy-status
+                              aria-live="polite"
+                              >${
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Setup prompt copied."
+                                  : this.threadsSetupPromptCopyState === "error"
+                                    ? "Setup prompt copy failed. Open the setup guide and copy it manually."
+                                    : ""
+                              }</span
+                            >
                           `
                         : nothing
                     }
@@ -10616,7 +10713,7 @@ ${argsString}</pre
         return {
           heading: "Finish setting up Rich Threads",
           description:
-            "Your Intelligence license is active, but this Runtime doesn't expose the routes the Inspector uses for saved Threads. Configure the Runtime's multi-route endpoint, then reload.",
+            "Copy this prompt into your coding agent to finish the setup.",
         };
       case "none":
         return {
