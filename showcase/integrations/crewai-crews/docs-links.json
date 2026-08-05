@@ -1,43 +1,173 @@
 {
   "framework": "crewai-crews",
   "features": {
+    "cli-start": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/quickstart",
+      "shell_docs_path": "/quickstart"
+    },
     "agentic-chat": {
-      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/prebuilt-components",
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/prebuilt-components",
       "shell_docs_path": "/prebuilt-components"
     },
-    "hitl-in-chat": {
-      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/human-in-the-loop",
+    "chat-slots": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/custom-look-and-feel/slots",
+      "shell_docs_path": "/custom-look-and-feel/slots"
+    },
+    "chat-customization-css": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/custom-look-and-feel/slots",
+      "shell_docs_path": "/custom-look-and-feel/slots"
+    },
+    "prebuilt-sidebar": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "prebuilt-popup": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "headless-simple": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/custom-look-and-feel/headless-ui",
+      "shell_docs_path": "/custom-look-and-feel/headless-ui"
+    },
+    "headless-complete": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/custom-look-and-feel/headless-ui",
+      "shell_docs_path": "/custom-look-and-feel/headless-ui"
+    },
+    "reasoning-default": {
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
+    },
+    "reasoning-custom": {
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
+    },
+    "hitl": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/your-components/interactive",
       "shell_docs_path": "/generative-ui/your-components/interactive"
     },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/your-components/interactive",
+      "shell_docs_path": "/generative-ui/your-components/interactive"
+    },
+    "hitl-in-chat-booking": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/your-components/interactive",
+      "shell_docs_path": "/generative-ui/your-components/interactive"
+    },
+    "hitl-in-app": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
     "tool-rendering": {
-      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/tool-rendering",
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/tool-rendering",
       "shell_docs_path": "/generative-ui/tool-rendering"
     },
-    "gen-ui-tool-based": {
-      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/your-components/display-only",
-      "shell_docs_path": "/generative-ui/your-components/display-only"
+    "tool-rendering-default-catchall": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "tool-rendering-custom-catchall": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "tool-rendering-reasoning-chain": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "gen-ui-agent": {
-      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/state-rendering",
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/state-rendering",
       "shell_docs_path": "/generative-ui/state-rendering"
     },
-    "shared-state-read-write": {
-      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/shared-state/in-app-agent-write",
-      "shell_docs_path": "/shared-state"
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/your-components/display-only",
+      "shell_docs_path": "/generative-ui/your-components/display-only"
     },
-    "shared-state-streaming": {
-      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/shared-state/predictive-state-updates",
-      "shell_docs_path": "/shared-state"
+    "frontend-tools": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
+    "frontend-tools-async": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/shared-state/in-app-agent-write",
+      "shell_docs_path": "/shared-state/in-app-agent-write"
     },
     "subagents": {
-      "og_docs_url": null,
-      "shell_docs_path": "/multi-agent/subagents"
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/multi-agent-flows",
+      "shell_docs_path": "/multi-agent-flows"
+    },
+    "readonly-state-agent-context": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/shared-state/in-app-agent-read",
+      "shell_docs_path": "/shared-state/in-app-agent-read"
+    },
+    "open-gen-ui": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
+      "shell_docs_path": "/generative-ui/open-generative-ui"
+    },
+    "open-gen-ui-advanced": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
+      "shell_docs_path": "/generative-ui/open-generative-ui"
+    },
+    "agent-config": {
+      "og_docs_url": "https://docs.copilotkit.ai/agent-config",
+      "shell_docs_path": "/agent-config"
+    },
+    "auth": {
+      "og_docs_url": "https://docs.copilotkit.ai/auth",
+      "shell_docs_path": "/auth"
+    },
+    "voice": {
+      "og_docs_url": "https://docs.copilotkit.ai/voice",
+      "shell_docs_path": "/voice"
+    },
+    "declarative-gen-ui": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/a2ui",
+      "shell_docs_path": "/generative-ui/a2ui"
+    },
+    "a2ui-fixed-schema": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/a2ui",
+      "shell_docs_path": "/generative-ui/a2ui"
+    },
+    "a2ui-recovery": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/a2ui",
+      "shell_docs_path": "/generative-ui/a2ui"
+    },
+    "byoc-hashbrown": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
+      "shell_docs_path": "/generative-ui/open-generative-ui"
+    },
+    "byoc-json-render": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
+      "shell_docs_path": "/generative-ui/open-generative-ui"
+    },
+    "beautiful-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "mcp-apps": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/mcp-apps",
+      "shell_docs_path": "/generative-ui/mcp-apps"
+    },
+    "shared-state-read": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/shared-state/in-app-agent-read",
+      "shell_docs_path": "/shared-state/in-app-agent-read"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/shared-state/predictive-state-updates",
+      "shell_docs_path": "/shared-state/predictive-state-updates"
+    },
+    "multimodal": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/ag-ui",
+      "shell_docs_path": "/feature-parity"
+    },
+    "gen-ui-interrupt": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/human-in-the-loop",
+      "shell_docs_path": "/human-in-the-loop"
+    },
+    "interrupt-headless": {
+      "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop/headless",
+      "shell_docs_path": "/human-in-the-loop/headless"
     }
-  },
-  "missing": [
-    {
-      "feature": "subagents",
-      "reason": "/crewai-crews/multi-agent-flows on docs.copilotkit.ai 308-redirects through /crewai-flows/multi-agent-flows to /crewai-flows — a different product (CrewAI Flows, not CrewAI Crews). OG left null (renders red) rather than pointing at the wrong-product overview; shell points at the unified /multi-agent/subagents content."
-    }
-  ]
+  }
 }
