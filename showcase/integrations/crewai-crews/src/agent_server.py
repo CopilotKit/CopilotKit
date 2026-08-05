@@ -30,6 +30,7 @@ from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 from starlette.responses import JSONResponse  # noqa: E402
 
 from agents.a2ui_fixed import A2UIFixedSchema  # noqa: E402
+from agents.a2ui_recovery_flow import a2ui_recovery_flow  # noqa: E402
 from agents.beautiful_chat import BeautifulChat  # noqa: E402
 from agents.byoc_hashbrown_agent import ByocHashbrown  # noqa: E402
 from agents.byoc_json_render_agent import ByocJsonRender  # noqa: E402
@@ -89,6 +90,7 @@ add_crewai_flow_fastapi_endpoint(
     app, shared_state_streaming_flow, "/shared-state-streaming"
 )
 add_crewai_flow_fastapi_endpoint(app, multimodal_flow, "/multimodal")
+add_crewai_flow_fastapi_endpoint(app, a2ui_recovery_flow, "/a2ui-recovery")
 add_crewai_flow_fastapi_endpoint(app, subagents_flow, "/subagents")
 add_crewai_flow_fastapi_endpoint(app, gen_ui_agent_flow, "/gen-ui-agent")
 add_crewai_flow_fastapi_endpoint(app, reasoning_flow, "/reasoning")
