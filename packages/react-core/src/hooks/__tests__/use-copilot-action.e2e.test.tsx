@@ -133,9 +133,18 @@ describe("useCopilotAction legacy HITL follow-up", () => {
     await waitFor(() => {
       expect(agent.runInputs).toHaveLength(2);
     });
-    expect(agent.runInputs.map((input) => input.runId)).toEqual([
-      agent.runInputs[0].runId,
-      agent.runInputs[0].runId,
-    ]);
+    // The first invocation carries the run id. The follow-up deliberately does
+    // NOT repeat it on the wire: pinning it there made the transport treat the
+    // follow-up as a resumption of a run it had already finished, re-delivering
+    // that run's applied half (duplicating its tool calls) and losing the
+    // continuation's own tool call.
+    //
+    // Logical identity is preserved a layer up — the continuation is registered
+    // against the originating id and the state manager re-stamps its events onto
+    // it — so this asserts the follow-up happened and left the id to the
+    // transport, not that the wire repeats it. StateManager's "re-stamps a
+    // continuation onto the run it continues" test covers the identity end.
+    expect(agent.runInputs[0].runId).toBeDefined();
+    expect(agent.runInputs[1].runId).not.toBe(agent.runInputs[0].runId);
   });
 });
