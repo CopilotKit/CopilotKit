@@ -106,6 +106,28 @@ export interface ChannelLegs {
   provider: ChannelProviderLeg;
 }
 
+/**
+ * Recognised provider states, used to validate what crosses the seam.
+ *
+ * Deliberately duplicates `PROVIDER_STATES` in
+ * `@copilotkit/channels-intelligence`'s `realtime-gateway.ts` rather than
+ * importing it. This package must not take a static dependency on
+ * channels-intelligence (see {@link CHANNELS_INTELLIGENCE_SPECIFIER} — it is
+ * reached only through a dynamic import), so every cross-package shape here is a
+ * duck-typed structural view; the `providerStates` seam is typed
+ * `Record<string, string>` for the same reason.
+ *
+ * Drift therefore fails OPEN: a state this set does not know becomes `unknown`,
+ * which keeps the transport-derived status. That is quiet, but it is the safe
+ * direction — the alternative (trusting an unrecognised string) would let a
+ * future Gateway state silently certify or condemn a Channel.
+ *
+ * A state added on the Gateway side needs adding here too, plus a `case` in
+ * {@link foldChannelLegs}. There is intentionally NO automated drift guard: one
+ * would have to import channels-intelligence, which resolves to that package's
+ * BUILT output from here, coupling this package's tests to another package's
+ * build for a divergence that already fails safe.
+ */
 const PROVIDER_LEGS: ReadonlySet<string> = new Set<ChannelProviderLeg>([
   "attached",
   "unhealthy",
@@ -162,9 +184,18 @@ export function foldChannelLegs(
  */
 export interface ChannelsControl {
   /**
-   * Resolve once every declared Channel has settled to a terminal, non-connecting
-   * state (`online` or `setup_required`). Rejects if any Channel is in `error`,
-   * or — when `timeoutMs` is given — if the whole set has not settled in time.
+   * Resolve once every declared Channel has settled its ACTIVATION — that is,
+   * each Channel either activated or failed to. Rejects if any Channel failed to
+   * activate, or — when `timeoutMs` is given — if the whole set has not settled
+   * in time.
+   *
+   * Readiness is about activation, NOT about provider health: a Channel whose
+   * transport joined but whose provider leg is `unhealthy` folds to a status of
+   * `error` (see {@link foldChannelLegs}) while its activation settled normally.
+   * So `ready()` resolving and `status().overall === "error"` can both be true at
+   * once, by design — provider attachment is the Gateway's answer to a question
+   * asked after activation, and it can change at any later rejoin. Assert
+   * end-to-end reachability with {@link ChannelsControl.status}, not here.
    */
   ready(opts?: { timeoutMs?: number }): Promise<void>;
   /**
@@ -1253,6 +1284,19 @@ export class ChannelManager implements ChannelsControl {
     const channels: Record<string, ChannelStatus> = {};
     const detail: Record<string, ChannelLegs> = {};
     for (const [name, entry] of this.entries) {
+      // KNOWN LIMITATION (no producer today, so no behaviour depends on it):
+      // `entry.status` is reported verbatim as the transport leg, but the legacy
+      // `ChannelSetupRequiredError` / `code === "SETUP_REQUIRED"` path writes
+      // `setup_required` into it — a PROVIDER condition parked on the transport
+      // leg, read back as `transport: "setup_required", provider: "unknown"`.
+      // Nothing emits that today (the activation engine stopped throwing it at
+      // the 2026-07-29 realtime-boundary cutover), and the folded `status` is
+      // still correct either way, so the misattribution is cosmetic. It is left
+      // as-is rather than guessed at: such a Channel has no transport at all (the
+      // launcher never returned a handle), so there is no honest value to move
+      // there. A future producer of `setup_required` should report provider
+      // attachment through the `providerStates` seam instead of `entry.status`,
+      // at which point this note comes out.
       const transport = entry.status;
       const provider = this.providerLeg(name, entry);
       const status = foldChannelLegs(transport, provider);

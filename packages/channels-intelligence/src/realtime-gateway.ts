@@ -21,14 +21,32 @@ export interface RealtimeGatewaySession {
  * Managed provider attachment state the Gateway reports for one declared
  * Channel on the control join reply.
  *
- * - `attached`: a declared adapter is configured and its last health check did
- *   not fail — the Channel can actually receive provider traffic.
- * - `unhealthy`: a declared adapter is configured but its last health check
- *   failed.
- * - `not_attached`: the Channel exists on the project but no declared adapter is
- *   configured — the normal state while setup is still in progress.
- * - `disabled`: the Channel is disabled on the project.
+ * Mirrors `RealtimeGateway.Channels.ChannelProviderStateStore`, which is
+ * authoritative. Keep these descriptions in step with it — the whole reason this
+ * seam exists is that a state's description outlived its mechanism once already.
+ *
+ * - `attached`: a declared adapter is `active` AND finished setup, and its last
+ *   health check did not fail — the Channel can actually receive provider
+ *   traffic. The adapter's own `status` is part of the predicate, not just its
+ *   setup state: Slack ingress only resolves an inbound event through an
+ *   `active` adapter, so reporting `attached` for a `draft`, `disabled`, or
+ *   `error` adapter would reintroduce the false green one state further along.
+ * - `unhealthy`: a declared adapter is bound but broken — either `active` and
+ *   set up with a failed health check, or set up with the adapter row itself in
+ *   `error` (which is `unhealthy` even with no failed health check recorded).
+ * - `not_attached`: the Channel exists on the project but no declared adapter
+ *   has a row, none has finished setup, or none is `active` — the normal state
+ *   while setup is still in progress.
+ * - `disabled`: the Channel row itself is disabled on the project.
  * - `channel_not_declared`: the project has no Channel with that name.
+ *
+ * A Runtime declares EVERY supported adapter per Channel (the launcher emits a
+ * `slack` and a `teams` pair unconditionally), so the Gateway folds the adapter
+ * states BEST-of — `attached` > `unhealthy` > `not_attached` — answering "is at
+ * least one provider bound?". A correctly configured Slack-only Channel is
+ * therefore `attached`, not dragged to `not_attached` by the Teams adapter
+ * nobody asked for. The two Channel-level states above are properties of the
+ * Channel row and dominate every adapter state.
  */
 export type ChannelProviderState =
   | "attached"
@@ -42,6 +60,19 @@ export type ChannelProviderStates = Readonly<
   Record<string, ChannelProviderState>
 >;
 
+/**
+ * Every state {@link parseChannelProviderStates} will accept.
+ *
+ * The runtime's `channel-manager.ts` duplicates this set as `PROVIDER_LEGS`,
+ * because that package must not take a static dependency on this one (it reaches
+ * this module only through a dynamic import), so the `providerStates` seam
+ * between them is deliberately duck-typed as `Record<string, string>`.
+ *
+ * Adding a state here therefore needs the same addition THERE, plus a `case` in
+ * that file's `foldChannelLegs`. Until both land, the new state fails open to
+ * `unknown` on the consuming side — the Channel keeps its transport-derived
+ * status rather than being wrongly certified or condemned. Safe, but silent.
+ */
 const PROVIDER_STATES: ReadonlySet<string> = new Set<ChannelProviderState>([
   "attached",
   "unhealthy",
