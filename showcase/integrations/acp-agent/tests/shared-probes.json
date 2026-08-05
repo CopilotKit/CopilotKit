@@ -1,0 +1,5 @@
+{
+  "agentic-chat": "../../../harness/src/probes/scripts/d5-agentic-chat.ts",
+  "reasoning-default": "../../../harness/src/probes/scripts/d5-reasoning-display.ts",
+  "prebuilt-sidebar": "../../../harness/src/probes/scripts/d5-prebuilt-sidebar.ts"
+}

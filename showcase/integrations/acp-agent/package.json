@@ -23,7 +23,6 @@
     "tsx": "^4.20.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.50.0",
     "@types/node": "^22.0.0",
     "@types/phoenix": "1.6.7",
     "@types/react": "^19.0.0",
