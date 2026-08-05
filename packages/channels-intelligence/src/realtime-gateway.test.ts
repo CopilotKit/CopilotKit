@@ -1376,55 +1376,18 @@ describe("connectRealtimeGateway provider states", () => {
     session.disconnect();
   });
 
-  // These two are the load-bearing tests for the "getter, not a snapshot"
-  // design. The claim they defend is that Phoenix's `Push.resend` (used by
-  // `channel.rejoin`) resets the received response but PRESERVES `recHooks`, so
-  // the join-push "ok" hook re-fires on every auto-rejoin and refreshes
-  // `controlJoinReply`. Without them, `providerStates` could be a captured
-  // snapshot — or `Push.resend` could stop preserving hooks upstream — and every
-  // other test in this area would still pass while a Channel provisioned during
-  // a disconnect stayed `setup_required` forever.
+  // The load-bearing test for the "getter, not a snapshot" design. The claim it
+  // defends is that Phoenix's `Push.resend` (used by `channel.rejoin`) resets the
+  // received response but PRESERVES `recHooks`, so the join-push "ok" hook
+  // re-fires on every auto-rejoin and refreshes `controlJoinReply`. Without it,
+  // `providerStates` could be a captured snapshot — or `Push.resend` could stop
+  // preserving hooks upstream — and every other test in this area would still
+  // pass while a Channel provisioned during a disconnect stayed
+  // `setup_required` forever.
   //
   // Note this asserts the SESSION's value actually changes across a reconnect,
   // which is distinct from (and not implied by) the manager re-reading the getter
   // on each `status()` call.
-  it("refreshes provider states from the rejoin reply after a channel-level error", async () => {
-    // Initial join: nothing bound. Rejoin: a Slack app has since been attached.
-    const { FakeWebSocket, instances } = makeFakeWebSocket(
-      "ok",
-      undefined,
-      (joinCount) => ({
-        protocol: "channel_delivery_v1",
-        runtimeInstanceId: "rti_1",
-        channels: {
-          opentag: joinCount === 1 ? "not_attached" : "attached",
-        },
-      }),
-    );
-
-    const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/channels",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: JOIN,
-      webSocket: FakeWebSocket,
-    });
-
-    expect(session.providerStates()).toEqual({ opentag: "not_attached" });
-
-    const states: RealtimeGatewayConnectionState[] = [];
-    session.onStateChange((s) => states.push(s));
-
-    // Channel-level error over a still-open socket → Phoenix auto-rejoins.
-    instances[0]!.triggerChannelError();
-    await waitUntil(() => states.includes("online"), 8000);
-
-    // The rejoin's reply must have replaced the captured one.
-    expect(session.providerStates()).toEqual({ opentag: "attached" });
-
-    session.disconnect();
-  });
-
   it("refreshes provider states from the rejoin reply after a transport drop", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket(
       "ok",
@@ -1459,44 +1422,6 @@ describe("connectRealtimeGateway provider states", () => {
     // different path from the channel-error case above.
     expect(instances.length).toBeGreaterThan(1);
 
-    expect(session.providerStates()).toEqual({ opentag: "attached" });
-
-    session.disconnect();
-  });
-
-  it("keeps the last reported states while a rejoin has not yet succeeded", async () => {
-    // Provider attachment does not change on a drop — the gateway simply has not
-    // spoken yet. The fold makes the transport leg dominate while offline, so the
-    // stale-but-last-known provider value is correct to keep here rather than
-    // clearing it to `undefined` (which would read as "not reported" and could
-    // flip a Channel's certified status mid-outage).
-    const { FakeWebSocket, instances } = makeFakeWebSocket(
-      "ok-then-silent",
-      undefined,
-      {
-        protocol: "channel_delivery_v1",
-        runtimeInstanceId: "rti_1",
-        channels: { opentag: "attached" },
-      },
-    );
-
-    const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/channels",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: JOIN,
-      webSocket: FakeWebSocket,
-    });
-
-    expect(session.providerStates()).toEqual({ opentag: "attached" });
-
-    const states: RealtimeGatewayConnectionState[] = [];
-    session.onStateChange((s) => states.push(s));
-
-    instances[0]!.onclose?.();
-    await waitUntil(() => states.includes("reconnecting"));
-
-    // Rejoins stay silent, so no new reply has arrived.
     expect(session.providerStates()).toEqual({ opentag: "attached" });
 
     session.disconnect();

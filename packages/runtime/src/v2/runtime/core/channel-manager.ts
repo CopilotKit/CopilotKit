@@ -111,22 +111,14 @@ export interface ChannelLegs {
  *
  * Deliberately duplicates `PROVIDER_STATES` in
  * `@copilotkit/channels-intelligence`'s `realtime-gateway.ts` rather than
- * importing it. This package must not take a static dependency on
- * channels-intelligence (see {@link CHANNELS_INTELLIGENCE_SPECIFIER} — it is
- * reached only through a dynamic import), so every cross-package shape here is a
- * duck-typed structural view; the `providerStates` seam is typed
- * `Record<string, string>` for the same reason.
+ * importing it: this package must not take a static dependency on
+ * channels-intelligence (it is reached only through a dynamic import), so the
+ * `providerStates` seam is duck-typed as `Record<string, string>`.
  *
- * Drift therefore fails OPEN: a state this set does not know becomes `unknown`,
- * which keeps the transport-derived status. That is quiet, but it is the safe
- * direction — the alternative (trusting an unrecognised string) would let a
- * future Gateway state silently certify or condemn a Channel.
- *
- * A state added on the Gateway side needs adding here too, plus a `case` in
- * {@link foldChannelLegs}. There is intentionally NO automated drift guard: one
- * would have to import channels-intelligence, which resolves to that package's
- * BUILT output from here, coupling this package's tests to another package's
- * build for a divergence that already fails safe.
+ * A state added there needs adding here too, plus a `case` in
+ * {@link foldChannelLegs}. Until both land it fails OPEN — an unrecognised state
+ * becomes `unknown` and the Channel keeps its transport-derived status, rather
+ * than being wrongly certified or condemned.
  */
 const PROVIDER_LEGS: ReadonlySet<string> = new Set<ChannelProviderLeg>([
   "attached",
@@ -1284,19 +1276,15 @@ export class ChannelManager implements ChannelsControl {
     const channels: Record<string, ChannelStatus> = {};
     const detail: Record<string, ChannelLegs> = {};
     for (const [name, entry] of this.entries) {
-      // KNOWN LIMITATION (no producer today, so no behaviour depends on it):
-      // `entry.status` is reported verbatim as the transport leg, but the legacy
-      // `ChannelSetupRequiredError` / `code === "SETUP_REQUIRED"` path writes
-      // `setup_required` into it — a PROVIDER condition parked on the transport
-      // leg, read back as `transport: "setup_required", provider: "unknown"`.
-      // Nothing emits that today (the activation engine stopped throwing it at
-      // the 2026-07-29 realtime-boundary cutover), and the folded `status` is
-      // still correct either way, so the misattribution is cosmetic. It is left
-      // as-is rather than guessed at: such a Channel has no transport at all (the
-      // launcher never returned a handle), so there is no honest value to move
-      // there. A future producer of `setup_required` should report provider
-      // attachment through the `providerStates` seam instead of `entry.status`,
-      // at which point this note comes out.
+      // KNOWN LIMITATION, dead today: the legacy `ChannelSetupRequiredError` /
+      // `code === "SETUP_REQUIRED"` path writes `setup_required` into
+      // `entry.status`, which is reported verbatim as the transport leg — so such
+      // a Channel reads `transport: "setup_required", provider: "unknown"`, a
+      // provider condition parked on the transport leg. Nothing emits it (the
+      // activation engine stopped throwing it at the 2026-07-29
+      // realtime-boundary cutover) and the folded `status` is right either way,
+      // so this is cosmetic. A future producer should report provider attachment
+      // through the `providerStates` seam rather than `entry.status`.
       const transport = entry.status;
       const provider = this.providerLeg(name, entry);
       const status = foldChannelLegs(transport, provider);
