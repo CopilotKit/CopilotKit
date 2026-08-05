@@ -1,0 +1,53 @@
+name: ACP Agent via Intelligence
+slug: acp-agent
+category: protocol
+language: typescript
+logo: /logos/acp-agent.svg
+description: Run ACP v1 agents through CopilotKit Intelligence while the app speaks AG-UI.
+partner_docs: null
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/acp-agent
+copilotkit_version: 2.0.0
+deployed: false
+docs_mode: generated
+interaction_modalities:
+  - sidebar
+  - chat
+managed_platform:
+  name: CopilotKit Intelligence
+  url: https://www.copilotkit.ai/
+not_supported_features: []
+features:
+  - agentic-chat
+  - reasoning-default
+  - prebuilt-sidebar
+demos:
+  - id: agentic-chat
+    name: "Pre-Built: CopilotChat"
+    description: Pre-built <CopilotChat /> component for full-screen/embedded chat
+    tags:
+      - chat-ui
+    route: /demos/agentic-chat
+    highlight:
+      - src/app/api/copilotkit/route.ts
+      - src/lib/acp-runtime.ts
+      - src/app/demos/agentic-chat/page.tsx
+  - id: reasoning-default
+    name: "Reasoning: Default"
+    description: Built-in CopilotChatReasoningMessage rendering with no slot override
+    tags:
+      - operational-generative-ui
+    route: /demos/reasoning-default
+    highlight:
+      - src/app/api/copilotkit/route.ts
+      - src/lib/acp-runtime.ts
+      - src/app/demos/reasoning-default/page.tsx
+  - id: prebuilt-sidebar
+    name: "Pre-Built: Sidebar"
+    description: Docked sidebar chat via <CopilotSidebar />
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-sidebar
+    highlight:
+      - src/app/api/copilotkit/route.ts
+      - src/lib/acp-runtime.ts
+      - src/app/demos/prebuilt-sidebar/page.tsx
