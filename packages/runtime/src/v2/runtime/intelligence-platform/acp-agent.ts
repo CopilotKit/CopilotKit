@@ -24,7 +24,7 @@ export interface AcpAgentPlatform {
   }): Promise<AcpRunCancellation>;
 }
 
-/** Configuration for one paid Intelligence-backed ACP agent profile. */
+/** Configuration for one Intelligence-backed ACP agent profile. */
 export interface AcpAgentConfig {
   /** Intelligence client authenticated for the owning project. */
   readonly intelligence: AcpAgentPlatform;
@@ -58,7 +58,7 @@ const waitForPoll = (delayMs: number, signal: AbortSignal): Promise<void> => {
 };
 
 /**
- * AG-UI agent facade for the paid Intelligence ACP bridge.
+ * AG-UI agent facade for the Intelligence ACP bridge.
  *
  * This class only handles admission, durable event replay, and cancellation.
  * ACP processes, protocol translation, and persistence stay inside
@@ -165,7 +165,7 @@ export class AcpAgent extends AbstractAgent {
       .then(() => activeRun.controller.abort());
   }
 
-  /** Creates an idle agent with the same paid Intelligence profile. */
+  /** Creates an idle agent with the same Intelligence profile. */
   clone(): AcpAgent {
     const cloned = new AcpAgent(this.config);
     // AbstractAgent does not expose its middleware chain, but clones must keep it.

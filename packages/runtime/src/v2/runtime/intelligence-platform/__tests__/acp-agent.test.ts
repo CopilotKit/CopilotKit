@@ -28,7 +28,7 @@ const runFinished: BaseEvent = {
 };
 
 describe("AcpAgent", () => {
-  it("admits one paid run and emits durable event pages through AG-UI", async () => {
+  it("admits one run and emits durable event pages through AG-UI", async () => {
     const platform = {
       ɵadmitAcpRun: vi.fn().mockResolvedValue({ cursor: 0 }),
       ɵcancelAcpRun: vi.fn(),

@@ -137,7 +137,7 @@ export interface CopilotKitIntelligenceConfig {
   onThreadDeleted?: (params: ThreadDeletedPayload) => void;
 }
 
-/** Request accepted by the paid Intelligence ACP bridge. */
+/** Request accepted by the Intelligence ACP bridge. */
 export interface AcpRunRequest {
   readonly agentProfileId: string;
   readonly appUserId: string;
@@ -641,7 +641,7 @@ export class CopilotKitIntelligence {
     return this.#enterpriseLearningEnabled;
   }
 
-  /** @internal Used by {@link AcpAgent} to admit one paid ACP run. */
+  /** @internal Used by {@link AcpAgent} to admit one ACP run. */
   async ɵadmitAcpRun(params: AcpRunRequest): Promise<AcpRunAdmission> {
     return this.#request<AcpRunAdmission>("POST", "/api/acp/runs", params);
   }
