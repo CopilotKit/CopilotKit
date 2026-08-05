@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   CHANNELS_ACTIVATION_CHANNELS,
-  buildChannelsActivationPrompt,
+  CHANNELS_BUILD_PROMPT,
+  CHANNELS_GUIDE_URL,
   getChannelsActivationGuideHref,
 } from "../channels-activation-contracts";
 import { getChannelsActivationBackendOptions } from "../channels-activation-options";
@@ -52,15 +53,33 @@ describe("Channels activation documentation options", () => {
     }
   });
 
-  it("builds a concise prompt around the verified guide URL", () => {
-    const prompt = buildChannelsActivationPrompt({
-      channelLabel: "Microsoft Teams",
-      backendLabel: "Mastra",
-      guideUrl: "https://docs.copilotkit.ai/teams/mastra/connect",
+  // The prompt is a pointer at one hosted guide, not a copy of the workflow.
+  // Six surfaces across three repos each carried their own prose version,
+  // drifted, and went stale against the CLI; these assertions pin the
+  // corrections that produced.
+  describe("activation prompt", () => {
+    it("points at the hosted guide", () => {
+      expect(CHANNELS_GUIDE_URL).toBe(
+        "https://copilotkit.ai/channels-guide.md",
+      );
+      expect(CHANNELS_BUILD_PROMPT).toBe(
+        "Read https://copilotkit.ai/channels-guide.md and help the user build their first channel",
+      );
     });
 
-    expect(prompt).toContain("Microsoft Teams using Mastra");
-    expect(prompt).toContain("https://docs.copilotkit.ai/teams/mastra/connect");
-    expect(prompt).toContain("preserve its agent architecture");
+    it("names neither channel nor backend", () => {
+      // The guide asks for both. Naming them here would promise coverage on the
+      // page's behalf — the mismatch that made the earlier skill pointer wrong
+      // for Teams, since that skill was scoped to Slack.
+      for (const channel of CHANNELS_ACTIVATION_CHANNELS) {
+        expect(CHANNELS_BUILD_PROMPT).not.toContain(channel.label);
+      }
+      expect(CHANNELS_BUILD_PROMPT).not.toMatch(/mastra|langgraph|built-in/i);
+    });
+
+    it("stays a pointer instead of re-embedding the workflow", () => {
+      expect(CHANNELS_BUILD_PROMPT.split("\n")).toHaveLength(1);
+      expect(CHANNELS_BUILD_PROMPT.length).toBeLessThan(160);
+    });
   });
 });

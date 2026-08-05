@@ -317,6 +317,32 @@ describe("createRunRenderer", () => {
     expect(fake.posts[0]?.thread_ts).toBe("100.0");
   });
 
+  it("logs a failed best-effort error notice at debug level", async () => {
+    const failure = new Error("Slack cleanup failed");
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const transport: SlackRenderTransport = {
+      postMessage: vi.fn(async () => Promise.reject(failure)),
+      updateMessage: vi.fn(async () => {}),
+    };
+    const { subscriber } = createRunRenderer({
+      transport,
+      target: { channel: "C1", threadTs: "100.0" },
+    });
+
+    await subscriber.onRunErrorEvent!({
+      event: { message: "primary failure" },
+    } as never);
+
+    expect(debug).toHaveBeenCalledWith(
+      "[slack-renderer] error notice failed:",
+      failure,
+    );
+    expect(error).not.toHaveBeenCalled();
+    debug.mockRestore();
+    error.mockRestore();
+  });
+
   it("markInterrupted: appends _(interrupted)_ to a partial reply and finalises", async () => {
     const fake = makeFakeClient();
     const { subscriber, markInterrupted } = createRunRenderer({
@@ -485,6 +511,32 @@ describe("createRunRenderer — native status mode", () => {
       loading_messages: ["a"],
       thread_ts: "100.0",
     });
+  });
+
+  it("logs a failed best-effort status update at debug level", async () => {
+    const failure = new Error("Slack status cleanup failed");
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const transport: SlackRenderTransport = {
+      setStatus: vi.fn(async () => Promise.reject(failure)),
+      postMessage: vi.fn(async () => ({ ts: "1.000" })),
+      updateMessage: vi.fn(async () => {}),
+    };
+    const { subscriber } = createRunRenderer({
+      transport,
+      target: { channel: "D1" },
+      status: { threadTs: "100.0", isPane: true, config: {} },
+    });
+
+    await subscriber.onRunStartedEvent!({} as never);
+
+    expect(debug).toHaveBeenCalledWith(
+      "[slack-renderer] setStatus failed:",
+      failure,
+    );
+    expect(error).not.toHaveBeenCalled();
+    debug.mockRestore();
+    error.mockRestore();
   });
 
   it("surfaces tool calls as live status, not :wrench: rows", async () => {

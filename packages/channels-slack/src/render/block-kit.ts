@@ -4,6 +4,7 @@ import type { ContextActionsBlock, KnownBlock } from "@slack/types";
 import { markdownToMrkdwn } from "../markdown-to-mrkdwn.js";
 import { SLACK_LIMITS, clampArray, truncateText } from "./budget.js";
 import { serializeSlackNativeNode } from "../native-codec.js";
+import { validateSlackBlockKit } from "../block-kit-validation.js";
 
 /**
  * Stable `action_id` of the native AI feedback row's `feedback_buttons`
@@ -85,6 +86,8 @@ export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
       `Slack native JSX rendered ${blocks.length} blocks; the message limit is ${SLACK_LIMITS.blocksPerMessage}.`,
     );
   }
+
+  validateSlackBlockKit(blocks);
 
   // Top-level budget: clamp to the per-message block ceiling, leaving room for
   // an overflow-signal context block when we had to drop anything.

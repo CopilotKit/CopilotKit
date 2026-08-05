@@ -1,4 +1,5 @@
 uvicorn
-pydantic-ai-slim[ag-ui]
-pydantic-ai-slim[openai]
+pydantic-ai-slim[ag-ui,openai]==2.22.0
+ag-ui-protocol==0.1.19
+starlette>=0.46.2
 python-dotenv

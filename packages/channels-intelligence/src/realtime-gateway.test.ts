@@ -176,9 +176,15 @@ function makeFakeWebSocket(
       });
     }
 
+    serverClose(code: number): void {
+      this.closed = true;
+      this.readyState = FakeWebSocket.CLOSED;
+      this.onclose?.({ code });
+    }
+
     close(): void {
       this.closed = true;
-      this.readyState = 3;
+      this.readyState = FakeWebSocket.CLOSED;
       this.onclose?.();
     }
   }
@@ -526,6 +532,33 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
     // the rejoin re-fires the join-push "ok" hook, restoring online.
     await waitUntil(() => states.includes("online"));
     expect(states[states.length - 1]).toBe("online");
+
+    session.disconnect();
+  });
+
+  it("recovers after an unexpected clean socket close", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+    });
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((state) => states.push(state));
+
+    instances[0]!.serverClose(1000);
+
+    expect(states).toContain("reconnecting");
+    await waitUntil(
+      () => instances.length === 2 && states[states.length - 1] === "online",
+    );
+    expect(instances).toHaveLength(2);
 
     session.disconnect();
   });

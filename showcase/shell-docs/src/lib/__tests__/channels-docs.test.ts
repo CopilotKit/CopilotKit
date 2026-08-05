@@ -345,90 +345,22 @@ describe("Channels documentation journey", () => {
       expect(source).not.toMatch(/\bcopilotkit\s+channels\b/i);
     }
 
-    expect(overview).toContain("<Accordion\n  featured");
-    expect(overview).toContain('title="Start building with your coding agent"');
-    expect(overview).toContain(
-      'description="Give your local coding agent a guided path from a blank directory to a working Slack channel."',
-    );
-    expect(overview).toContain(
-      "Copy and paste this prompt to your agent. Local agents are best so they can use your browser to set up Slack.",
-    );
-    expect(overview).toContain("```text");
-    expect(overview).toContain(
-      "Help me create a new CopilotKit app from scratch, then connect its agent to Slack so it answers in a real channel.",
-    );
-    expect(overview).toContain(
-      "`copilotkit-setup` for creating the app and wiring managed Intelligence.",
-    );
-    expect(overview).toContain(
-      "`copilotkit-channels` for the CLI-scaffolded Channel and its long-running host.",
-    );
-    expect(overview).toContain(
-      "`setup-slack-channel` for the Slack app and managed Intelligence provider setup.",
-    );
-    expect(overview).toContain(
-      "`npx copilotkit@latest skills install` in the directory where I want the project",
-    );
-    expect(overview).toContain(
-      "Use the CopilotKit CLI through `npx copilotkit@latest`; do not assume or require a global CLI installation.",
-    );
-    expect(overview).toContain(
-      "Run `npx copilotkit@latest create` to scaffold a brand-new project.",
-    );
-    expect(overview).toContain(
-      "Choose managed Intelligence because Channels are not available in self-hosted SSE mode.",
-    );
-    expect(overview).toContain(
-      "Do not add a second Channel declaration or move the Channel into a serverless route.",
-    );
-    expect(overview).toContain("Do not guess which one you are.");
-    expect(overview).toContain(
-      "Never ask me to paste a token, signing secret, or API key into this conversation.",
-    );
-    expect(overview).toContain(
-      "Do not report success until all three gates in `setup-slack-channel` hold.",
-    );
-    expect(overview).toContain('"The runtime started" is not one of them.');
-    expect(overview).not.toContain("npx copilotkit@latest channels setup");
-    expect(teamsOverview).toContain("<Accordion\n  featured");
-    expect(teamsOverview).toContain(
-      'title="Start building with your coding agent"',
-    );
-    expect(teamsOverview).toContain(
-      'description="Give your local coding agent a guided path from a blank directory to a working Microsoft Teams channel."',
-    );
-    expect(teamsOverview).toContain(
-      "Copy and paste this prompt to your agent. Local agents are best so they can use your browser to set up Microsoft Teams.",
-    );
-    expect(teamsOverview).toContain(
-      "Help me create a new CopilotKit app from scratch, then connect its agent to Microsoft Teams so it answers in a real channel.",
-    );
-    expect(teamsOverview).toContain(
-      "The current Microsoft Teams Channels documentation at https://docs.copilotkit.ai/teams",
-    );
-    expect(teamsOverview).toContain(
-      "Do not require a Teams-specific onboarding skill or substitute Slack setup instructions; use the linked Teams documentation as the provider source of truth.",
-    );
-    expect(teamsOverview).toContain(
-      "verify that Node.js 22 or newer is available",
-    );
-    expect(teamsOverview).toContain(
-      "Run `npx copilotkit@latest create` to scaffold a brand-new project.",
-    );
-    expect(teamsOverview).toContain(
-      "Treat the CLI-generated `channel-host.mts` and `channels.mts` as the code half.",
-    );
-    expect(teamsOverview).toContain(
-      "Use the published Teams documentation as the provider half.",
-    );
-    expect(teamsOverview).toContain("Do not guess which one you are.");
-    expect(teamsOverview).toContain(
-      "Never ask me to paste a token, client secret, or API key into this conversation.",
-    );
-    expect(teamsOverview).toContain(
-      "Do not report success until the app is installed in the intended Teams scope, Intelligence reports the Channel as Online, and a real Teams message or mention receives the agent's reply.",
-    );
-    expect(teamsOverview).not.toContain("`setup-slack-channel`");
+    // The overview no longer carries the workflow. It renders the shared
+    // entry-point component, which names one skill and nothing else, so this
+    // page cannot drift away from the other Channels surfaces again.
+    expect(overview).toContain("<ChannelsStartPrompt />");
+    expect(teamsOverview).toContain("<ChannelsStartPrompt />");
+
+    // Guard the regression this replaced: an inline prompt, hidden in an
+    // accordion, duplicating instructions that live in the skill.
+    for (const source of [overview, teamsOverview]) {
+      expect(source).not.toContain("copy this prompt");
+      expect(source).not.toContain("```text");
+      expect(source).not.toMatch(
+        /Use these (skills|sources) as your instructions/,
+      );
+      expect(source).not.toContain("npx copilotkit@latest create");
+    }
     expect(intelligence).toMatch(/browser wizard[\s\S]*released setup path/i);
   });
 
