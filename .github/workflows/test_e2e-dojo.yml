@@ -63,7 +63,7 @@ jobs:
     # Leave room for Playwright's OS package install on a cold runner; 30 minutes
     # can finish the tests but cancel the cache cleanup and mark the job cancelled.
     runs-on: depot-ubuntu-24.04-4
-    timeout-minutes: 40
+    timeout-minutes: 60
     permissions:
       contents: read
     strategy:
