@@ -84,7 +84,9 @@ rules:
   #
   # telemetry-runtime-fragment.yml: reviewed, does not apply. The workflow
   # configures NO cache (setup-node caching is opt-in via `cache:`, which this
-  # workflow does not set), and it publishes no build artifact — it reads the
+  # workflow does not set; setup-node v7's `package-manager-cache` auto-path
+  # only engages when package.json declares npm, and this repo declares pnpm),
+  # and it publishes no build artifact — it reads the
   # runtime's type catalog, emits a JSON registry fragment, and opens a PR
   # against another repo. There is no runtime artifact a restored cache could
   # poison.
