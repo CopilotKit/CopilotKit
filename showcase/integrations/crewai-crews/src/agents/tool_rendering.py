@@ -26,9 +26,13 @@ from crewai.flow.flow import Flow, start
 from litellm import acompletion
 from pydantic import Field
 
-from ag_ui_crewai import CopilotKitState, copilotkit_stream
+from ag_ui_crewai import (
+    CopilotKitState,
+    copilotkit_emit_tool_result,
+    copilotkit_stream,
+)
 
-from tools import get_weather_impl
+from tools import get_weather_impl, roll_dice_impl
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +109,34 @@ GET_STOCK_PRICE_TOOL = {
     },
 }
 
+SEARCH_FLIGHTS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search_flights",
+        "description": "Search mock flights between two airports.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "origin": {"type": "string"},
+                "destination": {"type": "string"},
+            },
+            "required": ["origin", "destination"],
+        },
+    },
+}
+
+ROLL_D20_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "roll_d20",
+        "description": "Roll a 20-sided die, optionally using a test value.",
+        "parameters": {
+            "type": "object",
+            "properties": {"value": {"type": "integer", "minimum": 1, "maximum": 20}},
+        },
+    },
+}
+
 
 def get_stock_price_impl(
     ticker: str,
@@ -151,7 +183,37 @@ _SYSTEM_PROMPT = (
 )
 
 # Maximum LLM round-trips per user turn (prevents infinite loops).
-_MAX_ITERATIONS = 5
+_MAX_ITERATIONS = 8
+
+
+def search_flights_impl(origin: str, destination: str) -> dict:
+    return {
+        "origin": origin,
+        "destination": destination,
+        "flights": [
+            {
+                "airline": "United",
+                "flight": "UA231",
+                "depart": "08:15",
+                "arrive": "16:45",
+                "price_usd": 348,
+            },
+            {
+                "airline": "Delta",
+                "flight": "DL412",
+                "depart": "11:20",
+                "arrive": "19:55",
+                "price_usd": 312,
+            },
+            {
+                "airline": "JetBlue",
+                "flight": "B6722",
+                "depart": "17:05",
+                "arrive": "01:30",
+                "price_usd": 289,
+            },
+        ],
+    }
 
 
 class ToolRenderingFlow(Flow[ToolRenderingState]):
@@ -170,6 +232,8 @@ class ToolRenderingFlow(Flow[ToolRenderingState]):
             *self.state.copilotkit.actions,
             GET_WEATHER_TOOL,
             GET_STOCK_PRICE_TOOL,
+            SEARCH_FLIGHTS_TOOL,
+            ROLL_D20_TOOL,
         ]
 
         for _iteration in range(_MAX_ITERATIONS):
@@ -213,6 +277,7 @@ class ToolRenderingFlow(Flow[ToolRenderingState]):
                             "tool_call_id": tool_call_id,
                         }
                     )
+                    await copilotkit_emit_tool_result(tool_call_id, result_str)
                 elif tool_name == "get_stock_price":
                     try:
                         args = json.loads(tool_call["function"]["arguments"] or "{}")
@@ -231,15 +296,53 @@ class ToolRenderingFlow(Flow[ToolRenderingState]):
                             "tool_call_id": tool_call_id,
                         }
                     )
-                else:
-                    # Frontend-registered action -- placeholder result.
+                    await copilotkit_emit_tool_result(
+                        tool_call_id, json.dumps(stock_result)
+                    )
+                elif tool_name == "search_flights":
+                    try:
+                        args = json.loads(tool_call["function"]["arguments"] or "{}")
+                    except json.JSONDecodeError:
+                        args = {}
+                    flight_result = search_flights_impl(
+                        args.get("origin", "SFO"), args.get("destination", "JFK")
+                    )
+                    result_str = json.dumps(flight_result)
                     self.state.messages.append(
                         {
                             "role": "tool",
-                            "content": "frontend tool -- handled client-side",
+                            "content": result_str,
                             "tool_call_id": tool_call_id,
                         }
                     )
+                    await copilotkit_emit_tool_result(tool_call_id, result_str)
+                elif tool_name == "roll_d20":
+                    try:
+                        args = json.loads(tool_call["function"]["arguments"] or "{}")
+                    except json.JSONDecodeError:
+                        args = {}
+                    scripted = args.get("value")
+                    dice_result = (
+                        {"sides": 20, "value": scripted, "result": scripted}
+                        if isinstance(scripted, int) and 1 <= scripted <= 20
+                        else {**roll_dice_impl(20), "value": None}
+                    )
+                    if dice_result["value"] is None:
+                        dice_result["value"] = dice_result["result"]
+                    result_str = json.dumps(dice_result)
+                    self.state.messages.append(
+                        {
+                            "role": "tool",
+                            "content": result_str,
+                            "tool_call_id": tool_call_id,
+                        }
+                    )
+                    await copilotkit_emit_tool_result(tool_call_id, result_str)
+                else:
+                    # The browser owns frontend-tool execution. End this run
+                    # after streaming the call; CopilotKit resumes with the
+                    # real tool result in the next request.
+                    return
 
             # Loop back to call the LLM again with the tool results.
 

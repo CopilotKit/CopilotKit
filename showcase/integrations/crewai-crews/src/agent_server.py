@@ -45,6 +45,9 @@ from agents.shared_state_read import shared_state_read_flow  # noqa: E402
 from agents.shared_state_read_write import shared_state_read_write_flow  # noqa: E402
 from agents.shared_state_streaming import shared_state_streaming_flow  # noqa: E402
 from agents.subagents import subagents_flow  # noqa: E402
+from agents.tool_rendering_reasoning import (  # noqa: E402
+    tool_rendering_reasoning_flow,
+)
 
 try:
     from agents.tool_rendering import tool_rendering_flow
@@ -103,5 +106,8 @@ add_crewai_flow_fastapi_endpoint(
 )
 if tool_rendering_flow is not None:
     add_crewai_flow_fastapi_endpoint(app, tool_rendering_flow, "/tool-rendering")
+add_crewai_flow_fastapi_endpoint(
+    app, tool_rendering_reasoning_flow, "/tool-rendering-reasoning"
+)
 
 add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")

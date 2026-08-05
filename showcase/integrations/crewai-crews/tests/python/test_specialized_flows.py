@@ -14,6 +14,9 @@ MULTIMODAL_ROUTE = (
 A2UI_RECOVERY_ROUTE = (
     INTEGRATION_ROOT / "src" / "app" / "api" / "copilotkit-a2ui-recovery" / "route.ts"
 )
+MAIN_RUNTIME_ROUTE = (
+    INTEGRATION_ROOT / "src" / "app" / "api" / "copilotkit" / "route.ts"
+)
 
 
 def _response(message):
@@ -102,6 +105,106 @@ async def test_shared_state_streaming_predicts_and_persists_document(monkeypatch
     ]
     assert flow.state.document == document
     assert flow.state.messages[-1]["content"] == "Done."
+
+
+@pytest.mark.asyncio
+async def test_tool_rendering_emits_backend_tool_result_before_narration(monkeypatch):
+    from agents import tool_rendering as module
+
+    flow = module.ToolRenderingFlow()
+    flow.state.messages = [{"role": "user", "content": "What's the weather in Tokyo?"}]
+    streamed = [
+        _response(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_weather",
+                        "type": "function",
+                        "function": {
+                            "name": "get_weather",
+                            "arguments": '{"location":"Tokyo"}',
+                        },
+                    }
+                ],
+            }
+        ),
+        _response({"role": "assistant", "content": "Tokyo is sunny."}),
+    ]
+    emitted = []
+
+    async def fake_completion(**_kwargs):
+        return object()
+
+    async def fake_stream(_value):
+        return streamed.pop(0)
+
+    async def fake_emit(tool_call_id, content, **kwargs):
+        emitted.append((tool_call_id, content, kwargs))
+        return True
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
+
+    await flow.chat()
+
+    assert emitted[0][0] == "call_weather"
+    assert '"temperature"' in emitted[0][1]
+    assert flow.state.messages[-1]["content"] == "Tokyo is sunny."
+
+
+@pytest.mark.asyncio
+async def test_tool_rendering_reasoning_combines_reasoning_and_tool_results(
+    monkeypatch,
+):
+    from agents import tool_rendering_reasoning as module
+
+    flow = module.ToolRenderingReasoningFlow()
+    flow.state.messages = [{"role": "user", "content": "Weather in Tokyo?"}]
+    responses = [
+        _response(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_reasoned_weather",
+                        "type": "function",
+                        "function": {
+                            "name": "get_weather",
+                            "arguments": '{"location":"Tokyo"}',
+                        },
+                    }
+                ],
+            }
+        ),
+        _response({"role": "assistant", "content": "Pack for the weather."}),
+    ]
+    calls = []
+    emitted = []
+
+    async def fake_responses(**kwargs):
+        calls.append(kwargs)
+        return object()
+
+    async def fake_stream(_value):
+        return responses.pop(0)
+
+    async def fake_emit(tool_call_id, content, **_kwargs):
+        emitted.append((tool_call_id, content))
+        return True
+
+    monkeypatch.setattr(module, "copilotkit_responses", fake_responses)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
+
+    await flow.chat()
+
+    assert calls[0]["reasoning"] == {"effort": "medium", "summary": "detailed"}
+    assert emitted[0][0] == "call_reasoned_weather"
+    assert flow.state.messages[-1]["content"] == "Pack for the weather."
 
 
 @pytest.mark.asyncio
@@ -197,6 +300,25 @@ def test_server_and_runtime_register_dedicated_flow_routes():
     assert 'shared_state_streaming_flow, "/shared-state-streaming"' in server
     assert 'multimodal_flow, "/multimodal"' in server
     assert 'a2ui_recovery_flow, "/a2ui-recovery"' in server
+    assert 'tool_rendering_reasoning_flow, "/tool-rendering-reasoning"' in server
     assert "${AGENT_URL}/multimodal" in route
     assert "${AGENT_URL}/a2ui-recovery" in a2ui_route
     assert "injectA2UITool: false" in a2ui_route
+
+
+def test_main_runtime_routes_specialized_agents_to_their_native_flows():
+    route = MAIN_RUNTIME_ROUTE.read_text()
+
+    expected_routes = {
+        "shared-state-read": "/shared-state-read",
+        "shared-state-write": "/shared-state-read-write",
+        "shared-state-streaming": "/shared-state-streaming",
+        "shared-state-read-write": "/shared-state-read-write",
+        "subagents": "/subagents",
+        "tool-rendering": "/tool-rendering",
+        "tool-rendering-default-catchall": "/tool-rendering",
+        "tool-rendering-custom-catchall": "/tool-rendering",
+        "tool-rendering-reasoning-chain": "/tool-rendering-reasoning",
+    }
+    for agent_name, path in expected_routes.items():
+        assert f'agents["{agent_name}"] = createAgent("{path}")' in route

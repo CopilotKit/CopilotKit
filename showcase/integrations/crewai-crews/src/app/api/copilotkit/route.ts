@@ -80,6 +80,22 @@ const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
 }
+
+// CrewAI Flows own the state, tool-result, and delegation lifecycles for
+// these cells. Keep every alias explicit: silently falling back to the root
+// Crew endpoint makes the UI appear connected while dropping the specialized
+// AG-UI events that each demo exists to prove.
+agents["shared-state-read"] = createAgent("/shared-state-read");
+agents["shared-state-write"] = createAgent("/shared-state-read-write");
+agents["shared-state-streaming"] = createAgent("/shared-state-streaming");
+agents["shared-state-read-write"] = createAgent("/shared-state-read-write");
+agents["subagents"] = createAgent("/subagents");
+agents["tool-rendering"] = createAgent("/tool-rendering");
+agents["tool-rendering-default-catchall"] = createAgent("/tool-rendering");
+agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
+agents["tool-rendering-reasoning-chain"] = createAgent(
+  "/tool-rendering-reasoning",
+);
 for (const name of reasoningAgentNames) {
   agents[name] = createAgent("/reasoning");
 }
@@ -103,7 +119,6 @@ agents["gen-ui-agent"] = createAgent("/gen-ui-agent");
 // custom wildcard renderer (`useDefaultRenderTool`) would never paint
 // the `[data-testid="custom-wildcard-card"]` shell that the
 // `d5-tool-rendering-custom-catchall` probe asserts on.
-agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
 agents["default"] = createAgent();
 
 console.log(
