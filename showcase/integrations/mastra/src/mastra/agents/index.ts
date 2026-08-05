@@ -17,6 +17,7 @@ import {
   scheduleMeetingTool,
   scheduleMeetingInterruptTool,
   searchFlightsTool,
+  searchFlightsA2uiTool,
   rollDiceTool,
   rollD20Tool,
   generateA2uiTool,
@@ -505,7 +506,12 @@ export const toolRenderingAgent = new Agent({
     get_stock_price: stockPriceTool,
     roll_d20: rollD20Tool,
   },
-  model: openai("gpt-4o"),
+  // Gold parity (tool_rendering_agent.py uses gpt-5.4). On gpt-4o this agent
+  // prefixed the flights turn with a restatement of the PREVIOUS turn's
+  // weather ("The weather in San Francisco is…"), which read as a tool result
+  // arriving a turn late (PNI-121); gold narrates only the current turn's
+  // tools. Same system prompt, so the model was the divergence.
+  model: openai("gpt-5.4"),
   // The "Roll a d20" pill chains 5 sequential roll_d20 calls + a closing
   // narration (6 model turns), and "Chain tools" fans out 3 tools then
   // summarizes. The AI SDK default stop condition halts the agentic loop
@@ -835,6 +841,69 @@ export const a2uiRecoveryAgent = new Agent({
   memory: new Memory({
     storage: new LibSQLStore({
       id: "a2ui-recovery-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+
+// Dedicated agent for the Beautiful Chat flagship cell. Mirrors langgraph-python
+// `beautiful_chat.py`: query_data + todos + the dynamic `generate_a2ui`
+// (dashboards) + a FIXED-schema `search_flights` that returns a FlightCard A2UI
+// envelope. Kept separate from the shared `weatherAgent` so the fixed-schema
+// flights + the flight/dashboard steering prompt don't leak into the
+// tool-rendering cells (which render flights via their own frontend card).
+// Frontend tools (pieChart, barChart, scheduleTime, generateSandboxedUi,
+// toggleTheme, enableAppMode, …) arrive as client tools at run time, so they
+// are not declared here.
+export const beautifulChatAgent = new Agent({
+  id: "beautiful-chat-agent",
+  name: "Beautiful Chat Agent",
+  tools: {
+    query_data: queryDataTool,
+    manage_todos: manageTodosTool,
+    get_todos: getTodosTool,
+    generate_a2ui: generateA2uiTool,
+    search_flights: searchFlightsA2uiTool,
+  },
+  // Matches gold `beautiful_chat.py` (`ChatOpenAI(model="gpt-5.4")`).
+  model: openai("gpt-5.4"),
+  // Mirror gold `beautiful_chat.py` (`parallel_tool_calls=False`): the model
+  // commits to one tool per step instead of firing several at once. Without it,
+  // a "sales dashboard … include a pie chart and a bar chart" request tempts the
+  // model to call the standalone `pieChart`/`barChart` tools AND `generate_a2ui`
+  // in parallel, painting loose charts next to the dashboard.
+  defaultOptions: {
+    providerOptions: {
+      openai: {
+        parallelToolCalls: false,
+      },
+    },
+  },
+  instructions:
+    "You are a polished, professional demo assistant. Keep responses to 1-2 " +
+    "sentences.\n\nTool guidance:\n" +
+    "- Flights: call search_flights to show flight cards with a pre-built " +
+    "schema.\n" +
+    "- Dashboards & rich UI: call generate_a2ui to create dashboard UIs with " +
+    "metrics, charts, tables, and cards. It handles rendering automatically. " +
+    "When a request asks for a dashboard or says 'using A2UI', call " +
+    "generate_a2ui ONLY — do NOT also call the standalone pieChart or barChart " +
+    "tools; generate_a2ui draws the charts inside the surface.\n" +
+    "- Standalone charts: only when the user asks for a single pie or bar chart " +
+    "(not a dashboard), call query_data first, then the pieChart or barChart " +
+    "tool.\n" +
+    "- Todos: enable app mode first, then manage todos.\n" +
+    "- A2UI actions: when you see a log_a2ui_event result, respond with a " +
+    "brief confirmation. The UI already updated on the frontend.",
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "beautiful-chat-agent-memory",
       url: WORKING_MEMORY_DB_URL,
     }),
     options: {
