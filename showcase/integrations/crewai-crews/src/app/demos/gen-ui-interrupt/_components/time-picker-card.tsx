@@ -37,9 +37,9 @@ export function TimePickerCard({
   slots,
   onSubmit,
 }: TimePickerCardProps) {
-  const [picked, setPicked] = useState<TimeSlot | null>(null);
+  const [submitting, setSubmitting] = useState<TimeSlot | null>(null);
   const [cancelled, setCancelled] = useState(false);
-  const disabled = picked !== null || cancelled;
+  const disabled = submitting !== null || cancelled;
 
   if (cancelled) {
     return (
@@ -52,16 +52,13 @@ export function TimePickerCard({
     );
   }
 
-  if (picked) {
+  if (submitting) {
     return (
-      <Card
-        className="max-w-md border-emerald-200 bg-emerald-50/40"
-        data-testid="time-picker-picked"
-      >
+      <Card className="max-w-md border-amber-200 bg-amber-50/40">
         <CardContent className="flex items-center gap-2 p-4 pt-4">
-          <Badge variant="success">Booked</Badge>
+          <Badge variant="outline">Confirming</Badge>
           <span className="text-sm text-neutral-800">
-            <span className="font-semibold">{picked.label}</span>
+            <span className="font-semibold">{submitting.label}</span>
           </span>
         </CardContent>
       </Card>
@@ -89,7 +86,7 @@ export function TimePickerCard({
               disabled={disabled}
               data-testid="time-picker-slot"
               onClick={() => {
-                setPicked(s);
+                setSubmitting(s);
                 onSubmit({ chosen_time: s.iso, chosen_label: s.label });
               }}
               className="justify-start"

@@ -1,5 +1,7 @@
 """Contracts for CrewAI's native async Flow interrupt/resume path."""
 
+import json
+
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +19,16 @@ INLINE_PAGE = (
 HEADLESS_PAGE = (
     INTEGRATION_ROOT / "src" / "app" / "demos" / "interrupt-headless" / "page.tsx"
 )
+TIME_PICKER = (
+    INTEGRATION_ROOT
+    / "src"
+    / "app"
+    / "demos"
+    / "gen-ui-interrupt"
+    / "_components"
+    / "time-picker-card.tsx"
+)
+AIMOCK_ROOT = INTEGRATION_ROOT.parents[1] / "aimock" / "d6" / "crewai-crews"
 
 
 def _response(message):
@@ -147,9 +159,29 @@ def test_server_registers_structured_interrupt_outcome_only():
 def test_both_interrupt_surfaces_use_standard_resume_entries():
     inline = INLINE_PAGE.read_text()
     headless = HEADLESS_PAGE.read_text()
+    picker = TIME_PICKER.read_text()
 
     assert "useInterrupt" in inline
     assert "useHumanInTheLoop" not in inline
     assert "useInterrupt" in headless
     assert "renderInChat: false" in headless
     assert "forwardedProps" not in headless
+    assert 'data-testid="interrupt-headless-resolving"' in headless
+    assert 'data-testid="time-picker-picked"' not in picker
+
+
+@pytest.mark.parametrize(
+    "fixture_name", ["gen-ui-interrupt.json", "interrupt-headless.json"]
+)
+def test_interrupt_fixtures_separate_initial_and_resumed_legs(fixture_name):
+    payload = json.loads((AIMOCK_ROOT / fixture_name).read_text())
+    initial_legs = [
+        fixture
+        for fixture in payload["fixtures"]
+        if fixture["match"].get("toolName") == "schedule_meeting"
+    ]
+
+    assert len(initial_legs) == 2
+    assert all(
+        fixture["match"].get("hasToolResult") is False for fixture in initial_legs
+    )

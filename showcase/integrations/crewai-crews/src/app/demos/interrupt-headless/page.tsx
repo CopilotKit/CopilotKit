@@ -10,7 +10,7 @@
 // popup vanishes, and the agent confirms back in chat.
 
 // @region[headless-useinterrupt-primitives]
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   CopilotKit,
   CopilotChat,
@@ -35,6 +35,7 @@ export default function InterruptHeadlessDemo() {
 }
 
 function Layout() {
+  const [resolving, setResolving] = useState(false);
   const interruptElement = useInterrupt({
     agentId: "interrupt-headless",
     renderInChat: false,
@@ -55,14 +56,24 @@ function Layout() {
       return (
         <TimeSlotPopup
           payload={payload}
-          onPick={(slot) =>
-            resolve({ chosen_time: slot.iso, chosen_label: slot.label })
-          }
-          onCancel={() => resolve({ cancelled: true })}
+          onPick={(slot) => {
+            setResolving(true);
+            resolve({ chosen_time: slot.iso, chosen_label: slot.label });
+          }}
+          onCancel={() => {
+            setResolving(true);
+            resolve({ cancelled: true });
+          }}
         />
       );
     },
   });
+
+  useEffect(() => {
+    if (interruptElement) {
+      setResolving(false);
+    }
+  }, [interruptElement]);
 
   useConfigureSuggestions({
     suggestions: [
@@ -80,7 +91,7 @@ function Layout() {
 
   return (
     <div className="grid h-screen grid-cols-[1fr_420px] bg-[#FAFAFC]">
-      <AppSurface interruptElement={interruptElement} />
+      <AppSurface interruptElement={interruptElement} resolving={resolving} />
       <div className="border-l border-[#DBDBE5] bg-white">
         <CopilotChat agentId="interrupt-headless" className="h-full" />
       </div>
@@ -91,9 +102,10 @@ function Layout() {
 
 type AppSurfaceProps = {
   interruptElement: React.ReactElement | null;
+  resolving: boolean;
 };
 
-function AppSurface({ interruptElement }: AppSurfaceProps) {
+function AppSurface({ interruptElement, resolving }: AppSurfaceProps) {
   return (
     <div
       data-testid="interrupt-headless-app-surface"
@@ -107,8 +119,21 @@ function AppSurface({ interruptElement }: AppSurfaceProps) {
       </header>
 
       <div className="relative flex flex-1 items-center justify-center p-8">
-        {interruptElement ?? <EmptyState />}
+        {interruptElement ?? (resolving ? <ResolvingState /> : <EmptyState />)}
       </div>
+    </div>
+  );
+}
+
+function ResolvingState() {
+  return (
+    <div data-testid="interrupt-headless-resolving" className="text-center">
+      <div className="text-sm font-medium text-[#010507]">
+        Confirming your selection…
+      </div>
+      <p className="mt-1 text-sm text-[#57575B]">
+        The assistant will post the confirmed booking in chat.
+      </p>
     </div>
   );
 }
