@@ -1,6 +1,10 @@
 // Public API for @copilotkit/channels-discord.
 
-export { discord, DiscordAdapter } from "./adapter.js";
+export {
+  discord,
+  DiscordAdapter,
+  DISCORD_MODAL_INSTANCE_PREFIX,
+} from "./adapter.js";
 export type { DiscordAdapterOptions } from "./adapter.js";
 export { Discord } from "./native.js";
 export type {

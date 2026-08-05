@@ -4,6 +4,11 @@ import type {
   IncomingModalSubmit,
 } from "@copilotkit/channels-core";
 import type { ProviderActor } from "@copilotkit/channels-ui";
+import type { ChannelUploadedFile } from "@copilotkit/channels-ui";
+import { ComponentType } from "discord.js";
+import { buildFileContentParts } from "./download-files.js";
+import type { FileDeliveryConfig } from "./download-files.js";
+import { decodePortableSingleValueField } from "./modal-field.js";
 
 /** The structural subset of a discord.js component interaction we read. */
 interface ComponentInteractionLike {
@@ -170,15 +175,67 @@ interface ModalSubmitLike {
   applicationId?: string;
   id?: string;
   user?: { id?: string; username?: string; globalName?: string };
-  fields?: { fields?: Map<string, { customId?: string; value?: string }> };
+  fields?: {
+    fields?: Map<
+      string,
+      {
+        type?: ComponentType;
+        customId?: string;
+        value?: string | boolean | null;
+        values?: string[];
+        attachments?: Map<
+          string,
+          {
+            name: string;
+            contentType?: string | null;
+            size: number;
+            url: string;
+          }
+        >;
+      }
+    >;
+  };
 }
 
 /** Decode a discord.js `ModalSubmitInteraction` into an `IncomingModalSubmit`. */
-export function decodeModalSubmit(interaction: unknown): IncomingModalSubmit {
+export async function decodeModalSubmit(
+  interaction: unknown,
+  filesConfig?: FileDeliveryConfig,
+): Promise<IncomingModalSubmit> {
   const i = interaction as ModalSubmitLike;
   const values: Record<string, unknown> = {};
   for (const [key, comp] of i.fields?.fields ?? new Map()) {
-    values[comp?.customId ?? key] = comp?.value;
+    const providerFieldId = comp?.customId ?? key;
+    const portableSingleId = decodePortableSingleValueField(providerFieldId);
+    const fieldId = portableSingleId ?? providerFieldId;
+    switch (comp?.type) {
+      case ComponentType.StringSelect:
+      case ComponentType.UserSelect:
+      case ComponentType.RoleSelect:
+      case ComponentType.MentionableSelect:
+      case ComponentType.ChannelSelect:
+      case ComponentType.CheckboxGroup:
+        values[fieldId] = portableSingleId
+          ? comp.values?.[0]
+          : (comp.values ?? []);
+        break;
+      case ComponentType.FileUpload:
+        values[fieldId] = await hydrateModalFiles(
+          comp.attachments,
+          filesConfig,
+        );
+        break;
+      case ComponentType.Checkbox:
+        values[fieldId] = comp.value === true;
+        break;
+      case ComponentType.RadioGroup:
+      case ComponentType.TextInput:
+      default:
+        // The default keeps legacy discord.js text-input fixtures working: old
+        // ActionRow fields did not include the component type in test doubles.
+        values[fieldId] = comp?.value;
+        break;
+    }
   }
   return {
     callbackId: i.customId ?? "",
@@ -205,6 +262,45 @@ export function decodeModalSubmit(interaction: unknown): IncomingModalSubmit {
     platform: "discord",
     raw: interaction,
   };
+}
+
+/** Hydrate modal attachment metadata without exposing Discord CDN URLs. */
+async function hydrateModalFiles(
+  attachments:
+    | Map<
+        string,
+        {
+          name: string;
+          contentType?: string | null;
+          size: number;
+          url: string;
+        }
+      >
+    | undefined,
+  filesConfig?: FileDeliveryConfig,
+): Promise<ChannelUploadedFile[]> {
+  const files: ChannelUploadedFile[] = [];
+  for (const attachment of attachments?.values() ?? []) {
+    const mimeType = attachment.contentType ?? "application/octet-stream";
+    const contentParts = await buildFileContentParts(
+      [
+        {
+          url: attachment.url,
+          name: attachment.name,
+          contentType: mimeType,
+          size: attachment.size,
+        },
+      ],
+      filesConfig,
+    );
+    files.push({
+      name: attachment.name,
+      mimeType,
+      size: attachment.size,
+      contentParts,
+    });
+  }
+  return files;
 }
 
 // ---------------------------------------------------------------------------

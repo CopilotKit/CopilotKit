@@ -535,6 +535,34 @@ describe("DiscordAdapter", () => {
     expect(deferReply).not.toHaveBeenCalled();
   });
 
+  it("acknowledges an explicit modal submission before app code runs", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    const order: string[] = [];
+    const deferUpdate = vi.fn(async () => {
+      order.push("ack");
+    });
+    s.onModalSubmit.mockImplementation(async () => {
+      order.push("handler");
+    });
+    await a.start(s as never);
+    const interaction = fakeModalSubmit({
+      isFromMessage: () => true,
+      deferUpdate,
+      deferReply: vi.fn(async () => undefined),
+    });
+
+    client.emit("interactionCreate", interaction);
+    for (let index = 0; index < 6; index++) await Promise.resolve();
+
+    expect(s.onModalSubmit).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(["ack", "handler"]);
+  });
+
   it("openModal opens a modal for a slash-command interaction (commandPending registry)", async () => {
     // The bug: openModal only consulted the component registry (`pending`), so a
     // modal opened from a slash command — whose live interaction lives in
@@ -572,6 +600,83 @@ describe("DiscordAdapter", () => {
 
     expect(showModal).toHaveBeenCalledTimes(1);
     expect(res).toEqual({ ok: true });
+  });
+
+  it("routes an opaque modal instance once with its private metadata", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    await a.start(s as never);
+    const showModal = vi.fn(async (_modal: unknown) => undefined);
+    const triggerId = (
+      a as unknown as {
+        pending: {
+          register(i: { id: string; showModal: unknown }): string;
+        };
+      }
+    ).pending.register({ id: "modal-trigger", showModal });
+    await a.openModal({ channelId: "c1" } as never, triggerId, [
+      {
+        type: "modal",
+        props: {
+          callbackId: "triage",
+          title: "Triage",
+          privateMetadata: "author-secret",
+          children: [
+            {
+              type: "modal_text_input",
+              props: { id: "summary", label: "Summary" },
+            },
+          ],
+        },
+      },
+    ] as never);
+    const modalJson = (
+      showModal.mock.calls[0]![0] as { toJSON(): { custom_id: string } }
+    ).toJSON();
+    expect(modalJson.custom_id).toMatch(/^ck-modal:/);
+    expect(modalJson.custom_id).not.toContain("triage");
+    expect(modalJson.custom_id).not.toContain("author-secret");
+
+    const first = fakeModalSubmit({
+      id: "modal-submit-1",
+      customId: modalJson.custom_id,
+      channelId: "c1",
+      isFromMessage: () => true,
+      deferUpdate: vi.fn(async () => undefined),
+    });
+    client.emit("interactionCreate", first);
+    for (let index = 0; index < 6; index++) await Promise.resolve();
+
+    expect(s.onModalSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        callbackId: "triage",
+        privateMetadata: "author-secret",
+      }),
+    );
+
+    const followUp = vi.fn(async (_payload: unknown) => undefined);
+    const duplicate = fakeModalSubmit({
+      id: "modal-submit-2",
+      customId: modalJson.custom_id,
+      channelId: "c1",
+      isFromMessage: () => true,
+      deferUpdate: vi.fn(async () => undefined),
+      followUp,
+    });
+    client.emit("interactionCreate", duplicate);
+    for (let index = 0; index < 6; index++) await Promise.resolve();
+
+    expect(s.onModalSubmit).toHaveBeenCalledTimes(1);
+    expect(followUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("no longer available"),
+        flags: MessageFlags.Ephemeral,
+      }),
+    );
   });
 
   it("registerCommands never clears on empty, and publishes when already ready", async () => {

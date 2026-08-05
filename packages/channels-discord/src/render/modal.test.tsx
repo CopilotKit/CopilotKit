@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   renderToIR,
-  ModalRenderError,
   Modal,
   TextInput,
   ModalSelect,
   ModalSelectOption,
+  RadioButtons,
 } from "@copilotkit/channels-ui";
-import type { ClickHandler } from "@copilotkit/channels-ui";
+import type { ChannelNode, ClickHandler } from "@copilotkit/channels-ui";
 import { Discord } from "../native.js";
 import { renderDiscordModal } from "./modal.js";
 
@@ -120,7 +120,59 @@ describe("renderDiscordModal", () => {
     expect(json.components).toHaveLength(2);
   });
 
-  it("rejects non-text-input elements", () => {
+  it("renders portable select and radio fields with single-value markers", () => {
+    const ir = renderToIR(
+      <Modal callbackId="x" title="X">
+        <ModalSelect
+          id="s"
+          label="Service"
+          placeholder="Pick one"
+          initialOption="api"
+        >
+          <ModalSelectOption label="API" value="api" />
+          <ModalSelectOption label="Web" value="web" />
+        </ModalSelect>
+        <RadioButtons id="r" label="Mode" initialOption="safe">
+          <ModalSelectOption label="Fast" value="fast" />
+          <ModalSelectOption label="Safe" value="safe" />
+        </RadioButtons>
+      </Modal>,
+    );
+
+    const json = JSON.parse(JSON.stringify(renderDiscordModal(ir).toJSON()));
+    expect(json.components).toEqual([
+      {
+        type: 18,
+        label: "Service",
+        component: {
+          type: 3,
+          custom_id: "ck-portable-single:s",
+          placeholder: "Pick one",
+          min_values: 1,
+          max_values: 1,
+          options: [
+            { label: "API", value: "api", default: true },
+            { label: "Web", value: "web" },
+          ],
+        },
+      },
+      {
+        type: 18,
+        label: "Mode",
+        component: {
+          type: 21,
+          custom_id: "r",
+          required: true,
+          options: [
+            { label: "Fast", value: "fast" },
+            { label: "Safe", value: "safe", default: true },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it("rejects unknown portable modal elements", () => {
     const ir = renderToIR(
       <Modal callbackId="x" title="X">
         <ModalSelect id="s" label="S">
@@ -128,7 +180,8 @@ describe("renderDiscordModal", () => {
         </ModalSelect>
       </Modal>,
     );
-    expect(() => renderDiscordModal(ir)).toThrow(ModalRenderError);
+    (ir[0]!.props.children as ChannelNode[])[0]!.type = "modal_unknown";
+    expect(() => renderDiscordModal(ir)).toThrow(/unsupported modal element/);
   });
 
   it("rejects more than five text inputs", () => {
