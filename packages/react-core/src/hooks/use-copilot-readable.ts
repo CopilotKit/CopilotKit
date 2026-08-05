@@ -110,26 +110,31 @@ export function useCopilotReadable(
   useEffect(() => {
     if (!copilotkit) return;
 
+    const serializedValue = convert ? convert(description, value) : JSON.stringify(value);
+
     const found = Object.entries(copilotkit.context).find(([id, ctxItem]) => {
-      return JSON.stringify({ description, value }) == JSON.stringify(ctxItem);
+      return JSON.stringify({ description, value: serializedValue }) == JSON.stringify(ctxItem);
     });
     if (found) {
       ctxIdRef.current = found[0];
       if (available === "disabled") copilotkit.removeContext(ctxIdRef.current);
-      return;
+      return () => {
+        if (!ctxIdRef.current) return;
+        copilotkit.removeContext(ctxIdRef.current);
+      };
     }
     if (!found && available === "disabled") return;
 
     ctxIdRef.current = copilotkit.addContext({
       description,
-      value: (convert ?? JSON.stringify)(value),
+      value: serializedValue,
     });
 
     return () => {
       if (!ctxIdRef.current) return;
       copilotkit.removeContext(ctxIdRef.current);
     };
-  }, [description, value, convert]);
+  }, [description, value, convert, available, ...(dependencies || [])]);
 
   return ctxIdRef.current;
 }
