@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { isOverLimit, withOverLimit } from "./over-limit";
-import { ExpenseRole } from "@/skins/banking/data/data";
+import { PolicyType } from "@/skins/banking/data/data";
 import type { ExpensePolicy, Transaction } from "@/skins/banking/data/data";
 
 const policies: ExpensePolicy[] = [
-  { id: "pol-mkt", type: ExpenseRole.Marketing, limit: 5000, spent: 500 },
-  { id: "pol-eng", type: ExpenseRole.Engineering, limit: 15000, spent: 1500 },
+  { id: "pol-mkt", type: PolicyType.GoToMarket, limit: 5000, spent: 500 },
+  { id: "pol-eng", type: PolicyType.Technology, limit: 15000, spent: 1500 },
 ];
 
 const base: Omit<

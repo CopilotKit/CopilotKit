@@ -7,7 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { ExpenseRole } from "@/skins/banking/data/data";
+import { PolicyType } from "@/skins/banking/data/data";
 import type { ExpensePolicy, Transaction } from "@/skins/banking/data/data";
 import { PendingApprovalsChat } from "./wow/pending-approvals-chat";
 import { RecordingProvider, useRecording } from "./recording-context";
@@ -68,7 +68,7 @@ describe("PendingApprovalsChat.handleApprove narration", () => {
     // truthy (the mutation "took effect"), which is what unlocks narration.
     const policy: ExpensePolicy = {
       id: "pol-1",
-      type: ExpenseRole.Engineering,
+      type: PolicyType.Technology,
       limit: 1000,
       spent: 0,
     };

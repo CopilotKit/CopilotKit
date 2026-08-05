@@ -69,6 +69,61 @@
     sans-serif;
 }
 
+/* ── Inset frame geometry (shell-owned) ──────────────────────────────────────
+   The frame's card radius is a FIXED 12px and deliberately does NOT read
+   `--radius`: the inset frame is shell chrome, so it must read identically in
+   every skin and a reskin must not be able to round or square it. This is the
+   one geometry value the shell keeps out of the skin token vocabulary — do not
+   add it to any theme.css.
+
+   Card COLOURS stay themed, applied at each call site (`bg-surface`,
+   `border-hairline`, `shadow-soft`), so a reskin still restyles the frame; only
+   the corners are constant. `overflow: hidden` is what clips a skin's own
+   edge-to-edge chrome to the card. */
+.nw-panel-card {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ── Chat cluster: fixed rail beside a flexible conversation ──────────────────
+   The rail is a fixed width, not a resizable panel — see chat-panel.tsx for why.
+   The container query is the floor guard: when the assistant column is dragged
+   narrow, the rail gets out of the way rather than squeezing the conversation
+   into the remainder. Keyed to the CARD's own width, so it reacts to the drag
+   rather than to the viewport. The header toggle remains the explicit control. */
+.nw-chat-cluster {
+  container-type: inline-size;
+}
+
+.nw-chat-rail {
+  width: 200px;
+}
+
+@container (max-width: 520px) {
+  .nw-chat-rail {
+    display: none;
+  }
+}
+
+/* ── Base type scale (shell-owned, applies to every skin) ────────────────────
+   The whole design system is rem-based — Tailwind's `text-*`, `p-*`, `w-*` and
+   the skins' own `text-[0.8125rem]`-style values all resolve against this — so
+   setting the ROOT size is the single lever that rescales type across the shell
+   AND every skin with no per-skin edits.
+
+   15px rather than the browser's 16px default: the demo reads as a dense product
+   UI rather than a document, and a 6.25% reduction gets there without touching a
+   single component.
+
+   Note the knock-on: rem drives SPACING too, so padding and rem-based widths
+   scale with it (a `w-56` nav rail is 210px here, not 224px). That is intended —
+   it keeps type and rhythm proportional. Anything that must NOT scale is written
+   in px on purpose: the frame's 12px card radius, the panel floors, the 200px
+   thread rail, and the media/container query breakpoints. */
+html {
+  font-size: 15px;
+}
+
 body {
   font-family:
     var(--font-inter),
@@ -128,17 +183,6 @@ body {
     );
   }
 
-  .brand-text-gradient {
-    background-image: linear-gradient(
-      135deg,
-      hsl(var(--brand-violet)),
-      hsl(var(--brand-indigo))
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
   /* Glassmorphism-lite surface used by cards and the floating sidebar. */
   .glass-surface {
     background-color: hsl(var(--surface) / 0.85);
@@ -152,6 +196,7 @@ body {
     font-weight: 600;
     letter-spacing: -0.01em;
   }
+
   .dark .section-heading {
     color: hsl(var(--brand-violet));
   }
@@ -188,6 +233,7 @@ body {
   --primary-foreground: #ffffff;
   --ring: #0d0d0d;
 }
+
 .dark [data-copilotkit],
 [data-copilotkit].dark {
   --background: #212121;
@@ -200,23 +246,11 @@ body {
   --ring: #ffffff;
 }
 
-/* Left-docked sidebar holds TWO columns: the thread rail then the conversation.
-   CopilotSidebarView pins the <aside> to left:0 at the full width of both and
-   takes no consumer className, so the conversation is inset past the rail with
-   this custom property (set by ChatPanel from the rail's visibility). The rail
-   paints into the strip this frees. Transition matches the sidebar's own 300ms
-   so collapsing the rail slides content instead of snapping. */
-[data-copilot-sidebar][data-position="left"] {
-  padding-left: var(--nw-rail-offset, 0px);
-  transition:
-    transform 300ms ease-out,
-    padding-left 300ms ease-out;
-}
-
-/* Removing the "AI can make mistakes…" disclaimer also removed the only thing
-   holding the composer off the bottom edge (it carried the trailing padding),
-   so the input sat flush against the window. Give it its own breathing room. */
-[data-copilot-sidebar] .copilotKitInput {
+/* Removing the "AI can make mistakes…" disclaimer (`input={{ showDisclaimer:
+   false }}` in chat-panel.tsx) also removed the only thing holding the composer
+   off the bottom edge — it carried the trailing padding — so the input sat flush
+   against the card. Give it its own breathing room. */
+.nw-chat .copilotKitInput {
   margin-bottom: 0.875rem;
 }
 
@@ -239,6 +273,7 @@ body {
   color: transparent;
   animation: tool-activity-sweep 1.6s linear infinite;
 }
+
 .dark .tool-activity-shimmer {
   background: linear-gradient(
     90deg,
@@ -252,14 +287,17 @@ body {
   -webkit-background-clip: text;
   background-clip: text;
 }
+
 @keyframes tool-activity-sweep {
   from {
     background-position: 120% 0;
   }
+
   to {
     background-position: -20% 0;
   }
 }
+
 /* Reduced motion: keep the muted label, drop the sweep (the spinner beside it
    already carries the "in progress" signal). */
 @media (prefers-reduced-motion: reduce) {
@@ -270,6 +308,7 @@ body {
     background-clip: border-box;
     color: #6e6e6e;
   }
+
   .dark .tool-activity-shimmer {
     background: none;
     color: #b4b4b4;
@@ -287,88 +326,107 @@ body {
    wrapper — NOT to `.copilotKitAssistantMessage`, because our HITL cards and
    gen-UI charts render inside the same message and contain their own <p>/<li>/
    <h3>. Scoping to the wrapper leaves those untouched. */
-[data-copilot-sidebar] .cpk\:prose {
-  font-size: 0.9375rem;
+/* `1rem`, i.e. exactly the root size. This was `0.9375rem` back when the root was
+   the browser's 16px default and that arithmetic landed on 15px; expressing it as
+   the base keeps the transcript at the shell's default type size instead of
+   drifting 6.25% below it. */
+.nw-chat .cpk\:prose {
+  font-size: 1rem;
   line-height: 1.65;
   color: #0d0d0d;
 }
-.dark [data-copilot-sidebar] .cpk\:prose {
+
+.dark .nw-chat .cpk\:prose {
   color: #ececec;
 }
 
 /* Vertical rhythm: tight inside a block, clear between blocks, and no leading
    or trailing margin so the bubble never gains phantom padding. */
-[data-copilot-sidebar] .cpk\:prose > * + * {
+.nw-chat .cpk\:prose > * + * {
   margin-top: 0.75em;
 }
-[data-copilot-sidebar] .cpk\:prose > :first-child {
+
+.nw-chat .cpk\:prose > :first-child {
   margin-top: 0;
 }
-[data-copilot-sidebar] .cpk\:prose > :last-child {
+
+.nw-chat .cpk\:prose > :last-child {
   margin-bottom: 0;
 }
 
 /* Headings: chat-sized, not article-sized. Same weight, descending scale. */
-[data-copilot-sidebar] .cpk\:prose :is(h1, h2, h3, h4) {
+.nw-chat .cpk\:prose :is(h1, h2, h3, h4) {
   font-weight: 600;
   line-height: 1.3;
   margin-top: 1.25em;
   margin-bottom: 0.4em;
 }
-[data-copilot-sidebar] .cpk\:prose h1 {
+
+.nw-chat .cpk\:prose h1 {
   font-size: 1.125rem;
 }
-[data-copilot-sidebar] .cpk\:prose h2 {
+
+.nw-chat .cpk\:prose h2 {
   font-size: 1.0625rem;
 }
-[data-copilot-sidebar] .cpk\:prose :is(h3, h4) {
+
+.nw-chat .cpk\:prose :is(h3, h4) {
   font-size: 1rem;
 }
 
 /* Lists: pull the marker in close, and give rows breathing room without the
    double-spacing prose applies to "loose" lists. */
-[data-copilot-sidebar] .cpk\:prose :is(ul, ol) {
+.nw-chat .cpk\:prose :is(ul, ol) {
   margin-top: 0.5em;
   padding-left: 1.15em;
 }
-[data-copilot-sidebar] .cpk\:prose li {
+
+.nw-chat .cpk\:prose li {
   margin-top: 0.3em;
   margin-bottom: 0.3em;
   padding-left: 0.15em;
 }
-[data-copilot-sidebar] .cpk\:prose li > p {
+
+.nw-chat .cpk\:prose li > p {
   margin: 0;
 }
+
 /* Markers carry structure, so they are dark enough to read as part of the text
    and sized up a touch — a faint small dot made lists look like loose prose. */
-[data-copilot-sidebar] .cpk\:prose li::marker {
+.nw-chat .cpk\:prose li::marker {
   color: #3d3d3d;
   font-size: 1.15em;
   font-weight: 600;
 }
-.dark [data-copilot-sidebar] .cpk\:prose li::marker {
+
+.dark .nw-chat .cpk\:prose li::marker {
   color: #d4d4d4;
 }
-[data-copilot-sidebar] .cpk\:prose :is(ul, ol) :is(ul, ol) {
+
+.nw-chat .cpk\:prose :is(ul, ol) :is(ul, ol) {
   margin-top: 0.25em;
 }
 
 /* Inline code as a chip; blocks as a bordered, scrollable slab. */
-[data-copilot-sidebar] .cpk\:prose :not(pre) > code {
+.nw-chat .cpk\:prose :not(pre) > code {
   background: #f4f4f4;
   border-radius: 0.3rem;
   padding: 0.1em 0.32em;
   font-size: 0.875em;
   font-weight: 500;
 }
-[data-copilot-sidebar] .cpk\:prose :not(pre) > code::before,
-[data-copilot-sidebar] .cpk\:prose :not(pre) > code::after {
-  content: none; /* prose adds literal backticks */
+
+.nw-chat .cpk\:prose :not(pre) > code::before,
+.nw-chat .cpk\:prose :not(pre) > code::after {
+  content: none;
+  /* prose adds literal backticks */
 }
-.dark [data-copilot-sidebar] .cpk\:prose :not(pre) > code {
+
+.dark .nw-chat .cpk\:prose :not(pre) > code {
   background: #ffffff1a;
 }
-[data-copilot-sidebar] .cpk\:prose pre {
+
+.nw-chat .cpk\:prose pre {
   background: #f7f7f8;
   color: #0d0d0d;
   border: 1px solid #e3e3e3;
@@ -378,7 +436,8 @@ body {
   font-size: 0.8125rem;
   line-height: 1.55;
 }
-.dark [data-copilot-sidebar] .cpk\:prose pre {
+
+.dark .nw-chat .cpk\:prose pre {
   background: #ffffff0d;
   color: #ececec;
   border-color: #ffffff1f;
@@ -389,32 +448,39 @@ body {
    styling markdown tables would only make a forbidden output look acceptable.
    Streamdown still renders one safely if a model ever slips. */
 
-[data-copilot-sidebar] .cpk\:prose strong {
+.nw-chat .cpk\:prose strong {
   font-weight: 600;
 }
-[data-copilot-sidebar] .cpk\:prose a {
+
+.nw-chat .cpk\:prose a {
   color: hsl(var(--brand-indigo));
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.dark [data-copilot-sidebar] .cpk\:prose a {
+
+.dark .nw-chat .cpk\:prose a {
   color: hsl(var(--brand-violet));
 }
-[data-copilot-sidebar] .cpk\:prose blockquote {
+
+.nw-chat .cpk\:prose blockquote {
   border-left: 2px solid #e3e3e3;
   padding-left: 0.75rem;
   color: #6e6e6e;
-  font-style: normal; /* prose italicises; quotes here are data, not voice */
+  font-style: normal;
+  /* prose italicises; quotes here are data, not voice */
 }
-.dark [data-copilot-sidebar] .cpk\:prose blockquote {
+
+.dark .nw-chat .cpk\:prose blockquote {
   border-left-color: #ffffff29;
   color: #b4b4b4;
 }
-[data-copilot-sidebar] .cpk\:prose hr {
+
+.nw-chat .cpk\:prose hr {
   border-color: #e3e3e3;
   margin: 1em 0;
 }
-.dark [data-copilot-sidebar] .cpk\:prose hr {
+
+.dark .nw-chat .cpk\:prose hr {
   border-color: #ffffff1f;
 }
 
@@ -431,123 +497,11 @@ body {
 }
 
 /* Radix popper overlays (Select, DropdownMenu, Popover, Tooltip) portal to
-   <body> at z-50, so when opened inside the docked chat sidebar (z-1200) they
-   render BEHIND the panel and look like nothing happened. Lift every Radix
-   popper above the panel — same 1300 "above the chat panel" value used by the
-   recording vignette above. One rule fixes the whole class of overlay. */
+   <body> at z-50, which loses to the shell's own fixed layers — the mobile
+   sidebar overlay (1200), the collapsed-sidebar launcher (1250) and the
+   recording vignette (1300) — so an opened menu can render behind them and look
+   like nothing happened. Lifting every popper to 1300 fixes the whole class of
+   overlay in one rule; the skin selector's dropdown relies on it. */
 [data-radix-popper-content-wrapper] {
   z-index: 1300 !important;
-}
-
-/* ── Skin selector dock ──────────────────────────────────────────────────────
-   The floating skin switcher (shell/floating-selector.tsx) must be visible and
-   clickable in EVERY skin while the chat is docked to the LEFT — and it must not
-   sit on the chat, because the chat's launcher/toggle lives at the panel's
-   bottom-left. The original `bottom-4 left-4 z-[1400]` did exactly that: it
-   parked over the docked panel and, being above the toggle's z-1100, swallowed
-   the clicks meant to open/close the chat.
-
-   No corner is safe, because every skin pins a nav to an edge of the region to
-   the RIGHT of the chat: banking a 72px icon rail on the far right, airline a
-   256px sidebar hard against the chat. So the dock spans only the CONTENT band
-   — the region right of the chat AND clear of the skin's own edge-nav — and
-   centers the pill in it. That band is content (never nav) in both skins.
-
-   The shell learns the geometry WITHOUT any skin-specific knowledge, via three
-   published CSS custom properties (the same publish-a-CSS-var pattern the panel
-   uses for `--nw-rail-offset`):
-     --nw-chat-width      (chat-panel.tsx) width the docked chat reserves: 0
-                          closed, 480 open, 680 with the thread rail.
-     --nw-nav-inset-left  (the skin's layout) width of a nav pinned to the LEFT
-                          of the content region — airline's 256px sidebar; 0 for
-                          banking.
-     --nw-nav-inset-right (the skin's layout) width of a nav pinned to the RIGHT
-                          — banking's icon rail; 0 for airline.
-   The dock insets its left edge by chat-width + left-nav and its right edge by
-   right-nav, so the band is exactly the content between the two navs. The shell
-   names these axes generically; each skin declares its OWN values, so no skin
-   id ever appears here. `left`/`right` transition at the sidebar's own 300ms so
-   collapsing the rail (680→480) or closing the chat slides the pill.
-
-   When the band is narrower than the full pill (e.g. airline's 256px sidebar +
-   the rail-open 680px chat at a ~1024px viewport leaves too little room), a
-   container query on the dock's own inline size — which already encodes the
-   chat + nav insets, so this stays skin-agnostic — collapses the pill to
-   icon-only so it still fits WITHOUT crossing into a nav or off-screen.
-
-   The strip is pointer-events:none so its empty span never intercepts a click on
-   the content behind it; only the pill re-enables pointer events.
-
-   z-index 1250 sits ABOVE the chat panel/rail (1200/1201) — so a momentary
-   overlap mid-transition can never hide the pill behind the panel — yet BELOW
-   the Radix popper + recording-vignette layer (1300), so app menus (banking's
-   account popover, tooltips) and the recording glow still render over it. */
-.nw-selector-dock {
-  position: fixed;
-  bottom: 1rem;
-  left: 0;
-  right: 0;
-  z-index: 1250;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-  container-type: inline-size;
-  transition:
-    left 300ms ease-out,
-    right 300ms ease-out;
-}
-.nw-selector-dock > * {
-  pointer-events: auto;
-}
-/* At md+ the chat actually docks and reserves width, so inset the dock past the
-   chat AND past the skin's edge-nav. Below md the chat is a full-screen overlay
-   that reserves no width, so the dock stays full-width (the nav insets, which
-   only exist at md+, are intentionally not applied) and the pill centers over
-   the whole viewport. */
-@media (min-width: 768px) {
-  .nw-selector-dock {
-    left: calc(var(--nw-chat-width, 0px) + var(--nw-nav-inset-left, 0px));
-    right: var(--nw-nav-inset-right, 0px);
-  }
-}
-/* Below md the chat is a full-screen overlay open by default; while it's open it
-   covers the viewport, so hide the dock entirely — otherwise the pill centers
-   over the open chat's composer. The chat publishes its open state as a data
-   attribute on <html> (chat-panel.tsx). */
-@media (max-width: 767px) {
-  :root[data-nw-chat-open="true"] .nw-selector-dock {
-    display: none;
-  }
-}
-/* Content band too narrow for the labelled pill → icon-only, so it never has to
-   cross a nav to fit. Keyed to the dock's inline size (the band width), not the
-   viewport, so it reacts to the true available room in either skin. The compact
-   sizing is explicit (not text-dependent) so the collapsed width is
-   deterministic. 320px is just above the measured labelled-pill width (303px)
-   so the full pill only ever renders with room to spare; below it the icon-only
-   pill measures 72px. */
-@container (max-width: 320px) {
-  .nw-selector-pill-label {
-    display: none;
-  }
-  .nw-selector-pill {
-    gap: 0.25rem;
-    padding: 0.3125rem;
-  }
-  .nw-selector-pill button {
-    gap: 0;
-    padding: 0.375rem;
-  }
-}
-/* Band too narrow even for the 72px icon-only pill (the chat + the skin's own
-   nav have consumed essentially the whole viewport — e.g. airline's 256px
-   sidebar + the rail-open 680px chat below ~1008px, where the app itself no
-   longer fits). Hide the dock rather than let the pill spill onto a nav or the
-   chat; collapsing the thread rail (or widening) frees the band and the pill
-   returns. This is the last resort that keeps the non-overlap guarantee
-   absolute. */
-@container (max-width: 80px) {
-  .nw-selector-pill {
-    display: none;
-  }
 }
