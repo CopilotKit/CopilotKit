@@ -505,7 +505,12 @@ export const toolRenderingAgent = new Agent({
     get_stock_price: stockPriceTool,
     roll_d20: rollD20Tool,
   },
-  model: openai("gpt-4o"),
+  // Gold parity (tool_rendering_agent.py uses gpt-5.4). On gpt-4o this agent
+  // prefixed the flights turn with a restatement of the PREVIOUS turn's
+  // weather ("The weather in San Francisco is…"), which read as a tool result
+  // arriving a turn late (PNI-121); gold narrates only the current turn's
+  // tools. Same system prompt, so the model was the divergence.
+  model: openai("gpt-5.4"),
   // The "Roll a d20" pill chains 5 sequential roll_d20 calls + a closing
   // narration (6 model turns), and "Chain tools" fans out 3 tools then
   // summarizes. The AI SDK default stop condition halts the agentic loop
