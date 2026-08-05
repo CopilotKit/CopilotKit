@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CopilotKitIntelligence } from "../client";
 
+const { openAcpRelayStreamMock } = vi.hoisted(() => ({
+  openAcpRelayStreamMock: vi.fn(),
+}));
+vi.mock("../acp-relay", () => ({
+  openAcpRelayStream: openAcpRelayStreamMock,
+}));
+
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock as unknown as typeof fetch;
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -31,6 +38,7 @@ describe("CopilotKitIntelligence", () => {
 
   beforeEach(() => {
     fetchMock.mockReset();
+    openAcpRelayStreamMock.mockReset();
     consoleErrorSpy.mockClear();
     consoleWarnSpy.mockClear();
     client = new CopilotKitIntelligence({
@@ -168,60 +176,83 @@ describe("CopilotKitIntelligence", () => {
   });
 
   describe("ACP Agent bridge", () => {
-    it("admits the complete AG-UI input for one server-owned profile", async () => {
+    it("admits one scoped relay and opens its stable ACP stream", async () => {
       const admission = {
+        clientJoinToken: "acpj_client_token_0123456789",
         duplicate: false,
-        promptId: "prompt-1",
-        runId: "internal-run-1",
-        sessionId: "session-1",
-        cursor: 0,
+        lastSequence: 41,
+        protocol: "acp_relay_v1",
+        remoteSessionId: null,
+        sessionId: "019fcf74-08bf-75cd-af71-2021d7e7d05f",
       };
-      fetchMock.mockReturnValue(jsonResponse(admission, 202));
-      const input = {
-        threadId: "thread-1",
-        runId: "public-run-1",
-        state: {},
-        messages: [{ id: "message-1", role: "user" as const, content: "Hi" }],
-        tools: [],
-        context: [],
-        forwardedProps: {},
+      const stream = {
+        readable: new ReadableStream(),
+        writable: new WritableStream(),
       };
+      fetchMock.mockReturnValue(jsonResponse(admission, 201));
+      openAcpRelayStreamMock.mockResolvedValue(stream);
 
       await expect(
-        client.ɵadmitAcpRun({
-          agentProfileId: "codex",
+        client.ɵopenAcpRelay({
+          agentId: "coding-agent",
           appUserId: "user-1",
-          input,
+          runtimeInstanceId: "rti_external_01",
+          threadId: "thread-1",
         }),
-      ).resolves.toEqual(admission);
+      ).resolves.toMatchObject({
+        relaySessionId: admission.sessionId,
+        remoteSessionId: null,
+        stream,
+      });
       const [url, options] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/api/acp/runs");
+      expect(url).toBe("https://api.example.com/api/acp/sessions");
       expect(options.method).toBe("POST");
       expect(JSON.parse(options.body)).toEqual({
-        agentProfileId: "codex",
+        agentId: "coding-agent",
         appUserId: "user-1",
-        input,
+        runtimeInstanceId: "rti_external_01",
+        threadId: "thread-1",
+      });
+      expect(openAcpRelayStreamMock).toHaveBeenCalledWith({
+        afterSequence: 41,
+        joinToken: admission.clientJoinToken,
+        sessionId: admission.sessionId,
+        wsUrl: "wss://ws.example.com/socket/acp",
       });
     });
 
-    it("reads one encoded run cursor and cancels that same public run", async () => {
+    it("stores the external agent session id through the scoped relay", async () => {
       fetchMock
-        .mockReturnValueOnce(jsonResponse({ events: [] }))
-        .mockReturnValueOnce(jsonResponse({ accepted: true }, 202));
+        .mockReturnValueOnce(
+          jsonResponse({
+            clientJoinToken: "acpj_client_token_0123456789",
+            duplicate: false,
+            lastSequence: 0,
+            protocol: "acp_relay_v1",
+            remoteSessionId: null,
+            sessionId: "019fcf74-08bf-75cd-af71-2021d7e7d05f",
+          }),
+        )
+        .mockReturnValueOnce(jsonResponse({ remoteSessionId: "remote-1" }));
+      openAcpRelayStreamMock.mockResolvedValue({
+        readable: new ReadableStream(),
+        writable: new WritableStream(),
+      });
+      const relay = await client.ɵopenAcpRelay({
+        agentId: "coding-agent",
+        appUserId: "user-1",
+        runtimeInstanceId: "rti_external_01",
+        threadId: "thread-1",
+      });
 
-      await client.ɵlistAcpRunEvents({ runId: "run/one", after: 41 });
-      await client.ɵcancelAcpRun({ runId: "run/one" });
+      await relay.saveRemoteSessionId("remote-1");
 
-      expect(fetchMock.mock.calls[0][0]).toBe(
-        "https://api.example.com/api/acp/runs/run%2Fone/events?after=41",
-      );
-      expect(fetchMock.mock.calls[0][1].method).toBe("GET");
       expect(fetchMock.mock.calls[1][0]).toBe(
-        "https://api.example.com/api/acp/runs/run%2Fone/cancel",
+        "https://api.example.com/api/acp/sessions/019fcf74-08bf-75cd-af71-2021d7e7d05f/remote-session",
       );
-      expect(fetchMock.mock.calls[1][1].method).toBe("POST");
+      expect(fetchMock.mock.calls[1][1].method).toBe("PATCH");
       expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
-        runId: "run/one",
+        remoteSessionId: "remote-1",
       });
     });
   });
