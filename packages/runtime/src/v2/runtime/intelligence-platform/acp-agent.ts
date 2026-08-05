@@ -68,6 +68,7 @@ export class AcpAgent extends AbstractAgent {
   private activeRun?: {
     readonly controller: AbortController;
     readonly runId: string;
+    cancellation?: Promise<void>;
   };
 
   constructor(private readonly config: AcpAgentConfig) {
@@ -155,10 +156,13 @@ export class AcpAgent extends AbstractAgent {
       return;
     }
 
-    activeRun.controller.abort();
-    this.config.intelligence
+    activeRun.cancellation ??= this.config.intelligence
       .ɵcancelAcpRun({ runId: activeRun.runId })
-      .catch(() => undefined);
+      .then(
+        () => undefined,
+        () => undefined,
+      )
+      .then(() => activeRun.controller.abort());
   }
 
   /** Creates an idle agent with the same paid Intelligence profile. */

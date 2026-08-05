@@ -67,19 +67,25 @@ describe("AcpAgent", () => {
   });
 
   it("cancels the exact active run and clones without sharing run state", async () => {
+    let acceptCancellation: (() => void) | undefined;
+    const cancellationAccepted = new Promise<void>((resolve) => {
+      acceptCancellation = resolve;
+    });
+    const complete = vi.fn();
     const platform = {
       ɵadmitAcpRun: vi.fn().mockResolvedValue({ cursor: 0 }),
-      ɵcancelAcpRun: vi.fn().mockResolvedValue({ accepted: true }),
-      ɵlistAcpRunEvents: vi.fn(
-        () => new Promise<{ events: [] }>(() => undefined),
-      ),
+      ɵcancelAcpRun: vi.fn(async () => {
+        await cancellationAccepted;
+        return { accepted: true };
+      }),
+      ɵlistAcpRunEvents: vi.fn().mockResolvedValue({ events: [] }),
     };
     const agent = new AcpAgent({
       intelligence: platform,
       agentProfileId: "showcase-codex",
       userId: "customer-user-1",
     });
-    const subscription = agent.run(input).subscribe();
+    const subscription = agent.run(input).subscribe({ complete });
     await vi.waitFor(() =>
       expect(platform.ɵadmitAcpRun).toHaveBeenCalledOnce(),
     );
@@ -88,6 +94,10 @@ describe("AcpAgent", () => {
     await vi.waitFor(() =>
       expect(platform.ɵcancelAcpRun).toHaveBeenCalledWith({ runId: "run-1" }),
     );
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(complete).not.toHaveBeenCalled();
+    acceptCancellation?.();
+    await vi.waitFor(() => expect(complete).toHaveBeenCalledOnce());
     subscription.unsubscribe();
 
     const clone = agent.clone();
