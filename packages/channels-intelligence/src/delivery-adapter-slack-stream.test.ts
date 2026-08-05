@@ -58,6 +58,7 @@ function setup(
     failStatus?: boolean;
     failStreamStart?: boolean;
     failStreamStop?: boolean;
+    dropStreamStartCapability?: boolean;
     surfaceKind?: PreparedChannelDelivery["surfaceKind"];
   } = {},
 ) {
@@ -94,6 +95,21 @@ function setup(
           packetId: value.packetId,
           phase: "failed",
           result: { error: "stream_start_failed", status: "failed" },
+        };
+      }
+      if (
+        options.dropStreamStartCapability &&
+        value.payload.kind === "slack.stream.start"
+      ) {
+        return {
+          deliveryId: value.deliveryId,
+          seq: value.seq,
+          packetId: value.packetId,
+          phase: "applied",
+          result: {
+            capabilityError: "slack_stream_unavailable",
+            surfaceKind: "direct_message",
+          },
         };
       }
       if (
@@ -286,6 +302,24 @@ test("preserves the managed Slack stream lifecycle without text chunks", async (
 
 test("falls back to legacy message creation when managed stream start fails", async () => {
   const fixture = setup(undefined, { failStreamStart: true });
+
+  try {
+    await fixture.adapter.stream(fixture.target, streamChunks("Hello"));
+
+    expect(fixture.payloads).toEqual([
+      { kind: "slack.stream.start", initialText: "Hello" },
+      { kind: "slack.message.create", text: "Hello" },
+    ]);
+  } finally {
+    fixture.teardown();
+  }
+});
+
+test("falls back to legacy creation when the gateway settles stream start as a dropped capability", async () => {
+  const fixture = setup(undefined, {
+    surfaceKind: "direct_message",
+    dropStreamStartCapability: true,
+  });
 
   try {
     await fixture.adapter.stream(fixture.target, streamChunks("Hello"));

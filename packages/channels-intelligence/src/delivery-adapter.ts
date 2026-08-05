@@ -601,9 +601,8 @@ export class DeliveryAdapter implements PlatformAdapter {
             continue;
           }
           if (!streamStarted) {
-            let startResult: Record<string, unknown>;
             try {
-              startResult = await target.claimedDelivery.effect(
+              const startResult = await target.claimedDelivery.effect(
                 responseId,
                 {
                   kind: "slack.stream.start",
@@ -611,6 +610,11 @@ export class DeliveryAdapter implements PlatformAdapter {
                 },
                 { bestEffort: true },
               );
+              // A gateway capability drop settles as applied without a
+              // provider reference; the parse throw takes the legacy path.
+              ({ providerReference, providerMessageId } =
+                providerMessageResultFromResult(startResult));
+              streamStarted = true;
             } catch {
               // A start-only failure is recoverable because no native stream
               // exists yet. The legacy create below remains a hard failure.
@@ -621,11 +625,7 @@ export class DeliveryAdapter implements PlatformAdapter {
               });
               ({ providerReference, providerMessageId } =
                 providerMessageResultFromResult(result));
-              continue;
             }
-            streamStarted = true;
-            ({ providerReference, providerMessageId } =
-              providerMessageResultFromResult(startResult));
             continue;
           }
           assertProviderReference(providerReference);
@@ -646,9 +646,9 @@ export class DeliveryAdapter implements PlatformAdapter {
               { kind: "slack.stream.start" },
               { bestEffort: true },
             );
-            streamStarted = true;
             ({ providerReference, providerMessageId } =
               providerMessageResultFromResult(startResult));
+            streamStarted = true;
           } catch {
             // An empty start has no native output to preserve. The final
             // message-create path below remains a hard failure.
