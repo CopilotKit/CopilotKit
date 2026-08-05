@@ -17,8 +17,8 @@ const OBJECTS =
 /** Reviewed message-valid Slack Block Kit catalog. */
 export const SLACK_BLOCK_MANIFEST = [
   ["Actions", "actions", "elements"],
-  ["Card", "card", "children"],
-  ["Carousel", "carousel", "cards"],
+  ["Card", "card"],
+  ["Carousel", "carousel", "elements"],
   ["Container", "container", "blocks"],
   ["Context", "context", "elements"],
   ["ContextActions", "context_actions", "elements"],

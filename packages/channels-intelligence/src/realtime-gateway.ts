@@ -82,11 +82,10 @@ export interface ConnectRealtimeGatewayOptions {
    *
    * The window exists rather than failing on the first transport error because
    * a refused connect is often just a gateway that has not finished booting,
-   * and a supervising `ChannelManager` does NOT retry activation — a
-   * fail-on-first-error rule would turn a boot race into a permanently errored
-   * Channel. The default is deliberately long enough to outlast a rolling
-   * restart of the gateway. Causes that CANNOT resolve themselves (a host that
-   * does not exist) skip the window entirely; see {@link diagnoseEndpoint}.
+   * and a supervising `ChannelManager` retries classified transient failures.
+   * The window avoids opening a new socket for every failed attempt during a
+   * short boot race. Causes that CANNOT resolve themselves (a host that does
+   * not exist) skip the window entirely; see {@link diagnoseEndpoint}.
    */
   connectTimeoutMs?: number;
   /**
@@ -139,12 +138,15 @@ export interface RealtimeGatewayConnectionDetail {
  * endpoint that was tried and the underlying transport error so the message
  * points at the misconfigured URL rather than at a stopwatch (OSS-623).
  *
- * An unreachable host is a caller configuration error that must reject
- * `ready()`.
+ * Permanent reachability failures such as NXDOMAIN reject `ready()`. Transient
+ * failures such as an HTTP 5xx response carry `retryable=true`, allowing the
+ * runtime manager to attempt a fresh initial connection with backoff.
  */
 export class RealtimeGatewayUnreachableError extends Error {
   /** Cross-package marker, mirroring the `code` convention of its siblings. */
   readonly code = "GATEWAY_UNREACHABLE";
+  /** Whether reconnecting later can succeed without changing configuration. */
+  readonly retryable: boolean;
   /** The gateway endpoint that was tried, minus any query string. */
   readonly endpoint: string;
   /**
@@ -158,14 +160,13 @@ export class RealtimeGatewayUnreachableError extends Error {
    * @param transportError - Rendered transport failure, if one was reported.
    * @param connectTimeoutMs - The elapsed connect window, named when no
    *   transport error was reported (the only signal the caller has left).
-   * @param options - Standard error options; carries the raw transport error
-   *   as `cause`.
+   * @param options - Retry classification plus the raw transport error.
    */
   constructor(
     endpoint: string,
     transportError: string | undefined,
     connectTimeoutMs: number,
-    options?: { cause?: unknown },
+    options?: { cause?: unknown; retryable?: boolean },
   ) {
     super(
       `realtime gateway unreachable: the socket never connected to ${endpoint} ` +
@@ -178,7 +179,52 @@ export class RealtimeGatewayUnreachableError extends Error {
     this.name = "RealtimeGatewayUnreachableError";
     this.endpoint = endpoint;
     this.transportError = transportError;
+    this.retryable = options?.retryable ?? false;
   }
+}
+
+/**
+ * Signals that the gateway accepted the socket but rejected its initial
+ * logical join. Structured retry hints survive this boundary so a supervising
+ * runtime can distinguish a draining gateway from a permanent rejection.
+ */
+export class RealtimeGatewayJoinError extends Error {
+  /** Cross-package marker used by the runtime activation retry policy. */
+  readonly code = "GATEWAY_JOIN_FAILED";
+  /** Gateway response returned with the failed join. */
+  readonly reason: unknown;
+  /** Whether a fresh activation can succeed without a configuration change. */
+  readonly retryable: boolean;
+
+  /**
+   * @param reason - Structured gateway join rejection.
+   * @param options - Optional retry override and timeout-specific message.
+   */
+  constructor(
+    reason: unknown,
+    options?: { message?: string; retryable?: boolean },
+  ) {
+    super(
+      options?.message ??
+        `realtime gateway session join failed: ${safeReason(reason)}`,
+      { cause: reason },
+    );
+    this.name = "RealtimeGatewayJoinError";
+    this.reason = reason;
+    this.retryable = options?.retryable ?? isRetryableJoinRejection(reason);
+  }
+}
+
+/** Whether a structured gateway join rejection asks the client to retry. */
+function isRetryableJoinRejection(reason: unknown): boolean {
+  if (typeof reason !== "object" || reason === null) {
+    return false;
+  }
+  const response = reason as { reason?: unknown; retryable?: unknown };
+  if (response.retryable === false) {
+    return false;
+  }
+  return response.retryable === true || response.reason === "gateway_draining";
 }
 
 /** Typed rejection returned by a joined realtime gateway channel push. */
@@ -570,12 +616,23 @@ export async function connectRealtimeGateway(
           ? await diagnosis
           : await startDiagnosis();
       const cause = probed?.cause ?? lastTransportRaw;
+      const retryable =
+        !(
+          lastTransportCode !== undefined &&
+          NON_RETRYABLE_TRANSPORT_CODES.has(lastTransportCode)
+        ) &&
+        (probed === undefined ||
+          (!probed.nonRetryable &&
+            (probed.status === undefined || probed.status >= 500)));
       failConnect(
         new RealtimeGatewayUnreachableError(
           endpoint,
           probed?.text ?? lastTransportError,
           connectTimeoutMs,
-          cause !== undefined ? { cause } : undefined,
+          {
+            ...(cause !== undefined ? { cause } : {}),
+            retryable,
+          },
         ),
       );
     })();
@@ -773,11 +830,7 @@ export async function connectRealtimeGateway(
         socket.disconnect();
         // The hard-cut control topic has one join-error path and no compatibility
         // mapping for prior setup or listener-generation states.
-        failConnect(
-          new Error(
-            `realtime gateway session join failed: ${safeReason(reason)}`,
-          ),
-        );
+        failConnect(new RealtimeGatewayJoinError(reason));
       } else {
         // A rejoin failed (e.g. credentials revoked server-side). Phoenix
         // keeps retrying; surface reconnecting and let the window bound it.
@@ -790,7 +843,12 @@ export async function connectRealtimeGateway(
         clearConnectDeadline();
         closingIntentionally = true;
         socket.disconnect();
-        failConnect(new Error("realtime gateway session join timed out"));
+        failConnect(
+          new RealtimeGatewayJoinError(undefined, {
+            message: "realtime gateway session join timed out",
+            retryable: true,
+          }),
+        );
       } else {
         enterReconnecting();
       }
@@ -891,9 +949,16 @@ export async function connectRealtimeGateway(
   // A socket-level drop begins a reconnect episode; the "back online" signal
   // comes from a successful (re)join (the join-push `"ok"` hook above), NOT from
   // the socket merely reopening — the channel may still be rejoining.
-  socket.onClose(() => {
+  socket.onClose((event) => {
     notifyClose();
     enterReconnecting();
+    // Phoenix treats code 1000 as terminal and does not schedule its reconnect
+    // timer. For a live managed session, only our own disconnect is terminal.
+    if (!closingIntentionally && event?.code === 1000) {
+      socket.disconnect(() => {
+        if (!closingIntentionally) socket.connect();
+      });
+    }
   });
   socket.onError(() => {
     notifyClose();

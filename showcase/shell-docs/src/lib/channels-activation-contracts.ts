@@ -6,6 +6,24 @@ export const CHANNELS_ACTIVATION_EVENTS = {
   setupGuideOpened: "docs.channels_activation_setup_guide_opened",
   promptCopied: "docs.channels_activation_prompt_copied",
   openTagClicked: "docs.channels_activation_opentag_clicked",
+  /**
+   * Impression, so `promptCopied` has a denominator. Both entry points sit
+   * below the fold on their pages, so a surface nobody scrolls to and a surface
+   * everybody ignores are indistinguishable without this. Emitted by both the
+   * landing strip and the overview panel, separated by `surface`.
+   */
+  viewed: "docs.channels_activation_viewed",
+} as const;
+
+/**
+ * Which road into onboarding an event came from. Every Channels entry point
+ * emits the same events with one of these, including copilotkit.ai/channels,
+ * which sends its own event name with the same property so the two can be
+ * unioned into one funnel.
+ */
+export const CHANNELS_ACTIVATION_SURFACES = {
+  docsLandingStrip: "docs_landing_strip",
+  docsChannelsOverview: "docs_channels_overview",
 } as const;
 
 export const CHANNELS_ACTIVATION_CHANNELS = [
@@ -35,18 +53,23 @@ export function getChannelsActivationGuideHref(
   return backend.guideHrefs[channel];
 }
 
-export function buildChannelsActivationPrompt({
-  channelLabel,
-  backendLabel,
-  guideUrl,
-}: {
-  channelLabel: string;
-  backendLabel: string;
-  guideUrl: string;
-}): string {
-  return `Build a working CopilotKit Channels integration for ${channelLabel} using ${backendLabel}.
+/**
+ * The onboarding guide every Channels entry point points at — the docs surfaces,
+ * copilotkit.ai/channels, and the channels-sdk README. Hosted on the marketing
+ * site so it is one file fetched at the moment an agent needs it, rather than a
+ * workflow copied into six places that drift apart.
+ */
+export const CHANNELS_GUIDE_URL = "https://copilotkit.ai/channels-guide.md";
 
-Follow the Shell Docs setup guide: ${guideUrl}
-
-Inspect the existing project before editing, preserve its agent architecture, implement the documented setup, run the relevant checks, and report any remaining provider credentials or platform configuration.`;
-}
+/**
+ * A pointer, deliberately not a workflow, and deliberately unparameterised.
+ *
+ * These surfaces used to carry the whole setup as prose — six copies across
+ * three repos, which drifted and went stale against the CLI independently.
+ *
+ * The channel and backend the reader picked are not interpolated: the guide asks
+ * for both itself. A pointer that named them would be promising coverage on the
+ * page's behalf, which is exactly what made the earlier skill-based pointer
+ * wrong for Teams — it named a skill scoped to Slack.
+ */
+export const CHANNELS_BUILD_PROMPT = `Read ${CHANNELS_GUIDE_URL} and help the user build their first channel`;

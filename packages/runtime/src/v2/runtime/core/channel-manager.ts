@@ -76,6 +76,17 @@ export interface ChannelsControl {
   stop(): Promise<void>;
 }
 
+interface ChannelRunErrorDetails {
+  readonly category: "validation";
+  readonly provider: "slack" | "teams";
+  readonly operation: string;
+  readonly effectKind: string;
+  readonly providerCode: "invalid_arguments" | "invalid_blocks";
+  readonly validationMessages: readonly string[];
+  readonly retryable: false;
+  readonly deliveryId: string;
+}
+
 /**
  * Signals that a declared Channel cannot be activated because no managed
  * provider exists for it yet. The engine throws this (or any error whose
@@ -164,10 +175,10 @@ export interface ChannelManagerArgs {
    * path (not just activation-level events). */
   log?: (msg: string, meta?: unknown) => void;
   /**
-   * How often (ms) to repeat a "still down" log while a managed session is
-   * disconnected. A dropped session was previously silent for as long as the
-   * outage lasted, which made a dead bot indistinguishable from an idle one
-   * (OSS-670). Injectable so tests need no fake timers. Default 30000.
+   * Initial delay (ms) before a "still down" log while a managed session is
+   * disconnected. Later reminders back off exponentially to a 15-minute cap,
+   * keeping a prolonged outage visible without flooding logs. Injectable so
+   * tests can use a shorter first delay. Default 30000.
    */
   reconnectLogIntervalMs?: number;
   /** Per-handle deadline (ms) for `handle.stop()` during {@link ChannelManager.stop}
@@ -190,8 +201,16 @@ interface ChannelEntry {
   handleStopped: boolean;
   /** Epoch ms this outage episode began; unset while the session is healthy. */
   downSince?: number;
-  /** Repeating "still down" logger for this outage; cleared on recovery/teardown. */
-  reconnectLogTimer?: ReturnType<typeof setInterval>;
+  /** Next "still down" logger for this outage; cleared on recovery/teardown. */
+  reconnectLogTimer?: ReturnType<typeof setTimeout>;
+  /** Delay before the next reminder; doubles after each emitted reminder. */
+  reconnectLogDelayMs?: number;
+  /** Next retry after a transient initial activation failure. */
+  activationRetryTimer?: ReturnType<typeof setTimeout>;
+  /** Delay before the next activation retry; doubles after each failed attempt. */
+  activationRetryDelayMs?: number;
+  /** Reject the retry wrapper when teardown cancels a pending retry. */
+  cancelActivationRetry?: () => void;
 }
 
 /**
@@ -542,7 +561,20 @@ async function runCanonicalChannelAgent(
 
   try {
     await new Promise<void>((resolve, reject) => {
-      let terminalError: (Error & { code?: string }) | undefined;
+      let terminalError:
+        | (Error & {
+            code?: string;
+            category?: string;
+            provider?: string;
+            operation?: string;
+            effectKind?: string;
+            providerCode?: string;
+            validationMessages?: readonly string[];
+            retryable?: boolean;
+            deliveryId?: string;
+            details?: unknown;
+          })
+        | undefined;
       const stream = runner.run({
         threadId: canonicalThreadId,
         agent: outer,
@@ -564,7 +596,11 @@ async function runCanonicalChannelAgent(
             "message" in event && typeof event.message === "string"
               ? event.message
               : "Canonical Channel agent run failed";
-          terminalError = new Error(message);
+          const details = safeChannelRunErrorDetails(event);
+          terminalError = new Error(
+            message,
+            details ? { cause: details } : undefined,
+          );
           terminalError.name = "ChannelCanonicalRunError";
           if (
             "code" in event &&
@@ -572,6 +608,17 @@ async function runCanonicalChannelAgent(
             event.code.length > 0
           ) {
             terminalError.code = event.code;
+          }
+          if (details) {
+            terminalError.category = details.category;
+            terminalError.provider = details.provider;
+            terminalError.operation = details.operation;
+            terminalError.effectKind = details.effectKind;
+            terminalError.providerCode = details.providerCode;
+            terminalError.validationMessages = details.validationMessages;
+            terminalError.retryable = details.retryable;
+            terminalError.deliveryId = details.deliveryId;
+            terminalError.details = details;
           }
         },
         error: reject,
@@ -609,6 +656,58 @@ async function runCanonicalChannelAgent(
     throw heartbeatError;
   }
   return result;
+}
+
+function safeChannelRunErrorDetails(
+  event: BaseEvent,
+): ChannelRunErrorDetails | undefined {
+  if (
+    !("details" in event) ||
+    typeof event.details !== "object" ||
+    event.details === null ||
+    Array.isArray(event.details)
+  ) {
+    return undefined;
+  }
+  const details = event.details as Record<string, unknown>;
+  const allowed = new Set([
+    "category",
+    "provider",
+    "operation",
+    "effectKind",
+    "providerCode",
+    "validationMessages",
+    "retryable",
+    "deliveryId",
+  ]);
+  if (
+    !Object.keys(details).every((field) => allowed.has(field)) ||
+    details.category !== "validation" ||
+    (details.provider !== "slack" && details.provider !== "teams") ||
+    !boundedString(details.operation, 80) ||
+    !boundedString(details.effectKind, 80) ||
+    (details.providerCode !== "invalid_arguments" &&
+      details.providerCode !== "invalid_blocks") ||
+    details.retryable !== false ||
+    !boundedString(details.deliveryId, 512) ||
+    !Array.isArray(details.validationMessages) ||
+    details.validationMessages.length > 5 ||
+    !details.validationMessages.every(
+      (validationMessage) =>
+        typeof validationMessage === "string" &&
+        validationMessage.length <= 256 &&
+        validationMessage.startsWith("invalid field at /"),
+    )
+  ) {
+    return undefined;
+  }
+  return details as unknown as ChannelRunErrorDetails;
+}
+
+function boundedString(value: unknown, maxLength: number): value is string {
+  return (
+    typeof value === "string" && value.length > 0 && value.length <= maxLength
+  );
 }
 
 /** Convert canonical Intelligence history into AG-UI messages. */
@@ -715,6 +814,19 @@ function isSetupRequired(err: unknown): boolean {
   );
 }
 
+/** Whether a failed initial activation can recover without new configuration. */
+function isRetryableActivationError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) {
+    return false;
+  }
+  const value = err as { code?: unknown; retryable?: unknown };
+  return (
+    (value.code === "GATEWAY_UNREACHABLE" ||
+      value.code === "GATEWAY_JOIN_FAILED") &&
+    value.retryable === true
+  );
+}
+
 /**
  * Whether `err` is a Node/runtime module-resolution failure — i.e. the error
  * a dynamic `import()` throws when the target package is not installed.
@@ -732,8 +844,17 @@ export function isModuleNotFound(err: unknown): boolean {
 /** Default deadline (ms) for a single `handle.stop()` during teardown. */
 const DEFAULT_STOP_HANDLE_TIMEOUT_MS = 5_000;
 
-/** Default cadence (ms) for the "still down" log while a session is dropped. */
+/** First delay (ms) before logging that a dropped session is still down. */
 const DEFAULT_RECONNECT_LOG_INTERVAL_MS = 30_000;
+
+/** Longest delay (ms) between reminders during one continuous outage. */
+const DEFAULT_RECONNECT_LOG_MAX_INTERVAL_MS = 15 * 60_000;
+
+/** First delay (ms) before retrying a transient initial activation failure. */
+const DEFAULT_ACTIVATION_RETRY_DELAY_MS = 1_000;
+
+/** Longest delay (ms) between transient initial activation attempts. */
+const DEFAULT_ACTIVATION_RETRY_MAX_DELAY_MS = 30_000;
 
 /**
  * Reject with `timeoutMessage` after `timeoutMs` if `inner` has not settled,
@@ -780,17 +901,18 @@ function withTimeout<T>(
  * {@link activate} starts it and a second call is a no-op. Activation throws
  * SYNCHRONOUSLY (a {@link ChannelConfigError}) only for a misconfiguration it
  * can detect up front — a duplicate or missing Channel name. Every OTHER
- * activation failure is recorded as the Channel's status (`error`, or
- * `setup_required` for a missing provider) and surfaced through {@link status}
- * and {@link ready} rather than thrown.
+ * permanent activation failure is recorded as the Channel's status (`error`,
+ * or `setup_required` for a missing provider) and surfaced through
+ * {@link status} and {@link ready} rather than thrown. A retryable initial
+ * gateway outage stays unsettled and retries until it connects or the manager
+ * stops.
  *
- * Reconnection is NOT handled here — it is delegated to the Phoenix connection
+ * Established-session reconnection is delegated to the Phoenix connection
  * layer that backs the launcher. When a managed control socket drops, Phoenix's
- * `Socket` reconnects and rejoins with the same Runtime declaration. Active
- * deliveries request fresh one-use join tokens through that control link. A
- * re-activation here would be both redundant AND broken: re-invoking the engine
- * on an already-started `Channel` throws in `channel.addAdapter` (started=true).
- * The manager therefore never re-activates on a drop.
+ * `Socket` reconnects and rejoins with the same Runtime declaration. The manager
+ * never re-activates an already-started Channel. It does retry a transient
+ * INITIAL gateway activation failure: that happens before the launcher adds or
+ * starts the managed adapter, so a later attempt is safe.
  *
  * It DOES, however, reflect real connection health through the session's
  * `onStateChange` observer so {@link ChannelManager.status} stays honest rather
@@ -860,8 +982,8 @@ export class ChannelManager implements ChannelsControl {
   /**
    * Start activation of every declared Channel (lazy + idempotent). Mints a
    * distinct runtime instance id per Channel, derives its activation config,
-   * and calls the engine. Records each Channel as `connecting`, transitioning
-   * to `online`/`setup_required`/`error` as its activation settles.
+   * and calls the engine. Transient gateway failures retry with exponential
+   * backoff; other outcomes transition to `online`/`setup_required`/`error`.
    */
   activate(): void {
     // Short-circuit on BOTH latches: `activated` makes activation idempotent,
@@ -898,32 +1020,29 @@ export class ChannelManager implements ChannelsControl {
       // promise is always considered handled — ready() still sees the reason.
       settled.catch(() => {});
 
-      // Invoke the engine synchronously so activation is observably started the
-      // moment activate() returns (callers assert the engine was called and see
-      // `connecting` before awaiting ready). A synchronous config/engine throw is
-      // turned into a rejected activation so it becomes this channel's status
-      // rather than throwing out of activate().
-      let activation: Promise<ChannelsHandle>;
-      let config: ChannelActivationConfig | undefined;
-      try {
-        config = deriveChannelActivationConfig({
-          intelligence: this.intelligence,
-          channel,
-          runtimeInstanceId,
-        });
-        activation = this.activateChannel(config, channel);
-      } catch (err) {
-        activation = Promise.reject(err);
-      }
-
-      // The deferred `.then` callbacks capture `entry` and run only after the
-      // literal has fully initialized, so referencing it here is safe.
+      // The deferred activation callbacks capture `entry` and run only after
+      // the literal has fully initialized, so referencing it there is safe.
       const entry: ChannelEntry = {
         status: "connecting",
         handle: undefined,
         handleStopped: false,
         settled,
       };
+
+      // Invoke the engine synchronously so activation is observably started the
+      // moment activate() returns. Only a typed transient gateway failure is
+      // retried; config errors stay on the existing terminal path.
+      let activation: Promise<ChannelsHandle>;
+      try {
+        const config = deriveChannelActivationConfig({
+          intelligence: this.intelligence,
+          channel,
+          runtimeInstanceId,
+        });
+        activation = this.activateWithRetry(config, channel, name, entry);
+      } catch (err) {
+        activation = Promise.reject(err);
+      }
 
       // Anchor the settle handlers. Both branches route every teardown through
       // the idempotent `stopEntry`, so a late settle can never resurrect a
@@ -1005,6 +1124,72 @@ export class ChannelManager implements ChannelsControl {
 
       this.entries.set(name, entry);
     }
+  }
+
+  /**
+   * Retry only transient failures from the pre-adapter gateway connection.
+   * Permanent errors reject on the first attempt; teardown cancels a pending
+   * timer while preserving the existing late-settle handling for in-flight work.
+   */
+  private activateWithRetry(
+    config: ChannelActivationConfig,
+    channel: Channel,
+    name: string,
+    entry: ChannelEntry,
+  ): Promise<ChannelsHandle> {
+    return new Promise<ChannelsHandle>((resolve, reject) => {
+      const attempt = (): void => {
+        let activation: Promise<ChannelsHandle>;
+        try {
+          activation = this.activateChannel(config, channel);
+        } catch (err) {
+          activation = Promise.reject(err);
+        }
+        activation.then(
+          (handle) => {
+            this.clearActivationRetry(entry);
+            resolve(handle);
+          },
+          (err: unknown) => {
+            if (this.stopped || !isRetryableActivationError(err)) {
+              this.clearActivationRetry(entry);
+              reject(err);
+              return;
+            }
+
+            const delayMs =
+              entry.activationRetryDelayMs ?? DEFAULT_ACTIVATION_RETRY_DELAY_MS;
+            entry.status = "reconnecting";
+            entry.activationRetryDelayMs = Math.min(
+              delayMs * 2,
+              DEFAULT_ACTIVATION_RETRY_MAX_DELAY_MS,
+            );
+            this.log?.(
+              `channel "${name}" failed to activate; retrying in ${delayMs}ms`,
+              err,
+            );
+            const timer = setTimeout(() => {
+              entry.activationRetryTimer = undefined;
+              entry.cancelActivationRetry = undefined;
+              if (this.stopped || entry.status === "stopped") {
+                reject(err);
+                return;
+              }
+              entry.status = "connecting";
+              attempt();
+            }, delayMs);
+            (timer as unknown as { unref?: () => void }).unref?.();
+            entry.activationRetryTimer = timer;
+            entry.cancelActivationRetry = () => {
+              this.clearActivationRetry(entry);
+              reject(err);
+            };
+          },
+        );
+      };
+
+      attempt();
+    });
   }
 
   /**
@@ -1232,14 +1417,17 @@ export class ChannelManager implements ChannelsControl {
   }
 
   /**
-   * Repeat a "still down" line for as long as this outage lasts. Runs THROUGH
-   * `gave_up` on purpose: that transition is where the old behavior went quiet,
-   * and an operator watching a silent process cannot tell a dead bot from an
-   * idle one.
+   * Repeat a "still down" line for as long as this outage lasts, with an
+   * exponential delay capped at 15 minutes. Runs THROUGH `gave_up` on purpose:
+   * that transition is where the old behavior went quiet, and an operator
+   * watching a silent process cannot tell a dead bot from an idle one.
    */
   private startReconnectLog(name: string, entry: ChannelEntry): void {
     if (entry.reconnectLogTimer !== undefined) return;
-    const timer = setInterval(() => {
+
+    const delayMs = entry.reconnectLogDelayMs ?? this.reconnectLogIntervalMs;
+    const timer = setTimeout(() => {
+      entry.reconnectLogTimer = undefined;
       if (this.stopped || entry.status === "stopped") {
         this.clearReconnectLog(entry);
         return;
@@ -1247,7 +1435,15 @@ export class ChannelManager implements ChannelsControl {
       this.log?.(
         `channel "${name}" managed session still down after ${this.downFor(entry)}; Phoenix is retrying`,
       );
-    }, this.reconnectLogIntervalMs);
+      entry.reconnectLogDelayMs = Math.min(
+        delayMs * 2,
+        Math.max(
+          this.reconnectLogIntervalMs,
+          DEFAULT_RECONNECT_LOG_MAX_INTERVAL_MS,
+        ),
+      );
+      this.startReconnectLog(name, entry);
+    }, delayMs);
     (timer as unknown as { unref?: () => void }).unref?.();
     entry.reconnectLogTimer = timer;
   }
@@ -1255,8 +1451,29 @@ export class ChannelManager implements ChannelsControl {
   /** Stop this entry's "still down" repeat, if one is running. */
   private clearReconnectLog(entry: ChannelEntry): void {
     if (entry.reconnectLogTimer !== undefined) {
-      clearInterval(entry.reconnectLogTimer);
+      clearTimeout(entry.reconnectLogTimer);
       entry.reconnectLogTimer = undefined;
+    }
+    entry.reconnectLogDelayMs = undefined;
+  }
+
+  /** Cancel a pending transient activation retry and reset its backoff. */
+  private clearActivationRetry(entry: ChannelEntry): void {
+    if (entry.activationRetryTimer !== undefined) {
+      clearTimeout(entry.activationRetryTimer);
+      entry.activationRetryTimer = undefined;
+    }
+    entry.activationRetryDelayMs = undefined;
+    entry.cancelActivationRetry = undefined;
+  }
+
+  /** Cancel a scheduled activation retry and settle its wrapper. */
+  private cancelActivationRetry(entry: ChannelEntry): void {
+    const cancel = entry.cancelActivationRetry;
+    if (cancel) {
+      cancel();
+    } else {
+      this.clearActivationRetry(entry);
     }
   }
 
@@ -1297,6 +1514,7 @@ export class ChannelManager implements ChannelsControl {
     // An unref'd interval would not hold the process open, but a stopped
     // manager must not keep logging about a session it no longer owns.
     this.clearReconnectLog(entry);
+    this.cancelActivationRetry(entry);
     if (entry.handle && !entry.handleStopped) {
       entry.handleStopped = true;
       const handle = entry.handle;

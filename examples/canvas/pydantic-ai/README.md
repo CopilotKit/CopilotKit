@@ -187,7 +187,7 @@ The agent logic is in [`agent/agent.py`](https://github.com/CopilotKit/CopilotKi
 - **Tool Integration**: Backend tools decorated with `@agent.tool` for planning and state updates
 - **Strict Grounding**: Enforces data consistency by always using shared state as truth
 - **Dynamic Instructions**: Uses `@agent.instructions` to provide context-aware guidance
-- **AG-UI Integration**: Converts to FastAPI app with `agent.to_ag_ui()` for seamless integration
+- **AG-UI Integration**: Served from a Starlette route via `AGUIAdapter.dispatch_request()`, with the state deps rebuilt per request
 - **Type Safety**: Leverages Pydantic models for all data structures
 
 ### Card Field Schema

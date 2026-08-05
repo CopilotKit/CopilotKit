@@ -21,7 +21,10 @@ import type {
   ContextEntry,
 } from "./tools.js";
 import { parseToolArgs, stringifyHandlerResult } from "./tools.js";
-import { isChannelDeliveryTerminatedError } from "./delivery-error.js";
+import {
+  channelDeliveryErrorDetails,
+  isChannelDeliveryTerminatedError,
+} from "./delivery-error.js";
 
 export interface RunLoopArgs {
   agent: AbstractAgent;
@@ -454,6 +457,7 @@ export async function runAgentLoop(
     );
     return hasDeliveryError ? { ...result, deliveryError } : result;
   } catch (error) {
+    const details = channelDeliveryErrorDetails(error);
     const runError: RunErrorEvent = {
       type: EventType.RUN_ERROR,
       threadId: args.canonicalRun.threadId,
@@ -465,7 +469,21 @@ export async function runAgentLoop(
       typeof error.code === "string"
         ? { code: error.code }
         : {}),
-    };
+      ...(details
+        ? {
+            category: details.category,
+            provider: details.provider,
+            operation: details.operation,
+            effectKind: details.effectKind,
+            providerCode: details.providerCode,
+            validationMessages: details.validationMessages,
+            retryable: details.retryable,
+            deliveryId: details.deliveryId,
+            details,
+            cause: details,
+          }
+        : {}),
+    } as RunErrorEvent;
     try {
       await emitCanonicalLifecycleEvent(
         runError,
