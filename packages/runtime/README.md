@@ -90,6 +90,38 @@ routes and does not attach Memory tools.
 `CopilotKitIntelligence({ enableEnterpriseLearning: true })` remain for one
 compatibility window. New code should use `memory.access`.
 
+## Highly experimental ACP agent
+
+`AcpAgent` exposes an Intelligence ACP profile as an AG-UI `AbstractAgent`.
+The public runtime admits runs, streams durable AG-UI events, resumes from the
+last event cursor, and sends cancellation. Intelligence owns ACP v1, the agent
+process, the workspace, protocol translation, and stored session state.
+
+```ts
+import {
+  AcpAgent,
+  CopilotKitIntelligence,
+  CopilotRuntime,
+} from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.COPILOTKIT_API_KEY!,
+});
+
+const runtime = new CopilotRuntime({
+  agents: {
+    coding: new AcpAgent({
+      intelligence,
+      agentProfileId: "codex-project-agent",
+      userId: "customer-user-123",
+    }),
+  },
+});
+```
+
+Configure `agentProfileId` in Intelligence. Do not pass commands, executable
+paths, credentials, or workspace paths through the public runtime.
+
 ## Analytics & Privacy
 
 CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and prioritize improvements.
