@@ -114,6 +114,7 @@ describe("useResolvedHeaders", () => {
     });
     expect(errorSpy).toHaveBeenCalledWith(
       "[CopilotKit] Failed to resolve request headers",
+      expect.any(Error),
     );
   });
 
@@ -142,6 +143,7 @@ describe("useResolvedHeaders", () => {
     expect(result.current.ready).toBe(true);
     expect(errorSpy).toHaveBeenCalledWith(
       "[CopilotKit] Failed to resolve request headers",
+      expect.any(Error),
     );
   });
 

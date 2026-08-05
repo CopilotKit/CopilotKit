@@ -335,6 +335,7 @@ describe("CopilotKitProvider async headers", () => {
     );
     expect(errorSpy).toHaveBeenCalledWith(
       "[CopilotKit] Failed to resolve request headers",
+      expect.any(Error),
     );
   });
 });

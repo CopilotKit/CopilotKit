@@ -117,6 +117,9 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
     evaluation.kind === "sync" ? evaluation.headers : EMPTY_HEADERS,
   );
   const attemptRef = useRef(0);
+  const prevAsyncSourceRef = useRef<HeaderSource | null>(null);
+  const churnedLastRenderRef = useRef(false);
+  const warnedAsyncUnmemoizedRef = useRef(false);
   const [state, setState] = useState<{
     ready: boolean;
     error: Error | null;
@@ -129,13 +132,34 @@ export function useResolvedHeaders(source: HeaderSource): ResolvedHeaders {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  // Async builders must be memoized (stable function reference) so they are not
+  // re-invoked with a fresh promise on every render. Detect an inline arrow by
+  // its reference changing on consecutive renders and surface it once.
+  if (evaluation.kind === "async" && typeof source === "function") {
+    const changed =
+      prevAsyncSourceRef.current !== null &&
+      prevAsyncSourceRef.current !== source;
+    prevAsyncSourceRef.current = source;
+    if (changed) {
+      if (churnedLastRenderRef.current && !warnedAsyncUnmemoizedRef.current) {
+        warnedAsyncUnmemoizedRef.current = true;
+        console.error(
+          "[CopilotKit] The async `headers` builder must be memoized. An inline arrow is a new function on every render, so it is invoked once per render. Wrap the builder in useCallback/useMemo and refresh it by changing the memoization deps.",
+        );
+      }
+      churnedLastRenderRef.current = true;
+    } else {
+      churnedLastRenderRef.current = false;
+    }
+  }
+
   useEffect(() => {
     const attempt = ++attemptRef.current;
     let active = true;
 
-    const reportError = (_error: Error) => {
+    const reportError = (error: Error) => {
       if (!active || attempt !== attemptRef.current) return;
-      console.error("[CopilotKit] Failed to resolve request headers");
+      console.error("[CopilotKit] Failed to resolve request headers", error);
     };
 
     const publishError = (error: Error) => {

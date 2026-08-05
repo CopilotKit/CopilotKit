@@ -64,9 +64,17 @@ export interface CopilotKitProps extends Omit<
    * // Static headers
    * headers={{ "Authorization": "Bearer X" }}
    *
-   * // Dynamic headers (re-evaluated on each render)
+   * // Dynamic headers
    * headers={() => ({ "Authorization": `Bearer ${getToken()}` })}
-   * headers={async () => ({ "Authorization": `Bearer ${await getToken()}` })}
+   *
+   * // Async headers - memoize the builder so it is not re-invoked with a fresh
+   * // promise on every render. Refresh it by changing the memoization deps,
+   * // e.g. an expiring auth token:
+   * const headers = useCallback(
+   *   async () => ({ "Authorization": `Bearer ${await getToken()}` }),
+   *   [token],
+   * );
+   * <CopilotKit headers={headers} />
    * ```
    */
   headers?: HeaderSource;
