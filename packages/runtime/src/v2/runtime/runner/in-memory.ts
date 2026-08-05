@@ -17,6 +17,149 @@ import type {
 import { EventType, compactEvents } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkit/shared";
 
+export interface InMemoryLimits {
+  /** LRU cap on distinct threads. */
+  maxThreads?: number;
+  /** FIFO cap on runs kept per thread. `Infinity` or `0` disables the cap. */
+  maxRunsPerThread?: number;
+  /**
+   * Approximate byte ceiling on RETAINED thread/run history. Enforced at run
+   * completion (in `appendRun`), where LRU non-running threads are evicted to
+   * keep the total under this limit.
+   *
+   * Limitation: this bounds only history that has already been committed. A
+   * single in-flight run's buffered events (`currentRunEvents` and the two
+   * `ReplaySubject<BaseEvent>(Infinity)` buffers in `run()`) are NOT counted
+   * until that run completes, so `maxBytes` does not bound a single runaway
+   * run mid-stream.
+   *
+   * Limitation: byte eviction drops only other LRU non-running threads and
+   * never self-evicts the active/just-appended thread, so a single dominant
+   * thread's own retained history is not byte-trimmed (bounded only by
+   * `maxRunsPerThread`). `maxBytes` is thus a cross-thread ceiling enforced by
+   * evicting OTHER threads, not a per-thread cap.
+   */
+  maxBytes?: number;
+}
+
+/**
+ * Constructor options for {@link InMemoryAgentRunner}.
+ *
+ * Extends {@link InMemoryLimits} so bounds can be passed inline alongside the
+ * per-runner behavior flags. Be aware of the scope difference: the limits
+ * reconfigure the process-global store shared by every runner, whereas
+ * `onConcurrentRun` applies only to the runner instance it is passed to.
+ */
+export interface InMemoryAgentRunnerOptions extends InMemoryLimits {
+  /**
+   * How to handle a `run()` for a thread that already has an in-flight run.
+   * `"throw"` (default) rejects with "Thread already running". `"supersede"`
+   * aborts the prior run and starts the new one.
+   */
+  onConcurrentRun?: "throw" | "supersede";
+}
+
+export const ɵINMEMORY_DEFAULTS: Required<InMemoryLimits> = {
+  maxThreads: 1000,
+  maxRunsPerThread: 100,
+  maxBytes: 512 * 1024 ** 2,
+};
+
+/**
+ * A limit value is well-formed iff it is a non-negative integer OR `+Infinity`.
+ * `+Infinity` is the documented "disabled/unbounded" sentinel and `0` is the
+ * documented run-cap disable sentinel; both are non-negative and pass. Every
+ * enforcement site (`evictThreadsIfNeeded`, `enforceRunCap`,
+ * `evictByBytesIfNeeded`) compares its counter against the limit with `>` in a
+ * `while`/`if` guard, so only these shapes keep those loops finite and correct.
+ * Rejected: negatives (drive `count > -1` true on an empty collection, so
+ * `enforceRunCap` `shift()!`s `undefined` and throws), `-Infinity` (loops never
+ * terminate their intent — always "over"), `NaN` (every `>` is false, silently
+ * disabling the bound), and non-integer finites (fractional caps are nonsense).
+ */
+function ɵisValidLimit(value: number): boolean {
+  return value === Infinity || (Number.isInteger(value) && value >= 0);
+}
+
+/**
+ * Normalize a fully-resolved limits bag so every field is well-formed before it
+ * can reach an enforcement loop. Each field is validated independently against
+ * {@link ɵisValidLimit}; an invalid value is CLAMPED to its
+ * {@link ɵINMEMORY_DEFAULTS} floor and a single `console.warn` naming the field
+ * and the received value is emitted.
+ *
+ * Clamp-and-warn (rather than throw) is deliberate and matches this file's
+ * established posture toward bad input: `ɵestimateBytes` swallows serialization
+ * failures and returns 0, the limits-clobber path warns rather than throwing,
+ * and both the eviction and clobber logs are wrapped so "logging must never
+ * break construction/a run". Constructing a bounded in-memory runner is a
+ * best-effort, non-durable convenience; a typo'd bound must degrade to a safe
+ * default, never abort construction or (worse) surface later as an unhandled
+ * rejection from the fire-and-forget finalize path.
+ */
+export function ɵnormalizeLimits(
+  limits: Required<InMemoryLimits>,
+): Required<InMemoryLimits> {
+  const normalized = { ...limits };
+  for (const field of Object.keys(
+    ɵINMEMORY_DEFAULTS,
+  ) as (keyof InMemoryLimits)[]) {
+    const value = limits[field];
+    if (!ɵisValidLimit(value)) {
+      const fallback = ɵINMEMORY_DEFAULTS[field];
+      normalized[field] = fallback;
+      try {
+        console.warn(
+          `[CopilotKit] InMemoryAgentRunner: invalid ${field} value ` +
+            `${String(value)} (expected a non-negative integer or Infinity); ` +
+            `falling back to ${String(fallback)}.`,
+        );
+      } catch {
+        // best-effort: logging must never break construction
+      }
+    }
+  }
+  return normalized;
+}
+
+const EVICTION_GUIDANCE =
+  "[CopilotKit] InMemoryAgentRunner evicted in-memory thread history to stay " +
+  "under memory limits. This runner is bounded and non-durable by design. For " +
+  "durable or production threads, configure an Intelligence backend.";
+
+const LIMITS_CLOBBER_GUIDANCE =
+  "[CopilotKit] InMemoryAgentRunner was constructed with in-memory limits that " +
+  "differ from the already-configured process-global store; the last-constructed " +
+  "runner's limits apply to ALL in-memory threads (the store is shared per-process). " +
+  "Configure a single consistent set of limits, or use an Intelligence backend for " +
+  "isolated bounds.";
+
+/**
+ * Best-effort approximate byte size of a value, via serialized length.
+ * Never throws — returns 0 when the value cannot be serialized. This is an
+ * approximation (UTF-16 length, not exact heap bytes), used only for relative
+ * accounting against `maxBytes`.
+ */
+export function ɵestimateBytes(value: unknown): number {
+  try {
+    return JSON.stringify(value)?.length ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Per-run finalize intent, captured once when a run starts and mutated (only)
+ * by whoever aborts THAT run — `stop()` or a superseding `run()`. The run's own
+ * teardown reads this captured holder instead of the shared, mutable
+ * `store.stopRequested`, so a later run that resets store state can never cause
+ * an intentionally-stopped run to be finalized as an error (or vice versa).
+ */
+interface RunFinalizeControl {
+  /** True once THIS run has been asked to stop (clean stop, not an error). */
+  stopRequested: boolean;
+}
+
 interface HistoricRun {
   threadId: string;
   runId: string;
@@ -25,11 +168,21 @@ interface HistoricRun {
   parentRunId: string | null;
   events: BaseEvent[];
   /**
-   * Snapshot of all messages (input + generated) at the end of this run.
-   * Used by the local thread-messages fallback endpoint.
+   * Snapshot of all messages (input + generated) at the end of this run, as
+   * passed in by the caller. NOTE: `BoundedThreadStore.appendRun` moves this
+   * snapshot to the THREAD level (`InMemoryEventStore.messagesSnapshot`) and
+   * clears this field to `[]`, so a stored HistoricRun never carries messages.
+   * The thread-messages fallback reads the thread-level snapshot, not this.
    */
   messages: Message[];
   createdAt: number;
+  /** Approximate retained byte size of `events`; set by BoundedThreadStore at append. */
+  approxEventBytes?: number;
+  /**
+   * Legacy field retained for shape compatibility. `appendRun` always zeroes it
+   * because message bytes are accounted at the thread level, not per run.
+   */
+  approxMessageBytes?: number;
 }
 
 /**
@@ -69,14 +222,333 @@ class InMemoryEventStore {
   /** Subject returned from run() while the run is active. */
   runSubject: ReplaySubject<BaseEvent> | null = null;
 
-  /** True once stop() has been requested but the run has not yet finalized. */
+  /**
+   * Thread-level lifecycle flag: true once a stop/supersede has been requested
+   * for the currently-owning run but that run has not yet finalized. Drives
+   * eviction protection, the connect() bridge, and stop() de-dup. This is NOT
+   * the finalize intent read by a run's teardown — that lives per-run on
+   * {@link activeFinalize}, so a superseding run resetting this field cannot
+   * mislabel the run it replaced. A new run resets this to false when it takes
+   * ownership.
+   */
   stopRequested = false;
+
+  /**
+   * Finalize control of the currently-owning run. `stop()` and a superseding
+   * `run()` flip the owning run's flag through this reference; each run also
+   * captures the SAME object in its closure, so its teardown finalizes against
+   * its own intent regardless of what a later run does to the store.
+   */
+  activeFinalize: RunFinalizeControl | null = null;
 
   /** Reference to the events emitted in the current run. */
   currentEvents: BaseEvent[] | null = null;
+
+  /**
+   * The thread's single latest NON-EMPTY message snapshot, held at the THREAD
+   * level (independent of `historicRuns` lifecycle). Decoupling the snapshot
+   * from per-run storage means run-cap FIFO eviction and interleaved
+   * empty-snapshot runs can never drop or pin the thread's message history.
+   */
+  messagesSnapshot: Message[] = [];
+
+  /** Approximate retained byte size of `messagesSnapshot`. */
+  approxMessagesSnapshotBytes = 0;
+
+  /**
+   * The thread's true creation timestamp (epoch ms), captured from the FIRST
+   * run ever appended and held at the THREAD level (independent of
+   * `historicRuns` lifecycle). Decoupling it from per-run storage means run-cap
+   * FIFO eviction — which shifts the oldest entries off `historicRuns` — can
+   * never move the reported creation time forward. `null` until the first run
+   * lands. Mirrors the `messagesSnapshot` thread-level decoupling.
+   */
+  createdAt: number | null = null;
 }
 
-const GLOBAL_STORE = new Map<string, InMemoryEventStore>();
+export class ɵBoundedThreadStore {
+  private readonly map = new Map<string, InMemoryEventStore>();
+  private totalBytes = 0;
+  private warned = false;
+  /** True once limits have been EXPLICITLY set (via setLimits), not just the constructor default. */
+  private limitsExplicitlySet = false;
+  /** Warn-once latch for the clobber warning, kept distinct from the eviction `warned` latch. */
+  private clobberWarned = false;
+
+  private limits: Required<InMemoryLimits>;
+
+  constructor(limits: Required<InMemoryLimits>) {
+    // Normalize once at construction so `this.limits` is ALWAYS well-formed,
+    // regardless of entry point (direct construction or a later `setLimits`).
+    this.limits = ɵnormalizeLimits(limits);
+  }
+
+  get byteTotal(): number {
+    return this.totalBytes;
+  }
+
+  /**
+   * The store's CURRENT effective bounds. Exposed (with the `ɵ` internal-API
+   * prefix) so a partial `setLimits` can coalesce unspecified fields against the
+   * live config rather than the hardcoded {@link ɵINMEMORY_DEFAULTS} — a partial
+   * update must be a partial update, never a silent reset of the fields the
+   * caller did not mention. Returns a copy so callers cannot mutate the store's
+   * bounds through it.
+   */
+  get ɵlimits(): Required<InMemoryLimits> {
+    return { ...this.limits };
+  }
+
+  /**
+   * Reconfigure the process-global store's bounds. Called by the
+   * {@link InMemoryAgentRunner} constructor when limits are passed. Because the
+   * store is a per-process singleton, this replaces the bounds for ALL in-memory
+   * threads. Emits {@link LIMITS_CLOBBER_GUIDANCE} at most ONCE per store when a
+   * SECOND (or later) explicit set arrives whose resolved values differ from the
+   * prior explicit set — i.e. a genuine clobber of an already-customized config.
+   * The first explicit customization (defaults → custom) is the intended
+   * override and never warns; identical re-sets never warn.
+   */
+  setLimits(limits: Required<InMemoryLimits>): void {
+    // Normalize FIRST so invalid fields can never reach an enforcement loop and
+    // so the clobber comparison below is against the EFFECTIVE (clamped) values,
+    // not the raw ones — a typo'd bound that clamps to the current default is not
+    // a genuine clobber and must not warn.
+    const normalized = ɵnormalizeLimits(limits);
+    if (
+      this.limitsExplicitlySet &&
+      !this.clobberWarned &&
+      (normalized.maxThreads !== this.limits.maxThreads ||
+        normalized.maxRunsPerThread !== this.limits.maxRunsPerThread ||
+        normalized.maxBytes !== this.limits.maxBytes)
+    ) {
+      this.clobberWarned = true;
+      try {
+        console.warn(LIMITS_CLOBBER_GUIDANCE);
+      } catch {
+        // best-effort: logging must never break construction
+      }
+    }
+    this.limitsExplicitlySet = true;
+    this.limits = normalized;
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+
+  /** Re-insert at the tail so Map iteration order stays LRU-first. */
+  private touchOrder(threadId: string, store: InMemoryEventStore): void {
+    this.map.delete(threadId);
+    this.map.set(threadId, store);
+  }
+
+  getOrCreate(threadId: string): InMemoryEventStore {
+    const existing = this.map.get(threadId);
+    if (existing) {
+      this.touchOrder(threadId, existing);
+      return existing;
+    }
+    const store = new InMemoryEventStore(threadId);
+    this.map.set(threadId, store);
+    this.evictThreadsIfNeeded(threadId);
+    return store;
+  }
+
+  get(
+    threadId: string,
+    opts: { touch: boolean },
+  ): InMemoryEventStore | undefined {
+    const store = this.map.get(threadId);
+    if (store && opts.touch) this.touchOrder(threadId, store);
+    return store;
+  }
+
+  peek(threadId: string): InMemoryEventStore | undefined {
+    return this.map.get(threadId);
+  }
+
+  /**
+   * Evict the least-recently-used thread that is neither running NOR
+   * mid-finalization. Returns false if none evictable. The `protect` thread
+   * (typically the one just created) is never evicted, so a fresh thread is not
+   * immediately dropped when it is the only non-running candidate.
+   *
+   * A thread is skipped while `isRunning` OR `stopRequested` is set.
+   * `stop()` flips `isRunning` to false the moment it aborts the agent, but the
+   * run keeps finalizing asynchronously (the abort trips the `catch` in
+   * `runAgent`, which later calls `appendRun`). During that window
+   * `stopRequested` stays true; evicting the thread then would make the pending
+   * `appendRun` hit `if (!store) return` and silently drop the aborted run's
+   * history. Guarding on `stopRequested` keeps the thread alive until
+   * finalization completes.
+   */
+  private evictOneLru(protect?: string): boolean {
+    for (const [threadId, store] of this.map) {
+      if (threadId === protect) continue; // never evict the just-created thread
+      // never evict a running or still-finalizing (stop-requested) thread
+      if (store.isRunning || store.stopRequested) continue;
+      this.removeThread(threadId, store);
+      this.noteEviction();
+      return true;
+    }
+    return false;
+  }
+
+  appendRun(threadId: string, run: HistoricRun): void {
+    const store = this.map.get(threadId);
+    if (!store) return; // best-effort: nothing to append to
+
+    // Thread-level creation timestamp: capture the FIRST run's createdAt once
+    // and never overwrite it. Held on the store (not derived from
+    // `historicRuns[0]`) so run-cap FIFO eviction of the oldest runs cannot
+    // drift the thread's reported creation time forward. Mirrors the
+    // thread-level `messagesSnapshot` decoupling below.
+    if (store.createdAt === null) {
+      store.createdAt = run.createdAt;
+    }
+
+    // Thread-level message snapshot: keep the single latest NON-EMPTY snapshot
+    // on the store, decoupled from `historicRuns`. When the incoming run
+    // carries a non-empty snapshot, replace the thread's snapshot (adjusting
+    // byte accounting). When it's empty (non-array `agent.messages` or an
+    // error-path run), leave the existing thread snapshot untouched so history
+    // is never lost. The snapshot never lives on a HistoricRun, so run-cap FIFO
+    // eviction can never drop it and an interleaved empty run can never pin it.
+    if (run.messages.length > 0) {
+      this.totalBytes -= store.approxMessagesSnapshotBytes;
+      // Store the incoming array directly (SHALLOW, array-level copy). `run.messages`
+      // is already a fresh `[...agent.messages]` array created in run(), so we own the
+      // array and it is decoupled from `agent.messages` at the array level (push/splice
+      // on the agent's array cannot mutate our snapshot). We deliberately do NOT deep-copy
+      // here: `structuredClone` throws DataCloneError on a non-cloneable message field,
+      // which would wedge the thread and hang SSE — inconsistent with `ɵestimateBytes`,
+      // which tolerates the same bad-payload class. The tradeoff is that the inner
+      // `Message` objects remain shared by reference with `agent.messages`, so an agent
+      // that mutates its own message objects IN PLACE after the run can still be observed
+      // through this snapshot. That inner-object isolation is a known limitation tracked as
+      // follow-up; callers must treat returned messages as read-only. Estimate bytes on the
+      // same value so accounting matches exactly what is retained.
+      store.messagesSnapshot = run.messages;
+      store.approxMessagesSnapshotBytes = ɵestimateBytes(run.messages);
+      this.totalBytes += store.approxMessagesSnapshotBytes;
+    }
+
+    // Do not carry message bytes on the HistoricRun: the snapshot is now tracked
+    // at the thread level, so historicRuns must never account message bytes.
+    run.messages = [];
+    run.approxMessageBytes = 0;
+
+    // Compute this run's approximate event size once, at append time.
+    run.approxEventBytes = ɵestimateBytes(run.events);
+    store.historicRuns.push(run);
+    this.totalBytes += run.approxEventBytes;
+    this.touchOrder(threadId, store);
+
+    this.enforceRunCap(store);
+    this.evictByBytesIfNeeded(threadId);
+  }
+
+  private enforceRunCap(store: InMemoryEventStore): void {
+    const cap = this.limits.maxRunsPerThread;
+    if (!cap || cap === Infinity) return; // 0 or Infinity → disabled
+    while (store.historicRuns.length > cap) {
+      const dropped = store.historicRuns.shift()!;
+      // Only event bytes live on a HistoricRun; the message snapshot is tracked
+      // at the thread level and survives run-cap eviction.
+      this.totalBytes -= dropped.approxEventBytes ?? 0;
+      // Per-thread run-cap trimming is also eviction — history is being dropped.
+      // Route it through the SAME warn-once latch as whole-thread LRU eviction so
+      // this shows up in logs rather than as silent data loss. `noteEviction` is
+      // latched (one warning per store, reset by `clear()`), so a hot thread that
+      // trims on every subsequent append warns once, never per dropped run. The
+      // loop only runs when a run is ACTUALLY over the cap, so a disabled or
+      // under-cap `enforceRunCap` stays silent (it returned / never entered here).
+      this.noteEviction();
+    }
+  }
+
+  /**
+   * Trim the store back under the byte ceiling by evicting LRU non-running
+   * threads. `protect` (the just-appended thread) is never self-evicted, so a
+   * fresh run pushes OTHER threads out rather than dropping itself.
+   */
+  private evictByBytesIfNeeded(protect?: string): void {
+    while (this.totalBytes > this.limits.maxBytes) {
+      if (!this.evictOneLru(protect)) break; // only protected/running threads left → accept overage
+    }
+  }
+
+  private removeThread(threadId: string, store: InMemoryEventStore): void {
+    for (const run of store.historicRuns) {
+      this.totalBytes -= run.approxEventBytes ?? 0;
+    }
+    // The thread's message snapshot is tracked at the store level, so it must
+    // be reclaimed here in addition to the per-run event bytes.
+    this.totalBytes -= store.approxMessagesSnapshotBytes;
+    this.map.delete(threadId);
+  }
+
+  private evictThreadsIfNeeded(protect?: string): void {
+    while (this.map.size > this.limits.maxThreads) {
+      if (!this.evictOneLru(protect)) break; // everything evictable is running → accept overage
+    }
+  }
+
+  private noteEviction(): void {
+    if (this.warned) return;
+    this.warned = true;
+    try {
+      console.warn(EVICTION_GUIDANCE);
+    } catch {
+      // best-effort: logging must never break a run
+    }
+  }
+
+  listThreads(): InMemoryThread[] {
+    const threads: InMemoryThread[] = [];
+    for (const [threadId, store] of this.map) {
+      if (store.historicRuns.length === 0) continue;
+      const lastRun = store.historicRuns[store.historicRuns.length - 1]!;
+      // Creation time comes from the thread-level `store.createdAt` (the first
+      // run ever appended), NOT `historicRuns[0]` (the oldest RETAINED run):
+      // run-cap FIFO eviction drops the oldest retained runs, so deriving it
+      // from `historicRuns[0]` would silently drift the timestamp forward over
+      // a thread's lifetime. `updatedAt` stays on `lastRun` because FIFO
+      // eviction removes from the FRONT, so the newest run is never evicted.
+      // The `?? lastRun.createdAt` fallback is defensive only: any thread with
+      // runs has had `store.createdAt` set by `appendRun`.
+      threads.push({
+        id: threadId,
+        name: null,
+        agentId: lastRun.agentId,
+        organizationId: "",
+        createdById: "",
+        archived: false,
+        createdAt: new Date(store.createdAt ?? lastRun.createdAt).toISOString(),
+        updatedAt: new Date(lastRun.createdAt).toISOString(),
+      });
+    }
+    return threads.sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }
+
+  clear(): void {
+    this.map.clear();
+    this.totalBytes = 0;
+    this.warned = false;
+  }
+}
+
+/**
+ * Process-wide singleton backing every {@link InMemoryAgentRunner}. Exported
+ * (with the `ɵ` internal-API prefix) so tests can inspect the exact store the
+ * runner writes to; not part of the public API.
+ */
+export const ɵGLOBAL_STORE = new ɵBoundedThreadStore(ɵINMEMORY_DEFAULTS);
+const sharedStore = ɵGLOBAL_STORE;
 
 export class InMemoryAgentRunner extends AgentRunner {
   readonly ɵsupportsLocalThreadEndpoints = true;
