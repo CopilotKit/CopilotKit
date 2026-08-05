@@ -17,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={"antialiased"}>
+      <body suppressHydrationWarning className={"antialiased"}>
         <CopilotKit runtimeUrl="/api/copilotkit" agent="default">
           {children}
         </CopilotKit>

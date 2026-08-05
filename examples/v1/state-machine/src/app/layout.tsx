@@ -12,7 +12,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body suppressHydrationWarning>
         <CopilotKit runtimeUrl="/api/copilotkit" showDevConsole={false}>
           <GlobalStateProvider>
             <div className="h-screen w-screen grid grid-cols-[40fr,60fr] p-10 gap-5">

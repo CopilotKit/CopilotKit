@@ -169,7 +169,7 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     export default function RootLayout({ children }: {children: React.ReactNode}) {
         return (
             <html lang="en">
-                <body>
+                <body suppressHydrationWarning>
                     {/* [!code highlight:3] */}
                     <CopilotKit runtimeUrl="/api/copilotkit">
                         {children}

@@ -58,7 +58,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <body suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>
@@ -310,7 +310,7 @@ Wrong:
 
 ```tsx
 <html>
-  <body>
+  <body suppressHydrationWarning>
     <Header>{/* Header uses useFrontendTool internally */}</Header>
     <CopilotKit>{children}</CopilotKit>
   </body>
@@ -321,7 +321,7 @@ Correct:
 
 ```tsx
 <html>
-  <body>
+  <body suppressHydrationWarning>
     <CopilotKit>
       <Header />
       {children}

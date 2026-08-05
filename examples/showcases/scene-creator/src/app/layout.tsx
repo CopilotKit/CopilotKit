@@ -23,6 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
+        suppressHydrationWarning
         className={`${spaceMono.className} antialiased bg-[var(--bg-primary)] text-[var(--fg-primary)]`}
       >
         <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">

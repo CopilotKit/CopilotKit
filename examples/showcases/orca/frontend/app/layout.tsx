@@ -24,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body suppressHydrationWarning className={inter.className}>
         <CopilotKit runtimeUrl="/api/copilotkit">
           <ThemeProvider
             attribute="class"

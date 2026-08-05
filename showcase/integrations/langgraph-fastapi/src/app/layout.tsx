@@ -14,7 +14,7 @@ export default function RootLayout({
   const isProd = process.env.NODE_ENV === "production";
   return (
     <html lang="en">
-      <body>
+      <body suppressHydrationWarning>
         {isProd && (
           <script
             dangerouslySetInnerHTML={{

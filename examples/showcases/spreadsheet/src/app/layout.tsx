@@ -18,7 +18,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <ThemeProvider>
-        <body style={{ backgroundColor: "white" }} className={inter.className}>
+        <body
+          suppressHydrationWarning
+          style={{ backgroundColor: "white" }}
+          className={inter.className}
+        >
           {children}
         </body>
       </ThemeProvider>

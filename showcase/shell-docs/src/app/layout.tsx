@@ -165,7 +165,7 @@ export default function RootLayout({
           />
         ) : null}
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <AnalyticsClient />
         {/* No <Suspense> wrapper around the page tree. Previously this
          * was wrapped in a Suspense with a null fallback, which caused

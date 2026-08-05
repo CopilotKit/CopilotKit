@@ -103,6 +103,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>

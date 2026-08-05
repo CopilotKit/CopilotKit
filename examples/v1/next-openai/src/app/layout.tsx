@@ -11,7 +11,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="bg-zinc-900">
-      <body>
+      <body suppressHydrationWarning>
         <Suspense fallback={<div>Loading...</div>}>
           {children}
           <ServiceAdapterSelector />

@@ -2,7 +2,7 @@
 
 import { CopilotKit } from "@copilotkit/react-core";
 import "@copilotkit/react-ui/styles.css";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /**
  * Preview Layout
@@ -13,7 +13,7 @@ import { ReactNode } from "react";
 export default function PreviewLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body suppressHydrationWarning>
         <CopilotKit runtimeUrl="/api/copilotkit-preview" agent="sample_agent">
           {children}
         </CopilotKit>

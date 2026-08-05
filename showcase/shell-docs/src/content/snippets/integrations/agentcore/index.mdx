@@ -286,7 +286,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         export default function RootLayout({ children }: { children: React.ReactNode }) {
           return (
             <html lang="en">
-              <body>
+              <body suppressHydrationWarning>
                 <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
                   {children}
                 </CopilotKit>
