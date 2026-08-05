@@ -642,7 +642,12 @@ If a delegation's \`status\` field is \`"failed"\`, treat it as a real error: do
 export const mcpAppsAgent = new Agent({
   id: "mcp-apps-agent",
   name: "MCP Apps Agent",
-  model: openai("gpt-4o-mini"),
+  // `create_view` takes `elements` as a *stringified* JSON array, so the model has
+  // to hand-escape nested JSON. gpt-4o-mini gets this wrong on roughly two thirds
+  // of diagrams (it appends a stray `}` past the closing `]`), the MCP server
+  // rejects the payload, and the cell renders an empty iframe. Keep a model that
+  // emits valid double-encoded JSON.
+  model: openai("gpt-4.1"),
   instructions: `You draw simple diagrams in Excalidraw via the MCP tool.
 
 SPEED MATTERS. Produce a correct-enough diagram fast; do not optimize for polish. Target: one tool call, done in seconds.
