@@ -46,10 +46,21 @@ services. Durable cross-thread memory is env-gated (Intelligence mode); see
 
 ## Switching skins
 
-Use the **floating selector** at the bottom-left of any page — it lists every
-registered skin and navigates to `/<id>` client-side (instant, no reload). Each
-skin starts in its own fresh thread. You can also go straight to `/banking` or
-`/airline`.
+Use the **skin switcher** — a dropdown at the top of the assistant column, in
+the selector card — it lists every registered skin and navigates to `/<id>`
+client-side (instant, no reload). Each skin starts in its own fresh thread. You
+can also go straight to `/banking` or `/airline`.
+
+### Pinning a deploy to one skin
+
+Set `LOCK_SKIN` to a skin id (`banking`, `airline`, `logistics`, `keel`) and the
+deploy becomes single-tenant: `/` lands on that skin, every other skin route
+404s, and the switcher collapses to a static brand badge. Unset — the default —
+all four stay reachable.
+
+Use it for a URL that goes to one prospect, one booth, or one pilot, so the app
+reads as a product rather than as a four-tenant demo harness. An unrecognised id
+throws at boot rather than silently 404ing every page. See `.env.example`.
 
 ## Adding a skin
 

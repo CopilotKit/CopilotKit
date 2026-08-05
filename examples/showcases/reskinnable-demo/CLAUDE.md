@@ -106,9 +106,11 @@ browser. So:
   - `src/shell/agent-registry.ts` — the **server** `agentRegistry` map (imports
     only server-safe modules). Kept separate so the API route never pulls
     client-only code server-side.
-- `src/shell/skins-config.ts` holds `defaultSkinId` as pure config (no skin
-  imports), so the server-component `/` redirect can read it without dragging
-  client skin modules into an RSC.
+- `src/shell/skins-config.ts` holds `defaultSkinId` and `skinIds` as pure config
+  (no skin imports), so the server-component `/` redirect and the `LOCK_SKIN`
+  validator can read them without dragging client skin modules into an RSC.
+  `skinIds` duplicates the registry's keys on purpose; `skins-config.test.ts` is
+  the drift guard.
 
 ### Per-skin server identity (`agentRegistry`)
 
@@ -151,11 +153,20 @@ export type IdentifyRunUser = (
 
 ## Routing and provider composition
 
-- `src/app/page.tsx` — server component; redirects `/` to `/${defaultSkinId}`.
+- `src/app/page.tsx` — server component; redirects `/` to the active skin —
+  `LOCK_SKIN` when set, else `/${defaultSkinId}`.
 - `src/app/[skin]/layout.tsx` — resolves the skin from the URL via `getSkin`; a
-  404 if unknown. It mounts the per-skin runtime subtree **keyed by `skin.id`**,
-  so switching skins fully remounts the CopilotKit provider and starts a fresh
-  thread — each skin runs in its own clean world. Composition, outside-in:
+  404 if unknown, and also a 404 if `LOCK_SKIN` pins the deploy to a different
+  skin (`isSkinLockedOut`). Under a lock the other three skins are as absent as a
+  nonsense segment — deliberately uniform 404 semantics, and the reason this
+  needs no middleware: `notFound()` throws before `SkinRuntime` renders, so this
+  client path never mounts a provider, a thread, or an agent registration for a
+  disowned skin. (The server-side agent registry is unaffected — `LOCK_SKIN`
+  gates the UI, not the registry.)
+  For a reachable skin, the layout mounts the per-skin runtime subtree **keyed
+  by `skin.id`**, so switching skins fully remounts the CopilotKit provider and
+  starts a fresh thread — each skin runs in its own clean world. Composition,
+  outside-in:
   `<div className={skin.themeClass}>` → `FaviconSync` (renders
   `identity.favicon`) → the skin's optional `RuntimeProviders` (mounted **above**
   the provider, so `useRuntimeProperties` can read its context) →
@@ -216,7 +227,10 @@ Things worth knowing before changing any of it:
   declarations in `node_modules` as the authority over any doc site.
 - **Shell controls live in the selector card** — skin switcher, swap sides, hide.
   The chat header holds only conversation actions. Collapsing hides the whole
-  column, selector included, and a launcher restores it.
+  column, selector included, and a launcher restores it. On a `LOCK_SKIN` deploy
+  the switcher becomes a static brand badge (`skin-brand-locked`) while swap and
+  hide stay — a disabled dropdown was rejected as implying a choice that does not
+  exist.
 - **`.nw-panel-card` is a fixed 12px radius in px** and deliberately does not read
   `--radius`: the frame is shell chrome and must read identically in every skin.
   Card colours stay themed, so a reskin still restyles the frame.
