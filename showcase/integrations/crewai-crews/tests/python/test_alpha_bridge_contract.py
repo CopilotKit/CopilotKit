@@ -32,3 +32,21 @@ def test_alpha_stack_and_native_surface(monkeypatch, tmp_path):
     assert capabilities["transport"]["streamFrames"] is True
     assert capabilities["wireShape"]["emissionShape"] == "triples"
     assert capabilities["reasoning"]["supported"] is True
+
+
+def test_preseed_system_prompt_uses_crewai_1x_chat_inputs():
+    import ag_ui_crewai.crews as bridge_crews
+
+    from agents._chat_flow_helpers import preseed_system_prompt
+
+    crew_name = "alpha_contract_prompt"
+    description = "Use this exact showcase system prompt."
+    preseed_system_prompt(crew_name, description)
+
+    chat_inputs = bridge_crews.crew_chat_generate_crew_chat_inputs(
+        object(), crew_name, object()
+    )
+
+    assert chat_inputs.crew_name == crew_name
+    assert chat_inputs.crew_description == description
+    assert chat_inputs.inputs == []
