@@ -4,6 +4,7 @@ WORKDIR /repo
 RUN corepack enable
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .pnpmfile.cjs ./
+COPY patches ./patches
 COPY showcase/harness/package.json ./showcase/harness/package.json
 # Copy every workspace package.json manifest (but NOT source / node_modules).
 # The version-drift probe's pnpm-packages discovery source parses these at
