@@ -122,21 +122,16 @@ Side-effect-import `./theme.css` here so the block loads when the skin mounts.
 Style with the shared semantic utilities (`bg-canvas`, `text-ink`,
 `border-hairline`, `bg-surface`, `text-brand`, …) so the skin reskins with the
 theme. Read the active skin via `useSkin()`. Mirror `src/skins/logistics/layout.tsx`
-— it is the debugged reference for the three non-obvious things this chrome MUST
+— it is the debugged reference for the two non-obvious things this chrome MUST
 get right:
 
-- **Root is `h-screen overflow-hidden`, not `min-h-screen`, and the `<aside>` is
-  `h-full`.** `min-h-screen` is a MINIMUM: on a page taller than the viewport the
-  container grows, the whole document scrolls, and the nav scrolls away with it —
-  and `<main>`'s own `overflow-y-auto` goes inert because its parent is
-  unbounded. `h-screen overflow-hidden` pins the shell to exactly one viewport so
-  `<main>` scrolls INSIDE it.
-- **Publish the nav insets.** The `useEffect` below tells the shell how wide this
-  skin's nav is via `--nw-nav-inset-left` / `--nw-nav-inset-right` on
-  `document.documentElement`, so the shell's floating skin selector docks in the
-  content band instead of landing on top of your nav. It MUST remove both on
-  cleanup — a missing cleanup leaks the inset into whatever skin the user
-  switches to next.
+- **Root is `h-full overflow-hidden` — not `h-screen`, not `min-h-screen` — and the
+  `<aside>` is `h-full`.** This chrome fills the shell's app CARD, which the frame
+  has already inset by its own padding, so a viewport-height root overflows the card
+  by that padding. It must still be BOUNDED: if the container can grow past the card
+  the whole document scrolls, the nav scrolls away with it, and `<main>`'s own
+  `overflow-y-auto` goes inert because its parent is unbounded. `h-full
+overflow-hidden` bounds it to the card so `<main>` scrolls INSIDE it.
 - **The meta-utility strip is skin-authored chrome, not shell-provided.** A new
   skin gets no Reset / theme toggle / Help for free — you add them here (see the
   `mt-auto` group). Details in SKILL.md § "The meta-utility strip".
@@ -144,7 +139,6 @@ get right:
 ```tsx
 "use client";
 import "./theme.css"; // side-effect import registers the .theme-<id> block
-import { useEffect } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -177,22 +171,11 @@ export function <Id>Layout({ children }: { children: ReactNode }) {
     }
   };
 
-  // Publish the nav insets so the shell's floating selector never docks on top of
-  // this nav. Remove BOTH on cleanup, or the inset leaks into the next skin.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--nw-nav-inset-left", `${SIDEBAR_WIDTH_PX}px`);
-    root.style.setProperty("--nw-nav-inset-right", "0px");
-    return () => {
-      root.style.removeProperty("--nw-nav-inset-left");
-      root.style.removeProperty("--nw-nav-inset-right");
-    };
-  }, []);
-
   return (
-    // h-screen + overflow-hidden (NOT min-h-screen): the shell is exactly one
-    // viewport tall so the nav stays pinned and <main> scrolls INSIDE it.
-    <div className="flex h-screen overflow-hidden bg-canvas text-ink">
+    // h-full + overflow-hidden (NOT h-screen / min-h-screen): this chrome fills the
+    // shell's app CARD, which is already inset by the frame's padding. Bounded to
+    // the card so the nav stays pinned and <main> scrolls INSIDE it.
+    <div className="flex h-full overflow-hidden bg-canvas text-ink">
       <aside
         className="hidden h-full shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5 md:flex"
         style={{ width: SIDEBAR_WIDTH_PX }}
