@@ -563,18 +563,51 @@ export class InMemoryAgentRunner extends AgentRunner {
    */
   private readonly onConcurrentRun: "throw" | "supersede";
 
-  constructor(options?: { onConcurrentRun?: "throw" | "supersede" }) {
+  /**
+   * @param options Per-runner behavior (`onConcurrentRun`) plus optional bounds
+   * for the in-memory store ({@link InMemoryLimits}).
+   *
+   * Note the differing scopes: `onConcurrentRun` is per-runner instance, while
+   * the limits reconfigure the PROCESS-GLOBAL store shared by every
+   * `InMemoryAgentRunner`. Omit the limits for safe defaults
+   * ({@link ɵINMEMORY_DEFAULTS}); passing none leaves the store untouched. When
+   * multiple runners are constructed with differing limits, the last-constructed
+   * wins — in practice the OSS/SSE default construction passes nothing. If a
+   * second (or later) runner is constructed with limits that DIFFER from an
+   * already-customized store, a one-time `console.warn` is emitted to signal that
+   * the shared store's bounds are being clobbered for ALL in-memory threads.
+   */
+  constructor(options?: InMemoryAgentRunnerOptions) {
     super();
-    this.onConcurrentRun = options?.onConcurrentRun ?? "throw";
+    const { onConcurrentRun, ...limits } = options ?? {};
+    this.onConcurrentRun = onConcurrentRun ?? "throw";
+
+    // Only reconfigure the shared store when a bound was actually supplied.
+    // `new InMemoryAgentRunner({ onConcurrentRun: "supersede" })` must stay
+    // inert with respect to limits.
+    if (
+      limits.maxThreads !== undefined ||
+      limits.maxRunsPerThread !== undefined ||
+      limits.maxBytes !== undefined
+    ) {
+      // Coalesce each unspecified field against the store's CURRENT effective
+      // limits, NOT ɵINMEMORY_DEFAULTS. The store is process-global, so tuning
+      // one bound must leave every previously-customized sibling bound intact —
+      // a partial update stays a partial update instead of silently resetting the
+      // fields the caller never mentioned. Passing all three (e.g.
+      // ɵINMEMORY_DEFAULTS) still fully replaces the config, so the defaults-
+      // restore path is unaffected.
+      const current = sharedStore.ɵlimits;
+      sharedStore.setLimits({
+        maxThreads: limits.maxThreads ?? current.maxThreads,
+        maxRunsPerThread: limits.maxRunsPerThread ?? current.maxRunsPerThread,
+        maxBytes: limits.maxBytes ?? current.maxBytes,
+      });
+    }
   }
 
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
-    let existingStore = GLOBAL_STORE.get(request.threadId);
-    if (!existingStore) {
-      existingStore = new InMemoryEventStore(request.threadId);
-      GLOBAL_STORE.set(request.threadId, existingStore);
-    }
-    const store = existingStore; // Now store is const and non-null
+    const store = sharedStore.getOrCreate(request.threadId);
 
     if (store.isRunning) {
       if (this.onConcurrentRun !== "supersede") {
@@ -794,7 +827,7 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
-    const store = GLOBAL_STORE.get(request.threadId);
+    const store = sharedStore.get(request.threadId, { touch: true });
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
 
     if (!store) {
@@ -847,12 +880,12 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   isRunning(request: AgentRunnerIsRunningRequest): Promise<boolean> {
-    const store = GLOBAL_STORE.get(request.threadId);
+    const store = sharedStore.peek(request.threadId);
     return Promise.resolve(store?.isRunning ?? false);
   }
 
   stop(request: AgentRunnerStopRequest): Promise<boolean | undefined> {
-    const store = GLOBAL_STORE.get(request.threadId);
+    const store = sharedStore.peek(request.threadId);
     if (!store || !store.isRunning) {
       return Promise.resolve(false);
     }
@@ -892,27 +925,7 @@ export class InMemoryAgentRunner extends AgentRunner {
    * `ThreadRecord` so the HTTP handler can use the same response envelope.
    */
   listThreads(): InMemoryThread[] {
-    const threads: InMemoryThread[] = [];
-    for (const [threadId, store] of GLOBAL_STORE) {
-      if (store.historicRuns.length === 0) continue;
-      const firstRun = store.historicRuns[0]!;
-      const lastRun = store.historicRuns[store.historicRuns.length - 1]!;
-      threads.push({
-        id: threadId,
-        name: null,
-        agentId: lastRun.agentId,
-        organizationId: "",
-        createdById: "",
-        archived: false,
-        createdAt: new Date(firstRun.createdAt).toISOString(),
-        updatedAt: new Date(lastRun.createdAt).toISOString(),
-      });
-    }
-    // Most recently updated first
-    return threads.sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
+    return sharedStore.listThreads();
   }
 
   /**
@@ -925,10 +938,22 @@ export class InMemoryAgentRunner extends AgentRunner {
    * with the Intelligence platform's `ThreadMessage` type.
    */
   getThreadMessages(threadId: string): Message[] {
-    const store = GLOBAL_STORE.get(threadId);
-    if (!store || store.historicRuns.length === 0) return [];
-    // The last run's snapshot has the complete conversation history
-    return store.historicRuns[store.historicRuns.length - 1]!.messages;
+    const store = sharedStore.peek(threadId);
+    if (!store) return [];
+    // The thread's latest non-empty snapshot is held at the store level,
+    // independent of `historicRuns` lifecycle, so run-cap eviction and
+    // interleaved empty-snapshot runs can never lose it. Return a SHALLOW
+    // (array-level) copy: a fresh array so a caller mutating array STRUCTURE
+    // (push/splice/reassign elements) cannot affect the stored snapshot. We
+    // deliberately do NOT deep-copy: `structuredClone` throws DataCloneError on a
+    // non-cloneable message field, which would wedge the thread and hang SSE —
+    // inconsistent with `ɵestimateBytes`, which tolerates the same bad-payload class.
+    // The tradeoff is that the inner `Message` objects remain shared by reference with
+    // the stored snapshot, so mutating a returned message's FIELD
+    // (e.g. `getThreadMessages(t)[0].content = "x"`) is NOT isolated and would corrupt
+    // the stored snapshot. That inner-object isolation is a known limitation tracked as
+    // follow-up; callers must treat returned messages as read-only.
+    return [...store.messagesSnapshot];
   }
 
   /**
@@ -940,7 +965,7 @@ export class InMemoryAgentRunner extends AgentRunner {
    * late-joining inspector sees matches what this method returns.
    */
   getThreadEvents(threadId: string): BaseEvent[] {
-    const store = GLOBAL_STORE.get(threadId);
+    const store = sharedStore.peek(threadId);
     if (!store || store.historicRuns.length === 0) return [];
     const all: BaseEvent[] = [];
     for (const run of store.historicRuns) all.push(...run.events);
@@ -964,8 +989,18 @@ export class InMemoryAgentRunner extends AgentRunner {
       const event = events[i]!;
       if (event.type === EventType.STATE_SNAPSHOT) {
         const snapshot = (event as StateSnapshotEvent).snapshot;
-        if (snapshot && typeof snapshot === "object") {
-          return snapshot as Record<string, unknown>;
+        // Only plain objects satisfy the Record<string, unknown> contract.
+        // `typeof [] === "object"` is true, so arrays must be rejected
+        // explicitly to avoid returning an array typed as a Record.
+        if (
+          snapshot &&
+          typeof snapshot === "object" &&
+          !Array.isArray(snapshot)
+        ) {
+          // Return a defensive shallow copy so callers can't mutate the
+          // snapshot object held inside the stored event (matches the
+          // getThreadMessages defensive-copy approach).
+          return { ...(snapshot as Record<string, unknown>) };
         }
         return null;
       }
@@ -983,6 +1018,6 @@ export class InMemoryAgentRunner extends AgentRunner {
    * not be wiped this way.
    */
   clearThreads(): void {
-    GLOBAL_STORE.clear();
+    sharedStore.clear();
   }
 }
