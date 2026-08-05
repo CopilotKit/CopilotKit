@@ -335,6 +335,125 @@ describe("DiscordAdapter", () => {
     errSpy.mockRestore();
   });
 
+  it("opens a one-field modal immediately for a portable input control", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    await a.start(s as never);
+    const showModal = vi.fn(async (_modal: unknown) => undefined);
+    const interaction = {
+      isButton: () => true,
+      isStringSelectMenu: () => false,
+      isModalSubmit: () => false,
+      id: "int-input",
+      customId: "ck-input:ck:input-action:1",
+      channelId: "c1",
+      guildId: "g1",
+      user: { id: "u1", username: "ada" },
+      message: { id: "m1" },
+      component: { label: "Write a summary" },
+      showModal,
+      deferUpdate: vi.fn(async () => undefined),
+    };
+
+    client.emit("interactionCreate", interaction);
+    for (let index = 0; index < 5; index++) await Promise.resolve();
+
+    expect(showModal).toHaveBeenCalledTimes(1);
+    expect(
+      (showModal.mock.calls[0]![0] as { toJSON(): unknown }).toJSON(),
+    ).toEqual({
+      custom_id: "ck-input-modal:ck:input-action",
+      title: "Enter response",
+      components: [
+        {
+          type: 1,
+          components: [
+            expect.objectContaining({
+              type: 4,
+              custom_id: "value",
+              label: "Write a summary",
+              style: 2,
+              required: true,
+            }),
+          ],
+        },
+      ],
+    });
+    expect(s.onInteraction).not.toHaveBeenCalled();
+    expect(interaction.deferUpdate).not.toHaveBeenCalled();
+  });
+
+  it("dispatches a portable input modal value through its original action", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    await a.start(s as never);
+    const deferUpdate = vi.fn(async () => undefined);
+    const interaction = fakeModalSubmit({
+      id: "submit-input",
+      customId: "ck-input-modal:ck:input-action",
+      fields: {
+        fields: new Map([["value", { customId: "value", value: "Ship it" }]]),
+      },
+      isFromMessage: () => true,
+      deferUpdate,
+      deferReply: vi.fn(async () => undefined),
+    });
+
+    client.emit("interactionCreate", interaction);
+    for (let index = 0; index < 5; index++) await Promise.resolve();
+
+    expect(s.onInteraction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "ck:input-action",
+        value: "Ship it",
+        conversationKey: "c1",
+        actor: expect.objectContaining({ id: "u1" }),
+      }),
+    );
+    expect(s.onModalSubmit).not.toHaveBeenCalled();
+    expect(deferUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a short ephemeral error when a portable input action expired", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    s.onInteraction.mockRejectedValue(new Error("action expired"));
+    await a.start(s as never);
+    const followUp = vi.fn(async (_payload: unknown) => undefined);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const interaction = fakeModalSubmit({
+      id: "submit-expired-input",
+      customId: "ck-input-modal:ck:expired",
+      fields: {
+        fields: new Map([["value", { customId: "value", value: "Too late" }]]),
+      },
+      isFromMessage: () => true,
+      deferUpdate: vi.fn(async () => undefined),
+      followUp,
+    });
+
+    client.emit("interactionCreate", interaction);
+    for (let index = 0; index < 8; index++) await Promise.resolve();
+
+    expect(followUp).toHaveBeenCalledWith({
+      content: "This input is no longer available. Run the action again.",
+      flags: MessageFlags.Ephemeral,
+    });
+    errSpy.mockRestore();
+  });
+
   // A modal opened from a slash command yields a ModalSubmitInteraction with
   // no originating message — `deferUpdate()` is invalid there and throws. The
   // ack must use `deferReply` (ephemeral) for that origin, and must never throw

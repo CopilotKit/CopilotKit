@@ -214,6 +214,37 @@ describe("renderComponents", () => {
     expect(select.min_values).toBe(0);
   });
 
+  it.each([
+    ["placeholder", { placeholder: "Write a summary", name: "summary" }],
+    ["name", { name: "summary" }],
+    ["default", {}],
+  ])("renders a portable input button labeled from %s", (_source, props) => {
+    const json = renderComponents([
+      node("input", {
+        ...props,
+        multiline: true,
+        onSubmit: { id: "ck:input-action" },
+      }),
+    ]).toJSON();
+    const row = json.components.find(
+      (component: any) => component.type === ComponentType.ActionRow,
+    ) as any;
+
+    expect(row.components[0]).toEqual(
+      expect.objectContaining({
+        type: ComponentType.Button,
+        label:
+          _source === "placeholder"
+            ? "Write a summary"
+            : _source === "name"
+              ? "summary"
+              : "Enter response",
+        style: ButtonStyle.Primary,
+        custom_id: "ck-input:ck:input-action:1",
+      }),
+    );
+  });
+
   it("chunks more than 5 buttons into multiple action rows", () => {
     const buttons = Array.from({ length: 7 }, (_, i) =>
       node("button", { children: text(`b${i}`), onClick: { id: `ck:${i}` } }),

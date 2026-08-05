@@ -33,6 +33,7 @@ import type {
   DiscordAttachmentDescriptor,
   DiscordChartInput,
 } from "./chart.js";
+import { encodePortableInputControl } from "../portable-input.js";
 
 /**
  * Running totals enforced across a single message render. Discord rejects the
@@ -47,9 +48,6 @@ interface RenderBudget {
 }
 
 const OVERFLOW_TEXT = "_…content truncated_";
-
-/** Guards one-time warnings so they don't fire on every render. */
-let warnedInputSkipped = false;
 
 /** True once the message is full; callers must stop adding components. */
 function budgetFull(budget: RenderBudget): boolean {
@@ -337,14 +335,28 @@ function addNode(
       return;
     }
     case "input": {
-      // Free-standing text inputs are modal-only on Discord; modals are deferred
-      // to a follow-up. Log once and skip (total renderer).
-      if (!warnedInputSkipped) {
-        warnedInputSkipped = true;
-        console.warn(
-          "[bot-discord] <Input> is modal-only; skipped (modals not in v1).",
-        );
+      const actionId = idFromHandler(props.onSubmit);
+      if (!actionId) return;
+      const cost = 2;
+      if (budget.components + cost > DISCORD_LIMITS.componentsPerMessage - 1) {
+        signalOverflow(budget, container);
+        return;
       }
+      const label = truncateText(
+        String(props.placeholder || props.name || "Enter response"),
+        DISCORD_LIMITS.buttonLabel,
+      );
+      budget.components += cost;
+      container.addActionRowComponents(
+        new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId(
+              encodePortableInputControl(actionId, props.multiline === true),
+            )
+            .setLabel(label)
+            .setStyle(ButtonStyle.Primary),
+        ),
+      );
       return;
     }
     default:

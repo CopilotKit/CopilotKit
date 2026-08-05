@@ -39,6 +39,17 @@ export type { ChannelLike } from "./event-renderer.js";
 
 export { decodeInteraction } from "./interaction.js";
 
+export {
+  decodePortableInputControl,
+  decodePortableInputModalAction,
+  DISCORD_INPUT_CONTROL_PREFIX,
+  DISCORD_INPUT_FIELD_ID,
+  DISCORD_INPUT_MODAL_PREFIX,
+  encodePortableInputControl,
+  renderPortableInputModal,
+} from "./portable-input.js";
+export type { DiscordPortableInputControl } from "./portable-input.js";
+
 export { conversationKeyOf } from "./types.js";
 export type { ReplyTarget, IncomingTurn } from "./types.js";
 

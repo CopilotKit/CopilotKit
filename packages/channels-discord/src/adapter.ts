@@ -47,6 +47,12 @@ import {
 import { discordMarkdown } from "./markdown.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 import type { ReplyTarget } from "./types.js";
+import {
+  decodePortableInputControl,
+  decodePortableInputModalAction,
+  DISCORD_INPUT_FIELD_ID,
+  renderPortableInputModal,
+} from "./portable-input.js";
 
 /** Render Discord message JSON and map generated attachments to discord.js files. */
 function renderMessagePayload(ir: ChannelNode[]) {
@@ -304,6 +310,22 @@ export class DiscordAdapter implements PlatformAdapter {
     this.client.on("interactionCreate", async (i: any) => {
       if (typeof i?.isButton !== "function") return;
       if (i.isButton() || i.isStringSelectMenu?.()) {
+        const portableInput = i.isButton()
+          ? decodePortableInputControl(String(i.customId ?? ""))
+          : undefined;
+        if (portableInput) {
+          try {
+            await i.showModal(
+              renderPortableInputModal({
+                ...portableInput,
+                label: String(i.component?.label ?? "Enter response"),
+              }),
+            );
+          } catch (err) {
+            console.error("[bot-discord] portable input modal failed:", err);
+          }
+          return;
+        }
         const triggerId = this.pending.register(i);
         try {
           const evt = this.decodeInteraction(i);
@@ -320,6 +342,44 @@ export class DiscordAdapter implements PlatformAdapter {
         }
         await this.pending.settle(triggerId);
       } else if (i.isModalSubmit?.()) {
+        const portableInputAction = decodePortableInputModalAction(
+          String(i.customId ?? ""),
+        );
+        if (portableInputAction) {
+          const submitted = decodeModalSubmit(i);
+          try {
+            if (!i.replied && !i.deferred) {
+              if (i.isFromMessage?.()) await i.deferUpdate();
+              else await i.deferReply({ flags: MessageFlags.Ephemeral });
+            }
+            await sink.onInteraction({
+              id: portableInputAction,
+              conversationKey: submitted.conversationKey ?? "",
+              replyTarget: submitted.replyTarget ?? {
+                channelId: String(i.channelId ?? ""),
+              },
+              value: submitted.values[DISCORD_INPUT_FIELD_ID],
+              actor: submitted.actor,
+              identityContext: submitted.identityContext,
+              messageRef: i.message?.id
+                ? { id: i.message.id, channelId: String(i.channelId ?? "") }
+                : undefined,
+              triggerId: undefined,
+            });
+          } catch (err) {
+            console.error("[bot-discord] portable input dispatch failed:", err);
+            try {
+              await i.followUp?.({
+                content:
+                  "This input is no longer available. Run the action again.",
+                flags: MessageFlags.Ephemeral,
+              });
+            } catch {
+              // The interaction token expired; the logged error remains actionable.
+            }
+          }
+          return;
+        }
         try {
           await sink.onModalSubmit(decodeModalSubmit(i)); // result ignored — Discord can't re-open with errors
         } catch (err) {
