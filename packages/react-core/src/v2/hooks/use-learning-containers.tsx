@@ -54,7 +54,11 @@ export function useLearningContainers({
   threadId,
   learningContainers,
 }: UseLearningContainersArgs): void {
-  const { copilotkit } = useCopilotKit();
+  const {
+    copilotkit,
+    headers: resolvedHeaders,
+    headersReady = true,
+  } = useCopilotKit();
 
   /**
    * Tracks the last-synced container list so content-identical rerenders
@@ -72,9 +76,13 @@ export function useLearningContainers({
   const runtimeUrlRef = useRef<string | null | undefined>(
     copilotkit.runtimeUrl,
   );
-  const headersRef = useRef<Record<string, string>>(copilotkit.headers ?? {});
+  const headersRef = useRef<Record<string, string>>(
+    resolvedHeaders ?? copilotkit.headers ?? {},
+  );
+  const headersReadyRef = useRef(headersReady);
   runtimeUrlRef.current = copilotkit.runtimeUrl;
-  headersRef.current = copilotkit.headers ?? {};
+  headersRef.current = resolvedHeaders ?? copilotkit.headers ?? {};
+  headersReadyRef.current = headersReady;
 
   // Content-stable dependency: same items in same order → same key string.
   const key = JSON.stringify(learningContainers);
@@ -86,8 +94,9 @@ export function useLearningContainers({
   // are direct transitions, not reset-then-set.
   // threadId changes are handled by Effect 2's cleanup.
   useEffect(() => {
+    if (!headersReady) return;
     const runtimeUrl = copilotkit.runtimeUrl;
-    const headers = copilotkit.headers ?? {};
+    const headers = resolvedHeaders ?? copilotkit.headers ?? {};
 
     /**
      * Fire-and-forget emit; errors must not surface in render.
@@ -135,7 +144,7 @@ export function useLearningContainers({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId, key]);
+  }, [threadId, key, headersReady]);
 
   // ── Effect 2: unmount / threadId-change reset ──────────────────────────────
   // Runs whenever threadId changes and on unmount.
@@ -150,7 +159,7 @@ export function useLearningContainers({
       const capturedRuntimeUrl = runtimeUrlRef.current;
       const capturedHeaders = headersRef.current;
 
-      if (capturedRuntimeUrl) {
+      if (headersReadyRef.current && capturedRuntimeUrl) {
         recordAnnotation({
           runtimeUrl: capturedRuntimeUrl,
           headers: capturedHeaders,

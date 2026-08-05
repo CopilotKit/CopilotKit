@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import {
   CopilotKitContext,
@@ -8,18 +14,27 @@ import type {
   CopilotKitContextValue,
   CopilotKitCoreReact as CopilotKitCoreReactInstance,
 } from "@copilotkit/react-core/v2/context";
-import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
+import {
+  CopilotKitCoreReact,
+  useHeaderReadiness,
+  useResolvedHeaders,
+} from "@copilotkit/react-core/v2/headless";
+import type { HeaderSource } from "@copilotkit/react-core/v2/headless";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import type { DebugConfig, RuntimeLicenseStatus } from "@copilotkit/shared";
 import { createLicenseContextValue } from "@copilotkit/shared";
 import { RenderToolProvider } from "./hooks/RenderToolContext";
+
+const EMPTY_HEADERS: Record<string, string> = Object.freeze({});
+const HEADER_RESOLUTION_ERROR_CODE =
+  "runtime_info_fetch_failed" as CopilotKitCoreErrorCode;
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
   /** URL of the CopilotKit runtime endpoint */
   runtimeUrl: string;
   /** Custom headers sent with every request */
-  headers?: Record<string, string> | (() => Record<string, string>);
+  headers?: HeaderSource;
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
@@ -77,7 +92,7 @@ export interface CopilotKitNativeProviderProps {
 export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   children,
   runtimeUrl,
-  headers: headersProp,
+  headers: headersProp = EMPTY_HEADERS,
   credentials,
   useSingleEndpoint,
   properties,
@@ -85,9 +100,12 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   debug,
   defaultThrottleMs,
 }) => {
-  // Resolve headers from function or static object (matches web provider pattern)
-  const resolvedHeaders =
-    typeof headersProp === "function" ? headersProp() : headersProp;
+  const {
+    headers: resolvedHeaders,
+    ready: headersReady,
+    error: headersError,
+  } = useResolvedHeaders(headersProp);
+  const resolveHeaders = useHeaderReadiness(headersReady, headersError);
 
   // Stabilize headers/properties references to avoid effect churn when callers
   // pass inline object literals (e.g. headers={{}} or the undefined default).
@@ -113,6 +131,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
           : useSingleEndpoint === false
             ? "rest"
             : "auto",
+      deferInitialConnection: !headersReady,
       headers: stableHeaders,
       credentials,
       properties: stableProperties,
@@ -127,9 +146,40 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   }
 
   const copilotkit = copilotkitRef.current;
+  // Stays synchronous while headers are already settled; only a genuinely
+  // pending resolution hands back a promise for callers to await.
+  const waitForHeaders = useCallback((): void | Promise<void> => {
+    return resolveHeaders();
+  }, [resolveHeaders]);
+
+  const reportedHeadersErrorRef = useRef<Error | null>(null);
+  useEffect(() => {
+    if (!headersError) {
+      reportedHeadersErrorRef.current = null;
+      return;
+    }
+    if (reportedHeadersErrorRef.current === headersError) return;
+    reportedHeadersErrorRef.current = headersError;
+    if (onError) {
+      void Promise.resolve(
+        onError({
+          error: headersError,
+          code: HEADER_RESOLUTION_ERROR_CODE,
+          context: { source: "headers", runtimeUrl },
+        }),
+      ).catch(() => {
+        console.error("[CopilotKit] Header resolution error handler failed");
+      });
+    }
+  }, [headersError, onError, runtimeUrl]);
 
   // Sync props to core instance
   useEffect(() => {
+    copilotkit.setHeaders(stableHeaders);
+    copilotkit.setCredentials(credentials);
+    copilotkit.setProperties(stableProperties);
+    copilotkit.setDebug(debug);
+    if (!headersReady) return;
     copilotkit.setRuntimeUrl(runtimeUrl);
     copilotkit.setRuntimeTransport(
       useSingleEndpoint === true
@@ -138,13 +188,11 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
           ? "rest"
           : "auto",
     );
-    copilotkit.setHeaders(stableHeaders);
-    copilotkit.setCredentials(credentials);
-    copilotkit.setProperties(stableProperties);
-    copilotkit.setDebug(debug);
+    copilotkit.connect();
   }, [
     runtimeUrl,
     useSingleEndpoint,
+    headersReady,
     stableHeaders,
     credentials,
     stableProperties,
@@ -219,8 +267,17 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     () => ({
       copilotkit,
       executingToolCallIds,
+      headers: stableHeaders,
+      headersReady,
+      waitForHeaders,
     }),
-    [copilotkit, executingToolCallIds],
+    [
+      copilotkit,
+      executingToolCallIds,
+      stableHeaders,
+      headersReady,
+      waitForHeaders,
+    ],
   );
 
   // License context — driven by server-reported status via /info endpoint

@@ -182,7 +182,7 @@ export function CopilotChat({
   }, [agent, threadId]);
 
   // onError subscription -- forward core errors scoped to this chat's agent
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, waitForHeaders } = useCopilotKit();
   const onErrorRef = useRef(onError);
   useEffect(() => {
     onErrorRef.current = onError;
@@ -235,6 +235,14 @@ export function CopilotChat({
         return;
       }
 
+      try {
+        const pendingHeaders = waitForHeaders?.();
+        if (pendingHeaders) await pendingHeaders;
+      } catch (error) {
+        console.error("CopilotChat: header resolution failed", error);
+        return;
+      }
+
       const readyAttachments = consumeAttachments();
 
       if (readyAttachments.length > 0) {
@@ -273,7 +281,7 @@ export function CopilotChat({
     },
     // copilotkit is intentionally excluded -- it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, selectedAttachments, consumeAttachments],
+    [agent, selectedAttachments, consumeAttachments, waitForHeaders],
   );
 
   const contextValue: CopilotChatContextValue = {

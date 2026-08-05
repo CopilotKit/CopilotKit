@@ -37,11 +37,28 @@ const isAbortError = (error: unknown) => {
   );
 };
 
+const CLOUD_PUBLIC_API_KEY_HEADER = "x-copilotcloud-public-api-key";
+
+function getHeaderValue(headers: HeadersInit | undefined): string | undefined {
+  if (!headers) return undefined;
+  if (typeof Headers !== "undefined" && headers instanceof Headers) {
+    return headers.get(CLOUD_PUBLIC_API_KEY_HEADER) ?? undefined;
+  }
+  if (Array.isArray(headers)) {
+    return headers.find(
+      ([key]) => key.toLowerCase() === CLOUD_PUBLIC_API_KEY_HEADER,
+    )?.[1];
+  }
+  const entry = Object.entries(headers).find(
+    ([key]) => key.toLowerCase() === CLOUD_PUBLIC_API_KEY_HEADER,
+  );
+  return typeof entry?.[1] === "string" ? entry[1] : undefined;
+}
+
 const createFetchFn =
   (signal?: AbortSignal, handleGQLWarning?: (warning: string) => void) =>
   async (...args: Parameters<typeof fetch>) => {
-    // @ts-expect-error -- since this is our own header, TS will not recognize
-    const publicApiKey = args[1]?.headers?.["x-copilotcloud-public-api-key"];
+    const publicApiKey = getHeaderValue(args[1]?.headers);
     try {
       const result = await fetch(args[0], { ...args[1], signal });
 
@@ -106,8 +123,8 @@ export class CopilotRuntimeClient {
       Object.assign(headers, options.headers);
     }
 
-    if (options.publicApiKey) {
-      headers["x-copilotcloud-public-api-key"] = options.publicApiKey;
+    if (options.publicApiKey && getHeaderValue(headers) === undefined) {
+      headers[CLOUD_PUBLIC_API_KEY_HEADER] = options.publicApiKey;
     }
 
     this.client = new Client({

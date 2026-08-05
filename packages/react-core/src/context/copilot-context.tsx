@@ -69,6 +69,12 @@ export interface CopilotApiConfig {
    */
   headers: Record<string, string>;
 
+  /** Wait for initial header resolution before issuing a v1 request. */
+  waitForHeaders?: () => void | Promise<void>;
+
+  /** Read the current settled headers after an awaited readiness transition. */
+  getHeaders?: () => Record<string, string>;
+
   /**
    * Custom properties to be sent with the request
    * @default {}

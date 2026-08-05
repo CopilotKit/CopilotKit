@@ -4,6 +4,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
+  useCallback,
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -27,7 +28,7 @@ import type {
   DebugConfig,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
@@ -58,6 +59,11 @@ import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import {
+  useHeaderReadiness,
+  useResolvedHeaders,
+} from "../hooks/use-resolved-headers";
+import type { HeaderSource } from "../hooks/use-resolved-headers";
 
 // Adapts zod-to-json-schema's zod-specific signature to the injectable
 // `zodToJsonSchema` contract of `schemaToJsonSchema`, which only invokes it
@@ -79,6 +85,7 @@ const zodToJsonSchemaAdapter = (
 };
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
+const HEADER_NAME_LOWER = HEADER_NAME.toLowerCase();
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
 // Stable frozen defaults keep provider effects from re-running just because a
 // caller omitted an object prop on a rerender.
@@ -114,7 +121,7 @@ const GENERATE_SANDBOXED_UI_DESCRIPTION =
 export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  headers?: HeaderSource;
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
@@ -433,6 +440,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [renderActivityMessagesList, builtInActivityRenderers]);
 
   const resolvedPublicKey = publicApiKey ?? publicLicenseKey;
+  const chatApiEndpoint =
+    runtimeUrl ?? (resolvedPublicKey ? COPILOT_CLOUD_CHAT_URL : undefined);
   const mergedAgents = useMemo(
     () => ({ ...agents, ...selfManagedAgents }),
     [agents, selfManagedAgents],
@@ -455,14 +464,44 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
-  // Resolve headers from function or static object
-  const headers =
-    typeof headersProp === "function" ? headersProp() : headersProp;
+  const {
+    headers,
+    ready: headersReady,
+    error: headersError,
+  } = useResolvedHeaders(headersProp);
+  const resolveHeaders = useHeaderReadiness(headersReady, headersError);
+
+  const reportedHeadersErrorRef = useRef<Error | null>(null);
+  useEffect(() => {
+    if (!headersError) {
+      reportedHeadersErrorRef.current = null;
+      return;
+    }
+    if (reportedHeadersErrorRef.current === headersError) return;
+    reportedHeadersErrorRef.current = headersError;
+
+    const event = {
+      error: headersError,
+      code: CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED,
+      context: { source: "headers", runtimeUrl: chatApiEndpoint },
+    };
+    if (onError) {
+      void Promise.resolve(onError(event)).catch(() => {
+        console.error("[CopilotKit] Header resolution error handler failed");
+      });
+    }
+  }, [headersError, onError, chatApiEndpoint]);
 
   // Merge a provided publicApiKey into headers (without overwriting an explicit header).
   const mergedHeaders = useMemo(() => {
     if (!resolvedPublicKey) return headers;
-    if (headers[HEADER_NAME]) return headers;
+    if (
+      Object.keys(headers).some(
+        (key) => key.toLowerCase() === HEADER_NAME_LOWER,
+      )
+    ) {
+      return headers;
+    }
     return {
       ...headers,
       [HEADER_NAME]: resolvedPublicKey,
@@ -479,9 +518,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       console.warn(message);
     }
   }
-
-  const chatApiEndpoint =
-    runtimeUrl ?? (resolvedPublicKey ? COPILOT_CLOUD_CHAT_URL : undefined);
 
   const frontendToolsList = useStableArrayProp<ReactFrontendTool>(
     frontendTools,
@@ -635,6 +671,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }
   const copilotkit = copilotkitRef.current;
+  // Stays synchronous while headers are already settled; only a genuinely
+  // pending resolution hands back a promise for callers to await.
+  const waitForHeaders = useCallback((): void | Promise<void> => {
+    return resolveHeaders();
+  }, [resolveHeaders]);
 
   // Register the full A2UI catalog component list onto core so the inspector can
   // read `core.catalogComponents`, and re-derive the filtered catalog whenever
@@ -772,16 +813,19 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [copilotkit]);
 
   useEffect(() => {
-    copilotkit.setRuntimeUrl(chatApiEndpoint);
-    copilotkit.setRuntimeTransport(
-      useSingleEndpoint === true
-        ? "single"
-        : useSingleEndpoint === false
-          ? "rest"
-          : "auto",
-    );
     copilotkit.setHeaders(mergedHeaders);
     copilotkit.setCredentials(credentials);
+    // URL and transport changes can reconnect, so apply them with connect after readiness.
+    if (headersReady) {
+      copilotkit.setRuntimeUrl(chatApiEndpoint);
+      copilotkit.setRuntimeTransport(
+        useSingleEndpoint === true
+          ? "single"
+          : useSingleEndpoint === false
+            ? "rest"
+            : "auto",
+      );
+    }
     // Forward a per-run signal when the provider has an A2UI catalog so the
     // runtime can turn A2UI on (and inject the render tool) without a separate
     // `a2ui.injectA2UITool` flag on the runtime.
@@ -792,6 +836,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     );
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
     copilotkit.setDebug(debug);
+    if (!headersReady) return;
     // Start the runtime `/info` connection now that we're in the commit phase.
     // The ctor deferred it (see `deferInitialConnection` above) so discarded
     // renders never fetch; `connect()` is idempotent, so StrictMode's
@@ -803,6 +848,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     copilotkit,
     chatApiEndpoint,
     mergedHeaders,
+    headersReady,
     credentials,
     properties,
     a2uiCatalogProvided,
@@ -898,8 +944,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [copilotkit, sandboxFunctionsDescriptors, openGenUIActive]);
 
   const contextValue = useMemo<CopilotKitContextValue>(
-    () => ({ copilotkit, executingToolCallIds }),
-    [copilotkit, executingToolCallIds],
+    () => ({
+      copilotkit,
+      executingToolCallIds,
+      headers: mergedHeaders,
+      rawHeaders: headers,
+      headersReady,
+      waitForHeaders,
+    }),
+    [
+      copilotkit,
+      executingToolCallIds,
+      mergedHeaders,
+      headers,
+      headersReady,
+      waitForHeaders,
+    ],
   );
 
   // License context — driven by server-reported status via /info endpoint

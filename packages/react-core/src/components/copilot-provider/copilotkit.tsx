@@ -51,9 +51,9 @@ import type {
   CopilotErrorEvent,
   CopilotErrorHandler,
 } from "@copilotkit/shared";
+import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   COPILOT_CLOUD_CHAT_URL,
-  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   randomUUID,
   ConfigurationError,
   MissingPublicApiKeyError,
@@ -78,11 +78,40 @@ import { CoAgentStateRenderBridge } from "../../hooks/use-coagent-state-render-b
 import { ThreadsProvider, useThreads } from "../../context/threads-context";
 import { CopilotListeners } from "../CopilotListeners";
 
+function toV1ErrorEvent(
+  event: {
+    error: Error;
+    code?: string;
+    context?: Record<string, any>;
+  },
+  url: string,
+): CopilotErrorEvent {
+  return {
+    type: "error",
+    timestamp: Date.now(),
+    context: {
+      source: "agent",
+      request: {
+        operation: event.code || "unknown",
+        url,
+        startTime: Date.now(),
+      },
+      technical: {
+        environment: "browser",
+        userAgent:
+          typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+        stackTrace: event.error.stack,
+      },
+      ...event.context,
+    },
+    error: event.error,
+  };
+}
+
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
   const showInspector = shouldShowDevConsole(props.enableInspector);
 
-  // Use API key if provided, otherwise use the license key
   const publicApiKey = props.publicApiKey || props.publicLicenseKey;
 
   const renderArr = useMemo(() => [{ render: CoAgentStateRenderBridge }], []);
@@ -93,6 +122,20 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // error events to the v1 shape — so it must not be spread into the v2
   // provider directly.
   const { onError: _onError, ...v2Props } = props;
+  const handleV2HeaderError = useCallback(
+    async (event: {
+      error: Error;
+      code: CopilotKitCoreErrorCode;
+      context: Record<string, any>;
+    }) => {
+      if (_onError && event.context?.source === "headers") {
+        await _onError(
+          toV1ErrorEvent(event, props.runtimeUrl || COPILOT_CLOUD_CHAT_URL),
+        );
+      }
+    },
+    [_onError, props.runtimeUrl],
+  );
 
   return (
     <ToastProvider enabled={enabled}>
@@ -106,6 +149,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
             showDevConsole={showInspector}
             renderCustomMessages={renderArr}
             useSingleEndpoint={props.useSingleEndpoint ?? true}
+            onError={_onError ? handleV2HeaderError : undefined}
           >
             <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
           </CopilotKitV2Provider>
@@ -130,30 +174,10 @@ function CopilotKitErrorBridge() {
 
     const subscription = copilotkit.subscribe({
       onError: async (event) => {
-        // Convert v2.x error event to v1.x CopilotErrorEvent format
-        const errorEvent: CopilotErrorEvent = {
-          type: "error",
-          timestamp: Date.now(),
-          context: {
-            source: "agent",
-            request: {
-              operation: event.code || "unknown",
-              url: copilotApiConfig?.chatApiEndpoint,
-              startTime: Date.now(),
-            },
-            technical: {
-              environment: "browser",
-              userAgent:
-                typeof navigator !== "undefined"
-                  ? navigator.userAgent
-                  : undefined,
-              stackTrace: event.error.stack,
-            },
-            // Add additional context from v2.x event
-            ...event.context,
-          },
-          error: event.error,
-        };
+        const errorEvent = toV1ErrorEvent(
+          event,
+          copilotApiConfig.chatApiEndpoint,
+        );
 
         try {
           await onError(errorEvent);
@@ -173,13 +197,21 @@ function CopilotKitErrorBridge() {
 
 export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const { children, ...props } = cpkProps;
+  const {
+    copilotkit,
+    headers: resolvedHeaders,
+    rawHeaders,
+    waitForHeaders,
+  } = useCopilotKit();
+  const settledHeaders = rawHeaders ?? resolvedHeaders ?? copilotkit.headers;
+  const settledHeadersRef = useRef(settledHeaders);
+  settledHeadersRef.current = settledHeaders;
 
   /**
    * This will throw an error if the props are invalid.
    */
   validateProps(cpkProps);
 
-  // Use license key as API key if provided, otherwise use the API key
   const publicApiKey = props.publicLicenseKey || props.publicApiKey;
 
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
@@ -301,6 +333,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [removeDocument],
   );
 
+  const contextHeaders = settledHeaders;
+
   // get the appropriate CopilotApiConfig from the props
   const copilotApiConfig: CopilotApiConfig = useMemo(() => {
     let cloud: CopilotCloudConfig | undefined = undefined;
@@ -322,10 +356,9 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       publicApiKey: publicApiKey,
       ...(cloud ? { cloud } : {}),
       chatApiEndpoint: chatApiEndpoint,
-      headers:
-        typeof props.headers === "function"
-          ? props.headers()
-          : props.headers || {},
+      headers: contextHeaders,
+      waitForHeaders,
+      getHeaders: () => settledHeadersRef.current,
       properties: props.properties || {},
       transcribeAudioUrl: props.transcribeAudioUrl,
       textToSpeechUrl: props.textToSpeechUrl,
@@ -333,7 +366,9 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     };
   }, [
     publicApiKey,
-    props.headers,
+    contextHeaders,
+    chatApiEndpoint,
+    waitForHeaders,
     props.properties,
     props.transcribeAudioUrl,
     props.textToSpeechUrl,
@@ -341,35 +376,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     props.cloudRestrictToTopic,
     props.guardrails_c,
   ]);
-
-  const headers = useMemo(() => {
-    const authHeaders = Object.values(authStates || {}).reduce((acc, state) => {
-      if (state.status === "authenticated" && state.authHeaders) {
-        return {
-          ...acc,
-          ...Object.entries(state.authHeaders).reduce(
-            (headers, [key, value]) => ({
-              ...headers,
-              [key.startsWith("X-Custom-") ? key : `X-Custom-${key}`]: value,
-            }),
-            {},
-          ),
-        };
-      }
-      return acc;
-    }, {});
-
-    return {
-      ...copilotApiConfig.headers,
-      ...(copilotApiConfig.publicApiKey
-        ? {
-            [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]:
-              copilotApiConfig.publicApiKey,
-          }
-        : {}),
-      ...authHeaders,
-    };
-  }, [copilotApiConfig.headers, copilotApiConfig.publicApiKey, authStates]);
 
   const [internalErrorHandlers, _setInternalErrorHandler] = useState<
     Record<string, CopilotErrorHandler>

@@ -56,6 +56,7 @@ const installCopilotKit = (
   overrides: {
     runtimeUrl?: string | null;
     headers?: Record<string, string>;
+    waitForHeaders?: () => void | Promise<void>;
   } = {},
 ) => {
   mockUseCopilotKit.mockReturnValue({
@@ -66,6 +67,7 @@ const installCopilotKit = (
           : overrides.runtimeUrl,
       headers: overrides.headers,
     },
+    waitForHeaders: overrides.waitForHeaders,
   });
 };
 
@@ -162,6 +164,30 @@ describe("useLearnFromUserAction", () => {
     const headers = calls[0]!.init?.headers as Record<string, string>;
     expect(headers["X-Customer"]).toBe("abc");
     expect(headers["Content-Type"]).toBe("application/json");
+  });
+
+  it("waits for initial header readiness before posting an annotation", async () => {
+    let resolveHeaders!: () => void;
+    const headersReady = new Promise<void>((resolve) => {
+      resolveHeaders = resolve;
+    });
+    installCopilotKit({
+      headers: {},
+      waitForHeaders: () => headersReady,
+    });
+    const { calls, fetch } = mockFetch([
+      { status: 200, body: { id: "1", duplicate: false } },
+    ]);
+    globalThis.fetch = fetch;
+
+    const { result } = renderHook(() => useLearnFromUserAction());
+    const recording = result.current({ threadId: "t", title: "x" });
+    await Promise.resolve();
+    expect(calls).toHaveLength(0);
+
+    resolveHeaders();
+    await recording;
+    expect(calls).toHaveLength(1);
   });
 
   it("throws when runtimeUrl is not configured", async () => {

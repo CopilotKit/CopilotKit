@@ -27,7 +27,7 @@ export function useConfigureSuggestions(
   config: SuggestionsConfigInput | null | undefined,
   deps?: ReadonlyArray<unknown>,
 ): void {
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, waitForHeaders } = useCopilotKit();
   const chatConfig = useCopilotChatConfiguration();
   const extraDeps = deps ?? [];
 
@@ -111,9 +111,20 @@ export function useConfigureSuggestions(
     [normalizedConfig],
   );
 
-  const requestReload = useCallback(() => {
+  const requestReload = useCallback(async () => {
     if (!normalizedConfig) {
       return;
+    }
+
+    if (isDynamicConfigType) {
+      try {
+        const pendingHeaders = waitForHeaders?.();
+        if (pendingHeaders) {
+          await pendingHeaders;
+        }
+      } catch {
+        return;
+      }
     }
 
     if (isGlobalConfig) {
@@ -145,7 +156,14 @@ export function useConfigureSuggestions(
     }
 
     copilotkit.reloadSuggestions(targetAgentId);
-  }, [copilotkit, isGlobalConfig, normalizedConfig, targetAgentId]);
+  }, [
+    copilotkit,
+    isDynamicConfigType,
+    isGlobalConfig,
+    normalizedConfig,
+    targetAgentId,
+    waitForHeaders,
+  ]);
 
   useEffect(() => {
     if (!serializedConfig || !latestConfigRef.current) {
@@ -154,7 +172,7 @@ export function useConfigureSuggestions(
 
     const id = copilotkit.addSuggestionsConfig(latestConfigRef.current);
 
-    requestReload();
+    void requestReload();
 
     return () => {
       copilotkit.removeSuggestionsConfig(id);
@@ -175,14 +193,14 @@ export function useConfigureSuggestions(
     if (serializedConfig) {
       previousSerializedConfigRef.current = serializedConfig;
     }
-    requestReload();
+    void requestReload();
   }, [normalizedConfig, requestReload, serializedConfig]);
 
   useEffect(() => {
     if (!normalizedConfig || extraDeps.length === 0) {
       return;
     }
-    requestReload();
+    void requestReload();
   }, [extraDeps.length, normalizedConfig, requestReload, ...extraDeps]);
 
   // When agents arrive after the initial render (runtime info just landed),
@@ -203,7 +221,7 @@ export function useConfigureSuggestions(
     const subscription = copilotkit.subscribe({
       onAgentsChanged: () => {
         if (copilotkit.getAgent(targetAgentId)) {
-          requestReload();
+          void requestReload();
           subscription.unsubscribe();
         }
       },

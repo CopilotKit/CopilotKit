@@ -9,9 +9,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  type ListRenderItemInfo,
-  type ViewStyle,
 } from "react-native";
+import type { ListRenderItemInfo, ViewStyle } from "react-native";
 import { useAgent } from "@copilotkit/react-core/v2/headless";
 import { useCopilotKit } from "@copilotkit/react-core/v2/context";
 import { AssistantMessage } from "./messages/AssistantMessage";
@@ -102,7 +101,7 @@ export function CopilotChat({
   const flatListRef = useRef<FlatList>(null);
   const messageIdCounter = useRef(0);
 
-  const { copilotkit, executingToolCallIds } = useCopilotKit();
+  const { copilotkit, executingToolCallIds, waitForHeaders } = useCopilotKit();
   const { agent } = useAgent({ agentId: agentName });
 
   const messages = agent.messages ?? [];
@@ -164,10 +163,21 @@ export function CopilotChat({
 
   // Shared logic for sending a message to the agent
   const sendMessage = useCallback(
-    async (text: string) => {
-      if (!text || isRunning || !agent) return;
+    async (text: string): Promise<boolean> => {
+      if (!text || isRunning || !agent) return false;
 
       setError(null);
+
+      try {
+        const pendingHeaders = waitForHeaders?.();
+        if (pendingHeaders) await pendingHeaders;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Authentication is not ready";
+        setError(message);
+        return false;
+      }
+
       onSendMessage?.(text);
 
       const id = `user-${++messageIdCounter.current}`;
@@ -185,16 +195,19 @@ export function CopilotChat({
         console.error("[CopilotChat] runAgent failed:", err);
         setError(message);
       }
+      return true;
     },
-    [isRunning, agent, copilotkit, onSendMessage],
+    [isRunning, agent, copilotkit, onSendMessage, waitForHeaders],
   );
 
   // Send from the input field
   const handleSend = useCallback(async () => {
     const text = inputText.trim();
     if (!text) return;
-    setInputText("");
-    await sendMessage(text);
+    const sent = await sendMessage(text);
+    if (sent) {
+      setInputText("");
+    }
   }, [inputText, sendMessage]);
 
   // Handle suggestion pill press

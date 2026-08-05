@@ -124,7 +124,7 @@ export function CopilotChat({
     agentId: resolvedAgentId,
     throttleMs,
   });
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, headersReady = true, waitForHeaders } = useCopilotKit();
   const { suggestions: autoSuggestions } = useSuggestions({
     agentId: resolvedAgentId,
   });
@@ -330,6 +330,7 @@ export function CopilotChat({
   }, []);
 
   useEffect(() => {
+    if (!headersReady) return;
     const threadChanged = previousThreadIdRef.current !== resolvedThreadId;
     previousThreadIdRef.current = resolvedThreadId;
 
@@ -369,6 +370,8 @@ export function CopilotChat({
     const connect = async (agentToConnect: AbstractAgent) => {
       activeConnectCountRef.current += 1;
       try {
+        await waitForHeaders?.();
+        if (detached) return;
         await copilotkit.connectAgent({ agent: agentToConnect });
       } catch (error) {
         // Ignore errors from aborted connections (e.g., React StrictMode cleanup)
@@ -431,10 +434,17 @@ export function CopilotChat({
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedThreadId, agent, resolvedAgentId, hasExplicitThreadId]);
+  }, [
+    resolvedThreadId,
+    agent,
+    resolvedAgentId,
+    hasExplicitThreadId,
+    headersReady,
+    waitForHeaders,
+  ]);
 
   useEffect(() => {
-    if (!hasNativeIntelligenceRunActivity) return;
+    if (!headersReady || !hasNativeIntelligenceRunActivity) return;
 
     const registeredThreadStore = copilotkit.getThreadStore(resolvedAgentId);
     const threadStore = registeredThreadStore ?? standaloneRunActivityStore;
@@ -590,6 +600,7 @@ export function CopilotChat({
     resolvedAgentId,
     resolvedThreadId,
     hasExplicitThreadId,
+    headersReady,
     hasNativeIntelligenceRunActivity,
     copilotkit.runtimeConnectionStatus,
     copilotkit.runtimeUrl,
@@ -653,6 +664,14 @@ export function CopilotChat({
           "[CopilotKit] Cannot send while attachments are uploading (pre-await guard)",
         );
         setTranscriptionError("Cannot send while attachments are uploading.");
+        return;
+      }
+
+      try {
+        const pendingHeaders = waitForHeaders?.();
+        if (pendingHeaders) await pendingHeaders;
+      } catch {
+        setTranscriptionError("Authentication is not ready. Please try again.");
         return;
       }
 
@@ -752,6 +771,7 @@ export function CopilotChat({
     [
       agent,
       consumeAttachments,
+      waitForHeaders,
       waitForActiveRunToSettle,
       hasNativeIntelligenceRunActivity,
       rememberRecentlyLocalRunId,
@@ -760,6 +780,14 @@ export function CopilotChat({
 
   const handleSelectSuggestion = useCallback(
     async (suggestion: Suggestion) => {
+      try {
+        const pendingHeaders = waitForHeaders?.();
+        if (pendingHeaders) await pendingHeaders;
+      } catch {
+        setTranscriptionError("Authentication is not ready. Please try again.");
+        return;
+      }
+
       // Mirror onSubmitInput's send-serialization: if a run is in flight, wait
       // for it to settle before dispatching, so selecting a suggestion mid-run
       // does NOT pre-empt/abort the active run (the same #5195 fix the
@@ -810,6 +838,7 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       agent,
+      waitForHeaders,
       waitForActiveRunToSettle,
       hasNativeIntelligenceRunActivity,
       rememberRecentlyLocalRunId,
@@ -853,6 +882,8 @@ export function CopilotChat({
         setTranscriptionError(null);
 
         // Send to transcription endpoint
+        const pendingHeaders = waitForHeaders?.();
+        if (pendingHeaders) await pendingHeaders;
         const result = await transcribeAudio(copilotkit, audioBlob);
 
         // Insert transcribed text into input

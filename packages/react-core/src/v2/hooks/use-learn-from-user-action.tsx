@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useCopilotKit } from "../context";
 import { recordAnnotation } from "../lib/record-annotation";
 
@@ -77,12 +77,20 @@ export type UseLearnFromUserActionRecorder = (
  * ```
  */
 export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
-  const { copilotkit } = useCopilotKit();
+  const {
+    copilotkit,
+    headers: resolvedHeaders,
+    waitForHeaders,
+  } = useCopilotKit();
+  const headersRef = useRef(resolvedHeaders ?? copilotkit.headers ?? {});
+  headersRef.current = resolvedHeaders ?? copilotkit.headers ?? {};
 
   return useCallback(
     async (
       input: LearnFromUserActionInput,
     ): Promise<LearnFromUserActionResult> => {
+      const pendingHeaders = waitForHeaders?.();
+      if (pendingHeaders) await pendingHeaders;
       const runtimeUrl = copilotkit.runtimeUrl;
       if (!runtimeUrl) {
         throw new Error(
@@ -100,7 +108,7 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
 
       return recordAnnotation({
         runtimeUrl,
-        headers: copilotkit.headers ?? {},
+        headers: headersRef.current,
         type: "user_action",
         payload: Object.keys(payload).length > 0 ? payload : undefined,
         threadId: input.threadId,
@@ -108,6 +116,6 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
         occurredAt: input.occurredAt,
       });
     },
-    [copilotkit],
+    [copilotkit, waitForHeaders],
   );
 }
