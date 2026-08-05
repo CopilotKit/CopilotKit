@@ -1412,9 +1412,9 @@ describe("CpkThreadInspector provider contract", () => {
 // it MUST persist the announcement timestamp to localStorage. Otherwise
 // fetchAnnouncement() recomputes `showAnnouncementPreview` from the (still
 // empty) stored timestamp on the next mount and the bubble pops straight back
-// out — the regression these tests guard against. Persistence lives only in
-// markAnnouncementSeen(); the body-click / open paths clear the flag in memory
-// only and are intentionally NOT persistent.
+// out, the regression these tests guard against. Explicit dismissal persists
+// through markAnnouncementSeen(); body-click / open paths clear the flag in
+// memory only, while the automatic timeout persists without click telemetry.
 
 const ANNOUNCEMENT_STORAGE_KEY = "cpk:inspector:announcements";
 
@@ -1448,6 +1448,11 @@ describe("WebInspectorElement announcement preview dismissal", () => {
       },
       key: (index: number) => Object.keys(store)[index] ?? null,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   /** Mount a closed inspector with an unseen announcement so the popout renders. */
@@ -1546,6 +1551,61 @@ describe("WebInspectorElement announcement preview dismissal", () => {
     expect(a.isOpen).toBe(true);
     expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBeUndefined();
     expect(a.hasUnseenAnnouncement).toBe(true);
+  });
+
+  it("auto-dismisses the popout after four seconds and persists across remounts", async () => {
+    vi.useFakeTimers();
+    const timestamp = "2026-06-11T13:00:00.000Z";
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            timestamp,
+            previewText: "Slack early access is here!",
+            announcement: "Slack early access is here!",
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { core } = createMockCore();
+    const inspector = createInspectorWithCore(core);
+    const internals = inspector as unknown as AnnouncementInternals & {
+      announcementPromise: Promise<void> | null;
+    };
+    await internals.announcementPromise;
+    await inspector.updateComplete;
+
+    expect(internals.hasUnseenAnnouncement).toBe(true);
+    expect(
+      inspector.shadowRoot?.querySelector(".announcement-preview"),
+    ).not.toBeNull();
+
+    await vi.advanceTimersByTimeAsync(3999);
+    expect(internals.hasUnseenAnnouncement).toBe(true);
+    expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await inspector.updateComplete;
+    expect(internals.hasUnseenAnnouncement).toBe(false);
+    expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBe(JSON.stringify({ timestamp }));
+    expect(
+      inspector.shadowRoot?.querySelector(".announcement-preview"),
+    ).toBeNull();
+
+    const remount = createInspectorWithCore(core);
+    const remountInternals = remount as unknown as AnnouncementInternals & {
+      announcementPromise: Promise<void> | null;
+    };
+    await remountInternals.announcementPromise;
+    await remount.updateComplete;
+
+    expect(remountInternals.hasUnseenAnnouncement).toBe(false);
+    expect(
+      remount.shadowRoot?.querySelector(".announcement-preview"),
+    ).toBeNull();
   });
 });
 
