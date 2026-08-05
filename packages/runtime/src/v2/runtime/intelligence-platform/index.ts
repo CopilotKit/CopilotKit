@@ -1,7 +1,10 @@
 export {
   CopilotKitIntelligence,
-  type AcpRelaySessionAdmission,
-  type AcpRelaySessionRequest,
+  type AcpRunAdmission,
+  type AcpRunCancellation,
+  type AcpRunEvents,
+  type AcpRunRequest,
+  type AcpStoredEvent,
   type CopilotKitIntelligenceConfig,
   type CreateThreadRequest,
   type ThreadSummary,
@@ -14,5 +17,4 @@ export {
   AcpAgent,
   type AcpAgentConfig,
   type AcpAgentPlatform,
-  type AcpRelayConnection,
 } from "./acp-agent";

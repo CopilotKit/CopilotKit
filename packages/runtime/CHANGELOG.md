@@ -1,13 +1,5 @@
 # @copilotkit/runtime
 
-## Unreleased
-
-### Minor Changes
-
-- Add a highly experimental `AcpAgent` that translates stable ACP v1 to AG-UI
-  through the Intelligence relay. External deployments still own the ACP agent
-  and its lifecycle.
-
 ## 1.55.2
 
 ### Patch Changes

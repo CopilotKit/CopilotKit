@@ -1,155 +1,81 @@
-import {
-  PROTOCOL_VERSION,
-  client as createClientApp,
-  methods,
-} from "@agentclientprotocol/sdk";
-import type {
-  ClientConnection,
-  ClientContext,
-  McpServer,
-  NewSessionRequest,
-  NewSessionResponse,
-  RequestPermissionRequest,
-  RequestPermissionResponse,
-  Stream,
-} from "@agentclientprotocol/sdk";
-import { AbstractAgent } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
 import { Observable } from "rxjs";
-import type { Subscriber } from "rxjs";
-import { resolveAcpPermissionResume } from "./acp-interrupt";
-import { AcpPromptError, selectLatestAcpPrompt } from "./acp-prompt";
-import {
-  createAcpPermissionInterrupt,
-  createAcpRunError,
-  createAcpRunStarted,
-  createAcpTranslationState,
-  finishAcpPrompt,
-  translateAcpSessionUpdate,
-} from "./acp-translation";
-import type { AcpRunIdentity, AcpTranslationState } from "./acp-translation";
+import type {
+  AcpRunAdmission,
+  AcpRunCancellation,
+  AcpRunEvents,
+} from "./client";
 
-/** One admitted Intelligence relay carrying unchanged stable ACP v1 frames. */
-export interface AcpRelayConnection {
-  readonly relaySessionId: string;
-  readonly remoteSessionId: string | null;
-  readonly stream: Stream;
-  saveRemoteSessionId(remoteSessionId: string): Promise<void>;
-}
-
-/** The private Intelligence boundary required by the public ACP client. */
+/** The private Intelligence calls required by the public ACP agent facade. */
 export interface AcpAgentPlatform {
-  ɵopenAcpRelay(params: {
-    readonly agentId: string;
+  ɵadmitAcpRun(params: {
+    readonly agentProfileId: string;
     readonly appUserId: string;
-    readonly runtimeInstanceId: string;
-    readonly threadId: string;
-  }): Promise<AcpRelayConnection>;
+    readonly input: RunAgentInput;
+  }): Promise<AcpRunAdmission>;
+  ɵlistAcpRunEvents(params: {
+    readonly runId: string;
+    readonly after: number;
+  }): Promise<AcpRunEvents>;
+  ɵcancelAcpRun(params: {
+    readonly runId: string;
+  }): Promise<AcpRunCancellation>;
 }
 
-/** Configuration for one external ACP agent target. */
+/** Configuration for one Intelligence-backed ACP agent profile. */
 export interface AcpAgentConfig {
   /** Intelligence client authenticated for the owning project. */
   readonly intelligence: AcpAgentPlatform;
-  /** Bare customer application-user id that owns the AG-UI thread. */
+  /** Server-owned executable profile configured in Intelligence. */
+  readonly agentProfileId: string;
+  /** Bare customer application-user id that owns the thread. */
   readonly userId: string;
-  /** Exact external relay instance that hosts the ACP connection. */
-  readonly runtimeInstanceId: string;
-  /** Exact ACP agent id declared by the external relay. */
-  readonly agentId: string;
-  /** Absolute working directory interpreted by the external ACP agent. */
-  readonly cwd: string;
-  /** Extra absolute workspace roots interpreted by the external ACP agent. */
-  readonly additionalDirectories?: readonly string[];
-  /** MCP servers that the external ACP agent should connect to. */
-  readonly mcpServers?: readonly McpServer[];
+  /** Delay between empty durable event pages. Defaults to 100 milliseconds. */
+  readonly pollIntervalMs?: number;
 }
 
-interface PendingPermission {
-  readonly interruptId: string;
-  readonly request: RequestPermissionRequest;
-  readonly resolve: (response: RequestPermissionResponse) => void;
-  readonly reject: (error: unknown) => void;
-}
+const isTerminalEvent = (event: BaseEvent): boolean =>
+  event.type === EventType.RUN_FINISHED || event.type === EventType.RUN_ERROR;
 
-interface ActiveTurn {
-  readonly threadId: string;
-  connection?: ClientConnection;
-  context?: ClientContext;
-  finished: boolean;
-  identity: AcpRunIdentity;
-  pendingPermission?: PendingPermission;
-  remoteSessionId?: string;
-  state: AcpTranslationState;
-  subscriber?: Subscriber<BaseEvent>;
-}
-
-class AcpAgentCoordinator {
-  readonly turns = new Map<string, ActiveTurn>();
-}
-
-class AcpRunFailure extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-  ) {
-    super(message);
-    this.name = "AcpRunFailure";
+const waitForPoll = (delayMs: number, signal: AbortSignal): Promise<void> => {
+  if (delayMs === 0 || signal.aborted) {
+    return Promise.resolve();
   }
-}
 
-const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : "The ACP relay failed";
-
-const emit = (turn: ActiveTurn, events: readonly BaseEvent[]): void => {
-  for (const event of events) {
-    turn.subscriber?.next(event);
-  }
-};
-
-const completeSegment = (turn: ActiveTurn): void => {
-  turn.subscriber?.complete();
-  turn.subscriber = undefined;
-};
-
-const firstInterruptId = (event: BaseEvent | undefined): string | undefined => {
-  if (event?.type !== "RUN_FINISHED") return undefined;
-  const outcome = event.outcome;
-  if (
-    typeof outcome !== "object" ||
-    outcome === null ||
-    !("type" in outcome) ||
-    outcome.type !== "interrupt" ||
-    !("interrupts" in outcome) ||
-    !Array.isArray(outcome.interrupts)
-  ) {
-    return undefined;
-  }
-  const first = outcome.interrupts[0];
-  return typeof first === "object" &&
-    first !== null &&
-    "id" in first &&
-    typeof first.id === "string"
-    ? first.id
-    : undefined;
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, delayMs);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
 };
 
 /**
- * AG-UI agent that translates stable ACP v1 while Intelligence carries and
- * stores the unchanged protocol frames. The ACP agent itself runs elsewhere.
+ * AG-UI agent facade for the Intelligence ACP bridge.
+ *
+ * This class only handles admission, durable event replay, and cancellation.
+ * ACP processes, protocol translation, and persistence stay inside
+ * Intelligence.
  */
 export class AcpAgent extends AbstractAgent {
-  private activeTurn?: ActiveTurn;
+  private activeRun?: {
+    readonly controller: AbortController;
+    readonly runId: string;
+    cancellation?: Promise<void>;
+  };
 
-  constructor(
-    private readonly config: AcpAgentConfig,
-    private readonly coordinator = new AcpAgentCoordinator(),
-  ) {
+  constructor(private readonly config: AcpAgentConfig) {
     super();
   }
 
-  /** Reports the AG-UI features exposed by the ACP translation. */
+  /** Reports the AG-UI features exposed by the Intelligence ACP bridge. */
   async getCapabilities(): Promise<AgentCapabilities> {
     return {
       transport: { streaming: true },
@@ -157,272 +83,96 @@ export class AcpAgent extends AbstractAgent {
     };
   }
 
-  /** Starts one prompt segment or resumes one pending ACP permission request. */
+  /** Admits one ACP prompt and replays its translated durable AG-UI events. */
   run(input: RunAgentInput): Observable<BaseEvent> {
+    if (this.activeRun) {
+      throw new Error(
+        "Agent is already running. Call abortRun() first or create a new instance.",
+      );
+    }
+
+    const controller = new AbortController();
+    const activeRun = { controller, runId: input.runId };
+    this.activeRun = activeRun;
+
     return new Observable<BaseEvent>((subscriber) => {
-      if (input.resume?.length) {
-        this.resumePermission(input, subscriber);
-      } else {
-        this.startPrompt(input, subscriber);
-      }
-    });
-  }
+      const releaseActiveRun = (): void => {
+        if (this.activeRun === activeRun) {
+          this.activeRun = undefined;
+        }
+      };
+      const poll = async (): Promise<void> => {
+        const admission = await this.config.intelligence.ɵadmitAcpRun({
+          agentProfileId: this.config.agentProfileId,
+          appUserId: this.config.userId,
+          input,
+        });
+        let cursor = admission.cursor;
 
-  private startPrompt(
-    input: RunAgentInput,
-    subscriber: Subscriber<BaseEvent>,
-  ): void {
-    if (this.coordinator.turns.has(input.threadId)) {
-      this.emitStandaloneError(
-        input,
-        subscriber,
-        "acp_turn_active",
-        "This thread already has an active ACP prompt",
-      );
-      return;
-    }
+        while (!controller.signal.aborted) {
+          const page = await this.config.intelligence.ɵlistAcpRunEvents({
+            after: cursor,
+            runId: input.runId,
+          });
 
-    const turn: ActiveTurn = {
-      finished: false,
-      identity: { runId: input.runId, threadId: input.threadId },
-      state: createAcpTranslationState(),
-      subscriber,
-      threadId: input.threadId,
-    };
-    this.coordinator.turns.set(input.threadId, turn);
-    this.activeTurn = turn;
-    subscriber.next(createAcpRunStarted(turn.identity));
-
-    this.runPrompt(turn, input).catch((error: unknown) => {
-      this.failTurn(turn, error);
-    });
-  }
-
-  private resumePermission(
-    input: RunAgentInput,
-    subscriber: Subscriber<BaseEvent>,
-  ): void {
-    const turn = this.coordinator.turns.get(input.threadId);
-    const pending = turn?.pendingPermission;
-    const resumes = input.resume ?? [];
-    if (!turn || !pending || resumes.length !== 1) {
-      this.emitStandaloneError(
-        input,
-        subscriber,
-        "acp_resume_not_pending",
-        "No matching ACP permission request is pending for this thread",
-      );
-      return;
-    }
-
-    turn.identity = { runId: input.runId, threadId: input.threadId };
-    turn.subscriber = subscriber;
-    turn.pendingPermission = undefined;
-    this.activeTurn = turn;
-    subscriber.next(createAcpRunStarted(turn.identity));
-
-    try {
-      pending.resolve(
-        resolveAcpPermissionResume(
-          resumes[0]!,
-          pending.request,
-          pending.interruptId,
-        ),
-      );
-    } catch (error) {
-      pending.reject(error);
-      this.failTurn(turn, error);
-    }
-  }
-
-  private async runPrompt(
-    turn: ActiveTurn,
-    input: RunAgentInput,
-  ): Promise<void> {
-    const prompt = selectLatestAcpPrompt(input.messages);
-    const relay = await this.config.intelligence.ɵopenAcpRelay({
-      agentId: this.config.agentId,
-      appUserId: this.config.userId,
-      runtimeInstanceId: this.config.runtimeInstanceId,
-      threadId: input.threadId,
-    });
-    if (turn.finished) return;
-
-    const app = createClientApp({ name: "CopilotKit AcpAgent" })
-      .onNotification(methods.client.session.update, ({ params }) => {
-        if (turn.finished || params.sessionId !== turn.remoteSessionId) return;
-        const translated = translateAcpSessionUpdate(turn.state, params.update);
-        turn.state = translated.state;
-        emit(turn, translated.events);
-      })
-      .onRequest(
-        methods.client.session.requestPermission,
-        ({ params, requestId }) =>
-          new Promise<RequestPermissionResponse>((resolve, reject) => {
-            if (turn.finished || params.sessionId !== turn.remoteSessionId) {
-              resolve({ outcome: { outcome: "cancelled" } });
-              return;
-            }
-            const interrupt = createAcpPermissionInterrupt(
-              turn.state,
-              { ...turn.identity, requestId },
-              params,
-            );
-            turn.state = interrupt.state;
-            const interruptId = firstInterruptId(interrupt.events.at(-1));
-            if (!interruptId) {
-              reject(
-                new Error("ACP permission interrupt could not be created"),
+          for (const stored of page.events) {
+            if (stored.sequence <= cursor) {
+              throw new Error(
+                `Intelligence returned ACP event sequence ${stored.sequence} after cursor ${cursor}.`,
               );
+            }
+            cursor = stored.sequence;
+            subscriber.next(stored.event);
+            if (isTerminalEvent(stored.event)) {
+              releaseActiveRun();
+              subscriber.complete();
               return;
             }
-            turn.pendingPermission = {
-              interruptId,
-              reject,
-              request: params,
-              resolve,
-            };
-            emit(turn, interrupt.events);
-            completeSegment(turn);
-          }),
-      );
+          }
 
-    const connection = app.connect(relay.stream);
-    turn.connection = connection;
-    turn.context = connection.agent;
-    connection.closed.then(() => {
-      if (!turn.finished) {
-        this.failTurn(
-          turn,
-          new AcpRunFailure(
-            "acp_transport_error",
-            "The ACP relay disconnected before the prompt finished",
-          ),
-        );
-      }
-    });
+          if (page.events.length === 0) {
+            await waitForPoll(
+              this.config.pollIntervalMs ?? 100,
+              controller.signal,
+            );
+          }
+        }
 
-    const initialized = await connection.agent.request(
-      methods.agent.initialize,
-      {
-        protocolVersion: PROTOCOL_VERSION,
-        clientCapabilities: {},
-        clientInfo: { name: "CopilotKit AcpAgent", version: "1" },
-      },
-    );
-    if (initialized.protocolVersion !== PROTOCOL_VERSION) {
-      throw new AcpRunFailure(
-        "acp_protocol_version_mismatch",
-        `The external agent selected ACP v${initialized.protocolVersion}`,
-      );
-    }
+        releaseActiveRun();
+        subscriber.complete();
+      };
 
-    const sessionRequest = {
-      cwd: this.config.cwd,
-      mcpServers: [...(this.config.mcpServers ?? [])],
-      ...(this.config.additionalDirectories
-        ? { additionalDirectories: [...this.config.additionalDirectories] }
-        : {}),
-    };
-    if (relay.remoteSessionId) {
-      if (!initialized.agentCapabilities?.loadSession) {
-        throw new AcpRunFailure(
-          "acp_session_load_unsupported",
-          "The external agent cannot load the durable ACP session",
-        );
-      }
-      turn.remoteSessionId = relay.remoteSessionId;
-      await connection.agent.request(methods.agent.session.load, {
-        ...sessionRequest,
-        sessionId: relay.remoteSessionId,
+      poll().catch((error: unknown) => {
+        releaseActiveRun();
+        subscriber.error(error);
       });
-    } else {
-      const created = await connection.agent.request<
-        NewSessionResponse,
-        NewSessionRequest
-      >(methods.agent.session.new, sessionRequest);
-      turn.remoteSessionId = created.sessionId;
-      await relay.saveRemoteSessionId(created.sessionId);
-    }
 
-    const response = await connection.agent.request(
-      methods.agent.session.prompt,
-      {
-        sessionId: turn.remoteSessionId,
-        prompt: [...prompt],
-      },
-    );
-    if (turn.finished) return;
-
-    const finished = finishAcpPrompt(turn.state, turn.identity, response);
-    turn.state = finished.state;
-    emit(turn, finished.events);
-    completeSegment(turn);
-    this.finishTurn(turn);
-  }
-
-  private emitStandaloneError(
-    input: RunAgentInput,
-    subscriber: Subscriber<BaseEvent>,
-    code: string,
-    message: string,
-  ): void {
-    subscriber.next(
-      createAcpRunStarted({ runId: input.runId, threadId: input.threadId }),
-    );
-    const failed = createAcpRunError(createAcpTranslationState(), {
-      code,
-      message,
+      return () => {
+        controller.abort();
+        releaseActiveRun();
+      };
     });
-    failed.events.forEach((event) => subscriber.next(event));
-    subscriber.complete();
   }
 
-  private failTurn(turn: ActiveTurn, error: unknown): void {
-    if (turn.finished) return;
-    const code =
-      error instanceof AcpRunFailure
-        ? error.code
-        : error instanceof AcpPromptError
-          ? "acp_prompt_error"
-          : "acp_transport_error";
-    const failed = createAcpRunError(turn.state, {
-      code,
-      message: errorMessage(error),
-    });
-    turn.state = failed.state;
-    emit(turn, failed.events);
-    completeSegment(turn);
-    turn.pendingPermission?.reject(error);
-    this.finishTurn(turn, error);
-  }
-
-  private finishTurn(turn: ActiveTurn, error?: unknown): void {
-    turn.finished = true;
-    this.coordinator.turns.delete(turn.threadId);
-    turn.connection?.close(error);
-    if (this.activeTurn === turn) {
-      this.activeTurn = undefined;
-    }
-  }
-
-  /** Sends stable `session/cancel` and lets the external agent finish the turn. */
+  /** Cancels the exact active public AG-UI run in Intelligence. */
   override abortRun(): void {
-    const turn = this.activeTurn;
-    if (!turn || turn.finished || !turn.context || !turn.remoteSessionId)
+    const activeRun = this.activeRun;
+    if (!activeRun) {
       return;
-    turn.context
-      .notify(methods.agent.session.cancel, { sessionId: turn.remoteSessionId })
-      .catch(() => undefined);
-    if (turn.pendingPermission) {
-      turn.pendingPermission.resolve({ outcome: { outcome: "cancelled" } });
-      turn.pendingPermission = undefined;
     }
+
+    activeRun.cancellation ??= this.config.intelligence
+      .ɵcancelAcpRun({ runId: activeRun.runId })
+      .then(
+        () => undefined,
+        () => undefined,
+      )
+      .then(() => activeRun.controller.abort());
   }
 
-  /** Creates an idle agent that shares only active permission coordination. */
+  /** Creates an idle agent with the same Intelligence profile. */
   clone(): AcpAgent {
-    const cloned = new AcpAgent(this.config, this.coordinator);
+    const cloned = new AcpAgent(this.config);
     // AbstractAgent does not expose its middleware chain, but clones must keep it.
     // @ts-expect-error AbstractAgent.middlewares is private in @ag-ui/client.
     cloned.middlewares = [...this.middlewares];
