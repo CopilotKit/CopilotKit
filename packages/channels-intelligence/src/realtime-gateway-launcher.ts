@@ -184,6 +184,13 @@ export async function startChannelsWithGatewayControl(
   // own teardown either way — the caller's session decides when `onClose`
   // fires), so callers composing over a session they manage themselves still
   // get reconnect signaling.
+  //
+  // `providerStates` is forwarded for the same reason and MUST NOT be omitted:
+  // this helper is exported precisely so callers can compose over a session they
+  // manage themselves, and a handle without the provider seam makes
+  // `ChannelManager.providerLeg` fall back to `unknown` — which keeps the
+  // transport-derived status and so reports `online` for a Channel with no
+  // provider bound. That is exactly the false green OSS-739 exists to remove.
   const observableSession = opts.session as Partial<{
     onClose(cb: () => void): void;
     onStateChange(
@@ -192,12 +199,18 @@ export async function startChannelsWithGatewayControl(
         detail?: { reason?: string; code?: string },
       ) => void,
     ): void;
+    providerStates(): Readonly<Record<string, string>> | undefined;
   }>;
   // Call the seams ON the session (not via detached references) so a
-  // class-based RealtimeGatewaySession whose `onClose`/`onStateChange` read
-  // `this` still works — the interface permits class-based implementations even
-  // though the concrete closure-based session happens not to need `this`.
-  if (observableSession.onClose || observableSession.onStateChange) {
+  // class-based RealtimeGatewaySession whose `onClose`/`onStateChange`/
+  // `providerStates` read `this` still works — the interface permits class-based
+  // implementations even though the concrete closure-based session happens not to
+  // need `this`.
+  if (
+    observableSession.onClose ||
+    observableSession.onStateChange ||
+    observableSession.providerStates
+  ) {
     return {
       ...handle,
       ...(observableSession.onClose
@@ -212,6 +225,12 @@ export async function startChannelsWithGatewayControl(
               ) => void,
             ) => observableSession.onStateChange!(cb),
           }
+        : {}),
+      // Delegated as a getter, not a captured snapshot: the control join hooks
+      // re-fire on every Phoenix auto-rejoin, so a Channel provisioned while the
+      // runtime was disconnected is reflected on the next read.
+      ...(observableSession.providerStates
+        ? { providerStates: () => observableSession.providerStates!() }
         : {}),
     };
   }
@@ -364,6 +383,10 @@ export async function startChannelsOverRealtimeGateway(
         detail?: { reason?: string; code?: string },
       ) => void,
     ) => session.onStateChange(cb),
+    // Delegated as a getter, not a captured snapshot: the control join hooks
+    // re-fire on every Phoenix auto-rejoin, so a Channel provisioned while the
+    // runtime was disconnected is reflected on the next read.
+    providerStates: () => session.providerStates(),
     stop: async () => {
       // Always close the connection even if stopping the channels throws — the
       // launcher owns the socket (the transport is handed the session and does

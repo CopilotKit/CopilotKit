@@ -17,6 +17,100 @@ export interface RealtimeGatewaySession {
   ): Promise<RealtimeGatewayDeliveryChannel>;
 }
 
+/**
+ * Managed provider attachment state the Gateway reports for one declared
+ * Channel on the control join reply.
+ *
+ * Mirrors `RealtimeGateway.Channels.ChannelProviderStateStore`, which is
+ * authoritative. Keep these descriptions in step with it — the whole reason this
+ * seam exists is that a state's description outlived its mechanism once already.
+ *
+ * - `attached`: a declared adapter is `active` AND finished setup, and its last
+ *   health check did not fail — the Channel can actually receive provider
+ *   traffic. The adapter's own `status` is part of the predicate, not just its
+ *   setup state: Slack ingress only resolves an inbound event through an
+ *   `active` adapter, so reporting `attached` for a `draft`, `disabled`, or
+ *   `error` adapter would reintroduce the false green one state further along.
+ * - `unhealthy`: a declared adapter is bound but broken — either `active` and
+ *   set up with a failed health check, or set up with the adapter row itself in
+ *   `error` (which is `unhealthy` even with no failed health check recorded).
+ * - `not_attached`: the Channel exists on the project but no declared adapter
+ *   has a row, none has finished setup, or none is `active` — the normal state
+ *   while setup is still in progress.
+ * - `disabled`: the Channel row itself is disabled on the project.
+ * - `channel_not_declared`: the project has no Channel with that name.
+ *
+ * A Runtime declares EVERY supported adapter per Channel (the launcher emits a
+ * `slack` and a `teams` pair unconditionally), so the Gateway folds the adapter
+ * states BEST-of — `attached` > `unhealthy` > `not_attached` — answering "is at
+ * least one provider bound?". A correctly configured Slack-only Channel is
+ * therefore `attached`, not dragged to `not_attached` by the Teams adapter
+ * nobody asked for. The two Channel-level states above are properties of the
+ * Channel row and dominate every adapter state.
+ */
+export type ChannelProviderState =
+  | "attached"
+  | "unhealthy"
+  | "not_attached"
+  | "disabled"
+  | "channel_not_declared";
+
+/** Provider attachment state keyed by declared Channel name. */
+export type ChannelProviderStates = Readonly<
+  Record<string, ChannelProviderState>
+>;
+
+/**
+ * Every state {@link parseChannelProviderStates} will accept.
+ *
+ * The runtime's `channel-manager.ts` duplicates this set as `PROVIDER_LEGS`,
+ * because that package must not take a static dependency on this one (it reaches
+ * this module only through a dynamic import), so the `providerStates` seam
+ * between them is deliberately duck-typed as `Record<string, string>`.
+ *
+ * Adding a state here therefore needs the same addition THERE, plus a `case` in
+ * that file's `foldChannelLegs`. Until both land, the new state fails open to
+ * `unknown` on the consuming side — the Channel keeps its transport-derived
+ * status rather than being wrongly certified or condemned. Safe, but silent.
+ */
+const PROVIDER_STATES: ReadonlySet<string> = new Set<ChannelProviderState>([
+  "attached",
+  "unhealthy",
+  "not_attached",
+  "disabled",
+  "channel_not_declared",
+]);
+
+/**
+ * Read the `channels` map off a control join reply.
+ *
+ * Returns `undefined` — meaning "the Gateway did not tell us" — when the key is
+ * absent, malformed, or carries an unrecognised state. A Gateway older than the
+ * provider-state contract and a Gateway whose database read failed both omit the
+ * key, and both must degrade to transport-only status rather than be mistaken
+ * for "no provider attached". Unknown values are dropped individually so one bad
+ * entry cannot hide the states that did parse.
+ *
+ * @param reply - Raw control-topic join reply.
+ * @returns Parsed provider states, or `undefined` when none were reported.
+ */
+export function parseChannelProviderStates(
+  reply: unknown,
+): ChannelProviderStates | undefined {
+  if (typeof reply !== "object" || reply === null) return undefined;
+  const raw = (reply as { channels?: unknown }).channels;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return undefined;
+  }
+  const states: Record<string, ChannelProviderState> = {};
+  for (const [name, value] of Object.entries(raw)) {
+    if (typeof value === "string" && PROVIDER_STATES.has(value)) {
+      states[name] = value as ChannelProviderState;
+    }
+  }
+  return Object.keys(states).length > 0 ? states : undefined;
+}
+
 /** One joined delivery topic. */
 export interface RealtimeGatewayDeliveryChannel extends RealtimeGatewaySession {
   /** Prepared delivery returned by the token-consuming join. */
@@ -448,6 +542,22 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
       detail?: RealtimeGatewayConnectionDetail,
     ) => void,
   ): void;
+  /**
+   * Managed provider attachment state per declared Channel, as reported on the
+   * newest control join reply — or `undefined` when the Gateway did not report
+   * it.
+   *
+   * A GETTER rather than a snapshot so callers always read the current value:
+   * the join hooks re-fire on every Phoenix auto-rejoin, so a Channel
+   * provisioned while the runtime was disconnected reports `attached` after the
+   * next rejoin with no extra plumbing.
+   *
+   * `undefined` means "not reported", NOT "no provider attached". A Gateway
+   * predating this contract and one whose database read failed both omit the
+   * key, and a caller must degrade to transport-only status in both cases rather
+   * than claim a Channel is unprovisioned.
+   */
+  providerStates(): ChannelProviderStates | undefined;
 }
 
 /**
@@ -521,6 +631,9 @@ export async function connectRealtimeGateway(
   let closingIntentionally = false;
   let everConnected = false;
   let initialJoinSettled = false;
+  // Newest control-topic join reply, refreshed on every successful (re)join.
+  // Read through `providerStates()` below rather than exposed raw.
+  let controlJoinReply: unknown;
   let lastTransportError: string | undefined;
   let lastTransportCode: string | undefined;
   let lastTransportRaw: unknown;
@@ -809,7 +922,12 @@ export async function connectRealtimeGateway(
   // promise vs. the ongoing health transitions.
   const joinPush = channel.join(timeout);
   joinPush
-    .receive("ok", () => {
+    .receive("ok", (reply: unknown) => {
+      // Keep the newest control reply. Because these hooks re-fire on every
+      // Phoenix auto-rejoin, provider attachment state refreshes for free when
+      // the socket recovers — a Channel provisioned while the runtime was
+      // disconnected stops reporting `setup_required` after the next rejoin.
+      controlJoinReply = reply;
       if (!initialJoinSettled) {
         initialJoinSettled = true;
         clearConnectDeadline();
@@ -949,9 +1067,16 @@ export async function connectRealtimeGateway(
   // A socket-level drop begins a reconnect episode; the "back online" signal
   // comes from a successful (re)join (the join-push `"ok"` hook above), NOT from
   // the socket merely reopening — the channel may still be rejoining.
-  socket.onClose(() => {
+  socket.onClose((event) => {
     notifyClose();
     enterReconnecting();
+    // Phoenix treats code 1000 as terminal and does not schedule its reconnect
+    // timer. For a live managed session, only our own disconnect is terminal.
+    if (!closingIntentionally && event?.code === 1000) {
+      socket.disconnect(() => {
+        if (!closingIntentionally) socket.connect();
+      });
+    }
   });
   socket.onError(() => {
     notifyClose();
@@ -974,6 +1099,7 @@ export async function connectRealtimeGateway(
 
   return {
     ...wrapChannel(channel, undefined),
+    providerStates: () => parseChannelProviderStates(controlJoinReply),
     onClose: (cb) => {
       closeCallbacks.push(cb);
     },

@@ -18,6 +18,7 @@ import type {
 } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import { createStateEventNormalizer } from "../state-delta";
 
 type ContentPartSource =
   | { type: "data"; value: string; mimeType: string }
@@ -332,6 +333,7 @@ export async function* convertTanStackStream(
   stream: AsyncIterable<unknown>,
   abortSignal: AbortSignal,
   pendingInterrupts?: Interrupt[],
+  initialState?: unknown,
 ): AsyncGenerator<BaseEvent> {
   const messageId = randomUUID();
   const toolNamesById = new Map<string, string>();
@@ -344,6 +346,7 @@ export async function* convertTanStackStream(
   let reasoningRunOpen = false;
   let reasoningMessageOpen = false;
   let reasoningMessageId = randomUUID();
+  const normalizeStateEvent = createStateEventNormalizer(initialState);
 
   function* closeReasoningIfOpen(): Generator<BaseEvent> {
     if (reasoningMessageOpen) {
@@ -491,7 +494,9 @@ export async function* convertTanStackStream(
           type: EventType.STATE_SNAPSHOT,
           snapshot: (parsedContent as Record<string, unknown>).snapshot,
         };
-        yield stateSnapshotEvent;
+        for (const event of normalizeStateEvent(stateSnapshotEvent)) {
+          yield event;
+        }
       }
 
       if (
@@ -504,7 +509,9 @@ export async function* convertTanStackStream(
           type: EventType.STATE_DELTA,
           delta: (parsedContent as Record<string, unknown>).delta as never,
         };
-        yield stateDeltaEvent;
+        for (const event of normalizeStateEvent(stateDeltaEvent)) {
+          yield event;
+        }
       }
 
       let serializedContent: string;

@@ -112,6 +112,8 @@ export interface ThreadDeps {
   transcripts?: Transcripts;
   /** The inbound message that triggered this turn (for transcript bridging). */
   message?: IncomingMessage;
+  /** Fallback prompt for agent runs with neither an explicit nor an inbound prompt. */
+  defaultPrompt?: string;
   user: ApplicationUser | null;
   actor: ProviderActor;
   /** Declared Channel identity bound to one-use continuations. */
@@ -478,9 +480,11 @@ export class Thread implements ThreadInterface {
     /**
      * A user message to inject before running. When the adapter's conversation
      * store does not seed the in-flight turn, an omitted prompt defaults to
-     * non-empty inbound `message.contentParts` or `message.text`. Pass a prompt
-     * explicitly when input isn't in reconstructed history — e.g. slash-command
-     * args, which are never posted to the channel.
+     * non-empty inbound `message.contentParts` or `message.text`. Welcome
+     * handlers instead default to `"Introduce yourself to the channel!"`.
+     * Pass a prompt explicitly to override either default or when input isn't in
+     * reconstructed history — e.g. slash-command args, which are never posted to
+     * the channel.
      */
     prompt?: string | AgentContentPart[];
     /**
@@ -512,7 +516,7 @@ export class Thread implements ThreadInterface {
       this.trackOperation(async () => {
         const memory = this.resolveMemory(memoryRequest, this.deps.user);
         const message = this.deps.message;
-        const defaultPrompt =
+        const inboundPrompt =
           message?.contentParts && message.contentParts.length > 0
             ? message.contentParts
             : message?.text;
@@ -521,7 +525,7 @@ export class Thread implements ThreadInterface {
           !this.deps.adapter.conversationStore.seedsInboundTurn &&
           (!this.deps.adapter.injectInboundTurnOnce ||
             !this.implicitInboundConsumed);
-        if (implicitPrompt && defaultPrompt) {
+        if (implicitPrompt && inboundPrompt) {
           this.implicitInboundConsumed = true;
         }
         const continuation: ActionContinuationContext = {
@@ -537,7 +541,9 @@ export class Thread implements ThreadInterface {
             ...input,
             memory,
             prompt:
-              input?.prompt ?? (!implicitPrompt ? undefined : defaultPrompt),
+              input?.prompt ??
+              (implicitPrompt ? inboundPrompt : undefined) ??
+              this.deps.defaultPrompt,
           });
         } finally {
           if (this.activeContinuation === continuation) {

@@ -321,6 +321,42 @@ const MemoizedCustomMessage = React.memo(
  *
  * @internal Exported for unit testing only — not part of the public API.
  */
+/**
+ * Collapse tool calls that share an id, keeping first-seen order.
+ *
+ * AG-UI's TOOL_CALL_START handler appends to the parent message's `toolCalls`
+ * without checking whether that id is already present. So whenever a start
+ * event is applied twice — which the human-in-the-loop flow triggers when the
+ * run syncs after `respond()` — the message ends up carrying the same call
+ * twice. The second copy has EMPTY `arguments`, because a start event carries
+ * none; the args arrive later as TOOL_CALL_ARGS deltas addressed to the first
+ * copy.
+ *
+ * Left alone that renders the same tool call twice: once populated and once
+ * blank (an approval card with no transaction id, offering live buttons for an
+ * action already taken), and React warns "Encountered two children with the
+ * same key" because the call id is the render key.
+ *
+ * The empty copy is the redundant one, so prefer whichever entry actually
+ * carries arguments rather than blindly taking the first.
+ */
+function dedupeToolCalls(
+  toolCalls: NonNullable<AssistantMessage["toolCalls"]>,
+): NonNullable<AssistantMessage["toolCalls"]> {
+  const byId = new Map<string, (typeof toolCalls)[number]>();
+  for (const toolCall of toolCalls) {
+    const existing = byId.get(toolCall.id);
+    if (!existing) {
+      byId.set(toolCall.id, toolCall);
+      continue;
+    }
+    if (!existing.function?.arguments && toolCall.function?.arguments) {
+      byId.set(toolCall.id, toolCall);
+    }
+  }
+  return byId.size === toolCalls.length ? toolCalls : [...byId.values()];
+}
+
 export function deduplicateMessages(messages: Message[]): Message[] {
   const acc = new Map<string, Message>();
   for (const message of messages) {
@@ -341,7 +377,14 @@ export function deduplicateMessages(messages: Message[]): Message[] {
         ...existing,
         ...message,
         content,
-        toolCalls,
+        toolCalls: toolCalls ? dedupeToolCalls(toolCalls) : toolCalls,
+      } as AssistantMessage);
+    } else if (message.role === "assistant" && message.toolCalls) {
+      // Duplicate call ids also arrive on a message that was never itself
+      // duplicated, so this cannot live in the merge branch above.
+      acc.set(message.id, {
+        ...message,
+        toolCalls: dedupeToolCalls(message.toolCalls),
       } as AssistantMessage);
     } else {
       acc.set(message.id, message);

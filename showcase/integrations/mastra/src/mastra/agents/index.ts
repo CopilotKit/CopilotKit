@@ -17,6 +17,7 @@ import {
   scheduleMeetingTool,
   scheduleMeetingInterruptTool,
   searchFlightsTool,
+  searchFlightsA2uiTool,
   rollDiceTool,
   rollD20Tool,
   generateA2uiTool,
@@ -31,6 +32,7 @@ import {
 import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
+import type { RequestContext } from "@mastra/core/request-context";
 // Backend-owned A2UI with the toolkit validate->retry recovery loop (OSS-422).
 // `@ag-ui/mastra/a2ui` is a bridge-free subpath (avoids the Mastra bundler vs
 // @ag-ui/client→uuid clash); mirrors langgraph's get_a2ui_tools.
@@ -504,7 +506,12 @@ export const toolRenderingAgent = new Agent({
     get_stock_price: stockPriceTool,
     roll_d20: rollD20Tool,
   },
-  model: openai("gpt-4o"),
+  // Gold parity (tool_rendering_agent.py uses gpt-5.4). On gpt-4o this agent
+  // prefixed the flights turn with a restatement of the PREVIOUS turn's
+  // weather ("The weather in San Francisco is…"), which read as a tool result
+  // arriving a turn late (PNI-121); gold narrates only the current turn's
+  // tools. Same system prompt, so the model was the divergence.
+  model: openai("gpt-5.4"),
   // The "Roll a d20" pill chains 5 sequential roll_d20 calls + a closing
   // narration (6 model turns), and "Chain tools" fans out 3 tools then
   // summarizes. The AI SDK default stop condition halts the agentic loop
@@ -845,6 +852,69 @@ export const a2uiRecoveryAgent = new Agent({
   }),
 });
 
+// Dedicated agent for the Beautiful Chat flagship cell. Mirrors langgraph-python
+// `beautiful_chat.py`: query_data + todos + the dynamic `generate_a2ui`
+// (dashboards) + a FIXED-schema `search_flights` that returns a FlightCard A2UI
+// envelope. Kept separate from the shared `weatherAgent` so the fixed-schema
+// flights + the flight/dashboard steering prompt don't leak into the
+// tool-rendering cells (which render flights via their own frontend card).
+// Frontend tools (pieChart, barChart, scheduleTime, generateSandboxedUi,
+// toggleTheme, enableAppMode, …) arrive as client tools at run time, so they
+// are not declared here.
+export const beautifulChatAgent = new Agent({
+  id: "beautiful-chat-agent",
+  name: "Beautiful Chat Agent",
+  tools: {
+    query_data: queryDataTool,
+    manage_todos: manageTodosTool,
+    get_todos: getTodosTool,
+    generate_a2ui: generateA2uiTool,
+    search_flights: searchFlightsA2uiTool,
+  },
+  // Matches gold `beautiful_chat.py` (`ChatOpenAI(model="gpt-5.4")`).
+  model: openai("gpt-5.4"),
+  // Mirror gold `beautiful_chat.py` (`parallel_tool_calls=False`): the model
+  // commits to one tool per step instead of firing several at once. Without it,
+  // a "sales dashboard … include a pie chart and a bar chart" request tempts the
+  // model to call the standalone `pieChart`/`barChart` tools AND `generate_a2ui`
+  // in parallel, painting loose charts next to the dashboard.
+  defaultOptions: {
+    providerOptions: {
+      openai: {
+        parallelToolCalls: false,
+      },
+    },
+  },
+  instructions:
+    "You are a polished, professional demo assistant. Keep responses to 1-2 " +
+    "sentences.\n\nTool guidance:\n" +
+    "- Flights: call search_flights to show flight cards with a pre-built " +
+    "schema.\n" +
+    "- Dashboards & rich UI: call generate_a2ui to create dashboard UIs with " +
+    "metrics, charts, tables, and cards. It handles rendering automatically. " +
+    "When a request asks for a dashboard or says 'using A2UI', call " +
+    "generate_a2ui ONLY — do NOT also call the standalone pieChart or barChart " +
+    "tools; generate_a2ui draws the charts inside the surface.\n" +
+    "- Standalone charts: only when the user asks for a single pie or bar chart " +
+    "(not a dashboard), call query_data first, then the pieChart or barChart " +
+    "tool.\n" +
+    "- Todos: enable app mode first, then manage todos.\n" +
+    "- A2UI actions: when you see a log_a2ui_event result, respond with a " +
+    "brief confirmation. The UI already updated on the frontend.",
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "beautiful-chat-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+
 export const multimodalAgent = new Agent({
   id: "multimodal-demo",
   name: "Multimodal Agent",
@@ -996,3 +1066,113 @@ export const observationalMemoryAgent = new Agent({
   }),
 });
 // @endregion[observational-memory-agent]
+
+// @region[open-gen-ui-agents]
+/**
+ * Dedicated agents for the Open Generative UI demos (minimal + advanced).
+ *
+ * Parity target (gold = langgraph-python `open_gen_ui_agent.py` /
+ * `open_gen_ui_advanced_agent.py`): each is a purpose-built agent whose
+ * system prompt MANDATES a single `generateSandboxedUi` call producing a
+ * polished (advanced: INTERACTIVE, host-function-wired) sandboxed UI, and
+ * reads the design-skill + sandbox-function descriptors the
+ * `CopilotKitProvider` injects as agent CONTEXT.
+ *
+ * Why NOT the shared `weatherAgent`: with only
+ * `"You are a helpful assistant."` plus the tool description, a live LLM
+ * emits STATIC HTML with no JS wiring — the calculator's buttons render
+ * but nothing is interactive. aimock hid this because its replay fixture
+ * ships a fully-wired UI, so the divergence only showed on a live endpoint.
+ *
+ * Why DYNAMIC instructions: on Mastra, `RunAgentInput.context` is a
+ * read-channel (`requestContext.get("ag-ui").context`) — it is NOT
+ * auto-injected into the LLM prompt (unlike the langgraph
+ * `CopilotKitMiddleware`, which merges `copilotkit.context` into what the
+ * LLM sees). So we read that context here and fold the design-skill +
+ * sandbox-function descriptors into the system prompt, giving the Mastra
+ * model the same knowledge the gold agent gets from its context.
+ */
+function foldHostContext(requestContext: RequestContext): string {
+  const agui = requestContext.get("ag-ui") as
+    | { context?: Array<{ description: string; value: string }> }
+    | undefined;
+  const items = agui?.context ?? [];
+  if (items.length === 0) return "";
+  const blocks = items
+    .map((c) => `### ${c.description}\n${c.value}`)
+    .join("\n\n");
+  return `\n\n---\nHOST CONTEXT (provided by the application — read carefully and follow it):\n\n${blocks}`;
+}
+
+const OPEN_GEN_UI_BASE_PROMPT = `You are a UI-generating assistant for an Open Generative UI demo focused on intricate, educational visualisations (3D axes / rotations, neural-network activations, sorting-algorithm walkthroughs, Fourier series, wave interference, planetary orbits, etc.).
+
+On every user turn you MUST call the \`generateSandboxedUi\` frontend tool exactly once. Design a visually polished, self-contained HTML + CSS + SVG widget that *teaches* the requested concept.
+
+A detailed "design skill" describing the palette, typography, labelling, and motion conventions is provided in the host context below — follow it closely. Key invariants:
+- Use inline SVG (or <canvas>) for geometric content, not stacks of <div>s.
+- Every axis is labelled; every colour-coded series has a legend.
+- Prefer CSS @keyframes / transitions over setInterval; loop cyclical concepts with animation-iteration-count: infinite.
+- Motion must teach — animate the actual step of the concept, not decoration.
+- No fetch / XHR / localStorage — the sandbox has no same-origin access.
+
+Output order:
+- \`initialHeight\` (typically 480-560 for visualisations) first.
+- A short \`placeholderMessages\` array (2-3 lines describing the build).
+- \`css\` (complete).
+- \`html\` (streams live — keep it tidy). CDN <script> tags for Chart.js / D3 / etc. go inside the html.
+
+Keep your own chat message brief (1 sentence) — the real output is the rendered visualisation.`;
+
+const OPEN_GEN_UI_ADVANCED_BASE_PROMPT = `You are a UI-generating assistant for the Open Generative UI (Advanced) demo.
+
+On every user turn you MUST call the \`generateSandboxedUi\` frontend tool exactly once. The generated UI must be INTERACTIVE and must invoke the available host-side sandbox functions described in the host context below in response to user interactions.
+
+Sandbox-function calling contract (inside the generated iframe):
+- Call a host function with:
+      await Websandbox.connection.remote.<functionName>(args)
+  The call returns a Promise; await it.
+- Each handler returns a plain object. Read the return shape from the function's description in the context and use the EXACT field names it returns (e.g. if the description says the handler returns \`{ ok, value }\`, read \`res.value\` — not \`res.result\`).
+- Descriptions, names, and JSON-schema parameter shapes for every available sandbox function are listed in the host context below. Read them carefully and wire at least one interactive UI element to call one.
+
+Sandbox iframe restrictions (CRITICAL):
+- The iframe runs with \`sandbox="allow-scripts"\` ONLY. Forms are NOT allowed. You MUST NOT use \`<form>\` elements or \`<button type="submit">\`. Clicking a submit button inside a sandboxed form is blocked by the browser BEFORE any onsubmit handler runs, so the sandbox-function call never fires.
+- Use plain \`<button type="button">\` elements and wire them with \`addEventListener('click', ...)\`. For "Enter" keypresses on inputs, attach a \`keydown\` listener that checks \`e.key === 'Enter'\` and calls your handler directly — do NOT wrap inputs in a \`<form>\`.
+
+Making the UI interactive (REQUIRED — static markup alone is NOT acceptable):
+- The buttons/inputs MUST actually do something. Include the wiring JavaScript either as an inline \`<script>\` at the END of your \`html\`, or via the \`jsFunctions\` / \`jsExpressions\` parameters. A UI with no script is a bug.
+- Always include a visible result element (e.g. an output div) that you UPDATE after the sandbox function resolves, so the user can SEE the round-trip: "interaction -> remote call -> visible result".
+
+Generation guidance:
+- Emit \`initialHeight\` and \`placeholderMessages\` first, then \`css\`, then \`html\` (put any wiring script at the end of the html), then \`jsFunctions\` / \`jsExpressions\` if helpful.
+- Do NOT use fetch/XHR, localStorage, or document.cookie — the sandbox has no same-origin access. ONLY use \`Websandbox.connection.remote.*\` for host-page interactions.
+- Keep your own chat message brief (1 sentence max); the rendered UI is the real output.`;
+
+/**
+ * Memory factory for the OGUI agents. Storage only (no working-memory
+ * schema) — these agents are single-shot UI generators with no shared
+ * state, matching gold's `tools=[]` agents. Storage keeps thread history
+ * consistent with the bridge's send-only-new-turn contract.
+ */
+const openGenUiMemory = (id: string) =>
+  new Memory({
+    storage: new LibSQLStore({ id, url: WORKING_MEMORY_DB_URL }),
+  });
+
+export const openGenUiAgent = new Agent({
+  id: "open-gen-ui-agent",
+  name: "Open Generative UI Agent",
+  model: openai("gpt-4o"),
+  instructions: ({ requestContext }) =>
+    OPEN_GEN_UI_BASE_PROMPT + foldHostContext(requestContext),
+  memory: openGenUiMemory("open-gen-ui-agent-memory"),
+});
+
+export const openGenUiAdvancedAgent = new Agent({
+  id: "open-gen-ui-advanced-agent",
+  name: "Open Generative UI Advanced Agent",
+  model: openai("gpt-4o"),
+  instructions: ({ requestContext }) =>
+    OPEN_GEN_UI_ADVANCED_BASE_PROMPT + foldHostContext(requestContext),
+  memory: openGenUiMemory("open-gen-ui-advanced-agent-memory"),
+});
+// @endregion[open-gen-ui-agents]

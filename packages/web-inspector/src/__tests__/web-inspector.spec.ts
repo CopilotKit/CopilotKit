@@ -328,6 +328,30 @@ describe("WebInspectorElement", () => {
     );
   });
 
+  it("records step lifecycle events", async () => {
+    const { agent, controller } = createMockAgent("alpha");
+    const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
+    const inspector = createInspectorWithCore(core);
+
+    emitAgentsChanged();
+    await inspector.updateComplete;
+
+    controller.emit("onStepStartedEvent", {
+      event: { stepName: "test-step" },
+    });
+    controller.emit("onStepFinishedEvent", {
+      event: { stepName: "test-step" },
+    });
+    await inspector.updateComplete;
+
+    const internals = getInternals(inspector);
+
+    expect(internals.flattenedEvents.map((event) => event.type)).toEqual([
+      "STEP_FINISHED",
+      "STEP_STARTED",
+    ]);
+  });
+
   it("normalizes context, persists state, and copies context values", async () => {
     const { core, emitContextChanged } = createMockCore();
     const inspector = createInspectorWithCore(core);

@@ -49,6 +49,11 @@ export default { fetch: handler };
 Each server entry accepts an optional `agentId`. When set, the server's tools are only
 exposed to that agent. Omit it to expose to all agents.
 
+Per-tool filtering belongs to `@ag-ui/mcp-apps-middleware`. The runtime currently pins
+version `0.0.3`, which does not support `includeTools` or `excludeTools`. Supplying either
+key raises a configuration error instead of silently ignoring it; use a compatible
+middleware release when that upstream policy contract is available.
+
 ## Gotcha — do NOT put MCP under agents
 
 ```typescript

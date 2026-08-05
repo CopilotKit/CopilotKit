@@ -35,6 +35,28 @@ test("every Slack catalog entry serializes its fixed discriminator", () => {
   }
 });
 
+test("Slack carousel serializes cards from its elements field", () => {
+  const title = createNativeNode("slack", "object", "plain_text", {
+    text: "First card",
+  });
+  const card = createNativeNode("slack", "block", "card", { title });
+  const carousel = createNativeNode("slack", "block", "carousel", {
+    elements: [card],
+  });
+
+  const serialized = serializeSlackNativeNode(carousel);
+
+  expect(serialized).toEqual({
+    type: "carousel",
+    elements: [
+      {
+        type: "card",
+        title: { type: "plain_text", text: "First card" },
+      },
+    ],
+  });
+});
+
 function requiredProps(type: string): Record<string, unknown> {
   if (type === "actions" || type === "context") return { elements: [] };
   if (type === "button" || type === "header") return { text: "text" };

@@ -1,7 +1,7 @@
 ---
 name: setup-slack-channel
 description: Use for the PROVIDER half of getting a locally running CopilotKit Channels agent to answer in Slack, when no Slack app exists yet — setting up a Channels bot in Slack for the first time, creating the Slack app and its tokens, attaching it to a managed Intelligence Channel, or when a Channel reports setup_required, sits at "Waiting for runtime", the Channel is Online but a Slack mention gets no reply, or a Slack app was built with Socket Mode instead of an Intelligence Request URL. Scoped to an OpenTag checkout, or the OpenTag example inside a channels-sdk clone — the phases assume those conventions (app/channel.tsx, app/env.ts, INTELLIGENCE_CHANNEL_NAME, a local agent on port 8123) and do not describe a project scaffolded by copilotkit init, which already ships its own channel host. If the Slack app and Channel already exist and the question is about declaring or customising the Channel in code, use the copilotkit-channels skill instead.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Set up a Slack Channel for a local Channels agent
@@ -46,6 +46,19 @@ commands for Channel creation, adapter attach, and key issuance — **do not use
 them here**; they are not hardened for this workflow yet. Never invent a command
 name to fill a gap, and if you are unsure whether a command covers something,
 check its `--help` rather than guessing.
+
+**Drive that browser yourself. That is the default here, not a bonus.** Check what
+you actually have before Phase 0 and say which it is — never assume either way.
+
+If you have no browser or computer-use tool, **ask the developer to install one
+before you start.** Work out which harness you are running in and name the single
+route that applies rather than reciting all of them: Claude Code and Codex each
+ship their own browser support and enable it differently, and most other harnesses
+take a general browser-use MCP server such as Playwright MCP. **If you are not sure
+what your harness supports, look it up before you guess.** Tell them what it buys —
+driving turns this into typing three secrets, while the fallback is roughly fifteen
+manual browser steps. Only if they decline, walk them through those steps one
+action at a time.
 
 ## Done means three things, all verified
 
@@ -165,8 +178,43 @@ falls back to `onMessage`, while a **non-mentioned** turn goes only to
 does not flag as a mention. **Verify with a channel mention first**; it is the
 path every starter registers. Details in `references/troubleshooting.md`.
 
-Confirm before continuing: production Intelligence, a dedicated Slack app, and a
-workspace where they can install it.
+### Decide these with the developer before you open a browser
+
+**Driving does not mean deciding.** These are the developer's calls, all cheap to
+ask now and expensive to change later. Ask for them in **one** exchange, then
+proceed without coming back.
+
+1. **The bot's display name.** The wizard derives the Channel **Code** from it,
+   and that Code is what `createChannel({ name })` declares and what they type as
+   `/invite @<code>`. Slack bot names are **workspace-wide**, so a collision
+   blocks the install. Suggest one, but do not settle it yourself — this is the
+   bot's identity in their workspace.
+2. **Which Slack workspace** the app gets installed into. Never assume the one
+   their browser session happens to be signed into.
+3. **Which channel to test in.** Gate 3 is a real mention getting a real reply, so
+   it has to be somewhere they can post and somewhere a bot reply is welcome.
+4. **Whether this is throwaway or something they will keep**, if they have not
+   already said. It decides whether a sandbox workspace is fine.
+
+State the answers back before Phase 1. If they defer one, say what you are
+defaulting to rather than silently picking.
+
+### Then take one authorization
+
+Name the whole sequence it covers: production Intelligence, a dedicated Slack app
+built from the wizard's generated manifest, installed into the workspace they
+named, the Channel created, the Slack adapter attached, and a project-scoped API
+key issued.
+
+One yes covers all of it. **Do not re-ask per page, per goal, or per click** — a
+run that stops at every control is slower than the manual path it replaced, which
+is the whole reason driving is the default. After this, stop only for a secret the
+developer types themselves, for a decision above that they deferred, or for
+something this authorization did not cover.
+
+Those two blocks are different things and both are required. The decisions are
+**inputs** you cannot invent; the authorization is **permission** you only need
+once. Collapsing the second does not license skipping the first.
 
 ## Phase 1 — Workspace, and start the Channel wizard to get the manifest
 
@@ -174,11 +222,13 @@ workspace where they can install it.
 manifest.** Do not hand-write one, and do not use the starter's
 `slack-app-manifest.yaml` — see the prohibition below.
 
-1. No usable workspace → create a free one, or a Slack Developer Program sandbox.
-   Never test in a workspace where an unapproved bot would be disruptive.
-2. In the Intelligence dashboard, start **Create a channel**. Enter a **Display
-   name**; the wizard derives the **Code** from it — lowercase kebab-case, and the
-   Code is what `createChannel({ name })` must declare. Select **Slack**.
+1. Use the workspace the developer named in Phase 0. If they have no usable one →
+   create a free workspace, or a Slack Developer Program sandbox. Never test in a
+   workspace where an unapproved bot would be disruptive.
+2. In the Intelligence dashboard, start **Create a channel**. Enter **the Display
+   name the developer chose in Phase 0** — do not substitute your own. The wizard
+   derives the **Code** from it — lowercase kebab-case, and the Code is what
+   `createChannel({ name })` must declare. Select **Slack**.
 3. Advance to **Setup**. That step contains a generated manifest ("Copy manifest" /
    "View manifest YAML") already pointed at the right Request URL, plus the two
    credential fields you will fill in Phase 3. **Nothing is saved until you
@@ -205,7 +255,9 @@ Full detail in `references/slack-workspace-and-app.md`. The shape:
    **signing secret** (Basic Information → App Credentials). They go to
    Intelligence — never into this repo. There is **no `xapp-` token** in this
    workflow.
-4. Invite the bot to a test channel: `/invite @YourBot`.
+4. Invite the bot to the channel the developer named in Phase 0:
+   `/invite @<code>`. The developer runs this — you cannot invite a bot on their
+   behalf, and the CLI cannot verify the invitation either.
 
 ## Phase 3 — Finish the Channel: adapter credentials and API key
 
@@ -218,9 +270,11 @@ The developer types the bot token and signing secret into the **Setup** step
 themselves, then Review → create. Then issue a project-scoped API key and have
 them paste it into `.env`.
 
-Because these are consequential mutations in a live dashboard: **read the page
-before you act, describe what you are about to change, and get explicit
-confirmation.** Never guess at a control and click it.
+These are consequential mutations in a live dashboard, so **read the page before
+you act and never click a control you have not read.** But reading is not a reason
+to check in: the Phase 0 authorization already covers this sequence, so work
+straight through it and report what you changed rather than asking before each
+control.
 
 ## Phase 4 — Configure and start the runtime
 
