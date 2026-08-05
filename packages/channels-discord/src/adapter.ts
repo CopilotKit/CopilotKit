@@ -48,6 +48,24 @@ import { discordMarkdown } from "./markdown.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 import type { ReplyTarget } from "./types.js";
 
+/** Render Discord message JSON and map generated attachments to discord.js files. */
+function renderMessagePayload(ir: ChannelNode[]) {
+  const { components, flags, attachments } = renderDiscordMessage(ir);
+  return {
+    components,
+    flags,
+    ...(attachments.length > 0
+      ? {
+          files: attachments.map((attachment) => ({
+            attachment: Buffer.from(attachment.bytes),
+            name: attachment.filename,
+            description: attachment.altText,
+          })),
+        }
+      : {}),
+  };
+}
+
 export interface DiscordAdapterOptions {
   botToken: string;
   appId: string;
@@ -337,8 +355,7 @@ export class DiscordAdapter implements PlatformAdapter {
   async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const channel = await this.fetchSendable(t.channelId);
-    const { components, flags } = renderDiscordMessage(ir);
-    const msg = await channel.send({ components, flags });
+    const msg = await channel.send(renderMessagePayload(ir));
     return { id: msg.id, channelId: t.channelId };
   }
 
@@ -348,8 +365,7 @@ export class DiscordAdapter implements PlatformAdapter {
     if (!ref.id) return;
     const channel = await this.fetchSendable(this.channelIdOf(ref));
     const msg = await channel.messages.fetch(ref.id);
-    const { components, flags } = renderDiscordMessage(ir);
-    await msg.edit({ components, flags });
+    await msg.edit(renderMessagePayload(ir));
   }
 
   async stream(
@@ -577,8 +593,7 @@ export class DiscordAdapter implements PlatformAdapter {
     try {
       const u = await this.client.users.fetch(userId);
       const dm = await u.createDM();
-      const { components, flags } = renderDiscordMessage(ir);
-      await dm.send({ components, flags });
+      await dm.send(renderMessagePayload(ir));
       return {
         ok: true,
         usedFallback: true,

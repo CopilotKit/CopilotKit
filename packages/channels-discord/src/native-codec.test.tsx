@@ -22,6 +22,7 @@ test("Discord native JSX serializes to Components V2 JSON with bound actions", (
 
   expect(renderDiscordMessage(ir)).toEqual({
     flags: 32768,
+    attachments: [],
     components: [
       {
         type: 17,

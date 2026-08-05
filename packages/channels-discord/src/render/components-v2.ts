@@ -28,6 +28,11 @@ import {
   containsDiscordNative,
   renderDiscordNativeMessage,
 } from "../native-codec.js";
+import { renderDiscordChart } from "./chart.js";
+import type {
+  DiscordAttachmentDescriptor,
+  DiscordChartInput,
+} from "./chart.js";
 
 /**
  * Running totals enforced across a single message render. Discord rejects the
@@ -116,6 +121,13 @@ function addText(
  * limits apply via truncate/clamp; nothing is silently dropped.
  */
 export function renderComponents(ir: ChannelNode[]): ContainerBuilder {
+  return renderPortableComponents(ir, []);
+}
+
+function renderPortableComponents(
+  ir: ChannelNode[],
+  attachments: DiscordAttachmentDescriptor[],
+): ContainerBuilder {
   const container = new ContainerBuilder();
 
   // <Message accent="#hex"> → container accent color.
@@ -130,20 +142,32 @@ export function renderComponents(ir: ChannelNode[]): ContainerBuilder {
     textChars: 0,
     overflowed: false,
   };
-  for (const node of ir) addNode(node, container, budget);
+  for (const node of ir) addNode(node, container, budget, attachments);
   return container;
 }
 
+export interface DiscordMessageRenderResult {
+  readonly components: Array<ContainerBuilder | APIMessageTopLevelComponent>;
+  readonly flags: number;
+  readonly attachments: readonly DiscordAttachmentDescriptor[];
+}
+
 /** Ready-to-send payload for channel.send / message.edit. */
-export function renderDiscordMessage(ir: ChannelNode[]): {
-  components: Array<ContainerBuilder | APIMessageTopLevelComponent>;
-  flags: number;
-} {
+export function renderDiscordMessage(
+  ir: ChannelNode[],
+): DiscordMessageRenderResult {
+  if (containsDiscordNative(ir)) {
+    return {
+      components: renderDiscordNativeMessage(ir),
+      flags: MessageFlags.IsComponentsV2,
+      attachments: [],
+    };
+  }
+  const attachments: DiscordAttachmentDescriptor[] = [];
   return {
-    components: containsDiscordNative(ir)
-      ? renderDiscordNativeMessage(ir)
-      : [renderComponents(ir)],
+    components: [renderPortableComponents(ir, attachments)],
     flags: MessageFlags.IsComponentsV2,
+    attachments,
   };
 }
 
@@ -151,11 +175,14 @@ function addNode(
   node: ChannelNode,
   container: ContainerBuilder,
   budget: RenderBudget,
+  attachments: DiscordAttachmentDescriptor[],
 ): void {
   if (typeof node.type !== "string") return; // non-intrinsic — already expanded
   // <Message> is a structural wrapper; recurse into it without charging budget.
   if (node.type === "message") {
-    for (const child of childNodes(node)) addNode(child, container, budget);
+    for (const child of childNodes(node)) {
+      addNode(child, container, budget, attachments);
+    }
     return;
   }
   // Message-level budget reached — emit one overflow marker and stop adding.
@@ -256,6 +283,28 @@ function addNode(
           ),
         );
       }
+      return;
+    }
+    case "chart": {
+      const cost = 2;
+      if (budget.components + cost > DISCORD_LIMITS.componentsPerMessage - 1) {
+        signalOverflow(budget, container);
+        return;
+      }
+      const filename = `chart-${attachments.length + 1}.png`;
+      const attachment = renderDiscordChart(
+        props as unknown as DiscordChartInput,
+        filename,
+      );
+      attachments.push(attachment);
+      budget.components += cost;
+      container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+          new MediaGalleryItemBuilder()
+            .setURL(`attachment://${filename}`)
+            .setDescription(attachment.altText),
+        ),
+      );
       return;
     }
     case "actions": {

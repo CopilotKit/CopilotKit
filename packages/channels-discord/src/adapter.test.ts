@@ -57,6 +57,61 @@ describe("DiscordAdapter", () => {
     expect(out).toBeTruthy(); // ContainerBuilder
   });
 
+  it("sends rendered chart files when posting and updating messages", async () => {
+    const edit = vi.fn(async (_payload: unknown) => undefined);
+    const message = { id: "m1", edit, delete: vi.fn(async () => undefined) };
+    const send = vi.fn(async (_payload: unknown) => message);
+    const channel = {
+      id: "c1",
+      send,
+      messages: { fetch: vi.fn(async () => message) },
+    };
+    const client = {
+      ...fakeClient(),
+      channels: { fetch: vi.fn(async () => channel) },
+    };
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const chart = [
+      {
+        type: "chart",
+        props: {
+          type: "line",
+          title: "Requests",
+          data: [
+            { label: "Mon", value: 10 },
+            { label: "Tue", value: 14 },
+          ],
+        },
+      },
+    ];
+
+    await a.post({ channelId: "c1" } as never, chart as never);
+    await a.update({ id: "m1", channelId: "c1" }, chart as never);
+
+    const payloads = [send.mock.calls[0]![0], edit.mock.calls[0]![0]] as Array<{
+      files: Array<{ attachment: Buffer; name: string; description: string }>;
+    }>;
+    for (const payload of payloads) {
+      expect(payload).toEqual(
+        expect.objectContaining({
+          files: [
+            expect.objectContaining({
+              name: "chart-1.png",
+              description: expect.stringContaining("Requests"),
+              attachment: expect.any(Buffer),
+            }),
+          ],
+        }),
+      );
+      expect(payload.files[0]!.attachment.subarray(0, 8)).toEqual(
+        Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+      );
+    }
+  });
+
   it("logs in and captures the bot id on start, publishing commands on ready", async () => {
     const client = fakeClient();
     const put = vi.fn(async () => {});
