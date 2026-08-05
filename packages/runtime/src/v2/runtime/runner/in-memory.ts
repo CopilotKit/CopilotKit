@@ -609,15 +609,29 @@ export class InMemoryAgentRunner extends AgentRunner {
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
     const store = sharedStore.getOrCreate(request.threadId);
 
-    if (store.isRunning) {
+    // Enter the concurrency branch whenever a prior run still owns the thread —
+    // either actively running OR still finalizing after a stop()/supersede.
+    // `stop()` flips `isRunning` to false the instant it aborts the agent, but
+    // the run keeps finalizing asynchronously (`stopRequested` stays true).
+    // Gating on `isRunning` alone let a `run()` slip through that window
+    // unhandled: no supersede/throw, no per-run intent capture, and a leaked
+    // bridge from the dying run's subject.
+    if (store.isRunning || store.stopRequested) {
       if (this.onConcurrentRun !== "supersede") {
         throw new Error("Thread already running");
       }
       // Supersede: abort the prior (possibly wedged) run so this one can start.
-      // Mirrors stop(). The prior run's async finalization runs later and is
-      // prevented from clobbering this run's state by the run-id guard below.
+      // Mirrors stop(). Record the prior run's OWN finalize intent on its
+      // captured control BEFORE resetting the shared store flags for the new
+      // run: a supersede is a clean stop of the prior run, so its async teardown
+      // must finalize as RUN_FINISHED, never a synthetic RUN_ERROR. The prior
+      // run's async finalization is prevented from clobbering this run's state
+      // by the run-id guard below.
       const priorAgent = store.agent;
-      store.stopRequested = true;
+      const priorFinalize = store.activeFinalize;
+      if (priorFinalize) {
+        priorFinalize.stopRequested = true;
+      }
       store.isRunning = false;
       if (priorAgent) {
         try {
@@ -626,12 +640,17 @@ export class InMemoryAgentRunner extends AgentRunner {
           console.error("Failed to abort superseded run", error);
         }
       }
-      store.stopRequested = false;
     }
     store.isRunning = true;
     store.currentRunId = request.input.runId;
     store.agent = request.agent;
     store.stopRequested = false;
+
+    // Per-run finalize control. This run's teardown reads THIS captured holder
+    // (never the shared `store.stopRequested`, which a later run resets), so an
+    // aborted run is always finalized against its own stop-intent.
+    const finalizeControl: RunFinalizeControl = { stopRequested: false };
+    store.activeFinalize = finalizeControl;
 
     // Track seen message IDs and current run events for this run
     const seenMessageIds = new Set<string>();
@@ -656,9 +675,9 @@ export class InMemoryAgentRunner extends AgentRunner {
     }
 
     const nextSubject = new ReplaySubject<BaseEvent>(Infinity);
-    const prevSubject = store.subject;
 
-    // Update the store's subject immediately
+    // Update the store's subject immediately. We intentionally do NOT capture
+    // and bridge the previous subject: see the note before `runAgent()` below.
     store.subject = nextSubject;
 
     // Create a subject for run() return value
@@ -670,6 +689,101 @@ export class InMemoryAgentRunner extends AgentRunner {
       // Get parent run ID for chaining
       const lastRun = store.historicRuns[store.historicRuns.length - 1];
       const parentRunId = lastRun?.runId ?? null;
+
+      // Shared teardown for both the success and error paths. Keeping this one
+      // helper means the two paths cannot drift apart (they were near-identical
+      // and must stay symmetric). `interruptionMessage` is set only on the error
+      // path; its presence is what distinguishes the two.
+      const finalizeRun = (opts: { interruptionMessage?: string }) => {
+        const isError = opts.interruptionMessage !== undefined;
+
+        // Capture the count of REAL (agent-emitted) events BEFORE finalizing.
+        // `finalizeRunEvents` mutates `currentRunEvents` IN PLACE — it always
+        // pushes a synthetic terminal (and any closers) when the stream ended
+        // without one — so after the call `currentRunEvents.length` is never 0.
+        // The persistence guard below must gate on this pre-finalize count, or
+        // the "skip an immediate throw that emitted nothing" check is dead.
+        const preFinalizeEventCount = currentRunEvents.length;
+
+        // Finalize against THIS run's own captured stop-intent — never the
+        // shared `store.stopRequested`, which a superseding run resets. An
+        // aborted run is thus finalized as a clean RUN_FINISHED, not a synthetic
+        // RUN_ERROR.
+        const appendedEvents = finalizeRunEvents(currentRunEvents, {
+          stopRequested: finalizeControl.stopRequested,
+          ...(isError ? { interruptionMessage: opts.interruptionMessage } : {}),
+        });
+        for (const event of appendedEvents) {
+          runSubject.next(event);
+          nextSubject.next(event);
+        }
+
+        // Does this run still own the thread? A superseding run has changed
+        // `currentRunId`, so the run it replaced no longer owns the store.
+        const ownsThread = store.currentRunId === request.input.runId;
+
+        // Store this run's events. Guard on the per-run id (not the shared
+        // `store.currentRunId`): a superseded run no longer owns the store, so
+        // it must not push history — and never under a newer run's id, which
+        // would corrupt the thread's history. On the error path also require at
+        // least one real (pre-finalize) event, so an immediate throw with
+        // nothing emitted does not create a phantom historic run holding only
+        // the synthetic terminal.
+        if (ownsThread && (!isError || preFinalizeEventCount > 0)) {
+          // Compact the events before storing (like SQLite does)
+          const compactedEvents = compactEvents(currentRunEvents);
+          sharedStore.appendRun(request.threadId, {
+            threadId: request.threadId,
+            runId: request.input.runId,
+            agentId: request.agent.agentId ?? "default",
+            parentRunId,
+            events: compactedEvents,
+            // Snapshot all messages (input + generated) for the thread-messages endpoint
+            messages: Array.isArray(request.agent.messages)
+              ? [...request.agent.messages]
+              : [],
+            createdAt: Date.now(),
+          });
+        }
+
+        // Complete the run. Guard the shared-store reset: if a newer run has
+        // superseded this one (`currentRunId` changed), that run now owns the
+        // store — don't clobber its state. Always complete THIS run's subjects.
+        if (ownsThread) {
+          store.currentEvents = null;
+          store.currentRunId = null;
+          store.agent = null;
+          store.runSubject = null;
+          store.stopRequested = false;
+          store.isRunning = false;
+          store.activeFinalize = null;
+        }
+        runSubject.complete();
+        nextSubject.complete();
+        // Time-scoped release: this run's events are now in historicRuns, so its
+        // infinite ReplaySubject buffer is pure duplication — drop the store's
+        // reference so it becomes collectable. The identity guard is what makes
+        // this correct, and it does so differently on each path:
+        //
+        //   - Owning path: no newer run superseded this one, so store.subject is
+        //     still nextSubject and the guard passes. The `if (ownsThread)` block
+        //     above just cleared isRunning and stopRequested, so connect() — which
+        //     bridges store.subject only while isRunning || stopRequested — will
+        //     not re-subscribe; it rebuilds this run's events from historicRuns
+        //     instead. Nulling the reference is therefore safe.
+        //
+        //   - Superseded path (`onConcurrentRun: "supersede"`): a newer run has
+        //     already installed ITS subject and run id on the store, so the guard
+        //     fails and we leave store.subject untouched. Here isRunning/
+        //     stopRequested describe that live run (isRunning is typically true),
+        //     so it is precisely the identity guard — not those flags — that
+        //     prevents us from nulling the live run's subject and cutting
+        //     connect() off from the in-flight stream. This run's own buffer is no
+        //     longer referenced by the store and becomes collectable regardless.
+        if (store.subject === nextSubject) {
+          store.subject = null;
+        }
+      };
 
       try {
         await request.agent.runAgent(request.input, {
@@ -716,108 +830,24 @@ export class InMemoryAgentRunner extends AgentRunner {
           },
         });
 
-        const appendedEvents = finalizeRunEvents(currentRunEvents, {
-          stopRequested: store.stopRequested,
-        });
-        for (const event of appendedEvents) {
-          runSubject.next(event);
-          nextSubject.next(event);
-        }
-
-        // Store the completed run in memory with ONLY its events. Guard on the
-        // per-run id (not the shared `store.currentRunId`): a superseded run no
-        // longer owns the store, so it must not push history — and never under
-        // a newer run's id, which would corrupt the thread's history.
-        if (store.currentRunId === request.input.runId) {
-          // Compact the events before storing (like SQLite does)
-          const compactedEvents = compactEvents(currentRunEvents);
-
-          store.historicRuns.push({
-            threadId: request.threadId,
-            runId: request.input.runId,
-            agentId: request.agent.agentId ?? "default",
-            parentRunId,
-            events: compactedEvents,
-            // Snapshot all messages (input + generated) for the thread-messages endpoint
-            messages: Array.isArray(request.agent.messages)
-              ? [...request.agent.messages]
-              : [],
-            createdAt: Date.now(),
-          });
-        }
-
-        // Complete the run. Guard the shared-store reset: if a newer run has
-        // superseded this one (`currentRunId` changed), that run now owns the
-        // store — don't clobber its state. Always complete THIS run's subjects.
-        if (store.currentRunId === request.input.runId) {
-          store.currentEvents = null;
-          store.currentRunId = null;
-          store.agent = null;
-          store.runSubject = null;
-          store.stopRequested = false;
-          store.isRunning = false;
-        }
-        runSubject.complete();
-        nextSubject.complete();
+        finalizeRun({});
       } catch (error) {
         const interruptionMessage =
           error instanceof Error ? error.message : String(error);
-        const appendedEvents = finalizeRunEvents(currentRunEvents, {
-          stopRequested: store.stopRequested,
-          interruptionMessage,
-        });
-        for (const event of appendedEvents) {
-          runSubject.next(event);
-          nextSubject.next(event);
-        }
-
-        // Store the run even if it failed (partial events). Same per-run guard:
-        // a superseded run's error teardown must not push history under the
-        // newer run's id (see success-path note).
-        if (
-          store.currentRunId === request.input.runId &&
-          currentRunEvents.length > 0
-        ) {
-          // Compact the events before storing (like SQLite does)
-          const compactedEvents = compactEvents(currentRunEvents);
-          store.historicRuns.push({
-            threadId: request.threadId,
-            runId: request.input.runId,
-            agentId: request.agent.agentId ?? "default",
-            parentRunId,
-            events: compactedEvents,
-            messages: Array.isArray(request.agent.messages)
-              ? [...request.agent.messages]
-              : [],
-            createdAt: Date.now(),
-          });
-        }
-
-        // Complete the run (see success-path note). Same run-id guard so a
-        // superseded run's error teardown can't reset the newer run's state.
-        if (store.currentRunId === request.input.runId) {
-          store.currentEvents = null;
-          store.currentRunId = null;
-          store.agent = null;
-          store.runSubject = null;
-          store.stopRequested = false;
-          store.isRunning = false;
-        }
-        runSubject.complete();
-        nextSubject.complete();
+        finalizeRun({ interruptionMessage });
       }
     };
 
-    // Bridge previous events if they exist
-    if (prevSubject) {
-      prevSubject.subscribe({
-        next: (e) => nextSubject.next(e),
-        error: (err) => nextSubject.error(err),
-        complete: () => {
-          // Don't complete nextSubject here - it needs to stay open for new events
-        },
-      });
-    }
+    // NOTE: we deliberately do NOT bridge the previous store subject into
+    // `nextSubject`. `store.subject` is nulled the moment a run fully tears down
+    // (identity guard in `finalizeRun`), so the previous subject is non-null
+    // ONLY when this run is superseding a prior run that is still in flight or
+    // finalizing. Forwarding that dying run's subject would replay its buffered
+    // RUN_STARTED and push its terminal event (RUN_FINISHED/RUN_ERROR) into THIS
+    // live run's stream — an invalid AG-UI sequence on a healthy run. A
+    // superseded run's stream must stay isolated: it reaches only its own
+    // connect() subscribers via its own (now-detached) subject, never the
+    // superseding run's.
 
     // Start the agent execution immediately (not lazily)
     runAgent();
@@ -898,11 +928,21 @@ export class InMemoryAgentRunner extends AgentRunner {
 
     store.stopRequested = true;
     store.isRunning = false;
+    // Record the stop on the running run's OWN finalize control so its async
+    // teardown finalizes as a clean RUN_FINISHED. This is the same object that
+    // run's closure reads, so a later run cannot mislabel this stop.
+    const finalizeControl = store.activeFinalize;
+    if (finalizeControl) {
+      finalizeControl.stopRequested = true;
+    }
 
     const agent = store.agent;
     if (!agent) {
       store.stopRequested = false;
       store.isRunning = false;
+      if (finalizeControl) {
+        finalizeControl.stopRequested = false;
+      }
       return Promise.resolve(false);
     }
 
@@ -913,6 +953,9 @@ export class InMemoryAgentRunner extends AgentRunner {
       console.error("Failed to abort agent run", error);
       store.stopRequested = false;
       store.isRunning = true;
+      if (finalizeControl) {
+        finalizeControl.stopRequested = false;
+      }
       return Promise.resolve(false);
     }
   }
