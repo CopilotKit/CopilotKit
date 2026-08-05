@@ -6,9 +6,15 @@ import type {
   StateSnapshotEvent,
   StateDeltaEvent,
   MessagesSnapshotEvent,
+  ToolCallResultEvent,
+  ToolMessage,
 } from "@ag-ui/client";
 import { randomUUID } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
+import {
+  insertToolResultMessage,
+  isForwardedToClientPlaceholder,
+} from "./tool-result-history";
 
 const isContinuation = (input: RunAgentInput): boolean =>
   input.resume !== undefined ||
@@ -116,27 +122,39 @@ export class StateManager {
     //    with the old input.runId. `revoked = true` turns them into no-ops once
     //    the replacement subscription is in place.
     //
-    // 2. Run isolation within one subscription: in tests (and edge cases), a new
-    //    run's events can arrive through the same subscription before the new
-    //    pipeline is set up. An explicit standard or legacy resume input is a
-    //    continuation, so only an ordinary new run gets a fresh ID after
-    //    RUN_FINISHED.
+    // 2. Run isolation within one subscription: each callback captures the
+    //    effective ID for its input, so late callbacks from an older pipeline
+    //    cannot use the current run's ID or active-run slot. A new logical run
+    //    that reuses a settled input's run ID gets a fresh ID, unless the input
+    //    is an internal continuation handoff or an explicit standard/legacy
+    //    resume input, which preserve their logical run identity.
+    const findInternalContinuation = (
+      input: RunAgentInput,
+    ): PendingContinuation | undefined => {
+      const pendingForAgent = this.pendingContinuations.get(agent);
+      return [...(pendingForAgent ?? [])].find(
+        (pending) => pending.expectedInput === input,
+      );
+    };
     let revoked = false;
-    let subRunId: string | undefined; // runId assigned to the current logical run
-    let runFinished = false; // true after RUN_FINISHED, reset on next RUN_STARTED
+    const effectiveRunIds = new WeakMap<RunAgentInput, string>();
+    const settledInputs = new WeakSet<RunAgentInput>();
+    let lastStartedInput: RunAgentInput | undefined;
+    let lastStartedInputRunId: string | undefined;
+    let subRunId: string | undefined;
+    let runFinished = false;
+    const pendingResults = new Map<string, Map<string, ToolCallResultEvent>>();
 
-    const effectiveInput = (input: RunAgentInput): RunAgentInput => ({
-      ...input,
-      runId: subRunId ?? input.runId,
-    });
+    const captureEffectiveRunId = (
+      input: RunAgentInput,
+      isRunStart = false,
+    ): string => {
+      const existing = effectiveRunIds.get(input);
+      if (existing) return existing;
 
-    const { unsubscribe } = agent.subscribe({
-      onRunStartedEvent: ({ input, state }) => {
-        if (revoked) return;
-        const pendingForAgent = this.pendingContinuations.get(agent);
-        const internalContinuation = [...(pendingForAgent ?? [])].find(
-          (pending) => pending.expectedInput === input,
-        );
+      let effectiveRunId: string;
+      if (isRunStart) {
+        const internalContinuation = findInternalContinuation(input);
         internalContinuation?.cancel();
         if (
           runFinished &&
@@ -144,29 +162,234 @@ export class StateManager {
           !internalContinuation &&
           !isContinuation(input)
         ) {
-          // A new logical run's events are arriving through this same (old)
-          // subscription. This happens when the test emits events before
-          // copilotkit.runAgent() has had a chance to set up the new pipeline:
-          // the old pipeline reuses input1.runId for all events, so
-          // input.runId equals the previous run's runId. Generate a fresh
-          // runId so the new run's state doesn't collide with the old one.
-          subRunId = randomUUID();
+          effectiveRunId = randomUUID();
         } else {
-          subRunId = input.runId;
+          effectiveRunId = input.runId;
         }
+        subRunId = effectiveRunId;
         runFinished = false;
-        this.handleRunStarted(agent, effectiveInput(input), state);
-      },
-      onRunFinishedEvent: ({ input, state }) => {
+        lastStartedInput = input;
+        lastStartedInputRunId = input.runId;
+      } else {
+        effectiveRunId = subRunId ?? input.runId;
+      }
+      effectiveRunIds.set(input, effectiveRunId);
+
+      return effectiveRunId;
+    };
+
+    const effectiveInput = (
+      input: RunAgentInput,
+      isRunStart = false,
+    ): RunAgentInput => ({
+      ...input,
+      runId: captureEffectiveRunId(input, isRunStart),
+    });
+
+    const clearPendingResults = (input: RunAgentInput): void => {
+      pendingResults.delete(effectiveInput(input).runId);
+    };
+
+    const replacePendingPlaceholder = (
+      historyAgent: AbstractAgent,
+      event: ToolCallResultEvent,
+      input: RunAgentInput,
+    ): boolean => {
+      const matchingIndexes = historyAgent.messages.reduce<number[]>(
+        (indexes, message, index) => {
+          if (
+            message.role === "tool" &&
+            message.toolCallId === event.toolCallId
+          ) {
+            indexes.push(index);
+          }
+          return indexes;
+        },
+        [],
+      );
+      const hasOwner = historyAgent.messages.some(
+        (message) =>
+          message.role === "assistant" &&
+          message.toolCalls?.some(
+            (toolCall) => toolCall.id === event.toolCallId,
+          ),
+      );
+      if (
+        matchingIndexes.length === 0 ||
+        !hasOwner ||
+        !matchingIndexes.some((index) =>
+          isForwardedToClientPlaceholder(historyAgent.messages[index]?.content),
+        )
+      ) {
+        return false;
+      }
+
+      const firstIndex = matchingIndexes[0];
+      if (firstIndex === undefined) return false;
+      const realIndex = matchingIndexes.find(
+        (index) =>
+          !isForwardedToClientPlaceholder(
+            historyAgent.messages[index]?.content,
+          ),
+      );
+      const keepIndex = realIndex ?? firstIndex;
+      if (realIndex === undefined) {
+        const existing = historyAgent.messages[keepIndex];
+        historyAgent.messages.splice(keepIndex, 1, {
+          ...existing,
+          id: event.messageId,
+          content: event.content,
+        } as ToolMessage);
+        this.associateMessageWithRun(
+          agentId,
+          input.threadId,
+          event.messageId,
+          input.runId,
+        );
+      }
+
+      for (const index of matchingIndexes
+        .filter((candidate) => candidate !== keepIndex)
+        .sort((a, b) => b - a)) {
+        historyAgent.messages.splice(index, 1);
+      }
+      return true;
+    };
+
+    const restorePendingPlaceholders = (
+      historyAgent: AbstractAgent,
+      input: RunAgentInput,
+    ): boolean => {
+      const runResults = pendingResults.get(input.runId);
+      if (!runResults) return false;
+
+      let changed = false;
+      for (const event of runResults.values()) {
+        changed =
+          replacePendingPlaceholder(historyAgent, event, input) || changed;
+      }
+      if (changed) historyAgent.setMessages([...historyAgent.messages]);
+      return changed;
+    };
+
+    const reconcilePendingResults = (
+      historyAgent: AbstractAgent,
+      input: RunAgentInput,
+    ): boolean => {
+      const runResults = pendingResults.get(input.runId);
+      if (!runResults) return false;
+
+      let changed = false;
+
+      for (const event of runResults.values()) {
+        const toolMessage: ToolMessage = {
+          id: event.messageId,
+          role: "tool",
+          toolCallId: event.toolCallId,
+          content: event.content,
+        };
+        if (replacePendingPlaceholder(historyAgent, event, input)) {
+          changed = true;
+          continue;
+        }
+        const result = insertToolResultMessage(
+          historyAgent.messages,
+          toolMessage,
+          undefined,
+          "skip",
+        );
+        if (result.status === "inserted") {
+          this.associateMessageWithRun(
+            agentId,
+            input.threadId,
+            result.message.id,
+            input.runId,
+          );
+          changed = true;
+        }
+      }
+
+      pendingResults.delete(input.runId);
+      if (changed) {
+        historyAgent.setMessages([...historyAgent.messages]);
+      }
+      return changed;
+    };
+
+    const settleRun = (input: RunAgentInput): RunAgentInput => {
+      const effective = effectiveInput(input);
+      settledInputs.add(input);
+      runFinished = true;
+      return effective;
+    };
+
+    const clearActiveRun = (input: RunAgentInput): void => {
+      const key = `${agentId}:${input.threadId}`;
+      if (this.activeRun.get(key) === input.runId) {
+        this.activeRun.delete(key);
+      }
+    };
+
+    const { unsubscribe } = agent.subscribe({
+      onRunStartedEvent: ({ input, state }) => {
         if (revoked) return;
-        runFinished = true;
-        this.handleRunFinished(agent, effectiveInput(input), state);
+        if (
+          lastStartedInput &&
+          lastStartedInput !== input &&
+          effectiveRunIds.has(input)
+        ) {
+          return;
+        }
+        this.handleRunStarted(agent, effectiveInput(input, true), state);
+      },
+      onRunFinishedEvent: ({ input, state, agent: eventAgent }) => {
+        if (revoked) return;
+        const effective = effectiveInput(input);
+        reconcilePendingResults(eventAgent, effective);
+        this.handleRunFinished(agent, settleRun(input), state);
       },
       // A run error terminates the run — treat identically to finished for cleanup
-      onRunErrorEvent: ({ input, state }) => {
+      onRunErrorEvent: ({ input, state, agent: eventAgent }) => {
         if (revoked) return;
-        runFinished = true;
-        this.handleRunFinished(agent, effectiveInput(input), state);
+        const effective = effectiveInput(input);
+        reconcilePendingResults(eventAgent, effective);
+        this.handleRunFinished(agent, settleRun(input), state);
+      },
+      onRunFailed: ({ input }) => {
+        if (revoked) return;
+        const effective = settleRun(input);
+        clearPendingResults(effective);
+        clearActiveRun(effective);
+      },
+      onRunFinalized: ({ input, agent: eventAgent }) => {
+        if (revoked) return;
+        const effective = effectiveInput(input);
+        reconcilePendingResults(eventAgent, effective);
+        clearPendingResults(effective);
+        clearActiveRun(settleRun(input));
+      },
+      onToolCallResultEvent: ({ event, input, agent: eventAgent }) => {
+        if (revoked || settledInputs.has(input)) return;
+        const effective = effectiveInput(input);
+        let runResults = pendingResults.get(effective.runId);
+        if (!runResults) {
+          runResults = new Map();
+          pendingResults.set(effective.runId, runResults);
+        }
+        runResults.set(event.toolCallId, event);
+
+        if (replacePendingPlaceholder(eventAgent, event, effective)) {
+          eventAgent.setMessages([...eventAgent.messages]);
+        }
+        if (
+          eventAgent.messages.some(
+            (message) =>
+              message.role === "tool" &&
+              message.toolCallId === event.toolCallId,
+          )
+        ) {
+          return { stopPropagation: true };
+        }
       },
       onStateSnapshotEvent: ({ event, input, state }) => {
         if (revoked) return;
@@ -176,14 +399,11 @@ export class StateManager {
         if (revoked) return;
         this.handleStateDelta(agent, event, effectiveInput(input), state);
       },
-      onMessagesSnapshotEvent: ({ event, input, messages }) => {
+      onMessagesSnapshotEvent: ({ event, input, agent: eventAgent }) => {
         if (revoked) return;
-        this.handleMessagesSnapshot(
-          agent,
-          event,
-          effectiveInput(input),
-          messages,
-        );
+        const effective = effectiveInput(input);
+        this.handleMessagesSnapshot(agent, event, effective);
+        restorePendingPlaceholders(eventAgent, effective);
       },
       onNewMessage: ({ message, input }) => {
         if (revoked) return;
@@ -198,6 +418,7 @@ export class StateManager {
     this.agentSubscriptions.set(agentId, () => {
       revoked = true;
       this.pendingContinuations.delete(agent);
+      pendingResults.clear();
       unsubscribe();
     });
   }
@@ -210,6 +431,12 @@ export class StateManager {
     if (unsubscribe) {
       unsubscribe();
       this.agentSubscriptions.delete(agentId);
+    }
+    const activePrefix = `${agentId}:`;
+    for (const activeKey of this.activeRun.keys()) {
+      if (activeKey.startsWith(activePrefix)) {
+        this.activeRun.delete(activeKey);
+      }
     }
   }
 
@@ -286,7 +513,10 @@ export class StateManager {
     if (!agent.agentId) return;
 
     const { threadId, runId } = input;
-    this.activeRun.delete(`${agent.agentId}:${threadId}`);
+    const activeRunKey = `${agent.agentId}:${threadId}`;
+    if (this.activeRun.get(activeRunKey) === runId) {
+      this.activeRun.delete(activeRunKey);
+    }
     if (state && Object.keys(state).length > 0) {
       this.saveState(agent.agentId, threadId, runId, state);
     }
@@ -332,10 +562,8 @@ export class StateManager {
     agent: AbstractAgent,
     event: MessagesSnapshotEvent,
     input: RunAgentInput,
-    messages: readonly Message[],
   ): void {
     if (!agent.agentId) return;
-
     const { threadId, runId } = input;
 
     // Associate all messages in the snapshot with this run
