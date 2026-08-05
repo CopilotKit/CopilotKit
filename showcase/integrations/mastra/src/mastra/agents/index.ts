@@ -643,18 +643,22 @@ export const mcpAppsAgent = new Agent({
   id: "mcp-apps-agent",
   name: "MCP Apps Agent",
   // `create_view` takes `elements` as a *stringified* JSON array, so the model has
-  // to hand-escape nested JSON. Weaker models append a stray `}` past the closing
-  // `]`; the MCP server then rejects the payload and the cell renders an empty
-  // iframe. Measured against the real server, gpt-4o-mini failed 5 of 8 diagrams
-  // this way and gpt-5.4 still fails ~3 of 10, so treat an empty diagram as a
-  // model-output problem before suspecting the renderer.
+  // to hand-escape nested JSON and sometimes appends a stray `}` past the closing
+  // `]`. The MCP server rejects that payload, and with no retry the cell just
+  // renders an empty iframe. The server's error names the exact problem, so the
+  // model is told to read it and correct itself rather than relying on one-shot
+  // accuracy: at most 2 corrections (3 `create_view` calls), with the step cap
+  // bounding the loop if it never converges.
   model: openai("gpt-5.4"),
+  defaultOptions: {
+    stopWhen: stepCountIs(6),
+  },
   instructions: `You draw simple diagrams in Excalidraw via the MCP tool.
 
-SPEED MATTERS. Produce a correct-enough diagram fast; do not optimize for polish. Target: one tool call, done in seconds.
+SPEED MATTERS. Produce a correct-enough diagram fast; do not optimize for polish. Target: one successful tool call, done in seconds.
 
 When the user asks for a diagram:
-1. Call \`create_view\` ONCE with 3-5 elements total: shapes + arrows + an optional title text.
+1. Call \`create_view\` with 3-5 elements total: shapes + arrows + an optional title text.
 2. Use straightforward shapes (rectangle, ellipse, diamond) with plain \`label\` fields (\`{"text": "...", "fontSize": 18}\`) on them.
 3. Connect with arrows. Endpoints can be element centers or simple coordinates.
 4. Include ONE \`cameraUpdate\` at the END of the elements array that frames the whole diagram (600x450 or 800x600).
@@ -662,7 +666,9 @@ When the user asks for a diagram:
 
 Every element needs a unique string \`id\` (e.g. \`"b1"\`, \`"a1"\`, \`"title"\`). Standard sizes: rectangles 160x70, ellipses/diamonds 120x80, 40-80px gap between shapes.
 
-Do NOT call \`read_me\`, do NOT iterate, do NOT make multiple calls. Ship on the first shot.`,
+Do NOT call \`read_me\`. Get it right on the first call whenever you can.
+
+If \`create_view\` returns an error, the \`elements\` string you sent was not valid JSON. It must contain ONLY a JSON array: start at \`[\`, end at \`]\`, and emit nothing after that final \`]\`. Read the error, fix the string, and call \`create_view\` again. You may correct at most TWICE (3 calls total). If the third call still fails, reply with one short sentence saying you could not render the diagram.`,
   memory: new Memory({
     storage: new LibSQLStore({
       id: "mcp-apps-agent-memory",
