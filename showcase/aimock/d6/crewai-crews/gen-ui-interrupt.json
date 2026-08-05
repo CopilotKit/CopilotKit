@@ -9,7 +9,7 @@
     {
       "_comment": "gen-ui-interrupt sales-call pill \u2014 first leg: schedule_meeting tool call triggers agent interrupt(...).",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
         "context": "crewai-crews"
       },
@@ -40,7 +40,7 @@
     {
       "_comment": "gen-ui-interrupt sales-call pill \u2014 second leg: confirmation after user picks a slot.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolCallId": "call_d5_schedule_sales_001",
         "context": "crewai-crews"
       },
@@ -51,7 +51,7 @@
     {
       "_comment": "gen-ui-interrupt sales-call pill \u2014 cancelled leg: user declined.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolCallId": "call_d5_schedule_sales_001__cancelled",
         "context": "crewai-crews"
       },
@@ -62,7 +62,7 @@
     {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
         "context": "crewai-crews"
       },
@@ -93,7 +93,7 @@
     {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 second leg: confirmation after user picks a slot.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolCallId": "call_d5_schedule_alice_001",
         "context": "crewai-crews"
       },
@@ -104,7 +104,7 @@
     {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 cancelled leg: user declined.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolCallId": "call_d5_schedule_alice_001__cancelled",
         "context": "crewai-crews"
       },

@@ -86,8 +86,8 @@ for (const name of reasoningAgentNames) {
 // Interrupt-adapted demos route to the dedicated scheduling crew backend.
 // Both gen-ui-interrupt and interrupt-headless share the same crew; only the
 // frontend UX differs (inline in chat vs. external popup).
-agents["gen-ui-interrupt"] = createAgent("/interrupt-adapted");
-agents["interrupt-headless"] = createAgent("/interrupt-adapted");
+agents["gen-ui-interrupt"] = createAgent("/interrupt");
+agents["interrupt-headless"] = createAgent("/interrupt");
 // gen-ui-agent routes to a dedicated CrewAI Flow backend that owns the
 // `set_steps` tool + per-call STATE_SNAPSHOT emit (see
 // src/agents/gen_ui_agent.py). The shared LatestAiDevelopment crew on "/"

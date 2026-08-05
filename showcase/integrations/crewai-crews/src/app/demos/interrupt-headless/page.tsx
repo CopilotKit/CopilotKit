@@ -1,37 +1,29 @@
 "use client";
 
-// Headless Interrupt cell — demonstrates `useHeadlessInterrupt`.
+// Headless Interrupt cell — renders `useInterrupt` outside the chat.
 //
 // Layout: chat on the right, empty app surface on the left. The user
 // triggers the agent from a chat suggestion. When the backend calls
-// `schedule_meeting`, LangGraph's `interrupt()` surfaces via the hook
+// `schedule_meeting`, the standard AG-UI interrupt surfaces via the hook
 // and we render a time-picker popup IN THE APP SURFACE (left pane) —
 // not inside the chat. Picking a slot resolves the interrupt, the
 // popup vanishes, and the agent confirms back in chat.
 
 // @region[headless-useinterrupt-primitives]
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React from "react";
 import {
   CopilotKit,
   CopilotChat,
-  useAgent,
   useConfigureSuggestions,
-  useCopilotKit,
+  useInterrupt,
 } from "@copilotkit/react-core/v2";
 import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
 import type { TimeSlot } from "../_shared/interrupt-fallback-slots";
-
-const INTERRUPT_EVENT_NAME = "on_interrupt";
 
 type InterruptPayload = {
   topic?: string;
   attendee?: string;
   slots?: TimeSlot[];
-};
-
-type InterruptEvent = {
-  name: string;
-  value: InterruptPayload;
 };
 
 export default function InterruptHeadlessDemo() {
@@ -43,7 +35,34 @@ export default function InterruptHeadlessDemo() {
 }
 
 function Layout() {
-  const { pending, resolve } = useHeadlessInterrupt("interrupt-headless");
+  const interruptElement = useInterrupt({
+    agentId: "interrupt-headless",
+    renderInChat: false,
+    render: ({ event, interrupt, resolve }) => {
+      const metadata = interrupt?.metadata as
+        | { crewai?: { output?: InterruptPayload } }
+        | undefined;
+      const raw = event.value ?? {};
+      const fallback = (typeof raw === "string" ? JSON.parse(raw) : raw) as
+        | InterruptPayload
+        | { metadata?: { crewai?: { output?: InterruptPayload } } };
+      const payload =
+        metadata?.crewai?.output ??
+        ("metadata" in fallback
+          ? fallback.metadata?.crewai?.output
+          : fallback) ??
+        {};
+      return (
+        <TimeSlotPopup
+          payload={payload}
+          onPick={(slot) =>
+            resolve({ chosen_time: slot.iso, chosen_label: slot.label })
+          }
+          onCancel={() => resolve({ cancelled: true })}
+        />
+      );
+    },
+  });
 
   useConfigureSuggestions({
     suggestions: [
@@ -61,98 +80,20 @@ function Layout() {
 
   return (
     <div className="grid h-screen grid-cols-[1fr_420px] bg-[#FAFAFC]">
-      <AppSurface pending={pending} resolve={resolve} />
+      <AppSurface interruptElement={interruptElement} />
       <div className="border-l border-[#DBDBE5] bg-white">
         <CopilotChat agentId="interrupt-headless" className="h-full" />
       </div>
     </div>
   );
 }
-
-function useHeadlessInterrupt(agentId: string): {
-  pending: InterruptEvent | null;
-  resolve: (response: unknown) => Promise<unknown>;
-} {
-  const { copilotkit } = useCopilotKit();
-  const { agent } = useAgent({ agentId });
-  const [pending, setPending] = useState<InterruptEvent | null>(null);
-  const pendingRef = useRef<InterruptEvent | null>(null);
-  pendingRef.current = pending;
-
-  useEffect(() => {
-    let local: InterruptEvent | null = null;
-    const sub = agent.subscribe({
-      onCustomEvent: ({ event }) => {
-        if (event.name === INTERRUPT_EVENT_NAME) {
-          // The AG-UI adapter JSON-stringifies interrupt values, so
-          // parse when the value arrives as a string.
-          const raw = event.value ?? {};
-          local = {
-            name: event.name,
-            value: (typeof raw === "string"
-              ? JSON.parse(raw)
-              : raw) as InterruptPayload,
-          };
-        }
-      },
-      onRunStartedEvent: () => {
-        local = null;
-        setPending(null);
-      },
-      onRunFinalized: () => {
-        if (local) {
-          setPending(local);
-          local = null;
-        }
-      },
-      onRunFailed: () => {
-        local = null;
-        setPending(null);
-      },
-    });
-    return () => sub.unsubscribe();
-  }, [agent]);
-
-  const resolve = useMemo(
-    () => async (response: unknown) => {
-      const snapshot = pendingRef.current;
-      try {
-        return await copilotkit.runAgent({
-          agent,
-          forwardedProps: {
-            command: {
-              resume: response,
-              interruptEvent: snapshot?.value,
-            },
-          },
-        });
-      } catch (err) {
-        // Catastrophic rejection (network error, auth failure, validation
-        // reject) may fire before the run starts, so onRunFailed never runs.
-        // Clear pending here so the popup unmounts. Symmetric with the
-        // framework resolve catch + onRunFailed handler — all write null,
-        // no race. Caller still sees the rethrow.
-        console.error(
-          "[interrupt-headless] resume runAgent rejected; clearing pending + rethrowing",
-          err,
-        );
-        setPending(null);
-        throw err;
-      }
-    },
-    [agent, copilotkit],
-  );
-
-  return { pending, resolve };
-}
 // @endregion[headless-useinterrupt-primitives]
 
 type AppSurfaceProps = {
-  pending: InterruptEvent | null;
-  resolve: (response: unknown) => Promise<unknown>;
+  interruptElement: React.ReactElement | null;
 };
 
-function AppSurface({ pending, resolve }: AppSurfaceProps) {
+function AppSurface({ interruptElement }: AppSurfaceProps) {
   return (
     <div
       data-testid="interrupt-headless-app-surface"
@@ -166,17 +107,7 @@ function AppSurface({ pending, resolve }: AppSurfaceProps) {
       </header>
 
       <div className="relative flex flex-1 items-center justify-center p-8">
-        {pending ? (
-          <TimeSlotPopup
-            payload={pending.value}
-            onPick={(slot) =>
-              resolve({ chosen_time: slot.iso, chosen_label: slot.label })
-            }
-            onCancel={() => resolve({ cancelled: true })}
-          />
-        ) : (
-          <EmptyState />
-        )}
+        {interruptElement ?? <EmptyState />}
       </div>
     </div>
   );
