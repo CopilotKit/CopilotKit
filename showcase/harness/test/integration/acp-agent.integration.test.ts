@@ -31,6 +31,29 @@ const stored = (sequence: number, event: Record<string, unknown>) => ({
   event,
 });
 
+const sse = (events: readonly ReturnType<typeof stored>[]): Response =>
+  new Response(
+    events
+      .map(
+        (event) =>
+          `id: ${event.sequence}\nevent: agui\ndata: ${JSON.stringify(event)}\n\n`,
+      )
+      .join(""),
+    { headers: { "content-type": "text/event-stream; charset=utf-8" } },
+  );
+
+const openSse = (signal: AbortSignal): Response =>
+  new Response(
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        signal.addEventListener("abort", () => controller.close(), {
+          once: true,
+        });
+      },
+    }),
+    { headers: { "content-type": "text/event-stream; charset=utf-8" } },
+  );
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
   vi.restoreAllMocks();
@@ -60,63 +83,59 @@ describe("ACP Agent Showcase probe", () => {
       }
       const after = Number(url.searchParams.get("after"));
       if (after === 0) {
-        return json({
-          events: [
-            stored(1, {
-              type: "RUN_STARTED",
-              threadId: "showcase-acp-thread",
-              runId: "showcase-run-rich",
-            }),
-            stored(2, {
-              type: "TEXT_MESSAGE_START",
-              messageId: "assistant-1",
-              role: "assistant",
-            }),
-            stored(3, {
-              type: "TEXT_MESSAGE_CONTENT",
-              messageId: "assistant-1",
-              delta: "I found the relevant files.",
-            }),
-          ],
-        });
+        return sse([
+          stored(1, {
+            type: "RUN_STARTED",
+            threadId: "showcase-acp-thread",
+            runId: "showcase-run-rich",
+          }),
+          stored(2, {
+            type: "TEXT_MESSAGE_START",
+            messageId: "assistant-1",
+            role: "assistant",
+          }),
+          stored(3, {
+            type: "TEXT_MESSAGE_CONTENT",
+            messageId: "assistant-1",
+            delta: "I found the relevant files.",
+          }),
+        ]);
       }
       if (after === 3 && afterThreeCalls++ === 0) {
-        return json({ events: [] });
+        return sse([]);
       }
       if (after === 3) {
-        return json({
-          events: [
-            stored(4, {
-              type: "ACTIVITY_SNAPSHOT",
-              messageId: "activity-1",
-              activityType: "acp.tool",
-              content: {
-                kind: "tool_call",
-                status: "completed",
-                title: "Read project files",
-              },
-            }),
-            stored(5, {
-              type: "RAW",
-              event: {
-                protocol: "acp/v1",
-                sessionUpdate: "available_commands_update",
-              },
-            }),
-            stored(6, {
-              type: "TEXT_MESSAGE_END",
-              messageId: "assistant-1",
-            }),
-            stored(7, {
-              type: "RUN_FINISHED",
-              threadId: "showcase-acp-thread",
-              runId: "showcase-run-rich",
-              outcome: { type: "success" },
-            }),
-          ],
-        });
+        return sse([
+          stored(4, {
+            type: "ACTIVITY_SNAPSHOT",
+            messageId: "activity-1",
+            activityType: "acp.tool",
+            content: {
+              kind: "tool_call",
+              status: "completed",
+              title: "Read project files",
+            },
+          }),
+          stored(5, {
+            type: "RAW",
+            event: {
+              protocol: "acp/v1",
+              sessionUpdate: "available_commands_update",
+            },
+          }),
+          stored(6, {
+            type: "TEXT_MESSAGE_END",
+            messageId: "assistant-1",
+          }),
+          stored(7, {
+            type: "RUN_FINISHED",
+            threadId: "showcase-acp-thread",
+            runId: "showcase-run-rich",
+            outcome: { type: "success" },
+          }),
+        ]);
       }
-      return json({ events: [] });
+      return sse([]);
     }) as typeof fetch;
 
     const intelligence = new CopilotKitIntelligence({
@@ -128,7 +147,7 @@ describe("ACP Agent Showcase probe", () => {
       intelligence,
       agentProfileId: "showcase-codex",
       userId: "customer-user-1",
-      pollIntervalMs: 0,
+      reconnectDelayMs: 0,
     });
 
     const events = await lastValueFrom(
@@ -152,6 +171,7 @@ describe("ACP Agent Showcase probe", () => {
     expect(requests[0]?.headers.get("authorization")).toBe(
       "Bearer showcase-project-key",
     );
+    expect(requests[1]?.headers.get("accept")).toBe("text/event-stream");
     expect(requests[0]?.body).toMatchObject({
       agentProfileId: "showcase-codex",
       appUserId: "customer-user-1",
@@ -178,44 +198,40 @@ describe("ACP Agent Showcase probe", () => {
         url.pathname.split("/").at(-2) ?? "missing",
       );
       if (runId === "showcase-run-interrupt") {
-        return json({
-          events: [
-            stored(1, {
-              type: "RUN_FINISHED",
-              threadId: "showcase-acp-thread",
-              runId,
-              outcome: {
-                type: "interrupt",
-                interrupts: [
-                  {
-                    id: "acp-permission-1",
-                    value: {
-                      kind: "acp.permission",
-                      title: "Allow project inspection?",
-                      options: [{ id: "allow", name: "Allow once" }],
-                    },
-                  },
-                ],
-              },
-            }),
-          ],
-        });
-      }
-      return json({
-        events: [
+        return sse([
           stored(1, {
-            type: "TEXT_MESSAGE_CONTENT",
-            messageId: "assistant-resume",
-            delta: "Permission accepted.",
-          }),
-          stored(2, {
             type: "RUN_FINISHED",
             threadId: "showcase-acp-thread",
             runId,
-            outcome: { type: "success" },
+            outcome: {
+              type: "interrupt",
+              interrupts: [
+                {
+                  id: "acp-permission-1",
+                  value: {
+                    kind: "acp.permission",
+                    title: "Allow project inspection?",
+                    options: [{ id: "allow", name: "Allow once" }],
+                  },
+                },
+              ],
+            },
           }),
-        ],
-      });
+        ]);
+      }
+      return sse([
+        stored(1, {
+          type: "TEXT_MESSAGE_CONTENT",
+          messageId: "assistant-resume",
+          delta: "Permission accepted.",
+        }),
+        stored(2, {
+          type: "RUN_FINISHED",
+          threadId: "showcase-acp-thread",
+          runId,
+          outcome: { type: "success" },
+        }),
+      ]);
     }) as typeof fetch;
 
     const intelligence = new CopilotKitIntelligence({
@@ -227,7 +243,7 @@ describe("ACP Agent Showcase probe", () => {
       intelligence,
       agentProfileId: "showcase-codex",
       userId: "customer-user-1",
-      pollIntervalMs: 0,
+      reconnectDelayMs: 0,
     });
     const firstEvents = await lastValueFrom(
       agent.run(input("showcase-run-interrupt")).pipe(toArray()),
@@ -273,7 +289,7 @@ describe("ACP Agent Showcase probe", () => {
         cancelBodies.push(JSON.parse(String(init?.body)));
         return json({ accepted: true });
       }
-      return json({ events: [] });
+      return openSse(init?.signal as AbortSignal);
     }) as typeof fetch;
 
     const agent = new AcpAgent({
@@ -284,7 +300,7 @@ describe("ACP Agent Showcase probe", () => {
       }),
       agentProfileId: "showcase-codex",
       userId: "customer-user-1",
-      pollIntervalMs: 1,
+      reconnectDelayMs: 1,
     });
     const completed = new Promise<void>((resolve, reject) => {
       agent.run(input("showcase-run-cancel")).subscribe({
