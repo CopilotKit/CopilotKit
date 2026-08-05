@@ -497,11 +497,11 @@ function buildFlightCardComponents(
 export const searchFlightsA2uiTool = createTool({
   id: "search-flights-a2ui",
   description:
-    'Search for flights and display the results as rich A2UI cards. Return ' +
+    "Search for flights and display the results as rich A2UI cards. Return " +
     'exactly 2 flights. Each flight must have: airline (e.g. "United ' +
     'Airlines"), airlineLogo (Google favicon API, e.g. ' +
     '"https://www.google.com/s2/favicons?domain=united.com&sz=128"), ' +
-    'flightNumber, origin, destination, date (short readable, near-future, ' +
+    "flightNumber, origin, destination, date (short readable, near-future, " +
     'e.g. "Tue, Mar 18"), departureTime, arrivalTime, duration (e.g. ' +
     '"5h 30m"), status (e.g. "On Time"), and price (e.g. "$289").',
   inputSchema: z.object({
