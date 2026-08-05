@@ -5,13 +5,15 @@ from __future__ import annotations
 import json
 import os
 import random
+import uuid
+from typing import Any
 
 from crewai.flow.flow import Flow, start
+from litellm import CustomStreamWrapper, acompletion
 
 from ag_ui_crewai import (
     CopilotKitState,
     copilotkit_emit_tool_result,
-    copilotkit_responses,
     copilotkit_stream,
 )
 
@@ -27,7 +29,8 @@ REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
 SYSTEM_PROMPT = (
     "You are a travel and lifestyle concierge. Think through the request, "
     "then use the mock tools for weather, flights, stock comparisons, or "
-    "dice. Chain tools when useful and finish with a concise answer."
+    "dice. CRITICAL: Chain every tool needed to complete the user's full "
+    "request before finishing with a concise answer."
 )
 
 SEARCH_FLIGHTS_TOOL = {
@@ -57,6 +60,60 @@ ROLL_DICE_TOOL = {
         },
     },
 }
+
+
+def _field(value: Any, name: str) -> Any:
+    if isinstance(value, dict):
+        return value.get(name)
+    return getattr(value, name, None)
+
+
+class _ReasoningCaptureStream(CustomStreamWrapper):
+    """Capture reasoning while retaining the alpha SDK's native stream path."""
+
+    def __init__(self, source: Any):
+        self._source = source.__aiter__()
+        self.reasoning_parts: list[str] = []
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        chunk = await self._source.__anext__()
+        choices = _field(chunk, "choices") or []
+        if choices:
+            delta = _field(choices[0], "delta")
+            reasoning = _field(delta, "reasoning_content")
+            if isinstance(reasoning, str) and reasoning:
+                self.reasoning_parts.append(reasoning)
+        return chunk
+
+
+async def _stream_with_snapshot_reasoning(
+    flow: "ToolRenderingReasoningFlow",
+    response: Any,
+):
+    """Persist this run's reasoning so the terminal snapshot cannot drop it.
+
+    ``ag-ui-crewai`` dev1785927675 streams reasoning events correctly, but its
+    authoritative method-finish ``MESSAGES_SNAPSHOT`` only contains
+    ``flow.state.messages``. Capturing the same normalized LiteLLM deltas keeps
+    the current trace in that snapshot while continuing to use the SDK's native
+    ``copilotkit_stream`` event lifecycle.
+    """
+
+    captured = _ReasoningCaptureStream(response)
+    result = await copilotkit_stream(captured)
+    reasoning = "".join(captured.reasoning_parts)
+    if reasoning:
+        flow.state.messages.append(
+            {
+                "id": str(uuid.uuid4()),
+                "role": "reasoning",
+                "content": reasoning,
+            }
+        )
+    return result
 
 
 def _search_flights(origin: str, destination: str) -> dict:
@@ -101,16 +158,19 @@ class ToolRenderingReasoningFlow(Flow[CopilotKitState]):
             ROLL_DICE_TOOL,
         ]
         for _iteration in range(8):
-            response = await copilotkit_stream(
-                await copilotkit_responses(
+            response = await _stream_with_snapshot_reasoning(
+                self,
+                await acompletion(
                     model=f"openai/{REASONING_MODEL}",
                     messages=[
                         {"role": "system", "content": SYSTEM_PROMPT},
                         *self.state.messages,
                     ],
                     tools=tools,
-                    reasoning={"effort": "medium", "summary": "detailed"},
-                )
+                    reasoning_effort="medium",
+                    parallel_tool_calls=False,
+                    stream=True,
+                ),
             )
             message = response.choices[0].message
             self.state.messages.append(message)

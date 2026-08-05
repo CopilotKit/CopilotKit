@@ -47,22 +47,40 @@ function Layout() {
       const fallback = (typeof raw === "string" ? JSON.parse(raw) : raw) as
         | InterruptPayload
         | { metadata?: { crewai?: { output?: InterruptPayload } } };
-      const payload =
-        metadata?.crewai?.output ??
-        ("metadata" in fallback
-          ? fallback.metadata?.crewai?.output
-          : fallback) ??
-        {};
+      const fallbackPayload: InterruptPayload =
+        "metadata" in fallback
+          ? (fallback.metadata?.crewai?.output ?? {})
+          : (fallback as InterruptPayload);
+      const payload: InterruptPayload =
+        metadata?.crewai?.output ?? fallbackPayload;
+      const resumeAfterPaint = (response: unknown) => {
+        setResolving(true);
+        requestAnimationFrame(() => {
+          // The frame boundary must stay fire-and-forget so React can paint the
+          // resolving marker before resume unmounts the interrupt. Re-surface a
+          // rejected resume globally instead of letting that failure disappear.
+          void resolve(response).then(
+            () => setResolving(false),
+            (error) => {
+              setResolving(false);
+              queueMicrotask(() => {
+                throw error;
+              });
+            },
+          );
+        });
+      };
       return (
         <TimeSlotPopup
           payload={payload}
           onPick={(slot) => {
-            setResolving(true);
-            resolve({ chosen_time: slot.iso, chosen_label: slot.label });
+            resumeAfterPaint({
+              chosen_time: slot.iso,
+              chosen_label: slot.label,
+            });
           }}
           onCancel={() => {
-            setResolving(true);
-            resolve({ cancelled: true });
+            resumeAfterPaint({ cancelled: true });
           }}
         />
       );

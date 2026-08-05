@@ -180,6 +180,7 @@ def test_both_interrupt_surfaces_use_standard_resume_entries():
     assert "renderInChat: false" in headless
     assert "forwardedProps" not in headless
     assert 'data-testid="interrupt-headless-resolving"' in headless
+    assert "requestAnimationFrame" in headless
     assert 'data-testid="time-picker-picked"' not in picker
 
 

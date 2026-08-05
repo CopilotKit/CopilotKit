@@ -110,7 +110,7 @@
     {
       "match": {
         "userMessage": "project planning",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {

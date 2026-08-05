@@ -42,11 +42,11 @@ function Chat() {
       const fallback = (typeof raw === "string" ? JSON.parse(raw) : raw) as
         | SchedulingPayload
         | { metadata?: { crewai?: { output?: SchedulingPayload } } };
-      const payload =
+      const payload: SchedulingPayload =
         metadata?.crewai?.output ??
         ("metadata" in fallback
           ? fallback.metadata?.crewai?.output
-          : fallback) ??
+          : (fallback as SchedulingPayload)) ??
         {};
       const slots =
         payload.slots && payload.slots.length > 0

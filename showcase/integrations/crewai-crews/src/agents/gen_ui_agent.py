@@ -123,8 +123,8 @@ SET_STEPS_TOOL = {
 
 
 SYSTEM_PROMPT = (
-    "You are an agentic planner. For each user request, follow this exact "
-    "sequence:\n"
+    "You are an agentic planner. CRITICAL: For each user request, follow this "
+    "exact sequence:\n"
     "1. Plan exactly 3 concrete steps and call `set_steps` ONCE with all "
     'three steps at status="pending".\n'
     '2. Step 1: call `set_steps` with step 1 at status="in_progress", '
@@ -172,6 +172,21 @@ def _coerce_steps(raw: object) -> List[Step]:
     return out
 
 
+def _active_turn_messages(messages: List[dict]) -> List[dict]:
+    """Return the latest user turn and messages produced after it.
+
+    AIMock's deterministic multi-step fixtures key each transition on the
+    most recent tool result. Carrying a completed prior pill into a new Flow
+    run lets that older tool id compete with the new pill's chain and can
+    repaint stale steps. A plan is self-contained per user request, so older
+    turns add no useful model context here.
+    """
+    for index in range(len(messages) - 1, -1, -1):
+        if messages[index].get("role") == "user":
+            return messages[index:]
+    return messages
+
+
 class GenUiAgentFlow(Flow[AgentState]):
     """Chat flow with a tool-execution loop that drives `state.steps`.
 
@@ -207,7 +222,7 @@ class GenUiAgentFlow(Flow[AgentState]):
         ]
 
         for _iteration in range(self._MAX_ITERATIONS):
-            messages = [system_message, *self.state.messages]
+            messages = [system_message, *_active_turn_messages(self.state.messages)]
 
             response = await copilotkit_stream(
                 await acompletion(

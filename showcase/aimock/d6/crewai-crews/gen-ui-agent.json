@@ -115,6 +115,7 @@
     {
       "match": {
         "userMessage": "Plan a product launch",
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {
@@ -237,6 +238,7 @@
     {
       "match": {
         "userMessage": "team offsite",
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {
@@ -359,6 +361,7 @@
     {
       "match": {
         "userMessage": "Research our top competitor",
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {

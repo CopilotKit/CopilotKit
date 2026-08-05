@@ -21,10 +21,72 @@ A2UI_RECOVERY_ROUTE = (
 MAIN_RUNTIME_ROUTE = (
     INTEGRATION_ROOT / "src" / "app" / "api" / "copilotkit" / "route.ts"
 )
+OPEN_GEN_UI_RUNTIME_ROUTE = (
+    INTEGRATION_ROOT / "src" / "app" / "api" / "copilotkit-ogui" / "route.ts"
+)
 
 
 def _response(message):
     return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+@pytest.mark.asyncio
+async def test_reasoning_stream_persists_current_trace_for_authoritative_snapshot(
+    monkeypatch,
+):
+    from agents import tool_rendering_reasoning as module
+
+    class FakeStream:
+        def __init__(self):
+            self._chunks = iter(
+                [
+                    {
+                        "choices": [
+                            {
+                                "delta": {
+                                    "reasoning_content": "Inspect the first tool, ",
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "choices": [
+                            {
+                                "delta": {
+                                    "reasoning_content": "then compare the result.",
+                                }
+                            }
+                        ]
+                    },
+                ]
+            )
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            try:
+                return next(self._chunks)
+            except StopIteration as error:
+                raise StopAsyncIteration from error
+
+    async def fake_stream(stream):
+        async for _chunk in stream:
+            pass
+        return _response({"role": "assistant", "content": "Compared."})
+
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    flow = module.ToolRenderingReasoningFlow()
+    flow.state.messages = [{"role": "user", "content": "Compare them."}]
+
+    response = await module._stream_with_snapshot_reasoning(flow, FakeStream())
+
+    assert response.choices[0].message["content"] == "Compared."
+    assert flow.state.messages[-1]["role"] == "reasoning"
+    assert flow.state.messages[-1]["content"] == (
+        "Inspect the first tool, then compare the result."
+    )
+    assert flow.state.messages[-1]["id"]
 
 
 @pytest.mark.asyncio
@@ -196,9 +258,14 @@ async def test_tool_rendering_reasoning_combines_reasoning_and_tool_results(
     calls = []
     emitted = []
 
-    async def fake_responses(**kwargs):
+    async def fake_completion(**kwargs):
         calls.append(kwargs)
-        return object()
+
+        async def empty_stream():
+            if False:
+                yield None
+
+        return empty_stream()
 
     async def fake_stream(_value):
         return responses.pop(0)
@@ -207,13 +274,14 @@ async def test_tool_rendering_reasoning_combines_reasoning_and_tool_results(
         emitted.append((tool_call_id, content))
         return True
 
-    monkeypatch.setattr(module, "copilotkit_responses", fake_responses)
+    monkeypatch.setattr(module, "acompletion", fake_completion)
     monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
     monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
 
     await flow.chat()
 
-    assert calls[0]["reasoning"] == {"effort": "medium", "summary": "detailed"}
+    assert calls[0]["reasoning_effort"] == "medium"
+    assert calls[0]["stream"] is True
     assert emitted[0][0] == "call_reasoned_weather"
     assert flow.state.messages[-1]["content"] == "Pack for the weather."
 
@@ -507,10 +575,63 @@ async def test_gen_ui_agent_closes_each_backend_step_tool_call(monkeypatch):
     assert flow.state.messages[-1]["content"] == "Plan ready."
 
 
+@pytest.mark.asyncio
+async def test_gen_ui_agent_sends_only_the_active_user_turn(monkeypatch):
+    from agents import gen_ui_agent as module
+
+    flow = module.GenUiAgentFlow()
+    flow.state.messages = [
+        {"role": "user", "content": "Organize a team offsite."},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call_d5_set_steps_offsite_007",
+                    "type": "function",
+                    "function": {"name": "set_steps", "arguments": "{}"},
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call_d5_set_steps_offsite_007",
+            "content": "Published 3 step(s).",
+        },
+        {
+            "role": "assistant",
+            "content": "Offsite locked in.",
+        },
+        {
+            "role": "user",
+            "content": "Research our top competitor and summarize weaknesses.",
+        },
+    ]
+    captured = {}
+
+    async def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    async def fake_stream(_value):
+        return _response({"role": "assistant", "content": "Starting research."})
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+
+    await flow.chat()
+
+    serialized = json.dumps(captured["messages"])
+    assert "Research our top competitor" in serialized
+    assert "call_d5_set_steps_offsite_007" not in serialized
+    assert "Offsite locked in" not in serialized
+
+
 def test_server_and_runtime_register_dedicated_flow_routes():
     server = AGENT_SERVER.read_text()
     route = MULTIMODAL_ROUTE.read_text()
     a2ui_route = A2UI_RECOVERY_ROUTE.read_text()
+    open_gen_ui_route = OPEN_GEN_UI_RUNTIME_ROUTE.read_text()
 
     assert 'shared_state_read_flow, "/shared-state-read"' in server
     assert 'a2ui_fixed_flow, "/a2ui-fixed-schema"' in server
@@ -522,6 +643,26 @@ def test_server_and_runtime_register_dedicated_flow_routes():
     assert "${AGENT_URL}/multimodal" in route
     assert "${AGENT_URL}/a2ui-recovery" in a2ui_route
     assert "injectA2UITool: false" in a2ui_route
+    assert "`${AGENT_URL}/frontend-tools`" in open_gen_ui_route
+
+
+def test_byoc_hashbrown_legacy_route_is_operational():
+    page = INTEGRATION_ROOT / "src" / "app" / "demos" / "byoc-hashbrown" / "page.tsx"
+    declarative_page = (
+        INTEGRATION_ROOT
+        / "src"
+        / "app"
+        / "demos"
+        / "declarative-hashbrown"
+        / "page.tsx"
+    )
+
+    assert page.exists()
+    assert "declarative-hashbrown/page" in page.read_text()
+    source = declarative_page.read_text()
+    assert 'runtimeUrl="/api/copilotkit-byoc-hashbrown"' in source
+    assert 'agent="byoc-hashbrown-demo"' in source
+    assert 'data-testid="byoc-hashbrown-root"' in source
 
 
 def test_multimodal_page_uses_alpha_native_attachment_conversion():
