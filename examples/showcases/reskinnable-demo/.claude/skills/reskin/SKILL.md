@@ -4,11 +4,11 @@ description: >-
   Author a NEW skin for the reskinnable-demo app. A skin is a self-contained
   domain plugin under src/skins/<id>/ that implements the frozen `Skin` contract
   (src/shell/skin-contract.ts) to swap the app's entire experience — brand,
-  theme, layout, pages, tools, data, and agent. Use when the user says "add a
-  skin", "create a skin", "new skin", "reskin the app", "make a <domain> skin",
-  or wants the app re-themed as a new product. Do NOT use for editing the shell
-  itself (src/shell/**), the shared token vocabulary (src/app/globals.css), or
-  the two shipped skins unless explicitly asked.
+  theme, layout, pages, tools, data, and agent — as a live sales demo. Use when
+  the user says "add a skin", "create a skin", "new skin", "reskin the app",
+  "make a <domain> skin", or wants the app re-themed as a new product. Do NOT
+  use for editing the shell itself (src/shell/**), the shared token vocabulary
+  (src/app/globals.css), or the four shipped skins unless explicitly asked.
 ---
 
 # Authoring a reskinnable-demo skin
@@ -19,17 +19,57 @@ under `src/skins/<id>/`. Its ONLY inbound dependency is the frozen `Skin`
 contract in `src/shell/skin-contract.ts` — that is what lets skins be authored
 in isolation without touching shared code.
 
-To add a skin you (1) implement the `Skin` contract in `src/skins/<id>/`,
-(2) put its **server-only** agent in `src/skins/<id>/agent.ts`, and (3) register
-both — the client skin in `src/shell/registry.ts` and the agent in
-`src/shell/agent-registry.ts`, keyed by the identical `id`.
+To add a skin you (1) map the demo beats it must hit, (2) implement the `Skin`
+contract in `src/skins/<id>/`, (3) put its **server-only** agent in
+`src/skins/<id>/agent.ts`, and (4) register both — the client skin in
+`src/shell/registry.ts` and the agent in `src/shell/agent-registry.ts`, keyed by
+the identical `id`.
 
 > Before writing anything, re-open `src/shell/skin-contract.ts` (the source of
-> truth) and read the two shipped skins as worked references:
-> `src/skins/airline/` (the minimal end — in-memory data, no canvas surface) and
-> `src/skins/banking/` (the maximal end — REST-backed, with `Providers`,
-> `CanvasSurface`, `sandboxFunctions`, `chatHeaderActions`, `onSuggestionSelect`).
-> Those files win on any conflict with this skill.
+> truth) and read the shipped skins as worked references. Four are registered —
+> `banking`, `airline`, `logistics`, `keel` — and they are good at different
+> things; **[demo-beats.md](./demo-beats.md) § "Which skin to copy for what"**
+> is the routing table. The short version: `banking` is the maximal end and the
+> only demo-complete skin, `logistics` is the debugged layout reference,
+> `airline` is the minimal contract surface, `keel` is the only one with
+> parameterized routes. Those files win on any conflict with this skill.
+
+---
+
+## ⚠️ FIRST: a skin is a live sales demo, not a theme
+
+A skin exists to prove CopilotKit and Intelligence top to bottom, in front of a
+Fortune 500 buyer. Wiring the contract correctly is table stakes; a skin that
+compiles, looks sharp and proves nothing is a **failed skin**. The banking demo's
+~10 steps are tuned and land with customers — so copy its **beats**, not its
+steps. Your domain can be 1000% different.
+
+| Beat                  | The audience must conclude                                                           | Minimum mechanism                                                          |
+| --------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| **1** Give it a face  | "Generative UI — right out of the gate."                                             | A `useComponent` visual answers pill #1                                    |
+| **2** Rich thread     | "Reload the browser and the chart is still there. Nobody else stores AG-UI streams." | Durable visuals via `useComponent`; **replay-safe** tools                  |
+| **3a** Drive the app  | "It changed the app — and the secret never reached the assistant."                   | A mutation whose sensitive payload stays in the UI                         |
+| **3b** Sees my screen | "Shared state is real." (ask on two different pages)                                 | A **route readable** + per-page on-screen readables                        |
+| **3c** Levers         | "That was a maneuver, not a link."                                                   | HITL confirm → navigate → sort **+** filter, visibly highlighted           |
+| **3d** Multimodal     | "It takes real documents, and the output belongs to my app."                         | Attachment path + artifact written to the store, surviving thread deletion |
+| **4** Memory          | "It remembers how I like things, and says so."                                       | Seeded topical memory + recall-first prompt + a slot naming the "why"      |
+| **5** Stored skill    | "One sentence and it already knows our procedure."                                   | Seeded operational memory + 3 visible writes + distractors                 |
+| **6** Teach a skill   | "It learned by watching me once, then did it alone."                                 | Symptom-only gate + unlock path + recording context + save/recall          |
+
+**Write the beat map before you write code** — the table template and the full
+per-beat spec are in **[demo-beats.md](./demo-beats.md)**, which also covers the
+presentation requirements (a pill per beat so the presenter never types, a visible
+affordance on every mutation, pretty markdown prose, a Reset control, the
+chat-placement framing) and the quality bar.
+
+**If the user named the beats** — fewer, more, or different — theirs win. Record
+what they asked for in the beat map and build that. Absent instructions, build
+all nine.
+
+⚠️ Beats **2, 4, 5 and 6 are runtime-conditional**: they need all three
+`INTELLIGENCE_*` env vars, and beats 4/5 additionally need a seeded-memory file
+(`src/skins/<id>/intelligence/seed-memories.ts`). Without those they degrade
+**silently** — the agent simply doesn't know you. See demo-beats.md.
 
 ---
 
@@ -210,9 +250,9 @@ process.env.NODE_ENV !== "production"` (mirror
   `src/skins/<id>/components/use-ask-copilot.ts` (copy logistics'); do NOT import
   from `src/skins/banking/**` — a skin's only inbound dependency is the contract.
 
-## Registering tools: the deps array + render signatures
+## Registering tools: deps, render signatures, replay safety, readables
 
-Two rules that the `tools.tsx` template bakes in; miss either and the failure is
+Four rules that the `tools.tsx` template bakes in; miss any and the failure is
 silent.
 
 - **Every `useComponent` / `useFrontendTool` / `useHumanInTheLoop` registration
@@ -235,6 +275,28 @@ silent.
   contrast `useHumanInTheLoop` and `useFrontendTool` renders DO receive `{ args,
 status, respond }`. Airline has no parameterized `useComponent`, so don't learn
   the render shape from it — see the template and logistics' `showShipment`.
+- **Renders must be REPLAY-SAFE: key them off the tool `result`, NOT off
+  `status`.** Reopening a thread (or reloading the browser in Intelligence mode)
+  replays recorded tool calls, so you get the stored **result** and no live status
+  transition. A render keyed on `status` looks perfect during the demo and then
+  renders blank or wrong the moment anyone revisits the thread — which is exactly
+  when beat 2 ("reload and the chart is still there") is being shown. Re-derive
+  display state from the replayed result, and never depend on client state that
+  only existed during the live call. Banking is the only skin written this way:
+  `setCardPin` re-derives its card from the replayed result plus a module map
+  holding only `brand`/`last4` — never the PIN (`tools.tsx:70-89`, `418-451`) —
+  and `showCharges` keys off `result` not `status` (`tools.tsx:553-572`).
+- **Register a ROUTE readable and per-page on-screen readables**, not just global
+  ones. `useAgentContext({ description: "The current page…", value: <segment> })`
+  in your layout tells the agent which page is open; readables registered inside
+  each _page_ component tell it what is visibly on screen (active filters, the
+  rows actually rendered, the figures shown). Without both, "what's on my
+  screen?" (beat 3b) returns the same answer on every page and the beat dies.
+  Banking is the only skin that does this — route readable at
+  `layout.tsx:141-143`, page-scoped readables in `dashboard.tsx:148`,
+  `cards.tsx:376`, `team.tsx:54`, and the richest in `charges.tsx:139`. Pair them
+  with a prompt clause telling the agent its context IS its view of the screen
+  and that it must never claim it cannot see (`agent.ts:61-71`).
 
 ---
 
@@ -296,9 +358,10 @@ src/skins/<id>/
 ├── pages/            # one component per nav segment
 ├── tools.tsx         # <XTools/> — frontend tools/HITL/gen-UI + readables; renders null
 ├── catalog/          # createCatalog(...) → the a2ui catalog (index.tsx)
-├── suggestions.ts    # Suggestion[]
+├── suggestions.ts    # Suggestion[] — ONE PILL PER BEAT, in demo order
 ├── design-skill.ts   # the OGUI design-brief string
 ├── data/             # OPTIONAL: seed data + use-data hook (useXData) → useData
+├── intelligence/     # OPTIONAL: user-id.ts (identifyUser) + seed-memories.ts (beats 4/5)
 └── agent.ts          # SERVER-ONLY: export const <id>Agent = () => new BuiltInAgent(...)
 ```
 
@@ -306,15 +369,27 @@ Optional slots you may omit — airline omits all of these EXCEPT `toolLabels` a
 `useData`: `providers.tsx` (→ `Providers` and/or `RuntimeProviders` +
 `useRuntimeProperties`), `intelligence/user-id.ts` (→ server `identifyUser`),
 `canvas-surface.tsx` (→ `CanvasSurface`), `sandboxFunctions`,
-`chatHeaderActions`, `onSuggestionSelect`. (`useData` / `data/` is where the two
-shipped skins split: airline SETS `useData: useAirlineData`; banking omits it and
-reads REST + auth directly, so its `useSkinData<T>()` returns `undefined`.)
+`chatHeaderActions`, `onSuggestionSelect`.
+
+`useData` / `data/` is where the substrates split, and it is a 2-2 split rather
+than a banking-vs-airline one: **banking and logistics** are REST-backed and OMIT
+`useData` (their components read the ledger directly, so `useSkinData<T>()`
+returns `undefined`); **airline and keel** are in-memory and SET it
+(`useAirlineData`, `useKeelData`).
+
 Airline DOES set `toolLabels` (a 9-entry map) so its tool-activity chips read as
 human phrases ("Pulling up your flight") instead of raw tool names (`showFlight`)
 — treat `toolLabels` as expected for any skin with named frontend tools, not
 optional in practice. `RuntimeProviders`/`useRuntimeProperties`/`identifyUser`
-are only for a skin with its own end-user identity (see the identity section
-above); banking uses all three, airline none.
+are for a skin with its own end-user identity (see the identity section above);
+banking, logistics and keel all three ship them, airline none.
+
+`intelligence/seed-memories.ts` is **not** optional if you are building beats 4
+and 5 — "it already knows me" is a seeded file, not emergent behaviour, and only
+banking has one. It seeds the topical preference (beat 4) and the operational
+procedure (beat 5), and deliberately does NOT seed beat 6's procedure — that is
+the one the agent has to learn on stage. See
+**[demo-beats.md](./demo-beats.md) § "Seeding memories"**.
 
 Templates for each file are in **[templates.md](./templates.md)** — copy them and
 fill in your domain. They are written against this app's real contract.
@@ -323,18 +398,26 @@ fill in your domain. They are written against this app's real contract.
 
 ## Authoring order (slot by slot)
 
-Build in dependency order so each slot compiles before the next depends on it:
+**Step 0 — the beat map, before any code.** Fill in the nine-row table from
+[demo-beats.md](./demo-beats.md): for each beat, this skin's step, its pill, and
+what implements it. This is what stops you from building a technically perfect
+skin that proves nothing — the documented failure mode is an author who wires the
+contract beautifully and silently drops beats 2, 3b, 5 and 6. Decide the demo,
+then build it.
+
+Then build in dependency order so each slot compiles before the next depends on it:
 
 1. **identity** (`identity.ts`) — brand, tagline, logo.
 2. **theme** (`theme.css`) — `.theme-<id>` token values.
-3. **data** (`data/`, OPTIONAL) — seed + `useXData()` hook (feeds pages, tools, and the agent's context). Skip if the skin has no shell-managed data (then omit `useData`).
-4. **layout** (`layout.tsx`) — chrome; side-effect-import `./theme.css` here.
-5. **pages** (`pages/`) — one component per nav segment.
-6. **tools** (`tools.tsx`) — frontend tools / HITL / gen-UI + `useAgentContext` readables.
+3. **data** (`data/`, OPTIONAL) — seed + `useXData()` hook (feeds pages, tools, and the agent's context). Skip if the skin has no shell-managed data (then omit `useData`). Seed **two** of anything beat 6 gates, so the replay lands on a fresh one.
+4. **layout** (`layout.tsx`) — chrome; side-effect-import `./theme.css` here; the route readable (beat 3b) and the meta-utility strip live here.
+5. **pages** (`pages/`) — one component per nav segment, each registering its own on-screen readable (beat 3b).
+6. **tools** (`tools.tsx`) — frontend tools / HITL / gen-UI + `useAgentContext` readables. Replay-safe renders (beat 2), visible affordances on every mutation.
 7. **catalog** (`catalog/`) — a2ui catalog via `createCatalog`.
-8. **agent** (`agent.ts`) — server-only `BuiltInAgent` factory.
-9. **suggestions** (`suggestions.ts`) + **design-skill** (`design-skill.ts`).
-10. **register** — `skin.tsx` assembles the object; then wire both registries.
+8. **agent** (`agent.ts`) — server-only `BuiltInAgent` factory. This is where the beats are _enforced_: screen-awareness, recall-first, procedure separation, "never write a markdown table", pretty bold prose.
+9. **intelligence** (`intelligence/`, for beats 4–6) — `user-id.ts` + `seed-memories.ts`.
+10. **suggestions** (`suggestions.ts`) — one pill per beat, in demo order — plus **design-skill** (`design-skill.ts`).
+11. **register** — `skin.tsx` assembles the object; then wire both registries.
 
 Run `pnpm build` after wiring things up — `next build` type-checks the whole app
 (there is no separate `typecheck` script). `pnpm lint` catches the rest.
@@ -414,3 +497,34 @@ If the skin 404s: check `resolvePage` returns a component for `[]` (the index
 segment). If the theme doesn't apply: confirm `themeClass === "theme-<id>"` and
 that `layout.tsx` side-effect-imports `./theme.css`. If chat errors with an
 unknown agent: confirm the agent is in `agent-registry.ts` under the same `id`.
+
+### Then walk the demo (this is the part that actually gates "done")
+
+A green build proves the wiring. Only walking the beats proves the skin. Click
+**every** pill in order, typing nothing, and check each beat's failure mode — all
+of these compile and lint clean while failing live:
+
+1. **Beat 1** — the first pill renders a visual, not a paragraph.
+2. **Beat 2** — reload the browser, reopen the thread: the visuals are still
+   there and still correct. (Needs Intelligence env vars. A render keyed on
+   `status` fails _only_ here.)
+3. **Beat 3a** — the mutation lands, and the sensitive value appears nowhere in
+   the transcript. Earlier gen-UI is still in the thread.
+4. **Beat 3b** — ask on two different pages; the answers differ and cite real
+   on-screen figures. Identical answers mean no route readable.
+5. **Beat 3c** — a confirm card lists the levers before navigating, and after
+   navigation the applied controls are visibly highlighted.
+6. **Beat 3d** — the artifact appears in the app, then delete the thread: it is
+   still there.
+7. **Beat 4** — the answer names the preference it recalled. If it just answers
+   normally, either the seed file or the recall-first prompt clause is missing.
+8. **Beat 5** — one vague sentence fires all the procedure's steps in order, no
+   confirmation, each visibly. If it offers to record something, beats 5 and 6
+   are bleeding into each other in the prompt.
+9. **Beat 6** — it declines, records, saves; then on a **different** gated record
+   it runs the procedure alone.
+10. **Reset** — restores the data, wipes learned memory, re-seeds beats 4/5, and
+    leaves beat 6 unlearned so the demo can run again.
+
+Any beat you deliberately skipped should say so in the beat map. A beat that is
+merely absent is a bug.

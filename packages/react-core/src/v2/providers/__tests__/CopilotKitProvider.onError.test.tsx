@@ -3,23 +3,22 @@ import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CopilotKitProvider } from "../CopilotKitProvider";
 import { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
 
 describe("CopilotKitProvider onError", () => {
   const originalFetch = global.fetch;
-  const originalWindow = (globalThis as { window?: unknown }).window;
+  let restoreLocation: () => void = () => {};
 
   beforeEach(() => {
-    (globalThis as { window?: unknown }).window = {};
+    // Clear window.location so the auto-open-inspector heuristic skips, while
+    // keeping the real jsdom window intact for React 18's renderer.
+    restoreLocation = stubWindowLocation();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     global.fetch = originalFetch;
-    if (originalWindow === undefined) {
-      delete (globalThis as { window?: unknown }).window;
-    } else {
-      (globalThis as { window?: unknown }).window = originalWindow;
-    }
+    restoreLocation();
   });
 
   it("onError fires when runtime info fetch fails (no publicApiKey required)", async () => {
