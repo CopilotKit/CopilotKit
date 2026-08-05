@@ -4132,6 +4132,9 @@ importers:
 
   showcase/harness:
     dependencies:
+      '@agentclientprotocol/sdk':
+        specifier: 1.3.0
+        version: 1.3.0(zod@3.25.76)
       '@aws-sdk/client-s3':
         specifier: ^3.710.0
         version: 3.1014.0

@@ -3,8 +3,10 @@
 ## Prerequisites
 
 - Intelligence has the ACP feature enabled for the project
-- `COPILOTKIT_ACP_AGENT_PROFILE_ID` names a trusted server profile
-- `/api/health` reports `agent: ok`
+- An external ACP relay is online with the configured runtime and agent ids
+- `COPILOTKIT_ACP_CWD` is a non-secret selector the external agent accepts
+- `/api/health` reports `agent: ok` for Intelligence admission; it does not probe the external relay
+- For local dev, `npm run relay` is running in a second terminal
 
 ## Test Steps
 

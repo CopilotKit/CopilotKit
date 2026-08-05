@@ -3,7 +3,7 @@ slug: acp-agent
 category: protocol
 language: typescript
 logo: /logos/acp-agent.svg
-description: Run ACP v1 agents through CopilotKit Intelligence while the app speaks AG-UI.
+description: Drive an external ACP v1 agent from CopilotKit while Intelligence carries durable protocol traffic.
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/acp-agent
 copilotkit_version: 2.0.0

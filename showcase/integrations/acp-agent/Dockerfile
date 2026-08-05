@@ -22,6 +22,7 @@ COPY --from=builder /packages/runtime/dist /packages/runtime/dist
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/manifest.yaml ./manifest.yaml
+COPY --from=builder /app/src/external ./src/external
 RUN ln -s /app/node_modules /node_modules
 
 EXPOSE 10000
