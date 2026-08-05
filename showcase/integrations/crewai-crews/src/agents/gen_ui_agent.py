@@ -35,7 +35,12 @@ from crewai.flow.flow import Flow, start
 from litellm import acompletion
 from pydantic import BaseModel, Field
 
-from ag_ui_crewai import CopilotKitState, copilotkit_emit_state, copilotkit_stream
+from ag_ui_crewai import (
+    CopilotKitState,
+    copilotkit_emit_state,
+    copilotkit_emit_tool_result,
+    copilotkit_stream,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -265,13 +270,15 @@ class GenUiAgentFlow(Flow[AgentState]):
                 self.state.steps = new_steps
                 steps_changed = True
 
+                result_content = f"Published {len(new_steps)} step(s)."
                 self.state.messages.append(
                     {
                         "role": "tool",
-                        "content": f"Published {len(new_steps)} step(s).",
+                        "content": result_content,
                         "tool_call_id": tool_call_id,
                     }
                 )
+                await copilotkit_emit_tool_result(tool_call_id, result_content)
 
             # Emit a state snapshot so the UI's
             # `useAgent({updates: [OnStateChanged]})` subscription fires

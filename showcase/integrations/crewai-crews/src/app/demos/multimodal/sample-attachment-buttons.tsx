@@ -23,10 +23,8 @@
  * runtime — but with no upload race because we build the
  * already-base64'd content part ourselves before calling addMessage.
  *
- * The `LegacyConverterShim` in page.tsx still rewrites our modern
- * `image|document` parts to the legacy `binary` shape the published
- * `@ag-ui/langgraph` converter understands, so the agent ultimately
- * receives the attachment in the form `multimodal_agent.py` expects.
+ * The CrewAI alpha bridge accepts these modern `image|document` parts
+ * directly and normalizes them before the Flow starts.
  */
 
 import { useCallback, useState } from "react";
@@ -209,10 +207,8 @@ export function SampleAttachmentButtons({
           spec.mimeType === "application/pdf" ? "document" : "image";
 
         // Build a multimodal user message as content parts: prompt text +
-        // the attachment. The `LegacyConverterShim` in page.tsx will
-        // rewrite the modern `image|document` part to the legacy `binary`
-        // shape the @ag-ui/langgraph converter understands before the
-        // request leaves the runtime.
+        // the attachment. The CrewAI alpha bridge consumes this modern
+        // shape without a LangGraph compatibility mirror.
         agent.addMessage({
           id: generateMessageId(),
           role: "user",

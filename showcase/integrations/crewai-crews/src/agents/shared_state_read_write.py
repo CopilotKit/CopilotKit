@@ -33,7 +33,12 @@ from crewai.flow.flow import Flow, start
 from litellm import acompletion
 from pydantic import BaseModel, Field
 
-from ag_ui_crewai import CopilotKitState, copilotkit_emit_state, copilotkit_stream
+from ag_ui_crewai import (
+    CopilotKitState,
+    copilotkit_emit_state,
+    copilotkit_emit_tool_result,
+    copilotkit_stream,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +253,7 @@ class SharedStateReadWriteFlow(Flow[AgentState]):
                         "tool_call_id": tool_call_id,
                     }
                 )
+                await copilotkit_emit_tool_result(tool_call_id, "Notes updated.")
 
             # Emit a state snapshot so the UI's
             # `useAgent({updates: [OnStateChanged]})` subscription fires

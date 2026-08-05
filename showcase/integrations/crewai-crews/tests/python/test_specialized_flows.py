@@ -1,5 +1,8 @@
 """Contracts for CrewAI Flows backing state and multimodal D6 cells."""
 
+import json
+import re
+
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,6 +14,7 @@ AGENT_SERVER = INTEGRATION_ROOT / "src" / "agent_server.py"
 MULTIMODAL_ROUTE = (
     INTEGRATION_ROOT / "src" / "app" / "api" / "copilotkit-multimodal" / "route.ts"
 )
+MULTIMODAL_PAGE = INTEGRATION_ROOT / "src" / "app" / "demos" / "multimodal" / "page.tsx"
 A2UI_RECOVERY_ROUTE = (
     INTEGRATION_ROOT / "src" / "app" / "api" / "copilotkit-a2ui-recovery" / "route.ts"
 )
@@ -79,6 +83,7 @@ async def test_shared_state_streaming_predicts_and_persists_document(monkeypatch
         _response({"role": "assistant", "content": "Done."}),
     ]
     predicted = []
+    emitted = []
 
     async def fake_completion(**_kwargs):
         return object()
@@ -90,9 +95,14 @@ async def test_shared_state_streaming_predicts_and_persists_document(monkeypatch
         predicted.extend(items)
         return True
 
+    async def fake_emit(tool_call_id, content, **_kwargs):
+        emitted.append((tool_call_id, content))
+        return True
+
     monkeypatch.setattr(module, "acompletion", fake_completion)
     monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
     monkeypatch.setattr(module, "copilotkit_predict_state", fake_predict)
+    monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
 
     await flow.write()
 
@@ -104,6 +114,7 @@ async def test_shared_state_streaming_predicts_and_persists_document(monkeypatch
         )
     ]
     assert flow.state.document == document
+    assert emitted == [("call_write_document", "Document written to shared state.")]
     assert flow.state.messages[-1]["content"] == "Done."
 
 
@@ -208,6 +219,45 @@ async def test_tool_rendering_reasoning_combines_reasoning_and_tool_results(
 
 
 @pytest.mark.asyncio
+async def test_frontend_tool_flow_suspends_for_browser_owned_result(monkeypatch):
+    from agents import frontend_tool_flow as module
+
+    flow = module.FrontendToolFlow()
+    flow.state.messages = [{"role": "user", "content": "Search my notes."}]
+    tool_message = {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "call_query_notes",
+                "type": "function",
+                "function": {
+                    "name": "query_notes",
+                    "arguments": '{"keyword":"planning"}',
+                },
+            }
+        ],
+    }
+    captured = []
+
+    async def fake_completion(**kwargs):
+        captured.append(kwargs)
+        return object()
+
+    async def fake_stream(_value):
+        return _response(tool_message)
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+
+    await flow.chat()
+
+    assert len(captured) == 1
+    assert flow.state.messages[-1] == tool_message
+    assert not any(message.get("role") == "tool" for message in flow.state.messages)
+
+
+@pytest.mark.asyncio
 async def test_multimodal_flow_preserves_converted_content_blocks(monkeypatch):
     from agents import multimodal_flow as module
 
@@ -291,12 +341,180 @@ async def test_a2ui_recovery_runs_alpha_tool_and_persists_envelope(monkeypatch):
     assert flow.state.messages[-1]["content"] == "Recovered."
 
 
+@pytest.mark.asyncio
+async def test_a2ui_fixed_flow_emits_backend_tool_result(monkeypatch):
+    from agents import a2ui_fixed as module
+
+    flow = module.A2UIFixedFlow()
+    flow.state.messages = [{"role": "user", "content": "Find SFO to JFK."}]
+    streamed = [
+        _response(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_display_flight",
+                        "type": "function",
+                        "function": {
+                            "name": "display_flight",
+                            "arguments": (
+                                '{"origin":"SFO","destination":"JFK",'
+                                '"airline":"United","price":"$289"}'
+                            ),
+                        },
+                    }
+                ],
+            }
+        ),
+        _response({"role": "assistant", "content": "Flight rendered."}),
+    ]
+    emitted = []
+
+    async def fake_completion(**_kwargs):
+        return object()
+
+    async def fake_stream(_value):
+        return streamed.pop(0)
+
+    async def fake_emit(tool_call_id, content, **_kwargs):
+        emitted.append((tool_call_id, json.loads(content)))
+        return True
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
+
+    await flow.chat()
+
+    assert emitted[0][0] == "call_display_flight"
+    assert emitted[0][1]["a2ui_operations"]
+    assert flow.state.messages[-1]["content"] == "Flight rendered."
+
+
+@pytest.mark.asyncio
+async def test_beautiful_chat_flow_emits_search_flights_a2ui_result(monkeypatch):
+    from agents import beautiful_chat_flow as module
+
+    flow = module.BeautifulChatFlow()
+    flow.state.messages = [{"role": "user", "content": "Find flights."}]
+    flight = {
+        "airline": "United Airlines",
+        "airlineLogo": "https://example.com/united.png",
+        "flightNumber": "UA231",
+        "origin": "SFO",
+        "destination": "JFK",
+        "date": "Tue, May 6",
+        "departureTime": "08:00",
+        "arrivalTime": "16:30",
+        "duration": "5h 30m",
+        "status": "On Time",
+        "statusColor": "#22c55e",
+        "price": "$349",
+        "currency": "USD",
+    }
+    streamed = [
+        _response(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_search_flights",
+                        "type": "function",
+                        "function": {
+                            "name": "search_flights",
+                            "arguments": json.dumps({"flights": [flight]}),
+                        },
+                    }
+                ],
+            }
+        ),
+        _response({"role": "assistant", "content": "One flight shown."}),
+    ]
+    emitted = []
+
+    async def fake_completion(**_kwargs):
+        return object()
+
+    async def fake_stream(_value):
+        return streamed.pop(0)
+
+    async def fake_emit(tool_call_id, content, **_kwargs):
+        emitted.append((tool_call_id, json.loads(content)))
+        return True
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
+
+    await flow.chat()
+
+    assert emitted[0][0] == "call_search_flights"
+    assert emitted[0][1]["a2ui_operations"]
+    assert flow.state.messages[-1]["content"] == "One flight shown."
+
+
+@pytest.mark.asyncio
+async def test_gen_ui_agent_closes_each_backend_step_tool_call(monkeypatch):
+    from agents import gen_ui_agent as module
+
+    flow = module.GenUiAgentFlow()
+    flow.state.messages = [{"role": "user", "content": "Plan a launch."}]
+    steps = [{"id": "one", "title": "Plan", "status": "pending"}]
+    streamed = [
+        _response(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_steps",
+                        "type": "function",
+                        "function": {
+                            "name": "set_steps",
+                            "arguments": json.dumps({"steps": steps}),
+                        },
+                    }
+                ],
+            }
+        ),
+        _response({"role": "assistant", "content": "Plan ready."}),
+    ]
+    emitted = []
+
+    async def fake_completion(**_kwargs):
+        return object()
+
+    async def fake_stream(_value):
+        return streamed.pop(0)
+
+    async def fake_emit_state(_state):
+        return True
+
+    async def fake_emit_result(tool_call_id, content, **_kwargs):
+        emitted.append((tool_call_id, content))
+        return True
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    monkeypatch.setattr(module, "copilotkit_emit_state", fake_emit_state)
+    monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit_result)
+
+    await flow.chat()
+
+    assert emitted == [("call_steps", "Published 1 step(s).")]
+    assert flow.state.messages[-1]["content"] == "Plan ready."
+
+
 def test_server_and_runtime_register_dedicated_flow_routes():
     server = AGENT_SERVER.read_text()
     route = MULTIMODAL_ROUTE.read_text()
     a2ui_route = A2UI_RECOVERY_ROUTE.read_text()
 
     assert 'shared_state_read_flow, "/shared-state-read"' in server
+    assert 'a2ui_fixed_flow, "/a2ui-fixed-schema"' in server
+    assert 'beautiful_chat_flow, "/beautiful-chat"' in server
     assert 'shared_state_streaming_flow, "/shared-state-streaming"' in server
     assert 'multimodal_flow, "/multimodal"' in server
     assert 'a2ui_recovery_flow, "/a2ui-recovery"' in server
@@ -304,6 +522,13 @@ def test_server_and_runtime_register_dedicated_flow_routes():
     assert "${AGENT_URL}/multimodal" in route
     assert "${AGENT_URL}/a2ui-recovery" in a2ui_route
     assert "injectA2UITool: false" in a2ui_route
+
+
+def test_multimodal_page_uses_alpha_native_attachment_conversion():
+    page = MULTIMODAL_PAGE.read_text()
+
+    assert "LegacyConverterShim" not in page
+    assert "MultimodalChat" in page
 
 
 def test_main_runtime_routes_specialized_agents_to_their_native_flows():
@@ -319,6 +544,13 @@ def test_main_runtime_routes_specialized_agents_to_their_native_flows():
         "tool-rendering-default-catchall": "/tool-rendering",
         "tool-rendering-custom-catchall": "/tool-rendering",
         "tool-rendering-reasoning-chain": "/tool-rendering-reasoning",
+        "frontend-tools-async": "/frontend-tools",
+        "headless-complete": "/frontend-tools",
+        "open-gen-ui": "/frontend-tools",
+        "open-gen-ui-advanced": "/frontend-tools",
     }
     for agent_name, path in expected_routes.items():
-        assert f'agents["{agent_name}"] = createAgent("{path}")' in route
+        assert re.search(
+            rf'agents\["{re.escape(agent_name)}"\]\s*=\s*createAgent\(\s*"{re.escape(path)}"',
+            route,
+        )

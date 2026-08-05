@@ -10,6 +10,7 @@ from litellm import acompletion
 from ag_ui_crewai import (
     CopilotKitState,
     StateItem,
+    copilotkit_emit_tool_result,
     copilotkit_predict_state,
     copilotkit_stream,
 )
@@ -95,6 +96,9 @@ class SharedStateStreamingFlow(Flow[SharedStateStreamingState]):
                 "tool_call_id": write_call.get("id"),
                 "content": "Document written to shared state.",
             }
+        )
+        await copilotkit_emit_tool_result(
+            write_call.get("id"), "Document written to shared state."
         )
 
         confirmation = await copilotkit_stream(

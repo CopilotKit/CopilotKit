@@ -69,8 +69,15 @@ async def test_interrupt_flow_calls_llm_before_and_after_feedback(monkeypatch):
     async def fake_stream(_response_value):
         return streamed.pop(0)
 
+    emitted = []
+
+    async def fake_emit(tool_call_id, content, **_kwargs):
+        emitted.append((tool_call_id, json.loads(content)))
+        return True
+
     monkeypatch.setattr(module, "acompletion", fake_completion)
     monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
 
     payload = await flow.request_schedule()
     assert payload["topic"] == "Sales intro"
@@ -92,6 +99,8 @@ async def test_interrupt_flow_calls_llm_before_and_after_feedback(monkeypatch):
         "cancelled": False,
     }
     assert flow.state.messages[-1] == final_message
+    assert emitted[0][0] == "call_schedule_1"
+    assert emitted[0][1]["label"] == "Monday 2 PM"
 
 
 @pytest.mark.asyncio
@@ -125,8 +134,12 @@ async def test_interrupt_flow_persists_pause_and_resumes(monkeypatch, tmp_path):
     async def fake_stream(_response_value):
         return streamed.pop(0)
 
+    async def fake_emit(_tool_call_id, _content, **_kwargs):
+        return True
+
     monkeypatch.setattr(module, "acompletion", fake_completion)
     monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
 
     flow = module.InterruptFlow(persistence=persistence)
     pending = await flow.kickoff_async(

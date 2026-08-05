@@ -29,13 +29,14 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 from starlette.responses import JSONResponse  # noqa: E402
 
-from agents.a2ui_fixed import A2UIFixedSchema  # noqa: E402
+from agents.a2ui_fixed import a2ui_fixed_flow  # noqa: E402
 from agents.a2ui_recovery_flow import a2ui_recovery_flow  # noqa: E402
-from agents.beautiful_chat import BeautifulChat  # noqa: E402
+from agents.beautiful_chat_flow import beautiful_chat_flow  # noqa: E402
 from agents.byoc_hashbrown_agent import ByocHashbrown  # noqa: E402
 from agents.byoc_json_render_agent import ByocJsonRender  # noqa: E402
 from agents.crew import LatestAiDevelopment  # noqa: E402
 from agents.declarative_gen_ui import DeclarativeGenUI  # noqa: E402
+from agents.frontend_tool_flow import frontend_tool_flow  # noqa: E402
 from agents.gen_ui_agent import gen_ui_agent_flow  # noqa: E402
 from agents.interrupt_flow import interrupt_flow  # noqa: E402
 from agents.mcp_apps_agent import MCPApps  # noqa: E402
@@ -79,10 +80,10 @@ app.add_middleware(
 
 # Dedicated endpoints must be registered before the shared root catch-all.
 add_crewai_crew_fastapi_endpoint(app, DeclarativeGenUI(), "/declarative-gen-ui")
-add_crewai_crew_fastapi_endpoint(app, A2UIFixedSchema(), "/a2ui-fixed-schema")
+add_crewai_flow_fastapi_endpoint(app, a2ui_fixed_flow, "/a2ui-fixed-schema")
 add_crewai_crew_fastapi_endpoint(app, ByocHashbrown(), "/byoc-hashbrown")
 add_crewai_crew_fastapi_endpoint(app, ByocJsonRender(), "/byoc-json-render")
-add_crewai_crew_fastapi_endpoint(app, BeautifulChat(), "/beautiful-chat")
+add_crewai_flow_fastapi_endpoint(app, beautiful_chat_flow, "/beautiful-chat")
 add_crewai_crew_fastapi_endpoint(app, MCPApps(), "/mcp-apps")
 
 add_crewai_flow_fastapi_endpoint(
@@ -93,6 +94,7 @@ add_crewai_flow_fastapi_endpoint(
     app, shared_state_streaming_flow, "/shared-state-streaming"
 )
 add_crewai_flow_fastapi_endpoint(app, multimodal_flow, "/multimodal")
+add_crewai_flow_fastapi_endpoint(app, frontend_tool_flow, "/frontend-tools")
 add_crewai_flow_fastapi_endpoint(app, a2ui_recovery_flow, "/a2ui-recovery")
 add_crewai_flow_fastapi_endpoint(app, subagents_flow, "/subagents")
 add_crewai_flow_fastapi_endpoint(app, gen_ui_agent_flow, "/gen-ui-agent")

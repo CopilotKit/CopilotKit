@@ -96,6 +96,10 @@ agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
 agents["tool-rendering-reasoning-chain"] = createAgent(
   "/tool-rendering-reasoning",
 );
+agents["frontend-tools-async"] = createAgent("/frontend-tools");
+agents["headless-complete"] = createAgent("/frontend-tools");
+agents["open-gen-ui"] = createAgent("/frontend-tools");
+agents["open-gen-ui-advanced"] = createAgent("/frontend-tools");
 for (const name of reasoningAgentNames) {
   agents[name] = createAgent("/reasoning");
 }

@@ -14,6 +14,7 @@ from pydantic import Field
 from ag_ui_crewai import (
     CopilotKitState,
     agui_feedback_provider,
+    copilotkit_emit_tool_result,
     copilotkit_stream,
 )
 
@@ -141,12 +142,16 @@ class InterruptFlow(Flow[InterruptState]):
         }
 
         if self.state.pending_tool_call_id:
+            result_content = json.dumps(self.state.meeting)
             self.state.messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": self.state.pending_tool_call_id,
-                    "content": json.dumps(self.state.meeting),
+                    "content": result_content,
                 }
+            )
+            await copilotkit_emit_tool_result(
+                self.state.pending_tool_call_id, result_content
             )
         response = await copilotkit_stream(
             await acompletion(
