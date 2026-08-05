@@ -131,7 +131,7 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("cross-join produces 980 cells (50 features x 20 integrations); metadata.total_cells excludes docs-only", () => {
+  it("cross-join produces 1,050 cells (50 features x 21 integrations); metadata.total_cells excludes docs-only", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -145,7 +145,7 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    // 50 features × 20 integrations = 1000 cells. The catalog emits cells
+    // 50 features × 21 integrations = 1050 cells. The catalog emits cells
     // uniformly for all (integration × feature) pairs; deprecated-feature
     // visibility is controlled at the dashboard layer via the "Show
     // deprecated" toggle in feature-grid.tsx so the catalog stays
@@ -157,12 +157,12 @@ describe("Catalog Generator", () => {
     // and the 3 Mastra-only features (`background-agents`,
     // `observational-memory`, `browser-use`; unshipped for every other
     // integration).
-    expect(integrated.length).toBe(1000);
+    expect(integrated.length).toBe(1050);
     expect(starters.length).toBe(0);
-    expect(catalog.cells.length).toBe(1000);
-    // total_cells excludes docs-only features (currently 1 feature x 20 integrations = 20)
-    expect(catalog.metadata.total_cells).toBe(980);
-    expect(catalog.metadata.docs_only).toBe(20);
+    expect(catalog.cells.length).toBe(1050);
+    // total_cells excludes docs-only features (currently 1 feature x 21 integrations = 21)
+    expect(catalog.metadata.total_cells).toBe(1029);
+    expect(catalog.metadata.docs_only).toBe(21);
   });
 
   it("LGP has 50 cells: 37 wired + 1 stub + 10 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
@@ -275,7 +275,7 @@ describe("Catalog Generator", () => {
 
     expect(catalog.metadata).toBeDefined();
     // total_cells excludes docs-only features
-    expect(catalog.metadata.total_cells).toBe(980);
+    expect(catalog.metadata.total_cells).toBe(1029);
 
     // Headline counts exclude docs-only cells; must sum to total_cells.
     expect(
@@ -294,7 +294,7 @@ describe("Catalog Generator", () => {
     ).toBe(catalog.cells.length);
     expect(catalog.metadata.wired).toBeGreaterThanOrEqual(490);
     expect(catalog.metadata.unsupported).toBeGreaterThanOrEqual(0);
-    expect(catalog.metadata.docs_only).toBe(20);
+    expect(catalog.metadata.docs_only).toBe(21);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped/unsupported", () => {
