@@ -5,9 +5,8 @@ import { Observable } from "rxjs";
 import type {
   AcpRunAdmission,
   AcpRunCancellation,
-  AcpStoredEvent,
+  AcpRunEvents,
 } from "./client";
-import { AcpRunStreamError } from "./client";
 
 /** The private Intelligence calls required by the public ACP agent facade. */
 export interface AcpAgentPlatform {
@@ -16,11 +15,10 @@ export interface AcpAgentPlatform {
     readonly appUserId: string;
     readonly input: RunAgentInput;
   }): Promise<AcpRunAdmission>;
-  ɵstreamAcpRunEvents(params: {
+  ɵlistAcpRunEvents(params: {
     readonly runId: string;
     readonly after: number;
-    readonly signal: AbortSignal;
-  }): AsyncIterable<AcpStoredEvent>;
+  }): Promise<AcpRunEvents>;
   ɵcancelAcpRun(params: {
     readonly runId: string;
   }): Promise<AcpRunCancellation>;
@@ -34,35 +32,28 @@ export interface AcpAgentConfig {
   readonly agentProfileId: string;
   /** Bare customer application-user id that owns the thread. */
   readonly userId: string;
-  /** Base delay after a dropped stream. Defaults to 250 milliseconds. */
-  readonly reconnectDelayMs?: number;
+  /** Delay between empty durable event pages. Defaults to 100 milliseconds. */
+  readonly pollIntervalMs?: number;
 }
 
 const isTerminalEvent = (event: BaseEvent): boolean =>
   event.type === EventType.RUN_FINISHED || event.type === EventType.RUN_ERROR;
 
-const waitForReconnect = (
-  baseDelayMs: number,
-  attempt: number,
-  signal: AbortSignal,
-): Promise<void> => {
-  const cappedDelay = Math.min(baseDelayMs * 2 ** attempt, 5_000);
-  const delayMs =
-    cappedDelay === 0
-      ? 0
-      : Math.round(cappedDelay * (0.5 + Math.random() * 0.5));
+const waitForPoll = (delayMs: number, signal: AbortSignal): Promise<void> => {
   if (delayMs === 0 || signal.aborted) {
     return Promise.resolve();
   }
 
   return new Promise((resolve) => {
-    const finish = (): void => {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", finish);
-      resolve();
-    };
-    const timer = setTimeout(finish, delayMs);
-    signal.addEventListener("abort", finish, { once: true });
+    const timer = setTimeout(resolve, delayMs);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
   });
 };
 
@@ -82,15 +73,6 @@ export class AcpAgent extends AbstractAgent {
 
   constructor(private readonly config: AcpAgentConfig) {
     super();
-    if (
-      config.reconnectDelayMs !== undefined &&
-      (!Number.isSafeInteger(config.reconnectDelayMs) ||
-        config.reconnectDelayMs < 0)
-    ) {
-      throw new Error(
-        "AcpAgent reconnectDelayMs must be a non-negative integer.",
-      );
-    }
   }
 
   /** Reports the AG-UI features exposed by the Intelligence ACP bridge. */
@@ -119,57 +101,48 @@ export class AcpAgent extends AbstractAgent {
           this.activeRun = undefined;
         }
       };
-      const stream = async (): Promise<void> => {
+      const poll = async (): Promise<void> => {
         const admission = await this.config.intelligence.ɵadmitAcpRun({
           agentProfileId: this.config.agentProfileId,
           appUserId: this.config.userId,
           input,
         });
         let cursor = admission.cursor;
-        let reconnectAttempt = 0;
 
         while (!controller.signal.aborted) {
-          try {
-            for await (const stored of this.config.intelligence.ɵstreamAcpRunEvents(
-              {
-                after: cursor,
-                runId: input.runId,
-                signal: controller.signal,
-              },
-            )) {
-              if (stored.sequence <= cursor) {
-                throw new Error(
-                  `Intelligence returned ACP event sequence ${stored.sequence} after cursor ${cursor}.`,
-                );
-              }
-              cursor = stored.sequence;
-              reconnectAttempt = 0;
-              subscriber.next(stored.event);
-              if (isTerminalEvent(stored.event)) {
-                releaseActiveRun();
-                subscriber.complete();
-                return;
-              }
+          const page = await this.config.intelligence.ɵlistAcpRunEvents({
+            after: cursor,
+            runId: input.runId,
+          });
+
+          for (const stored of page.events) {
+            if (stored.sequence <= cursor) {
+              throw new Error(
+                `Intelligence returned ACP event sequence ${stored.sequence} after cursor ${cursor}.`,
+              );
             }
-          } catch (error) {
-            if (controller.signal.aborted) break;
-            if (!(error instanceof AcpRunStreamError) || !error.retryable) {
-              throw error;
+            cursor = stored.sequence;
+            subscriber.next(stored.event);
+            if (isTerminalEvent(stored.event)) {
+              releaseActiveRun();
+              subscriber.complete();
+              return;
             }
           }
-          await waitForReconnect(
-            this.config.reconnectDelayMs ?? 250,
-            reconnectAttempt,
-            controller.signal,
-          );
-          reconnectAttempt += 1;
+
+          if (page.events.length === 0) {
+            await waitForPoll(
+              this.config.pollIntervalMs ?? 100,
+              controller.signal,
+            );
+          }
         }
 
         releaseActiveRun();
         subscriber.complete();
       };
 
-      stream().catch((error: unknown) => {
+      poll().catch((error: unknown) => {
         releaseActiveRun();
         subscriber.error(error);
       });
@@ -188,24 +161,13 @@ export class AcpAgent extends AbstractAgent {
       return;
     }
 
-    if (activeRun.cancellation) return;
-    const cancellation = this.config.intelligence
+    activeRun.cancellation ??= this.config.intelligence
       .ɵcancelAcpRun({ runId: activeRun.runId })
       .then(
-        (result) => {
-          if (result.accepted) {
-            activeRun.controller.abort();
-          } else if (activeRun.cancellation === cancellation) {
-            activeRun.cancellation = undefined;
-          }
-        },
-        () => {
-          if (activeRun.cancellation === cancellation) {
-            activeRun.cancellation = undefined;
-          }
-        },
-      );
-    activeRun.cancellation = cancellation;
+        () => undefined,
+        () => undefined,
+      )
+      .then(() => activeRun.controller.abort());
   }
 
   /** Creates an idle agent with the same Intelligence profile. */

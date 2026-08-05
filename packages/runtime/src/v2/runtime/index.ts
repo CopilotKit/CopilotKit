@@ -11,11 +11,11 @@ export * from "./transcription-service/transcription-service";
 export {
   AcpAgent,
   CopilotKitIntelligence,
-  AcpRunStreamError,
   type AcpAgentConfig,
   type AcpAgentPlatform,
   type AcpRunAdmission,
   type AcpRunCancellation,
+  type AcpRunEvents,
   type AcpRunRequest,
   type AcpStoredEvent,
   type CopilotKitIntelligenceConfig,

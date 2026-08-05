@@ -1,8 +1,8 @@
 export {
   CopilotKitIntelligence,
-  AcpRunStreamError,
   type AcpRunAdmission,
   type AcpRunCancellation,
+  type AcpRunEvents,
   type AcpRunRequest,
   type AcpStoredEvent,
   type CopilotKitIntelligenceConfig,
