@@ -643,11 +643,12 @@ export const mcpAppsAgent = new Agent({
   id: "mcp-apps-agent",
   name: "MCP Apps Agent",
   // `create_view` takes `elements` as a *stringified* JSON array, so the model has
-  // to hand-escape nested JSON. gpt-4o-mini gets this wrong on roughly two thirds
-  // of diagrams (it appends a stray `}` past the closing `]`), the MCP server
-  // rejects the payload, and the cell renders an empty iframe. Keep a model that
-  // emits valid double-encoded JSON.
-  model: openai("gpt-4.1"),
+  // to hand-escape nested JSON. Weaker models append a stray `}` past the closing
+  // `]`; the MCP server then rejects the payload and the cell renders an empty
+  // iframe. Measured against the real server, gpt-4o-mini failed 5 of 8 diagrams
+  // this way and gpt-5.4 still fails ~3 of 10, so treat an empty diagram as a
+  // model-output problem before suspecting the renderer.
+  model: openai("gpt-5.4"),
   instructions: `You draw simple diagrams in Excalidraw via the MCP tool.
 
 SPEED MATTERS. Produce a correct-enough diagram fast; do not optimize for polish. Target: one tool call, done in seconds.
