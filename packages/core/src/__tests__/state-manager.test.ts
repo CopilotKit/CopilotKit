@@ -485,6 +485,44 @@ describe("StateManager - Multiple Runs", () => {
     handoff.cancel();
   });
 
+  it("re-stamps a continuation onto the run it continues when the wire id differs", async () => {
+    // The follow-up no longer pins the originating id on the wire — doing that
+    // made the transport treat it as a resumption of an already-finished run.
+    // Logical identity is preserved here instead: the continuation is
+    // registered against the originating id, so the thread must still know
+    // exactly one run afterwards even though the transport assigned its own.
+    const originating = "logical-run-restamped";
+    await copilotKitCore.runAgent({ agent: agent as any, runId: originating });
+
+    const handoff = (
+      copilotKitCore as unknown as {
+        stateManager: {
+          markNextRunAsContinuation: (
+            agent: EventEmittingMockAgent,
+            expectedRunId?: string,
+          ) => { cancel(): void; bind(input: object): void };
+        };
+      }
+    ).stateManager.markNextRunAsContinuation(agent, originating);
+
+    // No runId passed → the agent mints its own for this invocation.
+    await (
+      copilotKitCore as unknown as {
+        runHandler: {
+          runAgent(
+            params: { agent: EventEmittingMockAgent },
+            handoff: { cancel(): void; bind(input: object): void },
+          ): Promise<unknown>;
+        };
+      }
+    ).runHandler.runAgent({ agent }, handoff);
+
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      originating,
+    ]);
+    handoff.cancel();
+  });
+
   it("does not consume an unbound handoff during detach", async () => {
     const runId = "detach-interleaving-run";
     await copilotKitCore.runAgent({ agent: agent as any, runId });

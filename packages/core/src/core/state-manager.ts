@@ -25,6 +25,13 @@ export interface CopilotKitCoreContinuationHandoff {
 interface PendingContinuation extends CopilotKitCoreContinuationHandoff {
   expectedInput?: object;
   active: boolean;
+  /**
+   * The logical run id this continuation belongs to. Events arriving on the
+   * continuation are re-stamped with it, so the run reads as ONE run to
+   * everything downstream (state/message association, external tracing) even
+   * though the transport minted a fresh id for the follow-up invocation.
+   */
+  expectedRunId?: string;
 }
 
 /**
@@ -63,7 +70,7 @@ export class StateManager {
 
   markNextRunAsContinuation(
     agent: AbstractAgent,
-    _expectedRunId?: string,
+    expectedRunId?: string,
   ): CopilotKitCoreContinuationHandoff {
     let pendingForAgent = this.pendingContinuations.get(agent);
     if (!pendingForAgent) {
@@ -73,6 +80,7 @@ export class StateManager {
 
     const pending: PendingContinuation = {
       active: true,
+      expectedRunId,
       bind: (input) => {
         if (pending.active) pending.expectedInput = input;
       },
@@ -152,7 +160,12 @@ export class StateManager {
           // runId so the new run's state doesn't collide with the old one.
           subRunId = randomUUID();
         } else {
-          subRunId = input.runId;
+          // An internal continuation re-stamps onto the run id it continues, so
+          // the follow-up does not have to REUSE that id on the wire to look
+          // like one run. Reusing it on the wire made the transport treat the
+          // follow-up as the same run and re-deliver the already-applied half,
+          // which duplicated its tool calls and lost the continuation's own.
+          subRunId = internalContinuation?.expectedRunId ?? input.runId;
         }
         runFinished = false;
         this.handleRunStarted(agent, effectiveInput(input), state);
