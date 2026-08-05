@@ -105,7 +105,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: injection }}
         />
       </head>
-      <body className="min-h-screen">
+      <body suppressHydrationWarning className="min-h-screen">
         <FrameworkProvider knownFrameworks={knownFrameworks}>
           <BrandNav />
           <main>{children}</main>

@@ -39,6 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="light" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {/* Read the presenter-reset deployment gate server-side (non-NEXT_PUBLIC_

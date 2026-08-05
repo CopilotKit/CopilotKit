@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${manrope.variable} ${GeistMono.variable}`}>
-      <body className="subpixel-antialiased">
+      <body suppressHydrationWarning className="subpixel-antialiased">
         <CopilotKit
           runtimeUrl="/api/copilotkit"
           agent="sample_agent"

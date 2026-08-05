@@ -29,7 +29,7 @@ export default function RootLayout({
       lang="en"
       className={`${plusJakarta.variable} ${splineMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body suppressHydrationWarning className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
       </body>
     </html>

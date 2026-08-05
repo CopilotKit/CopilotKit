@@ -29,7 +29,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full">
-      <body className={`${lato.variable} ${noto.className} antialiased h-full`}>
+      <body
+        suppressHydrationWarning
+        className={`${lato.variable} ${noto.className} antialiased h-full`}
+      >
         <TooltipProvider>
           <ResearchProvider>{children}</ResearchProvider>
         </TooltipProvider>

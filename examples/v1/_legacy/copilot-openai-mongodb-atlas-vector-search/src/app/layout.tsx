@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body suppressHydrationWarning>
         <CopilotKit runtimeUrl="/api/copilotkit">
           <MantineProvider>{children}</MantineProvider>
         </CopilotKit>

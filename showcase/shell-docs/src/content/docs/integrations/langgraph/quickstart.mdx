@@ -386,7 +386,7 @@ Before you begin, you'll need the following:
               export default function RootLayout({ children }: {children: React.ReactNode}) {
                 return (
                   <html lang="en">
-                    <body>
+                    <body suppressHydrationWarning>
                       {/* [!code highlight:3] */}
                       <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">
                         {children}

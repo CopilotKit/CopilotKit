@@ -40,7 +40,7 @@ export default function RootLayout({
         playfairDisplayHeading.variable,
       )}
     >
-      <body className="antialiased">
+      <body suppressHydrationWarning className="antialiased">
         <CopilotKitProvider runtimeUrl="/api/copilotkit">
           <CopilotChatConfigurationProvider agentId="finance_erp_agent">
             <DashboardProvider>{children}</DashboardProvider>

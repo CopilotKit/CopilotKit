@@ -6,7 +6,7 @@ import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body suppressHydrationWarning>
         {/* Use the public api key you got from Copilot Cloud  */}
         {/* [!code highlight:3] */}
         <CopilotKit publicApiKey="<your-copilot-cloud-public-api-key>">

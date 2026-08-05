@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body suppressHydrationWarning>
         <CopilotKit
           publicApiKey={process.env.COPILOT_CLOUD_PUBLIC_API_KEY}
           runtimeUrl={

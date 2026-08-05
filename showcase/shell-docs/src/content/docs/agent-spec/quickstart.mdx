@@ -354,7 +354,7 @@ hideTOC: true
           export default function RootLayout({ children }: {children: React.ReactNode}) {
             return (
               <html lang="en">
-                <body>
+                <body suppressHydrationWarning>
                   {/* [!code highlight:3] */}
                   <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
                     {children}
@@ -506,4 +506,3 @@ Follow per-adapter tutorials: [LangGraph integration](/agent-spec/langgraph) and
 - Agent Spec docs: https://oracle.github.io/agent-spec/development/docs_home.html
 - Agent Spec x AG-UI tutorial: https://oracle.github.io/agent-spec/26.1.0/howtoguides/howto_ag_ui.html
 - Agent Spec Tracing: https://oracle.github.io/agent-spec/development/agentspec/tracing.html
-
