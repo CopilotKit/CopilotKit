@@ -112,7 +112,7 @@ export interface ThreadDeps {
   transcripts?: Transcripts;
   /** The inbound message that triggered this turn (for transcript bridging). */
   message?: IncomingMessage;
-  /** Prompt used when this lifecycle thread runs an agent without an explicit prompt. */
+  /** Fallback prompt for agent runs with neither an explicit nor an inbound prompt. */
   defaultPrompt?: string;
   user: ApplicationUser | null;
   actor: ProviderActor;
@@ -542,8 +542,8 @@ export class Thread implements ThreadInterface {
             memory,
             prompt:
               input?.prompt ??
-              this.deps.defaultPrompt ??
-              (!implicitPrompt ? undefined : inboundPrompt),
+              (implicitPrompt ? inboundPrompt : undefined) ??
+              this.deps.defaultPrompt,
           });
         } finally {
           if (this.activeContinuation === continuation) {
