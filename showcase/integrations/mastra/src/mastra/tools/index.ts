@@ -23,6 +23,9 @@ import {
   writeTodosToWorkingMemory,
   readTodosFromWorkingMemory,
 } from "./working-memory";
+// Grounds the dynamic `generate_a2ui` render on the catalog schema the bridge
+// forwards onto Mastra's request context (the outer model sends it empty).
+import { readForwardedA2uiContext } from "./a2ui-context";
 
 // Re-export the dedicated tool sets defined in their own modules so the
 // barrel keeps a single import surface for callers under `@/mastra/tools`.
@@ -337,8 +340,7 @@ export const searchFlightsTool = createTool({
 // `render_a2ui` tool, then converts that tool call's args into the
 // A2UI `a2ui_operations` container that the middleware forwards to
 // the frontend renderer. Mastra returns the operations as a JSON
-// string from the tool body; the catalog
-// (`copilotkit://generative-catalog`) resolves component names to
+// string from the tool body; the catalog resolves component names to
 // React renderers on the client.
 export const generateA2uiTool = createTool({
   id: "generate-a2ui",
@@ -350,10 +352,21 @@ export const generateA2uiTool = createTool({
       .optional()
       .describe("Context entries"),
   }),
-  execute: async ({ messages, contextEntries }) => {
+  execute: async ({ messages, contextEntries }, executionContext) => {
+    // The outer model leaves `contextEntries` empty — it has no basis to hand
+    // the catalog schema back through a tool arg — so on a live LLM the inner
+    // `render_a2ui` subagent would run with an EMPTY system prompt: ungrounded,
+    // it emits invalid/misnamed components (or none), and the surface fails to
+    // render, varying run to run. (aimock hides it: the recorded fixture
+    // returns a valid envelope regardless of the empty context.) The bridge
+    // already forwards the catalog schema + generation guidelines onto the
+    // request context, so read them server-side and ground the render there
+    // rather than trusting the model-supplied arg.
+    const forwardedContext = readForwardedA2uiContext(executionContext);
     const prep = generateA2uiImpl({
       messages,
-      contextEntries,
+      contextEntries:
+        forwardedContext.length > 0 ? forwardedContext : contextEntries,
     });
 
     // Normalize each incoming message role to the `user`/`assistant` pair
@@ -416,3 +429,76 @@ export const generateA2uiTool = createTool({
   },
 });
 // @endregion[backend-render-operations]
+
+// @region[beautiful-chat-fixed-flights]
+// Fixed-schema A2UI flight search for the Beautiful Chat cell. Mirrors
+// langgraph-python `beautiful_chat.py::search_flights`: the tool RESULT is a
+// complete `a2ui_operations` envelope (a flat Row of literal FlightCards on the
+// `app-dashboard-catalog`), so the A2UI middleware paints the cards directly —
+// no dynamic `generate_a2ui` round-trip. Distinct from the shared
+// `searchFlightsTool` (plain `{ flights }`) that the tool-rendering cells render
+// via their own frontend `FlightListCard`.
+const FLIGHT_SURFACE_ID = "flight-search-results";
+const FLIGHT_CATALOG_ID = "copilotkit://app-dashboard-catalog";
+
+// Flat tree: one literal FlightCard per flight + a Row referencing them by id.
+// Inlining the values (rather than the structural `Row.children = { componentId,
+// path }` template) sidesteps the GenericBinder template path and renders
+// identically — matches `beautiful_chat.py::_build_flight_components`.
+function buildFlightCardComponents(
+  flights: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
+  const cardIds: string[] = [];
+  const cards = flights.map((flight, index) => {
+    const id = `flight-card-${index}`;
+    cardIds.push(id);
+    const str = (key: string) =>
+      typeof flight[key] === "string" ? (flight[key] as string) : "";
+    return {
+      id,
+      component: "FlightCard",
+      airline: str("airline"),
+      airlineLogo: str("airlineLogo"),
+      flightNumber: str("flightNumber"),
+      origin: str("origin"),
+      destination: str("destination"),
+      date: str("date"),
+      departureTime: str("departureTime"),
+      arrivalTime: str("arrivalTime"),
+      duration: str("duration"),
+      status: str("status"),
+      price: str("price"),
+    };
+  });
+  return [
+    { id: "root", component: "Row", children: cardIds, gap: 16 },
+    ...cards,
+  ];
+}
+
+export const searchFlightsA2uiTool = createTool({
+  id: "search-flights-a2ui",
+  description:
+    "Search for flights and display the results as rich A2UI cards. Return " +
+    'exactly 2 flights. Each flight must have: airline (e.g. "United ' +
+    'Airlines"), airlineLogo (Google favicon API, e.g. ' +
+    '"https://www.google.com/s2/favicons?domain=united.com&sz=128"), ' +
+    "flightNumber, origin, destination, date (short readable, near-future, " +
+    'e.g. "Tue, Mar 18"), departureTime, arrivalTime, duration (e.g. ' +
+    '"5h 30m"), status (e.g. "On Time"), and price (e.g. "$289").',
+  inputSchema: z.object({
+    flights: z
+      .array(z.record(z.unknown()))
+      .describe("The flights to display as A2UI FlightCard components."),
+  }),
+  // Return the OBJECT (not a JSON string): the @ag-ui/mastra bridge encodes the
+  // tool result once for the wire, so a single-encoded `a2ui_operations`
+  // container is what the A2UI middleware detects and paints.
+  execute: async ({ flights }) =>
+    buildA2uiOperationsFromToolCall({
+      surfaceId: FLIGHT_SURFACE_ID,
+      catalogId: FLIGHT_CATALOG_ID,
+      components: buildFlightCardComponents(flights),
+    }),
+});
+// @endregion[beautiful-chat-fixed-flights]
