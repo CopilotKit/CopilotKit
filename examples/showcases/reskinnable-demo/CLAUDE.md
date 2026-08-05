@@ -2,9 +2,10 @@
 
 One Next.js app whose **entire** experience — brand, theme, layout, pages,
 tools, and agent — is reskinnable at runtime. A skin-agnostic **shell** hosts
-one **skin** per route segment `/[skin]/...`. It ships two skins, `banking` and
-`airline`, switchable from a floating selector, plus a repo-local **reskin
-skill** (`.claude/skills/reskin/`) for authoring new ones.
+one **skin** per route segment `/[skin]/...`. It ships four skins — `banking`,
+`airline`, `logistics` and `keel` — switchable from a dropdown at the top of the
+assistant column, plus a repo-local **reskin skill**
+(`.claude/skills/reskin/`) for authoring new ones.
 
 The point of the app is the `Skin` contract: a single interface that swaps a
 whole product without the shell knowing anything domain-specific. The two
@@ -14,9 +15,10 @@ REST-backed, airline is in-memory) to prove the contract is substrate-agnostic.
 ## Shell vs skins
 
 - **Shell** (`src/shell/`) — skin-agnostic host. Owns the `Skin` contract, the
-  client + server registries, routing/provider composition, the floating skin
-  selector, the shared chat panel, and the shared canvas region. It never
-  imports a skin's internals; it only consumes the contract.
+  client + server registries, routing/provider composition, the inset frame
+  (`src/shell/layout/`), the skin selector, the shared chat panel, and the shared
+  canvas region. It never imports a skin's internals; it only consumes the
+  contract.
 - **Skins** (`src/skins/<id>/`) — each is a domain plugin living entirely in its
   own folder. Its ONLY inbound dependency on shared code is the `Skin` contract
   in `src/shell/skin-contract.ts`. That is what lets skins be built in isolation.
@@ -141,8 +143,9 @@ export type IdentifyRunUser = (
   `sandboxFunctions`, `designSkill`) → `CopilotChatConfigurationProvider
 agentId={skin.id}` → `SkinProvider` (runs `skin.useData?.()`) → chat-inbox +
   canvas providers → the skin's optional `Providers` (mounted **below** the
-  provider) → `SkinSuggestions` + `Tools` + `Layout` (wrapping `CanvasRegion`) +
-  the shared `ChatPanel` and `FloatingSelector`.
+  provider) → `SkinSuggestions` + `Tools` + `LayoutPreferencesProvider` →
+  `ShellFrame`, which receives the skin's `Layout` (wrapping `CanvasRegion`) as its
+  `app` slot and the shared `ChatPanel` as its `chat` slot.
 - `src/app/[skin]/[[...rest]]/page.tsx` — renders `skin.resolvePage(rest)`, or a
   404 when it returns `null`.
 - `src/app/api/copilotkit/[[...slug]]/route.ts` — the Hono runtime handler. It
@@ -153,6 +156,39 @@ agentId={skin.id}` → `SkinProvider` (runs `skin.useData?.()`) → chat-inbox +
   `InMemoryAgentRunner` by default (OSS path); a `CopilotKitIntelligence` runtime
   when `INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, and
   `INTELLIGENCE_API_KEY` are all set.
+
+## The inset frame
+
+`src/shell/layout/` owns the app's outer geometry. `ShellFrame` renders a padded
+region holding **two** cards, separated by a resizable gutter:
+
+- the **assistant column** — the selector card stacked above the chat card
+- the **app card** — the active skin's `Layout` wrapping `CanvasRegion`
+
+The model is deliberately just "one bounded panel, one that takes the remainder"
+(`panel-sizes.ts`): the assistant is `min 250px / default 600px / max 50%`, and the
+app gets what is left. Capping the assistant as a SHARE is what removes the need for
+an app floor and lets the mobile breakpoint stay a genuine 768px rather than being
+derived from panel arithmetic.
+
+Things worth knowing before changing any of it:
+
+- **The thread rail is NOT a resizable panel** — it is a fixed 200px element inside
+  the chat card (`.nw-chat-rail`), hidden by a container query when the card gets
+  narrow. It used to be a nested panel, which made the assistant's floor a compound
+  of rail + conversation and produced a cascade of breakpoint and collapse bugs.
+- **`react-resizable-panels` is pinned to 4.x**, whose API is renamed from the 2.x/3.x
+  used elsewhere in this repo: `Group`/`orientation`/`Separator`/`useDefaultLayout`.
+  A `Panel`'s `id` also becomes its emitted `data-testid`, overwriting any you pass.
+  See the header comment in `src/components/ui/resizable.tsx`.
+- **Shell controls live in the selector card** — skin switcher, swap sides, hide.
+  The chat header holds only conversation actions. Collapsing hides the whole
+  column, selector included, and a launcher restores it.
+- **`.nw-panel-card` is a fixed 12px radius in px** and deliberately does not read
+  `--radius`: the frame is shell chrome and must read identically in every skin.
+  Card colours stay themed, so a reskin still restyles the frame.
+- **Skin layouts must root at `h-full`, not `h-screen`** — they fill the app card,
+  which the frame has already inset.
 
 ## The theming contract
 
