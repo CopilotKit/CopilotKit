@@ -46,14 +46,22 @@ const streamPair = (): { readonly agent: Stream; readonly client: Stream } => {
 interface FixtureOptions {
   readonly app: AgentApp;
   readonly initialRemoteSessionId?: string;
+  readonly saveRemoteSessionId?: (remoteSessionId: string) => Promise<void>;
 }
 
-const createPlatform = ({ app, initialRemoteSessionId }: FixtureOptions) => {
+const createPlatform = ({
+  app,
+  initialRemoteSessionId,
+  saveRemoteSessionId: saveRemoteSession,
+}: FixtureOptions) => {
   let remoteSessionId = initialRemoteSessionId ?? null;
   const connections: ReturnType<AgentApp["connect"]>[] = [];
-  const saveRemoteSessionId = vi.fn(async (nextRemoteSessionId: string) => {
-    remoteSessionId = nextRemoteSessionId;
-  });
+  const saveRemoteSessionId = vi.fn(
+    async (nextRemoteSessionId: string): Promise<void> => {
+      await saveRemoteSession?.(nextRemoteSessionId);
+      remoteSessionId = nextRemoteSessionId;
+    },
+  );
   const platform: AcpAgentPlatform = {
     ɵopenAcpRelay: vi.fn(async () => {
       const streams = streamPair();
@@ -103,16 +111,34 @@ const baseAgentApp = (handlers?: {
     )
     .onNotification(methods.agent.session.cancel, () => undefined);
 
-const createAgent = (platform: AcpAgentPlatform): AcpAgent =>
+const createAgent = (
+  platform: AcpAgentPlatform,
+  permissionMode?: "live",
+  permissionTimeoutMs?: number,
+): AcpAgent =>
   new AcpAgent({
     intelligence: platform,
     userId: "customer-user-1",
     runtimeInstanceId: "rti_external_01",
     agentId: "coding-agent",
     cwd: "/workspace",
+    ...(permissionMode ? { permissionMode } : {}),
+    ...(permissionTimeoutMs !== undefined ? { permissionTimeoutMs } : {}),
   });
 
 describe("AcpAgent", () => {
+  it("rejects permission timers outside the five-minute live bound", () => {
+    const fixture = createPlatform({ app: baseAgentApp() });
+
+    for (const timeout of [0, -1, 300_001, Number.POSITIVE_INFINITY]) {
+      expect(() => createAgent(fixture.platform, "live", timeout)).toThrow(
+        "permissionTimeoutMs",
+      );
+    }
+
+    fixture.close();
+  });
+
   it("creates an external ACP session and translates its stable v1 updates", async () => {
     const app = baseAgentApp();
     const fixture = createPlatform({ app });
@@ -133,9 +159,48 @@ describe("AcpAgent", () => {
       agentId: "coding-agent",
       appUserId: "customer-user-1",
       runtimeInstanceId: "rti_external_01",
+      signal: expect.any(AbortSignal),
       threadId: "thread-1",
     });
     expect(fixture.saveRemoteSessionId).toHaveBeenCalledWith("remote-1");
+    fixture.close();
+  });
+
+  it("fails closed on permission requests unless live coordination is explicit", async () => {
+    const permissionResponses: unknown[] = [];
+    const app = baseAgentApp({
+      onPrompt: async ({ params, client }) => {
+        permissionResponses.push(
+          await client.request(methods.client.session.requestPermission, {
+            sessionId: params.sessionId,
+            toolCall: { toolCallId: "tool-1", title: "Edit source" },
+            options: [
+              {
+                optionId: "allow-once",
+                name: "Allow once",
+                kind: "allow_once",
+              },
+            ],
+          }),
+        );
+        return { stopReason: "cancelled" };
+      },
+    });
+    const fixture = createPlatform({ app });
+    const agent = createAgent(fixture.platform);
+
+    const events = await lastValueFrom(agent.run(input).pipe(toArray()));
+
+    expect(permissionResponses).toEqual([
+      { outcome: { outcome: "cancelled" } },
+    ]);
+    expect(events.at(-1)).toMatchObject({
+      type: EventType.RUN_FINISHED,
+      result: { acp: { stopReason: "cancelled" } },
+    });
+    await expect(agent.getCapabilities()).resolves.toEqual({
+      transport: { streaming: true },
+    });
     fixture.close();
   });
 
@@ -194,7 +259,7 @@ describe("AcpAgent", () => {
       },
     });
     const fixture = createPlatform({ app });
-    const agent = createAgent(fixture.platform);
+    const agent = createAgent(fixture.platform, "live");
 
     const interrupted = await lastValueFrom(agent.run(input).pipe(toArray()));
     const outcome =
@@ -238,6 +303,170 @@ describe("AcpAgent", () => {
     fixture.close();
   });
 
+  it("expires an abandoned live permission and rejects a late resume", async () => {
+    const responses: unknown[] = [];
+    const app = baseAgentApp({
+      onPrompt: async ({ params, client }) => {
+        responses.push(
+          await client.request(methods.client.session.requestPermission, {
+            sessionId: params.sessionId,
+            toolCall: { toolCallId: "tool-1", title: "Edit source" },
+            options: [
+              {
+                optionId: "allow-once",
+                name: "Allow once",
+                kind: "allow_once",
+              },
+            ],
+          }),
+        );
+        return { stopReason: "cancelled" };
+      },
+    });
+    const fixture = createPlatform({ app });
+    const agent = createAgent(fixture.platform, "live", 10);
+
+    const interrupted = await lastValueFrom(agent.run(input).pipe(toArray()));
+    await vi.waitFor(() =>
+      expect(responses).toEqual([{ outcome: { outcome: "cancelled" } }]),
+    );
+
+    const resumed = await lastValueFrom(
+      agent
+        .clone()
+        .run({
+          ...input,
+          runId: "run-late",
+          resume: [
+            {
+              interruptId:
+                (
+                  interrupted.at(-1) as {
+                    outcome?: { interrupts?: { id: string }[] };
+                  }
+                ).outcome?.interrupts?.[0]?.id ?? "missing",
+              status: "resolved",
+              payload: { optionId: "allow-once" },
+            },
+          ],
+        })
+        .pipe(toArray()),
+    );
+
+    expect(resumed.at(-1)).toMatchObject({
+      type: EventType.RUN_ERROR,
+      code: "acp_resume_not_pending",
+    });
+    fixture.close();
+  });
+
+  it("fails closed on a second concurrent live permission request", async () => {
+    const responses: unknown[] = [];
+    let resolveResponses: (() => void) | undefined;
+    const responsesReady = new Promise<void>((resolve) => {
+      resolveResponses = resolve;
+    });
+    const request = {
+      sessionId: "remote-1",
+      toolCall: { toolCallId: "tool-1", title: "Edit source" },
+      options: [
+        {
+          optionId: "allow-once",
+          name: "Allow once",
+          kind: "allow_once" as const,
+        },
+      ],
+    };
+    const app = baseAgentApp({
+      onPrompt: async ({ client }) => {
+        responses.push(
+          ...(await Promise.all([
+            client.request(methods.client.session.requestPermission, request),
+            client.request(methods.client.session.requestPermission, {
+              ...request,
+              toolCall: { toolCallId: "tool-2", title: "Run command" },
+            }),
+          ])),
+        );
+        resolveResponses?.();
+        return { stopReason: "end_turn" };
+      },
+    });
+    const fixture = createPlatform({ app });
+    const agent = createAgent(fixture.platform, "live", 20);
+
+    const interrupted = await lastValueFrom(agent.run(input).pipe(toArray()));
+    const interruptId = (
+      interrupted.at(-1) as { outcome?: { interrupts?: { id: string }[] } }
+    ).outcome?.interrupts?.[0]?.id;
+    expect(interruptId).toBeDefined();
+
+    await lastValueFrom(
+      agent.clone().run({
+        ...input,
+        runId: "run-resume",
+        resume: [
+          {
+            interruptId: interruptId!,
+            status: "resolved",
+            payload: { optionId: "allow-once" },
+          },
+        ],
+      }),
+    );
+
+    await responsesReady;
+    expect(
+      responses
+        .map(
+          (response) =>
+            (response as { outcome: { outcome: string } }).outcome.outcome,
+        )
+        .sort(),
+    ).toEqual(["cancelled", "selected"]);
+    fixture.close();
+  });
+
+  it("cancels a pending permission when the live prompt is aborted", async () => {
+    const responses: unknown[] = [];
+    const app = baseAgentApp({
+      onPrompt: async ({ params, client }) => {
+        responses.push(
+          await client.request(methods.client.session.requestPermission, {
+            sessionId: params.sessionId,
+            toolCall: { toolCallId: "tool-1", title: "Edit source" },
+            options: [
+              {
+                optionId: "allow-once",
+                name: "Allow once",
+                kind: "allow_once",
+              },
+            ],
+          }),
+        );
+        return { stopReason: "cancelled" };
+      },
+    });
+    const fixture = createPlatform({ app });
+    const agent = createAgent(fixture.platform, "live");
+
+    const interrupted = await lastValueFrom(agent.run(input).pipe(toArray()));
+    expect(
+      (
+        interrupted.at(-1) as {
+          outcome?: { interrupts?: { id: string }[] };
+        }
+      ).outcome?.interrupts?.[0]?.id,
+    ).toBeDefined();
+
+    agent.abortRun();
+
+    await vi.waitFor(() =>
+      expect(responses).toEqual([{ outcome: { outcome: "cancelled" } }]),
+    );
+    fixture.close();
+  });
+
   it("sends session/cancel to the external agent and accepts its final result", async () => {
     let finishPrompt: (() => void) | undefined;
     const cancelled = vi.fn(() => {
@@ -273,6 +502,67 @@ describe("AcpAgent", () => {
     expect(events.at(-1)).toMatchObject({
       type: EventType.RUN_FINISHED,
       result: { acp: { stopReason: "cancelled" } },
+    });
+    fixture.close();
+  });
+
+  it("aborts relay admission without waiting for the network request", async () => {
+    const opened = new Promise<
+      Awaited<ReturnType<AcpAgentPlatform["ɵopenAcpRelay"]>>
+    >(() => undefined);
+    const platform: AcpAgentPlatform = {
+      ɵopenAcpRelay: vi.fn(() => opened),
+    };
+    const agent = createAgent(platform);
+    const result = lastValueFrom(agent.run(input).pipe(toArray()));
+
+    agent.abortRun();
+
+    const events = await result;
+    expect(events.at(-1)).toMatchObject({
+      type: EventType.RUN_ERROR,
+      code: "acp_run_cancelled",
+    });
+    expect(platform.ɵopenAcpRelay).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it("sends one cancellation when abort races remote session persistence", async () => {
+    let releaseSave: (() => void) | undefined;
+    const saveBlocked = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    const cancelled = vi.fn();
+    const prompted = vi.fn(() => ({ stopReason: "end_turn" as const }));
+    const app = createAgentApp({ name: "abort race fixture" })
+      .onRequest(methods.agent.initialize, ({ params }) => ({
+        protocolVersion: params.protocolVersion,
+        agentCapabilities: { loadSession: true },
+      }))
+      .onRequest(methods.agent.session.new, () => ({ sessionId: "remote-1" }))
+      .onRequest(methods.agent.session.load, () => ({}))
+      .onRequest(methods.agent.session.prompt, prompted)
+      .onNotification(methods.agent.session.cancel, cancelled);
+    const fixture = createPlatform({
+      app,
+      saveRemoteSessionId: async () => saveBlocked,
+    });
+    const agent = createAgent(fixture.platform);
+    const result = lastValueFrom(agent.run(input).pipe(toArray()));
+    await vi.waitFor(() =>
+      expect(fixture.saveRemoteSessionId).toHaveBeenCalledWith("remote-1"),
+    );
+
+    agent.abortRun();
+    releaseSave?.();
+
+    const events = await result;
+    expect(cancelled).toHaveBeenCalledOnce();
+    expect(prompted).not.toHaveBeenCalled();
+    expect(events.at(-1)).toMatchObject({
+      type: EventType.RUN_ERROR,
+      code: "acp_run_cancelled",
     });
     fixture.close();
   });
@@ -358,6 +648,11 @@ describe("AcpAgent", () => {
       }),
     );
     await expect(agent.getCapabilities()).resolves.toEqual({
+      transport: { streaming: true },
+    });
+    await expect(
+      createAgent(fixture.platform, "live").getCapabilities(),
+    ).resolves.toEqual({
       transport: { streaming: true },
       humanInTheLoop: { interrupts: true },
     });

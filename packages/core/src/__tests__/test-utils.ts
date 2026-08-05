@@ -326,7 +326,7 @@ export class MockPush {
 
 export class MockChannel {
   public topic: string;
-  public params: Record<string, any>;
+  public params: Record<string, any> | (() => Record<string, any>);
   public joinPayload: Record<string, any> | null = null;
   /** Number of times `join()` was invoked — proves the consumer actually joined. */
   public joinCount = 0;
@@ -339,9 +339,13 @@ export class MockChannel {
   >();
   private joinPush = new MockPush();
   private errorHandlers: Array<(reason?: any) => void> = [];
+  private closeHandlers: Array<() => void> = [];
   private nextRef = 1;
 
-  constructor(topic: string = "", params: Record<string, any> = {}) {
+  constructor(
+    topic: string = "",
+    params: Record<string, any> | (() => Record<string, any>) = {},
+  ) {
     this.topic = topic;
     this.params = params;
   }
@@ -367,6 +371,10 @@ export class MockChannel {
 
   onError(callback: (reason?: any) => void): void {
     this.errorHandlers.push(callback);
+  }
+
+  onClose(callback: () => void): void {
+    this.closeHandlers.push(callback);
   }
 
   join(payload?: Record<string, any>): MockPush {
@@ -400,6 +408,11 @@ export class MockChannel {
   /** Test helper — simulate the channel crashing server-side. */
   triggerError(reason?: string): void {
     for (const handler of this.errorHandlers) handler(reason);
+  }
+
+  /** Test helper — simulate a normal server-side channel close. */
+  triggerClose(): void {
+    for (const handler of this.closeHandlers) handler();
   }
 }
 
@@ -439,7 +452,10 @@ export class MockSocket {
     this.closeHandlers.push(callback);
   }
 
-  channel(topic: string, params: Record<string, any> = {}): MockChannel {
+  channel(
+    topic: string,
+    params: Record<string, any> | (() => Record<string, any>) = {},
+  ): MockChannel {
     const ch = new MockChannel(topic, params);
     this.channels.push(ch);
     return ch;

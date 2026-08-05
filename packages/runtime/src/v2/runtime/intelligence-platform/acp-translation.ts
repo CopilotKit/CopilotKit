@@ -183,6 +183,19 @@ export function translateAcpSessionUpdate(
         : usesSyntheticId
           ? `acp:thought:${syntheticMessageSequence}`
           : `acp:${update.messageId}`;
+    const closeEvents: readonly BaseEvent[] =
+      !isContinuation && state.openThoughtMessage
+        ? [
+            {
+              type: EventType.REASONING_MESSAGE_END,
+              messageId: state.openThoughtMessage.aguiMessageId,
+            },
+            {
+              type: EventType.REASONING_END,
+              messageId: state.openThoughtMessage.aguiMessageId,
+            },
+          ]
+        : [];
     const startEvents: readonly BaseEvent[] = isContinuation
       ? []
       : [
@@ -199,6 +212,7 @@ export function translateAcpSessionUpdate(
 
     return {
       events: [
+        ...closeEvents,
         ...startEvents,
         {
           type: EventType.REASONING_MESSAGE_CONTENT,

@@ -12,6 +12,7 @@ interface ChannelLike {
   join(): PushLike;
   leave(): unknown;
   on(event: string, callback: (payload: unknown) => void): unknown;
+  onClose(callback: () => void): unknown;
   onError(callback: (reason?: unknown) => void): unknown;
   push(event: string, payload: object): PushLike;
 }
@@ -34,7 +35,10 @@ interface SocketOptions {
 export interface OpenAcpRelayStreamOptions {
   readonly afterSequence: number;
   readonly joinToken: string;
+  readonly maxWriteAttempts?: number;
+  readonly replayTimeoutMs?: number;
   readonly sessionId: string;
+  readonly signal?: AbortSignal;
   readonly socketFactory?: (url: string, options: SocketOptions) => SocketLike;
   readonly wsUrl: string;
 }
@@ -64,7 +68,10 @@ const isFrame = (value: unknown): value is AnyMessage =>
 export function openAcpRelayStream({
   afterSequence,
   joinToken,
+  maxWriteAttempts = 3,
+  replayTimeoutMs = 10_000,
   sessionId,
+  signal,
   socketFactory = (url, options) => new Socket(url, options),
   wsUrl,
 }: OpenAcpRelayStreamOptions): Promise<Stream> {
@@ -74,9 +81,10 @@ export function openAcpRelayStream({
   let lastSequence = afterSequence;
   let readableController: ReadableStreamDefaultController<AnyMessage>;
   let replayed = false;
+  let replayTimer: ReturnType<typeof setTimeout> | undefined;
   let rejectOpening: (error: Error) => void;
   let resolveOpening: (stream: Stream) => void;
-
+  const activeWriteFailures = new Set<(error: Error) => void>();
   const socket = socketFactory(wsUrl, {
     params: { joinToken, role: "client" },
     reconnectAfterMs: () => 60_000,
@@ -86,14 +94,23 @@ export function openAcpRelayStream({
   const close = (error?: Error): void => {
     if (closed) return;
     closed = true;
+    if (replayTimer) clearTimeout(replayTimer);
+    if (signal) signal.removeEventListener("abort", abortRelay);
     channel?.leave();
     socket.disconnect();
+    const terminalError = error ?? new Error("ACP relay closed");
+    for (const fail of activeWriteFailures) fail(terminalError);
+    activeWriteFailures.clear();
     if (error) {
       readableController.error(error);
       rejectOpening(error);
     } else {
       readableController.close();
     }
+  };
+
+  const abortRelay = (): void => {
+    close(new Error("ACP relay aborted"));
   };
 
   const readable = new ReadableStream<AnyMessage>({
@@ -110,31 +127,52 @@ export function openAcpRelayStream({
         throw new Error("ACP relay is not open");
       }
       return new Promise<void>((resolve, reject) => {
+        const senderMessageId = randomUUID();
+        let attempts = 0;
         let settled = false;
-        const failWrite = (message: string): void => {
+        const rejectActiveWrite = (error: Error): void => {
           if (settled) return;
           settled = true;
-          const error = new Error(message);
-          close(error);
+          activeWriteFailures.delete(rejectActiveWrite);
           reject(error);
         };
-        channel!
-          .push("message", {
-            frame,
-            protocol: ACP_RELAY_PROTOCOL,
-            senderMessageId: randomUUID(),
-          })
-          .receive("ok", () => {
-            if (settled) return;
-            settled = true;
-            resolve();
-          })
-          .receive("error", (response) => {
-            failWrite(`ACP relay rejected a frame: ${reasonText(response)}`);
-          })
-          .receive("timeout", () => {
-            failWrite("ACP relay frame acknowledgement timed out");
-          });
+        activeWriteFailures.add(rejectActiveWrite);
+        const failWrite = (message: string): void => {
+          if (settled) return;
+          const error = new Error(message);
+          close(error);
+          rejectActiveWrite(error);
+        };
+        const attempt = (): void => {
+          if (settled || closed) return;
+          attempts += 1;
+          channel!
+            .push("message", {
+              frame,
+              protocol: ACP_RELAY_PROTOCOL,
+              senderMessageId,
+            })
+            .receive("ok", () => {
+              if (settled) return;
+              settled = true;
+              activeWriteFailures.delete(rejectActiveWrite);
+              resolve();
+            })
+            .receive("error", (response) => {
+              failWrite(`ACP relay rejected a frame: ${reasonText(response)}`);
+            })
+            .receive("timeout", () => {
+              if (settled) return;
+              if (attempts >= maxWriteAttempts) {
+                failWrite("ACP relay frame acknowledgement timed out");
+                return;
+              }
+              setTimeout(() => {
+                attempt();
+              }, 0);
+            });
+        };
+        attempt();
       });
     },
     close() {
@@ -152,22 +190,31 @@ export function openAcpRelayStream({
 
   const finishOpening = (): void => {
     if (!closed && joined && replayed) {
+      if (replayTimer) clearTimeout(replayTimer);
+      replayTimer = undefined;
       resolveOpening(stream);
     }
   };
 
   socket.onError((error) => {
-    close(new Error(`ACP relay error: ${reasonText(error)}`));
+    close(new Error(`ACP relay socket failed: ${reasonText(error)}`));
   });
-  socket.onClose(() => {
-    close(new Error("ACP relay disconnected"));
-  });
+  socket.onClose(() => close(new Error("ACP relay socket closed")));
   channel = socket.channel(`session:${sessionId}`, {
     afterSequence,
     protocol: ACP_RELAY_PROTOCOL,
   });
   channel.onError((error) => {
-    close(new Error(`ACP relay channel error: ${reasonText(error)}`));
+    close(new Error(`ACP relay channel failed: ${reasonText(error)}`));
+  });
+  channel.onClose(() => {
+    close(new Error("ACP relay channel closed"));
+  });
+  channel.on("peer_disconnected", () => {
+    close(new Error("ACP relay peer disconnected"));
+  });
+  channel.on("relay_error", (payload) => {
+    close(new Error(`ACP relay failed: ${reasonText(payload)}`));
   });
   channel.on("message", (payload) => {
     if (
@@ -200,12 +247,16 @@ export function openAcpRelayStream({
     }
     lastSequence = payload.highWatermark;
     replayed = true;
+    joined = true;
     finishOpening();
   });
   channel
     .join()
     .receive("ok", () => {
       joined = true;
+      replayTimer = setTimeout(() => {
+        close(new Error("ACP relay replay timed out"));
+      }, replayTimeoutMs);
       finishOpening();
     })
     .receive("error", (response) => {
@@ -215,6 +266,9 @@ export function openAcpRelayStream({
       close(new Error("ACP relay join timed out"));
     });
   socket.connect();
+
+  if (signal?.aborted) abortRelay();
+  else signal?.addEventListener("abort", abortRelay, { once: true });
 
   return opening;
 }

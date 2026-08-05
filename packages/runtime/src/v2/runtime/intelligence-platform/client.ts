@@ -630,12 +630,15 @@ export class CopilotKitIntelligence {
 
   /** @internal Used by {@link AcpAgent} to open one scoped stable ACP relay. */
   async ɵopenAcpRelay(
-    params: AcpRelaySessionRequest,
+    params: AcpRelaySessionRequest & { readonly signal?: AbortSignal },
   ): Promise<AcpRelayConnection> {
+    const { signal, ...request } = params;
     const admission = await this.#request<AcpRelaySessionAdmission>(
       "POST",
       "/api/acp/sessions",
-      params,
+      request,
+      undefined,
+      signal,
     );
     if (admission.protocol !== "acp_relay_v1") {
       throw new Error(`Unsupported ACP relay protocol: ${admission.protocol}`);
@@ -644,6 +647,7 @@ export class CopilotKitIntelligence {
       afterSequence: admission.lastSequence,
       joinToken: admission.clientJoinToken,
       sessionId: admission.sessionId,
+      signal,
       wsUrl: this.#acpWsUrl,
     });
     return {
@@ -655,6 +659,8 @@ export class CopilotKitIntelligence {
           "PATCH",
           `/api/acp/sessions/${encodeURIComponent(admission.sessionId)}/remote-session`,
           { remoteSessionId },
+          undefined,
+          signal,
         );
       },
     };
@@ -665,6 +671,7 @@ export class CopilotKitIntelligence {
     path: string,
     body?: unknown,
     extraHeaders?: Record<string, string>,
+    signal?: AbortSignal,
   ): Promise<T> {
     const url = `${this.#apiUrl}${path}`;
 
@@ -678,6 +685,7 @@ export class CopilotKitIntelligence {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal,
     });
 
     if (!response.ok) {

@@ -191,12 +191,14 @@ describe("CopilotKitIntelligence", () => {
       };
       fetchMock.mockReturnValue(jsonResponse(admission, 201));
       openAcpRelayStreamMock.mockResolvedValue(stream);
+      const controller = new AbortController();
 
       await expect(
         client.ɵopenAcpRelay({
           agentId: "coding-agent",
           appUserId: "user-1",
           runtimeInstanceId: "rti_external_01",
+          signal: controller.signal,
           threadId: "thread-1",
         }),
       ).resolves.toMatchObject({
@@ -207,6 +209,7 @@ describe("CopilotKitIntelligence", () => {
       const [url, options] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.example.com/api/acp/sessions");
       expect(options.method).toBe("POST");
+      expect(options.signal).toBe(controller.signal);
       expect(JSON.parse(options.body)).toEqual({
         agentId: "coding-agent",
         appUserId: "user-1",
@@ -217,6 +220,7 @@ describe("CopilotKitIntelligence", () => {
         afterSequence: 41,
         joinToken: admission.clientJoinToken,
         sessionId: admission.sessionId,
+        signal: controller.signal,
         wsUrl: "wss://ws.example.com/socket/acp",
       });
     });

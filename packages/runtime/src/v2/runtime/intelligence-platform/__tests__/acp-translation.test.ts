@@ -136,6 +136,41 @@ test("ACP thought text maps to the AG-UI reasoning lifecycle", () => {
   ]);
 });
 
+test("a new ACP thought id closes the prior reasoning lifecycle", () => {
+  const first = translateAcpSessionUpdate(createAcpTranslationState(), {
+    sessionUpdate: "agent_thought_chunk",
+    messageId: "thought-1",
+    content: { type: "text", text: "First" },
+  });
+  const second = translateAcpSessionUpdate(first.state, {
+    sessionUpdate: "agent_thought_chunk",
+    messageId: "thought-2",
+    content: { type: "text", text: "Second" },
+  });
+
+  expect(second.events.slice(0, 2)).toEqual([
+    {
+      type: EventType.REASONING_MESSAGE_END,
+      messageId: "acp:thought-1",
+    },
+    {
+      type: EventType.REASONING_END,
+      messageId: "acp:thought-1",
+    },
+  ]);
+  expect(second.events.slice(2, 4)).toEqual([
+    {
+      type: EventType.REASONING_START,
+      messageId: "acp:thought-2",
+    },
+    {
+      type: EventType.REASONING_MESSAGE_START,
+      messageId: "acp:thought-2",
+      role: "reasoning",
+    },
+  ]);
+});
+
 test("an ACP prompt result closes an open AG-UI reasoning lifecycle", () => {
   const streamed = translateAcpSessionUpdate(createAcpTranslationState(), {
     sessionUpdate: "agent_thought_chunk",
