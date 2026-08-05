@@ -276,9 +276,10 @@ export const searchFlightsTool = createTool({
   description: "Search for available flights from an origin to a destination",
   // Gold parity (tool_rendering_agent.py search_flights): accept `origin` +
   // `destination` and GENERATE a deterministic flights list rather than having
-  // the caller pass the flights array. Returns mastra-shaped flight objects so
-  // the existing flight-list renderer is unchanged. Object (single-encode) —
-  // see weatherTool.
+  // the caller pass the flights array. Returns the gold result shape
+  // ({ origin, destination, flights:[{ airline, flight, depart, arrive,
+  // price_usd }] }) the FlightListCard reads. Object (single-encode) — see
+  // weatherTool.
   inputSchema: z.object({
     origin: z.string().optional().describe("Origin airport or city"),
     destination: z.string().optional().describe("Destination airport or city"),
@@ -297,57 +298,38 @@ export const searchFlightsTool = createTool({
     }
     const from = origin ?? "SFO";
     const to = destination ?? "JFK";
-    const flights = [
-      {
-        airline: "United",
-        airlineLogo:
-          "https://www.google.com/s2/favicons?domain=united.com&sz=128",
-        flightNumber: "UA231",
-        origin: from,
-        destination: to,
-        date: "Tue, May 6",
-        departureTime: "08:15",
-        arrivalTime: "16:45",
-        duration: "5h 30m",
-        status: "On Time",
-        statusColor: "#22c55e",
-        price: "$348",
-        currency: "USD",
-      },
-      {
-        airline: "Delta",
-        airlineLogo:
-          "https://www.google.com/s2/favicons?domain=delta.com&sz=128",
-        flightNumber: "DL412",
-        origin: from,
-        destination: to,
-        date: "Tue, May 6",
-        departureTime: "11:20",
-        arrivalTime: "19:55",
-        duration: "5h 35m",
-        status: "On Time",
-        statusColor: "#22c55e",
-        price: "$312",
-        currency: "USD",
-      },
-      {
-        airline: "JetBlue",
-        airlineLogo:
-          "https://www.google.com/s2/favicons?domain=jetblue.com&sz=128",
-        flightNumber: "B6722",
-        origin: from,
-        destination: to,
-        date: "Tue, May 6",
-        departureTime: "17:05",
-        arrivalTime: "01:30",
-        duration: "5h 25m",
-        status: "On Time",
-        statusColor: "#22c55e",
-        price: "$289",
-        currency: "USD",
-      },
-    ];
-    return searchFlightsImpl(flights);
+    // Gold-parity result shape (tool_rendering_agent.py search_flights): the
+    // tool-rendering FlightListCard reads { airline, flight, depart, arrive,
+    // price_usd }. Emitting Mastra-flavored keys (flightNumber/departureTime/
+    // arrivalTime/price) left every row blank ("? → ?", "—") on a live endpoint
+    // — the card never matched (PNI-121). Return the gold keys directly.
+    return {
+      origin: from,
+      destination: to,
+      flights: [
+        {
+          airline: "United",
+          flight: "UA231",
+          depart: "08:15",
+          arrive: "16:45",
+          price_usd: 348,
+        },
+        {
+          airline: "Delta",
+          flight: "DL412",
+          depart: "11:20",
+          arrive: "19:55",
+          price_usd: 312,
+        },
+        {
+          airline: "JetBlue",
+          flight: "B6722",
+          depart: "17:05",
+          arrive: "01:30",
+          price_usd: 289,
+        },
+      ],
+    };
   },
 });
 
