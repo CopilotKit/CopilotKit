@@ -877,7 +877,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       transactionId: z.string(),
       code: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { transactionId, code } = args;
 
       if (status === "inProgress") {
@@ -903,6 +903,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!transactionId || !code) {
                 respond?.("Missing transaction or exception code");
@@ -940,7 +941,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
     parameters: z.object({
       exceptionId: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { exceptionId } = args;
 
       if (status === "inProgress") {
@@ -962,6 +963,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!exceptionId) {
                 respond?.("Missing exception id");
@@ -998,7 +1000,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
     parameters: z.object({
       transactionId: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { transactionId } = args;
 
       if (status === "inProgress") {
@@ -1021,6 +1023,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!transactionId) {
                 respond?.("Missing transaction id");
