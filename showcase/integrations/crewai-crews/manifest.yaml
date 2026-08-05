@@ -23,8 +23,6 @@ managed_platform:
   url: https://crewai.com/amp
 not_supported_features:
   # These cells remain quarantined until their CrewAI-native backends land.
-  - multimodal
-  - shared-state-streaming
   - mcp-apps
   - reasoning-default-render
   - agentic-chat-reasoning
@@ -63,6 +61,8 @@ features:
   - byoc-json-render
   - beautiful-chat
   - shared-state-read
+  - shared-state-streaming
+  - multimodal
   - gen-ui-interrupt
   - interrupt-headless
 a2ui_pattern: schema-loading

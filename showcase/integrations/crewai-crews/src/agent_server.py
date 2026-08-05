@@ -38,8 +38,11 @@ from agents.declarative_gen_ui import DeclarativeGenUI  # noqa: E402
 from agents.gen_ui_agent import gen_ui_agent_flow  # noqa: E402
 from agents.interrupt_flow import interrupt_flow  # noqa: E402
 from agents.mcp_apps_agent import MCPApps  # noqa: E402
+from agents.multimodal_flow import multimodal_flow  # noqa: E402
 from agents.reasoning_flow import reasoning_flow  # noqa: E402
+from agents.shared_state_read import shared_state_read_flow  # noqa: E402
 from agents.shared_state_read_write import shared_state_read_write_flow  # noqa: E402
+from agents.shared_state_streaming import shared_state_streaming_flow  # noqa: E402
 from agents.subagents import subagents_flow  # noqa: E402
 
 try:
@@ -81,6 +84,11 @@ add_crewai_crew_fastapi_endpoint(app, MCPApps(), "/mcp-apps")
 add_crewai_flow_fastapi_endpoint(
     app, shared_state_read_write_flow, "/shared-state-read-write"
 )
+add_crewai_flow_fastapi_endpoint(app, shared_state_read_flow, "/shared-state-read")
+add_crewai_flow_fastapi_endpoint(
+    app, shared_state_streaming_flow, "/shared-state-streaming"
+)
+add_crewai_flow_fastapi_endpoint(app, multimodal_flow, "/multimodal")
 add_crewai_flow_fastapi_endpoint(app, subagents_flow, "/subagents")
 add_crewai_flow_fastapi_endpoint(app, gen_ui_agent_flow, "/gen-ui-agent")
 add_crewai_flow_fastapi_endpoint(app, reasoning_flow, "/reasoning")
