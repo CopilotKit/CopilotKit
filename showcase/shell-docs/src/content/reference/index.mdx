@@ -117,7 +117,7 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
   Error handler called when CopilotKit encounters an error. Fires for all error types: runtime connection failures, agent errors, and tool errors.
 
-Unlike the v1 `onError`, this does **not** require a `publicApiKey` — error handling works with any configuration.
+Unlike the v1 `onError`, this does **not** require a `publicApiKey`; error handling works with any configuration.
 
 ```tsx
 <CopilotKit
@@ -134,6 +134,31 @@ Unlike the v1 `onError`, this does **not** require a `publicApiKey` — error ha
 
 </Accordion>
 </Accordions>
+
+## Import Surfaces
+
+Use the main v2 entry when your app renders CopilotKit's web UI components or A2UI surfaces:
+
+```tsx
+import {
+  CopilotKit,
+  CopilotChat,
+  useAgent,
+} from "@copilotkit/react-core/v2";
+```
+
+Use the headless entry when you build a fully custom chat surface and only need platform-agnostic hooks. This avoids the built-in chat rendering stack and its CSS:
+
+```tsx
+import {
+  useAgent,
+  useCopilotKit,
+  useFrontendTool,
+  useRenderToolCall,
+} from "@copilotkit/react-core/v2/headless";
+```
+
+The headless entry exports the provider context, chat configuration provider, `useAgent`, tool hooks, suggestions, threads, capabilities, and shared types. It does not export `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `useDefaultRenderTool`, or A2UI render helpers.
 
 ## Styling
 

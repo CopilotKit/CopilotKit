@@ -36,6 +36,11 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 
 </PropertyReference>
 
+<PropertyReference name="licenseToken" type="string">
+  Signed license token for offline verification of Enterprise Intelligence
+  Platform features.
+</PropertyReference>
+
 <PropertyReference name="guardrails_c" type="{ validTopics?: string[]; invalidTopics?: string[]; }"  >
 Restrict input to specific topics using guardrails.
   @remarks
@@ -57,15 +62,20 @@ This feature is only available when using CopilotKit's hosted cloud service. To 
   The endpoint for the Copilot text to speech service.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string>"  >
-Additional headers to be sent with the request.
+<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)"  >
+Additional headers to be sent with runtime requests. Pass an object for static
+headers, or a function when headers need to be refreshed from current auth
+state.
 
 For example:
 
-```json
-{
-  "Authorization": "Bearer X"
-}
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  headers={() => ({ Authorization: `Bearer ${getToken()}` })}
+>
+  {children}
+</CopilotKit>
 ```
 
 </PropertyReference>
@@ -127,6 +137,16 @@ Defaults to `false` for production safety.
 
 </PropertyReference>
 
+<PropertyReference name="selfManagedAgents" type="Record<string, AbstractAgent>">
+  AG-UI agents managed by your app and registered directly with CopilotKit.
+  Use this when you connect to agents without routing through a Copilot Runtime.
+</PropertyReference>
+
+<PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>">
+  Preconfigured local agents for development and tests. Use `selfManagedAgents`
+  for production direct-agent setups.
+</PropertyReference>
+
 <PropertyReference name="a2ui" type="{ theme?: Theme }">
 Configuration for the A2UI (Agent-to-UI) renderer.
 
@@ -140,6 +160,18 @@ needed if you want to override the default theme.
 </CopilotKit>
 ```
 
+</PropertyReference>
+
+<PropertyReference name="openGenerativeUI" type="{ sandboxFunctions?: SandboxFunction[]; designSkill?: string }">
+  Configuration for Open Generative UI. Use `sandboxFunctions` to expose host
+  functions to generated sandboxed iframes, and `designSkill` to override the
+  design guidance injected as agent context for `generateSandboxedUi`.
+</PropertyReference>
+
+<PropertyReference name="defaultThrottleMs" type="number">
+  Default throttle interval, in milliseconds, for `useAgent` re-renders caused
+  by message and state updates. Individual `useAgent` calls and prebuilt chat
+  components can override it with their own `throttleMs`.
 </PropertyReference>
 
 <PropertyReference name="agent" type="string">
@@ -168,8 +200,8 @@ This feature is only available when using CopilotKit's hosted cloud service. To 
 <PropertyReference name="onError" type="CopilotErrorHandler"  >
 Optional error handler for comprehensive debugging and observability.
 
-Requires publicApiKey: Error handling only works when publicApiKey is provided.
-This is an Enterprise Intelligence Platform feature.
+The handler runs for runtime connection failures, agent errors, and tool errors.
+It works with runtime-backed and locally registered agents.
 
 @param errorEvent - Structured error event with rich debugging context
 
@@ -177,7 +209,7 @@ This is an Enterprise Intelligence Platform feature.
 
 ```typescript
 <CopilotKit
-  publicApiKey="ck_pub_your_key"
+  runtimeUrl="/api/copilotkit"
   onError={(errorEvent) => {
     debugDashboard.capture(errorEvent);
   }}
@@ -190,4 +222,13 @@ This is an Enterprise Intelligence Platform feature.
   Enable or disable the CopilotKit Inspector, letting you inspect AG-UI events,
   view agent messages, check agent state, and visualize agent context. Defaults
   to enabled.
+</PropertyReference>
+
+<PropertyReference name="inspectorDefaultAnchor" type="{ horizontal: 'left' | 'right'; vertical: 'top' | 'bottom' }">
+  Default corner for the inspector button and window before the user drags it.
+</PropertyReference>
+
+<PropertyReference name="debug" type="boolean | DebugConfig">
+  Enable client-side debug logging for the AG-UI transport and event pipeline.
+  Pass `true` for full output or a config object for granular control.
 </PropertyReference>
