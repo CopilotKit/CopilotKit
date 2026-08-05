@@ -23,6 +23,9 @@ import {
   writeTodosToWorkingMemory,
   readTodosFromWorkingMemory,
 } from "./working-memory";
+// Grounds the dynamic `generate_a2ui` render on the catalog schema the bridge
+// forwards onto Mastra's request context (the outer model sends it empty).
+import { readForwardedA2uiContext } from "./a2ui-context";
 
 // Re-export the dedicated tool sets defined in their own modules so the
 // barrel keeps a single import surface for callers under `@/mastra/tools`.
@@ -355,8 +358,7 @@ export const searchFlightsTool = createTool({
 // `render_a2ui` tool, then converts that tool call's args into the
 // A2UI `a2ui_operations` container that the middleware forwards to
 // the frontend renderer. Mastra returns the operations as a JSON
-// string from the tool body; the catalog
-// (`copilotkit://generative-catalog`) resolves component names to
+// string from the tool body; the catalog resolves component names to
 // React renderers on the client.
 export const generateA2uiTool = createTool({
   id: "generate-a2ui",
@@ -368,10 +370,21 @@ export const generateA2uiTool = createTool({
       .optional()
       .describe("Context entries"),
   }),
-  execute: async ({ messages, contextEntries }) => {
+  execute: async ({ messages, contextEntries }, executionContext) => {
+    // The outer model leaves `contextEntries` empty — it has no basis to hand
+    // the catalog schema back through a tool arg — so on a live LLM the inner
+    // `render_a2ui` subagent would run with an EMPTY system prompt: ungrounded,
+    // it emits invalid/misnamed components (or none), and the surface fails to
+    // render, varying run to run. (aimock hides it: the recorded fixture
+    // returns a valid envelope regardless of the empty context.) The bridge
+    // already forwards the catalog schema + generation guidelines onto the
+    // request context, so read them server-side and ground the render there
+    // rather than trusting the model-supplied arg.
+    const forwardedContext = readForwardedA2uiContext(executionContext);
     const prep = generateA2uiImpl({
       messages,
-      contextEntries,
+      contextEntries:
+        forwardedContext.length > 0 ? forwardedContext : contextEntries,
     });
 
     // Normalize each incoming message role to the `user`/`assistant` pair
