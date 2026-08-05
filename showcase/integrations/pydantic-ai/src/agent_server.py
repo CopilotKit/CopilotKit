@@ -141,11 +141,21 @@ app.add_middleware(
 def mount_agent(path, agent_obj, state_type=None):
     """Mount ``agent_obj`` at ``path`` as an AG-UI endpoint.
 
-    Replaces PydanticAI v1's ``agent.to_ag_ui()``, removed in v2. The shape is
-    deliberately identical to what ``AGUIApp`` produced — a Starlette app whose
-    only route is ``POST /`` — so every mount path, including its trailing
-    slash, behaves exactly as before. The 14 TS routes that call these as
-    ``${AGENT_URL}/<path>/`` need no change.
+    Replaces PydanticAI v1's ``agent.to_ag_ui()``, removed in v2.
+
+    ROUTING is deliberately identical to what ``AGUIApp`` produced — a Starlette
+    app whose only route is ``POST /`` — so every mount path, including its
+    trailing slash, resolves exactly as before and the TS routes that call these
+    as ``${AGENT_URL}/<path>/`` need no change.
+
+    Model INPUT is not identical, and deliberately so. v2's ``dispatch_request``
+    defaults to ``manage_system_prompt='server'``, so each agent's
+    ``system_prompt=`` and ``@agent.system_prompt`` now actually reach the model.
+    On v1 they never did: ``_agent_graph`` only emitted system parts ``if not
+    messages``, and the AG-UI bridge always supplied a non-empty history, so the
+    declared prompts were silently dead. Passing
+    ``manage_system_prompt='client'`` would restore literal v1 behaviour — i.e.
+    reinstate that bug — so we do not.
 
     ``deps`` is built per request on purpose. v2's adapter assigns the client's
     state onto ``deps.state`` (``pydantic_ai/ui/_adapter.py``) rather than

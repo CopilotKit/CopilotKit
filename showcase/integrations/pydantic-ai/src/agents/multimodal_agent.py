@@ -450,14 +450,33 @@ def _text_of(part: Any) -> str | None:
 # already-native output is a stable fixpoint (a ``str``/``ImageUrl`` stays
 # itself), so running the model-boundary flatten over partially-native content
 # is safe.
-# Fixpoints of the flatten — outputs this module itself emits, safe to wave
-# through. ``BinaryContent`` is deliberately NOT here: PydanticAI v2's
-# ``AGUIAdapter.load_messages`` converts inline AG-UI attachments into
-# ``BinaryContent`` *before* the model boundary (v1 delivered the raw AG-UI part
-# dicts), so treating it as opaque would skip PDF text extraction and the
-# supported-image-subtype gate entirely. It is classified instead, by
-# :func:`_classify_native_content`.
+# Fallback fixpoints, reached ONLY when `_classify_native_content` returned
+# `None` (provider-safe as-is). BinaryContent is absent because it is always
+# classified — it may need PDF extraction or the subtype gate.
+#
+# On v1 the AG-UI bridge handed this module raw AG-UI part dicts, so every
+# attachment — inline or url — went through `_classify_content_part` and hit the
+# gate. On v2 ``AGUIAdapter.load_messages`` converts them to native content
+# FIRST, and it does so from unvetted client input: a client-supplied
+# ``image/heic`` url becomes an ``ImageUrl``, an ``audio/mpeg`` document url
+# becomes a ``DocumentUrl``. Treating any native type as an opaque fixpoint
+# therefore hands the provider content the gate exists to reject. All of them are
+# classified instead, by :func:`_classify_native_content`.
 _NATIVE_CONTENT = (str, ImageUrl, DocumentUrl)
+
+
+def _url_media_type(part: Any) -> str:
+    """Best-effort mime for a ``FileUrl``, never raising.
+
+    ``FileUrl.media_type`` INFERS the type from the url and raises ``ValueError``
+    when it cannot; the explicit ``_media_type`` is ``None`` unless the client
+    set one. Neither alone is enough — the inferred value is what catches an
+    ``a.heic`` url, so prefer it and fall back rather than the other way round.
+    """
+    try:
+        return (part.media_type or "").strip()
+    except Exception:
+        return (getattr(part, "_media_type", "") or "").strip()
 
 
 def _classify_native_content(part: Any) -> tuple[str, str, str, str] | None:
@@ -482,22 +501,41 @@ def _classify_native_content(part: Any) -> tuple[str, str, str, str] | None:
             # the generic binary path. They are recognised modalities, so name
             # them and let the caller emit the descriptive placeholder.
             return (low.split("/", 1)[0], "data", mime, value)
-        # A missing mime defaults to "image" so the magic-byte sniffer runs; it
-        # degrades to a placeholder on anything it cannot recognise.
+        if not mime and part.data.startswith(b"%PDF-"):
+            # `load_messages` collapses ImageInputContent and DocumentInputContent
+            # to a bare `BinaryContent`, erasing the AG-UI modality that v1 used
+            # to pick a default. Without this a blank-mime PDF would be handed to
+            # the image sniffer and degrade, instead of being text-extracted.
+            return ("pdf", "data", "application/pdf", value)
+        # A missing mime otherwise defaults to "image" so the magic-byte sniffer
+        # runs; it degrades to a placeholder on anything it cannot recognise.
         kind, mime = _kind_for(mime, default="image" if not mime else "other")
         return (kind, "data", mime, value)
+    if isinstance(part, ImageUrl):
+        # v2 builds these straight from client-supplied urls, so the subtype
+        # allow-list must still run: an image/heic url would otherwise be handed
+        # to the provider as an input_image and fail the turn.
+        #
+        # Gate rather than reroute — an ImageUrl the provider accepts is returned
+        # untouched (``None`` here means "fixpoint"), so it keeps its identity and
+        # any explicit ``_media_type`` the client set. Only a present-and-
+        # unsupported subtype is classified, so that it degrades.
+        mime = _url_media_type(part)
+        if mime and not _is_supported_image_mime(mime):
+            return ("image", "url", mime, part.url)
+        return None
     if isinstance(part, (AudioUrl, VideoUrl)):
         # Recognised modality the Responses mapper cannot consume — the caller
         # degrades it to a descriptive placeholder, as it does for the AG-UI
         # audio/video part shapes.
         kind = "audio" if isinstance(part, AudioUrl) else "video"
-        return (kind, "url", (getattr(part, "media_type", "") or "").strip(), part.url)
+        return (kind, "url", _url_media_type(part), part.url)
     if isinstance(part, FileUrl):
-        # Any other FileUrl subclass. ImageUrl / DocumentUrl are fixpoints and
-        # never reach here, so this is the forward-compatible tail.
-        kind, mime = _kind_for(
-            (getattr(part, "media_type", "") or "").strip(), default="other"
-        )
+        # `DocumentUrl` plus any future subclass. Routed through `_kind_for` so a
+        # pdf url still becomes a reference placeholder and a non-document mime
+        # (audio/mpeg, octet-stream) still degrades at the url choke point,
+        # exactly as the AG-UI url path did on v1.
+        kind, mime = _kind_for(_url_media_type(part), default="other")
         return (kind, "url", mime, part.url)
     return None
 
@@ -549,15 +587,21 @@ def _rewrite_part_for_model(part: Any) -> Any:
       **fail loud**: raise a ``ValueError`` naming the shape, NEVER silently
       pass it through to the downstream ``assert_never``.
     """
-    # Already-native content (a stable fixpoint of the flatten) — leave as-is.
-    if isinstance(part, _NATIVE_CONTENT):
+    # Native content is GATED BEFORE the fixpoint check, not instead of it. On v2
+    # `load_messages` builds native types straight from client input, so a
+    # fixpoint short-circuit here would hand the provider exactly the content the
+    # gate exists to reject. `_classify_native_content` returns a tuple only when
+    # the gate must act; `None` means "provider-safe as-is", which then falls
+    # through to the fixpoint below and keeps the object's identity.
+    native = _classify_native_content(part)
+    if native is None and isinstance(part, _NATIVE_CONTENT):
         return part
 
     text = _text_of(part)
     if text is not None:
         return text
 
-    classified = _classify_native_content(part) or _classify_content_part(part)
+    classified = native or _classify_content_part(part)
     if classified is not None:
         kind, scheme, mime, value = classified
         if kind == "empty":
