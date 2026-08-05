@@ -6,6 +6,10 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
+import {
+  containsDiscordNativeModal,
+  renderDiscordNativeModalComponents,
+} from "../native-codec.js";
 
 /**
  * Lower a modal IR tree to a discord.js {@link ModalBuilder}.
@@ -21,6 +25,13 @@ export function renderDiscordModal(ir: ChannelNode[]): ModalBuilder {
     throw new ModalRenderError("renderDiscordModal: no <Modal> root in IR");
   const p = root.props as Record<string, unknown>;
   const kids = Array.isArray(p.children) ? (p.children as ChannelNode[]) : [];
+  if (containsDiscordNativeModal(ir)) {
+    return new ModalBuilder({
+      custom_id: String(p.callbackId ?? ""),
+      title: String(p.title ?? ""),
+      components: renderDiscordNativeModalComponents(p.children),
+    });
+  }
   const inputs = kids.filter((k) => k.type === "modal_text_input");
   const unsupported = kids.find((k) => k.type !== "modal_text_input");
   if (unsupported) {

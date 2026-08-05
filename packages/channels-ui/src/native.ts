@@ -1,7 +1,7 @@
 import type { ChannelNode } from "./ir.js";
 
 /** Providers that own native Channel JSX nodes. */
-export type NativeProvider = "slack" | "teams";
+export type NativeProvider = "slack" | "teams" | "discord";
 
 /** Catalog role used to validate where a provider-native node may appear. */
 export type NativeNodeKind =

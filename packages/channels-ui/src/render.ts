@@ -70,7 +70,7 @@ export function renderToIR(ui: Renderable): ChannelNode[] {
   if (typeof ui === "object" && ui !== null && "raw" in ui) {
     const native = ui as {
       raw: unknown;
-      provider?: "slack" | "teams";
+      provider?: "slack" | "teams" | "discord";
     };
     return [
       {

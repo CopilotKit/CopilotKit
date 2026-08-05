@@ -12,7 +12,10 @@ import {
   MediaGalleryItemBuilder,
   MessageFlags,
 } from "discord.js";
-import type { MessageActionRowComponentBuilder } from "discord.js";
+import type {
+  APIMessageTopLevelComponent,
+  MessageActionRowComponentBuilder,
+} from "discord.js";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import {
   DISCORD_LIMITS,
@@ -21,6 +24,10 @@ import {
   clampArray,
 } from "./budget.js";
 import { discordMarkdown } from "../markdown.js";
+import {
+  containsDiscordNative,
+  renderDiscordNativeMessage,
+} from "../native-codec.js";
 
 /**
  * Running totals enforced across a single message render. Discord rejects the
@@ -129,11 +136,13 @@ export function renderComponents(ir: ChannelNode[]): ContainerBuilder {
 
 /** Ready-to-send payload for channel.send / message.edit. */
 export function renderDiscordMessage(ir: ChannelNode[]): {
-  components: ContainerBuilder[];
+  components: Array<ContainerBuilder | APIMessageTopLevelComponent>;
   flags: number;
 } {
   return {
-    components: [renderComponents(ir)],
+    components: containsDiscordNative(ir)
+      ? renderDiscordNativeMessage(ir)
+      : [renderComponents(ir)],
     flags: MessageFlags.IsComponentsV2,
   };
 }

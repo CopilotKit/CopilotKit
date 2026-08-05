@@ -2,6 +2,28 @@
 
 export { discord, DiscordAdapter } from "./adapter.js";
 export type { DiscordAdapterOptions } from "./adapter.js";
+export { Discord } from "./native.js";
+export type {
+  DiscordCheckboxOption,
+  DiscordMediaItem,
+  DiscordNativeProps,
+  DiscordRadioOption,
+  DiscordRawProps,
+  DiscordSelectOption,
+  DiscordUnfurledMediaItem,
+} from "./native.js";
+export {
+  DISCORD_MESSAGE_MANIFEST,
+  DISCORD_MODAL_MANIFEST,
+  DISCORD_NATIVE_MANIFEST,
+  DISCORD_OBJECT_MANIFEST,
+} from "./native-manifest.js";
+export {
+  containsDiscordNative,
+  containsDiscordNativeModal,
+  renderDiscordNativeMessage,
+  renderDiscordNativeModalComponents,
+} from "./native-codec.js";
 
 export { DiscordConversationStore } from "./conversation-store.js";
 

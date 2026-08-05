@@ -7,9 +7,105 @@ import {
   ModalSelect,
   ModalSelectOption,
 } from "@copilotkit/channels-ui";
+import type { ClickHandler } from "@copilotkit/channels-ui";
+import { Discord } from "../native.js";
 import { renderDiscordModal } from "./modal.js";
 
 describe("renderDiscordModal", () => {
+  it("serializes Discord native modal components under the shared Modal root", () => {
+    const ir = renderToIR(
+      <Modal callbackId="triage" title="Triage">
+        <Discord.Modal.TextDisplay content="Tell us what happened." />
+        <Discord.Modal.Label label="Summary" description="Keep it short.">
+          <Discord.Modal.TextInput
+            style={1}
+            placeholder="Broken deploy"
+            onSubmit={{ id: "ck:summary" } as unknown as ClickHandler}
+          />
+        </Discord.Modal.Label>
+      </Modal>,
+    );
+
+    expect(renderDiscordModal(ir).toJSON()).toEqual({
+      custom_id: "triage",
+      title: "Triage",
+      components: [
+        { type: 10, content: "Tell us what happened." },
+        {
+          type: 18,
+          label: "Summary",
+          description: "Keep it short.",
+          component: {
+            type: 4,
+            custom_id: "ck:summary",
+            style: 1,
+            placeholder: "Broken deploy",
+          },
+        },
+      ],
+    });
+  });
+
+  it("serializes every stable Discord modal input type", () => {
+    const submit = (id: string) => ({ id }) as unknown as ClickHandler;
+    const inputs = [
+      <Discord.Modal.TextInput
+        key="text"
+        style={1}
+        onSubmit={submit("ck:text")}
+      />,
+      <Discord.Modal.StringSelect key="string" onSubmit={submit("ck:string")}>
+        <Discord.Object.SelectOption label="Core" value="core" />
+      </Discord.Modal.StringSelect>,
+      <Discord.Modal.UserSelect key="user" onSubmit={submit("ck:user")} />,
+      <Discord.Modal.RoleSelect key="role" onSubmit={submit("ck:role")} />,
+      <Discord.Modal.MentionableSelect
+        key="mentionable"
+        onSubmit={submit("ck:mentionable")}
+      />,
+      <Discord.Modal.ChannelSelect
+        key="channel"
+        onSubmit={submit("ck:channel")}
+      />,
+      <Discord.Modal.FileUpload
+        key="file"
+        min_values={1}
+        max_values={2}
+        onSubmit={submit("ck:file")}
+      />,
+      <Discord.Modal.RadioGroup key="radio" onSubmit={submit("ck:radio")}>
+        <Discord.Object.RadioOption label="Fast" value="fast" />
+        <Discord.Object.RadioOption label="Safe" value="safe" />
+      </Discord.Modal.RadioGroup>,
+      <Discord.Modal.CheckboxGroup
+        key="checkboxes"
+        onSubmit={submit("ck:checkboxes")}
+      >
+        <Discord.Object.CheckboxOption label="Email me" value="email" />
+      </Discord.Modal.CheckboxGroup>,
+      <Discord.Modal.Checkbox
+        key="checkbox"
+        default
+        onSubmit={submit("ck:checkbox")}
+      />,
+    ];
+
+    const types = inputs.map((input, index) => {
+      const ir = renderToIR(
+        <Modal callbackId={`modal-${index}`} title="Component test">
+          <Discord.Modal.Label label={`Field ${index}`}>
+            {input}
+          </Discord.Modal.Label>
+        </Modal>,
+      );
+      const json = renderDiscordModal(ir).toJSON();
+      return (json.components[0] as { component: { type: number } }).component
+        .type;
+    });
+
+    expect(types).toEqual([4, 3, 5, 6, 7, 8, 19, 21, 22, 23]);
+  });
+
   it("builds a modal of text inputs", () => {
     const ir = renderToIR(
       <Modal callbackId="triage" title="Triage">
