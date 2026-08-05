@@ -17,6 +17,7 @@ import {
   scheduleMeetingTool,
   scheduleMeetingInterruptTool,
   searchFlightsTool,
+  searchFlightsA2uiTool,
   rollDiceTool,
   rollD20Tool,
   generateA2uiTool,
@@ -834,6 +835,51 @@ export const a2uiRecoveryAgent = new Agent({
   memory: new Memory({
     storage: new LibSQLStore({
       id: "a2ui-recovery-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+
+// Dedicated agent for the Beautiful Chat flagship cell. Mirrors langgraph-python
+// `beautiful_chat.py`: query_data + todos + the dynamic `generate_a2ui`
+// (dashboards) + a FIXED-schema `search_flights` that returns a FlightCard A2UI
+// envelope. Kept separate from the shared `weatherAgent` so the fixed-schema
+// flights + the flight/dashboard steering prompt don't leak into the
+// tool-rendering cells (which render flights via their own frontend card).
+// Frontend tools (pieChart, barChart, scheduleTime, generateSandboxedUi,
+// toggleTheme, enableAppMode, …) arrive as client tools at run time, so they
+// are not declared here.
+export const beautifulChatAgent = new Agent({
+  id: "beautiful-chat-agent",
+  name: "Beautiful Chat Agent",
+  tools: {
+    query_data: queryDataTool,
+    manage_todos: manageTodosTool,
+    get_todos: getTodosTool,
+    generate_a2ui: generateA2uiTool,
+    search_flights: searchFlightsA2uiTool,
+  },
+  model: openai("gpt-4o"),
+  instructions:
+    "You are a polished, professional demo assistant. Keep responses to 1-2 " +
+    "sentences.\n\nTool guidance:\n" +
+    "- Flights: call search_flights to show flight cards with a pre-built " +
+    "schema.\n" +
+    "- Dashboards & rich UI: call generate_a2ui to create dashboard UIs with " +
+    "metrics, charts, tables, and cards. It handles rendering automatically.\n" +
+    "- Charts: call query_data first, then render with the chart component.\n" +
+    "- Todos: enable app mode first, then manage todos.\n" +
+    "- A2UI actions: when you see a log_a2ui_event result, respond with a " +
+    "brief confirmation. The UI already updated on the frontend.",
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "beautiful-chat-agent-memory",
       url: WORKING_MEMORY_DB_URL,
     }),
     options: {
