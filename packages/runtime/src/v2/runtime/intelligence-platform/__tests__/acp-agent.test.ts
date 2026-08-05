@@ -145,4 +145,43 @@ describe("AcpAgent", () => {
       humanInTheLoop: { interrupts: true },
     });
   });
+
+  it("accepts an immediate resume run after the interrupt run completes", async () => {
+    const platform = {
+      ɵadmitAcpRun: vi.fn().mockResolvedValue({ cursor: 0 }),
+      ɵcancelAcpRun: vi.fn(),
+      ɵlistAcpRunEvents: vi.fn(({ runId }: { runId: string }) =>
+        Promise.resolve({
+          events: [
+            {
+              sequence: 1,
+              eventId: `event-${runId}`,
+              event: {
+                ...runFinished,
+                runId,
+                outcome:
+                  runId === "run-1"
+                    ? {
+                        type: "interrupt" as const,
+                        interrupts: [{ id: "permission-1", value: {} }],
+                      }
+                    : { type: "success" as const },
+              },
+            },
+          ],
+        }),
+      ),
+    };
+    const agent = new AcpAgent({
+      intelligence: platform,
+      agentProfileId: "showcase-codex",
+      userId: "customer-user-1",
+      pollIntervalMs: 0,
+    });
+
+    await lastValueFrom(agent.run(input));
+    await expect(
+      lastValueFrom(agent.run({ ...input, runId: "run-2" })),
+    ).resolves.toMatchObject({ type: EventType.RUN_FINISHED, runId: "run-2" });
+  });
 });

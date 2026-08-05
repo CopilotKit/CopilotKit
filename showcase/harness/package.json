@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.710.0",
+    "@copilotkit/runtime": "workspace:*",
     "@hono/node-server": "^1.14.0",
     "axe-core": "4.11.1",
     "chokidar": "^4.0.3",
@@ -28,6 +29,7 @@
     "js-yaml": "^4.1.0",
     "mustache": "^4.2.0",
     "playwright": "^1.59.1",
+    "rxjs": "7.8.1",
     "ulid": "^2.3.0",
     "zod": "^3.23.8"
   },

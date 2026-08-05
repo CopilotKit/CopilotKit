@@ -4132,6 +4132,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.710.0
         version: 3.1014.0
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@hono/node-server':
         specifier: '>=1.19.13'
         version: 2.0.0(hono@4.12.15)
@@ -4159,6 +4162,9 @@ importers:
       playwright:
         specifier: ^1.59.1
         version: 1.59.1
+      rxjs:
+        specifier: 7.8.1
+        version: 7.8.1
       ulid:
         specifier: ^2.3.0
         version: 2.4.0

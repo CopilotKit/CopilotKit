@@ -96,6 +96,11 @@ export class AcpAgent extends AbstractAgent {
     this.activeRun = activeRun;
 
     return new Observable<BaseEvent>((subscriber) => {
+      const releaseActiveRun = (): void => {
+        if (this.activeRun === activeRun) {
+          this.activeRun = undefined;
+        }
+      };
       const poll = async (): Promise<void> => {
         const admission = await this.config.intelligence.ɵadmitAcpRun({
           agentProfileId: this.config.agentProfileId,
@@ -119,6 +124,7 @@ export class AcpAgent extends AbstractAgent {
             cursor = stored.sequence;
             subscriber.next(stored.event);
             if (isTerminalEvent(stored.event)) {
+              releaseActiveRun();
               subscriber.complete();
               return;
             }
@@ -132,19 +138,18 @@ export class AcpAgent extends AbstractAgent {
           }
         }
 
+        releaseActiveRun();
         subscriber.complete();
       };
 
-      poll()
-        .catch((error: unknown) => subscriber.error(error))
-        .finally(() => {
-          if (this.activeRun === activeRun) {
-            this.activeRun = undefined;
-          }
-        });
+      poll().catch((error: unknown) => {
+        releaseActiveRun();
+        subscriber.error(error);
+      });
 
       return () => {
         controller.abort();
+        releaseActiveRun();
       };
     });
   }
