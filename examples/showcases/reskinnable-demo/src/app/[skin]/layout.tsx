@@ -11,7 +11,8 @@ import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
 import type { Skin } from "@/shell/skin-contract";
 import { getSkin } from "@/shell/registry";
 import { SkinProvider } from "@/shell/skin-provider";
-import { FloatingSelector } from "@/shell/floating-selector";
+import { ShellFrame } from "@/shell/layout/shell-frame";
+import { LayoutPreferencesProvider } from "@/shell/layout/layout-preferences";
 import { ChatPanel } from "@/shell/chat/chat-panel";
 import { ChatInboxProvider } from "@/shell/chat/chat-inbox-context";
 import { TOOL_CALL_RENDERERS } from "@/shell/chat/tool-activity";
@@ -203,11 +204,17 @@ function SkinCopilotRuntime({
               <Providers>
                 <SkinSuggestions skin={skin} />
                 <Tools />
-                <Layout>
-                  <CanvasRegion>{children}</CanvasRegion>
-                </Layout>
-                <ChatPanel threadId={threadId} />
-                <FloatingSelector activeId={skin.id} />
+                <LayoutPreferencesProvider>
+                  <ShellFrame
+                    activeSkinId={skin.id}
+                    chat={<ChatPanel threadId={threadId} />}
+                    app={
+                      <Layout>
+                        <CanvasRegion>{children}</CanvasRegion>
+                      </Layout>
+                    }
+                  />
+                </LayoutPreferencesProvider>
               </Providers>
             </CanvasProvider>
           </ChatInboxProvider>

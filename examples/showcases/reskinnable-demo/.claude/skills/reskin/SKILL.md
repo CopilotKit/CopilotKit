@@ -167,20 +167,23 @@ returns `null` for is a 404, regardless of what `nav` contains.
 
 ## The layout contract (viewport height + nav insets)
 
-Two things every shipped `Layout` gets right and the naive version gets wrong —
-both fixed once in `src/skins/logistics/layout.tsx`, which the template mirrors:
+One thing every shipped `Layout` gets right and the naive version gets wrong —
+fixed once in `src/skins/logistics/layout.tsx`, which the template mirrors:
 
-- **The root is `h-screen overflow-hidden`, not `min-h-screen`.** `min-h-screen`
-  is a MINIMUM: on a page taller than the viewport the container grows, the whole
-  document scrolls, and the pinned nav scrolls away with it — worse, `<main>`'s
-  own `overflow-y-auto` goes inert because its parent is unbounded. Make the shell
-  exactly one viewport tall (`h-screen overflow-hidden`, plus `h-full` on the
-  `<aside>`) so only `<main>` scrolls.
-- **Publish the nav insets, and remove them on cleanup.** In a `useEffect`, set
-  `--nw-nav-inset-left` / `--nw-nav-inset-right` on `document.documentElement` to
-  the width your nav reserves, so the shell's floating skin selector docks in the
-  content band instead of on top of your nav. Return a cleanup that REMOVES both —
-  a missing cleanup leaks your inset into whatever skin the user switches to next.
+- **The root is `h-full overflow-hidden`, NOT `h-screen` or `min-h-screen`.** Your
+  chrome fills the shell's app CARD, not the viewport — the frame insets that card
+  by its own padding, so a viewport-height root overflows it by exactly that much.
+  It still has to be BOUNDED, though: if the container can grow past the card the
+  whole document scrolls, the pinned nav scrolls away with it, and `<main>`'s own
+  `overflow-y-auto` goes inert because its parent is unbounded. `h-full
+overflow-hidden` on the root, plus `h-full` on the `<aside>`, so only `<main>`
+  scrolls.
+
+> **Retired:** older skins published `--nw-nav-inset-left` / `--nw-nav-inset-right`
+> from a `useEffect` so the shell's floating skin selector could dodge their nav.
+> Both the variables and that selector are gone — the switcher is now a dropdown in
+> a card at the top of the assistant column, so it occupies a slot and never
+> overlaps anything. Do not add those publishers to a new skin; nothing reads them.
 
 ## The meta-utility strip
 
@@ -398,7 +401,8 @@ Do NOT touch anything else in the shell.
 1. `pnpm build` — green (type-checks the whole app; there is no `typecheck`
    script). `pnpm lint` — green.
 2. `pnpm dev` (needs `OPENAI_API_KEY`; copy `.env` from `.env.example`).
-3. The skin appears in the **floating selector** (bottom-left).
+3. The skin appears in the **selector dropdown** at the top of the assistant
+   column — open it from the trigger showing the active skin's brand.
 4. Navigating to `/<id>` renders your `Layout` with the correct theme (your
    `.theme-<id>` token values visibly applied — accent color, canvas, etc.).
 5. Sending a chat message gets a reply from **your** agent (confirms

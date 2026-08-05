@@ -5,7 +5,6 @@
 // `theme-keel` class higher up; this import supplies its values.)
 import "./theme.css";
 
-import { useEffect } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -102,23 +101,11 @@ export function KeelLayout({ children }: { children: ReactNode }) {
 
   const awaiting = data.approvalsForMe.length;
 
-  // Publish this skin's edge-nav geometry so the shell's floating skin selector
-  // can inset its dock clear of the nav WITHOUT the shell knowing anything about
-  // keel (see `.nw-selector-dock` in globals.css). Keel pins a 224px (w-56) rail
-  // to the LEFT and nothing to the right. Published on <html> so the fixed dock,
-  // wherever it sits in the tree, inherits the values.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--nw-nav-inset-left", "224px");
-    root.style.setProperty("--nw-nav-inset-right", "0px");
-    return () => {
-      root.style.removeProperty("--nw-nav-inset-left");
-      root.style.removeProperty("--nw-nav-inset-right");
-    };
-  }, []);
-
   return (
-    <div className="flex h-full min-h-screen bg-canvas text-ink">
+    // `h-full`, not `min-h-screen`: this chrome now fills the shell's app card,
+    // which is already inset by the frame padding — sizing to the viewport would
+    // overflow the card by exactly that padding.
+    <div className="flex h-full bg-canvas text-ink">
       {/* Left nav rail */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5 md:flex">
         <Link

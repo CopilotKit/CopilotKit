@@ -19,6 +19,8 @@ import {
   browserUseAgent,
   backgroundAgentsAgent,
   observationalMemoryAgent,
+  openGenUiAgent,
+  openGenUiAdvancedAgent,
 } from "./agents";
 import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
 
@@ -44,6 +46,8 @@ export const mastra = new Mastra({
     browserUseAgent,
     backgroundAgentsAgent,
     observationalMemoryAgent,
+    openGenUiAgent,
+    openGenUiAdvancedAgent,
   },
   storage: new LibSQLStore({
     id: "mastra-storage",
