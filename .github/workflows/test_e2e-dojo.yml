@@ -60,8 +60,10 @@ jobs:
     name: ${{ matrix.suite }}
     # 4-vCPU runner (was depot-ubuntu-24.04 = 2 vCPU) to speed the build, the
     # dojo prep, and Playwright worker parallelism on the long-pole suites.
+    # Leave room for Playwright's OS package install on a cold runner; 30 minutes
+    # can finish the tests but cancel the cache cleanup and mark the job cancelled.
     runs-on: depot-ubuntu-24.04-4
-    timeout-minutes: 30
+    timeout-minutes: 40
     permissions:
       contents: read
     strategy:
