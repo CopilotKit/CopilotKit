@@ -832,6 +832,7 @@ export class CopilotKitCore {
   }
 
   removeAgent__unsafe_dev_only(id: string): void {
+    this.stateManager.unsubscribeFromAgent(id);
     this.agentRegistry.removeAgent__unsafe_dev_only(id);
   }
 

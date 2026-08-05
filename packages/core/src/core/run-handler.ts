@@ -14,6 +14,10 @@ import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
+import {
+  insertToolResultMessage,
+  isForwardedToClientPlaceholder,
+} from "./tool-result-history";
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
@@ -692,50 +696,9 @@ export class RunHandler {
   }
 
   private isFrontendPlaceholderResult(message: Message): boolean {
-    if (message.role !== "tool") {
-      return false;
-    }
-
-    const normalized = this.normalizeToolResultContent(message.content);
-    return normalized === "Forwarded to client";
-  }
-
-  private normalizeToolResultContent(content: unknown): string | null {
-    if (typeof content === "string") {
-      return content.trim();
-    }
-
-    if (Array.isArray(content)) {
-      const text = content
-        .flatMap((part) => {
-          if (typeof part === "string") {
-            return [part];
-          }
-          if (
-            part &&
-            typeof part === "object" &&
-            "text" in part &&
-            typeof (part as { text?: unknown }).text === "string"
-          ) {
-            return [(part as { text: string }).text];
-          }
-          return [];
-        })
-        .join("")
-        .trim();
-      return text.length > 0 ? text : null;
-    }
-
-    if (
-      content &&
-      typeof content === "object" &&
-      "text" in content &&
-      typeof (content as { text?: unknown }).text === "string"
-    ) {
-      return (content as { text: string }).text.trim();
-    }
-
-    return null;
+    return (
+      message.role === "tool" && isForwardedToClientPlaceholder(message.content)
+    );
   }
 
   /**
@@ -893,27 +856,24 @@ export class RunHandler {
         // do not request a follow-up to avoid mutating the wrong thread.
         return false;
       }
-      // Find the correct insertion point: after the parent assistant message
-      // and any tool-result messages already inserted for earlier tool calls
-      // in the same batch. This preserves tool-result ordering relative to
-      // the toolCalls array, which some providers (OpenAI) require.
-      let insertAt = messageIndex + 1;
-      while (
-        insertAt < agent.messages.length &&
-        agent.messages[insertAt]?.role === "tool"
-      ) {
-        insertAt++;
-      }
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: handlerResult.result,
       };
-      agent.messages.splice(insertAt, 0, toolMessage);
+      const insertion = insertToolResultMessage(
+        agent.messages,
+        toolMessage,
+        message.id,
+      );
 
-      if (!handlerResult.error && tool?.followUp !== false) {
-        return true; // Needs follow-up
+      switch (insertion.status) {
+        case "missing-owner":
+        case "existing":
+          return false;
+        case "inserted":
+          return !handlerResult.error && tool?.followUp !== false;
       }
     }
 
@@ -1042,27 +1002,24 @@ export class RunHandler {
         // do not request a follow-up to avoid mutating the wrong thread.
         return false;
       }
-      // Find the correct insertion point: after the parent assistant message
-      // and any tool-result messages already inserted for earlier tool calls
-      // in the same batch. This preserves tool-result ordering relative to
-      // the toolCalls array, which some providers (OpenAI) require.
-      let insertAt = messageIndex + 1;
-      while (
-        insertAt < agent.messages.length &&
-        agent.messages[insertAt]?.role === "tool"
-      ) {
-        insertAt++;
-      }
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: toolCallResult,
       };
-      agent.messages.splice(insertAt, 0, toolMessage);
+      const insertion = insertToolResultMessage(
+        agent.messages,
+        toolMessage,
+        message.id,
+      );
 
-      if (!errorMessage && wildcardTool?.followUp !== false) {
-        return true; // Needs follow-up
+      switch (insertion.status) {
+        case "missing-owner":
+        case "existing":
+          return false;
+        case "inserted":
+          return !errorMessage && wildcardTool?.followUp !== false;
       }
     }
 
@@ -1150,18 +1107,25 @@ export class RunHandler {
       content: handlerResult.result,
     };
 
-    const assistantIndex = agent.messages.findIndex(
-      (m) => m.id === assistantMessage.id,
+    const insertion = insertToolResultMessage(
+      agent.messages,
+      toolResultMessage,
+      assistantMessage.id,
+      "append",
     );
-    if (assistantIndex !== -1) {
-      agent.messages.splice(assistantIndex + 1, 0, toolResultMessage);
-    } else {
-      // Fallback: push to end if assistant message was removed
-      agent.messages.push(toolResultMessage);
+
+    // 7. Handle followUp (only after a newly inserted paired result)
+    let shouldFollowUp = false;
+    switch (insertion.status) {
+      case "missing-owner":
+      case "existing":
+        break;
+      case "inserted":
+        shouldFollowUp = !handlerResult.error && followUp !== false;
+        break;
     }
 
-    // 7. Handle followUp (only if no error)
-    if (!handlerResult.error && followUp !== false) {
+    if (shouldFollowUp) {
       if (typeof followUp === "string" && followUp !== "generate") {
         // Custom text: add a user message first
         const userMessage: Message = {
