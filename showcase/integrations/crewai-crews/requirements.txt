@@ -1,10 +1,14 @@
-crewai>=0.130.0
-ag-ui-crewai==0.2.0
-ag-ui-protocol==0.1.18
-python-dotenv>=1.0.1
-uvicorn>=0.34.3
-crewai-tools>=0.38.1
-fastapi>=0.115.0
+--find-links https://test.pypi.org/simple/ag-ui-crewai/
+--find-links https://test.pypi.org/simple/ag-ui-protocol/
+crewai==1.15.8
+crewai-tools==1.15.8
+ag-ui-crewai==0.0.0.dev1785927675
+ag-ui-protocol==0.0.0.dev1785927675
+ag-ui-a2ui-toolkit==0.0.4
+litellm==1.79.3
+fastapi==0.115.12
+python-dotenv==1.2.2
+uvicorn==0.34.3
 # typing.NotRequired is stdlib on 3.11+. typing_extensions backports it for
 # 3.10 (and older) so local dev on older macOS / Linux Pythons doesn't hit
 # an opaque ImportError at module load. NotRequired landed in
