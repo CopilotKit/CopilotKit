@@ -90,6 +90,51 @@ routes and does not attach Memory tools.
 `CopilotKitIntelligence({ enableEnterpriseLearning: true })` remain for one
 compatibility window. New code should use `memory.access`.
 
+## Highly experimental ACP agent
+
+`AcpAgent` translates stable ACP v1 into AG-UI. Intelligence authenticates the
+relay and stores its raw ACP frames and remote session id. The ACP agent,
+workspace, credentials, and process lifecycle stay in an external deployment.
+
+```ts
+import {
+  AcpAgent,
+  CopilotKitIntelligence,
+  CopilotRuntime,
+} from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.COPILOTKIT_API_KEY!,
+});
+
+const identifyUser = async (request: Request) => {
+  const user = await authenticateApplicationUser(request);
+  return { id: user.id, name: user.name };
+};
+
+const runtime = new CopilotRuntime({
+  intelligence,
+  identifyUser,
+  agents: async ({ request }) => {
+    const user = await identifyUser(request);
+    return {
+      coding: new AcpAgent({
+        intelligence,
+        userId: user.id,
+        runtimeInstanceId: "rti_external_01",
+        agentId: "coding-agent",
+        cwd: "/workspace",
+      }),
+    };
+  },
+});
+```
+
+The external relay connects to Intelligence with the same `runtimeInstanceId`
+and `agentId`. A transport loss ends the active AG-UI run. A later run opens a
+new transport and loads the durable remote ACP session when the agent supports
+`session/load`.
+
 ## Analytics & Privacy
 
 CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and prioritize improvements.

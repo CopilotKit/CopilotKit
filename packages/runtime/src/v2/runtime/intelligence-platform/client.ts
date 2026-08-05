@@ -1,6 +1,7 @@
 import { logger } from "@copilotkit/shared";
-import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { randomUUID } from "crypto";
+import type { AcpRelayConnection } from "./acp-agent";
+import { openAcpRelayStream } from "./acp-relay";
 
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
@@ -91,8 +92,8 @@ export interface CopilotKitIntelligenceConfig {
    */
   apiUrl?: string;
   /**
-   * Intelligence websocket base URL. Runner and client socket URLs are derived
-   * from this by appending `/runner` or `/client`, so pass the bare base.
+   * Intelligence websocket base URL. Runner, client, Channels, and ACP socket
+   * URLs are derived from this, so pass the bare base.
    *
    * Defaults to CopilotKit's managed platform,
    * `wss://realtime.intelligence.copilotkit.ai`.
@@ -137,38 +138,22 @@ export interface CopilotKitIntelligenceConfig {
   onThreadDeleted?: (params: ThreadDeletedPayload) => void;
 }
 
-/** Request accepted by the Intelligence ACP bridge. */
-export interface AcpRunRequest {
-  readonly agentProfileId: string;
+/** Request that binds one AG-UI thread to an exact external ACP target. */
+export interface AcpRelaySessionRequest {
+  readonly agentId: string;
   readonly appUserId: string;
-  readonly input: RunAgentInput;
+  readonly runtimeInstanceId: string;
+  readonly threadId: string;
 }
 
-/** Durable identifiers returned when Intelligence admits an ACP run. */
-export interface AcpRunAdmission {
+/** Durable session state and one-use credentials returned by Intelligence. */
+export interface AcpRelaySessionAdmission {
+  readonly clientJoinToken: string;
   readonly duplicate: boolean;
-  readonly promptId: string;
-  readonly runId: string;
+  readonly lastSequence: number;
+  readonly protocol: "acp_relay_v1";
+  readonly remoteSessionId: string | null;
   readonly sessionId: string;
-  readonly cursor: number;
-}
-
-/** One translated AG-UI event stored by the private ACP bridge. */
-export interface AcpStoredEvent {
-  readonly sequence: number;
-  readonly eventId: string;
-  readonly event: BaseEvent;
-}
-
-/** One ordered page from the ACP reconnect journal. */
-export interface AcpRunEvents {
-  readonly events: readonly AcpStoredEvent[];
-}
-
-/** Result of asking Intelligence to cancel one public AG-UI run. */
-export interface AcpRunCancellation {
-  readonly accepted: boolean;
-  readonly duplicate?: boolean;
 }
 
 /**
@@ -515,6 +500,7 @@ export class CopilotKitIntelligence {
   #runnerWsUrl: string;
   #clientWsUrl: string;
   #channelsWsUrl: string;
+  #acpWsUrl: string;
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
@@ -537,6 +523,7 @@ export class CopilotKitIntelligence {
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.#channelsWsUrl = deriveChannelsWsUrl(intelligenceWsUrl);
+    this.#acpWsUrl = deriveAcpWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
 
@@ -641,32 +628,36 @@ export class CopilotKitIntelligence {
     return this.#enterpriseLearningEnabled;
   }
 
-  /** @internal Used by {@link AcpAgent} to admit one ACP run. */
-  async ɵadmitAcpRun(params: AcpRunRequest): Promise<AcpRunAdmission> {
-    return this.#request<AcpRunAdmission>("POST", "/api/acp/runs", params);
-  }
-
-  /** @internal Used by {@link AcpAgent} to resume its durable event cursor. */
-  async ɵlistAcpRunEvents(params: {
-    readonly runId: string;
-    readonly after: number;
-  }): Promise<AcpRunEvents> {
-    const query = new URLSearchParams({ after: String(params.after) });
-    return this.#request<AcpRunEvents>(
-      "GET",
-      `/api/acp/runs/${encodeURIComponent(params.runId)}/events?${query}`,
-    );
-  }
-
-  /** @internal Used by {@link AcpAgent} to cancel its exact active run. */
-  async ɵcancelAcpRun(params: {
-    readonly runId: string;
-  }): Promise<AcpRunCancellation> {
-    return this.#request<AcpRunCancellation>(
+  /** @internal Used by {@link AcpAgent} to open one scoped stable ACP relay. */
+  async ɵopenAcpRelay(
+    params: AcpRelaySessionRequest,
+  ): Promise<AcpRelayConnection> {
+    const admission = await this.#request<AcpRelaySessionAdmission>(
       "POST",
-      `/api/acp/runs/${encodeURIComponent(params.runId)}/cancel`,
-      { runId: params.runId },
+      "/api/acp/sessions",
+      params,
     );
+    if (admission.protocol !== "acp_relay_v1") {
+      throw new Error(`Unsupported ACP relay protocol: ${admission.protocol}`);
+    }
+    const stream = await openAcpRelayStream({
+      afterSequence: admission.lastSequence,
+      joinToken: admission.clientJoinToken,
+      sessionId: admission.sessionId,
+      wsUrl: this.#acpWsUrl,
+    });
+    return {
+      relaySessionId: admission.sessionId,
+      remoteSessionId: admission.remoteSessionId,
+      stream,
+      saveRemoteSessionId: async (remoteSessionId: string): Promise<void> => {
+        await this.#request(
+          "PATCH",
+          `/api/acp/sessions/${encodeURIComponent(admission.sessionId)}/remote-session`,
+          { remoteSessionId },
+        );
+      },
+    };
   }
 
   async #request<T>(
@@ -1394,4 +1385,14 @@ function deriveChannelsWsUrl(wsUrl: string): string {
     return `${wsUrl.slice(0, -"/client".length)}/channels`;
   }
   return `${wsUrl}/channels`;
+}
+
+function deriveAcpWsUrl(wsUrl: string): string {
+  if (wsUrl.endsWith("/acp")) return wsUrl;
+  for (const suffix of ["/runner", "/client", "/channels"] as const) {
+    if (wsUrl.endsWith(suffix)) {
+      return `${wsUrl.slice(0, -suffix.length)}/acp`;
+    }
+  }
+  return `${wsUrl}/acp`;
 }

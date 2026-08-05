@@ -3359,6 +3359,9 @@ importers:
       '@ag-ui/mcp-middleware':
         specifier: 0.0.1
         version: 0.0.1(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
+      '@agentclientprotocol/sdk':
+        specifier: 1.3.0
+        version: 1.3.0(zod@3.25.76)
       '@ai-sdk/anthropic':
         specifier: ^3.0.49
         version: 3.0.49(zod@3.25.76)
@@ -4388,6 +4391,11 @@ packages:
 
   '@ag-ui/proto@0.0.57':
     resolution: {integrity: sha512-pPENOZt0P6ibH8sCTgq05wLYXi5t3P9B5r/1bWYehXjUxtyOdnukSlWM++SsCIwUXsQdm/b3aBgGjEeTF7RenA==}
+
+  '@agentclientprotocol/sdk@1.3.0':
+    resolution: {integrity: sha512-i3h/efaeuMUFAO1HSfo97QZQnnvMd7wWBYtBsdL6UMZg3a78sk3Ffya5Xu7C7tYsXomXoDXJBAzQF2PcFKAhIQ==}
+    peerDependencies:
+      zod: '>=3.22.3'
 
   '@ai-sdk/anthropic@2.0.71':
     resolution: {integrity: sha512-JXTtAwlyxGzzRtpiAXk/O93aOTgdfoVX28EoUuRNVqZRgtkoniLQTtqeb8uZ4oXljNJlXzaJLNasS/U90w/wjw==}
@@ -26462,6 +26470,10 @@ snapshots:
       '@ag-ui/core': 0.0.57
       '@bufbuild/protobuf': 2.11.0
       '@protobuf-ts/protoc': 2.11.1
+
+  '@agentclientprotocol/sdk@1.3.0(zod@3.25.76)':
+    dependencies:
+      zod: 3.25.76
 
   '@ai-sdk/anthropic@2.0.71(zod@3.25.76)':
     dependencies:
