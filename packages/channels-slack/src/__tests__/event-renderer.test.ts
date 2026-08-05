@@ -552,7 +552,7 @@ describe("createRunRenderer — native status mode", () => {
     } as never);
     await sub.onTextMessageEndEvent!({ event: { messageId: "m2" } } as never);
 
-    await renderer.finish();
+    await renderer.finish!();
 
     expect(f.statuses.at(-1)?.status).toBe("");
   });
