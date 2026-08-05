@@ -112,6 +112,74 @@ describe("DiscordAdapter", () => {
     }
   });
 
+  it("allows mentions only for users resolved inside the configured guild", async () => {
+    const send = vi.fn(async () => ({ id: "m1" }));
+    const member = {
+      user: {
+        id: "123456789012345678",
+        bot: false,
+        globalName: "Ada Lovelace",
+        username: "ada",
+      },
+    };
+    const configuredGuild = {
+      id: "guild-1",
+      members: {
+        search: vi.fn(async () => ({ first: () => member })),
+      },
+    };
+    const otherGuild = {
+      id: "guild-2",
+      members: {
+        search: vi.fn(async () => ({ first: () => member })),
+      },
+    };
+    const client = {
+      ...fakeClient(),
+      channels: {
+        fetch: vi.fn(async () => ({
+          id: "c1",
+          send,
+          messages: { fetch: vi.fn() },
+        })),
+      },
+      guilds: {
+        cache: new Map([
+          [configuredGuild.id, configuredGuild],
+          [otherGuild.id, otherGuild],
+        ]),
+      },
+    };
+    const adapter = new DiscordAdapter(
+      { botToken: "t", appId: "app", guildId: configuredGuild.id },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+
+    await adapter.lookupUser({ query: "Ada" });
+    await adapter.post(
+      { channelId: "c1" } as never,
+      [
+        {
+          type: "markdown",
+          props: { children: "<@123456789012345678> @everyone" },
+        },
+      ] as never,
+    );
+
+    expect(configuredGuild.members.search).toHaveBeenCalledOnce();
+    expect(otherGuild.members.search).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowedMentions: {
+          parse: [],
+          users: ["123456789012345678"],
+          roles: [],
+          repliedUser: false,
+        },
+      }),
+    );
+  });
+
   it("logs in and captures the bot id on start, publishing commands on ready", async () => {
     const client = fakeClient();
     const put = vi.fn(async () => {});
@@ -179,11 +247,15 @@ describe("DiscordAdapter", () => {
     // The first message's final edit must NOT contain the second chunk's
     // marker, and the second message's final edit must contain it. If the
     // Map were ignored (old bug), every edit would land on message #0.
-    const firstFinal = posted[0]!.edit.mock.calls.at(-1)?.[0] as string;
-    const secondFinal = posted[1]!.edit.mock.calls.at(-1)?.[0] as string;
-    expect(firstFinal).toContain("A");
-    expect(firstFinal).not.toContain("B");
-    expect(secondFinal).toContain("B");
+    const firstFinal = posted[0]!.edit.mock.calls.at(-1)?.[0] as {
+      content: string;
+    };
+    const secondFinal = posted[1]!.edit.mock.calls.at(-1)?.[0] as {
+      content: string;
+    };
+    expect(firstFinal.content).toContain("A");
+    expect(firstFinal.content).not.toContain("B");
+    expect(secondFinal.content).toContain("B");
   });
 
   it("resolveUser does NOT cache the bare-id fallback on transient fetch failure", async () => {

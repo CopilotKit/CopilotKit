@@ -61,6 +61,7 @@ export {
   renderComponents,
   renderDiscordMessage,
 } from "./render/components-v2.js";
+export { renderDiscordModal } from "./render/modal.js";
 
 export { DISCORD_LIMITS } from "./render/budget.js";
 

@@ -2,6 +2,7 @@ import { expect, test, vi } from "vitest";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import { Slack } from "@copilotkit/channels-slack";
 import { Teams } from "@copilotkit/channels-teams";
+import { Discord } from "@copilotkit/channels-discord";
 import { DeliveryAdapter } from "./delivery-adapter.js";
 import { ChannelProviderMismatchError } from "./delivery-transport.js";
 import type {
@@ -9,7 +10,9 @@ import type {
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
 
-function delivery(adapter: "slack" | "teams"): PreparedChannelDelivery {
+function delivery(
+  adapter: "slack" | "teams" | "discord",
+): PreparedChannelDelivery {
   return {
     protocol: "channel_delivery_v1",
     deliveryId: `dlv_provider_element_${adapter}`,
@@ -49,7 +52,10 @@ function makeAdapter(): DeliveryAdapter {
   });
 }
 
-function target(provider: "slack" | "teams", effect: ReturnType<typeof vi.fn>) {
+function target(
+  provider: "slack" | "teams" | "discord",
+  effect: ReturnType<typeof vi.fn>,
+) {
   return {
     claimedDelivery: { effect } as unknown as ClaimedChannelDelivery,
     delivery: delivery(provider),
@@ -59,6 +65,9 @@ function target(provider: "slack" | "teams", effect: ReturnType<typeof vi.fn>) {
 test.each([
   ["slack", "teams"],
   ["teams", "slack"],
+  ["discord", "slack"],
+  ["discord", "teams"],
+  ["slack", "discord"],
 ] as const)(
   "%s delivery rejects a %s-native element before an effect is sent",
   async (activeProvider, elementProvider) => {
@@ -71,7 +80,14 @@ test.each([
           value:
             elementProvider === "teams"
               ? { type: "AdaptiveCard", version: "1.5", body: [] }
-              : [{ type: "section", text: { type: "plain_text", text: "hi" } }],
+              : elementProvider === "discord"
+                ? { type: 10, content: "hi" }
+                : [
+                    {
+                      type: "section",
+                      text: { type: "plain_text", text: "hi" },
+                    },
+                  ],
         },
       },
     ];
@@ -82,6 +98,22 @@ test.each([
     expect(effect).not.toHaveBeenCalled();
   },
 );
+
+test("managed Discord delivery serializes Discord-native JSX", async () => {
+  const effect = vi.fn().mockResolvedValue({
+    providerReference: "pref_v1_discord_native_jsx_123",
+    providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+  });
+  const ir = [Discord.Message.TextDisplay({ content: "Deploy ready" })];
+
+  await makeAdapter().post(target("discord", effect), ir);
+
+  expect(effect).toHaveBeenCalledWith(expect.any(String), {
+    kind: "discord.message.create",
+    components: [{ type: 10, content: "Deploy ready" }],
+    flags: 32_768,
+  });
+});
 
 test("Teams delivery forwards a Teams-native Adaptive Card without translation", async () => {
   const card = { type: "AdaptiveCard", version: "1.5", body: [] };

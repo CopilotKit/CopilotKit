@@ -66,6 +66,11 @@ test("joins the Gateway control topic with the delivery protocol", async () => {
         channels: [
           { channelName: "support", adapter: "slack" },
           { channelName: "support", adapter: "teams" },
+          {
+            channelName: "support",
+            adapter: "discord",
+            capabilities: ["discord_delivery_v1"],
+          },
         ],
       },
       webSocket,

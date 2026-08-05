@@ -66,11 +66,36 @@ interface DiscordModalBinding {
 }
 
 /** Render Discord message JSON and map generated attachments to discord.js files. */
-function renderMessagePayload(ir: ChannelNode[]) {
+function allowedMentions(userIds: ReadonlySet<string>) {
+  return {
+    parse: [] as const,
+    users: [...userIds],
+    roles: [] as string[],
+    repliedUser: false,
+  };
+}
+
+function withAllowedMentions(
+  payload: unknown,
+  userIds: ReadonlySet<string>,
+): Record<string, unknown> {
+  return {
+    ...(typeof payload === "string"
+      ? { content: payload }
+      : typeof payload === "object" && payload !== null
+        ? payload
+        : {}),
+    allowedMentions: allowedMentions(userIds),
+  };
+}
+
+/** Render one rich message with deny-by-default Discord mention parsing. */
+function renderMessagePayload(ir: ChannelNode[], userIds: ReadonlySet<string>) {
   const { components, flags, attachments } = renderDiscordMessage(ir);
   return {
     components,
     flags,
+    allowedMentions: allowedMentions(userIds),
     ...(attachments.length > 0
       ? {
           files: attachments.map((attachment) => ({
@@ -169,6 +194,7 @@ export class DiscordAdapter implements PlatformAdapter {
   private isReady = false;
   private pendingCommands: readonly CommandSpec[] = [];
   private readonly userCache = new Map<string, ProviderActor>();
+  private readonly allowedMentionUserIds = new Set<string>();
   private readonly modalBindings = new Map<string, DiscordModalBinding>();
   /**
    * Tracks live component interactions so a handler can open a modal (which
@@ -456,7 +482,9 @@ export class DiscordAdapter implements PlatformAdapter {
   async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const channel = await this.fetchSendable(t.channelId);
-    const msg = await channel.send(renderMessagePayload(ir));
+    const msg = await channel.send(
+      renderMessagePayload(ir, this.allowedMentionUserIds),
+    );
     return { id: msg.id, channelId: t.channelId };
   }
 
@@ -466,7 +494,7 @@ export class DiscordAdapter implements PlatformAdapter {
     if (!ref.id) return;
     const channel = await this.fetchSendable(this.channelIdOf(ref));
     const msg = await channel.messages.fetch(ref.id);
-    await msg.edit(renderMessagePayload(ir));
+    await msg.edit(renderMessagePayload(ir, this.allowedMentionUserIds));
   }
 
   async stream(
@@ -483,13 +511,17 @@ export class DiscordAdapter implements PlatformAdapter {
     const handles = new Map<string, { edit(p: unknown): Promise<unknown> }>();
     const stream = new ChunkedMessageStream({
       postPlaceholder: async (text) => {
-        const m = await channel.send(text);
+        const m = await channel.send(
+          withAllowedMentions(text, this.allowedMentionUserIds),
+        );
         if (!firstId) firstId = m.id;
         handles.set(m.id, m);
         return m.id;
       },
       updateAt: async (id, text) => {
-        await handles.get(id)?.edit(text);
+        await handles
+          .get(id)
+          ?.edit(withAllowedMentions(text, this.allowedMentionUserIds));
       },
       transform: (s) => discordMarkdown(autoCloseOpenMarkdown(s)),
     });
@@ -520,13 +552,16 @@ export class DiscordAdapter implements PlatformAdapter {
     const t = target as ReplyTarget;
     // Resolve the channel lazily inside a thin wrapper so createRunRenderer stays sync.
     const channelPromise = this.fetchSendable(t.channelId);
+    const allowedMentionUserIds = this.allowedMentionUserIds;
     return createRunRenderer({
       channel: {
         async sendTyping() {
           await (await channelPromise).sendTyping?.();
         },
         async send(payload) {
-          return (await channelPromise).send(payload) as never;
+          return (await channelPromise).send(
+            withAllowedMentions(payload, allowedMentionUserIds),
+          ) as never;
         },
       },
       interruptEventNames: this.opts.interruptEventNames,
@@ -541,12 +576,21 @@ export class DiscordAdapter implements PlatformAdapter {
     const query = q.query.trim();
     if (!query) return undefined;
     // Search guild members by username/displayName across cached guilds.
-    for (const guild of this.client.guilds.cache.values()) {
+    const configuredGuild = this.opts.guildId
+      ? this.client.guilds.cache.get(this.opts.guildId)
+      : undefined;
+    const guilds = this.opts.guildId
+      ? configuredGuild
+        ? [configuredGuild]
+        : []
+      : [...this.client.guilds.cache.values()];
+    for (const guild of guilds) {
       try {
         const found = await guild.members.search({ query, limit: 1 });
         const member = found.first();
         if (member) {
           const user = member.user;
+          this.allowedMentionUserIds.add(user.id);
           return {
             id: user.id,
             kind: user.bot ? "bot" : "human",
@@ -694,7 +738,7 @@ export class DiscordAdapter implements PlatformAdapter {
     try {
       const u = await this.client.users.fetch(userId);
       const dm = await u.createDM();
-      await dm.send(renderMessagePayload(ir));
+      await dm.send(renderMessagePayload(ir, this.allowedMentionUserIds));
       return {
         ok: true,
         usedFallback: true,

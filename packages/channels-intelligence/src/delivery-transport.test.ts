@@ -12,7 +12,10 @@ import type {
   RealtimeGatewayDeliveryChannel,
   RealtimeGatewaySession,
 } from "./realtime-gateway.js";
-import { SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY } from "./delivery-contracts.js";
+import {
+  DISCORD_DELIVERY_CAPABILITY,
+  SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
+} from "./delivery-contracts.js";
 
 function preparedDelivery() {
   return {
@@ -59,7 +62,7 @@ function claimResult(deliveryId: string, ownerGeneration = 7) {
 function invitation(
   deliveryId: string,
   canonicalThreadId: string,
-  adapter: "slack" | "teams" = "slack",
+  adapter: "slack" | "teams" | "discord" = "slack",
 ) {
   return {
     protocol: "channel_delivery_v1" as const,
@@ -527,7 +530,10 @@ test("wrong-provider handler output uses only the trusted active-provider fallba
 test("claims an invitation and consumes the one-use token on delivery join", async () => {
   const deliveryChannel = channel({
     ...preparedDelivery(),
-    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
+    capabilities: [
+      SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
+      DISCORD_DELIVERY_CAPABILITY,
+    ],
   });
   const control: RealtimeGatewaySession = {
     push: vi.fn().mockResolvedValue(claimResult("dlv_delivery_01")),
@@ -556,7 +562,10 @@ test("claims an invitation and consumes the one-use token on delivery join", asy
     runtimeInstanceId: "rti_runtime_01",
     ownerGeneration: 7,
     joinToken: "chj_token_delivery_01",
-    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
+    capabilities: [
+      SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
+      DISCORD_DELIVERY_CAPABILITY,
+    ],
   });
 });
 
@@ -615,7 +624,10 @@ test("reconnect accepts the distinct join-token response without a claim result"
     runtimeInstanceId: "rti_runtime_01",
     ownerGeneration: 8,
     joinToken: "chj_reconnect_delivery_01",
-    capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
+    capabilities: [
+      SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
+      DISCORD_DELIVERY_CAPABILITY,
+    ],
   });
   expect(first.leave).toHaveBeenCalledOnce();
   expect(second.push).toHaveBeenCalledTimes(2);

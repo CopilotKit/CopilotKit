@@ -13,6 +13,7 @@ import type {
 import { RealtimeGatewayPushError } from "./realtime-gateway.js";
 import {
   CHANNEL_DELIVERY_PROTOCOL,
+  DISCORD_DELIVERY_CAPABILITY,
   SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
   assertDeliveryPacket,
   assertProviderMessageId,
@@ -44,7 +45,7 @@ const DEFERRED_CLAIM_RETRY_MS = 50;
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 const PACKET_EVENT = "packet";
 
-export type ChannelDeliveryAdapter = "slack" | "teams";
+export type ChannelDeliveryAdapter = "slack" | "teams" | "discord";
 
 export type ChannelDeliveryTurnInput =
   | {
@@ -64,8 +65,10 @@ export type ChannelDeliveryTurnInput =
   | {
       kind: "interaction";
       actionId: string;
+      submissionKind?: "modal" | "portable_input";
       value?: unknown;
       values?: Record<string, unknown>;
+      modalFiles?: Record<string, ChannelFileRef[]>;
       messageRef?: { id: string };
       triggerId?: string;
     }
@@ -92,7 +95,10 @@ export interface PreparedChannelDelivery {
   channelId: string;
   channelName: string;
   adapter: ChannelDeliveryAdapter;
-  capabilities?: readonly (typeof SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY)[];
+  capabilities?: readonly (
+    | typeof SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY
+    | typeof DISCORD_DELIVERY_CAPABILITY
+  )[];
   surfaceId: string;
   tenant?: { id: string; name?: string };
   installation?: { id: string };
@@ -773,7 +779,9 @@ function parseProviderDeliveryDetails(
       "deliveryId",
     ]) ||
     value.category !== "validation" ||
-    (value.provider !== "slack" && value.provider !== "teams") ||
+    (value.provider !== "slack" &&
+      value.provider !== "teams" &&
+      value.provider !== "discord") ||
     typeof value.operation !== "string" ||
     value.operation.length === 0 ||
     value.operation.length > 80 ||
@@ -1265,7 +1273,10 @@ export class ChannelDeliveryTransport {
       runtimeInstanceId: owner.runtimeInstanceId,
       ownerGeneration: owner.ownerGeneration,
       joinToken,
-      capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
+      capabilities: [
+        SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
+        DISCORD_DELIVERY_CAPABILITY,
+      ],
     });
   }
 }
@@ -1494,13 +1505,16 @@ function assertPreparedDelivery(
     !isSurfaceId(prepared.surfaceId) ||
     !isSafeExternalId(prepared.canonicalThreadId) ||
     !isSafeAppUserId(prepared.appUserId) ||
-    (prepared.adapter !== "slack" && prepared.adapter !== "teams") ||
+    (prepared.adapter !== "slack" &&
+      prepared.adapter !== "teams" &&
+      prepared.adapter !== "discord") ||
     (prepared.capabilities !== undefined &&
       (!Array.isArray(prepared.capabilities) ||
-        prepared.capabilities.length > 1 ||
+        prepared.capabilities.length > 2 ||
         prepared.capabilities.some(
           (capability) =>
-            capability !== SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
+            capability !== SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY &&
+            capability !== DISCORD_DELIVERY_CAPABILITY,
         ))) ||
     (prepared.tenant !== undefined && !isPreparedTenant(prepared.tenant)) ||
     (prepared.installation !== undefined &&
@@ -1569,10 +1583,22 @@ function isValidPreparedTurnInput(input: Record<string, unknown>): boolean {
         hasExactFields(
           input,
           ["kind", "actionId"],
-          ["value", "values", "messageRef", "triggerId"],
+          [
+            "submissionKind",
+            "value",
+            "values",
+            "modalFiles",
+            "messageRef",
+            "triggerId",
+          ],
         ) &&
         isBoundedString(input.actionId, 1, 400) &&
+        (input.submissionKind === undefined ||
+          input.submissionKind === "modal" ||
+          input.submissionKind === "portable_input") &&
         (input.values === undefined || isRecord(input.values)) &&
+        (input.modalFiles === undefined ||
+          isPreparedModalFiles(input.modalFiles)) &&
         (input.messageRef === undefined ||
           isPreparedMessageRef(input.messageRef)) &&
         (input.triggerId === undefined || isSafeExternalId(input.triggerId))
@@ -1842,6 +1868,21 @@ function isPreparedFiles(value: unknown): boolean {
   );
 }
 
+function isPreparedModalFiles(value: unknown): boolean {
+  if (!isRecord(value) || Object.keys(value).length > 20) return false;
+  const groups = Object.entries(value);
+  return (
+    groups.every(
+      ([customId, files]) =>
+        isBoundedString(customId, 1, 100) && isPreparedFiles(files),
+    ) &&
+    groups.reduce(
+      (count, [, files]) => count + (Array.isArray(files) ? files.length : 0),
+      0,
+    ) <= 20
+  );
+}
+
 function isValidMessageOperation(value: unknown): boolean {
   if (!isRecord(value)) return false;
   const fields = Object.keys(value);
@@ -1860,7 +1901,9 @@ function isValidMessageOperation(value: unknown): boolean {
 function isVisibleProviderEffect(payload: ProviderPayloadInput): boolean {
   const kind = payload.kind;
   return (
-    (kind.startsWith("slack.") || kind.startsWith("teams.")) &&
+    (kind.startsWith("slack.") ||
+      kind.startsWith("teams.") ||
+      kind.startsWith("discord.")) &&
     kind !== "slack.thread.status" &&
     !kind.endsWith(".stream.stop")
   );
@@ -1870,7 +1913,9 @@ function isVisibleProviderEffect(payload: ProviderPayloadInput): boolean {
 function providerForEffect(
   payload: ProviderPayloadInput,
 ): ChannelDeliveryAdapter {
-  return payload.kind.startsWith("teams.") ? "teams" : "slack";
+  if (payload.kind.startsWith("teams.")) return "teams";
+  if (payload.kind.startsWith("discord.")) return "discord";
+  return "slack";
 }
 
 /** Whether a failed handler owes the participant a generic visible response. */
@@ -1923,7 +1968,9 @@ function isInvitation(value: unknown): value is DeliveryInvitation {
     !isDeliveryId(value.deliveryId) ||
     !isSurfaceId(value.surfaceId) ||
     !isChannelName(value.channelName) ||
-    (value.adapter !== "slack" && value.adapter !== "teams")
+    (value.adapter !== "slack" &&
+      value.adapter !== "teams" &&
+      value.adapter !== "discord")
   ) {
     return false;
   }
