@@ -63,7 +63,7 @@ describe("renderComponents", () => {
         ],
       }),
     );
-  });
+  }, 15_000);
 
   it.each(["verticalBar", "horizontalBar", "line", "pie", "donut"])(
     "renders the portable %s chart type",

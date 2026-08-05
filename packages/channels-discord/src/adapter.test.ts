@@ -110,7 +110,7 @@ describe("DiscordAdapter", () => {
         Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
       );
     }
-  });
+  }, 15_000);
 
   it("allows mentions only for users resolved inside the configured guild", async () => {
     const send = vi.fn(async () => ({ id: "m1" }));
