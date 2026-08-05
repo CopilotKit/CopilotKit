@@ -35,6 +35,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot, useShallowStableRef } from "../../lib/slots";
+import { getContentMemoKey } from "./content-memo-key";
 import {
   transcribeAudio,
   TranscriptionError,
@@ -88,6 +89,7 @@ export type CopilotChatProps = Omit<
    */
   throttleMs?: number;
 };
+
 export function CopilotChat({
   agentId,
   threadId,
@@ -974,20 +976,9 @@ export function CopilotChat({
     ? "processing"
     : transcribeMode;
 
-  // Memoize messages array — only create a new reference when content changes.
-  // We build a lightweight fingerprint instead of JSON.stringify to avoid
-  // serializing large base64 attachment data on every render. The key captures:
-  //   - message id, role, content length (text streaming)
-  //   - content part count (multimodal additions)
-  //   - tool call ids + argument lengths (tool call streaming)
   const messagesMemoKey = agent.messages
     .map((m) => {
-      const contentKey =
-        typeof m.content === "string"
-          ? m.content.length
-          : Array.isArray(m.content)
-            ? m.content.length
-            : 0;
+      const contentKey = getContentMemoKey(m.content);
       const toolCallsKey =
         "toolCalls" in m && Array.isArray(m.toolCalls)
           ? m.toolCalls
@@ -996,7 +987,8 @@ export function CopilotChat({
               )
               .join(";")
           : "";
-      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}`;
+      const activityType = "activityType" in m ? m.activityType : "";
+      return `${m.id}:${m.role}:${activityType}:${contentKey}:${toolCallsKey}`;
     })
     .join(",");
   const messages = useMemo(

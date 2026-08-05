@@ -9,26 +9,28 @@ import {
 import { z } from "zod";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
-import { defineToolCallRenderer, ReactToolCallRenderer } from "../../../types";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
+import type { ReactToolCallRenderer } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import { ToolCallStatus } from "@copilotkit/core";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
-import { CopilotChatView, CopilotChatViewProps } from "../CopilotChatView";
+import type { CopilotChatViewProps } from "../CopilotChatView";
+import { CopilotChatView } from "../CopilotChatView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
-import {
+import type { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
+import type {
   ReactActivityMessageRenderer,
   ReactCustomMessageRenderer,
 } from "../../../types";
-import CopilotChatInput, { CopilotChatInputProps } from "../CopilotChatInput";
+import { testId } from "../../../__tests__/utils/test-helpers";
+import type { CopilotChatInputProps } from "../CopilotChatInput";
+import CopilotChatInput from "../CopilotChatInput";
 import { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
+import { basicCatalog } from "@copilotkit/a2ui-renderer";
 
 // A controllable streaming agent to step through events deterministically
 class MockStepwiseAgent extends AbstractAgent {
@@ -1230,6 +1232,323 @@ describe("Activity Message Re-render Prevention", () => {
       status: "Processing",
       percent: 50,
     });
+  });
+
+  it("should re-render retained activity content after an ACTIVITY_DELTA", async () => {
+    const agent = new MockStepwiseAgent();
+    const activityMessageId = testId("a2ui-activity");
+    const surfaceId = testId("a2ui-surface");
+    const messageListRefs: Message[][] = [];
+    const initialOperations = [
+      {
+        version: "v0.9",
+        createSurface: {
+          surfaceId,
+          catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
+        },
+      },
+      {
+        version: "v0.9",
+        updateComponents: {
+          surfaceId,
+          components: [
+            {
+              id: "root",
+              component: "Text",
+              text: { path: "/title" },
+              variant: "body",
+            },
+          ],
+        },
+      },
+      {
+        version: "v0.9",
+        updateDataModel: {
+          surfaceId,
+          path: "/title",
+          value: "Initial activity",
+        },
+      },
+    ];
+    const MessageListBoundary: React.FC<CopilotChatViewProps> = (props) => {
+      messageListRefs.push(props.messages ?? []);
+      return <CopilotChatView {...props} />;
+    };
+
+    render(
+      <CopilotKitProvider
+        agents__unsafe_dev_only={{ default: agent }}
+        a2ui={{ catalog: basicCatalog }}
+      >
+        <div style={{ height: 400 }}>
+          <CopilotChat
+            chatView={MessageListBoundary as typeof CopilotChatView}
+          />
+        </div>
+      </CopilotKitProvider>,
+    );
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Show me the activity" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Show me the activity")).toBeDefined();
+    });
+
+    agent.emit({
+      type: EventType.RUN_STARTED,
+      input: {
+        messages: [
+          {
+            id: activityMessageId,
+            role: "activity",
+            activityType: "a2ui-surface",
+            content: { a2ui_operations: initialOperations },
+          },
+        ],
+      },
+    } as BaseEvent);
+    agent.emit({
+      type: EventType.STEP_STARTED,
+      stepName: "render",
+    } as BaseEvent);
+
+    await waitFor(() => {
+      expect(screen.getByText("Initial activity")).toBeDefined();
+    });
+
+    const initialMessageList = messageListRefs.at(-1);
+    const initialActivityMessage = initialMessageList?.find(
+      (message) => message.id === activityMessageId,
+    );
+    expect(initialActivityMessage?.content).toEqual({
+      a2ui_operations: initialOperations,
+    });
+
+    agent.emit({
+      type: EventType.ACTIVITY_DELTA,
+      messageId: activityMessageId,
+      activityType: "a2ui-surface",
+      patch: [
+        {
+          op: "add",
+          path: "/a2ui_operations/-",
+          value: {
+            version: "v0.9",
+            updateComponents: {
+              surfaceId,
+              components: [
+                {
+                  id: "root",
+                  component: "Text",
+                  text: { path: "/title" },
+                  variant: "body",
+                },
+              ],
+            },
+          },
+        },
+        {
+          op: "add",
+          path: "/a2ui_operations/-",
+          value: {
+            version: "v0.9",
+            updateDataModel: {
+              surfaceId,
+              path: "/title",
+              value: "Updated activity",
+            },
+          },
+        },
+      ],
+    } as BaseEvent);
+
+    await waitFor(() => {
+      expect(screen.getByText("Updated activity")).toBeDefined();
+      const updatedActivityMessage = messageListRefs
+        .at(-1)
+        ?.find((message) => message.id === activityMessageId);
+      expect(updatedActivityMessage?.content).toEqual({
+        a2ui_operations: [
+          ...initialOperations,
+          {
+            version: "v0.9",
+            updateComponents: {
+              surfaceId,
+              components: [
+                {
+                  id: "root",
+                  component: "Text",
+                  text: { path: "/title" },
+                  variant: "body",
+                },
+              ],
+            },
+          },
+          {
+            version: "v0.9",
+            updateDataModel: {
+              surfaceId,
+              path: "/title",
+              value: "Updated activity",
+            },
+          },
+        ],
+      });
+    });
+
+    expect(messageListRefs.at(-1)).not.toBe(initialMessageList);
+
+    agent.emit({
+      type: EventType.STEP_FINISHED,
+      stepName: "render",
+    } as BaseEvent);
+    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+  });
+
+  it("should switch a retained activity renderer when ACTIVITY_DELTA changes activityType", async () => {
+    const agent = new MockStepwiseAgent();
+    const activityMessageId = "retained-activity-type-1";
+    const renderActivityMessages: ReactActivityMessageRenderer<{
+      status: string;
+    }>[] = [
+      {
+        activityType: "progress",
+        content: z.object({ status: z.string() }),
+        render: ({ content }) => (
+          <div data-testid="retained-activity-type">
+            progress:{content.status}
+          </div>
+        ),
+      },
+      {
+        activityType: "complete",
+        content: z.object({ status: z.string() }),
+        render: ({ content }) => (
+          <div data-testid="retained-activity-type">
+            complete:{content.status}
+          </div>
+        ),
+      },
+    ];
+
+    render(
+      <CopilotKitProvider
+        agents__unsafe_dev_only={{ default: agent }}
+        renderActivityMessages={renderActivityMessages}
+      >
+        <CopilotChat />
+      </CopilotKitProvider>,
+    );
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, {
+      target: { value: "Show the retained activity" },
+    });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Show the retained activity")).toBeDefined();
+    });
+
+    agent.emit({
+      type: EventType.RUN_STARTED,
+      input: {
+        messages: [
+          {
+            id: activityMessageId,
+            role: "activity",
+            activityType: "progress",
+            content: { status: "Stable" },
+          },
+        ],
+      },
+    } as BaseEvent);
+    agent.emit({
+      type: EventType.STEP_STARTED,
+      stepName: "render",
+    } as BaseEvent);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("retained-activity-type").textContent).toBe(
+        "progress:Stable",
+      );
+    });
+
+    agent.emit({
+      type: EventType.ACTIVITY_DELTA,
+      messageId: activityMessageId,
+      activityType: "complete",
+      patch: [],
+    } as BaseEvent);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("retained-activity-type").textContent).toBe(
+        "complete:Stable",
+      );
+    });
+
+    agent.emit({
+      type: EventType.STEP_FINISHED,
+      stepName: "render",
+    } as BaseEvent);
+    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+  });
+
+  it("keeps unchanged serializable activity content memoized at the CopilotChat boundary", async () => {
+    const agent = new MockStepwiseAgent();
+    const messageListRefs: Message[][] = [];
+    const MessageListBoundary = ({ messages }: CopilotChatViewProps) => {
+      messageListRefs.push(messages ?? []);
+      return <div data-testid="message-list-boundary" />;
+    };
+    const renderChat = () => (
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChat chatView={MessageListBoundary as typeof CopilotChatView} />
+      </CopilotKitProvider>
+    );
+
+    const { rerender } = render(renderChat());
+    act(() => {
+      agent.addMessages([
+        {
+          id: "stable-activity-1",
+          role: "activity",
+          activityType: "stable-activity",
+          content: { nested: { b: 2, a: 1 }, status: "Stable" },
+        } as ActivityMessage,
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(messageListRefs.at(-1)?.[0]?.id).toBe("stable-activity-1");
+    });
+    const initialMessageList = messageListRefs.at(-1);
+    const initialBoundaryRenderCount = messageListRefs.length;
+
+    act(() => {
+      agent.setMessages([
+        {
+          id: "stable-activity-1",
+          role: "activity",
+          activityType: "stable-activity",
+          content: { status: "Stable", nested: { a: 1, b: 2 } },
+        } as ActivityMessage,
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(agent.messages[0]?.content).toEqual({
+        status: "Stable",
+        nested: { a: 1, b: 2 },
+      });
+    });
+
+    rerender(renderChat());
+
+    expect(messageListRefs.length).toBe(initialBoundaryRenderCount);
+    expect(messageListRefs.at(-1)).toBe(initialMessageList);
   });
 
   it("should re-render an activity message when its activityType changes", async () => {
