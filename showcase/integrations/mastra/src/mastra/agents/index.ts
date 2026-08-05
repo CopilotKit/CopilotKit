@@ -865,7 +865,8 @@ export const beautifulChatAgent = new Agent({
     generate_a2ui: generateA2uiTool,
     search_flights: searchFlightsA2uiTool,
   },
-  model: openai("gpt-4o"),
+  // Matches gold `beautiful_chat.py` (`ChatOpenAI(model="gpt-5.4")`).
+  model: openai("gpt-5.4"),
   // Mirror gold `beautiful_chat.py` (`parallel_tool_calls=False`): the model
   // commits to one tool per step instead of firing several at once. Without it,
   // a "sales dashboard … include a pie chart and a bar chart" request tempts the
