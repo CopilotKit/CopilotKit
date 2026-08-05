@@ -1,13 +1,5 @@
 # @copilotkit/runtime
 
-## Unreleased
-
-### Minor Changes
-
-- Add a highly experimental `AcpAgent` facade for Intelligence ACP profiles.
-  Intelligence owns ACP v1, process execution, translation, and
-  persistence; the public runtime keeps the AG-UI contract.
-
 ## 1.55.2
 
 ### Patch Changes
