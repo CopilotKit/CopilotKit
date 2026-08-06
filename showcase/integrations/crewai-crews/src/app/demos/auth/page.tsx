@@ -26,11 +26,10 @@
 // sign-out path produces.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  type CopilotKitCoreErrorCode,
-} from "@copilotkit/react-core/v2";
+import type { SyntheticEvent } from "react";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import type { CopilotKitCoreErrorCode } from "@copilotkit/react-core/v2";
+import type { CopilotErrorEvent } from "@copilotkit/shared";
 import { AuthBanner } from "./auth-banner";
 import { SignInCard } from "./sign-in-card";
 import { useDemoAuth } from "./use-demo-auth";
@@ -41,10 +40,9 @@ interface AuthDemoErrorState {
   code: CopilotKitCoreErrorCode | string;
 }
 
-interface AuthErrorEvent {
-  error?: { message?: string } | null;
-  code: CopilotKitCoreErrorCode;
-}
+type ChatAuthErrorEvent =
+  | SyntheticEvent<HTMLDivElement>
+  | { error: Error; code: CopilotKitCoreErrorCode };
 
 export default function AuthDemoPage() {
   const {
@@ -55,8 +53,9 @@ export default function AuthDemoPage() {
     signOut,
   } = useDemoAuth();
 
-  const headers = useMemo<Record<string, string>>(
-    () => (authorizationHeader ? { Authorization: authorizationHeader } : {}),
+  const headers = useMemo(
+    (): Record<string, string> =>
+      authorizationHeader ? { Authorization: authorizationHeader } : {},
     [authorizationHeader],
   );
 
@@ -64,16 +63,38 @@ export default function AuthDemoPage() {
 
   // Shared error handler wired to BOTH the provider-level and chat-level
   // `onError` channels (see the file header for why both are needed).
-  const handleAuthError = useCallback((event: AuthErrorEvent) => {
+  const recordAuthError = useCallback((error: unknown, code: string) => {
+    const message =
+      typeof error === "object" &&
+      error !== null &&
+      "message" in error &&
+      typeof error.message === "string"
+        ? error.message.trim()
+        : "";
+
     setAuthError({
-      message:
-        (event.error?.message && event.error.message.trim()) ||
-        (event.code
-          ? `Request rejected (${event.code})`
-          : "The request was rejected."),
-      code: event.code,
+      message: message || `Request rejected (${code})`,
+      code,
     });
   }, []);
+
+  const handleProviderError = useCallback(
+    (event: CopilotErrorEvent) => {
+      recordAuthError(event.error, event.type);
+    },
+    [recordAuthError],
+  );
+
+  const handleChatError = useCallback(
+    (event: ChatAuthErrorEvent) => {
+      if ("code" in event) {
+        recordAuthError(event.error, event.code);
+        return;
+      }
+      recordAuthError(undefined, event.type);
+    },
+    [recordAuthError],
+  );
 
   // Clear stale errors as soon as the user re-authenticates. This is the
   // ONLY thing that gates the amber error surface on auth state — the render
@@ -107,7 +128,7 @@ export default function AuthDemoPage() {
       agent="auth-demo"
       headers={headers}
       useSingleEndpoint={false}
-      onError={handleAuthError}
+      onError={handleProviderError}
     >
       <div className="flex h-screen flex-col gap-3 p-6">
         <AuthBanner
@@ -138,7 +159,7 @@ export default function AuthDemoPage() {
           <CopilotChat
             agentId="auth-demo"
             className="h-full"
-            onError={handleAuthError}
+            onError={handleChatError}
           />
         </div>
       </div>

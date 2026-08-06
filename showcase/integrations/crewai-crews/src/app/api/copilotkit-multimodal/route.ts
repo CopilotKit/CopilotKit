@@ -4,24 +4,24 @@
 // PDF forwarding, vision content blocks) is contained to this one cell.
 // Other demos' runtimes stay lean and their chat LLMs unaffected.
 //
-// Backend: reuses the shared CrewAI crew via HttpAgent. The crew's chat
-// LLM is `gpt-4o` (see `crew.py`) which accepts image content blocks
-// natively — attachments forwarded through the AG-UI pipeline reach the
-// chat-LLM layer and are visible to the model. A dedicated per-demo crew
-// with vision-tuned agent prompts is tracked as follow-up work.
+// Backend: a dedicated CrewAI Flow at `/multimodal`. The alpha bridge
+// normalizes AG-UI attachment parts into LiteLLM/OpenAI content blocks before
+// the Flow starts, and the Flow sends them to a vision-capable model.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+  return new HttpAgent({ url: `${AGENT_URL}/multimodal` });
 }
 
 const agents: Record<string, AbstractAgent> = {

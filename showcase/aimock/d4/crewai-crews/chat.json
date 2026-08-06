@@ -266,8 +266,9 @@
       }
     },
     {
+      "_comment": "Disabled: this broad legacy matcher load-order-shadowed D6 tool-rendering and reasoning-chain prompts containing 'weather'. The D4 chat-roundtrip probe does not exercise this tool, so downstream D6 fixtures own weather behavior. Mirrors the langgraph-python north-star sentinel.",
       "match": {
-        "userMessage": "weather",
+        "userMessage": "_d4_unused_weather_probe_sf",
         "hasToolResult": false,
         "context": "crewai-crews"
       },
@@ -473,8 +474,9 @@
       }
     },
     {
+      "_comment": "Disabled: this legacy matcher load-order-shadowed D6 beautiful-chat and chained-tool prompts. The D4 chat-roundtrip probe does not exercise flights, so downstream D6 fixtures own the flow. Mirrors the langgraph-python north-star sentinel.",
       "match": {
-        "userMessage": "flights from SFO to JFK",
+        "userMessage": "_d4_unused_flights_probe_sfo_jfk",
         "hasToolResult": false,
         "context": "crewai-crews"
       },
@@ -631,7 +633,7 @@
     },
     {
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "summarize my current sales pipeline",
         "context": "crewai-crews"
       },
       "response": {
@@ -877,7 +879,7 @@
     },
     {
       "match": {
-        "userMessage": "Roll a 20-sided die",
+        "userMessage": "Roll a 20-sided die for me.",
         "hasToolResult": false,
         "context": "crewai-crews"
       },

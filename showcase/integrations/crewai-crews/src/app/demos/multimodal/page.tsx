@@ -12,11 +12,9 @@
  *   ../api/copilotkit-multimodal/route.ts). The vision-capable model
  *   (gpt-4o) is scoped to just this demo, so other cells keep their
  *   cheaper text-only models.
- * - Dedicated LangGraph agent at `src/agents/multimodal_agent.py` under
- *   the slug `multimodal-demo`. The agent is registered in langgraph.json
- *   under the graph id `multimodal`. Images are forwarded to the model
- *   natively; PDFs are flattened to text on the Python side via `pypdf`
- *   for provider-agnostic behavior.
+ * - Dedicated CrewAI Flow at `src/agents/multimodal_flow.py`. The alpha
+ *   bridge converts modern AG-UI attachment parts before the Flow starts,
+ *   and the Flow forwards those native content blocks to a vision model.
  * - Sample files live at `/demo-files/sample.png` and `/demo-files/sample.pdf`
  *   (see `public/demo-files/`). The sample-buttons component fetches them
  *   client-side, wraps the blob in a File, and drives the same hidden
@@ -26,13 +24,11 @@
  */
 
 import { CopilotKit } from "@copilotkit/react-core/v2";
-import { LegacyConverterShim } from "./legacy-converter-shim";
 import { MultimodalChat } from "./multimodal-chat";
 
 export default function MultimodalDemoPage() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit-multimodal" agent="multimodal-demo">
-      <LegacyConverterShim />
       <MultimodalChat />
     </CopilotKit>
   );

@@ -22,8 +22,16 @@ from pathlib import Path
 from typing import Any, Type
 
 from crewai import Agent, Crew, Process, Task
+from crewai.flow.flow import Flow, start
 from crewai.tools import BaseTool
+from litellm import acompletion
 from pydantic import BaseModel, Field
+
+from ag_ui_crewai import (
+    CopilotKitState,
+    copilotkit_emit_tool_result,
+    copilotkit_stream,
+)
 
 from agents._chat_flow_helpers import preseed_system_prompt
 
@@ -102,6 +110,16 @@ class DisplayFlightTool(BaseTool):
         # @endregion[backend-render-operations]
 
 
+DISPLAY_FLIGHT_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "display_flight",
+        "description": DisplayFlightTool.model_fields["description"].default,
+        "parameters": DisplayFlightInput.model_json_schema(),
+    },
+}
+
+
 A2UI_FIXED_BACKSTORY = (
     "You help users find flights. When asked about a flight, call the "
     "display_flight tool with origin, destination, airline, and price. "
@@ -163,3 +181,57 @@ class A2UIFixedSchema:
         if _cached_crew is None:
             _cached_crew = _build_crew()
         return _cached_crew
+
+
+class A2UIFixedFlow(Flow[CopilotKitState]):
+    """Own the backend tool lifecycle so A2UI receives its result event."""
+
+    @start()
+    async def chat(self) -> None:
+        tools = [*self.state.copilotkit.actions, DISPLAY_FLIGHT_SCHEMA]
+        for _iteration in range(3):
+            response = await copilotkit_stream(
+                await acompletion(
+                    model="openai/gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": A2UI_FIXED_BACKSTORY},
+                        *self.state.messages,
+                    ],
+                    tools=tools,
+                    parallel_tool_calls=False,
+                    stream=True,
+                )
+            )
+            message = response.choices[0].message
+            self.state.messages.append(message)
+            calls = message.get("tool_calls") or []
+            if not calls:
+                return
+
+            for call in calls:
+                if call.get("function", {}).get("name") != "display_flight":
+                    return
+                try:
+                    arguments = json.loads(
+                        call.get("function", {}).get("arguments") or "{}"
+                    )
+                except (TypeError, json.JSONDecodeError):
+                    arguments = {}
+                content = DisplayFlightTool()._run(
+                    origin=str(arguments.get("origin", "SFO")),
+                    destination=str(arguments.get("destination", "JFK")),
+                    airline=str(arguments.get("airline", "United")),
+                    price=str(arguments.get("price", "$289")),
+                )
+                tool_call_id = call.get("id")
+                self.state.messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call_id,
+                        "content": content,
+                    }
+                )
+                await copilotkit_emit_tool_result(tool_call_id, content)
+
+
+a2ui_fixed_flow = A2UIFixedFlow()
