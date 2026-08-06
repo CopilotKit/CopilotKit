@@ -169,10 +169,18 @@ export type IdentifyRunUser = (
   `useSkinSegments` is its companion for nav active-state; it strips a LEADING
   skin id rather than slicing a fixed offset, so it is correct whether or not the
   pathname carries the prefix. Keel wraps both in `src/skins/keel/href.ts`.
-- `src/app/page.tsx` — server component; redirects `/` to `/${defaultSkinId}` on
-  an UNLOCKED deploy. Under a lock the proxy intercepts `/` before this renders,
-  so the redirect is unlocked-only in practice (it still honours LOCK_SKIN as
-  defence in depth).
+- `src/app/page.tsx` — server component; the UNLOCKED front door. Redirects `/`
+  to `/${defaultSkinId}`. Under a lock this page never runs: the proxy REWRITES
+  `/` to `/<locked>` in place (no redirect) before routing reaches it, so a
+  locked server answers `GET /` with 200 and the locked skin's route tree. Its
+  `lockedSkinId()` read is therefore dead on any supported deploy (null when the
+  page actually runs, and bypassed by the proxy under a lock); it is kept only as
+  a proxy-INDEPENDENT backup — were `/` to reach this page under a lock with the
+  proxy absent, it targets the locked skin's real route `/<locked>` (which
+  renders) rather than `defaultSkinId` (which 404s when it differs from the
+  lock). It is not the double-prefix trap: `/<locked>` is re-rewritten to
+  `/<locked>/<locked>` only when the proxy is present, and then this page never
+  runs.
 - `src/app/[skin]/layout.tsx` — resolves the skin from the URL via `getSkin`; a
   404 if unknown, and also a 404 if `LOCK_SKIN` pins the deploy to a different
   skin (`isSkinLockedOut`). `notFound()` throws before `SkinRuntime` renders, so

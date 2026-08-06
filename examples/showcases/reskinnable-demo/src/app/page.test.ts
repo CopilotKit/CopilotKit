@@ -26,8 +26,12 @@ describe("RootIndex", () => {
   });
 
   it("sends / to the LOCKED skin when locked", async () => {
-    // Without this, a locked deploy's root would land on defaultSkinId and then
-    // immediately 404 — the front door of the demo, broken.
+    // On a real locked deploy the proxy rewrites `/` before this page runs (see
+    // page.tsx), so this case exercises the proxy-INDEPENDENT backup path
+    // directly — a unit test has no proxy in front. The target must be the
+    // locked skin's real route `/<locked>` (which renders) and NOT defaultSkinId
+    // (404s when it differs from the lock) nor `/` (would infinite-loop with no
+    // proxy to rewrite it).
     vi.stubEnv("LOCK_SKIN", "airline");
     await renderRootIndex();
     expect(redirect).toHaveBeenCalledWith("/airline");
