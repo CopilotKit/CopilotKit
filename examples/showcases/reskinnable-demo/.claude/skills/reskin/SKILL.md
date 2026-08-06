@@ -252,6 +252,17 @@ instead of the eleven string literals it had before.
 The one legitimate exception is a link to a DIFFERENT skin (the shell's skin
 switcher), which must keep the prefix and only ever renders unlocked.
 
+**`pnpm lint` enforces this** via `no-restricted-syntax` selectors in
+`eslint.config.mjs` (scoped to `src/skins/**`, tests exempt). They fail and NAME
+YOUR FILE if an in-skin path literal (i) opens with a skin id segment
+(`"/banking/cards"`, `` `/keel/runs/${id}` ``), (ii) concatenates a path onto an
+interpolated base (`` `${base}/charges` `` — the `//` shape), or (iii) opens with
+a leading-slash interpolation (`` `/${skin.id}/…` ``). The rule reads the AST, so
+a skin prefix inside a comment or prose string is fine and a `$` in a variable
+name cannot fool it. REST/data-layer files (`actions.ts`, `intelligence/**`) that
+build absolute SERVER urls (`` `${BASE}/shipments` ``) are exempt from (ii) only —
+those `/api/**` paths are lock-agnostic.
+
 ## The meta-utility strip
 
 The presenter/dev utilities — Reset, theme toggle, Help — are **skin-authored
@@ -519,10 +530,12 @@ Do NOT touch anything else in the shell.
    `id === agentId` and that the agent registered correctly).
 6. Your suggestion pills appear, and if you registered frontend tools / HITL /
    gen-UI, the agent can drive them.
-7. **`pnpm test:unit`** — green. This includes the URL-contract drift guard
-   (`src/shell/skin-path.drift.test.ts`), which fails and NAMES YOUR FILE if any
-   link in your skin hardcodes its route prefix. It is the cheap check for the
-   contract above; step 8 is the real one.
+7. **`pnpm lint`** — green. This includes the URL-contract guard: the
+   `no-restricted-syntax` skin-prefix selectors in `eslint.config.mjs`, which fail
+   and NAME YOUR FILE if any link in your skin hardcodes its route prefix or
+   hand-concatenates onto a builder result (a leading `//`). It is the cheap check
+   for the contract above; step 8 is the real one. (`pnpm test:unit` should also be
+   green — it just no longer carries this particular guard, which moved to lint.)
 8. **Run your skin locked**: stop the dev server, then
    `LOCK_SKIN=<id> pnpm dev`, and open **`/`** (not `/<id>`). Your skin must
    render at the root, every nav href in the DOM must be prefix-free, and

@@ -166,6 +166,9 @@ export type IdentifyRunUser = (
 - **Links must go through `useSkinHref`** (`src/shell/skin-path.ts`) — the client
   half of that contract. A hardcoded `/${skin.id}/...` href would put the prefix
   straight back in the address bar on the first nav click of a locked deploy.
+  `pnpm lint` enforces this — the `no-restricted-syntax` skin-prefix selectors in
+  `eslint.config.mjs` fail and name your file if an in-skin link embeds a skin
+  prefix or a leading `//` (REST/data-layer files are scoped out).
   `useSkinSegments` is its companion for nav active-state; it strips a LEADING
   skin id rather than slicing a fixed offset, so it is correct whether or not the
   pathname carries the prefix. Keel wraps both in `src/skins/keel/href.ts`.
@@ -405,7 +408,8 @@ type-checks as part of `next build`):
   `.env.example`). Visit `/`, which redirects to the default skin.
 - `pnpm build` — production build (also the type-check gate).
 - `pnpm start` — serve the production build.
-- `pnpm lint` — ESLint.
+- `pnpm lint` — ESLint. Also carries the LOCK_SKIN URL-contract guard (the
+  `no-restricted-syntax` skin-prefix selectors in `eslint.config.mjs`).
 - `pnpm test:unit` — Vitest unit tests.
 - `pnpm test:e2e` / `pnpm test:e2e:ogui` / `pnpm test:self-learning` — Playwright
   suites. `test:e2e` has TWO projects, each with its own dev server, because the
