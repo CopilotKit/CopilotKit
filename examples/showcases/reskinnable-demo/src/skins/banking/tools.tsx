@@ -919,7 +919,7 @@ export function BankingTools() {
       transactionId: z.string(),
       code: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { transactionId, code } = args;
 
       if (status === "inProgress") {
@@ -945,6 +945,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!transactionId || !code) {
                 respond?.("Missing transaction or exception code");
@@ -982,7 +983,7 @@ export function BankingTools() {
     parameters: z.object({
       exceptionId: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { exceptionId } = args;
 
       if (status === "inProgress") {
@@ -1004,6 +1005,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!exceptionId) {
                 respond?.("Missing exception id");
@@ -1040,7 +1042,7 @@ export function BankingTools() {
     parameters: z.object({
       transactionId: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { transactionId } = args;
 
       if (status === "inProgress") {
@@ -1063,6 +1065,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!transactionId) {
                 respond?.("Missing transaction id");

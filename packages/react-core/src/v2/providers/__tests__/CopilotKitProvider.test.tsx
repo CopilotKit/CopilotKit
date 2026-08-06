@@ -6,6 +6,7 @@ import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
+import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
 
 // Mock console methods
 const originalConsoleError = console.error;
@@ -476,19 +477,17 @@ describe("CopilotKitProvider", () => {
 
   describe("a2ui prop", () => {
     const originalFetch = global.fetch;
-    const originalWindow = (globalThis as { window?: unknown }).window;
+    let restoreLocation: () => void = () => {};
 
     beforeEach(() => {
-      (globalThis as { window?: unknown }).window = {};
+      // Clear window.location so the auto-open-inspector heuristic skips, while
+      // keeping the real jsdom window intact for React 18's renderer.
+      restoreLocation = stubWindowLocation();
     });
 
     afterEach(() => {
       global.fetch = originalFetch;
-      if (originalWindow === undefined) {
-        delete (globalThis as { window?: unknown }).window;
-      } else {
-        (globalThis as { window?: unknown }).window = originalWindow;
-      }
+      restoreLocation();
     });
 
     it("does not register an a2ui-surface renderer by default", () => {

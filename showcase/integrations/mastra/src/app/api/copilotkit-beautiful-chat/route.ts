@@ -20,13 +20,13 @@ import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 
 const beautifulChatAgent = getLocalAgent({
   mastra,
-  agentId: "weatherAgent",
+  agentId: "beautifulChatAgent",
   resourceId: "mastra-beautiful-chat",
 });
 
 if (!beautifulChatAgent) {
   throw new Error(
-    "getLocalAgent returned null for weatherAgent — required for /demos/beautiful-chat",
+    "getLocalAgent returned null for beautifulChatAgent — required for /demos/beautiful-chat",
   );
 }
 
@@ -39,7 +39,7 @@ const runtime = new CopilotRuntime({
   },
   openGenerativeUI: true,
   a2ui: {
-    // weatherAgent already has its own `generate_a2ui` tool — don't double-bind.
+    // beautifulChatAgent already owns its `generate_a2ui` tool — don't double-bind.
     injectA2UITool: false,
     // Models follow the tool-usage guide and omit `catalogId`, and the
     // middleware then falls back to the unregistered spec basic catalog
