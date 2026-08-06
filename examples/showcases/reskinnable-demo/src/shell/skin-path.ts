@@ -8,9 +8,14 @@ import { useLockedSkin } from "@/shell/locked-skin-context";
  * URL construction for links INSIDE a skin, honouring the single-tenant lock.
  *
  * Unlocked, every skin owns a URL segment and links carry it:
- * `skinHref("cards")` → `/banking/cards`. Under LOCK_SKIN the deploy IS the
- * product, so the segment leaves the URL space entirely and the same call
- * returns `/cards`.
+ * `skinHref("cards")` → `/banking/cards`. The segment leaves the URL space
+ * ONLY for the skin that is actually locked: under `LOCK_SKIN=banking`,
+ * `useSkinHref("banking")("cards")` returns `/cards` (that deploy IS the
+ * product), but `useSkinHref("airline")("trips")` still returns
+ * `/airline/trips` — the prefix is dropped for the locked skin, not for
+ * whichever skin the caller happens to name. This keeps the builder correct
+ * on its own: it can never retarget an `airline` link at the `banking` deploy
+ * by silently discarding the `skinId` it was handed.
  *
  * This is the CLIENT half of a two-part contract. `src/proxy.ts` is the server
  * half: it maps the prefix-free space back onto the `/[skin]` route tree that
@@ -30,7 +35,7 @@ import { useLockedSkin } from "@/shell/locked-skin-context";
  */
 export function useSkinHref(skinId: string): (path?: string) => string {
   const locked = useLockedSkin();
-  const base = locked ? "" : `/${skinId}`;
+  const base = locked === skinId ? "" : `/${skinId}`;
   return useCallback(
     (path = "") => {
       const suffix = path.replace(/^\/+/, "");

@@ -69,6 +69,17 @@ describe("useSkinHref — locked", () => {
     renderLocked(<HrefProbe skinId="keel" path="/runs/r-1" />, "keel");
     expect(screen.getByTestId("href").textContent).toBe("/runs/r-1");
   });
+
+  // The prefix is dropped ONLY for the skin that is actually locked. A caller
+  // asking for a DIFFERENT skin's href still gets the prefixed form, so the
+  // builder can never silently retarget an `airline` link at the `banking`
+  // deploy. (Not reachable in the running app — the locked deploy 404s every
+  // non-locked skin before it mounts — but the hook must be correct on its
+  // own, not only under that external invariant.)
+  it("keeps the prefix for a skin that is NOT the locked one", () => {
+    renderLocked(<HrefProbe skinId="airline" path="trips" />, "banking");
+    expect(screen.getByTestId("href").textContent).toBe("/airline/trips");
+  });
 });
 
 describe("useSkinSegments", () => {
