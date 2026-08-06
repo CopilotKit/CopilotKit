@@ -8,7 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/crewai-conversational-flows
 copilotkit_version: 2.0.0
 deployed: false
-docs_mode: authored
+docs_mode: hidden
 sort_order: 41
 generative_ui:
   - constrained-explicit
@@ -70,11 +70,11 @@ agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
 demos:
   - id: cli-start
-    name: Install Conversational Flows Alpha
-    description: Install the published alpha and its verified CrewAI runtime
+    name: Start with CrewAI Flows
+    description: Scaffold a CrewAI Flow, then promote it to conversational mode
     tags:
       - chat-ui
-    command: "pip install ag-ui-crewai==0.2.2a1 crewai==1.15.11"
+    command: "npx copilotkit@latest init --framework flows"
   - id: agentic-chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution

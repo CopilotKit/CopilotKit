@@ -159,7 +159,7 @@
     },
     "multimodal": {
       "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/ag-ui",
-      "shell_docs_path": "/feature-parity"
+      "shell_docs_path": "/ag-ui"
     },
     "gen-ui-interrupt": {
       "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/human-in-the-loop",
