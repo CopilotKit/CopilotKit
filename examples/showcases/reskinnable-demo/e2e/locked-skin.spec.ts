@@ -33,10 +33,15 @@ test.describe("LOCK_SKIN — the skin is served at the root", () => {
   }) => {
     await page.goto("/");
     await expect(page).toHaveTitle("Northwind Finance");
-    const description = await page
-      .locator('meta[name="description"]')
-      .getAttribute("content");
-    expect(description).not.toContain("many app skins");
+    // Positively assert the locked skin's own tagline, as strictly as the title
+    // above. An exact match is null-safe (a missing meta fails loud, not with an
+    // opaque null throw) and, unlike a bare `.not.toContain`, it proves the
+    // branded description is actually there — while still excluding the
+    // multi-skin substrate's "…many app skins." tagline.
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+      "content",
+      "Collaborative finance for 21st century teams",
+    );
   });
 
   test("the switcher is a static badge, so the deploy admits to one tenant", async ({
@@ -54,11 +59,33 @@ test.describe("LOCK_SKIN — the prefix is gone from the URL space", () => {
   test("no in-app link carries the skin prefix", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByTestId("skin-selector")).toBeVisible();
-    const prefixed = await page.locator('a[href^="/banking"]').all();
-    const hrefs = await Promise.all(
-      prefixed.map((a) => a.getAttribute("href")),
+
+    // POSITIVE precondition FIRST. Without this the negative assertions below
+    // pass vacuously: if the nav never mounted (a throwing provider, a renamed
+    // selector), the match set is empty and the suite's headline guard proves
+    // nothing while staying green. So require the in-app anchors to actually be
+    // there, and the known banking nav targets among them, BEFORE asserting the
+    // prefix is absent.
+    const inApp = page.locator('a[href^="/"]');
+    const hrefs = await inApp.evaluateAll((els) =>
+      els.map((el) => el.getAttribute("href") ?? ""),
     );
-    expect(hrefs, "links must be built with useSkinHref").toEqual([]);
+    expect(hrefs.length, "expected in-app links to render").toBeGreaterThan(0);
+    for (const target of ["/", "/dashboard", "/charges", "/team"]) {
+      expect(hrefs, `banking nav must render ${target}`).toContain(target);
+    }
+
+    // THE guard: no rendered href carries the skin prefix. A hardcoded
+    // `/banking/...` still navigates correctly, so only the href reveals it.
+    const prefixed = hrefs.filter((href) => href.startsWith("/banking"));
+    expect(prefixed, "links must be built with useSkinHref").toEqual([]);
+
+    // The OTHER way the builder breaks: a protocol-relative `//host` href
+    // navigates off-site entirely. Nothing else in the suite catches it.
+    const protocolRelative = hrefs.filter((href) => href.startsWith("//"));
+    expect(protocolRelative, "no in-app href may be protocol-relative").toEqual(
+      [],
+    );
   });
 
   test("clicking a nav entry keeps the URL prefix-free and marks it active", async ({
