@@ -101,10 +101,30 @@ describe("proxy matcher", () => {
     expect(matches("/sample-invoice-q2.pdf")).toBe(false);
   });
 
+  it("never matches Next's extension-less dev endpoints", () => {
+    // This demo is PRESENTED from `next dev`, so HMR and the error overlay are
+    // the feature's real usage, not an edge case. These framework paths carry no
+    // file extension, so only a wholesale `_next`/`__nextjs` exclusion keeps
+    // them out of the rewrite — the old `_next/static`+`_next/image` pair let
+    // them through and rewrote them to `/<locked>/_next/...`, breaking both.
+    expect(matches("/_next/webpack-hmr")).toBe(false);
+    expect(matches("/_next/dev/on-demand-entries-ping")).toBe(false);
+    expect(matches("/__nextjs_original-stack-frame")).toBe(false);
+  });
+
+  it("excludes `api` only at a segment boundary", () => {
+    // `api` must be excluded as a whole segment, not a prefix: `/apiary` and
+    // `/api-keys` are ordinary app routes and MUST be rewritten under a lock, or
+    // they would 404 only on locked deploys. Bare `/api` stays excluded.
+    expect(matches("/api")).toBe(false);
+    expect(matches("/apiary")).toBe(true);
+    expect(matches("/api-keys")).toBe(true);
+  });
+
   it("matches the pages a lock has to rewrite", () => {
     expect(matches("/")).toBe(true);
     expect(matches("/cards")).toBe(true);
-    expect(matches("/keel/runs/r-1")).toBe(true);
+    expect(matches("/keel/runs/RUN-1041")).toBe(true);
     expect(matches("/knowledge/phi-access-policy")).toBe(true);
   });
 });

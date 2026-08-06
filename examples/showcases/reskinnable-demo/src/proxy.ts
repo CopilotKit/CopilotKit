@@ -34,11 +34,22 @@ import { lockedSkinId } from "@/lib/locked-skin";
  * hook is answered by construction rather than by care.
  */
 export const config = {
-  // Everything EXCEPT: the runtime + REST endpoints, Next's own asset routes,
-  // and any path carrying a file extension (`public/`, `favicon.ico`). No
-  // route-bearing id in this app contains a dot — keel's doc and run ids are
-  // kebab-case — so the extension test cannot swallow a real page.
-  matcher: ["/((?!api|_next/static|_next/image|.*\\..*).*)"],
+  // Everything EXCEPT: the runtime + REST endpoints (`api`), all of Next's
+  // internal `_next/*` routes, the `__nextjs`-prefixed dev endpoints (the error
+  // overlay's `__nextjs_original-stack-frame` et al.), and any path carrying a
+  // file extension (`public/`, `favicon.ico`). `api` and `_next` are anchored to
+  // a segment boundary (`(?:/|$)`) so a future top-level route like `/apiary` or
+  // `/api-keys` still gets rewritten under a lock instead of silently 404ing.
+  //
+  // Excluding `_next` wholesale — not just `_next/static` and `_next/image` —
+  // matters because this demo is PRESENTED from `next dev` (see next.config.mjs),
+  // where extension-less framework paths like `/_next/webpack-hmr` drive HMR and
+  // the error overlay; rewriting those under a lock would break both.
+  //
+  // No route-bearing id in this app contains a dot — keel's doc ids are
+  // kebab-case (`phi-access-contractor`) and its run ids are `RUN-1041`-style —
+  // so the extension test cannot swallow a real page.
+  matcher: ["/((?!api(?:/|$)|_next(?:/|$)|__nextjs|.*\\..*).*)"],
 };
 
 export function proxy(request: NextRequest) {
