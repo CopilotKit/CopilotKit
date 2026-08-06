@@ -116,6 +116,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotChatViewFeather`
 - `CopilotChatViewHandlers`
 - `CopilotChatViewInputContainer`
+- `CopilotChatViewInputMeasure`
 - `CopilotChatViewLayoutContext`
 - `CopilotChatViewProps`
 - `CopilotChatViewScrollToBottomButton`
