@@ -155,7 +155,8 @@ export class StateManager {
         } else if (
           runFinished &&
           input.runId === subRunId &&
-          !isContinuation(input)
+          !isContinuation(input) &&
+          (event.runId == null || event.runId === subRunId)
         ) {
           // A new logical run's events are arriving through this same (old)
           // subscription. This happens when the test emits events before
@@ -164,11 +165,9 @@ export class StateManager {
           // input.runId equals the previous run's runId. Generate a fresh
           // runId so the new run's state doesn't collide with the old one.
           subRunId = randomUUID();
-        } else if (event.runId != null) {
-          // A connect replay may contain multiple server runs under one input.runId.
-          subRunId = event.runId;
         } else {
-          subRunId = input.runId;
+          // A connect replay may contain multiple server runs under one input.runId.
+          subRunId = event.runId ?? input.runId;
         }
         runFinished = false;
         this.handleRunStarted(agent, effectiveInput(input), state);
