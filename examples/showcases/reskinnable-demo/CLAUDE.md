@@ -400,7 +400,14 @@ type-checks as part of `next build`):
 - `pnpm lint` — ESLint.
 - `pnpm test:unit` — Vitest unit tests.
 - `pnpm test:e2e` / `pnpm test:e2e:ogui` / `pnpm test:self-learning` — Playwright
-  suites.
+  suites. `test:e2e` has TWO projects, each with its own dev server, because the
+  lock is a boot-time server env and the two deploy shapes are therefore two
+  processes: **`unlocked`** (port 3000, `LOCK_SKIN=""`) runs every spec except
+  `locked-skin.spec.ts`; **`locked`** (port 3100, `LOCK_SKIN=banking`, its own
+  `.next-locked` build dir) runs only that one. Target one with
+  `--project=locked`. The locked project exists because LOCK_SKIN's headline
+  behaviour has no other coverage — a link that keeps the skin prefix still
+  renders a working page, so only a browser against a locked server catches it.
 - `pnpm mint-dev-license` — mint a dev license (Intelligence mode).
 
 Run tasks through Nx per the repo convention where applicable.

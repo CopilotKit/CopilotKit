@@ -519,11 +519,24 @@ Do NOT touch anything else in the shell.
    `id === agentId` and that the agent registered correctly).
 6. Your suggestion pills appear, and if you registered frontend tools / HITL /
    gen-UI, the agent can drive them.
+7. **`pnpm test:unit`** — green. This includes the URL-contract drift guard
+   (`src/shell/skin-path.drift.test.ts`), which fails and NAMES YOUR FILE if any
+   link in your skin hardcodes its route prefix. It is the cheap check for the
+   contract above; step 8 is the real one.
+8. **Run your skin locked**: stop the dev server, then
+   `LOCK_SKIN=<id> pnpm dev`, and open **`/`** (not `/<id>`). Your skin must
+   render at the root, every nav href in the DOM must be prefix-free, and
+   clicking through must keep the address bar prefix-free. `/<id>` itself should 404. If the prefix survives anywhere, a link in your skin is bypassing
+   `useSkinHref` — see "The URL contract" above.
+   `pnpm test:e2e --project=locked` covers this shape for `banking`; extend
+   `e2e/locked-skin.spec.ts` if your skin is the one being shipped locked.
 
 If the skin 404s: check `resolvePage` returns a component for `[]` (the index
 segment). If the theme doesn't apply: confirm `themeClass === "theme-<id>"` and
 that `layout.tsx` side-effect-imports `./theme.css`. If chat errors with an
 unknown agent: confirm the agent is in `agent-registry.ts` under the same `id`.
+If the whole app 404s under a lock: `LOCK_SKIN` must be one of the registered
+ids — an unrecognised value throws at boot naming the typo.
 
 ### Then walk the demo (this is the part that actually gates "done")
 

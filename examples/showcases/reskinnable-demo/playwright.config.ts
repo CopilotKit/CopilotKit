@@ -1,13 +1,38 @@
 import { defineConfig } from "@playwright/test";
 
+// The LOCK_SKIN deploy shape gets its OWN server and project. It cannot share
+// the main one: the lock is a boot-time server env, so the two shapes are two
+// processes by definition. `locked-skin.spec.ts` runs only here; everything else
+// runs only against the unlocked server.
+const LOCKED_PORT = process.env.LOCKED_E2E_PORT ?? "3100";
+const LOCKED_SKIN = "banking";
+const LOCKED_SPEC = /locked-skin\.spec\.ts/;
+// `ogui-routing.spec.ts` has its own config (playwright.ogui.config.ts) and is
+// excluded here. It must be repeated in the unlocked project's own testIgnore:
+// a project-level testIgnore REPLACES the config-level one rather than adding to
+// it, so listing it only at the top level would silently re-admit those specs.
+const OGUI_SPEC = /ogui-routing\.spec\.ts/;
+
 export default defineConfig({
   testDir: "./e2e",
-  testIgnore: /ogui-routing\.spec\.ts/,
+  testIgnore: OGUI_SPEC,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
-  use: { baseURL: "http://localhost:3000", trace: "on-first-retry" },
+  use: { trace: "on-first-retry" },
+  projects: [
+    {
+      name: "unlocked",
+      use: { baseURL: "http://localhost:3000" },
+      testIgnore: [LOCKED_SPEC, OGUI_SPEC],
+    },
+    {
+      name: "locked",
+      use: { baseURL: `http://localhost:${LOCKED_PORT}` },
+      testMatch: LOCKED_SPEC,
+    },
+  ],
   // Two servers: aimock (deterministic LLM) must be up before the dev server so the
   // runtime's OPENAI_BASE_URL resolves. The memory-learning E2E additionally needs
   // the docker memory stack already running (see README / e2e/memory-learning.spec).
@@ -60,6 +85,37 @@ export default defineConfig({
         // always applies. (An explicit env wins on the servers we start because
         // Next's dotenv loading never overrides an already-set process.env var.)
         LOCK_SKIN: "",
+      },
+    },
+    {
+      // The single-tenant shape. Exists because LOCK_SKIN's headline behaviour —
+      // the skin served AT `/`, with prefix-free links — had NO automated
+      // coverage otherwise: every other spec pins the gate off, and the defect
+      // this guards against (a hardcoded prefix reappearing in the address bar)
+      // still renders a working page, so nothing else notices.
+      command: "pnpm dev",
+      // `/` IS the app here, so it doubles as the readiness probe — and probing
+      // it also proves the proxy rewrote rather than 404ing.
+      url: `http://localhost:${LOCKED_PORT}/`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "test",
+        NEXT_TELEMETRY_DISABLED: "1",
+        PORT: LOCKED_PORT,
+        // Two `next dev` processes cannot share one `.next` — they overwrite
+        // each other's build output. next.config.mjs reads this; tsconfig.json
+        // lists the matching `.next-locked/types` globs, and eslint.config.mjs
+        // ignores the directory (ESLint does not read .gitignore).
+        //
+        // KNOWN CHURN: Next rewrites the tracked `next-env.d.ts` to reference
+        // whichever dist dir booted LAST, so a full run leaves it pointing at
+        // `.next-locked`. Discard that hunk before committing — committing it
+        // breaks a clean checkout, whose `.next-locked` does not exist. Any
+        // `next build`/`next dev` restores it. (The file already churned before
+        // this project existed; this makes it churn on e2e runs too.)
+        NEXT_DIST_DIR: ".next-locked",
+        LOCK_SKIN: LOCKED_SKIN,
       },
     },
   ],
