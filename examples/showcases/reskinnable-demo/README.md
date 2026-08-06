@@ -2,20 +2,25 @@
 
 One Next.js app whose **entire** experience — brand, theme, layout, pages,
 tools, and agent — is reskinnable at runtime. A skin-agnostic **shell** hosts
-one **skin** per route segment `/[skin]/...`, and ships two of them:
+one **skin** per route segment `/[skin]/...`, and ships four of them:
 
 - **`banking`** — "Northwind Finance", a corporate banking dashboard. **REST-backed**
   (a live ledger at `/api/banking/v1/*`): transactions, cards, expense policies,
   an approvals queue, filed reports on a canvas, and a teachable
   over-limit-approval flow.
+- **`logistics`** — "Meridian", a freight control tower. **REST-backed** (a live
+  ledger of its own): exception triage — expedite, reroute, split, or absorb —
+  across lanes, inventory, and decisions.
 - **`airline`** — "Aeronova", a passenger concierge. **In-memory** (a seed-backed
   React store): check-in and seat selection, loyalty, and disruption rebooking.
+- **`keel`** — "Harbor Point Health", a healthcare knowledge and operations desk.
+  **In-memory** (a seed-backed React store), and the only skin with parameterized
+  routes (`knowledge/<docId>`, `runs/<runId>`).
 
-These two run behind the **same** `Skin` contract on purpose: one is REST-backed
-and one is in-memory, which proves the contract is substrate-agnostic. (Two more
-ship alongside them — `logistics` and `keel`.) Every skin gets the same inset
-frame, shared chat panel, tool-activity lines, suggestion pills, and full-region
-canvas from the shell.
+These four run behind the **same** `Skin` contract on purpose: banking and
+logistics are REST-backed, airline and keel are in-memory, which proves the
+contract is substrate-agnostic. Every skin gets the same inset frame, shared chat
+panel, tool-activity lines, suggestion pills, and full-region canvas from the shell.
 
 ## What it demonstrates
 
@@ -83,7 +88,7 @@ contract, and the shared canvas / OGUI model.
 
 ## The banking skin's demo capabilities
 
-The banking skin is the richer of the two and doubles as a CopilotKit feature
+The banking skin is the richest of the four and doubles as a CopilotKit feature
 tour. Notable beats:
 
 - **Components, never walls of text** — transactions, the approvals queue,
