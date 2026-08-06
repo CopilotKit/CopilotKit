@@ -1,5 +1,7 @@
 import { logger } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
+import type { AcpRelayConnection } from "./acp-agent";
+import { openAcpRelayStream } from "./acp-relay";
 
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
@@ -90,8 +92,8 @@ export interface CopilotKitIntelligenceConfig {
    */
   apiUrl?: string;
   /**
-   * Intelligence websocket base URL. Runner and client socket URLs are derived
-   * from this by appending `/runner` or `/client`, so pass the bare base.
+   * Intelligence websocket base URL. Runner, client, Channels, and ACP socket
+   * URLs are derived from this, so pass the bare base.
    *
    * Defaults to CopilotKit's managed platform,
    * `wss://realtime.intelligence.copilotkit.ai`.
@@ -134,6 +136,24 @@ export interface CopilotKitIntelligenceConfig {
    * Prefer {@link CopilotKitIntelligence.onThreadDeleted} for multiple listeners.
    */
   onThreadDeleted?: (params: ThreadDeletedPayload) => void;
+}
+
+/** Request that binds one AG-UI thread to an exact external ACP target. */
+export interface AcpRelaySessionRequest {
+  readonly agentId: string;
+  readonly appUserId: string;
+  readonly runtimeInstanceId: string;
+  readonly threadId: string;
+}
+
+/** Durable session state and one-use credentials returned by Intelligence. */
+export interface AcpRelaySessionAdmission {
+  readonly clientJoinToken: string;
+  readonly duplicate: boolean;
+  readonly lastSequence: number;
+  readonly protocol: "acp_relay_v1";
+  readonly remoteSessionId: string | null;
+  readonly sessionId: string;
 }
 
 /**
@@ -480,6 +500,7 @@ export class CopilotKitIntelligence {
   #runnerWsUrl: string;
   #clientWsUrl: string;
   #channelsWsUrl: string;
+  #acpWsUrl: string;
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
@@ -502,6 +523,7 @@ export class CopilotKitIntelligence {
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.#channelsWsUrl = deriveChannelsWsUrl(intelligenceWsUrl);
+    this.#acpWsUrl = deriveAcpWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
 
@@ -606,11 +628,50 @@ export class CopilotKitIntelligence {
     return this.#enterpriseLearningEnabled;
   }
 
+  /** @internal Used by {@link AcpAgent} to open one scoped stable ACP relay. */
+  async ɵopenAcpRelay(
+    params: AcpRelaySessionRequest & { readonly signal?: AbortSignal },
+  ): Promise<AcpRelayConnection> {
+    const { signal, ...request } = params;
+    const admission = await this.#request<AcpRelaySessionAdmission>(
+      "POST",
+      "/api/acp/sessions",
+      request,
+      undefined,
+      signal,
+    );
+    if (admission.protocol !== "acp_relay_v1") {
+      throw new Error(`Unsupported ACP relay protocol: ${admission.protocol}`);
+    }
+    const stream = await openAcpRelayStream({
+      afterSequence: admission.lastSequence,
+      joinToken: admission.clientJoinToken,
+      sessionId: admission.sessionId,
+      signal,
+      wsUrl: this.#acpWsUrl,
+    });
+    return {
+      relaySessionId: admission.sessionId,
+      remoteSessionId: admission.remoteSessionId,
+      stream,
+      saveRemoteSessionId: async (remoteSessionId: string): Promise<void> => {
+        await this.#request(
+          "PATCH",
+          `/api/acp/sessions/${encodeURIComponent(admission.sessionId)}/remote-session`,
+          { remoteSessionId },
+          undefined,
+          signal,
+        );
+      },
+    };
+  }
+
   async #request<T>(
     method: string,
     path: string,
     body?: unknown,
     extraHeaders?: Record<string, string>,
+    signal?: AbortSignal,
   ): Promise<T> {
     const url = `${this.#apiUrl}${path}`;
 
@@ -624,6 +685,7 @@ export class CopilotKitIntelligence {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal,
     });
 
     if (!response.ok) {
@@ -1331,4 +1393,14 @@ function deriveChannelsWsUrl(wsUrl: string): string {
     return `${wsUrl.slice(0, -"/client".length)}/channels`;
   }
   return `${wsUrl}/channels`;
+}
+
+function deriveAcpWsUrl(wsUrl: string): string {
+  if (wsUrl.endsWith("/acp")) return wsUrl;
+  for (const suffix of ["/runner", "/client", "/channels"] as const) {
+    if (wsUrl.endsWith(suffix)) {
+      return `${wsUrl.slice(0, -suffix.length)}/acp`;
+    }
+  }
+  return `${wsUrl}/acp`;
 }

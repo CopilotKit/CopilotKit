@@ -1,4 +1,5 @@
 [
+  { "slug": "acp-agent", "name": "ACP Agent" },
   { "slug": "ag2", "name": "AG2" },
   { "slug": "agno", "name": "Agno" },
   { "slug": "built-in-agent", "name": "Built-in Agent (TanStack AI)" },

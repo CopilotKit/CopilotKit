@@ -643,5 +643,24 @@ services:
     volumes:
       - ./integrations/built-in-agent/src:/app/src
 
+  acp-agent:
+    <<: *integration-defaults
+    build:
+      context: ../
+      dockerfile: showcase/integrations/acp-agent/Dockerfile
+    image: showcase-acp-agent:local
+    container_name: showcase-acp-agent
+    ports:
+      - "3120:10000"
+    profiles: ["acp-agent", "all"]
+    environment:
+      - COPILOTKIT_API_KEY=${COPILOTKIT_API_KEY:-}
+      - COPILOTKIT_ACP_RUNTIME_INSTANCE_ID=${COPILOTKIT_ACP_RUNTIME_INSTANCE_ID:-}
+      - COPILOTKIT_ACP_AGENT_ID=${COPILOTKIT_ACP_AGENT_ID:-}
+      - COPILOTKIT_ACP_CWD=${COPILOTKIT_ACP_CWD:-}
+      - COPILOTKIT_ACP_SHOWCASE_USER_ID=${COPILOTKIT_ACP_SHOWCASE_USER_ID:-showcase-acp-user}
+      - COPILOTKIT_INTELLIGENCE_API_URL=${COPILOTKIT_INTELLIGENCE_API_URL:-}
+      - COPILOTKIT_INTELLIGENCE_WS_URL=${COPILOTKIT_INTELLIGENCE_WS_URL:-}
+
 volumes:
   showcase-pb-data:

@@ -96,6 +96,7 @@ packages/vue/vite.config.ts
 packages/web-components/tsdown.config.ts
 packages/web-inspector/dev/vite.config.ts
 packages/web-inspector/tsdown.config.ts
+showcase/integrations/acp-agent/next.config.ts
 showcase/integrations/ag2/next.config.ts
 showcase/integrations/agno/next.config.ts
 showcase/integrations/built-in-agent/next.config.ts

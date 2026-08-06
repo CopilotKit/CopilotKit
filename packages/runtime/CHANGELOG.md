@@ -1,5 +1,18 @@
 # @copilotkit/runtime
 
+## Unreleased
+
+### Minor Changes
+
+- Add a highly experimental `AcpAgent` that translates stable ACP v1 to AG-UI
+  through the Intelligence relay. External deployments still own the ACP agent
+  and its lifecycle. The client does not carry MCP server definitions or
+  deployment credentials. Permission interrupts require explicit live-instance
+  coordination, expire on a bounded timer, and fail closed by default. The
+  relay retries an uncertain live-channel write with the same sender ID. Any
+  socket or channel loss ends that transport, and a later run does not replay
+  an uncertain prompt into a new ACP process.
+
 ## 1.55.2
 
 ### Patch Changes

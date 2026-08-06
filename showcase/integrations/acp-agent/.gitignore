@@ -1,0 +1,12 @@
+node_modules/
+.next/
+.env.local
+.env
+.copilotkit/
+*.pyc
+__pycache__/
+.venv/
+dist/
+playwright-report/
+test-results/
+*.tsbuildinfo

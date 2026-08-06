@@ -139,6 +139,42 @@ jobs:
             fi
             found=$((found + 1))
             e2e_dir="${pkg_dir}tests/e2e/"
+            shared_probe_map="${pkg_dir}tests/shared-probes.json"
+            if [ -f "$shared_probe_map" ]; then
+              if find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts' 2>/dev/null | grep -q .; then
+                echo "::error file=$shared_probe_map::Package '$pkg' cannot mix shared probes with per-integration e2e specs"
+                failed=1
+                continue
+              fi
+              set +e
+              shared_count=$(node -e '
+                const fs = require("node:fs");
+                const path = require("node:path");
+                const file = process.argv[1];
+                const integration = path.dirname(path.dirname(file));
+                const sharedRoot = path.resolve("showcase/harness/src/probes/scripts") + path.sep;
+                const map = JSON.parse(fs.readFileSync(file, "utf8"));
+                const entries = Object.entries(map);
+                if (entries.length === 0) throw new Error("shared probe map must not be empty");
+                for (const [feature, relativeScript] of entries) {
+                  if (!feature || typeof relativeScript !== "string") throw new Error("shared probe entries must map a feature to a script path");
+                  const script = path.resolve(path.dirname(file), relativeScript);
+                  if (!script.startsWith(sharedRoot) || !fs.statSync(script).isFile()) throw new Error("invalid shared probe for " + feature + ": " + relativeScript);
+                  if (!fs.statSync(path.join(integration, "src/app/demos", feature)).isDirectory()) throw new Error("shared probe feature has no demo: " + feature);
+                  if (!fs.statSync(path.join(integration, "qa", feature + ".md")).isFile()) throw new Error("shared probe feature has no QA guide: " + feature);
+                }
+                console.log(entries.length);
+              ' "$shared_probe_map")
+              rc=$?
+              set -e
+              if [ "$rc" -ne 0 ]; then
+                echo "::error file=$shared_probe_map::Package '$pkg' has an invalid shared probe map"
+                failed=1
+              else
+                echo "ok: $pkg uses $shared_count canonical shared probe(s)"
+              fi
+              continue
+            fi
             if [ ! -d "$e2e_dir" ]; then
               echo "::error file=$pkg_dir::Package '$pkg' is missing tests/e2e/ directory (required for baseline e2e coverage)"
               failed=1

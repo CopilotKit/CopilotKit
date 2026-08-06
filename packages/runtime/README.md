@@ -90,6 +90,66 @@ routes and does not attach Memory tools.
 `CopilotKitIntelligence({ enableEnterpriseLearning: true })` remain for one
 compatibility window. New code should use `memory.access`.
 
+## Highly experimental ACP agent
+
+`AcpAgent` translates stable ACP v1 into AG-UI. Intelligence authenticates the
+relay and stores its raw ACP frames and remote session ID. The external
+deployment owns the ACP process, workspace access, credentials, and lifecycle.
+
+```ts
+import {
+  AcpAgent,
+  CopilotKitIntelligence,
+  CopilotRuntime,
+} from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.COPILOTKIT_API_KEY!,
+});
+
+const identifyUser = async (request: Request) => {
+  const user = await authenticateApplicationUser(request);
+  return { id: user.id, name: user.name };
+};
+
+const runtime = new CopilotRuntime({
+  intelligence,
+  identifyUser,
+  agents: async ({ request }) => {
+    const user = await identifyUser(request);
+    return {
+      coding: new AcpAgent({
+        intelligence,
+        userId: user.id,
+        runtimeInstanceId: "rti_external_01",
+        agentId: "coding-agent",
+        cwd: "/workspace",
+      }),
+    };
+  },
+});
+```
+
+The external relay connects to Intelligence with the same `runtimeInstanceId`
+and `agentId`. An uncertain write on the live channel retries with the same
+sender ID. Any socket, channel, or endpoint-process loss ends that transport. A
+later run starts at the journal high-water mark and loads the durable remote ACP
+session when the agent supports `session/load`; it does not replay an
+outcome-unknown prompt into a new ACP SDK connection.
+
+The `cwd` selector crosses the relay inside the raw ACP `session/new` or
+`session/load` frame and is stored by Intelligence. Do not put credentials in
+it. This client sends no MCP server definitions and advertises no filesystem or
+terminal access; deployment-local relay code must own those capabilities.
+
+Permission requests fail closed with ACP's `cancelled` outcome by default. A
+long-lived runtime with sticky routing may set `permissionMode: "live"` to emit
+AG-UI permission interrupts. Resume must then reach the same live `AcpAgent`
+instance or one of its clones. The request expires after five minutes by
+default; `permissionTimeoutMs` can set a shorter bound. A second overlapping
+permission request fails closed. Do not enable this mode in a multi-replica or
+serverless runtime until the app has a durable routing contract.
+
 ## Analytics & Privacy
 
 CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and prioritize improvements.
