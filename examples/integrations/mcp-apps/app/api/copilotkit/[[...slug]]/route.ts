@@ -4,34 +4,12 @@ import {
   InMemoryAgentRunner,
   createCopilotEndpoint,
 } from "@copilotkit/runtime/v2";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { handle } from "hono/vercel";
-
-const middlewares = [
-  new MCPAppsMiddleware({
-    mcpServers: [
-      {
-        type: "http",
-        url: "http://localhost:3108/mcp",
-        serverId: "threejs",
-      },
-    ],
-  }),
-];
-
-const agent = new BuiltInAgent({
-  model: "openai/gpt-4o",
-  prompt: "You are a helpful assistant.",
-});
-
-for (const middleware of middlewares) {
-  agent.use(middleware);
-}
+import { createDefaultAgent } from "../../../agent";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: agent,
+    default: createDefaultAgent(),
   },
   // --- copilotkit:intelligence (remove this block to opt out) ---
   ...(process.env.COPILOTKIT_LICENSE_TOKEN

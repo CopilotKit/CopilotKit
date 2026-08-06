@@ -1,7 +1,10 @@
+import { isNativeNode } from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { ContextActionsBlock, KnownBlock } from "@slack/types";
 import { markdownToMrkdwn } from "../markdown-to-mrkdwn.js";
 import { SLACK_LIMITS, clampArray, truncateText } from "./budget.js";
+import { serializeSlackNativeNode } from "../native-codec.js";
+import { validateSlackBlockKit } from "../block-kit-validation.js";
 
 /**
  * Stable `action_id` of the native AI feedback row's `feedback_buttons`
@@ -64,9 +67,27 @@ export function buildFeedbackBlocks(opts?: {
  */
 export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
   const blocks: KnownBlock[] = [];
+  const native = containsNativeNode(ir);
   for (const node of ir) {
     renderNode(node, blocks);
   }
+
+  const dataVisualizations = blocks.filter(
+    (block) => String(block.type) === "data_visualization",
+  ).length;
+  if (dataVisualizations > 2) {
+    throw new Error(
+      `Slack native JSX rendered ${dataVisualizations} data visualization blocks; the message limit is 2.`,
+    );
+  }
+
+  if (native && blocks.length > SLACK_LIMITS.blocksPerMessage) {
+    throw new Error(
+      `Slack native JSX rendered ${blocks.length} blocks; the message limit is ${SLACK_LIMITS.blocksPerMessage}.`,
+    );
+  }
+
+  validateSlackBlockKit(blocks);
 
   // Top-level budget: clamp to the per-message block ceiling, leaving room for
   // an overflow-signal context block when we had to drop anything.
@@ -79,6 +100,28 @@ export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
   const dropped = overflow + 1;
   kept.push(overflowSignal(dropped));
   return kept;
+}
+
+function containsNativeNode(nodes: readonly ChannelNode[]): boolean {
+  return nodes.some(
+    (node) =>
+      isNativeNode(node) ||
+      containsNativeNode(channelChildren(node.props.children)),
+  );
+}
+
+function channelChildren(value: unknown): ChannelNode[] {
+  if (Array.isArray(value)) return value.filter(isChannelNode);
+  return isChannelNode(value) ? [value] : [];
+}
+
+function isChannelNode(value: unknown): value is ChannelNode {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    "props" in value
+  );
 }
 
 /** Render IR to Slack blocks, extracting a top-level <Message accent="#hex"> color for an attachment wrapper. */
@@ -105,6 +148,15 @@ function overflowSignal(count: number): KnownBlock {
 
 /** Render a single IR node, pushing zero or more blocks onto `out`. */
 function renderNode(node: ChannelNode, out: KnownBlock[]): void {
+  if (isNativeNode(node)) {
+    if (node.props.nativeKind !== "block" && node.props.nativeKind !== "raw") {
+      throw new Error(
+        `Slack.${node.props.nativeType}: a top-level message child must be a block.`,
+      );
+    }
+    out.push(serializeSlackNativeNode(node) as unknown as KnownBlock);
+    return;
+  }
   if (typeof node.type !== "string") return; // non-intrinsic — already expanded away
   const props = node.props ?? {};
   switch (node.type) {

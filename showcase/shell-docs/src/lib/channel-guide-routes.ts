@@ -50,6 +50,12 @@ export const CHANNEL_GUIDE_ROUTES = [
     section: "build",
   },
   {
+    slug: "identity-and-memory",
+    sourceSlug: "channels/identity-and-memory",
+    navTitle: "Identity and Memory",
+    section: "build",
+  },
+  {
     slug: "rich-messages",
     sourceSlug: "channels/rich-messages",
     navTitle: "Rich messages and components",

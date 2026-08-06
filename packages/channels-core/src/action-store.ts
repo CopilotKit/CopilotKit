@@ -30,6 +30,12 @@ export interface ActionSnapshot {
   component?: string;
   props?: unknown;
   path: (string | number)[];
+  locator?: {
+    key: string | number;
+    eventProp: "onClick" | "onSelect" | "onSubmit";
+  };
+  platform?: string;
+  actionValue?: unknown;
   boundArgs?: unknown;
   conversationKey: string;
   continuation?: ActionContinuationSnapshot;

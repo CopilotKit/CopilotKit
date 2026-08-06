@@ -35,6 +35,7 @@ import type {
   ModalView,
   ComponentFn,
   MessageRef,
+  Renderable,
 } from "@copilotkit/channels-ui";
 import {
   normalizeEmoji,
@@ -49,6 +50,11 @@ import type {
   ChannelIdentityContext,
 } from "./identity.js";
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
+import { isChannelComponentDefinition } from "./channel-component.js";
+import type {
+  ChannelComponentDefinition,
+  ChannelComponentRenderContext,
+} from "./channel-component.js";
 import { ChannelTelemetry } from "./telemetry/channel-telemetry.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import { createRequire } from "node:module";
@@ -59,6 +65,7 @@ const pkg = createRequire(import.meta.url)("../package.json") as {
 };
 
 const ADAPTER_ROLLBACK_TIMEOUT_MS = 5_000;
+const DEFAULT_WELCOME_PROMPT = "Introduce yourself to the channel!";
 
 function storeKind(s: StateStore): "memory" | "postgres" | "redis" | "custom" {
   const n = s.constructor?.name;
@@ -115,7 +122,8 @@ export type ChannelConcurrency = "parallel" | "serial" | "drop";
  *
  * Fails loud on all three ways cloning can fail to isolate: a missing `clone()`,
  * a `clone()` that hands back the same object, and a `clone()` that silently
- * drops subclass state (see {@link assertCloneKeptOwnFields}).
+ * drops subclass state (see {@link warnOnCloneDroppedOwnFields}, which reports
+ * rather than refuses).
  */
 export function isolateAgentInstance(
   prototype: AbstractAgent,
@@ -134,7 +142,7 @@ export function isolateAgentInstance(
       "createChannel: agent.clone() must return a distinct instance for concurrent turns",
     );
   }
-  assertCloneKeptOwnFields(prototype, cloned);
+  warnOnCloneDroppedOwnFields(prototype, cloned);
   cloned.threadId = threadId;
   // `clone()` copies `isRunning` from the source, and a source that has already
   // run can be mid-run at the moment it is cloned. A fresh turn is not.
@@ -157,7 +165,7 @@ export function isolateAgentInstance(
 }
 
 /**
- * Fail loud when `clone()` silently drops subclass state.
+ * Report — but do not refuse — a `clone()` that drops subclass state.
  *
  * `AbstractAgent.prototype.clone()` copies a fixed field list, so a subclass
  * that declares its own fields (an auth client, config, a cache) gets them back
@@ -165,17 +173,37 @@ export function isolateAgentInstance(
  * exists and returns a correctly-typed instance, nothing else surfaces it. The
  * agent just runs gutted.
  *
- * Comparing own enumerable keys catches exactly that and stays quiet for the
- * agents that do override `clone()` (`HttpAgent`, `LangGraphAgent`,
- * `BuiltInAgent`, `IntelligenceAgent`). Symbol-keyed and non-enumerable fields
- * are not covered.
+ * This used to throw. It no longer does, because whether a dropped field matters
+ * depends on what the field HOLDS, and from here the two cases are
+ * indistinguishable:
+ *
+ * - **Config** (`orchestrationAgentUrl`, an auth client) is read during the run
+ *   and never rewritten, so losing it does gut the agent.
+ * - **Per-run scratch state** is re-initialized at the start of every run, so
+ *   losing it changes nothing. `LangGraphAgent`'s `emittedToolCallStartIds` and
+ *   `eventsStreamActive` are exactly this: both are reset when a run binds its
+ *   subscriber, before anything reads them.
+ *
+ * Throwing on the second case took a Channel that works and refused every turn
+ * — while the identical clone happens on every ordinary runtime request
+ * (`agent-utils.ts` clones per request) with no ill effect at all, which is why
+ * it had never been noticed outside Channels. A warning keeps the signal for the
+ * config case without failing the harmless one.
+ *
+ * Deliberately NOT done: copying the dropped fields onto the clone. That would
+ * share one mutable object across concurrent turns, which is the exact hazard
+ * this isolation exists to prevent.
+ *
+ * Comparing own enumerable keys stays quiet for the agents that override
+ * `clone()` fully (`HttpAgent`, `BuiltInAgent`, `IntelligenceAgent`).
+ * Symbol-keyed and non-enumerable fields are not covered.
  *
  * Own *functions* are deliberately exempt. Assigning a method on the instance is
  * how spies and instrumentation wrap an agent, and losing that wrapper leaves
  * the class's prototype method intact — the clone still behaves correctly, it
  * just isn't wrapped. Only dropped state leaves an agent genuinely gutted.
  */
-function assertCloneKeptOwnFields(
+function warnOnCloneDroppedOwnFields(
   prototype: AbstractAgent,
   cloned: AbstractAgent,
 ): void {
@@ -187,11 +215,13 @@ function assertCloneKeptOwnFields(
   );
   if (dropped.length === 0) return;
   const name = prototype.constructor?.name ?? "the configured agent";
-  throw new Error(
+  console.warn(
     `createChannel: ${name}.clone() dropped ${dropped.join(", ")}. ` +
       "Every turn runs on a clone, and AbstractAgent's clone() only copies its " +
-      `own fixed field list, so those fields would read as undefined. Override ` +
-      `clone() on ${name} to copy them (HttpAgent.clone() is the reference).`,
+      "own fixed field list, so those fields read as undefined on the clone. " +
+      "That is harmless for state a run re-initializes, and gutting for anything " +
+      `read as configuration — override clone() on ${name} to carry them if it is ` +
+      "the latter (HttpAgent.clone() is the reference).",
   );
 }
 
@@ -223,6 +253,9 @@ export function resolveChannelConcurrency(cfg: {
  * with the props persisted in the store, so the specific shape isn't needed here.
  */
 export type ChannelComponent = (props: never) => ReturnType<ComponentFn>;
+export type ChannelComponentRegistration =
+  | ChannelComponent
+  | ChannelComponentDefinition;
 
 export type ChannelHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
@@ -421,12 +454,13 @@ export interface CreateChannelOptions<
   tools?: ChannelTool[];
   context?: ContextEntry[];
   /**
-   * Named JSX components used in interactive messages. Registering them here
-   * lets the channel re-render and re-fire their handlers after a restart (durable
-   * actions); without registration, a click on a message posted before the
-   * restart degrades to "action expired".
+   * Agent-rendered component definitions or legacy named JSX components.
+   * Definitions become tools. Both forms let the channel recover keyed handlers
+   * after a restart when the configured store is durable.
    */
-  components?: ChannelComponent[];
+  components?:
+    | ChannelComponentRegistration[]
+    | Record<string, ChannelComponent>;
   /** Slash commands. Forwarded to adapters that support them; ignored elsewhere. */
   commands?: ChannelCommand[];
   /** Persistence, per-thread state schema, transcripts, and lock/dedup tuning. */
@@ -681,7 +715,75 @@ export function createChannel<
   }
 
   const toolMap = new Map<string, ChannelTool>();
-  for (const t of opts.tools ?? []) toolMap.set(t.name, t);
+  let componentConfigurationError: Error | undefined;
+  for (const tool of opts.tools ?? []) {
+    if (toolMap.has(tool.name)) {
+      componentConfigurationError = new Error(
+        `duplicate channel tool or component name "${tool.name}"`,
+      );
+      continue;
+    }
+    toolMap.set(tool.name, tool);
+  }
+  const componentEntries: Array<{
+    name: string;
+    requireKeys: boolean;
+    render: (
+      props: Record<string, unknown>,
+      context: ChannelComponentRenderContext,
+    ) => Renderable | Promise<Renderable>;
+  }> = [];
+  const configuredComponents = Array.isArray(opts.components)
+    ? opts.components.map((component) => ({
+        name: component.name,
+        component,
+      }))
+    : Object.entries(opts.components ?? {}).map(([name, component]) => ({
+        name,
+        component,
+      }));
+  const componentNames = new Set<string>();
+  for (const { name, component } of configuredComponents) {
+    if (!name) continue;
+    if (componentNames.has(name) || toolMap.has(name)) {
+      componentConfigurationError = new Error(
+        `duplicate channel tool or component name "${name}"`,
+      );
+      continue;
+    }
+    componentNames.add(name);
+    if (isChannelComponentDefinition(component)) {
+      componentEntries.push({
+        name,
+        requireKeys: true,
+        render: (props, renderContext) =>
+          component.render(props, renderContext),
+      });
+      toolMap.set(name, {
+        name,
+        description: component.description,
+        parameters: component.parameters,
+        async handler(args, toolContext) {
+          await (toolContext.thread as Thread).postRegisteredComponent(
+            name,
+            args,
+            {
+              platform:
+                toolContext.platform as ChannelComponentRenderContext["platform"],
+              signal: toolContext.signal ?? new AbortController().signal,
+            },
+          );
+          return `Rendered component "${name}".`;
+        },
+      });
+      continue;
+    }
+    componentEntries.push({
+      name,
+      requireKeys: false,
+      render: (props) => component(props as never) as Renderable,
+    });
+  }
   const context = opts.context ?? [];
 
   const mentionHandlers: ChannelHandler[] = [];
@@ -723,6 +825,7 @@ export function createChannel<
     extras?: {
       platform?: string;
       message?: IncomingMessage;
+      defaultPrompt?: string;
       user?: ApplicationUser | null;
       actor?: ProviderActor;
       interactionActionId?: string;
@@ -749,6 +852,7 @@ export function createChannel<
       stateSchema: cfg.state,
       transcripts,
       message: extras?.message,
+      defaultPrompt: extras?.defaultPrompt,
       user: extras?.user ?? null,
       actor: extras?.actor ?? { id: "unknown", kind: "unknown" },
       channelName: opts.name ?? adapter.platform,
@@ -1054,7 +1158,12 @@ export function createChannel<
           adapter,
           evt.replyTarget,
           evt.conversationKey,
-          { platform, user, actor: identityContext.actor },
+          {
+            platform,
+            user,
+            actor: identityContext.actor,
+            defaultPrompt: DEFAULT_WELCOME_PROMPT,
+          },
         );
         for (const h of welcomeHandlers) {
           await h({ thread, user, actor: identityContext.actor, platform });
@@ -1246,6 +1355,7 @@ export function createChannel<
         // — with a MemoryStore that wipes all lock/dedup/transcript/action state,
         // and real adapters would connect/port-bind twice.
         if (started) return;
+        if (componentConfigurationError) throw componentConfigurationError;
         if (
           adapters.some(
             (adapter) => adapter.capabilities.supportsMessageEvents,
@@ -1278,25 +1388,24 @@ export function createChannel<
           retentionMs: cfg.actionRetentionMs ?? 7 * 24 * 60 * 60 * 1000,
         });
         registry = registryInstance;
-        for (const c of opts.components ?? []) {
-          if (!c.name) {
+        for (const component of componentEntries) {
+          if (!component.name) {
             console.warn(
               "[channel] createChannel: skipping anonymous component — give it a name to enable durable actions after restart.",
             );
             continue;
           }
-          registryInstance.registerComponent(
-            c.name,
-            c as unknown as ComponentFn,
-          );
+          registryInstance.registerComponent(component.name, component.render, {
+            requireKeys: component.requireKeys,
+          });
         }
         toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
         tel.capture("oss.channel.configured", {
           platforms: adapters.map((a) => normalizePlatform(a.platform)),
           adapterCount: adapters.length,
           store: storeKind(backend),
-          hasComponents: (opts.components?.length ?? 0) > 0,
-          componentsCount: opts.components?.length ?? 0,
+          hasComponents: componentEntries.length > 0,
+          componentsCount: componentEntries.length,
           toolsCount: toolMap.size,
           commandsCount: commandHandlers.size,
           contextCount: context.length,

@@ -12,7 +12,7 @@ consumer or WebSocket worker.
 ## Use the tested runtime pair
 
 ```bash title="Terminal"
-npm install --save-exact @copilotkit/channels@0.5.0 @copilotkit/runtime@1.64.2
+npm install --save-exact @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0
 ```
 
 Run Node.js 22 or later. The managed launcher relies on the global `WebSocket`
@@ -137,10 +137,11 @@ Intelligence offers each prepared delivery to connected Runtimes that declare
 the matching Channel. One Runtime claims that delivery; other replicas can
 claim different deliveries at the same time.
 
-Run the same build and Channel declarations on every replica. Set
-`maxConcurrentDeliveries` to a bound each process can sustain. A full Runtime
+Run the same build and Channel declarations on every replica. The managed
+listener bounds active and pending delivery work internally. A full Runtime
 declines an invitation before it claims the delivery, which leaves another
-eligible replica free to claim it.
+eligible replica free to claim it. That capacity is not currently exposed as a
+public Channel configuration option.
 
 ## Observe the full delivery path
 

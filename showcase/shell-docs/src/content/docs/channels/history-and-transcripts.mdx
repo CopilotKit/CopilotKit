@@ -67,6 +67,12 @@ Slack and Teams. Configure top-level `identifyUser` and `store.transcripts`.
 When identity resolves to `null`, the transcript bridge skips personal reads
 and writes.
 
+<Callout type="info" title="Resolve the current actor first">
+  Read [Identity and Memory](/channels/identity-and-memory) before using a
+  provider actor as an application user. A shared provider conversation has no
+  personal owner, and each event resolves its actor independently.
+</Callout>
+
 <FrontendOnly frontend="slack">
 
 ```ts title="channel.ts"

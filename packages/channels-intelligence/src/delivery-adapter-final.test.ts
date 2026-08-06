@@ -3,6 +3,7 @@ import { DeliveryAdapter } from "./delivery-adapter.js";
 import type { PlatformAdapter } from "@copilotkit/channels-core";
 import { emoji } from "@copilotkit/channels-ui";
 import type { ChannelProviderPayload } from "./delivery-contracts.js";
+import { SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY } from "./delivery-contracts.js";
 import type {
   ClaimedChannelDelivery,
   PreparedChannelDelivery,
@@ -201,12 +202,12 @@ describe("DeliveryAdapter Slack cadence", () => {
       [
         expect.any(String),
         { kind: "slack.thread.status", status: "is thinking…" },
-        { charge: false },
+        { charge: false, bestEffort: true },
       ],
       [
         expect.any(String),
         { kind: "slack.thread.status", status: "" },
-        { charge: false },
+        { charge: false, bestEffort: true },
       ],
     ]);
   });
@@ -308,7 +309,11 @@ describe("DeliveryAdapter Slack cadence", () => {
       const session = { effect } as unknown as ClaimedChannelDelivery;
       const renderer = adapter().createRunRenderer({
         claimedDelivery: session,
-        delivery: { ...delivery(), adapter: "slack" },
+        delivery: {
+          ...delivery(),
+          adapter: "slack",
+          capabilities: [SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY],
+        },
       });
       const subscriber = renderer.subscriber;
 
@@ -341,6 +346,7 @@ describe("DeliveryAdapter Slack cadence", () => {
           kind: "slack.stream.append",
           providerReference: "pref_v1_slack_stream_01",
           delta: "B",
+          fullText: "AB",
         },
       ]);
 

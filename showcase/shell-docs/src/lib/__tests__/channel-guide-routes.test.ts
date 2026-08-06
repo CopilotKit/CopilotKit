@@ -50,6 +50,12 @@ describe("channel guide routes", () => {
         section: "build",
       },
       {
+        slug: "identity-and-memory",
+        sourceSlug: "channels/identity-and-memory",
+        navTitle: "Identity and Memory",
+        section: "build",
+      },
+      {
         slug: "rich-messages",
         sourceSlug: "channels/rich-messages",
         navTitle: "Rich messages and components",
@@ -145,6 +151,12 @@ describe("channel guide routes", () => {
     expect(channelGuideHref("slack", "mastra", "tools")).toBe(
       "/slack/mastra/tools",
     );
+    expect(
+      channelGuideHref("slack", "built-in-agent", "identity-and-memory"),
+    ).toBe("/slack/identity-and-memory");
+    expect(
+      channelGuideHref("teams", "built-in-agent", "identity-and-memory"),
+    ).toBe("/teams/identity-and-memory");
     expect(channelGuideHref("teams", "built-in-agent", "interactive")).toBe(
       "/teams/interactive",
     );

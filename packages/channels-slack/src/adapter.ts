@@ -56,6 +56,7 @@ import type { TextStream, NativeStreamTransport } from "./native-stream.js";
 import { attachAssistant } from "./assistant.js";
 import type { AssistantHandle } from "./assistant.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
+import { slackFallbackText } from "./native-codec.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
 import { DM_SCOPE, resolveSlackRespondToOptions } from "./types.js";
 import type {
@@ -391,7 +392,7 @@ export class SlackAdapter implements PlatformAdapter {
   async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const { blocks, accent } = renderSlackMessage(ir);
-    const summary = fallbackText(ir);
+    const summary = slackFallbackText(ir);
     // Suppress Slack link/media unfurling: a card with many links (e.g. an
     // issue_list of Linear URLs) would otherwise spawn a wall of preview
     // attachments. The gen-UI card IS the presentation.
@@ -418,7 +419,7 @@ export class SlackAdapter implements PlatformAdapter {
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
     const channel = channelOf(ref);
     const { blocks, accent } = renderSlackMessage(ir);
-    const summary = fallbackText(ir);
+    const summary = slackFallbackText(ir);
     // Mirror `post`'s accent/non-accent split. `chat.update` does not accept
     // the `unfurl_*` flags, so they are only set on `postMessage`.
     const args: ChatUpdateArguments = accent
@@ -1081,7 +1082,7 @@ export class SlackAdapter implements PlatformAdapter {
     const t = target as ReplyTarget;
     const userId = typeof user === "string" ? user : user.id;
     const { blocks } = renderSlackMessage(ir);
-    const text = fallbackText(ir);
+    const text = slackFallbackText(ir);
     try {
       const res = await this.client.chat.postEphemeral({
         channel: t.channel,
@@ -1154,66 +1155,4 @@ export function slack(opts: SlackAdapterOptions): SlackAdapter {
 function channelOf(ref: MessageRef): string {
   const channel = (ref as { channel?: unknown }).channel;
   return typeof channel === "string" ? channel : "";
-}
-
-/** Collect a node's descendant text into a single whitespace-joined string. */
-function collectNodeText(node: ChannelNode): string {
-  const acc: string[] = [];
-  const visit = (n: ChannelNode): void => {
-    if (typeof n.type === "string" && n.type === "text") {
-      const value = n.props?.value;
-      if (value != null) acc.push(String(value));
-      return;
-    }
-    const children = n.props?.children;
-    const list = Array.isArray(children)
-      ? children
-      : children && typeof children === "object" && "type" in children
-        ? [children]
-        : [];
-    for (const child of list as ChannelNode[]) visit(child);
-  };
-  visit(node);
-  return acc.join(" ");
-}
-
-/** Depth-first search for the first node of `type` in the IR tree. */
-function findFirst(ir: ChannelNode[], type: string): ChannelNode | undefined {
-  for (const node of ir) {
-    if (typeof node.type === "string" && node.type === type) return node;
-    const children = node.props?.children;
-    const list = Array.isArray(children)
-      ? children
-      : children && typeof children === "object" && "type" in children
-        ? [children]
-        : [];
-    const found = findFirst(list as ChannelNode[], type);
-    if (found) return found;
-  }
-  return undefined;
-}
-
-/**
- * Slack requires a plain-text `text` fallback alongside `blocks`/`attachments`
- * (used for notifications and a11y) — NOT a rendering of the card body. Return
- * a concise one-line summary: the card's header (title) if present, else the
- * first text encountered. Collapse whitespace and truncate to ~150 chars. This
- * MUST stay short: it is the notification text, never a dump of the whole tree
- * (which Slack would render as a duplicate "text wall" above the card).
- */
-function fallbackText(ir: ChannelNode[]): string {
-  const header = findFirst(ir, "header");
-  const source = header ? collectNodeText(header) : firstText(ir);
-  const text = source.replace(/\s+/g, " ").trim();
-  if (!text) return "…";
-  return text.length > 150 ? text.slice(0, 149) + "…" : text;
-}
-
-/** First descendant text node's value across the whole IR, or "". */
-function firstText(ir: ChannelNode[]): string {
-  for (const node of ir) {
-    const t = collectNodeText(node);
-    if (t.trim()) return t;
-  }
-  return "";
 }

@@ -30,7 +30,14 @@ export type {
   ChannelConcurrency,
   StatefulThread,
   ChannelComponent,
+  ChannelComponentRegistration,
 } from "./create-channel.js";
+export { defineChannelComponent } from "./channel-component.js";
+export type {
+  ChannelComponentDefinition,
+  ChannelComponentPlatform,
+  ChannelComponentRenderContext,
+} from "./channel-component.js";
 export {
   ChannelIdentityResolutionError,
   ChannelIdentityResultError,
@@ -151,8 +158,13 @@ export {
   ChannelMemoryUserRequiredError,
 } from "./thread.js";
 export {
+  channelDeliveryErrorDetails,
   ChannelDeliveryTerminatedError,
   isChannelDeliveryTerminatedError,
+} from "./delivery-error.js";
+export type {
+  ChannelDeliveryErrorDetails,
+  ChannelDeliveryTerminatedErrorOptions,
 } from "./delivery-error.js";
 
 // Pure per-platform codec seam shared with managed Intelligence delivery.

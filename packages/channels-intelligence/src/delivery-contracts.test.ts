@@ -12,6 +12,7 @@ const appendPayload = (): ChannelProviderPayload => ({
   kind: "slack.stream.append",
   providerReference: "pref_v1_reference_01",
   delta: "Hello",
+  fullText: "Hello",
 });
 
 const packet = (): ChannelDeliveryPacket => {
@@ -32,6 +33,19 @@ test("uses the hard-cut realtime delivery protocol", () => {
 
 test("accepts one destination-free packet", () => {
   expect(() => assertDeliveryPacket(packet())).not.toThrow();
+});
+
+test("accepts a legacy Slack stream append without an authoritative snapshot", () => {
+  const missingSnapshot = {
+    ...packet(),
+    payload: {
+      kind: "slack.stream.append",
+      providerReference: "pref_v1_reference_01",
+      delta: " world",
+    },
+  };
+
+  expect(() => assertDeliveryPacket(missingSnapshot)).not.toThrow();
 });
 
 test("rejects trusted addressing and credentials", () => {

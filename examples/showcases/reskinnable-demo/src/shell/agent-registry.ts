@@ -1,7 +1,11 @@
 import type { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { bankingAgent } from "@/skins/banking/agent";
 import { airlineAgent } from "@/skins/airline/agent";
+import { keelAgent } from "@/skins/keel/agent";
 import { bankingIdentifyUser } from "@/skins/banking/intelligence/user-id";
+import { keelIdentifyUser } from "@/skins/keel/intelligence/user-id";
+import { logisticsAgent } from "@/skins/logistics/agent";
+import { logisticsIdentifyUser } from "@/skins/logistics/intelligence/user-id";
 
 /**
  * Server-safe map of skin id → its server-side registration (agent factory +
@@ -39,6 +43,15 @@ export const agentRegistry: Record<string, AgentRegistration> = {
   banking: { createAgent: bankingAgent, identifyUser: bankingIdentifyUser },
   // Airline has no auth and no memory, so it contributes no identity resolver.
   airline: { createAgent: airlineAgent },
+  // Logistics scopes Intelligence per planner (authority + durable memory), so
+  // it contributes its own resolver.
+  logistics: {
+    createAgent: logisticsAgent,
+    identifyUser: logisticsIdentifyUser,
+  },
+  // Keel scopes Intelligence per persona (privacy/clinical staff), so it
+  // contributes its own resolver alongside the agent factory.
+  keel: { createAgent: keelAgent, identifyUser: keelIdentifyUser },
 };
 
 export const agentIds = Object.keys(agentRegistry);

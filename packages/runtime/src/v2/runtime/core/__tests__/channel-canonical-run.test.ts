@@ -149,6 +149,16 @@ function runArgs(
 }
 
 test("runCanonical rejects a RUN_ERROR event even when the runner completes", async () => {
+  const details = {
+    category: "validation",
+    provider: "slack",
+    operation: "chat.postMessage",
+    effectKind: "slack.message.create",
+    providerCode: "invalid_blocks",
+    validationMessages: ["invalid field at /blocks/2/elements/0/children"],
+    retryable: false,
+    deliveryId: "dlv_delivery_1",
+  } as const;
   const intelligence = new CopilotKitIntelligence({
     apiUrl: "https://runtime.example",
     wsUrl: "wss://runtime.example",
@@ -161,14 +171,35 @@ test("runCanonical rejects a RUN_ERROR event even when the runner completes", as
     of({
       type: EventType.RUN_ERROR,
       message: "agent failed",
-      code: "AGENT_FAILED",
+      code: "provider_call_failed",
+      category: "validation",
+      provider: "slack",
+      operation: "chat.postMessage",
+      effectKind: "slack.message.create",
+      providerCode: "invalid_blocks",
+      validationMessages: ["invalid field at /blocks/2/elements/0/children"],
+      retryable: false,
+      deliveryId: "dlv_delivery_1",
+      details,
+      cause: details,
     }),
   );
   const runCanonical = await captureRunCanonical(runner, { intelligence });
 
   await expect(runCanonical(runArgs())).rejects.toMatchObject({
     message: "agent failed",
-    code: "AGENT_FAILED",
+    name: "ChannelCanonicalRunError",
+    code: "provider_call_failed",
+    category: "validation",
+    provider: "slack",
+    operation: "chat.postMessage",
+    effectKind: "slack.message.create",
+    providerCode: "invalid_blocks",
+    validationMessages: ["invalid field at /blocks/2/elements/0/children"],
+    retryable: false,
+    deliveryId: "dlv_delivery_1",
+    details,
+    cause: details,
   });
   expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
 });

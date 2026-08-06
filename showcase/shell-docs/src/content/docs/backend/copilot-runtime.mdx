@@ -182,6 +182,8 @@ const runtime = new CopilotRuntime({
 
 Each server entry optionally accepts an `agentId` field to scope that server to a single agent. Without it, the server is available to all agents.
 
+Per-tool filtering belongs to `@ag-ui/mcp-apps-middleware`. The runtime currently pins version `0.0.3`, which does not support `includeTools` or `excludeTools`. Supplying either key raises a configuration error instead of silently ignoring it; use a compatible middleware release when that upstream policy contract is available.
+
 ## Forwarding request headers to your agent
 
 When a request reaches the runtime, some inbound headers are forwarded onto the outgoing call to your agent (the `/run` path that actually dispatches the agent). This is how a token configured by the frontend provider reaches a self-hosted agent — see [Authentication](/auth).
