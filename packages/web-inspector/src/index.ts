@@ -159,6 +159,8 @@ type InspectorAgentEventType =
   | "RUN_STARTED"
   | "RUN_FINISHED"
   | "RUN_ERROR"
+  | "STEP_STARTED"
+  | "STEP_FINISHED"
   | "TEXT_MESSAGE_START"
   | "TEXT_MESSAGE_CONTENT"
   | "TEXT_MESSAGE_END"
@@ -184,6 +186,8 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "RUN_STARTED",
   "RUN_FINISHED",
   "RUN_ERROR",
+  "STEP_STARTED",
+  "STEP_FINISHED",
   "TEXT_MESSAGE_START",
   "TEXT_MESSAGE_CONTENT",
   "TEXT_MESSAGE_END",
@@ -5319,6 +5323,12 @@ export class WebInspectorElement extends LitElement {
       },
       onRunErrorEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RUN_ERROR", event);
+      },
+      onStepStartedEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "STEP_STARTED", event);
+      },
+      onStepFinishedEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "STEP_FINISHED", event);
       },
       onTextMessageStartEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "TEXT_MESSAGE_START", event);

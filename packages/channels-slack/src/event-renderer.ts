@@ -111,8 +111,8 @@ export function createRunRenderer(args: {
   nativeStreaming?: {
     transport: NativeStreamTransport;
     /**
-     * Require native text delivery. Start, append, and stop failures propagate
-     * instead of creating or updating a second legacy message.
+     * Require native text delivery after the first native stream opens. A
+     * first-start failure still uses the legacy message transport.
      */
     strict?: boolean;
     /** Override the native text flush floor. */
