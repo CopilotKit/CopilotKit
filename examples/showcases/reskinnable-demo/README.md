@@ -13,7 +13,7 @@ one **skin** per route segment `/[skin]/...`, and ships four of them:
   across lanes, inventory, and decisions.
 - **`airline`** — "Aeronova", a passenger concierge. **In-memory** (a seed-backed
   React store): check-in and seat selection, loyalty, and disruption rebooking.
-- **`keel`** — "Harbor Point Health", a healthcare knowledge and operations desk.
+- **`keel`** — "Keel", Harbor Point Health's knowledge and operations desk.
   **In-memory** (a seed-backed React store), and the only skin with parameterized
   routes (`knowledge/<docId>`, `runs/<runId>`).
 

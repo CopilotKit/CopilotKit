@@ -342,7 +342,7 @@ matrix at the end of this section.
   `onSuggestionSelect`, `RuntimeProviders`, `useRuntimeProperties`, and a server
   `identifyUser` — the minimal end of the contract (only `toolLabels` beyond the
   required fields).
-- **`keel`** (Harbor Point Health) — **in-memory**, a healthcare knowledge and
+- **`keel`** ("Keel") — **in-memory**, Harbor Point Health's knowledge and
   operations desk. Sets `useData: useKeelData` (a `useState` store over
   `seedKeelRuns`), plus `CanvasSurface` (server tool `render_ops_report`),
   `sandboxFunctions`, `toolLabels`, `RuntimeProviders`, `useRuntimeProperties`
