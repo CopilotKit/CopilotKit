@@ -13,6 +13,8 @@ export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView"> & {
   header?: CopilotSidebarViewProps["header"];
   toggleButton?: CopilotSidebarViewProps["toggleButton"];
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   width?: number | string;
   position?: CopilotSidebarViewProps["position"];
 };
@@ -21,6 +23,8 @@ export function CopilotSidebar({
   header,
   toggleButton,
   defaultOpen,
+  open,
+  onOpenChange,
   width,
   position,
   ...chatProps
@@ -54,13 +58,15 @@ export function CopilotSidebar({
           toggleButton={toggleButton ?? viewToggleButton}
           width={width ?? viewWidth}
           defaultOpen={defaultOpen ?? viewDefaultOpen}
+          open={open}
+          onOpenChange={onOpenChange}
           position={position ?? viewPosition}
         />
       );
     };
 
     return Object.assign(Component, CopilotChatView);
-  }, [header, toggleButton, width, defaultOpen, position]);
+  }, [header, toggleButton, width, defaultOpen, open, onOpenChange, position]);
 
   return (
     <>

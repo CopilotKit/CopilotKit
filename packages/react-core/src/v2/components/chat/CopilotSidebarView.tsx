@@ -21,6 +21,8 @@ export type CopilotSidebarViewProps = CopilotChatViewProps & {
   toggleButton?: SlotValue<typeof CopilotChatToggleButton>;
   width?: number | string;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   position?: "left" | "right";
 };
 
@@ -29,11 +31,17 @@ export function CopilotSidebarView({
   toggleButton,
   width,
   defaultOpen = true,
+  open,
+  onOpenChange,
   position = "right",
   ...props
 }: CopilotSidebarViewProps) {
   return (
-    <CopilotChatConfigurationProvider isModalDefaultOpen={defaultOpen}>
+    <CopilotChatConfigurationProvider
+      isModalDefaultOpen={defaultOpen}
+      isModalOpenProp={open}
+      onModalOpenChange={onOpenChange}
+    >
       <CopilotSidebarViewInternal
         header={header}
         toggleButton={toggleButton}

@@ -1195,5 +1195,38 @@ describe("CopilotChatConfigurationProvider", () => {
 
       restore();
     });
+
+    it("supports controlled mode with isModalOpenProp and onModalOpenChange", () => {
+      const onOpenChange = vi.fn();
+      const { rerender } = render(
+        <CopilotChatConfigurationProvider
+          threadId="test-thread"
+          isModalOpenProp={false}
+          onModalOpenChange={onOpenChange}
+        >
+          <DrawerControls id="controlled" />
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("controlled-modal").textContent).toBe("false");
+
+      rerender(
+        <CopilotChatConfigurationProvider
+          threadId="test-thread"
+          isModalOpenProp={true}
+          onModalOpenChange={onOpenChange}
+        >
+          <DrawerControls id="controlled" />
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("controlled-modal").textContent).toBe("true");
+
+      act(() => {
+        fireEvent.click(screen.getByTestId("controlled-modal-close"));
+      });
+
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
   });
 });

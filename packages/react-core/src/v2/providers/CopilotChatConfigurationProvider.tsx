@@ -165,6 +165,8 @@ export interface CopilotChatConfigurationProviderProps {
   // was supplied.
   hasExplicitThreadId?: boolean;
   isModalDefaultOpen?: boolean;
+  isModalOpenProp?: boolean;
+  onModalOpenChange?: (open: boolean) => void;
 }
 
 // Provider component
@@ -177,6 +179,8 @@ export const CopilotChatConfigurationProvider: React.FC<
   threadId,
   hasExplicitThreadId,
   isModalDefaultOpen,
+  isModalOpenProp,
+  onModalOpenChange,
 }) => {
   const parentConfig = useContext(CopilotChatConfiguration);
 
@@ -274,18 +278,19 @@ export const CopilotChatConfigurationProvider: React.FC<
     (open: boolean) => {
       setInternalModalOpen(open);
       parentConfig?.setModalOpen(open);
+      onModalOpenChange?.(open);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [parentConfig?.setModalOpen],
+    [parentConfig?.setModalOpen, onModalOpenChange],
   );
 
-  // Sync parent → child: when an ancestor's modal state is changed externally
-  // (e.g. the user calls setModalOpen from an outer hook), reflect that change
-  // in our own state so the sidebar/popup responds accordingly.
-  // Skip the initial mount so that our own isModalDefaultOpen is respected and
-  // not immediately overwritten by the parent's current value.
+  // Sync parent / prop → child state
   const isMounted = useRef(false);
   useEffect(() => {
+    if (isModalOpenProp !== undefined) {
+      setInternalModalOpen(isModalOpenProp);
+      return;
+    }
     if (!hasExplicitDefault) return;
     if (!isMounted.current) {
       isMounted.current = true;
@@ -293,9 +298,11 @@ export const CopilotChatConfigurationProvider: React.FC<
     }
     if (parentConfig?.isModalOpen === undefined) return;
     setInternalModalOpen(parentConfig.isModalOpen);
-  }, [parentConfig?.isModalOpen, hasExplicitDefault]);
+  }, [isModalOpenProp, parentConfig?.isModalOpen, hasExplicitDefault]);
 
-  const resolvedIsModalOpen = hasExplicitDefault
+  const resolvedIsModalOpen = isModalOpenProp !== undefined
+    ? isModalOpenProp
+    : hasExplicitDefault
     ? internalModalOpen
     : (parentConfig?.isModalOpen ?? internalModalOpen);
   const resolvedSetModalOpen = hasExplicitDefault
