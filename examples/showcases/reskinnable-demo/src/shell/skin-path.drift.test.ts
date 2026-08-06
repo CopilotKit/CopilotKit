@@ -19,10 +19,31 @@ import { skinIds } from "@/shell/skins-config";
  *         result, where `base = skinHref()`
  *
  * An earlier version of this guard enumerated the exact spellings `${skin.id}` /
- * `${skinId}` and the literal ids. That is a losing game: it reported green while
- * blind to `` `${base}/charges` `` (base = skinHref()), which shipped and put
- * `//charges` in the address bar. A guard that lists known spellings of a mistake
- * cannot cover the space — so each detector below matches the SHAPE of the defect.
+ * `${skinId}` and the literal ids. For shapes (iii) and (i) that was a losing
+ * game: it reported green while blind to a renamed id holder like `` `/${s.id}/…` ``.
+ * So those two detectors now match the SHAPE — ANY registered id, and ANY
+ * expression whose tail is `id`/`Id` — rather than a fixed spelling list.
+ *
+ * Detector (ii) is HONESTLY DIFFERENT, and the difference is a deliberate design
+ * choice, not the same mistake one level up. It is NAME-GATED: it fires only on a
+ * variable bound from a bare `skinHref(` / `keelHref(` call — the two sanctioned
+ * builder-result names. This is forced, not lazy. A purely lexical guard cannot
+ * tell a skin-href call from any other string-returning call: `const base =
+ * skinHref()` and `const base = apiUrl.replace(...)` (banking/intelligence) are
+ * the SAME shape, and concatenating onto the latter is legitimate — `` `${base}/api/memories` ``
+ * is a server route the lock never touches. "Returns a skin href" is knowable
+ * ONLY by name here, so a name gate is the only sound way to catch the
+ * `` `${base}/charges` `` bug (the one that shipped a `//`) without falsely tripping
+ * every REST base in the tree.
+ *
+ * THE ACCEPTED BLIND SPOT. Bind the href from a builder under any OTHER name —
+ * `const base = linkTo()`, or a method call `const base = api.skinHref()` — and
+ * the `//` it would produce slips through silently. That gap is bounded and cheap
+ * to accept because `useSkinHref` / `useKeelHref` (whose results these two names
+ * hold) are the ONLY in-skin href builders the reskin skill teaches; a conforming
+ * skin has no other. The gap is pinned in an executable test below ("documents the
+ * one accepted blind spot") so it stays a known, reviewed decision — if a future
+ * change makes it fire, that is a scope change to weigh, not a free win.
  *
  * WHY A STATIC GUARD AND NOT A RENDER TEST. This violation is invisible to every
  * other check we have. A hardcoded `/banking/cards` type-checks, lints, renders,
@@ -233,5 +254,25 @@ describe("URL contract drift guard", () => {
     expect(
       urlContractOffense("fetch(`/api/banking/v1/cards/${cardId}/policy`)"),
     ).toBeNull();
+  });
+
+  it("documents the one accepted blind spot: a renamed href builder", () => {
+    // Detector (ii) is name-gated to the two sanctioned builder-result names
+    // `skinHref`/`keelHref` (see the header). Bind the href from a builder under
+    // ANY other name and the `//` it would produce is NOT caught. These asserts
+    // pin that deliberate precision/recall trade-off in executable form: the gap
+    // is a reviewed decision, not a silent regression. If a future change makes
+    // either of these fire, that is a scope change to weigh — treat this test as
+    // the checkpoint, not an incidental red.
+    expect(
+      urlContractOffense(
+        "const base = linkTo();\nrouter.push(`${base}/charges`);",
+      ),
+    ).toBeNull(); // renamed BUILDER (not skinHref/keelHref) — accepted blind spot
+    expect(
+      urlContractOffense(
+        "const base = api.skinHref();\nrouter.push(`${base}/charges`);",
+      ),
+    ).toBeNull(); // method-call builder — RHS is not a bare `skinHref(`
   });
 });
