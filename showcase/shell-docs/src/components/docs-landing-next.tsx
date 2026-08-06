@@ -21,7 +21,10 @@ const backendDescriptions: Record<string, string> = {
   deepagents: "LangChain Deep Agents connected to CopilotKit product UI.",
   "google-adk": "Gemini-powered Google ADK agents connected through AG-UI.",
   mastra: "TypeScript-native agents, tools, memory, and workflows.",
-  "crewai-crews": "CrewAI crews wired into CopilotKit product interfaces.",
+  "crewai-crews":
+    "Regular CrewAI Flows wired into CopilotKit product interfaces.",
+  "crewai-conversational-flows":
+    "Native session-aware CrewAI Flows driven through public turns.",
   "pydantic-ai": "Typed Python agents with PydanticAI and CopilotKit UI.",
   agno: "Agno agents with tools, state, and generative UI examples.",
   ag2: "AG2 agents with CopilotKit chat, tools, and HITL flows.",

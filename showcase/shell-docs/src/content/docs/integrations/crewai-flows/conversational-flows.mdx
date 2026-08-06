@@ -1,0 +1,55 @@
+---
+title: Conversational Flows
+description: Connect CrewAI's native session-aware Conversational Flows to CopilotKit through AG-UI.
+icon: "lucide/MessagesSquare"
+doc_type: guide
+---
+
+CrewAI Conversational Flows are native, session-aware Flows driven one public turn at a time. They use the same Flow methods, tools, state, reasoning, interrupts, and generative UI patterns as regular CrewAI Flows, but enter the graph through `stream_turn` instead of `kickoff` or `astream`.
+
+The AG-UI integration maps the CopilotKit `threadId` to CrewAI's conversation `session_id`. This keeps each browser thread isolated while preserving state and conversation history across turns.
+
+## Install the alpha
+
+Conversational Flow support is available in the `ag-ui-crewai` 0.2.2 alpha:
+
+```bash
+pip install "ag-ui-crewai==0.2.2a1" "crewai==1.15.11"
+```
+
+## Register a Conversational Flow
+
+Start with an existing Flow, opt it into CrewAI's conversation runtime, and register the endpoint with `conversational=True`:
+
+```python
+from crewai.experimental.conversational import ConversationConfig
+from fastapi import FastAPI
+from ag_ui_crewai import add_crewai_flow_fastapi_endpoint
+
+class MyConversationalFlow(MyFlow):
+    conversational = True
+    conversational_config = ConversationConfig(
+        defer_trace_finalization=False,
+    )
+
+app = FastAPI()
+
+add_crewai_flow_fastapi_endpoint(
+    app,
+    MyConversationalFlow(),
+    "/conversation",
+    conversational=True,
+)
+```
+
+The bridge calls `flow.stream_turn(message, session_id=thread_id)` for each CopilotKit turn. It hydrates prior messages and incoming state before the call, preserves media blocks on the newest user message, and translates the resulting ordered StreamFrames into AG-UI events.
+
+## Capability contract
+
+Conversational mode requires a Flow that sets `conversational = True`, exposes the public `stream_turn` method, and runs on CrewAI's ordered StreamFrame transport. If that contract is unavailable, the endpoint emits a correlated `RUN_ERROR` with code `AGUI_CREWAI_CONVERSATIONAL_FLOW_UNSUPPORTED`. It does not silently fall back to regular Flow execution.
+
+Use `get_capabilities()["conversationalFlows"]` when an application needs to inspect support at runtime.
+
+## Explore the showcase
+
+The [CrewAI feature parity matrix](/crewai-flows/feature-parity) presents this execution model as its own framework column. Its frontend demos and browser probes match the regular CrewAI Flows column, so differences stay limited to the backend execution path and deterministic fixtures.

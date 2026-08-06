@@ -109,6 +109,11 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     exhaust:
       "Build a CrewAI report that fails every validation pass so I can preview the fallback.",
   },
+  "crewai-conversational-flows": {
+    heal: "Build a CrewAI Q2 revenue summary and self-correct a malformed first attempt.",
+    exhaust:
+      "Build a CrewAI report that fails every validation pass so I can preview the fallback.",
+  },
   "langgraph-fastapi": {
     heal: "Put together a quarterly metrics overview and repair a malformed first attempt.",
     exhaust:

@@ -5,9 +5,14 @@ icon: "lucide/BadgeCheck"
 doc_type: reference
 ---
 
-The CrewAI showcase implements the complete CopilotKit D6 feature matrix: **41 of 41 runnable demos**. These demos exercise the same shared browser probes and user-visible assertions as the LangGraph Python showcase, with CrewAI-specific agent code and deterministic fixtures behind the common frontend surface.
+The CrewAI showcase implements the complete CopilotKit D6 feature matrix for both regular Flows and native Conversational Flows. The two columns exercise the same shared browser probes and user-visible assertions as the LangGraph Python showcase, with CrewAI-specific agent code and deterministic fixtures behind the common frontend surface.
 
-The manifest also includes the `cli-start` capability. It is documented and connected to the [CrewAI quickstart](/crewai-crews/quickstart), but it is not included in the 41 browser-run demos because it is a terminal command rather than a web route.
+| Showcase column | D6 result |
+| --- | --- |
+| CrewAI Flows | 41/41 |
+| CrewAI Conversational Flows | 41/41 |
+
+The manifest also includes the `cli-start` capability. It is documented and connected to the [CrewAI quickstart](/crewai-flows/quickstart), but it is not included in the 41 browser-run demos because it is a terminal command rather than a web route.
 
 ## Supported capabilities
 
@@ -22,11 +27,12 @@ The manifest also includes the `cli-start` capability. It is documented and conn
 
 Each runnable capability is exercised through its real CrewAI integration route and the shared showcase frontend. The D6 probes verify observable behavior such as streamed assistant text and reasoning, tool-call and tool-result lifecycles, rendered UI surfaces, state synchronization, interrupt suspension and resume, frontend-owned actions, authentication boundaries, and multimodal request handling.
 
-The CrewAI implementation uses native CrewAI Flows for agent execution and AG-UI event streaming. Framework-specific behavior remains in the CrewAI backend and fixtures; the test probes and feature presentation stay aligned with the LangGraph Python north star.
+The CrewAI Flows implementation enters each graph through `kickoff` or `astream`. The CrewAI Conversational Flows implementation enters the same feature logic through CrewAI's public `stream_turn` API, using the AG-UI `threadId` as its session ID. Framework-specific behavior remains in the CrewAI backend and fixtures; the test probes and feature presentation stay aligned with the LangGraph Python north star.
 
 ## Next steps
 
-- **Build your first integration:** [CrewAI quickstart](/crewai-crews/quickstart) — connect a CrewAI agent to CopilotKit.
-- **Understand the transport:** [AG-UI](/crewai-crews/ag-ui) — learn how agent events reach the frontend.
-- **Explore interactive UI:** [Tool rendering](/crewai-crews/generative-ui/tool-rendering) — render CrewAI tools with application components.
-- **Add user checkpoints:** [Human in the loop](/crewai-crews/human-in-the-loop) — pause CrewAI work for user input and resume it safely.
+- **Build your first integration:** [CrewAI quickstart](/crewai-flows/quickstart) — connect a CrewAI agent to CopilotKit.
+- **Use native turn-based Flows:** [CrewAI Conversational Flows](/crewai-flows/conversational-flows) — register a session-aware Flow through `stream_turn`.
+- **Understand the transport:** [AG-UI](/crewai-flows/ag-ui) — learn how agent events reach the frontend.
+- **Explore interactive UI:** [Tool rendering](/crewai-flows/generative-ui/tool-rendering) — render CrewAI tools with application components.
+- **Add user checkpoints:** [Human in the loop](/crewai-flows/human-in-the-loop) — pause CrewAI work for user input and resume it safely.

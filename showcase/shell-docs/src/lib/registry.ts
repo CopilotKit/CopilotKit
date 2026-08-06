@@ -229,6 +229,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "langgraph-fastapi": "langgraph",
   "google-adk": "adk",
   "crewai-crews": "crewai-flows",
+  "crewai-conversational-flows": "crewai-flows",
   strands: "aws-strands",
   "strands-typescript": "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",

@@ -29,6 +29,7 @@ export const FRAMEWORK_DISPLAY_ORDER: readonly string[] = [
   "langroid",
   "spring-ai",
   "crewai-crews",
+  "crewai-conversational-flows",
 ];
 
 export function compareByDisplayOrder(a: string, b: string): number {

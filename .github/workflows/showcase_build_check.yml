@@ -65,6 +65,8 @@ jobs:
               - 'showcase/integrations/mastra/**'
             crewai_crews:
               - 'showcase/integrations/crewai-crews/**'
+            crewai_conversational_flows:
+              - 'showcase/integrations/crewai-conversational-flows/**'
             pydantic_ai:
               - 'showcase/integrations/pydantic-ai/**'
             google_adk:
@@ -145,6 +147,7 @@ jobs:
             {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"crewai-conversational-flows","filter_key":"crewai_conversational_flows","context":"showcase/integrations/crewai-conversational-flows","image":"showcase-crewai-conversational-flows","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","timeout":15,"build_args":"","dockerfile":""},

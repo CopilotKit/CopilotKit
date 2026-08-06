@@ -302,7 +302,10 @@ describe("fixture collision detection", () => {
     // Each pair is scoped to crewai-crews and disambiguated at runtime by the
     // active route/fixtureFile, so 290 + 26 = 316 and the net ceiling increase
     // is 12 rather than 26.
-    const KNOWN_DUPLICATE_CEILING = 316;
+    // Bumped 316 -> 359 for the separate CrewAI Conversational Flows column.
+    // Its fixture context intentionally mirrors the regular CrewAI Flows
+    // matrix, including 43 route-disambiguated cross-demo aliases.
+    const KNOWN_DUPLICATE_CEILING = 359;
 
     const collisions: string[] = [];
 

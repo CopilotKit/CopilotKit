@@ -353,7 +353,7 @@ async def test_multimodal_flow_preserves_converted_content_blocks(monkeypatch):
     await flow.chat()
 
     assert captured["messages"][-1]["content"] == content
-    assert captured["model"] == "openai/gpt-4o"
+    assert captured["model"] == "openai/gpt-5.4"
 
 
 @pytest.mark.asyncio
