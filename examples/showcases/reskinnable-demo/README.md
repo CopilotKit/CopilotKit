@@ -72,8 +72,10 @@ throws at boot rather than silently 404ing every page. See `.env.example`.
 
 ## Adding a skin
 
-Follow the repo-local **reskin skill** in `.claude/skills/reskin/` (SKILL.md +
-templates.md). The shape:
+Follow the repo-local **reskin skill** in `.claude/skills/reskin/` — three files:
+**demo-beats.md**, SKILL.md and templates.md. Read demo-beats.md FIRST: the demo
+decides the tools, pages and pills, so discovering the beats afterwards means
+rebuilding them. The shape:
 
 1. Scaffold `src/skins/<id>/` and implement each `Skin` contract field.
 2. Write `theme.css` (a `.theme-<id>` block re-valuing the shared tokens) and
