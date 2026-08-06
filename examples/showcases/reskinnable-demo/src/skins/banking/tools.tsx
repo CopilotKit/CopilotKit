@@ -11,6 +11,7 @@ import { z } from "zod";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import useCreditCards from "@/skins/banking/actions";
+import { navTarget, chargesTarget } from "@/skins/banking/nav-target";
 import { CHARGE_CATEGORIES } from "@/skins/banking/pages/charges-data";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
 import { useRecording } from "@/skins/banking/components/recording-context";
@@ -108,7 +109,6 @@ export function BankingTools() {
   const { currentUser } = useAuthContext();
   const skin = useSkin();
   const skinHref = useSkinHref(skin.id);
-  const base = skinHref();
   const router = useRouter();
   // Page segment RELATIVE to the skin base. The raw pathname carries the skin
   // prefix on an unlocked deploy (`/banking/<page>`) and not on a locked one, so
@@ -252,12 +252,12 @@ export function BankingTools() {
               // Card tools/operations (add card, change PIN) are registered on
               // the skin's INDEX route (the Credit Cards view), so `/` and the
               // `/cards` alias both land on the skin base; `/team` maps to the
-              // team segment under the skin base. Skin-relative so this works
-              // under /[skin] routing instead of 404ing at a root path.
-              const target =
-                page === "/" || page === "/cards"
-                  ? base
-                  : `${base}${page!.toLowerCase()}`;
+              // team segment under the skin base. `navTarget` routes through
+              // `skinHref` (not by concatenating onto its no-arg result) so it is
+              // skin-relative under /[skin] routing AND never emits a
+              // protocol-relative `//` href on a locked deploy, where the no-arg
+              // base is "/".
+              const target = navTarget(skinHref, page!);
               // Client-side navigation: a full reload (window.location) tears
               // down the chat panel mid-run, so the conversation — and the
               // in-flight operation — is lost the moment we navigate.
@@ -614,7 +614,11 @@ export function BankingTools() {
             if (from) params.set("from", from);
             if (to) params.set("to", to);
             const qs = params.toString();
-            router.push(qs ? `${base}/charges?${qs}` : `${base}/charges`);
+            // `chargesTarget` builds through `skinHref` rather than concatenating
+            // onto its no-arg result: `/banking/charges` unlocked, `/charges`
+            // locked — where `${base}/charges` would emit the protocol-relative
+            // `//charges` on a lock (base is "/"). Query string preserved.
+            router.push(chargesTarget(skinHref, qs));
             respond?.(`Opened the Charges page${qs ? ` (${qs})` : ""}.`);
           }}
           onCancel={() => respond?.("The user chose to stay on this page.")}
