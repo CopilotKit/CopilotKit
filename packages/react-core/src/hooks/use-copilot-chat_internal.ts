@@ -612,6 +612,18 @@ export function useCopilotChatInternal({
     threadId: existingConfig?.threadId ?? threadId,
   });
   const allMessages = agent?.messages ?? [];
+  const messagesFingerprint = useMemo(
+    () =>
+      allMessages
+        .map((m) =>
+          typeof m.content === "object" && m.content !== null
+            ? JSON.stringify(m.content)
+            : String(m.content ?? ""),
+        )
+        .join("|"),
+    [allMessages],
+  );
+
   const resolvedMessages = useMemo(() => {
     let processedMessages = allMessages.map((message) => {
       if (message.role !== "assistant") {
@@ -734,6 +746,7 @@ export function useCopilotChatInternal({
     return processedMessages;
   }, [
     agent?.messages,
+    messagesFingerprint,
     lazyToolRendered,
     allMessages,
     renderCustomMessage,

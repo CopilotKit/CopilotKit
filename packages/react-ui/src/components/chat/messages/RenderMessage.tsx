@@ -23,6 +23,13 @@ export function RenderMessage({
     markdownTagRenderers,
   } = props;
 
+  const hasContent =
+    typeof message.content === "string"
+      ? message.content.length > 0
+      : typeof message.content === "object" && message.content !== null
+        ? Object.keys(message.content).length > 0
+        : !!message.content;
+
   switch (message.role) {
     case "user":
       return (
@@ -43,8 +50,8 @@ export function RenderMessage({
           rawData={message}
           message={message}
           messages={messages}
-          isLoading={inProgress && isCurrentMessage && !message.content}
-          isGenerating={inProgress && isCurrentMessage && !!message.content}
+          isLoading={inProgress && isCurrentMessage && !hasContent}
+          isGenerating={inProgress && isCurrentMessage && hasContent}
           isCurrentMessage={isCurrentMessage}
           onRegenerate={() => onRegenerate?.(message.id)}
           onCopy={onCopy}
