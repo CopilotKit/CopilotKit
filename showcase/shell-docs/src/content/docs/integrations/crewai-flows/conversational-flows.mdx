@@ -13,6 +13,13 @@ The AG-UI integration maps the CopilotKit `threadId` to CrewAI's conversation `s
 
 Conversational Flow support is available in the `ag-ui-crewai` 0.2.2 alpha:
 
+<Callout type="warn" title="CrewAI 1.15.11 or later is required">
+  CopilotKit's Conversational Flows integration requires CrewAI 1.15.11 or
+  later. This is the minimum version verified with the `stream_turn` and ordered
+  StreamFrame behavior the integration expects. The command below pins that
+  version for reproducible alpha testing.
+</Callout>
+
 ```bash
 pip install "ag-ui-crewai==0.2.2a1" "crewai==1.15.11"
 ```
