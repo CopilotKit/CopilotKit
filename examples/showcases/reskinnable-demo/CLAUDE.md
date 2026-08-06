@@ -8,9 +8,23 @@ assistant column, plus a repo-local **reskin skill**
 (`.claude/skills/reskin/`) for authoring new ones.
 
 The point of the app is the `Skin` contract: a single interface that swaps a
-whole product without the shell knowing anything domain-specific. The two
-shipped skins deliberately sit on **different data substrates** (banking is
-REST-backed, airline is in-memory) to prove the contract is substrate-agnostic.
+whole product without the shell knowing anything domain-specific. The skins
+deliberately sit on **two different data substrates** — banking and logistics are
+REST-backed, airline and keel are in-memory — to prove the contract is
+substrate-agnostic.
+
+**Each skin is also a live sales demo.** It exists to prove CopilotKit and
+Intelligence top to bottom to an enterprise buyer, through a fixed set of demo
+**beats**: lead with generative UI, show that threads store AG-UI streams rather
+than text, manipulate the app four ways (drive it, read the screen, navigate via
+real levers, ingest a document into a durable artifact), recall long-term memory,
+replay a stored procedure, and learn a new one on stage. `banking` is the
+reference implementation and the only skin that currently hits every beat. The
+beats, and what each one must prove, are specified in
+[`.claude/skills/reskin/demo-beats.md`](.claude/skills/reskin/demo-beats.md) —
+read it before adding or changing a skin's tools, prompt or suggestion pills,
+because a skin that wires the contract perfectly and hits no beats is a failed
+skin.
 
 ## Shell vs skins
 
@@ -113,7 +127,14 @@ export type IdentifyRunUser = (
 - **Banking** contributes `bankingIdentifyUser`
   (`src/skins/banking/intelligence/user-id.ts`), which maps the client-forwarded
   `properties` ({ userRole, userId }) onto its per-member/role memory scope.
-  **Airline** omits it (no auth, no memory).
+  **Logistics** and **keel** contribute one too (`logisticsIdentifyUser`,
+  `keelIdentifyUser`) for thread scoping — though neither yet uses it for durable
+  memory. **Airline** is the only skin that omits it (no auth, no memory).
+- Banking additionally ships `intelligence/seed-memories.ts` and
+  `intelligence/forget-memories.ts`, which its `dev/reset` route uses to wipe
+  learned memories and re-seed the ones the demo must start out already knowing.
+  That file is what makes the long-term-memory and stored-procedure beats work;
+  it is not emergent behaviour.
 - `identifyUser` is reached through the **server-only** registry, so it MUST be
   server-safe: **no `"use client"`, no JSX, no `.tsx` imports.** Keep it in a
   plain `.ts` module.
@@ -140,14 +161,22 @@ export type IdentifyRunUser = (
   the provider, so `useRuntimeProperties` can read its context) →
   `CopilotKitProvider` (runtimeUrl `/api/copilotkit`, `useSingleEndpoint={false}`,
   `properties={skin.useRuntimeProperties?.()}`, the skin's `catalog`,
-  `sandboxFunctions`, `designSkill`) → `CopilotChatConfigurationProvider
+  `sandboxFunctions`, `designSkill`, and `showDevConsole={true}`) →
+  `CopilotChatConfigurationProvider
 agentId={skin.id}` → `SkinProvider` (runs `skin.useData?.()`) → chat-inbox +
   canvas providers → the skin's optional `Providers` (mounted **below** the
   provider) → `SkinSuggestions` + `Tools` + `LayoutPreferencesProvider` →
   `ShellFrame`, which receives the skin's `Layout` (wrapping `CanvasRegion`) as its
   `app` slot and the shared `ChatPanel` as its `chat` slot.
+- **The inspector is shell-mounted for every skin** via that
+  `showDevConsole={true}`, which surfaces `CopilotKitInspector`. It replaced the
+  old app-specific "glass engine"; a skin contributes nothing to it. Not part of
+  the standard demo flow, but the thing to open when a technical audience wants to
+  see the actual AG-UI event stream, or when debugging one.
 - `src/app/[skin]/[[...rest]]/page.tsx` — renders `skin.resolvePage(rest)`, or a
-  404 when it returns `null`.
+  404 when it returns `null`. `resolvePage` receives **all** remaining segments, so
+  a skin can resolve parameterized routes — `keel` is the worked example
+  (`knowledge/<docId>`, `runs/<runId>`).
 - `src/app/api/copilotkit/[[...slug]]/route.ts` — the Hono runtime handler. It
   builds one `BuiltInAgent` per registered skin from `agentRegistry` (calling
   each registration's `createAgent`), keyed by id, so `agentId={skin.id}`
@@ -179,8 +208,12 @@ Things worth knowing before changing any of it:
   of rail + conversation and produced a cascade of breakpoint and collapse bugs.
 - **`react-resizable-panels` is pinned to 4.x**, whose API is renamed from the 2.x/3.x
   used elsewhere in this repo: `Group`/`orientation`/`Separator`/`useDefaultLayout`.
-  A `Panel`'s `id` also becomes its emitted `data-testid`, overwriting any you pass.
-  See the header comment in `src/components/ui/resizable.tsx`.
+  Bare-number sizes are **pixels** in 4.x (3.x is percentage-only), which is why the
+  pin exists. A `Panel`'s `className` lands on a **nested** div, so panel geometry
+  must come from `minSize`/`defaultSize`/`collapsedSize` and never from classes; the
+  emitted style hooks are `data-group` / `data-panel` / `data-separator`. See the
+  header comment in `src/components/ui/resizable.tsx`, and treat the type
+  declarations in `node_modules` as the authority over any doc site.
 - **Shell controls live in the selector card** — skin switcher, swap sides, hide.
   The chat header holds only conversation actions. Collapsing hides the whole
   column, selector included, and a launcher restores it.
@@ -229,20 +262,36 @@ Gen-UI components registered via `useComponent` (airline's flight card, banking'
 charts and queues) render in the chat transcript, not on the canvas — that is a
 separate path from the full-region canvas surfaces above.
 
-## The two skins (why they differ)
+## The four skins (why they differ)
 
-- **`banking`** ("Northwind Finance") — **REST-backed**. Its pages, tools, and
-  report canvas read a live ledger over `/api/banking/v1/*` (cards, transactions,
-  users, policies, exceptions, reports, and a gated `dev/reset`). It uses the
-  optional `Providers`, `CanvasSurface`, `sandboxFunctions`, `chatHeaderActions`
-  (a paperclip that stages a bundled Q2 invoice PDF), `onSuggestionSelect` (the
-  Q2 pill drives the real composer so the invoice rides as an attachment), and —
-  to scope durable memory per member — `RuntimeProviders` (hoists its
-  `AuthContextProvider` above the provider) + `useRuntimeProperties` (returns
-  `{ userRole, userId }`) on the client plus a server-safe `identifyUser` in the
-  agent registry. It **omits** `useData` — its components read the REST ledger
-  via `useCreditCards` and the current member via `useAuthContext` directly, so
-  nothing flows through `useSkinData`.
+Two substrates behind one contract is the architectural demonstration. Demo
+completeness is a **separate axis**, and the two do not correlate — see the beat
+matrix at the end of this section.
+
+- **`banking`** ("Northwind Finance") — **REST-backed**, and the reference demo.
+  Its pages, tools, and report canvas read a live ledger over
+  `/api/banking/v1/*` (cards, transactions, users, policies, exceptions, reports,
+  and a gated `dev/reset`). It uses the optional `Providers`, `CanvasSurface`,
+  `sandboxFunctions`, `chatHeaderActions` (a paperclip that stages a bundled Q2
+  invoice PDF), `onSuggestionSelect` (the Q2 pill drives the real composer so the
+  invoice rides as an attachment), and — to scope durable memory per member —
+  `RuntimeProviders` (hoists its `AuthContextProvider` above the provider) +
+  `useRuntimeProperties` (returns `{ userRole, userId }`) on the client plus a
+  server-safe `identifyUser` in the agent registry. It **omits** `useData` — its
+  components read the REST ledger via `useCreditCards` and the current member via
+  `useAuthContext` directly, so nothing flows through `useSkinData`. It is also
+  the only skin with a route readable, per-page on-screen readables, seeded
+  memories, and the teach-mode loop (`docs/teach-mode/`).
+- **`logistics`** ("Meridian") — **REST-backed**. A freight control tower for
+  exception triage (expedite / reroute / split / absorb) across pages
+  `control-tower` (index), `lanes`, `inventory`, `decisions`. Like banking it
+  **omits `useData`**, reading its ledger via `useLogistics()` and the planner via
+  `usePlannerAuth()`. Sets `RuntimeProviders`, `useRuntimeProperties`,
+  `Providers`, `CanvasSurface` (fed by the server tool `renderBrief`),
+  `sandboxFunctions`, `toolLabels` and a server `identifyUser`; omits
+  `chatHeaderActions` and `onSuggestionSelect`. **The debugged reference for skin
+  layout chrome** — the `h-full overflow-hidden` root and the meta-utility strip
+  were fixed here first.
 - **`airline`** ("Aeronova") — **in-memory**. Its `useData` (`useAirlineData`) is
   a seed-backed React-state store with no backend; mutations (`selectSeat`,
   `issueBoardingPass`, `chooseRebooking`) update local state. It omits
@@ -250,24 +299,62 @@ separate path from the full-region canvas surfaces above.
   `onSuggestionSelect`, `RuntimeProviders`, `useRuntimeProperties`, and a server
   `identifyUser` — the minimal end of the contract (only `toolLabels` beyond the
   required fields).
+- **`keel`** (Harbor Point Health) — **in-memory**, a healthcare knowledge and
+  operations desk. Sets `useData: useKeelData` (a `useState` store over
+  `seedKeelRuns`), plus `CanvasSurface` (server tool `render_ops_report`),
+  `sandboxFunctions`, `toolLabels`, `RuntimeProviders`, `useRuntimeProperties`
+  and a server `identifyUser`; omits `Providers`, `chatHeaderActions`,
+  `onSuggestionSelect`. **The only skin with parameterized routes** —
+  `resolvePage` is Map-based and resolves `knowledge/<docId>` → `DocumentPage` and
+  `runs/<runId>` → `RunDetailPage` alongside its static segments.
 
-Two substrates behind one contract is the whole demonstration.
+### Demo-beat coverage (the other axis)
+
+| Beat                             | banking                   | airline | logistics     | keel          |
+| -------------------------------- | ------------------------- | ------- | ------------- | ------------- |
+| Gen-UI in transcript             | ✅ 8                      | ✅ 6    | ✅ 5          | ✅ 5          |
+| Rich thread survives reload      | ✅ replay-safe tools      | ❌      | ❌            | ❌            |
+| Drive the app, secret withheld   | ✅                        | ❌      | ❌            | ❌            |
+| "What's on my screen?"           | ✅ route + page readables | ❌      | ❌            | ❌            |
+| Navigate via levers + filters    | ✅                        | ❌      | ❌            | nav only      |
+| Multimodal → durable artifact    | ✅                        | ❌      | ❌            | ❌            |
+| Long-term memory recall          | ✅                        | ❌      | plumbing only | plumbing only |
+| Stored-procedure replay          | ✅                        | ❌      | ❌            | ❌            |
+| Teach a new procedure            | ✅                        | ❌      | ❌            | ❌            |
+| Presenter reset (route + button) | ✅                        | ❌      | ✅            | ❌            |
+
+`banking` hits every row; the others predate this bar and hit about one each
+(nine beats plus the presenter-reset requirement are listed above). Note that
+logistics and keel ship the **full per-user identity plumbing** —
+`RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — and then no
+memory prompts, no memory tools and no seed file, so they get no demo value from
+the hardest part of it. Treat all three as excellent **wiring** references and
+incomplete **demo** references.
 
 ## How to add a skin
 
 Use the repo-local skill in `.claude/skills/reskin/` — it walks the full
 authoring flow. In short:
 
-1. Scaffold `src/skins/<id>/` and implement each `Skin` contract field.
-2. Write `src/skins/<id>/theme.css` (a `.theme-<id>` block re-valuing shared
+1. **Map the demo beats first**, before any code — the table template is in
+   [`.claude/skills/reskin/demo-beats.md`](.claude/skills/reskin/demo-beats.md).
+   The demo decides the tools, the pages, the prompt and the pills; discovering
+   the beats afterwards means rebuilding them.
+2. Scaffold `src/skins/<id>/` and implement each `Skin` contract field.
+3. Write `src/skins/<id>/theme.css` (a `.theme-<id>` block re-valuing shared
    tokens) and side-effect-import it from the skin's `layout.tsx`.
-3. Add a server-safe `src/skins/<id>/agent.ts` (no `"use client"`, no JSX).
-4. Register in **both** `src/shell/registry.ts` (client skin) and
+4. Add a server-safe `src/skins/<id>/agent.ts` (no `"use client"`, no JSX). The
+   prompt is where most beats are actually enforced.
+5. Register in **both** `src/shell/registry.ts` (client skin) and
    `src/shell/agent-registry.ts` (as `{ createAgent, identifyUser? }`), keyed by
    the identical `id`.
-5. If the skin scopes Intelligence per end-user, add its client
+6. If the skin scopes Intelligence per end-user, add its client
    `RuntimeProviders` + `useRuntimeProperties` and a server-safe `identifyUser`.
-6. Optionally set `defaultSkinId` in `src/shell/skins-config.ts`.
+   If it has memory or stored-procedure beats, add
+   `intelligence/seed-memories.ts` and re-seed from its `dev/reset` route.
+7. Ship one suggestion pill per beat, in demo order — the presenter should never
+   have to type.
+8. Optionally set `defaultSkinId` in `src/shell/skins-config.ts`.
 
 ## Commands
 
@@ -289,6 +376,14 @@ Run tasks through Nx per the repo convention where applicable.
 ## Reference
 
 - `src/shell/skin-contract.ts` — the contract (source of truth).
-- `src/skins/banking/skin.tsx`, `src/skins/airline/skin.tsx` — two implementations.
+- `src/skins/{banking,logistics,airline,keel}/skin.tsx` — four implementations.
+  Open `banking` for demo completeness, `logistics` for layout chrome and the
+  server-emitted a2ui canvas, `airline` for the minimal contract surface, `keel`
+  for parameterized routes.
+- `.claude/skills/reskin/` — the authoring skill: `SKILL.md` (contract + wiring
+  traps), `demo-beats.md` (what the demo must prove, and the quality bar),
+  `templates.md` (per-file starting points).
 - `docs/DESIGN.md` — the banking skin's visual design system ("Aurora").
-- `docs/teach-mode/` — the banking skin's teachable over-limit-approval flow.
+- `docs/teach-mode/` — the banking skin's teachable over-limit-approval flow, plus
+  `verify-teachable-gate.sh` which proves the gate → unlock path over pure REST.
+- `docs/superpowers/` — plans and specs for this app's own development.

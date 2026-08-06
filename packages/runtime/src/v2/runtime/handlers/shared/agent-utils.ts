@@ -18,6 +18,7 @@ import {
   mergeForwardableHeaders,
   resolveForwardHeadersPolicy,
 } from "../header-utils";
+import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { resolveWebMemory } from "./memory-policy";
 import { errorResponse } from "./json-response";
@@ -124,13 +125,7 @@ export function configureAgentForRequest(params: {
   }
 
   if (runtime.mcpApps?.servers?.length) {
-    const mcpServers = runtime.mcpApps.servers
-      .filter((server) => !server.agentId || server.agentId === agentId)
-      .map((server) => {
-        const mcpServer = { ...server };
-        delete mcpServer.agentId;
-        return mcpServer;
-      });
+    const mcpServers = resolveMcpAppsServers(runtime.mcpApps.servers, agentId);
 
     if (mcpServers.length > 0 && typeof agent.use === "function") {
       agent.use(new MCPAppsMiddleware({ mcpServers }));

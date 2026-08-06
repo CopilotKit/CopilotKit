@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BasicAgent } from "../index";
-import { EventType, type RunAgentInput } from "@ag-ui/client";
+import { compactEvents, EventType } from "@ag-ui/client";
+import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
 import {
   mockStreamTextResponse,
@@ -10,6 +11,10 @@ import {
   finish,
   collectEvents,
 } from "./test-helpers";
+
+function cloneFallbackCallback() {
+  return "keep this reference";
+}
 
 // Mock the ai module
 vi.mock("ai", () => ({
@@ -126,6 +131,297 @@ describe("State Update Tools", () => {
   });
 
   describe("AGUISendStateDelta", () => {
+    const emitStateDelta = async (delta: unknown[], state: unknown) => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          toolCallStreamingStart("snapshot", "AGUISendStateSnapshot"),
+          toolCall("snapshot", "AGUISendStateSnapshot"),
+          toolResult("snapshot", "AGUISendStateSnapshot", {
+            success: true,
+            snapshot: state,
+          }),
+          toolCallStreamingStart("call1", "AGUISendStateDelta"),
+          toolCall("call1", "AGUISendStateDelta"),
+          toolResult("call1", "AGUISendStateDelta", {
+            success: true,
+            delta,
+          }),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state,
+      };
+
+      return collectEvents(agent["run"](input));
+    };
+
+    it("should initialize a missing array before appending to it", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      const todo = { text: "Buy milk", completed: false };
+      const delta = [{ op: "add" as const, path: "/todos/-", value: todo }];
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          toolCallStreamingStart("call1", "AGUISendStateDelta"),
+          toolCall("call1", "AGUISendStateDelta"),
+          toolResult("call1", "AGUISendStateDelta", { success: true, delta }),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const deltaEvent = events.find(
+        (e: any) => e.type === EventType.STATE_DELTA,
+      );
+      const toolResultEvent = events.find(
+        (e: any) => e.type === EventType.TOOL_CALL_RESULT,
+      );
+
+      expect(deltaEvent?.delta).toEqual([
+        { op: "add", path: "/todos", value: [] },
+        ...delta,
+      ]);
+      expect(events.indexOf(deltaEvent!)).toBeLessThan(
+        events.indexOf(toolResultEvent!),
+      );
+
+      const compactedEvents = compactEvents(events);
+      const stateSnapshot = compactedEvents.find(
+        (event: any) => event.type === EventType.STATE_SNAPSHOT,
+      );
+      expect(stateSnapshot).toMatchObject({
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: { todos: [todo] },
+      });
+    });
+
+    it("should preserve an existing input array when appending", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      const existingTodo = { text: "Buy eggs", completed: true };
+      const newTodo = { text: "Buy milk", completed: false };
+      const delta = [{ op: "add" as const, path: "/todos/-", value: newTodo }];
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          toolCallStreamingStart("call1", "AGUISendStateDelta"),
+          toolCall("call1", "AGUISendStateDelta"),
+          toolResult("call1", "AGUISendStateDelta", { success: true, delta }),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: { todos: [existingTodo] },
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const deltaEvent = events.find(
+        (e: any) => e.type === EventType.STATE_DELTA,
+      );
+
+      expect(deltaEvent?.delta).toEqual(delta);
+      const compactedEvents = compactEvents(events);
+      const stateSnapshot = compactedEvents.find(
+        (event: any) => event.type === EventType.STATE_SNAPSHOT,
+      );
+      expect(stateSnapshot).toMatchObject({
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: { todos: [existingTodo, newTodo] },
+      });
+    });
+
+    it("should only initialize literal add append operations", async () => {
+      const delta = [
+        { op: "replace", path: "/todos/-", value: "not an append" },
+      ];
+      const events = await emitStateDelta(delta, {});
+      const deltaEvent = events.find(
+        (event: any) => event.type === EventType.STATE_DELTA,
+      );
+
+      expect(deltaEvent?.delta).toEqual(delta);
+    });
+
+    it("should initialize a missing array once for repeated appends", async () => {
+      const firstTodo = { text: "Buy eggs", completed: true };
+      const secondTodo = { text: "Buy milk", completed: false };
+      const delta = [
+        { op: "replace", path: "/counter", value: 1 },
+        { op: "add", path: "/todos/-", value: firstTodo },
+        { op: "add", path: "/todos/-", value: secondTodo },
+      ];
+
+      const events = await emitStateDelta(delta, { counter: 0 });
+      const deltaEvent = events.find(
+        (event: any) => event.type === EventType.STATE_DELTA,
+      );
+
+      expect(deltaEvent?.delta).toEqual([
+        delta[0],
+        { op: "add", path: "/todos", value: [] },
+        delta[1],
+        delta[2],
+      ]);
+      const compactedEvents = compactEvents(events);
+      const stateSnapshot = compactedEvents.find(
+        (event: any) => event.type === EventType.STATE_SNAPSHOT,
+      );
+      expect(stateSnapshot).toMatchObject({
+        snapshot: { counter: 1, todos: [firstTodo, secondTodo] },
+      });
+    });
+
+    it("should preserve copy, move, and test before later appends", async () => {
+      const sourceItem = { id: "source" };
+      const movedItem = { id: "moved" };
+      const copiedAppend = { id: "copied-append" };
+      const movedAppend = { id: "moved-append" };
+      const delta = [
+        { op: "copy", from: "/source", path: "/copied" },
+        { op: "move", from: "/moving", path: "/moved" },
+        { op: "test", path: "/copied/0", value: sourceItem },
+        { op: "add", path: "/copied/-", value: copiedAppend },
+        { op: "add", path: "/moved/-", value: movedAppend },
+      ];
+      const events = await emitStateDelta(delta, {
+        source: [sourceItem],
+        moving: [movedItem],
+      });
+      const deltaEvent = events.find(
+        (event: any) => event.type === EventType.STATE_DELTA,
+      );
+
+      expect(deltaEvent?.delta).toEqual(delta);
+      const stateSnapshot = compactEvents(events).find(
+        (event: any) => event.type === EventType.STATE_SNAPSHOT,
+      );
+      expect(stateSnapshot).toMatchObject({
+        snapshot: {
+          source: [sourceItem],
+          copied: [sourceItem, copiedAppend],
+          moved: [movedItem, movedAppend],
+        },
+      });
+    });
+
+    it("should preserve non-array append failures", async () => {
+      const delta = [{ op: "add", path: "/todos/-", value: "new todo" }];
+      const events = await emitStateDelta(delta, { todos: "not an array" });
+      const deltaEvent = events.find(
+        (event: any) => event.type === EventType.STATE_DELTA,
+      );
+
+      expect(deltaEvent?.delta).toEqual(delta);
+      expect(() => compactEvents(events)).toThrow(
+        "OPERATION_PATH_UNRESOLVABLE",
+      );
+    });
+
+    it("should preserve malformed entries for downstream validation", async () => {
+      const delta = [null];
+      const events = await emitStateDelta(delta, {});
+      const deltaIdx = events.findIndex(
+        (event: any) => event.type === EventType.STATE_DELTA,
+      );
+      const resultIdx = events.findIndex(
+        (event: any) =>
+          event.type === EventType.TOOL_CALL_RESULT &&
+          event.toolCallId === "call1",
+      );
+
+      expect(deltaIdx).toBeGreaterThanOrEqual(0);
+      expect(deltaIdx).toBeLessThan(resultIdx);
+      expect(events[deltaIdx]).toMatchObject({
+        type: EventType.STATE_DELTA,
+        delta,
+      });
+      expect(() => compactEvents(events)).toThrow("OPERATION_NOT_AN_OBJECT");
+    });
+
+    it("should not synthesize an unknown ancestor", async () => {
+      const delta = [{ op: "add", path: "/lists/todos/-", value: "new todo" }];
+      const events = await emitStateDelta(delta, {});
+      const deltaEvent = events.find(
+        (event: any) => event.type === EventType.STATE_DELTA,
+      );
+
+      expect(deltaEvent?.delta).toEqual(delta);
+      expect(() => compactEvents(events)).toThrow("OPERATION_PATH_CANNOT_ADD");
+    });
+
+    it("should clone state when structuredClone cannot clone it", async () => {
+      const callback = cloneFallbackCallback;
+      const state = { todos: [], callback };
+      const delta = [
+        {
+          op: "add",
+          path: "/todos/-",
+          value: { text: "Buy milk", callback },
+        },
+      ];
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          toolCallStreamingStart("call1", "AGUISendStateDelta"),
+          toolCall("call1", "AGUISendStateDelta"),
+          toolResult("call1", "AGUISendStateDelta", { success: true, delta }),
+          finish(),
+        ]) as any,
+      );
+
+      const events = await collectEvents(
+        agent["run"]({
+          threadId: "thread1",
+          runId: "run1",
+          messages: [],
+          tools: [],
+          context: [],
+          state,
+        }),
+      );
+      const stateSnapshot = events.find(
+        (event: any) => event.type === EventType.STATE_SNAPSHOT,
+      ) as any;
+
+      expect(state.todos).toEqual([]);
+      expect(stateSnapshot?.snapshot).not.toBe(state);
+      expect(stateSnapshot?.snapshot.todos).not.toBe(state.todos);
+    });
+
     it("should emit STATE_DELTA event when tool is called", async () => {
       const agent = new BasicAgent({
         model: "openai/gpt-4o",
