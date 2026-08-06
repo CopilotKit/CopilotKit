@@ -48,15 +48,46 @@ const templateLeadingPrefix = {
   message: `In-skin link opens a template with a skin route prefix. ${FIX_HINT}`,
 };
 
-// (ii) An interpolation immediately followed by `/` (`` `${base}/charges` ``) —
-// appending a path onto a builder result, which emits a protocol-relative `//`
-// under a lock (base is "/" there). Any quasi that is NOT the first and opens with
-// `/` means "an interpolation was immediately followed by `/`". This is the shape
-// that shipped. It is scoped OFF for the REST/data layer below, whose `${apiBase}/…`
-// concatenation targets a server URL the lock never rewrites.
+// (ii) A template that appends `/`-path onto an interpolation
+// (`` `${base}/charges` ``) — concatenating onto a builder result, which emits a
+// protocol-relative `//` under a lock (base is "/" there).
+//
+// WHY THIS ONE IS USE-SITE SCOPED (the other two are not). The bare shape
+// "interpolation, then a quasi opening with `/`" is AST-IDENTICAL to ordinary
+// non-URL templates: `` `${month}/${day}` `` (a date), `` `${used}/${total} used` ``
+// (a fraction). Nothing in how the string is WRITTEN separates a path from a ratio —
+// only what it is FOR. A shape-only selector therefore false-positives on any skin
+// component that formats a date or a ratio, blocking it with a link error that makes
+// no sense for that code. So this selector fires ONLY when the template is actually a
+// NAVIGATION TARGET: passed to `router.push`/`router.replace`, to
+// `location.assign(...)`, assigned to `location.href`, or set as a JSX `href={...}`.
+// A date/ratio formatter is never in navigation code, so it is untouched; a broken
+// link is, so it is still caught.
+//
+// RESIDUAL LIMITATION (stated plainly — do not read this guard as complete). Ancestry
+// scoping only sees the template at the call/attribute site. A URL assembled into a
+// variable first and then navigated —
+// `const u = `${base}/charges`; router.push(u)` — is NOT caught, because the
+// TemplateLiteral is no longer a descendant of the `push(...)` call. That blind spot
+// is the price of zero false positives on ordinary interpolation. The literal-prefix
+// guards above still catch the common hardcoding shapes regardless of use site.
+//
+// Because it is nav-scoped, this selector never fires on the REST/data layer's
+// `` `${apiBase}/shipments` `` (that concatenation is not a nav target), so the
+// per-file scoping below is belt-and-suspenders rather than load-bearing.
+const NAV_TARGET_ANCESTORS = [
+  `CallExpression[callee.property.name="push"]`,
+  `CallExpression[callee.property.name="replace"]`,
+  `CallExpression[callee.property.name="assign"]`,
+  `JSXAttribute[name.name="href"]`,
+  `AssignmentExpression[left.property.name="href"]`,
+];
 const interpolationThenSlash = {
-  selector: `TemplateLiteral > TemplateElement:not(:first-child)[value.raw=/^\\//]`,
-  message: `In-skin link concatenates a path onto an interpolated base, yielding a leading "//" under a lock. ${FIX_HINT}`,
+  selector: NAV_TARGET_ANCESTORS.map(
+    (ancestor) =>
+      `${ancestor} TemplateLiteral > TemplateElement:not(:first-child)[value.raw=/^\\//]`,
+  ).join(", "),
+  message: `In-skin navigation target concatenates a path onto an interpolated base, yielding a leading "//" under a lock. ${FIX_HINT}`,
 };
 
 // Skin tests render bare (no LockedSkinProvider), so they legitimately ASSERT on

@@ -256,12 +256,23 @@ switcher), which must keep the prefix and only ever renders unlocked.
 `eslint.config.mjs` (scoped to `src/skins/**`, tests exempt). They fail and NAME
 YOUR FILE if an in-skin path literal (i) opens with a skin id segment
 (`"/banking/cards"`, `` `/keel/runs/${id}` ``), (ii) concatenates a path onto an
-interpolated base (`` `${base}/charges` `` — the `//` shape), or (iii) opens with
-a leading-slash interpolation (`` `/${skin.id}/…` ``). The rule reads the AST, so
-a skin prefix inside a comment or prose string is fine and a `$` in a variable
-name cannot fool it. REST/data-layer files (`actions.ts`, `intelligence/**`) that
-build absolute SERVER urls (`` `${BASE}/shipments` ``) are exempt from (ii) only —
-those `/api/**` paths are lock-agnostic.
+interpolated base (`` `${base}/charges` `` — the `//` shape) **when that template is
+a navigation target**, or (iii) opens with a leading-slash interpolation
+(`` `/${skin.id}/…` ``). The rule reads the AST, so a skin prefix inside a comment or
+prose string is fine and a `$` in a variable name cannot fool it.
+
+Selector (ii) is deliberately narrowed to navigation contexts: the `` `${x}/${y}` ``
+shape is AST-identical to an ordinary date `` `${month}/${day}` `` or ratio
+`` `${used}/${total} used` ``, so flagging it everywhere false-positives on any skin
+component that formats a date or fraction. It therefore fires only when the template
+is passed to `router.push`/`router.replace`, to `location.assign`, assigned to
+`location.href`, or set as a JSX `href={...}`. Trade-off, stated honestly: a URL
+built into a variable first and then navigated (`const u = `${base}/x`;
+router.push(u)`) is NOT caught by (ii) — the literal-prefix guards (i)/(iii) still
+catch the common hardcoding shapes regardless of use site. Because (ii) is now
+nav-scoped, REST/data-layer files (`actions.ts`, `intelligence/**`) that build
+absolute SERVER urls (`` `${BASE}/shipments` ``) never trip it anyway; they stay
+explicitly scoped out as belt-and-suspenders.
 
 ## The meta-utility strip
 

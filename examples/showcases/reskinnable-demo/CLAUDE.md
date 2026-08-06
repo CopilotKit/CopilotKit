@@ -168,7 +168,11 @@ export type IdentifyRunUser = (
   straight back in the address bar on the first nav click of a locked deploy.
   `pnpm lint` enforces this — the `no-restricted-syntax` skin-prefix selectors in
   `eslint.config.mjs` fail and name your file if an in-skin link embeds a skin
-  prefix or a leading `//` (REST/data-layer files are scoped out).
+  prefix, or, when the value is a navigation target (`router.push`/`replace`,
+  `location.assign`/`href`, JSX `href`), concatenates a path onto an interpolation
+  and yields a leading `//`. The `//` guard is nav-scoped on purpose so it never
+  false-positives on ordinary date/ratio templates (`` `${m}/${d}` ``); the cost is
+  that a URL built into a variable before navigating is not caught by that guard.
   `useSkinSegments` is its companion for nav active-state; it strips a LEADING
   skin id rather than slicing a fixed offset, so it is correct whether or not the
   pathname carries the prefix. Keel wraps both in `src/skins/keel/href.ts`.
