@@ -75,10 +75,23 @@ const templateLeadingPrefix = {
 // Because it is nav-scoped, this selector never fires on the REST/data layer's
 // `` `${apiBase}/shipments` `` (that concatenation is not a nav target), so the
 // per-file scoping below is belt-and-suspenders rather than load-bearing.
+// Scoped to navigation OBJECTS as well as METHODS. A bare method-name match
+// (`.push`/`.replace`/`.assign` on ANYTHING) over-fires on ordinary skin code:
+// `String.prototype.replace("q", `${a}/${b}`)`, `Object.assign(o, {…})`, and
+// `Array.prototype.push(`${a}/${b}`)` are all realistic (formatting, tokens,
+// ratios) and are NOT navigation. So each call form pins its object:
+//   - `router.push(...)` / `router.replace(...)`  — object named `router`
+//   - `location.assign(...)`                       — object named `location`
+//   - `window.location.assign(...)`                — object is a member expr
+//                                                    whose property is `location`
+//   - `location.href = ...` / `window.location.href = ...` — AssignmentExpression
+//     onto a `.href` member (both bare and `window.`-qualified `location`)
+//   - JSX `href={...}`                             — already object-precise
 const NAV_TARGET_ANCESTORS = [
-  `CallExpression[callee.property.name="push"]`,
-  `CallExpression[callee.property.name="replace"]`,
-  `CallExpression[callee.property.name="assign"]`,
+  `CallExpression[callee.object.name="router"][callee.property.name="push"]`,
+  `CallExpression[callee.object.name="router"][callee.property.name="replace"]`,
+  `CallExpression[callee.object.name="location"][callee.property.name="assign"]`,
+  `CallExpression[callee.object.property.name="location"][callee.property.name="assign"]`,
   `JSXAttribute[name.name="href"]`,
   `AssignmentExpression[left.property.name="href"]`,
 ];
