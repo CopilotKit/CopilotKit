@@ -21,6 +21,7 @@ export abstract class ChatState {
 
   abstract submitInput(value: string): void;
   abstract changeInput(value: string): void;
+  stopRun(): void | Promise<void> {}
   selectSuggestion(_suggestion: Suggestion, _index: number): void {}
   finishTranscription(_audioBlob: Blob): void | Promise<void> {}
 

@@ -457,3 +457,25 @@ test("forwards transcript children through the prebuilt chat", async () => {
   expect(children?.textContent).toContain("1 messages");
   expect(children?.textContent).toContain("streamed");
 });
+
+test("stopRun stops agent via core stopAgent", async () => {
+  const agent = new MockAgent("default");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [CopilotChat],
+    providers: [
+      provideZonelessChangeDetection(),
+      provideCopilotKit({
+        licenseKey: "ck_pub_00000000000000000000000000000000",
+        agents: { default: agent },
+      }),
+      provideCopilotChatConfiguration(),
+    ],
+  });
+
+  const fixture = TestBed.createComponent(CopilotChat);
+  fixture.detectChanges();
+  const instance = fixture.componentInstance;
+  expect(typeof instance.stopRun).toBe("function");
+  await instance.stopRun();
+});

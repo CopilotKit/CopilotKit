@@ -341,6 +341,22 @@ export class CopilotChat extends ChatState {
     }
   }
 
+  async stopRun(): Promise<void> {
+    const agent = this.agentStore().agent;
+    if (!agent) return;
+
+    try {
+      await this.copilotKit.core.stopAgent({ agent });
+    } catch {
+      if (typeof (agent as any).abortRun === "function") {
+        (agent as any).abortRun();
+      }
+    } finally {
+      this.showCursor.set(false);
+      this.cdr.markForCheck();
+    }
+  }
+
   async selectSuggestion(
     suggestion: Suggestion,
     _index: number,
