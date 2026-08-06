@@ -8,7 +8,7 @@
  */
 import { readFileSync } from "node:fs";
 import { createChannel } from "@copilotkit/channels";
-import { createDefaultAgent } from "./src/agent";
+import { createDefaultAgent, toPlatformThreadId } from "./src/agent";
 
 /**
  * Resolves which declared Channel this process should host.
@@ -82,7 +82,9 @@ export function createDefaultChannel(channelName: string) {
     name: channelName,
     agent: (threadId) => {
       const agent = createDefaultAgent();
-      agent.threadId = threadId;
+      // Not `threadId` verbatim: a Channel's id is provider-shaped and the
+      // LangGraph platform API only accepts UUIDs. See `toPlatformThreadId`.
+      agent.threadId = toPlatformThreadId(threadId);
       return agent;
     },
   });
