@@ -70,4 +70,27 @@ describe("CopilotKit config", () => {
       Authorization: "token",
     });
   });
+
+  it("supports showDevConsole, enableInspector, and showInspector options in provideCopilotKit", () => {
+    @Component({ standalone: true, template: "" })
+    class HostComponent {
+      config = injectCopilotKitConfig();
+    }
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          runtimeUrl: "https://example.com",
+          showDevConsole: "auto",
+          showInspector: true,
+          enableInspector: true,
+        }),
+      ],
+    });
+
+    const fixture = TestBed.createComponent(HostComponent);
+    expect(fixture.componentInstance.config.showDevConsole).toBe("auto");
+    expect(fixture.componentInstance.config.showInspector).toBe(true);
+    expect(fixture.componentInstance.config.enableInspector).toBe(true);
+  });
 });

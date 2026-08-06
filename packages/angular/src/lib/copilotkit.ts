@@ -88,6 +88,8 @@ export class CopilotKit {
   /** Whether unknown tools may use the built-in text-only fallback renderer. */
   readonly defaultToolRenderingEnabled =
     this.#config.defaultToolRendering === true;
+  readonly showDevConsole = this.#config.showDevConsole;
+  readonly showInspector = this.#config.showInspector ?? this.#config.enableInspector;
   readonly #agents = signal<Record<string, AbstractAgent>>(
     this.#config.agents ?? {},
   );

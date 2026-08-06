@@ -95,6 +95,9 @@ export class CopilotChat extends ChatState {
   readonly inputValue = signal<string>("");
   readonly agentId = input<string | undefined>();
   readonly threadId = input<string | undefined>();
+  readonly showDevConsole = input<boolean | "auto" | undefined>();
+  readonly enableInspector = input<boolean | undefined>();
+  readonly showInspector = input<boolean | undefined>();
   readonly inputComponent = input<Type<any> | undefined>();
   /** Component used to render each assistant message in the prebuilt chat. */
   readonly assistantMessageComponent = input<Type<any> | undefined>();
