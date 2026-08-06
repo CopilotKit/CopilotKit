@@ -28,7 +28,8 @@ export function ChatDriver({
   userId: string;
 }) {
   const { agent } = useAgent({
-    agentId: "default",
+    agentId: "private-chat-main",
+    runtimeAgentId: "default",
     threadId: "main",
     updates: [
       UseAgentUpdate.OnMessagesChanged,
@@ -96,35 +97,29 @@ const { agent } = useAgent({ agentId: "default" });
 
 ## Common Mistakes
 
-### CRITICAL — Custom `AbstractAgent.clone()` that returns `this`
+### CRITICAL — Providing partial thread-scoping props to `useAgent`
 
 Wrong:
 
 ```tsx
-class MyAgent extends AbstractAgent {
-  clone() {
-    return this; // wrong — same instance is reused across threads
-  }
-}
+// ❌ Invalid: threadId requires both agentId and runtimeAgentId
+const { agent } = useAgent({ agentId: "default", threadId: "my-thread" });
 ```
 
 Correct:
 
 ```tsx
-class MyAgent extends AbstractAgent {
-  clone() {
-    const next = new MyAgent(this.config);
-    next.state = { ...this.state };
-    return next;
-  }
-}
+// ✅ Thread-scoped private agent proxy
+const { agent } = useAgent({
+  agentId: "chat-thread-1",
+  runtimeAgentId: "default",
+  threadId: "my-thread",
+});
 ```
 
-`useAgent` calls `source.clone()` to build a per-thread clone and throws
-`clone() must return a new, independent object` if the clone is the same
-instance. This guards per-thread isolation.
+Thread-scoped `useAgent` requires all three props (`agentId`, `runtimeAgentId`, `threadId`). This registers a private proxied agent under the unique local `agentId` routing outbound to `runtimeAgentId`, preventing shared singleton state collisions across threads.
 
-Source: `packages/react-core/src/v2/hooks/use-agent.tsx:58-69`
+Source: `packages/react-core/src/v2/hooks/use-agent.tsx`
 
 ### HIGH — Mutating `agent.messages` directly
 
