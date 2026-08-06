@@ -71,7 +71,17 @@ test.describe("LOCK_SKIN — the prefix is gone from the URL space", () => {
       els.map((el) => el.getAttribute("href") ?? ""),
     );
     expect(hrefs.length, "expected in-app links to render").toBeGreaterThan(0);
-    for (const target of ["/", "/dashboard", "/charges", "/team"]) {
+    // Require only the ROLE-INDEPENDENT banking nav targets. `/team` is
+    // deliberately NOT in this set: it is admin-gated
+    // (src/skins/banking/layout.tsx renders the "team" nav entry only when
+    // currentUser.role === MemberRole.Admin), and the default user is just
+    // team[0] from the seed. Asserting `/team` here would silently couple this
+    // LOCK_SKIN guard to seed order and the default user's role — reorder the
+    // roster or flip that user to a non-admin and the suite would fail on an
+    // assertion that has nothing to do with the prefix. Do NOT re-add `/team`.
+    // (The `/team` route itself is still covered, role-independently, by the
+    // cold deep-page load test below.)
+    for (const target of ["/", "/dashboard", "/charges"]) {
       expect(hrefs, `banking nav must render ${target}`).toContain(target);
     }
 
