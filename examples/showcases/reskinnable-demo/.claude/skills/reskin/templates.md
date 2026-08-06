@@ -147,10 +147,10 @@ overflow-hidden` bounds it to the card so `<main>` scrolls INSIDE it.
 import "./theme.css"; // side-effect import registers the .theme-<id> block
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { HelpCircle, RotateCcw } from "lucide-react";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { useSkin } from "@/shell/skin-provider";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle"; // SHARED shell component — importing it is fine
 import { useAskCopilot } from "./components/use-ask-copilot"; // PORT this into your skin (see below)
@@ -161,7 +161,11 @@ const SIDEBAR_WIDTH_PX = 240;
 
 export function <Id>Layout({ children }: { children: ReactNode }) {
   const skin = useSkin();
-  const pathname = usePathname();
+  // EVERY in-skin link goes through skinHref — never a hardcoded `/${skin.id}/…`.
+  // Under LOCK_SKIN the deploy is served AT `/` with the skin segment gone from
+  // the URL space, and a hardcoded prefix puts it straight back in the address
+  // bar on the first nav click. See src/shell/skin-path.ts and src/proxy.ts.
+  const skinHref = useSkinHref(skin.id);
   const resetEnabled = usePresenterReset();
   const askCopilot = useAskCopilot();
   const Logo = skin.identity.logo;
@@ -173,8 +177,10 @@ export function <Id>Layout({ children }: { children: ReactNode }) {
   // Derive the segment RELATIVE to the skin base, or you report the skin id
   // instead of a page — the exact bug banking hit before its cutover, when this
   // read `pathname.split("/")[1]` and every page answered "banking".
-  const rest = pathname.split("/").slice(2).join("/");
-  const restHead = rest.split("/")[0];
+  // useSkinSegments handles the base for you. Do NOT hand-roll it with a fixed
+  // `.slice(2)`: that eats the first real segment on a LOCK_SKIN deploy, where
+  // the pathname has no prefix to skip.
+  const restHead = useSkinSegments(skin.id)[0] ?? "";
   useAgentContext({
     description: "The current page where the user is",
     // Name the INDEX page something meaningful, not "" — in banking `/banking`
@@ -187,8 +193,9 @@ export function <Id>Layout({ children }: { children: ReactNode }) {
     const res = await fetch(`/api/${skin.id}/v1/dev/reset`, { method: "POST" });
     if (res.ok) {
       // Hard-navigate to the skin root for a pristine slate (fresh store, cleared
-      // canvas, new thread on the next message) AND the clean starting URL.
-      window.location.assign(`/${skin.id}`);
+      // canvas, new thread on the next message) AND the clean starting URL —
+      // which is `/` itself on a locked single-tenant deploy.
+      window.location.assign(skinHref());
     } else {
       window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
     }
@@ -209,8 +216,11 @@ export function <Id>Layout({ children }: { children: ReactNode }) {
         </div>
         <nav className="flex flex-col gap-0.5">
           {skin.nav.map((route) => {
-            const href = route.segment ? `/${skin.id}/${route.segment}` : `/${skin.id}`;
-            const active = pathname === href;
+            const href = skinHref(route.segment);
+            // Compare SEGMENTS, not the whole pathname: under a lock the href is
+            // prefix-free while the matched route is not, so `pathname === href`
+            // is not reliably true for the active entry.
+            const active = restHead === route.segment;
             const Icon = route.icon;
             return (
               <Link

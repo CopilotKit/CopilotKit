@@ -225,6 +225,33 @@ overflow-hidden` on the root, plus `h-full` on the `<aside>`, so only `<main>`
 > a card at the top of the assistant column, so it occupies a slot and never
 > overlaps anything. Do not add those publishers to a new skin; nothing reads them.
 
+## The URL contract (never hardcode the skin prefix)
+
+**Every in-skin link and `router.push` must go through `useSkinHref`**
+(`src/shell/skin-path.ts`), and every "which nav entry is active" derivation
+through its companion `useSkinSegments`. Both are in the layout template.
+
+Skins live under `/[skin]` on the normal four-skin demo, but a `LOCK_SKIN` deploy
+is served **at `/`** with the segment gone from the URL space entirely —
+`src/proxy.ts` rewrites the prefix-free space onto the route tree. So:
+
+- `skinHref("cards")` → `/banking/cards` unlocked, `/cards` locked.
+- A hardcoded `` `/${skin.id}/cards` `` still RESOLVES under a lock, which is why
+  this is easy to miss: it just puts `/banking` back in the address bar on the
+  first nav click, and the single-tenant illusion is gone.
+- A hand-rolled `pathname.split("/").slice(2)` is worse — it silently eats the
+  first real segment when there is no prefix to skip, so under a lock every page
+  reports itself as the index and the wrong nav entry highlights.
+
+Deep links append their own hash:
+`` `${skinHref(`knowledge/${docId}`)}#${sectionId}` ``. A skin with many
+parameterized links should wrap the hook once for itself — see
+`src/skins/keel/href.ts`, which exists so keel's id appears in exactly one place
+instead of the eleven string literals it had before.
+
+The one legitimate exception is a link to a DIFFERENT skin (the shell's skin
+switcher), which must keep the prefix and only ever renders unlocked.
+
 ## The meta-utility strip
 
 The presenter/dev utilities — Reset, theme toggle, Help — are **skin-authored
