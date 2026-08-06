@@ -6,9 +6,10 @@ import {
   useHumanInTheLoop,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useSkin } from "@/shell/skin-provider";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import useCreditCards from "@/skins/banking/actions";
 import { CHARGE_CATEGORIES } from "@/skins/banking/pages/charges-data";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
@@ -106,14 +107,14 @@ const answeredPinChanges = new Map<
 export function BankingTools() {
   const { currentUser } = useAuthContext();
   const skin = useSkin();
-  const base = `/${skin.id}`;
-  const pathname = usePathname();
+  const skinHref = useSkinHref(skin.id);
+  const base = skinHref();
   const router = useRouter();
-  // Page segment RELATIVE to the skin base. Under /[skin] routing the raw
-  // pathname is `/banking/<page>`, so the old `pathname.split("/").pop()`
-  // reported the skin id (or a stale tail) instead of the page.
-  const rest = pathname.split("/").slice(2).join("/");
-  const restHead = rest.split("/")[0];
+  // Page segment RELATIVE to the skin base. The raw pathname carries the skin
+  // prefix on an unlocked deploy (`/banking/<page>`) and not on a locked one, so
+  // the old `pathname.split("/").pop()` reported the skin id (or a stale tail)
+  // instead of the page.
+  const restHead = useSkinSegments(skin.id)[0] ?? "";
   const {
     cards,
     policies,

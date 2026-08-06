@@ -54,9 +54,12 @@ can also go straight to `/banking` or `/airline`.
 ### Pinning a deploy to one skin
 
 Set `LOCK_SKIN` to a skin id (`banking`, `airline`, `logistics`, `keel`) and the
-deploy becomes single-tenant: `/` lands on that skin, every other skin route
-404s, and the switcher collapses to a static brand badge. Unset — the default —
-all four stay reachable.
+deploy becomes single-tenant: the skin is **served at `/`**, with the `/<id>`
+prefix gone from the URL space altogether — `LOCK_SKIN=banking` puts the credit
+cards view at `/` and the dashboard at `/dashboard`, never `/banking/dashboard`.
+Every other skin's segment 404s, as does the locked skin's own prefix, and the
+switcher collapses to a static brand badge. Unset — the default — all four stay
+reachable under `/<id>` exactly as before.
 
 Use it for a URL that goes to one prospect, one booth, or one pilot, so the app
 reads as a product rather than as a four-tenant demo harness. An unrecognised id

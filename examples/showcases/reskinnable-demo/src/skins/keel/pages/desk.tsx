@@ -6,6 +6,7 @@ import { useSkinData } from "@/shell/skin-provider";
 import { StatusPill } from "@/skins/keel/components/status-pill";
 import { Button } from "@/components/ui/button";
 import type { KeelData, Run, RunStep } from "@/skins/keel/data/types";
+import { useKeelHref } from "@/skins/keel/href";
 
 /** ms → compact human duration; null (no completed run yet) renders as an em dash. */
 function formatDuration(ms: number | null): string {
@@ -40,6 +41,7 @@ function Kpi({ label, value }: { label: string; value: string | number }) {
 }
 
 export function DeskPage() {
+  const keelHref = useKeelHref();
   const data = useSkinData<KeelData>();
   const { kpis, approvalsForMe, approvals, runs, persona } = data;
 
@@ -108,7 +110,7 @@ export function DeskPage() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <Link
-                        href={`/keel/runs/${run.id}`}
+                        href={keelHref(`runs/${run.id}`)}
                         className="font-mono text-xs text-brand hover:underline"
                       >
                         {run.id}
@@ -156,7 +158,7 @@ export function DeskPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <Link
-                      href={`/keel/runs/${run.id}`}
+                      href={keelHref(`runs/${run.id}`)}
                       className="font-mono text-xs text-brand hover:underline"
                     >
                       {run.id}
@@ -197,7 +199,7 @@ export function DeskPage() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <Link
-                        href={`/keel/runs/${run.id}`}
+                        href={keelHref(`runs/${run.id}`)}
                         className="font-mono text-xs text-brand hover:underline"
                       >
                         {run.id}

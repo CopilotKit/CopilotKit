@@ -5,6 +5,7 @@ import { useSkinData } from "@/shell/skin-provider";
 import { StatusPill } from "@/skins/keel/components/status-pill";
 import { formatDate } from "@/skins/keel/pages/format-date";
 import type { KeelData, Run, RunStep } from "@/skins/keel/data/types";
+import { useKeelHref } from "@/skins/keel/href";
 
 /** The step a run is "on": the active/gated one, else the next pending, else the last. */
 function currentStep(run: Run): RunStep | undefined {
@@ -18,6 +19,7 @@ function currentStep(run: Run): RunStep | undefined {
 }
 
 export function RunsPage() {
+  const keelHref = useKeelHref();
   const { runs } = useSkinData<KeelData>();
 
   return (
@@ -51,7 +53,7 @@ export function RunsPage() {
                   >
                     <td className="px-3 py-2">
                       <Link
-                        href={`/keel/runs/${run.id}`}
+                        href={keelHref(`runs/${run.id}`)}
                         className="font-mono text-xs text-brand hover:underline"
                       >
                         {run.id}

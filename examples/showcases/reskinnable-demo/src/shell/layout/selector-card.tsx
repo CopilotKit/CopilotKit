@@ -118,6 +118,11 @@ export function SelectorCard({ activeId }: { activeId: string }) {
                   key={skin.id}
                   data-testid={`skin-option-${skin.id}`}
                   aria-current={isActive ? "page" : undefined}
+                  // Keeps the `/[skin]` prefix on purpose, and must: this branch
+                  // renders ONLY when unlocked (the locked deploy shows the badge
+                  // above instead), and switching skins is exactly the case where
+                  // the segment is meaningful. `useSkinHref` would be wrong here —
+                  // it strips the prefix of the ACTIVE skin, not of a target one.
                   onSelect={() => router.push(`/${skin.id}`)}
                   className="gap-2.5 py-2"
                 >

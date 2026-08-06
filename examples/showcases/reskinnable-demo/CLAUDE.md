@@ -107,8 +107,9 @@ browser. So:
     only server-safe modules). Kept separate so the API route never pulls
     client-only code server-side.
 - `src/shell/skins-config.ts` holds `defaultSkinId` and `skinIds` as pure config
-  (no skin imports), so the server-component `/` redirect and the `LOCK_SKIN`
-  validator can read them without dragging client skin modules into an RSC.
+  (no skin imports), so the server-component `/` redirect, `src/proxy.ts` and the
+  `LOCK_SKIN` validator can read them without dragging client skin modules into
+  an RSC (or, for the proxy, into the request hook).
   `skinIds` duplicates the registry's keys on purpose; `skins-config.test.ts` is
   the drift guard.
 
@@ -153,16 +154,33 @@ export type IdentifyRunUser = (
 
 ## Routing and provider composition
 
-- `src/app/page.tsx` — server component; redirects `/` to the active skin —
-  `LOCK_SKIN` when set, else `/${defaultSkinId}`.
+- `src/proxy.ts` — the LOCK_SKIN URL space. Unlocked it is inert. Under a lock it
+  REWRITES the prefix-free space onto the route tree (`/` → `/banking`,
+  `/cards` → `/banking/cards`) so the locked skin is **served at `/`** and the
+  tenant segment never appears in the address bar. Its matcher excludes `api`,
+  so the runtime's SSE stream never passes through it. It is `proxy.ts` (Next
+  16's rename of `middleware.ts`) rather than a `next.config` rewrite because
+  `rewrites()` is baked into routes-manifest.json at BUILD time, which would
+  freeze the lock into the artifact; proxy files always run on the Node server,
+  so LOCK_SKIN stays a per-request read and ONE BUILD SERVES BOTH shapes.
+- **Links must go through `useSkinHref`** (`src/shell/skin-path.ts`) — the client
+  half of that contract. A hardcoded `/${skin.id}/...` href would put the prefix
+  straight back in the address bar on the first nav click of a locked deploy.
+  `useSkinSegments` is its companion for nav active-state; it strips a LEADING
+  skin id rather than slicing a fixed offset, so it is correct whether or not the
+  pathname carries the prefix. Keel wraps both in `src/skins/keel/href.ts`.
+- `src/app/page.tsx` — server component; redirects `/` to `/${defaultSkinId}` on
+  an UNLOCKED deploy. Under a lock the proxy intercepts `/` before this renders,
+  so the redirect is unlocked-only in practice (it still honours LOCK_SKIN as
+  defence in depth).
 - `src/app/[skin]/layout.tsx` — resolves the skin from the URL via `getSkin`; a
   404 if unknown, and also a 404 if `LOCK_SKIN` pins the deploy to a different
-  skin (`isSkinLockedOut`). Under a lock the other three skins are as absent as a
-  nonsense segment — deliberately uniform 404 semantics, and the reason this
-  needs no middleware: `notFound()` throws before `SkinRuntime` renders, so this
-  client path never mounts a provider, a thread, or an agent registration for a
-  disowned skin. (The server-side agent registry is unaffected — `LOCK_SKIN`
-  gates the UI, not the registry.)
+  skin (`isSkinLockedOut`). `notFound()` throws before `SkinRuntime` renders, so
+  this client path never mounts a provider, a thread, or an agent registration
+  for a disowned skin. (The server-side agent registry is unaffected —
+  `LOCK_SKIN` gates the UI, not the registry.) Under the proxy `[skin]` is always
+  the locked skin, so `isSkinLockedOut` no longer fires on path access there; it
+  is kept as defence in depth for any route that reaches the layout directly.
   For a reachable skin, the layout mounts the per-skin runtime subtree **keyed
   by `skin.id`**, so switching skins fully remounts the CopilotKit provider and
   starts a fresh thread — each skin runs in its own clean world. Composition,
