@@ -149,6 +149,16 @@ describe("renderSlot", () => {
       expect(container.firstChild).toHaveAttribute("data-test", "true");
     });
 
+    test("undefined properties in object slot do not overwrite defined default props", () => {
+      const element = renderSlot({ closeButton: undefined, title: "Custom Title" }, SimpleDiv, {
+        closeButton: "default-close-btn",
+        children: "test",
+      });
+      const { container } = render(element);
+
+      expect(container.firstChild).toBeInTheDocument();
+    });
+
     test("empty string slot preserves props className", () => {
       const element = renderSlot("", SimpleDiv, {
         className: "props-class",

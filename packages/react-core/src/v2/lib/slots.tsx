@@ -72,9 +72,12 @@ function renderSlotElement(
 
   // If slot is a plain object (not a React element), treat it as props override
   if (slot && typeof slot === "object" && !React.isValidElement(slot)) {
+    const cleanedSlot = Object.fromEntries(
+      Object.entries(slot).filter(([_, v]) => v !== undefined),
+    );
     return React.createElement(DefaultComponent, {
       ...props,
-      ...slot,
+      ...cleanedSlot,
     });
   }
 
