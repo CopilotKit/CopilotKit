@@ -149,23 +149,6 @@ export function LayoutComponent({ children }: { children: React.ReactNode }) {
       ? restHead === "" || restHead === "cards"
       : restHead === segment;
 
-  // Publish this skin's edge-nav geometry so the shell's floating skin selector
-  // can inset its dock clear of the nav WITHOUT the shell knowing anything about
-  // banking (see `.nw-selector-dock` in globals.css). Northwind pins its icon
-  // rail to the RIGHT of the content region (72px aside + the wrapper's 16px
-  // pr-4 = 88px) and nothing to the left. Published on <html> (like chat-panel's
-  // --nw-chat-width) so the fixed dock, wherever it sits in the tree, inherits
-  // the values.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--nw-nav-inset-left", "0px");
-    root.style.setProperty("--nw-nav-inset-right", "88px");
-    return () => {
-      root.style.removeProperty("--nw-nav-inset-left");
-      root.style.removeProperty("--nw-nav-inset-right");
-    };
-  }, []);
-
   // Navigating dismisses any stale canvas surface. Watches the query string as
   // well as the pathname: the surface is derived from the LAST a2ui-surface
   // message and stays live until dismissed, and dashboard tabs are `?tab=` on
@@ -202,7 +185,7 @@ export function LayoutComponent({ children }: { children: React.ReactNode }) {
   if (!currentUser) return null;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-canvas transition-[padding] duration-300">
+    <div className="flex h-full overflow-hidden bg-canvas transition-[padding] duration-300">
       {/*
         Floating icon rail — visually on the RIGHT, because the chat (thread
         rail + conversation) owns the left edge. Positioned with flex `order`

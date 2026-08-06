@@ -111,8 +111,8 @@ export function createRunRenderer(args: {
   nativeStreaming?: {
     transport: NativeStreamTransport;
     /**
-     * Require native text delivery. Start, append, and stop failures propagate
-     * instead of creating or updating a second legacy message.
+     * Require native text delivery after the first native stream opens. A
+     * first-start failure still uses the legacy message transport.
      */
     strict?: boolean;
     /** Override the native text flush floor. */
@@ -156,6 +156,12 @@ export function createRunRenderer(args: {
 
   const setStatus = async (text: string): Promise<void> => {
     if (!status) return;
+    // Re-arming the status re-opens the one-shot clear below. `postedReply`
+    // tracks "the status has already been cleared for what is on screen", not
+    // "a reply was posted" -- a run that streams text, calls a tool, then
+    // streams more text sets the status again *after* the first reply cleared
+    // it, and without this reset nothing would ever clear it again.
+    if (text) postedReply = false;
     try {
       await transport.setStatus?.({
         channel_id: target.channel,
@@ -174,7 +180,14 @@ export function createRunRenderer(args: {
     if (!statusMode) return;
     await setStatus("");
   };
-  /** Whether this run has posted any visible reply yet (drives status clear). */
+  /**
+   * Whether the native status is already cleared for the current screen state.
+   *
+   * Set when a reply is posted (Slack clears the status itself on a reply) and
+   * reset by {@link setStatus} whenever a non-empty status is written again, so
+   * a tool call occurring after the first reply still gets cleared at the end
+   * of the run.
+   */
   let postedReply = false;
   const onFirstReply = async (): Promise<void> => {
     if (postedReply) return;
@@ -606,8 +619,9 @@ export function createRunRenderer(args: {
       // Backstop: clear the native "is thinking…" status even when the reply
       // streamed no text — a tool-only / file-only reply (e.g. a posted chart)
       // never triggers `onFirstReply`, so without this the indicator lingers
-      // forever. `postedReply` guards against a redundant clear on the normal
-      // streamed-text path (where onFirstReply already cleared it).
+      // forever. `postedReply` skips a redundant clear only while the status is
+      // genuinely already cleared; `setStatus` resets it whenever the status is
+      // re-armed, which is what makes text → tool → text end clean.
       if (statusMode && !postedReply) await clearStatus();
     },
     async markInterrupted() {

@@ -362,8 +362,12 @@ export function BankingTools() {
       // emitter, so the marker is applied here where it is guaranteed — and
       // only when the text actually reads as an alert, so ordinary notes stay
       // plain.
+      // Anchored on BOTH sides, and whole words rather than stems. Left-anchored
+      // alone, `report` matched inside "reporter" and "quarterly report", and
+      // `disput` inside "disputation" — so ordinary notes ("attached to the
+      // quarterly report") were served a fraud marker.
       const alerting =
-        /\b(unrecognized|unrecognised|suspicious|report(ed)?|fraud|disput)/i.test(
+        /\b(unrecognized|unrecognised|suspicious|reported|fraud|fraudulent|dispute[ds]?|disputing)\b/i.test(
           content,
         );
       const text =
@@ -910,7 +914,7 @@ export function BankingTools() {
       transactionId: z.string(),
       code: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { transactionId, code } = args;
 
       if (status === "inProgress") {
@@ -936,6 +940,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!transactionId || !code) {
                 respond?.("Missing transaction or exception code");
@@ -973,7 +978,7 @@ export function BankingTools() {
     parameters: z.object({
       exceptionId: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { exceptionId } = args;
 
       if (status === "inProgress") {
@@ -995,6 +1000,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!exceptionId) {
                 respond?.("Missing exception id");
@@ -1031,7 +1037,7 @@ export function BankingTools() {
     parameters: z.object({
       transactionId: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { transactionId } = args;
 
       if (status === "inProgress") {
@@ -1054,6 +1060,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!transactionId) {
                 respond?.("Missing transaction id");

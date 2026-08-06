@@ -252,6 +252,38 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       ]);
     });
 
+    it("does not emit a value-less patch when jsFunctions is null", () => {
+      // A JSON Patch "add" without a value property is rejected client-side
+      // by fast-json-patch (OPERATION_VALUE_REQUIRED), dropping the whole
+      // patch. The LLM frequently emits an empty/null jsFunctions, so
+      // setParam yields undefined — the delta for it must be skipped.
+      const emitted: BaseEvent[] = [];
+      const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
+
+      parser.write('{"initialHeight":200,"jsFunctions":null}');
+
+      // No emitted patch op may be missing its value property.
+      const ops = (
+        emitted.filter(
+          (e) => e.type === EventType.ACTIVITY_DELTA,
+        ) as ActivityDeltaEvent[]
+      ).flatMap((e) => e.patch);
+      for (const op of ops) {
+        expect(op).toHaveProperty("value");
+      }
+
+      // The value-less jsFunctions delta is skipped entirely...
+      const jsFnDelta = ops.find((op) => op.path === "/jsFunctions");
+      expect(jsFnDelta).toBeUndefined();
+      // ...but the completion marker still goes out.
+      const jsFnComplete = ops.find((op) => op.path === "/jsFunctionsComplete");
+      expect(jsFnComplete).toEqual({
+        op: "add",
+        path: "/jsFunctionsComplete",
+        value: true,
+      });
+    });
+
     it("emits ACTIVITY_DELTA with add op for each jsExpressions item", () => {
       const emitted: BaseEvent[] = [];
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
