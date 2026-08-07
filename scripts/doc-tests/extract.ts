@@ -27,7 +27,29 @@ interface ManifestEntry {
 }
 
 // ---------------------------------------------------------------------------
-// Config
+// Config Feature: Validator and Normalizer
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates and normalizes the Doctest configuration object,
+ * ensuring all language keys have at least an empty dependencies array.
+ */
+function normalizeConfig(config: DoctestConfig): Required<DoctestConfig> {
+  const languages: Array<keyof DoctestConfig> = ["python", "typescript", "node"];
+  const normalized: Partial<Required<DoctestConfig>> = {};
+
+  for (const lang of languages) {
+    normalized[lang] = {
+      deps: Array.isArray(config[lang]?.deps) ? (config[lang]!.deps) : []
+    };
+  }
+
+  return normalized as Required<DoctestConfig>;
+}
+
+// Example usage of the new feature:
+// const rawConfig: DoctestConfig = { python: { deps: ["pytest"] } };
+// const safeConfig = normalizeConfig(rawConfig);
 // ---------------------------------------------------------------------------
 
 const DOCS_DIR = path.resolve(
