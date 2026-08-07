@@ -109,8 +109,14 @@ describe("InterruptController", () => {
   it("accumulates multiple decisions, persists tool results, and resumes once", async () => {
     const { agent, controller, run, startResume } = setup();
     finalizeStandard(agent, [
-      makeInterrupt("one", { toolCallId: "tool-one" }),
-      makeInterrupt("two", { toolCallId: "tool-two" }),
+      makeInterrupt("one", {
+        reason: "tool_call",
+        toolCallId: "tool-one",
+      }),
+      makeInterrupt("two", {
+        reason: "tool_call",
+        toolCallId: "tool-two",
+      }),
     ]);
 
     await controller.cancel("two");
@@ -143,6 +149,32 @@ describe("InterruptController", () => {
     startResume();
     await Promise.all([resumePromise, duplicatePromise]);
     expect(controller.hasInterrupt()).toBe(false);
+  });
+
+  it("does not persist synthetic results for backend-owned interrupts", async () => {
+    const { agent, controller, run, startResume } = setup();
+    finalizeStandard(agent, [
+      makeInterrupt("suspend-one", {
+        reason: "human_approval",
+        toolCallId: "tool-one",
+      }),
+    ]);
+
+    const resumePromise = controller.resolve({ approved: true });
+
+    expect(agent.addMessage).not.toHaveBeenCalled();
+    expect(run).toHaveBeenCalledWith(agent, {
+      resume: [
+        {
+          interruptId: "suspend-one",
+          status: "resolved",
+          payload: { approved: true },
+        },
+      ],
+    });
+
+    startResume();
+    await resumePromise;
   });
 
   it("resumes legacy events with forwarded command data", async () => {
