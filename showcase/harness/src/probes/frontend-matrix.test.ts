@@ -15,10 +15,10 @@ describe("frontend showcase matrix", () => {
     expect(matrix).toHaveLength(frontendCatalog.metadata.runnable);
     expect(new Set(ids).size).toBe(ids.length);
     expect(matrix.filter((cell) => cell.frontend === "react")).toHaveLength(
-      717,
+      719,
     );
     expect(matrix.filter((cell) => cell.frontend === "angular")).toHaveLength(
-      689,
+      691,
     );
     expect(matrix.every((cell) => cell.featureTypes.length > 0)).toBe(true);
   });
