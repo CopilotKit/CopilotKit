@@ -795,7 +795,7 @@ describe("handleRunAgent", () => {
       expect(runtime.runner.run).not.toHaveBeenCalled();
     });
 
-    it("returns 409 when thread lock is denied", async () => {
+    it("returns 502 when a statusless thread lock request fails", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
         getOrCreateThread: vi.fn().mockResolvedValue({
@@ -815,7 +815,7 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
 
-      expect(response.status).toBe(409);
+      expect(response.status).toBe(502);
       const body = await response.json();
       expect(body.error).toBe("Thread lock denied");
     });

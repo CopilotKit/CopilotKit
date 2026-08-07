@@ -31,8 +31,9 @@ export interface CopilotRuntimeLearningConfig {
 const STABLE_CONTAINER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** Validates and returns a stable Learning Container ID. */
-export function assertStableLearningContainerId(value: string): string {
+export function assertStableLearningContainerId(value: unknown): string {
   if (
+    typeof value !== "string" ||
     value.length < 1 ||
     value.length > 64 ||
     !STABLE_CONTAINER_ID.test(value)
