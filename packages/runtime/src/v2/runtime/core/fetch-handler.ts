@@ -249,6 +249,7 @@ function getOrCreateChannelManager(
   const manager = new ChannelManager({
     intelligence: runtime.intelligence,
     runner: runtime.runner,
+    ...(runtime.learning !== undefined ? { learning: runtime.learning } : {}),
     lockTtlSeconds: runtime.lockTtlSeconds,
     lockHeartbeatIntervalSeconds: runtime.lockHeartbeatIntervalSeconds,
     ...(runtime.lockKeyPrefix !== undefined

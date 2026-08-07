@@ -43,6 +43,13 @@ import {
   attachRuntimeErrorReporter,
   getRuntimeErrorReporterFromOptions,
 } from "./runtime-error-reporter";
+import type { CopilotRuntimeLearningConfig } from "./learning";
+import { assertStableLearningContainerId } from "./learning";
+
+export type {
+  CopilotRuntimeLearningConfig,
+  CopilotRuntimeLearningContext,
+} from "./learning";
 
 export const VERSION = pkg.version;
 
@@ -229,6 +236,8 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
 interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligence: CopilotKitIntelligence;
+  /** Chooses one stable Learning Container ID for each web or Channel run. */
+  learning?: CopilotRuntimeLearningConfig;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
@@ -309,6 +318,7 @@ export interface CopilotRuntimeLike {
    */
   exposeMemoryRoutes?: boolean;
   memory?: CopilotRuntimeMemoryConfig;
+  learning?: CopilotRuntimeLearningConfig;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
@@ -324,6 +334,7 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
   channels: Channel[];
+  learning?: CopilotRuntimeLearningConfig;
   mode: typeof RUNTIME_MODE_INTELLIGENCE;
 }
 
@@ -437,6 +448,12 @@ export class CopilotSseRuntime
           "Intelligence Channels are not available in SSE mode.",
       );
     }
+    if ((options as { learning?: unknown }).learning !== undefined) {
+      throw new Error(
+        "`learning` requires the Intelligence runtime (pass `intelligence`); " +
+          "Learning Containers are not available in SSE mode.",
+      );
+    }
     super(options, options.runner ?? new InMemoryAgentRunner());
   }
 }
@@ -452,6 +469,7 @@ export class CopilotIntelligenceRuntime
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
   readonly channels: Channel[];
+  readonly learning?: CopilotRuntimeLearningConfig;
   readonly mode = RUNTIME_MODE_INTELLIGENCE;
 
   /** Maximum allowed lock TTL in seconds (1 hour). */
@@ -464,6 +482,7 @@ export class CopilotIntelligenceRuntime
       identifyUser?: unknown;
       channels?: unknown;
       memory?: unknown;
+      learning?: unknown;
     };
     if (
       rawOptions.identifyUser !== undefined &&
@@ -501,6 +520,29 @@ export class CopilotIntelligenceRuntime
         "Intelligence Runtime web `memory` requires `identifyUser`",
       );
     }
+    if (
+      rawOptions.learning !== undefined &&
+      (typeof rawOptions.learning !== "object" ||
+        rawOptions.learning === null ||
+        !(
+          typeof (rawOptions.learning as { containerId?: unknown })
+            .containerId === "string" ||
+          typeof (rawOptions.learning as { containerId?: unknown })
+            .containerId === "function"
+        ))
+    ) {
+      throw new Error(
+        "Intelligence Runtime `learning.containerId` must be a stable ID or callback",
+      );
+    }
+    if (
+      typeof (rawOptions.learning as { containerId?: unknown } | undefined)
+        ?.containerId === "string"
+    ) {
+      assertStableLearningContainerId(
+        (rawOptions.learning as { containerId: string }).containerId,
+      );
+    }
     super(
       options,
       new IntelligenceAgentRunner({
@@ -511,6 +553,7 @@ export class CopilotIntelligenceRuntime
       }),
     );
     this.intelligence = options.intelligence;
+    this.learning = options.learning;
     this.identifyUser = hasWebIdentity
       ? (rawOptions.identifyUser as IdentifyUserCallback)
       : undefined;
@@ -609,6 +652,8 @@ export interface CopilotRuntime extends CopilotRuntimeLike {
   lockHeartbeatIntervalSeconds?: number;
   /** Declared Intelligence Channels; `undefined` in SSE mode. */
   channels?: Channel[];
+  /** Learning Container selector; `undefined` in SSE mode. */
+  learning?: CopilotRuntimeLearningConfig;
 }
 
 /**
@@ -735,6 +780,12 @@ class CopilotRuntimeShim implements CopilotRuntime {
   get channels(): Channel[] | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.channels
+      : undefined;
+  }
+
+  get learning(): CopilotRuntimeLearningConfig | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.learning
       : undefined;
   }
 

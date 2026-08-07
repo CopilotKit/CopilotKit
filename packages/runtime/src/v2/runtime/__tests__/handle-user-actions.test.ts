@@ -252,18 +252,18 @@ it("returns the duplicate=true payload verbatim from the platform", async () => 
 it("forwards payload verbatim (any shape) to intelligence.annotate", async () => {
   const annotate = vi.fn().mockResolvedValue({ id: "1", duplicate: false });
   const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
-  const customPayload = { containers: ["user", "organization"] };
+  const customPayload = { source: "toolbar", action: "approve" };
   await handleAnnotate({
     runtime,
     request: buildRequest({
       ...validBody(),
-      type: "set_learning_containers",
+      type: "custom_annotation",
       payload: customPayload,
     }),
   });
   expect(annotate).toHaveBeenCalledWith(
     expect.objectContaining({
-      type: "set_learning_containers",
+      type: "custom_annotation",
       payload: customPayload,
     }),
   );

@@ -15,6 +15,8 @@ import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
 import type { Observable } from "rxjs";
 import { getRuntimeErrorReporter } from "../../core/runtime-error-reporter";
 import type { RuntimeErrorPhase } from "../../core/runtime-error-reporter";
+import { resolveLearningContainerId } from "../../core/learning";
+import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -84,11 +86,30 @@ export async function handleIntelligenceRun({
   }
   const userId = user.id;
 
+  let learningContainerId: string | undefined;
+  try {
+    learningContainerId = await resolveLearningContainerId(runtime.learning, {
+      surface: "web",
+      request,
+      threadId: input.threadId,
+      runId: input.runId,
+      agentId,
+      userId,
+    });
+  } catch (error) {
+    logger.error("Failed to resolve Learning Container:", error);
+    return Response.json(
+      { error: "Failed to resolve Learning Container" },
+      { status: 500 },
+    );
+  }
+
   try {
     const { thread, created } = await runtime.intelligence.getOrCreateThread({
       threadId: input.threadId,
       userId,
       agentId,
+      ...(learningContainerId !== undefined ? { learningContainerId } : {}),
     });
 
     if (created && runtime.generateThreadNames && !thread.name?.trim()) {
@@ -105,11 +126,19 @@ export async function handleIntelligenceRun({
     }
   } catch (error) {
     logger.error("Failed to get or create thread:", error);
+    const platformStatus = getPlatformErrorStatus(error);
     return Response.json(
       {
         error: "Failed to initialize thread",
       },
-      { status: 502 },
+      {
+        status:
+          platformStatus !== undefined &&
+          platformStatus >= 400 &&
+          platformStatus < 500
+            ? platformStatus
+            : 502,
+      },
     );
   }
 
@@ -122,6 +151,7 @@ export async function handleIntelligenceRun({
       runId: input.runId,
       userId,
       agentId,
+      ...(learningContainerId !== undefined ? { learningContainerId } : {}),
       ...(runtime.lockKeyPrefix !== undefined
         ? { lockKeyPrefix: runtime.lockKeyPrefix }
         : {}),
@@ -132,11 +162,21 @@ export async function handleIntelligenceRun({
     joinToken = lockResult.joinToken;
   } catch (error) {
     logger.error("Thread lock denied:", error);
+    const platformStatus = getPlatformErrorStatus(error);
     return Response.json(
       {
         error: "Thread lock denied",
       },
-      { status: 409 },
+      {
+        status:
+          platformStatus !== undefined &&
+          platformStatus >= 400 &&
+          platformStatus < 500
+            ? platformStatus
+            : platformStatus === undefined
+              ? 409
+              : 502,
+      },
     );
   }
 
