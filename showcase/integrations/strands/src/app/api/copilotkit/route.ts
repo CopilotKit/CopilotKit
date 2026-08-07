@@ -21,16 +21,18 @@ const ROUTE_DEBUG =
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
-function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+// HttpAgent path helper. Trailing slash is required so FastAPI sub-app roots
+// (agent_server.py `app.mount("/…", …)`) resolve correctly.
+function createAgent(path = "/") {
+  const normalized =
+    path === "/" ? "/" : path.endsWith("/") ? path : `${path}/`;
+  return new HttpAgent({ url: `${AGENT_URL}${normalized}` });
 }
 
-// Register the same agent under all names used by demo pages.
-// Strands runs a single shared backend agent; per-demo differentiation
-// happens on the frontend (useFrontendTool / useRenderTool / useHumanInTheLoop
-// / useAgentContext / A2UI catalogs). Every demo page's `agent=` prop must
-// resolve to a name in this list.
-const agentNames = [
+// Chrome / UI / docs demos that share the neutral showcase agent at "/".
+// Per-demo differentiation happens on the frontend (useFrontendTool /
+// useRenderTool / useHumanInTheLoop / useAgentContext / A2UI catalogs).
+const neutralAgentNames = [
   // Original blitz set
   "agentic_chat",
   "human_in_the_loop",
@@ -39,7 +41,6 @@ const agentNames = [
   "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
-  "shared-state-streaming",
   "subagents",
   // Chat UI / chrome demos
   "chat-customization-css",
@@ -47,49 +48,63 @@ const agentNames = [
   "prebuilt-popup",
   "chat-slots",
   "headless-simple",
-  "headless-complete",
-  // Reasoning
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
   // Frontend tools
   "frontend_tools",
   "frontend-tools-async",
-  // HITL
-  "hitl-in-chat",
+  // HITL (in-app uses async frontend tool; step-based hitl is frontend-driven)
   "hitl-in-app",
-  // Tool rendering variants
+  // Tool rendering variants (non-reasoning)
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
-  "tool-rendering-reasoning-chain",
   // State / context
   "readonly-state-agent-context",
   "shared-state-read-write",
-  // A2UI
-  "declarative-gen-ui",
-  "a2ui-fixed-schema",
-  // Modalities
+  // Modalities (main-route registrations; dedicated runtimes also exist)
   "multimodal",
-  "voice",
   // Misc
   "auth",
   "agent-config",
-  // BYOC renderers (wave 2)
-  "byoc-hashbrown-demo",
-  "byoc_json_render",
-  // Open Generative UI (wave 2)
-  "open-gen-ui",
-  "open-gen-ui-advanced",
-  // Polished chat shell (simplified port — wave 2 follow-up)
-  "beautiful-chat",
-  // Interrupt demos (Strategy B — frontend-tool async handler)
+  // Interrupt demos (Strategy B — frontend-tool async handler; quarantined
+  // in not_supported_features pending react-core resume-path fix)
   "gen-ui-interrupt",
   "interrupt-headless",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
-for (const name of agentNames) {
+for (const name of neutralAgentNames) {
   agents[name] = createAgent();
 }
+
+// D6 specialized backends — map agent= names used by demo pages onto the
+// dedicated mounts registered in agent_server.py. Mirrors ms-agent-python /
+// LGP: different agent names can use different HttpAgent URLs.
+//
+// Reasoning variants share one backend; the only frontend difference is
+// whether messageView.reasoningMessage is overridden.
+agents["reasoning-default"] = createAgent("/reasoning");
+agents["reasoning-custom"] = createAgent("/reasoning");
+agents["tool-rendering-reasoning-chain"] = createAgent(
+  "/tool-rendering-reasoning-chain",
+);
+agents["shared-state-streaming"] = createAgent("/shared-state-streaming");
+agents["hitl-in-chat"] = createAgent("/hitl-in-chat");
+
+// Names also registered on dedicated Next.js runtimes (ogui / beautiful-chat
+// / mcp-apps / voice / a2ui / byoc). Keep them here so a misconfigured page
+// that hits /api/copilotkit still resolves, and so probes that enumerate
+// the main runtime agent map see the full D6 surface.
+agents["headless-complete"] = createAgent("/headless-complete");
+agents["beautiful-chat"] = createAgent("/beautiful-chat");
+agents["open-gen-ui"] = createAgent("/open-gen-ui");
+agents["open-gen-ui-advanced"] = createAgent("/open-gen-ui-advanced");
+agents["mcp-apps"] = createAgent("/mcp-apps");
+agents["voice"] = createAgent("/voice");
+agents["declarative-gen-ui"] = createAgent("/declarative-gen-ui");
+agents["a2ui-fixed-schema"] = createAgent("/a2ui-fixed-schema");
+agents["a2ui-recovery"] = createAgent("/a2ui-recovery");
+agents["byoc-hashbrown-demo"] = createAgent("/byoc-hashbrown");
+agents["byoc_json_render"] = createAgent("/byoc-json-render");
+
 agents["default"] = createAgent();
 
 console.log(
@@ -112,6 +127,14 @@ export const POST = async (req: NextRequest) => {
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
+        // NOTE: A2UI / openGenerativeUI / mcpApps are intentionally NOT
+        // enabled here. Dedicated runtimes own those flags so they don't
+        // bleed into chrome demos that share this endpoint:
+        //   - /api/copilotkit-declarative-gen-ui, /api/copilotkit-a2ui-fixed-schema,
+        //     /api/copilotkit-a2ui-recovery
+        //   - /api/copilotkit-ogui
+        //   - /api/copilotkit-mcp-apps
+        //   - /api/copilotkit-beautiful-chat (combined)
       }),
     });
 

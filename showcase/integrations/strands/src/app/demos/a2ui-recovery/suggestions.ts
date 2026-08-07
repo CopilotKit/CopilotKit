@@ -1,8 +1,11 @@
 import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 
 // Two pills exercise the recovery loop deterministically via aimock fixtures
-// (showcase/aimock/d6/strands/a2ui-recovery.json). Prompts are unique within the
-// strands context so they don't collide with the declarative-gen-ui fixtures.
+// (showcase/aimock/d6/strands/a2ui-recovery.json). Prompts are UNIQUE per
+// framework so they don't collide with langgraph-python / other slugs'
+// a2ui-recovery fixtures (inner render_a2ui has no x-aimock-context, so
+// userMessage alone must disambiguate). Also unique within strands so they
+// don't collide with declarative-gen-ui (a2ui_dynamic) fixtures.
 //   - "heal":    inner render_a2ui returns free-form/sloppy args (components &
 //                data as JSON strings) -> middleware parse_and_fix heals them
 //                into a valid surface in a single pass -> painted.

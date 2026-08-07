@@ -1550,7 +1550,7 @@ def _build_model() -> OpenAIModel:
         raise RuntimeError("OPENAI_API_KEY must be set for the strands showcase agent")
     return OpenAIModel(
         client_args={"api_key": api_key},
-        model_id="gpt-4o",
+        model_id="gpt-5.5",
     )
 
 

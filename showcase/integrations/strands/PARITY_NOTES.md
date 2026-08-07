@@ -3,142 +3,118 @@
 This file documents the status of each showcase demo relative to the
 canonical LangGraph-Python showcase package (`showcase/integrations/langgraph-python`).
 
-The overall architectural difference between the two packages:
+## Architecture (D6)
 
-- **LangGraph-Python** ships one `src/agents/<demo>.py` module per demo, each
-  bound to its own LangGraph graph via `langgraph.json`.
-- **AWS Strands** ships a single shared Strands agent (`src/agents/agent.py`)
-  registered under many agent names in the AG-UI runtime. All demos in the
-  Strands package reuse the same backend; per-demo differentiation happens
-  almost entirely on the frontend via `useFrontendTool`, `useRenderTool`,
-  `useHumanInTheLoop`, `useAgentContext`, and A2UI catalogs.
+Strands no longer runs every demo against a single shared backend. As of the
+D6 wire-server pass:
 
-This keeps the Strands code base dramatically smaller without sacrificing
-user-visible functionality — the demo URLs, pages, and interactive flows are
-all present.
+- **Shared showcase agent** (`src/agents/agent.py`) remains mounted at `/` for
+  chrome / frontend-tool / generic tool-rendering cells.
+- **Specialized agents** live under `src/agents/<demo>.py` and are mounted as
+  FastAPI sub-apps in `src/agent_server.py`. The main Next.js runtime
+  (`src/app/api/copilotkit/route.ts`) maps `agent=` names onto those mounts
+  via distinct `HttpAgent` URLs — same pattern as ms-agent-python / LGP.
+- **Dedicated Next.js runtimes** still own global flags that must not bleed
+  into chrome demos: A2UI, openGenerativeUI, mcpApps, beautiful-chat combined,
+  voice, multimodal, auth, agent-config.
 
-## Skipped demos
+### Mount map (`agent_server.py`)
 
-These demos depend on LangGraph-specific primitives that AWS Strands does not
-expose at this time:
+| Mount path                        | Factory / agent                              | Used by                                    |
+| --------------------------------- | -------------------------------------------- | ------------------------------------------ |
+| `/`                               | `build_showcase_agent`                       | default + neutral cells                    |
+| `/reasoning`                      | `build_reasoning_agent`                      | `reasoning-default`, `reasoning-custom`    |
+| `/tool-rendering-reasoning-chain` | `build_tool_rendering_reasoning_chain_agent` | `tool-rendering-reasoning-chain`           |
+| `/shared-state-streaming`         | `build_shared_state_streaming_agent`         | `shared-state-streaming`                   |
+| `/hitl-in-chat`                   | `build_hitl_in_chat_agent`                   | `hitl-in-chat`                             |
+| `/open-gen-ui`                    | `build_open_gen_ui_agent`                    | `open-gen-ui` (via `/api/copilotkit-ogui`) |
+| `/open-gen-ui-advanced`           | `build_open_gen_ui_advanced_agent`           | `open-gen-ui-advanced`                     |
+| `/beautiful-chat`                 | showcase agent alias                         | `/api/copilotkit-beautiful-chat`           |
+| `/mcp-apps`                       | showcase agent alias                         | `/api/copilotkit-mcp-apps`                 |
+| `/headless-complete`              | showcase agent alias                         | headless-complete on mcp-apps runtime      |
+| `/a2ui-recovery`                  | `build_a2ui_recovery_agent`                  | a2ui-recovery                              |
+| `/declarative-gen-ui`             | `build_a2ui_dynamic_agent`                   | declarative-gen-ui                         |
+| `/a2ui-fixed-schema`              | `build_a2ui_fixed_schema_agent`              | a2ui-fixed-schema                          |
+| `/byoc-hashbrown`                 | `build_byoc_hashbrown_agent`                 | declarative-hashbrown                      |
+| `/byoc-json-render`               | `build_byoc_json_render_agent`               | declarative-json-render                    |
+| `/voice`                          | `build_voice_agent`                          | voice                                      |
 
-- **gen-ui-interrupt** — Built on `useLangGraphInterrupt`, which hooks directly
-  into the LangGraph interrupt lifecycle. Strands does not provide an
-  equivalent first-class interrupt primitive. The ergonomic replacement is
-  `hitl-in-chat` (implemented), which uses `useHumanInTheLoop` on top of a
-  regular frontend tool — Strands supports that natively. Surfaced as a stub
-  page (`src/app/demos/gen-ui-interrupt/`) and as
-  `not_supported_features.gen-ui-interrupt` in the manifest.
-- **interrupt-headless** — Same rationale as `gen-ui-interrupt`. Requires
-  `useLangGraphInterrupt`'s resolve/respond primitive. Not portable.
-  Surfaced as a stub page (`src/app/demos/interrupt-headless/`) and as
-  `not_supported_features.interrupt-headless` in the manifest.
+## Skipped demos (matches LGP)
 
-## MCP Apps — now ported (wave-2 follow-up)
+These demos depend on a resume-path bug in `@copilotkit/react-core/v2` that
+also blocks the LGP reference integration. Surfaced as
+`not_supported_features` only — demos remain wired:
 
-- **mcp-apps** — **shipped (simplified)**. Dedicated
-  `/api/copilotkit-mcp-apps` route configures
-  `mcpApps.servers: [{ type: "http", url: ..., serverId: "excalidraw" }]`.
-  The Strands shared agent has no bespoke MCP tools — the runtime
-  middleware advertises the MCP server's tools to the agent at request
-  time and emits the activity events that CopilotKit's built-in
-  `MCPAppsActivityRenderer` paints inline as a sandboxed iframe. Mirrors
-  the langgraph-python sibling pattern.
+- **gen-ui-interrupt** — `useInterrupt` / low-level interrupt lifecycle.
+  Backend resumes + streams (HTTP 200) but the frontend never appends the
+  confirmation assistant bubble. Published-package fix is out of scope.
+- **interrupt-headless** — Same rationale as `gen-ui-interrupt`.
 
-Wave-2 port status for the previously deferred demos:
+No other features are listed in `not_supported_features`. In particular
+`shared-state-streaming`, `reasoning-default`, `reasoning-custom`, and
+`tool-rendering-reasoning-chain` are **supported** as of D6.
 
-- **byoc-hashbrown** — **shipped**. Dedicated `/api/copilotkit-byoc-hashbrown`
-  route, hashbrown renderer + catalog, MetricCard/PieChart/BarChart/DealCard
-  components. The strict hashbrown JSON envelope prompt lives in
-  `src/agents/byoc_hashbrown.py` and is injected into the shared Strands
-  agent as `useAgentContext`. Incorporates PR #4271 fix from the start
-  (JSON envelope — NOT XML).
-- **byoc-json-render** — **shipped**. Dedicated `/api/copilotkit-byoc-json-render`
-  route, `@json-render/react` renderer with `<JSONUIProvider>` wrap (PR #4271
-  fix). Registry forwards `children` through the MetricCard wrapper so
-  nested dashboards render. Output prompt lives in
-  `src/agents/byoc_json_render.py` and is mirrored on the frontend via
-  `useAgentContext`.
-- **open-gen-ui** — **shipped**. Dedicated `/api/copilotkit-ogui` route with
-  `openGenerativeUI: { agents: ["open-gen-ui", "open-gen-ui-advanced"] }`.
-  Minimal variant uses `openGenerativeUI.designSkill` to steer the LLM
-  toward intricate, educational visualisations.
-- **open-gen-ui-advanced** — **shipped**. Same route as open-gen-ui; adds
-  `openGenerativeUI.sandboxFunctions` (evaluateExpression, notifyHost) so
-  the agent-authored iframe can invoke host functions via
-  `Websandbox.connection.remote.<name>(...)`.
-- **beautiful-chat** — **shipped (simplified)** in the wave-2 follow-up.
-  Polished landing-style chat shell with brand theming and seeded
-  suggestions, sitting on top of the shared Strands agent. Pattern
-  mirrors the spring-ai sibling
-  (`showcase/integrations/spring-ai/src/app/demos/beautiful-chat/`).
-  Porting the full canonical surface (ExampleCanvas, GenerativeUIExamples,
-  declarative A2UI catalog, theme provider, dedicated runtime that
-  enables `openGenerativeUI` + `a2ui` + `mcpApps` simultaneously) remains
-  out-of-scope future work — see the LangGraph-Python reference in
-  `showcase/integrations/langgraph-python/src/app/demos/beautiful-chat/`
-  for the full surface area.
+## Feature name alignment with LGP
 
-### Per-demo prompt specialization caveat
+| LGP id                           | Strands status                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| `reasoning-default`              | Supported (was previously missing / misnamed)                                        |
+| `reasoning-custom`               | Supported (was `agentic-chat-reasoning`)                                             |
+| `tool-rendering-reasoning-chain` | Supported (was not_supported)                                                        |
+| `shared-state-streaming`         | Supported (was not_supported)                                                        |
+| `hitl-in-chat`                   | Supported (dedicated agent mount)                                                    |
+| `hitl-in-chat-booking`           | Removed — LGP has no separate booking feature id; the booking flow is `hitl-in-chat` |
 
-The Strands showcase uses one shared Strands Agent backend
-(`agent_server.py`). Wave-2's BYOC demos specialize the LLM's output shape
-(hashbrown envelope / json-render spec) by injecting the canonical system
-prompt via `useAgentContext` on the frontend, rather than by spinning up
-dedicated Strands Agent instances per demo. The canonical prompts live in
-`src/agents/byoc_hashbrown.py` and `src/agents/byoc_json_render.py` as the
-single source of truth; the frontend strings mirror them. This keeps the
-Strands backend topology simple while letting each demo specialize its
-output contract.
-
-All other LangGraph-Python demos are ported below.
+Legacy Strands ids `reasoning-default-render` and `agentic-chat-reasoning` are
+gone; demos live under `/demos/reasoning-default` and `/demos/reasoning-custom`.
 
 ## Ported demos
 
-Existing (pre-blitz):
+### Specialized-backend cells (D6)
 
-- `agentic-chat`, `hitl` (ergonomic HITL), `tool-rendering`, `gen-ui-tool-based`,
-  `gen-ui-agent`, `shared-state-read-write`, `shared-state-streaming`, `subagents`.
+- `reasoning-default` — built-in `CopilotChatReasoningMessage`; backend
+  `/reasoning`.
+- `reasoning-custom` — custom `ReasoningBlock` slot; same `/reasoning` backend.
+- `tool-rendering-reasoning-chain` — tools + reasoning tokens side-by-side;
+  backend `/tool-rendering-reasoning-chain`.
+- `shared-state-streaming` — per-token state delta streaming; backend
+  `/shared-state-streaming`.
+- `hitl-in-chat` — `useHumanInTheLoop` booking flow; backend `/hitl-in-chat`.
+- `open-gen-ui` / `open-gen-ui-advanced` — dedicated agents + `/api/copilotkit-ogui`.
+- `a2ui-recovery` — validate→retry recovery loop; backend `/a2ui-recovery`.
+- `declarative-gen-ui` / `a2ui-fixed-schema` — dedicated A2UI agents.
+- `declarative-hashbrown` / `declarative-json-render` — BYOC specialized agents.
+- `beautiful-chat` — combined runtime (`openGenerativeUI` + `a2ui` + `mcpApps`)
+  at `/api/copilotkit-beautiful-chat` → `/beautiful-chat/`.
+- `mcp-apps` / `headless-complete` — `/api/copilotkit-mcp-apps` → alias mounts.
+- `voice` — tool-free agent at `/voice`.
 
-Added in this blitz:
+### Shared-agent / frontend-driven cells
 
-- `cli-start` — manifest-only start command.
-- `chat-customization-css` — scoped CSS re-theme of `<CopilotChat />`.
-- `prebuilt-sidebar` — `<CopilotSidebar />`.
-- `prebuilt-popup` — `<CopilotPopup />`.
-- `chat-slots` — slot-system chat customization.
-- `headless-simple` — minimal chat built on `useAgent`.
-- `headless-complete` — full headless chat implementation.
-- `agentic-chat-reasoning` — reasoning chain rendered via a custom slot.
-- `reasoning-default-render` — built-in `CopilotChatReasoningMessage` render.
-- `frontend-tools` — `useFrontendTool` background-change demo.
-- `frontend-tools-async` — async `useFrontendTool` handler.
-- `hitl-in-chat` — `useHumanInTheLoop` ergonomic HITL.
-- `hitl-in-app` — app-level modal HITL via async `useFrontendTool`.
-- `tool-rendering-default-catchall` — zero-config wildcard tool render.
-- `tool-rendering-custom-catchall` — branded wildcard renderer via `useDefaultRenderTool`.
-- `tool-rendering-reasoning-chain` — tool renders + reasoning tokens side-by-side.
-- `readonly-state-agent-context` — `useAgentContext` read-only context.
-- `declarative-gen-ui` — dynamic A2UI via custom catalog.
-- `a2ui-fixed-schema` — A2UI rendered against a known client-side schema.
-- `multimodal` — image + PDF attachments.
-- `auth` — bearer-token gated runtime.
-- `voice` — voice input via `@copilotkit/voice`.
-- `agent-config` — typed config object forwarded to agent.
-- `gen-ui-tool-based` — tool-triggered generative UI (haiku generator) via
-  `useFrontendTool` with a custom render. Manifest entry added; the page
-  was already in place from a prior wave.
-- `tool-rendering-default-catchall` — zero-config wildcard tool render via
-  `useDefaultRenderTool()`. Manifest entry added; page already shipped.
-- `tool-rendering-custom-catchall` — branded wildcard render. Manifest
-  entry added; page already shipped.
-- `hitl-in-chat-booking` — manifest alias of `hitl-in-chat`; both feature
-  ids point to the same `/demos/hitl-in-chat` route, mirroring the
-  langgraph-python manifest topology so the harness's per-feature live
-  status surfaces the booking flow as its own row.
+- `agentic-chat`, `chat-customization-css`, `prebuilt-sidebar`,
+  `prebuilt-popup`, `chat-slots`, `headless-simple`
+- `frontend-tools`, `frontend-tools-async`
+- `hitl` (step-based), `hitl-in-app`
+- `tool-rendering`, `tool-rendering-default-catchall`,
+  `tool-rendering-custom-catchall`
+- `gen-ui-agent`, `gen-ui-tool-based`
+- `shared-state-read`, `shared-state-read-write`,
+  `readonly-state-agent-context`
+- `subagents`, `multimodal`, `auth`, `agent-config`
+- `cli-start` — manifest-only start command
 
-The Strands shared agent (`src/agents/agent.py`) already exposes the tools
-all of the above need (weather, flights, query_data, schedule_meeting,
-manage_sales_todos, set_theme_color, generate_a2ui). New demos that need
-additional agent-side surface are documented inline in their respective demo
-folders.
+### Caveats
+
+- **Reasoning on Strands** uses Chat Completions + a native reasoning model
+  (`OPENAI_REASONING_MODEL`, default `gpt-5.5`) with `reasoning_effort=medium`.
+  LGP uses the Responses API for richer reasoning summaries; Strands
+  `OpenAIModel` has no Responses-API path yet. `ag_ui_strands` still maps
+  `reasoningText` → `REASONING_MESSAGE_*` when the model streams reasoning
+  content.
+- **Beautiful-chat** reuses the showcase agent tooling (including backend-owned
+  `generate_a2ui`) rather than a separate graph file; the dedicated runtime
+  enables the combined flag surface. Full LGP canvas parity was brought in
+  via the ui-parity slot.
+- **BYOC demos** may still inject catalog prompts via `useAgentContext` as a
+  belt-and-suspenders path; primary specialization is the dedicated agent
+  mount + Next.js route.
