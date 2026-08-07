@@ -1,5 +1,6 @@
 """Contracts for CrewAI Flows backing state and multimodal D6 cells."""
 
+import ast
 import json
 import re
 
@@ -24,10 +25,87 @@ MAIN_RUNTIME_ROUTE = (
 OPEN_GEN_UI_RUNTIME_ROUTE = (
     INTEGRATION_ROOT / "src" / "app" / "api" / "copilotkit-ogui" / "route.ts"
 )
+MCP_APPS_RUNTIME_ROUTE = (
+    INTEGRATION_ROOT / "src" / "app" / "api" / "copilotkit-mcp-apps" / "route.ts"
+)
+DOCKERFILE = INTEGRATION_ROOT / "Dockerfile"
 
 
 def _response(message):
     return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+def test_every_crewai_agent_is_explicitly_pinned_to_gpt_5_4():
+    missing_or_wrong = []
+    for source_path in sorted((INTEGRATION_ROOT / "src" / "agents").glob("*.py")):
+        tree = ast.parse(source_path.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if not isinstance(node.func, ast.Name) or node.func.id != "Agent":
+                continue
+            llm = next((kw.value for kw in node.keywords if kw.arg == "llm"), None)
+            if not isinstance(llm, ast.Constant) or llm.value != "gpt-5.4":
+                missing_or_wrong.append(f"{source_path.name}:{node.lineno}")
+
+    assert missing_or_wrong == []
+
+
+def test_beautiful_chat_routes_registered_frontend_actions_and_canonical_flights():
+    from agents.beautiful_chat import BEAUTIFUL_CHAT_BACKSTORY
+    from agents.tools.custom_tool import SearchFlightsTool
+
+    assert (
+        "call the frontend `pieChart` or `barChart` action" in BEAUTIFUL_CHAT_BACKSTORY
+    )
+    assert "call the frontend `scheduleTime` action" in BEAUTIFUL_CHAT_BACKSTORY
+    assert "call the frontend `toggleTheme` action" in BEAUTIFUL_CHAT_BACKSTORY
+    assert "Theme toggled" in BEAUTIFUL_CHAT_BACKSTORY
+    assert "United" in BEAUTIFUL_CHAT_BACKSTORY
+    assert "$349" in BEAUTIFUL_CHAT_BACKSTORY
+    assert "Delta" in BEAUTIFUL_CHAT_BACKSTORY
+    assert "$289" in BEAUTIFUL_CHAT_BACKSTORY
+
+    result = json.loads(
+        SearchFlightsTool()._run(
+            flights=[
+                {
+                    "airline": "Invented Air",
+                    "origin": "SFO",
+                    "destination": "JFK",
+                    "price": "$999",
+                }
+            ]
+        )
+    )
+    flights = result["a2ui_operations"][-1]["updateDataModel"]["value"]["flights"]
+    assert [(flight["airline"], flight["price"]) for flight in flights] == [
+        ("United", "$349"),
+        ("Delta", "$289"),
+    ]
+
+
+def test_crewai_image_packages_the_shared_financial_dataset():
+    data_link = INTEGRATION_ROOT / "data"
+
+    assert data_link.is_symlink()
+    assert (data_link / "db.csv").is_file()
+    assert "COPY --chown=app:app data/ /app/data/" in DOCKERFILE.read_text()
+
+
+def test_live_model_prompts_preserve_probe_semantics():
+    from agents.gen_ui_agent import SYSTEM_PROMPT as gen_ui_prompt
+    from agents.reasoning_flow import SYSTEM_PROMPT as display_reasoning_prompt
+    from agents.tool_rendering import _SYSTEM_PROMPT as rendering_prompt
+    from agents.tool_rendering_reasoning import SYSTEM_PROMPT as reasoning_prompt
+
+    for marker in ("launch", "marketing", "venue", "agenda", "competitor", "weakness"):
+        assert marker in gen_ui_prompt
+    assert "Rendered through the custom wildcard catchall." in rendering_prompt
+    assert "high-level rationale" in display_reasoning_prompt
+    assert "train and car" in display_reasoning_prompt
+    for chain in ("AAPL", "MSFT", "20", "6", "SFO", "JFK"):
+        assert chain in reasoning_prompt
 
 
 @pytest.mark.asyncio
@@ -37,27 +115,19 @@ async def test_reasoning_stream_persists_current_trace_for_authoritative_snapsho
     from agents import tool_rendering_reasoning as module
 
     class FakeStream:
+        _process_chunk = object()
+
         def __init__(self):
             self._chunks = iter(
                 [
-                    {
-                        "choices": [
-                            {
-                                "delta": {
-                                    "reasoning_content": "Inspect the first tool, ",
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        "choices": [
-                            {
-                                "delta": {
-                                    "reasoning_content": "then compare the result.",
-                                }
-                            }
-                        ]
-                    },
+                    SimpleNamespace(
+                        type="response.reasoning_summary_text.delta",
+                        delta="Inspect the first tool, ",
+                    ),
+                    SimpleNamespace(
+                        type="response.reasoning_summary_text.delta",
+                        delta="then compare the result.",
+                    ),
                 ]
             )
 
@@ -71,6 +141,7 @@ async def test_reasoning_stream_persists_current_trace_for_authoritative_snapsho
                 raise StopAsyncIteration from error
 
     async def fake_stream(stream):
+        assert getattr(stream, "_process_chunk", None) is FakeStream._process_chunk
         async for _chunk in stream:
             pass
         return _response({"role": "assistant", "content": "Compared."})
@@ -87,6 +158,55 @@ async def test_reasoning_stream_persists_current_trace_for_authoritative_snapsho
         "Inspect the first tool, then compare the result."
     )
     assert flow.state.messages[-1]["id"]
+
+
+@pytest.mark.asyncio
+async def test_reasoning_flow_persists_responses_trace_for_terminal_snapshot(
+    monkeypatch,
+):
+    from agents import reasoning_flow as module
+
+    class FakeStream:
+        _process_chunk = object()
+
+        def __init__(self):
+            self._chunks = iter(
+                [
+                    SimpleNamespace(
+                        type="response.reasoning_text.delta",
+                        delta="Check the arithmetic.",
+                    )
+                ]
+            )
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            try:
+                return next(self._chunks)
+            except StopIteration as error:
+                raise StopAsyncIteration from error
+
+    async def fake_responses(**_kwargs):
+        return FakeStream()
+
+    async def fake_stream(stream):
+        assert getattr(stream, "_process_chunk", None) is FakeStream._process_chunk
+        async for _chunk in stream:
+            pass
+        return _response({"role": "assistant", "content": "It is 4."})
+
+    monkeypatch.setattr(module, "copilotkit_responses", fake_responses)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    flow = module.ReasoningFlow()
+    flow.state.messages = [{"role": "user", "content": "What is 2 + 2?"}]
+
+    await flow.chat()
+
+    assert flow.state.messages[-2]["role"] == "reasoning"
+    assert flow.state.messages[-2]["content"] == "Check the arithmetic."
+    assert flow.state.messages[-1]["content"] == "It is 4."
 
 
 @pytest.mark.asyncio
@@ -146,8 +266,10 @@ async def test_shared_state_streaming_predicts_and_persists_document(monkeypatch
     ]
     predicted = []
     emitted = []
+    calls = []
 
-    async def fake_completion(**_kwargs):
+    async def fake_completion(**kwargs):
+        calls.append(kwargs)
         return object()
 
     async def fake_stream(_value):
@@ -206,8 +328,10 @@ async def test_tool_rendering_emits_backend_tool_result_before_narration(monkeyp
         _response({"role": "assistant", "content": "Tokyo is sunny."}),
     ]
     emitted = []
+    calls = []
 
-    async def fake_completion(**_kwargs):
+    async def fake_completion(**kwargs):
+        calls.append(kwargs)
         return object()
 
     async def fake_stream(_value):
@@ -223,9 +347,55 @@ async def test_tool_rendering_emits_backend_tool_result_before_narration(monkeyp
 
     await flow.chat()
 
+    tool_names = {tool["function"]["name"] for tool in calls[0]["tools"]}
+    assert "get_revenue_chart" in tool_names
+    assert calls[0]["tool_choice"] == "required"
+    assert calls[1]["tool_choice"] == "auto"
     assert emitted[0][0] == "call_weather"
     assert '"temperature"' in emitted[0][1]
     assert flow.state.messages[-1]["content"] == "Tokyo is sunny."
+
+
+@pytest.mark.asyncio
+async def test_tool_rendering_frontend_resume_does_not_force_another_tool(monkeypatch):
+    from agents import tool_rendering as module
+
+    flow = module.ToolRenderingFlow()
+    flow.state.messages = [
+        {"role": "user", "content": "Highlight this note."},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call_highlight",
+                    "type": "function",
+                    "function": {"name": "highlight_note", "arguments": "{}"},
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call_highlight",
+            "content": "Highlighted.",
+        },
+    ]
+    calls = []
+
+    async def fake_completion(**kwargs):
+        calls.append(kwargs)
+        return object()
+
+    async def fake_stream(_value):
+        return _response({"role": "assistant", "content": "Done."})
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+
+    await flow.chat()
+
+    assert calls[0]["tool_choice"] == "auto"
+    assert flow.state.messages[-1]["content"] == "Done."
 
 
 @pytest.mark.asyncio
@@ -258,14 +428,19 @@ async def test_tool_rendering_reasoning_combines_reasoning_and_tool_results(
     calls = []
     emitted = []
 
-    async def fake_completion(**kwargs):
+    async def fake_responses(**kwargs):
         calls.append(kwargs)
 
-        async def empty_stream():
-            if False:
-                yield None
+        class EmptyResponsesStream:
+            _process_chunk = object()
 
-        return empty_stream()
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise StopAsyncIteration
+
+        return EmptyResponsesStream()
 
     async def fake_stream(_value):
         return responses.pop(0)
@@ -274,14 +449,16 @@ async def test_tool_rendering_reasoning_combines_reasoning_and_tool_results(
         emitted.append((tool_call_id, content))
         return True
 
-    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_responses", fake_responses, raising=False)
     monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
     monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
 
     await flow.chat()
 
-    assert calls[0]["reasoning_effort"] == "medium"
-    assert calls[0]["stream"] is True
+    assert not hasattr(module, "acompletion")
+    assert calls[0]["reasoning"] == {"effort": "medium", "summary": "detailed"}
+    assert calls[0]["tool_choice"] == "required"
+    assert calls[1]["tool_choice"] == "auto"
     assert emitted[0][0] == "call_reasoned_weather"
     assert flow.state.messages[-1]["content"] == "Pack for the weather."
 
@@ -292,6 +469,9 @@ async def test_frontend_tool_flow_suspends_for_browser_owned_result(monkeypatch)
 
     flow = module.FrontendToolFlow()
     flow.state.messages = [{"role": "user", "content": "Search my notes."}]
+    flow.state.copilotkit.actions = [
+        {"name": "query_notes", "description": "Search notes"}
+    ]
     tool_message = {
         "role": "assistant",
         "content": "",
@@ -321,6 +501,8 @@ async def test_frontend_tool_flow_suspends_for_browser_owned_result(monkeypatch)
     await flow.chat()
 
     assert len(captured) == 1
+    assert "MUST call it" in captured[0]["messages"][0]["content"]
+    assert captured[0]["tool_choice"] == "required"
     assert flow.state.messages[-1] == tool_message
     assert not any(message.get("role") == "tool" for message in flow.state.messages)
 
@@ -357,6 +539,50 @@ async def test_multimodal_flow_preserves_converted_content_blocks(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_multimodal_flow_sends_pdfs_as_responses_input_files(monkeypatch):
+    from agents import multimodal_flow as module
+
+    flow = module.MultimodalFlow()
+    flow.state.messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What is in this PDF?"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:application/pdf;base64,AAAA"},
+                },
+            ],
+        }
+    ]
+    captured = {}
+
+    async def fake_responses(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    async def fake_completion(**_kwargs):
+        raise AssertionError("PDF turns must not use Chat Completions")
+
+    async def fake_stream(_value):
+        return _response({"role": "assistant", "content": "A PDF."})
+
+    monkeypatch.setattr(module, "aresponses", fake_responses)
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+
+    await flow.chat()
+
+    pdf_part = captured["input"][-1]["content"][-1]
+    assert pdf_part == {
+        "type": "input_file",
+        "filename": "attachment.pdf",
+        "file_data": "data:application/pdf;base64,AAAA",
+    }
+    assert captured["model"] == "openai/gpt-5.4"
+
+
+@pytest.mark.asyncio
 async def test_a2ui_recovery_runs_alpha_tool_and_persists_envelope(monkeypatch):
     from agents import a2ui_recovery_flow as module
 
@@ -380,6 +606,8 @@ async def test_a2ui_recovery_runs_alpha_tool_and_persists_envelope(monkeypatch):
         _response({"role": "assistant", "content": "Recovered."}),
     ]
     tool_runs = []
+    tool_params = []
+    completion_calls = []
 
     class FakeA2UITool:
         tool_name = "generate_a2ui"
@@ -389,11 +617,72 @@ async def test_a2ui_recovery_runs_alpha_tool_and_persists_envelope(monkeypatch):
             tool_runs.append((args, kwargs))
             return '{"a2ui_operations":[]}'
 
-    async def fake_completion(**_kwargs):
+    async def fake_completion(**kwargs):
+        completion_calls.append(kwargs)
         return object()
 
     async def fake_stream(_value):
         return streamed.pop(0)
+
+    def fake_get_a2ui_tools(params, **_kwargs):
+        tool_params.append(params)
+        return FakeA2UITool()
+
+    monkeypatch.setattr(module, "get_a2ui_tools", fake_get_a2ui_tools)
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+
+    await flow.render()
+
+    assert tool_params[0]["recovery"] == {"maxAttempts": 3}
+    assert tool_runs[0][0] == {"intent": "create"}
+    assert tool_runs[0][1]["tool_call_id"] == "call_generate_a2ui"
+    assert completion_calls[1]["messages"][-2]["tool_calls"][0] == outer_call
+    assert completion_calls[1]["messages"][-1]["role"] == "tool"
+    assert flow.state.messages[-2]["content"] == '{"a2ui_operations":[]}'
+    assert flow.state.messages[-1]["content"] == "Recovered."
+
+
+@pytest.mark.asyncio
+async def test_a2ui_recovery_drops_orphan_tool_results_from_model_context(
+    monkeypatch,
+):
+    from agents import a2ui_recovery_flow as module
+
+    flow = module.A2UIRecoveryFlow()
+    flow.state.messages = [
+        {"role": "user", "content": "Build the first dashboard."},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "missing_parent_call",
+                    "type": "function",
+                    "function": {"name": "generate_a2ui", "arguments": "{}"},
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "missing_parent_call",
+            "content": '{"a2ui_operations":[]}',
+        },
+        {"role": "assistant", "content": "The first dashboard rendered."},
+        {"role": "user", "content": "Now recover another dashboard."},
+    ]
+    captured = {}
+
+    class FakeA2UITool:
+        tool_name = "generate_a2ui"
+        schema = {"type": "function", "function": {"name": "generate_a2ui"}}
+
+    async def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    async def fake_stream(_value):
+        return _response({"role": "assistant", "content": "Ready."})
 
     monkeypatch.setattr(
         module, "get_a2ui_tools", lambda *_args, **_kwargs: FakeA2UITool()
@@ -403,10 +692,9 @@ async def test_a2ui_recovery_runs_alpha_tool_and_persists_envelope(monkeypatch):
 
     await flow.render()
 
-    assert tool_runs[0][0] == {"intent": "create"}
-    assert tool_runs[0][1]["tool_call_id"] == "call_generate_a2ui"
-    assert flow.state.messages[-2]["content"] == '{"a2ui_operations":[]}'
-    assert flow.state.messages[-1]["content"] == "Recovered."
+    assert not any(message.get("role") == "tool" for message in captured["messages"])
+    assert not any(message.get("tool_calls") for message in captured["messages"])
+    assert captured["messages"][-1]["content"] == "Now recover another dashboard."
 
 
 @pytest.mark.asyncio
@@ -674,6 +962,7 @@ def test_multimodal_page_uses_alpha_native_attachment_conversion():
 
 def test_main_runtime_routes_specialized_agents_to_their_native_flows():
     route = MAIN_RUNTIME_ROUTE.read_text()
+    mcp_apps_route = MCP_APPS_RUNTIME_ROUTE.read_text()
 
     expected_routes = {
         "shared-state-read": "/shared-state-read",
@@ -685,8 +974,12 @@ def test_main_runtime_routes_specialized_agents_to_their_native_flows():
         "tool-rendering-default-catchall": "/tool-rendering",
         "tool-rendering-custom-catchall": "/tool-rendering",
         "tool-rendering-reasoning-chain": "/tool-rendering-reasoning",
+        "frontend_tools": "/frontend-tools",
         "frontend-tools-async": "/frontend-tools",
-        "headless-complete": "/frontend-tools",
+        "human_in_the_loop": "/frontend-tools",
+        "hitl-in-chat": "/frontend-tools",
+        "hitl-in-app": "/frontend-tools",
+        "headless-complete": "/tool-rendering",
         "open-gen-ui": "/frontend-tools",
         "open-gen-ui-advanced": "/frontend-tools",
     }
@@ -695,3 +988,4 @@ def test_main_runtime_routes_specialized_agents_to_their_native_flows():
             rf'agents\["{re.escape(agent_name)}"\]\s*=\s*createAgent\(\s*"{re.escape(path)}"',
             route,
         )
+    assert "`${AGENT_URL}/tool-rendering`" in mcp_apps_route

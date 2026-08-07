@@ -65,6 +65,10 @@ COPY --chown=app:app src/agents/ ./agents/
 # Shared Python tools (symlinked at tools/ → ../../shared/python/tools)
 COPY --chown=app:app tools/ /app/tools/
 
+# Dataset consumed by tools/query_data.py. This is a source symlink to the
+# shared canonical data directory and is materialized by stage_shared.
+COPY --chown=app:app data/ /app/data/
+
 # Shared CVDIAG bootstrap module (single source: showcase/integrations/_shared;
 # symlinked in source, dereferenced into this build context by the harness
 # stage_shared step). Lands at /app/_shared; /app is already on PYTHONPATH.

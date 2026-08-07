@@ -143,6 +143,10 @@ SYSTEM_PROMPT = (
     "`id` MUST stay stable across the lifetime of the plan. After all "
     "three steps are completed you MUST send a final assistant message "
     "and terminate."
+    "\n\nStep-title semantics: preserve the user's concrete scenario words in "
+    "the three visible titles. A product launch plan must include `launch` "
+    "and `marketing`; a team offsite plan must include `venue` and `agenda`; "
+    "competitor research must include `competitor` and `weakness`."
 )
 
 

@@ -96,8 +96,12 @@ agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
 agents["tool-rendering-reasoning-chain"] = createAgent(
   "/tool-rendering-reasoning",
 );
+agents["frontend_tools"] = createAgent("/frontend-tools");
 agents["frontend-tools-async"] = createAgent("/frontend-tools");
-agents["headless-complete"] = createAgent("/frontend-tools");
+agents["human_in_the_loop"] = createAgent("/frontend-tools");
+agents["hitl-in-chat"] = createAgent("/frontend-tools");
+agents["hitl-in-app"] = createAgent("/frontend-tools");
+agents["headless-complete"] = createAgent("/tool-rendering");
 agents["open-gen-ui"] = createAgent("/frontend-tools");
 agents["open-gen-ui-advanced"] = createAgent("/frontend-tools");
 for (const name of reasoningAgentNames) {

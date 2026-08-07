@@ -1,3 +1,8 @@
+from types import SimpleNamespace
+
+import pytest
+
+import agents.conversational_flows as conversational_flows
 from agents.conversational_flows import CONVERSATIONAL_FLOW_TYPES
 
 
@@ -42,6 +47,11 @@ def test_conversational_flows_complete_each_public_turn_without_terminating_sess
         assert flow.finish_ag_ui_turn() is None
 
 
+def test_base_chat_prompt_preserves_exact_user_chosen_names_across_turns():
+    assert "exact spelling" in conversational_flows.BASE_CHAT_PROMPT
+    assert "proper names" in conversational_flows.BASE_CHAT_PROMPT
+
+
 def test_server_registers_one_public_conversational_endpoint_per_backend():
     from agent_server import app
 
@@ -54,3 +64,27 @@ def test_server_registers_one_public_conversational_endpoint_per_backend():
     assert paths == {
         f"/conversational_flows/{feature}" for feature in EXPECTED_FEATURES
     }
+
+
+@pytest.mark.asyncio
+async def test_prompted_chat_omits_tool_options_when_no_actions(monkeypatch):
+    captured = {}
+
+    async def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    async def fake_stream(_response):
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message={"role": "assistant", "content": "ok"})]
+        )
+
+    monkeypatch.setattr(conversational_flows, "acompletion", fake_completion)
+    monkeypatch.setattr(conversational_flows, "copilotkit_stream", fake_stream)
+
+    flow = conversational_flows.PromptedChatFlow()
+    flow.state.messages = [{"role": "user", "content": "hello"}]
+    await flow.chat()
+
+    assert "tools" not in captured
+    assert "parallel_tool_calls" not in captured

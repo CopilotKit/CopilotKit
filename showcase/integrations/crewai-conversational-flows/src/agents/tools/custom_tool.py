@@ -18,7 +18,7 @@ from tools import (
     search_flights_impl,
     build_a2ui_operations_from_tool_call,
 )
-from typing import Any, List
+from typing import Any, List, Optional
 
 
 class GetWeatherInput(BaseModel):
@@ -79,22 +79,67 @@ class ScheduleMeetingTool(BaseTool):
 class SearchFlightsInput(BaseModel):
     """Input schema for SearchFlightsTool."""
 
-    flights: List[dict] = Field(
-        ..., description="List of flight objects to search/display."
+    flights: Optional[List[dict]] = Field(
+        None,
+        description=(
+            "Optional route hints from an existing fixture. The mock search "
+            "returns the showcase's canonical United and Delta results."
+        ),
     )
+    origin: str = Field("SFO", description="Origin airport code.")
+    destination: str = Field("JFK", description="Destination airport code.")
 
 
 class SearchFlightsTool(BaseTool):
     name: str = "search_flights"
     description: str = (
-        "Search for flights and display the results as rich cards. Return exactly 2 flights. "
-        "Each flight must have: airline, airlineLogo, flightNumber, origin, destination, "
-        "date, departureTime, arrivalTime, duration, status, statusColor, price, and currency."
+        "Search mock flights and display exactly two canonical rich cards: "
+        "United at $349 and Delta at $289. Supply only origin and destination."
     )
     args_schema: Type[BaseModel] = SearchFlightsInput
 
-    def _run(self, flights: list) -> str:
-        result = search_flights_impl(flights)
+    def _run(
+        self,
+        flights: Optional[list] = None,
+        origin: str = "SFO",
+        destination: str = "JFK",
+    ) -> str:
+        if flights:
+            origin = str(flights[0].get("origin") or origin)
+            destination = str(flights[0].get("destination") or destination)
+        canonical_flights = [
+            {
+                "airline": "United",
+                "airlineLogo": "https://www.google.com/s2/favicons?domain=united.com&sz=128",
+                "flightNumber": "UA231",
+                "origin": origin,
+                "destination": destination,
+                "date": "Tue, Aug 18",
+                "departureTime": "08:00",
+                "arrivalTime": "16:30",
+                "duration": "5h 30m",
+                "status": "On Time",
+                "statusColor": "#22c55e",
+                "price": "$349",
+                "currency": "USD",
+            },
+            {
+                "airline": "Delta",
+                "airlineLogo": "https://www.google.com/s2/favicons?domain=delta.com&sz=128",
+                "flightNumber": "DL412",
+                "origin": origin,
+                "destination": destination,
+                "date": "Tue, Aug 18",
+                "departureTime": "11:20",
+                "arrivalTime": "19:55",
+                "duration": "5h 35m",
+                "status": "On Time",
+                "statusColor": "#22c55e",
+                "price": "$289",
+                "currency": "USD",
+            },
+        ]
+        result = search_flights_impl(canonical_flights)
         return json.dumps(result)
 
 

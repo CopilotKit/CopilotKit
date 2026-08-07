@@ -1,6 +1,6 @@
 crewai==1.15.11
 crewai-tools==1.15.11
-ag-ui-crewai==0.2.2a1
+ag-ui-crewai==0.2.2a3
 ag-ui-protocol==0.1.19
 ag-ui-a2ui-toolkit==0.0.4
 litellm==1.79.3

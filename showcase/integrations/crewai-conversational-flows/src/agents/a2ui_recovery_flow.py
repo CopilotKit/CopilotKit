@@ -22,6 +22,23 @@ SYSTEM_PROMPT = (
 )
 
 
+def _model_messages(messages: list[Any]) -> list[Any]:
+    """Keep conversational text while dropping restored A2UI tool envelopes."""
+
+    valid: list[Any] = []
+    for message in messages:
+        role = message.get("role") if isinstance(message, dict) else None
+        if role == "tool":
+            continue
+        if role == "assistant" and message.get("tool_calls"):
+            content = message.get("content")
+            if not content:
+                continue
+            message = {"role": "assistant", "content": content}
+        valid.append(message)
+    return valid
+
+
 class A2UIRecoveryState(CopilotKitState):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -33,13 +50,14 @@ class A2UIRecoveryFlow(Flow[A2UIRecoveryState]):
 
     @start()
     async def render(self) -> None:
+        model_messages = _model_messages(list(self.state.messages))
         state_dict = self.state.model_dump(by_alias=True)
         schema = self.state.ag_ui.get("a2ui_schema")
         params: dict[str, Any] = {
             "model": MODEL,
             "default_catalog_id": CATALOG_ID,
             "default_surface_id": "crewai-recovery-surface",
-            "recovery": {"maxAttempts": 2},
+            "recovery": {"maxAttempts": 3},
         }
         if schema:
             params["guidelines"] = {
@@ -49,7 +67,7 @@ class A2UIRecoveryFlow(Flow[A2UIRecoveryState]):
             }
         a2ui_tool = get_a2ui_tools(
             params,
-            glue={"messages": list(self.state.messages), "state": state_dict},
+            glue={"messages": model_messages, "state": state_dict},
         )
         tools = [*self.state.copilotkit.actions, a2ui_tool.schema]
 
@@ -58,7 +76,7 @@ class A2UIRecoveryFlow(Flow[A2UIRecoveryState]):
                 model=MODEL,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    *self.state.messages,
+                    *model_messages,
                 ],
                 tools=tools,
                 parallel_tool_calls=False,
@@ -92,21 +110,22 @@ class A2UIRecoveryFlow(Flow[A2UIRecoveryState]):
             result_message_id=result_message_id,
             flow=self,
         )
-        self.state.messages.append(
-            {
-                "id": result_message_id,
-                "role": "tool",
-                "tool_call_id": generate_call.get("id"),
-                "content": envelope,
-            }
-        )
+        result_message = {
+            "id": result_message_id,
+            "role": "tool",
+            "tool_call_id": generate_call.get("id"),
+            "content": envelope,
+        }
+        self.state.messages.append(result_message)
 
         confirmation = await copilotkit_stream(
             await acompletion(
                 model=MODEL,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    *self.state.messages,
+                    *model_messages,
+                    message,
+                    result_message,
                 ],
                 tools=tools,
                 parallel_tool_calls=False,

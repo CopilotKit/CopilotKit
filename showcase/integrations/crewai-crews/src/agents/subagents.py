@@ -97,6 +97,7 @@ _LLM = "gpt-5.4"
 # the crew's final raw output (returned via `Crew.kickoff(...)`).
 def _build_research_crew() -> Crew:
     researcher = Agent(
+        llm="gpt-5.4",
         role="Researcher",
         goal="Produce a concise bulleted list of 3-5 key facts on the topic.",
         backstory=(
@@ -127,6 +128,7 @@ def _build_research_crew() -> Crew:
 
 def _build_writing_crew() -> Crew:
     writer = Agent(
+        llm="gpt-5.4",
         role="Writer",
         goal="Turn a brief and any source facts into a polished single paragraph.",
         backstory=(
@@ -157,6 +159,7 @@ def _build_writing_crew() -> Crew:
 
 def _build_critique_crew() -> Crew:
     critic = Agent(
+        llm="gpt-5.4",
         role="Editorial Critic",
         goal="Give 2-3 crisp, actionable critiques of a draft.",
         backstory=(

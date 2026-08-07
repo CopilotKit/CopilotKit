@@ -41,7 +41,9 @@ BASE_CHAT_PROMPT = (
     "frontend tools supplied by the application whenever the user asks for "
     "their capability. "
     "Honor application context and configuration included below. After the "
-    "browser returns a tool result, summarize it briefly."
+    "browser returns a tool result, summarize it briefly. Preserve the exact "
+    "spelling of user-chosen proper names across later turns and repeat those "
+    "proper names verbatim when the user asks what was chosen."
 )
 
 
@@ -54,6 +56,13 @@ class PromptedChatFlow(Flow[CopilotKitState]):
     async def chat(self) -> None:
         state = self.state.model_dump(exclude={"messages", "copilotkit"})
         state_context = json.dumps(state, default=str, sort_keys=True)
+        actions = self.state.copilotkit.actions or None
+        completion_kwargs: dict[str, Any] = {}
+        if actions:
+            completion_kwargs.update(
+                tools=actions,
+                parallel_tool_calls=False,
+            )
         response = await copilotkit_stream(
             await acompletion(
                 model="openai/gpt-5.4",
@@ -67,9 +76,8 @@ class PromptedChatFlow(Flow[CopilotKitState]):
                     },
                     *self.state.messages,
                 ],
-                tools=self.state.copilotkit.actions or None,
-                parallel_tool_calls=False,
                 stream=True,
+                **completion_kwargs,
             )
         )
         self.state.messages.append(response.choices[0].message)

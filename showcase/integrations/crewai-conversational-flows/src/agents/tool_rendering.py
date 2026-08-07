@@ -137,6 +137,15 @@ ROLL_D20_TOOL = {
     },
 }
 
+GET_REVENUE_CHART_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "get_revenue_chart",
+        "description": "Get a mock six-month revenue series for a chart.",
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
 
 def get_stock_price_impl(
     ticker: str,
@@ -178,8 +187,12 @@ _SYSTEM_PROMPT = (
     "You are a helpful, concise assistant.  When the user asks about "
     "weather for a location, call the `get_weather` tool.  When the "
     "user asks about a stock price or quote, call the `get_stock_price` "
-    "tool with the ticker symbol.  After receiving any tool result, "
-    "summarise it in a short sentence."
+    "tool with the ticker symbol. When the user asks for a revenue chart, "
+    "call `get_revenue_chart`. Use any supplied frontend tool when its "
+    "description matches the request. After receiving any tool result, "
+    "summarise it in a short sentence. When the user asks to render through "
+    "the wildcard renderer or custom catchall, finish with this exact "
+    "sentence: `Rendered through the custom wildcard catchall.`"
 )
 
 # Maximum LLM round-trips per user turn (prevents infinite loops).
@@ -216,11 +229,29 @@ def search_flights_impl(origin: str, destination: str) -> dict:
     }
 
 
+def get_revenue_chart_impl() -> dict:
+    return {
+        "title": "Quarterly revenue",
+        "subtitle": "Last six months · USD thousands",
+        "data": [
+            {"label": "Jan", "value": 38},
+            {"label": "Feb", "value": 47},
+            {"label": "Mar", "value": 52},
+            {"label": "Apr", "value": 49},
+            {"label": "May", "value": 63},
+            {"label": "Jun", "value": 71},
+        ],
+    }
+
+
 class ToolRenderingFlow(Flow[ToolRenderingState]):
     """Chat flow that streams tool calls to the frontend for rendering."""
 
     @start()
     async def chat(self) -> None:
+        starts_with_user = bool(
+            self.state.messages and self.state.messages[-1].get("role") == "user"
+        )
         system_message = {
             "role": "system",
             "content": _SYSTEM_PROMPT,
@@ -234,6 +265,7 @@ class ToolRenderingFlow(Flow[ToolRenderingState]):
             GET_STOCK_PRICE_TOOL,
             SEARCH_FLIGHTS_TOOL,
             ROLL_D20_TOOL,
+            GET_REVENUE_CHART_TOOL,
         ]
 
         for _iteration in range(_MAX_ITERATIONS):
@@ -244,6 +276,9 @@ class ToolRenderingFlow(Flow[ToolRenderingState]):
                     model="openai/gpt-5.4",
                     messages=messages,
                     tools=tools,
+                    tool_choice=(
+                        "required" if _iteration == 0 and starts_with_user else "auto"
+                    ),
                     parallel_tool_calls=False,
                     stream=True,
                 )
@@ -330,6 +365,16 @@ class ToolRenderingFlow(Flow[ToolRenderingState]):
                     if dice_result["value"] is None:
                         dice_result["value"] = dice_result["result"]
                     result_str = json.dumps(dice_result)
+                    self.state.messages.append(
+                        {
+                            "role": "tool",
+                            "content": result_str,
+                            "tool_call_id": tool_call_id,
+                        }
+                    )
+                    await copilotkit_emit_tool_result(tool_call_id, result_str)
+                elif tool_name == "get_revenue_chart":
+                    result_str = json.dumps(get_revenue_chart_impl())
                     self.state.messages.append(
                         {
                             "role": "tool",

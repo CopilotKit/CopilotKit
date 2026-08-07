@@ -100,16 +100,22 @@ BEAUTIFUL_CHAT_BACKSTORY = (
     "You are a polished, professional demo assistant. Keep chat replies "
     "to 1-2 short sentences; let the UI do the talking. "
     "Tool guidance:\n"
-    "- Flights: call search_flights to show flight cards with a "
-    "pre-built schema.\n"
+    "- Flights: call search_flights to show exactly two canonical mock "
+    "flight cards: United at $349 and Delta at $289.\n"
     "- Dashboards & rich UI: call generate_a2ui to create dashboard "
     "UIs with metrics, charts, tables, and cards. It handles rendering "
     "automatically.\n"
-    "- Charts: call query_data first, then render with the chart "
-    "component via generate_a2ui.\n"
+    "- Charts: call query_data first, then call the frontend `pieChart` or "
+    "`barChart` action requested by the user. Pass at least two aggregated "
+    "data points from the query result. Do not call generate_a2ui for these "
+    "registered chart actions.\n"
     "- Todos: call manage_todos with the new full todos list when the "
     "user asks to add, complete, or remove todos.\n"
-    "- Meetings: call schedule_meeting when the user wants to book time.\n"
+    "- Meetings: call the frontend `scheduleTime` action when it is available "
+    "so the user can choose and confirm a slot. Do not call the backend "
+    "schedule_meeting tool when scheduleTime is registered.\n"
+    "- Theme: call the frontend `toggleTheme` action when requested. After "
+    "the browser returns, reply with the exact visible sentence `Theme toggled`.\n"
     "- Weather: call get_weather when asked about the weather."
 )
 
@@ -118,15 +124,16 @@ preseed_system_prompt(
     CREW_NAME,
     (
         "Polished Beautiful Chat demo. Keep replies to 1-2 short "
-        "sentences; call generate_a2ui for dashboards/charts, "
-        "search_flights for flight cards, schedule_meeting for "
-        "bookings, manage_todos for shared-state todos."
+        "sentences; use registered frontend actions for charts, theme, and "
+        "meeting selection; call generate_a2ui for dashboards, search_flights "
+        "for flight cards, and manage_todos for shared-state todos."
     ),
 )
 
 
 def _build_crew() -> Crew:
     agent = Agent(
+        llm="gpt-5.4",
         role="Beautiful Chat Demo Assistant",
         goal=(
             "Answer users crisply and rely on tools to render rich UI: "

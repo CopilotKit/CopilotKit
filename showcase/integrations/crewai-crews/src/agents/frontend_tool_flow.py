@@ -9,9 +9,10 @@ from ag_ui_crewai import CopilotKitState, copilotkit_stream
 
 
 SYSTEM_PROMPT = (
-    "You are a concise showcase assistant. Use the frontend tools supplied by "
-    "the application whenever the user asks for their capability. After the "
-    "browser returns a tool result, summarize it briefly."
+    "You are a concise showcase assistant. When a supplied frontend tool can "
+    "fulfill the user's request, you MUST call it; never claim that you lack "
+    "access and never substitute a prose answer. After the browser returns a "
+    "tool result, summarize it briefly."
 )
 
 
@@ -28,6 +29,13 @@ class FrontendToolFlow(Flow[CopilotKitState]):
                     *self.state.messages,
                 ],
                 tools=self.state.copilotkit.actions or None,
+                tool_choice=(
+                    "required"
+                    if self.state.copilotkit.actions
+                    and self.state.messages
+                    and self.state.messages[-1].get("role") == "user"
+                    else "auto"
+                ),
                 parallel_tool_calls=False,
                 stream=True,
             )

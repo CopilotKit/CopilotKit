@@ -8,10 +8,10 @@ slug for existing links and deployment wiring.
 
 - Feature-specific routes run through regular CrewAI Flow `kickoff` or
   `astream` execution.
-- The integration is pinned to `ag-ui-crewai==0.2.2a1`,
+- The integration is pinned to `ag-ui-crewai==0.2.2a3`,
   `ag-ui-protocol==0.1.19`, and `crewai==1.15.11`.
 - All model-backed showcase paths use `gpt-5.4`.
-- The alpha bridge owns AG-UI event translation for text, reasoning, tools,
+- The integration bridge owns AG-UI event translation for text, reasoning, tools,
   state, interrupts, multimodal input, and generative UI.
 
 ## Conversational sibling

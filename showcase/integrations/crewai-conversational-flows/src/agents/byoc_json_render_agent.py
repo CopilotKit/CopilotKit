@@ -160,6 +160,7 @@ install_custom_system_message(CREW_NAME, BYOC_JSON_RENDER_SYSTEM_PROMPT)
 
 def _build_crew() -> Crew:
     agent = Agent(
+        llm="gpt-5.4",
         role="JSON-Render Spec Emitter",
         goal="Emit a valid `{root, elements}` JSON spec.",
         backstory=BYOC_JSON_RENDER_SYSTEM_PROMPT,

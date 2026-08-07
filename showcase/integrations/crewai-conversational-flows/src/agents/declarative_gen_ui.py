@@ -95,6 +95,7 @@ preseed_system_prompt(
 
 def _build_crew() -> Crew:
     agent = Agent(
+        llm="gpt-5.4",
         role="Declarative Generative UI Demo Assistant",
         goal=(
             "Answer the user by rendering branded A2UI components via the "

@@ -139,6 +139,7 @@ preseed_system_prompt(
 
 def _build_crew() -> Crew:
     agent = Agent(
+        llm="gpt-5.4",
         role="A2UI Fixed-Schema Flight Finder",
         goal=(
             "Answer the user's flight questions by calling display_flight "

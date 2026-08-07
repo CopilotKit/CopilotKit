@@ -11,7 +11,7 @@ def test_alpha_stack_and_native_surface(monkeypatch, tmp_path):
         lambda *_args, **_kwargs: str(tmp_path / "crewai-data"),
     )
 
-    assert version("ag-ui-crewai") == "0.2.2a1"
+    assert version("ag-ui-crewai") == "0.2.2a3"
     assert version("ag-ui-protocol") == "0.1.19"
     assert version("crewai") == "1.15.11"
     assert version("litellm") == "1.79.3"

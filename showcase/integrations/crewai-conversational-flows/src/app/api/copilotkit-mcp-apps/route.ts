@@ -29,11 +29,10 @@ const mcpAppsAgent = new HttpAgent({
 });
 
 // headless-complete shares this runtime (its page wires
-// runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the shared
-// LatestAiDevelopment crew on "/" — the same backend the main route
-// registers it against.
+// runtimeUrl="/api/copilotkit-mcp-apps") and needs the dedicated frontend-tool
+// Conversational Flow so backend-rendered and browser-owned tools are offered.
 const headlessCompleteAgent = new HttpAgent({
-  url: `${AGENT_URL}/conversational_flows/chat`,
+  url: `${AGENT_URL}/conversational_flows/tool-rendering`,
 });
 
 // @region[runtime-mcpapps-config]
