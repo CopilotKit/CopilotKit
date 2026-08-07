@@ -1,7 +1,33 @@
 // Public API for @copilotkit/channels-discord.
 
-export { discord, DiscordAdapter } from "./adapter.js";
+export {
+  discord,
+  DiscordAdapter,
+  DISCORD_MODAL_INSTANCE_PREFIX,
+} from "./adapter.js";
 export type { DiscordAdapterOptions } from "./adapter.js";
+export { Discord } from "./native.js";
+export type {
+  DiscordCheckboxOption,
+  DiscordMediaItem,
+  DiscordNativeProps,
+  DiscordRadioOption,
+  DiscordRawProps,
+  DiscordSelectOption,
+  DiscordUnfurledMediaItem,
+} from "./native.js";
+export {
+  DISCORD_MESSAGE_MANIFEST,
+  DISCORD_MODAL_MANIFEST,
+  DISCORD_NATIVE_MANIFEST,
+  DISCORD_OBJECT_MANIFEST,
+} from "./native-manifest.js";
+export {
+  containsDiscordNative,
+  containsDiscordNativeModal,
+  renderDiscordNativeMessage,
+  renderDiscordNativeModalComponents,
+} from "./native-codec.js";
 
 export { DiscordConversationStore } from "./conversation-store.js";
 
@@ -17,6 +43,17 @@ export type { ChannelLike } from "./event-renderer.js";
 
 export { decodeInteraction } from "./interaction.js";
 
+export {
+  decodePortableInputControl,
+  decodePortableInputModalAction,
+  DISCORD_INPUT_CONTROL_PREFIX,
+  DISCORD_INPUT_FIELD_ID,
+  DISCORD_INPUT_MODAL_PREFIX,
+  encodePortableInputControl,
+  renderPortableInputModal,
+} from "./portable-input.js";
+export type { DiscordPortableInputControl } from "./portable-input.js";
+
 export { conversationKeyOf } from "./types.js";
 export type { ReplyTarget, IncomingTurn } from "./types.js";
 
@@ -24,6 +61,7 @@ export {
   renderComponents,
   renderDiscordMessage,
 } from "./render/components-v2.js";
+export { renderDiscordModal } from "./render/modal.js";
 
 export { DISCORD_LIMITS } from "./render/budget.js";
 

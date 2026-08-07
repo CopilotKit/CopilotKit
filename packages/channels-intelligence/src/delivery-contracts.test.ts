@@ -35,6 +35,48 @@ test("accepts one destination-free packet", () => {
   expect(() => assertDeliveryPacket(packet())).not.toThrow();
 });
 
+test("accepts bounded destination-free Discord effects", () => {
+  const effects: ChannelProviderPayload[] = [
+    {
+      kind: "discord.message.create",
+      components: [{ type: 17, components: [] }],
+      flags: 32_768,
+      attachmentHandles: ["file_chart_01"],
+      allowedUserMentions: ["123456789012345678"],
+    },
+    {
+      kind: "discord.message.replace",
+      providerReference: "pref_v1_reference_01",
+      content: "Updated",
+    },
+    {
+      kind: "discord.modal.open",
+      title: "Triage",
+      customId: "ck-modal:instance-01",
+      components: [{ type: 1, components: [] }],
+    },
+    { kind: "discord.user.lookup", query: "Ada" },
+  ];
+
+  for (const payload of effects) {
+    expect(() => assertDeliveryPacket({ ...packet(), payload })).not.toThrow();
+  }
+});
+
+test("rejects Discord destination and credential fields", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "discord.message.create",
+        content: "Hello",
+        channelId: "forged-channel",
+        botToken: "secret",
+      },
+    }),
+  ).toThrow("delivery payload is invalid");
+});
+
 test("accepts a legacy Slack stream append without an authoritative snapshot", () => {
   const missingSnapshot = {
     ...packet(),

@@ -95,6 +95,115 @@ describe("renderBlockKit", () => {
     ]);
   });
 
+  it.each([
+    ["verticalBar", "bar"],
+    ["horizontalBar", "bar"],
+    ["line", "line"],
+  ])(
+    "renders a portable %s chart as native Slack %s data",
+    (type, slackType) => {
+      expect(
+        renderBlockKit([
+          {
+            type: "chart",
+            props: {
+              type,
+              title: "Deploys",
+              xAxisTitle: "Service",
+              yAxisTitle: "Count",
+              data: [
+                { label: "API", value: 12 },
+                { label: "Web", value: 8 },
+              ],
+            },
+          },
+        ]),
+      ).toEqual([
+        {
+          type: "data_visualization",
+          title: "Deploys",
+          chart: {
+            type: slackType,
+            series: [
+              {
+                name: "Count",
+                data: [
+                  { label: "API", value: 12 },
+                  { label: "Web", value: 8 },
+                ],
+              },
+            ],
+            axis_config: {
+              categories: ["API", "Web"],
+              x_label: "Service",
+              y_label: "Count",
+            },
+          },
+        },
+      ]);
+    },
+  );
+
+  it.each(["pie", "donut"])(
+    "renders a portable %s chart as native Slack pie data",
+    (type) => {
+      expect(
+        renderBlockKit([
+          {
+            type: "chart",
+            props: {
+              type,
+              title: "Traffic",
+              data: [
+                { label: "API", value: 12 },
+                { label: "Web", value: 8 },
+              ],
+            },
+          },
+        ]),
+      ).toEqual([
+        {
+          type: "data_visualization",
+          title: "Traffic",
+          chart: {
+            type: "pie",
+            segments: [
+              { label: "API", value: 12 },
+              { label: "Web", value: 8 },
+            ],
+          },
+        },
+      ]);
+    },
+  );
+
+  it("clamps portable series charts to Slack's 20-category limit", () => {
+    const blocks = renderBlockKit([
+      {
+        type: "chart",
+        props: {
+          type: "line",
+          data: Array.from({ length: 25 }, (_, index) => ({
+            label: `P${index}`,
+            value: index,
+          })),
+        },
+      },
+    ]) as unknown as Array<{
+      chart: { series: Array<{ data: unknown[] }> };
+    }>;
+
+    expect(blocks[0]!.chart.series[0]!.data).toHaveLength(20);
+  });
+
+  it.each([
+    [{ type: "scatter", data: [{ label: "A", value: 1 }] }, /unsupported/],
+    [{ type: "pie", data: [{ label: "A", value: 0 }] }, /greater than 0/],
+    [{ type: "line", data: [{ label: "A", value: NaN }] }, /finite/],
+  ])("rejects invalid portable chart data", (props, expected) => {
+    expect(() => renderBlockKit([{ type: "chart", props }])).toThrow(expected);
+  });
+
   it("gives a static_select a fallback action_id when onSelect is absent", () => {
     const blocks = renderBlockKit([
       {

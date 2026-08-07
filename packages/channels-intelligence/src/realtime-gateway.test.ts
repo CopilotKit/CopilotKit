@@ -163,6 +163,7 @@ function makeFakeWebSocket(
                 deliveryId: "dlv_first_invitation",
                 canonicalThreadId: "thread_first_invitation",
                 channelName: "opentag",
+                surfaceId: "surface_support_01",
                 adapter: "slack",
               },
             ]),
@@ -283,6 +284,7 @@ describe("connectRealtimeGateway", () => {
         deliveryId: "dlv_first_invitation",
         canonicalThreadId: "thread_first_invitation",
         channelName: "opentag",
+        surfaceId: "surface_support_01",
         adapter: "slack",
       },
     ]);

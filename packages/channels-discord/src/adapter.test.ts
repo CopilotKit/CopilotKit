@@ -57,6 +57,129 @@ describe("DiscordAdapter", () => {
     expect(out).toBeTruthy(); // ContainerBuilder
   });
 
+  it("sends rendered chart files when posting and updating messages", async () => {
+    const edit = vi.fn(async (_payload: unknown) => undefined);
+    const message = { id: "m1", edit, delete: vi.fn(async () => undefined) };
+    const send = vi.fn(async (_payload: unknown) => message);
+    const channel = {
+      id: "c1",
+      send,
+      messages: { fetch: vi.fn(async () => message) },
+    };
+    const client = {
+      ...fakeClient(),
+      channels: { fetch: vi.fn(async () => channel) },
+    };
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const chart = [
+      {
+        type: "chart",
+        props: {
+          type: "line",
+          title: "Requests",
+          data: [
+            { label: "Mon", value: 10 },
+            { label: "Tue", value: 14 },
+          ],
+        },
+      },
+    ];
+
+    await a.post({ channelId: "c1" } as never, chart as never);
+    await a.update({ id: "m1", channelId: "c1" }, chart as never);
+
+    const payloads = [send.mock.calls[0]![0], edit.mock.calls[0]![0]] as Array<{
+      files: Array<{ attachment: Buffer; name: string; description: string }>;
+    }>;
+    for (const payload of payloads) {
+      expect(payload).toEqual(
+        expect.objectContaining({
+          files: [
+            expect.objectContaining({
+              name: "chart-1.png",
+              description: expect.stringContaining("Requests"),
+              attachment: expect.any(Buffer),
+            }),
+          ],
+        }),
+      );
+      expect(payload.files[0]!.attachment.subarray(0, 8)).toEqual(
+        Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+      );
+    }
+  }, 15_000);
+
+  it("allows mentions only for users resolved inside the configured guild", async () => {
+    const send = vi.fn(async () => ({ id: "m1" }));
+    const member = {
+      user: {
+        id: "123456789012345678",
+        bot: false,
+        globalName: "Ada Lovelace",
+        username: "ada",
+      },
+    };
+    const configuredGuild = {
+      id: "guild-1",
+      members: {
+        search: vi.fn(async () => ({ first: () => member })),
+      },
+    };
+    const otherGuild = {
+      id: "guild-2",
+      members: {
+        search: vi.fn(async () => ({ first: () => member })),
+      },
+    };
+    const client = {
+      ...fakeClient(),
+      channels: {
+        fetch: vi.fn(async () => ({
+          id: "c1",
+          send,
+          messages: { fetch: vi.fn() },
+        })),
+      },
+      guilds: {
+        cache: new Map([
+          [configuredGuild.id, configuredGuild],
+          [otherGuild.id, otherGuild],
+        ]),
+      },
+    };
+    const adapter = new DiscordAdapter(
+      { botToken: "t", appId: "app", guildId: configuredGuild.id },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+
+    await adapter.lookupUser({ query: "Ada" });
+    await adapter.post(
+      { channelId: "c1" } as never,
+      [
+        {
+          type: "markdown",
+          props: { children: "<@123456789012345678> @everyone" },
+        },
+      ] as never,
+    );
+
+    expect(configuredGuild.members.search).toHaveBeenCalledOnce();
+    expect(otherGuild.members.search).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowedMentions: {
+          parse: [],
+          users: ["123456789012345678"],
+          roles: [],
+          repliedUser: false,
+        },
+      }),
+    );
+  });
+
   it("logs in and captures the bot id on start, publishing commands on ready", async () => {
     const client = fakeClient();
     const put = vi.fn(async () => {});
@@ -124,11 +247,15 @@ describe("DiscordAdapter", () => {
     // The first message's final edit must NOT contain the second chunk's
     // marker, and the second message's final edit must contain it. If the
     // Map were ignored (old bug), every edit would land on message #0.
-    const firstFinal = posted[0]!.edit.mock.calls.at(-1)?.[0] as string;
-    const secondFinal = posted[1]!.edit.mock.calls.at(-1)?.[0] as string;
-    expect(firstFinal).toContain("A");
-    expect(firstFinal).not.toContain("B");
-    expect(secondFinal).toContain("B");
+    const firstFinal = posted[0]!.edit.mock.calls.at(-1)?.[0] as {
+      content: string;
+    };
+    const secondFinal = posted[1]!.edit.mock.calls.at(-1)?.[0] as {
+      content: string;
+    };
+    expect(firstFinal.content).toContain("A");
+    expect(firstFinal.content).not.toContain("B");
+    expect(secondFinal.content).toContain("B");
   });
 
   it("resolveUser does NOT cache the bare-id fallback on transient fetch failure", async () => {
@@ -280,6 +407,125 @@ describe("DiscordAdapter", () => {
     errSpy.mockRestore();
   });
 
+  it("opens a one-field modal immediately for a portable input control", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    await a.start(s as never);
+    const showModal = vi.fn(async (_modal: unknown) => undefined);
+    const interaction = {
+      isButton: () => true,
+      isStringSelectMenu: () => false,
+      isModalSubmit: () => false,
+      id: "int-input",
+      customId: "ck-input:ck:input-action:1",
+      channelId: "c1",
+      guildId: "g1",
+      user: { id: "u1", username: "ada" },
+      message: { id: "m1" },
+      component: { label: "Write a summary" },
+      showModal,
+      deferUpdate: vi.fn(async () => undefined),
+    };
+
+    client.emit("interactionCreate", interaction);
+    for (let index = 0; index < 5; index++) await Promise.resolve();
+
+    expect(showModal).toHaveBeenCalledTimes(1);
+    expect(
+      (showModal.mock.calls[0]![0] as { toJSON(): unknown }).toJSON(),
+    ).toEqual({
+      custom_id: "ck-input-modal:ck:input-action",
+      title: "Enter response",
+      components: [
+        {
+          type: 1,
+          components: [
+            expect.objectContaining({
+              type: 4,
+              custom_id: "value",
+              label: "Write a summary",
+              style: 2,
+              required: true,
+            }),
+          ],
+        },
+      ],
+    });
+    expect(s.onInteraction).not.toHaveBeenCalled();
+    expect(interaction.deferUpdate).not.toHaveBeenCalled();
+  });
+
+  it("dispatches a portable input modal value through its original action", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    await a.start(s as never);
+    const deferUpdate = vi.fn(async () => undefined);
+    const interaction = fakeModalSubmit({
+      id: "submit-input",
+      customId: "ck-input-modal:ck:input-action",
+      fields: {
+        fields: new Map([["value", { customId: "value", value: "Ship it" }]]),
+      },
+      isFromMessage: () => true,
+      deferUpdate,
+      deferReply: vi.fn(async () => undefined),
+    });
+
+    client.emit("interactionCreate", interaction);
+    for (let index = 0; index < 5; index++) await Promise.resolve();
+
+    expect(s.onInteraction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "ck:input-action",
+        value: "Ship it",
+        conversationKey: "c1",
+        actor: expect.objectContaining({ id: "u1" }),
+      }),
+    );
+    expect(s.onModalSubmit).not.toHaveBeenCalled();
+    expect(deferUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a short ephemeral error when a portable input action expired", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    s.onInteraction.mockRejectedValue(new Error("action expired"));
+    await a.start(s as never);
+    const followUp = vi.fn(async (_payload: unknown) => undefined);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const interaction = fakeModalSubmit({
+      id: "submit-expired-input",
+      customId: "ck-input-modal:ck:expired",
+      fields: {
+        fields: new Map([["value", { customId: "value", value: "Too late" }]]),
+      },
+      isFromMessage: () => true,
+      deferUpdate: vi.fn(async () => undefined),
+      followUp,
+    });
+
+    client.emit("interactionCreate", interaction);
+    for (let index = 0; index < 8; index++) await Promise.resolve();
+
+    expect(followUp).toHaveBeenCalledWith({
+      content: "This input is no longer available. Run the action again.",
+      flags: MessageFlags.Ephemeral,
+    });
+    errSpy.mockRestore();
+  });
+
   // A modal opened from a slash command yields a ModalSubmitInteraction with
   // no originating message — `deferUpdate()` is invalid there and throws. The
   // ack must use `deferReply` (ephemeral) for that origin, and must never throw
@@ -361,6 +607,34 @@ describe("DiscordAdapter", () => {
     expect(deferReply).not.toHaveBeenCalled();
   });
 
+  it("acknowledges an explicit modal submission before app code runs", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    const order: string[] = [];
+    const deferUpdate = vi.fn(async () => {
+      order.push("ack");
+    });
+    s.onModalSubmit.mockImplementation(async () => {
+      order.push("handler");
+    });
+    await a.start(s as never);
+    const interaction = fakeModalSubmit({
+      isFromMessage: () => true,
+      deferUpdate,
+      deferReply: vi.fn(async () => undefined),
+    });
+
+    client.emit("interactionCreate", interaction);
+    for (let index = 0; index < 6; index++) await Promise.resolve();
+
+    expect(s.onModalSubmit).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(["ack", "handler"]);
+  });
+
   it("openModal opens a modal for a slash-command interaction (commandPending registry)", async () => {
     // The bug: openModal only consulted the component registry (`pending`), so a
     // modal opened from a slash command — whose live interaction lives in
@@ -398,6 +672,83 @@ describe("DiscordAdapter", () => {
 
     expect(showModal).toHaveBeenCalledTimes(1);
     expect(res).toEqual({ ok: true });
+  });
+
+  it("routes an opaque modal instance once with its private metadata", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    await a.start(s as never);
+    const showModal = vi.fn(async (_modal: unknown) => undefined);
+    const triggerId = (
+      a as unknown as {
+        pending: {
+          register(i: { id: string; showModal: unknown }): string;
+        };
+      }
+    ).pending.register({ id: "modal-trigger", showModal });
+    await a.openModal({ channelId: "c1" } as never, triggerId, [
+      {
+        type: "modal",
+        props: {
+          callbackId: "triage",
+          title: "Triage",
+          privateMetadata: "author-secret",
+          children: [
+            {
+              type: "modal_text_input",
+              props: { id: "summary", label: "Summary" },
+            },
+          ],
+        },
+      },
+    ] as never);
+    const modalJson = (
+      showModal.mock.calls[0]![0] as { toJSON(): { custom_id: string } }
+    ).toJSON();
+    expect(modalJson.custom_id).toMatch(/^ck-modal:/);
+    expect(modalJson.custom_id).not.toContain("triage");
+    expect(modalJson.custom_id).not.toContain("author-secret");
+
+    const first = fakeModalSubmit({
+      id: "modal-submit-1",
+      customId: modalJson.custom_id,
+      channelId: "c1",
+      isFromMessage: () => true,
+      deferUpdate: vi.fn(async () => undefined),
+    });
+    client.emit("interactionCreate", first);
+    for (let index = 0; index < 6; index++) await Promise.resolve();
+
+    expect(s.onModalSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        callbackId: "triage",
+        privateMetadata: "author-secret",
+      }),
+    );
+
+    const followUp = vi.fn(async (_payload: unknown) => undefined);
+    const duplicate = fakeModalSubmit({
+      id: "modal-submit-2",
+      customId: modalJson.custom_id,
+      channelId: "c1",
+      isFromMessage: () => true,
+      deferUpdate: vi.fn(async () => undefined),
+      followUp,
+    });
+    client.emit("interactionCreate", duplicate);
+    for (let index = 0; index < 6; index++) await Promise.resolve();
+
+    expect(s.onModalSubmit).toHaveBeenCalledTimes(1);
+    expect(followUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("no longer available"),
+        flags: MessageFlags.Ephemeral,
+      }),
+    );
   });
 
   it("registerCommands never clears on empty, and publishes when already ready", async () => {

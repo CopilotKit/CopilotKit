@@ -40,6 +40,7 @@ const channelReferenceFiles = {
   createChannel: "../../content/reference/channels/functions/createChannel.mdx",
   callbacks: "../../content/reference/channels/types/JSXCallbacks.mdx",
   directAdapters: "../../content/reference/channels/sdk/direct-adapters.mdx",
+  tasks: "../../content/reference/channels/sdk/tasks.mdx",
   index: "../../content/reference/channels/index.mdx",
 } as const;
 
@@ -429,6 +430,7 @@ describe("Channels documentation journey", () => {
     expect(index).toContain("/reference/channels/components/Button");
     expect(index).toContain("/reference/channels/types/StateStore");
     expect(index).toContain("/reference/channels/sdk/direct-adapters");
+    expect(index).toContain("/reference/channels/sdk/tasks");
     expect(index).toContain(
       "[Connect and run your agent in Slack](/slack/connect)",
     );
@@ -454,6 +456,12 @@ describe("Channels documentation journey", () => {
     expect(directAdapters).toContain("ESM-only");
     expect(directAdapters).toContain("Message Content Intent");
     expect(directAdapters).toContain("Server Members Intent");
+
+    const tasks = referenceBodyFor("tasks");
+    expect(tasks).toContain("channel.onTask");
+    expect(tasks).toContain("channel.tasks.create");
+    expect(tasks).toContain("channel.readChannelMessagesTool");
+    expect(tasks).toContain("read_channel_messages");
   });
 
   it("documents current continuation, sanitizer, file, and clone contracts", () => {

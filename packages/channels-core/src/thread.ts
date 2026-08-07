@@ -85,6 +85,8 @@ export interface ThreadDeps {
   conversationKey: string;
   registry: ActionRegistry;
   agentFactory: (threadId: string) => AbstractAgent;
+  /** Isolate one per-run agent without changing the Channel default. */
+  isolateAgent?: (agent: AbstractAgent, threadId: string) => AbstractAgent;
   tools: Map<string, ChannelTool>;
   toolDescriptors: AgentToolDescriptor[];
   context: ContextEntry[];
@@ -475,6 +477,8 @@ export class Thread implements ThreadInterface {
   }
 
   runAgent(input?: {
+    /** Agent override for this run only. */
+    agent?: AbstractAgent;
     context?: ContextEntry[];
     tools?: ChannelTool[];
     /**
@@ -661,15 +665,24 @@ export class Thread implements ThreadInterface {
     extra?: {
       context?: ContextEntry[];
       tools?: ChannelTool[];
+      agent?: AbstractAgent;
       prompt?: string | AgentContentPart[];
       transcript?: boolean | { limit?: number };
       memory?: ResolvedChannelMemory;
     },
   ): Promise<MessageRef | undefined> {
+    const runAgentFactory = extra?.agent
+      ? (threadId: string) => {
+          if (!this.deps.isolateAgent) {
+            throw new Error("Thread.runAgent agent override is unavailable");
+          }
+          return this.deps.isolateAgent(extra.agent as AbstractAgent, threadId);
+        }
+      : this.deps.agentFactory;
     const session = await this.deps.adapter.conversationStore.getOrCreate(
       this.deps.conversationKey,
       this.deps.replyTarget,
-      this.deps.agentFactory,
+      runAgentFactory,
     );
     try {
       // Inject an explicit user message when the input isn't in the adapter's

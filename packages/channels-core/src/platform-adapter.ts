@@ -14,6 +14,8 @@ import type { ResolvedChannelMemory } from "./memory.js";
 import type { CommandSpec } from "./commands.js";
 import type { StateStore } from "./state/state-store.js";
 import type { AgentToolDescriptor, ContextEntry } from "./tools.js";
+import type { ChannelScheduledTask, ChannelTaskAdapter } from "./tasks.js";
+import type { ChannelHistoryAdapter } from "./channel-history.js";
 
 /** Opaque to the channel core — created by an adapter during ingress and passed back to post/createRunRenderer. */
 export type ReplyTarget = unknown;
@@ -163,6 +165,10 @@ export interface IncomingTurn extends IngressEventBase, IngressIds {
    */
   contentParts?: AgentContentPart[];
   platform: string;
+  /** Trusted Intelligence surface for Task candidate lookup. */
+  surfaceId?: string;
+  /** Trusted event time used by the normalized Task matcher input. */
+  occurredAt?: string;
 }
 
 export interface InteractionEvent extends IngressEventBase, IngressIds {
@@ -230,6 +236,18 @@ export interface IncomingReaction extends IngressEventBase {
   threadId?: string;
   /** Native payload. */
   raw: unknown;
+  /** Trusted Intelligence surface for Task candidate lookup. */
+  surfaceId?: string;
+  /** Trusted event time used by the normalized Task matcher input. */
+  occurredAt?: string;
+}
+
+/** One trusted live scheduled Task delivery. */
+export interface IncomingScheduledTask extends IngressEventBase, IngressIds {
+  platform: string;
+  surfaceId: string;
+  scheduledAt: string;
+  task: ChannelScheduledTask;
 }
 
 /** A modal submission. Adapters without modals never emit it. */
@@ -267,6 +285,8 @@ export interface ModalSubmitResult {
 
 export interface IngressSink {
   onTurn(turn: IncomingTurn): void | Promise<void>;
+  /** Invoke one already-selected managed scheduled Task. */
+  onScheduledTask?(evt: IncomingScheduledTask): void | Promise<void>;
   onInteraction(evt: InteractionEvent): void | Promise<void>;
   /** A provider installation or conversation activation became usable. */
   onWelcome(evt: IncomingWelcome): void | Promise<void>;
@@ -332,6 +352,10 @@ export interface PlatformAdapter {
   readonly platform: string;
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs: number;
+  /** Optional managed Task persistence client. */
+  readonly channelTasks?: ChannelTaskAdapter;
+  /** Optional managed provider-surface history client. */
+  readonly channelHistory?: ChannelHistoryAdapter;
   /** Return the trusted canonical Thread bound to an opaque reply target. */
   getCanonicalThreadId?(target: ReplyTarget): string;
   start(sink: IngressSink, ctx?: AdapterStartContext): Promise<void>;

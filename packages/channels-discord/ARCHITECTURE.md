@@ -38,7 +38,7 @@ DiscordAdapter (`@copilotkit/channels-discord`)
 `@copilotkit/channels` is the product-facing umbrella, not an adapter dependency.
 ```
 
-- `platform` (`"discord"`), `capabilities` (`supportsModals: false`,
+- `platform` (`"discord"`), `capabilities` (`supportsModals: true`,
   `supportsTyping: true`, `supportsReactions: true`, `supportsStreaming: true`,
   `maxBlocksPerMessage: 40`), `ackDeadlineMs` (3000)
 - `start(sink)` / `stop()` — login the discord.js `Client`, register slash
@@ -51,7 +51,7 @@ DiscordAdapter (`@copilotkit/channels-discord`)
 - `createRunRenderer(target)` — the AG-UI `RunRenderer` for a run
 - `decodeInteraction(raw)` — native `interactionCreate` payload →
   `InteractionEvent`
-- `lookupUser(query)` — guild-member search across cached guilds for
+- `lookupUser(query)` — member search inside the configured guild for
   `@`-mention resolution (backs `thread.lookupUser`)
 - `getMessages(target)` — the channel's messages via
   `channel.messages.fetch({ limit: 100 })` (backs `thread.getMessages`)
@@ -149,8 +149,9 @@ re-enters with `forwardedProps.command`.
 
 ### Interactions
 
-`client.on("interactionCreate")` acks every button/select click within ≤3s
-via `i.deferUpdate()`, then `decodeInteraction` extracts the `customId` and
+`client.on("interactionCreate")` holds each button/select click for at most 3s
+so `openModal` can win the initial response. Otherwise it acks with
+`i.deferUpdate()`, then `decodeInteraction` extracts the `customId` and
 optional `v:<json>` bound value plus the channel ref, building an
 `InteractionEvent`. The engine resolves it: an awaiting HITL waiter, or
 `ActionRegistry.dispatch` — a hot-cache hit, or a cold-path re-render
@@ -231,12 +232,9 @@ src/
 
 - **No abstraction over discord.js.** If you use this package, you're talking
   to Discord via discord.js directly.
-- **No durable Discord-side state.** The next turn rebuilds context from
+- **No durable Discord transcript state.** The next turn rebuilds context from
   Discord channel history; restarts are safe for conversation history by
-  construction. (The engine's `ActionStore` is separately in-memory in v1,
-  so inline interaction handlers expire on restart — see the
-  [`@copilotkit/channels` README](../channels/README.md), the product-facing
-  umbrella documentation.)
-- **No modal support in v1.** `<Input>` components are modal-only on Discord
-  and are skipped with a console warning. `supportsModals` is advertised as
-  `false`.
+  construction. Opaque action and modal bindings use the Runtime `StateStore`,
+  so configured durable stores can recover handlers after a restart.
+- **No modal validation re-open.** Discord does not report modal dismissal or
+  support reopening a submitted modal with field errors.

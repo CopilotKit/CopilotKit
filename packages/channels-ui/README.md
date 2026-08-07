@@ -106,6 +106,16 @@ capitalized component set below.
 | `Input`    | Text input — `onSubmit`, `placeholder`, `multiline`, `name`.               |
 | `Image`    | An image block.                                                            |
 | `Divider`  | A horizontal rule.                                                         |
+| `Table`    | Tabular rows and cells. Discord renders a fenced text table.               |
+| `Row`      | One row inside `Table`.                                                    |
+| `Cell`     | One header or body cell inside `Row`.                                      |
+| `Chart`    | Vertical bar, horizontal bar, line, pie, or donut data visualization.      |
+
+Portable modal roots use `Modal` with `TextInput`, `ModalSelect`,
+`ModalSelectOption`, and `RadioButtons`. Discord maps portable selects and
+radio controls to native modal inputs and renders message `Input` as an
+immediate one-field modal trigger. Discord charts become PNG attachments;
+Slack uses its visualization renderer and Teams keeps native chart output.
 
 ### Behavior props
 
