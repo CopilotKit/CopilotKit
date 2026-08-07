@@ -221,7 +221,7 @@ function countToolsTokens(model: string, tools: any[]): number {
 }
 
 function countMessageTokens(model: string, message: any): number {
-  return countTokens(model, message.content || "");
+  return countTokens(model, JSON.stringify(message.content) || "");
 }
 
 function countTokens(model: string, text: string): number {
