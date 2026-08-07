@@ -1,0 +1,163 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Rowan — People Ops. Skin-scoped VALUES for the shell's shared token
+   vocabulary (names declared in src/app/globals.css; never invent new ones).
+
+   PALETTE RATIONALE. The four shipped skins already own violet (banking 252),
+   cyan (airline 190), amber (logistics 32) and teal (keel 170), so plum is the
+   one warm, human hue still unclaimed — and it is literally the rowan in
+   autumn. It is deliberately DARK and LOW-SATURATION (315 38% 36%) rather than
+   a bright accent, because this app puts a per-person monogram tile on almost
+   every row: the chrome has to stay quiet or the roster turns into confetti.
+
+   `--brand-violet` is repurposed as Rowan's warm GOLD milestone accent (tenure
+   anniversaries, band-ceiling markers, "on track" ribbons) — the same move keel
+   makes with its amber. The shell only cares that the token resolves; what it
+   MEANS is the skin's business.
+
+   `--negative` is pulled to a cool crimson (352) and kept far from the plum
+   brand in lightness, so an out-of-band salary flag never reads as decoration.
+   ────────────────────────────────────────────────────────────────────────── */
+.theme-people {
+  /* Between logistics' utilitarian 0.5rem and banking's pillowy 1.375rem. A
+     people directory wants softened, card-like corners without looking like a
+     consumer app. */
+  --radius: 0.875rem;
+
+  /* Dark-mode OPT-IN. src/hooks/use-theme.ts forces any skin WITHOUT this flag
+     to light and ignores the stored preference, which would make the layout's
+     ThemeToggle a dead control. The `.dark .theme-people` block below is only
+     live because this is set. */
+  --nw-dark-capable: 1;
+
+  --brand: 315 38% 36%;
+  --brand-indigo: 322 44% 26%;
+  --brand-violet: 38 88% 50%;
+  --brand-foreground: 0 0% 100%;
+  --brand-soft: 316 46% 95%;
+
+  --background: 320 24% 99%;
+  --foreground: 318 24% 12%;
+  --canvas: 318 16% 95%;
+  --surface: 0 0% 100%;
+  --surface-muted: 318 22% 97%;
+  --ink: 318 24% 12%;
+  --ink-muted: 316 9% 44%;
+  --hairline: 318 18% 89%;
+
+  --positive: 158 56% 34%;
+  --positive-soft: 158 48% 94%;
+  --negative: 352 70% 48%;
+  --negative-soft: 352 82% 96%;
+}
+
+/* DARK. `.dark` lands on <html>, an ancestor of the `.theme-people` root, so
+   this re-values only what differs — surfaces, ink, hairline and the semantic
+   pairs — and lets the brand ramp and `--radius` inherit from the light block.
+   The plum brand is lightened here only via `--brand-soft`: on a dark surface
+   the 36%-light plum still carries enough contrast as a fill. */
+.dark .theme-people {
+  color-scheme: dark;
+
+  --background: 318 18% 8%;
+  --foreground: 316 20% 94%;
+  --canvas: 318 18% 8%;
+  --surface: 318 15% 12%;
+  --surface-muted: 318 13% 15%;
+  --ink: 316 20% 94%;
+  --ink-muted: 316 8% 60%;
+  --hairline: 318 11% 22%;
+
+  --brand: 315 46% 58%;
+  --brand-indigo: 322 44% 48%;
+  --brand-soft: 316 30% 20%;
+
+  --positive: 158 48% 48%;
+  --positive-soft: 158 32% 15%;
+  --negative: 352 70% 62%;
+  --negative-soft: 352 38% 18%;
+}
+
+/* ── Signature: the band ladder ──────────────────────────────────────────────
+   The one element this skin is meant to be remembered by. Each level is a
+   vertical rail whose fill runs band-min (bottom) → band-max (top); every
+   employee is a dot placed at their real position in that range. Kept in CSS
+   rather than Tailwind because the gradient direction and the out-of-band
+   pulse both need to follow the live tokens. */
+.rowan-rail {
+  /* Plum only, deepening upward. An earlier version faded into the gold
+     milestone accent at the ceiling, which read as unrelated warmth — the rails
+     looked like candles rather than ranges. The ceiling is now marked by a
+     discrete cap element instead, which says "this is the top of the band"
+     without recolouring the whole rail. */
+  background-image: linear-gradient(
+    to top,
+    hsl(var(--brand) / 0.08) 0%,
+    hsl(var(--brand) / 0.3) 100%
+  );
+}
+
+/* The band ceiling. A short solid cap in the gold milestone accent — the one
+   place a rail earns colour, because crossing it is what makes someone
+   actionable. */
+.rowan-rail-cap {
+  background-color: hsl(var(--brand-violet) / 0.75);
+}
+
+/* An employee sitting outside their band gets a ring that breathes once on
+   mount — a visible affordance the audience can catch from the back of a room
+   without it animating forever. */
+@keyframes rowan-flag-in {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--negative) / 0.55);
+  }
+
+  70% {
+    box-shadow: 0 0 0 7px hsl(var(--negative) / 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--negative) / 0);
+  }
+}
+
+.rowan-flag {
+  animation: rowan-flag-in 1.4s ease-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rowan-flag {
+    animation: none;
+    outline: 2px solid hsl(var(--negative));
+    outline-offset: 2px;
+  }
+}
+
+/* BEAT 6 — the recording vignette. A slow breathe on the canvas edge so a room
+   can see that Rowan is watching the demonstration, without a spinner or a
+   modal stealing focus from the thing being demonstrated. */
+@keyframes rowan-record-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the border — it carries the "recording" signal — drop the pulse. */
+  [style*="rowan-record-breathe"] {
+    animation: none !important;
+    opacity: 0.85 !important;
+  }
+}
+
+/* Tabular figures everywhere a salary, a band or a day-count is shown, so
+   columns of numbers line up and a changed digit is visible as a change rather
+   than as a reflow. */
+.rowan-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}

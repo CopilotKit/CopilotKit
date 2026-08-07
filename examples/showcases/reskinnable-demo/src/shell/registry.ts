@@ -3,6 +3,7 @@ import banking from "@/skins/banking/skin";
 import airline from "@/skins/airline/skin";
 import logistics from "@/skins/logistics/skin";
 import keel from "@/skins/keel/skin";
+import people from "@/skins/people/skin";
 
 export { defaultSkinId } from "./skins-config";
 
@@ -13,6 +14,7 @@ export const SkinRegistry: Record<string, Skin> = {
   [airline.id]: airline,
   [logistics.id]: logistics,
   [keel.id]: keel,
+  [people.id]: people,
 };
 
 export function getSkin(id: string | undefined): Skin | null {

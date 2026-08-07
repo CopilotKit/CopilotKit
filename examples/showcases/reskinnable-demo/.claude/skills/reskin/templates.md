@@ -2,8 +2,8 @@
 
 Copy each block into `src/skins/<id>/<file>` and replace `<id>` / `<Brand>` /
 domain specifics. These are written against this app's frozen `Skin` contract
-(`src/shell/skin-contract.ts`) and mirror the four shipped skins
-(`src/skins/{banking,airline,logistics,keel}/`) — see
+(`src/shell/skin-contract.ts`) and mirror the five shipped skins
+(`src/skins/{banking,airline,logistics,keel,people}/`) — see
 [demo-beats.md](./demo-beats.md) § "Which skin to copy for what" for which one to
 open for which problem.
 
@@ -378,8 +378,11 @@ respond }`. Do not copy the HITL `{ args }` shape into a `useComponent`.
 Reopening a thread replays recorded tool calls: you get the stored `result` and no
 live status transition. A render keyed on `status` is perfect live and blank or
 wrong on revisit — precisely when "reload and it's still there" is being demoed.
-Banking is the only skin written this way (`tools.tsx:70-89`, `418-451`,
-`553-572`).
+Banking and people are the only skins written this way — banking at
+`tools.tsx:70-89`, `418-451`, `553-572`; people's `setBaseSalary` render at
+`tools.tsx` recovers from an `answeredSalaryChanges` module map that holds the
+person's NAME and nothing else, so a replayed card can rebuild itself without
+the salary ever having been stored.
 
 **4. Readables must make the agent PAGE-AWARE** (beat 3b). Global readables
 (who the user is, the whole data set) are not enough: "what's on my screen?"
@@ -604,8 +607,9 @@ export const <id>IdentifyUser: IdentifyRunUser = (properties) => {
 ## `intelligence/seed-memories.ts` — REQUIRED for beats 4 and 5
 
 "It already knows me" is a **file**, not emergent behaviour. Mirror
-`src/skins/banking/intelligence/seed-memories.ts` — the only implementation in
-the repo, and its comments are worth reading in full. Server-safe plain `.ts`.
+`src/skins/banking/intelligence/seed-memories.ts` or
+`src/skins/people/intelligence/seed-memories.ts` — the only two in the repo, and
+both sets of comments are worth reading in full. Server-safe plain `.ts`.
 Called by your `dev/reset` route immediately after wiping memories, so the demo
 is re-armed before the presenter says a word.
 

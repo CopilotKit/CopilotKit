@@ -8,7 +8,7 @@ description: >-
   the user says "add a skin", "create a skin", "new skin", "reskin the app",
   "make a <domain> skin", or wants the app re-themed as a new product. Do NOT
   use for editing the shell itself (src/shell/**), the shared token vocabulary
-  (src/app/globals.css), or the four shipped skins unless explicitly asked.
+  (src/app/globals.css), or the five shipped skins unless explicitly asked.
 ---
 
 # Authoring a reskinnable-demo skin
@@ -26,13 +26,15 @@ contract in `src/skins/<id>/`, (3) put its **server-only** agent in
 the identical `id`.
 
 > Before writing anything, re-open `src/shell/skin-contract.ts` (the source of
-> truth) and read the shipped skins as worked references. Four are registered —
-> `banking`, `airline`, `logistics`, `keel` — and they are good at different
-> things; **[demo-beats.md](./demo-beats.md) § "Which skin to copy for what"**
-> is the routing table. The short version: `banking` is the maximal end and the
-> only demo-complete skin, `logistics` is the debugged layout reference,
-> `airline` is the minimal contract surface, `keel` is the only one with
-> parameterized routes. Those files win on any conflict with this skill.
+> truth) and read the shipped skins as worked references. Five are registered —
+> `banking`, `airline`, `logistics`, `keel`, `people` — and they are good at
+> different things; **[demo-beats.md](./demo-beats.md) § "Which skin to copy for
+> what"** is the routing table. The short version: `banking` and `people` are the
+> two demo-complete skins (`banking` is the original reference; `people` is the
+> newer one, and the only one whose beat map is written out in its
+> `suggestions.ts`), `logistics` is the debugged layout reference, `airline` is
+> the minimal contract surface, `keel` is the only one with parameterized routes.
+> Those files win on any conflict with this skill.
 
 ---
 
@@ -331,7 +333,8 @@ status, respond }`. Airline has no parameterized `useComponent`, so don't learn
   renders blank or wrong the moment anyone revisits the thread — which is exactly
   when beat 2 ("reload and the chart is still there") is being shown. Re-derive
   display state from the replayed result, and never depend on client state that
-  only existed during the live call. Banking is the only skin written this way:
+  only existed during the live call. Banking and people are the only skins
+  written this way; banking's is the canonical example:
   `setCardPin` re-derives its card from the replayed result plus a module map
   holding only `brand`/`last4` — never the PIN (`tools.tsx:70-89`, `418-451`) —
   and `showCharges` keys off `result` not `status` (`tools.tsx:553-572`).
@@ -341,11 +344,14 @@ status, respond }`. Airline has no parameterized `useComponent`, so don't learn
   each _page_ component tell it what is visibly on screen (active filters, the
   rows actually rendered, the figures shown). Without both, "what's on my
   screen?" (beat 3b) returns the same answer on every page and the beat dies.
-  Banking is the only skin that does this — route readable at
+  Banking and people are the only skins that do this. Banking: route readable at
   `layout.tsx:141-143`, page-scoped readables in `dashboard.tsx:148`,
-  `cards.tsx:376`, `team.tsx:54`, and the richest in `charges.tsx:139`. Pair them
-  with a prompt clause telling the agent its context IS its view of the screen
-  and that it must never claim it cannot see (`agent.ts:61-71`).
+  `cards.tsx:376`, `team.tsx:54`, and the richest in `charges.tsx:139`. People
+  does the same across all four of its pages, and is the tighter read if you want
+  one worked example — the route readable maps the index segment to a real page
+  NAME (`layout.tsx`'s `ROUTE_READABLE_NAME`) rather than reporting `""`. Pair
+  them either way with a prompt clause telling the agent its context IS its view
+  of the screen and that it must never claim it cannot see (`agent.ts:61-71`).
 
 ---
 
@@ -431,11 +437,11 @@ human phrases ("Pulling up your flight") instead of raw tool names (`showFlight`
 — treat `toolLabels` as expected for any skin with named frontend tools, not
 optional in practice. `RuntimeProviders`/`useRuntimeProperties`/`identifyUser`
 are for a skin with its own end-user identity (see the identity section above);
-banking, logistics and keel all three ship them, airline none.
+banking, logistics, keel and people all four ship them, airline none.
 
 `intelligence/seed-memories.ts` is **not** optional if you are building beats 4
 and 5 — "it already knows me" is a seeded file, not emergent behaviour, and only
-banking has one. It seeds the topical preference (beat 4) and the operational
+banking and people have one. It seeds the topical preference (beat 4) and the operational
 procedure (beat 5), and deliberately does NOT seed beat 6's procedure — that is
 the one the agent has to learn on stage. See
 **[demo-beats.md](./demo-beats.md) § "Seeding memories"**.

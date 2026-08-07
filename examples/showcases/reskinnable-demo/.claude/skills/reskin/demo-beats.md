@@ -40,7 +40,7 @@ tell a deliberate choice from an oversight.
 **If the user named which beats to hit** — fewer, more, or different ones — theirs
 win outright. Record what they asked for in the map (`"user: BI dashboards only,
 no teach mode"`) and build that. Absent instructions, build all nine rows: that
-is what makes a skin demo-complete, and three of the four shipped skins are
+is what makes a skin demo-complete, and three of the five shipped skins are
 missing most of them (see "Which skin to copy" at the end).
 
 ---
@@ -140,10 +140,10 @@ value: <current segment> })` in your layout. Without it the agent has no idea
    screen: name the page, summarize the key elements, cite the actual figures,
    and **never** say it cannot see the screen.
 
-Every shipped skin registers readables. Only banking registers a route readable
-and per-page on-screen readables — which is why this beat is impossible in
-airline, logistics and keel today: they answer identically no matter which page
-is open.
+Every shipped skin registers readables. Only banking and people register a route
+readable AND per-page on-screen readables — which is why this beat is impossible
+in airline, logistics and keel today: they answer identically no matter which
+page is open.
 
 **Banking:** route readable at `layout.tsx:141-143`; global page/operation
 readables at `tools.tsx:162-170`; page-scoped on-screen readables in
@@ -386,9 +386,10 @@ The ask is 8–12 skins spanning that space. Two are called out explicitly:
   yourself, which is exactly why showing it working closes people.
 
 Other domains that fit the same buyer: healthcare operations (shipped as `keel`),
-supply chain / logistics (shipped), insurance claims, field service, HR and
-recruiting, legal contract review, retail merchandising, energy and utilities
-operations, customer-support command centers, manufacturing quality.
+supply chain / logistics (shipped), HR and people operations (shipped as
+`people`), insurance claims, field service, recruiting, legal contract review,
+retail merchandising, energy and utilities operations, customer-support command
+centers, manufacturing quality.
 
 **The bar is "holy shit" pretty, not "renders correctly."** Arm sales with
 something beautiful and they close monster deals; ship template output and the
@@ -399,18 +400,20 @@ and use the workspace's frontend-design skill rather than eyeballing it.
 
 ## Which skin to copy for what
 
-| Need                                  | Copy from                                                |
-| ------------------------------------- | -------------------------------------------------------- |
-| Every beat, end to end                | `banking` — the only skin at 6/6                         |
-| Route + on-screen readables (beat 3b) | `banking` — the only skin with them                      |
-| Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`                  |
-| Attachment staging (beat 3d)          | `banking` — `attach-invoice.ts`, `skin.tsx`              |
-| Debugged layout + meta-utility strip  | `logistics`                                              |
-| Server-emitted a2ui canvas            | `logistics` (`renderBrief`), `banking` (`render_report`) |
-| Per-user identity plumbing            | `banking`, `logistics`, `keel`                           |
-| Parameterized routes in `resolvePage` | `keel` (`knowledge/<docId>`, `runs/<runId>`)             |
-| In-memory `useData` substrate         | `airline`, `keel`                                        |
-| Minimal contract surface              | `airline`                                                |
+| Need                                  | Copy from                                                         |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| Every beat, end to end                | `banking` or `people` — the two skins at 6/6                      |
+| A written-out beat map                | `people` — the table at the top of its `suggestions.ts`           |
+| Route + on-screen readables (beat 3b) | `banking`, `people`                                               |
+| Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`; `people` for a 2nd take  |
+| Attachment staging (beat 3d)          | `banking` (`attach-invoice.ts`), `people` (`attach-offer-letter`) |
+| Seeded memories (beats 4, 5)          | `banking`, `people` — the only two with a seed file               |
+| Debugged layout + meta-utility strip  | `logistics`, `people`                                             |
+| Server-emitted a2ui canvas            | `logistics` (`renderBrief`), `banking` (`render_report`)          |
+| Per-user identity plumbing            | `banking`, `logistics`, `keel`, `people`                          |
+| Parameterized routes in `resolvePage` | `keel` (`knowledge/<docId>`, `runs/<runId>`)                      |
+| In-memory `useData` substrate         | `airline`, `keel`                                                 |
+| Minimal contract surface              | `airline`                                                         |
 
 **Do not use airline, logistics or keel as demo-completeness references.** They
 predate this bar: each hits roughly one beat of nine. Logistics and keel are
