@@ -38,6 +38,10 @@ on:
         required: false
         default: "d5"
         type: string
+      slug:
+        description: "Integration slug(s) to eval, comma-separated (e.g. mastra). Empty = affected."
+        required: false
+        type: string
 
 concurrency:
   group: showcase-eval-${{ github.event.inputs.pr_number || github.event.issue.number || github.run_id }}
@@ -223,10 +227,42 @@ jobs:
       pr_sha: ${{ steps.resolve.outputs.sha }}
       pr_number: ${{ github.event.inputs.pr_number }}
       level: ${{ github.event.inputs.level || 'd5' }}
-      scope_flag: "--scope affected"
-      scope_display: "affected"
+      scope_flag: ${{ steps.scope.outputs.scope_flag }}
+      scope_display: ${{ steps.scope.outputs.scope_display }}
       check_run_id: ${{ github.event.inputs.check_run_id }}
     steps:
+      - name: Resolve scope from slug input
+        id: scope
+        # `slug` is UNTRUSTED input — read via env, never inline into the shell.
+        # Empty slug keeps the historical default (--scope affected). A provided
+        # slug lets a manual dispatch target one integration like the comment
+        # path (`/eval d5 mastra`), so the fleet bring-up stays bounded instead
+        # of building every affected image.
+        env:
+          SLUG_INPUT: ${{ github.event.inputs.slug }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SLUG_INPUT:-}" ]; then
+            echo "scope_flag=--scope affected" >> "$GITHUB_OUTPUT"
+            echo "scope_display=affected" >> "$GITHUB_OUTPUT"
+          else
+            # Validate each slug against ^[a-z0-9-]+$ (same rule as the comment
+            # gate) before it reaches the eval command unquoted.
+            IFS=',' read -ra SLUGS <<< "$SLUG_INPUT"
+            for s in "${SLUGS[@]}"; do
+              s=$(printf '%s' "$s" | xargs)  # trim whitespace
+              case "$s" in
+                ''|*[!a-z0-9-]*)
+                  echo "::error::Invalid slug '$s' — must match ^[a-z0-9-]+$"
+                  exit 1
+                  ;;
+              esac
+            done
+            CLEAN=$(printf '%s' "$SLUG_INPUT" | tr -d ' ')
+            echo "scope_flag=--slug $CLEAN" >> "$GITHUB_OUTPUT"
+            echo "scope_display=$CLEAN" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Resolve PR HEAD SHA
         id: resolve
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -288,6 +324,27 @@ jobs:
       - name: Install Playwright chromium
         run: npx playwright install chromium --with-deps
 
+      # docker-compose.local.yml declares `env_file: .env` on every service, so
+      # `docker compose` hard-fails if showcase/.env is missing — and .env is
+      # gitignored (only .env.example is committed). Provision it here so the
+      # eval's self-provisioning lifecycle can bring the fleet up. Values are
+      # dummies: aimock serves the recorded fixtures and never validates tokens
+      # (see showcase/.env.example), and the aimock base URLs are already
+      # hardcoded in the compose `environment:` block — these are belt-and-braces.
+      - name: Provision showcase/.env for compose (aimock replay)
+        run: |
+          cat > showcase/.env <<'EOF'
+          OPENAI_API_KEY=sk-aimock-dev-ci-only
+          ANTHROPIC_API_KEY=sk-aimock-dev-ci-only
+          GOOGLE_API_KEY=fake-gemini-key
+          LANGSMITH_API_KEY=ls-mock-ci-only
+          GitHubToken=gh-mock-local-dev
+          OPENAI_BASE_URL=http://aimock:4010/v1
+          ANTHROPIC_BASE_URL=http://aimock:4010
+          SPRING_AI_OPENAI_BASE_URL=http://aimock:4010
+          AIMOCK_URL=http://aimock:4010
+          EOF
+
       - name: Run showcase eval
         id: run-eval
         run: |
@@ -295,8 +352,18 @@ jobs:
 
           # Build the command. EVAL_SCOPE_FLAG may contain spaces (e.g. "--slug mastra,agno")
           # so we intentionally leave it unquoted for word splitting.
+          #
+          # NOTE: no `--ci`. This job runs on a bare runner with NO step that
+          # starts the showcase fleet, so the eval must self-provision. `--ci`
+          # tells the CLI to skip the Docker lifecycle and assume the fleet is
+          # already running (see showcase/harness/src/cli/eval/index.ts), which
+          # here means no healthy container → instant failure. Without it, the
+          # CLI builds + starts the in-scope slug(s) + aimock and health-checks
+          # them before running. `compose()` uses piped (captured) stdio and the
+          # eval's progress logs are all `if (!opts.json)`-guarded, so `--json`
+          # keeps stdout clean JSON for the post-result job to parse.
           # shellcheck disable=SC2086
-          CMD="showcase/bin/showcase eval --${EVAL_LEVEL} ${EVAL_SCOPE_FLAG} --parallel 8 --json --baseline compare --timeout 60000 --ci"
+          CMD="showcase/bin/showcase eval --${EVAL_LEVEL} ${EVAL_SCOPE_FLAG} --parallel 8 --json --baseline compare --timeout 60000"
           echo "::group::Running: $CMD"
 
           EXIT_CODE=0
