@@ -11,7 +11,7 @@ This recipe assembles a production agentic app from three pieces: an **Angular**
 Start with these two quickstarts:
 
 - [Angular frontend](/angular) gets you a working Angular app with a chat UI backed by a local Copilot Runtime.
-- [ADK quickstart](/adk/quickstart) serves an ADK agent over AG-UI.
+- [ADK quickstart](/integrations/adk/quickstart) serves an ADK agent over AG-UI.
 
 This recipe covers production concerns that arise after the two quickstarts are connected: shared chat state, request identity, model choice, server-side policy, threads, and memory.
 
@@ -100,7 +100,7 @@ The exact mapping belongs to your server bridge. Keep it explicit and test it wi
 
 ## Choose a capable model
 
-ADK uses Google's Gemini by default and also supports other models. See the [ADK quickstart](/adk/quickstart) for configuration.
+ADK uses Google's Gemini by default and also supports other models. See the [ADK quickstart](/integrations/adk/quickstart) for configuration.
 
 - Prefer a current model with reliable instruction following and tool use.
 - Test older or smaller models against your full tool and policy flow. They may skip steps in multi-part instructions.
