@@ -1,25 +1,15 @@
 /**
  * Vue adapter for @a2ui/web_core v0.9 component rendering.
- *
- * Provides createVueComponent — the Vue equivalent of createReactComponent
- * from the React renderer. Uses GenericBinder for reactive data binding
- * and Vue's render functions for component output.
  */
 
-import {
-  defineComponent,
-  ref,
-  onUnmounted,
-  watch,
-  type VNode,
-  type PropType,
-} from "vue";
-import {
-  ComponentContext,
-  GenericBinder,
-  type ComponentApi,
-  type InferredComponentApiSchemaType,
-  type ResolveA2uiProps,
+import { defineComponent, onUnmounted, shallowRef, watch } from "vue";
+import type { PropType, VNode } from "vue";
+import type { ComponentContext } from "@a2ui/web_core/v0_9";
+import { GenericBinder } from "@a2ui/web_core/v0_9";
+import type {
+  ComponentApi,
+  InferredComponentApiSchemaType,
+  ResolveA2uiProps,
 } from "@a2ui/web_core/v0_9";
 
 /** Props passed to a Vue A2UI component's render function. */
@@ -30,19 +20,11 @@ export interface VueA2uiComponentProps<T, S = void> {
   state: S;
 }
 
-/**
- * A Vue component implementation registered with the A2UI Catalog.
- * Mirrors ReactComponentImplementation but uses Vue's component system.
- */
+/** A Vue component implementation registered with the A2UI Catalog. */
 export interface VueComponentImplementation extends ComponentApi {
-  /** The Vue component that handles rendering. */
   render: ReturnType<typeof defineComponent>;
 }
 
-/**
- * Creates a Vue component implementation using the GenericBinder.
- * This is the Vue equivalent of createReactComponent from the React adapter.
- */
 export function createVueComponent<Api extends ComponentApi, S = void>(
   api: Api,
   renderFn: (
@@ -68,35 +50,44 @@ export function createVueComponent<Api extends ComponentApi, S = void>(
       },
     },
     setup(wrapperProps) {
-      const resolvedProps = ref<Props>({} as Props);
+      const resolvedProps = shallowRef<Props>({} as Props);
       let binder: GenericBinder<Props> | null = null;
+      let unsubscribe: (() => void) | null = null;
       const state = setupState ? setupState() : (undefined as S);
 
-      function initBinder(context: ComponentContext) {
+      function disposeBinder() {
+        if (unsubscribe) {
+          unsubscribe();
+          unsubscribe = null;
+        }
         if (binder) {
           binder.dispose();
+          binder = null;
         }
+      }
+
+      function initBinder(context: ComponentContext) {
+        disposeBinder();
         binder = new GenericBinder<Props>(context, api.schema);
         resolvedProps.value = binder.snapshot;
-        binder.subscribe((newProps: Props) => {
+        const sub = binder.subscribe((newProps: Props) => {
           resolvedProps.value = newProps;
         });
+        unsubscribe = () => sub.unsubscribe();
       }
 
       initBinder(wrapperProps.context);
 
       watch(
         () => wrapperProps.context,
-        (newContext) => {
+        (newContext, oldContext) => {
+          if (newContext === oldContext) return;
           initBinder(newContext);
         },
       );
 
       onUnmounted(() => {
-        if (binder) {
-          binder.dispose();
-          binder = null;
-        }
+        disposeBinder();
       });
 
       return () =>
@@ -116,10 +107,6 @@ export function createVueComponent<Api extends ComponentApi, S = void>(
   };
 }
 
-/**
- * Creates a Vue component implementation without the generic binder
- * (for components that manage their own context bindings).
- */
 export function createBinderlessVueComponent(
   api: ComponentApi,
   renderFn: (componentProps: {
