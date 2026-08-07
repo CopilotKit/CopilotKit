@@ -1,0 +1,43 @@
+{
+  "name": "@copilotkit/intelligence",
+  "version": "0.1.0",
+  "description": "Canonical contracts and SDK for the CopilotKit Intelligence Learning Platform.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/intelligence"
+  },
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "keywords": ["ai", "agent", "copilotkit", "intelligence", "learning"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": ["dist"],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check-types": "tsc --noEmit -p tsconfig.check.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile esm-only"
+  },
+  "dependencies": {
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:^",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}
