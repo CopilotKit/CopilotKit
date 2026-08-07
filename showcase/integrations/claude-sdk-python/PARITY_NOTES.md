@@ -1,122 +1,133 @@
 # Parity Notes
 
-Baseline: `showcase/integrations/langgraph-python/`.
+Baseline reference: `showcase/integrations/langgraph-python/` (the north-star
+integration). The milestone for OSS-578 is that this integration's grid
+demonstrates the SAME feature set, in the SAME order, with the SAME overview
+taxonomy as langgraph-python — so a viewer sees an honest apples-to-apples grid
+across every integration.
 
-This package ports the frontend-composition demos satisfied by the shared
-Claude backend in `src/agents/agent.py`, plus dedicated ogui / headless
-surfaces. The demos below are deliberately out of scope for this pass and
-left for a follow-up.
+## Frontend parity
 
-## New demos (post-PR #4271)
+The frontend render surface is **byte-identical to langgraph-python modulo
+integration identity** — the only intentional diffs are doc comments, the
+console log slug prefix (`claude-sdk-python`), and framework-snippet files.
+Every `page.tsx`, renderer, card, hook, and slot file under
+`src/app/demos/**` is the canonical langgraph-python file re-keyed to this
+integration. All D6 aimock fixtures were re-mirrored from the canonical
+langgraph-python fixtures and re-keyed to `context=claude-sdk-python`.
 
-- `byoc-json-render` — dedicated `/byoc-json-render` agent endpoint emits
-  a JSON spec; frontend renders via `<JSONUIProvider>` + `<Renderer />`
-  against a Zod catalog (MetricCard, BarChart, PieChart). Includes the
-  `<JSONUIProvider>` fix from PR #4271 and the `defineRegistry`
-  children-forwarding fix for MetricCard.
-- `byoc-hashbrown` — dedicated `/byoc-hashbrown` agent endpoint emits
-  the hashbrown JSON envelope `{ui: [{metric: {props: {...}}}, ...]}`
-  (NOT XML — the #4271 fix). Frontend parses via `useJsonParser` +
-  `useUiKit` with MetricCard / PieChart / BarChart / DealCard / Markdown.
-- `multimodal` — dedicated `/multimodal` agent endpoint with
-  `convert_part_for_claude` that translates AG-UI `image` / `document`
-  parts into Claude's native Messages API shape. PDFs flatten to text
-  via `pypdf`. **No legacy-binary shim required** — that shim is
-  specific to the `@ag-ui/langgraph@0.0.27` converter and is not needed
-  when HttpAgent forwards modern parts to the Claude Agent SDK backend.
-- `voice` — dedicated `/api/copilotkit-voice` runtime with a
-  `GuardedOpenAITranscriptionService` that reports a typed 401 when
-  `OPENAI_API_KEY` is missing (vs a silent 503). Transcription service
-  is written onto the V2 runtime instance directly to work around the
-  V1 wrapper silently dropping the service. Backend reuses the shared
-  Claude agent.
-- `agent-config` — dedicated `/agent-config` agent endpoint that reads
-  `tone` / `expertise` / `responseLength` off
-  `forwarded_props.config.configurable.properties` and builds the
-  system prompt per turn. Frontend route subclasses `HttpAgent` to
-  repack provider `properties` into the nested configurable shape so
-  the wire format matches the langgraph-python reference exactly.
-- `auth` — dedicated `/api/copilotkit-auth` route uses
-  `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2` directly
-  so the `onRequest` hook actually fires (V1 adapter drops hooks).
-  Bearer-token gate returns 401 on mismatch. Includes the #4271
-  defaults fix: `useDemoAuth` defaults to signed-in, plus
-  `ChatErrorBoundary` so the page never white-screens on auth
-  transitions.
+The `manifest.yaml` `features:` list and `demos:` order/taxonomy
+(`name` / `description` / `tags`) are aligned 1:1 with langgraph-python.
+The `highlight:` file lists reference this integration's ACTUAL files: frontend
+paths are identical to the reference; backend paths point at the Claude Agent
+SDK modules under `src/agents/` (many demos are served by the shared
+`src/agents/agent.py` with per-demo system-prompt / tool-set overrides applied
+in `src/agent_server.py`, rather than a dedicated per-demo graph module).
 
-## Ported
+## GREEN cells
 
-### Initial pass (B2)
+All of the following are wired to the correct Claude Agent SDK backend and are
+frontend-aligned with the reference:
 
-- `cli-start` — manifest-only entry with the framework-slug init command.
-- `prebuilt-sidebar` — default `<CopilotSidebar />` against the shared agent.
-- `prebuilt-popup` — default `<CopilotPopup />` against the shared agent.
-- `chat-slots` — custom `welcomeScreen`, `input.disclaimer`, `messageView.assistantMessage` slots.
-- `chat-customization-css` — scoped CSS variable and class overrides.
-- `headless-simple` — `useAgent` + `useComponent` minimal custom chat surface.
+- **Chat surfaces**: `agentic-chat`, `beautiful-chat`, `prebuilt-sidebar`,
+  `prebuilt-popup`, `chat-slots`, `chat-customization-css`, `headless-simple`,
+  `headless-complete`. Served by the shared `agent.py` (headless surfaces are
+  frontend-only compositions over `useAgent`).
+- **Reasoning**: `reasoning-default`, `reasoning-custom`,
+  `tool-rendering-reasoning-chain` — dedicated `/reasoning` and
+  `/tool-rendering-reasoning-chain` endpoints emit native Claude
+  `thinking_delta` blocks translated to AG-UI `REASONING_MESSAGE_*` events.
+- **Tool rendering / gen UI**: `tool-rendering`, `tool-rendering-default-catchall`,
+  `tool-rendering-custom-catchall`, `gen-ui-agent`, `gen-ui-tool-based`,
+  `open-gen-ui`, `open-gen-ui-advanced`.
+- **Frontend tools**: `frontend-tools`, `frontend-tools-async`.
+- **Human-in-the-loop**: `hitl-in-chat` (dedicated `/hitl-in-chat`),
+  `hitl-in-app` (dedicated `/hitl-in-app`).
+- **Shared state**: `shared-state-read`, `shared-state-read-write`
+  (dedicated `/shared-state-read-write`, emits `StateSnapshot`),
+  `shared-state-streaming` (per-token deltas),
+  `readonly-state-agent-context`.
+- **Multi-agent**: `subagents` (dedicated `/subagents`, delegations via
+  `STATE_SNAPSHOT`).
+- **Declarative UI**: `declarative-gen-ui` (A2UI dynamic),
+  `a2ui-fixed-schema` (A2UI fixed + `flight_schema.json`),
+  `a2ui-recovery` (see below), `declarative-hashbrown` (`@hashbrownai/react`),
+  `declarative-json-render` (`@json-render/react`).
+- **Platform**: `mcp-apps` (dedicated `/mcp-apps`), `multimodal`
+  (`convert_part_for_claude`, `pypdf`), `voice` (guarded transcription),
+  `agent-config` (repacks provider `properties` into `configurable`),
+  `auth` (V2 `createCopilotRuntimeHandler`, bearer 401).
+- `cli-start` — manifest-only entry (framework-slug init command); no demo dir.
 
-### Follow-up pass (B2')
+## NSF cells (not-supported, quarantined)
 
-- `frontend-tools` — `useFrontendTool` with sync handler (change_background).
-- `frontend-tools-async` — `useFrontendTool` with async handler (query_notes).
-- `hitl-in-app` — async `useFrontendTool` HITL; `fixed inset-0` overlay
-  (not `createPortal`) to avoid pulling in `@types/react-dom`.
-- `readonly-state-agent-context` — `useAgentContext` read-only context.
-- `tool-rendering-default-catchall` — zero-renderer built-in default.
-- `tool-rendering-custom-catchall` — `useDefaultRenderTool` wildcard.
-- `open-gen-ui` — minimal open-ended generative UI (dedicated
-  `/api/copilotkit-ogui` route with `openGenerativeUI` flag).
-- `open-gen-ui-advanced` — OGUI with frontend sandbox functions
-  (evaluateExpression, notifyHost).
-- `headless-complete` — full custom chat surface built on `useAgent`,
-  with per-tool renderers, frontend component, and wildcard catch-all.
-  Points to the shared `/api/copilotkit` route (the reference points at
-  `/api/copilotkit-mcp-apps`; this package doesn't port mcp-apps — the
-  Excalidraw-MCP suggestion will surface as a catch-all tool card).
+Two cells are marked `not_supported_features` in the manifest — **not
+regressions in this integration**. They fail on a shared upstream react-core
+resume-path defect that also affects the reference:
 
-## Skipped
+- `gen-ui-interrupt` — turn-2 resume-path bug in
+  `@copilotkit/react-core/v2` `useInterrupt`: the backend resumes and streams
+  (HTTP 200) but the frontend never appends the confirmation assistant bubble,
+  so the harness DOM settle-check times out.
+- `interrupt-headless` — same shared react-core resume-path bug via
+  `useHeadlessInterrupt`.
 
-### Require langgraph-specific primitives (no Claude Agent SDK equivalent)
+Both demos remain wired (frontend byte-aligned; backend on the shared
+`/interrupt-adapted` scheduling agent in `interrupt_agent.py`). The identical
+QUARANTINE comment lives in both this manifest and the langgraph-python
+manifest.
 
-- `gen-ui-interrupt` — relies on langgraph's `interrupt()` primitive that
-  pauses the graph and resumes on a client-side response. Claude Agent SDK
-  does not expose an equivalent graph-interrupt API.
-- `interrupt-headless` — same reason; this is a headless surface for
-  resolving a langgraph interrupt.
+Both are honestly marked skipped-incapable (not green, not red).
 
-### Require streaming Claude extended-thinking plumbing
+## Note on local D6 vs staging (open-gen-ui / open-gen-ui-advanced)
 
-- `reasoning-custom`, `reasoning-default`,
-  `tool-rendering-reasoning-chain` — require streaming Claude extended-
-  thinking (reasoning) blocks as distinct AG-UI message parts. The current
-  `src/agents/agent.py` AG-UI bridge does not translate Anthropic
-  `thinking` content blocks; adding it correctly requires new event types
-  and a thinking-aware message buffer. Follow-up.
+`open-gen-ui` / `open-gen-ui-advanced` are **supported and GREEN in staging**
+(verified on the staging matrix). They are NOT NSF. On THIS local docker
+stack they loop (openGenerativeUI `generateSandboxedUi` re-emits on the
+follow-up run), but the loop is a **local-repro artifact**: it was ruled out
+as (a) a fixture issue — the pre-blitz/staging fixture also loops locally, and
+(b) a `@copilotkit/*` version drift — the container versions match the
+green langgraph-python container, which passes ogui locally. The exact local
+delta vs staging was not pinned (the backend's stdout does not surface to
+`docker logs`, blocking deeper capture). CI (staging-equivalent x86 build)
+is the arbiter for these two cells. The fixtures here are the canonical
+staging-green versions (`hasToolResult`-gated follow-up leg).
 
-### Deferred — larger-scope multi-file surfaces
+## a2ui-recovery — native recovery loop
 
-These are feasible on this package but each pulls in substantial
-multi-file frontend infrastructure (catalogs, renderers, MCP client
-glue, theme pipelines) that did not fit this pass. Left for dedicated
-follow-up commits.
+`a2ui-recovery` is implemented natively for the Claude Agent SDK rather than
+reusing `ag_ui_langgraph`. `src/agents/recovery_agent.py` runs its OWN adapter
+that drives the A2UI validate → retry loop (heal / retry / exhaust): an invalid
+first render heals to a valid one, and an always-invalid render surfaces a
+graceful recovery-exhausted fallback. Backend-owned via `get_a2ui_tools`
+(`injectA2UITool=false`); it reuses the `declarative-gen-ui` catalog. Wired to
+the dedicated `/api/copilotkit-a2ui-recovery/route.ts` frontend route and the
+`/a2ui-recovery` backend endpoint. HEAL-attempt distinction relies on the
+aimock `sequenceIndex`.
 
-- `declarative-gen-ui` — A2UI BYOC catalog (Card/StatusBadge/Metric/
-  InfoRow/PrimaryButton) wired via `a2ui.catalog` on the provider.
-- `a2ui-fixed-schema` — fixed-schema A2UI with two JSON schemas
-  (flights + booked) and a per-demo catalog.
-- `mcp-apps` — MCP server-driven UI via activity renderers. Claude Agent
-  SDK supports MCP clients, but the langgraph-python reference relies on
-  CopilotKit runtime wiring through a dedicated
-  `/api/copilotkit-mcp-apps/route.ts` plus agent-side MCP client glue.
-- `beautiful-chat` — 28+ supporting files (layout, canvas, generative UI
-  charts, hooks, theme CSS, showcase config, A2UI catalog). Porting
-  requires significant surface-area review that did not fit this pass.
+## Masking fixes landed
 
-## Follow-up buckets
+Three cells were aimock-green but were routing to the WRONG agent live (a
+generic-fallback prompt masked by the fixture). Each now has a dedicated,
+correctly-prompted backend so the live behavior matches the fixture:
 
-- Reasoning / extended-thinking plumbing in `agent.py` (unlocks
-  `reasoning-custom`, `reasoning-default`,
-  `tool-rendering-reasoning-chain`).
-- A2UI catalog demos (unlocks `declarative-gen-ui`, `a2ui-fixed-schema`).
-- MCP client integration (unlocks `mcp-apps`).
-- Beautiful-chat infrastructure port.
+1. `gen-ui-tool-based` — dedicated `/gen-ui-tool-based` endpoint with
+   `GEN_UI_TOOL_BASED_SYSTEM_PROMPT` (was the GOTCHAS #8 generic sales-prompt
+   fallback).
+2. `frontend-tools-async` — dedicated `/frontend-tools-async` endpoint with a
+   tailored prompt (was masked generic fallback).
+3. `hitl-in-app` — dedicated `/hitl-in-app` endpoint applying the HITL prompt
+   via `system_prompt_override` (was masked generic fallback).
+
+## Flags / caveats
+
+- **`readonly-state-agent-context` live-prompt gap**: the reference uses a
+  dedicated tailored-prompt graph; here the cell routes to the generic shared
+  agent (`readonly_state_agent_context.py` is docs-only). D6 and the frontend
+  are correct — context is injected via `useAgentContext` — but the live
+  system prompt is not tailored the way the reference is. Adjudicated at live
+  smoke.
+- **`declarative-json-render` zod build caveat**: `catalog.ts` was reverted
+  from `zod4` back to `zod` for byte-parity with the reference. If
+  `@json-render` 0.18 turns out to require `zod4` here, the build may break —
+  re-introduce `zod4` and re-flag if so.

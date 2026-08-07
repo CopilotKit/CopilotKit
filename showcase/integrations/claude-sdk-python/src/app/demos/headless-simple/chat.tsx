@@ -25,18 +25,6 @@ import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { TypingIndicator } from "./typing-indicator";
 
-function createMessageId() {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
-  }
-  return `msg-${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2)}`;
-}
-
 export function Chat() {
   // @region[use-agent-simple]
   const { agent } = useAgent({ agentId: "headless-simple" });
@@ -47,7 +35,7 @@ export function Chat() {
     const trimmed = text.trim();
     if (!trimmed || agent.isRunning) return;
     agent.addMessage({
-      id: createMessageId(),
+      id: crypto.randomUUID(),
       role: "user",
       content: trimmed,
     });

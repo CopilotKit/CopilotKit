@@ -9,8 +9,7 @@ import {
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import type { PendingApproval } from "./approval-dialog";
-import { ApprovalDialog } from "./approval-dialog";
+import { ApprovalDialog, PendingApproval } from "./approval-dialog";
 import { TicketsPanel } from "./tickets-panel";
 import { useHitlInAppSuggestions } from "./suggestions";
 
@@ -70,16 +69,7 @@ function Layout() {
       // agent as the tool result.
       return await new Promise<{ approved: boolean; reason?: string }>(
         (resolve) => {
-          setDialog((current) => {
-            if (current.open) {
-              resolve({
-                approved: false,
-                reason: "Another approval request is already pending.",
-              });
-              return current;
-            }
-            return { open: true, pending: { message, context }, resolve };
-          });
+          setDialog({ open: true, pending: { message, context }, resolve });
         },
       );
     },
