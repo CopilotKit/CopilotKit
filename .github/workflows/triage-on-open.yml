@@ -1,0 +1,78 @@
+# .github/workflows/triage-on-open.yml
+# Consolidated on-open triage: label + dedup-flag in ONE combined LLM call
+# (shared logic in scripts/triage/analyze.js). Advisory / high-confidence,
+# reopen-friendly; flags duplicates but never auto-closes. No provider -> clean skip.
+name: triage / on-open
+on:
+  issues:
+    types: [opened]
+# Default to no privileges; each job opts in to exactly what it needs.
+permissions: {}
+concurrency:
+  group: triage-on-open-${{ github.event.issue.number }}
+  cancel-in-progress: true
+jobs:
+  triage:
+    name: label + dedup-flag on open
+    runs-on: ubuntu-latest
+    # Least privilege: read the repo (for analyze.js) + write issue labels/comments.
+    permissions:
+      contents: read # checkout reads scripts/triage/analyze.js
+      issues: write # apply labels + post the templated dup comment
+    timeout-minutes: 10 # a hung model fetch shouldn't burn the 6h default
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit # baseline first — review the run's network report, then flip to "block" with the allow-list below
+          # block-mode allow-list (uncomment + set the model host when flipping):
+          #   allowed-endpoints: >
+          #     github.com:443
+          #     api.github.com:443
+          #     objects.githubusercontent.com:443
+          #     api.anthropic.com:443
+          #     <your-azure-resource>.openai.azure.com:443   # or *.services.ai.azure.com for Foundry
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false # only reads scripts/triage/analyze.js; no git ops
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          # Model provider — set ONE (Azure preferred so runs draw on shared credits; Anthropic is the fallback).
+          # Non-secret Azure config lives in repo "Variables"; only the API keys are secrets.
+          # zizmor: ignore[secrets-outside-env] read-only inference key; dedicated GH Environment adds friction w/ marginal benefit here
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ vars.AZURE_OPENAI_DEPLOYMENT }}
+          AZURE_OPENAI_API_VERSION: ${{ vars.AZURE_OPENAI_API_VERSION }}
+          # zizmor: ignore[secrets-outside-env] read-only inference key (fallback provider)
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        with:
+          script: |
+            const analyzeIssue = require(`${process.env.GITHUB_WORKSPACE}/scripts/triage/analyze.js`);
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+
+            const labels = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 });
+            const valid = new Set(labels.map(l => l.name));
+            // Allow-list (default-deny): the classifier may apply ONLY these — content
+            // labels that exist in this repo. Excludes disposition/curation labels
+            // (good first issue, help wanted, Triaged, defer, release, version-drift,
+            // bounty, spam, invalid, wontfix…) — those are human calls. Curate per repo.
+            const APPLYABLE = new Set(["bug","feature request","documentation","question","mcp","examples"]);
+            const labelList = labels.map(l => `- ${l.name}${l.description ? `: ${l.description}` : ""}`).join("\n");
+
+            const r = await analyzeIssue({ github, owner, repo, issue, labelList });
+            if (r.skipped) { core.info(`skipped: ${r.skipped}`); return; }
+
+            const toApply = r.labels.filter(l => valid.has(l) && APPLYABLE.has(l));
+            if (r.labelConfidence >= 0.75 && toApply.length) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: toApply });
+              core.info(`labeled: ${toApply.join(", ")} (conf ${r.labelConfidence})`);
+            }
+            if (r.duplicateOf && r.dupConfidence >= 0.8 && r.candidates.includes(r.duplicateOf) && valid.has("duplicate")) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: ["duplicate"] });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Possible duplicate of #${r.duplicateOf} — a maintainer will confirm; if it isn't, just say so and we'll remove the label. (Automated triage flag; nothing closes automatically.)`,
+              });
+              core.info(`flagged possible dup of #${r.duplicateOf} (conf ${r.dupConfidence})`);
+            }
