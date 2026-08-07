@@ -4,6 +4,9 @@ WORKDIR /repo
 RUN corepack enable
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .pnpmfile.cjs ./
+# The root package.json pins `patchedDependencies` (eventsource@3.0.7), so the
+# frozen install below hashes patches/*.patch to verify the lockfile. Copy the
+# patch dir into the build context or pnpm ENOENTs on the patch file (exit 254).
 COPY patches ./patches
 COPY showcase/harness/package.json ./showcase/harness/package.json
 # Copy every workspace package.json manifest (but NOT source / node_modules).

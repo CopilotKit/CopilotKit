@@ -5,10 +5,8 @@
 // `theme-keel` class higher up; this import supplies its values.)
 import "./theme.css";
 
-import { useEffect } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   BookOpen,
@@ -29,8 +27,7 @@ import { useRole } from "@/skins/keel/role-context";
 import { keelNav } from "@/skins/keel/nav";
 import { keelIdentity } from "@/skins/keel/identity";
 import type { KeelData } from "@/skins/keel/data/types";
-
-const BASE = "/keel";
+import { useKeelHref, useKeelSegments } from "@/skins/keel/href";
 
 /** Per-segment nav icon. keelNav carries labels only, so the chrome owns the
  *  glyphs — dense, monochrome, utilitarian, in keeping with the theme. */
@@ -90,39 +87,27 @@ function RoleSwitcher() {
  */
 export function KeelLayout({ children }: { children: ReactNode }) {
   const data = useSkinData<KeelData>();
-  const pathname = usePathname();
+  const keelHref = useKeelHref();
   const Logo = keelIdentity.logo;
 
   // The active segment is whatever follows the skin base ("" for the Desk).
-  const restHead = pathname.split("/").slice(2)[0] ?? "";
+  const restHead = useKeelSegments()[0] ?? "";
   // Highlight the parent nav entry for parameterized routes too:
-  // /keel/knowledge/<docId> keeps "Knowledge" active.
+  // knowledge/<docId> keeps "Knowledge" active.
   const isActive = (segment: string) =>
     segment === "" ? restHead === "" : restHead === segment;
 
   const awaiting = data.approvalsForMe.length;
 
-  // Publish this skin's edge-nav geometry so the shell's floating skin selector
-  // can inset its dock clear of the nav WITHOUT the shell knowing anything about
-  // keel (see `.nw-selector-dock` in globals.css). Keel pins a 224px (w-56) rail
-  // to the LEFT and nothing to the right. Published on <html> so the fixed dock,
-  // wherever it sits in the tree, inherits the values.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--nw-nav-inset-left", "224px");
-    root.style.setProperty("--nw-nav-inset-right", "0px");
-    return () => {
-      root.style.removeProperty("--nw-nav-inset-left");
-      root.style.removeProperty("--nw-nav-inset-right");
-    };
-  }, []);
-
   return (
-    <div className="flex h-full min-h-screen bg-canvas text-ink">
+    // `h-full`, not `min-h-screen`: this chrome now fills the shell's app card,
+    // which is already inset by the frame padding — sizing to the viewport would
+    // overflow the card by exactly that padding.
+    <div className="flex h-full bg-canvas text-ink">
       {/* Left nav rail */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5 md:flex">
         <Link
-          href={BASE}
+          href={keelHref()}
           className="mb-6 flex items-center gap-2.5 px-2"
           aria-label={keelIdentity.brand}
         >
@@ -141,7 +126,7 @@ export function KeelLayout({ children }: { children: ReactNode }) {
 
         <nav className="flex flex-col gap-0.5">
           {keelNav.map((route) => {
-            const href = route.segment ? `${BASE}/${route.segment}` : BASE;
+            const href = keelHref(route.segment);
             const active = isActive(route.segment);
             const Icon = route.icon ?? NAV_ICONS[route.segment] ?? Activity;
             return (

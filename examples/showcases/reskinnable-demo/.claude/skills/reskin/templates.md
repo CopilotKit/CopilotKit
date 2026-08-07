@@ -2,8 +2,14 @@
 
 Copy each block into `src/skins/<id>/<file>` and replace `<id>` / `<Brand>` /
 domain specifics. These are written against this app's frozen `Skin` contract
-(`src/shell/skin-contract.ts`) and mirror the two shipped skins
-(`src/skins/airline/`, `src/skins/banking/`).
+(`src/shell/skin-contract.ts`) and mirror the four shipped skins
+(`src/skins/{banking,airline,logistics,keel}/`) — see
+[demo-beats.md](./demo-beats.md) § "Which skin to copy for what" for which one to
+open for which problem.
+
+These templates are the **wiring floor**, not a finished skin. A skin also has to
+hit the demo beats (SKILL.md § "FIRST: a skin is a live sales demo"); where a
+template slot is load-bearing for a beat, it says so.
 
 Throughout: replace `<id>` with your lowercase skin id (e.g. `support`) and
 `<Id>` with the PascalCase form (e.g. `Support`). The id must equal the route
@@ -122,21 +128,16 @@ Side-effect-import `./theme.css` here so the block loads when the skin mounts.
 Style with the shared semantic utilities (`bg-canvas`, `text-ink`,
 `border-hairline`, `bg-surface`, `text-brand`, …) so the skin reskins with the
 theme. Read the active skin via `useSkin()`. Mirror `src/skins/logistics/layout.tsx`
-— it is the debugged reference for the three non-obvious things this chrome MUST
+— it is the debugged reference for the two non-obvious things this chrome MUST
 get right:
 
-- **Root is `h-screen overflow-hidden`, not `min-h-screen`, and the `<aside>` is
-  `h-full`.** `min-h-screen` is a MINIMUM: on a page taller than the viewport the
-  container grows, the whole document scrolls, and the nav scrolls away with it —
-  and `<main>`'s own `overflow-y-auto` goes inert because its parent is
-  unbounded. `h-screen overflow-hidden` pins the shell to exactly one viewport so
-  `<main>` scrolls INSIDE it.
-- **Publish the nav insets.** The `useEffect` below tells the shell how wide this
-  skin's nav is via `--nw-nav-inset-left` / `--nw-nav-inset-right` on
-  `document.documentElement`, so the shell's floating skin selector docks in the
-  content band instead of landing on top of your nav. It MUST remove both on
-  cleanup — a missing cleanup leaks the inset into whatever skin the user
-  switches to next.
+- **Root is `h-full overflow-hidden` — not `h-screen`, not `min-h-screen` — and the
+  `<aside>` is `h-full`.** This chrome fills the shell's app CARD, which the frame
+  has already inset by its own padding, so a viewport-height root overflows the card
+  by that padding. It must still be BOUNDED: if the container can grow past the card
+  the whole document scrolls, the nav scrolls away with it, and `<main>`'s own
+  `overflow-y-auto` goes inert because its parent is unbounded. `h-full
+overflow-hidden` bounds it to the card so `<main>` scrolls INSIDE it.
 - **The meta-utility strip is skin-authored chrome, not shell-provided.** A new
   skin gets no Reset / theme toggle / Help for free — you add them here (see the
   `mt-auto` group). Details in SKILL.md § "The meta-utility strip".
@@ -144,12 +145,12 @@ get right:
 ```tsx
 "use client";
 import "./theme.css"; // side-effect import registers the .theme-<id> block
-import { useEffect } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { HelpCircle, RotateCcw } from "lucide-react";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 import { useSkin } from "@/shell/skin-provider";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle"; // SHARED shell component — importing it is fine
 import { useAskCopilot } from "./components/use-ask-copilot"; // PORT this into your skin (see below)
@@ -160,39 +161,51 @@ const SIDEBAR_WIDTH_PX = 240;
 
 export function <Id>Layout({ children }: { children: ReactNode }) {
   const skin = useSkin();
-  const pathname = usePathname();
+  // EVERY in-skin link goes through skinHref — never a hardcoded `/${skin.id}/…`.
+  // Under LOCK_SKIN the deploy is served AT `/` with the skin segment gone from
+  // the URL space, and a hardcoded prefix puts it straight back in the address
+  // bar on the first nav click. See src/shell/skin-path.ts and src/proxy.ts.
+  const skinHref = useSkinHref(skin.id);
   const resetEnabled = usePresenterReset();
   const askCopilot = useAskCopilot();
   const Logo = skin.identity.logo;
+
+  // BEAT 3b — the ROUTE readable. Without this the agent cannot tell which page
+  // is open, so "what's on my screen?" answers identically everywhere and the
+  // beat dies. Pages register their own readables for what is visibly rendered.
+  //
+  // Derive the segment RELATIVE to the skin base, or you report the skin id
+  // instead of a page — the exact bug banking hit before its cutover, when this
+  // read `pathname.split("/")[1]` and every page answered "banking".
+  // useSkinSegments handles the base for you. Do NOT hand-roll it with a fixed
+  // `.slice(2)`: that eats the first real segment on a LOCK_SKIN deploy, where
+  // the pathname has no prefix to skip.
+  const restHead = useSkinSegments(skin.id)[0] ?? "";
+  useAgentContext({
+    description: "The current page where the user is",
+    // Name the INDEX page something meaningful, not "" — in banking `/banking`
+    // IS the Credit Cards view, so it reports "cards".
+    value: restHead === "" ? "<index page name>" : restHead,
+  });
 
   const handleReset = async () => {
     if (!window.confirm("Reset demo state? This restores the seeded scenario.")) return;
     const res = await fetch(`/api/${skin.id}/v1/dev/reset`, { method: "POST" });
     if (res.ok) {
       // Hard-navigate to the skin root for a pristine slate (fresh store, cleared
-      // canvas, new thread on the next message) AND the clean starting URL.
-      window.location.assign(`/${skin.id}`);
+      // canvas, new thread on the next message) AND the clean starting URL —
+      // which is `/` itself on a locked single-tenant deploy.
+      window.location.assign(skinHref());
     } else {
       window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
     }
   };
 
-  // Publish the nav insets so the shell's floating selector never docks on top of
-  // this nav. Remove BOTH on cleanup, or the inset leaks into the next skin.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--nw-nav-inset-left", `${SIDEBAR_WIDTH_PX}px`);
-    root.style.setProperty("--nw-nav-inset-right", "0px");
-    return () => {
-      root.style.removeProperty("--nw-nav-inset-left");
-      root.style.removeProperty("--nw-nav-inset-right");
-    };
-  }, []);
-
   return (
-    // h-screen + overflow-hidden (NOT min-h-screen): the shell is exactly one
-    // viewport tall so the nav stays pinned and <main> scrolls INSIDE it.
-    <div className="flex h-screen overflow-hidden bg-canvas text-ink">
+    // h-full + overflow-hidden (NOT h-screen / min-h-screen): this chrome fills the
+    // shell's app CARD, which is already inset by the frame's padding. Bounded to
+    // the card so the nav stays pinned and <main> scrolls INSIDE it.
+    <div className="flex h-full overflow-hidden bg-canvas text-ink">
       <aside
         className="hidden h-full shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5 md:flex"
         style={{ width: SIDEBAR_WIDTH_PX }}
@@ -203,8 +216,11 @@ export function <Id>Layout({ children }: { children: ReactNode }) {
         </div>
         <nav className="flex flex-col gap-0.5">
           {skin.nav.map((route) => {
-            const href = route.segment ? `/${skin.id}/${route.segment}` : `/${skin.id}`;
-            const active = pathname === href;
+            const href = skinHref(route.segment);
+            // Compare SEGMENTS, not the whole pathname: under a lock the href is
+            // prefix-free while the matched route is not, so `pathname === href`
+            // is not reliably true for the active entry.
+            const active = restHead === route.segment;
             const Icon = route.icon;
             return (
               <Link
@@ -295,13 +311,37 @@ export type <Id>Data = ReturnType<typeof use<Id>Data>;
 
 One component per nav segment. Read the skin's data via `useSkinData<T>()`.
 
+**Each page registers its own on-screen readable** (beat 3b). The route readable in
+`layout.tsx` says _which_ page is open; this says _what is on it_ — the active
+filters and the rows actually rendered after filtering and sorting, not the whole
+data set. That distinction is the beat: the agent describing what the user can
+literally see. Mirror `src/skins/banking/pages/charges.tsx:139`.
+
 ```tsx
 "use client";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 import { useSkinData } from "@/shell/skin-provider";
 import type { <Id>Data } from "../data/use-data";
 
 export function <Id>HomePage() {
   const data = useSkinData<<Id>Data>();
+  const visible = /* the rows actually rendered, after filter + sort */ [];
+
+  // BEAT 3b — what is VISIBLY on screen right now, not the whole data set.
+  useAgentContext({
+    description:
+      "The <Page> page the user is currently viewing: the active filters/sort " +
+      "and the visible rows, in the order shown.",
+    value: JSON.stringify({
+      page: "<segment>",
+      filters: {
+        /* the live filter/sort state */
+      },
+      visibleCount: visible.length,
+      rows: visible.slice(0, 25), // cap it — this rides on every request
+    }),
+  });
+
   return <div>{/* render domain UI from `data` */}</div>;
 }
 ```
@@ -310,8 +350,9 @@ export function <Id>HomePage() {
 
 Renders `null`. Register frontend tools / HITL / gen-UI components and
 `useAgentContext` readables here (all from `@copilotkit/react-core/v2`). Mirror
-`src/skins/logistics/tools.tsx` — it is the debugged reference for the two things
-this file MUST get right.
+`src/skins/logistics/tools.tsx` for the wiring and
+`src/skins/banking/tools.tsx` for the beats — between them they are the debugged
+reference for the four things this file MUST get right.
 
 **1. Every registration closes with a deps array.** `useComponent`,
 `useFrontendTool`, and `useHumanInTheLoop` each take an **optional deps array as
@@ -332,6 +373,21 @@ the same trap in a code comment (search "closure captures empty arrays" in
 and `render: ComponentType<NoInfer<InferRenderProps<TSchema>>>`. By contrast
 `useHumanInTheLoop` and `useFrontendTool` renders DO receive `{ args, status,
 respond }`. Do not copy the HITL `{ args }` shape into a `useComponent`.
+
+**3. Renders must be REPLAY-SAFE — key them off `result`, not `status`** (beat 2).
+Reopening a thread replays recorded tool calls: you get the stored `result` and no
+live status transition. A render keyed on `status` is perfect live and blank or
+wrong on revisit — precisely when "reload and it's still there" is being demoed.
+Banking is the only skin written this way (`tools.tsx:70-89`, `418-451`,
+`553-572`).
+
+**4. Readables must make the agent PAGE-AWARE** (beat 3b). Global readables
+(who the user is, the whole data set) are not enough: "what's on my screen?"
+returns the same answer everywhere without a **route** readable in `layout.tsx`
+plus **per-page** readables describing what is visibly rendered. Register the
+on-screen ones inside the page components, close to the state they describe —
+banking's richest is in `charges.tsx:139`, emitting the page name, active
+filters, visible row count and the first 25 visible rows.
 
 ```tsx
 "use client";
@@ -377,18 +433,28 @@ export function <Id>Tools() {
     [data],
   );
 
-  // Frontend tool (a write) → render DOES receive { args, status, respond }.
+  // Frontend tool (a write) → render receives { name, toolCallId, args, status,
+  // result } (a discriminated union; `result` is defined only when Complete).
+  //
+  // REPLAY-SAFE: key the finished state off `result`, NOT off `status` (beat 2).
+  // On thread reopen you get the recorded result and no live status transition,
+  // so a status-keyed render goes blank exactly when someone revisits the thread.
   useFrontendTool(
     {
       name: "doThing",
       description: "Do the thing.",
       parameters: z.object({ id: z.string() }),
+      // Return everything the render needs to rebuild itself from history — but
+      // NEVER a secret (beat 3a): whatever you return is stored in the thread.
       handler: async ({ id }) => `Did the thing to ${id}.`,
-      render: ({ status }) => (
-        <div className="text-ink-muted">
-          {status === ToolCallStatus.Complete ? "Done." : "Working…"}
-        </div>
-      ),
+      render: ({ result, args }) =>
+        result ? (
+          // Give the audience something to SEE (beat presentation rule): a badge,
+          // a forced emoji prefix, a highlight ring — not just the word "Done."
+          <div className="text-ink">✅ {result}</div>
+        ) : (
+          <div className="text-ink-muted">Working on {args?.id}…</div>
+        ),
     },
     [data], // ← deps here too
   );
@@ -396,6 +462,10 @@ export function <Id>Tools() {
   return null;
 }
 ```
+
+`ToolCallStatus` is still the right import when you genuinely need the in-flight
+distinction (`InProgress` vs `Executing`); just don't make the **completed** state
+depend on it.
 
 ## `catalog/index.tsx`
 
@@ -413,13 +483,58 @@ export const <id>Catalog = createCatalog(
 );
 ```
 
-## `suggestions.ts`
+## `suggestions.ts` — ONE PILL PER BEAT, IN DEMO ORDER
+
+The pills ARE the demo script. The presenter must never have to type: "make sure
+that the bubbles are in there so I never have to type, I could just click." This
+is also a correctness measure — free-typed phrasing routes to the wrong tool
+(saying "spending **report**" instead of "trend" sends banking to the canvas
+report tool instead of the in-chat chart). Keep the beat map from
+[demo-beats.md](./demo-beats.md) in a comment at the top so the mapping can't rot.
+
+Banking ships 8 pills covering its whole flow; airline/logistics/keel ship 4–5
+and cover it partially — copy banking's coverage, not their count.
 
 ```ts
 import type { Suggestion } from "@/shell/skin-contract";
 
+// Shared with `onSuggestionSelect` in skin.tsx so the match can never drift
+// (beat 3d — the framework's suggestion path drops attachments, so the pill that
+// carries a file has to be intercepted by exact message match).
+export const <ID>_ATTACHMENT_MESSAGE =
+  "<the prompt that must ride along with the staged file>";
+
+// Beat map — keep in sync with the demo:
+//   1  face          → pill 1
+//   2  rich thread   → no pill (reload + reopen a thread)
+//   3a drive the app → pill 2
+//   3b sees screen   → pill 3 (click it on TWO different pages)
+//   3c levers        → pill 4
+//   3d multimodal    → pill 5 (intercepted, stages the file)
+//   4  memory        → pill 6
+//   5  stored skill  → pill 7
+//   6  teach a skill → pill 8
 export const <id>Suggestions: Suggestion[] = [
-  { title: "<pill title>", message: "<prompt sent when clicked>" },
+  // 1 — lead with generative UI, never a wall of text.
+  { title: "<show the headline visual>", message: "<...>" },
+  // 3a — a mutation whose secret never reaches the assistant.
+  { title: "<change the sensitive thing>", message: "<...>" },
+  // 3b — ask it on one page, navigate, ask it again.
+  {
+    title: "What's on my screen?",
+    message:
+      "Look at the page I'm on right now and tell me what's on screen — the key elements and the figures shown.",
+  },
+  // 3c — HITL confirm, then navigate + sort + filter, visibly highlighted.
+  { title: "<the complicated maneuver>", message: "<...>" },
+  // 3d — intercepted in skin.tsx; stages the bundled file.
+  { title: "<produce the artifact>", message: <ID>_ATTACHMENT_MESSAGE },
+  // 4 — recalls a seeded preference AND names it.
+  { title: "<the format-sensitive question>", message: "<...>" },
+  // 5 — one vague sentence replays a seeded procedure.
+  { title: "<I don't recognize this — handle it>", message: "<...>" },
+  // 6 — the gated action it does NOT know how to do yet.
+  { title: "<the gated action>", message: "<...>" },
 ];
 ```
 
@@ -486,6 +601,110 @@ export const <id>IdentifyUser: IdentifyRunUser = (properties) => {
 };
 ```
 
+## `intelligence/seed-memories.ts` — REQUIRED for beats 4 and 5
+
+"It already knows me" is a **file**, not emergent behaviour. Mirror
+`src/skins/banking/intelligence/seed-memories.ts` — the only implementation in
+the repo, and its comments are worth reading in full. Server-safe plain `.ts`.
+Called by your `dev/reset` route immediately after wiping memories, so the demo
+is re-armed before the presenter says a word.
+
+Three design rules, each learned the hard way:
+
+- **Seed a standing PREFERENCE, not a fact** (beat 4). "Alex's favourite food"
+  proves storage; "group spend by team, over-limit first, rounded to whole
+  dollars" proves _applied_ learning, because recall visibly changes the answer to
+  a question the user never re-explained.
+- **The procedure must run FULLY AUTOMATICALLY — no confirmation gate** (beat 5).
+  Banking's note step used to open an approval card; if the presenter moved on
+  without answering it, that tool call sat unresolved and the **next message
+  failed the whole thread** with `Tool result is missing for tool call ...`. A
+  procedure with no half-finished state has nothing to leave behind. Put "run all
+  of them immediately, in order, without asking for confirmation" in the memory
+  text itself.
+- **Keep beat 5's procedure and beat 6's DISJOINT, and never seed beat 6's.**
+  Seeding the teachable one means the agent already knows the answer and never
+  offers to record — the entire teach arc vanishes.
+
+```ts
+// server-safe: plain .ts, no "use client", no JSX
+export interface SeedMemoriesParams {
+  apiUrl: string;
+  apiKey: string;
+  userId: string;
+}
+
+interface SeedMemory {
+  kind: "topical" | "episodic" | "operational";
+  scope: "user" | "project";
+  content: string;
+}
+
+export const SEED_MEMORIES: readonly SeedMemory[] = [
+  {
+    // BEAT 4 — a standing preference, so recall CHANGES the answer.
+    kind: "topical",
+    scope: "user",
+    content:
+      "<Name> prefers <the format/ordering/rounding preference>, so answers " +
+      "should apply it without being asked.",
+  },
+  {
+    // BEAT 5 — a PROCEDURE, so recall produces visible ACTION (several tool
+    // calls in a row) rather than a reformatted answer. Disjoint from beat 6's.
+    kind: "operational",
+    scope: "project",
+    content:
+      "Procedure for <the beat-5 situation> (NOT for <the beat-6 situation>): " +
+      "(1) <first tool>, (2) <second tool>, (3) <third tool, with the visible " +
+      "affordance — e.g. prefix the note with 🚨 so it stands out>. Run all " +
+      "three immediately, in order, without asking for confirmation, then " +
+      "confirm what was done in one short sentence.",
+  },
+  // DO NOT seed beat 6's procedure. That one is taught live on stage.
+];
+
+/**
+ * Write the seed memories for one identity; returns how many were stored.
+ * Never throws — a booth reset must still report success for the data store even
+ * if the memory backend is unhappy, so failures are counted, not propagated.
+ */
+export async function seedMemories(
+  params: SeedMemoriesParams,
+): Promise<number> {
+  const { apiUrl, apiKey, userId } = params;
+  const base = apiUrl.replace(/\/$/, "");
+  let stored = 0;
+
+  for (const memory of SEED_MEMORIES) {
+    try {
+      const res = await fetch(`${base}/api/memories`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "X-Cpki-User-Id": userId,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(memory),
+      });
+      if (res.ok) stored += 1;
+      else console.error(`[seed-memories] ${userId}: HTTP ${res.status}`);
+    } catch (err) {
+      console.error(`[seed-memories] ${userId}: ${String(err)}`);
+    }
+  }
+
+  return stored;
+}
+```
+
+Seed the memories against the **same identity your `identifyUser` asserts** for
+the default demo user, or the agent's own `recall_memory` will not find them.
+Banking pairs this with `intelligence/forget-memories.ts` so `dev/reset` can wipe
+learned memories and then re-seed these — see SKILL.md § "The meta-utility strip"
+and demo-beats.md § "Presentation requirements".
+
 ## `agent.ts` — SERVER-ONLY (no "use client", no JSX)
 
 Mirror `src/skins/airline/agent.ts` (minimal) or `src/skins/logistics/agent.ts`
@@ -498,11 +717,37 @@ import { BuiltInAgent } from "@copilotkit/runtime/v2";
 export const <id>Agent = () =>
   new BuiltInAgent({
     model: "openai/gpt-5.4", // the alias used across this repo
-    prompt: "You are the <Brand> agent. ...",
+    prompt: <ID>_PROMPT,
     // tools: [...]       // optional server-side agent tools (defineTool)
-    // temperature: 0,    // optional
+    temperature: 0, // banking pins 0 — a demo has to behave the same every run
   });
 ```
+
+### The prompt is where the beats are enforced
+
+Most beats fail in the **prompt**, not in the wiring: the tools exist, the agent
+just doesn't use them the way the demo needs. Banking's prompt is one long string
+of named clauses (`src/skins/banking/agent.ts`) — copy the clause set, not the
+banking specifics. The clauses that carry beats:
+
+| Clause                        | Beat            | What it must say                                                                                                                                                                                                                                |
+| ----------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CHART / COMPONENT ANSWER RULE | 1               | Render the visual **and** answer in one or two sentences. Never one without the other.                                                                                                                                                          |
+| NEVER WRITE A MARKDOWN TABLE  | 1, presentation | If a gen-UI component exists for that data, route to it instead of emitting a table.                                                                                                                                                            |
+| SCREEN AWARENESS              | 3b              | "The context you are given IS your view of what the user is looking at." Name the current page, summarize the key elements, cite the actual figures, and **never** say you cannot see/inspect/read the screen.                                  |
+| SECRETS                       | 3a              | Never ask for the sensitive value, never repeat it, and don't ask which record first — fire the tool immediately.                                                                                                                               |
+| UPLOADED DOCUMENTS            | 3d              | Read the attachment, and merge its values into the artifact tool's payload (banking passes them through `createReport`'s `additions` array).                                                                                                    |
+| RECALL FIRST                  | 4               | Before answering this class of question, call `recall_memory`, then pass what you recalled into the component **and name the preference you applied**. Speak like a person who remembers.                                                       |
+| SAVED PROCEDURE               | 5               | Recall, then EXECUTE step by step without asking for confirmation. Resolve the named entity to its id from context. State plainly that this is a DIFFERENT procedure from beat 6's — "do not confuse the two, do not offer to record anything." |
+| FINDING IS NOT DOING          | 5               | Locating the record is not handling it. Carry the procedure through.                                                                                                                                                                            |
+| ACTION DISCIPLINE             | 6               | When there is no saved procedure, decline and offer to record — never improvise or bluff a fix.                                                                                                                                                 |
+| TEACH & RECALL                | 6               | The record → save → replay chain, and "save this procedure AT MOST ONCE".                                                                                                                                                                       |
+| PROSE STYLE                   | presentation    | Short answers, **bold** the key figures, no walls of text.                                                                                                                                                                                      |
+
+Also keep the **tool descriptions** doing routing work: banking puts a shared
+`CHART_ANSWER_RULE` in each chart tool's description and states which question
+shape each tool owns, which is what keeps "show me the trend" off the canvas
+report path.
 
 **If your skin has a `CanvasSurface`, emit its a2ui operations from a SERVER tool
 here — never from a client `useFrontendTool`.** The a2ui middleware only converts
@@ -568,11 +813,13 @@ const <id>: Skin = {
   suggestions: <id>Suggestions,
   designSkill: <ID>_DESIGN_SKILL,
 
-  // ── Optional slots (omit any you don't need) ──
-  // NOTE: airline omits every optional slot below EXCEPT `toolLabels` + `useData`
-  // — it ships a 9-entry label map so its activity chips read as human phrases,
-  // not raw tool names. If your skin registers named frontend tools, you almost
-  // certainly want `toolLabels` too.
+  // ── Optional slots ──
+  // "Optional" per the CONTRACT; a demo-complete skin sets most of them. Airline
+  // omits every one below EXCEPT `toolLabels` + `useData` — and airline hits one
+  // beat of nine, so do not read its restraint as a model. `toolLabels` in
+  // particular is optional in name only: it is what makes activity chips read as
+  // human phrases ("Pulling up your flight") instead of raw tool names
+  // (`showFlight`). Any skin with named frontend tools wants it.
   useData: use<Id>Data, // () => unknown — OMIT if the skin has no shell-managed
                         //   data (banking omits it, reads REST + auth directly);
                         //   then useSkinData<T>() returns undefined.
@@ -582,10 +829,21 @@ const <id>: Skin = {
   // toolLabels: {        // Record<string, string> — activity-chip labels for your tools
   //   showThing: "Pulling up the thing",
   // },
+  // BEAT 3d — the attachment path. The framework's suggestion path DROPS
+  // attachments, so a pill that must carry a file has to be intercepted here:
+  // stage the file into the composer's hidden input[type=file], then drive the
+  // real composer textarea + send button. Match on the message CONSTANT shared
+  // with suggestions.ts so it can never drift. Ship the paperclip too, so the
+  // presenter can stage the file by hand if the pill path misbehaves on stage.
+  // (Worked implementation: banking's `skin.tsx:87-149` + `attach-invoice.ts`.)
   // chatHeaderActions: [ // ChatHeaderAction[] — buttons in the shared chat header
-  //   { icon: SomeIcon, label: "Do a thing", onClick: () => {} },
+  //   { icon: Paperclip, label: "Attach the <artifact>", onClick: stage<Id>Attachment },
   // ],
-  // onSuggestionSelect: (suggestion, index) => false, // return true if fully handled
+  // onSuggestionSelect: (suggestion) => {
+  //   if (suggestion.message !== <ID>_ATTACHMENT_MESSAGE) return false;
+  //   void send<Id>WithAttachment();
+  //   return true; // fully handled — the shell does nothing further
+  // },
 
   // ── End-user identity (ONLY if your skin scopes Intelligence per user) ──
   // Mount above CopilotKitProvider + contribute its `properties`; pair with a

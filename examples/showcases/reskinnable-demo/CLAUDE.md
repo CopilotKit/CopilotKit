@@ -2,21 +2,90 @@
 
 One Next.js app whose **entire** experience — brand, theme, layout, pages,
 tools, and agent — is reskinnable at runtime. A skin-agnostic **shell** hosts
-one **skin** per route segment `/[skin]/...`. It ships two skins, `banking` and
-`airline`, switchable from a floating selector, plus a repo-local **reskin
-skill** (`.claude/skills/reskin/`) for authoring new ones.
+one **skin** per route segment `/[skin]/...`. It ships four skins — `banking`,
+`airline`, `logistics` and `keel` — switchable from a dropdown at the top of the
+assistant column, plus a repo-local **reskin skill**
+(`.claude/skills/reskin/`) for authoring new ones.
 
 The point of the app is the `Skin` contract: a single interface that swaps a
-whole product without the shell knowing anything domain-specific. The two
-shipped skins deliberately sit on **different data substrates** (banking is
-REST-backed, airline is in-memory) to prove the contract is substrate-agnostic.
+whole product without the shell knowing anything domain-specific. The skins
+deliberately sit on **two different data substrates** — banking and logistics are
+REST-backed, airline and keel are in-memory — to prove the contract is
+substrate-agnostic.
+
+**Each skin is also a live sales demo.** It exists to prove CopilotKit and
+Intelligence top to bottom to an enterprise buyer, through a fixed set of demo
+**beats**: lead with generative UI, show that threads store AG-UI streams rather
+than text, manipulate the app four ways (drive it, read the screen, navigate via
+real levers, ingest a document into a durable artifact), recall long-term memory,
+replay a stored procedure, and learn a new one on stage. `banking` is the
+reference implementation and the only skin that currently hits every beat. The
+beats, and what each one must prove, are specified in
+[`.claude/skills/reskin/demo-beats.md`](.claude/skills/reskin/demo-beats.md) —
+read it before adding or changing a skin's tools, prompt or suggestion pills,
+because a skin that wires the contract perfectly and hits no beats is a failed
+skin.
+
+## ⚠️ Changing existing code? Review whether the reskin skill went stale
+
+**Every change to existing code in this app ends with one explicit question,
+answered out loud before the work is called done:**
+
+> Does this change make anything in `.claude/skills/reskin/` wrong, incomplete,
+> or misleading for the next person authoring a skin?
+
+Answer it in the PR description or the commit body — "checked, no skill impact" is
+a fine answer. An UNANSWERED question is the failure; a considered "no" is not.
+
+**Why this is a standing rule rather than a nice-to-have.** The skill is the only
+instruction a new skin's author reads, and it goes stale SILENTLY — nothing
+type-checks it, no test imports it, and a skin built from a stale template still
+compiles, lints and renders. Every one of these actually happened while shipping
+the LOCK_SKIN root-serving change:
+
+- `templates.md` handed every new skin the exact two patterns that change had just
+  removed (a hardcoded `/${skin.id}/…` href and a fixed `pathname.split("/").slice(2)`).
+  Both fail **silently** under a lock — the page still renders, the URL is just wrong.
+- SKILL.md's verification steps pointed at `pnpm test:unit` and a drift test that the
+  same PR **deleted**. Caught by a reviewer, not by any tooling.
+- The authoring half of the skill was updated and the VERIFICATION half was not; the
+  gap survived until someone asked about it specifically.
+
+**Changes that implicate the skill** — treat these as automatic triggers, not a
+judgement call:
+
+| You changed                                                                  | Check                                                                |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| The `Skin` contract (`src/shell/skin-contract.ts`)                           | SKILL.md's field-by-field table, templates.md's scaffolds            |
+| Anything a skin must call or must not call (link builders, hooks, providers) | SKILL.md's contract sections, every template that shows the old form |
+| A lint rule, test or gate a skin has to pass                                 | SKILL.md § Verification — does it name the right command?            |
+| Registration, routing, or the client/server boundary                         | SKILL.md § Registration + the boundary section                       |
+| A demo beat's mechanism, or what a beat must prove                           | demo-beats.md                                                        |
+| A skin's brand, id or identity                                               | the skin lists in SKILL.md, CLAUDE.md and README.md                  |
+| Deleting or renaming a file the skill references                             | grep the skill for the old path                                      |
+
+**The cheap check, ~2 minutes:**
+
+```bash
+# 1. Does the skill still reference anything you deleted or renamed?
+grep -rn "<old-symbol-or-path>" .claude/skills/reskin/
+
+# 2. Do the templates still teach the pattern you just replaced?
+grep -rn "<the-old-pattern>" .claude/skills/reskin/templates.md
+
+# 3. Does SKILL.md § Verification still name commands that exist and gates that run?
+```
+
+If the change is load-bearing for skin authors, update the skill **in the same PR**.
+A skill that documents last week's contract is worse than no skill: it is trusted.
 
 ## Shell vs skins
 
 - **Shell** (`src/shell/`) — skin-agnostic host. Owns the `Skin` contract, the
-  client + server registries, routing/provider composition, the floating skin
-  selector, the shared chat panel, and the shared canvas region. It never
-  imports a skin's internals; it only consumes the contract.
+  client + server registries, routing/provider composition, the inset frame
+  (`src/shell/layout/`), the skin selector, the shared chat panel, and the shared
+  canvas region. It never imports a skin's internals; it only consumes the
+  contract.
 - **Skins** (`src/skins/<id>/`) — each is a domain plugin living entirely in its
   own folder. Its ONLY inbound dependency on shared code is the `Skin` contract
   in `src/shell/skin-contract.ts`. That is what lets skins be built in isolation.
@@ -90,9 +159,12 @@ browser. So:
   - `src/shell/agent-registry.ts` — the **server** `agentRegistry` map (imports
     only server-safe modules). Kept separate so the API route never pulls
     client-only code server-side.
-- `src/shell/skins-config.ts` holds `defaultSkinId` as pure config (no skin
-  imports), so the server-component `/` redirect can read it without dragging
-  client skin modules into an RSC.
+- `src/shell/skins-config.ts` holds `defaultSkinId` and `skinIds` as pure config
+  (no skin imports), so the server-component `/` redirect, `src/proxy.ts` and the
+  `LOCK_SKIN` validator can read them without dragging client skin modules into
+  an RSC (or, for the proxy, into the request hook).
+  `skinIds` duplicates the registry's keys on purpose; `skins-config.test.ts` is
+  the drift guard.
 
 ### Per-skin server identity (`agentRegistry`)
 
@@ -111,7 +183,14 @@ export type IdentifyRunUser = (
 - **Banking** contributes `bankingIdentifyUser`
   (`src/skins/banking/intelligence/user-id.ts`), which maps the client-forwarded
   `properties` ({ userRole, userId }) onto its per-member/role memory scope.
-  **Airline** omits it (no auth, no memory).
+  **Logistics** and **keel** contribute one too (`logisticsIdentifyUser`,
+  `keelIdentifyUser`) for thread scoping — though neither yet uses it for durable
+  memory. **Airline** is the only skin that omits it (no auth, no memory).
+- Banking additionally ships `intelligence/seed-memories.ts` and
+  `intelligence/forget-memories.ts`, which its `dev/reset` route uses to wipe
+  learned memories and re-seed the ones the demo must start out already knowing.
+  That file is what makes the long-term-memory and stored-procedure beats work;
+  it is not emergent behaviour.
 - `identifyUser` is reached through the **server-only** registry, so it MUST be
   server-safe: **no `"use client"`, no JSX, no `.tsx` imports.** Keep it in a
   plain `.ts` module.
@@ -128,23 +207,73 @@ export type IdentifyRunUser = (
 
 ## Routing and provider composition
 
-- `src/app/page.tsx` — server component; redirects `/` to `/${defaultSkinId}`.
+- `src/proxy.ts` — the LOCK_SKIN URL space. Unlocked it is inert. Under a lock it
+  REWRITES the prefix-free space onto the route tree (`/` → `/banking`,
+  `/cards` → `/banking/cards`) so the locked skin is **served at `/`** and the
+  tenant segment never appears in the address bar. Its matcher excludes `api`,
+  so the runtime's SSE stream never passes through it. It is `proxy.ts` (Next
+  16's rename of `middleware.ts`) rather than a `next.config` rewrite because
+  `rewrites()` is baked into routes-manifest.json at BUILD time, which would
+  freeze the lock into the artifact; proxy files always run on the Node server,
+  so LOCK_SKIN stays a per-request read and ONE BUILD SERVES BOTH shapes.
+- **Links must go through `useSkinHref`** (`src/shell/skin-path.ts`) — the client
+  half of that contract. A hardcoded `/${skin.id}/...` href would put the prefix
+  straight back in the address bar on the first nav click of a locked deploy.
+  `pnpm lint` enforces this — the `no-restricted-syntax` skin-prefix selectors in
+  `eslint.config.mjs` fail and name your file if an in-skin link embeds a skin
+  prefix, or, when the value is a navigation target (`router.push`/`replace`,
+  `location.assign`/`href`, JSX `href`), concatenates a path onto an interpolation
+  and yields a leading `//`. The `//` guard is nav-scoped on purpose so it never
+  false-positives on ordinary date/ratio templates (`` `${m}/${d}` ``); the cost is
+  that a URL built into a variable before navigating is not caught by that guard.
+  `useSkinSegments` is its companion for nav active-state; it strips a LEADING
+  skin id rather than slicing a fixed offset, so it is correct whether or not the
+  pathname carries the prefix. Keel wraps both in `src/skins/keel/href.ts`.
+- `src/app/page.tsx` — server component; the UNLOCKED front door. Redirects `/`
+  to `/${defaultSkinId}`. Under a lock this page never runs: the proxy REWRITES
+  `/` to `/<locked>` in place (no redirect) before routing reaches it, so a
+  locked server answers `GET /` with 200 and the locked skin's route tree. Its
+  `lockedSkinId()` read is therefore dead on any supported deploy (null when the
+  page actually runs, and bypassed by the proxy under a lock); it is kept only as
+  a proxy-INDEPENDENT backup — were `/` to reach this page under a lock with the
+  proxy absent, it targets the locked skin's real route `/<locked>` (which
+  renders) rather than `defaultSkinId` (which 404s when it differs from the
+  lock). It is not the double-prefix trap: `/<locked>` is re-rewritten to
+  `/<locked>/<locked>` only when the proxy is present, and then this page never
+  runs.
 - `src/app/[skin]/layout.tsx` — resolves the skin from the URL via `getSkin`; a
-  404 if unknown. It mounts the per-skin runtime subtree **keyed by `skin.id`**,
-  so switching skins fully remounts the CopilotKit provider and starts a fresh
-  thread — each skin runs in its own clean world. Composition, outside-in:
+  404 if unknown, and also a 404 if `LOCK_SKIN` pins the deploy to a different
+  skin (`isSkinLockedOut`). `notFound()` throws before `SkinRuntime` renders, so
+  this client path never mounts a provider, a thread, or an agent registration
+  for a disowned skin. (The server-side agent registry is unaffected —
+  `LOCK_SKIN` gates the UI, not the registry.) Under the proxy `[skin]` is always
+  the locked skin, so `isSkinLockedOut` no longer fires on path access there; it
+  is kept as defence in depth for any route that reaches the layout directly.
+  For a reachable skin, the layout mounts the per-skin runtime subtree **keyed
+  by `skin.id`**, so switching skins fully remounts the CopilotKit provider and
+  starts a fresh thread — each skin runs in its own clean world. Composition,
+  outside-in:
   `<div className={skin.themeClass}>` → `FaviconSync` (renders
   `identity.favicon`) → the skin's optional `RuntimeProviders` (mounted **above**
   the provider, so `useRuntimeProperties` can read its context) →
   `CopilotKitProvider` (runtimeUrl `/api/copilotkit`, `useSingleEndpoint={false}`,
   `properties={skin.useRuntimeProperties?.()}`, the skin's `catalog`,
-  `sandboxFunctions`, `designSkill`) → `CopilotChatConfigurationProvider
+  `sandboxFunctions`, `designSkill`, and `showDevConsole={true}`) →
+  `CopilotChatConfigurationProvider
 agentId={skin.id}` → `SkinProvider` (runs `skin.useData?.()`) → chat-inbox +
   canvas providers → the skin's optional `Providers` (mounted **below** the
-  provider) → `SkinSuggestions` + `Tools` + `Layout` (wrapping `CanvasRegion`) +
-  the shared `ChatPanel` and `FloatingSelector`.
+  provider) → `SkinSuggestions` + `Tools` + `LayoutPreferencesProvider` →
+  `ShellFrame`, which receives the skin's `Layout` (wrapping `CanvasRegion`) as its
+  `app` slot and the shared `ChatPanel` as its `chat` slot.
+- **The inspector is shell-mounted for every skin** via that
+  `showDevConsole={true}`, which surfaces `CopilotKitInspector`. It replaced the
+  old app-specific "glass engine"; a skin contributes nothing to it. Not part of
+  the standard demo flow, but the thing to open when a technical audience wants to
+  see the actual AG-UI event stream, or when debugging one.
 - `src/app/[skin]/[[...rest]]/page.tsx` — renders `skin.resolvePage(rest)`, or a
-  404 when it returns `null`.
+  404 when it returns `null`. `resolvePage` receives **all** remaining segments, so
+  a skin can resolve parameterized routes — `keel` is the worked example
+  (`knowledge/<docId>`, `runs/<runId>`).
 - `src/app/api/copilotkit/[[...slug]]/route.ts` — the Hono runtime handler. It
   builds one `BuiltInAgent` per registered skin from `agentRegistry` (calling
   each registration's `createAgent`), keyed by id, so `agentId={skin.id}`
@@ -153,6 +282,46 @@ agentId={skin.id}` → `SkinProvider` (runs `skin.useData?.()`) → chat-inbox +
   `InMemoryAgentRunner` by default (OSS path); a `CopilotKitIntelligence` runtime
   when `INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, and
   `INTELLIGENCE_API_KEY` are all set.
+
+## The inset frame
+
+`src/shell/layout/` owns the app's outer geometry. `ShellFrame` renders a padded
+region holding **two** cards, separated by a resizable gutter:
+
+- the **assistant column** — the selector card stacked above the chat card
+- the **app card** — the active skin's `Layout` wrapping `CanvasRegion`
+
+The model is deliberately just "one bounded panel, one that takes the remainder"
+(`panel-sizes.ts`): the assistant is `min 250px / default 600px / max 50%`, and the
+app gets what is left. Capping the assistant as a SHARE is what removes the need for
+an app floor and lets the mobile breakpoint stay a genuine 768px rather than being
+derived from panel arithmetic.
+
+Things worth knowing before changing any of it:
+
+- **The thread rail is NOT a resizable panel** — it is a fixed 200px element inside
+  the chat card (`.nw-chat-rail`), hidden by a container query when the card gets
+  narrow. It used to be a nested panel, which made the assistant's floor a compound
+  of rail + conversation and produced a cascade of breakpoint and collapse bugs.
+- **`react-resizable-panels` is pinned to 4.x**, whose API is renamed from the 2.x/3.x
+  used elsewhere in this repo: `Group`/`orientation`/`Separator`/`useDefaultLayout`.
+  Bare-number sizes are **pixels** in 4.x (3.x is percentage-only), which is why the
+  pin exists. A `Panel`'s `className` lands on a **nested** div, so panel geometry
+  must come from `minSize`/`defaultSize`/`collapsedSize` and never from classes; the
+  emitted style hooks are `data-group` / `data-panel` / `data-separator`. See the
+  header comment in `src/components/ui/resizable.tsx`, and treat the type
+  declarations in `node_modules` as the authority over any doc site.
+- **Shell controls live in the selector card** — skin switcher, swap sides, hide.
+  The chat header holds only conversation actions. Collapsing hides the whole
+  column, selector included, and a launcher restores it. On a `LOCK_SKIN` deploy
+  the switcher becomes a static brand badge (`skin-brand-locked`) while swap and
+  hide stay — a disabled dropdown was rejected as implying a choice that does not
+  exist.
+- **`.nw-panel-card` is a fixed 12px radius in px** and deliberately does not read
+  `--radius`: the frame is shell chrome and must read identically in every skin.
+  Card colours stay themed, so a reskin still restyles the frame.
+- **Skin layouts must root at `h-full`, not `h-screen`** — they fill the app card,
+  which the frame has already inset.
 
 ## The theming contract
 
@@ -193,20 +362,36 @@ Gen-UI components registered via `useComponent` (airline's flight card, banking'
 charts and queues) render in the chat transcript, not on the canvas — that is a
 separate path from the full-region canvas surfaces above.
 
-## The two skins (why they differ)
+## The four skins (why they differ)
 
-- **`banking`** ("Northwind Finance") — **REST-backed**. Its pages, tools, and
-  report canvas read a live ledger over `/api/banking/v1/*` (cards, transactions,
-  users, policies, exceptions, reports, and a gated `dev/reset`). It uses the
-  optional `Providers`, `CanvasSurface`, `sandboxFunctions`, `chatHeaderActions`
-  (a paperclip that stages a bundled Q2 invoice PDF), `onSuggestionSelect` (the
-  Q2 pill drives the real composer so the invoice rides as an attachment), and —
-  to scope durable memory per member — `RuntimeProviders` (hoists its
-  `AuthContextProvider` above the provider) + `useRuntimeProperties` (returns
-  `{ userRole, userId }`) on the client plus a server-safe `identifyUser` in the
-  agent registry. It **omits** `useData` — its components read the REST ledger
-  via `useCreditCards` and the current member via `useAuthContext` directly, so
-  nothing flows through `useSkinData`.
+Two substrates behind one contract is the architectural demonstration. Demo
+completeness is a **separate axis**, and the two do not correlate — see the beat
+matrix at the end of this section.
+
+- **`banking`** ("Northwind Finance") — **REST-backed**, and the reference demo.
+  Its pages, tools, and report canvas read a live ledger over
+  `/api/banking/v1/*` (cards, transactions, users, policies, exceptions, reports,
+  and a gated `dev/reset`). It uses the optional `Providers`, `CanvasSurface`,
+  `sandboxFunctions`, `chatHeaderActions` (a paperclip that stages a bundled Q2
+  invoice PDF), `onSuggestionSelect` (the Q2 pill drives the real composer so the
+  invoice rides as an attachment), and — to scope durable memory per member —
+  `RuntimeProviders` (hoists its `AuthContextProvider` above the provider) +
+  `useRuntimeProperties` (returns `{ userRole, userId }`) on the client plus a
+  server-safe `identifyUser` in the agent registry. It **omits** `useData` — its
+  components read the REST ledger via `useCreditCards` and the current member via
+  `useAuthContext` directly, so nothing flows through `useSkinData`. It is also
+  the only skin with a route readable, per-page on-screen readables, seeded
+  memories, and the teach-mode loop (`docs/teach-mode/`).
+- **`logistics`** ("Meridian") — **REST-backed**. A freight control tower for
+  exception triage (expedite / reroute / split / absorb) across pages
+  `control-tower` (index), `lanes`, `inventory`, `decisions`. Like banking it
+  **omits `useData`**, reading its ledger via `useLogistics()` and the planner via
+  `usePlannerAuth()`. Sets `RuntimeProviders`, `useRuntimeProperties`,
+  `Providers`, `CanvasSurface` (fed by the server tool `renderBrief`),
+  `sandboxFunctions`, `toolLabels` and a server `identifyUser`; omits
+  `chatHeaderActions` and `onSuggestionSelect`. **The debugged reference for skin
+  layout chrome** — the `h-full overflow-hidden` root and the meta-utility strip
+  were fixed here first.
 - **`airline`** ("Aeronova") — **in-memory**. Its `useData` (`useAirlineData`) is
   a seed-backed React-state store with no backend; mutations (`selectSeat`,
   `issueBoardingPass`, `chooseRebooking`) update local state. It omits
@@ -214,24 +399,62 @@ separate path from the full-region canvas surfaces above.
   `onSuggestionSelect`, `RuntimeProviders`, `useRuntimeProperties`, and a server
   `identifyUser` — the minimal end of the contract (only `toolLabels` beyond the
   required fields).
+- **`keel`** ("Keel") — **in-memory**, Harbor Point Health's knowledge and
+  operations desk. Sets `useData: useKeelData` (a `useState` store over
+  `seedKeelRuns`), plus `CanvasSurface` (server tool `render_ops_report`),
+  `sandboxFunctions`, `toolLabels`, `RuntimeProviders`, `useRuntimeProperties`
+  and a server `identifyUser`; omits `Providers`, `chatHeaderActions`,
+  `onSuggestionSelect`. **The only skin with parameterized routes** —
+  `resolvePage` is Map-based and resolves `knowledge/<docId>` → `DocumentPage` and
+  `runs/<runId>` → `RunDetailPage` alongside its static segments.
 
-Two substrates behind one contract is the whole demonstration.
+### Demo-beat coverage (the other axis)
+
+| Beat                             | banking                   | airline | logistics     | keel          |
+| -------------------------------- | ------------------------- | ------- | ------------- | ------------- |
+| Gen-UI in transcript             | ✅ 8                      | ✅ 6    | ✅ 5          | ✅ 5          |
+| Rich thread survives reload      | ✅ replay-safe tools      | ❌      | ❌            | ❌            |
+| Drive the app, secret withheld   | ✅                        | ❌      | ❌            | ❌            |
+| "What's on my screen?"           | ✅ route + page readables | ❌      | ❌            | ❌            |
+| Navigate via levers + filters    | ✅                        | ❌      | ❌            | nav only      |
+| Multimodal → durable artifact    | ✅                        | ❌      | ❌            | ❌            |
+| Long-term memory recall          | ✅                        | ❌      | plumbing only | plumbing only |
+| Stored-procedure replay          | ✅                        | ❌      | ❌            | ❌            |
+| Teach a new procedure            | ✅                        | ❌      | ❌            | ❌            |
+| Presenter reset (route + button) | ✅                        | ❌      | ✅            | ❌            |
+
+`banking` hits every row; the others predate this bar and hit about one each
+(nine beats plus the presenter-reset requirement are listed above). Note that
+logistics and keel ship the **full per-user identity plumbing** —
+`RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — and then no
+memory prompts, no memory tools and no seed file, so they get no demo value from
+the hardest part of it. Treat all three as excellent **wiring** references and
+incomplete **demo** references.
 
 ## How to add a skin
 
 Use the repo-local skill in `.claude/skills/reskin/` — it walks the full
 authoring flow. In short:
 
-1. Scaffold `src/skins/<id>/` and implement each `Skin` contract field.
-2. Write `src/skins/<id>/theme.css` (a `.theme-<id>` block re-valuing shared
+1. **Map the demo beats first**, before any code — the table template is in
+   [`.claude/skills/reskin/demo-beats.md`](.claude/skills/reskin/demo-beats.md).
+   The demo decides the tools, the pages, the prompt and the pills; discovering
+   the beats afterwards means rebuilding them.
+2. Scaffold `src/skins/<id>/` and implement each `Skin` contract field.
+3. Write `src/skins/<id>/theme.css` (a `.theme-<id>` block re-valuing shared
    tokens) and side-effect-import it from the skin's `layout.tsx`.
-3. Add a server-safe `src/skins/<id>/agent.ts` (no `"use client"`, no JSX).
-4. Register in **both** `src/shell/registry.ts` (client skin) and
+4. Add a server-safe `src/skins/<id>/agent.ts` (no `"use client"`, no JSX). The
+   prompt is where most beats are actually enforced.
+5. Register in **both** `src/shell/registry.ts` (client skin) and
    `src/shell/agent-registry.ts` (as `{ createAgent, identifyUser? }`), keyed by
    the identical `id`.
-5. If the skin scopes Intelligence per end-user, add its client
+6. If the skin scopes Intelligence per end-user, add its client
    `RuntimeProviders` + `useRuntimeProperties` and a server-safe `identifyUser`.
-6. Optionally set `defaultSkinId` in `src/shell/skins-config.ts`.
+   If it has memory or stored-procedure beats, add
+   `intelligence/seed-memories.ts` and re-seed from its `dev/reset` route.
+7. Ship one suggestion pill per beat, in demo order — the presenter should never
+   have to type.
+8. Optionally set `defaultSkinId` in `src/shell/skins-config.ts`.
 
 ## Commands
 
@@ -242,10 +465,18 @@ type-checks as part of `next build`):
   `.env.example`). Visit `/`, which redirects to the default skin.
 - `pnpm build` — production build (also the type-check gate).
 - `pnpm start` — serve the production build.
-- `pnpm lint` — ESLint.
+- `pnpm lint` — ESLint. Also carries the LOCK_SKIN URL-contract guard (the
+  `no-restricted-syntax` skin-prefix selectors in `eslint.config.mjs`).
 - `pnpm test:unit` — Vitest unit tests.
 - `pnpm test:e2e` / `pnpm test:e2e:ogui` / `pnpm test:self-learning` — Playwright
-  suites.
+  suites. `test:e2e` has TWO projects, each with its own dev server, because the
+  lock is a boot-time server env and the two deploy shapes are therefore two
+  processes: **`unlocked`** (port 3000, `LOCK_SKIN=""`) runs every spec except
+  `locked-skin.spec.ts`; **`locked`** (port 3100, `LOCK_SKIN=banking`, its own
+  `.next-locked` build dir) runs only that one. Target one with
+  `--project=locked`. The locked project exists because LOCK_SKIN's headline
+  behaviour has no other coverage — a link that keeps the skin prefix still
+  renders a working page, so only a browser against a locked server catches it.
 - `pnpm mint-dev-license` — mint a dev license (Intelligence mode).
 
 Run tasks through Nx per the repo convention where applicable.
@@ -253,6 +484,14 @@ Run tasks through Nx per the repo convention where applicable.
 ## Reference
 
 - `src/shell/skin-contract.ts` — the contract (source of truth).
-- `src/skins/banking/skin.tsx`, `src/skins/airline/skin.tsx` — two implementations.
+- `src/skins/{banking,logistics,airline,keel}/skin.tsx` — four implementations.
+  Open `banking` for demo completeness, `logistics` for layout chrome and the
+  server-emitted a2ui canvas, `airline` for the minimal contract surface, `keel`
+  for parameterized routes.
+- `.claude/skills/reskin/` — the authoring skill: `SKILL.md` (contract + wiring
+  traps), `demo-beats.md` (what the demo must prove, and the quality bar),
+  `templates.md` (per-file starting points).
 - `docs/DESIGN.md` — the banking skin's visual design system ("Aurora").
-- `docs/teach-mode/` — the banking skin's teachable over-limit-approval flow.
+- `docs/teach-mode/` — the banking skin's teachable over-limit-approval flow, plus
+  `verify-teachable-gate.sh` which proves the gate → unlock path over pure REST.
+- `docs/superpowers/` — plans and specs for this app's own development.

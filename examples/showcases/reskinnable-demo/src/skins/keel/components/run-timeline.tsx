@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Run, RunStep } from "@/skins/keel/data/types";
+import { useKeelHref } from "@/skins/keel/href";
 import { formatStepTime } from "./format-step-time";
 import { StatusPill } from "./status-pill";
 
@@ -23,6 +24,7 @@ export function RunTimeline({
   compact = false,
   renderStepAction,
 }: RunTimelineProps) {
+  const keelHref = useKeelHref();
   return (
     <ol className="flex flex-col">
       {run.steps.map((step, i) => {
@@ -64,7 +66,7 @@ export function RunTimeline({
                 )}
                 {step.policyRef && (
                   <Link
-                    href={`/keel/knowledge/${step.policyRef.docId}#${step.policyRef.sectionId}`}
+                    href={`${keelHref(`knowledge/${step.policyRef.docId}`)}#${step.policyRef.sectionId}`}
                     className="font-mono text-brand underline-offset-2 hover:underline"
                   >
                     {step.policyRef.ref} §{step.policyRef.sectionId}

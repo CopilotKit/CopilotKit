@@ -31,6 +31,7 @@ import type {
 import { RunHandler } from "./run-handler";
 import type { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
+import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
@@ -365,6 +366,13 @@ export interface CopilotKitCoreFriendsAccess {
    * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
+
+  readonly stateManager: {
+    markNextRunAsContinuation(
+      agent: AbstractAgent,
+      expectedRunId?: string,
+    ): CopilotKitCoreContinuationHandoff;
+  };
 }
 
 /**

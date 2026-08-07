@@ -65,6 +65,7 @@ const pkg = createRequire(import.meta.url)("../package.json") as {
 };
 
 const ADAPTER_ROLLBACK_TIMEOUT_MS = 5_000;
+const DEFAULT_WELCOME_PROMPT = "Introduce yourself to the channel!";
 
 function storeKind(s: StateStore): "memory" | "postgres" | "redis" | "custom" {
   const n = s.constructor?.name;
@@ -824,6 +825,7 @@ export function createChannel<
     extras?: {
       platform?: string;
       message?: IncomingMessage;
+      defaultPrompt?: string;
       user?: ApplicationUser | null;
       actor?: ProviderActor;
       interactionActionId?: string;
@@ -850,6 +852,7 @@ export function createChannel<
       stateSchema: cfg.state,
       transcripts,
       message: extras?.message,
+      defaultPrompt: extras?.defaultPrompt,
       user: extras?.user ?? null,
       actor: extras?.actor ?? { id: "unknown", kind: "unknown" },
       channelName: opts.name ?? adapter.platform,
@@ -1155,7 +1158,12 @@ export function createChannel<
           adapter,
           evt.replyTarget,
           evt.conversationKey,
-          { platform, user, actor: identityContext.actor },
+          {
+            platform,
+            user,
+            actor: identityContext.actor,
+            defaultPrompt: DEFAULT_WELCOME_PROMPT,
+          },
         );
         for (const h of welcomeHandlers) {
           await h({ thread, user, actor: identityContext.actor, platform });
