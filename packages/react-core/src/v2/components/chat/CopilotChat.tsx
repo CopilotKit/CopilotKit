@@ -1,4 +1,5 @@
 import { useAgent } from "../../hooks/use-agent";
+import { getApplicableCustomMessageRenderers } from "../../hooks/use-render-custom-messages";
 import { useAttachments } from "../../hooks/use-attachments";
 import { useSuggestions } from "../../hooks/use-suggestions";
 import type { CopilotChatViewProps } from "./CopilotChatView";
@@ -45,6 +46,8 @@ import type { LastUserMessageState } from "./last-user-message-context";
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
   | "messages"
+  | "ephemeralMessages"
+  | "hasRenderableEphemeralMessages"
   | "isRunning"
   | "suggestions"
   | "suggestionLoadingIndexes"
@@ -88,21 +91,24 @@ export type CopilotChatProps = Omit<
    */
   throttleMs?: number;
 };
+
+type CopilotChatInnerProps = Omit<
+  CopilotChatProps,
+  "agentId" | "threadId" | "labels" | "isModalDefaultOpen"
+> & {
+  agentId: string;
+  threadId: string;
+  hasExplicitThreadId: boolean;
+};
+
 export function CopilotChat({
   agentId,
   threadId,
   labels,
-  chatView,
   isModalDefaultOpen,
-  attachments: attachmentsConfig,
-  onError,
-  throttleMs,
   ...props
 }: CopilotChatProps) {
-  // Check for existing configuration provider
   const existingConfig = useCopilotChatConfiguration();
-
-  // Apply priority: props > existing config > defaults
   const resolvedAgentId =
     agentId ?? existingConfig?.agentId ?? DEFAULT_AGENT_ID;
   const providedThreadId = threadId ?? existingConfig?.threadId;
@@ -110,21 +116,75 @@ export function CopilotChat({
     () => providedThreadId ?? randomUUID(),
     [providedThreadId],
   );
-  // "Explicit" means a caller actually picked this thread — via the
-  // `threadId` prop on CopilotChat or a wrapping provider that marked its
-  // threadId as caller-chosen. An auto-minted UUID leaking down through a
-  // CopilotChatConfigurationProvider (e.g. from the v1 CopilotKit →
-  // ThreadsProvider chain) does NOT count; treating it as explicit is
-  // what made /connect fire against 404s and the welcome screen stay
-  // hidden for fresh empty chats.
   const hasExplicitThreadId =
     !!threadId || !!existingConfig?.hasExplicitThreadId;
 
-  const { agent } = useAgent({
-    agentId: resolvedAgentId,
-    throttleMs,
-  });
+  return (
+    <CopilotChatConfigurationProvider
+      agentId={resolvedAgentId}
+      threadId={resolvedThreadId}
+      hasExplicitThreadId={hasExplicitThreadId}
+      labels={labels}
+      isModalDefaultOpen={isModalDefaultOpen}
+    >
+      <CopilotChatInner
+        {...props}
+        agentId={resolvedAgentId}
+        threadId={resolvedThreadId}
+        hasExplicitThreadId={hasExplicitThreadId}
+      />
+    </CopilotChatConfigurationProvider>
+  );
+}
+
+function CopilotChatInner({
+  agentId: scopedAgentId,
+  threadId: scopedThreadId,
+  hasExplicitThreadId: scopedHasExplicitThreadId,
+  chatView,
+  attachments: attachmentsConfig,
+  onError,
+  throttleMs,
+  ...props
+}: CopilotChatInnerProps) {
+  const existingConfig = useCopilotChatConfiguration();
+  const resolvedAgentId =
+    existingConfig?.agentId ?? scopedAgentId ?? DEFAULT_AGENT_ID;
+  const resolvedThreadId = existingConfig?.threadId ?? scopedThreadId;
+  const hasExplicitThreadId =
+    existingConfig?.hasExplicitThreadId ?? scopedHasExplicitThreadId;
+
+  const { agent, ephemeralMessages } = useAgent(
+    {
+      agentId: resolvedAgentId,
+      throttleMs,
+    },
+    {
+      agentId: resolvedAgentId,
+      threadId: resolvedThreadId,
+      hasExplicitThreadId,
+    },
+  );
   const { copilotkit } = useCopilotKit();
+  const hasRenderableEphemeralMessages = getApplicableCustomMessageRenderers(
+    copilotkit.renderCustomMessages,
+    resolvedAgentId,
+  ).some((renderer) => renderer.renderEphemeral);
+  const [, forceEphemeralUpdate] = useState(0);
+
+  useEffect(() => {
+    const subscription = copilotkit.subscribe({
+      onEphemeralMessagesChanged: (event) => {
+        if (
+          event.agentId === resolvedAgentId &&
+          event.threadId === resolvedThreadId
+        ) {
+          forceEphemeralUpdate((value) => value + 1);
+        }
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit, resolvedAgentId, resolvedThreadId]);
   const { suggestions: autoSuggestions } = useSuggestions({
     agentId: resolvedAgentId,
   });
@@ -1004,7 +1064,6 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [messagesMemoKey],
   );
-
   // Compute the ID of the last user message for scroll-pinning logic.
   const lastUserMessageId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -1039,6 +1098,8 @@ export function CopilotChat({
   const finalProps: CopilotChatViewProps = {
     ...mergedProps,
     messages,
+    ephemeralMessages,
+    hasRenderableEphemeralMessages,
     // Input behavior props
     onSubmitMessage: onSubmitInput,
     onStop: effectiveStopHandler,
@@ -1064,53 +1125,43 @@ export function CopilotChat({
     hasExplicitThreadId,
   };
 
-  // Always create a provider with merged values
-  // This ensures priority: props > existing config > defaults
   const RenderedChatView = renderSlot(chatView, CopilotChatView, finalProps);
 
   return (
-    <CopilotChatConfigurationProvider
-      agentId={resolvedAgentId}
-      threadId={resolvedThreadId}
-      hasExplicitThreadId={hasExplicitThreadId}
-      labels={labels}
-      isModalDefaultOpen={isModalDefaultOpen}
-    >
-      <div ref={chatContainerRef} style={{ display: "contents" }}>
-        {attachmentsEnabled && (
-          <input
-            type="file"
-            multiple
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept={attachmentsConfig?.accept ?? "*/*"}
-            style={{ display: "none" }}
-          />
-        )}
-        {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
-        {transcriptionError && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "100px",
-              left: "50%",
-              transform: "translateX(-50%)",
-              backgroundColor: "#ef4444",
-              color: "white",
-              padding: "8px 16px",
-              borderRadius: "8px",
-              fontSize: "14px",
-              zIndex: 50,
-            }}
-          >
-            {transcriptionError}
-          </div>
-        )}
-        <LastUserMessageContext.Provider value={lastUserMessageState}>
-          {RenderedChatView}
-        </LastUserMessageContext.Provider>
-      </div>
-    </CopilotChatConfigurationProvider>
+    <div ref={chatContainerRef} style={{ display: "contents" }}>
+      {attachmentsEnabled && (
+        <input
+          type="file"
+          multiple
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          accept={attachmentsConfig?.accept ?? "*/*"}
+          style={{ display: "none" }}
+        />
+      )}
+      {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
+      {transcriptionError && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "100px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "#ef4444",
+            color: "white",
+            padding: "8px 16px",
+            borderRadius: "8px",
+            fontSize: "14px",
+            zIndex: 50,
+          }}
+        >
+          {transcriptionError}
+        </div>
+      )}
+      <LastUserMessageContext.Provider value={lastUserMessageState}>
+        {RenderedChatView}
+      </LastUserMessageContext.Provider>
+    </div>
   );
 }
 

@@ -27,6 +27,9 @@ const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 describe("useAgent stability during runtime connection", () => {
   let mockCopilotkit: {
     getAgent: ReturnType<typeof vi.fn>;
+    getEphemeralMessages: ReturnType<typeof vi.fn>;
+    reconcileEphemeralMessages: ReturnType<typeof vi.fn>;
+    subscribe: ReturnType<typeof vi.fn>;
     runtimeUrl: string | undefined;
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
     runtimeTransport: string;
@@ -43,6 +46,9 @@ describe("useAgent stability during runtime connection", () => {
   beforeEach(() => {
     mockCopilotkit = {
       getAgent: vi.fn(() => undefined),
+      getEphemeralMessages: vi.fn(() => []),
+      reconcileEphemeralMessages: vi.fn(() => false),
+      subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
       runtimeUrl: "http://localhost:3000/api/copilotkit",
       runtimeConnectionStatus:
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,

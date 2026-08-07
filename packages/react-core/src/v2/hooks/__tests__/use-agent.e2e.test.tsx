@@ -1,8 +1,9 @@
 import React from "react";
-import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { describe, it, expect } from "vitest";
-import { type BaseEvent, type RunAgentInput } from "@ag-ui/client";
-import { Observable } from "rxjs";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
 import {
   MockStepwiseAgent,
   renderWithCopilotKit,
@@ -12,8 +13,12 @@ import {
   testId,
 } from "../../__tests__/utils/test-helpers";
 import { useAgent } from "../use-agent";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import {
+  CopilotKitProvider,
+  useCopilotKit,
+} from "../../providers/CopilotKitProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
+import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 
 /**
  * Mock agent that captures RunAgentInput to verify state is passed correctly
@@ -154,6 +159,541 @@ describe("useAgent e2e", () => {
           screen.getByText("Hello! I received your message."),
         ).toBeDefined();
       });
+    });
+  });
+
+  it("routes ephemeral operations to the current agent and thread", async () => {
+    const agent = new MockStepwiseAgent();
+
+    function EphemeralTestComponent() {
+      const {
+        addEphemeralMessage,
+        removeEphemeralMessage,
+        clearEphemeralMessages,
+        ephemeralMessages,
+      } = useAgent();
+
+      return (
+        <div>
+          <button
+            data-testid="add-ephemeral"
+            onClick={() =>
+              addEphemeralMessage({
+                id: "frontend-event",
+                content: "Frontend event",
+              })
+            }
+          >
+            Add
+          </button>
+          <button
+            data-testid="remove-ephemeral"
+            onClick={() => removeEphemeralMessage("frontend-event")}
+          >
+            Remove
+          </button>
+          <button
+            data-testid="clear-ephemeral"
+            onClick={() => clearEphemeralMessages()}
+          >
+            Clear
+          </button>
+          <output data-testid="ephemeral-values">
+            {ephemeralMessages.map(
+              (message) => `${message.id}:${message.content}`,
+            )}
+          </output>
+        </div>
+      );
+    }
+
+    renderWithCopilotKit({
+      agent,
+      threadId: "thread-a",
+      children: <EphemeralTestComponent />,
+    });
+
+    fireEvent.click(await screen.findByTestId("add-ephemeral"));
+    await waitFor(() => {
+      expect(screen.getByTestId("ephemeral-values").textContent).toContain(
+        "frontend-event:Frontend event",
+      );
+    });
+
+    fireEvent.click(screen.getByTestId("remove-ephemeral"));
+    await waitFor(() => {
+      expect(screen.getByTestId("ephemeral-values").textContent).toBe("");
+    });
+
+    fireEvent.click(screen.getByTestId("add-ephemeral"));
+    fireEvent.click(screen.getByTestId("clear-ephemeral"));
+    await waitFor(() => {
+      expect(screen.getByTestId("ephemeral-values").textContent).toBe("");
+    });
+  });
+
+  it("resets messages across non-explicit provider thread changes", async () => {
+    const agent = new MockStepwiseAgent();
+
+    function Harness() {
+      const { agent: hookAgent } = useAgent();
+      return (
+        <output data-testid="non-explicit-thread-messages">
+          {hookAgent.messages.map((message) => message.id).join(",")}
+        </output>
+      );
+    }
+
+    const { rerender } = render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider
+          agentId="default"
+          threadId="thread-a"
+          hasExplicitThreadId={false}
+        >
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => expect(agent.threadId).toBeDefined());
+    agent.addMessage({
+      id: "thread-a-message",
+      role: "user",
+      content: "Thread A history",
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("non-explicit-thread-messages").textContent,
+      ).toContain("thread-a-message");
+    });
+
+    rerender(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider
+          agentId="default"
+          threadId="thread-b"
+          hasExplicitThreadId={false}
+        >
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(agent.threadId).toBe("thread-b");
+      expect(
+        screen.getByTestId("non-explicit-thread-messages").textContent,
+      ).toBe("");
+    });
+  });
+
+  it("keeps new-thread ephemeral IDs valid while the previous messages are still present", async () => {
+    const agent = new MockStepwiseAgent();
+    let currentAdd:
+      | ((message: { id: string; content: string }) => boolean)
+      | undefined;
+    let seeded = false;
+
+    function Harness() {
+      const {
+        agent: hookAgent,
+        addEphemeralMessage,
+        ephemeralMessages,
+      } = useAgent();
+      const { copilotkit } = useCopilotKit();
+      currentAdd = addEphemeralMessage;
+
+      useEffect(() => {
+        if (seeded) return;
+        seeded = true;
+        hookAgent.addMessage({
+          id: "reused-card-id",
+          role: "user",
+          content: "thread A history",
+        });
+        copilotkit.addEphemeralMessage("default", "thread-b", {
+          id: "reused-card-id",
+          content: "thread B card",
+        });
+      }, [copilotkit, hookAgent]);
+
+      return (
+        <output data-testid="transition-ephemeral-values">
+          {ephemeralMessages.map(
+            (message) => `${message.id}:${message.content}`,
+          )}
+        </output>
+      );
+    }
+
+    const { rerender } = render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider agentId="default" threadId="thread-a">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    rerender(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider agentId="default" threadId="thread-b">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(currentAdd?.({ id: "reused-card-id", content: "updated" })).toBe(
+        true,
+      );
+      expect(
+        screen.getByTestId("transition-ephemeral-values").textContent,
+      ).toContain("reused-card-id");
+    });
+  });
+
+  it("clears non-explicit history before returning to an explicit thread", async () => {
+    const agent = new MockStepwiseAgent();
+    let switchScope:
+      | ((threadId: string, hasExplicitThreadId: boolean) => void)
+      | undefined;
+
+    function ScopeControls() {
+      const {
+        agent: hookAgent,
+        addEphemeralMessage,
+        ephemeralMessages,
+      } = useAgent();
+      const [lastAddResult, setLastAddResult] = React.useState<boolean | null>(
+        null,
+      );
+
+      return (
+        <>
+          <button
+            data-testid="switch-to-non-explicit-b"
+            onClick={() => switchScope?.("thread-b", false)}
+          >
+            Switch to B
+          </button>
+          <button
+            data-testid="switch-to-explicit-a"
+            onClick={() => switchScope?.("thread-a", true)}
+          >
+            Switch to A
+          </button>
+          <button
+            data-testid="add-persisted-b-message"
+            onClick={() =>
+              hookAgent.addMessage({
+                id: "shared-message-id",
+                role: "user",
+                content: "thread B history",
+              })
+            }
+          >
+            Add B history
+          </button>
+          <button
+            data-testid="add-ephemeral-a-message"
+            onClick={() =>
+              setLastAddResult(
+                addEphemeralMessage({
+                  id: "shared-message-id",
+                  content: "thread A card",
+                }),
+              )
+            }
+          >
+            Add A card
+          </button>
+          <output data-testid="persisted-message-ids">
+            {hookAgent.messages.map((message) => message.id).join(",")}
+          </output>
+          <output data-testid="ephemeral-message-values">
+            {ephemeralMessages
+              .map((message) => `${message.id}:${message.content}`)
+              .join(",")}
+          </output>
+          <output data-testid="last-ephemeral-add-result">
+            {lastAddResult === null ? "" : String(lastAddResult)}
+          </output>
+        </>
+      );
+    }
+
+    function Harness() {
+      const [scope, setScope] = React.useState({
+        threadId: "thread-a",
+        hasExplicitThreadId: true,
+      });
+      switchScope = (threadId, hasExplicitThreadId) =>
+        setScope({ threadId, hasExplicitThreadId });
+
+      return (
+        <CopilotChatConfigurationProvider
+          agentId="default"
+          threadId={scope.threadId}
+          hasExplicitThreadId={scope.hasExplicitThreadId}
+        >
+          <ScopeControls />
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} />
+          </div>
+        </CopilotChatConfigurationProvider>
+      );
+    }
+
+    render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <Harness />
+      </CopilotKitProvider>,
+    );
+
+    fireEvent.click(await screen.findByTestId("switch-to-non-explicit-b"));
+    await waitFor(() => expect(agent.threadId).toBe("thread-b"));
+
+    fireEvent.click(screen.getByTestId("add-persisted-b-message"));
+    await waitFor(() => {
+      expect(screen.getByTestId("persisted-message-ids").textContent).toBe(
+        "shared-message-id",
+      );
+    });
+
+    fireEvent.click(screen.getByTestId("switch-to-explicit-a"));
+    await waitFor(() => expect(agent.threadId).toBe("thread-a"));
+    await waitFor(() => {
+      expect(screen.getByTestId("persisted-message-ids").textContent).toBe("");
+    });
+
+    fireEvent.click(screen.getByTestId("add-ephemeral-a-message"));
+    await waitFor(() => {
+      expect(screen.getByTestId("last-ephemeral-add-result").textContent).toBe(
+        "true",
+      );
+      expect(
+        screen.getByTestId("ephemeral-message-values").textContent,
+      ).toContain("shared-message-id:thread A card");
+    });
+  });
+
+  it("reconciles persisted collisions when message updates are disabled", async () => {
+    const agent = new MockStepwiseAgent();
+
+    function Harness() {
+      const { agent: hookAgent, ephemeralMessages } = useAgent({
+        updates: [],
+      });
+      const { copilotkit } = useCopilotKit();
+
+      React.useEffect(() => {
+        copilotkit.addEphemeralMessage("default", "test-thread", {
+          id: "collision-card",
+          content: "client-only",
+        });
+        hookAgent.addMessage({
+          id: "collision-card",
+          role: "user",
+          content: "persisted",
+        });
+      }, [copilotkit, hookAgent]);
+
+      return (
+        <output data-testid="reconciled-ephemeral-values">
+          {ephemeralMessages.map((message) => message.id).join(",")}
+        </output>
+      );
+    }
+
+    renderWithCopilotKit({ agent, children: <Harness /> });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("reconciled-ephemeral-values").textContent,
+      ).toBe("");
+    });
+  });
+
+  it("refreshes the rendered snapshot for a mount-time persisted collision", async () => {
+    const agent = new MockStepwiseAgent();
+
+    function SeededHarness() {
+      const { copilotkit } = useCopilotKit();
+      const seeded = React.useRef(false);
+      if (!seeded.current) {
+        seeded.current = true;
+        copilotkit.addEphemeralMessage("default", "test-thread", {
+          id: "mount-collision-card",
+          content: "client-only",
+        });
+        agent.addMessage({
+          id: "mount-collision-card",
+          role: "user",
+          content: "persisted",
+        });
+      }
+
+      return <ObservedEphemeralMessages />;
+    }
+
+    function ObservedEphemeralMessages() {
+      const { ephemeralMessages } = useAgent({ updates: [] });
+      return (
+        <output data-testid="mount-reconciled-ephemeral-values">
+          {ephemeralMessages.map((message) => message.id).join(",")}
+        </output>
+      );
+    }
+
+    renderWithCopilotKit({
+      agent,
+      children: <SeededHarness />,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("mount-reconciled-ephemeral-values").textContent,
+      ).toBe("");
+    });
+  });
+
+  it("uses a private thread argument over the surrounding chat thread", async () => {
+    const runtimeAgent = new MockStepwiseAgent();
+
+    function PrivateThreadComponent() {
+      const { addEphemeralMessage, isReady } = useAgent({
+        agentId: "private",
+        runtimeAgentId: "runtime",
+        threadId: "private-thread",
+      });
+      const { copilotkit } = useCopilotKit();
+
+      return (
+        <>
+          <output data-testid="private-agent-ready">{String(isReady)}</output>
+          <button
+            data-testid="add-private-thread-card"
+            onClick={() =>
+              addEphemeralMessage({
+                id: "private-thread-card",
+                content: "private thread",
+              })
+            }
+          >
+            Add private thread card
+          </button>
+          <output data-testid="private-thread-values">
+            {copilotkit
+              .getEphemeralMessages("private", "private-thread")
+              .map((message) => message.id)}
+          </output>
+          <output data-testid="outer-thread-values">
+            {copilotkit
+              .getEphemeralMessages("private", "outer-thread")
+              .map((message) => message.id)}
+          </output>
+        </>
+      );
+    }
+
+    renderWithCopilotKit({
+      agents: { runtime: runtimeAgent },
+      threadId: "outer-thread",
+      children: <PrivateThreadComponent />,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("private-agent-ready").textContent).toBe(
+        "true",
+      );
+    });
+    fireEvent.click(screen.getByTestId("add-private-thread-card"));
+    await waitFor(() => {
+      expect(screen.getByTestId("private-thread-values").textContent).toBe(
+        "private-thread-card",
+      );
+      expect(screen.getByTestId("outer-thread-values").textContent).toBe("");
+    });
+  });
+
+  it("rejects a deferred callback captured before an explicit thread switch", async () => {
+    const agent = new MockStepwiseAgent();
+    let staleAdd:
+      | ((message: { id: string; content: string }) => boolean)
+      | null = null;
+
+    function Harness() {
+      const { addEphemeralMessage } = useAgent();
+      React.useEffect(() => {
+        staleAdd ??= addEphemeralMessage;
+      }, [addEphemeralMessage]);
+      return null;
+    }
+
+    const { rerender } = render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider agentId="default" threadId="thread-a">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => expect(staleAdd).not.toBeNull());
+    rerender(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider agentId="default" threadId="thread-b">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(staleAdd?.({ id: "stale-thread-card", content: "stale" })).toBe(
+        false,
+      );
+    });
+  });
+
+  it("rejects a deferred callback captured before an explicit agent switch", async () => {
+    const firstAgent = new MockStepwiseAgent();
+    const secondAgent = new MockStepwiseAgent();
+    let staleAdd:
+      | ((message: { id: string; content: string }) => boolean)
+      | null = null;
+
+    function Harness() {
+      const { addEphemeralMessage } = useAgent();
+      React.useEffect(() => {
+        staleAdd ??= addEphemeralMessage;
+      }, [addEphemeralMessage]);
+      return null;
+    }
+
+    const { rerender } = render(
+      <CopilotKitProvider
+        agents__unsafe_dev_only={{ first: firstAgent, second: secondAgent }}
+      >
+        <CopilotChatConfigurationProvider agentId="first" threadId="thread-a">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => expect(staleAdd).not.toBeNull());
+    rerender(
+      <CopilotKitProvider
+        agents__unsafe_dev_only={{ first: firstAgent, second: secondAgent }}
+      >
+        <CopilotChatConfigurationProvider agentId="second" threadId="thread-a">
+          <Harness />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(staleAdd?.({ id: "stale-agent-card", content: "stale" })).toBe(
+        false,
+      );
     });
   });
 });

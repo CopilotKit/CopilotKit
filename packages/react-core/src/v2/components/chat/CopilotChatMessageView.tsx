@@ -22,7 +22,11 @@ import type {
   UserMessage,
 } from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
-import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
+import {
+  useRenderActivityMessage,
+  useRenderCustomMessages,
+  useRenderEphemeralMessages,
+} from "../../hooks";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import {
@@ -31,6 +35,7 @@ import {
 } from "../intelligence-indicator";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import type { ReactEphemeralMessage } from "../../types/react-custom-message-renderer";
 
 /**
  * Resolves a slot value into a { Component, slotProps } pair, handling the three
@@ -311,6 +316,41 @@ const MemoizedCustomMessage = React.memo(
   },
 );
 
+const MemoizedEphemeralMessage = React.memo(
+  function MemoizedEphemeralMessage({
+    message,
+    messageIndex,
+    numberOfMessages,
+    renderEphemeralMessage,
+  }: {
+    message: ReactEphemeralMessage;
+    agentId: string;
+    threadId: string;
+    messageIndex: number;
+    numberOfMessages: number;
+    renderEphemeralMessage: (params: {
+      message: ReactEphemeralMessage;
+      messageIndex: number;
+      numberOfMessages: number;
+    }) => React.ReactElement | null;
+  }) {
+    return renderEphemeralMessage({
+      message,
+      messageIndex,
+      numberOfMessages,
+    });
+  },
+  (prevProps, nextProps) => {
+    if (prevProps.agentId !== nextProps.agentId) return false;
+    if (prevProps.threadId !== nextProps.threadId) return false;
+    if (prevProps.message.id !== nextProps.message.id) return false;
+    if (prevProps.message.content !== nextProps.message.content) return false;
+    if (prevProps.messageIndex !== nextProps.messageIndex) return false;
+    if (prevProps.numberOfMessages !== nextProps.numberOfMessages) return false;
+    return true;
+  },
+);
+
 /**
  * Deduplicates messages by ID. For assistant messages, merges occurrences:
  * recovers non-empty content from any earlier occurrence if the latest wiped it
@@ -393,6 +433,47 @@ export function deduplicateMessages(messages: Message[]): Message[] {
   return [...acc.values()];
 }
 
+type ComposedMessage =
+  | { kind: "persisted"; message: Message }
+  | { kind: "ephemeral"; message: ReactEphemeralMessage };
+
+function composeMessages(
+  persistedMessages: Message[],
+  ephemeralMessages: ReadonlyArray<ReactEphemeralMessage>,
+): ComposedMessage[] {
+  const persistedIds = new Set(persistedMessages.map((message) => message.id));
+  const anchoredEphemeral = new Map<string, ReactEphemeralMessage[]>();
+  const unanchoredEphemeral: ReactEphemeralMessage[] = [];
+  const orphanedEphemeral: ReactEphemeralMessage[] = [];
+
+  for (const message of ephemeralMessages) {
+    if (!message.anchorMessageId) {
+      unanchoredEphemeral.push(message);
+    } else if (persistedIds.has(message.anchorMessageId)) {
+      const anchored = anchoredEphemeral.get(message.anchorMessageId) ?? [];
+      anchored.push(message);
+      anchoredEphemeral.set(message.anchorMessageId, anchored);
+    } else {
+      orphanedEphemeral.push(message);
+    }
+  }
+
+  const composed: ComposedMessage[] = [];
+  for (const message of persistedMessages) {
+    composed.push({ kind: "persisted", message });
+    for (const ephemeralMessage of anchoredEphemeral.get(message.id) ?? []) {
+      composed.push({ kind: "ephemeral", message: ephemeralMessage });
+    }
+  }
+  for (const message of unanchoredEphemeral) {
+    composed.push({ kind: "ephemeral", message });
+  }
+  for (const message of orphanedEphemeral) {
+    composed.push({ kind: "ephemeral", message });
+  }
+  return composed;
+}
+
 export type CopilotChatMessageViewProps = Omit<
   WithSlots<
     {
@@ -405,6 +486,7 @@ export type CopilotChatMessageViewProps = Omit<
     {
       isRunning?: boolean;
       messages?: Message[];
+      ephemeralMessages?: ReadonlyArray<ReactEphemeralMessage>;
     } & React.HTMLAttributes<HTMLDivElement>
   >,
   "children"
@@ -421,9 +503,13 @@ export type CopilotChatMessageViewProps = Omit<
 // full DOM tree. Below the threshold the overhead of virtualization isn't
 // worth it and the simpler flat render is faster.
 const VIRTUALIZE_THRESHOLD = 50;
+const EMPTY_MESSAGES: Message[] = [];
+const EMPTY_EPHEMERAL_MESSAGES: ReadonlyArray<ReactEphemeralMessage> =
+  Object.freeze([]);
 
 export function CopilotChatMessageView({
-  messages = [],
+  messages = EMPTY_MESSAGES,
+  ephemeralMessages = EMPTY_EPHEMERAL_MESSAGES,
   assistantMessage,
   userMessage,
   reasoningMessage,
@@ -435,6 +521,7 @@ export function CopilotChatMessageView({
   ...props
 }: CopilotChatMessageViewProps) {
   const renderCustomMessage = useRenderCustomMessages();
+  const renderEphemeralMessage = useRenderEphemeralMessages();
   const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
@@ -488,6 +575,15 @@ export function CopilotChatMessageView({
   const deduplicatedMessages = useMemo(
     () => deduplicateMessages(messages),
     [messages],
+  );
+  const hasEphemeralRenderer = !!renderEphemeralMessage;
+  const composedMessages = useMemo(
+    () =>
+      composeMessages(
+        deduplicatedMessages,
+        hasEphemeralRenderer ? ephemeralMessages : [],
+      ),
+    [deduplicatedMessages, ephemeralMessages, hasEphemeralRenderer],
   );
 
   if (
@@ -552,11 +648,11 @@ export function CopilotChatMessageView({
   const shouldVirtualize =
     !!scrollElement &&
     !children &&
-    deduplicatedMessages.length > VIRTUALIZE_THRESHOLD;
+    composedMessages.length > VIRTUALIZE_THRESHOLD;
 
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
-    count: shouldVirtualize ? deduplicatedMessages.length : 0,
+    count: shouldVirtualize ? composedMessages.length : 0,
     getScrollElement: () => scrollElement,
     // Conservative height estimate. Items are measured by ResizeObserver after
     // first render so the estimate only affects the initial total height.
@@ -574,14 +670,18 @@ export function CopilotChatMessageView({
   // on the virtualizer's total-size div — same as the flat path. Adding
   // deduplicatedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
-  const firstMessageId = deduplicatedMessages[0]?.id;
+  const threadChangeKey = [
+    config?.agentId ?? "",
+    config?.threadId ?? "",
+    deduplicatedMessages[0]?.id ?? "",
+  ].join(":");
   useLayoutEffect(() => {
-    if (!shouldVirtualize || !deduplicatedMessages.length) return;
-    virtualizer.scrollToIndex(deduplicatedMessages.length - 1, {
+    if (!shouldVirtualize || !composedMessages.length) return;
+    virtualizer.scrollToIndex(composedMessages.length - 1, {
       align: "end",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldVirtualize, firstMessageId]);
+  }, [shouldVirtualize, threadChangeKey]);
 
   // Map each Intelligence-using turn's anchor message → stable turn id. One
   // indicator is emitted per turn (keyed by the turn id) at its anchor, so it
@@ -597,8 +697,29 @@ export function CopilotChatMessageView({
   // ---------------------------------------------------------------------------
   // Per-message rendering helper (shared by flat and virtual paths)
   // ---------------------------------------------------------------------------
-  const renderMessageBlock = (message: Message): React.ReactElement[] => {
+  const renderMessageBlock = (
+    entry: ComposedMessage,
+    entryIndex: number,
+  ): React.ReactElement[] => {
     const elements: (React.ReactElement | null | undefined)[] = [];
+    if (entry.kind === "ephemeral") {
+      if (renderEphemeralMessage) {
+        elements.push(
+          <MemoizedEphemeralMessage
+            key={`${config?.agentId ?? ""}-${config?.threadId ?? ""}-${entry.message.id}-ephemeral`}
+            message={entry.message}
+            agentId={config?.agentId ?? ""}
+            threadId={config?.threadId ?? ""}
+            messageIndex={entryIndex}
+            numberOfMessages={composedMessages.length}
+            renderEphemeralMessage={renderEphemeralMessage}
+          />,
+        );
+      }
+      return elements.filter(Boolean) as React.ReactElement[];
+    }
+
+    const message = entry.message;
     const stateSnapshot = getStateSnapshotForMessage(message.id);
 
     if (renderCustomMessage) {
@@ -690,7 +811,7 @@ export function CopilotChatMessageView({
   // creating 500 React elements that we'd immediately discard).
   const messageElements: React.ReactElement[] = shouldVirtualize
     ? []
-    : deduplicatedMessages.flatMap(renderMessageBlock);
+    : composedMessages.flatMap(renderMessageBlock);
 
   // ---------------------------------------------------------------------------
   // children render prop (custom layout, always non-virtual)
@@ -725,10 +846,10 @@ export function CopilotChatMessageView({
           style={{ height: virtualizer.getTotalSize(), position: "relative" }}
         >
           {virtualizer.getVirtualItems().map((virtualItem) => {
-            const message = deduplicatedMessages[virtualItem.index]!;
+            const entry = composedMessages[virtualItem.index]!;
             return (
               <div
-                key={message.id}
+                key={`${config?.agentId ?? ""}-${config?.threadId ?? ""}-${entry.kind}-${entry.message.id}`}
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
                 style={{
@@ -739,7 +860,7 @@ export function CopilotChatMessageView({
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
               >
-                {renderMessageBlock(message)}
+                {renderMessageBlock(entry, virtualItem.index)}
               </div>
             );
           })}

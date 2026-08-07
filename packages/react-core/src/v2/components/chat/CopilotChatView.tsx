@@ -21,6 +21,7 @@ import CopilotChatSuggestionView, {
 import type { Suggestion } from "@copilotkit/core";
 import type { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
+import type { ReactEphemeralMessage } from "../../types/react-custom-message-renderer";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 import { twMerge } from "tailwind-merge";
 import {
@@ -42,6 +43,9 @@ import { usePinToSend } from "../../hooks/use-pin-to-send";
 
 // Vertical gap between the scroll-to-bottom button and the input container.
 const SCROLL_BUTTON_OFFSET = 16;
+const EMPTY_MESSAGES: Message[] = [];
+const EMPTY_EPHEMERAL_MESSAGES: ReadonlyArray<ReactEphemeralMessage> =
+  Object.freeze([]);
 
 // Forward declaration for WelcomeScreen component type
 export type WelcomeScreenProps = WithSlots<
@@ -63,6 +67,8 @@ export type CopilotChatViewProps = WithSlots<
   },
   {
     messages?: Message[];
+    ephemeralMessages?: ReadonlyArray<ReactEphemeralMessage>;
+    hasRenderableEphemeralMessages?: boolean;
     autoScroll?: AutoScrollMode | boolean;
     isRunning?: boolean;
     suggestions?: Suggestion[];
@@ -142,7 +148,9 @@ export function CopilotChatView({
   scrollView,
   suggestionView,
   welcomeScreen,
-  messages = [],
+  messages = EMPTY_MESSAGES,
+  ephemeralMessages = EMPTY_EPHEMERAL_MESSAGES,
+  hasRenderableEphemeralMessages = false,
   autoScroll = true,
   isRunning = false,
   suggestions,
@@ -247,6 +255,7 @@ export function CopilotChatView({
 
   const BoundMessageView = renderSlot(messageView, CopilotChatMessageView, {
     messages,
+    ephemeralMessages,
     isRunning,
     intelligenceIndicator,
   });
@@ -316,7 +325,9 @@ export function CopilotChatView({
   });
 
   // Welcome screen logic
-  const isEmpty = messages.length === 0;
+  const isEmpty =
+    messages.length === 0 &&
+    (!hasRenderableEphemeralMessages || ephemeralMessages.length === 0);
   // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
   const welcomeScreenDisabled = (welcomeScreen as unknown) === false;
   // Suppress the welcome screen (1) while the initial connect is in flight
