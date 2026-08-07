@@ -90,8 +90,8 @@ contract, and the shared canvas / OGUI model.
 
 ## The banking skin's demo capabilities
 
-The banking skin is the richest of the four and doubles as a CopilotKit feature
-tour. Notable beats:
+The banking skin is the original reference demo and doubles as a CopilotKit
+feature tour (`people` is the other demo-complete skin). Notable beats:
 
 - **Components, never walls of text** — transactions, the approvals queue,
   charts, and spend summaries render as real components in the chat rather than
@@ -127,7 +127,7 @@ The images under `assets/` (`aurora-dashboard.png`, `copilot-chat.png`,
 skin** specifically — its dashboard, chat panel, and learning-mode recording
 vignette. They predate the current shell chrome entirely: there is now an inset
 frame of resizable cards with a skin-selector dropdown at the top of the assistant
-column, and the app ships four skins rather than two. Treat them as historical
+column, and the app ships five skins rather than two. Treat them as historical
 banking-skin illustrations rather than a picture of the app as it looks today.
 
 ## Testing

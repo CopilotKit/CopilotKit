@@ -7,7 +7,13 @@ export const defaultSkinId = "banking";
 // must stay import-free for the server contexts above, and `registry.ts` pulls in
 // four client skin modules. `skins-config.test.ts` asserts the two stay in sync,
 // so the duplication cannot drift silently. Keep in registry order.
-export const skinIds = ["banking", "airline", "logistics", "keel"] as const;
+export const skinIds = [
+  "banking",
+  "airline",
+  "logistics",
+  "keel",
+  "people",
+] as const;
 
 // Skin id → { brand, tagline }, duplicated from each skin's `identity.brand`
 // and `identity.tagline` for the same reason as `skinIds`: the root layout's
@@ -35,5 +41,9 @@ export const skinIdentities: Record<
   keel: {
     brand: "Keel",
     tagline: "Harbor Point Health — knowledge and operations desk",
+  },
+  people: {
+    brand: "Rowan",
+    tagline: "The people operations desk.",
   },
 };

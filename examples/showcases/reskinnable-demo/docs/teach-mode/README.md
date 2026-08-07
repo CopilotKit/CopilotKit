@@ -3,7 +3,11 @@
 > Scope: this documents a feature of the **`banking` skin**
 > (`src/skins/banking/`), not the whole app. The app is a reskinnable shell that
 > hosts one skin per `/[skin]` route; see the top-level `CLAUDE.md`. Teach-mode
-> is banking-specific — the airline skin does not implement it.
+> is per-skin, not a shell feature: `banking` (documented here) and `people`
+> (out-of-band compensation approvals, gated by 422 `OUT_OF_BAND`) implement it;
+> `airline`, `logistics` and `keel` do not. The 5-role contract below is stated
+> demo-agnostically and `people` follows it role for role, so read this file
+> before building a third.
 
 "Teach mode" is the loop where the agent **fails a task it was never told how to
 do**, a human **demonstrates** the workaround in the UI, that demonstration is

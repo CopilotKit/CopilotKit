@@ -6,6 +6,8 @@ import { bankingIdentifyUser } from "@/skins/banking/intelligence/user-id";
 import { keelIdentifyUser } from "@/skins/keel/intelligence/user-id";
 import { logisticsAgent } from "@/skins/logistics/agent";
 import { logisticsIdentifyUser } from "@/skins/logistics/intelligence/user-id";
+import { peopleAgent } from "@/skins/people/agent";
+import { peopleIdentifyUser } from "@/skins/people/intelligence/user-id";
 
 /**
  * Server-safe map of skin id → its server-side registration (agent factory +
@@ -52,6 +54,10 @@ export const agentRegistry: Record<string, AgentRegistration> = {
   // Keel scopes Intelligence per persona (privacy/clinical staff), so it
   // contributes its own resolver alongside the agent factory.
   keel: { createAgent: keelAgent, identifyUser: keelIdentifyUser },
+  // Rowan scopes Intelligence per operator: the seeded beat-4 preference and
+  // beat-5 procedure belong to Maya, and switching to Clara must land in a
+  // different memory bucket so a colleague visibly has NOT taught it anything.
+  people: { createAgent: peopleAgent, identifyUser: peopleIdentifyUser },
 };
 
 export const agentIds = Object.keys(agentRegistry);

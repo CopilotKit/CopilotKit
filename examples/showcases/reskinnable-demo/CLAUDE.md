@@ -2,24 +2,24 @@
 
 One Next.js app whose **entire** experience — brand, theme, layout, pages,
 tools, and agent — is reskinnable at runtime. A skin-agnostic **shell** hosts
-one **skin** per route segment `/[skin]/...`. It ships four skins — `banking`,
-`airline`, `logistics` and `keel` — switchable from a dropdown at the top of the
+one **skin** per route segment `/[skin]/...`. It ships five skins — `banking`,
+`airline`, `logistics`, `keel` and `people` — switchable from a dropdown at the top of the
 assistant column, plus a repo-local **reskin skill**
 (`.claude/skills/reskin/`) for authoring new ones.
 
 The point of the app is the `Skin` contract: a single interface that swaps a
 whole product without the shell knowing anything domain-specific. The skins
-deliberately sit on **two different data substrates** — banking and logistics are
-REST-backed, airline and keel are in-memory — to prove the contract is
-substrate-agnostic.
+deliberately sit on **two different data substrates** — banking, logistics and
+people are REST-backed, airline and keel are in-memory — to prove the contract
+is substrate-agnostic.
 
 **Each skin is also a live sales demo.** It exists to prove CopilotKit and
 Intelligence top to bottom to an enterprise buyer, through a fixed set of demo
 **beats**: lead with generative UI, show that threads store AG-UI streams rather
 than text, manipulate the app four ways (drive it, read the screen, navigate via
 real levers, ingest a document into a durable artifact), recall long-term memory,
-replay a stored procedure, and learn a new one on stage. `banking` is the
-reference implementation and the only skin that currently hits every beat. The
+replay a stored procedure, and learn a new one on stage. `banking` is the original
+reference implementation; `people` is the second skin built to hit every beat. The
 beats, and what each one must prove, are specified in
 [`.claude/skills/reskin/demo-beats.md`](.claude/skills/reskin/demo-beats.md) —
 read it before adding or changing a skin's tools, prompt or suggestion pills,
@@ -183,11 +183,14 @@ export type IdentifyRunUser = (
 - **Banking** contributes `bankingIdentifyUser`
   (`src/skins/banking/intelligence/user-id.ts`), which maps the client-forwarded
   `properties` ({ userRole, userId }) onto its per-member/role memory scope.
-  **Logistics** and **keel** contribute one too (`logisticsIdentifyUser`,
-  `keelIdentifyUser`) for thread scoping — though neither yet uses it for durable
-  memory. **Airline** is the only skin that omits it (no auth, no memory).
-- Banking additionally ships `intelligence/seed-memories.ts` and
-  `intelligence/forget-memories.ts`, which its `dev/reset` route uses to wipe
+  **People** contributes `peopleIdentifyUser` and, like banking, actually uses it
+  for durable memory — its seeded preference belongs to one operator, so
+  switching operator lands in a different bucket. **Logistics** and **keel**
+  contribute one too (`logisticsIdentifyUser`, `keelIdentifyUser`) for thread
+  scoping — though neither yet uses it for durable memory. **Airline** is the
+  only skin that omits it (no auth, no memory).
+- Banking and people each additionally ship `intelligence/seed-memories.ts` and
+  `intelligence/forget-memories.ts`, which their `dev/reset` route uses to wipe
   learned memories and re-seed the ones the demo must start out already knowing.
   That file is what makes the long-term-memory and stored-procedure beats work;
   it is not emergent behaviour.
@@ -362,7 +365,7 @@ Gen-UI components registered via `useComponent` (airline's flight card, banking'
 charts and queues) render in the chat transcript, not on the canvas — that is a
 separate path from the full-region canvas surfaces above.
 
-## The four skins (why they differ)
+## The five skins (why they differ)
 
 Two substrates behind one contract is the architectural demonstration. Demo
 completeness is a **separate axis**, and the two do not correlate — see the beat
@@ -408,24 +411,40 @@ matrix at the end of this section.
   `resolvePage` is Map-based and resolves `knowledge/<docId>` → `DocumentPage` and
   `runs/<runId>` → `RunDetailPage` alongside its static segments.
 
+- **`people`** ("Rowan") — **REST-backed**, a People Ops command center, and the
+  second skin built demo-complete against the full beat list. Pages `roster`
+  (index), `compensation`, `requests`, `onboarding`, over `/api/people/v1/*`
+  (one `ledger` snapshot read plus the write paths, a generated `offer-letter`
+  PDF, and a gated `dev/reset`). Like banking and logistics it **omits
+  `useData`**, reading the ledger through its own `usePeopleLedger()` context —
+  mounted in `RuntimeProviders` rather than `Providers`, so the single fetch also
+  feeds `useRuntimeProperties`. Sets `Providers` (teach-mode recording),
+  `CanvasSurface` (server tool `render_people_brief`), `sandboxFunctions`,
+  `toolLabels`, `chatHeaderActions`, `onSuggestionSelect` and a server
+  `identifyUser`. Its teachable gate is approving an **out-of-band** compensation
+  request (422 `OUT_OF_BAND`), unlocked by a band exception filed under a
+  justifying code; two out-of-band requests are seeded so the case taught on
+  stage and the unaided replay are different people. Its beat map is written out
+  at the top of `src/skins/people/suggestions.ts`.
+
 ### Demo-beat coverage (the other axis)
 
-| Beat                             | banking                   | airline | logistics     | keel          |
-| -------------------------------- | ------------------------- | ------- | ------------- | ------------- |
-| Gen-UI in transcript             | ✅ 8                      | ✅ 6    | ✅ 5          | ✅ 5          |
-| Rich thread survives reload      | ✅ replay-safe tools      | ❌      | ❌            | ❌            |
-| Drive the app, secret withheld   | ✅                        | ❌      | ❌            | ❌            |
-| "What's on my screen?"           | ✅ route + page readables | ❌      | ❌            | ❌            |
-| Navigate via levers + filters    | ✅                        | ❌      | ❌            | nav only      |
-| Multimodal → durable artifact    | ✅                        | ❌      | ❌            | ❌            |
-| Long-term memory recall          | ✅                        | ❌      | plumbing only | plumbing only |
-| Stored-procedure replay          | ✅                        | ❌      | ❌            | ❌            |
-| Teach a new procedure            | ✅                        | ❌      | ❌            | ❌            |
-| Presenter reset (route + button) | ✅                        | ❌      | ✅            | ❌            |
+| Beat                             | banking                   | people                    | airline | logistics     | keel          |
+| -------------------------------- | ------------------------- | ------------------------- | ------- | ------------- | ------------- |
+| Gen-UI in transcript             | ✅ 8                      | ✅ 4                      | ✅ 6    | ✅ 5          | ✅ 5          |
+| Rich thread survives reload      | ✅ replay-safe tools      | ✅ replay-safe tools      | ❌      | ❌            | ❌            |
+| Drive the app, secret withheld   | ✅                        | ✅                        | ❌      | ❌            | ❌            |
+| "What's on my screen?"           | ✅ route + page readables | ✅ route + page readables | ❌      | ❌            | ❌            |
+| Navigate via levers + filters    | ✅                        | ✅                        | ❌      | ❌            | nav only      |
+| Multimodal → durable artifact    | ✅                        | ✅                        | ❌      | ❌            | ❌            |
+| Long-term memory recall          | ✅                        | ✅                        | ❌      | plumbing only | plumbing only |
+| Stored-procedure replay          | ✅                        | ✅                        | ❌      | ❌            | ❌            |
+| Teach a new procedure            | ✅                        | ✅                        | ❌      | ❌            | ❌            |
+| Presenter reset (route + button) | ✅                        | ✅                        | ❌      | ✅            | ❌            |
 
-`banking` hits every row; the others predate this bar and hit about one each
-(nine beats plus the presenter-reset requirement are listed above). Note that
-logistics and keel ship the **full per-user identity plumbing** —
+`banking` and `people` hit every row; airline, logistics and keel predate this
+bar and hit about one each (nine beats plus the presenter-reset requirement are
+listed above). Note that logistics and keel ship the **full per-user identity plumbing** —
 `RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — and then no
 memory prompts, no memory tools and no seed file, so they get no demo value from
 the hardest part of it. Treat all three as excellent **wiring** references and
@@ -484,10 +503,10 @@ Run tasks through Nx per the repo convention where applicable.
 ## Reference
 
 - `src/shell/skin-contract.ts` — the contract (source of truth).
-- `src/skins/{banking,logistics,airline,keel}/skin.tsx` — four implementations.
-  Open `banking` for demo completeness, `logistics` for layout chrome and the
-  server-emitted a2ui canvas, `airline` for the minimal contract surface, `keel`
-  for parameterized routes.
+- `src/skins/{banking,logistics,airline,keel,people}/skin.tsx` — five
+  implementations. Open `banking` or `people` for demo completeness, `logistics`
+  for layout chrome and the server-emitted a2ui canvas, `airline` for the
+  minimal contract surface, `keel` for parameterized routes.
 - `.claude/skills/reskin/` — the authoring skill: `SKILL.md` (contract + wiring
   traps), `demo-beats.md` (what the demo must prove, and the quality bar),
   `templates.md` (per-file starting points).
