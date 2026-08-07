@@ -29,6 +29,8 @@ except ImportError:
     # Langchain >= 1.0.0
     from langchain_core.messages import BaseMessage
 
+logger = logging.getLogger(__name__)
+
 
 class CustomEventNames(Enum):
     """Custom event names for CopilotKit"""
@@ -42,6 +44,7 @@ class LangGraphEventTypes(Enum):
     """LangGraph event types"""
 
     OnChatModelStream = "on_chat_model_stream"
+    OnChatModelEnd = "on_chat_model_end"
     OnCustomEvent = "on_custom_event"
 
 
@@ -276,6 +279,92 @@ class LangGraphAGUIAgent(LangGraphAgent):
         # Call the parent method to handle all other events
         async for event_str in super()._handle_single_event(event, state):
             yield event_str
+
+        if event.get("event") == LangGraphEventTypes.OnChatModelEnd.value:
+            for emitted_event in self._intercepted_frontend_tool_call_events(event):
+                yield self._dispatch_event(emitted_event)
+
+    def _intercepted_frontend_tool_call_events(
+        self, event: Any
+    ) -> list[ToolCallEvents]:
+        frontend_tool_names = self._frontend_tool_names()
+        if not frontend_tool_names:
+            return []
+
+        streamed_tool_call_ids = (getattr(self, "active_run", None) or {}).setdefault(
+            "streamed_tool_call_ids",
+            set(),
+        )
+        output = (event.get("data") or {}).get("output")
+        tool_calls = getattr(output, "tool_calls", None) or []
+        parent_message_id = getattr(output, "id", None)
+
+        emitted_events: list[ToolCallEvents] = []
+        for tool_call in tool_calls:
+            if not isinstance(tool_call, dict):
+                continue
+
+            tool_call_id = tool_call.get("id")
+            tool_call_name = tool_call.get("name")
+            tool_call_args = tool_call.get("args")
+
+            if (
+                tool_call_name not in frontend_tool_names
+                or not isinstance(tool_call_id, str)
+                or not tool_call_id.strip()
+                or tool_call_id in streamed_tool_call_ids
+            ):
+                continue
+
+            try:
+                delta = (
+                    tool_call_args
+                    if isinstance(tool_call_args, str)
+                    else json.dumps(tool_call_args)
+                )
+            except (TypeError, ValueError):
+                logger.warning(
+                    "Skipping frontend tool call %s because args are not JSON-serializable",
+                    tool_call_id,
+                    exc_info=True,
+                )
+                continue
+
+            streamed_tool_call_ids.add(tool_call_id)
+            emitted_events.extend(
+                [
+                    ToolCallStartEvent(
+                        type=EventType.TOOL_CALL_START,
+                        tool_call_id=tool_call_id,
+                        tool_call_name=tool_call_name,
+                        parent_message_id=parent_message_id or tool_call_id,
+                        raw_event=event,
+                    ),
+                    ToolCallArgsEvent(
+                        type=EventType.TOOL_CALL_ARGS,
+                        tool_call_id=tool_call_id,
+                        delta=delta,
+                        raw_event=event,
+                    ),
+                    ToolCallEndEvent(
+                        type=EventType.TOOL_CALL_END,
+                        tool_call_id=tool_call_id,
+                        raw_event=event,
+                    ),
+                ]
+            )
+
+        return emitted_events
+
+    def _frontend_tool_names(self) -> set[str]:
+        names: set[str] = set()
+        for tool in (self._copilotkit_runtime_payload or {}).get("actions") or []:
+            if not isinstance(tool, dict):
+                continue
+            name = tool.get("function", {}).get("name") or tool.get("name")
+            if isinstance(name, str) and name.strip():
+                names.add(name)
+        return names
 
     @staticmethod
     def _serialize_copilotkit_runtime_payload(input: Any) -> dict[str, Any]:
