@@ -137,9 +137,16 @@
   * {
     @apply cpk:border-border cpk:outline-ring/50;
   }
-  /* Apply foreground/background on CopilotKit roots (replaces body rule) */
+  /* Apply foreground on every CopilotKit-scoped node so descendants inherit
+   * the framework's text color, but paint the background only on chat root
+   * containers ([data-copilotkit-root]). Painting --background on every
+   * descendant carrying [data-copilotkit] (assistant messages, suggestion
+   * containers, input wrappers, attachment chips, etc.) defeated translucent
+   * consumer themes by stacking opaque backgrounds across the whole chat tree. */
   [data-copilotkit] {
     color: var(--foreground);
+  }
+  [data-copilotkit-root] {
     background-color: var(--background);
   }
 
