@@ -3,16 +3,128 @@ title: Inspector
 icon: "lucide/SearchCheck"
 description: Inspector for debugging actions, readables, agent status, messages, and context.
 ---
-<Inspector />
 
-<OpsPlatformCTA
-  variant="inline"
-  title="The threads tab needs Intelligence"
-  body="When you open the Inspector, threads is the default tab. Sign up for the free Developer tier to see your conversation history."
-  surface="docs_inspector"
+The CopilotKit Inspector is a built-in debugging overlay for the live connection
+between your frontend and agents. It opens on **Threads** and keeps agent data,
+learning tools, project context, and settings in one window.
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/videos/inspector.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
 />
+
+## Navigation and Threads
+
+The primary navigation groups the Inspector into **Threads**, **Agents**, and
+**Learning**. Threads is the default. Agents contains the existing AG-UI events,
+available agents, frontend tools, capabilities, and context views. Closing
+Settings returns to the exact group and child view you had open.
+
+The Threads list initially selects the most recently updated visible real
+thread. Open a row to inspect its **Messages**, **AG-UI Events**, and **State**.
+The current row, tabs, links, actions, and window controls all support keyboard
+focus.
+
+## Empty Threads demo
+
+When Threads is enabled but has no real rows, or when Threads is locked, the
+Inspector keeps the product demo: the overview video, three local example
+threads, their detail tabs, and the guided tour. The examples do not send real
+Thread requests.
+
+The video has a labelled Play or Pause control. With reduced motion enabled, it
+starts paused. If the media fails, fallback text appears while the examples,
+details, and tour stay usable.
+
+## Project context and usage
+
+An Intelligence-backed Runtime can supply optional trusted project metadata.
+Valid organization and project names and the plan label appear in the account
+strip. Each module is independent, so invalid or missing identity data does not
+hide valid usage or action data.
+
+Trusted Thread usage appears only in the Threads footer:
+
+| Usage state | Inspector behavior |
+| --- | --- |
+| Finite | Shows `used / limit Threads` and a native progress bar. An overage shows `limit+ / limit Threads` and caps the bar at 100%. |
+| Unlimited | Shows the used count with **Unlimited** and no progress bar. |
+| Unknown limit | Shows the used count with **Limit unavailable**, but invents no numeric limit or progress. |
+| Known expiry count | Shows the count, including `0 Expiring Soon`. |
+| Missing or malformed expiry | Hides the expiry value instead of inventing one. |
+
+`Expiring Soon` describes a future retention-policy threshold in the next 24
+hours. It does not prove that the thread culler ran or that the Inspector locked
+or deleted a Thread.
+
+Usage and the footer action render independently. Usage can appear without
+identity, plan, license, or action metadata, and action-only metadata does not
+invent usage. A valid managed plan can show **Manage Your Plan** when the Runtime
+supplies a matching trusted action. Managed Enterprise has no manage-plan
+action, and Team Self-Hosted has no hosted action; either can keep valid usage
+visible.
+
+<Callout type="info">
+  If Threads is locked, the Inspector uses the Runtime's license state and can
+  show **Enable Intelligence**, **Renew**, or **Manage Your Plan**. Those license
+  and billing links appear only when the Runtime supplies a matching trusted
+  action URL; there is no fixed signup destination. An active license with
+  missing Runtime routes instead offers **Copy prompt for your agent** and
+  **Open setup guide**. The prompt points the coding agent to the public Runtime
+  setup guide and asks it to verify the finished route setup.
+</Callout>
+
+| License state | Locked Threads behavior |
+| --- | --- |
+| Active | Shows **Finish setting up Rich Threads**, copies a coding-agent repair prompt, and links to the Runtime route setup. |
+| Not enabled | Shows **Enable Intelligence** only for a matching trusted action. |
+| Expired | Shows **Renew** or **Manage Your Plan** only for a matching trusted action. |
+| Unknown | Shows neutral unavailable copy without an action. |
+
+If an active license shows the setup state, follow [Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)
+to use multi-route mode, configure application-user identity, mount every
+required HTTP method, and verify the capability response.
+
+The Inspector opens the exact trusted URL supplied by the Runtime. It does not
+build a URL from project details or add a fixed signup fallback. If metadata
+license state conflicts with the Runtime's license status, the Runtime status
+controls the copy and the Inspector hides the action.
+
+Older Runtime, Core, and Inspector versions remain compatible without a
+synchronized deployment. An older V1 producer leaves
+`usage.expiringSoonCount` absent. A newer producer is safe with pre-expiry
+Shared and Runtime versions because they ignore or remove the additive leaf.
+An older Inspector ignores metadata supplied by newer Runtime and Core
+versions; a newer Inspector feature-detects older Core and Runtime support and
+uses its missing-metadata fallback.
+
+Explicit `threadEndpoints` remain the authority in every mix, and metadata
+never enables Thread work. A license conflict hides an incompatible action
+without hiding valid usage. Metadata updates do not change the selected thread.
 
 <Callout type="info">
   Want to preview A2UI catalog components directly in your editor? See the [VS Code Extension](/vs-code-extension)
   for live preview with hot-reload.
 </Callout>
+
+## Disabling the Inspector
+
+By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
+`0.0.0.0`. Set `enableInspector` to `false` to hide it on those hosts:
+
+```tsx
+<CopilotKit
+  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+  enableInspector={false}
+>
+  {children}
+</CopilotKit>
+```
+
+Set `enableInspector` to `true` to show it on another host, including in a
+production build. CopilotKit always uses an explicit `true` or `false` value.

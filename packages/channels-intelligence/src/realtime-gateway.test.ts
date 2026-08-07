@@ -1310,7 +1310,7 @@ describe("connection-health detail (OSS-670)", () => {
       // A gateway mid-rolling-restart: reachable, answering 503. Telling an
       // operator to rotate a working API key here is worse than saying nothing.
       diagnosticFetch: (async () =>
-        new Response("", { status: 503 })) as typeof fetch,
+        new Response("", { status: 503 })) as unknown as typeof fetch,
     });
 
     const seen: { reason?: string }[] = [];
@@ -1343,7 +1343,7 @@ describe("connection-health detail (OSS-670)", () => {
       // The host is up and answers HTTP; only the WS upgrade is refused — the
       // signature of a rejected project API key.
       diagnosticFetch: (async () =>
-        new Response("", { status: 403 })) as typeof fetch,
+        new Response("", { status: 403 })) as unknown as typeof fetch,
     });
 
     const seen: {
