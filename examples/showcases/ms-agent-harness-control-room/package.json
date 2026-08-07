@@ -1,0 +1,40 @@
+{
+  "name": "ms-agent-harness-control-room",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others-on-fail",
+    "dev:ui": "next dev --turbopack",
+    "dev:agent": "node -e \"const { spawnSync } = require('node:child_process'); const { win32 } = require('node:path'); const command = '.' + win32.sep + 'scripts' + win32.sep + 'run-agent.bat'; const result = process.platform === 'win32' ? spawnSync('cmd.exe', ['/d', '/c', command], { stdio: 'inherit' }) : spawnSync('sh', ['./scripts/run-agent.sh'], { stdio: 'inherit' }); process.exit(result.status ?? 1);\"",
+    "install:agent": "node -e \"const { spawnSync } = require('node:child_process'); const { win32 } = require('node:path'); const command = '.' + win32.sep + 'scripts' + win32.sep + 'setup-agent.bat'; const result = process.platform === 'win32' ? spawnSync('cmd.exe', ['/d', '/c', command], { stdio: 'inherit' }) : spawnSync('sh', ['./scripts/setup-agent.sh'], { stdio: 'inherit' }); process.exit(result.status ?? 1);\"",
+    "postinstall": "npm run install:agent",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.53",
+    "@copilotkit/react-core": "1.57.4",
+    "@copilotkit/react-ui": "1.57.4",
+    "@copilotkit/runtime": "1.57.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.548.0",
+    "next": "16.0.8",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "react-shiki": "^0.9.0",
+    "react-textarea-autosize": "^8.5.9",
+    "tailwind-merge": "^3.3.1",
+    "undici": "^8.3.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

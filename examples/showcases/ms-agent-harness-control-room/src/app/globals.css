@@ -1,0 +1,701 @@
+@import "tailwindcss";
+
+/* ============================================================================
+ *   MS Agent Harness — Control Room
+ *   Aesthetic: dark mission-control / terminal HUD. IBM Plex Mono everywhere,
+ *   amber + emerald accents, sharp 1px chrome, a faint grain texture, and a
+ *   single low-key scanline overlay. Designed for a Microsoft Build stage
+ *   demo — should read as "this is a serious developer tool" from across a
+ *   conference floor.
+ * ============================================================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* --- background tiers --- */
+  --cr-bg: #07090d;
+  --cr-surface: #0d1117;
+  --cr-surface-2: #11161e;
+  --cr-surface-3: #161c25;
+  --cr-overlay: rgba(255, 255, 255, 0.02);
+
+  /* --- borders --- */
+  --cr-border: #1c232e;
+  --cr-border-strong: #2a3340;
+  --cr-rule: #181e27;
+
+  /* --- text --- */
+  --cr-fg: #e8edf4;
+  --cr-fg-strong: #ffffff;
+  --cr-muted: #6e7986;
+  --cr-muted-2: #8a95a3;
+  --cr-dim: #495260;
+
+  /* --- accents --- */
+  --cr-amber: #ffba33; /* pending / waiting / mode=Plan */
+  --cr-emerald: #41fdb8; /* success / connected / mode=Act */
+  --cr-cyan: #6dd5ff; /* mode=Review / informational */
+  --cr-red: #ff5470; /* errors / rejected */
+  --cr-magenta: #c084fc; /* memory / external */
+
+  /* --- font stacks --- */
+  --cr-font-sans:
+    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  --cr-font-display:
+    "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, system-ui,
+    sans-serif;
+  --cr-font-mono:
+    "IBM Plex Mono", ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--cr-bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--cr-bg);
+  color: var(--cr-fg);
+  font-family: var(--cr-font-sans);
+  font-feature-settings:
+    "ss01" on,
+    "ss02" on,
+    "cv01" on;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Faint warm grain + cool radial vignette pulled from off-screen so it
+   * stays subtle and never interferes with text. */
+  background-image:
+    radial-gradient(
+      circle at 18% 8%,
+      rgba(255, 186, 51, 0.04),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 88% 92%,
+      rgba(65, 253, 184, 0.025),
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(109, 213, 255, 0.02),
+      transparent 55%
+    );
+  background-attachment: fixed;
+}
+
+/* Almost-invisible scanline texture; gives screen a CRT echo without becoming
+ * a gimmick. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.012) 0px,
+    rgba(255, 255, 255, 0.012) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+::selection {
+  background: rgba(255, 186, 51, 0.35);
+  color: var(--cr-fg-strong);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 1px solid var(--cr-amber);
+  outline-offset: 2px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ============================================================================
+ *   Cockpit chrome — the load-bearing layout classes referenced from React.
+ * ============================================================================ */
+
+.cockpit-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* The structural pane — sharp 1px border, no rounded corners. Each pane gets
+ * a thin amber strip across the top so the eye anchors on the three columns. */
+.cockpit-panel {
+  position: relative;
+  background: var(--cr-surface);
+  border: 1px solid var(--cr-border);
+  min-width: 0;
+}
+.cockpit-panel::before {
+  content: "";
+  position: absolute;
+  inset: -1px -1px auto -1px;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--cr-amber) 30%,
+    var(--cr-amber) 70%,
+    transparent
+  );
+  opacity: 0.6;
+}
+
+/* HUD-style section heading used inside the panels. */
+.cr-heading {
+  font-family: var(--cr-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cr-muted-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cr-heading::before {
+  content: "";
+  width: 8px;
+  height: 1px;
+  background: var(--cr-border-strong);
+}
+.cr-heading::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--cr-border-strong), transparent);
+}
+
+/* Card primitive — denser, monospaced labels, sharp border. */
+.cr-card {
+  background: var(--cr-surface-2);
+  border: 1px solid var(--cr-border);
+  padding: 12px 14px;
+  position: relative;
+}
+.cr-card + .cr-card {
+  margin-top: 10px;
+}
+
+/* Small status chip used across the cockpit. */
+.cr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  font-family: var(--cr-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid var(--cr-border-strong);
+  background: var(--cr-surface-3);
+  color: var(--cr-muted-2);
+  border-radius: 999px;
+}
+.cr-chip[data-tone="amber"] {
+  color: #1b1003;
+  background: var(--cr-amber);
+  border-color: var(--cr-amber);
+}
+.cr-chip[data-tone="emerald"] {
+  color: #021c12;
+  background: var(--cr-emerald);
+  border-color: var(--cr-emerald);
+}
+.cr-chip[data-tone="red"] {
+  color: #160407;
+  background: var(--cr-red);
+  border-color: var(--cr-red);
+}
+.cr-chip[data-tone="cyan"] {
+  color: #001621;
+  background: var(--cr-cyan);
+  border-color: var(--cr-cyan);
+}
+
+/* "wrapper" badge — tiny, dimmed by default. */
+.cr-wrapper-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  font-family: var(--cr-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cr-muted);
+  border: 1px dashed var(--cr-border-strong);
+  background: transparent;
+  cursor: help;
+}
+
+/* Status pip — used in connection / mode indicators. */
+.cr-pip {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cr-dim);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04);
+}
+.cr-pip[data-tone="amber"] {
+  background: var(--cr-amber);
+  box-shadow: 0 0 0 2px rgba(255, 186, 51, 0.18);
+}
+.cr-pip[data-tone="emerald"] {
+  background: var(--cr-emerald);
+  box-shadow: 0 0 0 2px rgba(65, 253, 184, 0.18);
+}
+.cr-pip[data-tone="red"] {
+  background: var(--cr-red);
+  box-shadow: 0 0 0 2px rgba(255, 84, 112, 0.18);
+}
+.cr-pip[data-tone="cyan"] {
+  background: var(--cr-cyan);
+  box-shadow: 0 0 0 2px rgba(109, 213, 255, 0.18);
+}
+
+/* Pulsing ring — used on cards that are blocking on user action. */
+@keyframes cr-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 186, 51, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 186, 51, 0);
+  }
+}
+.cr-pulse {
+  animation: cr-pulse 1.6s ease-in-out infinite;
+  border-color: var(--cr-amber) !important;
+}
+
+/* Buttons */
+.cr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-family: var(--cr-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid var(--cr-border-strong);
+  background: var(--cr-surface-3);
+  color: var(--cr-fg);
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+.cr-btn:hover:not(:disabled) {
+  background: var(--cr-border);
+  border-color: var(--cr-amber);
+}
+.cr-btn:disabled {
+  opacity: 0.45;
+}
+.cr-btn[data-variant="primary"] {
+  background: var(--cr-amber);
+  border-color: var(--cr-amber);
+  color: #0d0700;
+}
+.cr-btn[data-variant="primary"]:hover:not(:disabled) {
+  background: #ffc859;
+  border-color: #ffc859;
+}
+.cr-btn[data-variant="success"] {
+  background: var(--cr-emerald);
+  border-color: var(--cr-emerald);
+  color: #002113;
+}
+.cr-btn[data-variant="danger"] {
+  background: transparent;
+  border-color: var(--cr-red);
+  color: var(--cr-red);
+}
+.cr-btn[data-variant="danger"]:hover:not(:disabled) {
+  background: rgba(255, 84, 112, 0.12);
+}
+.cr-btn[data-variant="ghost"] {
+  background: transparent;
+}
+
+/* Inputs */
+.cr-input {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  font-family: var(--cr-font-mono);
+  font-size: 12px;
+  color: var(--cr-fg);
+  background: var(--cr-surface-3);
+  border: 1px solid var(--cr-border-strong);
+}
+.cr-input:focus {
+  border-color: var(--cr-amber);
+  outline: none;
+}
+
+/* Mode segmented control */
+.cr-mode-toggle {
+  display: flex;
+  border: 1px solid var(--cr-border-strong);
+  background: var(--cr-surface-3);
+  padding: 2px;
+}
+.cr-mode-toggle > * {
+  flex: 1;
+  text-align: center;
+  padding: 5px 0;
+  font-family: var(--cr-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cr-muted);
+}
+.cr-mode-toggle > * {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+.cr-mode-toggle > *:hover:not(:disabled):not([aria-checked="true"]) {
+  background: var(--cr-surface-2);
+  color: var(--cr-fg);
+}
+.cr-mode-toggle > *:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.cr-mode-toggle > [aria-checked="true"] {
+  background: var(--cr-amber);
+  color: #0d0700;
+}
+
+/* Definition lists used in inspector panels. */
+.cr-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  font-family: var(--cr-font-mono);
+  font-size: 11.5px;
+}
+.cr-dl dt {
+  color: var(--cr-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+  align-self: center;
+}
+.cr-dl dd {
+  margin: 0;
+  color: var(--cr-fg);
+}
+
+/* Tool-call cards rendered inline in the chat workstream. The header,
+ * args, and result sections each get breathing room so the JSON dumps
+ * don't melt into the labels above them. */
+.cr-tool-card {
+  background: var(--cr-surface-2);
+  border: 1px solid var(--cr-rule);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cr-tool-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cr-tool-card__title {
+  font-family: var(--cr-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cr-fg-strong);
+  margin: 0;
+  margin-right: auto;
+}
+.cr-tool-card__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cr-tool-card__label {
+  font-family: var(--cr-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cr-muted);
+}
+
+/* Code / pre blocks (used outside of Shiki where we want a basic monospace
+ * tile — Shiki blocks have their own bg). */
+.cr-pre {
+  font-family: var(--cr-font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--cr-fg);
+  background: #050709;
+  border: 1px solid var(--cr-rule);
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  overflow: auto;
+}
+
+/* ============================================================================
+ *   CopilotChat overrides — pin to parent height, dark-mode the bubble chrome,
+ *   make the input feel like a mission-control terminal.
+ * ============================================================================ */
+.copilotKitChat,
+.copilotKitChatBody {
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  background: var(--cr-surface) !important;
+}
+.copilotKitMessages {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  padding: 16px 24px !important;
+  background: var(--cr-surface) !important;
+}
+.copilotKitInput,
+.copilotKitInputContainer,
+.copilotKitChatInput {
+  background: var(--cr-surface) !important;
+  border-top: 1px solid var(--cr-border) !important;
+  color: var(--cr-fg) !important;
+}
+
+/* The default CopilotChat layout pins the messages + input column to
+ * `cpk:max-w-3xl cpk:mx-auto` (768px). In the cockpit's wide workstream
+ * pane that leaves big empty bands on either side and makes the input
+ * float in the middle. Force the chat column to fill the pane. */
+.copilotKitChat .cpk\:max-w-3xl {
+  max-width: none !important;
+}
+.copilotKitChat .cpk\:mx-auto {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* The input is wrapped in a `pointer-events-none` z-20 layer that ships
+ * with its own near-black background. Flatten any of those wrappers so the
+ * input bar reads as part of the workstream surface, not a floating tile. */
+.cpk\:pointer-events-none.cpk\:z-20 {
+  background: transparent !important;
+}
+
+/* Flatten the rounded "pill" the input ships with. The cockpit's aesthetic
+ * is hard-edged, so the input becomes a flat bar pinned to the bottom of
+ * the workstream with a single top divider. */
+.copilotKitInput {
+  width: 100% !important;
+  background: var(--cr-surface) !important;
+  border: 0 !important;
+  border-top: 1px solid var(--cr-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.copilotKitInput .cpk\:grid.cpk\:gap-x-3,
+.copilotKitInput > div > .cpk\:grid {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 12px 18px !important;
+}
+/* The disclaimer is hidden via `labels.chatDisclaimerText: ""` on
+ * `<CopilotChat>`. Do not add a CSS rule like
+ * `.copilotKitChat > .cpk\:absolute.cpk\:bottom-0 { display: none }` —
+ * that selector also matches the wrapper around the input bar once the
+ * chat has scrolling history, which collapses the input. */
+
+/* CopilotChat's welcome state vertically centers a flex column
+ * containing the welcome message + input + a (zero-height) suggestion
+ * slot. The cockpit wants the input pinned to the bottom in *both*
+ * states, so stretch that column to the chat height and use
+ * `margin-bottom: auto` on the welcome to shove everything below it to
+ * the floor. */
+.copilotKitChat > .cpk\:justify-center {
+  align-items: stretch !important;
+  padding: 0 !important;
+}
+.copilotKitChat > .cpk\:justify-center > .cpk\:max-w-3xl,
+.copilotKitChat > .cpk\:justify-center > .cpk\:w-full {
+  flex: 1 1 auto !important;
+  max-width: none !important;
+  align-items: stretch !important;
+  margin: 0 !important;
+}
+/* The welcome message: pad it off the top edge, then claim all the
+ * remaining vertical space below it so the input wrapper (its sibling)
+ * sits at the bottom of the chat. */
+.copilotKitChat > .cpk\:justify-center > .cpk\:max-w-3xl > :first-child,
+.copilotKitChat > .cpk\:justify-center > .cpk\:w-full > :first-child {
+  margin-top: 48px;
+  margin-bottom: auto !important;
+}
+/* CopilotChat reserves a follow-up-suggestions slot below the input
+ * (`cpk:mt-4 cpk:flex cpk:justify-center`). With no suggestions to show
+ * it just adds a 16px gap below the input. Flatten it. */
+.copilotKitChat > .cpk\:justify-center > .cpk\:max-w-3xl > .cpk\:mt-4,
+.copilotKitChat > .cpk\:justify-center > .cpk\:w-full > .cpk\:mt-4 {
+  margin-top: 0 !important;
+}
+/* The input wrapper itself carries top + bottom padding from CopilotChat.
+ * Trim the bottom so the bar sits flush against the pane floor. */
+.copilotKitInput .cpk\:grid.cpk\:gap-x-3,
+.copilotKitInput > div > .cpk\:grid {
+  padding: 10px 18px !important;
+}
+/* The disclaimer slot ships as a sibling of the input inside
+ * `cpk:pointer-events-none cpk:z-20` and reserves ~24px with `py-3` even
+ * when its text is set to "". Hide it so the input sits flush against
+ * the bottom of the pane. */
+.cpk\:pointer-events-none.cpk\:z-20 > .cpk\:text-muted-foreground {
+  display: none !important;
+}
+/* recompile-tick: 2026-05-26-111000 */
+.copilotKitChatInput textarea,
+.copilotKitInputContainer textarea {
+  font-family: var(--cr-font-mono) !important;
+  color: var(--cr-fg) !important;
+  background: transparent !important;
+  caret-color: var(--cr-amber) !important;
+}
+.copilotKitChatInput textarea::placeholder,
+.copilotKitInputContainer textarea::placeholder {
+  color: var(--cr-muted) !important;
+}
+
+/* Message bubbles ride on the workstream surface — no darker box behind
+ * each assistant / user turn. */
+.copilotKitMessage,
+.copilotKitAssistantMessage,
+.copilotKitUserMessage {
+  background: transparent !important;
+}
+/* The user-message bubble is rendered by a nested element with cpk:bg-muted
+ * — swap it for a muted dark chip that reads against the surface. */
+.copilotKitUserMessage .cpk\:bg-muted {
+  background: var(--cr-surface-2) !important;
+  color: var(--cr-fg) !important;
+  border: 1px solid var(--cr-rule);
+}
+
+/* Welcome-message block tweaks so it reads "loaded" rather than "loading". */
+.copilotKitMessages h1,
+.copilotKitMessages h2,
+.copilotKitMessages h3 {
+  font-family: var(--cr-font-display) !important;
+  letter-spacing: -0.01em !important;
+  color: var(--cr-fg-strong) !important;
+}
+.copilotKitMessages p {
+  color: var(--cr-fg) !important;
+}
+
+/* Shiki dark-mode override.
+ *
+ * CopilotChat ships Shiki with the `github-light` theme baked in. We can't
+ * swap the theme from outside, but we *can* invert the rendered tree so the
+ * bright bg flips dark while the syntax-color hues keep their relative
+ * relationships (red→cyan, yellow→blue, etc.). The filter is applied once on
+ * the pre and composites down to all children, so the highlight palette
+ * stays internally consistent. */
+.copilotKitMessages pre.shiki {
+  background: var(--cr-surface-3) !important;
+  border: 1px solid var(--cr-rule);
+  border-radius: 4px;
+  padding: 12px 14px !important;
+  margin: 8px 0 !important;
+  font-family: var(--cr-font-mono) !important;
+  font-size: 12px !important;
+  line-height: 1.55 !important;
+}
+.copilotKitMessages pre.shiki.github-light {
+  filter: invert(0.92) hue-rotate(180deg) saturate(1.05);
+}
+/* Inline code (single backticks) — small dark chip with mono. */
+.copilotKitMessages :not(pre) > code {
+  background: var(--cr-surface-3) !important;
+  color: var(--cr-amber) !important;
+  border: 1px solid var(--cr-rule);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: var(--cr-font-mono) !important;
+  font-size: 11.5px;
+}
+/* Shiki code-block toolbar (Copy / Download buttons) — make sure the toolbar
+ * sits flush with the surrounding bubble even when the pre has been
+ * filter-inverted. */
+.copilotKitMessages .rs-root {
+  background: transparent !important;
+}
+
+/* Scrollbars — narrow, theme-matched. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--cr-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--cr-border-strong);
+  border: 2px solid var(--cr-bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cr-muted);
+}

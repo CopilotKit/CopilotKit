@@ -47,6 +47,7 @@ examples/showcases/mcp-apps/mcp-server/apps/vite.config.ts
 examples/showcases/mcp-apps/next.config.ts
 examples/showcases/mcp-demo/next.config.ts
 examples/showcases/microsoft-kanban/next.config.ts
+examples/showcases/ms-agent-harness-control-room/next.config.ts
 examples/showcases/multi-agent-canvas/frontend/next.config.ts
 examples/showcases/multi-page/vite.config.ts
 examples/showcases/open-mcp-client/apps/threejs-server/vite.config.ts
