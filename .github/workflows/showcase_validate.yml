@@ -379,6 +379,26 @@ jobs:
           fi
           echo "Pin drift unchanged at baseline ($baseline, hash $baseline_hash)."
 
+      - name: Run test-vacuity + constant-drift gate
+        working-directory: showcase/scripts
+        # Fails the PR on assertions that are satisfied by the DEGENERATE input
+        # (`Math.max(...[])` is -Infinity, so an upper bound holds when zero
+        # elements were produced), on one-sided pins of tuned constants (a cap
+        # asserted only as `toBeLessThanOrEqual` cannot catch the source value
+        # being lowered), and on drift between knowingly-duplicated constants
+        # (`duplicated-constants.json`). Pre-existing violations are grandfathered
+        # by the dated, individually-justified, SHRINK-ONLY
+        # `test-vacuity-allowlist.json`; a stale entry (its violation fixed but
+        # the entry left behind) also fails. See
+        # showcase/scripts/lib/test-vacuity-core.ts for why each rule exists.
+        #
+        # The same checks also run inside the vitest step below (as
+        # __tests__/validate-test-vacuity.test.ts) — that is the real gate and
+        # cannot be forgotten. This step exists so the failure is NAMED in the
+        # CI log instead of being one assertion among a thousand, and so the
+        # CLI's exit code is exercised. Runtime ~0.6s over ~1,190 test files.
+        run: pnpm exec tsx validate-test-vacuity.ts
+
       - name: Run build pipeline tests
         working-directory: showcase/scripts
         # Use pnpm to resolve the workspace-installed vitest (pinned via

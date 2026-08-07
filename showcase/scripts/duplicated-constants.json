@@ -1,0 +1,19 @@
+{
+  "_policy": "Registry for showcase/scripts/validate-test-vacuity.ts. TWO sections. `tunedConstants` declares test-file constants that are pins on a value owned elsewhere and therefore MUST be asserted two-sidedly (the scanner also infers this from a pin-intent comment on the declaration, so this list is only for pins whose intent is not written down). `pins` declares constants KNOWINGLY duplicated across modules; the gate asserts every declaration in a pin still exists AND still evaluates to the same number. Importing the sibling instead of duplicating it is always the better fix -- an entry here is an admission that we did not.",
+  "tunedConstants": [],
+  "pins": [
+    {
+      "reason": "cell-model.ts declares its own copy of staleness.ts's 5-minute future-skew tolerance. staleness.ts OWNS the value (and cell-model.ts already imports isFutureSkewed from it), but the copy was justified on cycle grounds and never linked to the original. /api/matrix publishes only staleness.ts's value, so a consumer told to reproduce the reasoning for commError/surfaceState is handed the wrong window the moment these drift. Until cell-model.ts imports FUTURE_SKEW_TOLERANCE_MS (a product-source edit), this pin is what makes drift loud.",
+      "declarations": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/staleness.ts",
+          "constant": "FUTURE_SKEW_TOLERANCE_MS"
+        },
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.ts",
+          "constant": "COMM_ERROR_FUTURE_SKEW_TOLERANCE_MS"
+        }
+      ]
+    }
+  ]
+}
