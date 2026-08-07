@@ -7,6 +7,7 @@ import {
   Type,
   ChangeDetectionStrategy,
   ViewEncapsulation,
+  afterRenderEffect,
   computed,
   inject,
 } from "@angular/core";
@@ -20,6 +21,11 @@ import { CopilotChatReasoningMessage } from "./copilot-chat-reasoning-message";
 import { cn } from "../../utils";
 import { CopilotKit } from "../../copilotkit";
 import type { RenderActivityMessageConfig } from "../../activity-renderer";
+import {
+  createRowKeyStore,
+  pruneRowKeyStore,
+  resolveRowRenderKeys,
+} from "./row-render-keys";
 
 /**
  * CopilotChatMessageView component - Angular port of the React component.
@@ -51,7 +57,7 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
       <!-- Default layout - exact React DOM structure: div with "flex flex-col" classes -->
       <div [class]="computedClass()">
         <!-- Message iteration - simplified without tool calls -->
-        @for (message of messagesValue(); track trackByMessageId($index, message)) {
+        @for (message of messagesValue(); track rowRenderKey($index, message)) {
           @if (message && message.role === "assistant") {
             <!-- Assistant message with slot support -->
             @if (assistantMessageComponent() || assistantMessageTemplate()) {
@@ -199,6 +205,21 @@ export class CopilotChatMessageView {
 
   // Derived values from inputs
   protected messagesValue = computed(() => this.messages());
+
+  /**
+   * Override table backing `rowRenderKey`. Per component instance, so its
+   * lifetime matches the rendered list.
+   */
+  private readonly rowKeyStore = createRowKeyStore();
+  protected rowRenderKeys = computed(() =>
+    resolveRowRenderKeys(this.rowKeyStore, this.messagesValue()),
+  );
+
+  // Prune after render, never inside the computed: dropping an anchor the
+  // rendered rows still need would re-mint their keys and recreate them.
+  private readonly rowKeyStorePrune = afterRenderEffect(() => {
+    pruneRowKeyStore(this.rowKeyStore, this.messagesValue());
+  });
   protected showCursorValue = computed(
     () => this.showCursor() && this.lastMessage()?.role !== "reasoning",
   );
@@ -279,9 +300,13 @@ export class CopilotChatMessageView {
     return message as ReasoningMessage;
   }
 
-  // TrackBy function for performance optimization
-  trackByMessageId(index: number, message: Message): string {
-    return message?.id || `index-${index}`;
+  /**
+   * Stable `@for` track key. A message's canonical id can change mid-stream, and
+   * tracking by it destroys and recreates the row on that swap (the HITL chat
+   * flash). See ./row-render-keys for the mechanism and its limits.
+   */
+  rowRenderKey(index: number, message: Message): string {
+    return this.rowRenderKeys()[index] ?? message?.id ?? `index-${index}`;
   }
 
   private pickActivityRenderer(

@@ -4,6 +4,7 @@ import React, {
   useLayoutEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -31,6 +32,12 @@ import {
 } from "../intelligence-indicator";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import {
+  createRowKeyStore,
+  pruneRowKeyStore,
+  resolveRowRenderKeys,
+} from "./rowRenderKeys";
+import type { RowKeyStore } from "./rowRenderKeys";
 
 /**
  * Resolves a slot value into a { Component, slotProps } pair, handling the three
@@ -490,6 +497,24 @@ export function CopilotChatMessageView({
     [messages],
   );
 
+  // Stable per-row React keys. Backends can re-key a message mid-stream, and
+  // keying rows by the canonical id remounts the row on that swap (the HITL
+  // chat flash). See ./rowRenderKeys for the mechanism and its limits.
+  const rowKeyStoreRef = useRef<RowKeyStore | null>(null);
+  rowKeyStoreRef.current ??= createRowKeyStore();
+  const rowKeyStore = rowKeyStoreRef.current;
+
+  const rowRenderKeys = useMemo(
+    () => resolveRowRenderKeys(rowKeyStore, deduplicatedMessages),
+    [rowKeyStore, deduplicatedMessages],
+  );
+
+  // Prune after commit, never during render: dropping an anchor in a render
+  // React later abandons could re-mint a committed row's key and remount it.
+  useEffect(() => {
+    pruneRowKeyStore(rowKeyStore, deduplicatedMessages);
+  }, [rowKeyStore, deduplicatedMessages]);
+
   if (
     process.env.NODE_ENV === "development" &&
     deduplicatedMessages.length < messages.length
@@ -600,11 +625,14 @@ export function CopilotChatMessageView({
   const renderMessageBlock = (message: Message): React.ReactElement[] => {
     const elements: (React.ReactElement | null | undefined)[] = [];
     const stateSnapshot = getStateSnapshotForMessage(message.id);
+    // Row key only — everything keyed to message identity (state snapshots,
+    // tool lookups) must keep using message.id.
+    const rowKey = rowRenderKeys.get(message.id) ?? message.id;
 
     if (renderCustomMessage) {
       elements.push(
         <MemoizedCustomMessage
-          key={`${message.id}-custom-before`}
+          key={`${rowKey}-custom-before`}
           message={message}
           position="before"
           renderCustomMessage={renderCustomMessage}
@@ -616,7 +644,7 @@ export function CopilotChatMessageView({
     if (message.role === "assistant") {
       elements.push(
         <MemoizedAssistantMessage
-          key={message.id}
+          key={rowKey}
           message={message as AssistantMessage}
           messages={messages}
           isRunning={isRunning}
@@ -627,7 +655,7 @@ export function CopilotChatMessageView({
     } else if (message.role === "user") {
       elements.push(
         <MemoizedUserMessage
-          key={message.id}
+          key={rowKey}
           message={message as UserMessage}
           UserMessageComponent={UserComponent}
           slotProps={userSlotProps}
@@ -636,7 +664,7 @@ export function CopilotChatMessageView({
     } else if (message.role === "activity") {
       elements.push(
         <MemoizedActivityMessage
-          key={message.id}
+          key={rowKey}
           message={message as ActivityMessage}
           renderActivityMessage={renderActivityMessage}
         />,
@@ -644,7 +672,7 @@ export function CopilotChatMessageView({
     } else if (message.role === "reasoning") {
       elements.push(
         <MemoizedReasoningMessage
-          key={message.id}
+          key={rowKey}
           message={message as ReasoningMessage}
           messages={messages}
           isRunning={isRunning}
@@ -657,7 +685,7 @@ export function CopilotChatMessageView({
     if (renderCustomMessage) {
       elements.push(
         <MemoizedCustomMessage
-          key={`${message.id}-custom-after`}
+          key={`${rowKey}-custom-after`}
           message={message}
           position="after"
           renderCustomMessage={renderCustomMessage}
@@ -728,7 +756,7 @@ export function CopilotChatMessageView({
             const message = deduplicatedMessages[virtualItem.index]!;
             return (
               <div
-                key={message.id}
+                key={rowRenderKeys.get(message.id) ?? message.id}
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
                 style={{
