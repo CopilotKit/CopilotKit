@@ -7,7 +7,6 @@ import "./theme.css";
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   BookOpen,
@@ -28,8 +27,7 @@ import { useRole } from "@/skins/keel/role-context";
 import { keelNav } from "@/skins/keel/nav";
 import { keelIdentity } from "@/skins/keel/identity";
 import type { KeelData } from "@/skins/keel/data/types";
-
-const BASE = "/keel";
+import { useKeelHref, useKeelSegments } from "@/skins/keel/href";
 
 /** Per-segment nav icon. keelNav carries labels only, so the chrome owns the
  *  glyphs — dense, monochrome, utilitarian, in keeping with the theme. */
@@ -89,13 +87,13 @@ function RoleSwitcher() {
  */
 export function KeelLayout({ children }: { children: ReactNode }) {
   const data = useSkinData<KeelData>();
-  const pathname = usePathname();
+  const keelHref = useKeelHref();
   const Logo = keelIdentity.logo;
 
   // The active segment is whatever follows the skin base ("" for the Desk).
-  const restHead = pathname.split("/").slice(2)[0] ?? "";
+  const restHead = useKeelSegments()[0] ?? "";
   // Highlight the parent nav entry for parameterized routes too:
-  // /keel/knowledge/<docId> keeps "Knowledge" active.
+  // knowledge/<docId> keeps "Knowledge" active.
   const isActive = (segment: string) =>
     segment === "" ? restHead === "" : restHead === segment;
 
@@ -109,7 +107,7 @@ export function KeelLayout({ children }: { children: ReactNode }) {
       {/* Left nav rail */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5 md:flex">
         <Link
-          href={BASE}
+          href={keelHref()}
           className="mb-6 flex items-center gap-2.5 px-2"
           aria-label={keelIdentity.brand}
         >
@@ -128,7 +126,7 @@ export function KeelLayout({ children }: { children: ReactNode }) {
 
         <nav className="flex flex-col gap-0.5">
           {keelNav.map((route) => {
-            const href = route.segment ? `${BASE}/${route.segment}` : BASE;
+            const href = keelHref(route.segment);
             const active = isActive(route.segment);
             const Icon = route.icon ?? NAV_ICONS[route.segment] ?? Activity;
             return (

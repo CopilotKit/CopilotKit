@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { KEEL_SPACES, getDocsBySpace } from "@/skins/keel/knowledge/corpus";
+import { useKeelHref } from "@/skins/keel/href";
 
 /**
  * The corpus browser: three knowledge spaces, each listing its documents. Every
@@ -9,6 +10,7 @@ import { KEEL_SPACES, getDocsBySpace } from "@/skins/keel/knowledge/corpus";
  * agent citation lands on, so browsing and grounding share one destination.
  */
 export function KnowledgePage() {
+  const keelHref = useKeelHref();
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8">
       <header>
@@ -36,7 +38,7 @@ export function KnowledgePage() {
               {docs.map((doc) => (
                 <li key={doc.id}>
                   <Link
-                    href={`/keel/knowledge/${doc.id}`}
+                    href={keelHref(`knowledge/${doc.id}`)}
                     className="flex items-center gap-4 rounded-md border border-hairline bg-surface px-4 py-3 shadow-soft transition-colors hover:bg-brand-soft"
                   >
                     <span className="w-20 shrink-0 font-mono text-sm font-semibold text-brand">

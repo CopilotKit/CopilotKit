@@ -67,6 +67,15 @@ const intelligenceEnabled = Boolean(
  * identity instead would resolve a non-seeded id that 403s against the
  * Intelligence stack in the demo's documented unpinned configuration.
  *
+ * Note: this stays keyed to `defaultSkinId` even under `LOCK_SKIN`. On a deploy
+ * locked to a NON-default skin, the inspector's agentId-less requests therefore
+ * resolve a different scope than the running agent. Deliberate: the default
+ * resolver is the one whose scope is seeded, so switching to the locked skin's
+ * resolver would 403 or read empty on any skin without seed data. Today only
+ * `banking` ships real durable memory and it is also the default, so the two
+ * align in the configuration that matters. Revisit if a memory-bearing
+ * non-default skin is ever locked.
+ *
  * A skin that contributes no resolver (e.g. airline, which has no memory), and
  * the case where the default skin itself has no resolver, fall back to a
  * generic, skin-agnostic identity.

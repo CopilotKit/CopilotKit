@@ -30,6 +30,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useSkin } from "@/shell/skin-provider";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
 import { useCanvas } from "@/shell/canvas/canvas-context";
 import { useAskCopilot } from "@/skins/banking/components/wow/use-ask-copilot";
@@ -122,7 +123,8 @@ function UserNavigation({
 
 export function LayoutComponent({ children }: { children: React.ReactNode }) {
   const skin = useSkin();
-  const base = `/${skin.id}`;
+  const skinHref = useSkinHref(skin.id);
+  const base = skinHref();
   const { users, currentUser, setCurrentUser } = useAuthContext();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -131,19 +133,18 @@ export function LayoutComponent({ children }: { children: React.ReactNode }) {
   const { clear } = useCanvas();
 
   // The active segment is whatever follows the skin base ("" for the index).
-  const rest = pathname.split("/").slice(2).join("/");
-  const restHead = rest.split("/")[0];
+  const restHead = useSkinSegments(skin.id)[0] ?? "";
 
   // Current-page readable, derived RELATIVE to the skin base so the agent is
-  // told a real page. `/banking` → "cards" (the index IS the Credit Cards
-  // view), `/banking/dashboard` → "dashboard", etc. Before the cutover this
-  // read pathname.split("/")[1], which reported the skin id under /[skin].
+  // told a real page. The skin index → "cards" (it IS the Credit Cards view),
+  // `/dashboard` → "dashboard", etc. Before the cutover this read
+  // pathname.split("/")[1], which reported the skin id under /[skin].
   useAgentContext({
     description: "The current page where the user is",
     value: restHead === "" ? "cards" : restHead,
   });
 
-  const hrefFor = (segment: string) => (segment ? `${base}/${segment}` : base);
+  const hrefFor = (segment: string) => skinHref(segment);
   const isActive = (segment: string) =>
     segment === ""
       ? restHead === "" || restHead === "cards"

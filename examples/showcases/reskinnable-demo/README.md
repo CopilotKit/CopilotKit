@@ -2,20 +2,25 @@
 
 One Next.js app whose **entire** experience — brand, theme, layout, pages,
 tools, and agent — is reskinnable at runtime. A skin-agnostic **shell** hosts
-one **skin** per route segment `/[skin]/...`, and ships two of them:
+one **skin** per route segment `/[skin]/...`, and ships four of them:
 
 - **`banking`** — "Northwind Finance", a corporate banking dashboard. **REST-backed**
   (a live ledger at `/api/banking/v1/*`): transactions, cards, expense policies,
   an approvals queue, filed reports on a canvas, and a teachable
   over-limit-approval flow.
+- **`logistics`** — "Meridian", a freight control tower. **REST-backed** (a live
+  ledger of its own): exception triage — expedite, reroute, split, or absorb —
+  across lanes, inventory, and decisions.
 - **`airline`** — "Aeronova", a passenger concierge. **In-memory** (a seed-backed
   React store): check-in and seat selection, loyalty, and disruption rebooking.
+- **`keel`** — "Keel", Harbor Point Health's knowledge and operations desk.
+  **In-memory** (a seed-backed React store), and the only skin with parameterized
+  routes (`knowledge/<docId>`, `runs/<runId>`).
 
-These two run behind the **same** `Skin` contract on purpose: one is REST-backed
-and one is in-memory, which proves the contract is substrate-agnostic. (Two more
-ship alongside them — `logistics` and `keel`.) Every skin gets the same inset
-frame, shared chat panel, tool-activity lines, suggestion pills, and full-region
-canvas from the shell.
+These four run behind the **same** `Skin` contract on purpose: banking and
+logistics are REST-backed, airline and keel are in-memory, which proves the
+contract is substrate-agnostic. Every skin gets the same inset frame, shared chat
+panel, tool-activity lines, suggestion pills, and full-region canvas from the shell.
 
 ## What it demonstrates
 
@@ -46,15 +51,31 @@ services. Durable cross-thread memory is env-gated (Intelligence mode); see
 
 ## Switching skins
 
-Use the **floating selector** at the bottom-left of any page — it lists every
-registered skin and navigates to `/<id>` client-side (instant, no reload). Each
-skin starts in its own fresh thread. You can also go straight to `/banking` or
-`/airline`.
+Use the **skin switcher** — a dropdown at the top of the assistant column, in
+the selector card — it lists every registered skin and navigates to `/<id>`
+client-side (instant, no reload). Each skin starts in its own fresh thread. You
+can also go straight to `/banking` or `/airline`.
+
+### Pinning a deploy to one skin
+
+Set `LOCK_SKIN` to a skin id (`banking`, `airline`, `logistics`, `keel`) and the
+deploy becomes single-tenant: the skin is **served at `/`**, with the `/<id>`
+prefix gone from the URL space altogether — `LOCK_SKIN=banking` puts the credit
+cards view at `/` and the dashboard at `/dashboard`, never `/banking/dashboard`.
+Every other skin's segment 404s, as does the locked skin's own prefix, and the
+switcher collapses to a static brand badge. Unset — the default — all four stay
+reachable under `/<id>` exactly as before.
+
+Use it for a URL that goes to one prospect, one booth, or one pilot, so the app
+reads as a product rather than as a four-tenant demo harness. An unrecognised id
+throws at boot rather than silently 404ing every page. See `.env.example`.
 
 ## Adding a skin
 
-Follow the repo-local **reskin skill** in `.claude/skills/reskin/` (SKILL.md +
-templates.md). The shape:
+Follow the repo-local **reskin skill** in `.claude/skills/reskin/` — three files:
+**demo-beats.md**, SKILL.md and templates.md. Read demo-beats.md FIRST: the demo
+decides the tools, pages and pills, so discovering the beats afterwards means
+rebuilding them. The shape:
 
 1. Scaffold `src/skins/<id>/` and implement each `Skin` contract field.
 2. Write `theme.css` (a `.theme-<id>` block re-valuing the shared tokens) and
@@ -69,7 +90,7 @@ contract, and the shared canvas / OGUI model.
 
 ## The banking skin's demo capabilities
 
-The banking skin is the richer of the two and doubles as a CopilotKit feature
+The banking skin is the richest of the four and doubles as a CopilotKit feature
 tour. Notable beats:
 
 - **Components, never walls of text** — transactions, the approvals queue,

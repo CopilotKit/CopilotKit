@@ -2,10 +2,10 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Plane, Ticket, Award, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSkin, useSkinData } from "@/shell/skin-provider";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import type { AirlineData } from "./data/types";
 import { PassengerHeader } from "./components/passenger-header";
 
@@ -27,7 +27,8 @@ const NAV_ICONS: Record<string, typeof Plane> = {
 export function AirlineLayout({ children }: { children: ReactNode }) {
   const skin = useSkin();
   const data = useSkinData<AirlineData>();
-  const pathname = usePathname();
+  const skinHref = useSkinHref(skin.id);
+  const restHead = useSkinSegments(skin.id)[0] ?? "";
   const Logo = skin.identity.logo;
 
   return (
@@ -51,12 +52,8 @@ export function AirlineLayout({ children }: { children: ReactNode }) {
 
         <nav className="flex flex-col gap-1">
           {skin.nav.map((route) => {
-            const href = route.segment
-              ? `/${skin.id}/${route.segment}`
-              : `/${skin.id}`;
-            const active =
-              pathname === href ||
-              (route.segment === "" && pathname === `/${skin.id}`);
+            const href = skinHref(route.segment);
+            const active = restHead === route.segment;
             const Icon = route.icon ?? NAV_ICONS[route.segment] ?? Plane;
             return (
               <Link
