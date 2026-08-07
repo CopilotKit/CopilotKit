@@ -8,9 +8,14 @@ import {
   FEATURE_CONCURRENCY_D6,
   openGuardedContext,
   parseFailureClassifier,
+  rollupInfraErrorClass,
   Semaphore,
 } from "./d6-all-pills.js";
 import { CVDIAG_FAILURE_CLASSIFIERS } from "../../cvdiag/index.js";
+import {
+  INFRA_ERROR_CLASSES,
+  signalHasInfraErrorClass,
+} from "../../shared/cell-model/cell-model.contribution.js";
 import type { GuardableBrowser } from "./d6-all-pills.js";
 import type {
   E2eFullAggregateSignal,
@@ -603,6 +608,107 @@ describe("e2e-full driver", () => {
       expect(aggSignal.slug).toBe("test-slug");
       expect(aggSignal.failed).toContain("agentic-chat");
     });
+
+    // 2026-08-03 incident: the per-feature cells carried `errorClass: "abort"`
+    // and the cell model correctly folded them to gray, but the `d6:<slug>`
+    // roll-up's signal schema had no `errorClass` field at all — so
+    // `signalHasInfraErrorClass()` returned false for it unconditionally and
+    // the roll-up read as a PRODUCT red no matter what killed the run. That
+    // roll-up is the row a naive per-slug query lands on.
+    describe("roll-up infra classification", () => {
+      async function runAgg(opts: {
+        features: string[];
+        register: string[];
+        throwOnNewContext?: Error;
+      }): Promise<E2eFullAggregateSignal> {
+        for (const ft of opts.register) registerD5Script(makeScript([ft]));
+        const sideEmits: ProbeResult<unknown>[] = [];
+        const writer: ProbeResultWriter = {
+          write: async (r) => {
+            sideEmits.push(r);
+          },
+        };
+        const driver = createE2eFullDriver({
+          launcher: async () =>
+            makeBrowser({ throwOnNewContext: opts.throwOnNewContext }),
+          scriptLoader: noopScriptLoader(),
+        });
+        await driver.run(makeCtx({ writer }), {
+          key: "d6-all-pills-e2e:showcase-test-slug",
+          backendUrl: "https://test.example.com",
+          features: opts.features,
+        });
+        const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
+        expect(aggRow).toBeDefined();
+        expect(aggRow!.state).toBe("red");
+        return aggRow!.signal as E2eFullAggregateSignal;
+      }
+
+      it("stamps an infra errorClass when EVERY failed feature is infra-classed", async () => {
+        // `newContext` throwing is the driver-error path — the same class the
+        // two prod `browserContext.newPage: Target page, context or browser has
+        // been closed` cells carried, and what PID exhaustion presents as.
+        const agg = await runAgg({
+          features: ["agentic-chat", "frontend-tools"],
+          register: ["agentic-chat", "frontend-tools"],
+          throwOnNewContext: new Error("browser has been closed"),
+        });
+        expect(agg.failed.sort()).toEqual(["agentic-chat", "frontend-tools"]);
+        expect(agg.errorClass).toBe("driver-error");
+        expect(signalHasInfraErrorClass(agg)).toBe(true);
+      });
+
+      it("leaves errorClass unset when a failure is NOT infra-classed (masks-real-red guard)", async () => {
+        // `missing-script` is a genuine product/config red. One non-infra
+        // failure must sink the whole roll-up's infra claim — the fold requires
+        // POSITIVE infra evidence for EVERY contributing failure, and graying a
+        // real red is the expensive direction (cell-model.contribution.ts:478).
+        const agg = await runAgg({
+          features: ["agentic-chat"],
+          register: [],
+        });
+        expect(agg.failed).toContain("agentic-chat");
+        expect(agg.errorClass).toBeUndefined();
+        expect(signalHasInfraErrorClass(agg)).toBe(false);
+      });
+
+      it("leaves errorClass unset on a MIXED infra + product failure set", async () => {
+        // `frontend-tools` has no script (missing-script, product) while the
+        // browser is also broken (driver-error, infra). Mixed ⇒ no infra claim.
+        const agg = await runAgg({
+          features: ["agentic-chat", "frontend-tools"],
+          register: ["agentic-chat"],
+          throwOnNewContext: new Error("browser has been closed"),
+        });
+        expect(agg.failed.sort()).toEqual(["agentic-chat", "frontend-tools"]);
+        expect(agg.errorClass).toBeUndefined();
+        expect(signalHasInfraErrorClass(agg)).toBe(false);
+      });
+
+      it("leaves errorClass unset on a green roll-up", async () => {
+        registerD5Script(makeScript(["agentic-chat"]));
+        const sideEmits: ProbeResult<unknown>[] = [];
+        const writer: ProbeResultWriter = {
+          write: async (r) => {
+            sideEmits.push(r);
+          },
+        };
+        const driver = createE2eFullDriver({
+          launcher: async () => makeBrowser(),
+          scriptLoader: noopScriptLoader(),
+        });
+        await driver.run(makeCtx({ writer }), {
+          key: "d6-all-pills-e2e:showcase-test-slug",
+          backendUrl: "https://test.example.com",
+          features: ["agentic-chat"],
+        });
+        const aggRow = sideEmits.find((r) => r.key === "d6:test-slug")!;
+        expect(aggRow.state).toBe("green");
+        expect(
+          (aggRow.signal as E2eFullAggregateSignal).errorClass,
+        ).toBeUndefined();
+      });
+    });
   });
 
   // NSF (not_supported_features) reclassification: when an integration's
@@ -752,6 +858,41 @@ describe("e2e-full driver", () => {
     });
   });
 
+  describe("rollupInfraErrorClass", () => {
+    it("returns the shared class only when every failure is infra-classed", () => {
+      expect(rollupInfraErrorClass(["abort", "abort"])).toBe("abort");
+      expect(rollupInfraErrorClass(["driver-error"])).toBe("driver-error");
+      // Uniformly infra but mixed — either member classifies identically
+      // downstream; the first is reported for determinism.
+      expect(rollupInfraErrorClass(["abort", "driver-error"])).toBe("abort");
+    });
+
+    it("returns undefined for an empty set (a green roll-up claims nothing)", () => {
+      expect(rollupInfraErrorClass([])).toBeUndefined();
+    });
+
+    it("returns undefined when ANY failure is product-classed or unknown", () => {
+      expect(
+        rollupInfraErrorClass(["abort", "missing-script"]),
+      ).toBeUndefined();
+      expect(rollupInfraErrorClass(["abort", undefined])).toBeUndefined();
+      expect(
+        rollupInfraErrorClass(["abort", "promise-rejected"]),
+      ).toBeUndefined();
+    });
+
+    it("never launders feature-timeout into an infra verdict", () => {
+      // A genuinely hung demo produces exactly `feature-timeout`. It is
+      // deliberately absent from INFRA_ERROR_CLASSES, and this roll-up must
+      // inherit that judgement rather than quietly widen it.
+      expect(INFRA_ERROR_CLASSES.has("feature-timeout")).toBe(false);
+      expect(rollupInfraErrorClass(["feature-timeout"])).toBeUndefined();
+      expect(
+        rollupInfraErrorClass(["abort", "feature-timeout"]),
+      ).toBeUndefined();
+    });
+  });
+
   describe("launcher error", () => {
     it("returns red on launcher failure", async () => {
       registerD5Script(makeScript(["agentic-chat"]));
@@ -771,6 +912,29 @@ describe("e2e-full driver", () => {
 
       expect(result.state).toBe("red");
       expect(result.signal.errorDesc).toBe("launcher-error");
+    });
+
+    it("classifies a launcher failure as infra on the roll-up (nothing product ever ran)", async () => {
+      // A worker at its cgroup PID ceiling cannot fork a browser — this is the
+      // 2026-08-03 signature. Zero product code executes, so the red carries no
+      // information about the demo and must not read as a product outage.
+      registerD5Script(makeScript(["agentic-chat"]));
+      const driver = createE2eFullDriver({
+        launcher: async () => {
+          throw new Error(
+            "Failed to launch chromium: Resource temporarily unavailable",
+          );
+        },
+        scriptLoader: noopScriptLoader(),
+      });
+      const result = await driver.run(makeCtx(), {
+        key: "e2e_d6:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat"],
+      });
+      expect(result.state).toBe("red");
+      expect(result.signal.errorClass).toBe("driver-error");
+      expect(signalHasInfraErrorClass(result.signal)).toBe(true);
     });
   });
 
