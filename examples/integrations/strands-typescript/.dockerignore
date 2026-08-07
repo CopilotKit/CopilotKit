@@ -1,0 +1,6 @@
+node_modules
+.next
+.git
+.env
+.env.local
+agent/node_modules
