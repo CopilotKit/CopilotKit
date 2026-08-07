@@ -28,6 +28,33 @@ Keep it updated whenever React parity work lands in `packages/vue`.
 - Prefer explicit type exports from `.ts` files and re-export from package barrels.
 - Keep provider/hook/type barrels aligned with React export intent.
 
+### V1 compatibility boundary
+
+- `useCopilotAction` follows the pinned React v1 classifier precedence and
+  forwards to the Vue v2 registration composables. Frontend and render-only
+  adapters keep live reads for current handler, renderer, metadata, and
+  schemas; HITL keeps the current renderer live while its initial metadata
+  forwarding and dependency lifecycle remain governed by the existing Vue v2
+  `useHumanInTheLoop` boundary. Its classifier is watched synchronously, so
+  reactive classifier fields and dependency changes throw
+  `Error("Action configuration changed between renders")` when they would
+  select a different registration path.
+- The four legacy compatibility fields are accepted but runtime-non-consumed:
+  action `disabled` and `pairedAction`, and readable `parentId` and
+  `categories`. They are not registered, routed, or forwarded.
+- Function renderers retain React's discriminated union; Vue component
+  renderers use the equivalent flattened prop declaration because Vue props
+  are declared independently.
+- Readable keeps React's public two-parameter `convert(description, value)`
+  type, while the pinned React runtime quirk invokes it with only `value`.
+  Vue returns the adapted `Ref`, propagates conversion errors, and accepts but
+  does not consume the legacy dependency argument, matching React.
+- Vue's only intentional framework divergence in this compatibility layer is
+  reactivity observability: refs/reactive fields and dependency sources are
+  observable, while mutation inside an unreactive plain object is not.
+- The v1 compatibility tests in `src/hooks/__tests__` are branch-derived
+  Vue tests; they are not claims of literal React test copying.
+
 ## Translation decision tree
 
 Use this decision rule for every React feature:
@@ -331,6 +358,9 @@ Current snapshot: mapped React->Vue counterpart rows are either `matched` or `in
 | `renderActivityMessages` / `useRenderActivityMessage`                                                                                            | `#activity-<type>` and `#activity-message` slots                                   | intentional-divergence | Slot translation, behavior parity required.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `renderCustomMessages` / `useRenderCustomMessages`                                                                                               | `#message-before` and `#message-after` slots, plus provider `renderCustomMessages` | intentional-divergence | Slots remain primary; provider registration is the approved secondary parity surface for ordered/agent-scoped custom message renderers.                                                                                                                                                                                                                                                                                                                                           |
 | `useRenderTool`, `useDefaultRenderTool`, `useComponent`                                                                                          | Same-named Vue composables in `src/hooks`                                          | matched                | Secondary programmatic APIs now exist with dedicated parity tests, including SFC/component renderer support and React-matching `toolCallId` threading through render-tool prop unions and `CopilotChatToolCallsView` core render props; slots remain the primary customization surface.                                                                                                                                                                                           |
+| React v1 `useCopilotAction` classifier and `useFrontendTool` normalization                                                                       | `src/hooks/use-copilot-action.ts` and `use-frontend-tool.ts`                       | matched                | Branch-derived Vue coverage verifies property-presence routing, remote availability, parameterless render schemas, frontend/render-only live handler/renderer/metadata reads, component/VNode result normalization, HITL status normalization through the v2 HITL adapter, dependency propagation, and the exact configuration-change exception. Vue v1 does not expose or forward `agentId`; HITL metadata snapshotting remains the existing v2 composable behavior.             |
+| React v1 `useCopilotReadable`                                                                                                                    | `src/hooks/use-copilot-readable.ts`                                                | matched                | Branch-derived coverage verifies duplicate lookup, update/removal, React's two-parameter public converter type with the one-argument runtime invocation, conversion-error propagation, availability dependency behavior, accepted-but-non-consumed `parentId`/`categories`, and Vue `Ref` adaptation. The only documented divergence is the framework's plain-object reactivity limit.                                                                                            |
+| React v1 public exports/types                                                                                                                    | Root hook barrel, package root, and `type-tests/v1-compatibility.test-d.ts`        | matched                | Compatibility fields are accepted but runtime-non-consumed, invalid availability/HITL unions and v1 `agentId` are rejected, the React-compatible wait `respond` return type and catch-all render-props union are accepted, and root exports are runtime/type checked.                                                                                                                                                                                                             |
 
 ### Providers
 

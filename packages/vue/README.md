@@ -259,6 +259,29 @@ Default reasoning behavior mirrors React semantics:
 - **Markdown Renderer**: `CopilotChatAssistantMessage` uses `streamdown-vue` (with KaTeX support)
 - **Core**: `CopilotKitCoreVue`
 
+## Legacy v1 Composable Compatibility
+
+The package root also exports the v1-compatible `useCopilotAction`,
+`useFrontendTool`, and `useCopilotReadable` composables. They retain the
+legacy parameter-array action surface while using the current Vue v2
+registration layer.
+
+Reactive classifier fields and dependency sources are observed synchronously.
+Changing them to select a different action registration path throws the same
+`Action configuration changed between renders` error as React. As a Vue
+framework boundary, mutation inside an unreactive plain object is not
+observable; use refs, reactive fields, or dependency sources when updates must
+be detected.
+
+The legacy fields `disabled`, `pairedAction`, `parentId`, and `categories` are
+accepted for source compatibility but are not consumed at runtime. HITL actions
+continue through Vue's v2 `useHumanInTheLoop` lifecycle; their renderer reads
+the latest v1 render value, while metadata snapshot behavior remains defined by
+that existing v2 composable.
+
+`useCopilotReadable` also accepts its legacy dependency argument without
+consuming it, matching the current React v1 hook.
+
 ## Threads
 
 ```vue
