@@ -154,6 +154,16 @@ function verifyInstance(root: ParityRoot, instance: string): Report {
     if (expected === undefined) continue;
     const actual = getByPath(pkgDst, keyPath);
     if (actual === undefined) {
+      if (inst.packageJsonAllowedAbsent?.includes(keyPath)) {
+        items.push({
+          severity: "ok",
+          instance,
+          kind: "package-json",
+          subject: keyPath,
+          detail: "intentionally absent (allowed)",
+        });
+        continue;
+      }
       items.push({
         severity: "error",
         instance,

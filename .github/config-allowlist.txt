@@ -26,6 +26,7 @@ examples/integrations/mcp-apps/next.config.ts
 examples/integrations/mcp-apps/threejs-server/vite.config.ts
 examples/integrations/ms-agent-framework-dotnet/next.config.ts
 examples/integrations/ms-agent-framework-python/next.config.ts
+examples/integrations/openclaw/next.config.ts
 examples/integrations/pydantic-ai/next.config.ts
 examples/integrations/strands-python/next.config.ts
 examples/showcases/a2a-travel/next.config.ts
