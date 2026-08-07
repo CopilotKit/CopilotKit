@@ -1,6 +1,8 @@
 # ── User-editable settings ──────────────────────────────────────────────────
 stack_name_base: my-copilotkit-agentcore-lg # max 35 chars; used as prefix for all AWS resources
 admin_user_email: # e.g. you@example.com — auto-creates a Cognito user
+copilotkit_intelligence_api_key_secret_name: copilotkit/intelligence/api-key
+copilotkit_license_token_secret_name: copilotkit/intelligence/license-token
 
 backend:
   # Set automatically by deploy scripts — do not edit.
