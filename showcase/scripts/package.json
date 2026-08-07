@@ -12,6 +12,7 @@
     "validate-manifests": "tsx generate-registry.ts --validate-only",
     "validate-routes": "tsx validate-runtime-routes.ts --all",
     "showcase:audit": "tsx audit.ts",
+    "mutation-gate": "tsx mutation-gate/mutation-gate.ts",
     "create-integration": "tsx create-integration/index.ts",
     "bundle-content": "tsx bundle-demo-content.ts",
     "bundle-angular-content": "tsx bundle-angular-source-content.ts",

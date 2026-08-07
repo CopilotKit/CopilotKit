@@ -1,0 +1,515 @@
+{
+  "expectedRemoteSlug": "CopilotKit/CopilotKit",
+  "measuredAt": "938be2accf2ae42d12003618bcd9ebd3d514609c",
+  "pendingSources": [
+    {
+      "ref": "fix/6156-pb-evaluator-fidelity (unit Q2)",
+      "commit": null,
+      "status": "IN FLIGHT — not yet a commit, so nothing can be anchored against it.",
+      "seeds": "The PB query evaluator's fidelity holes, each of which is a mutation of `shell-dashboard/src/hooks/__tests__/pb-query-eval.ts` against the autocancel + bounds suites: single-quoted string literals (the real SDK's quoting) rejected by `tokenize`; a parse throw escaping the node:http handler so no response is written; `applyPbSort` silently no-opping on `-key`; case-SENSITIVE `like()` where PB's LIKE is not; `_` in a pattern suppressing PB's implicit `%…%` wrap; `comparePbField` comparing fail_count as strings so \"10\" < \"2\". Seed from round-2-slot-5-b F1/F2/F4/F7 and round-2-slot-6-a F2/F3."
+    },
+    {
+      "ref": "fix/6156-inv7-gap-carveout (unit Q3)",
+      "commit": "49bf40943f",
+      "status": "MEASURED, NOT SEEDABLE — the carve-out it adds does not exist at this manifest's `measuredAt`, so an entry targeting it would fail the anchor pre-flight. Verified against 49bf40943f: none of the 21 existing entries change verdict there, so Q3 neither closes nor opens any gap this manifest tracks.",
+      "seeds": "Two entries once it lands: (1) delete the ladder-gap carve-out and assert only the new I1-shape test fails — Q3's own red-green; (2) flip the in-suite `opts.ladderGapAllowance` switch to `false` and assert the carve-out's tests fail, which pins the switch as load-bearing rather than dead configuration."
+    }
+  ],
+  "suites": {
+    "dashboard-hooks": {
+      "package": "showcase/shell-dashboard",
+      "vitestBin": "node_modules/.bin/vitest",
+      "timeoutMs": 600000,
+      "requires": "`npm run pretest` (generate-registry + probe-docs) must have produced src/data/*.json, or every suite fails as a load error. Scope stays under src/ on purpose: tests/runtime-env-switch.spike.test.ts stalls a bare `vitest run` for ~25 min at 0% CPU (0.0% CPU, never spawns its `next build`). The 10-minute timeout is deliberately far above the ~5s these jsdom suites take unloaded: on a busy machine they have been measured 3-6x slower, and one run died at 161s without writing its JSON report at all, so a tight bound produces false FATALs rather than findings. It still sits well below the spike test's hang."
+    },
+    "harness-cell-model": {
+      "package": "showcase/harness",
+      "vitestBin": "node_modules/.bin/vitest",
+      "timeoutMs": 120000,
+      "requires": "Nothing generated; the cell-model suites are pure. The whole directory runs in under a second."
+    }
+  },
+  "mutants": [
+    {
+      "id": "bulk-merge/drop-short-page",
+      "provenance": "round-1-fix-A5.md §3 M1; round-1-slot-6-a.md M3; re-measured by round-1-integration.md §1.1",
+      "guards": "Class F / #4504 dropped-tail pagination. The fake PB servers originally ignored `filter`, so the supplemental fetch's leftover-append silently reconstructed any row the bulk merge dropped BEFORE the assertions ran — dropping the entire short page left all three autocancel tests green.",
+      "suite": "dashboard-hooks",
+      "edits": [
+        {
+          "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.ts",
+          "find": "const lastIdx = shortIdx === -1 ? waveResults.length - 1 : shortIdx;",
+          "replace": "const lastIdx = shortIdx === -1 ? waveResults.length - 1 : shortIdx - 1;"
+        }
+      ],
+      "scope": ["src/hooks/useLiveStatus.autocancel.test.tsx"],
+      "expect": "kill",
+      "mustFail": [
+        "useLiveStatus (real PocketBase SDK — auto-cancellation regression) reaches live with ALL pages despite concurrent same-path fan-out",
+        "useLiveStatus (real PocketBase SDK — mid-wave short-page pagination) keeps the whole tail when the short page is the last wave element, with no second wave and no duplicates",
+        "useLiveStatus (real PocketBase SDK — short page as FIRST wave element) stops at a short page that is NOT the last wave element, merging no later same-wave page and never arming a second wave"
+      ]
+    },
+    {
+      "id": "bulk-merge/no-boundary",
+      "provenance": "round-1-fix-A5.md §3 M2; round-1-slot-6-a.md M2; re-measured by round-1-integration.md §1.1",
+      "guards": "The 'merge stops at the FIRST short page' boundary. Real PB pagination is monotonic, so the page after a short page is empty and appending it changes nothing — which is exactly why deleting the boundary logic used to be invisible. Only the adversarial POISON-rows fixture separates the two.",
+      "suite": "dashboard-hooks",
+      "edits": [
+        {
+          "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.ts",
+          "find": "const lastIdx = shortIdx === -1 ? waveResults.length - 1 : shortIdx;",
+          "replace": "const lastIdx = waveResults.length - 1;"
+        }
+      ],
+      "scope": ["src/hooks/useLiveStatus.autocancel.test.tsx"],
+      "expect": "kill",
+      "mustFail": [
+        "useLiveStatus (real PocketBase SDK — short page as FIRST wave element) stops at a short page that is NOT the last wave element, merging no later same-wave page and never arming a second wave"
+      ]
+    },
+    {
+      "id": "bulk-merge/reverse-page-order",
+      "provenance": "round-1-fix-A5.md §3 M3; re-measured by round-1-integration.md §1.1",
+      "guards": "Page ORDER, isolated from the row SET. The old `.some(id === last)` membership probe passed on any permutation; only an `.at(-1)` boundary assertion can see a reordered merge.",
+      "suite": "dashboard-hooks",
+      "edits": [
+        {
+          "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.ts",
+          "find": "return { rows: pages.flat(), truncated };",
+          "replace": "return { rows: pages.flat().reverse(), truncated };"
+        }
+      ],
+      "scope": ["src/hooks/useLiveStatus.autocancel.test.tsx"],
+      "expect": "kill",
+      "mustFail": [
+        "useLiveStatus (real PocketBase SDK — mid-wave short-page pagination) keeps the whole tail when the short page is the last wave element, with no second wave and no duplicates",
+        "useLiveStatus (real PocketBase SDK — short page as FIRST wave element) stops at a short page that is NOT the last wave element, merging no later same-wave page and never arming a second wave"
+      ]
+    },
+    {
+      "id": "bulk-fetch/requestkey-autocancel",
+      "provenance": "round-1-slot-6-a.md M1 (the suite's own headline red-green claim)",
+      "guards": "The PocketBase SDK's default auto-cancellation. Without `requestKey: null` every same-path page after the first cancels its predecessor, `Promise.all` rejects, and the hook drops to OFFLINE. This is the regression the autocancel suite exists for.",
+      "suite": "dashboard-hooks",
+      "edits": [
+        {
+          "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.ts",
+          "find": "      const listOpts = filter\n        ? {\n            filter,\n            sort: INITIAL_SORT,\n            fields: STATUS_LIST_FIELDS,\n            skipTotal: true,\n            requestKey: null,\n          }\n        : {\n            sort: INITIAL_SORT,\n            fields: STATUS_LIST_FIELDS,\n            skipTotal: true,\n            requestKey: null,\n          };",
+          "replace": "      const listOpts = filter\n        ? {\n            filter,\n            sort: INITIAL_SORT,\n            fields: STATUS_LIST_FIELDS,\n            skipTotal: true,\n          }\n        : {\n            sort: INITIAL_SORT,\n            fields: STATUS_LIST_FIELDS,\n            skipTotal: true,\n          };"
+        }
+      ],
+      "scope": ["src/hooks/useLiveStatus.autocancel.test.tsx"],
+      "expect": "kill",
+      "mustFail": [
+        "useLiveStatus (real PocketBase SDK — auto-cancellation regression) reaches live with ALL pages despite concurrent same-path fan-out",
+        "useLiveStatus (real PocketBase SDK — mid-wave short-page pagination) keeps the whole tail when the short page is the last wave element, with no second wave and no duplicates",
+        "useLiveStatus (real PocketBase SDK — short page as FIRST wave element) stops at a short page that is NOT the last wave element, merging no later same-wave page and never arming a second wave"
+      ]
+    },
+    {
+      "id": "page-cap/widened-to-100000",
+      "provenance": "round-1-fix-FETCH.md §4 F1; re-measured by round-1-integration.md §1.2",
+      "guards": "The first-paint page budget in the WIDENING direction — an unbounded read blocking first paint, and the bulk path failing to surface an error instead of a partial matrix.",
+      "suite": "dashboard-hooks",
+      "edits": [
+        {
+          "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.ts",
+          "find": "const MAX_INITIAL_FETCH_PAGES = 20;",
+          "replace": "const MAX_INITIAL_FETCH_PAGES = 100000;"
+        }
+      ],
+      "scope": ["src/hooks/useLiveStatus.supplemental-bounds.test.tsx"],
+      "expect": "kill",
+      "mustFail": [
+        "useLiveStatus supplemental fetch — page bound stops after MAX_INITIAL_FETCH_PAGES instead of paginating without bound",
+        "useLiveStatus bulk fetch — page bound fails loud never requests past the cap, and surfaces an error instead of a partial matrix"
+      ]
+    },
+    {
+      "id": "page-cap/halved-to-10",
+      "provenance": "round-2-slot-5-b.md F5 (empirically probed there); round-2-slot-3-b.md finding 8",
+      "guards": "The same page budget in the NARROWING direction — the harmful one. A silently narrowed first-paint budget strips `signal` off rows the supplemental fetch never reaches and makes the BULK read throw `exceeded … pages` on a healthy fleet, i.e. it converts the guard into an outage. This is the exact bug class PR #6156 exists to fix.",
+      "suite": "dashboard-hooks",
+      "edits": [
+        {
+          "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.ts",
+          "find": "const MAX_INITIAL_FETCH_PAGES = 20;",
+          "replace": "const MAX_INITIAL_FETCH_PAGES = 10;"
+        }
+      ],
+      "scope": ["src/hooks/useLiveStatus.supplemental-bounds.test.tsx"],
+      "expect": "survive",
+      "knownGap": {
+        "kind": "coverage-gap",
+        "reason": "`EXPECTED_MAX_INITIAL_PAGES = 20` is documented as a drift pin, but every assertion is an UPPER bound (`toBeLessThanOrEqual(20)`, `not.toContain(21)`), so `length <= 20` and `max <= 20` hold at any smaller cap. The `console.warn`/`status === \"error\"` assertions still fire because the runaway server serves 40 full pages either way.",
+        "closedBy": "Assert EQUALITY, not a bound: `expect(runawaySupplementalPages).toEqual(Array.from({length: EXPECTED_MAX_INITIAL_PAGES}, (_, i) => i + 1))`, and export `MAX_INITIAL_FETCH_PAGES` so the \"MUST match\" comment is mechanical. Owned by the concurrent fetch-bounds agent."
+      },
+      "ratchet": {
+        "measuredAt": "67c2c8c5c4",
+        "ref": "fix/6156-truncated-boundary (unit Q1)",
+        "expect": "kill",
+        "mustFail": [
+          "useLiveStatus supplemental fetch — page bound pins the cap MECHANICALLY to the implementation constant, in both directions",
+          "useLiveStatus supplemental fetch — page bound stops after MAX_INITIAL_FETCH_PAGES instead of paginating without bound",
+          "useLiveStatus bulk fetch — page bound fails loud never requests past the cap, and surfaces an error instead of a partial matrix"
+        ],
+        "note": "Q1 gives the cap a TWO-SIDED guard and adds a test that pins it mechanically to the implementation constant, growing the bounds suite 6 → 7 tests. Measured on that branch: 3 of the 7 fail at cap 10 (and the same 3 at cap 5), where all 6 passed before."
+      }
+    },
+    {
+      "id": "page-cap/cut-to-5",
+      "provenance": "round-2-slot-6-a.md F1 (confirms `= 5` also passes)",
+      "guards": "Same as page-cap/halved-to-10, at a cap BELOW the collection's real page count (~7 today), which is where the narrowing becomes a live outage rather than a latent one.",
+      "suite": "dashboard-hooks",
+      "edits": [
+        {
+          "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.ts",
+          "find": "const MAX_INITIAL_FETCH_PAGES = 20;",
+          "replace": "const MAX_INITIAL_FETCH_PAGES = 5;"
+        }
+      ],
+      "scope": ["src/hooks/useLiveStatus.supplemental-bounds.test.tsx"],
+      "expect": "survive",
+      "knownGap": {
+        "kind": "coverage-gap",
+        "reason": "Identical one-sided-bound hole to page-cap/halved-to-10. Kept as a separate entry because a partial fix that merely tightens the bound (e.g. `>= 10`) would close one and not the other, and the gate should say which.",
+        "closedBy": "Same equality pin as page-cap/halved-to-10."
+      },
+      "ratchet": {
+        "measuredAt": "67c2c8c5c4",
+        "ref": "fix/6156-truncated-boundary (unit Q1)",
+        "expect": "kill",
+        "mustFail": [
+          "useLiveStatus supplemental fetch — page bound pins the cap MECHANICALLY to the implementation constant, in both directions",
+          "useLiveStatus supplemental fetch — page bound stops after MAX_INITIAL_FETCH_PAGES instead of paginating without bound",
+          "useLiveStatus bulk fetch — page bound fails loud never requests past the cap, and surfaces an error instead of a partial matrix"
+        ],
+        "note": "Closed by the same two-sided guard as page-cap/halved-to-10, and by the same 3 tests — so the fix is not a bound that was merely tightened to some other one-sided value."
+      }
+    },
+    {
+      "id": "supplemental/failure-becomes-fatal",
+      "provenance": "round-1-fix-FETCH.md §4 F2; re-measured by round-1-integration.md §1.2",
+      "guards": "The non-fatal-by-construction posture of the enrichment read. Letting the supplemental rejection propagate meant `setRows([])` + `status: \"error\"` — a supplemental outage blanking the ENTIRE dashboard behind an offline banner.",
+      "suite": "dashboard-hooks",
+      "edits": [
+        {
+          "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.ts",
+          "find": "      const supplementalPromise = fetchSupplementalSignalRows().catch(\n        (err: unknown) => {\n          // eslint-disable-next-line no-console\n          console.warn(\n            \"[useLiveStatus] supplemental signal fetch failed; rendering with \" +\n              \"`signal` unknown (non-green rows stay red, comm-error overlays \" +\n              \"wait for their next SSE delta)\",\n            { topic: dimension ?? \"<all>\", err },\n          );\n          // Empty is exactly \"nothing to merge\" for the merge below, so the\n          // degraded path needs no separate branch.\n          return [] as StatusRow[];\n        },\n      );",
+          "replace": "      const supplementalPromise = fetchSupplementalSignalRows();"
+        }
+      ],
+      "scope": ["src/hooks/useLiveStatus.supplemental-bounds.test.tsx"],
+      "expect": "kill",
+      "mustFail": [
+        "useLiveStatus supplemental fetch — failure degrades, never blanks renders the matrix — with reds still RED — when the supplemental fetch 500s"
+      ]
+    },
+    {
+      "id": "supplemental/drop-signal-projection",
+      "provenance": "round-1-fix-FETCH.md §4 F3; re-measured by round-1-integration.md §1.2",
+      "guards": "The supplemental read's `fields=` projection. Without it the fetch returns PB's default shape, so the cold-load rows never carry `signal` and the whole point of the supplemental fetch evaporates while the bulk read still looks healthy.",
+      "suite": "dashboard-hooks",
+      "edits": [
+        {
+          "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.ts",
+          "find": "        fields: STATUS_SIGNAL_FIELDS,\n",
+          "replace": ""
+        }
+      ],
+      "scope": [
+        "src/hooks/useLiveStatus.supplemental-bounds.test.tsx",
+        "src/hooks/useLiveStatus.test.tsx"
+      ],
+      "expect": "kill",
+      "mustFail": [
+        "useLiveStatus supplemental fetch — cold-load correctness + projection projects to exactly the declared StatusRow shape (signal included) and selects only the rows that need it",
+        "useLiveStatus supplemental comm-error aggregate fetch (CF7-F3 #1) requests ONLY aggregate-shaped keys for the comm-error dimensions (narrow filter)",
+        "useLiveStatus supplemental comm-error aggregate fetch (CF7-F3 #1) the unscoped supplemental filter also covers every NON-GREEN row"
+      ]
+    },
+    {
+      "id": "fanout/serialized-dispatch",
+      "provenance": "round-1-slot-6-a.md F3/M4, restated as an effective mutation (see knownGap)",
+      "guards": "The claim that the page fan-out is issued CONCURRENTLY. `INITIAL_FANOUT_BATCH = 1` makes the read fully serial — one page per wave, each awaited before the next is issued — which is the regression that reinstates the pre-fan-out first-paint latency the fan-out was added to remove.",
+      "suite": "dashboard-hooks",
+      "edits": [
+        {
+          "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.ts",
+          "find": "const INITIAL_FANOUT_BATCH = 2;",
+          "replace": "const INITIAL_FANOUT_BATCH = 1;"
+        }
+      ],
+      "scope": ["src/hooks/useLiveStatus.test.tsx"],
+      "expect": "survive",
+      "knownGap": {
+        "kind": "coverage-gap",
+        "reason": "The 'AND concurrent' assertion is `initialPageRequestOrder.sort() === [1,2,3]` plus `toContain(2)`/`toContain(3)`, which is equally true of a fully serial implementation — it records WHICH pages were issued, never that any two were in flight together. Slot 6's literal mutation (`Promise.all(wave)` → sequential `await`s) is a NO-OP for the same reason it stayed green: the promises are created eagerly at `wave.push(pb…getList(…))`, so awaiting them in sequence does not serialize dispatch. Narrowing the batch to 1 does, and 24/24 still pass.",
+        "closedBy": "Record an issue-time timestamp (or an in-flight counter) per page and assert page 3 was issued while page 2 was still unresolved. Also fix the in-place `.sort()` (round-2 F11) that destroys the recorded issue order."
+      }
+    },
+    {
+      "id": "polarity/pre-pr-gray-gate",
+      "provenance": "round-1-fix-G1.md GM-1; re-measured by round-1-integration.md Deliverable 2",
+      "guards": "The whole subject of PR #6156: reinstating the pre-PR gate that painted a red rung with a projected-away `signal` as NO_DATA (gray) instead of red. This is the single most load-bearing mutation in the manifest — it is the production bug itself, and it must stay visible at golden-master, coherence AND unit level.",
+      "suite": "harness-cell-model",
+      "edits": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.contribution.ts",
+          "find": "  if (fold.redSignalKnown && !fold.hasNonInfraRed) {\n    return { ...base, contribution: \"INFRA_RED_FRESH\", rawStatus };\n  }",
+          "replace": "  if (!fold.redSignalKnown) {\n    return { ...base, contribution: \"NO_DATA\", rawStatus: null };\n  }\n  if (fold.redSignalKnown && !fold.hasNonInfraRed) {\n    return { ...base, contribution: \"INFRA_RED_FRESH\", rawStatus };\n  }"
+        }
+      ],
+      "scope": ["src/shared/cell-model/"],
+      "expect": "kill",
+      "mustFail": [
+        "§7 I5: cold-load stripped signal → red (pending attribution) red D3 with signal stripped → red, and counts as a regression",
+        "§7 §D: infra-gray precondition is RED-ROW-scoped (mixed-state family) a red row whose OWN `signal` was stripped still renders RED (fail-safe polarity retained)",
+        "cell-model coherence — cross-field invariants over the fixture matrix coheres for fixture: pos-d3-red-signal-unknown",
+        "cell-model coherence — cross-field invariants over the fixture matrix coheres for fixture: pos-d4-red-signal-unknown",
+        "cell-model coherence — cross-field invariants over the fixture matrix coheres for fixture: pos-d5-red-signal-unknown",
+        "classifyRung — §3 rules red with stripped signal → FAIL_FRESH, never grayed away (rule 4 / §D)",
+        "classifyRung — §3 rules stripped signal never reaches INFRA_RED_FRESH even with an infra sibling",
+        "buildCellModel — golden-master identity matches baseline for fixture: pos-d3-red-signal-unknown",
+        "buildCellModel — golden-master identity matches baseline for fixture: pos-d4-red-signal-unknown",
+        "buildCellModel — golden-master identity matches baseline for fixture: pos-d5-red-signal-unknown",
+        "buildCellModel — golden-master identity matches baseline for fixture: pos-d6-red-signal-unknown"
+      ]
+    },
+    {
+      "id": "polarity/drop-redsignalknown-conjunct",
+      "provenance": "round-1-fix-G1.md GM-2; re-measured by round-1-integration.md §1.3",
+      "guards": "Nothing — and that is the point of recording it. `signalHasInfraErrorClass(undefined) === false`, so a stripped red row forces `hasNonInfraRed` on its own and the conjunct is behaviourally redundant TODAY.",
+      "suite": "harness-cell-model",
+      "edits": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.contribution.ts",
+          "find": "  if (fold.redSignalKnown && !fold.hasNonInfraRed) {",
+          "replace": "  if (!fold.hasNonInfraRed) {"
+        }
+      ],
+      "scope": ["src/shared/cell-model/"],
+      "expect": "survive",
+      "knownGap": {
+        "kind": "by-design",
+        "reason": "The conjunct is documented in the source as defence-in-depth: it exists so an absent `signal` blob can never be read as an infra attribution even if `signalHasInfraErrorClass` is loosened later. It is redundant with `!hasNonInfraRed` at present, so 198/198 stay green — correctly. Recorded so the next reviewer does not re-derive this as a coverage hole (it was raised as one in round 1 and closed as not-a-defect).",
+        "closedBy": "Nothing to close. If `signalHasInfraErrorClass` is ever loosened to treat `undefined` as infra-classed, this entry becomes a `kill` and the gate will say so."
+      }
+    },
+    {
+      "id": "polarity/redsignalknown-family-scope",
+      "provenance": "round-1-fix-G1.md Route 1; re-measured by round-1-integration.md §1.3",
+      "guards": "The RED-ROW scoping of the infra-gray precondition. Widening it to the whole family lets a GREEN sibling whose `signal` was projected away suppress a legitimate infra gray — the scope regression G1 fixed, invisible to every single-key fixture because there the family's one row IS the red row.",
+      "suite": "harness-cell-model",
+      "edits": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.contribution.ts",
+          "find": "  if (fold.redSignalKnown && !fold.hasNonInfraRed) {",
+          "replace": "  if (raw.rows.every((r) => r.signal !== undefined) && !fold.hasNonInfraRed) {"
+        }
+      ],
+      "scope": ["src/shared/cell-model/"],
+      "expect": "kill",
+      "mustFail": [
+        "§7 §D: infra-gray precondition is RED-ROW-scoped (mixed-state family) D4: infra-classed red `tools` + green `chat` grays — even when the green sibling's `signal` was projected away",
+        "§7 §D: infra-gray precondition is RED-ROW-scoped (mixed-state family) D5 multi-key: one infra-classed red pill + green sibling pills grays under the cold-load projection",
+        "§7 §D: infra-gray precondition is RED-ROW-scoped (mixed-state family) D6 multi-key: the `d6Effective` badge does not drift between the server and cold-load reads",
+        "classifyRung — §3 rules a projected-away GREEN sibling does not block the infra gray (red-row scope)"
+      ]
+    },
+    {
+      "id": "goldenmaster/redsignalknown-family-scope",
+      "provenance": "round-2-slot-7-a.md N2 item 4",
+      "guards": "The SAME scope regression as polarity/redsignalknown-family-scope, measured against the golden master ALONE. The pair defines the coverage boundary: G1's hand-written unit tests catch it, the 56-entry baseline does not.",
+      "suite": "harness-cell-model",
+      "edits": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.contribution.ts",
+          "find": "  if (fold.redSignalKnown && !fold.hasNonInfraRed) {",
+          "replace": "  if (raw.rows.every((r) => r.signal !== undefined) && !fold.hasNonInfraRed) {"
+        }
+      ],
+      "scope": ["src/shared/cell-model/cell-model.equivalence.test.ts"],
+      "expect": "survive",
+      "knownGap": {
+        "kind": "coverage-gap",
+        "reason": "In every `pos-d*-red-signal-unknown` fixture EVERY row of the affected family is red-with-`signal: undefined`, so the red-row scope and the family scope coincide and the widening is invisible across all 56 baseline entries. The source comment calls this scoping 'deliberately and load-bearingly so' — at golden-master level nothing pins it.",
+        "closedBy": "The heterogeneous-family fixtures in convergence-audit lever 7: a D4 `{chat: green with the `signal` key OMITTED, tools: red infra}` entry separates the two scopes. Owned by the concurrent fixture/golden-master agent."
+      },
+      "ratchet": {
+        "measuredAt": "3c1177838f",
+        "ref": "fix/6156-fixture-coverage-polarity (unit Q4)",
+        "expect": "kill",
+        "mustFail": [
+          "buildCellModel — golden-master identity matches baseline for fixture: hetero-d4-green-stripped-infra-red"
+        ],
+        "note": "Q4 adds exactly the heterogeneous fixture this gap called for, and it is the ONLY new failure — the golden master grows 57 → 62 entries and one of them separates the red-row scope from the family scope."
+      }
+    },
+    {
+      "id": "goldenmaster/failcount-min-not-max",
+      "provenance": "round-2-slot-7-a.md N2 item 1",
+      "guards": "`maxNonInfraRedFailCount`'s MAX aggregation, measured against the golden master alone. Paired with aggregation/failcount-min-not-max below.",
+      "suite": "harness-cell-model",
+      "edits": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.contribution.ts",
+          "find": ": Math.max(maxNonInfraRedFailCount, row.fail_count);",
+          "replace": ": Math.min(maxNonInfraRedFailCount, row.fail_count);"
+        }
+      ],
+      "scope": ["src/shared/cell-model/cell-model.equivalence.test.ts"],
+      "expect": "survive",
+      "knownGap": {
+        "kind": "coverage-gap",
+        "reason": "Every red family in the fixture matrix is HOMOGENEOUS — each variant builder maps one uniform row shape over all keys of a rung — so no fixture anywhere contains two red rows with DIFFERENT `fail_count`s, and MAX and MIN agree on all 56 entries. The source doc at `:329-339` calls MAX load-bearing ('taking the minimum would let one fresh sibling re-arm tolerance for an already-confirmed failure').",
+        "closedBy": "A heterogeneous D4 fixture `{chat: red fc1, tools: red fc3}` (convergence-audit lever 7). NOTE: `aggregation/failcount-min-not-max` proves the hand-written unit suite DOES catch this, so the gap is golden-master-only, not total."
+      },
+      "ratchet": {
+        "measuredAt": "3c1177838f",
+        "ref": "fix/6156-fixture-coverage-polarity (unit Q4)",
+        "expect": "kill",
+        "mustFail": [
+          "buildCellModel — golden-master identity matches baseline for fixture: hetero-d4-red-failcount-max"
+        ],
+        "note": "Q4's `hetero-d4-red-failcount-max` fixture is a D4 family with two reds at DIFFERENT fail_counts, which is exactly what MAX and MIN disagree on. One new fixture, one new failure."
+      }
+    },
+    {
+      "id": "aggregation/failcount-min-not-max",
+      "provenance": "round-2-slot-7-a.md N2 item 1, measured here at full cell-model scope",
+      "guards": "The same MAX aggregation across the WHOLE harness cell-model suite. Recorded as a `kill` because the hand-written `classifyRung` fold tests do pin it — which is what makes the golden-master entry above a bounded gap rather than a total one.",
+      "suite": "harness-cell-model",
+      "edits": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.contribution.ts",
+          "find": ": Math.max(maxNonInfraRedFailCount, row.fail_count);",
+          "replace": ": Math.min(maxNonInfraRedFailCount, row.fail_count);"
+        }
+      ],
+      "scope": ["src/shared/cell-model/"],
+      "expect": "kill",
+      "mustFail": [
+        "classifyRung — §3 rules D4 fold: sustained non-infra red (fc3) + first-strike non-infra sibling (fc1) → FAIL_FRESH, not masked to amber",
+        "classifyRung — §3 rules starter fold: sustained soft red (fc5) + first-strike soft sibling (fc1) → FAIL_FRESH, not masked to amber"
+      ]
+    },
+    {
+      "id": "aggregation/softclass-any-not-every",
+      "provenance": "round-2-slot-7-a.md N2 item 2",
+      "guards": "The `allRedSoftClass` quantifier — 'EVERY non-infra red carries a soft class' vs 'ANY does'. The two differ only on a family with a MIXED soft/hard red pair, which the whole harness suite lacks. Scoped to the entire cell-model directory on purpose: the gap is broader than slot 7a claimed.",
+      "suite": "harness-cell-model",
+      "edits": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.contribution.ts",
+          "find": "  let allRedSoftClass = true;",
+          "replace": "  let allRedSoftClass = false;"
+        },
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.contribution.ts",
+          "find": "        const cls = starterErrorClassFromSignal(row.signal);\n        if (cls === undefined || !SOFT_STARTER_FAILURE_CLASSES.has(cls)) {\n          allRedSoftClass = false;\n        }",
+          "replace": "        const cls = starterErrorClassFromSignal(row.signal);\n        if (cls !== undefined && SOFT_STARTER_FAILURE_CLASSES.has(cls)) {\n          allRedSoftClass = true;\n        }"
+        }
+      ],
+      "scope": ["src/shared/cell-model/"],
+      "expect": "survive",
+      "knownGap": {
+        "kind": "coverage-gap",
+        "reason": "`starterSweep` only ever reds index 0 and every other variant builder is homogeneous, so a family mixing a soft-class red with a hard-class red does not exist anywhere in the matrix — and the quantifiers agree on every family that does. Slot 7a scoped this claim to the 56 golden-master entries; measured here, ALL 198 tests in the cell-model directory stay green, so the gap is total, not golden-master-only.",
+        "closedBy": "A heterogeneous starter fixture `{health: red transport-error, agent: red smoke-failed}` (convergence-audit lever 7) plus a direct `foldFamily` unit test over a mixed soft/hard red pair."
+      },
+      "ratchet": {
+        "measuredAt": "3c1177838f",
+        "ref": "fix/6156-fixture-coverage-polarity (unit Q4)",
+        "expect": "kill",
+        "mustFail": [
+          "buildCellModel — golden-master identity matches baseline for fixture: hetero-starter-mixed-soft-hard"
+        ],
+        "note": "Q4's `hetero-starter-mixed-soft-hard` fixture is the mixed soft/hard starter family that separates the EVERY and ANY quantifiers. Note the scope here is the whole cell-model directory (208 tests at Q4), so this closes the TOTAL gap, not just the golden-master one."
+      }
+    },
+    {
+      "id": "goldenmaster/starter-window-doubled",
+      "provenance": "round-2-slot-7-a.md N7",
+      "guards": "`STARTER_STALE_AFTER_MS`. The 2.5h window is derived in the source ('> 2×1h so two consecutive misses are needed', 'the tightest window satisfying >2 periods'); doubling it to 5h silently doubles how long a dead starter probe reads fresh.",
+      "suite": "harness-cell-model",
+      "edits": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/staleness.ts",
+          "find": "export const STARTER_STALE_AFTER_MS = 2.5 * 60 * 60 * 1000;",
+          "replace": "export const STARTER_STALE_AFTER_MS = 5 * 60 * 60 * 1000;"
+        }
+      ],
+      "scope": ["src/shared/cell-model/cell-model.equivalence.test.ts"],
+      "expect": "survive",
+      "knownGap": {
+        "kind": "coverage-gap",
+        "reason": "No starter fixture sits in the 2.5h–5h band, so widening the window changes no baseline entry. The constant's own derivation comment is the only thing defending it.",
+        "closedBy": "A `starter-one-miss-still-green` fixture at NOW−2h plus a stale counterpart just past the window (convergence-audit lever 7)."
+      }
+    },
+    {
+      "id": "goldenmaster/commerror-decode-disabled",
+      "provenance": "round-2-slot-7-a.md F1 recurrence",
+      "guards": "`decodeCellCommError` — one of the two render-time `signal` readers this PR exists to repair. Making it return `undefined` unconditionally removes the cold-load comm-error overlay entirely.",
+      "suite": "harness-cell-model",
+      "edits": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.ts",
+          "find": "): PoolCommError | undefined {\n  // Per-cell D6/D5 rows fan out over the mapped featureType family. Each",
+          "replace": "): PoolCommError | undefined {\n  return undefined;\n  // Per-cell D6/D5 rows fan out over the mapped featureType family. Each"
+        }
+      ],
+      "scope": ["src/shared/cell-model/cell-model.equivalence.test.ts"],
+      "expect": "survive",
+      "knownGap": {
+        "kind": "coverage-gap",
+        "reason": "`commErrorKind` is `null` in all 56 baseline entries, so the golden master is byte-identical whether `decodeCellCommError` decodes anything or returns nothing at all. The behaviour-preservation claim the baseline carries therefore says nothing about the comm-error surface.",
+        "closedBy": "At least one fixture with a mirrored comm-error aggregate row, plus `expect(apiCell.commError).toEqual(model.commError)` in the api↔render equality loop (round-2-slot-6-a F7)."
+      }
+    },
+    {
+      "id": "inv7/contributingkeys-total-drift",
+      "provenance": "round-1-fix-INV7.md 'Teeth proof 3' (MUTATE_VACUOUS=1)",
+      "guards": "INV7's own ANTI-VACUITY guard. `contributingKeys` is a test-side reconstruction of the engine's keyspace; if it drifts, the narrowed INV7 silently passes everything. This mutation targets a TEST file on purpose — the thing under test is the guard, not the engine.",
+      "suite": "harness-cell-model",
+      "edits": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.coherence.test.ts",
+          "find": "function contributingKeys(input: CellModelInput): string[] {",
+          "replace": "function contributingKeys(input: CellModelInput): string[] {\n  if (input) return [];"
+        }
+      ],
+      "scope": ["src/shared/cell-model/cell-model.coherence.test.ts"],
+      "expect": "kill",
+      "mustFail": [
+        "cell-model coherence — cross-field invariants over the fixture matrix coheres for fixture: pos-d3-red-infra",
+        "cell-model coherence — cross-field invariants over the fixture matrix coheres for fixture: pos-d4-red-infra",
+        "cell-model coherence — cross-field invariants over the fixture matrix coheres for fixture: pos-d5-red-infra",
+        "cell-model coherence — INV7 soundness (scope + stale exemption) PASSES a legitimately-gray infra cell when an UNRELATED cell's row is red",
+        "cell-model coherence — INV7 soundness (scope + stale exemption) PASSES the same infra cell with no unrelated rows (control)"
+      ]
+    },
+    {
+      "id": "inv7/contributingkeys-partial-drift",
+      "provenance": "round-2-slot-2-b.md M3 / convergence-audit.md Class A2",
+      "guards": "The same anti-vacuity guard against PARTIAL drift — dropping ONE key (`chat:<slug>`) rather than all of them. This is the realistic drift shape: someone adds or renames a rung family and the hand-mirrored keyspace loses one entry.",
+      "suite": "harness-cell-model",
+      "edits": [
+        {
+          "file": "showcase/harness/src/shared/cell-model/cell-model.coherence.test.ts",
+          "find": "    keyFor(\"e2e\", input.slug, featureId),\n    keyFor(\"chat\", input.slug),\n    keyFor(\"tools\", input.slug),",
+          "replace": "    keyFor(\"e2e\", input.slug, featureId),\n    keyFor(\"tools\", input.slug),"
+        }
+      ],
+      "scope": ["src/shared/cell-model/cell-model.coherence.test.ts"],
+      "expect": "survive",
+      "knownGap": {
+        "kind": "coverage-gap",
+        "reason": "The guard is `expect(redRows.length).toBeGreaterThan(0)`, which only fires when the derived key set produces NO contributing red row at all. Dropping one key still leaves others red, so INV7 quietly stops checking the `chat:<slug>` family and 66/66 stay green.",
+        "closedBy": "Export `contributingKeysFor(input)` from the engine and delete the test-side mirror (convergence-audit lever 2), or assert the derived set EQUALS the engine's collected keyspace rather than merely being non-empty."
+      }
+    }
+  ]
+}
