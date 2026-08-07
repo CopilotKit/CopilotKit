@@ -54,6 +54,8 @@ examples/showcases/open-mcp-client/apps/web/next.config.ts
 examples/showcases/oracle-agent-memory/frontend/next.config.ts
 examples/showcases/orca/frontend/next.config.mjs
 examples/showcases/presentation/next.config.mjs
+examples/showcases/project-management-copilot/apps/app/src/vite-env.d.ts
+examples/showcases/project-management-copilot/apps/app/vite.config.ts
 examples/showcases/pydantic-ai-todos/next.config.ts
 examples/showcases/research-canvas/final/frontend/next.config.ts
 examples/showcases/research-canvas/frontend/next.config.ts

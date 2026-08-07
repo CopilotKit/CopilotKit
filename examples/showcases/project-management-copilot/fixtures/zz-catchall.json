@@ -1,0 +1,12 @@
+{
+  "name": "zz-catchall",
+  "description": "Last-resort catch-all. MUST sort alphabetically after every other fixture file because aimock's loader concatenates files in sorted filename order and matches first-fixture-wins. Putting an empty-match {} in default.json would shadow every later file (sprint-planning, hitl-move-issue, etc.) and make those demos unreachable.",
+  "fixtures": [
+    {
+      "match": {},
+      "response": {
+        "content": "You're currently running against aimock (a mock LLM server). This response is a catch-all for requests that don't match any test fixture. To use a real LLM: (1) Add your OPENAI_API_KEY to .env, (2) Remove or unset OPENAI_BASE_URL from your environment so requests go to OpenAI instead of aimock, (3) Restart with `npm run dev`."
+      }
+    }
+  ]
+}

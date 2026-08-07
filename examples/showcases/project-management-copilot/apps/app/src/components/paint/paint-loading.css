@@ -1,0 +1,504 @@
+/* =========================================================================
+ * Paint-In Loading — surface + phase styles
+ * -------------------------------------------------------------------------
+ * Self-contained. Imported once from main.tsx. No Tailwind, no preprocessor,
+ * no theme system required.
+ *
+ * Required JSX shape (provided by ./PaintFrame.tsx):
+ *
+ *   <div class="paint-surface" data-theme="viewer" data-empty="true|false">
+ *     <div class="paint-surface-meta">…optional chrome pills…</div>
+ *     <div class="paint-node paint-node--Column" data-state="skeleton|wireframe|rendered" data-id="…">
+ *       <span class="paint-tag">Column · #root</span>
+ *       …children…
+ *     </div>
+ *   </div>
+ *
+ * Variants (additional classes on the same .paint-node element):
+ *   - Text variant:   paint-text--title | paint-text--eyebrow | paint-text--kpi
+ *                     paint-text--body | paint-text--muted
+ *   - Button variant: paint-button--ghost
+ *   - Icon variant:   paint-icon--green | paint-icon--amber | paint-icon--red | paint-icon--pink
+ *   - Card variant:   paint-card--kpi
+ *
+ * Phase durations are controlled in JS (PaintFrame.tsx phaseSkeletonMs /
+ * phaseWireframeMs props).
+ *
+ * Light-theme override block sits at the end — wrap your PaintSurface (or
+ * one of its ancestors) in `.paint-light` to flip the dark defaults for
+ * placement on a light page background.
+ * =========================================================================*/
+
+:root {
+  --paint-bg-0: #07070b;
+  --paint-bg-1: #0d0e14;
+  --paint-bg-2: #14151d;
+  --paint-line: rgba(255, 255, 255, 0.07);
+  --paint-line-2: rgba(255, 255, 255, 0.12);
+  --paint-txt-0: #e9eaf2;
+  --paint-txt-1: #b6b9c8;
+  --paint-txt-2: #7a7e92;
+  --paint-txt-3: #4d5061;
+  --paint-indigo: #7c8cff;
+  --paint-indigo-2: #4d63f5;
+  --paint-pink: #ff6fb4;
+  --paint-teal: #4fd1c5;
+  --paint-amber: #ffb547;
+  --paint-green: #5ad48a;
+  --paint-red: #ff6b6b;
+  --paint-mono:
+    ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+
+  /* timing — match PaintFrame defaults */
+  --paint-t-phase: 0.35s;
+  --paint-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ── Surface ─────────────────────────────────────────────────────────── */
+.paint-surface {
+  position: relative;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px dashed transparent;
+  background: transparent;
+  transition:
+    border-color 0.4s var(--paint-ease),
+    background 0.6s var(--paint-ease);
+}
+.paint-surface[data-empty="true"] {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.015);
+}
+.paint-surface[data-theme="viewer"][data-empty="false"] {
+  background: linear-gradient(
+    180deg,
+    rgba(20, 21, 29, 0.5),
+    rgba(13, 14, 20, 0.5)
+  );
+  border-color: transparent;
+}
+.paint-surface[data-theme="transparent"] {
+  background: transparent !important;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+.paint-surface[data-theme="transparent"][data-empty="false"] {
+  border-color: transparent;
+}
+.paint-surface[data-theme="none"] {
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.paint-surface-meta {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--paint-mono);
+  font-size: 11px;
+  color: var(--paint-txt-2);
+  pointer-events: none;
+  z-index: 2;
+}
+.paint-surface-meta .paint-pill {
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--paint-line);
+}
+
+/* ── Node base ───────────────────────────────────────────────────────── */
+.paint-node {
+  position: relative;
+  opacity: 0;
+  transform: scale(0.985) translateY(4px);
+  transition:
+    opacity var(--paint-t-phase) var(--paint-ease),
+    transform var(--paint-t-phase) var(--paint-ease),
+    background-color 0.5s var(--paint-ease),
+    border-color 0.5s var(--paint-ease),
+    box-shadow 0.5s var(--paint-ease);
+}
+.paint-node[data-mounted="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Skeleton — dashed indigo border + glow */
+.paint-node[data-state="skeleton"] {
+  border: 1px dashed rgba(124, 140, 255, 0.45) !important;
+  background: rgba(124, 140, 255, 0.03) !important;
+  box-shadow:
+    0 0 0 1px rgba(124, 140, 255, 0.06),
+    0 8px 30px -20px rgba(124, 140, 255, 0.6);
+}
+/* Wireframe — solid neutral footprint */
+.paint-node[data-state="wireframe"] {
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Floating label tag (visible in skeleton/wireframe only) */
+.paint-tag {
+  position: absolute;
+  top: -9px;
+  left: 8px;
+  font-family: var(--paint-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
+  color: var(--paint-indigo);
+  background: var(--paint-bg-1);
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(124, 140, 255, 0.35);
+  opacity: 0;
+  transition: opacity 0.25s var(--paint-ease);
+  pointer-events: none;
+  z-index: 3;
+  white-space: nowrap;
+}
+.paint-node[data-state="skeleton"] > .paint-tag,
+.paint-node[data-state="wireframe"] > .paint-tag {
+  opacity: 1;
+}
+.paint-no-label .paint-tag {
+  display: none;
+}
+
+/* Children hidden until rendered */
+.paint-node[data-state="skeleton"] > .paint-children,
+.paint-node[data-state="wireframe"] > .paint-children {
+  opacity: 0;
+  pointer-events: none;
+}
+.paint-node > .paint-children {
+  opacity: 1;
+  transition: opacity 0.3s var(--paint-ease) 0.05s;
+}
+
+/* ── Structural primitives ───────────────────────────────────────────── */
+.paint-node--Column,
+.paint-node--Row {
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  min-height: 32px;
+}
+.paint-node--Column {
+  flex-direction: column;
+}
+.paint-node--Row {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.paint-node--Column > .paint-children,
+.paint-node--Row > .paint-children {
+  display: contents;
+}
+
+.paint-node--Card {
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--paint-line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 60px;
+}
+.paint-node--Card[data-state="rendered"] {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.015)
+  );
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 40px -30px rgba(0, 0, 0, 0.8);
+}
+.paint-card--kpi {
+  gap: 4px;
+}
+
+/* ── Text ────────────────────────────────────────────────────────────── */
+.paint-node--Text {
+  padding: 0;
+  min-height: 14px;
+  color: var(--paint-txt-0);
+  border: 0 !important;
+  background: transparent !important;
+}
+.paint-node--Text[data-state="wireframe"]::after {
+  content: "";
+  display: block;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  width: var(--paint-text-w, 100%);
+}
+.paint-node--Text[data-state="rendered"] {
+  background: transparent !important;
+}
+.paint-text--title {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.paint-text--eyebrow {
+  font-size: 10.5px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--paint-txt-2);
+  font-family: var(--paint-mono);
+}
+.paint-text--kpi {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+.paint-text--body {
+  font-size: 13px;
+  color: var(--paint-txt-1);
+}
+.paint-text--muted {
+  font-size: 12px;
+  color: var(--paint-txt-2);
+}
+
+.paint-node--Text[data-text-variant="title"] {
+  --paint-text-w: 70%;
+}
+.paint-node--Text[data-text-variant="eyebrow"] {
+  --paint-text-w: 35%;
+}
+.paint-node--Text[data-text-variant="kpi"] {
+  --paint-text-w: 30%;
+}
+.paint-node--Text[data-text-variant="body"] {
+  --paint-text-w: 95%;
+}
+.paint-node--Text[data-text-variant="muted"] {
+  --paint-text-w: 60%;
+}
+
+/* ── Icon ────────────────────────────────────────────────────────────── */
+.paint-node--Icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.paint-node--Icon[data-state="rendered"] {
+  background: rgba(124, 140, 255, 0.15);
+  color: var(--paint-indigo);
+  border: 1px solid rgba(124, 140, 255, 0.25);
+}
+.paint-icon--green[data-state="rendered"] {
+  background: rgba(90, 212, 138, 0.15);
+  color: var(--paint-green);
+  border-color: rgba(90, 212, 138, 0.25);
+}
+.paint-icon--amber[data-state="rendered"] {
+  background: rgba(255, 181, 71, 0.15);
+  color: var(--paint-amber);
+  border-color: rgba(255, 181, 71, 0.25);
+}
+.paint-icon--red[data-state="rendered"] {
+  background: rgba(255, 107, 107, 0.15);
+  color: var(--paint-red);
+  border-color: rgba(255, 107, 107, 0.25);
+}
+.paint-icon--pink[data-state="rendered"] {
+  background: rgba(255, 111, 180, 0.15);
+  color: var(--paint-pink);
+  border-color: rgba(255, 111, 180, 0.25);
+}
+
+/* ── Button ──────────────────────────────────────────────────────────── */
+.paint-node--Button {
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+}
+.paint-node--Button[data-state="rendered"] {
+  background: linear-gradient(
+    180deg,
+    var(--paint-indigo),
+    var(--paint-indigo-2)
+  );
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 6px 18px -10px rgba(124, 140, 255, 0.7);
+}
+.paint-button--ghost[data-state="rendered"] {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--paint-txt-0);
+  border: 1px solid var(--paint-line-2);
+  box-shadow: none;
+}
+
+/* ── Divider ─────────────────────────────────────────────────────────── */
+.paint-node--Divider {
+  height: 1px;
+  padding: 0;
+  margin: 4px 0;
+  background: var(--paint-line);
+  border: 0 !important;
+  min-height: 1px;
+}
+
+/* ── Badge ───────────────────────────────────────────────────────────── */
+.paint-node--Badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-family: var(--paint-mono);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+}
+.paint-node--Badge[data-state="rendered"] {
+  background: rgba(90, 212, 138, 0.12);
+  color: var(--paint-green);
+  border: 1px solid rgba(90, 212, 138, 0.3);
+}
+.paint-badge--amber[data-state="rendered"] {
+  background: rgba(255, 181, 71, 0.12);
+  color: var(--paint-amber);
+  border-color: rgba(255, 181, 71, 0.3);
+}
+.paint-badge--red[data-state="rendered"] {
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--paint-red);
+  border-color: rgba(255, 107, 107, 0.3);
+}
+
+/* ── Chart placeholder ───────────────────────────────────────────────── */
+.paint-node--Chart {
+  height: 130px;
+  padding: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  border: 0 !important;
+  background: transparent !important;
+}
+.paint-node--Chart[data-state="wireframe"]::after {
+  content: "";
+  flex: 1;
+  height: 60%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.02)
+  );
+  border-radius: 4px;
+}
+
+/* ── List / form inputs / media — generic Card-like wireframes ───────── */
+.paint-node--List,
+.paint-node--Tabs,
+.paint-node--Modal,
+.paint-node--TextField,
+.paint-node--CheckBox,
+.paint-node--Slider,
+.paint-node--Image,
+.paint-node--Video {
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--paint-line);
+  min-height: 40px;
+}
+.paint-node--Image[data-state="wireframe"]::after,
+.paint-node--Video[data-state="wireframe"]::after {
+  content: "";
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+/* ── Generic fallback for unknown component labels ───────────────────── */
+/* Any .paint-node without a more specific .paint-node--<Component> rule
+ * will inherit a neutral card-style placeholder, so consumers can use
+ * free-form labels like Header / Sidebar / Banner / KpiTile / etc.
+ * without writing custom CSS first. */
+.paint-node:not([class*="paint-node--Text"]):not(
+    [class*="paint-node--Icon"]
+  ):not([class*="paint-node--Button"]):not([class*="paint-node--Divider"]):not(
+    [class*="paint-node--Badge"]
+  ):not([class*="paint-node--Chart"]):not([class*="paint-node--Column"]):not(
+    [class*="paint-node--Row"]
+  ):not([class*="paint-node--Card"]) {
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--paint-line);
+  min-height: 40px;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .paint-node,
+  .paint-surface,
+  .paint-tag {
+    transition: none !important;
+  }
+}
+
+/* ── Light theme override ────────────────────────────────────────────── */
+/* The CopilotKit demo dashboard pane sits on a soft light gradient with
+ * white frosted cards. The defaults above are tuned for a dark page, so
+ * wrap the PaintSurface tree in `.paint-light` to flip the placeholder
+ * fills, label tag, and wireframe bars to readable values for that pane.
+ *
+ * Strategy for the rendered phase: the host already has fully-styled cards
+ * inside each PaintFrame (DashboardHeader, ChartCard, etc.), so once a
+ * frame lands on "rendered" we strip the wrapper's own padding/border/bg.
+ * Skeleton + wireframe still use the wrapper to draw the placeholder
+ * footprint, but the rendered phase lets the inner component's styling
+ * own the visual without doubling up. */
+.paint-light .paint-tag {
+  color: #4d63f5;
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(77, 99, 245, 0.35);
+}
+.paint-light .paint-surface[data-empty="true"] {
+  border-color: rgba(77, 99, 245, 0.18);
+  background: rgba(77, 99, 245, 0.025);
+}
+.paint-light .paint-node[data-state="wireframe"] {
+  border: 1px solid rgba(1, 5, 7, 0.1) !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+}
+.paint-light .paint-node--Text[data-state="wireframe"]::after {
+  background: rgba(1, 5, 7, 0.08);
+}
+.paint-light .paint-node--Chart[data-state="wireframe"]::after {
+  background: linear-gradient(180deg, rgba(1, 5, 7, 0.1), rgba(1, 5, 7, 0.02));
+}
+.paint-light .paint-node[data-state="rendered"] {
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+}
