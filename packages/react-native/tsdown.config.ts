@@ -19,6 +19,7 @@ export default defineConfig({
   outDir: "dist",
   external: [
     "react",
+    "react-markdown",
     "react-native",
     "@ag-ui/client",
     "@copilotkit/react-core",
@@ -32,5 +33,6 @@ export default defineConfig({
     "react-native-enriched-markdown",
     "react-native-worklets",
     "remend",
+    "remark-gfm",
   ],
 });

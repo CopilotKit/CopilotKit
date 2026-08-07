@@ -1,5 +1,5 @@
 import React from "react";
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -9,6 +9,9 @@ vi.mock("react-native", () => ({
   StyleSheet: {
     create: <T extends Record<string, any>>(styles: T): T => styles,
     flatten: (style: any) => style,
+  },
+  Platform: {
+    OS: "ios",
   },
   View: "View",
   Text: "Text",
@@ -29,6 +32,7 @@ vi.mock("react-native-streamdown", () => ({
 }));
 
 // Import after mocks
+import { Platform } from "react-native";
 import { CopilotMarkdown, defaultMarkdownStyles } from "../Markdown";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -36,6 +40,7 @@ import { CopilotMarkdown, defaultMarkdownStyles } from "../Markdown";
 describe("CopilotMarkdown", () => {
   beforeEach(() => {
     lastStreamdownProps = null;
+    (Platform as { OS: string }).OS = "ios";
   });
 
   it("renders without crashing", () => {
@@ -86,6 +91,58 @@ describe("CopilotMarkdown", () => {
   it("allows disabling streamingAnimation", () => {
     render(<CopilotMarkdown content="test" streamingAnimation={false} />);
     expect(lastStreamdownProps.streamingAnimation).toBe(false);
+  });
+
+  it("uses a DOM markdown renderer on web", async () => {
+    (Platform as { OS: string }).OS = "web";
+
+    const { container } = render(
+      <CopilotMarkdown content="**Bold** and [link](https://example.com)" />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector("strong")?.textContent).toBe("Bold");
+    });
+    expect(container.querySelector("a")?.textContent).toBe("link");
+    expect(container.querySelector("a")?.getAttribute("href")).toBe(
+      "https://example.com",
+    );
+    expect(lastStreamdownProps).toBeNull();
+  });
+
+  it("preserves multiline text and constrains rich content on web", async () => {
+    (Platform as { OS: string }).OS = "web";
+
+    const { container } = render(
+      <CopilotMarkdown
+        content={[
+          "first line",
+          "second line",
+          "",
+          "| Key | Value |",
+          "| --- | --- |",
+          "| A | B |",
+          "",
+          "```text",
+          "a-very-long-line",
+          "```",
+          "",
+          "![preview](https://example.com/preview.png)",
+        ].join("\n")}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector("table")).not.toBeNull();
+    });
+    expect(container.querySelector("p")?.style.whiteSpace).toBe("pre-wrap");
+    expect(
+      container.querySelector("table")?.parentElement?.style.overflowX,
+    ).toBe("auto");
+    expect(container.querySelector("pre")?.style.maxWidth).toBe("100%");
+    expect(container.querySelector("pre")?.style.overflowX).toBe("auto");
+    expect(container.querySelector("img")?.style.maxWidth).toBe("100%");
+    expect(container.querySelector("img")?.getAttribute("alt")).toBe("preview");
   });
 });
 
