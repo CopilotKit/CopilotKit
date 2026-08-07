@@ -30,6 +30,16 @@ describe("runtime construction", () => {
     expect(runtime.intelligence).toBeUndefined();
   });
 
+  it("rejects Learning Container config in SSE mode", () => {
+    expect(
+      () =>
+        new CopilotSseRuntime({
+          agents,
+          learning: { containerId: "support-quality" },
+        } as never),
+    ).toThrow("`learning` requires the Intelligence runtime");
+  });
+
   it("builds an Intelligence runtime with an Intelligence runner", () => {
     const sdk = createMockIntelligence();
 
@@ -48,6 +58,35 @@ describe("runtime construction", () => {
     expect(sdk.ɵgetRunnerWsUrl).toHaveBeenCalledTimes(1);
     expect(sdk.ɵgetRunnerAuthToken).toHaveBeenCalledTimes(1);
   });
+
+  it("stores one Learning Container resolver for web and Channels", () => {
+    const sdk = createMockIntelligence();
+    const containerId = vi.fn().mockResolvedValue("support-quality");
+
+    const runtime = new CopilotIntelligenceRuntime({
+      agents,
+      intelligence: sdk,
+      identifyUser,
+      learning: { containerId },
+    });
+
+    expect(runtime.learning?.containerId).toBe(containerId);
+  });
+
+  it.each(["Support Quality", "support--quality", "-support"])(
+    "rejects invalid static Learning Container ID %s",
+    (containerId) => {
+      expect(
+        () =>
+          new CopilotIntelligenceRuntime({
+            agents,
+            intelligence: createMockIntelligence(),
+            identifyUser,
+            learning: { containerId },
+          }),
+      ).toThrow("stable ID");
+    },
+  );
 
   it("preserves an explicit generateThreadNames=false option in Intelligence mode", () => {
     const sdk = createMockIntelligence();
