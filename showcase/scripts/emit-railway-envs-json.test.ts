@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,7 +8,18 @@ import { SERVICES, computePromoteClosure } from "./railway-envs";
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const EMITTER = resolve(SCRIPTS_DIR, "emit-railway-envs-json.ts");
-const OXFMT = resolve(SCRIPTS_DIR, "..", "..", "node_modules", ".bin", "oxfmt");
+const OXFMT_CANDIDATES = [
+  resolve(SCRIPTS_DIR, "..", "..", "node_modules", ".bin", "oxfmt"),
+  resolve(SCRIPTS_DIR, "node_modules", ".bin", "oxfmt"),
+];
+
+function resolveOxfmt(): string {
+  const bin = OXFMT_CANDIDATES.find((candidate) => existsSync(candidate));
+  if (!bin) {
+    throw new Error(`oxfmt binary not found: ${OXFMT_CANDIDATES.join(", ")}`);
+  }
+  return bin;
+}
 
 /**
  * Emit the JSON to a hermetic temp path and parse it. The emitter is the
@@ -209,7 +220,9 @@ describe("emit-railway-envs-json oxfmt-canonical output", () => {
       // ...then assert oxfmt considers the result already-canonical. RED on
       // the pre-fix emitter (multi-line arrays → "Format issues found"),
       // GREEN once the emitter routes output through oxfmt.
-      const res = spawnSync(OXFMT, ["--check", out], { encoding: "utf8" });
+      const res = spawnSync(resolveOxfmt(), ["--check", out], {
+        encoding: "utf8",
+      });
       expect(res.status).toBe(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -220,7 +233,9 @@ describe("emit-railway-envs-json oxfmt-canonical output", () => {
     // The in-repo artifact must stay oxfmt-canonical so the CI auto-format
     // bot never fires on it.
     const committed = resolve(SCRIPTS_DIR, "railway-envs.generated.json");
-    const res = spawnSync(OXFMT, ["--check", committed], { encoding: "utf8" });
+    const res = spawnSync(resolveOxfmt(), ["--check", committed], {
+      encoding: "utf8",
+    });
     expect(res.status).toBe(0);
   });
 });

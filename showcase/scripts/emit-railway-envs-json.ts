@@ -35,6 +35,7 @@
 
 import { execFileSync } from "node:child_process";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -299,14 +300,21 @@ function buildPayload(): Emitted {
  * path AND the `--check` comparison through oxfmt makes on-disk ==
  * emitter-oxfmt-output == oxfmt-canonical, so both checks pass with no bot.
  */
-const OXFMT_BIN = resolve(
-  new URL(".", import.meta.url).pathname,
-  "..",
-  "..",
-  "node_modules",
-  ".bin",
-  "oxfmt",
-);
+const SCRIPT_DIR = new URL(".", import.meta.url).pathname;
+const OXFMT_BIN_CANDIDATES = [
+  resolve(SCRIPT_DIR, "..", "..", "node_modules", ".bin", "oxfmt"),
+  resolve(SCRIPT_DIR, "node_modules", ".bin", "oxfmt"),
+];
+
+function resolveOxfmtBin(): string {
+  if (process.env.OXFMT_BIN) return process.env.OXFMT_BIN;
+  const bin = OXFMT_BIN_CANDIDATES.find((candidate) => existsSync(candidate));
+  if (bin) return bin;
+  throw new Error(
+    `oxfmt binary not found. Checked: ${OXFMT_BIN_CANDIDATES.join(", ")}. ` +
+      "Run the repo install or `npm ci` in showcase/scripts.",
+  );
+}
 
 /**
  * Run the committed oxfmt over a JSON string and return the canonical
@@ -322,7 +330,7 @@ function oxfmtCanonical(json: string, nearDir: string): string {
   const tmpFile = join(tmpDir, "railway-envs.generated.json");
   try {
     writeFileSync(tmpFile, json);
-    execFileSync(OXFMT_BIN, ["--write", tmpFile], { stdio: "pipe" });
+    execFileSync(resolveOxfmtBin(), ["--write", tmpFile], { stdio: "pipe" });
     return readFileSync(tmpFile, "utf8");
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
