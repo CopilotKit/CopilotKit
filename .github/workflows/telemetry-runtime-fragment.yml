@@ -95,8 +95,12 @@ jobs:
         if: steps.token.outputs.token != ''
         working-directory: p2p
         run: |
-          pnpm install --frozen-lockfile
-          pnpm reconcile
+          pnpm install --frozen-lockfile --ignore-workspace
+          if [ ! -x node_modules/.bin/ts-node ]; then
+            echo "::error::Registry dependencies were not installed in p2p/node_modules."
+            exit 1
+          fi
+          pnpm --ignore-workspace reconcile
 
       - name: Open fragment PR
         if: steps.token.outputs.token != ''

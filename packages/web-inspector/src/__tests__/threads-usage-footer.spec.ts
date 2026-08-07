@@ -267,7 +267,7 @@ test.each(usageDisplayCases)("$name", async (case_) => {
       );
     }
     if (case_.usage.used === 241) {
-      expect(footer.outerHTML).not.toContain("241");
+      expect(footer.textContent).not.toContain("241");
       expect(context.core.inspectorMetadata?.usage?.used).toBe(241);
     }
   } finally {
