@@ -159,7 +159,7 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
   "custom/claude-managed-agents": (
     <Image
-      src="/logos/claude-sdk-typescript.svg"
+      src="/logos/claude.svg"
       alt=""
       aria-hidden="true"
       width={16}

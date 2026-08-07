@@ -377,6 +377,16 @@ describe("migration docs", () => {
 });
 
 describe("cookbook nav", () => {
+  it("uses the real Claude mark instead of a text placeholder", () => {
+    const claudeLogo = fs.readFileSync(
+      path.resolve(CONTENT_DIR, "../../../public/logos/claude.svg"),
+      "utf8",
+    );
+
+    expect(claudeLogo).toContain("<path");
+    expect(claudeLogo).not.toContain("<text");
+  });
+
   it("renders overview and recipes as top-level entries without changing slugs", () => {
     const navTree = buildCookbookNavTree();
 
