@@ -8,6 +8,8 @@ import { logisticsAgent } from "@/skins/logistics/agent";
 import { logisticsIdentifyUser } from "@/skins/logistics/intelligence/user-id";
 import { peopleAgent } from "@/skins/people/agent";
 import { peopleIdentifyUser } from "@/skins/people/intelligence/user-id";
+import { vantageAgent } from "@/skins/vantage/agent";
+import { vantageIdentifyUser } from "@/skins/vantage/intelligence/user-id";
 
 /**
  * Server-safe map of skin id → its server-side registration (agent factory +
@@ -58,6 +60,9 @@ export const agentRegistry: Record<string, AgentRegistration> = {
   // beat-5 procedure belong to Maya, and switching to Clara must land in a
   // different memory bucket so a colleague visibly has NOT taught it anything.
   people: { createAgent: peopleAgent, identifyUser: peopleIdentifyUser },
+  // Vantage scopes Intelligence per executive: thread scoping in phase 1
+  // (this resolver), durable per-exec memory in phase 2.
+  vantage: { createAgent: vantageAgent, identifyUser: vantageIdentifyUser },
 };
 
 export const agentIds = Object.keys(agentRegistry);

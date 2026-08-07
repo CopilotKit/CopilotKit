@@ -65,6 +65,11 @@ export function useTheme() {
  * future skins are not forced to guard against this defensively. Runs in a
  * layout effect so the reconciliation lands before paint (no flash of
  * mismatched dark chrome after a client-side skin switch).
+ *
+ * A dark-ONLY skin (no light palette at all) additionally sets
+ * `--nw-theme-lock: dark` alongside `--nw-dark-capable: 1`, which forces dark
+ * regardless of the stored preference — see the branch below for why that is a
+ * lock rather than a default.
  */
 export function useSkinThemeReconcile(
   themeRootRef: RefObject<HTMLElement | null>,
@@ -72,9 +77,23 @@ export function useSkinThemeReconcile(
   useLayoutEffect(() => {
     const el = themeRootRef.current;
     if (!el) return;
-    const capable =
-      getComputedStyle(el).getPropertyValue("--nw-dark-capable").trim() === "1";
-    applyTheme(capable ? readStoredTheme() : "light");
+    const style = getComputedStyle(el);
+    const capable = style.getPropertyValue("--nw-dark-capable").trim() === "1";
+    if (!capable) {
+      applyTheme("light");
+      return;
+    }
+    // A dark-ONLY skin declares `--nw-theme-lock: dark`: it ships a dark palette
+    // and no light one, so honouring a stored `light` here would put `.light` on
+    // <html>, take the shared chat chrome light, and leave the skin's app card
+    // dark — the same half-dark mismatch the force-light branch above prevents
+    // from the other direction. Like that branch, this does NOT touch
+    // localStorage, so the user's choice survives for dual-palette skins.
+    if (style.getPropertyValue("--nw-theme-lock").trim() === "dark") {
+      applyTheme("dark");
+      return;
+    }
+    applyTheme(readStoredTheme());
     // themeRootRef identity is stable; this intentionally runs once per skin
     // mount (SkinRuntime remounts keyed by skin id, so this reconciles on every
     // skin switch and on direct navigation).

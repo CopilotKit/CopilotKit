@@ -1,0 +1,76 @@
+/*
+ * Vantage — dark-ONLY instrument panel.
+ *
+ * Both selectors carry the same values: the base block is what renders, and
+ * `.dark .theme-vantage` matches because `--nw-theme-lock: dark` forces `.dark`
+ * onto <html> (see src/hooks/use-theme.ts). Declaring both keeps the skin
+ * correct whichever class is present, and keeps the shared chat chrome — which
+ * is scoped to the `.dark` ancestor — in the same register as the app card.
+ *
+ * Elevation on a dark canvas comes from surface-lightness STEPS and hairlines,
+ * not drop shadows. --shadow-soft/-lift are therefore near-invisible on purpose;
+ * --shadow-glow is the accent affordance.
+ */
+.theme-vantage,
+.dark .theme-vantage {
+  --nw-dark-capable: 1;
+  --nw-theme-lock: dark;
+
+  /* Tight and precise — a deliberate contrast with banking's 1.375rem pill
+     softness. The shell's own .nw-panel-card stays a fixed 12px, so the frame
+     still reads as the same app. */
+  --radius: 0.375rem;
+
+  /* Near-black with a blue cast. Neutral grey reads cheap; blue reads as
+     instrumentation. */
+  --canvas: 225 24% 6%;
+  --surface: 225 20% 10%;
+  --surface-muted: 225 18% 13%;
+  --hairline: 225 16% 20%;
+  --border: 225 16% 20%;
+
+  --ink: 220 20% 96%;
+  --ink-muted: 220 14% 62%;
+
+  /* Luminous azure — unclaimed in the portfolio (banking violet 252, airline
+     cyan 190, keel teal 170, logistics amber 32). */
+  --brand: 217 91% 60%;
+  --brand-foreground: 225 24% 6%;
+  /* A DARK azure tint, not a pale one. This is load-bearing: the lever
+     highlight is `border-brand/50 bg-brand-soft`, and a pale value copied from a
+     light skin becomes a white block on this canvas — so the "the agent set
+     these controls" affordance would read as a rendering bug. */
+  --brand-soft: 217 60% 16%;
+  --brand-indigo: 226 80% 68%;
+  --brand-violet: 258 78% 70%;
+
+  /* Lifted lightness: dark-canvas semantics need more luminance than their
+     light-mode equivalents to read at the same strength. */
+  --positive: 152 65% 52%;
+  --positive-soft: 152 45% 15%;
+  --negative: 355 85% 66%;
+  --negative-soft: 355 50% 17%;
+
+  /* shadcn compat block. Shared primitives under src/components/ui consume
+     THESE, not the semantic tokens above — miss them and every select, dialog
+     and button renders with light-mode defaults inside a dark app card. */
+  --background: 225 24% 6%;
+  --foreground: 220 20% 96%;
+  --muted: 225 18% 13%;
+  --muted-foreground: 220 14% 62%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 225 24% 6%;
+  --ring: 217 91% 60%;
+
+  --shadow-soft: 0 1px 2px 0 hsl(225 40% 2% / 0.6);
+  --shadow-lift: 0 8px 24px -8px hsl(225 40% 2% / 0.8);
+  --shadow-glow:
+    0 0 0 1px hsl(217 91% 60% / 0.35), 0 0 24px -4px hsl(217 91% 60% / 0.35);
+}
+
+/* Numbers are the product. Proportional figures make currency columns jitter
+   between renders, which is the most common tell of an amateur dashboard. */
+.theme-vantage .nw-figure {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
