@@ -130,9 +130,21 @@ export function run(opts: RunOptions): void {
 
   mkdirSync(outputDir, { recursive: true });
 
-  const slotDirs = readdirSync(inputDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && d.name.startsWith("build-result-"))
-    .map((d) => d.name);
+  // A MISSING $INPUT_DIR is the SAME condition as an empty one, and must
+  // reach the same fail-loud below. actions/download-artifact creates the
+  // path only once its `pattern` matches at least one artifact, so when the
+  // build matrix never ran at all (e.g. `build-angular` failed and every
+  // slot was skipped) the directory is absent rather than empty. Calling
+  // readdirSync on it threw a raw `ENOENT: ... scandir` that buried the
+  // real story under a filesystem error and sent operators looking at the
+  // aggregator instead of at the upstream job that actually died.
+  // Measured: run 31187982717 (2026-08-07).
+  const inputDirExists = existsSync(inputDir);
+  const slotDirs = inputDirExists
+    ? readdirSync(inputDir, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && d.name.startsWith("build-result-"))
+        .map((d) => d.name)
+    : [];
   const singleArtifactPath = join(inputDir, "result.json");
 
   // The aggregator job is gated upstream on `has_changes == 'true'`, so the
@@ -144,10 +156,18 @@ export function run(opts: RunOptions): void {
   // would push deploy down the false-green path where it probes the full
   // service set against stale `:latest`. Fail loud instead.
   if (slotDirs.length === 0 && !existsSync(singleArtifactPath)) {
+    // Name which of the two shapes we hit. "absent" almost always means an
+    // upstream job failed so the matrix never produced a slot; "present but
+    // empty" points at the download step itself.
+    const shape = inputDirExists
+      ? `found 0 build-result-* slot dirs in ${inputDir}`
+      : `${inputDir} does not exist (actions/download-artifact matched no artifacts)`;
     throw new Error(
-      `aggregate-build-results: found 0 build-result-* slot dirs in ${inputDir} — ` +
+      `aggregate-build-results: ${shape} — ` +
         `the per-slot artifact download produced nothing; this indicates a broken ` +
-        `download, not an empty build set (the job only runs when >=1 service was scheduled).`,
+        `download or a build matrix that never ran, not an empty build set ` +
+        `(the job only runs when >=1 service was scheduled). Check whether an ` +
+        `upstream job (build-angular / build) failed or was skipped.`,
     );
   }
 

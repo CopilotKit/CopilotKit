@@ -438,8 +438,33 @@ jobs:
         with:
           persist-credentials: false
 
+      # `pnpm/action-setup` shells out to npm for its self-installer, so a
+      # transient registry blip fails the step outright. This job is the
+      # WIDEST blast radius for that failure in the whole workflow: every
+      # `showcase/integrations/**` service sets `needs_angular=true` (see
+      # the `needs_angular` line in detect-changes), and `build` hard-depends
+      # on this job — so one ECONNRESET here skips the ENTIRE fleet build
+      # and the staging redeploy behind it, leaving `:latest` un-advanced
+      # with nothing to reconcile against.
+      #
+      # Measured: run 31187982717 (2026-08-07) lost the ms-agent-dotnet
+      # image + redeploy to exactly this, and stayed undeployed for 2h+
+      # because no later push re-selects an unchanged service.
+      #
+      # `continue-on-error` + a conditional second attempt is the
+      # dependency-free retry: the action exposes no retry input, and a
+      # retry-wrapper action can only wrap `run:` commands, not a `uses:`
+      # step. The retry is deliberately scoped to THIS job rather than all
+      # ~36 pnpm setups in the repo — elsewhere a failure costs one job and
+      # a re-run, not the fleet.
       - name: Setup pnpm
+        id: setup-pnpm
         if: needs.detect-changes.outputs.needs_angular == 'true'
+        continue-on-error: true
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Setup pnpm (retry after transient installer failure)
+        if: ${{ needs.detect-changes.outputs.needs_angular == 'true' && steps.setup-pnpm.outcome == 'failure' }}
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
       - name: Setup Node
@@ -447,6 +472,20 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
+
+      # Guards the `continue-on-error` above: if BOTH attempts failed, pnpm
+      # is absent and the next step would fail with a bare "pnpm: command
+      # not found" that reads like a runner-image problem. Fail here with
+      # the real reason instead. Without this the job could also go GREEN if
+      # a future edit made the following steps tolerant of a missing pnpm.
+      - name: Verify pnpm is available
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        run: |
+          if ! command -v pnpm >/dev/null 2>&1; then
+            echo "::error::pnpm/action-setup failed on both attempts — see the two 'Setup pnpm' steps above (usually a transient npm registry error; re-run the job)"
+            exit 1
+          fi
+          pnpm --version
 
       - name: Install
         if: needs.detect-changes.outputs.needs_angular == 'true'

@@ -5,7 +5,9 @@
  * The script's `run({inputDir, outputDir, githubOutput})` entrypoint is
  * exercised directly with temp dirs (so we never touch tracked files or
  * spawn subprocesses). We verify:
- *   1. empty INPUT_DIR → results.json = `[]`, any_success=false, no throw
+ *   1. empty INPUT_DIR → fails loud (a zero-slot download is a defect, not
+ *      an empty build set), and an ABSENT INPUT_DIR lands on that same
+ *      fail-loud rather than escaping as a raw ENOENT from readdirSync
  *   2. build-result-<x> dir missing result.json → throws naming the slot
  *   3. non-`build-result-*` dirs are ignored
  *   4. mixed success/failure → correct merged array + any_success=true
@@ -64,6 +66,30 @@ describe("aggregate-build-results.run", () => {
     expect(() => run({ inputDir, outputDir, githubOutput })).toThrow(
       /aggregate-build-results: found 0 build-result-\* slot dirs/,
     );
+  });
+
+  it("ABSENT INPUT_DIR → same fail-loud as an empty one, not a raw ENOENT", () => {
+    // actions/download-artifact creates the path only once its `pattern`
+    // matches >=1 artifact, so a build matrix that never ran (an upstream
+    // job failed, every slot skipped) leaves INPUT_DIR absent rather than
+    // empty. That used to reach readdirSync and surface as
+    // `ENOENT: no such file or directory, scandir '.../build-results-in'`,
+    // which reads as a bug in the aggregator and hides the upstream job
+    // that actually died (measured: run 31187982717, 2026-08-07).
+    // It must land on the deliberate zero-slot fail-loud instead — same
+    // refusal, diagnosable message.
+    const absentDir = join(inputDir, "never-created");
+
+    expect(() => run({ inputDir: absentDir, outputDir, githubOutput })).toThrow(
+      /does not exist \(actions\/download-artifact matched no artifacts\)/,
+    );
+    // Regression guard: the raw filesystem error must NOT be what escapes.
+    expect(() => run({ inputDir: absentDir, outputDir, githubOutput })).toThrow(
+      /^aggregate-build-results:/,
+    );
+    expect(() =>
+      run({ inputDir: absentDir, outputDir, githubOutput }),
+    ).not.toThrow(/ENOENT/);
   });
 
   it("reads a single artifact extracted directly into INPUT_DIR", () => {
