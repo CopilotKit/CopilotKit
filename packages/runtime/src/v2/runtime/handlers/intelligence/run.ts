@@ -168,14 +168,7 @@ export async function handleIntelligenceRun({
         error: "Thread lock denied",
       },
       {
-        status:
-          platformStatus !== undefined &&
-          platformStatus >= 400 &&
-          platformStatus < 500
-            ? platformStatus
-            : platformStatus === undefined
-              ? 409
-              : 502,
+        status: platformStatus === 409 ? 409 : 502,
       },
     );
   }
