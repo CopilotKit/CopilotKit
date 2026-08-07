@@ -1,4 +1,4 @@
-import * as agui from "@ag-ui/core";
+import type * as agui from "@ag-ui/core";
 
 // Re-export AG-UI multimodal input types.
 // Note: AG-UI names the text variant TextInputContent; we export it as TextInputPart for consistency.
@@ -34,26 +34,33 @@ export type ToolCall = agui.ToolCall;
 export type ActivityMessage = agui.ActivityMessage;
 export type ReasoningMessage = agui.ReasoningMessage;
 
+/** Optional client-provided creation time used by chat renderers. */
+export interface MessageMetadata {
+  timestamp?: number;
+}
+
 // Extended message types
-export type ToolResult = agui.ToolMessage & {
-  toolName?: string;
-};
+export type ToolResult = agui.ToolMessage &
+  MessageMetadata & {
+    toolName?: string;
+  };
 
-export type AIMessage = agui.AssistantMessage & {
-  generativeUI?: (props?: any) => any;
-  generativeUIPosition?: "before" | "after";
-  agentName?: string;
-  state?: any;
-  /**
-   * @deprecated Use multimodal `content` array with `InputContent` parts instead.
-   * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
-   * @since 1.56.0
-   */
-  image?: ImageData;
-  runId?: string;
-};
+export type AIMessage = agui.AssistantMessage &
+  MessageMetadata & {
+    generativeUI?: (props?: any) => any;
+    generativeUIPosition?: "before" | "after";
+    agentName?: string;
+    state?: any;
+    /**
+     * @deprecated Use multimodal `content` array with `InputContent` parts instead.
+     * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
+     * @since 1.56.0
+     */
+    image?: ImageData;
+    runId?: string;
+  };
 
-export type UserMessage = agui.UserMessage;
+export type UserMessage = agui.UserMessage & MessageMetadata;
 
 export type Message =
   | AIMessage

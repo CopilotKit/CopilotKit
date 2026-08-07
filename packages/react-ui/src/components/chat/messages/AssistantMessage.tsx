@@ -4,9 +4,10 @@ import { Markdown } from "../Markdown";
 import { useState } from "react";
 import React from "react";
 import { copyToClipboard } from "@copilotkit/shared";
+import { MessageTimestamp } from "./MessageTimestamp";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
-  const { icons, labels } = useChatContext();
+  const { icons, labels, showTimestamps } = useChatContext();
   const {
     message,
     isLoading,
@@ -66,6 +67,10 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
         <div className="copilotKitMessage copilotKitAssistantMessage">
           {content && (
             <Markdown content={content} components={markdownTagRenderers} />
+          )}
+
+          {showTimestamps && (
+            <MessageTimestamp timestamp={message?.timestamp} />
           )}
 
           {content && !isLoading && (
