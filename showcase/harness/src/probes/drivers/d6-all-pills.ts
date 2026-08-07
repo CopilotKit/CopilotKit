@@ -460,35 +460,180 @@ export async function openGuardedContext<C>(
 }
 
 /**
- * Default Playwright-backed launcher. Sets X-AIMock-Strict header at the
- * browser level. Per-context headers (X-AIMock-Context, X-Test-Id) are
- * set per-feature in newContext calls from the feature loop.
+ * Minimal logger shape the self-healing open needs. Structural so the launcher
+ * can pass the probe logger and a unit test can pass a spy.
  */
-const defaultLauncher: E2eFullBrowserLauncher =
-  async (): Promise<E2eFullBrowser> => {
-    const mod = (await import("playwright")) as typeof playwright;
-    const browser = await mod.chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-dev-shm-usage"],
-    });
+export interface RelaunchLogger {
+  warn(event: string, meta?: Record<string, unknown>): void;
+}
+
+/**
+ * State/plumbing for the self-healing shared-browser open. The launcher owns a
+ * MUTABLE reference to the single shared browser plus a `relaunch` factory that
+ * opens a fresh Chromium. `get`/`set` read and swap the closed-over reference so
+ * a relaunch is visible to every subsequent feature open (not just the one that
+ * triggered it). `maxRelaunches` bounds the recovery so a browser that will not
+ * stay up can never spin an unbounded relaunch loop.
+ */
+export interface SelfHealDeps<B extends GuardableBrowser> {
+  /** Read the current shared browser handle. */
+  get(): B;
+  /** Swap the shared browser handle to a freshly-launched one. */
+  set(browser: B): void;
+  /** Launch a fresh browser (re-establish the shared ref). */
+  relaunch(): Promise<B>;
+  /** Bound on how many times the shared browser may be relaunched per run. */
+  maxRelaunches: number;
+  /** Shared mutable relaunch counter across all concurrent feature opens. */
+  counter: { relaunches: number };
+  logger?: RelaunchLogger;
+}
+
+/**
+ * Open a context on the shared browser, SELF-HEALING across a crash of that
+ * shared browser.
+ *
+ * `openGuardedContext` (above) makes a single crash CLASSIFIABLE — the failing
+ * feature goes red with a clean `BrowserDisconnectedError` instead of leaking
+ * Playwright's raw "has been closed" string. But it does NOT recover: once the
+ * single shared Chromium crashes mid-fanout (the byoc memory/PID-burst case),
+ * EVERY remaining feature's open hits a dead browser and the whole run cascades
+ * to red/abort (claude-sdk-python collapses 0/40 this way).
+ *
+ * This wrapper closes that gap: when the shared browser is detected
+ * disconnected — either the guard's start-check refuses to open on a dead
+ * process, or a mid-open disconnect surfaces as `BrowserDisconnectedError` —
+ * it RELAUNCHES a fresh Chromium (via `deps.relaunch`), swaps the shared ref
+ * (`deps.set`) so siblings pick up the healthy browser, and RETRIES the open.
+ * The relaunch is bounded by `deps.maxRelaunches` (shared counter across all
+ * concurrent opens) so a browser that refuses to stay up degrades to the
+ * classifiable `BrowserDisconnectedError` rather than an unbounded relaunch
+ * loop. Every relaunch is logged.
+ *
+ * A genuinely-transient open error on a STILL-LIVE browser is surfaced
+ * unchanged by the inner guard — only that one feature fails; no relaunch and
+ * no cascade. So the clean error taxonomy for legitimately-failing features is
+ * preserved.
+ */
+export async function openSelfHealingContext<C, B extends GuardableBrowser>(
+  deps: SelfHealDeps<B>,
+  opts?: { extraHTTPHeaders?: Record<string, string> },
+): Promise<C> {
+  // Loop bound = one initial attempt + up to maxRelaunches recovery attempts.
+  // The shared `counter` is the authoritative budget (so concurrent opens can't
+  // collectively exceed maxRelaunches); `attempt` is a per-call safety stop.
+  for (let attempt = 0; attempt <= deps.maxRelaunches; attempt++) {
+    try {
+      return await openGuardedContext<C>(deps.get(), opts);
+    } catch (err) {
+      // Only a disconnect is self-healable. A transient open error on a live
+      // browser (openGuardedContext re-throws it unchanged) is NOT a disconnect
+      // and must propagate so that one feature fails cleanly without a relaunch.
+      if (!(err instanceof BrowserDisconnectedError)) {
+        throw err;
+      }
+      // Budget check: bail to the classifiable disconnect error once the shared
+      // relaunch budget is exhausted. Concurrent opens share `counter` so the
+      // fleet-wide relaunch count is bounded even under FEATURE_CONCURRENCY_D6
+      // parallel opens.
+      if (deps.counter.relaunches >= deps.maxRelaunches) {
+        deps.logger?.warn("probe.e2e-full.browser-relaunch-exhausted", {
+          relaunches: deps.counter.relaunches,
+          maxRelaunches: deps.maxRelaunches,
+        });
+        throw err;
+      }
+      deps.counter.relaunches += 1;
+      const relaunchSeq = deps.counter.relaunches;
+      deps.logger?.warn("probe.e2e-full.browser-relaunch", {
+        relaunchSeq,
+        maxRelaunches: deps.maxRelaunches,
+        reason: err.message,
+      });
+      let fresh: B;
+      try {
+        fresh = await deps.relaunch();
+      } catch (relaunchErr) {
+        // Relaunch itself failed — nothing recoverable; surface the ORIGINAL
+        // classifiable disconnect (not the relaunch error) so the feature's
+        // red reason stays the clean "shared browser disconnected" sentinel.
+        deps.logger?.warn("probe.e2e-full.browser-relaunch-failed", {
+          relaunchSeq,
+          relaunchErr:
+            relaunchErr instanceof Error
+              ? relaunchErr.message
+              : String(relaunchErr),
+        });
+        throw err;
+      }
+      deps.set(fresh);
+      // Loop retries the open on the freshly-launched browser.
+    }
+  }
+  // maxRelaunches exhausted via the per-call loop bound without a live open.
+  throw new BrowserDisconnectedError(
+    "shared browser disconnected: relaunch budget exhausted",
+  );
+}
+
+/**
+ * Max times the single shared Chromium may be relaunched within one D6 run.
+ * Bounds the self-heal so a browser that will not stay up degrades to a clean
+ * BrowserDisconnectedError rather than an unbounded relaunch loop. Sized to
+ * absorb a small number of independent crashes across a ~40-feature fanout
+ * without masking a systemically-broken browser.
+ */
+export const MAX_BROWSER_RELAUNCHES_D6 = 3;
+
+/**
+ * Build a self-healing single-shared-browser launcher over a `launch` factory
+ * that opens a fresh raw Playwright Browser. Both the driver's `defaultLauncher`
+ * (headless) and the CLI's headed launcher use this so the crash-recovery lives
+ * in ONE place: they differ only in the `launch` factory (headless flag).
+ *
+ * The returned launcher holds a MUTABLE shared browser reference plus a shared
+ * relaunch counter. `newContext` routes every open through
+ * `openSelfHealingContext`, so when the single shared Chromium crashes mid-run
+ * it is relaunched (bounded by MAX_BROWSER_RELAUNCHES_D6) and the open retried,
+ * instead of failing every remaining feature. `close()` closes whatever browser
+ * is CURRENTLY referenced (post-relaunch, this is the healthy one).
+ */
+export function createSelfHealingE2eFullLauncher(
+  launch: () => Promise<playwright.Browser>,
+  logger?: RelaunchLogger,
+  maxRelaunches: number = MAX_BROWSER_RELAUNCHES_D6,
+): E2eFullBrowserLauncher {
+  return async (): Promise<E2eFullBrowser> => {
+    let browser = await launch();
+    const counter = { relaunches: 0 };
+    const selfHeal: SelfHealDeps<playwright.Browser> = {
+      get: () => browser,
+      set: (b) => {
+        browser = b;
+      },
+      relaunch: () => launch(),
+      maxRelaunches,
+      counter,
+      logger,
+    };
     return {
       async newContext(contextOpts?: {
         extraHTTPHeaders?: Record<string, string>;
       }): Promise<E2eFullBrowserContext> {
-        // GUARD: open the context on the shared browser only while it is LIVE,
-        // and convert a mid-open disconnect into a clean BrowserDisconnectedError
-        // instead of leaking Playwright's raw "has been closed" string (which
-        // the feature loop would surface as an opaque driver-error on every
-        // remaining byoc cell). See openGuardedContext for the full rationale.
-        const ctx = await openGuardedContext<playwright.BrowserContext>(
-          browser,
-          {
-            extraHTTPHeaders: {
-              "X-AIMock-Strict": "true",
-              ...contextOpts?.extraHTTPHeaders,
-            },
+        // SELF-HEAL: open the context on the shared browser; if that browser
+        // crashed mid-fanout, relaunch a fresh Chromium (bounded) and retry so
+        // one crash no longer cascades into every remaining feature failing with
+        // a raw "has been closed". A transient open error on a still-live browser
+        // fails only that feature. See openSelfHealingContext for the full model.
+        const ctx = await openSelfHealingContext<
+          playwright.BrowserContext,
+          playwright.Browser
+        >(selfHeal, {
+          extraHTTPHeaders: {
+            "X-AIMock-Strict": "true",
+            ...contextOpts?.extraHTTPHeaders,
           },
-        );
+        });
         return {
           async newPage(): Promise<E2eFullPage> {
             const page = await ctx.newPage();
@@ -558,6 +703,28 @@ const defaultLauncher: E2eFullBrowserLauncher =
       close: () => browser.close(),
     };
   };
+}
+
+/**
+ * Default Playwright-backed launcher (headless). Sets X-AIMock-Strict at the
+ * browser level; per-context headers (X-AIMock-Context, X-Test-Id) are set
+ * per-feature in the feature loop. Self-heals the shared browser on crash via
+ * createSelfHealingE2eFullLauncher. A logger can be threaded so relaunch events
+ * land in the probe log stream; the module-level fallback passes none.
+ */
+export function createDefaultE2eFullLauncher(
+  logger?: RelaunchLogger,
+): E2eFullBrowserLauncher {
+  return createSelfHealingE2eFullLauncher(async () => {
+    const mod = (await import("playwright")) as typeof playwright;
+    return mod.chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    });
+  }, logger);
+}
+
+const defaultLauncher: E2eFullBrowserLauncher = createDefaultE2eFullLauncher();
 
 export function createPooledE2eFullLauncher(
   pool: BrowserPool,
