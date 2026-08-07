@@ -3489,8 +3489,8 @@ importers:
         specifier: 2.0.0-rc.1
         version: 2.0.0-rc.1(class-validator@0.14.3)(graphql-scalars@1.25.0(graphql@16.12.0))(graphql@16.12.0)
       uuid:
-        specifier: ^10.0.0
-        version: 10.0.0
+        specifier: ^11.1.0
+        version: 11.1.0
       ws:
         specifier: ^8.18.0
         version: 8.19.0
