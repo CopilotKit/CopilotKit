@@ -15,6 +15,7 @@
   { "slug": "ms-agent-dotnet", "name": "MS Agent .NET" },
   { "slug": "ms-agent-harness-dotnet", "name": "MS Agent Harness .NET" },
   { "slug": "ms-agent-python", "name": "MS Agent Python" },
+  { "slug": "openclaw", "name": "OpenClaw" },
   { "slug": "pydantic-ai", "name": "Pydantic AI" },
   { "slug": "spring-ai", "name": "Spring AI" },
   { "slug": "strands", "name": "AWS Strands (Python)" },
