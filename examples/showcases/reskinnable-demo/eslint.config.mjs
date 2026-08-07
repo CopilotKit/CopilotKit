@@ -22,7 +22,7 @@ import nextTypescript from "eslint-config-next/typescript";
  */
 
 // Route id segments. Keep in sync with `src/shell/skins-config.ts` `skinIds`.
-const SKIN_IDS = "banking|airline|logistics|keel";
+const SKIN_IDS = "banking|airline|logistics|keel|people|vantage";
 
 const FIX_HINT =
   "Build the link through useSkinHref(skin.id) — or the skin's own helper, e.g. " +

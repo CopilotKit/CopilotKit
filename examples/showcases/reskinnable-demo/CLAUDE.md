@@ -2,16 +2,19 @@
 
 One Next.js app whose **entire** experience — brand, theme, layout, pages,
 tools, and agent — is reskinnable at runtime. A skin-agnostic **shell** hosts
-one **skin** per route segment `/[skin]/...`. It ships five skins — `banking`,
-`airline`, `logistics`, `keel` and `people` — switchable from a dropdown at the top of the
-assistant column, plus a repo-local **reskin skill**
+one **skin** per route segment `/[skin]/...`. It ships six skins — `banking`,
+`airline`, `logistics`, `keel`, `people` and `vantage` — switchable from a
+dropdown at the top of the assistant column, plus a repo-local **reskin skill**
 (`.claude/skills/reskin/`) for authoring new ones.
 
 The point of the app is the `Skin` contract: a single interface that swaps a
 whole product without the shell knowing anything domain-specific. The skins
-deliberately sit on **two different data substrates** — banking, logistics and
-people are REST-backed, airline and keel are in-memory — to prove the contract
-is substrate-agnostic.
+deliberately sit on **two different data substrates** — banking, logistics,
+people and vantage are REST-backed, airline and keel are in-memory — to prove the
+contract is substrate-agnostic. Within the REST group, vantage adds a further
+wrinkle: its figures are **derived**, not stored (see below), which is a third
+variation on "REST-backed" worth knowing about before assuming the two
+substrates exhaust the interesting cases.
 
 **Each skin is also a live sales demo.** It exists to prove CopilotKit and
 Intelligence top to bottom to an enterprise buyer, through a fixed set of demo
@@ -345,6 +348,15 @@ Because chrome and skin components both consume the semantic utilities, a reskin
 is a pure value swap — no component edits. (Describe the contract, not specific
 values: the token _names_ live in the shell; the hex/HSL _values_ live per-skin.)
 
+A skin that ships a dark palette and **no light one** declares
+`--nw-theme-lock: dark` alongside `--nw-dark-capable: 1`, and then always
+renders dark. That is not a preference default: honouring a stored `light` would
+put `.light` on `<html>`, take the shared chat chrome light, and leave the
+skin's app card dark. The lock never writes to `localStorage`, so the user's
+choice survives for dual-palette skins. `vantage` is the only locked skin; a
+skin with both palettes omits the token. A locked skin must NOT render the
+`ThemeToggle` — it would be a dead control.
+
 ## The shared canvas and OGUI
 
 The shell owns the canvas region and surface-kind detection
@@ -365,7 +377,7 @@ Gen-UI components registered via `useComponent` (airline's flight card, banking'
 charts and queues) render in the chat transcript, not on the canvas — that is a
 separate path from the full-region canvas surfaces above.
 
-## The five skins (why they differ)
+## The six skins (why they differ)
 
 Two substrates behind one contract is the architectural demonstration. Demo
 completeness is a **separate axis**, and the two do not correlate — see the beat
@@ -410,6 +422,29 @@ matrix at the end of this section.
   `onSuggestionSelect`. **The only skin with parameterized routes** —
   `resolvePage` is Map-based and resolves `knowledge/<docId>` → `DocumentPage` and
   `runs/<runId>` → `RunDetailPage` alongside its static segments.
+- **`vantage`** — **REST-backed**, an executive analytics/BI desk (pages
+  Boardroom (index), Explore, Boards, `boards/<id>`, Metrics). What makes it a
+  third variation on the REST substrate rather than a repeat of banking or
+  logistics: `src/skins/vantage/data/derive.ts` recomputes every figure —
+  live, per request — from a seeded fact table under a six-axis `Lens` (period,
+  comparison, segment, region, grain, currency); nothing is precomputed or
+  stored, which is what makes the query-lever beat (3c) a genuine recompute
+  rather than a canned lookup. Its `Tools` registers 2 global
+  readables (the metric catalog, connected sources) plus 9 tool registrations:
+  six gen-UI chart tools (`showKpiRow`, `showTrend`, `showBreakdown`,
+  `showPlanVariance`, `showDeals`, `showBoard`), the `connectSource` and
+  `exploreMetric` HITL flows, and `buildBoard`; a server tool `render_board`
+  additionally feeds its a2ui `CanvasSurface`. It sets `RuntimeProviders`,
+  `useRuntimeProperties`, `CanvasSurface`, `sandboxFunctions`, `toolLabels`,
+  `chatHeaderActions` (a paperclip that stages a bundled Q2 board deck),
+  `onSuggestionSelect` (the deck-rebuild pill drives the real composer, same
+  pattern as banking's Q2 invoice) and a server `identifyUser`
+  (`vantageIdentifyUser`); it **omits `useData`** (components read the REST
+  ledger via the hooks in `./data` directly) and **omits `Providers`** (phase 1
+  has no candidate for a below-provider stack). `theme.css` sets
+  `--nw-theme-lock: dark` — vantage is the only skin locked to a single
+  palette (see the theming contract, above). Memory, stored-procedure replay
+  and teach-mode are DEFERRED to phase 2 — see the beat matrix below.
 
 - **`people`** ("Rowan") — **REST-backed**, a People Ops command center, and the
   second skin built demo-complete against the full beat list. Pages `roster`
@@ -429,26 +464,34 @@ matrix at the end of this section.
 
 ### Demo-beat coverage (the other axis)
 
-| Beat                             | banking                   | people                    | airline | logistics     | keel          |
-| -------------------------------- | ------------------------- | ------------------------- | ------- | ------------- | ------------- |
-| Gen-UI in transcript             | ✅ 8                      | ✅ 4                      | ✅ 6    | ✅ 5          | ✅ 5          |
-| Rich thread survives reload      | ✅ replay-safe tools      | ✅ replay-safe tools      | ❌      | ❌            | ❌            |
-| Drive the app, secret withheld   | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| "What's on my screen?"           | ✅ route + page readables | ✅ route + page readables | ❌      | ❌            | ❌            |
-| Navigate via levers + filters    | ✅                        | ✅                        | ❌      | ❌            | nav only      |
-| Multimodal → durable artifact    | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| Long-term memory recall          | ✅                        | ✅                        | ❌      | plumbing only | plumbing only |
-| Stored-procedure replay          | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| Teach a new procedure            | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| Presenter reset (route + button) | ✅                        | ✅                        | ❌      | ✅            | ❌            |
+| Beat                             | banking                   | people                    | vantage                   | airline | logistics     | keel          |
+| -------------------------------- | ------------------------- | ------------------------- | ------------------------- | ------- | ------------- | ------------- |
+| Gen-UI in transcript             | ✅ 8                      | ✅ 4                      | ✅ 6                      | ✅ 6    | ✅ 5          | ✅ 5          |
+| Rich thread survives reload      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ arg-only gen-UI cards  | ❌      | ❌            | ❌            |
+| Drive the app, secret withheld   | ✅                        | ✅                        | ✅ connectSource          | ❌      | ❌            | ❌            |
+| "What's on my screen?"           | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables | ❌      | ❌            | ❌            |
+| Navigate via levers + filters    | ✅                        | ✅                        | ✅ exploreMetric levers   | ❌      | ❌            | nav only      |
+| Multimodal → durable artifact    | ✅                        | ✅                        | ✅ deck → buildBoard      | ❌      | ❌            | ❌            |
+| Long-term memory recall          | ✅                        | ✅                        | ❌ DEFERRED to phase 2    | ❌      | plumbing only | plumbing only |
+| Stored-procedure replay          | ✅                        | ✅                        | ❌ DEFERRED to phase 2    | ❌      | ❌            | ❌            |
+| Teach a new procedure            | ✅                        | ✅                        | ❌ DEFERRED to phase 2    | ❌      | ❌            | ❌            |
+| Presenter reset (route + button) | ✅                        | ✅                        | ✅                        | ❌      | ✅            | ❌            |
 
-`banking` and `people` hit every row; airline, logistics and keel predate this
-bar and hit about one each (nine beats plus the presenter-reset requirement are
+`banking` and `people` hit every row. `vantage` hits six of the nine beats plus
+the presenter reset, with memory, stored-procedure replay and teach-mode
+explicitly deferred to a phase-2 build-out rather than attempted and missed —
+the plumbing those three need (`RuntimeProviders`, `useRuntimeProperties`, a
+server `identifyUser`) already ships, so phase 2 is a seed file and a persona
+switcher rather than a re-plumbing. airline, logistics and keel predate this bar
+and hit about one each (nine beats plus the presenter-reset requirement are
 listed above). Note that logistics and keel ship the **full per-user identity plumbing** —
 `RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — and then no
 memory prompts, no memory tools and no seed file, so they get no demo value from
-the hardest part of it. Treat all three as excellent **wiring** references and
-incomplete **demo** references.
+the hardest part of it. Vantage ships that same plumbing (including a server
+`identifyUser`) and is heading toward using it in phase 2, but as of this build
+gets no memory demo value from it either. Treat all of logistics, keel and
+vantage as excellent **wiring** references; banking remains the only complete
+**demo** reference, with vantage the closest second.
 
 ## How to add a skin
 
@@ -503,10 +546,12 @@ Run tasks through Nx per the repo convention where applicable.
 ## Reference
 
 - `src/shell/skin-contract.ts` — the contract (source of truth).
-- `src/skins/{banking,logistics,airline,keel,people}/skin.tsx` — five
+- `src/skins/{banking,logistics,airline,keel,people,vantage}/skin.tsx` — six
   implementations. Open `banking` or `people` for demo completeness, `logistics`
   for layout chrome and the server-emitted a2ui canvas, `airline` for the
-  minimal contract surface, `keel` for parameterized routes.
+  minimal contract surface, `keel` for parameterized routes, `vantage` for a
+  derived-metrics REST substrate and the `--nw-theme-lock: dark` dark-only theme
+  pattern.
 - `.claude/skills/reskin/` — the authoring skill: `SKILL.md` (contract + wiring
   traps), `demo-beats.md` (what the demo must prove, and the quality bar),
   `templates.md` (per-file starting points).
