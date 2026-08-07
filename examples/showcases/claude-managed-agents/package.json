@@ -1,0 +1,23 @@
+{
+  "name": "claude-managed-agents-showcase",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "setup": "npm run setup --workspace server",
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev --workspace server\" \"npm run dev --workspace web\"",
+    "build": "npm run build --workspace web",
+    "start": "npm run start --workspace server",
+    "test": "npm test --workspace server",
+    "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace web"
+  },
+  "devDependencies": {
+    "concurrently": "10.0.3"
+  },
+  "overrides": {
+    "rxjs": "7.8.1"
+  }
+}

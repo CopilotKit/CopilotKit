@@ -1,0 +1,28 @@
+{
+  "name": "server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "setup": "tsx --env-file-if-exists=../.env src/setup.ts",
+    "dev": "tsx watch --env-file-if-exists=../.env src/index.ts",
+    "start": "tsx --env-file-if-exists=../.env src/index.ts",
+    "test": "tsx --test src/setup.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ag-ui/claude-managed-agents": "^0.0.1",
+    "@ag-ui/client": "0.0.57",
+    "@ag-ui/core": "0.0.57",
+    "@anthropic-ai/sdk": "0.109.0",
+    "@copilotkit/runtime": "1.65.0",
+    "express": "5.2.1",
+    "rxjs": "7.8.1",
+    "tsx": "4.22.3"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "25.9.3",
+    "typescript": "6.0.3"
+  }
+}
