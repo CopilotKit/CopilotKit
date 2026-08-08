@@ -495,6 +495,7 @@ export class RunHandler {
     const messagesBeforeRun = new Set(
       this.getAgentMessages(agent).map((message) => message.id),
     );
+    let originatingThreadId = this.getAgentThreadId(agent);
     let observedStreamMessages: Message[] | undefined;
 
     try {
@@ -517,6 +518,7 @@ export class RunHandler {
       };
       agentSubscriber.onRunStartedEvent = async (params) => {
         started = true;
+        originatingThreadId = params.event.threadId ?? originatingThreadId;
         // A continuation keeps reporting under the run it continues; only an
         // ordinary run adopts the id the transport assigned it.
         if (!continuationHandoff) {
@@ -557,6 +559,7 @@ export class RunHandler {
           agent,
           messagesBeforeRun,
           observedStreamMessages,
+          originatingThreadId,
           runAgentResult,
         });
       if (!started) {
@@ -758,18 +761,31 @@ export class RunHandler {
     return Array.isArray(agent.messages) ? agent.messages : [];
   }
 
+  private getAgentThreadId(agent: AbstractAgent): string | undefined {
+    return typeof agent.threadId === "string" ? agent.threadId : undefined;
+  }
+
   private reconcileStreamedRunMessagesDroppedBySnapshot({
     agent,
     messagesBeforeRun,
     observedStreamMessages,
+    originatingThreadId,
     runAgentResult,
   }: {
     agent: AbstractAgent;
     messagesBeforeRun: ReadonlySet<string>;
     observedStreamMessages: readonly Message[] | undefined;
+    originatingThreadId: string | undefined;
     runAgentResult: RunAgentResult;
   }): RunAgentResult {
     if (!observedStreamMessages?.length) {
+      return runAgentResult;
+    }
+
+    if (
+      originatingThreadId !== undefined &&
+      this.getAgentThreadId(agent) !== originatingThreadId
+    ) {
       return runAgentResult;
     }
 
@@ -810,11 +826,28 @@ export class RunHandler {
     }
 
     agent.setMessages(reconciledMessages);
-    const reconciledNewMessages = [...runAgentResult.newMessages];
-    const reconciledNewMessageIds = new Set(
-      reconciledNewMessages.map((message) => message.id),
+    const returnedNewMessagesById = new Map(
+      runAgentResult.newMessages.map((message) => [message.id, message]),
     );
-    for (const message of missingRunMessages) {
+    const reconciledNewMessages: Message[] = [];
+    const reconciledNewMessageIds = new Set<string>();
+
+    for (const observed of observedStreamMessages) {
+      const message =
+        missingMessagesById.get(observed.id) ??
+        returnedNewMessagesById.get(observed.id);
+      if (
+        !message ||
+        messagesBeforeRun.has(message.id) ||
+        reconciledNewMessageIds.has(message.id)
+      ) {
+        continue;
+      }
+      reconciledNewMessages.push(message);
+      reconciledNewMessageIds.add(message.id);
+    }
+
+    for (const message of runAgentResult.newMessages) {
       if (reconciledNewMessageIds.has(message.id)) continue;
       reconciledNewMessages.push(message);
       reconciledNewMessageIds.add(message.id);

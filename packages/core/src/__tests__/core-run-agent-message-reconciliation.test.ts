@@ -17,12 +17,32 @@ import {
 } from "./test-utils";
 
 class SnapshotTruncatingAgent extends MockAgent {
-  constructor(
-    private readonly finalMessages: Message[],
-    private readonly streamedMessages: Message[],
-  ) {
-    super({ messages: finalMessages });
+  constructor({
+    initialMessages,
+    finalMessages,
+    streamedMessages,
+    returnedNewMessages = [],
+    initialThreadId = "thread-1",
+    finalThreadId,
+  }: {
+    initialMessages: Message[];
+    finalMessages: Message[];
+    streamedMessages: Message[];
+    returnedNewMessages?: Message[];
+    initialThreadId?: string;
+    finalThreadId?: string;
+  }) {
+    super({ messages: initialMessages, threadId: initialThreadId });
+    this.finalMessages = finalMessages;
+    this.streamedMessages = streamedMessages;
+    this.returnedNewMessages = returnedNewMessages;
+    this.finalThreadId = finalThreadId;
   }
+
+  private readonly finalMessages: Message[];
+  private readonly streamedMessages: Message[];
+  private readonly returnedNewMessages: Message[];
+  private readonly finalThreadId: string | undefined;
 
   override async runAgent(
     input: RunAgentInput,
@@ -32,7 +52,7 @@ class SnapshotTruncatingAgent extends MockAgent {
     await subscriber?.onRunStartedEvent?.({
       event: {
         type: EventType.RUN_STARTED,
-        threadId: "thread-1",
+        threadId: this.threadId ?? "thread-1",
         runId: "run-1",
       },
       messages: this.messages,
@@ -45,8 +65,11 @@ class SnapshotTruncatingAgent extends MockAgent {
       state: this.state,
       agent: this as any,
     });
+    if (this.finalThreadId) {
+      this.threadId = this.finalThreadId;
+    }
     this.setMessages(this.finalMessages);
-    return { result: undefined, newMessages: [] };
+    return { result: undefined, newMessages: this.returnedNewMessages };
   }
 }
 
@@ -65,10 +88,11 @@ describe("CopilotKitCore.runAgent - message reconciliation", () => {
     const toolCallId = assistantMessage.toolCalls?.[0]?.id;
     if (!toolCallId) throw new Error("Expected tool call id");
 
-    const agent = new SnapshotTruncatingAgent(
-      [userMessage],
-      [userMessage, assistantMessage],
-    );
+    const agent = new SnapshotTruncatingAgent({
+      initialMessages: [userMessage],
+      finalMessages: [userMessage],
+      streamedMessages: [userMessage, assistantMessage],
+    });
     const tool = createTool({
       name: "generateReport",
       handler: vi.fn(async () => "report-created"),
@@ -95,5 +119,109 @@ describe("CopilotKitCore.runAgent - message reconciliation", () => {
     );
     expect(toolMessage.toolCallId).toBe(toolCallId);
     expect(toolMessage.content).toBe("report-created");
+  });
+
+  it("does not restore streamed messages after the agent switches threads", async () => {
+    const copilotKitCore = new CopilotKitCore({});
+    const userMessage = createMessage({
+      id: "thread-a-user",
+      content: "Create a report",
+    });
+    const oldThreadAssistantMessage = createToolCallMessage(
+      "generateReport",
+      { name: "safety" },
+      { id: "thread-a-assistant" },
+    ) as AssistantMessage;
+    const newThreadMessage = createMessage({
+      id: "thread-b-user",
+      content: "Thread B message",
+    });
+    const agent = new SnapshotTruncatingAgent({
+      initialMessages: [userMessage],
+      finalMessages: [newThreadMessage],
+      streamedMessages: [userMessage, oldThreadAssistantMessage],
+      finalThreadId: "thread-2",
+    });
+    const tool = createTool({
+      name: "generateReport",
+      handler: vi.fn(async () => "report-created"),
+      followUp: false,
+    });
+
+    copilotKitCore.addTool(tool);
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    const result = await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(tool.handler).not.toHaveBeenCalled();
+    expect(result.newMessages).toEqual([]);
+    expect(agent.messages.map((message) => message.id)).toEqual([
+      newThreadMessage.id,
+    ]);
+  });
+
+  it("preserves observed stream order when restoring omitted tool calls", async () => {
+    const copilotKitCore = new CopilotKitCore({});
+    const calls: string[] = [];
+    const userMessage = createMessage({
+      id: "user-1",
+      content: "Run both tools",
+    });
+    const firstAssistantMessage = createToolCallMessage(
+      "firstTool",
+      {},
+      { id: "assistant-1" },
+    ) as AssistantMessage;
+    const secondAssistantMessage = createToolCallMessage(
+      "secondTool",
+      {},
+      { id: "assistant-2" },
+    ) as AssistantMessage;
+    const agent = new SnapshotTruncatingAgent({
+      initialMessages: [userMessage],
+      finalMessages: [userMessage, secondAssistantMessage],
+      streamedMessages: [
+        userMessage,
+        firstAssistantMessage,
+        secondAssistantMessage,
+      ],
+      returnedNewMessages: [secondAssistantMessage],
+    });
+
+    copilotKitCore.addTool(
+      createTool({
+        name: "firstTool",
+        handler: vi.fn(async () => {
+          calls.push("first");
+          return "first-result";
+        }),
+        followUp: false,
+      }),
+    );
+    copilotKitCore.addTool(
+      createTool({
+        name: "secondTool",
+        handler: vi.fn(async () => {
+          calls.push("second");
+          return "second-result";
+        }),
+        followUp: false,
+      }),
+    );
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    const result = await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(result.newMessages.map((message) => message.id)).toEqual([
+      firstAssistantMessage.id,
+      secondAssistantMessage.id,
+    ]);
+    expect(calls).toEqual(["first", "second"]);
   });
 });
