@@ -81,12 +81,9 @@ vi.mock("@copilotkit/shared", () => ({
 
 // Import after mocks
 import { useRenderTool } from "../useRenderTool";
-import {
-  RenderToolProvider,
-  useRenderToolRegistry,
-} from "../RenderToolContext";
 
-// Minimal wrapper that provides both CopilotKit context and RenderToolProvider
+// Minimal wrapper that provides the CopilotKit context. There is no longer a
+// RenderToolProvider — useRenderTool registers directly into core's registry.
 function TestProviders({ children }: { children: React.ReactNode }) {
   const mockCtx = {
     copilotkit: {
@@ -101,7 +98,7 @@ function TestProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <hoisted.RealContext.Provider value={mockCtx as any}>
-      <RenderToolProvider>{children}</RenderToolProvider>
+      {children}
     </hoisted.RealContext.Provider>
   );
 }
@@ -146,201 +143,6 @@ describe("useRenderTool", () => {
       }),
     );
   });
-
-  it("stores render function in the registry", () => {
-    let registry: Map<string, any> | null = null;
-    const mockSchema = { "~standard": { vendor: "test", version: 1 } };
-
-    const renderFn = ({ args, status }: any) =>
-      React.createElement("View", null, `${status}`);
-
-    function ToolRegistrar() {
-      useRenderTool({
-        name: "weather-tool",
-        description: "Show weather",
-        parameters: mockSchema as any,
-        render: renderFn,
-      });
-      return null;
-    }
-
-    function RegistryReader() {
-      registry = useRenderToolRegistry();
-      return null;
-    }
-
-    render(
-      <TestProviders>
-        <ToolRegistrar />
-        <RegistryReader />
-      </TestProviders>,
-    );
-
-    expect(registry).not.toBeNull();
-    expect(registry!.has("weather-tool")).toBe(true);
-    // The stored function is a stable wrapper, not the original
-    expect(typeof registry!.get("weather-tool")).toBe("function");
-  });
-
-  it("render function in registry produces expected output", () => {
-    let registry: Map<string, any> | null = null;
-    const mockSchema = { "~standard": { vendor: "test", version: 1 } };
-
-    function ToolRegistrar() {
-      useRenderTool({
-        name: "greeting-tool",
-        description: "Greet someone",
-        parameters: mockSchema as any,
-        render: ({ args, status }) =>
-          React.createElement("Text", null, `Hello ${status}`),
-      });
-      return null;
-    }
-
-    function RegistryReader() {
-      registry = useRenderToolRegistry();
-      return null;
-    }
-
-    render(
-      <TestProviders>
-        <ToolRegistrar />
-        <RegistryReader />
-      </TestProviders>,
-    );
-
-    const renderFn = registry!.get("greeting-tool");
-    const element = renderFn({ args: {}, status: "executing" });
-    expect(element).not.toBeNull();
-    expect(element.type).toBe("Text");
-    expect(element.props.children).toBe("Hello executing");
-  });
-
-  it("throws when useRenderTool is called outside RenderToolProvider", () => {
-    const mockSchema = { "~standard": { vendor: "test", version: 1 } };
-
-    function TestComponent() {
-      useRenderTool({
-        name: "orphan-tool",
-        description: "No provider",
-        parameters: mockSchema as any,
-        render: () => React.createElement("View"),
-      });
-      return null;
-    }
-
-    // Need CopilotKit context but no RenderToolProvider
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    expect(() => {
-      render(
-        <hoisted.RealContext.Provider
-          value={{ copilotkit: {}, executingToolCallIds: new Set() } as any}
-        >
-          <TestComponent />
-        </hoisted.RealContext.Provider>,
-      );
-    }).toThrow("useRenderTool must be used within a RenderToolProvider");
-
-    spy.mockRestore();
-  });
-
-  it("throws when useRenderToolRegistry is called outside RenderToolProvider", () => {
-    function TestComponent() {
-      useRenderToolRegistry();
-      return null;
-    }
-
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    expect(() => {
-      render(<TestComponent />);
-    }).toThrow(
-      "useRenderToolRegistry must be used within a RenderToolProvider",
-    );
-
-    spy.mockRestore();
-  });
-
-  it("unregisters the render function on unmount", () => {
-    let registry: Map<string, any> | null = null;
-    const mockSchema = { "~standard": { vendor: "test", version: 1 } };
-
-    function ToolRegistrar() {
-      useRenderTool({
-        name: "ephemeral-tool",
-        description: "Will unmount",
-        parameters: mockSchema as any,
-        render: () => React.createElement("View"),
-      });
-      return null;
-    }
-
-    function RegistryReader() {
-      registry = useRenderToolRegistry();
-      return null;
-    }
-
-    const { rerender } = render(
-      <TestProviders>
-        <ToolRegistrar />
-        <RegistryReader />
-      </TestProviders>,
-    );
-
-    expect(registry!.has("ephemeral-tool")).toBe(true);
-
-    // Re-render without the ToolRegistrar
-    rerender(
-      <TestProviders>
-        <RegistryReader />
-      </TestProviders>,
-    );
-
-    expect(registry!.has("ephemeral-tool")).toBe(false);
-  });
-
-  it("supports multiple tools registered simultaneously", () => {
-    let registry: Map<string, any> | null = null;
-    const mockSchema = { "~standard": { vendor: "test", version: 1 } };
-
-    function ToolA() {
-      useRenderTool({
-        name: "tool-a",
-        description: "Tool A",
-        parameters: mockSchema as any,
-        render: () => React.createElement("View"),
-      });
-      return null;
-    }
-
-    function ToolB() {
-      useRenderTool({
-        name: "tool-b",
-        description: "Tool B",
-        parameters: mockSchema as any,
-        render: () => React.createElement("View"),
-      });
-      return null;
-    }
-
-    function RegistryReader() {
-      registry = useRenderToolRegistry();
-      return null;
-    }
-
-    render(
-      <TestProviders>
-        <ToolA />
-        <ToolB />
-        <RegistryReader />
-      </TestProviders>,
-    );
-
-    expect(registry!.has("tool-a")).toBe(true);
-    expect(registry!.has("tool-b")).toBe(true);
-    expect(registry!.size).toBe(2);
-  });
 });
 
 describe("useRenderTool registry target", () => {
@@ -369,9 +171,7 @@ describe("useRenderTool registry target", () => {
 
     render(
       <hoisted.RealContext.Provider value={{ copilotkit } as any}>
-        <RenderToolProvider>
-          <Probe />
-        </RenderToolProvider>
+        <Probe />
       </hoisted.RealContext.Provider>,
     );
 

@@ -157,9 +157,30 @@ describe("@copilotkit/react-native/headless entry", () => {
       "useAgent",
       "useFrontendTool",
       "useRenderTool",
-      "RenderToolProvider",
     ]) {
       expect(mod, `missing export: ${name}`).toHaveProperty(name);
+    }
+  });
+
+  it("exports the render-tool consumption hooks from the headless entry", async () => {
+    const mod = await import("../headless");
+    // useRenderToolCall: renders a registered component on ANY surface, not just
+    // the chat (an in-car stage, a kiosk, a dashboard). useComponent: the
+    // controlled generative-UI primitive. Both come from react-core now.
+    for (const name of ["useRenderToolCall", "useComponent", "useRenderTool"]) {
+      expect(mod, `missing export: ${name}`).toHaveProperty(name);
+    }
+  });
+
+  it("no longer exports the removed registry hook or its provider", async () => {
+    const mod = await import("../headless");
+    // Both removed (BREAKING). Asserted so neither creeps back as a shim:
+    // useRenderToolRegistry cannot be honoured (core's renderers need
+    // name/toolCallId, so a derived Map would silently change the call
+    // signature), and RenderToolProvider has nothing left to provide now that
+    // registration goes to CopilotKitCoreReact.renderToolCalls.
+    for (const name of ["useRenderToolRegistry", "RenderToolProvider"]) {
+      expect(mod, `must not export: ${name}`).not.toHaveProperty(name);
     }
   });
 
