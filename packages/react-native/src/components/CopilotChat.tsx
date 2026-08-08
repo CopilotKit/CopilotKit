@@ -9,10 +9,12 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  type ListRenderItemInfo,
-  type ViewStyle,
 } from "react-native";
-import { useAgent, useRenderToolCall } from "@copilotkit/react-core/v2/headless";
+import type { ListRenderItemInfo, ViewStyle } from "react-native";
+import {
+  useAgent,
+  useRenderToolCall,
+} from "@copilotkit/react-core/v2/headless";
 import { useCopilotKit } from "@copilotkit/react-core/v2/context";
 import { AssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage } from "./messages/UserMessage";
@@ -102,19 +104,13 @@ export function CopilotChat({
   const flatListRef = useRef<FlatList>(null);
   const messageIdCounter = useRef(0);
 
-  const { copilotkit, executingToolCallIds } = useCopilotKit();
+  const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: agentName });
 
   const messages = agent.messages ?? [];
   const isRunning = agent.isRunning;
 
   const renderToolCall = useRenderToolCall();
-
-  // Stable extraData for FlatList to avoid re-creating the object every render
-  const extraData = useMemo(
-    () => ({ isRunning, executingToolCallIds, renderToolCall }),
-    [isRunning, executingToolCallIds, renderToolCall],
-  );
 
   // toolCallId -> tool result message. react-core's renderer reports
   // status "complete" with `result` when a tool message exists; RN's chat
@@ -139,6 +135,13 @@ export function CopilotChat({
     }
     return byId;
   }, [messages]);
+
+  // Stable extraData for FlatList: the exact inputs renderItem reads, so a
+  // change forces a row re-render. Must describe what renderItem actually uses.
+  const extraData = useMemo(
+    () => ({ isRunning, renderToolCall, toolMessages }),
+    [isRunning, renderToolCall, toolMessages],
+  );
 
   // Build flat list items from messages
   const listItems: ChatListItem[] = useMemo(() => {

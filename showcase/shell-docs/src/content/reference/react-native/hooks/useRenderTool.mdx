@@ -62,7 +62,11 @@ function useRenderTool<T>(
 </PropertyReference>
 
 <PropertyReference name="deps" type="ReadonlyArray<unknown>">
-  Optional dependency array. Re-register the tool when these values change.
+  Optional dependency array. Re-register the tool when these values change. The
+  `render` function is **captured at registration** and only refreshed when
+  `deps` change — it does not re-read the latest closure on every render. If your
+  `render` closes over component state or props that change over time, pass those
+  values in `deps` or the chat will keep painting the stale closure.
 </PropertyReference>
 
 ### `RenderToolProps<T>`
@@ -128,6 +132,7 @@ function ChatScreen() {
 
 - **Render returns `ReactElement | null`**, not `ReactNode`. React Native's `FlatList` cannot render bare strings or portals, so a render function must return an element or `null`.
 - **Arguments stream.** While the agent is still writing the call, `status` is `"inProgress"` and `args` is partial — fields arrive progressively. Write renderers that tolerate missing fields; that is what lets UI build as the agent writes it.
+- **`render` is captured at registration.** It is not refreshed on every render — only when `deps` change. This matches the web hooks. If your `render` closes over component state or props that change over time, pass those values in `deps`; otherwise the chat keeps invoking the stale closure and paints outdated UI. Earlier React Native versions refreshed the closure on every render, so code that relied on that must now declare its `deps`.
 - **Cleanup**: unmounting removes the *tool* (the agent can no longer call it) but keeps the *render function* registered, so tool calls already in the chat history still render after you navigate away.
 
 ## Rendering a tool call outside the chat
@@ -151,7 +156,7 @@ return <View>{toolCalls.map((tc) => renderToolCall({ toolCall: tc }))}</View>;
 
 `RenderToolProvider` is **removed** — there is no separate registry provider to mount. See the migration section below.
 
-## Migrating from `useRenderToolRegistry` (removed in 1.67.0)
+## Migrating from `useRenderToolRegistry` (removed)
 
 `useRenderToolRegistry` is gone. It exposed a React Native-only registry that no
 longer exists — render functions now live in the same registry the rest of

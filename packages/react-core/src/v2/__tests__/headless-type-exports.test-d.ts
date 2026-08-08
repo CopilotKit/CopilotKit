@@ -1,5 +1,6 @@
 // Type-only assertions. These fail at `check-types`, not at runtime — a type
 // export cannot be observed by a runtime test, so this file is the guard.
+import type React from "react";
 import type { ReactToolCallRenderer } from "../headless";
 
 // @copilotkit/react-native derives its public RenderToolProps from this type

@@ -1,6 +1,6 @@
 ---
 "@copilotkit/react-native": minor
-"@copilotkit/react-core": patch
+"@copilotkit/react-core": minor
 ---
 
 Render tools on React Native now use CopilotKit's canonical renderer, fixing three bugs.
@@ -43,6 +43,10 @@ Other migration notes:
   renderer registry rather than a React Native-specific one.
 - Unmounting no longer unregisters a render function (the tool itself is still removed), so tool
   calls already in the chat history keep rendering after navigation.
+- **`render` is now captured at registration**, matching the web hooks — it is refreshed only when
+  `deps` change, not on every render. Previously RN re-read the latest closure each render. If your
+  `render` closes over component state or props that change over time, you must now pass those values
+  in the `deps` array, or the chat will keep painting the stale closure.
 
 **Known limitation:** agent-scoped renderer resolution does not take effect on React Native —
 `CopilotChatConfigurationProvider` is not part of the RN provider tree, so `agentId` always

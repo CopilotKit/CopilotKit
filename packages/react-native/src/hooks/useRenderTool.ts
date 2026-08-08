@@ -37,6 +37,13 @@ export interface UseRenderToolOptions<T extends Record<string, unknown>> {
  * `useComponent` (registering into core's) rendered nowhere on RN, and renderers
  * were dropped from chat history on unmount.
  */
+/**
+ * @param deps Optional dependency array. The `render` function is captured at
+ * registration and only refreshed when `deps` change — it does NOT re-read the
+ * latest closure on every render. If your `render` closes over component state
+ * or props that change over time, you MUST pass those values in `deps`, or the
+ * chat will keep painting with the stale closure.
+ */
 export function useRenderTool<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(options: UseRenderToolOptions<T>, deps?: ReadonlyArray<unknown>): void {
