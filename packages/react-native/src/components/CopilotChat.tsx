@@ -9,15 +9,17 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  type ListRenderItemInfo,
-  type ViewStyle,
 } from "react-native";
-import { useAgent } from "@copilotkit/react-core/v2/headless";
+import type { ListRenderItemInfo, ViewStyle } from "react-native";
+import {
+  useAgent,
+  useRenderToolCall,
+} from "@copilotkit/react-core/v2/headless";
 import { useCopilotKit } from "@copilotkit/react-core/v2/context";
 import { AssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage } from "./messages/UserMessage";
-import { useRenderToolRegistry } from "../hooks/RenderToolContext";
 import type { Message } from "@copilotkit/shared";
+import type { ToolMessage } from "@ag-ui/client";
 
 /** Shape of an assistant message with optional tool calls. */
 interface AssistantMessageShape {
@@ -102,18 +104,43 @@ export function CopilotChat({
   const flatListRef = useRef<FlatList>(null);
   const messageIdCounter = useRef(0);
 
-  const { copilotkit, executingToolCallIds } = useCopilotKit();
+  const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: agentName });
 
   const messages = agent.messages ?? [];
   const isRunning = agent.isRunning;
 
-  const toolRenderers = useRenderToolRegistry();
+  const renderToolCall = useRenderToolCall();
 
-  // Stable extraData for FlatList to avoid re-creating the object every render
+  // toolCallId -> tool result message. react-core's renderer reports
+  // status "complete" with `result` when a tool message exists; RN's chat
+  // previously never correlated these, so `result` was always undefined.
+  const toolMessages = useMemo(() => {
+    const byId = new Map<string, ToolMessage>();
+    for (const msg of messages) {
+      const m = msg as {
+        role?: string;
+        id?: string;
+        toolCallId?: string;
+        content?: unknown;
+      };
+      if (m.role === "tool" && m.toolCallId) {
+        byId.set(m.toolCallId, {
+          id: m.id ?? m.toolCallId,
+          role: "tool",
+          toolCallId: m.toolCallId,
+          content: typeof m.content === "string" ? m.content : "",
+        });
+      }
+    }
+    return byId;
+  }, [messages]);
+
+  // Stable extraData for FlatList: the exact inputs renderItem reads, so a
+  // change forces a row re-render. Must describe what renderItem actually uses.
   const extraData = useMemo(
-    () => ({ isRunning, executingToolCallIds, toolRenderers }),
-    [isRunning, executingToolCallIds, toolRenderers],
+    () => ({ isRunning, renderToolCall, toolMessages }),
+    [isRunning, renderToolCall, toolMessages],
   );
 
   // Build flat list items from messages
@@ -230,22 +257,16 @@ export function CopilotChat({
 
       if (item.type === "tool-call" && item.toolCalls) {
         const tc = item.toolCalls[0];
-        const renderer = toolRenderers.get(tc.function.name);
-        if (renderer) {
-          let args: Record<string, unknown> = {};
-          try {
-            args = JSON.parse(tc.function.arguments || "{}");
-          } catch (e) {
-            console.warn(
-              `[CopilotChat] Failed to parse tool call arguments for ${tc.function.name}:`,
-              e,
-            );
-          }
-          const status = executingToolCallIds.has(tc.id)
-            ? "executing"
-            : "complete";
-          return renderer({ args, status });
-        }
+        // Partial-parses streaming args, resolves the renderer (exact name ->
+        // agent-scoped -> wildcard "*") and derives status — all in react-core,
+        // shared with web. Returns ReactElement | null, which is what
+        // renderItem requires.
+        const rendered = renderToolCall({
+          toolCall: tc,
+          toolMessage: toolMessages.get(tc.id),
+        });
+        if (rendered) return <>{rendered}</>;
+
         // Subtle indicator for unregistered tool calls
         return (
           <View style={styles.toolCallIndicator}>
@@ -260,7 +281,7 @@ export function CopilotChat({
 
       return null;
     },
-    [isRunning, listItems, toolRenderers, executingToolCallIds],
+    [isRunning, listItems, renderToolCall, toolMessages],
   );
 
   const keyExtractor = useCallback((item: ChatListItem) => item.id, []);

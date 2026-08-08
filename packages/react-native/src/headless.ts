@@ -99,12 +99,18 @@ export type {
   AgentCapabilities,
 } from "@ag-ui/client";
 
-// Render tool hook (React Native version with render registry integration).
-// No DOM and no chat-UI stack: the app supplies the renderers.
+// Render tool registration (React Native flavour: RN-typed render function,
+// registered into react-core's canonical registry — no local registry).
 export { useRenderTool } from "./hooks/useRenderTool";
 export type { UseRenderToolOptions } from "./hooks/useRenderTool";
-export {
-  RenderToolProvider,
-  useRenderToolRegistry,
-} from "./hooks/RenderToolContext";
-export type { RenderToolProps } from "./hooks/RenderToolContext";
+export type {
+  RenderToolProps,
+  RenderToolFunction,
+} from "./hooks/render-tool-types";
+
+// Render tool consumption. react-core's hook is platform-agnostic — it pulls no
+// DOM and no chat-UI stack, and it returns ReactElement | null, which is exactly
+// what FlatList's renderItem requires. Use it to render a registered component
+// on any surface, chat or not.
+export { useRenderToolCall } from "@copilotkit/react-core/v2/headless";
+export type { ReactToolCallRenderer } from "@copilotkit/react-core/v2/headless";

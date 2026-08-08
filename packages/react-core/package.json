@@ -62,6 +62,7 @@
     "build": "tsdown && pnpm run build:css",
     "size": "size-limit",
     "size:headline": "node scripts/measure-copilotchat.mjs",
+    "size:assert-headless": "node scripts/assert-headless-purity.mjs",
     "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2020 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
     "test": "vitest run && pnpm run test:scripts",

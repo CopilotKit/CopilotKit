@@ -38,6 +38,35 @@ const FORBIDDEN_LOCAL = [
   "use-attachments",
 ];
 
+// ─── #4893 bundle guard ──────────────────────────────────────────────────────
+// @copilotkit/react-core/v2 (the "fat" entry) re-exports from a monolithic chunk
+// that pulls the chat-message rendering stack: streamdown -> shiki (~5.5 MB of
+// grammars + themes), plus mermaid, cytoscape and katex. Metro does not
+// tree-shake, so ONE import of that specifier from anywhere in this package puts
+// all of it in every consumer's app bundle (issue #4893). PR #5883 moved the lean
+// hooks into /v2/headless precisely so this package never needs the fat entry.
+const ALLOWED_REACT_CORE_ENTRIES = [
+  "@copilotkit/react-core/v2/headless",
+  "@copilotkit/react-core/v2/context",
+];
+
+// Heavy modules that must never appear as a direct import from this package.
+// (Transitive leakage through react-core's own entry is covered separately by
+// packages/react-core/scripts/assert-headless-purity.mjs — this walker cannot
+// follow into node_modules.)
+const FORBIDDEN_HEAVY = [
+  "shiki",
+  "mermaid",
+  "cytoscape",
+  "katex",
+  "streamdown",
+  "@copilotkit/a2ui-renderer",
+  "@copilotkit/web-inspector",
+  "@copilotkit/runtime-client-gql",
+];
+
+const indexEntry = path.join(srcDir, "index.ts");
+
 const importRe =
   /(?:import|export)\s+(?:type\s+)?[^"']*?from\s+["']([^"']+)["']|import\s+["']([^"']+)["']/g;
 
@@ -128,9 +157,30 @@ describe("@copilotkit/react-native/headless entry", () => {
       "useAgent",
       "useFrontendTool",
       "useRenderTool",
-      "RenderToolProvider",
     ]) {
       expect(mod, `missing export: ${name}`).toHaveProperty(name);
+    }
+  });
+
+  it("exports the render-tool consumption hooks from the headless entry", async () => {
+    const mod = await import("../headless");
+    // useRenderToolCall: renders a registered component on ANY surface, not just
+    // the chat (an in-car stage, a kiosk, a dashboard). useComponent: the
+    // controlled generative-UI primitive. Both come from react-core now.
+    for (const name of ["useRenderToolCall", "useComponent", "useRenderTool"]) {
+      expect(mod, `missing export: ${name}`).toHaveProperty(name);
+    }
+  });
+
+  it("no longer exports the removed registry hook or its provider", async () => {
+    const mod = await import("../headless");
+    // Both removed (BREAKING). Asserted so neither creeps back as a shim:
+    // useRenderToolRegistry cannot be honoured (core's renderers need
+    // name/toolCallId, so a derived Map would silently change the call
+    // signature), and RenderToolProvider has nothing left to provide now that
+    // registration goes to CopilotKitCoreReact.renderToolCalls.
+    for (const name of ["useRenderToolRegistry", "RenderToolProvider"]) {
+      expect(mod, `must not export: ${name}`).not.toHaveProperty(name);
     }
   });
 
@@ -148,4 +198,40 @@ describe("@copilotkit/react-native/headless entry", () => {
       );
     }
   });
+
+  // Applies to BOTH entries: the fat-entry ban is package-wide, unlike the
+  // native-peer-dep ban above which only constrains the headless entry.
+  it.each([
+    ["headless", headlessEntry],
+    ["default barrel", indexEntry],
+  ])(
+    "%s entry imports no react-core entry other than /v2/headless and /v2/context",
+    (_label, entry) => {
+      const { bareSpecs } = walkGraph(entry);
+      const offenders = [...bareSpecs].filter(
+        (s) =>
+          s.startsWith("@copilotkit/react-core") &&
+          !ALLOWED_REACT_CORE_ENTRIES.includes(s),
+      );
+      expect(
+        offenders,
+        `must import only ${ALLOWED_REACT_CORE_ENTRIES.join(" or ")} — found: ${offenders.join(", ")}. ` +
+          `Importing @copilotkit/react-core/v2 drags the shiki/mermaid/katex render stack into every RN bundle (#4893).`,
+      ).toEqual([]);
+    },
+  );
+
+  it.each([
+    ["headless", headlessEntry],
+    ["default barrel", indexEntry],
+  ])(
+    "%s entry imports none of the heavy render stack directly",
+    (_label, entry) => {
+      const { bareSpecs } = walkGraph(entry);
+      const leaked = FORBIDDEN_HEAVY.filter((dep) =>
+        [...bareSpecs].some((s) => s === dep || s.startsWith(`${dep}/`)),
+      );
+      expect(leaked, `must not import: ${leaked.join(", ")}`).toEqual([]);
+    },
+  );
 });

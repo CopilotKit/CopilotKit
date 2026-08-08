@@ -14,6 +14,11 @@ Key facts:
 - The action runs `build-script: build` (the root `build` script — `nx run-many -t build` over all `packages/**`) on both the PR branch and the base branch, then measures only the files matched by the `pattern` glob. The root `build` script is used (rather than a bundle-size-specific one) because the action must build the base branch too, and `build` exists on every branch. No separate build step is needed before the workflow triggers — the action handles both builds.
 - PR comments show paths like `packages/react-core/dist/index.mjs (+1.2 kB gzip)`.
 
+`react-native` joined the glob in the render-tool convergence (2026-08-06); its
+`dist/` was previously unmeasured. `pnpm --filter @copilotkit/react-native
+size:headless` gives a per-PR gzip signal for the headless entry, printed to the
+job summary. No `limit` fields — see Phase 2.
+
 ### The CopilotChat regression signal (job summary, not the PR comment)
 
 The `copilotchat-import-size` job in `static_bundle_size.yml` measures what an app
@@ -49,6 +54,21 @@ pnpm --filter <pkg> size
 The five unbundled packages (`shared`, `runtime-client-gql`, `web-inspector`, `voice`, `a2ui-renderer`) have no `.size-limit.json` and no `size` script — their sizes are tracked by the CI glob only.
 
 > **Node version requirement:** `size-limit@12.1.0` requires Node 20, 22, or 24+ (`^20 || ^22 || >=24`). Running `pnpm --filter <pkg> size` on Node 18 will produce an `EBADENGINE` error.
+
+### Tier 3: Structural assertions (hard-fail)
+
+Two checks hard-fail because they assert _structure_, not a byte threshold — no
+baseline to maintain, and no conflict with the Phase 2 freeze on `limit` fields:
+
+1. `pnpm --filter @copilotkit/react-core size:assert-headless` — fails if the
+   built `dist/v2/headless.mjs` / `.cjs` reference `shiki`, `mermaid`,
+   `cytoscape`, `katex` or `streamdown`. Runs in `static_bundle_size.yml`.
+2. `packages/react-native/src/__tests__/headless-entry-surface.test.ts` — walks
+   the RN import graph and fails if any module imports a react-core entry other
+   than `/v2/headless` or `/v2/context`. Runs in the normal test job.
+
+Together they cover both directions of the #4893 regression: react-native
+importing the fat entry, and the lean entry growing heavy.
 
 ## Where configuration lives
 
