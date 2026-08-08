@@ -5,9 +5,9 @@ Most applications should use the batteries-included `@copilotkit/channels` packa
 install core directly when building an adapter or intentionally selecting one platform.
 
 **Channels run through a channel runner.** CopilotKit Intelligence provides the
-managed runner, available on a free plan: a Channel is started and
-owned by the `CopilotRuntime` once Intelligence is configured, not by calling a
-method on the Channel itself. See "Running a Channel" below. Building and
+managed runner, available on a free plan: the `CopilotRuntime` starts and owns
+each Channel once Intelligence is configured — see "Running a Channel" below.
+Building and
 operating your own channel runner on the SDK primitives is also a supported
 path; teams choosing it own their state, persistence, concurrency, locking,
 retries, and race-condition handling.
