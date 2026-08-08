@@ -14,10 +14,14 @@
 // node_modules. Writing the entry to a temp dir would break resolution — the
 // temp dir has no node_modules link to the monorepo.
 //
-// `useRenderToolCall` is intentionally absent from the import list: the RN
-// headless surface does not export it (it is DOM-dependent — see src/index.ts),
-// so importing it would fail the build. The symbols below are the real lean
-// headless API a custom-UI consumer imports.
+// TEMPORARY — REVISIT: `useRenderToolCall` is missing from the import list
+// only because the RN headless entry does not export it *yet*. The render-tool
+// convergence (this same branch) adds that export; once RN's `src/headless.ts`
+// re-exports `useRenderToolCall`, add it back to the import list below and
+// re-baseline the reported number. Do NOT treat its absence as a design fact:
+// including it today breaks the build (the export does not exist yet), which is
+// the only reason it is left out. The symbols below are the currently-exported
+// lean headless API a custom-UI consumer imports.
 //
 // `platform: "browser"` + `target: "es2022"` mirror measure-copilotchat.mjs.
 // `platform: "neutral"` cannot resolve deps that ship only conditional
