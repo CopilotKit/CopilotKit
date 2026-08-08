@@ -8,9 +8,13 @@ description: "Register a React Native component to render inline when an agent c
 `useRenderTool` is the React Native counterpart of the web tool-rendering hooks. It registers a tool with the agent **and** a render function that produces a React Native element for that tool's call, so the agent can drive inline generative UI inside the chat. It combines [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool) (registration + optional handler) with a render registry that the prebuilt [`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui) reads when displaying tool calls.
 
 <Callout type="info">
-  The web-only rendering hooks (`useRenderToolCall`, `useDefaultRenderTool`,
-  `useRenderActivityMessage`, `useRenderCustomMessages`) are **not** exported on
-  React Native, because they depend on DOM elements. Use `useRenderTool` instead.
+  `useRenderToolCall` **is** exported on React Native — import it from
+  `@copilotkit/react-native` to render a registered tool call on any surface,
+  not just inside the chat (see [Rendering a tool call outside the
+  chat](#rendering-a-tool-call-outside-the-chat)). The remaining web rendering
+  hooks (`useDefaultRenderTool`, `useRenderActivityMessage`,
+  `useRenderCustomMessages`) are **not** exported on React Native, because they
+  render host DOM or link the web chat-message stack.
 </Callout>
 
 ## Signature
@@ -63,18 +67,32 @@ function useRenderTool<T>(
 
 ### `RenderToolProps<T>`
 
-Props passed to your `render` function.
+Props passed to your `render` function. `status` is a discriminated union: `args`
+is partial **only** while `"inProgress"`, and `result` is a string **only** when
+`"complete"`.
 
-<PropertyReference name="args" type="T">
-  Parsed tool-call arguments, typed by your `parameters` schema.
+<PropertyReference name="name" type="string">
+  The tool name being rendered.
 </PropertyReference>
 
-<PropertyReference name="status" type='"executing" | "complete"'>
-  Current tool-call status.
+<PropertyReference name="toolCallId" type="string">
+  Unique ID of this tool call.
+</PropertyReference>
+
+<PropertyReference name="args" type="Partial<T> | T">
+  Tool-call arguments, typed by your `parameters` schema. Partial while `status`
+  is `"inProgress"` (the agent is still writing the call); fully parsed once
+  `status` is `"executing"` or `"complete"`.
+</PropertyReference>
+
+<PropertyReference name="status" type='"inProgress" | "executing" | "complete"'>
+  Current tool-call status. `"inProgress"` while arguments stream, `"executing"`
+  while the handler runs, `"complete"` once the result is available.
 </PropertyReference>
 
 <PropertyReference name="result" type="string | undefined">
-  Result from the handler, when available.
+  Result from the handler. A string only when `status` is `"complete"`;
+  `undefined` otherwise.
 </PropertyReference>
 
 ## Usage
@@ -109,23 +127,47 @@ function ChatScreen() {
 ## Behavior
 
 - **Render returns `ReactElement | null`**, not `ReactNode`. React Native's `FlatList` cannot render bare strings or portals, so a render function must return an element or `null`.
-- **Cleanup**: unmounting unregisters both the tool and its render function.
+- **Arguments stream.** While the agent is still writing the call, `status` is `"inProgress"` and `args` is partial — fields arrive progressively. Write renderers that tolerate missing fields; that is what lets UI build as the agent writes it.
+- **Cleanup**: unmounting removes the *tool* (the agent can no longer call it) but keeps the *render function* registered, so tool calls already in the chat history still render after you navigate away.
 
-## `RenderToolProvider` and `useRenderToolRegistry`
+## Rendering a tool call outside the chat
 
-These power the render registry and are installed automatically by [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider). You rarely use them directly.
+[`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui) renders tool calls inline. To render a registered component anywhere else — a dashboard, a kiosk, a full-screen stage the agent composes — use `useRenderToolCall()`:
 
-<PropertyReference name="RenderToolProvider" type="({ children }: { children: ReactNode }) => ReactElement">
-  Maintains the registry of tool render functions. Already mounted by
-  `CopilotKitProvider`; add it manually only for an isolated subtree.
+```tsx
+import { useRenderToolCall } from "@copilotkit/react-native";
+import { View } from "react-native";
+
+const renderToolCall = useRenderToolCall();
+
+return <View>{toolCalls.map((tc) => renderToolCall({ toolCall: tc }))}</View>;
+```
+
+<PropertyReference name="useRenderToolCall" type="() => (input: { toolCall, toolMessage? }) => ReactElement | null">
+  Returns a function that renders a single tool call using the render function
+  registered for it. Returns `null` when no renderer matches the tool call.
+  Arguments are partial-parsed, so components paint as the agent writes the call.
 </PropertyReference>
 
-<PropertyReference name="useRenderToolRegistry" type="() => RenderToolRegistry">
-  Returns the `Map<string, RenderToolFunction>` of registered render functions,
-  subscribing to changes via `useSyncExternalStore`. Used internally by
-  `CopilotChat` to look up a renderer for each tool call. Throws if called
-  outside a `RenderToolProvider`.
-</PropertyReference>
+`RenderToolProvider` is **removed** — there is no separate registry provider to mount. See the migration section below.
+
+## Migrating from `useRenderToolRegistry` (removed in 1.67.0)
+
+`useRenderToolRegistry` is gone. It exposed a React Native-only registry that no
+longer exists — render functions now live in the same registry the rest of
+CopilotKit uses, which is what makes [`useComponent`](/reference/react-native/hooks/useComponent)
+work on React Native and keeps chat history rendering after navigation.
+
+```diff
+- const registry = useRenderToolRegistry();
+- const renderer = registry.get(toolCall.function.name);
+- return renderer ? renderer({ args, status }) : null;
++ const renderToolCall = useRenderToolCall();
++ return renderToolCall({ toolCall });
+```
+
+Render props also gain `name` and `toolCallId`, and `args` is partial only while
+`status` is `"inProgress"`.
 
 ## Related
 
