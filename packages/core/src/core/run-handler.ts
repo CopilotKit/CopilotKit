@@ -492,10 +492,23 @@ export class RunHandler {
     }
 
     this._runDepth++;
+    const messagesBeforeRun = new Set(
+      this.getAgentMessages(agent).map((message) => message.id),
+    );
+    let originatingThreadId = this.getAgentThreadId(agent);
+    let observedStreamMessages: Message[] | undefined;
 
     try {
       let logicalRunId = runId;
       const agentSubscriber = this.createAgentErrorSubscriber(agent);
+      const onMessagesChanged = agentSubscriber.onMessagesChanged;
+      agentSubscriber.onMessagesChanged = async (params) => {
+        observedStreamMessages = this.mergeObservedMessages(
+          observedStreamMessages,
+          params.messages,
+        );
+        return onMessagesChanged?.(params);
+      };
       let started = false;
       const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
       const onRunInitialized = agentSubscriber.onRunInitialized;
@@ -505,6 +518,7 @@ export class RunHandler {
       };
       agentSubscriber.onRunStartedEvent = async (params) => {
         started = true;
+        originatingThreadId = params.event.threadId ?? originatingThreadId;
         // A continuation keeps reporting under the run it continues; only an
         // ordinary run adopts the id the transport assigned it.
         if (!continuationHandoff) {
@@ -540,11 +554,19 @@ export class RunHandler {
         agentRunInput,
         agentSubscriber,
       );
+      const reconciledRunAgentResult =
+        this.reconcileStreamedRunMessagesDroppedBySnapshot({
+          agent,
+          messagesBeforeRun,
+          observedStreamMessages,
+          originatingThreadId,
+          runAgentResult,
+        });
       if (!started) {
         continuationHandoff?.cancel();
       }
       return await this.processAgentResult({
-        runAgentResult,
+        runAgentResult: reconciledRunAgentResult,
         agent,
         runId: logicalRunId,
       });
@@ -707,6 +729,134 @@ export class RunHandler {
     void this._internal.suggestionEngine.reloadSuggestions(agentId);
 
     return runAgentResult;
+  }
+
+  private mergeObservedMessages(
+    previous: readonly Message[] | undefined,
+    next: readonly Message[],
+  ): Message[] {
+    if (!previous) {
+      return [...next];
+    }
+
+    const latestById = new Map<string, Message>();
+    for (const message of previous) latestById.set(message.id, message);
+    for (const message of next) latestById.set(message.id, message);
+
+    const merged: Message[] = [];
+    const seen = new Set<string>();
+    for (const source of [previous, next]) {
+      for (const message of source) {
+        if (seen.has(message.id)) continue;
+        const latest = latestById.get(message.id);
+        if (!latest) continue;
+        merged.push(latest);
+        seen.add(message.id);
+      }
+    }
+    return merged;
+  }
+
+  private getAgentMessages(agent: AbstractAgent): Message[] {
+    return Array.isArray(agent.messages) ? agent.messages : [];
+  }
+
+  private getAgentThreadId(agent: AbstractAgent): string | undefined {
+    return typeof agent.threadId === "string" ? agent.threadId : undefined;
+  }
+
+  private reconcileStreamedRunMessagesDroppedBySnapshot({
+    agent,
+    messagesBeforeRun,
+    observedStreamMessages,
+    originatingThreadId,
+    runAgentResult,
+  }: {
+    agent: AbstractAgent;
+    messagesBeforeRun: ReadonlySet<string>;
+    observedStreamMessages: readonly Message[] | undefined;
+    originatingThreadId: string | undefined;
+    runAgentResult: RunAgentResult;
+  }): RunAgentResult {
+    if (!observedStreamMessages?.length) {
+      return runAgentResult;
+    }
+
+    if (
+      originatingThreadId !== undefined &&
+      this.getAgentThreadId(agent) !== originatingThreadId
+    ) {
+      return runAgentResult;
+    }
+
+    const finalMessageIds = new Set(
+      this.getAgentMessages(agent).map((message) => message.id),
+    );
+    const missingRunMessages = observedStreamMessages.filter(
+      (message) =>
+        !messagesBeforeRun.has(message.id) && !finalMessageIds.has(message.id),
+    );
+
+    if (missingRunMessages.length === 0) {
+      return runAgentResult;
+    }
+
+    const finalMessagesById = new Map(
+      this.getAgentMessages(agent).map((message) => [message.id, message]),
+    );
+    const missingMessagesById = new Map(
+      missingRunMessages.map((message) => [message.id, message]),
+    );
+    const reconciledMessages: Message[] = [];
+    const seen = new Set<string>();
+
+    for (const observed of observedStreamMessages) {
+      const message =
+        finalMessagesById.get(observed.id) ??
+        missingMessagesById.get(observed.id);
+      if (!message || seen.has(message.id)) continue;
+      reconciledMessages.push(message);
+      seen.add(message.id);
+    }
+
+    for (const message of this.getAgentMessages(agent)) {
+      if (seen.has(message.id)) continue;
+      reconciledMessages.push(message);
+      seen.add(message.id);
+    }
+
+    agent.setMessages(reconciledMessages);
+    const returnedNewMessagesById = new Map(
+      runAgentResult.newMessages.map((message) => [message.id, message]),
+    );
+    const reconciledNewMessages: Message[] = [];
+    const reconciledNewMessageIds = new Set<string>();
+
+    for (const observed of observedStreamMessages) {
+      const message =
+        missingMessagesById.get(observed.id) ??
+        returnedNewMessagesById.get(observed.id);
+      if (
+        !message ||
+        messagesBeforeRun.has(message.id) ||
+        reconciledNewMessageIds.has(message.id)
+      ) {
+        continue;
+      }
+      reconciledNewMessages.push(message);
+      reconciledNewMessageIds.add(message.id);
+    }
+
+    for (const message of runAgentResult.newMessages) {
+      if (reconciledNewMessageIds.has(message.id)) continue;
+      reconciledNewMessages.push(message);
+      reconciledNewMessageIds.add(message.id);
+    }
+
+    return {
+      ...runAgentResult,
+      newMessages: reconciledNewMessages,
+    };
   }
 
   private isFrontendPlaceholderResult(message: Message): boolean {
