@@ -12,7 +12,7 @@ The adapter keeps its own WhatsApp Cloud API credentials (`accessToken` /
 `phoneNumberId` / …) — in the managed path the Channel runs inside a CopilotKit
 Intelligence-configured `CopilotRuntime` (free plan available), which starts and
 owns the channel's lifecycle. Building and operating your own channel runner on
-the SDK primitives is also a supported path — see `@copilotkit/channels-core`.
+the SDK primitives is also a supported path.
 
 ## Install
 

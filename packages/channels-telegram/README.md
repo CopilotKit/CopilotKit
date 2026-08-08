@@ -11,8 +11,8 @@ You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 The adapter keeps its own Telegram bot token — in the managed path the Channel
 runs inside a CopilotKit Intelligence-configured `CopilotRuntime` (free plan
 available), which starts and owns the channel's lifecycle. Building and
-operating your own channel runner on the SDK primitives is also a supported path
-— see `@copilotkit/channels-core`.
+operating your own channel runner on the SDK primitives is also a supported
+path.
 
 ## Install
 
