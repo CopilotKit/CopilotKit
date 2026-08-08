@@ -67,6 +67,31 @@ stage_angular() {
     > "$angular_link/runtime-config.js"
 }
 
+stage_vue() {
+  local pkg_dir="${1:?integration context required}"
+  local default_source="$SHOWCASE_ROOT/vue/dist"
+  local vue_source="${2:-$default_source}"
+  local vue_link="$pkg_dir/public/vue"
+
+  [ -L "$vue_link" ] || return 0
+
+  if [ ! -d "$vue_source" ]; then
+    if [ "$vue_source" != "$default_source" ]; then
+      die "Missing staged Vue browser artifact: $vue_source"
+    fi
+    pnpm --dir "$SHOWCASE_ROOT/vue" build
+  fi
+
+  local integration_id
+  integration_id="$(basename "${pkg_dir%/}")"
+  rm "$vue_link"
+  mkdir -p "$vue_link"
+  cp -R "$vue_source/." "$vue_link/"
+  printf '%s\n' \
+    "globalThis.__COPILOTKIT_SHOWCASE__ = Object.freeze({\"frontendId\":\"vue\",\"integrationId\":\"$integration_id\"});" \
+    > "$vue_link/runtime-config.js"
+}
+
 stage_shared() {
   # Dereference tools/, shared-tools/, and _shared/ symlinks into real copies
   # so Docker COPY can follow them (Docker build contexts can't traverse
@@ -89,10 +114,12 @@ stage_shared() {
       fi
     done
 
-    # Angular is built once, then the same static artifact is materialized
-    # inside each selected integration context. The staged manifest contains
-    # only the frontend and integration IDs; all API traffic stays same-origin.
+    # Secondary frontends are each built once, then the same static artifacts
+    # are materialized inside every selected integration context. The staged
+    # manifests contain only frontend and integration IDs; API traffic stays
+    # same-origin.
     stage_angular "$pkg_dir"
+    stage_vue "$pkg_dir"
   done
 }
 
@@ -100,7 +127,7 @@ restore_symlinks() {
   # Restore tools/, shared-tools/, and _shared/ symlinks replaced by
   # stage_shared. The integrations/*/_shared glob also matches the canonical
   # source dir integrations/_shared (a real tracked dir) — harmless no-op there.
-  (cd "$SHOWCASE_ROOT" && git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared integrations/*/public/angular 2>/dev/null || true)
+  (cd "$SHOWCASE_ROOT" && git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared integrations/*/public/angular integrations/*/public/vue 2>/dev/null || true)
 }
 
 slug_to_container() {

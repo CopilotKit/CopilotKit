@@ -15,7 +15,7 @@
       "name": "Vue",
       "icon": "vue",
       "summary": "Vue 3 provider, composables, and chat primitives.",
-      "runnable": false,
+      "runnable": true,
       "feature_support_required": false
     },
     {
@@ -67,6 +67,7 @@
     },
     "agentic-chat": {
       "react": { "state": "supported" },
+      "vue": { "state": "supported" },
       "angular": {
         "state": "supported",
         "docs": {
