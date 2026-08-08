@@ -29,6 +29,8 @@ export interface RuntimeConfig {
   googleAnalyticsTrackingId: string;
   reb2bKey: string;
   reoKey: string;
+  /** Clerk public key for public-page auth state only. Empty string disables Clerk. */
+  clerkPublishableKey: string;
 }
 
 const PROD_BASE_URL_FALLBACK = "https://docs.copilotkit.ai";
@@ -120,6 +122,7 @@ export function getRuntimeConfig(
     ),
     reb2bKey: readKey("NEXT_PUBLIC_REB2B_KEY"),
     reoKey: readKey("NEXT_PUBLIC_REO_KEY"),
+    clerkPublishableKey: readKey("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
   };
 }
 

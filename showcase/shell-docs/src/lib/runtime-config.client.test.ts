@@ -18,6 +18,7 @@ const FULL_CONFIG: RuntimeConfig = {
   googleAnalyticsTrackingId: "G-TEST",
   reb2bKey: "rb2b-key",
   reoKey: "reo-key",
+  clerkPublishableKey: "pk_live_shared",
 };
 
 describe("client getRuntimeConfig (shell-docs)", () => {
@@ -64,5 +65,6 @@ describe("client getRuntimeConfig (shell-docs)", () => {
     expect(cfg.googleAnalyticsTrackingId).toBe("");
     expect(cfg.reb2bKey).toBe("");
     expect(cfg.reoKey).toBe("");
+    expect(cfg.clerkPublishableKey).toBe("");
   });
 });
