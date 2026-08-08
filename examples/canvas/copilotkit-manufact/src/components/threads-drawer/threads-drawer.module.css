@@ -1,0 +1,713 @@
+.layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.drawer {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100dvh;
+  background: var(--sidebar);
+  transition: width 180ms ease;
+  isolation: isolate;
+}
+
+.drawerOpen {
+  width: 16rem;
+}
+
+.drawerClosed {
+  width: 3.25rem;
+}
+
+/* Faint ambient gradient bleed at the lower-left of the sidebar.
+   Uses the brand gradient at very low opacity — should be barely
+   perceptible, not a feature. */
+.ambientGlow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      120% 60% at 0% 100%,
+      color-mix(in oklab, var(--cpk-mint-400) 22%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      90% 50% at 0% 0%,
+      color-mix(in oklab, var(--cpk-lilac-400) 14%, transparent),
+      transparent 70%
+    );
+  opacity: 0.5;
+}
+
+:global(.dark) .ambientGlow {
+  opacity: 0.18;
+}
+
+.drawerSurface {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 1rem 0.875rem 0.875rem;
+}
+
+.brandLogo {
+  height: 1.25rem;
+  width: auto;
+  object-fit: contain;
+}
+
+:global(.dark) .brandLogo {
+  filter: invert(1);
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border: 0;
+  border-radius: 0.5rem;
+  color: var(--sidebar-muted);
+  background: transparent;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+  cursor: pointer;
+}
+
+.iconButton:hover,
+.iconButton:focus-visible {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-foreground);
+}
+
+.iconButton:focus-visible,
+.threadItem:focus-visible,
+.navItem:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.iconButtonActive {
+  background: var(--sidebar-active);
+  color: var(--sidebar-foreground);
+}
+
+/* Flat nav rows — Codex pattern. Used for primary nav, doc links,
+   and the docked Settings row at the bottom. */
+.navList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  padding: 0.125rem 0.5rem 0.5rem;
+}
+
+.navList + .navList {
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+}
+
+.navItem {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.45rem 0.625rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--sidebar-foreground);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.navItem > svg {
+  flex: none;
+  color: var(--sidebar-muted);
+}
+
+.navItem:hover,
+.navItem:focus-visible {
+  background: var(--sidebar-hover);
+}
+
+.navItem:hover > svg,
+.navItem:focus-visible > svg {
+  color: var(--sidebar-foreground);
+}
+
+.searchRow {
+  cursor: text;
+}
+
+.searchRow:focus-within {
+  background: var(--sidebar-hover);
+}
+
+.searchRow:focus-within > svg {
+  color: var(--sidebar-foreground);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--sidebar-foreground);
+}
+
+.searchInput::placeholder {
+  color: var(--sidebar-muted);
+}
+
+/* Hide the native clear button in WebKit; we rely on Esc / clearing manually */
+.searchInput::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.navItemDisabled {
+  color: var(--sidebar-muted);
+  cursor: default;
+}
+
+.navItemDisabled:hover {
+  background: transparent;
+}
+
+.navItemDisabled:hover > svg {
+  color: var(--sidebar-muted);
+}
+
+.navItemMark {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+:global(.dark) .navItemMark {
+  filter: invert(1);
+}
+
+.navItemExternal {
+  margin-left: auto;
+  color: var(--sidebar-muted);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.navItem:hover .navItemExternal,
+.navItem:focus-visible .navItemExternal {
+  opacity: 1;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.875rem 0.875rem 0.4rem;
+}
+
+.sectionLabel {
+  font-family: var(--font-code);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sidebar-muted);
+}
+
+.sectionActions {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.sectionActionButton {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+}
+
+.drawerContent {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.threadList {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.0625rem;
+  overflow-y: auto;
+  /* Reserve scrollbar space so the list doesn't shift horizontally
+     when the scrollbar appears during the thread-enter animation. */
+  scrollbar-gutter: stable;
+  padding: 0 0.5rem 0.5rem;
+}
+
+.threadRow {
+  position: relative;
+}
+
+.threadItem {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  padding: 0.45rem 0.625rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    padding-right 140ms ease;
+}
+
+.threadItem:hover,
+.threadItem:focus-visible {
+  background: var(--sidebar-hover);
+}
+
+.threadRow:hover .threadItem,
+.threadRow:focus-within .threadItem {
+  padding-right: 3.25rem;
+}
+
+.threadItemSelected,
+.threadItemSelected:hover {
+  background: var(--sidebar-active);
+  /* Verified brand token border/borderActionEnabled at low opacity —
+     a quiet lilac edge that reinforces the active surface without
+     competing with content. */
+  box-shadow: inset 0 0 0 1px var(--sidebar-active-strong);
+}
+
+.threadItemAnimatingIn {
+  animation: threadItemEnter 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.threadBody {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.threadTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--sidebar-foreground);
+}
+
+.threadTitlePlaceholder {
+  color: var(--sidebar-muted);
+}
+
+.threadTitleAnimated {
+  display: inline-block;
+  animation: generatedTitleReveal 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: left center;
+}
+
+.threadMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  color: var(--sidebar-muted);
+}
+
+.threadItemArchived .threadTitle {
+  color: var(--sidebar-muted);
+}
+
+.archivedBadge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--sidebar-active);
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--sidebar-muted);
+  vertical-align: middle;
+}
+
+.loadMoreButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--sidebar-muted);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.loadMoreButton:hover:not(:disabled) {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-foreground);
+}
+
+.loadMoreButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.threadActions {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  transform: translateY(-50%) scale(0.96);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.threadRow:hover .threadActions,
+.threadRow:focus-within .threadActions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) scale(1);
+}
+
+.threadActionButton {
+  width: 1.625rem;
+  height: 1.625rem;
+}
+
+.deleteButton {
+  color: var(--destructive);
+}
+
+.deleteButton:hover,
+.deleteButton:focus-visible {
+  background: color-mix(in oklab, var(--destructive) 12%, transparent);
+  color: var(--destructive);
+}
+
+.loadingList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0 0.5rem;
+}
+
+.loadingRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+}
+
+.loadingTitleBar {
+  height: 0.55rem;
+  width: 70%;
+  border-radius: 999px;
+  background: var(--sidebar-hover);
+  animation: threadsDrawerPulse 1.4s ease-in-out infinite;
+}
+
+.loadingMetaBar {
+  height: 0.45rem;
+  width: 35%;
+  border-radius: 999px;
+  background: var(--sidebar-hover);
+  animation: threadsDrawerPulse 1.4s ease-in-out infinite;
+  animation-delay: 140ms;
+}
+
+@keyframes threadsDrawerPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.4rem 0.875rem 1rem;
+  font-family: var(--font-body);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--sidebar-foreground);
+}
+
+.emptyMessage {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--sidebar-muted);
+}
+
+.collapsedRail {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 0.5rem;
+}
+
+.drawerFooter {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: auto;
+  padding: 0.5rem 0.5rem 0.875rem;
+}
+
+.navItemFlex {
+  flex: 1;
+  min-width: 0;
+}
+
+.mainPanel {
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100dvh;
+  overflow: auto;
+}
+
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.4);
+  backdrop-filter: blur(2px);
+  animation: dialogOverlayEnter 140ms ease-out;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 22rem;
+  padding: 1.1rem 1.1rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.25rem);
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.18);
+  font-family: var(--font-body);
+  animation: dialogEnter 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dialogTitle {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+
+.dialogDescription {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.dialogButton {
+  min-height: 2.25rem;
+  padding: 0.5rem 0.95rem;
+  border: 0;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease;
+}
+
+.dialogButton:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.dialogButtonSecondary {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.dialogButtonSecondary:hover {
+  background: var(--border);
+}
+
+.dialogButtonPrimary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.dialogButtonPrimary:hover {
+  opacity: 0.9;
+}
+
+.dialogButtonDestructive {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+.dialogButtonDestructive:hover {
+  opacity: 0.9;
+}
+
+@keyframes dialogOverlayEnter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialogEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes threadItemEnter {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes generatedTitleReveal {
+  0% {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .layout {
+    position: relative;
+    isolation: isolate;
+    grid-template-columns: 3.25rem minmax(0, 1fr);
+  }
+
+  .drawerOpen {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 100;
+    width: min(15rem, calc(100vw - 1rem));
+    box-shadow: 8px 0 24px rgb(0 0 0 / 0.08);
+  }
+
+  .drawerClosed {
+    position: relative;
+    z-index: 2;
+  }
+
+  .mainPanel {
+    grid-column: 2;
+    position: relative;
+    z-index: 1;
+  }
+}
