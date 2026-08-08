@@ -14,6 +14,11 @@ Key facts:
 - The action runs `build-script: build` (the root `build` script — `nx run-many -t build` over all `packages/**`) on both the PR branch and the base branch, then measures only the files matched by the `pattern` glob. The root `build` script is used (rather than a bundle-size-specific one) because the action must build the base branch too, and `build` exists on every branch. No separate build step is needed before the workflow triggers — the action handles both builds.
 - PR comments show paths like `packages/react-core/dist/index.mjs (+1.2 kB gzip)`.
 
+`react-native` joined the glob in the render-tool convergence (2026-08-06); its
+`dist/` was previously unmeasured. `pnpm --filter @copilotkit/react-native
+size:headless` gives a per-PR gzip signal for the headless entry, printed to the
+job summary. No `limit` fields — see Phase 2.
+
 ### The CopilotChat regression signal (job summary, not the PR comment)
 
 The `copilotchat-import-size` job in `static_bundle_size.yml` measures what an app
