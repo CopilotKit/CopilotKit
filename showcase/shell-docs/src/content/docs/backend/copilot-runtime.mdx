@@ -121,6 +121,48 @@ When you register multiple agents, the runtime handles discovery and routing aut
 
 [Threads](/threads), the [inspector](/inspector), and other Enterprise Intelligence Platform capabilities are provided through the runtime. These give you conversation persistence and debugging without extra setup.
 
+#### Assign Threads to Learning Containers
+
+Create a Learning Container in your Intelligence Project, then pass its stable
+ID to the Runtime:
+
+```ts title="runtime.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  intelligence,
+  identifyUser,
+  learning: {
+    containerId: "support-quality",
+  },
+});
+```
+
+Use a callback when the Container depends on the run. The same callback handles
+web and Channel runs:
+
+```ts title="runtime.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  intelligence,
+  identifyUser,
+  channels: [supportChannel],
+  learning: {
+    containerId: async ({ surface, agentId, userId, threadId }) => {
+      return chooseLearningContainer({ surface, agentId, userId, threadId });
+    },
+  },
+});
+```
+
+The callback runs once per agent run. Return a 1–64 character stable ID made
+from lowercase letters, numbers, and single hyphens. Return `null` to leave the
+Thread unassigned. A Thread can receive its first assignment when it is created
+or locked, but it cannot move to another Learning Container later.
+
+The Runtime sends only the Container ID with the normal Thread create and lock
+calls. It does not upload transcripts. The Intelligence AgentRunner's persisted
+AG-UI events remain the source for Learning.
+
 ## Built-in middleware
 
 The runtime exposes two first-class middleware options you can enable directly on `CopilotRuntime` without calling `.use()` on each agent manually.

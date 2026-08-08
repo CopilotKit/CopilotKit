@@ -92,8 +92,8 @@ it("uses the caller-supplied clientEventId verbatim when provided", async () => 
   await recordAnnotation({
     runtimeUrl: "https://bff.example.com/api/copilotkit",
     headers: {},
-    type: "set_learning_containers",
-    payload: { containers: ["org", "user"] },
+    type: "custom_annotation",
+    payload: { source: "toolbar", action: "approve" },
     threadId: "t",
     clientEventId: "my-stable-id",
   });
