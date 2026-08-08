@@ -34,14 +34,18 @@ between those systems and the path each message takes.
   className="hidden dark:block my-8 w-full rounded-xl"
 />
 
-Note that you can also build your own channel runner on the open-source
-Channels SDK, with no dependency on CopilotKit Intelligence. This is a
-supported way to use the SDK; teams choosing it are responsible for their own
-state, persistence, concurrency, locking, retries, and race-condition
-handling. CopilotKit Intelligence provides the managed channel runner for
-teams that want those operational concerns handled for them. Channels running
-on the Intelligence runner also get the rest of CopilotKit Intelligence,
-including product analytics, automatic learning, and governance.
+As explained in the [Enterprise Intelligence overview](/premium/overview),
+the dividing line between CopilotKit open source and CopilotKit Intelligence
+is durable data: functionality that runs without it is open source, while
+functionality built on connections to durable data — databases and the state
+kept in them — is part of CopilotKit Intelligence. A channel runner needs
+durable data to run correctly in production: simultaneous participants, race
+conditions, retries, and delivery guarantees all depend on it. CopilotKit
+Intelligence provides the managed channel runner, and channels running on it
+also get the rest of CopilotKit Intelligence, including product analytics,
+automatic learning, and governance. You can absolutely build and operate your
+own channel runner on the open-source Channels SDK — you implement the
+durable-data layer yourself.
 
 <OpsPlatformCTA
   variant="inline"
