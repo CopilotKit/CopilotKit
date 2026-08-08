@@ -30,13 +30,16 @@ import type { CopilotKitContextValue } from "@copilotkit/react-core/v2/context";
 
 /**
  * Minimal agent: only holds seeded `messages` for the chat to read. `run()` is
- * never invoked — these tests seed messages directly and never start a run — so
- * it throws rather than pulling in an rxjs `Observable` (which this package's
- * bundler cannot resolve). Its `never` return type satisfies the abstract
- * `run(): Observable<BaseEvent>` signature.
+ * never invoked — these tests seed messages directly and never start a run.
+ *
+ * The declared return type is borrowed from the base method
+ * (`ReturnType<AbstractAgent["run"]>`, i.e. `Observable<BaseEvent>`) so the
+ * override type-checks without importing rxjs at runtime — this package's
+ * bundler cannot resolve a bare `rxjs` import. A throw-only body is assignable
+ * to any declared return type, so no Observable value is constructed.
  */
 class SeededAgent extends AbstractAgent {
-  run() {
+  run(): ReturnType<AbstractAgent["run"]> {
     throw new Error("SeededAgent.run() is not used in tests");
   }
 }
@@ -48,10 +51,20 @@ export interface TestCopilotKitProps {
    * without hand-annotating the AG-UI discriminated union at every call site.
    */
   messages: Array<Record<string, unknown>>;
+  /**
+   * Tool-call IDs the provider reports as currently executing. `useRenderToolCall`
+   * reads this off context to derive `status: "executing"` for a call that has no
+   * result message yet. Defaults to empty.
+   */
+  executingToolCallIds?: ReadonlySet<string>;
   children: React.ReactNode;
 }
 
-export function TestCopilotKit({ messages, children }: TestCopilotKitProps) {
+export function TestCopilotKit({
+  messages,
+  executingToolCallIds = EMPTY_SET,
+  children,
+}: TestCopilotKitProps) {
   const agentRef = useRef<SeededAgent | null>(null);
   if (agentRef.current === null) {
     agentRef.current = new SeededAgent();
@@ -73,9 +86,9 @@ export function TestCopilotKit({ messages, children }: TestCopilotKitProps) {
   const value = useMemo<CopilotKitContextValue>(
     () => ({
       copilotkit: copilotkitRef.current!,
-      executingToolCallIds: EMPTY_SET,
+      executingToolCallIds,
     }),
-    [],
+    [executingToolCallIds],
   );
 
   return (

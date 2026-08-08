@@ -45,10 +45,28 @@ function Registrar() {
   return null;
 }
 
+// Renders the raw args object it receives, so tests can assert exactly what the
+// renderer got for degenerate argument strings (empty / unparseable).
+function ArgsRegistrar() {
+  useRenderTool({
+    name: "echoArgs",
+    description: "Echo args",
+    parameters: z.object({}),
+    render: ({ args }) => <div data-testid="args">{JSON.stringify(args)}</div>,
+  });
+  return null;
+}
+
 const assistantWithCall = (args: string) => ({
   id: "m1",
   role: "assistant",
   toolCalls: [{ id: "tc1", type: "function", function: { name: "showPlaces", arguments: args } }],
+});
+
+const assistantEchoArgs = (args: string) => ({
+  id: "m1",
+  role: "assistant",
+  toolCalls: [{ id: "tc1", type: "function", function: { name: "echoArgs", arguments: args } }],
 });
 
 describe("CopilotChat tool-call rendering", () => {
@@ -99,6 +117,41 @@ describe("CopilotChat tool-call rendering", () => {
     );
     expect(screen.getByTestId("places")).toBeTruthy();
     expect(screen.queryByText("Called: showPlaces")).toBeNull();
+  });
+
+  it("reports executing status when the call id is in executingToolCallIds and has no result", () => {
+    // No tool message + id in executingToolCallIds → core derives "executing"
+    // (executing sits between inProgress and complete in the status ladder).
+    render(
+      <TestCopilotKit
+        messages={[assistantWithCall('{"title":"Rooftop"}')]}
+        executingToolCallIds={new Set(["tc1"])}
+      >
+        <Registrar />
+        <CopilotChat />
+      </TestCopilotKit>,
+    );
+    expect(screen.getByTestId("places").textContent).toBe("executing:Rooftop");
+  });
+
+  it("yields an empty args object for empty-string arguments without throwing", () => {
+    render(
+      <TestCopilotKit messages={[assistantEchoArgs("")]}>
+        <ArgsRegistrar />
+        <CopilotChat />
+      </TestCopilotKit>,
+    );
+    expect(screen.getByTestId("args").textContent).toBe("{}");
+  });
+
+  it("yields an empty args object for unrepairable JSON arguments without throwing", () => {
+    render(
+      <TestCopilotKit messages={[assistantEchoArgs("not json at all")]}>
+        <ArgsRegistrar />
+        <CopilotChat />
+      </TestCopilotKit>,
+    );
+    expect(screen.getByTestId("args").textContent).toBe("{}");
   });
 
   it("falls back to the placeholder for an unregistered tool", () => {
