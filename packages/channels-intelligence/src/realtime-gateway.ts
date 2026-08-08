@@ -642,6 +642,41 @@ export async function connectRealtimeGateway(
   // over `lastTransportError` when present, and cleared when the outage ends.
   let lastOutageDiagnosis: string | undefined;
   let connectDeadline: ReturnType<typeof setTimeout> | undefined;
+  let errorOnlyReconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  let errorOnlyReconnectAttempts = 0;
+  const errorOnlyReconnectDelaysMs = [
+    10, 50, 100, 150, 200, 250, 500, 1_000, 2_000,
+  ] as const;
+  /** Cancel a pending fallback when Phoenix receives the matching close/open. */
+  const clearErrorOnlyReconnect = (): void => {
+    if (errorOnlyReconnectTimer !== undefined) {
+      clearTimeout(errorOnlyReconnectTimer);
+      errorOnlyReconnectTimer = undefined;
+    }
+  };
+  /** Retry when a WebSocket transport reports an error without a close event. */
+  const scheduleErrorOnlyReconnect = (): void => {
+    if (closingIntentionally || errorOnlyReconnectTimer !== undefined) return;
+    const delayMs =
+      errorOnlyReconnectDelaysMs[errorOnlyReconnectAttempts] ?? 5_000;
+    errorOnlyReconnectAttempts += 1;
+    errorOnlyReconnectTimer = setTimeout(() => {
+      errorOnlyReconnectTimer = undefined;
+      if (closingIntentionally) return;
+      if (socket.connectionState() === "open") {
+        errorOnlyReconnectAttempts = 0;
+        return;
+      }
+      socket.disconnect(
+        () => {
+          if (!closingIntentionally) socket.connect();
+        },
+        1001,
+        "retrying transport error",
+      );
+    }, delayMs);
+    (errorOnlyReconnectTimer as unknown as { unref?: () => void }).unref?.();
+  };
   // The initial connect settles from several places (the join push's reply
   // hooks, a non-retryable transport error, the connect deadline), so the
   // resolvers are hoisted out of the promise rather than closed over by the
@@ -753,7 +788,10 @@ export async function connectRealtimeGateway(
   socket.onOpen(() => {
     everConnected = true;
     clearConnectDeadline();
+    clearErrorOnlyReconnect();
+    errorOnlyReconnectAttempts = 0;
   });
+  socket.onClose(clearErrorOnlyReconnect);
   socket.onError((error, _transport, establishedConnections) => {
     const detail = describeTransportError(error);
     // A drop after a successful connect belongs to the reconnect path — but it
@@ -767,6 +805,7 @@ export async function connectRealtimeGateway(
       // happened, and the probe would both waste a request and overwrite a
       // better answer — the same trust rule the initial-connect path applies.
       if (detail.code === undefined) probeOutage();
+      scheduleErrorOnlyReconnect();
       return;
     }
     lastTransportRaw = error;
@@ -1124,6 +1163,7 @@ export async function connectRealtimeGateway(
     disconnect: () => {
       closingIntentionally = true;
       clearGiveUpTimer();
+      clearErrorOnlyReconnect();
       socket.disconnect();
     },
   };
