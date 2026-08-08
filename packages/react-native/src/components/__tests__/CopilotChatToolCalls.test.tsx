@@ -12,7 +12,11 @@ vi.mock("react-native", async () => {
     ...actual,
     FlatList: ({ data, renderItem, ListEmptyComponent, keyExtractor }: any) => {
       if (!data?.length)
-        return React.createElement("div", { "data-testid": "flatlist" }, ListEmptyComponent);
+        return React.createElement(
+          "div",
+          { "data-testid": "flatlist" },
+          ListEmptyComponent,
+        );
       return React.createElement(
         "div",
         { "data-testid": "flatlist" },
@@ -60,13 +64,25 @@ function ArgsRegistrar() {
 const assistantWithCall = (args: string) => ({
   id: "m1",
   role: "assistant",
-  toolCalls: [{ id: "tc1", type: "function", function: { name: "showPlaces", arguments: args } }],
+  toolCalls: [
+    {
+      id: "tc1",
+      type: "function",
+      function: { name: "showPlaces", arguments: args },
+    },
+  ],
 });
 
 const assistantEchoArgs = (args: string) => ({
   id: "m1",
   role: "assistant",
-  toolCalls: [{ id: "tc1", type: "function", function: { name: "echoArgs", arguments: args } }],
+  toolCalls: [
+    {
+      id: "tc1",
+      type: "function",
+      function: { name: "echoArgs", arguments: args },
+    },
+  ],
 });
 
 describe("CopilotChat tool-call rendering", () => {
@@ -162,7 +178,11 @@ describe("CopilotChat tool-call rendering", () => {
             id: "m1",
             role: "assistant",
             toolCalls: [
-              { id: "tc9", type: "function", function: { name: "notRegistered", arguments: "{}" } },
+              {
+                id: "tc9",
+                type: "function",
+                function: { name: "notRegistered", arguments: "{}" },
+              },
             ],
           },
         ]}
