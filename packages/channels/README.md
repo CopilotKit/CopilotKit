@@ -4,8 +4,7 @@
 provides the engine, JSX vocabulary, UI primitives, testing API, and every supported adapter.
 
 **Channels run through a channel runner.** CopilotKit Intelligence provides the
-managed runner (an API key — a free tier is available, so this is "connect your
-Intelligence account," not "pay for it"): the `CopilotRuntime` starts and owns
+managed runner, available on a free plan: the `CopilotRuntime` starts and owns
 each Channel's lifecycle once Intelligence is configured. You can also build and
 operate your own channel runner on the lower-level SDK primitives, with no
 Intelligence dependency — a supported path where your team owns state,

@@ -12,10 +12,10 @@ the successor to the Bot Framework SDK.
 The adapter keeps its own Teams/Microsoft 365 credentials (`clientId` /
 `clientSecret` / `tenantId`, or none for anonymous local dev) — in the managed
 path the Channel runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (an API key; a free tier is available). There is no
-`channel.start()`; the runtime starts and owns the channel. Building and
-operating your own channel runner on the SDK primitives is also a supported path
-— see `@copilotkit/channels-core`.
+`CopilotRuntime` (free plan available). There is no `channel.start()`; the
+runtime starts and owns the channel. Building and operating your own channel
+runner on the SDK primitives is also a supported path — see
+`@copilotkit/channels-core`.
 
 ## Managed Channels: the alternative to holding your own credentials
 
