@@ -9,10 +9,11 @@ You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to the WhatsApp Cloud API.
 
 The adapter keeps its own WhatsApp Cloud API credentials (`accessToken` /
-`phoneNumberId` / …) — but the Channel itself only runs inside a CopilotKit
-Intelligence-configured `CopilotRuntime` (an API key; a free tier is
-available). There is no standalone / DIY runner and no `channel.start()`; the
-runtime starts and owns the channel because Intelligence is configured.
+`phoneNumberId` / …) — in the managed path the Channel runs inside a CopilotKit
+Intelligence-configured `CopilotRuntime` (an API key; a free tier is available).
+There is no `channel.start()`; the runtime starts and owns the channel. Building
+and operating your own channel runner on the SDK primitives is also a supported
+path — see `@copilotkit/channels-core`.
 
 ## Install
 

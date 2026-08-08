@@ -34,6 +34,14 @@ between those systems and the path each message takes.
   className="hidden dark:block my-8 w-full rounded-xl"
 />
 
+Note that you can also build your own channel runner on the open-source
+Channels SDK, with no dependency on CopilotKit Intelligence. This is a
+supported way to use the SDK; teams choosing it are responsible for their own
+state, persistence, concurrency, locking, retries, and race-condition
+handling. CopilotKit Intelligence provides the managed channel runner for
+teams that want those operational concerns handled for them — analytics,
+learning, and governance come in addition.
+
 <OpsPlatformCTA
   variant="inline"
   title="More channels are on the way"
@@ -71,8 +79,10 @@ your agent, tools, or business logic into CopilotKit.
 Production self-hosting keeps your Channels configuration, provider credentials,
 delivery state, and platform operations inside your network, giving your
 organization control over data residency, security, and infrastructure.
-CopilotKit Engineering helps your team deploy Enterprise Intelligence in your
-Kubernetes environment. <DocsTrackedLink href="https://copilotkit.ai/talk-to-an-engineer" surface="docs_channels_self_hosting_contact">Book time with a CopilotKit engineer</DocsTrackedLink> to get started.
+You can fully self-host Enterprise Intelligence. We haven't written the
+onboarding guides for it yet, but if you're comfortable with Docker and
+Kubernetes and can figure it out, go right ahead. We'd be happy to help if
+not — <DocsTrackedLink href="https://copilotkit.ai/talk-to-an-engineer" surface="docs_channels_self_hosting_contact">book time with a CopilotKit engineer</DocsTrackedLink>.
 
 ## Next step
 

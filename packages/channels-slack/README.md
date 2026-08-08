@@ -8,11 +8,12 @@ streaming, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Slack.
 
-The adapter keeps its own Slack credentials (`botToken` / `appToken`) — but the
-Channel itself only runs inside a CopilotKit Intelligence-configured
+The adapter keeps its own Slack credentials (`botToken` / `appToken`) — in the
+managed path the Channel runs inside a CopilotKit Intelligence-configured
 `CopilotRuntime` (an API key; a free tier is available). There is no
-standalone / DIY runner and no `channel.start()`; the runtime starts and owns
-the channel because Intelligence is configured.
+`channel.start()`; the runtime starts and owns the channel. Building and
+operating your own channel runner on the SDK primitives is also a supported path
+— see `@copilotkit/channels-core`.
 
 ## Managed Channels: the alternative to holding your own credentials
 
