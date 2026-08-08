@@ -14,14 +14,10 @@
 // node_modules. Writing the entry to a temp dir would break resolution — the
 // temp dir has no node_modules link to the monorepo.
 //
-// TEMPORARY — REVISIT: `useRenderToolCall` is missing from the import list
-// only because the RN headless entry does not export it *yet*. The render-tool
-// convergence (this same branch) adds that export; once RN's `src/headless.ts`
-// re-exports `useRenderToolCall`, add it back to the import list below and
-// re-baseline the reported number. Do NOT treat its absence as a design fact:
-// including it today breaks the build (the export does not exist yet), which is
-// the only reason it is left out. The symbols below are the currently-exported
-// lean headless API a custom-UI consumer imports.
+// The symbols below are the lean headless API a custom-UI consumer imports.
+// `useRenderToolCall` is included: RN's `src/headless.ts` re-exports it (from
+// `@copilotkit/react-core/v2/headless`) as of the render-tool convergence, so
+// it belongs in the measured surface a custom-UI consumer pulls in.
 //
 // `platform: "browser"` + `target: "es2022"` mirror measure-copilotchat.mjs.
 // `platform: "neutral"` cannot resolve deps that ship only conditional
@@ -33,12 +29,15 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
 
-const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const pkgRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
 
 const result = await build({
   stdin: {
-    contents: `import { CopilotKitProvider, useAgent, useFrontendTool, useRenderTool, useComponent } from "@copilotkit/react-native/headless";
-console.log(CopilotKitProvider, useAgent, useFrontendTool, useRenderTool, useComponent);`,
+    contents: `import { CopilotKitProvider, useAgent, useFrontendTool, useRenderTool, useRenderToolCall, useComponent } from "@copilotkit/react-native/headless";
+console.log(CopilotKitProvider, useAgent, useFrontendTool, useRenderTool, useRenderToolCall, useComponent);`,
     resolveDir: pkgRoot,
     loader: "js",
   },
@@ -52,10 +51,15 @@ console.log(CopilotKitProvider, useAgent, useFrontendTool, useRenderTool, useCom
   logLevel: "silent",
 });
 
-const total = result.outputFiles.reduce((sum, f) => sum + gzipSync(f.contents).length, 0);
+const total = result.outputFiles.reduce(
+  (sum, f) => sum + gzipSync(f.contents).length,
+  0,
+);
 
 const kb = (total / 1024).toFixed(1);
-console.log(`@copilotkit/react-native/headless (gzip, esbuild signal): ${kb} kB`);
+console.log(
+  `@copilotkit/react-native/headless (gzip, esbuild signal): ${kb} kB`,
+);
 
 if (process.env.GITHUB_STEP_SUMMARY) {
   fs.appendFileSync(
