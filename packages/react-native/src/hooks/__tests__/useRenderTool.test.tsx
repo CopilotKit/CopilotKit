@@ -1,6 +1,7 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { z } from "zod";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,15 @@ vi.mock("@copilotkit/react-core/v2/headless", () => {
       }
       // Simulate addTool call
       hoisted.mockAddTool(_tool);
+      // Faithful to react-core: a tool that carries a render lands in the
+      // canonical `renderToolCalls` registry. RN's convergence depends on
+      // exactly this, so the double must model it.
+      if (_tool.render && ctx.copilotkit?.setRenderToolCalls) {
+        ctx.copilotkit.setRenderToolCalls([
+          ...ctx.copilotkit.renderToolCalls,
+          { name: _tool.name, render: _tool.render },
+        ]);
+      }
     }),
     CopilotKitCoreReact: function CopilotKitCoreReact() {},
     CopilotChatConfigurationProvider: ({ children }: any) => children,
@@ -330,5 +340,43 @@ describe("useRenderTool", () => {
     expect(registry!.has("tool-a")).toBe(true);
     expect(registry!.has("tool-b")).toBe(true);
     expect(registry!.size).toBe(2);
+  });
+});
+
+describe("useRenderTool registry target", () => {
+  it("registers its renderer into core's renderToolCalls, not a local map", () => {
+    // The whole point of the convergence: one registry. react-core's
+    // useRenderToolCall reads copilotkit.renderToolCalls, so a renderer that
+    // does not land there renders nowhere outside RN's own chat.
+    const copilotkit = {
+      renderToolCalls: [] as any[],
+      addTool: vi.fn(),
+      removeTool: vi.fn(),
+      setRenderToolCalls(next: any[]) {
+        this.renderToolCalls = next;
+      },
+    };
+
+    function Probe() {
+      useRenderTool({
+        name: "showWeather",
+        description: "Show weather",
+        parameters: z.object({ city: z.string() }),
+        render: () => null,
+      });
+      return null;
+    }
+
+    render(
+      <hoisted.RealContext.Provider value={{ copilotkit } as any}>
+        <RenderToolProvider>
+          <Probe />
+        </RenderToolProvider>
+      </hoisted.RealContext.Provider>,
+    );
+
+    expect(copilotkit.renderToolCalls.map((r) => r.name)).toContain(
+      "showWeather",
+    );
   });
 });
