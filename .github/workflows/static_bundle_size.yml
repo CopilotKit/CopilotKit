@@ -100,5 +100,8 @@ jobs:
       - name: Build react-core
         run: npx nx run @copilotkit/react-core:build
 
+      - name: Assert /v2/headless stays free of the render stack (#4893)
+        run: pnpm --filter @copilotkit/react-core size:assert-headless
+
       - name: Measure CopilotChat bundle regression signal
         run: pnpm --filter @copilotkit/react-core size:headline

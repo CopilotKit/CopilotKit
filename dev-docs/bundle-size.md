@@ -50,6 +50,21 @@ The five unbundled packages (`shared`, `runtime-client-gql`, `web-inspector`, `v
 
 > **Node version requirement:** `size-limit@12.1.0` requires Node 20, 22, or 24+ (`^20 || ^22 || >=24`). Running `pnpm --filter <pkg> size` on Node 18 will produce an `EBADENGINE` error.
 
+### Tier 3: Structural assertions (hard-fail)
+
+Two checks hard-fail because they assert _structure_, not a byte threshold — no
+baseline to maintain, and no conflict with the Phase 2 freeze on `limit` fields:
+
+1. `pnpm --filter @copilotkit/react-core size:assert-headless` — fails if the
+   built `dist/v2/headless.mjs` / `.cjs` reference `shiki`, `mermaid`,
+   `cytoscape`, `katex` or `streamdown`. Runs in `static_bundle_size.yml`.
+2. `packages/react-native/src/__tests__/headless-entry-surface.test.ts` — walks
+   the RN import graph and fails if any module imports a react-core entry other
+   than `/v2/headless` or `/v2/context`. Runs in the normal test job.
+
+Together they cover both directions of the #4893 regression: react-native
+importing the fat entry, and the lean entry growing heavy.
+
 ## Where configuration lives
 
 `.size-limit.json` files live at the root of each bundled package (`core`, `react-core`, `react-ui`, `react-textarea`) and are used exclusively by the local `size` script. They are not read by CI.
