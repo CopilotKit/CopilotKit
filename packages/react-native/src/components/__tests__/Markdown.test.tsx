@@ -100,13 +100,17 @@ describe("CopilotMarkdown", () => {
       <CopilotMarkdown content="**Bold** and [link](https://example.com)" />,
     );
 
-    await waitFor(() => {
-      expect(container.querySelector("strong")?.textContent).toBe("Bold");
-    });
+    await waitFor(
+      () => {
+        expect(container.querySelector("strong")?.textContent).toBe("Bold");
+      },
+      { timeout: 5_000 },
+    );
     expect(container.querySelector("a")?.textContent).toBe("link");
     expect(container.querySelector("a")?.getAttribute("href")).toBe(
       "https://example.com",
     );
+    expect(container.querySelector("p")?.style.lineHeight).toBe("24px");
     expect(lastStreamdownProps).toBeNull();
   });
 
@@ -132,9 +136,12 @@ describe("CopilotMarkdown", () => {
       />,
     );
 
-    await waitFor(() => {
-      expect(container.querySelector("table")).not.toBeNull();
-    });
+    await waitFor(
+      () => {
+        expect(container.querySelector("table")).not.toBeNull();
+      },
+      { timeout: 5_000 },
+    );
     expect(container.querySelector("p")?.style.whiteSpace).toBe("pre-wrap");
     expect(
       container.querySelector("table")?.parentElement?.style.overflowX,

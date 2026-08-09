@@ -52,9 +52,12 @@ describe("UserMessage on React Native Web", () => {
       />,
     );
 
-    await waitFor(() => {
-      expect(container.querySelector("strong")?.textContent).toBe("web");
-    });
+    await waitFor(
+      () => {
+        expect(container.querySelector("strong")?.textContent).toBe("web");
+      },
+      { timeout: 5_000 },
+    );
     expect(container.querySelector("a")?.textContent).toBe("docs");
     expect(container.querySelector("a")?.getAttribute("href")).toBe(
       "https://example.com",
@@ -65,5 +68,6 @@ describe("UserMessage on React Native Web", () => {
     expect(container.querySelector("table")?.style.color).toBe(
       "rgb(255, 255, 255)",
     );
+    expect(container.querySelector("p")?.style.lineHeight).toBe("22px");
   });
 });

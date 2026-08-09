@@ -124,10 +124,18 @@ function toWebStyle(
     markerColor: _markerColor,
     gapWidth,
     borderWidth,
+    lineHeight,
     ...cssStyle
   } = style;
+  const webLineHeight =
+    typeof lineHeight === "number"
+      ? Number.isFinite(lineHeight)
+        ? `${lineHeight}px`
+        : undefined
+      : lineHeight;
   return {
     ...cssStyle,
+    ...(webLineHeight !== undefined ? { lineHeight: webLineHeight } : {}),
     ...(borderWidth !== undefined ? { borderStyle: "solid", borderWidth } : {}),
     ...(underline ? { textDecorationLine: "underline" } : {}),
     ...(gapWidth !== undefined ? { paddingLeft: gapWidth } : {}),
