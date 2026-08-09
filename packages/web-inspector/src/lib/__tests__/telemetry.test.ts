@@ -350,12 +350,20 @@ describe("typed helpers", () => {
     trackThreadsEmptyEnabledViewed({
       intelligence_status: "intelligence_enabled",
       thread_service_status: "available",
-      thread_count: 0,
+      has_threads: false,
+      usage_bucket: "empty",
+      expiry_bucket: "zero",
+      group_key: "threads",
+      leaf_key: "threads",
     });
     trackThreadsEnabledViewed({
       intelligence_status: "intelligence_enabled",
       thread_service_status: "available",
-      thread_count: 2,
+      has_threads: true,
+      usage_bucket: "within_limit",
+      expiry_bucket: "positive",
+      group_key: "threads",
+      leaf_key: "threads",
     });
 
     await Promise.resolve();
@@ -366,6 +374,7 @@ describe("typed helpers", () => {
         properties: Record<string, unknown>;
       };
     });
+    const hasThreads = payloads.map(({ properties }) => properties.has_threads);
     const events = payloads.map((payload) => payload.event);
     expect(events).toEqual([
       TELEMETRY_EVENTS.threadsLockedViewed,
@@ -375,6 +384,7 @@ describe("typed helpers", () => {
       TELEMETRY_EVENTS.threadsEmptyEnabledViewed,
       TELEMETRY_EVENTS.threadsEnabledViewed,
     ]);
+    expect(hasThreads.slice(4), "has_threads").toEqual([false, true]);
     expect(payloads[0]!.properties).toMatchObject({
       intelligence_status: "intelligence_not_enabled",
       thread_service_status: "unavailable",
@@ -389,6 +399,7 @@ describe("typed helpers", () => {
       cta_surface: "threads_locked",
       posthog_distinct_id: "abc-123",
     });
+    expect(payloads[2]!.properties).not.toHaveProperty("has_threads");
     expect(payloads[3]!.properties).toMatchObject({
       cta: "talk_to_engineer",
       cta_surface: "threads_header",
@@ -397,12 +408,20 @@ describe("typed helpers", () => {
     expect(payloads[4]!.properties).toMatchObject({
       intelligence_status: "intelligence_enabled",
       thread_service_status: "available",
-      thread_count: 0,
+      has_threads: false,
+      usage_bucket: "empty",
+      expiry_bucket: "zero",
+      group_key: "threads",
+      leaf_key: "threads",
     });
     expect(payloads[5]!.properties).toMatchObject({
       intelligence_status: "intelligence_enabled",
       thread_service_status: "available",
-      thread_count: 2,
+      has_threads: true,
+      usage_bucket: "within_limit",
+      expiry_bucket: "positive",
+      group_key: "threads",
+      leaf_key: "threads",
     });
   });
 });

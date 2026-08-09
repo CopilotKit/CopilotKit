@@ -15,6 +15,7 @@ import { getDoc } from "@/skins/keel/knowledge/corpus";
 import { requestSection } from "@/skins/keel/knowledge/citation-target";
 import type { Citation } from "@/skins/keel/knowledge/types";
 import type { KeelData } from "@/skins/keel/data/types";
+import { useKeelHref } from "@/skins/keel/href";
 import { SourcesCard } from "@/skins/keel/components/sources-card";
 import { PlaybookCard } from "@/skins/keel/components/playbook-card";
 import { RunPlanPreview } from "@/skins/keel/components/run-plan-preview";
@@ -56,6 +57,7 @@ function resolveCitation(docId: string, sectionId: string): Citation | null {
 export function KeelTools() {
   const data = useSkinData<KeelData>();
   const router = useRouter();
+  const keelHref = useKeelHref();
   const { summaryKey, persona } = data;
 
   const openCitation = useCallback(
@@ -64,9 +66,9 @@ export function KeelTools() {
       // open doc is a hash-only push, which fires no hashchange and remounts
       // nothing, so the reader would otherwise never see it (finding A5).
       requestSection(c.docId, c.sectionId);
-      router.push(`/keel/knowledge/${c.docId}#${c.sectionId}`);
+      router.push(`${keelHref(`knowledge/${c.docId}`)}#${c.sectionId}`);
     },
-    [router],
+    [router, keelHref],
   );
 
   // ── Agent-context readables ──────────────────────────────────────────────
@@ -210,7 +212,7 @@ export function KeelTools() {
         // is already on screen still scrolls + highlights (finding A5).
         if (sectionId) requestSection(docId, sectionId);
         router.push(
-          `/keel/knowledge/${docId}${sectionId ? `#${sectionId}` : ""}`,
+          `${keelHref(`knowledge/${docId}`)}${sectionId ? `#${sectionId}` : ""}`,
         );
         return `Opened ${doc.ref} — ${doc.title}.`;
       },
@@ -473,7 +475,7 @@ export function KeelTools() {
         page: z.enum(["desk", "knowledge", "playbooks", "runs"]),
       }),
       handler: async ({ page }) => {
-        router.push(page === "desk" ? "/keel" : `/keel/${page}`);
+        router.push(page === "desk" ? keelHref() : keelHref(page));
         return `Opened ${page}.`;
       },
       render: ({ status }) => (

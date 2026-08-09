@@ -17,6 +17,7 @@ import {
   subscribeSectionTarget,
 } from "@/skins/keel/knowledge/citation-target";
 import type { KnowledgeDoc } from "@/skins/keel/knowledge/types";
+import { useKeelHref } from "@/skins/keel/href";
 
 /**
  * Drive the citation-landing beat for the open document: resolve a target
@@ -116,6 +117,10 @@ function useCitationLanding(doc: KnowledgeDoc | undefined): string | undefined {
  * the target section arrives via {@link useCitationLanding}.
  */
 export function DocumentPage() {
+  const keelHref = useKeelHref();
+  // `useParams` reads the MATCHED route, which always carries the `[skin]`
+  // segment — a locked deploy's prefix-free URL is rewritten onto it by
+  // `src/proxy.ts` before matching. So `rest` is the same shape either way.
   const params = useParams<{ skin: string; rest?: string[] }>();
   const docId = params.rest?.[1];
   // getDoc returns the same corpus object reference for a given id, so `doc` is
@@ -133,7 +138,7 @@ export function DocumentPage() {
           <span className="font-mono text-ink">{docId ?? "—"}</span>.
         </p>
         <Link
-          href="/keel/knowledge"
+          href={keelHref("knowledge")}
           className="mt-1 rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-foreground transition-colors hover:bg-brand-indigo"
         >
           Back to Knowledge

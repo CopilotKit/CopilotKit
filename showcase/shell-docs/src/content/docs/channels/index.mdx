@@ -21,18 +21,31 @@ between those systems and the path each message takes.
 
 <Image
   src="/images/channels/channels-architecture-light.png"
-  alt="Channels architecture showing agent frameworks connected through AG-UI, CopilotKit Runtime, Enterprise Intelligence, and the Channels SDK to Slack, Microsoft Teams, WhatsApp, and Discord."
-  width={3354}
-  height={2270}
+  alt="Channels architecture showing agent frameworks connected through AG-UI and the CopilotKit Runtime to the Channels SDK, with the channel runner — Enterprise Intelligence's managed runner or your own — connecting to Slack, Microsoft Teams, WhatsApp, Discord, and more."
+  width={4000}
+  height={2608}
   className="block dark:hidden my-8 w-full rounded-xl"
 />
 <Image
-  src="/images/channels/channels-architecture-dark.png"
-  alt="Channels architecture showing agent frameworks connected through AG-UI, CopilotKit Runtime, Enterprise Intelligence, and the Channels SDK to Slack, Microsoft Teams, WhatsApp, and Discord."
+  src="/images/channels/channels-architecture-light.png"
+  alt="Channels architecture showing agent frameworks connected through AG-UI and the CopilotKit Runtime to the Channels SDK, with the channel runner — Enterprise Intelligence's managed runner or your own — connecting to Slack, Microsoft Teams, WhatsApp, Discord, and more."
   width={4000}
-  height={2400}
+  height={2608}
   className="hidden dark:block my-8 w-full rounded-xl"
 />
+
+As explained in the [Enterprise Intelligence overview](/premium/overview),
+the dividing line between CopilotKit open source and CopilotKit Intelligence
+is durable data: functionality that runs without it is open source, while
+functionality built on connections to durable data — databases and the state
+kept in them — is part of CopilotKit Intelligence. A channel runner needs
+durable data to run correctly in production: simultaneous participants, race
+conditions, retries, and delivery guarantees all depend on it. CopilotKit
+Intelligence provides the managed channel runner, and channels running on it
+also get the rest of CopilotKit Intelligence, including product analytics,
+automatic learning, and governance. You can absolutely build and operate your
+own channel runner on the open-source Channels SDK — you implement the
+durable-data layer yourself.
 
 <OpsPlatformCTA
   variant="inline"
@@ -71,8 +84,10 @@ your agent, tools, or business logic into CopilotKit.
 Production self-hosting keeps your Channels configuration, provider credentials,
 delivery state, and platform operations inside your network, giving your
 organization control over data residency, security, and infrastructure.
-CopilotKit Engineering helps your team deploy Enterprise Intelligence in your
-Kubernetes environment. <DocsTrackedLink href="https://copilotkit.ai/talk-to-an-engineer" surface="docs_channels_self_hosting_contact">Book time with a CopilotKit engineer</DocsTrackedLink> to get started.
+You can fully self-host the Channels SDK. Onboarding guides are coming
+soon; in the meantime, if you're comfortable with Docker and Kubernetes, go
+right ahead — and we're happy to help.
+<DocsTrackedLink href="https://copilotkit.ai/talk-to-an-engineer" surface="docs_channels_self_hosting_contact">Book time with a CopilotKit engineer</DocsTrackedLink>.
 
 ## Next step
 

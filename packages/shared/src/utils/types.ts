@@ -62,6 +62,8 @@ export interface RuntimeInfo {
   mode: RuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
   threadEndpoints?: ThreadEndpointRuntimeInfo;
+  /** Whether this runtime exposes trusted inspector metadata. */
+  inspectorMetadata?: boolean;
   /**
    * When true, the runtime exposes POST /agent/:agentId/suggest for stateless
    * suggestion generation. Absent on older runtimes; clients fall back to a
