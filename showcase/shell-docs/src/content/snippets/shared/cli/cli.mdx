@@ -9,7 +9,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 <OpsPlatformCTA
   variant="inline"
   title="Start managed Intelligence onboarding"
-  body="Sign up or sign in, finish organization onboarding when required, then return to the CLI to connect your app."
+  body="Sign up or sign in, finish organization onboarding when required, then return to the CLI to select a project and connect your app."
   ctaLabel="Start managed onboarding"
   surface="docs_cli_intro_signup"
 />
@@ -56,11 +56,15 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   </Step>
 
   <Step>
+    ### Return to the terminal
+
+    After organization onboarding, return to the terminal. The original CLI command resumes and prompts you to select or create a project.
+  </Step>
+
+  <Step>
     ### Select or create a project
 
     Choose an existing cloud-hosted project or create a new one. A project is where your app's threads, messages, and platform metadata are stored.
-
-    Onboarding resumes the exact CLI or managed-app destination that sent you there. If the CLI opened the browser, return to the terminal and let the original command continue.
 
     The CLI writes the selected project to `.copilotkit/project.json`:
 

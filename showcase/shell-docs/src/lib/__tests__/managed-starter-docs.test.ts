@@ -46,8 +46,8 @@ test("documents the conditional managed onboarding journey", () => {
     /Clerk signup,[^.]*\b(?:new users accept|a new user accepts)\b[^.]*CopilotKit Self-Service Agreement/i,
     /select or create an organization/i,
     /every new hosted organization created at or after[^.]*cutoff[^.]*explicitly choose[^.]*Developer[^.]*paid plan/i,
+    /(?:resumes? the exact[^.]*(?:CLI[^.]*(?:managed|hosted)|(?:managed|hosted)[^.]*CLI)[^.]*destination|return to the terminal)/i,
     /select or create a project/i,
-    /resumes? the exact[^.]*(?:CLI[^.]*managed|managed[^.]*CLI)[^.]*destination/i,
   ];
 
   for (const source of readSources(MANAGED_ONBOARDING_GUIDES)) {
