@@ -96,6 +96,12 @@ That resolves to a three-arm union discriminated on `status`: `args` is
 and `result` is a `string` only on the complete arm (`undefined` on the other
 two). Narrow on `status` before reading `args` fields or `result`.
 
+The discriminant is the **`ToolCallStatus` enum** — not a string-literal union.
+Each arm is typed `ToolCallStatus.InProgress`, `ToolCallStatus.Executing` or
+`ToolCallStatus.Complete`, so narrow with the enum members
+(`status === ToolCallStatus.Executing`) and not with the raw strings. Assigning a
+bare `"executing"` where a `status` is expected is a type error (TS2322).
+
 <PropertyReference name="name" type="string">
   The tool name being rendered.
 </PropertyReference>
@@ -118,9 +124,17 @@ two). Narrow on `status` before reading `args` fields or `result`.
   missing fields even on the later arms.
 </PropertyReference>
 
-<PropertyReference name="status" type='"inProgress" | "executing" | "complete"'>
-  Current tool-call status. `"inProgress"` while arguments stream, `"executing"`
-  while the handler runs, `"complete"` once the result is available.
+<PropertyReference name="status" type="ToolCallStatus">
+  Current tool-call status, as a member of the `ToolCallStatus` enum
+  (`@copilotkit/core`, re-exported from `@copilotkit/react-native`):
+  `ToolCallStatus.InProgress` while arguments stream,
+  `ToolCallStatus.Executing` while the handler runs, and
+  `ToolCallStatus.Complete` once the result is available.
+
+  Compare against the enum members, not the underlying strings. The members carry
+  those strings at runtime, but TypeScript does not accept a raw `"executing"`
+  where a `status` is expected (TS2322), so `status === ToolCallStatus.Executing`
+  is the form that type-checks.
 </PropertyReference>
 
 <PropertyReference name="result" type="string | undefined">
@@ -155,6 +169,8 @@ this hook passes to `render`:
   parsed argument object `T`;
 - they carry arguments under **`parameters`** (`Partial<InferSchemaOutput<S>>`,
   then `InferSchemaOutput<S>`), where React Native's render props use **`args`**;
+- they declare `status` as the string literals `"inProgress"` / `"executing"` /
+  `"complete"`, where React Native's `status` is the `ToolCallStatus` **enum**;
 - they are the arms of react-core's own `RenderToolProps<S>` union, which belongs
   to the **web** `useRenderTool` — a different hook from the React Native one
   documented here, and one React Native does not export.
@@ -203,7 +219,7 @@ list, so a registered `render` would never appear.
 ## Behavior
 
 - **Render returns `ReactElement | null`**, not `ReactNode`. React Native's `FlatList` cannot render bare strings or portals, so a render function must return an element or `null`.
-- **Arguments stream.** While the agent is still writing the call, `status` is `"inProgress"` and `args` is partial — fields arrive progressively. Write renderers that tolerate missing fields; that is what lets UI build as the agent writes it.
+- **Arguments stream.** While the agent is still writing the call, `status` is `ToolCallStatus.InProgress` and `args` is partial — fields arrive progressively. Write renderers that tolerate missing fields; that is what lets UI build as the agent writes it.
 - **`render` is captured at registration.** It is not refreshed on every render — only when the tool re-registers, which happens when `deps` compare as changed. This matches the web hooks. If your `render` closes over component state or props that change over time, list a JSON-comparable form of them in `deps`, or read them through a ref (see [below](#values-deps-cannot-see)); otherwise the chat keeps invoking the stale closure and paints outdated UI. Earlier React Native versions refreshed the closure on every render, so code that relied on that must now handle staleness explicitly.
 - **Cleanup**: unmounting removes the *tool* (the agent can no longer call it) but keeps the *render function* registered, so tool calls already in the chat history still render after you navigate away.
 
@@ -263,10 +279,11 @@ function ToolCallStage({ agentId = "default" }: { agentId?: string }) {
 
   const messages = agent.messages ?? [];
 
-  // Pair each call with its result message. `renderToolCall` derives status
-  // from that pairing: pass `toolMessage` and the call resolves to `"complete"`
-  // with `result`; omit it and `status` stays `"inProgress"` and `result` is
-  // `undefined` forever — the same correlation the prebuilt chat does.
+  // Pair each call with its result message. `renderToolCall` derives status from
+  // that pairing: pass `toolMessage` and the call resolves to
+  // `ToolCallStatus.Complete` with `result`; omit it and `status` stays
+  // `ToolCallStatus.InProgress` and `result` is `undefined` forever — the same
+  // correlation the prebuilt chat does.
   const toolMessages = new Map(
     messages.flatMap((message) =>
       message.role === "tool" ? [[message.toolCallId, message] as const] : [],
@@ -314,15 +331,26 @@ work on React Native and keeps chat history rendering after navigation.
 + return renderToolCall({ toolCall });
 ```
 
-Render props also change. They gain `name` and `toolCallId`, and `status` gains a
-third value: it was `"executing" | "complete"` and is now `"inProgress" |
-"executing" | "complete"`. `args` used to be the fully-typed `T` in every state;
-it is now `Partial<T>` in the newly added `"inProgress"` state — where the agent
-is still streaming the call — and stays the full `T` once `status` is
-`"executing"` or `"complete"`. So renderers that previously assumed every field
-was present must now tolerate missing fields while `"inProgress"`. `result` is
-narrowed the other way: it was `string | undefined` in every state, and is now
-`undefined` unless `status` is `"complete"`.
+Render props also change. They gain `name` and `toolCallId`, and `status` changes
+in two ways at once. It was the two-member string-literal union `"executing" |
+"complete"`; it is now the three-member **`ToolCallStatus` enum**
+(`ToolCallStatus.InProgress` was added, for the state where the agent is still
+streaming the call). Both halves of that are breaking: string comparisons no
+longer type-check, so `status === "complete"` becomes
+`status === ToolCallStatus.Complete`.
+
+```diff
+- if (status === "complete") return <Result value={result} />;
++ if (status === ToolCallStatus.Complete) return <Result value={result} />;
+```
+
+`args` used to be the fully-typed `T` in every state; it is now `Partial<T>` on
+the newly added `ToolCallStatus.InProgress` arm and stays the full `T` once
+`status` is `ToolCallStatus.Executing` or `ToolCallStatus.Complete`. So renderers
+that previously assumed every field was present must now tolerate missing fields
+while in progress. `result` is narrowed the other way: it was `string |
+undefined` in every state, and is now `undefined` unless `status` is
+`ToolCallStatus.Complete`.
 
 ## Related
 
