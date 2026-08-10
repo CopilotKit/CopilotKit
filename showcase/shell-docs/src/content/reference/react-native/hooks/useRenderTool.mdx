@@ -167,7 +167,7 @@ renderer.
 ## Usage
 
 ```tsx
-import { useRenderTool } from "@copilotkit/react-native";
+import { ToolCallStatus, useRenderTool } from "@copilotkit/react-native";
 import { CopilotChat } from "@copilotkit/react-native/components";
 import { ActivityIndicator, Text, View } from "react-native";
 import { z } from "zod";
@@ -185,7 +185,7 @@ function ChatScreen() {
       <View style={{ padding: 12, backgroundColor: "#f0f0f0", borderRadius: 8 }}>
         <Text style={{ fontWeight: "bold" }}>{args.city}</Text>
         <Text>{args.temp}°C · {args.condition}</Text>
-        {status === "executing" && <ActivityIndicator />}
+        {status === ToolCallStatus.Executing && <ActivityIndicator />}
       </View>
     ),
   });
