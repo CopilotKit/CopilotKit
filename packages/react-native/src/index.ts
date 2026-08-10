@@ -53,6 +53,9 @@ export type { CopilotPopupProps, CopilotPopupHandle } from "./CopilotPopup";
 // "./headless" above (`export * from "./headless"`).
 //
 // Deliberately NOT re-exported (web-specific, from @copilotkit/react-core/v2):
-//   useRenderToolCall     — depends on DOM elements via DefaultToolCallRenderer
+//   (react-core's useRenderToolCall) — depends on DOM via DefaultToolCallRenderer. We export our
+//   OWN React Native useRenderToolCall from "./headless" instead: same job, no DOM, backed by this
+//   package's render-tool registry. Excluding the web one had also dropped the capability, which
+//   left non-chat RN surfaces with no way to render a registered component at all.
 //   useRenderCustomMessages / useRenderActivityMessage — web chat UI pipeline
 //   useDefaultRenderTool  — DefaultToolCallRenderer uses <div>, <svg>, etc.

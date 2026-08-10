@@ -11,8 +11,21 @@ import React, {
  * Props passed to a render tool function.
  */
 export interface RenderToolProps<T = Record<string, unknown>> {
-  args: T;
-  status: "executing" | "complete";
+  /**
+   * The tool call arguments.
+   *
+   * While the call is still streaming (`status: "inProgress"`) these are PARTIAL: the model has not
+   * finished writing the JSON, so fields arrive progressively and arrays fill in. Renderers must
+   * tolerate missing fields — that is what allows UI to build as the agent writes it rather than
+   * appearing all at once when the call completes.
+   */
+  args: Partial<T> & Record<string, unknown>;
+  /**
+   * "inProgress" — arguments are still streaming; `args` is incomplete.
+   * "executing"  — arguments are complete and the handler (if any) is running.
+   * "complete"   — the handler finished; `result` is populated.
+   */
+  status: "inProgress" | "executing" | "complete";
   result?: string;
 }
 
