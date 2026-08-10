@@ -314,8 +314,15 @@ work on React Native and keeps chat history rendering after navigation.
 + return renderToolCall({ toolCall });
 ```
 
-Render props also gain `name` and `toolCallId`, and `args` is partial only while
-`status` is `"inProgress"`.
+Render props also change. They gain `name` and `toolCallId`, and `status` gains a
+third value: it was `"executing" | "complete"` and is now `"inProgress" |
+"executing" | "complete"`. `args` used to be the fully-typed `T` in every state;
+it is now `Partial<T>` in the newly added `"inProgress"` state — where the agent
+is still streaming the call — and stays the full `T` once `status` is
+`"executing"` or `"complete"`. So renderers that previously assumed every field
+was present must now tolerate missing fields while `"inProgress"`. `result` is
+narrowed the other way: it was `string | undefined` in every state, and is now
+`undefined` unless `status` is `"complete"`.
 
 ## Related
 
