@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, act } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { z } from "zod";
 import type { AbstractAgent, Message } from "@ag-ui/client";
 
@@ -62,6 +62,21 @@ function ArgsRegistrar() {
   return null;
 }
 
+// Renders the raw `result` it receives, so tests can assert exactly what the
+// renderer got for a tool message whose content is not the `string` the
+// renderer contract declares.
+function ResultRegistrar() {
+  useRenderTool({
+    name: "echoResult",
+    description: "Echo result",
+    parameters: z.object({}),
+    render: ({ status, result }) => (
+      <div data-testid="result">{`${status}|${String(result)}`}</div>
+    ),
+  });
+  return null;
+}
+
 const assistantWithCall = (args: string) => ({
   id: "m1",
   role: "assistant",
@@ -84,6 +99,25 @@ const assistantEchoArgs = (args: string) => ({
       function: { name: "echoArgs", arguments: args },
     },
   ],
+});
+
+const assistantEchoResult = {
+  id: "m1",
+  role: "assistant",
+  toolCalls: [
+    {
+      id: "tc1",
+      type: "function",
+      function: { name: "echoResult", arguments: "{}" },
+    },
+  ],
+};
+
+const toolResult = (content: unknown) => ({
+  id: "m2",
+  role: "tool",
+  toolCallId: "tc1",
+  content,
 });
 
 describe("CopilotChat tool-call rendering", () => {
@@ -272,5 +306,79 @@ describe("CopilotChat against in-place message mutation", () => {
 
     // The flat-list items must see the pushed assistant message.
     expect(screen.getByTestId("places").textContent).toBe("inProgress:Rooftop");
+  });
+});
+
+describe("CopilotChat tool-result content", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const renderWithResult = (content: unknown) =>
+    render(
+      <TestCopilotKit messages={[assistantEchoResult, toolResult(content)]}>
+        <ResultRegistrar />
+        <CopilotChat />
+      </TestCopilotKit>,
+    );
+
+  it("passes a string result through verbatim without warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult('{"ok":true}');
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|{"ok":true}',
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("keeps a genuinely EMPTY string result empty and does not warn", () => {
+    // "" is a legitimate tool result. It must stay silent, so a warning is
+    // reserved for content the code could not represent.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult("");
+    expect(screen.getByTestId("result").textContent).toBe("complete|");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("serialises ARRAY tool content instead of collapsing it to an empty result", () => {
+    // The silent-failure regression: array content (structured / attachment
+    // parts) was coerced to "", which a renderer cannot distinguish from a tool
+    // that genuinely returned nothing.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult([{ type: "text", text: "hello" }]);
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|[{"type":"text","text":"hello"}]',
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain("tc1");
+  });
+
+  it("serialises OBJECT tool content instead of collapsing it to an empty result", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult({ status: "ok" });
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|{"status":"ok"}',
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns for NULL tool content even though it has nothing to serialise", () => {
+    // Nothing is lost by rendering "", but the message is still malformed, so
+    // the failure must be audible rather than silent.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult(null);
+    expect(screen.getByTestId("result").textContent).toBe("complete|");
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not throw on tool content that cannot be JSON-serialised", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    expect(() => renderWithResult(circular)).not.toThrow();
+    expect(screen.getByTestId("result").textContent).toBe(
+      "complete|[object Object]",
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 });

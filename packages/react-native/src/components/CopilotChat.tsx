@@ -114,6 +114,53 @@ function messagesFingerprint(messages: readonly unknown[]): string {
 }
 
 /**
+ * Coerces a tool message's `content` to the `string` the renderer contract
+ * requires (`ReactToolCallRenderer`'s Complete branch declares `result: string`)
+ * WITHOUT inventing an empty result.
+ *
+ * Tool content is a string by construction across the stack: `ToolMessageSchema`
+ * declares `content: z.string()`, the SSE transport zod-parses every
+ * TOOL_CALL_RESULT before it reaches `agent.messages`, and core stringifies
+ * non-string handler results itself (`JSON.stringify(result)` in run-handler)
+ * before inserting the tool message. Non-string content is only reachable from a
+ * producer that skipped that validation — restored thread history, a non-SSE
+ * transport, or app code casting on `addMessage`. Core hedges against exactly
+ * that case too (`normalizeToolResultContent` in run-handler accepts `unknown`
+ * and handles arrays of text parts), so this must not answer it with `""`:
+ * an empty string is a LEGITIMATE tool result, which makes a dropped result
+ * indistinguishable from an empty one. Serialise faithfully — the same
+ * representation core uses for non-string results — and warn in dev.
+ */
+function toolResultContent(content: unknown, toolCallId: string): string {
+  if (typeof content === "string") return content;
+
+  // null/undefined carry no payload, so "" loses nothing — but the message is
+  // still malformed, so it warns below rather than passing silently.
+  let serialized = "";
+  if (content !== null && content !== undefined) {
+    try {
+      serialized =
+        JSON.stringify(content) ?? Object.prototype.toString.call(content);
+    } catch {
+      // Circular or otherwise non-serialisable: keep SOMETHING over dropping
+      // the result, and never throw from a render path.
+      serialized = Object.prototype.toString.call(content);
+    }
+  }
+
+  if (typeof __DEV__ === "undefined" || __DEV__) {
+    console.warn(
+      `[CopilotChat] Tool message for tool call "${toolCallId}" had non-string ` +
+        `content (${content === null ? "null" : typeof content}), but renderers ` +
+        `receive \`result: string\`. Rendering a serialized form instead of ` +
+        `dropping it: ${serialized === "" ? "<empty>" : serialized}`,
+    );
+  }
+
+  return serialized;
+}
+
+/**
  * Full-screen chat UI component for React Native.
  *
  * Connects to a CopilotKit agent via `useAgent` and renders messages
@@ -174,7 +221,7 @@ export function CopilotChat({
           id: m.id ?? m.toolCallId,
           role: "tool",
           toolCallId: m.toolCallId,
-          content: typeof m.content === "string" ? m.content : "",
+          content: toolResultContent(m.content, m.toolCallId),
         });
       }
     }
