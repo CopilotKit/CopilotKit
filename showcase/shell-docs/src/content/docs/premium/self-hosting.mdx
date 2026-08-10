@@ -6,3 +6,42 @@ doc_type: how-to
 premium: true
 ---
 <SelfHosting />
+
+## Reliable restore controls
+
+The realtime gateway defaults to a 60-second full-restore deadline and buffers
+live events that arrive during replay up to 10,000 events or 16 MiB after
+sanitization. The event and byte caps are independent; crossing either cap
+fails closed and does not advance the client's cursor. V1 replays retained
+events without compaction.
+
+Set the controls under `realtimeGateway.restore` in your values overlay:
+
+```yaml title="my-values.yaml"
+realtimeGateway:
+  enabled: true
+  restore:
+    # Inclusive range: 1,000–300,000 milliseconds.
+    fullDeadlineMs: 60000
+    # Both buffer values must be positive integers.
+    bufferMaxEvents: 10000
+    bufferMaxBytes: 16777216
+```
+
+The chart maps these values to `RESTORE_FULL_DEADLINE_MS`,
+`RESTORE_BUFFER_MAX_EVENTS`, and `RESTORE_BUFFER_MAX_BYTES` on every gateway
+pod. Invalid deadlines or non-positive buffer limits stop the gateway at
+startup instead of silently accepting unsafe bounds.
+
+Capacity planning must account for the per-active-restore upper bound. With
+the defaults, `N` concurrent full restores can retain at most approximately
+`N × 16 MiB` of serialized live-event payload, plus BEAM/process and message
+overhead. Size gateway memory and autoscaling from your expected concurrent
+restore count, not only steady-state socket count. If long restores regularly
+approach a cap, investigate retained-history size and dependency latency before
+raising the limits.
+
+Cloud-hosted and self-hosted deployments use the same negotiation, failure
+codes, ordering, recovery action, and bounded telemetry. Only this Helm wiring
+differs. See [Enterprise Intelligence Architecture](/premium/intelligence-platform#reliable-conversation-restore)
+for the protocol and compatibility matrix.
