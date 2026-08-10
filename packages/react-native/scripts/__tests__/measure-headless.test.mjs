@@ -19,6 +19,7 @@ import {
   assertBuilt,
   BUILD_COMMAND,
   BUILT_ENTRY_FILE,
+  HEADLESS_EXTERNAL,
   implausibleTotalReason,
   measureHeadlessBundle,
   MIN_PLAUSIBLE_BYTES,
@@ -28,6 +29,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const fixtureDir = path.join(here, "fixtures");
 const tinyEntry = path.join(fixtureDir, "tiny-headless.js");
 const warningEntry = path.join(fixtureDir, "warning-headless.js");
+const strayReactDomEntry = path.join(fixtureDir, "stray-react-dom-headless.js");
 
 describe("measureHeadlessBundle", () => {
   it("bundles a tiny headless fixture and returns a positive gzip total", async () => {
@@ -76,6 +78,42 @@ describe("measureHeadlessBundle", () => {
         );
         return true;
       },
+    );
+  });
+});
+
+describe("HEADLESS_EXTERNAL", () => {
+  it("externalizes the host-provided packages, react-dom included", () => {
+    // react-dom is the defensive one: it is not reachable from the headless
+    // entry today, so nothing else would notice if it were dropped, and a
+    // later stray edge would silently inflate the reported figure.
+    for (const pkg of ["react", "react-native", "react-dom"]) {
+      assert.ok(
+        HEADLESS_EXTERNAL.includes(pkg),
+        `${pkg} must stay external — it is provided by the host app, so bundling it would measure the host's cost, not ours. Got: ${HEADLESS_EXTERNAL.join(", ")}`,
+      );
+    }
+  });
+
+  it("keeps a stray react-dom/client edge out of the measured graph", async () => {
+    // A/B over the same fixture: the only difference is whether react-dom is
+    // externalized. This is what makes the react-dom entry load-bearing rather
+    // than decorative — and it also proves esbuild's package-path prefix match
+    // covers the /client subpath without an entry of its own.
+    const guarded = await measureHeadlessBundle({
+      pkgRoot: fixtureDir,
+      entry: strayReactDomEntry,
+    });
+    const unguarded = await measureHeadlessBundle({
+      pkgRoot: fixtureDir,
+      entry: strayReactDomEntry,
+      external: HEADLESS_EXTERNAL.filter((pkg) => pkg !== "react-dom"),
+    });
+
+    assert.ok(
+      unguarded.totalBytes > guarded.totalBytes * 5,
+      `dropping react-dom from external should visibly inflate the figure, ` +
+        `but guarded=${guarded.totalBytes} B and unguarded=${unguarded.totalBytes} B`,
     );
   });
 });

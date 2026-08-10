@@ -61,6 +61,32 @@ export const HEADLESS_SYMBOLS = [
   "useComponent",
 ];
 
+// Host-app-provided packages, excluded from the measurement for the same reason
+// measure-copilotchat.mjs excludes react/react-dom: a consumer already ships
+// them, so bundling them here would measure THEIR cost, not ours.
+//
+//   react         — peer dependency; the RN app provides it.
+//   react-native  — peer dependency; the RN app (and its Metro graph) provides it.
+//   react-dom     — NOT reachable from this entry today (verified: 0 of the 653
+//                   input modules are react-dom). Listed defensively, for parity
+//                   with measure-copilotchat.mjs: a stray web-oriented edge into
+//                   react-dom/client or react-dom/server would otherwise silently
+//                   add ~56 kB gzip to this figure — a 60% inflation of a number
+//                   that exists as evidence for a bundle claim. Adding it does
+//                   not move the figure (92.7 kB before and after).
+//
+// Subpaths need no entries of their own: esbuild prefix-matches package paths, so
+// `react` also externalizes `react/jsx-runtime` and `react-dom` also externalizes
+// `react-dom/client` and `react-dom/server` (esbuild CHANGELOG 0.5.14 / 0.14.13).
+// `react/jsx-runtime` is kept explicit only because it documents that this entry's
+// JSX transform is the host's; it is redundant under that prefix rule.
+export const HEADLESS_EXTERNAL = [
+  "react",
+  "react-native",
+  "react/jsx-runtime",
+  "react-dom",
+];
+
 // Sanity FLOOR, not a budget. The headless graph pulls @ag-ui/client, core and
 // react-core's headless entry; it measures ~92 kB gzip today and cannot
 // plausibly drop an order of magnitude. A total below this means the
@@ -116,12 +142,14 @@ export function implausibleTotalReason(totalBytes) {
  * @param {string} options.pkgRoot - Resolution directory for the synthetic entry.
  * @param {string} [options.entry] - Module specifier to import from.
  * @param {string[]} [options.symbols] - Named exports to pull in and reference.
+ * @param {string[]} [options.external] - Host-provided specifiers to exclude; defaults to `HEADLESS_EXTERNAL`.
  * @returns {Promise<{ totalBytes: number, outputCount: number, warnings: import("esbuild").Message[] }>}
  */
 export async function measureHeadlessBundle({
   pkgRoot,
   entry = HEADLESS_ENTRY,
   symbols = HEADLESS_SYMBOLS,
+  external = HEADLESS_EXTERNAL,
 }) {
   const named = symbols.join(", ");
   const contents =
@@ -138,7 +166,7 @@ export async function measureHeadlessBundle({
       target: "es2022",
       write: false,
       minify: true,
-      external: ["react", "react-native", "react/jsx-runtime"],
+      external,
       // Kept silent (as in measure-copilotchat.mjs) so stdout carries only the
       // one figure line that CI quotes. Silent discards esbuild's own printing,
       // NOT the diagnostics: warnings are returned on `result` and formatted by
