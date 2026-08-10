@@ -229,13 +229,6 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messagesKey]);
 
-  // Stable extraData for FlatList: the exact inputs renderItem reads, so a
-  // change forces a row re-render. Must describe what renderItem actually uses.
-  const extraData = useMemo(
-    () => ({ isRunning, renderToolCall, toolMessages }),
-    [isRunning, renderToolCall, toolMessages],
-  );
-
   // Build flat list items from messages
   const listItems: ChatListItem[] = useMemo(() => {
     const items: ChatListItem[] = [];
@@ -285,6 +278,26 @@ export function CopilotChat({
     // assistant message or tool call appended mid-run never reaches the list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messagesKey, isRunning]);
+
+  // Id of the trailing row. renderItem needs "is this the last row?" to place
+  // the streaming indicator; deriving it here keeps that a named scalar instead
+  // of renderItem closing over `listItems` and index-reading its tail.
+  const lastItemId = useMemo(
+    () => listItems[listItems.length - 1]?.id,
+    [listItems],
+  );
+
+  // extraData defeats FlatList's PureComponent shallow-compare for the values
+  // renderItem CLOSES OVER, as opposed to the ones it receives per row. Those
+  // are exactly the four below, and they mirror renderItem's dependency array —
+  // keep the two in sync. `listItems` is deliberately absent: renderItem's only
+  // read of it is the tail id, now passed as `lastItemId`, and the array itself
+  // is already the `data` prop, which invalidates cells on its own (every
+  // rebuild allocates fresh item objects, so each cell's `item` prop differs).
+  const extraData = useMemo(
+    () => ({ isRunning, lastItemId, renderToolCall, toolMessages }),
+    [isRunning, lastItemId, renderToolCall, toolMessages],
+  );
 
   // Shared logic for sending a message to the agent
   const sendMessage = useCallback(
@@ -345,9 +358,7 @@ export function CopilotChat({
         return (
           <AssistantMessage
             content={item.content ?? ""}
-            isLoading={
-              isRunning && item.id === listItems[listItems.length - 1]?.id
-            }
+            isLoading={isRunning && item.id === lastItemId}
           />
         );
       }
@@ -378,7 +389,7 @@ export function CopilotChat({
 
       return null;
     },
-    [isRunning, listItems, renderToolCall, toolMessages],
+    [isRunning, lastItemId, renderToolCall, toolMessages],
   );
 
   const keyExtractor = useCallback((item: ChatListItem) => item.id, []);
