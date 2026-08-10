@@ -8,9 +8,9 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 
 <OpsPlatformCTA
   variant="inline"
-  title="Start with a hosted Enterprise Intelligence project"
-  body="Create a free account, then copy the create command below to scaffold a connected app."
-  ctaLabel="Create a free account"
+  title="Start managed Intelligence onboarding"
+  body="Sign up or sign in, finish organization onboarding when required, then return to the CLI to connect your app."
+  ctaLabel="Start managed onboarding"
   surface="docs_cli_intro_signup"
 />
 
@@ -19,6 +19,10 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 - Node.js 20+
 - A CopilotKit account for Cloud-Hosted Enterprise Intelligence
 - An OpenAI API key or another model provider key for the starter app you choose
+
+<Callout type="info" title="Team Self-hosted is a plan, not a deployment login">
+  A Team Self-hosted purchase uses a Clerk-backed hosted organization. A customer-run self-hosted deployment uses the customer's identity provider and never sees the Clerk admission flow or hosted organization plan gate.
+</Callout>
 
 ## Start a new app
 
@@ -38,17 +42,25 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   </Step>
 
   <Step>
-    ### Sign in
+    ### Sign up or sign in
 
-    If you are not already signed in, the CLI opens a browser login flow. Complete login in the browser, then return to the terminal.
+    If you are not already signed in, the CLI opens a browser login flow. During Clerk signup, new users accept the CopilotKit Self-Service Agreement. Existing accounts do not re-consent.
 
     If the browser does not open, the CLI prints a login URL and supports a manual paste fallback.
   </Step>
 
   <Step>
-    ### Select a project
+    ### Select or create an organization
+
+    Select or create an organization in the browser. Existing hosted organizations created before the rollout cutoff continue without a plan prompt. Every new hosted organization created at or after the rollout cutoff must explicitly choose Developer or a paid plan. Developer is the no-cost choice; signup does not select it automatically.
+  </Step>
+
+  <Step>
+    ### Select or create a project
 
     Choose an existing cloud-hosted project or create a new one. A project is where your app's threads, messages, and platform metadata are stored.
+
+    Onboarding resumes the exact CLI or managed-app destination that sent you there. If the CLI opened the browser, return to the terminal and let the original command continue.
 
     The CLI writes the selected project to `.copilotkit/project.json`:
 

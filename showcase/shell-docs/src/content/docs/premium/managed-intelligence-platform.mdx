@@ -12,9 +12,9 @@ Cloud-Hosted Enterprise Intelligence is the CopilotKit-operated deployment of th
 
 <OpsPlatformCTA
   variant="inline"
-  title="Create hosted projects and API keys"
-  body="Create a free Enterprise Intelligence account, then use the CLI or dashboard to connect your first app."
-  ctaLabel="Create a free account"
+  title="Start hosted onboarding"
+  body="Sign up or sign in, select an organization and project, then return to the flow that brought you here."
+  ctaLabel="Start managed onboarding"
   surface="docs_premium_managed_intelligence_platform_intro"
 />
 
@@ -26,12 +26,38 @@ The hosted web app is the control surface for developers and administrators. End
 
 Use Cloud-Hosted Enterprise Intelligence when you want the fastest path to production. Use [Self-Hosting Enterprise Intelligence](/premium/self-hosting) when your organization needs the platform inside its own VPC, cluster, or data boundary.
 
-## Login and workspace flow
+## Hosted onboarding
 
-You sign in at [dashboard.operations.copilotkit.ai](https://dashboard.operations.copilotkit.ai). After login, choose or create the organization workspace you want to operate in. The ready page gives you two common paths:
+Start at [dashboard.operations.copilotkit.ai](https://dashboard.operations.copilotkit.ai) or in the CopilotKit CLI.
 
-- `npx copilotkit@latest create` for a new app.
-- `npx copilotkit@latest skills onboard` for adding CopilotKit to an existing app with agent-assisted onboarding.
+<Steps>
+  <Step>
+    ### Sign up or sign in
+
+    During Clerk signup, new users accept the CopilotKit Self-Service Agreement. Existing accounts do not re-consent.
+  </Step>
+
+  <Step>
+    ### Select or create an organization
+
+    Select or create an organization in the browser. Existing hosted organizations created before the rollout cutoff continue without a plan prompt. Every new hosted organization created at or after the rollout cutoff must explicitly choose Developer or a paid plan. Developer is the no-cost choice; signup does not select it automatically.
+  </Step>
+
+  <Step>
+    ### Select or create a project
+
+    Choose the project that will hold your app's threads, events, runtime connection metadata, and API keys, or create a new one.
+  </Step>
+
+  <Step>
+    ### Continue where you started
+
+    Onboarding resumes the exact CLI or managed-app destination that sent you there. If the CLI opened the browser, return to the terminal and let the original command continue. In the dashboard, the ready page offers two common paths:
+
+    - `npx copilotkit@latest create` for a new app.
+    - `npx copilotkit@latest skills onboard` for adding CopilotKit to an existing app with agent-assisted onboarding.
+  </Step>
+</Steps>
 
 The [CopilotKit CLI](/cli) uses the same sign-in system. When the CLI needs dashboard access, it opens a browser login flow and then stores a local CLI session so project selection can happen from your terminal.
 
@@ -78,6 +104,10 @@ Some capabilities may appear in the dashboard as early access. Those capabilitie
 
 ## Cloud-hosted vs. self-hosted
 
+<Callout type="info" title="Team Self-hosted is a plan, not a deployment login">
+  A Team Self-hosted purchase uses a Clerk-backed hosted organization. A customer-run self-hosted deployment uses the customer's identity provider and never sees the Clerk admission flow or hosted organization plan gate.
+</Callout>
+
 | Choose this | When |
 |---|---|
 | Cloud-Hosted Enterprise Intelligence | You want hosted projects, managed API keys, conversation history, thread inspection, and plan management without running platform infrastructure. |
@@ -86,8 +116,9 @@ Some capabilities may appear in the dashboard as early access. Those capabilitie
 Your application code should stay focused on the CopilotKit frontend SDK and
 runtime. The deployment mode changes which platform endpoint and credentials
 your runtime uses, not how the frontend lists threads or renders chat. Moving
-from cloud-hosted projects to self-hosting is available on the Team self-hosted
-plan or a custom Enterprise plan.
+from cloud-hosted projects to self-hosting requires the Team Self-hosted plan
+or a custom Enterprise plan. That purchase does not replace the identity system
+in a customer-run deployment.
 
 ## Next steps
 
