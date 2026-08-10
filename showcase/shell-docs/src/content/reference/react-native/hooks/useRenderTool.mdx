@@ -22,15 +22,19 @@ description: "Register a React Native component to render inline when an agent c
 ```tsx
 import { useRenderTool } from "@copilotkit/react-native";
 
-function useRenderTool<T>(
-  options: UseRenderToolOptions<T>,
-  deps?: ReadonlyArray<unknown>,
-): void;
+function useRenderTool<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(options: UseRenderToolOptions<T>, deps?: ReadonlyArray<unknown>): void;
 ```
+
+`T` is the parsed shape of the tool's arguments. It is constrained to
+`Record<string, unknown>` and defaults to it, so calling the hook without an
+explicit type argument is valid — `T` is normally inferred from the `parameters`
+schema.
 
 ## Parameters
 
-<PropertyReference name="options" type="UseRenderToolOptions<T>">
+<PropertyReference name="options" type="UseRenderToolOptions<T>" required>
   Tool definition and render function.
 
   <PropertyReference name="name" type="string" required>
@@ -71,9 +75,20 @@ function useRenderTool<T>(
 
 ### `RenderToolProps<T>`
 
-Props passed to your `render` function. `status` is a discriminated union: `args`
-is partial **only** while `"inProgress"`, and `result` is a string **only** when
-`"complete"`.
+Props passed to your `render` function. The type is not declared in the React
+Native package — it is derived from react-core's canonical renderer contract, so
+React Native and web cannot drift apart:
+
+```ts
+type RenderToolProps<T = Record<string, unknown>> = React.ComponentProps<
+  ReactToolCallRenderer<T>["render"]
+>;
+```
+
+That resolves to a three-arm union discriminated on `status`: `args` is
+`Partial<T>` on the in-progress arm and `T` on the executing and complete arms,
+and `result` is a `string` only on the complete arm (`undefined` on the other
+two). Narrow on `status` before reading `args` fields or `result`.
 
 <PropertyReference name="name" type="string">
   The tool name being rendered.
@@ -84,9 +99,17 @@ is partial **only** while `"inProgress"`, and `result` is a string **only** when
 </PropertyReference>
 
 <PropertyReference name="args" type="Partial<T> | T">
-  Tool-call arguments, typed by your `parameters` schema. Partial while `status`
-  is `"inProgress"` (the agent is still writing the call); fully parsed once
-  `status` is `"executing"` or `"complete"`.
+  Tool-call arguments, typed from your `parameters` schema: `Partial<T>` on the
+  in-progress arm (the agent is still writing the call), `T` on the executing and
+  complete arms.
+
+  That widening from `Partial<T>` to `T` is a **type-level assertion, not a
+  runtime parse**. Every arm receives the same value — the raw tool-call argument
+  string run through CopilotKit's partial JSON parser — and your `parameters`
+  schema is never applied to validate or coerce it before it reaches `render`. A
+  truncated or malformed argument string therefore still yields whatever the
+  partial parse produced, typed as complete. Keep renderers defensive about
+  missing fields even on the later arms.
 </PropertyReference>
 
 <PropertyReference name="status" type='"inProgress" | "executing" | "complete"'>
@@ -95,9 +118,45 @@ is partial **only** while `"inProgress"`, and `result` is a string **only** when
 </PropertyReference>
 
 <PropertyReference name="result" type="string | undefined">
-  Result from the handler. A string only when `status` is `"complete"`;
-  `undefined` otherwise.
+  The **content of the tool result message** for this `toolCallId` — not the value
+  your `handler` returned. `CopilotChat` correlates the agent's messages by
+  `toolCallId`, and the renderer passes that message's `content` straight through
+  (non-string content is coerced to `""`). Present as a `string` on the complete
+  arm; `undefined` on the other two.
+
+  Consequences worth knowing:
+
+  - The complete arm is selected **because a tool result message exists**, not
+    because a handler finished.
+  - A `handler` return value reaches you only after serialization:
+    `undefined`/`null` become `""`, strings pass through, anything else is
+    `JSON.stringify`-ed. A handler that throws yields the string
+    `` `Error: <message>` `` — indistinguishable from a successful result unless
+    you encode status in the payload yourself.
+  - A render-only tool (no `handler`) still reaches the complete arm, with
+    `result` as the empty string.
+  - On replay, `result` comes from the stored tool message in thread history, so
+    it survives reloads without any handler running.
 </PropertyReference>
+
+### `RenderToolInProgressProps`, `RenderToolExecutingProps`, `RenderToolCompleteProps`
+
+`@copilotkit/react-native` re-exports these three types from react-core. They are
+**not** arms of the `RenderToolProps<T>` above and they do not describe the props
+this hook passes to `render`:
+
+- they are generic over a **schema** (`S extends StandardSchemaV1`), not over the
+  parsed argument object `T`;
+- they carry arguments under **`parameters`** (`Partial<InferSchemaOutput<S>>`,
+  then `InferSchemaOutput<S>`), where React Native's render props use **`args`**;
+- they are the arms of react-core's own `RenderToolProps<S>` union, which belongs
+  to the **web** `useRenderTool` — a different hook from the React Native one
+  documented here, and one React Native does not export.
+
+Type React Native render functions with `RenderToolProps<T>` or
+`RenderToolFunction<T>` (both exported from `@copilotkit/react-native`). Reach for
+the three `RenderTool*Props` types only when sharing code with a web react-core
+renderer.
 
 ## Usage
 
