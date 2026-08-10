@@ -65,10 +65,18 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 const FORBIDDEN = ["shiki", "mermaid", "cytoscape", "katex", "streamdown"];
-const dist = path.resolve(import.meta.dirname, "../dist/v2");
+// `fileURLToPath(import.meta.url)`, not `import.meta.dirname`: the latter landed
+// in Node 20.11 and is `undefined` below it, which would turn this hard-fail gate
+// into an opaque ERR_INVALID_ARG_TYPE for anyone on the `engines: ">=18"` floor
+// the root package.json still declares. Same idiom as scripts/measure-copilotchat.mjs.
+const dist = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../dist/v2",
+);
 const targets = ["headless.mjs", "headless.cjs", "context.mjs", "context.cjs"];
 
 // A host React app already ships these, and none of them can reach the render
