@@ -66,11 +66,17 @@ schema.
 </PropertyReference>
 
 <PropertyReference name="deps" type="ReadonlyArray<unknown>">
-  Optional dependency array. Re-register the tool when these values change. The
-  `render` function is **captured at registration** and only refreshed when
-  `deps` change — it does not re-read the latest closure on every render. If your
-  `render` closes over component state or props that change over time, pass those
-  values in `deps` or the chat will keep painting the stale closure.
+  Optional dependency array. Re-registers the tool when these values change. The
+  `render` function is **captured at registration** and only refreshed when the
+  tool re-registers — it does not re-read the latest closure on every render.
+
+  `deps` are compared by **serializing the whole array with `JSON.stringify`**,
+  not by reference identity the way React's own `useEffect` compares. So `deps`
+  is a working remedy only for values JSON can represent: strings, numbers,
+  booleans, `null`, `Date`, and plain objects or arrays of those. A function,
+  `Map`, `Set`, symbol, or class instance serializes to the same constant on
+  every render, so listing one never re-registers anything. See [Values `deps`
+  cannot see](#values-deps-cannot-see) for what to do with those.
 </PropertyReference>
 
 ### `RenderToolProps<T>`
@@ -191,8 +197,50 @@ function ChatScreen() {
 
 - **Render returns `ReactElement | null`**, not `ReactNode`. React Native's `FlatList` cannot render bare strings or portals, so a render function must return an element or `null`.
 - **Arguments stream.** While the agent is still writing the call, `status` is `"inProgress"` and `args` is partial — fields arrive progressively. Write renderers that tolerate missing fields; that is what lets UI build as the agent writes it.
-- **`render` is captured at registration.** It is not refreshed on every render — only when `deps` change. This matches the web hooks. If your `render` closes over component state or props that change over time, pass those values in `deps`; otherwise the chat keeps invoking the stale closure and paints outdated UI. Earlier React Native versions refreshed the closure on every render, so code that relied on that must now declare its `deps`.
+- **`render` is captured at registration.** It is not refreshed on every render — only when the tool re-registers, which happens when `deps` compare as changed. This matches the web hooks. If your `render` closes over component state or props that change over time, list a JSON-comparable form of them in `deps`, or read them through a ref (see [below](#values-deps-cannot-see)); otherwise the chat keeps invoking the stale closure and paints outdated UI. Earlier React Native versions refreshed the closure on every render, so code that relied on that must now handle staleness explicitly.
 - **Cleanup**: unmounting removes the *tool* (the agent can no longer call it) but keeps the *render function* registered, so tool calls already in the chat history still render after you navigate away.
+
+### Values `deps` cannot see
+
+`deps` is forwarded to [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool)
+in react-core, which decides whether to re-register by comparing
+[`JSON.stringify(deps)`](https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-core/src/v2/hooks/use-frontend-tool.tsx)
+against the previous render's. Serialization, not reference identity, is the
+comparison — which has consequences worth knowing before you reach for `deps`:
+
+- **Non-serializable deps are inert.** Inside the array, a function or symbol serializes to `null`, and a `Map`, a `Set`, or a class instance keeping its state in private fields or getters serializes to `{}` — the same string on every render, forever. Listing a callback or a `Map` in `deps` type-checks, reads like a fix, and re-registers nothing.
+- **Circular values throw.** `JSON.stringify` raises a `TypeError` while the hook renders, so a dep with a cycle in it crashes the screen instead of failing quietly.
+- **Key order counts.** Two plain objects holding the same entries in a different insertion order serialize differently and *do* re-register, even though nothing meaningful changed.
+
+For a value JSON cannot compare, do not put it in `deps` — it will not work.
+Either derive a primitive that tracks the change (`[selection.size]` rather than
+`[selection]`), or keep the value in a ref that `render` dereferences when it
+runs:
+
+```tsx
+function SeatPicker({ onSelect }: { onSelect: (id: string) => void }) {
+  // Reassigned on every render; the captured `render` reads it at call time.
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+
+  useRenderTool({
+    name: "pickSeat",
+    description: "Let the traveler pick a seat",
+    parameters: z.object({ seats: z.array(z.string()) }),
+    render: ({ args }) => (
+      <SeatGrid
+        seats={args.seats ?? []}
+        onSelect={(id) => onSelectRef.current(id)}
+      />
+    ),
+  });
+}
+```
+
+The captured `render` is still the stale one, but the ref it reads is current, so
+the tool never has to re-register to reach the newest callback. That makes the ref
+pattern the more reliable default whenever what changes is behavior rather than
+displayed data.
 
 ## Rendering a tool call outside the chat
 
