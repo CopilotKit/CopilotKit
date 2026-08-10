@@ -6,4 +6,4 @@ Implementation details: [2026-08-10-realtime-error-only-reconnect.md](../docs/su
 - [x] Add paired error/close cancellation coverage.
 - [x] Implement the private 100 ms reconnect watchdog.
 - [x] Run Channels Intelligence tests, type checks, and build through Nx.
-- [ ] Commit, push, and update draft PR #6443.
+- [x] Commit, push, and update draft PR #6443.
