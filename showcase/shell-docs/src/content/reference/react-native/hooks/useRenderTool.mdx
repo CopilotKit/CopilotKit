@@ -168,6 +168,7 @@ renderer.
 
 ```tsx
 import { useRenderTool } from "@copilotkit/react-native";
+import { CopilotChat } from "@copilotkit/react-native/components";
 import { ActivityIndicator, Text, View } from "react-native";
 import { z } from "zod";
 
@@ -192,6 +193,12 @@ function ChatScreen() {
   return <CopilotChat agentName="default" />;
 }
 ```
+
+Import `CopilotChat` from the **`/components`** subpath. That is the prebuilt UI
+that reads the render registry and paints tool calls inline; the `CopilotChat`
+exported from the `@copilotkit/react-native` root is
+[headless](/reference/react-native/components/CopilotChat) and renders no message
+list, so a registered `render` would never appear.
 
 ## Behavior
 
