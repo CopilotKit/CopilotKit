@@ -58,7 +58,11 @@ export {
   useCapabilities,
   defineToolCallRenderer,
   CopilotChatDefaultLabels,
-  type UseAgentUpdate,
+  // Runtime enum, not a type: it is passed BY VALUE to useAgent's `updates`
+  // option (`updates: [UseAgentUpdate.OnMessagesChanged]`). `export type` would
+  // strip the runtime binding and leave consumers unable to name a member.
+  // react-core's own headless entry exports it as a value for the same reason.
+  UseAgentUpdate,
   type UseInterruptConfig,
   type AgentContextInput,
   type JsonSerializable,
@@ -80,14 +84,27 @@ export {
   type RenderToolCompleteProps,
 } from "@copilotkit/react-core/v2/headless";
 
-// Re-export core types commonly needed
-export type {
+// Re-export core runtime ENUMS as values. Each of these is `export enum` in
+// @copilotkit/core, and each is the type of a prop or field a consumer has to
+// branch on — `status === ToolCallStatus.Executing`,
+// `status === CopilotKitCoreRuntimeConnectionStatus.Connected`. An enum-typed
+// field rejects a bare string literal, so a type-only re-export leaves the
+// member names unreachable and the field impossible to compare against.
+export {
+  ToolCallStatus,
   CopilotKitCoreRuntimeConnectionStatus,
   CopilotKitCoreErrorCode,
-  Suggestion,
-  FrontendTool,
-  ToolCallStatus,
 } from "@copilotkit/core";
+
+// Re-export core types commonly needed
+export type { Suggestion, FrontendTool } from "@copilotkit/core";
+
+// AbstractAgent is a runtime CLASS, not a type: it is the AG-UI extension point
+// consumers subclass (`class MyAgent extends AbstractAgent`) and test with
+// `instanceof`. @ag-ui/client is a dependency of this package rather than a peer,
+// so a consumer cannot reliably import the class from there directly — a
+// type-only re-export left the extension point unreachable from RN.
+export { AbstractAgent } from "@ag-ui/client";
 
 // Re-export AG-UI types for consumer convenience (matches web SDK surface)
 export type {
@@ -95,7 +112,6 @@ export type {
   AssistantMessage as AssistantMessageType,
   ToolCall,
   ToolMessage,
-  AbstractAgent,
   AgentCapabilities,
 } from "@ag-ui/client";
 
