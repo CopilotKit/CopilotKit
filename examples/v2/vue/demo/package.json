@@ -10,6 +10,7 @@
     "lint": "eslint \"**/*.{js,mjs,cjs,ts,vue}\""
   },
   "dependencies": {
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350",
     "@ag-ui/core": "0.0.52",
     "@ag-ui/mcp-apps-middleware": "0.0.2",
     "@copilotkit/core": "workspace:*",
