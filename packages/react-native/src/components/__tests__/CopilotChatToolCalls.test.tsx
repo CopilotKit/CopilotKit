@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, act } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { z } from "zod";
-import type { AbstractAgent, Message } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
 
 // Local FlatList that actually invokes renderItem — the shared stub in
 // src/__mocks__/react-native.ts passes it through as an inert prop, so the
@@ -36,7 +36,12 @@ vi.mock("react-native", async () => {
 import { CopilotChat } from "../CopilotChat";
 import { useRenderTool } from "../../hooks/useRenderTool";
 import { TestCopilotKit } from "../../__mocks__/test-copilotkit";
+import { assistantToolCall, toolMessage } from "../../__mocks__/tool-fixtures";
 
+// Reports status + args only. Assertions about the RESULT must NOT use this one:
+// its output cannot distinguish "the correlated result reached the renderer" from
+// "status flipped for some other reason", which is how a corrupted tool-message
+// content passed unnoticed. Use `ReportRegistrar` below for those.
 function Registrar() {
   useRenderTool({
     name: "showPlaces",
@@ -45,6 +50,27 @@ function Registrar() {
     // Tolerates partial props — that is the contract while streaming.
     render: ({ args, status }) => (
       <div data-testid="places">{`${status}:${(args as { title?: string }).title ?? ""}`}</div>
+    ),
+  });
+  return null;
+}
+
+// Reports status, args AND result together, so one assertion observes the whole
+// output of the `toolCallId -> ToolMessage` correlation: the status it derived,
+// the args it parsed, and the result content it actually handed the renderer.
+// `undefined` is spelled out rather than stringified, so an absent result stays
+// distinguishable from an empty-string one.
+function ReportRegistrar() {
+  useRenderTool({
+    name: "reportPlaces",
+    description: "Report places",
+    parameters: z.object({ title: z.string() }),
+    render: ({ args, status, result }) => (
+      <div data-testid="report">
+        {`${status}:${(args as { title?: string }).title ?? ""}|${
+          result === undefined ? "<no result>" : result
+        }`}
+      </div>
     ),
   });
   return null;
@@ -77,42 +103,20 @@ function ResultRegistrar() {
   return null;
 }
 
-const assistantWithCall = (args: string) => ({
-  id: "m1",
-  role: "assistant",
-  toolCalls: [
-    {
-      id: "tc1",
-      type: "function",
-      function: { name: "showPlaces", arguments: args },
-    },
-  ],
-});
+// All four call the same shared factory, so every fixture here agrees on the
+// tool-call id the tool results below are correlated against.
+const assistantWithCall = (args: string) =>
+  assistantToolCall("showPlaces", args);
+const assistantEchoArgs = (args: string) => assistantToolCall("echoArgs", args);
+const assistantEchoResult = assistantToolCall("echoResult", "{}");
+const assistantReportCall = (args: string) =>
+  assistantToolCall("reportPlaces", args);
 
-const assistantEchoArgs = (args: string) => ({
-  id: "m1",
-  role: "assistant",
-  toolCalls: [
-    {
-      id: "tc1",
-      type: "function",
-      function: { name: "echoArgs", arguments: args },
-    },
-  ],
-});
-
-const assistantEchoResult = {
-  id: "m1",
-  role: "assistant",
-  toolCalls: [
-    {
-      id: "tc1",
-      type: "function",
-      function: { name: "echoResult", arguments: "{}" },
-    },
-  ],
-};
-
+// The one fixture here that cannot be the typed `toolMessage()` factory: the
+// "tool-result content" suite drives content the `ToolMessage` type FORBIDS
+// (arrays, objects, null, circular) through `toolResultContent`, and no
+// properly-typed fixture can express that. Its string cases share this helper for
+// uniformity within that suite; every tool result OUTSIDE it is typed.
 const toolResult = (content: unknown) => ({
   id: "m2",
   role: "tool",
@@ -138,15 +142,42 @@ describe("CopilotChat tool-call rendering", () => {
     render(
       <TestCopilotKit
         messages={[
-          assistantWithCall('{"title":"Rooftop"}'),
-          { id: "m2", role: "tool", toolCallId: "tc1", content: "ok" },
+          assistantReportCall('{"title":"Rooftop"}'),
+          toolMessage("tc1", "ok"),
         ]}
       >
-        <Registrar />
+        <ReportRegistrar />
         <CopilotChat />
       </TestCopilotKit>,
     );
-    expect(screen.getByTestId("places").textContent).toBe("complete:Rooftop");
+    // Reads the RESULT, not only the status. Asserting `complete` alone is
+    // satisfied by ANY tool message reaching `renderToolCall`, so it stayed
+    // green when the correlated content was replaced with a constant.
+    expect(screen.getByTestId("report").textContent).toBe(
+      "complete:Rooftop|ok",
+    );
+  });
+
+  it("does NOT complete a tool call that no tool message is correlated to", () => {
+    // The other direction of the same map. Every positive fixture in this file
+    // matches on id, so a lookup that ignores the key — keyed on the tool
+    // message's own id, or falling back to "any tool message we have" — reads as
+    // a correct correlation. Here the only tool result belongs to a DIFFERENT
+    // call, so a leak is visible as both a completed status and a stray result.
+    render(
+      <TestCopilotKit
+        messages={[
+          assistantReportCall('{"title":"Rooftop"}'),
+          toolMessage("tc-someone-else", "leaked"),
+        ]}
+      >
+        <ReportRegistrar />
+        <CopilotChat />
+      </TestCopilotKit>,
+    );
+    expect(screen.getByTestId("report").textContent).toBe(
+      "inProgress:Rooftop|<no result>",
+    );
   });
 
   it("keeps rendering a tool call after the registering component unmounts", () => {
@@ -208,19 +239,7 @@ describe("CopilotChat tool-call rendering", () => {
   it("falls back to the placeholder for an unregistered tool", () => {
     render(
       <TestCopilotKit
-        messages={[
-          {
-            id: "m1",
-            role: "assistant",
-            toolCalls: [
-              {
-                id: "tc9",
-                type: "function",
-                function: { name: "notRegistered", arguments: "{}" },
-              },
-            ],
-          },
-        ]}
+        messages={[assistantToolCall("notRegistered", "{}", "tc9")]}
       >
         <CopilotChat />
       </TestCopilotKit>,
@@ -258,27 +277,31 @@ describe("CopilotChat against in-place message mutation", () => {
 
     render(
       <TestCopilotKit
-        messages={[assistantWithCall('{"title":"Rooftop"}')]}
+        messages={[assistantReportCall('{"title":"Rooftop"}')]}
         agentRef={agentRef}
       >
-        <Registrar />
+        <ReportRegistrar />
         <CopilotChat />
       </TestCopilotKit>,
     );
-    // No tool message yet, and the id is not executing → core derives inProgress.
-    expect(screen.getByTestId("places").textContent).toBe("inProgress:Rooftop");
+    // No tool message yet, and the id is not executing → core derives inProgress,
+    // and the renderer is handed no result at all.
+    expect(screen.getByTestId("report").textContent).toBe(
+      "inProgress:Rooftop|<no result>",
+    );
 
     await act(async () => {
-      agentRef.current!.addMessage({
-        id: "m2",
-        role: "tool",
-        toolCallId: "tc1",
-        content: "ok",
-      } as Message);
+      // A real `ToolMessage`, so `addMessage` needs no cast and the id the
+      // correlation keys on cannot go missing.
+      agentRef.current!.addMessage(toolMessage("tc1", "ok"));
     });
 
-    // The toolCallId → ToolMessage correlation must see the pushed message.
-    expect(screen.getByTestId("places").textContent).toBe("complete:Rooftop");
+    // The toolCallId → ToolMessage correlation must see the pushed message AND
+    // carry its content through — asserting the status alone would pass even if
+    // the map delivered a different message's result.
+    expect(screen.getByTestId("report").textContent).toBe(
+      "complete:Rooftop|ok",
+    );
   });
 
   it("renders a tool call that is pushed in place after mount", async () => {
@@ -299,9 +322,9 @@ describe("CopilotChat against in-place message mutation", () => {
     expect(screen.queryByTestId("places")).toBeNull();
 
     await act(async () => {
-      agentRef.current!.addMessage(
-        assistantWithCall('{"title":"Rooftop"}') as unknown as Message,
-      );
+      // Typed `AssistantMessage` from the shared factory — assignable to
+      // `Message` on its own, so the old double cast is gone.
+      agentRef.current!.addMessage(assistantWithCall('{"title":"Rooftop"}'));
     });
 
     // The flat-list items must see the pushed assistant message.
