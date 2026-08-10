@@ -40,6 +40,11 @@ export {
 // option), so it must be a value export — `export type` would strip its runtime
 // binding from this entry under isolatedModules, breaking consumers.
 export { useAgent, UseAgentUpdate } from "./hooks/use-agent";
+export {
+  useThreadRestore,
+  type UseThreadRestoreOptions,
+  type UseThreadRestoreResult,
+} from "./hooks/use-thread-restore";
 export { useFrontendTool } from "./hooks/use-frontend-tool";
 export { useComponent } from "./hooks/use-component";
 export { useHumanInTheLoop } from "./hooks/use-human-in-the-loop";

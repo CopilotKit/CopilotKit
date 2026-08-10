@@ -36,6 +36,10 @@ export const CopilotChatDefaultLabels = {
   chatToggleCloseLabel: "Close chat",
   modalHeaderTitle: "CopilotKit Chat",
   welcomeMessageText: "How can I help you today?",
+  restoreLoadingText: "Restoring conversation…",
+  restoreFailedText: "This conversation couldn’t be restored.",
+  restoreReloadButtonLabel: "Reload conversation",
+  restoreSupportIdLabel: "Support ID",
 };
 
 export type CopilotChatLabels = typeof CopilotChatDefaultLabels;
