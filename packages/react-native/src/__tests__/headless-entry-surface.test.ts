@@ -1,6 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+// Type-only, so it is erased and does NOT statically pull the entry this file
+// deliberately loads at runtime (and is not part of the walked graph either —
+// the walk starts at src/headless.ts / src/index.ts, not at this test).
+import type * as HeadlessEntry from "../headless";
 
 /**
  * Guards the `@copilotkit/react-native/headless` entry (src/headless.ts).
@@ -45,6 +49,15 @@ import path from "node:path";
  *     at COLLECTION time and every test in the file — including the one
  *     asserting the entry exists — silently never ran. The walk is lazy and
  *     memoized per entry now, and happens inside test bodies.
+ *  5. Four separate tests each did `await import("../headless")`, so four tests
+ *     raced the SAME one-time module-graph cost against the default 5s per-test
+ *     budget — and when the first one lost that race the other three inherited
+ *     its in-flight import and timed out with it (the observed signature was 3
+ *     failures at once, not 1). Measured at up to 4568ms, i.e. 91% of the budget
+ *     (see IMPORT_BUDGET_MS), so the file timed out nondeterministically — a
+ *     flaky hard gate, which is a gate people learn to ignore. The runtime-export
+ *     checks now share ONE explicitly-budgeted `beforeAll`, so the cost lives in
+ *     exactly one place instead of being raced four times.
  */
 
 const srcDir = path.resolve(__dirname, "..");
@@ -343,54 +356,99 @@ describe("@copilotkit/react-native/headless entry", () => {
     ).toEqual([]);
   });
 
-  it("does export the provider + core headless hooks", async () => {
-    const mod = await import("../headless");
-    for (const name of [
-      "CopilotKitProvider",
-      "useCopilotKit",
-      "useAgent",
-      "useFrontendTool",
-      "useRenderTool",
-    ]) {
-      expect(mod, `missing export: ${name}`).toHaveProperty(name);
-    }
-  });
+  /**
+   * The four checks below need the entry EVALUATED, not just read: they assert
+   * that the named exports exist as runtime values (a re-export of a name that
+   * no longer exists is a runtime hole a static read cannot see). So the import
+   * stays — but it is paid exactly once, in a hook, rather than being raced by
+   * four tests against the default per-test budget.
+   *
+   * Why the budget below is what it is. Nothing here is hung or polling — the
+   * cost is a ONE-TIME module-graph load (resolve + transform + evaluate), paid
+   * per worker with no persistent transform cache, and it is the VARIANCE rather
+   * than the mean that broke the 5s default:
+   *
+   *   - vitest.config.mjs sets `server.deps.inline: [/@copilotkit/]`, so the
+   *     workspace dists this entry pulls are transformed rather than loaded
+   *     natively: ~283 KB (core ~218 KB, react-core v2/headless ~55 KB, plus
+   *     v2/context and shared), on top of the 11 RN source modules.
+   *   - Measured on one dev machine: ~0.9–1.8s inside the full 22-file suite
+   *     (n=8), ~0.7–1.1s for this file alone (n=8) — but 4568ms on the run
+   *     straight after a cold `nx build`, i.e. 91% of the 5s budget, and the
+   *     4 independent agents who hit this hit it as an outright timeout. Bare
+   *     Node `import()` of the equivalent prebuilt dist is 461ms, so the spread
+   *     is resolve/transform and page-cache-cold I/O, both load-sensitive.
+   *
+   * So the budget is a CEILING for a cold, loaded or slower (CI) machine, NOT an
+   * expected duration: the happy path stays ~1s and every test below reports
+   * ~0ms. A genuinely hung import still fails, just not spuriously. Lowering it
+   * re-introduces the flake; lowering the COST would mean not inlining
+   * `@copilotkit/core` for this suite, which is a shared-config change affecting
+   * all 22 test files rather than something this file can do.
+   */
+  const IMPORT_BUDGET_MS = 60_000;
 
-  it("exports the render-tool consumption hooks from the headless entry", async () => {
-    const mod = await import("../headless");
-    // useRenderToolCall: renders a registered component on ANY surface, not just
-    // the chat (an in-car stage, a kiosk, a dashboard). useComponent: the
-    // controlled generative-UI primitive. Both come from react-core now.
-    for (const name of ["useRenderToolCall", "useComponent", "useRenderTool"]) {
-      expect(mod, `missing export: ${name}`).toHaveProperty(name);
-    }
-  });
+  // Nested so the hook's failure domain covers ONLY the tests that need the
+  // module. Hoisting it to the top-level `describe` would let an import failure
+  // take down the fs-only graph tests above — the same collection-time
+  // blast-radius problem as blind spot #4, just moved into a hook.
+  describe("runtime export surface", () => {
+    let mod: typeof HeadlessEntry;
 
-  it("no longer exports the removed registry hook or its provider", async () => {
-    const mod = await import("../headless");
-    // Both removed (BREAKING). Asserted so neither creeps back as a shim:
-    // useRenderToolRegistry cannot be honoured (core's renderers need
-    // name/toolCallId, so a derived Map would silently change the call
-    // signature), and RenderToolProvider has nothing left to provide now that
-    // registration goes to CopilotKitCoreReact.renderToolCalls.
-    for (const name of ["useRenderToolRegistry", "RenderToolProvider"]) {
-      expect(mod, `must not export: ${name}`).not.toHaveProperty(name);
-    }
-  });
+    beforeAll(async () => {
+      mod = await import("../headless");
+    }, IMPORT_BUDGET_MS);
 
-  it("does NOT re-export chat components or useAttachments from the headless entry", async () => {
-    const mod = await import("../headless");
-    for (const name of [
-      "CopilotChat",
-      "CopilotModal",
-      "CopilotSidebar",
-      "CopilotPopup",
-      "useAttachments",
-    ]) {
-      expect(mod, `headless entry must not export: ${name}`).not.toHaveProperty(
-        name,
-      );
-    }
+    it("does export the provider + core headless hooks", () => {
+      for (const name of [
+        "CopilotKitProvider",
+        "useCopilotKit",
+        "useAgent",
+        "useFrontendTool",
+        "useRenderTool",
+      ]) {
+        expect(mod, `missing export: ${name}`).toHaveProperty(name);
+      }
+    });
+
+    it("exports the render-tool consumption hooks from the headless entry", () => {
+      // useRenderToolCall: renders a registered component on ANY surface, not
+      // just the chat (an in-car stage, a kiosk, a dashboard). useComponent: the
+      // controlled generative-UI primitive. Both come from react-core now.
+      for (const name of [
+        "useRenderToolCall",
+        "useComponent",
+        "useRenderTool",
+      ]) {
+        expect(mod, `missing export: ${name}`).toHaveProperty(name);
+      }
+    });
+
+    it("no longer exports the removed registry hook or its provider", () => {
+      // Both removed (BREAKING). Asserted so neither creeps back as a shim:
+      // useRenderToolRegistry cannot be honoured (core's renderers need
+      // name/toolCallId, so a derived Map would silently change the call
+      // signature), and RenderToolProvider has nothing left to provide now that
+      // registration goes to CopilotKitCoreReact.renderToolCalls.
+      for (const name of ["useRenderToolRegistry", "RenderToolProvider"]) {
+        expect(mod, `must not export: ${name}`).not.toHaveProperty(name);
+      }
+    });
+
+    it("does NOT re-export chat components or useAttachments from the headless entry", () => {
+      for (const name of [
+        "CopilotChat",
+        "CopilotModal",
+        "CopilotSidebar",
+        "CopilotPopup",
+        "useAttachments",
+      ]) {
+        expect(
+          mod,
+          `headless entry must not export: ${name}`,
+        ).not.toHaveProperty(name);
+      }
+    });
   });
 
   // Applies to BOTH entries: the fat-entry ban is package-wide, unlike the
