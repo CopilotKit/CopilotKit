@@ -11,14 +11,14 @@ export type SubagentStatus = "running" | "finished" | "error";
 
 /**
  * The observed lifecycle state of a single subagent invocation, keyed in the
- * registry by its `subagentId`. `name`/`description` come from SUBAGENT_STARTED
+ * registry by its `subagentRunId`. `name`/`description` come from SUBAGENT_STARTED
  * so the UI can show a friendly label instead of the opaque id.
  */
 export interface SubagentState {
-  subagentId: string;
+  subagentRunId: string;
   name: string;
   description?: string;
-  parentSubagentId?: string;
+  parentSubagentRunId?: string;
   status: SubagentStatus;
   /** Set only when `status === "error"` (from SUBAGENT_ERROR.message). */
   error?: string;
@@ -26,7 +26,7 @@ export interface SubagentState {
 
 /**
  * Tracks subagent lifecycle events (SUBAGENT_STARTED / FINISHED / ERROR) per
- * owning agent so consumers can resolve a message's `subagentId` to a name,
+ * owning agent so consumers can resolve a message's `subagentRunId` to a name,
  * description, and running status.
  *
  * Modeled on {@link SuggestionEngine}: an in-memory `Record` keyed by (owning)
@@ -39,7 +39,7 @@ export interface SubagentState {
  * SUBAGENT_* events), so the registry simply stays empty.
  */
 export class SubagentRegistry {
-  // agentId -> subagentId -> state
+  // agentId -> subagentRunId -> state
   private _subagents: Record<string, Record<string, SubagentState>> = {};
 
   // agentId -> unsubscribe fn (for cleanup + idempotent re-subscription)
@@ -100,7 +100,7 @@ export class SubagentRegistry {
   }
 
   /**
-   * Get the subagents observed for an owning agent, keyed by subagentId.
+   * Get the subagents observed for an owning agent, keyed by subagentRunId.
    * Returns a fresh shallow copy each call so consumers (and React state) see
    * a new reference when anything changed.
    */
@@ -110,11 +110,11 @@ export class SubagentRegistry {
 
   private handleStarted(agentId: string, event: SubagentStartedEvent): void {
     const bucket = (this._subagents[agentId] ??= {});
-    bucket[event.subagentId] = {
-      subagentId: event.subagentId,
+    bucket[event.subagentRunId] = {
+      subagentRunId: event.subagentRunId,
       name: event.name,
       description: event.description,
-      parentSubagentId: event.parentSubagentId,
+      parentSubagentRunId: event.parentSubagentRunId,
       status: "running",
     };
     void this.notifySubagentsChanged(agentId);
@@ -122,12 +122,12 @@ export class SubagentRegistry {
 
   private handleFinished(agentId: string, event: SubagentFinishedEvent): void {
     const bucket = this._subagents[agentId];
-    const existing = bucket?.[event.subagentId];
+    const existing = bucket?.[event.subagentRunId];
     if (!bucket || !existing) {
       return; // FINISHED without a prior STARTED — nothing to update
     }
     // Replace (not mutate) so the object identity changes for React consumers.
-    bucket[event.subagentId] = {
+    bucket[event.subagentRunId] = {
       ...existing,
       status: "finished",
     };
@@ -136,13 +136,13 @@ export class SubagentRegistry {
 
   private handleError(agentId: string, event: SubagentErrorEvent): void {
     const bucket = (this._subagents[agentId] ??= {});
-    const existing = bucket[event.subagentId];
-    bucket[event.subagentId] = existing
+    const existing = bucket[event.subagentRunId];
+    bucket[event.subagentRunId] = existing
       ? { ...existing, status: "error", error: event.message }
       : {
-          subagentId: event.subagentId,
+          subagentRunId: event.subagentRunId,
           // No prior STARTED seen — fall back to the id as the display name.
-          name: event.subagentId,
+          name: event.subagentRunId,
           status: "error",
           error: event.message,
         };

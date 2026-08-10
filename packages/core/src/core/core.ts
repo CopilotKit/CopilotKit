@@ -968,7 +968,7 @@ export class CopilotKitCore {
    * Subagent registry (delegated to SubagentRegistry).
    *
    * Returns the subagents observed for an owning agent during its run(s),
-   * keyed by `subagentId`, each carrying `name` / `description` / `status`.
+   * keyed by `subagentRunId`, each carrying `name` / `description` / `status`.
    * Empty for runs that never emit SUBAGENT_* events.
    */
   getSubagents(agentId: string): Readonly<Record<string, SubagentState>> {

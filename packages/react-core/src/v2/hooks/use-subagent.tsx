@@ -6,12 +6,12 @@ import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurati
 
 export interface UseSubagentParams {
   /** The subagent's opaque id (exact, always unambiguous). */
-  subagentId?: string;
+  subagentRunId?: string;
   /**
    * The declared subagent name (`subagent_type`). Not guaranteed unique — if
    * more than one subagent currently carries this name, the most recently
    * started match is returned, `isAmbiguous`/`matchCount` are set, and a
-   * dev-only warning is logged once. Pass `subagentId` for a stable reference.
+   * dev-only warning is logged once. Pass `subagentRunId` for a stable reference.
    */
   subagentName?: string;
   /** Owning agent id. Defaults to the chat's configured agent (like useAgent). */
@@ -31,11 +31,11 @@ const warnedAmbiguousNames = new Set<string>();
 
 function resolveSubagent(
   subagents: Record<string, SubagentState>,
-  subagentId: string | undefined,
+  subagentRunId: string | undefined,
   subagentName: string | undefined,
 ): SubagentView | undefined {
-  if (subagentId) {
-    const match = subagents[subagentId];
+  if (subagentRunId) {
+    const match = subagents[subagentRunId];
     return match ? { ...match } : undefined;
   }
   if (subagentName) {
@@ -59,13 +59,13 @@ function resolveSubagent(
  * from the CopilotKit core subagent registry, by id or by declared name.
  *
  * @example
- * const sub = useSubagent({ subagentId: message.subagentId });
+ * const sub = useSubagent({ subagentRunId: message.subagentRunId });
  * // sub?.name, sub?.description, sub?.status
  */
 export function useSubagent(
   params: UseSubagentParams,
 ): SubagentView | undefined {
-  const { subagentId, subagentName, agentId } = params;
+  const { subagentRunId, subagentName, agentId } = params;
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const resolvedAgentId = useMemo(
@@ -76,7 +76,7 @@ export function useSubagent(
   const [subagent, setSubagent] = useState<SubagentView | undefined>(() =>
     resolveSubagent(
       copilotkit.getSubagents(resolvedAgentId),
-      subagentId,
+      subagentRunId,
       subagentName,
     ),
   );
@@ -86,11 +86,11 @@ export function useSubagent(
     setSubagent(
       resolveSubagent(
         copilotkit.getSubagents(resolvedAgentId),
-        subagentId,
+        subagentRunId,
         subagentName,
       ),
     );
-  }, [copilotkit, resolvedAgentId, subagentId, subagentName]);
+  }, [copilotkit, resolvedAgentId, subagentRunId, subagentName]);
 
   // Subscribe to registry changes for the owning agent.
   useEffect(() => {
@@ -99,13 +99,13 @@ export function useSubagent(
         if (changedAgentId !== resolvedAgentId) {
           return;
         }
-        setSubagent(resolveSubagent(subagents, subagentId, subagentName));
+        setSubagent(resolveSubagent(subagents, subagentRunId, subagentName));
       },
     });
     return () => {
       subscription.unsubscribe();
     };
-  }, [copilotkit, resolvedAgentId, subagentId, subagentName]);
+  }, [copilotkit, resolvedAgentId, subagentRunId, subagentName]);
 
   // Warn once (dev only) when a name lookup is ambiguous.
   useEffect(() => {
@@ -124,7 +124,7 @@ export function useSubagent(
     console.warn(
       `[CopilotKit] useSubagent({ subagentName: ${JSON.stringify(subagentName)} }) ` +
         `matched ${subagent.matchCount} subagents. Returning the most recently ` +
-        `started one; pass a subagentId for a stable reference.`,
+        `started one; pass a subagentRunId for a stable reference.`,
     );
   }, [subagentName, subagent?.isAmbiguous, subagent?.matchCount]);
 
