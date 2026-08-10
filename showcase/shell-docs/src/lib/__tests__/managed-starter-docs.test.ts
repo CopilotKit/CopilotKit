@@ -43,7 +43,7 @@ function expectPatternsInOrder(
 
 test("documents the conditional managed onboarding journey", () => {
   const sequence = [
-    /new (?:users|accounts)[^.]*Self-Service Agreement[^.]*Clerk|Clerk[^.]*new (?:users|accounts)[^.]*Self-Service Agreement/i,
+    /Clerk signup,[^.]*\b(?:new users accept|a new user accepts)\b[^.]*CopilotKit Self-Service Agreement/i,
     /select or create an organization/i,
     /every new hosted organization created at or after[^.]*cutoff[^.]*explicitly choose[^.]*Developer[^.]*paid plan/i,
     /select or create a project/i,
@@ -67,10 +67,20 @@ test("documents grandfathering, consent, and self-hosted admission boundaries", 
   }
 });
 
+test("does not count Clerk automatic Free as the required organization choice", () => {
+  for (const source of readSources(MANAGED_ONBOARDING_GUIDES)) {
+    expect(source).toMatch(
+      /Clerk(?:'s|’s) automatic Free assignment does not (?:satisfy|count as) the required Developer-or-paid choice/i,
+    );
+    expect(source).not.toMatch(
+      /Clerk(?:'s|’s) automatic Free assignment (?:satisfies|counts as) the required Developer-or-paid choice/i,
+    );
+  }
+});
+
 test("removes automatic-Free promises from managed onboarding calls to action", () => {
   for (const source of readSources(MANAGED_CTA_SOURCES)) {
     expect(source).not.toMatch(/Create a free account/i);
-    expect(source).not.toMatch(/automatically[^.]*Free/i);
     expect(source).toContain('ctaLabel="Start managed onboarding"');
   }
 });
