@@ -826,12 +826,14 @@ export class IntelligenceAgent
               ]),
               streamIdle$.pipe(
                 take(1),
-                filter((payload) =>
-                  this.canFallbackCompleteConnect(
-                    payload,
-                    reconnectCursor,
-                    latestObservedReplayCursor,
-                  ),
+                filter(
+                  (payload) =>
+                    recognizedRestoreAttemptId === null &&
+                    this.canFallbackCompleteConnect(
+                      payload,
+                      reconnectCursor,
+                      latestObservedReplayCursor,
+                    ),
                 ),
                 delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
               ),

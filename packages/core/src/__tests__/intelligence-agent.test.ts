@@ -1610,6 +1610,40 @@ describe("IntelligenceAgent", () => {
       expect(socket.disconnected).toBe(true);
     });
 
+    it("never applies the legacy stream_idle fallback after reliable restore is negotiated", async () => {
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      let resolved = false;
+      const promise = agent.connectAgent({ runId: "run-1" }).then((result) => {
+        resolved = true;
+        return result;
+      });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok", {
+        restore: {
+          mode: "failure_reporting",
+          restoreAttemptId: "ra_aware",
+        },
+      });
+      channel.serverPush("stream_idle", {});
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await flushAsyncWork();
+
+      expect(resolved).toBe(false);
+      expect(agent.getThreadRestoreState()).toMatchObject({
+        status: "restoring",
+        restoreAttemptId: "ra_aware",
+      });
+
+      channel.serverPush("replay_complete", { latestEventId: "event-2" });
+      await expect(promise).resolves.toBeDefined();
+    });
+
     it("uses snake_case latest_event_id control cursors for subsequent reconnects", async () => {
       mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
       mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
