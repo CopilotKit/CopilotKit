@@ -1,6 +1,7 @@
 export * from "./props";
 export { CopilotPopup } from "./Popup";
 export { CopilotSidebar } from "./Sidebar";
+export type { CopilotSidebarProps } from "./Sidebar";
 export { CopilotChat } from "./Chat";
 export { CopilotModal } from "./Modal";
 export type { CopilotModalProps } from "./Modal";

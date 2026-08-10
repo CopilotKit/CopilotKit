@@ -506,6 +506,9 @@ importers:
       react-dom:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
+      react-resizable-panels:
+        specifier: ^4.12.2
+        version: 4.12.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       tailwind-merge:
         specifier: ^2.5.2
         version: 2.6.0
@@ -3988,6 +3991,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../shared
       lit:
         specifier: ^3.2.0
         version: 3.3.2
@@ -4007,6 +4013,9 @@ importers:
       '@types/node':
         specifier: ^22.15.3
         version: 22.19.11
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       concurrently:
         specifier: ^9.1.0
         version: 9.2.1
@@ -4025,6 +4034,9 @@ importers:
       vitest:
         specifier: ^3.0.5
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.11)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)
+      ws:
+        specifier: ^8.19.0
+        version: 8.19.0
 
   showcase/angular:
     dependencies:
@@ -22668,6 +22680,12 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
+
+  react-resizable-panels@4.12.2:
+    resolution: {integrity: sha512-NwY5LCo4WrxVvDh0xoMML6EMLPONP/8ckKcIdpnojxexoatZdjLiRqLJQjQK5CPkd4SYiB/2M5BVrjZBQtOO7Q==}
+    peerDependencies:
+      react: 19.2.3
+      react-dom: 19.2.3
 
   react-router@7.13.2:
     resolution: {integrity: sha512-tX1Aee+ArlKQP+NIUd7SE6Li+CiGKwQtbS+FfRxPX6Pe4vHOo6nr9d++u5cwg+Z8K/x8tP+7qLmujDtfrAoUJA==}
@@ -53081,6 +53099,11 @@ snapshots:
       use-sidecar: 1.1.3(@types/react@19.1.8)(react@19.2.3)
     optionalDependencies:
       '@types/react': 19.1.8
+
+  react-resizable-panels@4.12.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+    dependencies:
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
   react-router@7.13.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:

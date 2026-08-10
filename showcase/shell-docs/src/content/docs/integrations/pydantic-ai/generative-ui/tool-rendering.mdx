@@ -46,6 +46,11 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     <Tab value="Python">
         ```python title="agent.py"
         from pydantic_ai import Agent
+        from pydantic_ai.ui.ag_ui import AGUIAdapter
+        from starlette.applications import Starlette
+        from starlette.requests import Request
+        from starlette.responses import Response
+        from starlette.routing import Route
 
         agent = Agent("openai:gpt-5.4-mini")
 
@@ -56,7 +61,11 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
             return f"The weather in {location} is sunny."
 
 
-        app = agent.to_ag_ui()
+        async def run_agent(request: Request) -> Response:
+            return await AGUIAdapter.dispatch_request(request, agent=agent)
+
+
+        app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
 
         if __name__ == "__main__":
             import uvicorn

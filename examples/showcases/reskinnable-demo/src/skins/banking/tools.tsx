@@ -6,10 +6,12 @@ import {
   useHumanInTheLoop,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useSkin } from "@/shell/skin-provider";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import useCreditCards from "@/skins/banking/actions";
+import { navTarget, chargesTarget } from "@/skins/banking/nav-target";
 import { CHARGE_CATEGORIES } from "@/skins/banking/pages/charges-data";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
 import { useRecording } from "@/skins/banking/components/recording-context";
@@ -106,14 +108,13 @@ const answeredPinChanges = new Map<
 export function BankingTools() {
   const { currentUser } = useAuthContext();
   const skin = useSkin();
-  const base = `/${skin.id}`;
-  const pathname = usePathname();
+  const skinHref = useSkinHref(skin.id);
   const router = useRouter();
-  // Page segment RELATIVE to the skin base. Under /[skin] routing the raw
-  // pathname is `/banking/<page>`, so the old `pathname.split("/").pop()`
-  // reported the skin id (or a stale tail) instead of the page.
-  const rest = pathname.split("/").slice(2).join("/");
-  const restHead = rest.split("/")[0];
+  // Page segment RELATIVE to the skin base. The raw pathname carries the skin
+  // prefix on an unlocked deploy (`/banking/<page>`) and not on a locked one, so
+  // the old `pathname.split("/").pop()` reported the skin id (or a stale tail)
+  // instead of the page.
+  const restHead = useSkinSegments(skin.id)[0] ?? "";
   const {
     cards,
     policies,
@@ -251,12 +252,12 @@ export function BankingTools() {
               // Card tools/operations (add card, change PIN) are registered on
               // the skin's INDEX route (the Credit Cards view), so `/` and the
               // `/cards` alias both land on the skin base; `/team` maps to the
-              // team segment under the skin base. Skin-relative so this works
-              // under /[skin] routing instead of 404ing at a root path.
-              const target =
-                page === "/" || page === "/cards"
-                  ? base
-                  : `${base}${page!.toLowerCase()}`;
+              // team segment under the skin base. `navTarget` routes through
+              // `skinHref` (not by concatenating onto its no-arg result) so it is
+              // skin-relative under /[skin] routing AND never emits a
+              // protocol-relative `//` href on a locked deploy, where the no-arg
+              // base is "/".
+              const target = navTarget(skinHref, page!);
               // Client-side navigation: a full reload (window.location) tears
               // down the chat panel mid-run, so the conversation — and the
               // in-flight operation — is lost the moment we navigate.
@@ -362,8 +363,12 @@ export function BankingTools() {
       // emitter, so the marker is applied here where it is guaranteed — and
       // only when the text actually reads as an alert, so ordinary notes stay
       // plain.
+      // Anchored on BOTH sides, and whole words rather than stems. Left-anchored
+      // alone, `report` matched inside "reporter" and "quarterly report", and
+      // `disput` inside "disputation" — so ordinary notes ("attached to the
+      // quarterly report") were served a fraud marker.
       const alerting =
-        /\b(unrecognized|unrecognised|suspicious|report(ed)?|fraud|disput)/i.test(
+        /\b(unrecognized|unrecognised|suspicious|reported|fraud|fraudulent|dispute[ds]?|disputing)\b/i.test(
           content,
         );
       const text =
@@ -609,7 +614,11 @@ export function BankingTools() {
             if (from) params.set("from", from);
             if (to) params.set("to", to);
             const qs = params.toString();
-            router.push(qs ? `${base}/charges?${qs}` : `${base}/charges`);
+            // `chargesTarget` builds through `skinHref` rather than concatenating
+            // onto its no-arg result: `/banking/charges` unlocked, `/charges`
+            // locked — where `${base}/charges` would emit the protocol-relative
+            // `//charges` on a lock (base is "/"). Query string preserved.
+            router.push(chargesTarget(skinHref, qs));
             respond?.(`Opened the Charges page${qs ? ` (${qs})` : ""}.`);
           }}
           onCancel={() => respond?.("The user chose to stay on this page.")}
@@ -910,7 +919,7 @@ export function BankingTools() {
       transactionId: z.string(),
       code: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { transactionId, code } = args;
 
       if (status === "inProgress") {
@@ -936,6 +945,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!transactionId || !code) {
                 respond?.("Missing transaction or exception code");
@@ -973,7 +983,7 @@ export function BankingTools() {
     parameters: z.object({
       exceptionId: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { exceptionId } = args;
 
       if (status === "inProgress") {
@@ -995,6 +1005,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!exceptionId) {
                 respond?.("Missing exception id");
@@ -1031,7 +1042,7 @@ export function BankingTools() {
     parameters: z.object({
       transactionId: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { transactionId } = args;
 
       if (status === "inProgress") {
@@ -1054,6 +1065,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!transactionId) {
                 respond?.("Missing transaction id");

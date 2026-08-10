@@ -329,20 +329,39 @@ describe("Channels documentation journey", () => {
     expect(threads).toMatch(/not a synthetic user message/i);
   });
 
-  it("keeps the setup journey limited to released paths", () => {
-    const sources = [
-      bodyFor("channels/intelligence"),
+  it("offers provider-appropriate setup prompts for coding agents", () => {
+    const overviewSource = bodyFor("channels");
+    const overview = filterFrontendScopedBlocks(overviewSource, "slack");
+    const teamsOverview = filterFrontendScopedBlocks(overviewSource, "teams");
+    const intelligence = bodyFor("channels/intelligence");
+    const quickstarts = [
       bodyFor("frontends/slack"),
       bodyFor("frontends/teams"),
     ];
 
-    for (const source of sources) {
+    expect(intelligence).not.toMatch(/\bcopilotkit\s+channels\b/i);
+
+    for (const source of quickstarts) {
       expect(source).not.toMatch(/\bcopilotkit\s+channels\b/i);
     }
 
-    expect(bodyFor("channels/intelligence")).toMatch(
-      /browser wizard[\s\S]*released setup path/i,
-    );
+    // The overview no longer carries the workflow. It renders the shared
+    // entry-point component, which names one skill and nothing else, so this
+    // page cannot drift away from the other Channels surfaces again.
+    expect(overview).toContain("<ChannelsStartPrompt />");
+    expect(teamsOverview).toContain("<ChannelsStartPrompt />");
+
+    // Guard the regression this replaced: an inline prompt, hidden in an
+    // accordion, duplicating instructions that live in the skill.
+    for (const source of [overview, teamsOverview]) {
+      expect(source).not.toContain("copy this prompt");
+      expect(source).not.toContain("```text");
+      expect(source).not.toMatch(
+        /Use these (skills|sources) as your instructions/,
+      );
+      expect(source).not.toContain("npx copilotkit@latest create");
+    }
+    expect(intelligence).toMatch(/browser wizard[\s\S]*released setup path/i);
   });
 
   it("documents provider-scoped identity and per-run Memory", () => {

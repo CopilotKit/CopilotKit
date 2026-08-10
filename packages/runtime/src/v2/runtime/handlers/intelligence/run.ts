@@ -195,6 +195,7 @@ export async function handleIntelligenceRun({
   telemetry.capture("oss.runtime.agent_execution_stream_started", {});
 
   // Start heartbeat timer to renew the thread lock.
+  let heartbeatStopped = false;
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   heartbeatTimer = setInterval(() => {
     runtime.intelligence
@@ -207,6 +208,10 @@ export async function handleIntelligenceRun({
           : {}),
       })
       .catch((err) => {
+        if (heartbeatStopped) {
+          return;
+        }
+
         logger.error("Failed to renew thread lock:", err);
         clearHeartbeat();
         try {
@@ -221,6 +226,7 @@ export async function handleIntelligenceRun({
   }, runtime.lockHeartbeatIntervalSeconds * 1_000);
 
   const clearHeartbeat = () => {
+    heartbeatStopped = true;
     if (heartbeatTimer !== undefined) {
       clearInterval(heartbeatTimer);
       heartbeatTimer = undefined;

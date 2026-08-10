@@ -3,7 +3,7 @@
 `AgentRunner` is the abstraction that owns thread run state — active runs, the event stream
 replay, and stop semantics. Pick one per `CopilotRuntime` instance.
 
-- `InMemoryAgentRunner` — default; globalThis-keyed Map; lost on restart.
+- `InMemoryAgentRunner` — default; process-global in-memory Map; lost on restart.
 - `SqliteAgentRunner` — file-backed; requires `better-sqlite3` peer.
 - `IntelligenceAgentRunner` — auto-wired by `CopilotIntelligenceRuntime`. You do NOT
   construct this directly and you cannot pass `runner` alongside `intelligence`.
@@ -80,9 +80,14 @@ class MyRunner extends AgentRunner {
 
 ### Handle double-submit on the client
 
-Both `InMemoryAgentRunner` and `SqliteAgentRunner` throw
-`"Thread already running"` on concurrent `run()` calls for the same `threadId`. How
-that surfaces to the client depends on the runtime mode:
+By default, both `InMemoryAgentRunner` and `SqliteAgentRunner` throw
+`"Thread already running"` on concurrent `run()` calls for the same `threadId`.
+`"throw"` is the default, but it is not the only option: constructing
+`InMemoryAgentRunner` with `onConcurrentRun: "supersede"` makes it abort the
+in-flight run (the same path `stop()` takes) and start the new one instead of
+throwing — the superseded run's partial output is discarded rather than persisted
+to history. `SqliteAgentRunner` has no such option and always throws. When the
+throw does happen, how it surfaces to the client depends on the runtime mode:
 
 - **Intelligence mode** — the Intelligence platform returns HTTP `409` when a lock is
   held. The client core maps this to `CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED`
@@ -153,10 +158,12 @@ new CopilotRuntime({
 // Or upgrade to Intelligence mode for managed durability.
 ```
 
-The default runner is `new InMemoryAgentRunner()`. It keeps state in a `globalThis`-keyed
-Map — threads are lost on restart, and horizontally-scaled instances see divergent state.
+The default runner is `new InMemoryAgentRunner()`. It keeps state in a process-global,
+bounded store — threads are lost on restart, evicted past the memory limits, and
+horizontally-scaled instances see divergent state. See `agent-runners-in-memory.md`
+for the bounds and how to tune them.
 
-Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts:63-96`.
+Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts`.
 
 ### HIGH Setting runner alongside intelligence option
 
@@ -259,11 +266,22 @@ const [busy, setBusy] = useState(false);
 </button>;
 ```
 
-Both runners throw `"Thread already running"` on concurrent runs. Debounce on the client.
-In Intelligence mode you can additionally handle `code === "agent_thread_locked"` in
-`<CopilotKit onError>`; SSE mode surfaces only a generic 500 with that message.
+By default both runners throw `"Thread already running"` on concurrent runs, so
+debouncing on the client is still the right baseline. In Intelligence mode you can
+additionally handle `code === "agent_thread_locked"` in `<CopilotKit onError>`; SSE
+mode surfaces only a generic 500 with that message.
 
-Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts:110`;
+Throwing is the default (`onConcurrentRun: "throw"`), not the only behavior:
+constructing `InMemoryAgentRunner` with `onConcurrentRun: "supersede"` aborts the
+in-flight run (the `stop()` path) and starts the new one instead of throwing,
+discarding the superseded run's partial output rather than persisting it. That
+suits a UX where a fast follow-up should displace a still-running (or wedged) turn.
+Unlike the process-global memory limits, `onConcurrentRun` is per-runner-instance —
+it affects only the runner you pass it to. `SqliteAgentRunner` has no such option
+and always throws.
+
+Source: the `throw new Error("Thread already running")` in `InMemoryAgentRunner.run()`,
+`packages/runtime/src/v2/runtime/runner/in-memory.ts`;
 `packages/core/src/intelligence-agent.ts:368-369`.
 
 ### HIGH In-memory runner + horizontal scaling
@@ -278,22 +296,30 @@ new CopilotRuntime({ agents });
 Correct:
 
 ```typescript
-// Either sticky-session a single instance per thread, or use shared state:
-new CopilotRuntime({
-  agents,
-  runner: new SqliteAgentRunner({ dbPath: process.env.THREADS_DB! }),
-});
-// Best: Intelligence mode for managed multi-instance durability.
+// Sticky-session one instance per thread (so every run for a thread lands on the
+// same process), OR move to Intelligence mode for managed multi-instance durability.
+new CopilotRuntime({ agents }); // + route by threadId at the load balancer
 ```
 
-`InMemoryAgentRunner`'s `globalThis` store is per-process — multi-instance deploys see
+`InMemoryAgentRunner`'s store is a process-global singleton — multi-instance deploys see
 totally different thread state per worker, making reconnects and `GET /connect` non-deterministic.
 
-Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts:63-96`.
+Source: the exported `ɵGLOBAL_STORE` singleton in `packages/runtime/src/v2/runtime/runner/in-memory.ts`.
+
+A shared `dbPath` on `SqliteAgentRunner` is **not** a horizontal-scaling fix on its own.
+Sharing the file gives you durable, persisted history: runs survive process restarts, and
+completed runs are readable from any instance pointed at the same file. But the live-run
+bookkeeping used by the connect-bridge and by `stop()` lives in a process-local
+`ACTIVE_CONNECTIONS` map. A second instance has **no** entry for a run started elsewhere, so
+it can replay stored history but **cannot** reconnect to — or stop — an in-flight run on
+another instance. Use `SqliteAgentRunner` for restart-resilient single-instance durability;
+for managed multi-instance durability, use Intelligence mode.
+
+Source: `packages/sqlite-runner/src/sqlite-runner.ts:46` (module-level `ACTIVE_CONNECTIONS`).
 
 ## References
 
-- [InMemoryAgentRunner — internals and hot-reload note](agent-runners-in-memory.md)
+- [InMemoryAgentRunner — store, bounds, concurrency, and lifecycle](agent-runners-in-memory.md)
 - [SqliteAgentRunner — schema, retention, ops](agent-runners-sqlite.md)
 - [Custom runner — Redis/Postgres skeleton](agent-runners-custom.md)
 

@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Normally `.next`. The E2E suite runs a SECOND dev server (the LOCK_SKIN
+  // project in playwright.config.ts) against this same project directory, and
+  // two `next dev` processes sharing one build directory corrupt each other's
+  // output. Overriding this per server is what keeps them isolated. Unset
+  // everywhere else, so ordinary dev/build/start are unaffected.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+
   // React StrictMode intentionally double-invokes mount effects in DEV ONLY.
   // For CopilotKit's AG-UI human-in-the-loop flow that double-mount tears the
   // in-flight run down the instant the agent emits a HITL tool call — before

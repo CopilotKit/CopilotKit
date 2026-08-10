@@ -19,7 +19,6 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
-  - shared-state-streaming
   # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
   # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
   # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
@@ -29,10 +28,8 @@ not_supported_features:
   # green, not red) rather than a regression. Demos remain wired below.
   - gen-ui-interrupt
   - interrupt-headless
-  - reasoning-default-render
-  - agentic-chat-reasoning
-  - tool-rendering-reasoning-chain
 features:
+  - multimodal
   - beautiful-chat
   - cli-start
   - agentic-chat
@@ -56,11 +53,12 @@ features:
   - gen-ui-agent
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
+  - tool-rendering-reasoning-chain
   - tool-rendering
   - shared-state-read-write
+  - shared-state-streaming
   - subagents
   - readonly-state-agent-context
-  - multimodal
   - auth
   - declarative-hashbrown
   - declarative-json-render

@@ -49,6 +49,7 @@ import {
   renderTeamsMarkdown,
 } from "@copilotkit/channels-teams/render";
 import type { ChannelProviderPayload } from "./delivery-contracts.js";
+import { SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY } from "./delivery-contracts.js";
 import type {
   ClaimedChannelDelivery,
   ChannelDeliveryTransport,
@@ -573,39 +574,86 @@ export class DeliveryAdapter implements PlatformAdapter {
     let providerReference: string | undefined;
     let providerMessageId: string | undefined;
     if (target.delivery.adapter === "slack") {
+      let legacy = false;
       let bodyError: unknown;
       let bodyFailed = false;
       let streamStarted = false;
+      let fullText = "";
       try {
         for await (const delta of chunks) {
           if (delta.length === 0) continue;
+          fullText += delta;
+          if (legacy) {
+            const result = providerReference
+              ? await target.claimedDelivery.effect(responseId, {
+                  kind: "slack.message.replace",
+                  providerReference,
+                  text: fullText,
+                })
+              : await target.claimedDelivery.effect(responseId, {
+                  kind: "slack.message.create",
+                  text: fullText,
+                });
+            if (!providerReference) {
+              ({ providerReference, providerMessageId } =
+                providerMessageResultFromResult(result));
+            }
+            continue;
+          }
           if (!streamStarted) {
-            const startResult = await target.claimedDelivery.effect(
-              responseId,
-              {
-                kind: "slack.stream.start",
-                initialText: delta,
-              },
-            );
-            streamStarted = true;
-            ({ providerReference, providerMessageId } =
-              providerMessageResultFromResult(startResult));
+            try {
+              const startResult = await target.claimedDelivery.effect(
+                responseId,
+                {
+                  kind: "slack.stream.start",
+                  initialText: delta,
+                },
+                { bestEffort: true },
+              );
+              // A gateway capability drop settles as applied without a
+              // provider reference; the parse throw takes the legacy path.
+              ({ providerReference, providerMessageId } =
+                providerMessageResultFromResult(startResult));
+              streamStarted = true;
+            } catch {
+              // A start-only failure is recoverable because no native stream
+              // exists yet. The legacy create below remains a hard failure.
+              legacy = true;
+              const result = await target.claimedDelivery.effect(responseId, {
+                kind: "slack.message.create",
+                text: fullText,
+              });
+              ({ providerReference, providerMessageId } =
+                providerMessageResultFromResult(result));
+            }
             continue;
           }
           assertProviderReference(providerReference);
-          await target.claimedDelivery.effect(responseId, {
-            kind: "slack.stream.append",
-            providerReference,
-            delta,
-          });
+          await target.claimedDelivery.effect(
+            responseId,
+            slackStreamAppendPayload(
+              target.delivery,
+              providerReference,
+              delta,
+              fullText,
+            ),
+          );
         }
-        if (!streamStarted) {
-          const startResult = await target.claimedDelivery.effect(responseId, {
-            kind: "slack.stream.start",
-          });
-          streamStarted = true;
-          ({ providerReference, providerMessageId } =
-            providerMessageResultFromResult(startResult));
+        if (!streamStarted && !legacy) {
+          try {
+            const startResult = await target.claimedDelivery.effect(
+              responseId,
+              { kind: "slack.stream.start" },
+              { bestEffort: true },
+            );
+            ({ providerReference, providerMessageId } =
+              providerMessageResultFromResult(startResult));
+            streamStarted = true;
+          } catch {
+            // An empty start has no native output to preserve. The final
+            // message-create path below remains a hard failure.
+            legacy = true;
+          }
         }
       } catch (error) {
         bodyFailed = true;
@@ -880,7 +928,11 @@ export class DeliveryAdapter implements PlatformAdapter {
     const responseId = mintId("response_");
     const renderer =
       target.delivery.adapter === "slack"
-        ? this.createSlackRenderer(target.claimedDelivery, responseId)
+        ? this.createSlackRenderer(
+            target.claimedDelivery,
+            responseId,
+            target.delivery,
+          )
         : this.createTeamsRenderer(target.claimedDelivery, responseId);
     this.rendererResponses.set(renderer, responseId);
     return renderer;
@@ -889,8 +941,11 @@ export class DeliveryAdapter implements PlatformAdapter {
   private createSlackRenderer(
     claimedDelivery: ClaimedChannelDelivery,
     responseId: string,
+    delivery: PreparedChannelDelivery,
   ): RunRenderer {
     let providerReference: string | undefined;
+    let fullText = "";
+    const legacyProviderReferences = new Map<string, string>();
     return createSlackRunRenderer({
       target: { channel: "managed", threadTs: "managed" },
       showToolStatus: this.options.showToolStatus ?? false,
@@ -904,23 +959,28 @@ export class DeliveryAdapter implements PlatformAdapter {
               status,
               ...(loadingMessages !== undefined ? { loadingMessages } : {}),
             },
-            { charge: false },
+            { charge: false, bestEffort: true },
           );
         },
         postMessage: async ({ text: message }) => {
-          providerReference = providerReferenceFromResult(
-            await claimedDelivery.effect(responseId, {
-              kind: "slack.message.create",
-              text: message,
-            }),
+          const localMessageId = mintId("slack_legacy_");
+          legacyProviderReferences.set(
+            localMessageId,
+            providerReferenceFromResult(
+              await claimedDelivery.effect(responseId, {
+                kind: "slack.message.create",
+                text: message,
+              }),
+            ),
           );
-          return { ts: responseId };
+          return { ts: localMessageId };
         },
-        updateMessage: async ({ text: message }) => {
-          assertProviderReference(providerReference);
+        updateMessage: async ({ ts, text: message }) => {
+          const legacyProviderReference = legacyProviderReferences.get(ts);
+          assertProviderReference(legacyProviderReference);
           await claimedDelivery.effect(responseId, {
             kind: "slack.message.replace",
-            providerReference,
+            providerReference: legacyProviderReference,
             text: message,
           });
         },
@@ -933,30 +993,40 @@ export class DeliveryAdapter implements PlatformAdapter {
           : {}),
         transport: {
           startStream: async () => {
+            fullText = "";
             providerReference = providerReferenceFromResult(
-              await claimedDelivery.effect(responseId, {
-                kind: "slack.stream.start",
-              }),
+              await claimedDelivery.effect(
+                responseId,
+                { kind: "slack.stream.start" },
+                { bestEffort: true },
+              ),
             );
             return responseId;
           },
           startStreamWithText: async (initialText) => {
+            fullText = initialText;
             providerReference = providerReferenceFromResult(
-              await claimedDelivery.effect(responseId, {
-                kind: "slack.stream.start",
-                initialText,
-              }),
+              await claimedDelivery.effect(
+                responseId,
+                { kind: "slack.stream.start", initialText },
+                { bestEffort: true },
+              ),
             );
             return responseId;
           },
           appendText: async (_id, delta) => {
             if (delta.length === 0) return;
+            fullText += delta;
             assertProviderReference(providerReference);
-            await claimedDelivery.effect(responseId, {
-              kind: "slack.stream.append",
-              providerReference,
-              delta,
-            });
+            await claimedDelivery.effect(
+              responseId,
+              slackStreamAppendPayload(
+                delivery,
+                providerReference,
+                delta,
+                fullText,
+              ),
+            );
           },
           appendChunks: async (_id, chunks) => {
             assertProviderReference(providerReference);
@@ -1377,6 +1447,24 @@ function historyText(content: unknown): string {
         : [],
     )
     .join("");
+}
+
+function slackStreamAppendPayload(
+  delivery: PreparedChannelDelivery,
+  providerReference: string,
+  delta: string,
+  fullText: string,
+): ChannelProviderPayload {
+  const append = {
+    kind: "slack.stream.append" as const,
+    providerReference,
+    delta,
+  };
+  return delivery.capabilities?.includes(
+    SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
+  )
+    ? { ...append, fullText }
+    : append;
 }
 
 function teamsMessageEffect(
