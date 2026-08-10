@@ -1,7 +1,8 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
+import type { AbstractAgent, Message } from "@ag-ui/client";
 
 // Local FlatList that actually invokes renderItem — the shared stub in
 // src/__mocks__/react-native.ts passes it through as an inert prop, so the
@@ -191,5 +192,85 @@ describe("CopilotChat tool-call rendering", () => {
       </TestCopilotKit>,
     );
     expect(screen.getByText("Called: notRegistered")).toBeTruthy();
+  });
+});
+
+/**
+ * How PRODUCTION changes `agent.messages`, and why it needs its own suite.
+ *
+ * Core NEVER reassigns `agent.messages`. Tool results are inserted with
+ * `agent.messages.splice(insertAt, 0, toolMessage)` (packages/core, run-handler),
+ * new messages are appended by `AbstractAgent.addMessage` (a `push`), and the
+ * AG-UI apply pipeline mutates the SAME array for the whole run. `useAgent`
+ * then re-renders with a bare `forceUpdate()` — it does not hand down a new
+ * array either.
+ *
+ * The array's IDENTITY therefore stays constant while its CONTENT changes. Any
+ * `useMemo(..., [messages])` in the chat is invalidated by neither, so it
+ * freezes at whatever the first render of the run saw.
+ *
+ * The rest of this file (and every other RN chat suite) drives messages by
+ * re-rendering `TestCopilotKit` with a NEW array, which does change identity —
+ * so those tests pass whether or not the memo dependencies are correct. These
+ * assertions deliberately mutate in place instead, via the same public
+ * `addMessage` that core's own paths bottom out in.
+ */
+describe("CopilotChat against in-place message mutation", () => {
+  it("reports complete and passes the result once a tool result is pushed in place", async () => {
+    // A plain box, not React.createRef — TestCopilotKit only writes to it.
+    const agentRef: React.MutableRefObject<AbstractAgent | null> = {
+      current: null,
+    };
+
+    render(
+      <TestCopilotKit
+        messages={[assistantWithCall('{"title":"Rooftop"}')]}
+        agentRef={agentRef}
+      >
+        <Registrar />
+        <CopilotChat />
+      </TestCopilotKit>,
+    );
+    // No tool message yet, and the id is not executing → core derives inProgress.
+    expect(screen.getByTestId("places").textContent).toBe("inProgress:Rooftop");
+
+    await act(async () => {
+      agentRef.current!.addMessage({
+        id: "m2",
+        role: "tool",
+        toolCallId: "tc1",
+        content: "ok",
+      } as Message);
+    });
+
+    // The toolCallId → ToolMessage correlation must see the pushed message.
+    expect(screen.getByTestId("places").textContent).toBe("complete:Rooftop");
+  });
+
+  it("renders a tool call that is pushed in place after mount", async () => {
+    // A plain box, not React.createRef — TestCopilotKit only writes to it.
+    const agentRef: React.MutableRefObject<AbstractAgent | null> = {
+      current: null,
+    };
+
+    render(
+      <TestCopilotKit
+        messages={[{ id: "u1", role: "user", content: "find me a bar" }]}
+        agentRef={agentRef}
+      >
+        <Registrar />
+        <CopilotChat />
+      </TestCopilotKit>,
+    );
+    expect(screen.queryByTestId("places")).toBeNull();
+
+    await act(async () => {
+      agentRef.current!.addMessage(
+        assistantWithCall('{"title":"Rooftop"}') as unknown as Message,
+      );
+    });
+
+    // The flat-list items must see the pushed assistant message.
+    expect(screen.getByTestId("places").textContent).toBe("inProgress:Rooftop");
   });
 });

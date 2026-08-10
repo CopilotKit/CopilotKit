@@ -57,18 +57,35 @@ export interface TestCopilotKitProps {
    * result message yet. Defaults to empty.
    */
   executingToolCallIds?: ReadonlySet<string>;
+  /**
+   * Publishes the stable "default" agent instance so a test can drive it the way
+   * PRODUCTION does: by MUTATING `agent.messages` in place (`addMessage` pushes;
+   * core's run-handler splices) rather than by re-rendering with a new `messages`
+   * array. The two are not interchangeable — reassignment changes array identity
+   * and therefore invalidates any `useMemo(..., [messages])`, while in-place
+   * mutation does not. A consumer that only ever sees the reassigning path can
+   * be silently broken against the real one, so tests for message-derived state
+   * should prefer this handle.
+   *
+   * A test that mutates through this handle must NOT also re-render the provider:
+   * the `messages` prop is re-seeded on every render (below), which would replace
+   * the array the test just mutated.
+   */
+  agentRef?: React.MutableRefObject<AbstractAgent | null>;
   children: React.ReactNode;
 }
 
 export function TestCopilotKit({
   messages,
   executingToolCallIds = EMPTY_SET,
+  agentRef: publishAgentRef,
   children,
 }: TestCopilotKitProps) {
   const agentRef = useRef<SeededAgent | null>(null);
   if (agentRef.current === null) {
     agentRef.current = new SeededAgent();
   }
+  if (publishAgentRef) publishAgentRef.current = agentRef.current;
 
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
   if (copilotkitRef.current === null) {

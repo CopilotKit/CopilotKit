@@ -74,6 +74,46 @@ interface ChatListItem {
 }
 
 /**
+ * Lightweight content fingerprint for an agent's message list.
+ *
+ * `agent.messages` is mutated IN PLACE and its identity is NOT a change signal:
+ * core inserts tool results with `agent.messages.splice(...)`, `addMessage()`
+ * pushes, the AG-UI apply pipeline reuses one array for a whole run, and
+ * `useAgent` re-renders with a bare `forceUpdate()`. So anything derived from
+ * messages must depend on their CONTENT, not on the array reference.
+ *
+ * Captures exactly what the derivations below read — id, role, content size,
+ * `toolCallId` (so an inserted tool result is visible), and each tool call's id
+ * plus argument length (so streaming args advance). Content LENGTH rather than
+ * value, mirroring react-core's web `messagesMemoKey`, so large text or base64
+ * attachment payloads are never re-serialized on every render.
+ */
+function messagesFingerprint(messages: readonly unknown[]): string {
+  return messages
+    .map((msg) => {
+      const m = msg as {
+        id?: string;
+        role?: string;
+        content?: unknown;
+        toolCallId?: string;
+        toolCalls?: Array<{ id: string; function?: { arguments?: string } }>;
+      };
+      const content = m.content;
+      const contentKey =
+        typeof content === "string" || Array.isArray(content)
+          ? content.length
+          : 0;
+      const toolCallsKey = Array.isArray(m.toolCalls)
+        ? m.toolCalls
+            .map((tc) => `${tc.id}:${tc.function?.arguments?.length ?? 0}`)
+            .join(";")
+        : "";
+      return `${m.id}:${m.role}:${contentKey}:${m.toolCallId ?? ""}:${toolCallsKey}`;
+    })
+    .join(",");
+}
+
+/**
  * Full-screen chat UI component for React Native.
  *
  * Connects to a CopilotKit agent via `useAgent` and renders messages
@@ -112,6 +152,11 @@ export function CopilotChat({
 
   const renderToolCall = useRenderToolCall();
 
+  // Recomputed every render — cheap, and the only honest dependency for the
+  // message-derived memos below. See `messagesFingerprint` for why the array
+  // reference cannot be used.
+  const messagesKey = messagesFingerprint(messages);
+
   // toolCallId -> tool result message. react-core's renderer reports
   // status "complete" with `result` when a tool message exists; RN's chat
   // previously never correlated these, so `result` was always undefined.
@@ -134,7 +179,8 @@ export function CopilotChat({
       }
     }
     return byId;
-  }, [messages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messagesKey]);
 
   // Stable extraData for FlatList: the exact inputs renderItem reads, so a
   // change forces a row re-render. Must describe what renderItem actually uses.
@@ -187,7 +233,11 @@ export function CopilotChat({
     }
 
     return items;
-  }, [messages, isRunning]);
+    // Same reasoning as `toolMessages`: keyed on message CONTENT, because the
+    // array reference is stable across in-place mutation. Without this, an
+    // assistant message or tool call appended mid-run never reaches the list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messagesKey, isRunning]);
 
   // Shared logic for sending a message to the agent
   const sendMessage = useCallback(
