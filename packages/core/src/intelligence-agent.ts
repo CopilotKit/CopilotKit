@@ -41,15 +41,25 @@ import {
   takeUntil,
   tap,
 } from "rxjs/operators";
-import { phoenixExponentialBackoff } from "@copilotkit/shared";
+import {
+  COPILOTKIT_VERSION,
+  phoenixExponentialBackoff,
+} from "@copilotkit/shared";
 import {
   ɵphoenixChannel$,
   ɵphoenixSocket$,
-  ɵjoinPhoenixChannel$,
+  ɵobservePhoenixJoinOutcome$,
   ɵobservePhoenixSocketSignals$,
   ɵobservePhoenixSocketHealth$,
   ɵobservePhoenixEvent$,
 } from "./utils/phoenix-observable";
+import {
+  ThreadRestoreError,
+  parseThreadRestoreFailure,
+  parseThreadRestoreJoinAcknowledgement,
+  parseThreadRestoreProgress,
+} from "./thread-restore";
+import type { ThreadRestoreAware, ThreadRestoreState } from "./thread-restore";
 import type {
   ɵPhoenixChannelLike,
   ɵPhoenixChannelSession,
@@ -71,11 +81,15 @@ interface Channel extends ɵPhoenixChannelLike {
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const REPLAY_COMPLETE_EVENT = "replay_complete";
 const STREAM_IDLE_EVENT = "stream_idle";
+const RESTORE_PROGRESS_EVENT = "restore_progress";
+const RESTORE_FAILED_EVENT = "restore_failed";
 const STOP_RUN_EVENT = "stop_run";
 const CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS = 100;
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
+  latestConnectInputs: Map<string, RunAgentInput>;
+  forceFullRestorePromises: Map<string, Promise<void>>;
 }
 
 interface RealtimeConnectionInfo {
@@ -151,17 +165,29 @@ export interface IntelligenceAgentConfig {
   credentials?: RequestCredentials;
 }
 
-export class IntelligenceAgent extends AbstractAgent {
+export class IntelligenceAgent
+  extends AbstractAgent
+  implements ThreadRestoreAware
+{
   private config: IntelligenceAgentConfig;
   private socket: Socket | null = null;
   private activeChannel: Channel | null = null;
   private canonicalRunId: string | null = null;
   private sharedState: IntelligenceAgentSharedState;
+  private restoreGeneration = 0;
+  private restoreState: ThreadRestoreState = {
+    status: "ready",
+    threadId: "",
+  };
+  private restoreListeners = new Set<() => void>();
+  private forceFullConnectThreads = new Set<string>();
 
   constructor(
     config: IntelligenceAgentConfig,
     sharedState: IntelligenceAgentSharedState = {
       lastSeenEventIds: new Map<string, string>(),
+      latestConnectInputs: new Map<string, RunAgentInput>(),
+      forceFullRestorePromises: new Map<string, Promise<void>>(),
     },
   ) {
     super();
@@ -171,6 +197,62 @@ export class IntelligenceAgent extends AbstractAgent {
 
   clone(): IntelligenceAgent {
     return new IntelligenceAgent(this.config, this.sharedState);
+  }
+
+  getThreadRestoreState(): ThreadRestoreState {
+    return this.restoreState;
+  }
+
+  subscribeToThreadRestore(listener: () => void): () => void {
+    this.restoreListeners.add(listener);
+    return () => {
+      this.restoreListeners.delete(listener);
+    };
+  }
+
+  forceFullRestore(): Promise<void> {
+    const threadId = this.restoreState.threadId || this.threadId;
+    if (!threadId) {
+      return Promise.reject(
+        new Error("Cannot reload a conversation before a thread is selected"),
+      );
+    }
+
+    const active = this.sharedState.forceFullRestorePromises.get(threadId);
+    if (active) {
+      return active;
+    }
+
+    const input = this.sharedState.latestConnectInputs.get(threadId);
+    if (!input) {
+      return Promise.reject(
+        new Error("Cannot reload a conversation before it has been connected"),
+      );
+    }
+
+    this.restoreGeneration += 1;
+    this.setThreadRestoreState({
+      status: "restoring",
+      threadId,
+      elapsedMs: 0,
+    });
+
+    const reload = (async () => {
+      await this.detachActiveRun();
+      this.clearReconnectCursor(threadId);
+      this.forceFullConnectThreads.add(threadId);
+      this.setMessages([]);
+      this.setState({});
+      await this.connectAgent({ runId: input.runId });
+    })();
+    const tracked = reload.finally(() => {
+      if (this.sharedState.forceFullRestorePromises.get(threadId) === tracked) {
+        this.sharedState.forceFullRestorePromises.delete(threadId);
+      }
+      this.forceFullConnectThreads.delete(threadId);
+    });
+    this.sharedState.forceFullRestorePromises.set(threadId, tracked);
+    return tracked;
   }
 
   /**
@@ -312,9 +394,17 @@ export class IntelligenceAgent extends AbstractAgent {
   run(input: RunAgentInput): Observable<BaseEvent> {
     this.threadId = input.threadId;
     this.canonicalRunId = input.runId;
+    this.sharedState.latestConnectInputs.set(input.threadId, input);
+    const restoreGeneration = this.beginThreadRestore(input.threadId);
 
     return defer(() => this.requestJoinCredentials$("run", input)).pipe(
       switchMap((credentials) => {
+        if (
+          !this.isCurrentRestoreGeneration(restoreGeneration, input.threadId)
+        ) {
+          return EMPTY;
+        }
+
         if (credentials === null) {
           return throwError(
             () => new Error("REST run request returned no credentials"),
@@ -330,7 +420,18 @@ export class IntelligenceAgent extends AbstractAgent {
         return this.observeThread$(canonicalInput, credentials, {
           completeOnRunError: false,
           streamMode: "run",
+          restoreGeneration,
         });
+      }),
+      catchError((error) => {
+        if (error instanceof AgentThreadLockedError) {
+          this.markThreadRestoreReady(restoreGeneration, input.threadId);
+          return throwError(() => error);
+        }
+
+        return throwError(() =>
+          this.toThreadRestoreError(restoreGeneration, input.threadId, error),
+        );
       }),
     );
   }
@@ -355,13 +456,35 @@ export class IntelligenceAgent extends AbstractAgent {
   protected connect(input: RunAgentInput): Observable<BaseEvent> {
     this.threadId = input.threadId;
     this.canonicalRunId = null;
-    const replayCursor = this.getReconnectCursor(input);
+    this.sharedState.latestConnectInputs.set(input.threadId, input);
+    const forceFull = this.forceFullConnectThreads.delete(input.threadId);
+    const replayCursor = forceFull ? null : this.getReconnectCursor(input);
+    const generation = this.beginThreadRestore(input.threadId);
 
+    return this.connectRestoreAttempt$(
+      input,
+      replayCursor,
+      generation,
+      !forceFull,
+    );
+  }
+
+  private connectRestoreAttempt$(
+    input: RunAgentInput,
+    replayCursor: string | null,
+    generation: number,
+    allowInvalidCursorRetry: boolean,
+  ): Observable<BaseEvent> {
     return defer(() =>
       this.requestJoinCredentials$("connect", input, replayCursor),
     ).pipe(
       switchMap((credentials) => {
+        if (!this.isCurrentRestoreGeneration(generation, input.threadId)) {
+          return EMPTY;
+        }
+
         if (credentials === null) {
+          this.markThreadRestoreReady(generation, input.threadId);
           return EMPTY;
         }
 
@@ -375,7 +498,30 @@ export class IntelligenceAgent extends AbstractAgent {
           completeOnRunError: false,
           streamMode: "connect",
           replayCursor,
+          restoreGeneration: generation,
         });
+      }),
+      catchError((error) => {
+        if (
+          allowInvalidCursorRetry &&
+          replayCursor !== null &&
+          error instanceof ThreadRestoreError &&
+          error.code === "invalid_cursor" &&
+          this.isCurrentRestoreGeneration(generation, input.threadId)
+        ) {
+          this.clearReconnectCursor(input.threadId);
+          const retryGeneration = this.beginThreadRestore(input.threadId);
+          return this.connectRestoreAttempt$(
+            input,
+            null,
+            retryGeneration,
+            false,
+          );
+        }
+
+        return throwError(() =>
+          this.toThreadRestoreError(generation, input.threadId, error),
+        );
       }),
     );
   }
@@ -389,19 +535,24 @@ export class IntelligenceAgent extends AbstractAgent {
     ownChannel: Channel | null,
     ownSocket: Socket | null,
   ): void {
+    let clearedOwnedResource = false;
     if (ownChannel) {
       ownChannel.leave();
       if (this.activeChannel === ownChannel) {
         this.activeChannel = null;
+        clearedOwnedResource = true;
       }
     }
     if (ownSocket) {
       ownSocket.disconnect();
       if (this.socket === ownSocket) {
         this.socket = null;
+        clearedOwnedResource = true;
       }
     }
-    this.canonicalRunId = null;
+    if (clearedOwnedResource) {
+      this.canonicalRunId = null;
+    }
   }
 
   private cleanup(): void {
@@ -521,12 +672,23 @@ export class IntelligenceAgent extends AbstractAgent {
       streamMode: "run" | "connect";
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
+      restoreGeneration?: number;
     },
   ): Observable<BaseEvent> {
     return this.observeThreadSession$(input, credentials, options).pipe(
       catchError((error) => {
         if (!this.isSocketReconnectExhaustedError(error)) {
           return throwError(() => error);
+        }
+
+        if (
+          options.restoreGeneration !== undefined &&
+          !this.isCurrentRestoreGeneration(
+            options.restoreGeneration,
+            input.threadId,
+          )
+        ) {
+          return EMPTY;
         }
 
         const replayCursor = this.getReconnectCursor(input);
@@ -536,7 +698,12 @@ export class IntelligenceAgent extends AbstractAgent {
           replayCursor,
         ).pipe(
           switchMap((refreshedCredentials) =>
-            refreshedCredentials === null
+            refreshedCredentials === null ||
+            (options.restoreGeneration !== undefined &&
+              !this.isCurrentRestoreGeneration(
+                options.restoreGeneration,
+                input.threadId,
+              ))
               ? EMPTY
               : this.observeThread$(
                   this.applyCanonicalRunIdentity(input, refreshedCredentials, {
@@ -563,6 +730,7 @@ export class IntelligenceAgent extends AbstractAgent {
       streamMode: "run" | "connect";
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
+      restoreGeneration?: number;
     },
   ): Observable<BaseEvent> {
     return defer(() => {
@@ -612,6 +780,8 @@ export class IntelligenceAgent extends AbstractAgent {
       const reconnectCursor = this.readDurableEventId(
         options.replayCursor ?? this.getReconnectCursor(input),
       );
+      const restoreGeneration = options.restoreGeneration;
+      let recognizedRestoreAttemptId: string | null = null;
       let latestObservedReplayCursor: string | null = null;
       const threadEvents$ = this.observeThreadEvents$(
         input.threadId,
@@ -628,11 +798,24 @@ export class IntelligenceAgent extends AbstractAgent {
         input.threadId,
         channel$,
         REPLAY_COMPLETE_EVENT,
-      ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+        restoreGeneration,
+      ).pipe(
+        tap(() => {
+          if (restoreGeneration !== undefined) {
+            this.markThreadRestoreReady(
+              restoreGeneration,
+              input.threadId,
+              recognizedRestoreAttemptId ?? undefined,
+            );
+          }
+        }),
+        shareReplay({ bufferSize: 1, refCount: true }),
+      );
       const streamIdle$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         STREAM_IDLE_EVENT,
+        restoreGeneration,
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdleCompletion$ =
         options.streamMode === "connect"
@@ -652,7 +835,18 @@ export class IntelligenceAgent extends AbstractAgent {
                 ),
                 delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
               ),
-            ).pipe(take(1))
+            ).pipe(
+              take(1),
+              tap(() => {
+                if (restoreGeneration !== undefined) {
+                  this.markThreadRestoreReady(
+                    restoreGeneration,
+                    input.threadId,
+                    recognizedRestoreAttemptId ?? undefined,
+                  );
+                }
+              }),
+            )
           : EMPTY;
       const threadCompleted$ = threadEvents$.pipe(
         ignoreElements(),
@@ -660,9 +854,128 @@ export class IntelligenceAgent extends AbstractAgent {
         take(1),
       );
       const terminal$ = merge(threadCompleted$, streamIdleCompletion$);
+      const restoreProgress$ =
+        restoreGeneration === undefined
+          ? EMPTY
+          : channel$.pipe(
+              switchMapOperator(({ channel }) =>
+                this.observeChannelEvent$<unknown>(
+                  channel,
+                  RESTORE_PROGRESS_EVENT,
+                ),
+              ),
+              tap((payload) => {
+                const progress = parseThreadRestoreProgress(payload);
+                if (
+                  progress &&
+                  recognizedRestoreAttemptId === progress.restoreAttemptId &&
+                  this.isCurrentRestoreGeneration(
+                    restoreGeneration,
+                    input.threadId,
+                  )
+                ) {
+                  this.setThreadRestoreState({
+                    status: "restoring",
+                    threadId: input.threadId,
+                    restoreAttemptId: progress.restoreAttemptId,
+                    elapsedMs: progress.elapsedMs,
+                  });
+                }
+              }),
+              ignoreElements(),
+              takeUntil(terminal$),
+            );
+      const restoreFailure$ =
+        restoreGeneration === undefined
+          ? EMPTY
+          : channel$.pipe(
+              switchMapOperator(({ channel }) =>
+                this.observeChannelEvent$<unknown>(
+                  channel,
+                  RESTORE_FAILED_EVENT,
+                ),
+              ),
+              mergeMap((payload) => {
+                const failure = parseThreadRestoreFailure(payload);
+                if (
+                  !failure ||
+                  recognizedRestoreAttemptId !== failure.restoreAttemptId ||
+                  !this.isCurrentRestoreGeneration(
+                    restoreGeneration,
+                    input.threadId,
+                  )
+                ) {
+                  return EMPTY;
+                }
+
+                const error = new ThreadRestoreError(failure);
+                this.setThreadRestoreState({
+                  status: "failed",
+                  threadId: input.threadId,
+                  restoreAttemptId: failure.restoreAttemptId,
+                  error,
+                });
+                return throwError(() => error);
+              }),
+              takeUntil(terminal$),
+            );
+      const restoreClose$ =
+        restoreGeneration === undefined
+          ? EMPTY
+          : channel$.pipe(
+              switchMapOperator((session) => session.close$.pipe(take(1))),
+              mergeMap(() => {
+                if (
+                  !recognizedRestoreAttemptId ||
+                  !this.isCurrentRestoreGeneration(
+                    restoreGeneration,
+                    input.threadId,
+                  ) ||
+                  this.restoreState.status === "ready" ||
+                  this.restoreState.status === "failed"
+                ) {
+                  return EMPTY;
+                }
+
+                const error = new ThreadRestoreError({
+                  restoreAttemptId: recognizedRestoreAttemptId,
+                  code: "internal_failure",
+                  retryable: true,
+                  retryAction: "reload_conversation",
+                });
+                this.setThreadRestoreState({
+                  status: "failed",
+                  threadId: input.threadId,
+                  restoreAttemptId: recognizedRestoreAttemptId,
+                  error,
+                });
+                return throwError(() => error);
+              }),
+              takeUntil(terminal$),
+            );
 
       return merge(
-        this.joinThreadChannel$(channel$),
+        this.joinThreadChannel$(channel$, (response) => {
+          if (
+            restoreGeneration === undefined ||
+            !this.isCurrentRestoreGeneration(restoreGeneration, input.threadId)
+          ) {
+            return;
+          }
+
+          const acknowledgement =
+            parseThreadRestoreJoinAcknowledgement(response);
+          recognizedRestoreAttemptId =
+            acknowledgement?.restoreAttemptId ?? null;
+          if (acknowledgement) {
+            this.setThreadRestoreState({
+              status: "restoring",
+              threadId: input.threadId,
+              restoreAttemptId: acknowledgement.restoreAttemptId,
+              elapsedMs: 0,
+            });
+          }
+        }),
         this.observeSocketHealth$(socket$).pipe(takeUntil(terminal$)),
         threadEvents$.pipe(takeUntil(streamIdleCompletion$)),
         replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
@@ -670,14 +983,34 @@ export class IntelligenceAgent extends AbstractAgent {
           ignoreElements(),
           takeUntil(threadCompleted$),
         ),
+        restoreProgress$,
+        restoreFailure$,
+        restoreClose$,
       ).pipe(finalize(() => this.cleanupOwned(ownChannel, ownSocket)));
     });
   }
 
   private joinThreadChannel$(
     channel$: Observable<ɵPhoenixChannelSession>,
+    onJoined: (response?: unknown) => void = () => {},
   ): Observable<never> {
-    return ɵjoinPhoenixChannel$(channel$);
+    return ɵobservePhoenixJoinOutcome$(channel$).pipe(
+      take(1),
+      mergeMap((outcome) => {
+        if (outcome.type === "joined") {
+          onJoined(outcome.response);
+          return EMPTY;
+        }
+
+        return throwError(() =>
+          outcome.type === "timeout"
+            ? new Error("Timed out joining channel")
+            : new Error(
+                `Failed to join channel: ${JSON.stringify(outcome.response)}`,
+              ),
+        );
+      }),
+    );
   }
 
   private observeSocketHealth$(
@@ -692,11 +1025,20 @@ export class IntelligenceAgent extends AbstractAgent {
   private observeThreadEvents$(
     threadId: string,
     channel$: Observable<ɵPhoenixChannelSession>,
-    options: { completeOnRunError: boolean; streamMode: "run" | "connect" },
+    options: {
+      completeOnRunError: boolean;
+      streamMode: "run" | "connect";
+      restoreGeneration?: number;
+    },
   ): Observable<BaseEvent> {
     return channel$.pipe(
       switchMapOperator(({ channel }) =>
         this.observeChannelEvent$<BaseEvent>(channel, CLIENT_AG_UI_EVENT),
+      ),
+      filter(
+        () =>
+          options.restoreGeneration === undefined ||
+          this.isCurrentRestoreGeneration(options.restoreGeneration, threadId),
       ),
       tap((payload) => {
         this.updateLastSeenEventId(threadId, payload);
@@ -717,10 +1059,16 @@ export class IntelligenceAgent extends AbstractAgent {
     threadId: string,
     channel$: Observable<ɵPhoenixChannelSession>,
     eventName: string,
+    restoreGeneration?: number,
   ): Observable<unknown> {
     return channel$.pipe(
       switchMapOperator(({ channel }) =>
         this.observeChannelEvent$<unknown>(channel, eventName),
+      ),
+      filter(
+        () =>
+          restoreGeneration === undefined ||
+          this.isCurrentRestoreGeneration(restoreGeneration, threadId),
       ),
       tap((payload) =>
         this.updateLastSeenEventIdFromControl(threadId, payload),
@@ -781,10 +1129,18 @@ export class IntelligenceAgent extends AbstractAgent {
     streamMode: "run" | "connect",
     replayCursor?: string | null,
   ): Record<string, unknown> {
+    const capabilities = {
+      restore: {
+        version: 1,
+        sdkVersion: COPILOTKIT_VERSION,
+      },
+    };
+
     return streamMode === "run"
       ? {
           stream_mode: "run",
           run_id: input.runId,
+          capabilities,
         }
       : {
           stream_mode: "connect",
@@ -792,7 +1148,89 @@ export class IntelligenceAgent extends AbstractAgent {
             replayCursor === undefined
               ? this.getReconnectCursor(input)
               : replayCursor,
+          capabilities,
         };
+  }
+
+  private beginThreadRestore(threadId: string): number {
+    const generation = ++this.restoreGeneration;
+    this.setThreadRestoreState({
+      status: "restoring",
+      threadId,
+      elapsedMs: 0,
+    });
+    return generation;
+  }
+
+  private isCurrentRestoreGeneration(
+    generation: number,
+    threadId: string,
+  ): boolean {
+    return (
+      generation === this.restoreGeneration &&
+      this.restoreState.threadId === threadId
+    );
+  }
+
+  private markThreadRestoreReady(
+    generation: number,
+    threadId: string,
+    restoreAttemptId?: string,
+  ): void {
+    if (!this.isCurrentRestoreGeneration(generation, threadId)) {
+      return;
+    }
+
+    this.setThreadRestoreState({
+      status: "ready",
+      threadId,
+      ...(restoreAttemptId ? { restoreAttemptId } : {}),
+    });
+  }
+
+  private setThreadRestoreState(state: ThreadRestoreState): void {
+    this.restoreState = state;
+    for (const listener of this.restoreListeners) {
+      listener();
+    }
+  }
+
+  private toThreadRestoreError(
+    generation: number,
+    threadId: string,
+    cause: unknown,
+  ): unknown {
+    if (
+      cause instanceof ThreadRestoreError ||
+      !this.isCurrentRestoreGeneration(generation, threadId)
+    ) {
+      return cause;
+    }
+
+    const restoreAttemptId =
+      this.restoreState.status === "restoring" &&
+      this.restoreState.restoreAttemptId
+        ? this.restoreState.restoreAttemptId
+        : `ra_client_${randomUUID()}`;
+    const message = cause instanceof Error ? cause.message : String(cause);
+    const error = new ThreadRestoreError(
+      {
+        restoreAttemptId,
+        code: message.startsWith("REST ")
+          ? "dependency_failure"
+          : "internal_failure",
+        retryable: true,
+        retryAction: "reload_conversation",
+      },
+      { message, cause },
+    );
+    this.setThreadRestoreState({
+      status: "failed",
+      threadId,
+      restoreAttemptId,
+      error,
+    });
+    return error;
   }
 
   private getLastSeenEventId(threadId: string): string | null {
