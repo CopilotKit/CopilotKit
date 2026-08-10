@@ -6,10 +6,12 @@ import type { ReactToolCallRenderer } from "@copilotkit/react-core/v2/headless";
  *
  * DERIVED from react-core's canonical `ReactToolCallRenderer` contract rather
  * than declared separately. This is deliberate: RN and web previously each
- * declared their own shape and drifted (different `status` semantics, RN missing
- * `name`/`toolCallId`, RN's `args` unconditionally partial). Deriving makes that
- * class of drift impossible — if web's contract changes, RN's public type changes
- * with it and `check-types` says so.
+ * declared their own shape and drifted — RN's `status` was a two-member
+ * `"executing" | "complete"` union with no `"inProgress"` state, RN omitted
+ * `name`/`toolCallId` entirely, and RN's `args` was unconditionally the full
+ * `T`, promising complete arguments even before they had finished streaming.
+ * Deriving makes that class of drift impossible — if web's contract changes,
+ * RN's public type changes with it and `check-types` says so.
  *
  * `status` is a discriminated union: `args` is `Partial<T>` only while
  * `"inProgress"`, and `result` is a string only when `"complete"`.
