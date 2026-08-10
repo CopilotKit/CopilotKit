@@ -251,15 +251,44 @@ displayed data.
 
 ## Rendering a tool call outside the chat
 
-[`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui) renders tool calls inline. To render a registered component anywhere else — a dashboard, a kiosk, a full-screen stage the agent composes — use `useRenderToolCall()`:
+[`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui) renders tool calls inline. To render a registered component anywhere else — a dashboard, a kiosk, a full-screen stage the agent composes — call `useRenderToolCall()` inside a component mounted under `CopilotKitProvider`, and read the tool calls off the agent's own message list:
 
 ```tsx
-import { useRenderToolCall } from "@copilotkit/react-native";
+import { useAgent, useRenderToolCall } from "@copilotkit/react-native";
 import { View } from "react-native";
 
-const renderToolCall = useRenderToolCall();
+function ToolCallStage({ agentId = "default" }: { agentId?: string }) {
+  const { agent } = useAgent({ agentId });
+  const renderToolCall = useRenderToolCall();
 
-return <View>{toolCalls.map((tc) => renderToolCall({ toolCall: tc }))}</View>;
+  const messages = agent.messages ?? [];
+
+  // Pair each call with its result message. `renderToolCall` derives status
+  // from that pairing: pass `toolMessage` and the call resolves to `"complete"`
+  // with `result`; omit it and `status` stays `"inProgress"` and `result` is
+  // `undefined` forever — the same correlation the prebuilt chat does.
+  const toolMessages = new Map(
+    messages.flatMap((message) =>
+      message.role === "tool" ? [[message.toolCallId, message] as const] : [],
+    ),
+  );
+
+  const toolCalls = messages.flatMap((message) =>
+    message.role === "assistant" ? (message.toolCalls ?? []) : [],
+  );
+
+  // Each returned element is already keyed by tool-call id.
+  return (
+    <View>
+      {toolCalls.map((toolCall) =>
+        renderToolCall({
+          toolCall,
+          toolMessage: toolMessages.get(toolCall.id),
+        }),
+      )}
+    </View>
+  );
+}
 ```
 
 <PropertyReference name="useRenderToolCall" type="() => (input: { toolCall, toolMessage? }) => ReactElement | null">
