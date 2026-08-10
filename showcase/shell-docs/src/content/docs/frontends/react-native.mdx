@@ -336,8 +336,8 @@ The **package** (both `/headless` and the root barrel) re-exports the platform-a
 
 Two React-Native-specific differences are worth knowing:
 
-- **`useRenderTool` is React Native's own hook**, not react-core's. It registers the tool *and* its renderer, requires `parameters`, accepts a `handler`, must return `ReactElement | null` (React Native's `FlatList` cannot render bare strings), and does not support the `"*"` wildcard that the web hook does.
-- **The web-only rendering hooks are deliberately not exported**: `useRenderToolCall`, `useDefaultRenderTool`, `useRenderCustomMessages`, and `useRenderActivityMessage`.
+- **`useRenderTool` is React Native's own hook**, not react-core's. It registers the tool *and* its renderer, requires `parameters`, accepts a `handler`, and must return `ReactElement | null` (React Native's `FlatList` cannot render bare strings). It writes into react-core's canonical renderer registry, so wildcard resolution behaves here exactly as it does on the web: a renderer registered under the name `"*"` is the fallback for any tool call with no exact-name renderer. Because this hook always registers a tool alongside the renderer, a `"*"` entry still needs `parameters` — the web hook has a dedicated `"*"` overload that takes a renderer alone.
+- **Most of the web rendering hooks are deliberately not exported**: `useDefaultRenderTool` (its built-in card renders `<div>` / `<svg>`), `useRenderCustomMessages`, and `useRenderActivityMessage` (both link the web chat-message stack). `useRenderToolCall` **is** exported, though — it is platform-agnostic, pulls no DOM, and returns `ReactElement | null`, which is exactly what `FlatList`'s `renderItem` needs, so you can draw a registered tool call on any surface rather than only inside the chat.
 
 ## Metro configuration for release bundles
 
@@ -590,8 +590,8 @@ export function useComposeStage() {
 
 Because the tool is registered on the device, the model's call reaches your `handler` on the client — the ideal place to drive a state reducer that your React Native views render declaratively (the agent sends *state*, the client owns rendering). Discriminated-union / `oneOf` / `anyOf` param schemas are preserved through the runtime's schema conversion, so `z.discriminatedUnion(...)` params work. It's still good practice to normalize defensively in the handler — coerce a partially populated tool call into valid state rather than letting a malformed one render broken UI.
 
-<Callout type="warn" title="For inline chat UI, use `useRenderTool` — not `useFrontendTool({ render })`">
-  These write to two different registries. `useFrontendTool({ render })` registers with react-core's renderer collection, which only the **web** rendering pipeline reads. The rendered React Native chat (`@copilotkit/react-native/components`) reads a separate registry that only React Native's own `useRenderTool` populates — so a `render` passed to `useFrontendTool` is never drawn there, and you get the fallback `Called: <toolName>` stub instead.
+<Callout type="warn" title="For inline chat UI, prefer `useRenderTool` — it's the React-Native-typed hook">
+  Both hooks write to the **same** place: react-core's renderer registry, which the rendered React Native chat (`@copilotkit/react-native/components`) reads through `useRenderToolCall`. So a `render` passed to `useFrontendTool` *is* drawn there. What `useRenderTool` adds is React Native's return type — its `render` must produce `ReactElement | null`, whereas `useFrontendTool`'s web-shaped `render` also accepts a bare string, which typechecks and then throws inside a `FlatList` at runtime.
 
   ```tsx
   import { useRenderTool } from "@copilotkit/react-native/headless";
@@ -637,7 +637,7 @@ A client-executed frontend tool renders its UI **mid-run**: the tool fires, your
 - **Voice** — `@copilotkit/voice` has not been adapted for React Native; wire your own STT as above.
 - **`threadId` on `useAgent`** — not supported yet ([#6141](https://github.com/CopilotKit/CopilotKit/pull/6141)). Thread scoping comes from a chat-configuration provider; a `threadId` passed to `useAgent` does not typecheck and is ignored.
 - **Cloud provider props** — `publicApiKey` / `licenseToken` are not supported on the React Native provider; connect via `runtimeUrl`.
-- **Web-only rendering hooks** — `useRenderToolCall`, `useDefaultRenderTool`, `useRenderCustomMessages`, and `useRenderActivityMessage` are not exported; use React Native's `useRenderTool`.
+- **Web-only rendering hooks** — `useDefaultRenderTool`, `useRenderCustomMessages`, and `useRenderActivityMessage` are not exported, because they render host DOM or link the web chat-message stack. `useRenderToolCall` **is** exported; use it to draw a registered tool call outside the chat.
 
 ## Next steps
 
