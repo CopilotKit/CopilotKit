@@ -61,7 +61,16 @@ export interface RecordedStep {
 
 export interface RecordingValue {
   isRecording: boolean;
-  steps: RecordedStep[];
+  /**
+   * Readonly on purpose. Consumers only ever read the feed (`.length`, `.map`),
+   * and the no-provider fallback below hands every out-of-provider consumer the
+   * SAME frozen array — a mutable type would invite one consumer to splice a
+   * shared singleton out from under all the others. It also lets the frozen
+   * fallback type-check without an assertion: `Object.freeze([])` is
+   * `readonly never[]`, which widens to `readonly RecordedStep[]` but cannot be
+   * cast to `RecordedStep[]` (TS2352).
+   */
+  steps: readonly RecordedStep[];
   beginRecording: () => void;
   endRecording: () => void;
   /** No-op while idle, so call sites can call it unconditionally. */
@@ -84,7 +93,7 @@ const RecordingContext = createContext<RecordingValue | null>(null);
  */
 const INERT_RECORDING: RecordingValue = Object.freeze({
   isRecording: false,
-  steps: Object.freeze([]) as RecordedStep[],
+  steps: Object.freeze([]),
   beginRecording: () => {},
   endRecording: () => {},
   logStep: () => {},
