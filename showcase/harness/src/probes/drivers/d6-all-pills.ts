@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { z } from "zod";
 import { truncateUtf8 } from "../../render/filters.js";
+import { INFRA_ERROR_CLASSES } from "../../shared/cell-model/cell-model.contribution.js";
 import { showcaseShapeSchema } from "../discovery/railway-services.js";
 import { D5_REGISTRY, isD5FeatureType } from "../helpers/d5-registry.js";
 import type {
@@ -197,6 +198,50 @@ export interface E2eFullAggregateSignal {
   note?: string;
   errorDesc?: string;
   failureSummary?: string;
+  /**
+   * Infra failure class for the ROLL-UP, set only when the roll-up's red is
+   * entirely attributable to harness infra — every failed feature carried an
+   * `INFRA_ERROR_CLASSES` member, or the browser launcher itself failed so no
+   * feature ever ran. Left UNSET otherwise, including on any mixed set.
+   *
+   * Without this field the roll-up was an unconditional PRODUCT red:
+   * `signalHasInfraErrorClass()` reads `errorClass`/`errorDesc`, the schema had
+   * neither in an infra-classed form, so the U7 gray fold could never fire on
+   * `d6:<slug>` however cleanly it fired on the cells underneath. On 2026-08-03
+   * that made the roll-up — the row a naive per-slug query lands on — read as a
+   * product outage for ~20 slugs whose demos were provably healthy.
+   *
+   * The polarity is the cell model's, deliberately: graying needs POSITIVE
+   * infra evidence for EVERY contributing failure, because hiding a real red
+   * costs far more than showing a false one (cell-model.contribution.ts:478).
+   */
+  errorClass?: string;
+}
+
+/**
+ * Roll-up infra verdict: the shared infra class when the failure set is
+ * NON-EMPTY and EVERY member carries a known `INFRA_ERROR_CLASSES` class,
+ * `undefined` otherwise.
+ *
+ * `classes` must hold one entry per failed feature. A feature whose class is
+ * absent (`undefined`) is UNKNOWN, and unknown is not infra evidence — one such
+ * entry, or one product class, sinks the whole verdict. That asymmetry is the
+ * point: it is the same masks-real-red guard the cell model applies, lifted to
+ * the roll-up unchanged.
+ *
+ * When the set is uniformly infra but mixed (`abort` + `driver-error`), the
+ * first failure's class is reported. Both members classify identically
+ * downstream, so the choice is cosmetic; taking the first keeps it deterministic
+ * in `failed[]` order.
+ */
+export function rollupInfraErrorClass(
+  classes: readonly (string | undefined)[],
+): string | undefined {
+  if (classes.length === 0) return undefined;
+  for (const cls of classes) {
+    if (cls === undefined || !INFRA_ERROR_CLASSES.has(cls)) return undefined;
+  }
+  return classes[0];
 }
 
 /**
@@ -1060,6 +1105,12 @@ export function createE2eFullDriver(
                   : undefined,
               errorDesc: "launcher-error",
               failureSummary: truncateUtf8(msg, 1200),
+              // The browser never launched, so ZERO product code was exercised
+              // — this red cannot be evidence about the demo, only about the
+              // harness. It is also the literal signature of a worker at its
+              // cgroup PID ceiling (2026-08-03): it cannot fork a browser.
+              // Classifying it infra therefore cannot mask a product defect.
+              errorClass: "driver-error",
             },
             observedAt,
           };
@@ -1487,6 +1538,10 @@ export function createE2eFullDriver(
                 ft,
                 ok: false as const,
                 errorDesc: featureResult.errorDesc,
+                // Carried up so the roll-up can classify itself the same way
+                // the side row above already does. Previously dropped here,
+                // which is why the roll-up had no class to aggregate.
+                errorClass: featureResult.errorClass,
               };
             }
           } finally {
@@ -1507,6 +1562,13 @@ export function createE2eFullDriver(
         // Aggregate results.
         let passed = 0;
         const failed: string[] = [...missingScript];
+        // One entry per `failed` member, same order — the roll-up infra verdict
+        // needs a class for EVERY failure. `missing-script` is a genuine
+        // product/config red, so seeding it here (rather than leaving a hole)
+        // both keeps the arrays aligned and correctly sinks the infra claim.
+        const failedClasses: (string | undefined)[] = missingScript.map(
+          () => "missing-script",
+        );
         const featureErrors: string[] = missingScript.map(
           (ft) => `${ft}: no script registered`,
         );
@@ -1517,6 +1579,7 @@ export function createE2eFullDriver(
               passed++;
             } else {
               failed.push(outcome.value.ft);
+              failedClasses.push(outcome.value.errorClass);
               if (outcome.value.errorDesc) {
                 featureErrors.push(
                   `${outcome.value.ft}: ${outcome.value.errorDesc}`,
@@ -1535,6 +1598,11 @@ export function createE2eFullDriver(
               err: errMsg,
             });
             failed.push(ft);
+            // A rejected feature promise is a driver-layer bug, not a product
+            // failure, but it is NOT in INFRA_ERROR_CLASSES and must not be
+            // laundered into one — record its real class so it sinks the
+            // roll-up's infra claim exactly as the side row does.
+            failedClasses.push("promise-rejected");
             featureErrors.push(`${ft}: ${errMsg}`);
             try {
               await sideEmit(ctx, {
@@ -1583,6 +1651,7 @@ export function createE2eFullDriver(
                 : undefined,
             failureSummary:
               featureErrors.length > 0 ? featureErrors.join("; ") : undefined,
+            errorClass: rollupInfraErrorClass(failedClasses),
           },
           observedAt,
         };
