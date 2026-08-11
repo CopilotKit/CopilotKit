@@ -67,7 +67,11 @@ set it inclusively from 1,000 through 300,000 milliseconds. Live events that
 arrive during replay are sanitized before accounting and buffered up to both
 10,000 events and 16 MiB. Crossing either limit fails closed with
 `buffer_overflow`; the cursor is not advanced. Successful handoff emits the
-proven replay window before buffered live events in durable order. V1 does not
+proven replay window before buffered live events in durable order. The gateway
+captures a Redis acceptance barrier after subscribing and waits until the
+PostgreSQL replay projection proves it. Run-follow joins scope replay, live
+events, and terminal completion to the requested run; the core client also
+ignores a mismatched run terminal defensively. V1 does not
 compact replay, so retained history size still determines full-restore work.
 
 The browser exposes the same `ready | restoring | failed` model through the
@@ -95,8 +99,10 @@ to existing behavior and is recorded only in protected diagnostics, without
 customer identifiers in metric labels.
 
 Terminal telemetry records restore duration, post-sanitization payload bytes,
-and event count. Its dimensions are closed to `outcome` (`ready` or one of the
-eight failure codes) and `failure_reporting` (`supported` or `legacy`).
+event count, and buffer event/byte high-water marks. Its dimensions are closed
+to `outcome` (`ready` or one of the eight failure codes), `failure_reporting`
+(`supported` or `legacy`), replay `source`, and whether an invalid-cursor
+full-read fallback occurred.
 
 ## Inspection and operational history
 

@@ -437,6 +437,38 @@ describe("IntelligenceAgent", () => {
       expect(result.events).toContainEqual(finishedEvent);
     });
 
+    it("does not let a terminal event from an older run complete the current run", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      let settled = false;
+      void promise.then(() => {
+        settled = true;
+      });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-old",
+      } as BaseEvent);
+
+      await flushAsyncWork();
+      expect(settled).toBe(false);
+
+      const currentRunFinished = {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent;
+      channel.serverPush("ag_ui_event", currentRunFinished);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.events).toEqual([currentRunFinished]);
+    });
+
     it("errors the observable on RUN_ERROR", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
@@ -447,6 +479,7 @@ describe("IntelligenceAgent", () => {
 
       const errorEvent = {
         type: EventType.RUN_ERROR,
+        runId: "run-1",
         message: "something went wrong",
       } as BaseEvent;
       channel.serverPush("ag_ui_event", errorEvent);

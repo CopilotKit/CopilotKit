@@ -786,7 +786,7 @@ export class IntelligenceAgent
       const threadEvents$ = this.observeThreadEvents$(
         input.threadId,
         channel$,
-        options,
+        { ...options, runId: input.runId },
       ).pipe(
         tap((payload) => {
           latestObservedReplayCursor =
@@ -1030,6 +1030,7 @@ export class IntelligenceAgent
     options: {
       completeOnRunError: boolean;
       streamMode: "run" | "connect";
+      runId: string;
       restoreGeneration?: number;
     },
   ): Observable<BaseEvent> {
@@ -1041,6 +1042,13 @@ export class IntelligenceAgent
         () =>
           options.restoreGeneration === undefined ||
           this.isCurrentRestoreGeneration(options.restoreGeneration, threadId),
+      ),
+      filter(
+        (payload) =>
+          options.streamMode !== "run" ||
+          (payload.type !== EventType.RUN_FINISHED &&
+            payload.type !== EventType.RUN_ERROR) ||
+          payload.runId === options.runId,
       ),
       tap((payload) => {
         this.updateLastSeenEventId(threadId, payload);
