@@ -109,6 +109,14 @@ ramp and `--radius` inherit). Omit both to stay light-only — a legitimate choi
 (airline does exactly that). If you kept the theme toggle in your layout, note
 it is a **dead control** until this flag and the dark block both exist.
 
+For a **dark-ONLY** skin, set BOTH `--nw-dark-capable: 1` and
+`--nw-theme-lock: dark` on the `.theme-<id>` root, put your dark values in the
+base `.theme-<id>` block, and do NOT render the `ThemeToggle`. Without the lock,
+a stored `light` preference (set while another skin was active — the class is
+global) puts `.light` on `<html>`, so the shared chat chrome goes light beside
+your dark app card. That is the same half-dark bug the force-light branch
+prevents from the other direction. `vantage` is the worked reference.
+
 **OGUI renders full-region on the shared canvas.** A `generateSandboxedUi` call
 becomes an `open-generative-ui` activity that the shell renders full-region on
 the canvas via the workspace `OpenGenerativeUIActivityRenderer` (this build ships
