@@ -10,13 +10,11 @@
     ThreadEndpointRuntimeInfo,
   } from "@copilotkit/core";
   import { CopilotKitCoreRuntimeConnectionStatus as CoreStatus } from "@copilotkit/core";
-  import { setContext } from "svelte";
+  import { setContext, type Snippet } from "svelte";
+  import { SvelteSet } from "svelte/reactivity";
   import { COPILOT_KIT_KEY } from "./context";
   import type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
-  import type {
-    SvelteToolCallRenderer,
-    SvelteFrontendTool,
-  } from "../types";
+  import type { SvelteToolCallRenderer } from "../types";
   import type { AbstractAgent } from "@ag-ui/client";
 
   // Provider-level TODOs (place implementations here, not in CopilotKitCoreSvelte):
@@ -85,13 +83,11 @@
     renderCustomMessages = [],
     frontendTools = [],
     humanInTheLoop = [],
-    openGenerativeUI,
-    showDevConsole = false,
     onError,
     a2ui,
     debug,
     children,
-  }: CopilotKitProviderProps & { children?: any } = $props();
+  }: CopilotKitProviderProps & { children?: Snippet } = $props();
 
   const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
   const COPILOT_CLOUD_CHAT_URL =
@@ -102,8 +98,6 @@
     ...agents__unsafe_dev_only,
     ...selfManagedAgents,
   });
-  const hasLocalAgents = $derived(Object.keys(mergedAgents).length > 0);
-
   const resolvedHeaders = $derived(
     typeof headers === "function" ? headers() : headers,
   );
@@ -211,7 +205,7 @@
     copilotkit.setRuntimeUrl(initialEndpoint);
     reactiveRuntimeUrl = initialEndpoint;
   }
-  let executingToolCallIds = $state<ReadonlySet<string>>(new Set());
+  const executingToolCallIds = new SvelteSet<string>();
 
   // ── Context Registration (BEFORE any $effect blocks!) ──
   // setContext must be called during synchronous component initialization.
@@ -274,12 +268,10 @@
     const core = copilotkit;
     const sub1 = core.subscribe({
       onToolExecutionStart: ({ toolCallId }) => {
-        executingToolCallIds = new Set(executingToolCallIds).add(toolCallId);
+        executingToolCallIds.add(toolCallId);
       },
       onToolExecutionEnd: ({ toolCallId }) => {
-        const next = new Set(executingToolCallIds);
-        next.delete(toolCallId);
-        executingToolCallIds = next;
+        executingToolCallIds.delete(toolCallId);
       },
     });
     const sub2 = core.subscribe({
@@ -322,4 +314,6 @@
 
 </script>
 
-{@render children()}
+{#if children}
+  {@render children()}
+{/if}

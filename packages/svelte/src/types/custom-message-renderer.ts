@@ -15,7 +15,7 @@ export interface SvelteCustomMessageRendererProps {
 
 export type SvelteCustomMessageRendererRenderFn = (
   props: SvelteCustomMessageRendererProps,
-) => any;
+) => unknown;
 
 export interface SvelteCustomMessageRenderer {
   agentId?: string;

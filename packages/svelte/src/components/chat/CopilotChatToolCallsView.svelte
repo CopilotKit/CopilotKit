@@ -1,10 +1,8 @@
 <script lang="ts">
   import type { AssistantMessage, Message, ToolCall, ToolMessage } from "@ag-ui/core";
-  import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
   import { ToolCallStatus } from "@copilotkit/core";
   import { partialJSONParse } from "@copilotkit/shared";
   import { useCopilotKit } from "../../providers/useCopilotKit";
-  import { getChatConfig } from "./chat-config-context.svelte";
   import type { CopilotChatToolCallRenderSlotProps } from "./types";
   import type { Snippet } from "svelte";
   import { IconCheckCircle, IconCircle, IconLoader2 } from "../icons";
@@ -19,7 +17,7 @@
     toolCall?: Snippet<[CopilotChatToolCallRenderSlotProps]>;
   } = $props();
 
-  const { copilotkit, executingToolCallIds } = useCopilotKit();
+  const { executingToolCallIds } = useCopilotKit();
 
   function findToolMessage(toolCallId: string): ToolMessage | undefined {
     return messages.find(

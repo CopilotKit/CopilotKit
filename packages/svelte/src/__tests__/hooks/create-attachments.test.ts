@@ -1,6 +1,6 @@
 import { render, waitFor } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";
-import type { Attachment, AttachmentsConfig } from "@copilotkit/shared";
+import type { AttachmentsConfig } from "@copilotkit/shared";
 import Harness from "./create-attachments-harness.svelte";
 
 describe("createAttachments", () => {
@@ -47,8 +47,6 @@ describe("createAttachments", () => {
       const parsed = JSON.parse(view.getByTestId("attachments").textContent!);
       expect(parsed.enabled).toBe(true);
     });
-
-    const file = new File(["hello"], "test.txt", { type: "text/plain" });
 
     const { createAttachments } =
       await import("../../hooks/create-attachments.svelte");

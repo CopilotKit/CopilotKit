@@ -40,7 +40,6 @@
     contentView,
     toggle,
     layout,
-    children,
   }: {
     message: ReasoningMessage;
     messages?: Message[];

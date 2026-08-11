@@ -37,8 +37,8 @@ export function createAttachments(
 ): CreateAttachmentsReturn {
   let attachments = $state<Attachment[]>([]);
   let dragOver = $state(false);
-  let fileInputRef: HTMLInputElement | null = $state(null)!;
-  let containerRef: HTMLElement | null = $state(null)!;
+  const fileInputRef: HTMLInputElement | null = $state(null)!;
+  const containerRef: HTMLElement | null = $state(null)!;
   let attachmentsRef: Attachment[] = [];
 
   const enabled = $derived(props.config?.enabled ?? false);

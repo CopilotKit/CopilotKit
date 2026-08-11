@@ -2,7 +2,6 @@
   import type { UserMessage } from "@ag-ui/core";
   import type { Snippet } from "svelte";
   import { IconCheck, IconCopy, IconEdit, IconChevronLeft, IconChevronRight } from "../icons";
-  import { ChatConfig, getChatConfig } from "./chat-config-context.svelte";
 
   interface MessageRendererProps {
     message: UserMessage;
@@ -69,7 +68,6 @@
     editButton,
     branchNavigation,
     toolbarItems,
-    children,
   }: {
     message: UserMessage;
     branchIndex?: number;
@@ -83,8 +81,6 @@
     toolbarItems?: Snippet<[]>;
     children?: Snippet<[]>;
   } = $props();
-
-  const config = getChatConfig();
 
   let copied = $state(false);
   let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;

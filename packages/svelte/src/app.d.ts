@@ -1,4 +1,4 @@
-/// <reference types="svelte" />
+import "svelte";
 
 declare module "*.svelte" {
   import type { Component } from "svelte";

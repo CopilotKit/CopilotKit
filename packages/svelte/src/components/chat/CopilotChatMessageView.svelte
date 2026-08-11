@@ -18,8 +18,8 @@
 
   $effect(() => {
     if (autoScrollMode !== "pin-to-bottom" || !container) return;
-    messages;
-    isRunning;
+    void messages;
+    void isRunning;
     queueMicrotask(() => {
       container!.scrollTop = container!.scrollHeight;
     });

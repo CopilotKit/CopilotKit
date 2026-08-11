@@ -8,6 +8,7 @@ import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { COPILOT_KIT_KEY } from "../providers/context";
 import type { CopilotKitContextValue } from "../providers/context";
 import { getContext } from "svelte";
+import { SvelteMap } from "svelte/reactivity";
 
 export enum CreateAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -30,7 +31,7 @@ export interface CreateAgentProps {
 
 export const globalThreadCloneMap = new WeakMap<
   AbstractAgent,
-  Map<string, AbstractAgent>
+  SvelteMap<string, AbstractAgent>
 >();
 
 const MAX_CLONES_PER_AGENT = 50;
@@ -71,7 +72,7 @@ function getOrCreateThreadClone(
 ): AbstractAgent {
   let byThread = globalThreadCloneMap.get(source);
   if (!byThread) {
-    byThread = new Map();
+    byThread = new SvelteMap();
     globalThreadCloneMap.set(source, byThread);
   }
   const existing = byThread.get(threadId);
@@ -97,19 +98,22 @@ export function createAgent(props: CreateAgentProps = {}) {
     throw new Error("createAgent must be used within CopilotKitProvider");
   }
 
-  let agentId = $derived(props.agentId ?? DEFAULT_AGENT_ID);
-  let threadId = $derived(props.threadId);
-  let updateFlags = $derived(props.updates ?? ALL_UPDATES);
-  let hookThrottleMs = $derived(props.throttleMs);
+  const agentId = $derived(props.agentId ?? DEFAULT_AGENT_ID);
+  const threadId = $derived(props.threadId);
+  const updateFlags = $derived(props.updates ?? ALL_UPDATES);
+  const hookThrottleMs = $derived(props.throttleMs);
 
   let agent = $state<AbstractAgent | null>(null);
   let agentRevision = $state(0);
   let messages = $state<Message[]>([]);
   let isRunning = $state(false);
   let subscriptionAgent = $state<AbstractAgent | null>(null);
-  let provisionalAgentCache = new Map<string, ProxiedCopilotRuntimeAgent>();
+  const provisionalAgentCache = new SvelteMap<
+    string,
+    ProxiedCopilotRuntimeAgent
+  >();
 
-  let resolveAgent = () => {
+  const resolveAgent = () => {
     const id = agentId;
     const resolvedThreadId = threadId;
     const cacheKey = resolvedThreadId ? `${id}:${resolvedThreadId}` : id;
@@ -180,19 +184,17 @@ export function createAgent(props: CreateAgentProps = {}) {
   };
 
   $effect(() => {
-    let _ = [
-      agentId,
-      context.copilotkit.agents,
-      context.copilotkit.runtimeConnectionStatus,
-      context.copilotkit.runtimeUrl,
-      context.copilotkit.runtimeTransport,
-      JSON.stringify(
-        Object.entries(context.copilotkit.headers ?? {}).sort(([a], [b]) =>
-          a.localeCompare(b),
-        ),
+    void agentId;
+    void context.copilotkit.agents;
+    void context.copilotkit.runtimeConnectionStatus;
+    void context.copilotkit.runtimeUrl;
+    void context.copilotkit.runtimeTransport;
+    void JSON.stringify(
+      Object.entries(context.copilotkit.headers ?? {}).sort(([a], [b]) =>
+        a.localeCompare(b),
       ),
-      threadId,
-    ];
+    );
+    void threadId;
     resolveAgent();
   });
 

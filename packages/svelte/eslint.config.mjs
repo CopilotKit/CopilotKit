@@ -20,6 +20,13 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: ["coverage/**", "dist/**", "node_modules/**"],
+  },
+  {
+    files: ["src/__tests__/**/*.{ts,svelte}"],
+    rules: {
+      // Test doubles intentionally cross broad framework boundaries.
+      "@typescript-eslint/no-explicit-any": "off",
+    },
   },
 );

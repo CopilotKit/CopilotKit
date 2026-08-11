@@ -23,7 +23,7 @@ export interface CopilotKitProviderProps {
   useSingleEndpoint?: boolean;
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   selfManagedAgents?: Record<string, AbstractAgent>;
-  renderToolCalls?: SvelteToolCallRenderer<any>[];
+  renderToolCalls?: SvelteToolCallRenderer<unknown>[];
   renderActivityMessages?: SvelteActivityMessageRenderer<unknown>[];
   renderCustomMessages?: SvelteCustomMessageRenderer[];
   frontendTools?: SvelteFrontendTool[];
@@ -36,11 +36,11 @@ export interface CopilotKitProviderProps {
   onError?: (event: {
     error: Error;
     code: CopilotKitCoreErrorCode;
-    context: Record<string, any>;
+    context: Record<string, unknown>;
   }) => void | Promise<void>;
   a2ui?: {
     theme?: A2UITheme;
-    catalog?: any;
+    catalog?: unknown;
     includeSchema?: boolean;
   };
   inspectorDefaultAnchor?: {

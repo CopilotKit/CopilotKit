@@ -13,6 +13,8 @@ import type {
 } from "../types";
 import type { InterruptRenderProps } from "../types/interrupt";
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- CopilotKitCore's public tool API uses FrontendTool<any>; this subclass must preserve its generic variance. */
+
 export interface CopilotKitCoreSvelteConfig extends CopilotKitCoreConfig {
   renderToolCalls?: SvelteToolCallRenderer<unknown>[];
   renderActivityMessages?: SvelteActivityMessageRenderer<unknown>[];

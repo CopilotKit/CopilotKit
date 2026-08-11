@@ -28,7 +28,7 @@ export type SvelteHumanInTheLoopRenderProps<T> =
 
 export type SvelteHumanInTheLoopRenderFn<T> = (
   props: SvelteHumanInTheLoopRenderProps<T>,
-) => any;
+) => unknown;
 
 export type SvelteHumanInTheLoop<
   T extends Record<string, unknown> = Record<string, unknown>,

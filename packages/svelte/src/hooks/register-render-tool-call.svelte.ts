@@ -8,7 +8,7 @@ import type {
   SvelteToolCallRendererRenderProps,
 } from "../types";
 
-export type RenderToolInProgressProps<S extends StandardSchemaV1> = {
+export type RenderToolInProgressProps = {
   name: string;
   toolCallId: string;
   parameters: Partial<Record<string, unknown>>;
@@ -16,7 +16,7 @@ export type RenderToolInProgressProps<S extends StandardSchemaV1> = {
   result: undefined;
 };
 
-export type RenderToolExecutingProps<S extends StandardSchemaV1> = {
+export type RenderToolExecutingProps = {
   name: string;
   toolCallId: string;
   parameters: Record<string, unknown>;
@@ -24,7 +24,7 @@ export type RenderToolExecutingProps<S extends StandardSchemaV1> = {
   result: undefined;
 };
 
-export type RenderToolCompleteProps<S extends StandardSchemaV1> = {
+export type RenderToolCompleteProps = {
   name: string;
   toolCallId: string;
   parameters: Record<string, unknown>;
@@ -32,15 +32,15 @@ export type RenderToolCompleteProps<S extends StandardSchemaV1> = {
   result: string;
 };
 
-export type RenderToolProps<S extends StandardSchemaV1> =
-  | RenderToolInProgressProps<S>
-  | RenderToolExecutingProps<S>
-  | RenderToolCompleteProps<S>;
+export type RenderToolProps =
+  | RenderToolInProgressProps
+  | RenderToolExecutingProps
+  | RenderToolCompleteProps;
 
 export function registerRenderToolCall(config: {
   name: string;
-  parameters?: StandardSchemaV1<any, any>;
-  render: (props: RenderToolProps<StandardSchemaV1<any, any>>) => any;
+  parameters?: StandardSchemaV1<unknown, unknown>;
+  render: (props: RenderToolProps) => unknown;
   agentId?: string;
 }): void {
   const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
@@ -58,12 +58,12 @@ export function registerRenderToolCall(config: {
 
     const renderer: SvelteToolCallRenderer<unknown> = {
       name: config.name,
-      args: schema as StandardSchemaV1<any, unknown>,
+      args: schema as StandardSchemaV1<unknown, unknown>,
       render: (props: SvelteToolCallRendererRenderProps<unknown>) =>
         config.render({
           ...props,
           parameters: props.args as Record<string, unknown>,
-        } as RenderToolProps<StandardSchemaV1<any, any>>),
+        } as RenderToolProps),
       ...(config.agentId ? { agentId: config.agentId } : {}),
     };
 

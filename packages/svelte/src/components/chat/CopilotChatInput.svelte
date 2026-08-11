@@ -4,8 +4,6 @@
   let {
     value: initialValue = "",
     isRunning = false,
-    inputMode = "input" as CopilotChatInputMode,
-    toolsMenu = [] as (ToolsMenuItem | "-")[],
     onSubmit,
     onStop,
     onInputChange,
@@ -21,13 +19,7 @@
     placeholder?: string;
   } = $props();
 
-  // svelte-ignore state_referenced_locally
-  let localValue = $state(initialValue);
-  let isFocused = $state(false);
-
-  $effect(() => {
-    localValue = initialValue;
-  });
+  let localValue = $derived(initialValue);
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -54,8 +46,6 @@
       value={localValue}
       oninput={(e) => { localValue = (e.target as HTMLTextAreaElement).value; handleInput(); }}
       onkeydown={handleKeydown}
-      onfocus={() => isFocused = true}
-      onblur={() => isFocused = false}
       placeholder={placeholder}
       rows="1"
       disabled={isRunning}

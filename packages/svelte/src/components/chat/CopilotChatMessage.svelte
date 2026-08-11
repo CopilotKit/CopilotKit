@@ -26,9 +26,6 @@
     return msg.role === "reasoning";
   }
 
-  function isTool(msg: Message): boolean {
-    return msg.role === "tool";
-  }
 </script>
 
 {#if isReasoning(message)}

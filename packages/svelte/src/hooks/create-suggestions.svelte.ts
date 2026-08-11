@@ -23,7 +23,7 @@ export function createSuggestions(
     throw new Error("createSuggestions must be used within CopilotKitProvider");
   }
 
-  let resolvedAgentId = $derived(
+  const resolvedAgentId = $derived(
     (typeof options.agentId === "function"
       ? options.agentId()
       : options.agentId) ?? DEFAULT_AGENT_ID,
