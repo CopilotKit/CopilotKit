@@ -102,6 +102,29 @@ export const SLACK_OBJECT_MANIFEST = [
   readonly [component: string, type: string, childrenSlot?: string]
 >;
 
+/**
+ * Composition objects that carry **no** `type` discriminator in Slack's schema.
+ * Text and rich-text nodes are tagged (`plain_text`, `mrkdwn`, `text`,
+ * `rich_text_section`, …); the rest are plain structures — an option is
+ * `{text, value}`, a confirm dialog is `{title, text, confirm, deny}`. Emitting
+ * a `type` on those is an unknown field and Slack refuses the entire message,
+ * which took out every select, checkbox, radio group and overflow menu authored
+ * through this catalog.
+ *
+ * The manifest still needs the type string as its lookup key, so the exclusion
+ * is recorded here rather than by leaving the entry untyped.
+ */
+export const SLACK_UNTYPED_OBJECTS: ReadonlySet<string> = new Set([
+  "confirm",
+  "conversation_filter",
+  "dispatch_action_config",
+  "option",
+  "option_group",
+  "slack_file",
+  "trigger",
+  "workflow",
+]);
+
 function entries(
   rows: ReadonlyArray<readonly [string, string, string?]>,
   kind: NativeNodeKind,

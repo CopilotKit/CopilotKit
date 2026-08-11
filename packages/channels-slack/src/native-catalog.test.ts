@@ -6,6 +6,7 @@ import {
   SLACK_ELEMENT_MANIFEST,
   SLACK_NATIVE_MANIFEST,
   SLACK_OBJECT_MANIFEST,
+  SLACK_UNTYPED_OBJECTS,
 } from "./native-manifest.js";
 import { Slack } from "./native.js";
 
@@ -30,7 +31,16 @@ test("every Slack catalog entry serializes its fixed discriminator", () => {
       entry.type,
       requiredProps(entry.type),
     );
-    expect(serializeSlackNativeNode(node).type).toBe(entry.type);
+    const serialized = serializeSlackNativeNode(node);
+
+    // Composition objects Slack defines as plain structures must not carry a
+    // discriminator: an option is `{text, value}`, and a stray `type` on it is
+    // an unknown field that makes Slack refuse the whole message.
+    if (entry.kind === "object" && SLACK_UNTYPED_OBJECTS.has(entry.type)) {
+      expect(serialized).not.toHaveProperty("type");
+    } else {
+      expect(serialized.type).toBe(entry.type);
+    }
     expect(entry.source).toMatch(/^https:\/\/docs\.slack\.dev\//);
   }
 });

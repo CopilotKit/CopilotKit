@@ -1,7 +1,10 @@
 import { isNativeNode } from "@copilotkit/channels-ui";
 import type { ChannelNode, NativeChannelNode } from "@copilotkit/channels-ui";
 import { validateSlackDataVisualization } from "./data-visualization.js";
-import { SLACK_NATIVE_MANIFEST } from "./native-manifest.js";
+import {
+  SLACK_NATIVE_MANIFEST,
+  SLACK_UNTYPED_OBJECTS,
+} from "./native-manifest.js";
 
 const manifest = new Map(
   SLACK_NATIVE_MANIFEST.map((entry) => [`${entry.kind}:${entry.type}`, entry]),
@@ -43,7 +46,12 @@ export function serializeSlackNativeNode(
     );
   }
 
-  const output: Record<string, unknown> = { type: entry.type };
+  // Untyped composition objects are plain structures; tagging them with a
+  // `type` makes Slack reject the message that contains them.
+  const output: Record<string, unknown> =
+    entry.kind === "object" && SLACK_UNTYPED_OBJECTS.has(entry.type)
+      ? {}
+      : { type: entry.type };
   for (const [name, value] of Object.entries(node.props)) {
     if (
       name === "provider" ||
