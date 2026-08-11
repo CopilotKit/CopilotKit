@@ -519,8 +519,12 @@ export interface ServiceEntry {
    * These values match CURRENT LIVE REALITY as of 2026-06-26, VERIFIED via the
    * Railway GraphQL `environment.config` staged-config read (both envs carry
    * `deploy.multiRegionConfig = {"us-west2":{"numReplicas":6}}`):
-   *   prod:    effectiveReplicas=6, numReplicas(mirror)=6, BROWSER_POOL_MAX_CONTEXTS=40
-   *   staging: effectiveReplicas=6, numReplicas(mirror)=6, BROWSER_POOL_MAX_CONTEXTS=40
+   *   prod:    effectiveReplicas=6, numReplicas(mirror)=6, BROWSER_POOL_MAX_CONTEXTS=24
+   *   staging: effectiveReplicas=6, numReplicas(mirror)=6, BROWSER_POOL_MAX_CONTEXTS=24
+   *
+   * NOTE: BROWSER_POOL_MAX_CONTEXTS was right-sized 40 → 24 to match the runtime
+   * code default (browser-pool.ts). This is a SOURCE/SSOT change; the runtime
+   * value in Railway is rolled out by a SEPARATE gated deploy.
    *
    * EFFECTIVE FIELD: `effectiveReplicas` models `multiRegionConfig.us-west2.
    * numReplicas` — the field Railway actually honors for this single-region
@@ -811,7 +815,13 @@ export const SERVICES: Record<
         effectiveReplicas: 6,
         // Top-level mirror (equal, single-region).
         numReplicas: 6,
-        BROWSER_POOL_MAX_CONTEXTS: 40,
+        // Right-sized to the code default (browser-pool.ts) of 24, LOWERED from
+        // 40. The SSOT previously over-provisioned at 40 while the runtime code
+        // default fell to 24, so the intended fleet-wide budget (6×40=240) was
+        // ~66% higher than the runtime honors (6×24=144). Aligning the SSOT to
+        // the code default removes that drift. Runtime rollout of this value is
+        // a SEPARATE gated deploy (no variableUpsert here).
+        BROWSER_POOL_MAX_CONTEXTS: 24,
         // INFORMATIONAL ONLY — not a fork factor.
         HARNESS_POOL_COUNT: 3,
         // DEPLOY ROLLOVER (layer c) — pure Railway config, no rolling-restart code.
@@ -827,7 +837,10 @@ export const SERVICES: Record<
         effectiveReplicas: 6,
         // Top-level mirror (equal, single-region).
         numReplicas: 6,
-        BROWSER_POOL_MAX_CONTEXTS: 40,
+        // Right-sized to the code default (browser-pool.ts) of 24, LOWERED from
+        // 40 — see the prod entry above for the drift rationale. Runtime rollout
+        // is a SEPARATE gated deploy (no variableUpsert here).
+        BROWSER_POOL_MAX_CONTEXTS: 24,
         // INFORMATIONAL ONLY — not a fork factor. Live staging value is 2
         // (verified via the variables read); it does not gate the worker count.
         HARNESS_POOL_COUNT: 2,

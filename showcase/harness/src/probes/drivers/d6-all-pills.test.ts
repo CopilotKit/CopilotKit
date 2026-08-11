@@ -6,10 +6,13 @@ import {
   DEPLOY_CHURN_GRACE_MS,
   e2eFullDriver,
   FEATURE_CONCURRENCY_D6,
+  MAX_BROWSER_RELAUNCHES_D6,
   openGuardedContext,
+  openSelfHealingContext,
   parseFailureClassifier,
   Semaphore,
 } from "./d6-all-pills.js";
+import type { SelfHealDeps } from "./d6-all-pills.js";
 import { CVDIAG_FAILURE_CLASSIFIERS } from "../../cvdiag/index.js";
 import type { GuardableBrowser } from "./d6-all-pills.js";
 import type {
@@ -924,6 +927,277 @@ describe("e2e-full driver", () => {
       );
 
       // And no per-feature side row leaked the raw string either.
+      for (const emit of sideEmits) {
+        const desc = emit.signal?.errorDesc ?? "";
+        expect(desc).not.toContain(
+          "Target page, context or browser has been closed",
+        );
+      }
+    });
+  });
+
+  // --------------------------------------------------------------------
+  // SELF-HEAL: openGuardedContext (above) makes a shared-browser crash
+  // CLASSIFIABLE but does NOT recover — once the single shared Chromium
+  // crashes mid-fanout, every remaining feature open hits a dead browser
+  // and the whole run cascades red/abort (claude-sdk-python collapses
+  // 0/40). openSelfHealingContext RELAUNCHES the shared browser (bounded)
+  // and retries the open, so one crash no longer wipes the run.
+  // --------------------------------------------------------------------
+  describe("openSelfHealingContext (shared-browser crash recovery)", () => {
+    // A relaunchable fake: `live[i]` toggles the i-th browser's connectivity.
+    // newContext throws the raw "has been closed" once its browser is dead.
+    function makeRelaunchable(opts: {
+      // How many contexts the CURRENT browser opens before it "crashes".
+      opensBeforeCrash: number;
+    }) {
+      let generation = 0;
+      let opensOnCurrent = 0;
+      let connected = true;
+      const relaunchLog: number[] = [];
+      const build = (): GuardableBrowser => ({
+        isConnected: () => connected,
+        newContext: async () => {
+          if (!connected) {
+            throw new Error(
+              "browser.newContext: Target page, context or browser has been closed",
+            );
+          }
+          opensOnCurrent += 1;
+          if (opensOnCurrent >= opts.opensBeforeCrash) {
+            // This open is the last before the crash: succeed, then die.
+            connected = false;
+          }
+          return { id: `ctx-gen${generation}-open${opensOnCurrent}` };
+        },
+      });
+      let current = build();
+      return {
+        deps(warnLogger?: {
+          warn(e: string, m?: Record<string, unknown>): void;
+        }): SelfHealDeps<GuardableBrowser> {
+          return {
+            get: () => current,
+            set: (b) => {
+              current = b;
+            },
+            relaunch: async () => {
+              generation += 1;
+              opensOnCurrent = 0;
+              connected = true;
+              relaunchLog.push(generation);
+              current = build();
+              return current;
+            },
+            maxRelaunches: MAX_BROWSER_RELAUNCHES_D6,
+            counter: { relaunches: 0 },
+            logger: warnLogger,
+          };
+        },
+        relaunchLog,
+      };
+    }
+
+    it("relaunches the shared browser and retries the open after a crash", async () => {
+      const warns: string[] = [];
+      const rel = makeRelaunchable({ opensBeforeCrash: 1 });
+      const deps = rel.deps({ warn: (e) => warns.push(e) });
+
+      // First open succeeds (and crashes the browser). Second open would hit a
+      // dead browser under the plain guard; self-heal relaunches + retries.
+      const ctx1 = await openSelfHealingContext<
+        { id: string },
+        GuardableBrowser
+      >(deps);
+      expect(ctx1.id).toContain("gen0");
+      const ctx2 = await openSelfHealingContext<
+        { id: string },
+        GuardableBrowser
+      >(deps);
+      // The second context comes from a RELAUNCHED browser (gen1), proving the
+      // shared ref was swapped and the open retried — no cascade.
+      expect(ctx2.id).toContain("gen1");
+      expect(rel.relaunchLog).toEqual([1]);
+      expect(warns).toContain("probe.e2e-full.browser-relaunch");
+    });
+
+    it("bounds relaunches: a browser that will not stay up degrades to a clean BrowserDisconnectedError", async () => {
+      const warns: string[] = [];
+      // Every launched browser is born already-dead: its start-check refuses to
+      // open (BrowserDisconnectedError), so every attempt triggers a relaunch,
+      // exhausting the bounded budget. `gen` counts relaunches.
+      let gen = 0;
+      const deadBrowser: GuardableBrowser = {
+        isConnected: () => false,
+        newContext: async () => ({}),
+      };
+      const deps: SelfHealDeps<GuardableBrowser> = {
+        get: () => deadBrowser,
+        set: () => {},
+        relaunch: async () => {
+          gen += 1;
+          return deadBrowser;
+        },
+        maxRelaunches: MAX_BROWSER_RELAUNCHES_D6,
+        counter: { relaunches: 0 },
+        logger: { warn: (e) => warns.push(e) },
+      };
+      await expect(openSelfHealingContext(deps)).rejects.toBeInstanceOf(
+        BrowserDisconnectedError,
+      );
+      // Exactly the bounded number of relaunch attempts were made.
+      expect(gen).toBe(MAX_BROWSER_RELAUNCHES_D6);
+      expect(warns).toContain("probe.e2e-full.browser-relaunch-exhausted");
+    });
+
+    it("does NOT relaunch on a transient open error while the browser stays live (no cascade masking)", async () => {
+      let relaunched = false;
+      const deps: SelfHealDeps<never> = {
+        get: () =>
+          ({
+            isConnected: () => true,
+            newContext: async () => {
+              throw new Error("transient open hiccup");
+            },
+          }) as unknown as never,
+        set: () => {},
+        relaunch: async () => {
+          relaunched = true;
+          return undefined as unknown as never;
+        },
+        maxRelaunches: MAX_BROWSER_RELAUNCHES_D6,
+        counter: { relaunches: 0 },
+      };
+      await expect(openSelfHealingContext(deps)).rejects.toThrow(
+        "transient open hiccup",
+      );
+      // A live-browser open error is that feature's own failure — never a
+      // relaunch. The clean error taxonomy for genuine failures is preserved.
+      expect(relaunched).toBe(false);
+    });
+  });
+
+  // --------------------------------------------------------------------
+  // The DRIVER-LEVEL cascade proof. Runs the real multi-feature loop
+  // (createE2eFullDriver) with a launcher that routes every open through the
+  // REAL openSelfHealingContext over a relaunchable raw-browser fake that
+  // crashes after its first context open. This is the same repro surface the
+  // pre-fix integration test above exercises — the ONLY difference is the open
+  // path (openGuardedContext → cascade-red vs openSelfHealingContext →
+  // recover). RED (pre-fix, plain guard): the second feature + aggregate go red
+  // with "shared browser disconnected". GREEN (self-heal): the launcher
+  // relaunches a fresh browser and both features complete.
+  // --------------------------------------------------------------------
+  describe("shared-browser crash self-heal (driver integration)", () => {
+    // A relaunchable raw-browser fake: each browser crashes after
+    // `opensBeforeCrash` context opens; relaunch yields a fresh live browser
+    // that returns already-wrapped E2eFull pages (mirrors the pre-fix
+    // integration test's launcher shape). `launchCount` counts initial +
+    // relaunches so we can assert a relaunch actually happened.
+    function makeRelaunchableRawBrowser(opts: { opensBeforeCrash: number }) {
+      type RawCtx = {
+        newPage: () => Promise<E2eFullPage>;
+        close: () => Promise<void>;
+      };
+      type RawBrowser = GuardableBrowser & { close(): Promise<void> };
+      let launchCount = 0;
+      const build = (): RawBrowser => {
+        let connected = true;
+        let opens = 0;
+        return {
+          isConnected: () => connected,
+          newContext: async (): Promise<RawCtx> => {
+            if (!connected) {
+              throw new Error(
+                "browser.newContext: Target page, context or browser has been closed",
+              );
+            }
+            opens += 1;
+            if (opens >= opts.opensBeforeCrash) connected = false;
+            return {
+              newPage: async () => makePage(),
+              close: async () => {},
+            };
+          },
+          close: async () => {},
+        };
+      };
+      let current = build();
+      launchCount = 1;
+      const counter = { relaunches: 0 };
+      const warns: string[] = [];
+      // A launcher whose newContext routes through the REAL self-heal helper.
+      const launcher = async (): Promise<E2eFullBrowser> => ({
+        async newContext(contextOpts?: {
+          extraHTTPHeaders?: Record<string, string>;
+        }): Promise<E2eFullBrowserContext> {
+          const ctx = await openSelfHealingContext<RawCtx, RawBrowser>(
+            {
+              get: () => current,
+              set: (b) => {
+                current = b;
+              },
+              relaunch: async () => {
+                launchCount += 1;
+                current = build();
+                return current;
+              },
+              maxRelaunches: MAX_BROWSER_RELAUNCHES_D6,
+              counter,
+              logger: { warn: (e) => warns.push(e) },
+            },
+            contextOpts,
+          );
+          return ctx as unknown as E2eFullBrowserContext;
+        },
+        close: () => current.close(),
+      });
+      return {
+        launcher,
+        warns,
+        get launchCount() {
+          return launchCount;
+        },
+      };
+    }
+
+    it("recovers remaining features after the shared browser crashes mid-fanout (cascade stopped)", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+      registerD5Script(makeScript(["tool-rendering"]));
+
+      const sideEmits: ProbeResult<E2eFullFeatureSignal>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r as ProbeResult<E2eFullFeatureSignal>);
+        },
+      };
+
+      // Crash after the first context open — exactly the byoc burst scenario.
+      const fake = makeRelaunchableRawBrowser({ opensBeforeCrash: 1 });
+
+      const driver = createE2eFullDriver({
+        launcher: fake.launcher,
+        scriptLoader: noopScriptLoader(),
+      });
+
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "e2e_d6:byoc",
+        backendUrl: "https://byoc.example.com",
+        features: ["agentic-chat", "tool-rendering"],
+      });
+
+      // GREEN: with self-heal, the crash is recovered and BOTH features pass —
+      // no cascade. (Pre-fix, the second feature and the aggregate went red
+      // with "shared browser disconnected".)
+      const signal = result.signal as E2eFullAggregateSignal;
+      expect(result.state).toBe("green");
+      expect(signal.passed).toBe(2);
+      expect(signal.failed).toEqual([]);
+      // The browser was relaunched at least once (initial launch + relaunch).
+      expect(fake.launchCount).toBeGreaterThanOrEqual(2);
+      expect(fake.warns).toContain("probe.e2e-full.browser-relaunch");
+
+      // No side row leaked the raw Playwright string.
       for (const emit of sideEmits) {
         const desc = emit.signal?.errorDesc ?? "";
         expect(desc).not.toContain(
