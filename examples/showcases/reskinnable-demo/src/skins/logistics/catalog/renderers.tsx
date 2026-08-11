@@ -139,8 +139,17 @@ const ExceptionTable = ({
 }: RendererProps<{ status?: "all" | "at_risk" | "delayed" | "on_track" }>) => {
   const { shipments, lanes } = useBriefData();
   const status = props.status ?? "all";
+  // The EXCEPTION table, on all three surfaces that draw this board: the Control
+  // Tower page, the `showExceptions` chat card, and this canvas brief. Clean
+  // shipments are not queue work and are off all three. This one lagged — it
+  // listed every shipment while the other two filtered, so a brief on the canvas
+  // could show rows the page beside it denied existed, and the agent prompt
+  // asserts "the board holds only shipments carrying an exception".
+  const onException = shipments.filter((s) => s.exception);
   const rows =
-    status === "all" ? shipments : shipments.filter((s) => s.status === status);
+    status === "all"
+      ? onException
+      : onException.filter((s) => s.status === status);
   // The board renders what it is handed, in the order it is handed — order here
   // rather than relying on it to sort. See `orderExceptionRows`' header.
   return <ExceptionBoard shipments={orderExceptionRows(rows)} lanes={lanes} />;

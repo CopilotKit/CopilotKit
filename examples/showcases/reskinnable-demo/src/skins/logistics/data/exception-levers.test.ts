@@ -74,7 +74,25 @@ describe("normalizeLevers", () => {
     expect(leverQuery(levers)).toBe("");
   });
 
-  it("advertises the sentinel alongside every value the page can honour", () => {
+  it("keeps the sentinel OUT of every page vocabulary", () => {
+    // THE property the sentinel design rests on. `"all"` is dropped by the very
+    // same `normalizeLevers` branch that drops `sort=by_vibes` — no downstream
+    // code branches on it — and that holds only while it is not a value the page
+    // has a control for. The day someone adds a real filter literally named
+    // "all", every lever silently becomes unsettable.
+    const vocabularies = {
+      EXCEPTION_FILTERS,
+      STATUS_FILTERS,
+      EXCEPTION_SORTS,
+    } as Record<string, readonly string[]>;
+    for (const [name, values] of Object.entries(vocabularies)) {
+      expect(
+        values,
+        `${name} must not contain the ANY_LEVER sentinel`,
+      ).not.toContain(ANY_LEVER);
+    }
+    // …and the tool advertises the sentinel FIRST, ahead of every honourable
+    // value, so a model scanning the enum sees the "leave it alone" option.
     expect(EXCEPTION_ARGUMENTS).toEqual([ANY_LEVER, ...EXCEPTION_FILTERS]);
     expect(STATUS_ARGUMENTS).toEqual([ANY_LEVER, ...STATUS_FILTERS]);
     expect(SORT_ARGUMENTS).toEqual([ANY_LEVER, ...EXCEPTION_SORTS]);

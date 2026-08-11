@@ -213,18 +213,18 @@ export function LogisticsTools() {
       description:
         "Take the planner to the Control Tower with an exception class, a status filter, a sort order and a " +
         "top-N limit applied. Confirm with them first — the card lists the levers before anything moves. Use " +
-        "this for any 'show me the worst / costliest / most delayed exceptions' request. Set EVERY lever the " +
-        "request implies and OMIT the ones it does not — every lever here is OPTIONAL, an omitted one is left " +
-        "alone rather than defaulted, and filling a lever merely because the schema offers it narrows the " +
-        "board for no reason and claims a choice the planner never made. The board holds only shipments carrying " +
-        "an exception, so a status filter narrows within that queue, and each exception class holds only a " +
-        "handful of shipments on this network — setting `exception` narrows it hard. Whatever you set, say " +
-        "afterwards how many rows the board is showing out of how many match.",
+        "this for any 'show me the worst / costliest / most delayed exceptions' request. EVERY lever is " +
+        "REQUIRED: set the ones the request implies, and pass 'all' (or 0 for the limit) for the ones it does " +
+        "not — that is how you say 'leave this lever alone', and it is the only way to say it. Never omit a " +
+        "lever, and never fill one merely because the schema offers it: a lever the planner did not ask for " +
+        "narrows the board for no reason and claims a choice they never made. The board holds only shipments " +
+        "carrying an exception, so a status filter narrows within that queue, and each exception class holds " +
+        "only a handful of shipments on this network — setting `exception` narrows it hard. Whatever you set, " +
+        "say afterwards how many rows the board is showing out of how many match.",
       // Every lever's advertised values come from the page's OWN control
       // vocabularies (`data/exception-levers`), so this tool cannot offer a
-      // value the Control Tower has no control for. `top` is `.int().positive()`
-      // because that is exactly what `parseTopLever` honours — a zero or
-      // fractional limit is not a limit.
+      // value the Control Tower has no control for.
+      //
       // REQUIRED, each carrying an explicit "not pulled" value, rather than
       // `.optional()`. See `ANY_LEVER` in `./data/exception-levers` for the
       // measurement behind that: an optional enum gets filled anyway, and the
