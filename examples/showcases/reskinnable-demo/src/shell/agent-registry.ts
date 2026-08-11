@@ -10,6 +10,8 @@ import { peopleAgent } from "@/skins/people/agent";
 import { peopleIdentifyUser } from "@/skins/people/intelligence/user-id";
 import { commerceAgent } from "@/skins/commerce/agent";
 import { commerceIdentifyUser } from "@/skins/commerce/intelligence/user-id";
+import { bookstoreAgent } from "@/skins/bookstore/agent";
+import { bookstoreIdentifyUser } from "@/skins/bookstore/intelligence/user-id";
 
 /**
  * Server-safe map of skin id → its server-side registration (agent factory +
@@ -88,6 +90,13 @@ export const agentRegistry: Record<string, AgentRegistration> = {
   // inputs land in which bucket; read its `memorySeedTargetUserIds` note (and
   // the pinned-`INTELLIGENCE_USER_ID` short-circuit) before changing this.
   commerce: { createAgent: commerceAgent, identifyUser: commerceIdentifyUser },
+  // Bookstore scopes Intelligence per shopper, so the same suggestion pill
+  // answers differently for Maya (who has a seeded taste preference) and Guest
+  // (who has none) — that contrast is the demo's headline claim.
+  bookstore: {
+    createAgent: bookstoreAgent,
+    identifyUser: bookstoreIdentifyUser,
+  },
 };
 
 export const agentIds = Object.keys(agentRegistry);
