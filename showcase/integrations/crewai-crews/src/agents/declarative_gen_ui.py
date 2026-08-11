@@ -1,21 +1,11 @@
-"""Dedicated crew for the Declarative Generative UI (A2UI Dynamic Schema) demo.
+"""CrewAI Flow for the Declarative Generative UI (A2UI Dynamic Schema) demo.
 
-Option A (JS-runtime-injected A2UI): the crew wires a no-arg `generate_a2ui`
-tool whose body raises loudly if called — the CopilotKit runtime middleware
-(`a2ui.injectA2UITool: true`, enabled by default in route.ts) intercepts the
-toolcall before it reaches Python and drives the secondary `render_a2ui` LLM
-pass itself.  The frontend renderer paints the emitted `a2ui_operations`.
-
-The backend crew is tuned via role/backstory to call `generate_a2ui` (no
-args) whenever a response would benefit from a rich visual, matching the
-pattern in the langgraph-python reference agent (`a2ui_dynamic.py`).
-
-CrewAI caveat: `ChatWithCrewFlow` wraps every chat turn in a CrewAI
-"platform" system prompt that encourages the LLM to introduce itself and
-ask for clarifying inputs before calling tools. We counter that via
-`preseed_system_prompt` which installs a stronger `crew_description` so the
-surrounding boilerplate still lands on a prompt that steers the LLM towards
-tool-calling for visual requests.
+The CopilotKit runtime injects the ``render_a2ui`` frontend tool.
+This dedicated Flow forces that exact tool for every dashboard turn, so the
+runtime can intercept it and drive the secondary ``render_a2ui`` LLM pass.
+Using a raw Flow avoids ``ChatWithCrewFlow`` adding the crew itself as another
+tool, which allowed live models to run the crew and return plain text instead
+of mounting the requested surface.
 
 Reference:
   langgraph-python/src/agents/a2ui_dynamic.py
@@ -23,48 +13,19 @@ Reference:
 
 from __future__ import annotations
 
-from crewai import Agent, Crew, Process, Task
-from crewai.tools import BaseTool
-from pydantic import BaseModel
+from typing import Any
 
-from agents._chat_flow_helpers import preseed_system_prompt
+from crewai.flow.flow import Flow, start
+from litellm import acompletion
+from pydantic import ConfigDict, Field
 
-
-class _NoArgInput(BaseModel):
-    """Empty input schema — generate_a2ui takes no arguments."""
-
-
-class _GenerateA2uiNoArgTool(BaseTool):
-    """No-arg generate_a2ui tool for the injected A2UI pattern.
-
-    The CopilotKit runtime middleware (`a2ui.injectA2UITool: true`) intercepts
-    this toolcall before it reaches the Python body and drives the secondary
-    `render_a2ui` LLM pass itself.  If this body actually runs, the middleware
-    is misconfigured — fail loud per fail-loud-discipline rather than silently
-    returning an empty surface.
-    """
-
-    name: str = "generate_a2ui"
-    description: str = (
-        "Generate a dynamic A2UI dashboard surface from the current conversation. "
-        "Takes no arguments. The CopilotKit runtime middleware intercepts this call "
-        "and drives the secondary render_a2ui pass automatically."
-    )
-    args_schema: type[BaseModel] = _NoArgInput
-
-    def _run(self) -> str:  # type: ignore[override]
-        raise RuntimeError(
-            "generate_a2ui called directly — the CopilotKit a2ui middleware "
-            "should intercept this call before it reaches the agent. "
-            "Check the route configuration at "
-            "app/api/copilotkit-declarative-gen-ui/route.ts."
-        )
+from ag_ui_crewai import CopilotKitState, copilotkit_stream
 
 
 DECLARATIVE_GEN_UI_BACKSTORY = (
     "You are the embedded sales analyst for Vantage Threads, the fictional "
     "B2B apparel company described in your App Context. Answer every "
-    "business question by calling `generate_a2ui` to draw a rich visual "
+    "business question by calling `render_a2ui` to draw a rich visual "
     "surface, and keep the chat reply to one short sentence. "
     "Ground every number in the sales dataset from App Context — never "
     "invent figures that contradict it. Follow the dashboard composition "
@@ -72,73 +33,79 @@ DECLARATIVE_GEN_UI_BACKSTORY = (
     "by the shape of the question (snapshot → composed KPI dashboard with "
     "charts; team performance → table; risk → status badges; single "
     "account → info rows; part-of-whole → pie; trend/comparison → bar). "
-    "Never ask the user which chart they want. `generate_a2ui` takes no "
-    "arguments and handles the rendering automatically. Compose "
+    "Never ask the user which chart they want. Supply `render_a2ui` with "
+    "the complete component tree needed for the answer. Compose "
     "generously — a dashboard should feel like a real analytics product, "
     "not a single widget."
 )
 
-CREW_NAME = "DeclarativeGenUI"
 
-# Pre-seed the ag_ui_crewai cache so ChatWithCrewFlow skips its secondary
-# description-generation LLM calls at construction time and embeds our
-# verbatim guidance into build_system_message.
-preseed_system_prompt(
-    CREW_NAME,
-    (
-        "Declarative Generative UI demo (Vantage Threads sales analyst). "
-        "Call generate_a2ui (no args) whenever a dashboard, chart, or card "
-        "layout would improve the answer. Keep chat replies to one short sentence."
-    ),
-)
+class DeclarativeGenUIState(CopilotKitState):
+    """Keep the context fields prepared by the AG-UI CrewAI endpoint."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    context: list[dict[str, Any]] = Field(default_factory=list)
+    ag_ui: dict[str, Any] = Field(default_factory=dict, alias="ag-ui")
 
 
-def _build_crew() -> Crew:
-    agent = Agent(
-        llm="gpt-5.4",
-        role="Declarative Generative UI Demo Assistant",
-        goal=(
-            "Answer the user by rendering branded A2UI components via the "
-            "generate_a2ui tool whenever a visual would help."
-        ),
-        backstory=DECLARATIVE_GEN_UI_BACKSTORY,
-        verbose=False,
-        tools=[_GenerateA2uiNoArgTool()],
-    )
+def _system_prompt(state: DeclarativeGenUIState) -> str:
+    context_sections = []
+    for entry in state.context:
+        description = str(entry.get("description") or "App Context")
+        value = entry.get("value")
+        if value is not None:
+            context_sections.append(f"{description}:\n{value}")
 
-    task = Task(
-        description=(
-            "Respond to the user. Call generate_a2ui when a chart, "
-            "dashboard, or card layout would improve the answer."
-        ),
-        expected_output=(
-            "A short one-sentence reply alongside any rendered A2UI surface."
-        ),
-        agent=agent,
-    )
+    a2ui_schema = state.ag_ui.get("a2ui_schema")
+    if a2ui_schema:
+        context_sections.append(
+            "A2UI catalog schema and tool usage guide:\n" + str(a2ui_schema)
+        )
 
-    return Crew(
-        name=CREW_NAME,
-        agents=[agent],
-        tasks=[task],
-        process=Process.sequential,
-        verbose=False,
-        chat_llm="gpt-5.4",
+    if not context_sections:
+        return DECLARATIVE_GEN_UI_BACKSTORY
+    return (
+        DECLARATIVE_GEN_UI_BACKSTORY
+        + "\n\nApp Context:\n"
+        + "\n\n".join(context_sections)
     )
 
 
-_cached_crew: Crew | None = None
+class DeclarativeGenUIFlow(Flow[DeclarativeGenUIState]):
+    """Force the runtime-owned A2UI tool and preserve its streamed tool call."""
+
+    @start()
+    async def chat(self) -> None:
+        actions = list(self.state.copilotkit.actions)
+        action_names = {
+            action.get("function", {}).get("name")
+            for action in actions
+            if isinstance(action, dict)
+        }
+        if "render_a2ui" not in action_names:
+            raise RuntimeError(
+                "CopilotKit did not inject the required render_a2ui tool. "
+                "Check a2ui.injectA2UITool on the declarative GenUI runtime."
+            )
+
+        response = await copilotkit_stream(
+            await acompletion(
+                model="openai/gpt-5.4",
+                messages=[
+                    {"role": "system", "content": _system_prompt(self.state)},
+                    *self.state.messages,
+                ],
+                tools=actions,
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "render_a2ui"},
+                },
+                parallel_tool_calls=False,
+                stream=True,
+            )
+        )
+        self.state.messages.append(response.choices[0].message)
 
 
-class DeclarativeGenUI:
-    """Adapter matching the `.crew()` + `.name` shape expected by
-    `add_crewai_crew_fastapi_endpoint`.
-    """
-
-    name: str = CREW_NAME
-
-    def crew(self) -> Crew:
-        global _cached_crew
-        if _cached_crew is None:
-            _cached_crew = _build_crew()
-        return _cached_crew
+declarative_gen_ui_flow = DeclarativeGenUIFlow()

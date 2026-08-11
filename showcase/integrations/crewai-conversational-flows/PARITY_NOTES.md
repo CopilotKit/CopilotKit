@@ -11,8 +11,8 @@ CrewAI's public Conversational Flows API.
 - Every served Flow declares `conversational = True` and exposes CrewAI's
   public `stream_turn(message, session_id=...)` method.
 - AG-UI `threadId` is used as the CrewAI conversation `session_id`.
-- The integration is pinned to `ag-ui-crewai==0.2.2a3` and
-  `crewai==1.15.11` for this showcase verification.
+- The integration is pinned to the official `ag-ui-crewai==0.3.0` release and
+  `crewai==1.15.11`.
 - All model-backed showcase paths use `gpt-5.4`.
 
 `src/agents/conversational_flows.py` adapts the regular Flow classes using the

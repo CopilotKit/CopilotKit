@@ -109,6 +109,82 @@ def test_live_model_prompts_preserve_probe_semantics():
 
 
 @pytest.mark.asyncio
+async def test_declarative_gen_ui_forces_the_runtime_injected_tool(monkeypatch):
+    from agents import declarative_gen_ui as module
+
+    flow = module.DeclarativeGenUIFlow()
+    flow.state.messages = [{"role": "user", "content": "Show me my sales dashboard."}]
+    flow.state.copilotkit.actions = [
+        {
+            "type": "function",
+            "function": {
+                "name": "render_a2ui",
+                "description": "Generate the dashboard surface.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+    flow.state.context = [
+        {
+            "description": "Sales dataset",
+            "value": "Quarterly revenue is $4.2M.",
+        }
+    ]
+    flow.state.ag_ui = {
+        "a2ui_schema": "Metric uses component, label, value, trend, and trendValue."
+    }
+    captured = {}
+
+    async def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    async def fake_stream(_value):
+        return _response(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_render_a2ui",
+                        "type": "function",
+                        "function": {"name": "render_a2ui", "arguments": "{}"},
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+
+    await flow.chat()
+
+    assert captured["model"] == "openai/gpt-5.4"
+    assert captured["tools"] == flow.state.copilotkit.actions
+    assert captured["tool_choice"] == {
+        "type": "function",
+        "function": {"name": "render_a2ui"},
+    }
+    assert captured["parallel_tool_calls"] is False
+    assert "Quarterly revenue is $4.2M." in captured["messages"][0]["content"]
+    assert "Metric uses component" in captured["messages"][0]["content"]
+    assert flow.state.messages[-1]["tool_calls"][0]["function"]["name"] == (
+        "render_a2ui"
+    )
+
+
+def test_declarative_page_registers_the_shared_sales_context():
+    demo_root = INTEGRATION_ROOT / "src/app/demos/declarative-gen-ui"
+    chat_source = (demo_root / "chat.tsx").read_text()
+    context_source = (demo_root / "sales-context.ts").read_text()
+
+    assert 'from "./sales-context"' in chat_source
+    assert "useSalesAnalystContext();" in chat_source
+    assert "Quarterly revenue: $4.2M" in context_source
+    assert "Dashboard composition rules for A2UI surfaces" in context_source
+
+
+@pytest.mark.asyncio
 async def test_reasoning_stream_persists_current_trace_for_authoritative_snapshot(
     monkeypatch,
 ):
@@ -464,6 +540,161 @@ async def test_tool_rendering_reasoning_combines_reasoning_and_tool_results(
 
 
 @pytest.mark.asyncio
+async def test_tool_rendering_reasoning_requires_the_second_stock_leg(monkeypatch):
+    from agents import tool_rendering_reasoning as module
+
+    flow = module.ToolRenderingReasoningFlow()
+    flow.state.messages = [
+        {"id": "snapshot-only", "role": "reasoning", "content": "Prior trace."},
+        {"role": "user", "content": "Compare AAPL and MSFT stocks for me."},
+    ]
+    responses = [
+        _response(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_aapl",
+                        "type": "function",
+                        "function": {
+                            "name": "get_stock_price",
+                            "arguments": '{"ticker":"AAPL"}',
+                        },
+                    }
+                ],
+            }
+        ),
+        _response(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_msft",
+                        "type": "function",
+                        "function": {
+                            "name": "get_stock_price",
+                            "arguments": '{"ticker":"MSFT"}',
+                        },
+                    }
+                ],
+            }
+        ),
+        _response({"role": "assistant", "content": "Compared both stocks."}),
+    ]
+    calls = []
+
+    async def fake_responses(**kwargs):
+        calls.append(kwargs)
+
+        class EmptyResponsesStream:
+            _process_chunk = object()
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise StopAsyncIteration
+
+        return EmptyResponsesStream()
+
+    async def fake_stream(_value):
+        return responses.pop(0)
+
+    async def fake_emit(*_args, **_kwargs):
+        return True
+
+    monkeypatch.setattr(module, "copilotkit_responses", fake_responses)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
+
+    await flow.chat()
+
+    assert not any(
+        message.get("role") == "reasoning" for message in calls[0]["messages"]
+    )
+    assert calls[1]["tool_choice"] == {
+        "type": "function",
+        "name": "get_stock_price",
+    }
+    stock_tool = next(
+        tool
+        for tool in calls[1]["tools"]
+        if tool["function"]["name"] == "get_stock_price"
+    )
+    assert stock_tool["function"]["strict"] is True
+    assert stock_tool["function"]["parameters"]["additionalProperties"] is False
+    assert stock_tool["function"]["parameters"]["properties"]["ticker"]["enum"] == [
+        "MSFT"
+    ]
+    # Keep the tool result last so Aimock's toolCallId matcher and Responses
+    # conversation semantics both see the prior call being continued.
+    assert calls[1]["messages"][-1]["tool_call_id"] == "call_aapl"
+    assert not any(
+        message.get("role") == "system"
+        and "Continue the requested comparison" in message.get("content", "")
+        for message in calls[1]["messages"]
+    )
+    assert calls[2]["tool_choice"] == "auto"
+
+
+def test_reasoning_chain_detects_tools_on_litellm_message_objects():
+    from agents import tool_rendering_reasoning as module
+
+    class MessageLike:
+        def __init__(self, value):
+            self.value = value
+
+        def get(self, key, default=None):
+            return self.value.get(key, default)
+
+    step = module._required_chain_step(
+        [
+            {"role": "user", "content": "Compare AAPL and MSFT stocks for me."},
+            MessageLike(
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "get_stock_price",
+                                "arguments": '{"ticker":"AAPL"}',
+                            }
+                        }
+                    ],
+                }
+            ),
+        ]
+    )
+
+    assert step is not None
+    assert step[2] == {"ticker": "MSFT"}
+
+
+def test_reasoning_chain_rejects_invalid_tool_argument_json():
+    from agents import tool_rendering_reasoning as module
+
+    with pytest.raises(ValueError, match="invalid JSON arguments"):
+        module._required_chain_step(
+            [
+                {"role": "user", "content": "Compare AAPL and MSFT stocks."},
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "get_stock_price",
+                                "arguments": "{not-json",
+                            }
+                        }
+                    ],
+                },
+            ]
+        )
+
+
+@pytest.mark.asyncio
 async def test_frontend_tool_flow_suspends_for_browser_owned_result(monkeypatch):
     from agents import frontend_tool_flow as module
 
@@ -583,7 +814,7 @@ async def test_multimodal_flow_sends_pdfs_as_responses_input_files(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_a2ui_recovery_runs_alpha_tool_and_persists_envelope(monkeypatch):
+async def test_a2ui_recovery_runs_bridge_tool_and_persists_envelope(monkeypatch):
     from agents import a2ui_recovery_flow as module
 
     flow = module.A2UIRecoveryFlow()
@@ -953,7 +1184,7 @@ def test_byoc_hashbrown_legacy_route_is_operational():
     assert 'data-testid="byoc-hashbrown-root"' in source
 
 
-def test_multimodal_page_uses_alpha_native_attachment_conversion():
+def test_multimodal_page_uses_native_attachment_conversion():
     page = MULTIMODAL_PAGE.read_text()
 
     assert "LegacyConverterShim" not in page

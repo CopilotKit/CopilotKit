@@ -46,7 +46,7 @@ class A2UIRecoveryState(CopilotKitState):
 
 
 class A2UIRecoveryFlow(Flow[A2UIRecoveryState]):
-    """Run the alpha bridge's A2UI tool and persist its result envelope."""
+    """Run the CrewAI bridge's A2UI tool and persist its result envelope."""
 
     @start()
     async def render(self) -> None:

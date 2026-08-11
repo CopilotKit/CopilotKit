@@ -1,4 +1,4 @@
-"""Contracts for alpha-native forwarded props and context preparation."""
+"""Contracts for native forwarded props and context preparation."""
 
 from pathlib import Path
 

@@ -1,6 +1,6 @@
 """Native CrewAI Flow for reasoning-display demos.
 
-The alpha bridge translates the OpenAI Responses API's reasoning summary and
+The CrewAI bridge translates the OpenAI Responses API's reasoning summary and
 answer stream into AG-UI reasoning and text lifecycles. This Flow deliberately
 emits no protocol events itself.
 """
@@ -40,7 +40,14 @@ class ReasoningFlow(Flow[CopilotKitState]):
                 model=f"openai/{REASONING_MODEL}",
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    *self.state.messages,
+                    *[
+                        message
+                        for message in self.state.messages
+                        if not (
+                            isinstance(message, dict)
+                            and message.get("role") == "reasoning"
+                        )
+                    ],
                 ],
                 reasoning={"effort": "medium", "summary": "detailed"},
             )

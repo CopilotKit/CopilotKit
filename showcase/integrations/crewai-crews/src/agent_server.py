@@ -35,7 +35,7 @@ from agents.beautiful_chat_flow import beautiful_chat_flow  # noqa: E402
 from agents.byoc_hashbrown_agent import ByocHashbrown  # noqa: E402
 from agents.byoc_json_render_agent import ByocJsonRender  # noqa: E402
 from agents.crew import LatestAiDevelopment  # noqa: E402
-from agents.declarative_gen_ui import DeclarativeGenUI  # noqa: E402
+from agents.declarative_gen_ui import declarative_gen_ui_flow  # noqa: E402
 from agents.frontend_tool_flow import frontend_tool_flow  # noqa: E402
 from agents.gen_ui_agent import gen_ui_agent_flow  # noqa: E402
 from agents.interrupt_flow import interrupt_flow  # noqa: E402
@@ -79,7 +79,7 @@ app.add_middleware(
 )
 
 # Dedicated endpoints must be registered before the shared root catch-all.
-add_crewai_crew_fastapi_endpoint(app, DeclarativeGenUI(), "/declarative-gen-ui")
+add_crewai_flow_fastapi_endpoint(app, declarative_gen_ui_flow, "/declarative-gen-ui")
 add_crewai_flow_fastapi_endpoint(app, a2ui_fixed_flow, "/a2ui-fixed-schema")
 add_crewai_crew_fastapi_endpoint(app, ByocHashbrown(), "/byoc-hashbrown")
 add_crewai_crew_fastapi_endpoint(app, ByocJsonRender(), "/byoc-json-render")

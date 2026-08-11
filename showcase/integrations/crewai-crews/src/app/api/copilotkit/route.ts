@@ -67,7 +67,7 @@ const agentNames = [
   "open-gen-ui-advanced",
 ];
 
-// Reasoning variants share a native CrewAI Flow. The alpha bridge translates
+// Reasoning variants share a native CrewAI Flow. The CrewAI bridge translates
 // the reasoning-model stream into AG-UI reasoning and text lifecycles.
 const reasoningAgentNames = [
   "reasoning-default",

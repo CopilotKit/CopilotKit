@@ -10,14 +10,12 @@
  *      `myCatalog`).
  *   2. Pass that catalog to the provider via
  *      `<CopilotKit a2ui={{ catalog: myCatalog }}>`.
- *   3. The dedicated runtime at `/api/copilotkit-declarative-gen-ui` is
- *      configured with `injectA2UITool: false` — the backend agent
- *      (`src/agents/a2ui_dynamic.py`) owns the `generate_a2ui` tool
- *      explicitly, mirroring the working pattern from beautiful-chat and the
- *      canonical `examples/integrations/langgraph-python` reference. The
- *      A2UI middleware still serialises the registered catalog schema into
- *      `copilotkit.context` so the secondary LLM inside `generate_a2ui`
- *      knows which components are available.
+ *   3. The dedicated runtime at `/api/copilotkit-declarative-gen-ui`
+ *      injects `render_a2ui`. The backend Flow forces that action while the
+ *      runtime middleware supplies the registered catalog schema and turns
+ *      the streamed tool call into the operations painted by the frontend.
+ *      Sales data and composition rules are registered as agent context so
+ *      both the Flow and A2UI renderer remain grounded in the same inputs.
  *
  * Reference:
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui

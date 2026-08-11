@@ -1,9 +1,7 @@
---find-links https://test.pypi.org/simple/ag-ui-crewai/
---find-links https://test.pypi.org/simple/ag-ui-protocol/
-crewai==1.15.8
-crewai-tools==1.15.8
-ag-ui-crewai==0.0.0.dev1785927675
-ag-ui-protocol==0.0.0.dev1785927675
+crewai==1.15.11
+crewai-tools==1.15.11
+ag-ui-crewai==0.3.0
+ag-ui-protocol==0.1.19
 ag-ui-a2ui-toolkit==0.0.4
 litellm==1.79.3
 fastapi==0.115.12

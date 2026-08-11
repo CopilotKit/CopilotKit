@@ -5,11 +5,9 @@ import { test, expect } from "@playwright/test";
 //
 // Pattern: A2UI dynamic-schema BYOC. The frontend registers a 7-component
 // catalog (Card, StatusBadge, Metric, InfoRow, PrimaryButton, PieChart,
-// BarChart) via `a2ui={{ catalog: myCatalog }}`. The Python agent
-// (`src/agents/a2ui_dynamic.py`) owns the `generate_a2ui` tool and emits an
-// `a2ui_operations` container with `catalogId: "declarative-gen-ui-catalog"`.
-// The secondary LLM inside `generate_a2ui` produces a JSON component tree
-// that the A2UI renderer binds to the registered React catalog.
+// BarChart) via `a2ui={{ catalog: myCatalog }}`. The Python Flow forces the
+// runtime-injected `render_a2ui` action; the runtime then emits operations
+// bound to the registered React catalog.
 //
 // There is no `data-testid` in the demo source. We rely on verbatim
 // suggestion-pill text and the inline-style fingerprints exported by
@@ -71,7 +69,7 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
       .click();
 
     // At least background circle + 2 slice circles. 90s budget: on
-    // cold starts the secondary-LLM `generate_a2ui` pass can eat most
+    // cold starts the live A2UI generation pass can eat most
     // of a minute before emitting the PieChart node.
     const circles = page.locator("svg circle");
     await expect

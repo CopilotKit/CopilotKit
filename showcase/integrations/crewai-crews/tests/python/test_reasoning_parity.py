@@ -1,4 +1,4 @@
-"""Contracts for the alpha bridge's native reasoning Flow route."""
+"""Contracts for the CrewAI bridge's native reasoning Flow route."""
 
 from pathlib import Path
 
@@ -16,7 +16,7 @@ def test_server_registers_native_reasoning_flow():
     assert 'reasoning_flow, "/reasoning"' in source
 
 
-def test_reasoning_flow_delegates_event_translation_to_alpha_bridge():
+def test_reasoning_flow_delegates_event_translation_to_crewai_bridge():
     source = REASONING_FLOW.read_text()
 
     assert "copilotkit_stream" in source

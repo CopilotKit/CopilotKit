@@ -2,7 +2,7 @@ from importlib.metadata import version
 from inspect import signature
 
 
-def test_alpha_stack_and_native_surface(monkeypatch, tmp_path):
+def test_release_stack_and_native_surface(monkeypatch, tmp_path):
     # CrewAI initializes its local data directory while importing. Keep this
     # package contract test hermetic instead of writing to the developer's
     # macOS Application Support directory.
@@ -11,7 +11,7 @@ def test_alpha_stack_and_native_surface(monkeypatch, tmp_path):
         lambda *_args, **_kwargs: str(tmp_path / "crewai-data"),
     )
 
-    assert version("ag-ui-crewai") == "0.2.2a3"
+    assert version("ag-ui-crewai") == "0.3.0"
     assert version("ag-ui-protocol") == "0.1.19"
     assert version("crewai") == "1.15.11"
     assert version("litellm") == "1.79.3"
@@ -40,7 +40,7 @@ def test_preseed_system_prompt_uses_crewai_1x_chat_inputs():
 
     from agents._chat_flow_helpers import preseed_system_prompt
 
-    crew_name = "alpha_contract_prompt"
+    crew_name = "release_contract_prompt"
     description = "Use this exact showcase system prompt."
     preseed_system_prompt(crew_name, description)
 

@@ -302,10 +302,12 @@ describe("fixture collision detection", () => {
     // Each pair is scoped to crewai-crews and disambiguated at runtime by the
     // active route/fixtureFile, so 290 + 26 = 316 and the net ceiling increase
     // is 12 rather than 26.
-    // Bumped 316 -> 359 for the separate CrewAI Conversational Flows column.
-    // Its fixture context intentionally mirrors the regular CrewAI Flows
-    // matrix, including 43 route-disambiguated cross-demo aliases.
-    const KNOWN_DUPLICATE_CEILING = 359;
+    // Bumped 316 → 364 for CrewAI Conversational Flows and the current merged
+    // baseline. Relative to origin/main's 295 duplicates, the complete CrewAI
+    // matrix adds 69 intentional aliases: 26 scoped to regular Flows, 36 scoped
+    // to Conversational Flows, and 7 shared-scope fixtures. Every alias is
+    // disambiguated at runtime by fixture context, route, or fixtureFile.
+    const KNOWN_DUPLICATE_CEILING = 364;
 
     const collisions: string[] = [];
 

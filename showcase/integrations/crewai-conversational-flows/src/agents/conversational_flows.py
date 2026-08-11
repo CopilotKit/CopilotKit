@@ -21,7 +21,7 @@ from agents.a2ui_recovery_flow import A2UIRecoveryFlow
 from agents.beautiful_chat_flow import BeautifulChatFlow
 from agents.byoc_hashbrown_agent import BYOC_HASHBROWN_SYSTEM_PROMPT
 from agents.byoc_json_render_agent import BYOC_JSON_RENDER_SYSTEM_PROMPT
-from agents.declarative_gen_ui import DECLARATIVE_GEN_UI_BACKSTORY
+from agents.declarative_gen_ui import DeclarativeGenUIFlow
 from agents.frontend_tool_flow import FrontendToolFlow
 from agents.gen_ui_agent import GenUiAgentFlow
 from agents.interrupt_flow import InterruptFlow
@@ -81,10 +81,6 @@ class PromptedChatFlow(Flow[CopilotKitState]):
             )
         )
         self.state.messages.append(response.choices[0].message)
-
-
-class DeclarativeGenUIFlow(PromptedChatFlow):
-    system_prompt = DECLARATIVE_GEN_UI_BACKSTORY
 
 
 class ByocHashbrownFlow(PromptedChatFlow):

@@ -22,7 +22,7 @@ fixed CrewAI platform boilerplate).
 The pre-seed also skips the secondary AI calls in
 `generate_crew_chat_inputs`, so crew construction is synchronous and cheap.
 
-The alpha bridge owns an identity-safe weakref cache, so showcase code must not
+The CrewAI bridge owns an identity-safe weakref cache, so showcase code must not
 write cache entries directly. Intercepting the generator preserves that cache's
 invariants while keeping us on `add_crewai_crew_fastapi_endpoint`.
 """

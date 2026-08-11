@@ -23,7 +23,7 @@
  * runtime — but with no upload race because we build the
  * already-base64'd content part ourselves before calling addMessage.
  *
- * The CrewAI alpha bridge accepts these modern `image|document` parts
+ * The CrewAI bridge accepts these modern `image|document` parts
  * directly and normalizes them before the Flow starts.
  */
 
@@ -207,7 +207,7 @@ export function SampleAttachmentButtons({
           spec.mimeType === "application/pdf" ? "document" : "image";
 
         // Build a multimodal user message as content parts: prompt text +
-        // the attachment. The CrewAI alpha bridge consumes this modern
+        // the attachment. The CrewAI bridge consumes this modern
         // shape without a LangGraph compatibility mirror.
         agent.addMessage({
           id: generateMessageId(),

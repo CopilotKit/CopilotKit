@@ -4,7 +4,7 @@
 // PDF forwarding, vision content blocks) is contained to this one cell.
 // Other demos' runtimes stay lean and their chat LLMs unaffected.
 //
-// Backend: a dedicated CrewAI Flow at `/multimodal`. The alpha bridge
+// Backend: a dedicated CrewAI Flow at `/multimodal`. The CrewAI bridge
 // normalizes AG-UI attachment parts into LiteLLM/OpenAI content blocks before
 // the Flow starts, and the Flow sends them to a vision-capable model.
 

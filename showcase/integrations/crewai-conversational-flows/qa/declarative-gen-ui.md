@@ -4,7 +4,7 @@
 - [ ] Verify the page root (`data-testid="declarative-gen-ui-root"`) renders.
 - [ ] Verify the composer renders four pre-seeded suggestions pills.
 - [ ] Click the "Show a KPI dashboard" pill; verify the agent calls
-      `generate_a2ui` and a Card with 3-4 Metric children appears.
+      `render_a2ui` and a composed KPI dashboard appears.
 - [ ] Click the "Pie chart — sales by region" pill; verify a PieChart
       renders with brand colours and a readable legend.
 - [ ] Click the "Bar chart — quarterly revenue" pill; verify a BarChart

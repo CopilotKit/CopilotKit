@@ -12,7 +12,7 @@
  *   ../api/copilotkit-multimodal/route.ts). The vision-capable model
  *   (gpt-5.4) is scoped to just this demo, so other cells keep their
  *   cheaper text-only models.
- * - Dedicated CrewAI Flow at `src/agents/multimodal_flow.py`. The alpha
+ * - Dedicated CrewAI Flow at `src/agents/multimodal_flow.py`. The CrewAI
  *   bridge converts modern AG-UI attachment parts before the Flow starts,
  *   and the Flow forwards those native content blocks to a vision model.
  * - Sample files live at `/demo-files/sample.png` and `/demo-files/sample.pdf`
