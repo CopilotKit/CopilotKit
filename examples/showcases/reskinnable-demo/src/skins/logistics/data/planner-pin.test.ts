@@ -10,6 +10,16 @@ describe("plannerPinGuidance", () => {
     const accepted = readPlannerPin("1".repeat(length));
     expect(accepted.ok).toBe(true);
   });
+
+  it("says that same figure in the HINT — the only text the card shows", () => {
+    // The test above ties the predicate to `length`, which the card uses only as
+    // the input's `maxLength`. What the planner READS is `hint`. Without this
+    // assertion, `hint: "Your 4-digit approval PIN"` beside `length: 6` keeps the
+    // whole suite green while the card advertises a format it refuses — which is
+    // the exact failure this module's header says it exists to prevent.
+    const { hint, length } = plannerPinGuidance();
+    expect(hint).toContain(String(length));
+  });
 });
 
 describe("readPlannerPin", () => {

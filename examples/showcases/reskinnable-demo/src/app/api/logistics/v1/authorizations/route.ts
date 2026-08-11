@@ -22,6 +22,18 @@ import { readPlannerPin } from "@/skins/logistics/data/planner-pin";
  *
  * Cost is recomputed here from lane + shipment, exactly as the mitigate route
  * does: any `costUsd` in the body is ignored, or the gate would be theater.
+ *
+ * ⚠️ PIN VALIDITY IS FORMAT-ONLY, BY DESIGN — READ THIS BEFORE TRUSTING IT.
+ * There is NO secret to match against: no planner carries a PIN or a digest in
+ * the seed, so ANY six digits are accepted, for any planner. `readPlannerPin`
+ * checks the SHAPE and nothing else, and `INVALID_PIN` means "not six digits",
+ * never "wrong PIN". That is deliberate for a stage demo — a memorized number is
+ * a thing to fumble on stage, and the beat's claim is about WHERE the value
+ * travels (never into the transcript), not about authenticating anyone. Nothing
+ * here is an authentication control; the real control on this route is
+ * `checkAuthority()` below. If this app ever needs a genuine second factor, that
+ * is a per-planner secret plus a constant-time comparison, and this comment is
+ * the thing to delete.
  */
 export const POST = async (req: Request) => {
   const body = await req.json().catch(() => null);
@@ -32,6 +44,23 @@ export const POST = async (req: Request) => {
     );
   }
   const { shipment: ref, kind, pin, rationale, plannerId } = body;
+
+  // THE PIN IS CHECKED FIRST, before anything that reads the ledger. It is only
+  // a format check (see the header), but the 404 and 422 below are ANSWERS: they
+  // tell an unauthenticated caller which shipments exist and which mitigations
+  // are available on them. Refusing an unreadable request before consulting the
+  // store means those answers are never handed out for free. The SAME predicate
+  // the card's submit button compared against — imported, not restated, so the
+  // server cannot drift into accepting a shape the card refuses (or refusing one
+  // it invited).
+  const verdict = readPlannerPin(typeof pin === "string" ? pin : "");
+  if (!verdict.ok) {
+    return Response.json(
+      // Never echo what was typed.
+      { error: "INVALID_PIN", message: "That PIN was not accepted." },
+      { status: 401 },
+    );
+  }
 
   if (!plannerId) {
     return Response.json(
@@ -66,22 +95,6 @@ export const POST = async (req: Request) => {
         message: `"${kind}" is not an available mitigation for this shipment.`,
       },
       { status: 422 },
-    );
-  }
-
-  // The SAME predicate the card's submit button compared against — imported,
-  // not restated, so the server cannot drift into accepting a shape the card
-  // refuses (or refusing one it invited).
-  const verdict = readPlannerPin(typeof pin === "string" ? pin : "");
-  if (!verdict.ok) {
-    return Response.json(
-      {
-        error: "INVALID_PIN",
-        // Never echo what was typed, and never leak whether a well-formed PIN
-        // would have matched some other planner's.
-        message: "That PIN was not accepted.",
-      },
-      { status: 401 },
     );
   }
 

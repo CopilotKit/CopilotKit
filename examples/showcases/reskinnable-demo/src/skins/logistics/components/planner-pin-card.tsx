@@ -41,7 +41,19 @@ export function PlannerPinCard({
 }) {
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  // Three states, not a boolean. On success the card normally UNMOUNTS — respond()
+  // settles the interrupt and the render swaps to its terminal branch — but that
+  // is the caller's behaviour, not this component's guarantee. A plain
+  // `submitting` flag that is only ever cleared on the failure paths therefore
+  // leaves the card reading "Authorizing…" with both buttons dead and nothing on
+  // screen explaining it, if the unmount does not come. That is the same failure
+  // the comment in `submit` argues against, arriving from the other direction.
+  // "authorized" is a SETTLED state with its own copy, and it still refuses a
+  // second click, so the write cannot be issued twice.
+  const [phase, setPhase] = useState<"idle" | "submitting" | "authorized">(
+    "idle",
+  );
+  const busy = phase !== "idle";
   const inputId = useId();
   const { hint, length } = plannerPinGuidance();
   const money = `$${costUsd.toLocaleString("en-US")}`;
@@ -60,7 +72,7 @@ export function PlannerPinCard({
       );
       return;
     }
-    setSubmitting(true);
+    setPhase("submitting");
     try {
       const res = await fetch("/api/logistics/v1/authorizations", {
         method: "POST",
@@ -76,10 +88,11 @@ export function PlannerPinCard({
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) {
-        setSubmitting(false);
+        setPhase("idle");
         setError(body?.message ?? "That PIN was not accepted.");
         return;
       }
+      setPhase("authorized");
       // The agent learns only this sentence.
       onAuthorized(
         `${kind} authorized on ${shipmentReference} at ${money}. ` +
@@ -87,7 +100,7 @@ export function PlannerPinCard({
       );
     } catch (err) {
       console.error("[logistics] authorization failed:", err);
-      setSubmitting(false);
+      setPhase("idle");
       setError("The authorization could not be sent. Nothing was released.");
     }
   };
@@ -109,7 +122,7 @@ export function PlannerPinCard({
         autoComplete="off"
         maxLength={length}
         value={typed}
-        disabled={submitting}
+        disabled={busy}
         onChange={(e) => {
           setTyped(e.target.value);
           setError(null);
@@ -117,18 +130,27 @@ export function PlannerPinCard({
         className="w-32 rounded-md border border-hairline bg-canvas px-3 py-2 font-mono text-sm tracking-widest"
       />
       {error ? <p className="text-xs text-negative">{error}</p> : null}
+      {phase === "authorized" ? (
+        <p className="text-xs text-ink-muted">
+          Authorized — the release is recorded. This card is finished.
+        </p>
+      ) : null}
       <div className="flex gap-2">
         <button
           type="button"
-          disabled={submitting}
+          disabled={busy}
           className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90 disabled:opacity-40"
           onClick={() => void submit()}
         >
-          {submitting ? "Authorizing…" : "Authorize"}
+          {phase === "submitting"
+            ? "Authorizing…"
+            : phase === "authorized"
+              ? "Authorized"
+              : "Authorize"}
         </button>
         <button
           type="button"
-          disabled={submitting}
+          disabled={busy}
           className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted disabled:opacity-40"
           onClick={onDeclined}
         >

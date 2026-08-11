@@ -134,6 +134,20 @@ describe("POST /authorizations", () => {
     expect(store.findShipment("shp-4821")?.appliedMitigation).toBeUndefined();
   });
 
+  it("checks the PIN BEFORE it answers what exists — no free enumeration", async () => {
+    // The 404 and 422 are answers: they tell the caller which shipments exist and
+    // which mitigations they carry. A caller who cannot even supply a well-formed
+    // PIN must not get them, so the refusal has to come first. Ordering is
+    // invisible in normal use and only a test can hold it in place.
+    for (const probe of [
+      { shipment: "nope", kind: "reroute" },
+      { shipment: "PO-88213", kind: "banana" },
+    ]) {
+      const res = await call({ ...probe, pin: "4829", plannerId: "pl-rosa" });
+      expect(res.status).toBe(401);
+    }
+  });
+
   it("never echoes the typed PIN back in any response body", async () => {
     const under = underAuthorityOption("shp-4821");
     const over = overAuthorityOption("shp-4821");
