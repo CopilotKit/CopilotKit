@@ -20,7 +20,10 @@ import {
   PeopleRuntimeProviders,
   usePeopleRuntimeProperties,
 } from "./providers";
-import { stageOfferLetterAttachment } from "./attach-offer-letter";
+import {
+  attachOfferLetterByHand,
+  sendPacketRequestWithOfferLetter,
+} from "./attach-offer-letter";
 
 const nav: NavRoute[] = [
   { segment: "", label: "Roster", icon: Users },
@@ -82,38 +85,12 @@ const TOOL_LABELS: Record<string, string> = {
 // pushed through the actual composer — stage the file into the hidden input,
 // set the textarea, click send — which is the path that correctly consumes an
 // attachment on submit.
-
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** Set a React-controlled textarea's value so its onChange actually fires. */
-function setTextareaValue(el: HTMLTextAreaElement, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(
-    window.HTMLTextAreaElement.prototype,
-    "value",
-  )?.set;
-  setter?.call(el, value);
-  el.dispatchEvent(new Event("input", { bubbles: true }));
-}
-
-async function sendPacketRequestWithOfferLetter() {
-  const staged = await stageOfferLetterAttachment();
-  // Give the built-in attachment handler time to finish base64-encoding the
-  // file; sending while an attachment is still "uploading" is silently dropped.
-  if (staged) await wait(500);
-
-  const textarea = document.querySelector<HTMLTextAreaElement>(
-    'textarea[data-testid="copilot-chat-textarea"]',
-  );
-  if (!textarea) return;
-  setTextareaValue(textarea, PACKET_MESSAGE);
-  await wait(60);
-
-  document
-    .querySelector<HTMLButtonElement>(
-      'button[data-testid="copilot-send-button"]',
-    )
-    ?.click();
-}
+//
+// The chain itself is `@/shell/attach`, reached through `./attach-offer-letter`.
+// It replaced a hand-rolled send that lived HERE and sent the prompt whether or
+// not staging succeeded, behind a fixed 500 ms sleep that raced the framework's
+// base64 encode. Both entry points now abort on any failure and report it to the
+// presenter, so neither can be launched into silence — a plain `void` is enough.
 
 // NOTE: no `agent` field, and this module must NEVER import ./agent.ts. Agents
 // pull in @copilotkit/runtime, which must not reach the browser bundle; the
@@ -150,16 +127,27 @@ const people: Skin = {
       icon: Paperclip,
       label: "Attach the offer letter",
       // A manual fallback for the presenter if the pill path misbehaves live.
-      onClick: () => void stageOfferLetterAttachment(),
+      // It is the fallback, so it must be the LOUDEST link in the chain: if this
+      // one fails quietly too, the presenter has nothing left to try.
+      // `attachOfferLetterByHand` has already reported before it resolves
+      // `false`, and its own catch covers the unexpected, so it cannot reject
+      // and the `void` drops nothing.
+      onClick: () => void attachOfferLetterByHand(),
     },
   ],
 
   onSuggestionSelect: (suggestion: Suggestion) => {
-    if (suggestion.message === PACKET_MESSAGE) {
-      void sendPacketRequestWithOfferLetter();
-      return true; // fully handled — the shell does nothing further
+    if (suggestion.message !== PACKET_MESSAGE) {
+      return false; // every other pill takes the default "send the message" path
     }
-    return false; // every other pill takes the default "send the message" path
+    // `true` means "the shell must not run its default send", and that is
+    // unconditionally correct for this pill: the default path would send "read
+    // Dana's offer letter" with the attachment DROPPED, which is the exact
+    // failure beat 3d cannot survive. Claiming the click is only honest because
+    // `sendPacketRequestWithOfferLetter` guarantees two outcomes — sent WITH the
+    // letter, or aborted and the presenter told why — never `true` plus silence.
+    void sendPacketRequestWithOfferLetter();
+    return true;
   },
 };
 

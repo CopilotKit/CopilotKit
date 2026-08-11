@@ -251,11 +251,44 @@ Three mechanics worth copying verbatim:
   handler so the match cannot drift.
 - **Give the presenter a paperclip too** via `chatHeaderActions`, so the file can
   be staged manually if the pill path misbehaves on stage.
-- **The attachment chain must fail LOUD, and must never send without the file.**
+- **DO NOT WRITE THE STAGING CHAIN. It is shell-owned:
+  `src/shell/attach/stage-attachment.ts`, exported from `@/shell/attach`.** Your
+  skin supplies three values — a document `url`, a `filename`, and the message
+  the pill sends — and calls two functions:
+
+  ```ts
+  import {
+    attachByHand,
+    sendMessageWithAttachment,
+    type AttachmentDocument,
+  } from "@/shell/attach";
+
+  const DOC: AttachmentDocument = { url: "…", filename: "…" };
+
+  /** chatHeaderActions paperclip — stage only, no send. */
+  export const attach<Id>ByHand = (): Promise<boolean> => attachByHand(DOC);
+  /** onSuggestionSelect pill — stage, then drive the composer. */
+  export const send<Id>WithAttachment = (): Promise<boolean> =>
+    sendMessageWithAttachment(DOC, <ID>_ATTACHMENT_MESSAGE);
+  ```
+
+  That is the whole file. Every shipped wrapper that runs this beat
+  (`banking/attach-invoice.ts`, `people/attach-offer-letter.ts`,
+  `commerce/attach-price-sheet.ts`) is about 45 lines, most of it comment.
+
+  **The attachment chain must fail LOUD, and must never send without the file.**
   This is not defensive polish; it is what makes the beat honest. If any failure
   still lets the prompt go out, the model INVENTS the document's contents, your
   tool files the artifact anyway, and it reads plausibly — so the beat proves the
   opposite of its claim and the room cannot tell.
+
+  **You do not implement any of the below — the shell module already does.** It is
+  written out because a skin author who does not know WHY the chain is shaped like
+  this will eventually "simplify" it, reintroduce a fixed sleep, or bypass it with
+  a hand-rolled sender. Banking and people did exactly that: both had a
+  `sendXWith…` in their own `skin.tsx` whose staging result gated a 500 ms sleep
+  and NOTHING ELSE, so a failed stage still sent the prompt. Nobody noticed,
+  because the demo still looked perfect.
 
   **Reporting a failure is the easy half. DETECTING it is the half that gets
   skipped.** Every step of this chain is a REQUEST made of framework code you do
@@ -274,24 +307,54 @@ Three mechanics worth copying verbatim:
   | **The send button is currently a STOP button**                 | one button plays both roles; mid-run a click CANCELS the run. Require the enabled + send-mark state                                                                                          |
   | The textarea's React value setter is gone, or the write missed | check `el.value` after writing — do NOT `setter?.call()` the only failure away                                                                                                               |
 
-  Rules: locate the composer before staging; return a machine-readable CAUSE, not
-  a bare boolean, and give each cause its own sentence (a presenter needs to know
+  The rules the shell module follows, so you can recognize a change that breaks
+  one: locate the composer before staging; carry a machine-readable CAUSE, not a
+  bare boolean, and give each cause its own sentence (a presenter needs to know
   whether to retry, press send by hand, or restart the dev server); abort the send
   on any failure; **wait on a CONDITION with a bounded budget, never on a fixed
   `setTimeout`** — a sleep that races an async encode is the defect, and an expired
   budget is a failure, not a green light; confirm the CLICK too (the attachment
   leaving the queue is the only proof `consumeAttachments` ran); report every
   failure with `console.error` AND `window.alert` (a log nobody opens mid-demo is
-  not a report); never `void` the promise — route both entry points through one
-  launcher that catches. Commerce's `attach-price-sheet.ts` +
-  `attach-price-sheet.test.ts` is the worked reference; note that banking's
-  `attach-invoice.ts` and people's `attach-offer-letter.ts` predate the detection
-  half and still only cover the first rows of that table.
+  not a report).
 
-**Banking:** pill `"Prep the Q2 spend report"` → `onSuggestionSelect`
-(`skin.tsx:143-149`) matches the shared `Q2_REPORT_MESSAGE` constant and calls
-`sendQ2WithInvoice()`, which stages the bundled PDF via `stageInvoiceAttachment`
-(`attach-invoice.ts`) and drives the composer. The `createReport` frontend tool
+  Four more facts about the module you are calling:
+  - **`AttachmentFailureCause` has fifteen members, not nine** — the table above is
+    the taxonomy by mechanism; the union splits the send-side rows further (a
+    disabled button, a STOP button and an unidentifiable button are three separate
+    instructions to the presenter). Every one of the fifteen is emitted by the
+    implementation AND driven by a test in
+    `src/shell/attach/stage-attachment.test.ts`, and the exhaustiveness gate there
+    is **type-only** on one half — Vitest transpiles without type-checking, so run
+    `npx tsc --noEmit -p tsconfig.json` if you touch the union.
+  - **The `[attach:<cause>]` prefix on the `console.error` line is load-bearing,
+    not decoration.** `attachByHand` and `sendMessageWithAttachment` return bare
+    booleans, so the tagged log line is the ONLY place a send-path cause is
+    observable; the test helper parses it with
+    `/^\[attach:([a-z-]+)]\s+([\s\S]*)$/`, and seventeen cases across ten blocks
+    depend on it. Tidying the tag out of the message silently blinds all of them.
+  - **Both entry points take an optional `Beat3dTimings`** (`acceptMs`, `readyMs`,
+    `sendableMs`, `consumedMs`, `pollMs`), so a test can force a budget to expire
+    deterministically instead of sleeping a production budget. Your skin's own
+    wrapper should NOT re-expose it — a skin has no reason to retune the
+    framework's encode, and no skin-level test needs to (the expiry branches are
+    covered once, in the shell).
+  - **`NOTHING_SENT_LEDE` is overridden in exactly two places**, both deliberate:
+    the paperclip path (nothing was going to be sent, so saying "nothing was sent"
+    reads as a second phantom failure) and the unconfirmed-send path (a message
+    may be in flight, and telling a presenter otherwise invites a DOUBLE SEND).
+    Do not collapse those back to one lede.
+
+  Neither `void`ing the promise nor wrapping it in a catching launcher is needed
+  any more: both entry points are wholly inside their own `try` and report cause
+  `"unexpected"` before resolving `false`, so neither can reject. Commerce used to
+  ship a `launchBeat3d` wrapper for that and it was deleted as redundant — a
+  per-skin catch is now a third copy of a rule the shell owns.
+
+**Banking:** pill `"Prep the Q2 spend report"` → `onSuggestionSelect` matches the
+shared `Q2_REPORT_MESSAGE` constant and calls `sendQ2WithInvoice()`
+(`attach-invoice.ts`), a one-line wrapper over `sendMessageWithAttachment` that
+stages the bundled PDF and drives the composer. The `createReport` frontend tool
 (`components/wow/report-tool.tsx:20`) POSTs to `/api/banking/v1/reports`; the
 filed report renders in the dashboard's **Reports tab** (`reports-view.tsx`),
 keyed to the app and not the thread. The prompt's UPLOADED DOCUMENTS clause
@@ -548,7 +611,7 @@ tools or pages, alongside this file.
 | Route + on-screen readables (beat 3b) | `banking`, `people`, `commerce`                                            |
 | Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`; `people`/`commerce` for 2nd takes |
 | A four-lever navigation (beat 3c)     | `commerce` — status + exception + sort + top-N, all four tinted            |
-| Attachment staging (beat 3d)          | `banking` (`attach-invoice.ts`), `people`, `commerce`                      |
+| Attachment staging (beat 3d)          | `@/shell/attach` for the chain; any of the three for the wrapper + pill    |
 | A GENERATED uploaded document         | `@/shell/documents` for the bytes; `commerce`/`people` for the content     |
 | Seeded memories (beats 4, 5)          | `banking`, `people`, `commerce` — the only three with a seed file          |
 | Debugged layout + meta-utility strip  | `logistics`, `people`, `commerce`                                          |

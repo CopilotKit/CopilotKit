@@ -248,19 +248,33 @@ Three rules, in order of how often they are skipped:
   so mid-run a click CANCELS the run), and the click itself confirmable.
 
 ⚠ **If no signal exists for one of them, fail CLOSED and say so in a comment.**
-This is the part to copy. Commerce's `stagePriceSheetAttachment`
-(`src/skins/commerce/attach-price-sheet.ts`) established from source that no
-`ready` status attribute exists AT ALL, so it uses a filename-in-queue proxy,
-documents that it is a proxy, and makes the bounded wait around it fail closed —
-rather than quietly assuming success on the one step it could not observe.
-Everything else it does verify: `%PDF` magic bytes rather than a 2xx, acceptance
-by a chip appearing in the queue, and the send by the attachment LEAVING the
-queue. It classifies fifteen distinct causes, because "a presenter needs to know
-whether to retry, press send by hand, or restart the dev server". The full
-failure table is in demo-beats.md § 3d.
 
-⚠ `banking/attach-invoice.ts` and `people/attach-offer-letter.ts` predate this and
-carry the identical unfixed defect. Copy `commerce` for this beat, not banking.
+**You do not have to build this — call it.** The chain is shell-owned:
+`stageAttachment` / `attachByHand` / `sendMessageWithAttachment` in
+`src/shell/attach/stage-attachment.ts`, exported from `@/shell/attach`. It
+established from source that no `ready` status attribute exists AT ALL, so it uses
+a filename-in-queue proxy, documents that it is a proxy, and makes the bounded
+wait around it fail closed — rather than quietly assuming success on the one step
+it could not observe. Everything else it does verify: `%PDF` magic bytes rather
+than a 2xx, acceptance by a chip appearing in the queue, and the send by the
+attachment LEAVING the queue. It classifies fifteen distinct causes, because "a
+presenter needs to know whether to retry, press send by hand, or restart the dev
+server", and unlike the per-skin copy it was extracted from, **all fifteen are now
+actually emitted by the code and driven by a test** —
+`src/shell/attach/stage-attachment.test.ts` reads its expected count off a
+`Record<AttachmentFailureCause, true>`, so a member added to the union and never
+driven fails `tsc` and then fails the count. The full failure table is in
+demo-beats.md § 3d.
+
+⚠ **This paragraph used to say "copy commerce, not banking", and the reason it
+said so is the reason the module exists.** Commerce had the whole chain; banking
+and people had a `stage…Attachment` that dispatched `change` and returned `true`,
+plus a sender in their own `skin.tsx` where the staging result gated a 500 ms
+sleep AND NOTHING ELSE — so a failed stage still sent the prompt, the model
+invented the document, and the artifact was filed. Three copies, one of them good.
+There is now one implementation and all three skins are ~45-line wrappers over it.
+**If you find yourself copying a staging chain into a new skin, stop: you are
+recreating the defect.**
 
 ---
 

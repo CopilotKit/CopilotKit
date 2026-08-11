@@ -1339,16 +1339,34 @@ const <id>: Skin = {
   // with suggestions.ts so it can never drift. Ship the paperclip too, so the
   // presenter can stage the file by hand if the pill path misbehaves on stage.
   //
+  // ⚠️ DO NOT IMPLEMENT THE CHAIN. It is shell-owned — `@/shell/attach` — and it
+  // is ~660 lines of framework-specific detection you would otherwise get wrong.
+  // Your skin's whole attachment file is this (see `src/skins/*/attach-*.ts`):
+  //
+  //   import {
+  //     attachByHand, sendMessageWithAttachment, type AttachmentDocument,
+  //   } from "@/shell/attach";
+  //   import { <ID>_ATTACHMENT_MESSAGE } from "./suggestions";
+  //
+  //   const DOC: AttachmentDocument = { url: "…", filename: "…" };
+  //   export const attach<Id>ByHand = (): Promise<boolean> => attachByHand(DOC);
+  //   export const send<Id>WithAttachment = (): Promise<boolean> =>
+  //     sendMessageWithAttachment(DOC, <ID>_ATTACHMENT_MESSAGE);
+  //
+  // Keep the message constant in `suggestions.ts` beside the pill that carries
+  // it, and import it here — one value, so the pill and the send cannot drift
+  // into a prompt that goes out WITHOUT the file.
+  //
   // ⚠️ FAIL LOUD, OR DO NOT SHIP THIS BEAT. If any failure lets the prompt go out
   // anyway, the model invents the document's contents, the artifact is still
   // filed, and it reads plausibly: the beat proves the exact opposite of its claim
-  // and nobody in the room can tell.
-  //
-  // Reporting loudly is the EASY half. The half that gets skipped is DETECTING
-  // the failure: every step here is a request made of framework code you do not
-  // own, so an unobserved step is an assumption. So:
-  //   - Never send the prompt unless the file is VERIFIED attached — which means
-  //     three separate observations, not one dispatched event:
+  // and nobody in the room can tell. The shell chain is what enforces that; the
+  // rules below are WHY it is shaped as it is, so you can recognize a change that
+  // breaks one — not a to-do list. (Banking and people each hand-rolled a sender
+  // in their OWN skin.tsx where the staging result gated a 500 ms sleep and
+  // nothing else, so a failed stage still sent the prompt. Both looked fine.)
+  //   - The prompt is never sent unless the file is VERIFIED attached — three
+  //     separate observations, not one dispatched event:
   //       (a) the composer ACCEPTED it — a chip appeared in
   //           `[data-testid="copilot-attachment-queue"]`. `processFiles` drops
   //           anything failing `accept`/`maxSize` and calls an `onUploadFailed`
@@ -1358,41 +1376,46 @@ const <id>: Skin = {
   //           `onSubmitInput` refuses to send while anything is `uploading`.
   //       (c) the send button is in SEND state — the SAME button is the STOP
   //           button mid-run, and a click then CANCELS the run and sends nothing.
-  //   - Wait on a CONDITION with a bounded budget. Never a fixed `setTimeout`: a
-  //     sleep that races an async encode is the defect, not its duration. An
-  //     expired budget is a failure, not a green light.
-  //   - Confirm the CLICK as well — the attachment leaving the queue is the only
-  //     proof that `consumeAttachments` ran and the sheet rode the message out.
-  //   - Check the BYTES of the document (`%PDF`), not just the status: a route
+  //   - Waits are on a CONDITION with a bounded budget, never a fixed
+  //     `setTimeout`: a sleep that races an async encode is the defect, not its
+  //     duration. An expired budget is a failure, not a green light. The budgets
+  //     are injectable (`Beat3dTimings`) so the SHELL's tests can force an expiry
+  //     without sleeping; your wrapper should not re-expose them.
+  //   - The CLICK is confirmed too — the attachment leaving the queue is the only
+  //     proof that `consumeAttachments` ran and the file rode the message out.
+  //   - The document's BYTES are checked (`%PDF`), not just the status: a route
   //     that throws can answer 200 with an HTML error page, and forcing
   //     `type: "application/pdf"` onto the File would smuggle it past `accept`.
-  //   - Locate the composer BEFORE staging, so a rename aborts while the beat is
-  //     still a no-op instead of stranding an attachment you cannot submit.
-  //   - Return a machine-readable CAUSE, not a boolean, and give each cause its
+  //   - The composer is located BEFORE staging, so a rename aborts while the beat
+  //     is still a no-op instead of stranding an attachment you cannot submit.
+  //   - Failures carry a machine-readable CAUSE (fifteen of them), each with its
   //     own sentence: "retry the pill", "press send by hand" and "restart the dev
-  //     server" are different instructions.
-  //   - Give each throwing step its OWN `try`. One file-wide catch blames the
-  //     fetch for a `File`/`DataTransfer` failure and sends the presenter to
-  //     check a healthy network.
-  //   - Check that the textarea write LANDED (`el.value` after setting). Do not
-  //     `setter?.call()` the one failure available away and then dispatch an
-  //     `input` event carrying the stale value.
-  //   - Surface every failure where a presenter will actually see it:
-  //     `console.error` for the log AND `window.alert` for the stage (the same
-  //     pattern the reset button uses in `layout.tsx`).
-  //   - Never `void` these promises. A dropped rejection is the silent failure
-  //     again; route both entry points through one launcher that `.catch`es.
-  // (Worked implementation: commerce's `attach-price-sheet.ts` +
-  // `attach-price-sheet.test.ts`, which red-greens every row above. Banking's
-  // `attach-invoice.ts` and people's `attach-offer-letter.ts` predate the
-  // detection half — copy commerce, not those.)
+  //     server" are different instructions. The cause is tagged into the log line
+  //     as `[attach:<cause>]`, which is LOAD-BEARING — the entry points return
+  //     bare booleans, so that tag is the only place a send-path cause is
+  //     observable, and the shell's tests parse it by regex.
+  //   - Every failure surfaces where a presenter will see it: `console.error` for
+  //     the log AND `window.alert` for the stage (the same pattern the reset
+  //     button uses in `layout.tsx`).
+  //   - Both entry points are wholly inside their own `try` and report cause
+  //     "unexpected" before resolving `false`, so NEITHER CAN REJECT — a bare
+  //     `void` at the call site drops nothing. Commerce shipped a catching
+  //     `launchBeat3d` wrapper for this and it was deleted as redundant; do not
+  //     re-add a per-skin catch.
+  // (Shell implementation + all fifteen causes red-greened:
+  // `src/shell/attach/stage-attachment.ts` + `stage-attachment.test.ts`. A skin's
+  // own wrapper needs no test of the chain; commerce keeps a small one only to pin
+  // ITS three values — `src/skins/commerce/attach-price-sheet.test.ts`, which
+  // imports composer selectors from `@/shell/attach/stage-attachment`, since the
+  // barrel deliberately exports only the entry points and their types.)
   // chatHeaderActions: [ // ChatHeaderAction[] — buttons in the shared chat header
   //   {
   //     icon: Paperclip,
   //     label: "Attach the <artifact>",
   //     // The paperclip is the FALLBACK, so it must be the loudest link: if it
-  //     // fails quietly too, the presenter has nothing left to try.
-  //     onClick: () => launchBeat3d(attach<Id>ByHand),
+  //     // fails quietly too, the presenter has nothing left to try. It has
+  //     // already reported by the time it resolves `false`.
+  //     onClick: () => void attach<Id>ByHand(),
   //   },
   // ],
   // onSuggestionSelect: (suggestion) => {
@@ -1401,7 +1424,7 @@ const <id>: Skin = {
   //   // right here, because that default path drops the attachment. Claiming the
   //   // click is only honest if the handler guarantees two outcomes: sent WITH
   //   // the file, or aborted AND the presenter told why. Never `true` + silence.
-  //   launchBeat3d(send<Id>WithAttachment);
+  //   void send<Id>WithAttachment();
   //   return true;
   // },
 
