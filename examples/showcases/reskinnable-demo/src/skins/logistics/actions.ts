@@ -19,7 +19,15 @@ import type {
  * the control-tower board showing the shipment as still delayed.
  */
 const listeners = new Set<() => void>();
-function notifyDataChanged() {
+/**
+ * Exported because beat 3a's PIN card writes through its OWN fetch — the digits
+ * go straight from the component to the authorization route and never pass
+ * through this module — so nothing here can notice that write. Without a
+ * notification the Control Tower would still show the shipment as delayed after
+ * the planner released it on stage, which is the one thing that beat has to
+ * disprove. See `tools.tsx`'s `authorizeWithPlannerPin`.
+ */
+export function notifyDataChanged() {
   for (const listener of listeners) listener();
 }
 

@@ -11,7 +11,7 @@ import {
 } from "@copilotkit/react-core/v2";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref } from "@/shell/skin-path";
-import { useLogistics } from "./actions";
+import { useLogistics, notifyDataChanged } from "./actions";
 import { usePlannerAuth } from "./components/planner-auth-context";
 import {
   ExceptionBoard,
@@ -19,6 +19,7 @@ import {
   LaneTable,
   TradeoffTable,
   InventoryRiskList,
+  PlannerPinCard,
   deriveKpiTiles,
   orderExceptionRows,
 } from "./components";
@@ -430,6 +431,106 @@ export function LogisticsTools() {
       },
     },
     [shipments, commitMitigation],
+  );
+
+  // ══ BEAT 3a — DRIVE THE APP, SECRET WITHHELD ═════════════════════════════
+  // The agent fires this; the PLANNER types their PIN into the card; the card
+  // POSTs it straight to REST. `respond()` gets a confirmation sentence and the
+  // digits appear nowhere in the AG-UI stream — which is what the beat is graded
+  // on, in the inspector, live.
+  useHumanInTheLoop(
+    {
+      name: "authorizeWithPlannerPin",
+      description:
+        "Release a mitigation the planner is authorized to make, confirmed with their PIN. " +
+        "This is a SECOND FACTOR, not an authority override — a cost above their authority still " +
+        "needs an escalation. Fire this IMMEDIATELY when the planner asks to release or authorize " +
+        "a cost — the planner enters their PIN in the card themselves. Never ask for the PIN and " +
+        "never ask which shipment first if the context makes it clear.",
+      parameters: z.object({
+        shipment: z.string().describe("Shipment reference or id."),
+      }),
+      // NOTE there is deliberately NO `kind` parameter. The card picks the
+      // option itself (below), so the agent cannot name an over-authority one
+      // and turn a second factor into an unlock.
+      render: ({ args, status: toolStatus, respond, result }) => {
+        const ref = args?.shipment ?? "";
+        if (toolStatus === ToolCallStatus.Executing && respond) {
+          const shipment = findShipment(ref);
+          if (!shipment) {
+            return (
+              <div className="rounded-lg border border-hairline bg-surface p-4 text-sm text-negative">
+                No shipment matches that reference.
+                <button
+                  type="button"
+                  className="ml-2 underline"
+                  onClick={() => void respond("No such shipment.")}
+                >
+                  Dismiss
+                </button>
+              </div>
+            );
+          }
+          // The cost is the MITIGATION's, never the shipment's value. It comes
+          // from computeMitigationOptions — the same helper compareMitigations
+          // renders — so the figure on the card is the figure the server will
+          // recompute and check against the planner's authority.
+          //
+          // The cheapest option the planner may ALREADY commit, and `> 0`
+          // because `absorb` always costs $0: a PIN releasing nothing is not an
+          // authorization, it is a formality. The PIN is a second factor on the
+          // planner's own authority, never an override of it, so an
+          // over-authority option is deliberately NOT offered here — that path
+          // is beat 6's escalation, and if a PIN could take it the escalation
+          // gate would have a second door and the teach arc would never fire.
+          const cap = currentPlanner.authorityUsd;
+          const option = computeMitigationOptions(shipment, lanes)
+            .filter((o) => o.costUsd > 0 && (cap === null || o.costUsd <= cap))
+            .sort((a, b) => a.costUsd - b.costUsd)[0];
+          if (!option) {
+            return (
+              <div className="rounded-lg border border-hairline bg-surface p-4 text-sm text-negative">
+                Nothing on {shipment.reference} is within your approval
+                authority — this one needs an escalation, not a PIN.
+                <button
+                  type="button"
+                  className="ml-2 underline"
+                  onClick={() =>
+                    void respond(
+                      "No mitigation on that shipment is within the planner's authority; it needs an escalation.",
+                    )
+                  }
+                >
+                  Dismiss
+                </button>
+              </div>
+            );
+          }
+          return (
+            <PlannerPinCard
+              shipmentReference={shipment.reference}
+              kind={option.kind}
+              costUsd={option.costUsd}
+              plannerId={currentPlanner.id}
+              onAuthorized={(message) => {
+                // The card writes through its own fetch, so this bus is what
+                // makes the board and the Decision Log catch up.
+                notifyDataChanged();
+                void respond(message);
+              }}
+              onDeclined={() => void respond("Planner declined to authorize.")}
+            />
+          );
+        }
+        // Replay-safe — see commitMitigation's render below.
+        return (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {result ? String(result) : "Preparing the authorization…"}
+          </div>
+        );
+      },
+    },
+    [shipments, lanes, currentPlanner],
   );
 
   // ── HITL: file an escalation (the recovery path from an authority block) ──

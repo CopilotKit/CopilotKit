@@ -30,6 +30,16 @@ export const logisticsSuggestions: Suggestion[] = [
     title: "Weigh the options",
     message: "PO-88213 is running late — what are my options?",
   },
+  // BEAT 3a — drive the app, secret withheld. Named as a RELEASE the planner is
+  // already entitled to make, because the PIN is a second factor and not an
+  // authority override: on the seeded network the only options under Rosa's
+  // $5,000 authority on PO-88213 are the reroute ($572) and the split ($4,350),
+  // and the card offers the cheapest of them. Asking for the expedite ($8,400)
+  // here would be asking the PIN to do beat 6's job.
+  {
+    title: "Release the reroute",
+    message: "Release the reroute on PO-88213 — I'll authorize it.",
+  },
   {
     title: "Inventory at risk",
     message: "Which SKUs run out before their inbound arrives?",

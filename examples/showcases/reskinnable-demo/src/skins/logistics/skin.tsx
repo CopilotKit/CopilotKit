@@ -40,6 +40,7 @@ const TOOL_LABELS: Record<string, string> = {
   showInventoryRisk: "Checking inventory cover",
   compareMitigations: "Weighing the options",
   commitMitigation: "Committing the decision",
+  authorizeWithPlannerPin: "Opening the authorization card",
   fileEscalation: "Filing an escalation",
   createDecisionRecord: "Filing to the decision log",
   renderBrief: "Building the decision brief",

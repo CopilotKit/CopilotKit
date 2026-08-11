@@ -577,6 +577,9 @@ of the fix in a refusal without also asserting the PRESENCE of the symptom (an
 empty message satisfies "does not name a code"), and treating the unlocked call's
 `200` as the proof — re-READ the record and assert the write actually landed.
 
+**A gate can also be defeated without ever being addressed — by a SECOND control
+that quietly authorizes past it. See § 12.**
+
 ---
 
 ## 11. If you are REVIEWING or FIXING a skin: fix classes, not instances
@@ -620,3 +623,66 @@ Two corollaries:
   was scoped to the change that caused it. That is CLAUDE.md's standing rule doing
   its job; see the top of this app's CLAUDE.md for why it is a rule rather than a
   nicety.
+
+---
+
+## 12. A second factor is not an authority override — beats 3a and 6 share a gate
+
+Beat 3a wants a control the user types a secret into. Beat 6 wants a gate the
+agent cannot clear until it has watched the operator clear it once. **In every
+skin that has both, they touch the same write** — and the cheapest way to build
+3a is to let the secret RELEASE the thing the gate is refusing. Do that and beat
+6 is dead: the agent has a second door, it never has to learn the procedure, the
+teach arc never fires, and **nothing fails**. The app compiles, the PIN card is
+gorgeous, the write lands, the room applauds.
+
+**The rule.** A second factor confirms **who is acting**. It never changes **how
+much they may commit**. An escalation raises a limit; a PIN proves identity. That
+is also how it works in the world, which is why the demo reads as real when you
+get it right.
+
+**What that forces on the card.** Offer only an option the operator is ALREADY
+authorized to take, and when none is, say so instead of showing a box that cannot
+succeed:
+
+```tsx
+const cap = currentPlanner.authorityUsd;
+const option = computeMitigationOptions(shipment, lanes)
+  .filter((o) => o.costUsd > 0 && (cap === null || o.costUsd <= cap))
+  .sort((a, b) => a.costUsd - b.costUsd)[0];
+if (!option) return <>…this one needs an escalation, not a PIN.</>;
+```
+
+Two traps inside those two lines, both of which bit this app:
+
+- **`costUsd > 0` is load-bearing.** logistics' `absorb` always costs `$0`, so
+  without it the card asks for a PIN to release nothing — a formality dressed as
+  an authorization. (The same `$0` option made the beat-6 proof script vacuous;
+  § 10.)
+- **Do NOT give the tool a `kind`/amount parameter.** If the agent picks the
+  option, the agent can pick an over-authority one, and you are back to asking the
+  PIN to do the gate's job. The card picks; the agent only names the record.
+
+**And enforce it SERVER-side, where the gate lives.** The card choosing well is a
+convenience; the route refusing is the guarantee. The authorization route
+recomputes the cost itself and runs the very same `checkAuthority()` the ordinary
+write runs, so a hand-rolled `curl` with a valid PIN and an over-authority option
+is refused exactly like any other over-authority write.
+
+**Pin it with a test, because this failure has no other symptom.**
+
+```ts
+it("REFUSES a valid PIN on an over-authority option with the AUTHORITY error", …)
+```
+
+`src/app/api/logistics/v1/authorizations/route.test.ts` is the worked example
+(discover the over-authority option from the live costs — do not hardcode one, or
+a seed change turns the assertion vacuous). Verified by deleting the check: that
+one test goes red and **every other test in the tree stays green**. A companion
+assertion is worth having too — that a JUSTIFYING escalation still lifts the same
+block — so the test says what the unlock path IS, not only what it is not.
+
+**Finally, the prompt must not offer the card as a workaround.** The agent reads
+"REJECTED: over your approval authority" and will try the other tool it has. Say
+in `agent.ts`, out loud, that the PIN is a second factor and never a way past a
+rejection.
