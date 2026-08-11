@@ -130,6 +130,41 @@ const interpolationThenSlash = {
   message: `In-skin navigation target concatenates a path onto an interpolated base, yielding a leading "//" under a lock. ${FIX_HINT}`,
 };
 
+/**
+ * BEAT 6 INVARIANT — the unlock vocabulary is withheld from the agent.
+ *
+ * Beat 6's claim is "when it doesn't know, it learns by watching me once". An
+ * agent holding the catalogue of codes that lift a gate already knows: it clears
+ * the gate unaided and there is nothing left to teach. Logistics published its
+ * catalogue three ways — a `useAgentContext` readable, a `z.enum(ESCALATION_CODES)`
+ * on the filing tool's schema, and the tool's own description pointing the agent
+ * at "the catalogue in your context".
+ *
+ * WHY A LINT RULE AND NOT A TEST. This is a project invariant, not a behaviour:
+ * the app compiles, lints, type-checks and demos perfectly with the readable
+ * restored, and the only symptom is that the teach beat quietly stops proving
+ * anything. It belongs beside the LOCK_SKIN selectors, which exist for the same
+ * reason — a failure with no runtime symptom.
+ *
+ * WHY AST AND NOT A SOURCE-STRING SCAN. The schema leak was line-WRAPPED
+ * (`.enum(ESCALATION_CODES)` sat on its own line), so a guard for the text
+ * "z.enum(ESCALATION_CODES)" would have silently never matched. This selector
+ * matches the IDENTIFIER and is immune to formatting.
+ *
+ * The `files` glob below is the SKINS ALREADY FIXED. Widen it as each remaining
+ * skin's gate lands; a glob covering an unfixed skin turns the tree red for the
+ * whole phase.
+ */
+const withheldGateVocabulary = {
+  selector: "Identifier[name=/_(CODE_LABELS|CODES)$/]",
+  message:
+    "Beat 6: a gate's unlock vocabulary must never reach the agent. Do not put a " +
+    "code catalogue in a useAgentContext readable, a tool-schema z.enum, a prompt, " +
+    "or a 422 body — the agent learns which code works by WATCHING the operator " +
+    "file one. Keep the labels for the human filing form only (import them in the " +
+    "form component, not in tools.tsx).",
+};
+
 // Skin tests render bare (no LockedSkinProvider), so they legitimately ASSERT on
 // the unlocked, prefixed hrefs (`toBe("/banking/charges")`). Exempt them — the
 // contract is about what a skin SHIPS, not what a test expects of unlocked output.
@@ -183,6 +218,16 @@ const eslintConfig = [
         literalSkinPrefix,
         templateLeadingPrefix,
       ],
+    },
+  },
+  // BEAT 6 — see withheldGateVocabulary. Scoped to the tool-registration file of
+  // each skin whose gate has landed. `tools.tsx` is where a readable or a schema
+  // enum would leak the vocabulary; the human filing FORM legitimately imports
+  // the labels, so it is not covered.
+  {
+    files: ["src/skins/logistics/tools.tsx"],
+    rules: {
+      "no-restricted-syntax": ["error", withheldGateVocabulary],
     },
   },
 ];

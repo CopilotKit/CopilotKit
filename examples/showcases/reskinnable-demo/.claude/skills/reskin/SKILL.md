@@ -141,7 +141,10 @@ which produce a generated panel that renders and is wrong:
   domain (`z.enum(YOUR_CONST_TUPLE)`, so the vocabulary reaches the model too) and
   parse the args in the handler, throwing a message that names the accepted
   values. Commerce's `define()` wrapper in `src/skins/commerce/sandbox-functions.ts`
-  is the worked example.
+  is the worked example. **One exception, and it is load-bearing: a beat-6 gate's
+  unlock vocabulary must NOT be enumerated** — putting those codes in front of the
+  model is exactly the defect, because then it never has to learn them. Take a free
+  `z.string()` there and say so in the `.describe()`. See failure-modes.md § 10.
 - The model never sees a sample result — only `name`, `description` and the
   JSON-schema-ified `parameters`. So a figure whose unit is not in its FIELD NAME
   must have it in the `description`: an unlabelled ratio (`0.418`) renders as
@@ -391,7 +394,9 @@ status, respond }`. Airline has no parameterized `useComponent`, so don't learn
   the worst outcome available, because it looks like an answer. Note the third
   state that module carries: arguments STREAM, so a value that is still a PREFIX of
   a real member is "not arrived yet", not a refusal — refuse it and you flash a red
-  card on every call the demo makes.
+  card on every call the demo makes. (Same beat-6 carve-out as above: a GATE's
+  unlock codes are the one closed set you must leave un-enumerated —
+  failure-modes.md § 10.)
 - **EVERY argument is `undefined` mid-render, including the ones your schema
   declares REQUIRED.** The point above is about a value that arrived and was
   wrong; this one is about a value that has not arrived at all. A render runs from
@@ -766,7 +771,13 @@ of these compile and lint clean while failing live:
    confirmation, each visibly. If it offers to record something, beats 5 and 6
    are bleeding into each other in the prompt.
 9. **Beat 6** — it declines, records, saves; then on a **different** gated record
-   it runs the procedure alone.
+   it runs the procedure alone. If it clears the gate BEFORE being taught, you
+   published the unlock vocabulary to it somewhere — readable, schema `z.enum`,
+   tool description, prompt, or refusal body (failure-modes.md § 10). Also prove
+   the gate over pure REST with no agent involved: copy
+   `docs/teach-mode/verify-logistics-gate.sh` (or banking's
+   `verify-teachable-gate.sh`) for your routes, and add your `tools.tsx` to the
+   `withheldGateVocabulary` rule's `files` glob in `eslint.config.mjs`.
 10. **Reset** — restores the data, wipes learned memory, re-seeds beats 4/5, and
     leaves beat 6 unlearned so the demo can run again.
 

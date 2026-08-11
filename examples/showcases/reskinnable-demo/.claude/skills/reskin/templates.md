@@ -624,7 +624,9 @@ render-only tool posts an empty tool result, so there is nothing to correct the
 model with. Enumerate any closed-set parameter (`z.enum(YOUR_CONST_TUPLE)`) AND
 resolve it in the render, saying plainly that the value is unknown rather than
 drawing an empty visual. See SKILL.md's gen-UI enforcement rule and commerce's
-`src/skins/commerce/category-argument.ts`.
+`src/skins/commerce/category-argument.ts`. **Except a beat-6 gate's unlock codes**
+— that one closed set stays a free `z.string()`, because enumerating it hands the
+agent the procedure it is supposed to learn (failure-modes.md § 10).
 
 And it receives that output **INCOMPLETE**: arguments STREAM, `partialJSONParse`
 returns `{}` for the first frames of every call, so each field — required ones

@@ -19,10 +19,11 @@ import {
   deriveKpis,
 } from "./components";
 import { computeMitigationOptions } from "./data/mitigation-options";
-import {
-  ESCALATION_CODES,
-  ESCALATION_CODE_LABELS,
-} from "./data/escalation-codes";
+// NOTE: the escalation-code catalogue is deliberately NOT imported here. See
+// data/escalation-codes.ts — beat 6 requires the unlock vocabulary be withheld
+// from the agent, and this file is the agent's whole view of the app. The
+// `withheldGateVocabulary` rule in eslint.config.mjs fails the build if a
+// `*_CODES` / `*_CODE_LABELS` identifier reappears in this file.
 
 /**
  * Registers everything Meridian Control can do on the client: gen-UI rendered
@@ -80,11 +81,8 @@ export function LogisticsTools() {
     description: "Headline KPIs for the network right now.",
     value: JSON.stringify(deriveKpis(shipments)),
   });
-  useAgentContext({
-    description:
-      "Valid escalation codes. Only these are accepted when filing an escalation.",
-    value: JSON.stringify(ESCALATION_CODE_LABELS),
-  });
+  // NO escalation-code readable. That is beat 6: the agent must learn which code
+  // lifts the authority gate by watching the planner file one.
 
   // ── Gen-UI (rendered inline in chat) ─────────────────────────────────────
   useComponent(
@@ -259,14 +257,17 @@ export function LogisticsTools() {
     {
       name: "fileEscalation",
       description:
-        "File an escalation so an over-authority mitigation can proceed. Pass the shipment and a code from the " +
-        "valid escalation-code catalogue in your context. Only some codes actually authorize the spend; an " +
-        "invalid code is rejected.",
+        "File an escalation so an over-authority mitigation can proceed. Pass the shipment and the escalation " +
+        "code to file under. You do NOT hold the list of codes and must not guess one: use the exact code the " +
+        "planner used, or ask them which code applies. Filing does not guarantee the mitigation clears.",
       parameters: z.object({
         shipment: z.string().describe("Shipment reference or id."),
         code: z
-          .enum(ESCALATION_CODES)
-          .describe("An escalation code from the catalogue."),
+          .string()
+          .describe(
+            "The escalation code to file under. You are NOT given the catalogue — " +
+              "use the exact code the planner demonstrated, or ask them which code applies.",
+          ),
         rationale: z
           .string()
           .describe("One short sentence justifying the escalation."),

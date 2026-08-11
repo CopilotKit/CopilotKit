@@ -110,7 +110,7 @@ a third private rank table — found only by enumerating all **33** floor-fact
 consumers and recording a verdict for each. Twenty of the 33 were already honest,
 which is the evidence that the vocabulary was right and only its **reach** was
 short. If you introduce a tri-state, grep for every consumer of the old boolean and
-write the list down. See § 10.
+write the list down. See § 11.
 
 ---
 
@@ -484,7 +484,69 @@ roster in the documents it names. Its boundary, honestly:
 
 ---
 
-## 10. If you are REVIEWING or FIXING a skin: fix classes, not instances
+## 10. A gate's unlock vocabulary must never reach the agent
+
+This is the ONE place the rule everywhere else in this skill — enumerate every
+closed-set parameter with `z.enum(YOUR_CONST_TUPLE)` so the vocabulary reaches
+the model — is **inverted**. For a beat-6 gate, the vocabulary reaching the model
+IS the defect: an agent holding the codes that lift the gate already knows the
+procedure, clears it unaided, and there is nothing left to teach. The demo still
+runs, beautifully, and proves nothing.
+
+**Logistics had the whole mechanism right and still gave away the answer, three
+ways over.** It shipped the gate (`data/authority.ts`, refusing with the symptom
+only), the justifying/decoy split (`data/escalation-codes.ts`) and a 422 that
+refuses an uncatalogued code without enumerating the valid set — and then
+published the catalogue via:
+
+1. a `useAgentContext` readable described as _"Valid escalation codes. Only these
+   are accepted"_;
+2. `z.enum(ESCALATION_CODES)` on the filing tool's `parameters`;
+3. the tool's own `description`: _"a code from the valid escalation-code catalogue
+   **in your context**"_;
+4. an `agent.ts` RULES line listing "valid escalation codes" among what is
+   "provided".
+
+**Closing three of four is closing none.** Deleting the readable while leaving the
+description moves the leak into prose; deleting both while the prompt still says
+the codes are provided leaves a sentence that is now also false. Enumerate the
+channels — readable, schema, tool description, prompt, error body — and record a
+verdict for each (§ 11).
+
+**The shipped shape.** A gate's code parameter is a free `z.string()` whose
+`.describe()` states the withholding out loud ("You are NOT given the catalogue —
+use the exact code the planner demonstrated, or ask them which code applies"), the
+tool description says the same, and the prompt names escalation codes as the one
+thing NOT in context. The labels stay exported for the HUMAN filing form; it is
+the agent that must not see them, not the operator.
+
+**Why a lint rule and not a test.** Every symptom here is invisible: the app
+compiles, type-checks, lints and demos with the readable restored. So the guard is
+an AST `no-restricted-syntax` selector, `withheldGateVocabulary` in
+`eslint.config.mjs`, beside the LOCK_SKIN ones and for the same reason — a failure
+with no runtime symptom. It matches an `Identifier` named `*_CODES` /
+`*_CODE_LABELS`, deliberately not source text: the schema leak was LINE-WRAPPED
+(`.enum(ESCALATION_CODES)` sat on its own line), so a guard for the string
+`"z.enum(ESCALATION_CODES)"` would have silently never matched.
+
+⚠️ **Its `files` glob lists only the skins whose gate has landed. Append your
+skin's `tools.tsx` when yours does, or your skin is unguarded** — the rule is
+scoped narrowly on purpose, because a glob covering an unfixed skin turns the
+whole tree red.
+
+**And prove it over pure REST, with no agent in the loop.** Four assertions in
+order: the gate refuses with a symptom and no code named; a DECOY code records and
+approves and still does not unlock; an uncatalogued code is refused without
+enumerating the catalogue; a JUSTIFYING code lifts the gate.
+`docs/teach-mode/verify-logistics-gate.sh` (logistics) and
+`verify-teachable-gate.sh` (banking) are the two worked examples. Discover the
+case from the live API rather than hardcoding it — logistics' first draft asserted
+against `absorb`, which always costs `$0` and can therefore never be over
+authority, so the script would have "passed" a gate it never exercised.
+
+---
+
+## 11. If you are REVIEWING or FIXING a skin: fix classes, not instances
 
 The strongest single number this build produced:
 

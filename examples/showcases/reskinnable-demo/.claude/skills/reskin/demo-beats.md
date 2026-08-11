@@ -445,6 +445,19 @@ and then does it alone, on a different case.
 3. **An agent framed to decline rather than bluff.** The prompt withholds the
    recipe and carries an ACTION DISCIPLINE clause so it says "I don't know this
    one — want me to record how you do it?" instead of improvising.
+
+   ⚠️ **The vocabulary leaks through FIVE channels and closing four is closing
+   none:** a `useAgentContext` readable, a `z.enum(YOUR_CODES)` on the filing
+   tool's schema, the tool's own `description`, the prompt, and the refusal body.
+   Logistics shipped parts 1 and 2 correctly and still handed the agent the answer
+   through the first four of those. Take a free `z.string()` on the code parameter
+   and state the withholding in its `.describe()`. This INVERTS the enumerate-every-
+   closed-set rule you follow everywhere else — for a gate, reaching the model is
+   the defect. The guard is `withheldGateVocabulary` in `eslint.config.mjs`, and its
+   `files` glob lists only the skins already fixed, so **append your skin's
+   `tools.tsx` when your gate lands or nothing checks it.** Full account, plus the
+   REST proof scripts: failure-modes.md § 10.
+
 4. **A recording context with live, visible feedback.** **Do NOT write your own
    — import the shell's:** `RecordingProvider`, `RecordingFeed`,
    `RecordingVignette` and `useRecording` all come from `@/shell/teach`

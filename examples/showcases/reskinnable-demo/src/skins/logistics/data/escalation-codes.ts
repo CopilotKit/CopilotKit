@@ -1,8 +1,21 @@
 /**
- * The closed catalogue of escalation codes. Mirrors banking's
- * policy-exception-codes: a fixed vocabulary with a justifying/non-justifying
- * split, so the agent must LEARN the valid codes rather than invent plausible
- * strings. An uncatalogued code is a 422 at the route.
+ * The closed catalogue of escalation codes — three tiers.
+ *
+ *  - JUSTIFYING (4): actually lift the authority gate once approved.
+ *  - DECOYS (2, PEAK_SEASON + INTERNAL_CONVENIENCE): catalogued and recorded so
+ *    the decision log stays honest, but an escalation filed under them does NOT
+ *    authorize over-authority spend. They exist so the demonstration is a real
+ *    demonstration — a plausible wrong turn the agent can be seen not taking.
+ *  - Everything else: rejected at the route WITHOUT enumerating the valid set.
+ *
+ * ⚠️ This vocabulary is WITHHELD FROM THE AGENT (beat 6). It must never appear
+ * in a useAgentContext readable, a tool-schema z.enum, a prompt, or a 422 body.
+ * `ESCALATION_CODE_LABELS` is for HUMAN-facing UI only — the planner's filing
+ * form. The agent learns which code works by watching the planner file one;
+ * that is the entire beat. `eslint.config.mjs`'s `withheldGateVocabulary` rule
+ * fails the build if a `*_CODES` / `*_CODE_LABELS` identifier reappears in
+ * `src/skins/logistics/tools.tsx`, and `escalation-codes.test.ts` guards the
+ * justifying/decoy split itself.
  */
 export const ESCALATION_CODES = [
   "CUSTOMER_COMMITMENT",
