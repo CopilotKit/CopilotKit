@@ -116,7 +116,10 @@ export function useCopilotReadable(
     if (found) {
       ctxIdRef.current = found[0];
       if (available === "disabled") copilotkit.removeContext(ctxIdRef.current);
-      return;
+      return () => {
+        if (!ctxIdRef.current) return;
+        copilotkit.removeContext(ctxIdRef.current);
+      };
     }
     if (!found && available === "disabled") return;
 
@@ -129,7 +132,7 @@ export function useCopilotReadable(
       if (!ctxIdRef.current) return;
       copilotkit.removeContext(ctxIdRef.current);
     };
-  }, [description, value, convert]);
+  }, [description, value, convert, available]);
 
   return ctxIdRef.current;
 }
