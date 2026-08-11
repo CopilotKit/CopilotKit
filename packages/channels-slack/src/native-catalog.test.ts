@@ -95,3 +95,31 @@ function requiredProps(type: string): Record<string, unknown> {
   }
   return {};
 }
+
+test("an image accepts either an external URL or a Slack-hosted file", () => {
+  const external = createNativeNode("slack", "block", "image", {
+    image_url: "https://picsum.photos/400/300",
+    alt_text: "Latency chart",
+  });
+  const hosted = createNativeNode("slack", "block", "image", {
+    slack_file: createNativeNode("slack", "object", "slack_file", {
+      url: "https://files.slack.com/files-pri/T0/chart.png",
+    }),
+    alt_text: "Latency chart",
+  });
+
+  expect(serializeSlackNativeNode(external).image_url).toBe(
+    "https://picsum.photos/400/300",
+  );
+  expect(serializeSlackNativeNode(hosted).slack_file).toEqual({
+    url: "https://files.slack.com/files-pri/T0/chart.png",
+  });
+
+  // Neither source is still an error — the check moved, it did not disappear.
+  const neither = createNativeNode("slack", "block", "image", {
+    alt_text: "Latency chart",
+  });
+  expect(() => serializeSlackNativeNode(neither)).toThrow(
+    /requires image_url or slack_file/,
+  );
+});
