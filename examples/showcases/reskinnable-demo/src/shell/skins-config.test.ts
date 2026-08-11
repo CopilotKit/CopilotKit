@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { Linter } from "eslint";
+import { ESLint, Linter } from "eslint";
 import { defaultSkinId, skinIdentities, skinIds } from "./skins-config";
 import { allSkins, SkinRegistry } from "./registry";
-import eslintConfig, { LINTED_SKIN_IDS } from "../../eslint.config.mjs";
+import eslintConfig, {
+  LINTED_SKIN_IDS,
+  NAMED_SELECTORS,
+} from "../../eslint.config.mjs";
 
 describe("skinIds", () => {
   // `skins-config.ts` must stay free of skin imports so server components can
@@ -65,6 +68,97 @@ describe("the LOCK_SKIN lint guard", () => {
     );
     expect(unguarded).toEqual([]);
   });
+});
+
+describe("the resolved no-restricted-syntax selectors", () => {
+  // ESLint flat-config `rules` OPTIONS ARE REPLACED, NOT MERGED: for a given rule
+  // key the last block matching a file wins outright, so a later block silently
+  // drops every selector it does not restate. That is not hypothetical — a beat-6
+  // block listing only its own selector cost `src/skins/logistics/tools.tsx` all
+  // three LOCK_SKIN selectors, and `pnpm lint` stayed green, the whole unit suite
+  // stayed green, and the synthetic-link test above did not notice, because it
+  // lints a MADE-UP snippet through a hand-picked block rather than asking what a
+  // REAL FILE actually resolves to. It was caught by `eslint --print-config`, by
+  // hand, once. This is that check, mechanised.
+  //
+  // WHY `calculateConfigForFile` AND NOT A WALK OF THE EXPORTED ARRAY. The bug IS
+  // the resolution order. Re-implementing "last matching block wins" here would
+  // re-implement the very thing that must be verified, and any walk that models
+  // replacement correctly is just a worse copy of ESLint's own resolver. This
+  // calls the resolver.
+  //
+  // ASSERT THE LIST, NEVER A COUNT. The prose comments in `eslint.config.mjs` used
+  // to prescribe counts, and they had already rotted when read ("any other in-skin
+  // file: three"; `actions.ts` resolves to two). A count also cannot say WHICH
+  // selector went missing. Selectors are named via `NAMED_SELECTORS` — the rule's
+  // own option schema is `additionalProperties: false` over `{ selector, message }`,
+  // so a `name` key on the option object itself is a hard config error.
+  const nameOf = (selector: string) =>
+    Object.entries(NAMED_SELECTORS).find(
+      ([, option]) => option.selector === selector,
+    )?.[0] ?? `UNNAMED(${selector})`;
+
+  // Every file whose selector set is deliberately different from its neighbours'.
+  // Widening a rule's `files` glob (beat 2 for keel, then airline; beat 6 as each
+  // gate lands) means updating a row here — that edit is the point.
+  it.each([
+    [
+      "src/skins/logistics/tools.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    [
+      "src/skins/logistics/agent.ts",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    // Any other logistics .tsx — pages and components carry beat 2 but not beat 6.
+    [
+      "src/skins/logistics/pages/control-tower.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    // A skin beat 2 has NOT reached yet: it must not gain the selector early, or
+    // the tree goes red for a phase that has not run.
+    [
+      "src/skins/keel/tools.tsx",
+      ["literalSkinPrefix", "templateLeadingPrefix", "interpolationThenSlash"],
+    ],
+    [
+      "src/skins/banking/tools.tsx",
+      ["literalSkinPrefix", "templateLeadingPrefix", "interpolationThenSlash"],
+    ],
+    // The REST/data layer legitimately drops the builder-concat selector.
+    [
+      "src/skins/logistics/actions.ts",
+      ["literalSkinPrefix", "templateLeadingPrefix"],
+    ],
+  ])(
+    "%s resolves to exactly its expected selectors",
+    async (file, expected) => {
+      const resolved = await new ESLint().calculateConfigForFile(file);
+      const entry = resolved.rules?.["no-restricted-syntax"];
+      expect(Array.isArray(entry)).toBe(true);
+      const [, ...selectors] = entry as [string, ...{ selector: string }[]];
+      expect(selectors.map((option) => nameOf(option.selector))).toEqual(
+        expected,
+      );
+    },
+  );
 });
 
 describe("skinIdentities", () => {

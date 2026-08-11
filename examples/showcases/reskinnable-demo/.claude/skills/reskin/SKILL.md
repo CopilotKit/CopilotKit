@@ -431,12 +431,21 @@ status, respond }`. Airline has no parameterized `useComponent`, so don't learn
   renders blank or wrong the moment anyone revisits the thread — which is exactly
   when beat 2 ("reload and the chart is still there") is being shown. Re-derive
   display state from the replayed result, and never depend on client state that
-  only existed during the live call. Banking, people and commerce are the only
-  skins
+  only existed during the live call. Banking, people, commerce and logistics are
   written this way; banking's is the canonical example:
   `setCardPin` re-derives its card from the replayed result plus a module map
   holding only `brand`/`last4` — never the PIN (`tools.tsx:70-89`, `418-451`) —
   and `showCharges` keys off `result` not `status` (`tools.tsx:553-572`).
+  **This is lint-enforced, per skin.** The `statusKeyedTerminalRender` selector in
+  `eslint.config.mjs` fails any `status === ToolCallStatus.Complete` — but only
+  inside the `files` glob of skins already re-keyed (logistics today; keel and
+  airline still carry the defect and widen it in their own phases). Add your
+  skin's `.tsx` to that glob, **restating every selector the block already
+  resolves to** (see "flat-config `rules` are REPLACED, not merged" in the
+  verification list below), and add a row for your files to the resolved-selector
+  table in `src/shell/skins-config.test.ts`. `status === ToolCallStatus.Executing`
+  on an INTERACTIVE branch is correct and deliberately not matched — an executing
+  HITL card only ever exists live.
 - **Register a ROUTE readable and per-page on-screen readables**, not just global
   ones. `useAgentContext({ description: "The current page…", value: <segment> })`
   in your layout tells the agent which page is open; readables registered inside
@@ -778,9 +787,14 @@ of these compile and lint clean while failing live:
    `docs/teach-mode/verify-logistics-gate.sh` (or banking's
    `verify-teachable-gate.sh`) for your routes, and add BOTH your `tools.tsx` and
    your `agent.ts` to the `withheldGateVocabulary` rule's `files` glob in
-   `eslint.config.mjs` — **restating the three LOCK_SKIN selectors in that block,
-   because flat-config `rules` are replaced and not merged**, then confirming with
-   `npx eslint --print-config` that the file reports four selectors and not one.
+   `eslint.config.mjs` — **restating EVERY selector those files already resolve
+   to, because flat-config `rules` are replaced and not merged** (listing only
+   your new one silently deletes the rest; that shipped once and `pnpm lint`
+   stayed green). Do not verify this by COUNTING selectors — the count this line
+   used to prescribe rotted within one task. Add a row for each file to the
+   resolved-selector table in `src/shell/skins-config.test.ts`, which asserts the
+   resolved selector LIST by name through `ESLint#calculateConfigForFile`;
+   `npx eslint --print-config <file>` is the by-hand version.
    The rule sees identifiers only; the prose channels are yours to grep.
 10. **Reset** — restores the data, wipes learned memory, re-seeds beats 4/5, and
     leaves beat 6 unlearned so the demo can run again.

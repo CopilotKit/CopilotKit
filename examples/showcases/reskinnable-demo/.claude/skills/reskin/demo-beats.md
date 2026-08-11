@@ -78,7 +78,11 @@ written to be replay-safe.** This is the part that silently breaks:
 - **Key a render off the tool `result`, not off `status`.** On replay you get the
   recorded result, not a live status transition. A render keyed on `status`
   looks perfect during the live run and renders blank or wrong the moment the
-  thread is reopened.
+  thread is reopened. Lint-enforced per skin by `statusKeyedTerminalRender` in
+  `eslint.config.mjs` — add your skin to its `files` glob (SKILL.md § "Registering
+  tools" spells out the restate-every-selector rule that glob edit carries).
+  `status === ToolCallStatus.Executing` on an interactive HITL branch is fine and
+  is not matched.
 - **Re-derive display state from the replayed result.** Never depend on client
   state that only existed during the live call.
 - **Keep secrets out of what you re-derive** (see beat 3a).

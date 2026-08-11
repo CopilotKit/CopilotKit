@@ -177,6 +177,59 @@ const withheldGateVocabulary = {
     ".claude/skills/reskin/failure-modes.md § 10.",
 };
 
+/**
+ * BEAT 2 INVARIANT — a tool render's terminal branch must come from the RESULT.
+ *
+ * On replay — a reopened thread, or a hard reload in Intelligence mode — the
+ * recorded tool `result` is handed back but the live `status` transitions never
+ * fire. A render whose completed branch is chosen by
+ * `status === ToolCallStatus.Complete` is therefore perfect for the entire live
+ * demo and renders its PENDING copy forever the moment the thread is reopened —
+ * which is precisely the reload beat 2 exists to perform on stage.
+ *
+ * WHY A LINT RULE. The defect is structural, not behavioural: it is about which
+ * value selects the branch, and it has no live symptom at all. Nothing else in
+ * the tree catches it.
+ *
+ * The `files` glob is the SKINS ALREADY RE-KEYED — widen it per phase. Note the
+ * `status === ToolCallStatus.Executing` guard on an INTERACTIVE branch is correct
+ * and deliberately not matched: an executing HITL card only ever exists live.
+ */
+const statusKeyedTerminalRender = {
+  selector:
+    "BinaryExpression[operator='==='][left.name='status'][right.object.name='ToolCallStatus'][right.property.name='Complete']",
+  message:
+    "Beat 2: choose a tool render's terminal branch from the recorded `result`, " +
+    "not from `status`. On replay the result comes back but no status transition " +
+    "fires, so this renders the pending copy forever on a reopened thread. " +
+    "(`status === ToolCallStatus.Executing` on the interactive branch is fine.)",
+};
+
+/**
+ * The selectors above, KEYED BY NAME — the seam `src/shell/skins-config.test.ts`
+ * uses to assert the RESOLVED selector list of a real file.
+ *
+ * WHY A NAME MAP AND NOT A `name` FIELD ON EACH SELECTOR. `no-restricted-syntax`
+ * validates its options against a schema with `additionalProperties: false` and
+ * exactly `{ selector, message }`, so an extra `name` key is a hard config error
+ * ("Unexpected property \"name\""). The stable identity therefore has to live
+ * OUTSIDE the option object; the test reverses this map on the `selector` string.
+ *
+ * WHY IT EXISTS AT ALL. Flat-config `rules` options are REPLACED, not merged — a
+ * later matching block silently drops every selector it does not restate. That
+ * shipped once (the beat-6 block below cost `logistics/tools.tsx` all three
+ * LOCK_SKIN selectors), and was invisible to `pnpm lint`, to the whole unit
+ * suite, and to this config's own synthetic-link test. ESLint reads only the
+ * default export; this named one is inert to it.
+ */
+export const NAMED_SELECTORS = {
+  literalSkinPrefix,
+  templateLeadingPrefix,
+  interpolationThenSlash,
+  withheldGateVocabulary,
+  statusKeyedTerminalRender,
+};
+
 // Skin tests render bare (no LockedSkinProvider), so they legitimately ASSERT on
 // the unlocked, prefixed hrefs (`toBe("/banking/charges")`). Exempt them — the
 // contract is about what a skin SHIPS, not what a test expects of unlocked output.
@@ -232,6 +285,29 @@ const eslintConfig = [
       ],
     },
   },
+  // BEAT 2 — see statusKeyedTerminalRender. Scoped to the skins already re-keyed;
+  // keel (4 occurrences) and airline (3) still carry the defect and are added by
+  // their own phases. A glob covering an unfixed skin turns the tree red for the
+  // whole phase, and a phase that cannot end green is a phase nobody can bisect.
+  //
+  // ⚠️ RESTATES THE LOCK_SKIN SELECTORS, and must keep doing so — flat-config
+  // `rules` are REPLACED, not merged (see NAMED_SELECTORS). This block must also
+  // stay ABOVE the beat-6 block below: that one is narrower by FILE but ESLint
+  // resolves by ORDER, not specificity, so a logistics-wide block placed after it
+  // would silently strip `withheldGateVocabulary` from `tools.tsx`/`agent.ts`.
+  {
+    files: ["src/skins/logistics/**/*.tsx"],
+    ignores: SKIN_TEST_FILES,
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        literalSkinPrefix,
+        templateLeadingPrefix,
+        interpolationThenSlash,
+        statusKeyedTerminalRender,
+      ],
+    },
+  },
   // BEAT 6 — see withheldGateVocabulary. Scoped to the two AGENT-FACING files of
   // each skin whose gate has landed: `tools.tsx` (a readable or a client
   // tool-schema enum) and `agent.ts` (the prompt, and a server `defineTool` enum).
@@ -243,10 +319,15 @@ const eslintConfig = [
   // silently DISABLES the three URL-contract selectors from the `src/skins/**`
   // block above for exactly these files. That is invisible — `logistics/tools.tsx`
   // has no nav shape today, so nothing fails; a hardcoded `/logistics/...` href
-  // added to it later would just pass. It shipped that way once. Verify with
-  // `npx eslint --print-config <file>` and count the selectors (these files must
-  // report FOUR, any other in-skin file THREE) — a passing `pnpm lint` proves
-  // nothing here.
+  // added to it later would just pass. It shipped that way once.
+  //
+  // A passing `pnpm lint` proves nothing here, and neither does a COUNT — the
+  // count this comment used to prescribe had already rotted by the time it was
+  // read (it said "any other in-skin file: three"; `actions.ts` resolves to two).
+  // The mechanical check is `src/shell/skins-config.test.ts` § "the resolved
+  // no-restricted-syntax selectors", which asserts the resolved selector LIST,
+  // by name, per file, through `ESLint#calculateConfigForFile`. Add every file
+  // whose selector set you change to its table.
   {
     files: ["src/skins/logistics/tools.tsx", "src/skins/logistics/agent.ts"],
     rules: {
@@ -256,6 +337,7 @@ const eslintConfig = [
         templateLeadingPrefix,
         interpolationThenSlash,
         withheldGateVocabulary,
+        statusKeyedTerminalRender,
       ],
     },
   },

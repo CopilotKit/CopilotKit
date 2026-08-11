@@ -190,7 +190,7 @@ export function LogisticsTools() {
           .string()
           .describe("One short sentence on why this option."),
       }),
-      render: ({ args, status, respond }) => {
+      render: ({ args, status, respond, result }) => {
         const kind = args?.kind ?? "absorb";
         const ref = args?.shipment ?? "";
         if (status === ToolCallStatus.Executing && respond) {
@@ -211,17 +211,20 @@ export function LogisticsTools() {
                       return void respond(
                         "No shipment matches that reference.",
                       );
-                    const result = await commitMitigation({
+                    // Named `outcome`, not `result`: the render's own `result`
+                    // prop (the recorded tool result) is in scope here and is
+                    // what the terminal branch below reads.
+                    const outcome = await commitMitigation({
                       shipmentId: shipment.id,
                       kind,
                       rationale: args?.rationale ?? "",
                     });
                     void respond(
-                      result.ok
-                        ? `Committed ${kind} on ${ref} at $${result.option?.costUsd.toLocaleString("en-US")}.`
+                      outcome.ok
+                        ? `Committed ${kind} on ${ref} at $${outcome.option?.costUsd.toLocaleString("en-US")}.`
                         : // Surface the server's block verbatim so the agent learns it
                           // instead of reporting a false success.
-                          `REJECTED: ${result.error}`,
+                          `REJECTED: ${outcome.error}`,
                     );
                   }}
                 >
@@ -240,11 +243,14 @@ export function LogisticsTools() {
             </div>
           );
         }
+        // Replay-safe: on a reopened thread the recorded `result` is handed back
+        // but no status transition ever fires, so keying the terminal copy off
+        // `status` would render "Preparing…" forever. `result` is the only thing
+        // that survives a reload — and it carries the real outcome sentence the
+        // planner's click produced, so the replayed card reads better too.
         return (
           <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
-            {status === ToolCallStatus.Complete
-              ? `Mitigation on ${ref} handled.`
-              : "Preparing the decision…"}
+            {result ? String(result) : "Preparing the decision…"}
           </div>
         );
       },
@@ -272,7 +278,7 @@ export function LogisticsTools() {
           .string()
           .describe("One short sentence justifying the escalation."),
       }),
-      render: ({ args, status, respond }) => {
+      render: ({ args, status, respond, result }) => {
         const ref = args?.shipment ?? "";
         const code = args?.code ?? "";
         if (status === ToolCallStatus.Executing && respond) {
@@ -296,15 +302,17 @@ export function LogisticsTools() {
                       return void respond(
                         "No shipment matches that reference.",
                       );
-                    const result = await fileEscalation({
+                    // Named `outcome` — see commitMitigation above; `result` is
+                    // the render's recorded-result prop.
+                    const outcome = await fileEscalation({
                       shipmentId: shipment.id,
                       code,
                       rationale: args?.rationale ?? "",
                     });
                     void respond(
-                      result.ok
+                      outcome.ok
                         ? `Escalation ${code} approved on ${ref}. Re-attempt the mitigation to see whether it now clears.`
-                        : `REJECTED: ${result.error}`,
+                        : `REJECTED: ${outcome.error}`,
                     );
                   }}
                 >
@@ -321,11 +329,10 @@ export function LogisticsTools() {
             </div>
           );
         }
+        // Replay-safe — see commitMitigation's render above.
         return (
           <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
-            {status === ToolCallStatus.Complete
-              ? "Escalation handled."
-              : "Preparing the escalation…"}
+            {result ? String(result) : "Preparing the escalation…"}
           </div>
         );
       },
@@ -374,11 +381,11 @@ export function LogisticsTools() {
           ? `Filed ${kind} on ${ref} to the Decision Log.`
           : `REJECTED: ${result.error}`;
       },
-      render: ({ status }) => (
+      // Replay-safe — see commitMitigation's render above. This tool has no
+      // `respond`, so `result` is the handler's own return sentence.
+      render: ({ result }) => (
         <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
-          {status === ToolCallStatus.Complete
-            ? "Filed to the Decision Log."
-            : "Filing to the decision log…"}
+          {result ? String(result) : "Filing to the decision log…"}
         </div>
       ),
     },
