@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-python / multimodal",
+    "sourceFile": "d5-multimodal.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "multimodal \u2014 sample image turn. The probe clicks 'Try with sample image' which auto-sends via agent.addMessage. The assertion checks the assistant transcript contains the keyword 'image'. The userMessage here matches the agentic-chat fixture for 'describe the sample image' which is the message the sample-attachment-buttons component dispatches.",
+      "match": {
+        "userMessage": "describe the sample image",
+        "turnIndex": 0,
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary attachment round-tripped through the runtime."
+      }
+    },
+    {
+      "_comment": "multimodal \u2014 sample PDF turn. The probe clicks 'Try with sample PDF' which auto-sends. The assertion checks the assistant transcript contains the keyword 'document'.",
+      "match": {
+        "userMessage": "summarize the sample document",
+        "turnIndex": 0,
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "The PDF document contains a single test page used by the multimodal demo. Its text was flattened by pypdf on the Python side and forwarded as text content to the model. Receiving this response confirms the document upload path works."
+      }
+    }
+  ]
+}

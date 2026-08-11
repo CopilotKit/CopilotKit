@@ -1,0 +1,33 @@
+{
+  "framework": "openclaw",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "agentic-chat-reasoning": {
+      "og_docs_url": "https://docs.copilotkit.ai/reasoning",
+      "shell_docs_path": "/reasoning"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "frontend-tools": {
+      "og_docs_url": "https://docs.copilotkit.ai/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
+    "prebuilt-sidebar": {
+      "og_docs_url": "https://docs.copilotkit.ai/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "prebuilt-popup": {
+      "og_docs_url": "https://docs.copilotkit.ai/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "chat-customization-css": {
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel",
+      "shell_docs_path": "/custom-look-and-feel/css"
+    }
+  }
+}

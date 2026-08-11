@@ -1,0 +1,25 @@
+{
+  "id": "showcase-tools",
+  "name": "Showcase Demo Tools",
+  "description": "Deterministic backend tools that back the CopilotKit showcase openclaw demos.",
+  "version": "0.1.0",
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "contracts": {
+    "tools": [
+      "get_weather",
+      "search_flights",
+      "get_stock_price",
+      "roll_d20",
+      "get_revenue_chart",
+      "query_data",
+      "display_flight"
+    ]
+  }
+}
