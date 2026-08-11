@@ -5,7 +5,7 @@ description: >
   project from scratch. Covers framework detection, package installation, runtime wiring
   (managed Intelligence or self-hosted SSE), provider setup, and first working chat
   integration.
-version: 1.3.0
+version: 1.4.0
 ---
 
 # CopilotKit Setup
@@ -19,12 +19,33 @@ This plugin includes an MCP server (`copilotkit-docs`) that provides `search-doc
 - **Claude Code:** Auto-configured by the plugin's `.mcp.json` -- no setup needed.
 - **Codex:** Requires manual configuration. See the [copilotkit-debug skill](../copilotkit-debug/SKILL.md#mcp-setup) for setup instructions.
 
+### Existing Hermes agent
+
+Before checking provider keys, installing packages, or creating a `BuiltInAgent`, detect whether Hermes is already installed:
+
+```bash
+command -v hermes
+```
+
+- If the command finds nothing, continue with the normal setup workflow.
+- If it finds Hermes, ask the user whether they want to reuse that existing agent through AG-UI. Do not assume consent.
+- If the user declines, continue with the normal setup workflow.
+- If the user accepts, validate the installed command and its AG-UI dependencies:
+
+  ```bash
+  hermes agui --check
+  ```
+
+  If the check succeeds, read `references/hermes-agui.md` and follow its package, runtime, and environment instructions in place of Steps 1-2 and the `BuiltInAgent` provider-key instructions in Step 5 below. That reference preserves Step 2's required managed Intelligence versus self-hosted SSE choice. After wiring the selected mode, resume at Step 3.
+
+  If the check fails or the option is unsupported, stop the Hermes path. Explain that the installed Hermes is not AG-UI-compatible or is missing its AG-UI dependencies. Ask the user either to install/update a compatible Hermes build themselves or to decline Hermes reuse and continue with the normal setup workflow. **Never install, update, configure, or otherwise mutate Hermes as part of CopilotKit onboarding.**
+
 ### Environment
 
 Before starting setup, verify:
 
 1. **Node.js >= 18** (required for `fetch` globals used by the runtime)
-2. **An AI provider API key** (one of: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`)
+2. **An AI provider API key**, unless reusing an already configured Hermes agent (one of: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`)
 3. **A React-based frontend** (Next.js App Router, Next.js Pages Router, Vite + React, or Angular)
 4. **A backend capable of running the runtime** (same Next.js app via API routes, or a standalone Express/Hono server)
 
