@@ -1,6 +1,7 @@
 "use client";
 
 import { z } from "zod";
+import { useRouter } from "next/navigation";
 import {
   useAgentContext,
   useComponent,
@@ -8,6 +9,8 @@ import {
   useHumanInTheLoop,
   ToolCallStatus,
 } from "@copilotkit/react-core/v2";
+import { useSkin } from "@/shell/skin-provider";
+import { useSkinHref } from "@/shell/skin-path";
 import { useLogistics } from "./actions";
 import { usePlannerAuth } from "./components/planner-auth-context";
 import {
@@ -17,8 +20,17 @@ import {
   TradeoffTable,
   InventoryRiskList,
   deriveKpiTiles,
+  orderExceptionRows,
 } from "./components";
 import { computeMitigationOptions } from "./data/mitigation-options";
+import {
+  EXCEPTION_ARGUMENTS,
+  SORT_ARGUMENTS,
+  STATUS_ARGUMENTS,
+  leverChips,
+  leverQuery,
+  normalizeLevers,
+} from "./data/exception-levers";
 // NOTE: the escalation-code catalogue is deliberately NOT imported here. See
 // data/escalation-codes.ts — beat 6 requires the unlock vocabulary be withheld
 // from the agent, and this file is the agent's whole view of the app. The
@@ -42,6 +54,9 @@ export function LogisticsTools() {
     fileDecision,
   } = useLogistics();
   const { currentPlanner } = usePlannerAuth();
+  const skin = useSkin();
+  const skinHref = useSkinHref(skin.id);
+  const router = useRouter();
 
   const findShipment = (ref: string) =>
     shipments.find((s) => s.id === ref || s.reference === ref);
@@ -98,7 +113,15 @@ export function LogisticsTools() {
       name: "showExceptions",
       description:
         "Display the exception queue — shipments needing a decision, worst first.",
-      render: () => <ExceptionBoard shipments={shipments} lanes={lanes} />,
+      // The board renders what it is handed, in the order it is handed; ordering
+      // is the caller's job now. See `orderExceptionRows`' header — it used to
+      // sort internally, which silently overrode the Control Tower's sort lever.
+      render: () => (
+        <ExceptionBoard
+          shipments={orderExceptionRows(shipments.filter((s) => s.exception))}
+          lanes={lanes}
+        />
+      ),
     },
     [shipments, lanes],
   );
@@ -177,6 +200,149 @@ export function LogisticsTools() {
       },
     },
     [shipments, lanes, currentPlanner.authorityUsd],
+  );
+
+  // ── BEAT 3c: HITL navigation — confirm the maneuver, THEN move ───────────
+  // A plain `navigateTo` does not earn this beat. The room has to see the levers
+  // NAMED before anything moves and TINTED on the page afterwards, so the claim
+  // "it reached the app's real controls" is something they can check rather than
+  // take on faith.
+  useHumanInTheLoop(
+    {
+      name: "showExceptionQueue",
+      description:
+        "Take the planner to the Control Tower with an exception class, a status filter, a sort order and a " +
+        "top-N limit applied. Confirm with them first — the card lists the levers before anything moves. Use " +
+        "this for any 'show me the worst / costliest / most delayed exceptions' request. Set EVERY lever the " +
+        "request implies and OMIT the ones it does not — every lever here is OPTIONAL, an omitted one is left " +
+        "alone rather than defaulted, and filling a lever merely because the schema offers it narrows the " +
+        "board for no reason and claims a choice the planner never made. The board holds only shipments carrying " +
+        "an exception, so a status filter narrows within that queue, and each exception class holds only a " +
+        "handful of shipments on this network — setting `exception` narrows it hard. Whatever you set, say " +
+        "afterwards how many rows the board is showing out of how many match.",
+      // Every lever's advertised values come from the page's OWN control
+      // vocabularies (`data/exception-levers`), so this tool cannot offer a
+      // value the Control Tower has no control for. `top` is `.int().positive()`
+      // because that is exactly what `parseTopLever` honours — a zero or
+      // fractional limit is not a limit.
+      // REQUIRED, each carrying an explicit "not pulled" value, rather than
+      // `.optional()`. See `ANY_LEVER` in `./data/exception-levers` for the
+      // measurement behind that: an optional enum gets filled anyway, and the
+      // invented pair `exception=PORT_CONGESTION` + `status=on_track` put an
+      // EMPTY board on screen. `"all"` and `0` are dropped downstream by
+      // `normalizeLevers`, so they draw no chip and set no query param.
+      parameters: z.object({
+        exception: z
+          .enum(EXCEPTION_ARGUMENTS)
+          .describe(
+            "Restrict to one exception class, or 'all' for every class. Use 'all' unless the planner named a class.",
+          ),
+        status: z
+          .enum(STATUS_ARGUMENTS)
+          .describe(
+            "Restrict to one shipment status, or 'all' for any status. Use 'all' unless the planner named a status.",
+          ),
+        sort: z
+          .enum(SORT_ARGUMENTS)
+          .describe(
+            "Row order, or 'all' to keep the board's worst-first default.",
+          ),
+        top: z
+          .number()
+          .int()
+          .min(0)
+          .describe("Limit to the first N rows. Use 0 for no limit."),
+      }),
+      render: ({ args, status: toolStatus, respond, result }) => {
+        // Normalized from ONE record — the same one the URL below is built from,
+        // so the view this opens is the view the card just promised. Arguments
+        // STREAM, so mid-render a lever that has not arrived yet is simply unset
+        // and draws NO chip; a `?? "all"` default would assert a choice the
+        // agent never made and then flip when the real value landed.
+        const levers = normalizeLevers(args ?? {});
+        const chips = leverChips(levers);
+        if (toolStatus === ToolCallStatus.Executing && respond) {
+          return (
+            <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+              <div className="text-sm text-ink">
+                {chips.length
+                  ? "Open the Control Tower with these controls set?"
+                  : "Open the Control Tower?"}
+              </div>
+              {chips.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {chips.map((c) => (
+                    <span
+                      key={c.label}
+                      className="rounded-md bg-brand-soft px-2 py-1 text-xs font-medium text-brand-indigo dark:text-brand-violet"
+                    >
+                      {c.label}: {c.value}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
+                  onClick={() => {
+                    const query = leverQuery(levers);
+                    // The Control Tower IS the skin index, so this is skinHref()
+                    // with no segment — `/logistics` unlocked, `/` under a lock.
+                    // A hardcoded prefix here fails `pnpm lint`.
+                    let navigated = true;
+                    try {
+                      router.push(`${skinHref()}${query ? `?${query}` : ""}`);
+                    } catch (error) {
+                      navigated = false;
+                      console.error(
+                        "[logistics] could not open the Control Tower",
+                        error,
+                      );
+                    }
+                    // Respond either way: a throw that escaped this handler would
+                    // leave the interrupt unsettled and WEDGE the run, which is
+                    // the one outcome worse than not navigating.
+                    void respond(
+                      navigated
+                        ? `Opened the Control Tower${
+                            chips.length
+                              ? ` with ${chips
+                                  .map(
+                                    (c) =>
+                                      `${c.label.toLowerCase()} ${c.value.toLowerCase()}`,
+                                  )
+                                  .join(", ")}`
+                              : ""
+                          }. The controls are highlighted on screen.`
+                        : "Could not open the Control Tower — the navigation failed, so the planner is still where they were.",
+                    );
+                  }}
+                >
+                  Apply and go
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
+                  onClick={() =>
+                    void respond("Planner declined the navigation.")
+                  }
+                >
+                  Not now
+                </button>
+              </div>
+            </div>
+          );
+        }
+        // Replay-safe — see commitMitigation's render below.
+        return (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {result ? String(result) : "Preparing the view…"}
+          </div>
+        );
+      },
+    },
+    [router, skinHref],
   );
 
   // ── HITL: commit a mitigation (confirm before writing) ───────────────────

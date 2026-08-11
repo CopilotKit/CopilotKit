@@ -34,6 +34,7 @@ const PAGES: Record<string, ComponentType> = {
 // a prettified raw name.
 const TOOL_LABELS: Record<string, string> = {
   showExceptions: "Scanning the exception queue",
+  showExceptionQueue: "Setting up the exception view",
   showShipment: "Pulling up the shipment",
   showLane: "Checking lane health",
   showInventoryRisk: "Checking inventory cover",

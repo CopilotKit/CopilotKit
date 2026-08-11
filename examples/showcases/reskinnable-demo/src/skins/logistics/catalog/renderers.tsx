@@ -6,6 +6,7 @@ import { useBriefData } from "../brief-data";
 import {
   deriveKpis,
   ExceptionBoard,
+  orderExceptionRows,
   TradeoffTable,
   LanePerformanceChart,
   ExposureByLaneChart,
@@ -140,7 +141,9 @@ const ExceptionTable = ({
   const status = props.status ?? "all";
   const rows =
     status === "all" ? shipments : shipments.filter((s) => s.status === status);
-  return <ExceptionBoard shipments={rows} lanes={lanes} />;
+  // The board renders what it is handed, in the order it is handed — order here
+  // rather than relying on it to sort. See `orderExceptionRows`' header.
+  return <ExceptionBoard shipments={orderExceptionRows(rows)} lanes={lanes} />;
 };
 
 const TradeoffTableRenderer = ({

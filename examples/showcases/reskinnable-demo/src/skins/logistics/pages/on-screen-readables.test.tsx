@@ -30,10 +30,33 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
-import type { Decision, InventoryRisk, Lane, Shipment } from "../data/types";
+import type {
+  Decision,
+  ExceptionCode,
+  InventoryRisk,
+  Lane,
+  Shipment,
+} from "../data/types";
 
 /** What the page most recently handed `useAgentContext`, raw. */
 const readable = { value: "" };
+
+/**
+ * The Control Tower reads its four beat-3c levers off `useSearchParams`; drive
+ * that deterministically. `useRouter` is only used by the page's own controls,
+ * which nothing here clicks.
+ */
+const query = { value: "" };
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: () => {}, replace: () => {} }),
+  useSearchParams: () => new URLSearchParams(query.value),
+}));
+
+// `useSkinHref(skin.id)` is the real thing (unlocked → "/logistics"); only the
+// identity it needs is stubbed, since no SkinProvider is mounted here.
+vi.mock("@/shell/skin-provider", () => ({
+  useSkin: () => ({ id: "logistics" }),
+}));
 
 // The pages register readables; no shell provider is mounted in this tree, so
 // record the value rather than dropping it. `useAgentContext` is the ONLY thing
@@ -66,6 +89,7 @@ import { DecisionsPage } from "./decisions";
 afterEach(() => {
   cleanup();
   readable.value = "";
+  query.value = "";
 });
 
 /**
@@ -80,6 +104,7 @@ const described = <T,>() => {
   ).not.toBe("");
   return JSON.parse(readable.value) as {
     page: string;
+    matching?: number;
     visible: number;
     rows: T[];
   };
@@ -90,6 +115,20 @@ const renderedColumn = (col: number) =>
   Array.from(document.querySelectorAll("tbody tr")).map(
     (tr) => tr.children[col]?.textContent?.trim() ?? "",
   );
+
+/**
+ * The same, but located by COLUMN HEADING rather than by a magic index. The
+ * Control Tower's board grows a leading rank column whenever a sort lever is
+ * active, so a fixed `0` would silently start reading ranks as references — a
+ * test that then compares two lists of "1", "2", "3" and passes.
+ */
+const renderedColumnNamed = (heading: string) => {
+  const col = Array.from(document.querySelectorAll("thead th")).findIndex(
+    (th) => th.textContent?.trim() === heading,
+  );
+  expect(col, `no "${heading}" column is rendered`).toBeGreaterThanOrEqual(0);
+  return renderedColumn(col);
+};
 
 /** The text of one class-matched element per rendered `<li>`, in order. */
 const renderedListField = (selector: string) =>
@@ -106,6 +145,18 @@ const STATUSES: Shipment["status"][] = [
   "at_risk",
   "delayed",
   "resolved",
+];
+
+/**
+ * Every fixture shipment carries an exception, because the Control Tower's board
+ * is the EXCEPTION queue and drops anything clean. A separate case below feeds
+ * it a clean shipment and asserts the drop, rather than weakening `ROWS` here.
+ */
+const CODES: ExceptionCode[] = [
+  "PORT_CONGESTION",
+  "CUSTOMS_HOLD",
+  "CARRIER_DELAY",
+  "WEATHER",
 ];
 
 const shipments = (): Shipment[] =>
@@ -125,6 +176,11 @@ const shipments = (): Shipment[] =>
     etaCurrent: "2026-08-12",
     slaDate: "2026-08-11",
     status: STATUSES[i % STATUSES.length]!,
+    exception: {
+      code: CODES[i % CODES.length]!,
+      detail: `Detail ${i}`,
+      since: "2026-08-01",
+    },
   }));
 
 const lanes = (): Lane[] =>
@@ -174,7 +230,7 @@ describe("logistics beat 3b — the readable matches the rendered panel", () => 
     ledger.lanes = lanes();
     render(<ControlTowerPage />);
 
-    const onScreen = renderedColumn(0); // the Reference column
+    const onScreen = renderedColumnNamed("Reference");
     expect(onScreen).toHaveLength(ROWS);
     // The board orders worst-first, so the painted order must NOT be the input
     // order — otherwise this test would pass on a readable that ignored order.
@@ -184,9 +240,93 @@ describe("logistics beat 3b — the readable matches the rendered panel", () => 
     expect(value.page).toBe("Control Tower");
     expect(value.rows.map((r) => r.reference)).toEqual(onScreen);
     expect(value.visible).toBe(onScreen.length);
+    // With no `top` lever nothing is truncated, so the two lengths agree — the
+    // baseline the truncated case below is measured against.
+    expect(value.matching).toBe(onScreen.length);
   });
 
-  it("Control Tower sends the KPI tiles as the strip formats them", () => {
+  it("Control Tower leaves a shipment with no exception off the board", () => {
+    // The board is the EXCEPTION queue. A clean shipment must be absent from the
+    // rows AND from the readable — a readable listing a row the board dropped is
+    // the same lie as one dropping a row the board painted, and the whole-network
+    // count is still reported under `book`.
+    ledger.shipments = [
+      ...shipments(),
+      {
+        ...shipments()[0]!,
+        id: "shp-clean",
+        reference: "PO-CLEAN",
+        exception: undefined,
+      },
+    ];
+    ledger.lanes = lanes();
+    render(<ControlTowerPage />);
+
+    const onScreen = renderedColumnNamed("Reference");
+    expect(onScreen).toHaveLength(ROWS);
+    expect(onScreen).not.toContain("PO-CLEAN");
+
+    const value = described<{ reference: string }>();
+    expect(value.rows.map((r) => r.reference)).toEqual(onScreen);
+    const book = JSON.parse(readable.value) as {
+      book: { totalShipments: number; totalExceptions: number };
+    };
+    expect(book.book.totalShipments).toBe(ROWS + 1);
+    expect(book.book.totalExceptions).toBe(ROWS);
+  });
+
+  it("Control Tower under ?top=N sends the TRUNCATED row list, not the matching one", () => {
+    // A `visible` count agreeing with a `matching` count proves nothing; the row
+    // LIST is the evidence. This is the case beat 3c actually ships — the pill
+    // asks for ten — and the fixtures are 30 rows precisely so the cap bites.
+    ledger.shipments = shipments();
+    ledger.lanes = lanes();
+    query.value = "top=10";
+    render(<ControlTowerPage />);
+
+    const onScreen = renderedColumnNamed("Reference");
+    expect(onScreen).toHaveLength(10);
+
+    const value = described<{ reference: string }>();
+    expect(value.matching).toBe(ROWS);
+    expect(value.visible).toBe(10);
+    expect(value.rows.map((r) => r.reference)).toEqual(onScreen);
+    // …and specifically the FIRST ten of the full ordering, not ten arbitrary
+    // rows that happen to number ten.
+    cleanup();
+    readable.value = "";
+    query.value = "";
+    render(<ControlTowerPage />);
+    expect(onScreen).toEqual(renderedColumnNamed("Reference").slice(0, 10));
+  });
+
+  it("Control Tower under ?sort= renders the sorted order, and ranks it", () => {
+    // The board used to re-sort whatever it was handed, which made every sort
+    // lever a no-op the confirm card still named and the control still tinted.
+    // Worst-first puts `delayed` before `resolved` regardless of value, so a
+    // pure value_desc order is a DIFFERENT list — and the readable must follow
+    // the screen, not the default.
+    ledger.shipments = shipments();
+    ledger.lanes = lanes();
+    query.value = "sort=value_desc";
+    render(<ControlTowerPage />);
+
+    const onScreen = renderedColumnNamed("Reference");
+    const byValue = [...ledger.shipments]
+      .sort((a, b) => b.valueUsd - a.valueUsd)
+      .map((s) => s.reference);
+    expect(onScreen).toEqual(byValue);
+
+    const value = described<{ reference: string }>();
+    expect(value.rows.map((r) => r.reference)).toEqual(onScreen);
+    // The rank column only exists under a sort, and it is column 0 — which is
+    // why the reference lookup above goes by heading rather than by index.
+    expect(renderedColumn(0)).toEqual(
+      Array.from({ length: ROWS }, (_, i) => String(i + 1)),
+    );
+  });
+
+  it("Control Tower sends the KPI tiles as the strip formats them, under `book`", () => {
     ledger.shipments = shipments();
     ledger.lanes = lanes();
     render(<ControlTowerPage />);
@@ -201,11 +341,14 @@ describe("logistics beat 3b — the readable matches the rendered panel", () => 
     expect(onScreen).toHaveLength(4);
     described<unknown>(); // registered-at-all check, with the clearer message
     const value = JSON.parse(readable.value) as {
-      kpi_tiles: { label: string; value: string }[];
+      book: { kpi_tiles: { label: string; value: string }[] };
     };
-    expect(value.kpi_tiles.map((t) => t.value)).toEqual(onScreen);
+    // Nested under `book`, not flat: these four are whole-network figures the
+    // levers do not narrow, and the strip is captioned that way on screen. Flat,
+    // beside a filtered row list, they read as a description of the view.
+    expect(value.book.kpi_tiles.map((t) => t.value)).toEqual(onScreen);
     // Specifically: a DISPLAY string, never the 0.6666… ratio behind it.
-    expect(value.kpi_tiles[0]?.value).toMatch(/^\d+%$/);
+    expect(value.book.kpi_tiles[0]?.value).toMatch(/^\d+%$/);
   });
 
   it("Lanes sends the lane rows it renders, in the order shown", () => {

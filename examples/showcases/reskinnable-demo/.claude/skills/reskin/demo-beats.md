@@ -226,7 +226,15 @@ bg-brand-soft font-semibold text-brand-indigo` (`charges.tsx:67-68`) — plus a
 rank column when sorted by amount. Note it is the **controls** that light up, not
 the rows.
 
-**Two ways the confirm card lies, both of which shipped in `commerce`:**
+**Logistics:** pill `"Costliest breaches"` → `showExceptionQueue`
+(`useHumanInTheLoop`, `skins/logistics/tools.tsx`) names the levers as chips, then
+pushes `?status=delayed&sort=value_desc&top=10`; the Control Tower reads all four
+(`pages/control-tower.tsx`), tints each control that came from the URL, and adds a
+rank column under a sort. Its lever vocabulary, chips, URL and tool enums all come
+out of one module (`skins/logistics/data/exception-levers.ts`).
+
+**Three ways the confirm card lies. Two shipped in `commerce`, the third in
+`logistics`:**
 
 - **A lever value the view will not honour.** Every value your schema advertises
   must have a control on the page, must filter, and must leave a view the agent
@@ -245,6 +253,19 @@ the rows.
   the chips and build the URL from ONE normalized record
   (`skins/commerce/order-queue-levers.ts`), and give an unset lever no chip at
   all.
+- **A lever the model set only because the schema let it.** DO NOT make your
+  lever parameters `.optional()`. A model facing an optional enum fills it
+  anyway, because omission is not a choice it can state. Measured in logistics:
+  told in as many words "take me to the Control Tower, do not filter anything,
+  just limit it to the top 3 rows", gpt-5.4 returned
+  `exception=PORT_CONGESTION` **and** `status=on_track` — a pair no shipment
+  satisfies — so the maneuver landed on an EMPTY board with four confidently
+  tinted controls. No prompt sentence fixed it. Make each lever REQUIRED and put
+  an explicit "not pulled" value INSIDE the enum (`"all"`, and `0` for a numeric
+  limit) so the model can say it: `skins/logistics/data/exception-levers.ts`'s
+  `ANY_LEVER`, and commerce's `"all"` in `ORDER_STATUS_FILTERS`. The sentinel is
+  not in the page's control vocabulary, so the same `normalize…` call that drops
+  junk drops it — no chip, no query param, no extra branch anywhere downstream.
 
 **And one way the PAGE lies: a count that ignores the levers it sits under.** If
 your view prints a "Top 10 of 22"-style caption, the denominator must be the
