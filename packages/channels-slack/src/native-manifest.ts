@@ -14,18 +14,29 @@ const ELEMENTS = "https://docs.slack.dev/reference/block-kit/block-elements/";
 const OBJECTS =
   "https://docs.slack.dev/reference/block-kit/composition-objects/";
 
-/** Reviewed message-valid Slack Block Kit catalog. */
+/**
+ * Reviewed message-valid Slack Block Kit catalog — the blocks an app can
+ * actually post. Two documented blocks are deliberately absent:
+ *
+ * - `alert`: "Alert blocks are currently only supported in modals." Verified by
+ *   posting Slack's own example into a message and having it refused, while a
+ *   plain section in the same delivery arrived.
+ * - `file`: "You can't add this block to app surfaces directly, but it will
+ *   show up when retrieving messages that contain remote files." The same
+ *   sentence appears in `@slack/types`' own doc comment. It is an inbound
+ *   shape, not an authorable one — offering it means offering a component that
+ *   can never succeed. Sending a file is `thread.postFile()`.
+ */
 export const SLACK_BLOCK_MANIFEST = [
   ["Actions", "actions", "elements"],
   ["Card", "card"],
   ["Carousel", "carousel", "elements"],
-  ["Container", "container", "blocks"],
+  ["Container", "container", "child_blocks"],
   ["Context", "context", "elements"],
   ["ContextActions", "context_actions", "elements"],
   ["DataTable", "data_table", "rows"],
   ["DataVisualization", "data_visualization"],
   ["Divider", "divider"],
-  ["File", "file"],
   ["Header", "header", "text"],
   ["Image", "image"],
   ["Input", "input", "element"],

@@ -9,8 +9,8 @@ import {
 } from "./native-manifest.js";
 import { Slack } from "./native.js";
 
-test("Slack exposes all 20 message-valid blocks from its manifest", () => {
-  expect(SLACK_BLOCK_MANIFEST).toHaveLength(20);
+test("Slack exposes all 19 message-valid blocks from its manifest", () => {
+  expect(SLACK_BLOCK_MANIFEST).toHaveLength(19);
   expect(Object.keys(Slack.Block).sort()).toEqual(
     SLACK_BLOCK_MANIFEST.map(([name]) => name).sort(),
   );
