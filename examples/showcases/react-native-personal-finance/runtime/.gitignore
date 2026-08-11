@@ -1,0 +1,24 @@
+# dependencies
+/node_modules
+# Lockfile intentionally untracked — install with `npm install` (kept in sync
+# with the parent showcase, which drops its lockfile for the fork-PR monitor).
+package-lock.json
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# env files (keep .env.example tracked)
+.env
+.env*.local
+
+# typescript / next
+next-env.d.ts
+*.tsbuildinfo
+
+# misc
+.DS_Store
+*.log

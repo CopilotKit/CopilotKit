@@ -55,6 +55,7 @@ examples/showcases/oracle-agent-memory/frontend/next.config.ts
 examples/showcases/orca/frontend/next.config.mjs
 examples/showcases/presentation/next.config.mjs
 examples/showcases/pydantic-ai-todos/next.config.ts
+examples/showcases/react-native-personal-finance/runtime/next.config.mjs
 examples/showcases/research-canvas/final/frontend/next.config.ts
 examples/showcases/research-canvas/frontend/next.config.ts
 examples/showcases/research-canvas/start/frontend/next.config.ts
