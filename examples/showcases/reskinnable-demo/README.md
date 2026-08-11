@@ -3,7 +3,7 @@
 One Next.js app whose **entire** experience — brand, theme, layout, pages,
 tools, and agent — is reskinnable at runtime. A skin-agnostic **shell** hosts
 one **skin** per route segment `/[skin]/...`. The registered set lives in
-`src/shell/registry.ts` — today six skins:
+`src/shell/registry.ts` — today:
 
 - **`banking`** — "Northwind Finance", a corporate banking dashboard. **REST-backed**
   (a live ledger at `/api/banking/v1/*`): transactions, cards, expense policies,
@@ -21,14 +21,20 @@ one **skin** per route segment `/[skin]/...`. The registered set lives in
 - **`airline`** — "Aeronova", a passenger concierge. **In-memory** (a seed-backed
   React store): check-in and seat selection, loyalty, and disruption rebooking.
 - **`keel`** — "Keel", Harbor Point Health's knowledge and operations desk.
-  **In-memory** (a seed-backed React store), and the only skin with parameterized
-  routes (`knowledge/<docId>`, `runs/<runId>`).
+  **In-memory** (a seed-backed React store), with the fullest parameterized
+  routing (`knowledge/<docId>`, `runs/<runId>`).
+- **`bookstore`** — "Bookstore", an online bookshop: a storefront the shopper
+  drives, not a console an employee operates (`airline` is the other
+  customer-facing skin, but predates the demo bar). **In-memory** (a frozen 24-book
+  seed catalog, with the cart and orders mirrored to `localStorage` per shopper): a
+  filterable shelf, a `book/<slug>` page, a cart, and an assistant that recommends
+  from what it remembers about you.
 
 All of them run behind the **same** `Skin` contract on purpose: banking,
-logistics, people and commerce are REST-backed, airline and keel are in-memory,
-which proves the contract is substrate-agnostic. Every skin gets the same inset
-frame, shared chat panel, tool-activity lines, suggestion pills, and full-region
-canvas from the shell.
+logistics, people and commerce are REST-backed, airline, keel and bookstore are
+in-memory, which proves the contract is substrate-agnostic. Every skin gets the
+same inset frame, shared chat panel, tool-activity lines, suggestion pills, and
+full-region canvas from the shell.
 
 ## What it demonstrates
 
@@ -76,8 +82,8 @@ under `/<id>` exactly as before.
 
 `src/lib/locked-skin.ts` validates the value against `skinIds` from
 `src/shell/skins-config.ts`, so the supported set is exactly the registered set —
-currently `banking`, `airline`, `logistics`, `keel`, `people`, `commerce`, and
-automatically any skin added later.
+currently `banking`, `airline`, `logistics`, `keel`, `people`, `commerce`,
+`bookstore`, and automatically any skin added later.
 
 Use it for a URL that goes to one prospect, one booth, or one pilot, so the app
 reads as a product rather than as a multi-tenant demo harness. An unrecognised id
@@ -109,13 +115,15 @@ contract, and the shared canvas / OGUI model.
 
 ## Demo capabilities
 
-Three of the six skins — **`banking`**, **`people`** and **`commerce`** — are
-demo-complete against the full beat list in
+Three skins — **`banking`**, **`people`** and **`commerce`** — are demo-complete
+against the full beat list in
 [`.claude/skills/reskin/demo-beats.md`](./.claude/skills/reskin/demo-beats.md).
-`airline`, `logistics` and `keel` predate that bar: treat them as wiring
-references (contract surface, layout chrome, parameterized routes) rather than as
-demo references. The per-beat coverage matrix is in
-[CLAUDE.md](./CLAUDE.md).
+**`bookstore`** hits most of that list and skips three beats deliberately
+(multimodal ingest, stored-procedure replay, teach-a-procedure), which its own
+beat map records rather than hides. `airline`, `logistics` and `keel` predate that
+bar: treat them as wiring references (contract surface, layout chrome,
+parameterized routes) rather than as demo references. The per-beat coverage matrix
+is in [CLAUDE.md](./CLAUDE.md).
 
 ### `banking` — the original reference demo
 
@@ -155,6 +163,22 @@ banking does. Their beat maps are written out at the top of their own
   justifying code. It is also the reference for a four-lever navigation — status,
   exception class, sort and top-N all arrive from the query string.
 
+### `bookstore` — the customer-facing one
+
+Every skin but `airline` puts you behind an employee's console; this one puts you
+in the shop, with most of the beat list behind it. A sidebar switcher swaps between
+two shoppers — Maya, who the demo starts
+out already knowing, and Guest, who it does not — and the same recommendation pill
+answers differently for each, with the recalled preference printed in the answer
+rather than applied silently. The shelf's four filters (genre, format, price cap,
+sort) are real URL levers the agent confirms before pulling, the card number typed
+at checkout never leaves the browser (only the last four digits reach the order),
+and the cart is mirrored to `localStorage` so a mid-demo hard reload proves the
+thread rather than emptying the basket. It deliberately ships no multimodal,
+stored-procedure or teach-mode beat. Its beat map, presenter notes and the
+Intelligence-mode requirement for its two headline beats are at the top of
+`src/skins/bookstore/suggestions.ts` — read that before demoing it.
+
 ### Memory & durable self-learning (Intelligence mode)
 
 By default the runtime is pure OSS — the teach-a-workflow loop works within a
@@ -175,8 +199,9 @@ The images under `assets/` (`aurora-dashboard.png`, `copilot-chat.png`,
 skin** specifically — its dashboard, chat panel, and learning-mode recording
 vignette. They predate the current shell chrome entirely: there is now an inset
 frame of resizable cards with a skin-selector dropdown at the top of the assistant
-column, and the app ships six skins rather than two. Treat them as historical
-banking-skin illustrations rather than a picture of the app as it looks today.
+column, and the app ships a whole roster of skins rather than two. Treat them as
+historical banking-skin illustrations rather than a picture of the app as it looks
+today.
 
 ## Testing
 
