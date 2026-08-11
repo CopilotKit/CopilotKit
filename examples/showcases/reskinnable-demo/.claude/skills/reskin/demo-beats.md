@@ -382,20 +382,34 @@ and then does it alone, on a different case.
 3. **An agent framed to decline rather than bluff.** The prompt withholds the
    recipe and carries an ACTION DISCIPLINE clause so it says "I don't know this
    one — want me to record how you do it?" instead of improvising.
-4. **A recording context with live, visible feedback.** Banking:
-   `components/recording-context.tsx` (ref-counted `beginRecording`/
-   `endRecording`, `logStep`, `getDemonstratedCode`), plus a step feed
-   (`recording-feed.tsx`) and a violet canvas-edge glow (`recording-vignette.tsx`)
-   so the audience can see recording is live.
+4. **A recording context with live, visible feedback.** **Do NOT write your own
+   — import the shell's:** `RecordingProvider`, `RecordingFeed`,
+   `RecordingVignette` and `useRecording` all come from `@/shell/teach`
+   (ref-counted `beginRecording`/`endRecording`, `logStep(label, code?)`,
+   `getDemonstratedCode()`), plus a step feed and a violet canvas-edge glow so the
+   audience can see recording is live. Mount the provider and the vignette in your
+   skin's `Providers` (banking's `providers.tsx` is the worked example) and pass
+   your OWN domain vocabulary as the `logStep` labels — the shell owns the state
+   machine and the chrome, never the wording. Three skins each shipped a private
+   copy of this and they DIVERGED; every failure mode is silent (`useRecording`
+   returns inert no-ops outside a provider, `logStep` early-returns while idle), so
+   a broken copy still compiles and renders and is discovered on stage.
+   `getDemonstratedCode()` derives from the last **coded** step, so the call that
+   narrates the filing is also the call that surfaces the code:
+   `logStep("Filed the policy exception", code)`. That derivation only survives if
+   the demonstration's OUTER bracket stays open from "start recording" until the
+   operator says they are done — a nested bracket is fine, but letting the
+   ref-count reach zero mid-demonstration clears the feed and strands the code.
 5. **Save → recall → replay on a _different_ instance.** The case you taught it
    on is already resolved by the demonstration, so seed **at least two** gated
    records. The proof is it handling the second one unaided.
 
-**Banking's HITL chain:** `offerWorkflowRecording` (`tools.tsx:1094`) →
-`awaitDashboardDemonstration` (`1169`, live pulsing "Rec" badge + step feed) →
-`saveLearnedWorkflow` (`1251`, then `save_memory` with scope `project`, kind
-`operational`) → replay via `openPolicyException` (`903`) →
-`finalizePolicyException` (`970`) → `approveTransaction` (`1029`).
+**Banking's HITL chain:** `offerWorkflowRecording` (`tools.tsx:1101`) →
+`awaitDashboardDemonstration` (`1176`, live pulsing "Rec" badge + step feed) →
+`saveLearnedWorkflow` (`1258`, then `save_memory` with scope `project`, kind
+`operational`) → replay via `openPolicyException` (`907`) →
+`finalizePolicyException` (`975`) → `approveTransaction` (`1035`). Line numbers
+drift with every edit to that file — grep the tool NAME, which is stable.
 
 **⚠️ Runtime-conditional.** Gate → unlock is provable over pure REST today
 (`docs/teach-mode/verify-teachable-gate.sh`). Durable save → recall → _fresh

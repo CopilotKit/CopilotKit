@@ -122,6 +122,29 @@ describe("recording", () => {
     expect(api.current.getDemonstratedCode()).toBe("DECOY-01");
   });
 
+  // The shape of banking's teach loop, and the invariant that made it safe to
+  // collapse `noteDemonstratedCode` into `logStep`'s code argument. The chat's
+  // "Start recording" opens an OUTER bracket that is never closed until the
+  // operator clicks "I'm done"; the filing on the dashboard opens and closes an
+  // INNER one. Because the ref-count never reaches zero in between, the feed is
+  // not cleared and the code filed inside the inner bracket is still derivable
+  // at "I'm done" time. The predecessor API stored the code in a ref that
+  // outlived every window, so it did not depend on this — losing the outer
+  // bracket would now silently strand the code and the saved procedure would
+  // carry no exception code at all.
+  it("keeps the demonstrated code across a nested bracket in one window", () => {
+    const api = harness();
+    act(() => api.current.beginRecording()); // "Start recording" (outer)
+    act(() => api.current.logStep("Opened Transactions"));
+    act(() => api.current.beginRecording()); // the filing (inner)
+    act(() => api.current.logStep("Filed the policy exception", "EXC-BOARD"));
+    act(() => api.current.endRecording()); // inner closes; count is still 1
+    act(() => vi.advanceTimersByTime(1300)); // no hold elapses while count > 0
+    act(() => api.current.logStep("Approved the charge"));
+    act(() => api.current.endRecording()); // "I'm done" (outer)
+    expect(api.current.getDemonstratedCode()).toBe("EXC-BOARD");
+  });
+
   it("returns null when no coded step was logged", () => {
     const api = harness();
     act(() => api.current.beginRecording());
