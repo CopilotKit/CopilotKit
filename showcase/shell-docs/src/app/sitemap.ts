@@ -49,11 +49,9 @@ import {
 } from "@/lib/registry";
 import { isGlobalDocsPath } from "@/lib/reserved-route-slugs";
 
-// Force-dynamic so the sitemap is regenerated per request and reads
-// the LIVE NEXT_PUBLIC_BASE_URL via getRuntimeConfig(). Without this
-// Next.js would statically prerender the sitemap at build time and
-// freeze whichever value `process.env.NEXT_PUBLIC_BASE_URL` had at
-// `next build` — defeating the runtime-config switch.
+// Force-dynamic so non-production base-URL overrides are read at request time.
+// In production getRuntimeConfig() locks generated URLs to the public
+// canonical docs origin, independent of build-time or runtime env drift.
 export const dynamic = "force-dynamic";
 
 export default function sitemap(): MetadataRoute.Sitemap {
