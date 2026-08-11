@@ -980,6 +980,11 @@ export function CopilotChat({
   //   - message id, role, content length (text streaming)
   //   - content part count (multimodal additions)
   //   - tool call ids + argument lengths (tool call streaming)
+  //   - object content for activity messages (ACTIVITY_SNAPSHOT replace keeps
+  //     the same message id; a length-based key is always 0 for objects and
+  //     freezes generative-UI / progress renderers on the first frame)
+  // Multimodal attachments stay on the array branch (part count only), so this
+  // does not reintroduce base64 serialization for user uploads.
   const messagesMemoKey = agent.messages
     .map((m) => {
       const contentKey =
@@ -987,7 +992,9 @@ export function CopilotChat({
           ? m.content.length
           : Array.isArray(m.content)
             ? m.content.length
-            : 0;
+            : m.content && typeof m.content === "object"
+              ? JSON.stringify(m.content)
+              : 0;
       const toolCallsKey =
         "toolCalls" in m && Array.isArray(m.toolCalls)
           ? m.toolCalls
