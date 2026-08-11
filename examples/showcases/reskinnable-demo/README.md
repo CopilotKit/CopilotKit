@@ -166,13 +166,18 @@ banking does. Their beat maps are written out at the top of their own
 ### `bookstore` — the customer-facing one
 
 Every skin but `airline` puts you behind an employee's console; this one puts you
-in the shop, with most of the beat list behind it. A sidebar switcher swaps between
-two shoppers — Maya, who the demo starts
-out already knowing, and Guest, who it does not — and the same recommendation pill
-answers differently for each, with the recalled preference printed in the answer
-rather than applied silently. The shelf's four filters (genre, format, price cap,
-sort) are real URL levers the agent confirms before pulling, the card number typed
-at checkout never leaves the browser (only the last four digits reach the order),
+in the shop, with most of the beat list behind it. The demo opens as Maya, a
+shopper it already knows: one recommendation pill and the agent applies a taste
+nobody typed this session — paperback or ebook, under $20, literary and translated
+fiction — and prints the recalled preference in the answer rather than applying it
+silently. A sidebar switcher swaps to a Guest persona, which re-keys the cart and
+the forwarded identity, but **do not present it as memory isolation**: those
+forwarded properties frequently do not reach the server's `identifyUser` on a run,
+so both shoppers read the same memory bucket and the switch re-scopes nothing.
+That caveat is app-wide, not this skin's — see the CAVEAT block in `.env.example`.
+The shelf's four filters (genre, format, price cap, sort) are real URL levers the
+agent confirms before pulling, the card number typed at checkout never leaves the
+browser (only the last four digits reach the order),
 and the cart is mirrored to `localStorage` so a mid-demo hard reload proves the
 thread rather than emptying the basket. It deliberately ships no multimodal,
 stored-procedure or teach-mode beat. Its beat map, presenter notes and the
@@ -188,9 +193,16 @@ are all set (`src/app/api/copilotkit/[[...slug]]/route.ts`), the runtime builds
 in Intelligence mode: the agent gains durable long-term memory via the
 `recall_memory` / `save_memory` tools, so a demonstrated procedure — banking's
 over-limit approval, people's band exception, commerce's margin waiver — and
-remembered facts/preferences survive across threads and users. The bundled
+remembered facts/preferences survive across threads and restarts. The bundled
 `docker-compose.yml` and `*-demo.sh` scripts stand up the memory stack; the
 `.env.example` documents the required variables.
+
+Memory is stored under a resolved end-user id (each skin's
+`intelligence/user-id.ts`), but **the on-screen user/operator/shopper switchers do
+not drive that id in practice** — the client's `properties` frequently do not reach
+the server's `identifyUser` on a run, so the personas collapse into one default
+bucket. Recall is demoable; per-user isolation is not. Read the CAVEAT block in
+`.env.example` before showing a switcher as a memory boundary.
 
 ## Screenshots
 

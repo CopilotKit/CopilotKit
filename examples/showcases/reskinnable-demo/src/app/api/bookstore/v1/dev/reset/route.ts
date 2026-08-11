@@ -2,6 +2,7 @@ import { presenterResetEnabled } from "@/lib/presenter";
 import { forgetAllMemories } from "@/skins/bookstore/intelligence/forget-memories";
 import { seedMemories } from "@/skins/bookstore/intelligence/seed-memories";
 import {
+  bookstoreMemorySeedTargetUserIds,
   DEMO_DEFAULT_USER_ID,
   resolveBookstoreUserId,
   SEEDED_SHOPPER_IDS,
@@ -79,10 +80,15 @@ export const POST = async (request: Request) => {
     ...SEEDED_SHOPPER_IDS.map((id) => resolveBookstoreUserId({ userId: id })),
     DEMO_DEFAULT_USER_ID,
   ]);
+  // Asked, never restated here: the seed targets are derived from the same
+  // resolver the runtime identifies runs with, so the reset cannot seed a bucket
+  // the agent will never read. See `bookstoreMemorySeedTargetUserIds`.
+  const seedTargets = bookstoreMemorySeedTargetUserIds();
   // Name the backend and the exact ids BEFORE mutating, so a human can see in
   // the logs which stack this reset reached.
   console.warn(
-    `[bookstore] presenter reset: forgetting memories at ${apiUrl} for ${[...userIds].join(", ")}`,
+    `[bookstore] presenter reset: forgetting memories at ${apiUrl} for ${[...userIds].join(", ")}` +
+      `; re-seeding ${seedTargets.join(", ")}`,
   );
 
   try {
@@ -94,13 +100,15 @@ export const POST = async (request: Request) => {
         result.skippedProjectScoped,
       );
     }
-    // Re-seed Maya only. Guest starts with nothing BY DESIGN — the contrast
-    // between them is the entire memory beat.
-    seeded += await seedMemories({
-      apiUrl,
-      apiKey,
-      userId: resolveBookstoreUserId({ userId: "maya" }),
-    });
+    // Re-seed EVERY target bucket — the default one as well as Maya's mapped
+    // scope. Seeding only the mapped scope was a beat that failed silently:
+    // recall reads whichever scope the run resolved to, and runs frequently
+    // resolve to the default bucket, which had nothing in it. Guest is still
+    // seeded with nothing, but do NOT read that as a demoable per-shopper
+    // contrast — see `bookstoreMemorySeedTargetUserIds`.
+    for (const userId of seedTargets) {
+      seeded += await seedMemories({ apiUrl, apiKey, userId });
+    }
     return Response.json({
       ok: true,
       reset: ["memory"],

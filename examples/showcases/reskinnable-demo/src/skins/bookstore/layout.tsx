@@ -238,9 +238,15 @@ export function BookstoreLayout({ children }: { children: ReactNode }) {
             </div>
           </TooltipProvider>
 
-          {/* The shopper switcher. This is the memory beat's control: the SAME
-              pill as Maya and as Guest produces two different answers, because
-              Intelligence scopes durable memory per end user. */}
+          {/* The shopper switcher. It re-keys the cart and the forwarded
+              `properties`, and it is the client half of the per-shopper identity
+              plumbing.
+
+              ⚠ It is NOT the memory beat's control, and must not be presented as
+              one: the forwarded `properties` frequently do not reach
+              `identifyUser` on a run, so both shoppers land in the same default
+              memory bucket and switching re-scopes NOTHING. See the caveat in
+              intelligence/user-id.ts. */}
           <div className="rounded-md border border-hairline bg-surface-muted p-3">
             <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
               Shopping as
@@ -257,10 +263,15 @@ export function BookstoreLayout({ children }: { children: ReactNode }) {
                 </option>
               ))}
             </select>
+            {/* Says who the shopper IS — it deliberately no longer claims what
+                the assistant does or does not remember. "nothing remembered" was
+                on-screen next to a switcher that does not re-scope memory, so
+                shopping as Guest could recall Maya's preference while this label
+                said the opposite. */}
             <div className="mt-1.5 text-[11px] text-ink-muted">
               {shopper.id === "maya"
                 ? "Has shopped here before"
-                : "First visit — nothing remembered"}
+                : "First visit"}
             </div>
           </div>
         </div>

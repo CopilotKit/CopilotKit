@@ -207,10 +207,16 @@ export type IdentifyRunUser = (
   `src/skins/commerce/intelligence/user-id.ts` before writing anything about
   per-operator scoping there). **Bookstore** contributes `bookstoreIdentifyUser`
   and uses it for durable memory: its sidebar shopper switcher forwards
-  `{ userId, userRole }`, and a known shopper id maps 1:1 onto `bookstore-<id>`,
-  so Maya and Guest never share a bucket — a pinned `INTELLIGENCE_USER_ID` still
-  wins, and an unknown id falls back to one demo scope rather than minting a new
-  one (`src/skins/bookstore/intelligence/user-id.ts`). **Logistics** and **keel**
+  `{ userId, userRole }`, and a known shopper id maps 1:1 onto `bookstore-<id>`
+  (a pinned `INTELLIGENCE_USER_ID` still wins, and an unknown id falls back to one
+  demo scope rather than minting a new one). Like people and commerce, its
+  `bookstoreMemorySeedTargetUserIds()` seeds the mapped shopper's bucket AND the
+  default one, because runs frequently resolve to the default: the client's
+  `properties` often do not reach `identifyUser`, so Maya and Guest both land in
+  `bookstore-demo-shopper` and switching shopper re-scopes nothing — the switcher
+  is identity plumbing, not a memory-isolation demo (read
+  `src/skins/bookstore/intelligence/user-id.ts` before writing anything about
+  per-shopper scoping there). **Logistics** and **keel**
   contribute one too (`logisticsIdentifyUser`, `keelIdentifyUser`) for thread
   scoping — though neither yet uses it for durable memory. That is six of the
   seven skins; **airline** is the only one that omits it (no auth, no memory).
@@ -220,8 +226,9 @@ export type IdentifyRunUser = (
   must start out already knowing. Today that is the three demo-complete skins —
   **banking**, **commerce** and **people** — plus **bookstore**, which claims the
   long-term-memory beat and skips the stored-procedure ones, so it seeds a taste
-  preference for one shopper and no procedure at all. That pair is what makes the
-  long-term-memory, stored-procedure-replay and teach-a-procedure beats work; it
+  preference (into the default bucket as well as the mapped shopper's) and no
+  procedure at all. That pair is what makes the long-term-memory,
+  stored-procedure-replay and teach-a-procedure beats work; it
   is not emergent behaviour. The gated `dev/reset` route is the wider set: those
   four plus **logistics** — which ships neither memory file, so its reset restores
   its data store only and cannot restore the memory beats. Bookstore's route is
@@ -518,7 +525,10 @@ matrix at the end of this section.
   beat map — including the three rows marked `SKIPPED` — is written out at the top
   of `src/skins/bookstore/suggestions.ts`. **Read the runtime warning there before
   demoing it:** beats 2 and 4 are its headline claims and both exist only in
-  Intelligence mode.
+  Intelligence mode. Beat 4 is the RECALL — the agent applies a seeded taste
+  nobody typed and names it in `recommendBooks`' `note` slot — and NOT a
+  Maya-vs-Guest contrast: switching shopper does not re-scope memory (see the
+  `identifyUser` bullet above and the CAVEAT in `.env.example`).
 
 ### Demo-beat coverage (the other axis)
 
@@ -545,6 +555,17 @@ above). Note that logistics and keel ship the **full per-user identity plumbing*
 memory prompts, no memory tools and no seed file, so they get no demo value from
 the hardest part of it. Treat all three as excellent **wiring** references and
 incomplete **demo** references.
+
+**The long-term-memory row means RECALL, in every column that claims it** — the
+agent applying and naming a preference nobody typed on this thread. It does NOT
+mean per-user isolation, and no skin can demo that today: the client's
+`properties` frequently do not reach `identifyUser` on a run, so the on-screen
+people collapse into one default bucket and a user/operator/shopper switcher
+re-scopes nothing. That is why every skin with this beat seeds its DEFAULT bucket —
+banking seeds only that one; `people`, `commerce` and `bookstore` seed it alongside
+the mapped person's. Authorities: the CAVEAT block in `.env.example`, the flagged
+comments in `src/shell/agent-registry.ts`, and each skin's
+`intelligence/user-id.ts`.
 
 ## How to add a skin
 

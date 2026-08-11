@@ -11,11 +11,16 @@ import {
 import type { ReactNode } from "react";
 
 /**
- * Who is shopping. Two personas, and the contrast between them IS the memory
- * beat (spec §2, §9): Maya has a seeded preference in durable memory, Guest has
- * none, so clicking the SAME pill as each produces two different answers. A
- * single persona would reduce "memory is scoped per shopper" to "the agent knows
- * a fact", which an audience reads as a system-prompt trick.
+ * Who is shopping. Two personas: Maya, whose taste preference the demo starts out
+ * already knowing, and Guest, who has nothing seeded. They re-key the cart and
+ * the `properties` forwarded to `identifyUser`.
+ *
+ * ⚠ The spec (§2, §9) called the contrast between them the memory beat. It is
+ * NOT: the forwarded `properties` frequently do not reach `identifyUser` on a
+ * run, so both personas resolve to the same default memory bucket and switching
+ * re-scopes nothing. The memory beat is the RECALL — the agent naming a taste
+ * nobody typed — and it is demoed as one shopper. See the caveat in
+ * `intelligence/user-id.ts`.
  */
 export interface Shopper {
   id: string;

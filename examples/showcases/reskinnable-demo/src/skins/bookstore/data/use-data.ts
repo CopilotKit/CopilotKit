@@ -18,7 +18,9 @@ export const HIGHLIGHT_MS = 2000;
 
 /**
  * Cart and orders are scoped PER SHOPPER, so switching persona does not inherit
- * the other one's basket — the memory beat is a clean contrast or it is nothing.
+ * the other one's basket. Two people sharing one basket reads as a bug on stage.
+ * (This is genuine per-shopper state, unlike durable MEMORY, which does not
+ * re-scope on a switch — see intelligence/user-id.ts.)
  */
 export const cartStorageKey = (shopperId: string) =>
   `bookstore.cart.${shopperId}`;

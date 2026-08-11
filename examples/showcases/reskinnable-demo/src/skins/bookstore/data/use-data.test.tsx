@@ -193,7 +193,7 @@ describe("useBookstoreData", () => {
   it("re-keys to the other shopper's basket on a persona switch", () => {
     // The store is created with `useMemo` keyed on `shopper.id` precisely so
     // this works; a `useState` lazy initialiser would pin Maya's basket forever
-    // and Guest would inherit it, collapsing the memory beat's contrast.
+    // and Guest would inherit it, which reads as a bug on stage.
     window.localStorage.setItem(
       cartStorageKey("maya"),
       JSON.stringify([{ bookId: "bk-005", qty: 1 }]),

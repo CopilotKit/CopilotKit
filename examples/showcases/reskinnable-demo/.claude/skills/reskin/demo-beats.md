@@ -330,6 +330,14 @@ dollars.
 Intelligence mode. Without those env vars this beat silently degrades to a
 generic answer.
 
+**⚠️ This beat is the RECALL, never a per-person contrast.** Do not build it as
+"same pill, two people on the switcher, two answers": the client's `properties`
+frequently do not reach `identifyUser` on a run, so the on-screen people collapse
+into one default memory bucket and switching re-scopes NOTHING. Every skin that
+tried the contrast framing had to retract it. The authorities are the `CAVEAT`
+block in `.env.example` and the flagged comments in
+`src/shell/agent-registry.ts`; the seeding consequence is the fourth rule below.
+
 ---
 
 ## Beat 5 — Stored procedure: "handle it"
@@ -410,7 +418,7 @@ via aimock.
 
 Beats 4 and 5 are **seeded, not emergent** — "it already knows me" is a file. Add
 `src/skins/<id>/intelligence/seed-memories.ts` alongside your `user-id.ts` and
-mirror `src/skins/banking/intelligence/seed-memories.ts`. Three rules:
+mirror `src/skins/banking/intelligence/seed-memories.ts`. Four rules:
 
 - **Seed the topical preference** (beat 4) and the **operational procedure**
   (beat 5).
@@ -420,6 +428,16 @@ mirror `src/skins/banking/intelligence/seed-memories.ts`. Three rules:
 - **Scope them** so beat 5's procedure and beat 6's learned procedure can never
   be mistaken for each other. Banking scopes the learned one `project` /
   `operational` and words both prompts to force the distinction.
+- **Seed the DEFAULT bucket, not only the mapped person's.** A run usually
+  resolves to your `DEMO_DEFAULT_USER_ID`, so seeding only the mapped id leaves
+  `recall_memory` reading an EMPTY bucket — and that is worse than a degraded
+  beat: the agent gives no answer rather than a generic one, while the memory sits
+  perfectly well stored one id over. Banking seeds only its default bucket;
+  `people` (`SEED_TARGET_USER_IDS`), `commerce` (`memorySeedTargetUserIds`) and
+  `bookstore` (`bookstoreMemorySeedTargetUserIds`) seed it alongside the mapped
+  one, deduped through a `Set` so a pinned `INTELLIGENCE_USER_ID` is not
+  double-written. Derive that list in `user-id.ts`, never in the reset route —
+  templates.md § "Do NOT hardcode the bucket list" explains why.
 
 Reset must re-seed. See the Reset requirement below.
 

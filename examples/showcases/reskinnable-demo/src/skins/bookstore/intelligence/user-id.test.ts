@@ -3,9 +3,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { SHOPPERS } from "../providers";
 import {
   bookstoreIdentifyUser,
+  bookstoreMemorySeedTargetUserIds,
   DEMO_DEFAULT_USER_ID,
   resolveBookstoreUserId,
   resolveBookstoreUserName,
+  SEEDED_MEMORY_SHOPPER_ID,
   SEEDED_SHOPPER_IDS,
 } from "./user-id";
 
@@ -21,6 +23,14 @@ describe("SEEDED_SHOPPER_IDS", () => {
     expect([...SEEDED_SHOPPER_IDS].sort()).toEqual(
       SHOPPERS.map((s) => s.id).sort(),
     );
+  });
+
+  it("names a seeded-memory shopper the resolver actually recognises", () => {
+    // If this id stopped being a known shopper, `resolveBookstoreUserId` would
+    // return the demo default for it and the seed-target set would silently
+    // collapse to one bucket — losing the mapped-scope half of the seeding with
+    // nothing to notice.
+    expect(SEEDED_SHOPPER_IDS).toContain(SEEDED_MEMORY_SHOPPER_ID);
   });
 });
 
@@ -49,6 +59,36 @@ describe("resolveBookstoreUserId", () => {
   it("lets a pinned env id win, so CI stays deterministic", () => {
     process.env.INTELLIGENCE_USER_ID = "ci-pinned";
     expect(resolveBookstoreUserId({ userId: "maya" })).toBe("ci-pinned");
+  });
+});
+
+describe("bookstoreMemorySeedTargetUserIds", () => {
+  it("includes the DEFAULT bucket, which is where recall actually looks", () => {
+    // The regression this guards is silent and total: the reset used to seed only
+    // `bookstore-maya`, runs frequently resolve to the default bucket instead
+    // (the client's `properties` often do not reach `identifyUser`), and
+    // `recall_memory` then found NOTHING — so beat 4 produced no answer at all
+    // rather than a generic one.
+    delete process.env.INTELLIGENCE_USER_ID;
+    const targets = bookstoreMemorySeedTargetUserIds();
+    expect(targets).toContain(DEMO_DEFAULT_USER_ID);
+    expect(targets).toContain(
+      resolveBookstoreUserId({ userId: SEEDED_MEMORY_SHOPPER_ID }),
+    );
+  });
+
+  it("leaves Guest's bucket unseeded", () => {
+    // Deliberate — nothing needs to be written there. NOT because switching to
+    // Guest demonstrates isolation: it does not re-scope memory at all.
+    delete process.env.INTELLIGENCE_USER_ID;
+    expect(bookstoreMemorySeedTargetUserIds()).not.toContain("bookstore-guest");
+  });
+
+  it("collapses to ONE bucket under a pinned env id, never a duplicate", () => {
+    // Both entries resolve to the pinned value, and seeding it twice would
+    // double-write every seed memory.
+    process.env.INTELLIGENCE_USER_ID = "ci-pinned";
+    expect(bookstoreMemorySeedTargetUserIds()).toEqual(["ci-pinned"]);
   });
 });
 

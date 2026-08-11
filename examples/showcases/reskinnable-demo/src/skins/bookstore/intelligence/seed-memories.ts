@@ -1,11 +1,17 @@
 /**
  * Seed the durable memory the demo is expected to ALREADY hold.
  *
- * "It remembers me" is a FILE, not emergent behaviour. Maya starts every demo
- * with one topical preference already stored, so the presenter clicks the
- * recommendation pill and the agent applies a taste nobody typed. Guest is
- * seeded with NOTHING — that contrast is the beat (spec §9). Reset must re-seed
- * this, or the second run of the demo silently degrades to a generic answer.
+ * "It remembers me" is a FILE, not emergent behaviour. The demo starts with one
+ * topical preference already stored, so the presenter clicks the recommendation
+ * pill and the agent applies a taste nobody typed and names it in the answer.
+ * THAT is the beat. Reset must re-seed this, or the second run of the demo
+ * silently degrades to a generic answer.
+ *
+ * ⚠ The preference is written to EVERY bucket a run can resolve to, not just
+ * Maya's — `dev/reset` iterates `bookstoreMemorySeedTargetUserIds()`. Guest's
+ * bucket is left empty because nothing needs to be written to it, NOT because
+ * switching to Guest demonstrates per-shopper isolation: switching does not
+ * re-scope memory at all. See the caveat in `./user-id.ts`.
  *
  * The preference is a FORMAT/TASTE preference rather than a fact, because a fact
  * ("her favourite book is X") only proves storage, while a preference visibly
@@ -35,8 +41,10 @@ interface SeedMemory {
 }
 
 /**
- * Maya's memories. Scoped `user` so they belong to her identity and not to the
- * app — switching to Guest must not find them.
+ * Maya's memories. Scoped `user` rather than `project` so they belong to an
+ * identity and not to the whole instance — a `scope: "project"` row comes back
+ * for EVERY user id on this backend, which several skins share locally, so
+ * project scope would leak this preference into the sibling demos' answers.
  */
 export const SEED_MEMORIES: readonly SeedMemory[] = Object.freeze([
   {
