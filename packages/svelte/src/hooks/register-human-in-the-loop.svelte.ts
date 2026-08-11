@@ -43,7 +43,9 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
       description: tool.description || "",
       respond: props.status === "executing" ? respond : undefined,
     };
-    return ToolComponent(extendedProps as any);
+    return ToolComponent(
+      extendedProps as Parameters<SvelteHumanInTheLoop<T>["render"]>[0],
+    );
   };
 
   const frontendTool: SvelteFrontendTool<T> = {

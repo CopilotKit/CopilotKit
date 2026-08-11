@@ -2,6 +2,7 @@
   import { createAgent, createSuggestions } from "../../hooks";
   import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
   import type { Suggestion } from "@copilotkit/core";
+  import type { UserMessage } from "@ag-ui/core";
   import { useCopilotKit } from "../../providers/useCopilotKit";
   import { setChatConfig, getChatConfig, ChatConfig } from "./chat-config-context.svelte";
   import CopilotChatView from "./CopilotChatView.svelte";
@@ -58,7 +59,7 @@
 
   function handleSubmitMessage(value: string) {
     if (!agent) return;
-    agent.addMessage({ id: randomUUID(), role: "user", content: value } as any);
+    agent.addMessage({ id: randomUUID(), role: "user", content: value } as UserMessage);
     copilotkit.runAgent({ agent });
   }
 
@@ -68,13 +69,13 @@
     }
   }
 
-  function handleInputChange(_value: string) {
+  function handleInputChange() {
     // parent controlling input
   }
 
-  function handleSelectSuggestion(suggestion: Suggestion, _index: number) {
+  function handleSelectSuggestion(suggestion: Suggestion) {
     if (!agent) return;
-    agent.addMessage({ id: randomUUID(), role: "user", content: suggestion.message } as any);
+    agent.addMessage({ id: randomUUID(), role: "user", content: suggestion.message } as UserMessage);
     copilotkit.runAgent({ agent });
   }
 </script>

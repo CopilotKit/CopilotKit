@@ -3,12 +3,10 @@
 
   let {
     suggestion,
-    index,
     isLoading = false,
     onSelect,
   }: {
     suggestion: Suggestion;
-    index: number;
     isLoading?: boolean;
     onSelect: () => void;
   } = $props();

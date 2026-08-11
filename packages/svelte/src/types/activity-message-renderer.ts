@@ -11,7 +11,7 @@ export interface SvelteActivityMessageRendererProps<TActivityContent> {
 
 export type SvelteActivityMessageRendererRenderFn<TActivityContent> = (
   props: SvelteActivityMessageRendererProps<TActivityContent>,
-) => any;
+) => unknown;
 
 export interface SvelteActivityMessageRenderer<TActivityContent> {
   activityType: string;

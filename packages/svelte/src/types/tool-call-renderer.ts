@@ -26,11 +26,11 @@ export type SvelteToolCallRendererRenderProps<T> =
 
 export type SvelteToolCallRendererRenderFn<T> = (
   props: SvelteToolCallRendererRenderProps<T>,
-) => any;
+) => unknown;
 
 export interface SvelteToolCallRenderer<T = unknown> {
   name: string;
-  args: StandardSchemaV1<any, T>;
+  args: StandardSchemaV1<unknown, T>;
   agentId?: string;
   render: SvelteToolCallRendererRenderFn<T>;
 }

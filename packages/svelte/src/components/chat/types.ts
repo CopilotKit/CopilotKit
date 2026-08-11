@@ -2,7 +2,6 @@ import type {
   Message,
   AssistantMessage,
   UserMessage,
-  ReasoningMessage,
   ToolCall,
   ToolMessage,
 } from "@ag-ui/core";

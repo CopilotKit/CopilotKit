@@ -63,7 +63,6 @@
     licenseStatus: undefined,
   } as CopilotKitContextValue;
 
-  // svelte-ignore state_referenced_locally
   setContext(COPILOT_KIT_KEY, context);
 </script>
 

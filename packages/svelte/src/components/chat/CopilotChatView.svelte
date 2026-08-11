@@ -3,7 +3,6 @@
   import type { Suggestion } from "@copilotkit/core";
   import type { Attachment } from "@copilotkit/shared";
   import type { CopilotChatInputMode, ToolsMenuItem, AutoScrollMode } from "./types";
-  import { normalizeAutoScroll } from "./types";
   import CopilotChatMessageView from "./CopilotChatMessageView.svelte";
   import CopilotChatInput from "./CopilotChatInput.svelte";
   import CopilotChatSuggestionView from "./CopilotChatSuggestionView.svelte";
@@ -13,19 +12,14 @@
     isRunning = false,
     welcomeScreen = false,
     suggestions = [] as Suggestion[],
-    attachments = [] as Attachment[],
     inputValue = "",
     inputMode = "input" as CopilotChatInputMode,
     inputToolsMenu = [] as (ToolsMenuItem | "-")[],
-    isConnecting = false,
-    hasExplicitThreadId = false,
     autoScroll = true as AutoScrollMode | boolean,
     onSubmitMessage,
     onStop,
     onInputChange,
     onSelectSuggestion,
-    onRemoveAttachment,
-    onAddFile,
   }: {
     messages?: Message[];
     isRunning?: boolean;

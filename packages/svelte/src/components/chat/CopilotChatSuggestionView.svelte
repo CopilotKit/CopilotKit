@@ -15,10 +15,9 @@
 
 {#if suggestions.length > 0}
   <div class="copilotkit-suggestions">
-    {#each suggestions as suggestion, i}
+    {#each suggestions as suggestion, i (suggestion.message)}
       <CopilotChatSuggestionPill
         {suggestion}
-        index={i}
         isLoading={loadingIndexes.includes(i)}
         onSelect={() => onSelectSuggestion(suggestion, i)}
       />

@@ -1,4 +1,3 @@
-import type { AbstractAgent } from "@ag-ui/client";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { render, waitFor, fireEvent } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";

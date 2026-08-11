@@ -1,5 +1,4 @@
 import type { AbstractAgent } from "@ag-ui/client";
-import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { render, waitFor } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";
@@ -18,7 +17,6 @@ describe("createCapabilities", () => {
       isRunning: false,
     } as unknown as AbstractAgent;
 
-    let handlers: SubscribeToAgentSubscriber | undefined;
     const unsubscribe = vi.fn();
 
     const core = {
@@ -28,12 +26,7 @@ describe("createCapabilities", () => {
       runtimeTransport: "auto",
       headers: {},
       getAgent: vi.fn(() => agent),
-      subscribeToAgentWithOptions: vi.fn(
-        (_a: AbstractAgent, nextHandlers: SubscribeToAgentSubscriber) => {
-          handlers = nextHandlers;
-          return { unsubscribe };
-        },
-      ),
+      subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe })),
     } as unknown as CopilotKitCoreSvelte;
 
     const context = {

@@ -43,10 +43,6 @@ vi.mock("@copilotkit/core", async () => {
     defaultThrottleMs: number | undefined = undefined;
     subscribers: Set<any> = new Set();
 
-    constructor(config: any) {
-      // no-op
-    }
-
     setDefaultThrottleMs(v: number | undefined) {
       this.defaultThrottleMs = v;
     }
@@ -78,7 +74,6 @@ vi.mock("@copilotkit/core", async () => {
 
     async notifySubscribers(
       handler: (subscriber: any) => void | Promise<void>,
-      _errorMessage: string,
     ): Promise<void> {
       await Promise.all(
         Array.from(this.subscribers).map(async (subscriber) => {

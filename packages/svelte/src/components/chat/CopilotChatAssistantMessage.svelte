@@ -81,7 +81,6 @@
     messages = [] as Message[],
     isRunning = false,
     toolbarVisible = true,
-    layout,
     messageRenderer,
     toolbar: toolbarSnippet,
     copyButton,
@@ -95,7 +94,6 @@
     onThumbsDown,
     onReadAloud,
     onRegenerate,
-    children,
   }: {
     message: AssistantMessage;
     messages?: Message[];

@@ -22,10 +22,6 @@
     isOpen = !isOpen;
   }
 
-  function open() {
-    isOpen = true;
-  }
-
   function close() {
     isOpen = false;
   }
