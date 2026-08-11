@@ -1,4 +1,4 @@
-export { deriveKpis, KpiStrip } from "./kpi-strip";
+export { deriveKpis, deriveKpiTiles, KpiStrip } from "./kpi-strip";
 export { ExceptionBoard } from "./exception-board";
 export { ShipmentCard } from "./shipment-card";
 export { LaneTable } from "./lane-table";

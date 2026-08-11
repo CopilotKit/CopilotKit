@@ -168,10 +168,12 @@ value: <current segment> })` in your layout. Without it the agent has no idea
    screen: name the page, summarize the key elements, cite the actual figures,
    and **never** say it cannot see the screen.
 
-Every shipped skin registers readables. Only banking, people and commerce
-register a route readable AND per-page on-screen readables — which is why this
-beat is impossible in airline, logistics and keel today: they answer identically
-no matter which page is open.
+Every shipped skin registers readables. Only banking, people, commerce and
+logistics register a route readable AND per-page on-screen readables — which is
+why this beat is impossible in airline and keel today: they answer identically
+no matter which page is open. Derive that list rather than trusting this
+sentence: `grep -rln useAgentContext src/skins/*/layout.tsx` is the route
+readable, `grep -rln useAgentContext src/skins/*/pages/` the page ones.
 
 **Banking:** route readable at `layout.tsx:141-143`; global page/operation
 readables at `tools.tsx:162-170`; page-scoped on-screen readables in
@@ -179,6 +181,16 @@ readables at `tools.tsx:162-170`; page-scoped on-screen readables in
 `charges.tsx:139`, which emits the page name, the active filters, the visible
 row count and the first 25 visible rows. Prompt clause "SCREEN AWARENESS" at
 `agent.ts:61-71`.
+
+**Logistics** is the minimal worked example, and shows what "the same expression"
+means when a panel has no filters at all: each page hands ONE collection straight
+to its panel, so the readable maps that same variable and never re-fetches or
+re-derives it. Its KPI half is the instructive part — the strip rounds
+`onTimeRate` to "67%" for display, so the readable reads the exported
+`deriveKpiTiles` the strip itself renders rather than the raw ratio, which an
+agent quotes back as "66.7%". A one-decimal drift is small, but it is the same
+KIND of error as the 5-rows-against-6 above, so both sides read one function.
+Guard: `src/skins/logistics/readables.test.tsx`.
 
 ### 3c — Navigate with levers, and make it complicated
 
