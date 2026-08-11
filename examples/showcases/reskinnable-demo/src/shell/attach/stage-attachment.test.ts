@@ -136,6 +136,12 @@ interface ComposerOptions {
   consumeOnSend?: boolean;
   /** Makes `.click()` itself throw, to reach the outermost catch. */
   clickThrows?: boolean;
+  /**
+   * Removes the one browser API here with no jsdom implementation, so writing
+   * the file onto the input throws. Part of the composer's ENVIRONMENT rather
+   * than its DOM, which is why it lives on this fixture with the rest.
+   */
+  dataTransferBroken?: boolean;
 }
 
 const sendClicks = vi.fn();
@@ -150,8 +156,20 @@ function mountComposer({
   neverEnableSend = false,
   consumeOnSend = true,
   clickThrows = false,
+  dataTransferBroken = false,
 }: ComposerOptions = {}) {
   document.body.innerHTML = "";
+
+  if (dataTransferBroken) {
+    vi.stubGlobal(
+      "DataTransfer",
+      class {
+        constructor() {
+          throw new Error("DataTransfer is not available");
+        }
+      },
+    );
+  }
 
   // The queue is mounted ONLY while non-empty (CopilotChatView.tsx:356), so it
   // starts absent and is created on the first accepted file.
@@ -453,16 +471,8 @@ describe("stageAttachment: every failure names itself, and none of them send", (
     // no polyfill guarantee; when it (or `File`) is unavailable the write throws.
     // The failure must name the WRITE — the file-wide catch this replaced sent
     // presenters off to check a perfectly healthy network.
-    mountComposer();
+    mountComposer({ dataTransferBroken: true });
     vi.stubGlobal("fetch", vi.fn(okResponse));
-    vi.stubGlobal(
-      "DataTransfer",
-      class {
-        constructor() {
-          throw new Error("DataTransfer is not available");
-        }
-      },
-    );
 
     const result = await stageAttachment(DOC, fast());
 
@@ -571,6 +581,14 @@ describe("sendMessageWithAttachment: never sends an unattached prompt", () => {
       {},
       "no-file-input" as const,
       ATTACHMENT_FILE_INPUT_SELECTOR,
+    ],
+    [
+      "writing the file onto the input throws",
+      () => vi.fn(okResponse),
+      { dataTransferBroken: true },
+      {},
+      "staging-threw" as const,
+      "Writing the file onto the composer's hidden input threw",
     ],
     [
       "the composer REJECTED the file",
@@ -806,6 +824,37 @@ describe("attachByHand: the paperclip fallback is the loudest link", () => {
     expect(sendClicks).not.toHaveBeenCalled();
   });
 
+  it("keeps its own lede even when something unexpected escapes", async () => {
+    // The paperclip never intended to send, so NONE of its paths may say
+    // "nothing was sent". The anticipated failures above already got that right;
+    // this catch used to fall back to the default lede, so the fallback for a
+    // broken pill contradicted itself depending on which failure it hit. It is
+    // also the only one of the module's two `unexpected` emissions that no test
+    // covered.
+    mountComposer();
+    vi.stubGlobal("fetch", vi.fn(okResponse));
+    // Thrown from the file-input lookup: the first step after the fetch that sits
+    // outside any of `stageAttachment`'s own try blocks, so it reaches the
+    // outermost catch exactly as an unforeseen failure would.
+    const realQuerySelector = document.querySelector.bind(document);
+    vi.spyOn(document, "querySelector").mockImplementation(
+      (selector: string) => {
+        if (selector === ATTACHMENT_FILE_INPUT_SELECTOR) {
+          throw new Error("the DOM query blew up");
+        }
+        return realQuerySelector(selector);
+      },
+    );
+
+    const attached = await attachByHand(DOC, fast());
+
+    expect(attached).toBe(false);
+    expect(reportedFailure().cause).toBe("unexpected");
+    expect(surfacedText()).toContain("the DOM query blew up");
+    expect(surfacedText()).not.toContain("nothing was sent");
+    expect(sendClicks).not.toHaveBeenCalled();
+  });
+
   it("resolves true and stays quiet when it works", async () => {
     mountComposer({ encodeMs: 10 });
     vi.stubGlobal("fetch", vi.fn(okResponse));
@@ -816,17 +865,56 @@ describe("attachByHand: the paperclip fallback is the loudest link", () => {
   });
 });
 
+/**
+ * Every member of the union, listed once — the TYPE is what makes this list
+ * honest, not the author. `Record<AttachmentFailureCause, true>` is exhaustive by
+ * construction: add a member to the union and omit it here and `tsc` fails on
+ * this object.
+ *
+ * The pairing with `observed` below is the whole gate, and NEITHER HALF WORKS
+ * ALONE:
+ *
+ *   - `observed.size` alone counts only causes some test drove. A sixteenth
+ *     member declared in the union and never constructed never enters the Map,
+ *     the size stays 15, and the assertion passes. That is precisely the rot this
+ *     module was extracted to fix — commerce declared fifteen causes and
+ *     constructed eight, and no test could see the difference.
+ *   - `ALL_CAUSES` alone proves only that the union was transcribed, not that any
+ *     of it fires.
+ *
+ * Together: a new union member is a `tsc` error until it is listed here, and once
+ * listed it raises the expected count until a test actually drives it.
+ */
+const ALL_CAUSES: Record<AttachmentFailureCause, true> = {
+  "fetch-failed": true,
+  "http-error": true,
+  "empty-body": true,
+  "not-a-pdf": true,
+  "no-file-input": true,
+  "staging-threw": true,
+  rejected: true,
+  "encode-timeout": true,
+  "no-composer": true,
+  "stale-value": true,
+  "send-disabled": true,
+  "send-stop-state": true,
+  "send-unrecognized": true,
+  "send-unconfirmed": true,
+  unexpected: true,
+};
+
 describe("the failure contract", () => {
-  it("gives every cause its own presenter-readable sentence", () => {
-    // Collected from the failure paths exercised ABOVE, never hand-listed: a
-    // cause with no case in this file is a cause this count fails on. That is the
-    // point — the union is the beat's failure taxonomy, and an untested member of
-    // it is a mode nobody has ever seen fire.
-    expect(observed.size).toBe(15);
+  it("drives every cause the union declares, and gives each its own sentence", () => {
+    const declared = Object.keys(ALL_CAUSES).length;
+    // Collected from the failure paths exercised ABOVE, never hand-listed. Read
+    // against `declared` rather than a literal: a cause that stops being driven
+    // drops the size, and a cause that is DECLARED BUT NEVER CONSTRUCTED raises
+    // `declared` without raising the size. Both fail here.
+    expect(observed.size).toBe(declared);
     // No two read alike: "retry the pill", "press send by hand" and "restart the
     // dev server" are different instructions, and a presenter mid-demo has to be
     // able to tell which one they were just given.
-    expect(new Set(observed.values()).size).toBe(15);
+    expect(new Set(observed.values()).size).toBe(declared);
     for (const [cause, detail] of observed) {
       expect(detail.length, `${cause} says too little`).toBeGreaterThan(20);
     }

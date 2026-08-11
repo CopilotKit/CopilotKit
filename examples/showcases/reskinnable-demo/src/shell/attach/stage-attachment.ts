@@ -268,6 +268,14 @@ function fail(
 export const NOTHING_SENT_LEDE =
   "Could not attach the document — nothing was sent.";
 
+/**
+ * The paperclip's lede, used on EVERY one of its paths. It never intended to
+ * send, so a lede mentioning a send the presenter did not ask for reads as a
+ * second, phantom failure. Named rather than inlined because getting it right on
+ * one path and wrong on the other is the exact bug this replaced.
+ */
+const PAPERCLIP_LEDE = "Could not attach the document.";
+
 export function reportAttachmentFailure(
   cause: AttachmentFailureCause,
   detail: string,
@@ -498,17 +506,14 @@ export async function attachByHand(
   try {
     const result = await stageAttachment(doc, timings);
     if (result.staged) return true;
-    // No "nothing was sent" here: the paperclip never intended to send, and a
-    // lede that mentions a send the presenter did not ask for reads as a second,
-    // phantom failure.
-    reportAttachmentFailure(
-      result.cause,
-      result.detail,
-      "Could not attach the document.",
-    );
+    reportAttachmentFailure(result.cause, result.detail, PAPERCLIP_LEDE);
     return false;
   } catch (err) {
-    reportAttachmentFailure("unexpected", unexpected(err));
+    // The SAME lede as the expected-failure path above. Commerce let this one
+    // fall back to `NOTHING_SENT_LEDE`, so the paperclip contradicted itself
+    // depending on which failure it hit — deliberately never claiming a send on
+    // the path it anticipated, then claiming one on the path it did not.
+    reportAttachmentFailure("unexpected", unexpected(err), PAPERCLIP_LEDE);
     return false;
   }
 }
