@@ -776,8 +776,12 @@ of these compile and lint clean while failing live:
    tool description, prompt, or refusal body (failure-modes.md § 10). Also prove
    the gate over pure REST with no agent involved: copy
    `docs/teach-mode/verify-logistics-gate.sh` (or banking's
-   `verify-teachable-gate.sh`) for your routes, and add your `tools.tsx` to the
-   `withheldGateVocabulary` rule's `files` glob in `eslint.config.mjs`.
+   `verify-teachable-gate.sh`) for your routes, and add BOTH your `tools.tsx` and
+   your `agent.ts` to the `withheldGateVocabulary` rule's `files` glob in
+   `eslint.config.mjs` — **restating the three LOCK_SKIN selectors in that block,
+   because flat-config `rules` are replaced and not merged**, then confirming with
+   `npx eslint --print-config` that the file reports four selectors and not one.
+   The rule sees identifiers only; the prose channels are yours to grep.
 10. **Reset** — restores the data, wipes learned memory, re-seeds beats 4/5, and
     leaves beat 6 unlearned so the demo can run again.
 

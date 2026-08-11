@@ -455,7 +455,10 @@ and then does it alone, on a different case.
    closed-set rule you follow everywhere else — for a gate, reaching the model is
    the defect. The guard is `withheldGateVocabulary` in `eslint.config.mjs`, and its
    `files` glob lists only the skins already fixed, so **append your skin's
-   `tools.tsx` when your gate lands or nothing checks it.** Full account, plus the
+   `tools.tsx` AND `agent.ts` when your gate lands or nothing checks it** — and
+   restate the LOCK_SKIN selectors in that block, because flat-config `rules` are
+   replaced rather than merged. It catches only the two channels that appear as
+   identifiers; the three prose ones are a grep-and-read. Full account, plus the
    REST proof scripts: failure-modes.md § 10.
 
 4. **A recording context with live, visible feedback.** **Do NOT write your own

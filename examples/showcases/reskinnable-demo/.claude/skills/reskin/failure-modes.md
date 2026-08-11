@@ -493,7 +493,7 @@ IS the defect: an agent holding the codes that lift the gate already knows the
 procedure, clears it unaided, and there is nothing left to teach. The demo still
 runs, beautifully, and proves nothing.
 
-**Logistics had the whole mechanism right and still gave away the answer, three
+**Logistics had the whole mechanism right and still gave away the answer, four
 ways over.** It shipped the gate (`data/authority.ts`, refusing with the symptom
 only), the justifying/decoy split (`data/escalation-codes.ts`) and a 422 that
 refuses an uncatalogued code without enumerating the valid set — and then
@@ -529,10 +529,39 @@ with no runtime symptom. It matches an `Identifier` named `*_CODES` /
 (`.enum(ESCALATION_CODES)` sat on its own line), so a guard for the string
 `"z.enum(ESCALATION_CODES)"` would have silently never matched.
 
-⚠️ **Its `files` glob lists only the skins whose gate has landed. Append your
-skin's `tools.tsx` when yours does, or your skin is unguarded** — the rule is
-scoped narrowly on purpose, because a glob covering an unfixed skin turns the
-whole tree red.
+🚨 **THE RULE COVERS TWO OF THE FIVE CHANNELS. Do not read a green lint as a
+withheld vocabulary.** It matches an IDENTIFIER, so it catches the readable and
+the schema enum — the two channels that name the catalogue in code. The tool
+`description`, the agent prompt and a 422 body are **prose**, and no identifier
+selector can catch a sentence. They are a HAND-REVIEW item, and they are not the
+minor half: the tool description and the prompt are the two channels that
+survived the first pass at this exact fix. The cheap check, run it every time you
+touch a gate:
+
+```bash
+grep -nE 'ESCALATION_CODE|_CODES|catalogue|valid codes' \
+  src/skins/<id>/tools.tsx src/skins/<id>/agent.ts
+```
+
+Then READ each hit: the only acceptable ones are sentences telling the agent it
+does NOT have the catalogue.
+
+⚠️ **Its `files` glob lists only the skins whose gate has landed. Append BOTH
+agent-facing files of your skin — `tools.tsx` AND `agent.ts` — when yours does,
+or your skin is unguarded.** The rule is scoped narrowly on purpose, because a
+glob covering an unfixed skin turns the tree red for a whole phase. `agent.ts`
+matters as much as `tools.tsx`: it is where the prompt leak actually shipped, and
+where a server-side `defineTool` could carry the same enum.
+
+⚠️⚠️ **And when you widen that glob, RESTATE the LOCK_SKIN selectors in the
+block.** Flat-config `rules` options are **replaced, not merged**, so a block
+listing only `withheldGateVocabulary` silently disables the three URL-contract
+selectors for exactly the files it names. This is not hypothetical — it shipped
+that way, was green, and no test noticed, because the file it disabled them for
+had no nav shape to violate. Verify with
+`npx eslint --print-config src/skins/<id>/tools.tsx` and COUNT the selectors
+(covered files: four; any other in-skin file: three). A passing `pnpm lint`
+proves nothing about a rule you have just switched off.
 
 **And prove it over pure REST, with no agent in the loop.** Four assertions in
 order: the gate refuses with a symptom and no code named; a DECOY code records and
@@ -542,7 +571,11 @@ enumerating the catalogue; a JUSTIFYING code lifts the gate.
 `verify-teachable-gate.sh` (banking) are the two worked examples. Discover the
 case from the live API rather than hardcoding it — logistics' first draft asserted
 against `absorb`, which always costs `$0` and can therefore never be over
-authority, so the script would have "passed" a gate it never exercised.
+authority, so the script would have "passed" a gate it never exercised. Two more
+ways such a script passes vacuously, both found by review: asserting the ABSENCE
+of the fix in a refusal without also asserting the PRESENCE of the symptom (an
+empty message satisfies "does not name a code"), and treating the unlocked call's
+`200` as the proof — re-READ the record and assert the write actually landed.
 
 ---
 

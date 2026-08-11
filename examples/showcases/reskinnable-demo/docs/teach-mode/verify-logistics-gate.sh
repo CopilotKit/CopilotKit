@@ -29,6 +29,11 @@
 #   - Nothing else: step 0 resets the in-memory store, so the script is
 #     re-runnable against a long-lived dev server.
 #
+# ⚠️ IT WRITES. Not read-only: it resets the store, approves TWO escalations
+#    (one decoy, one justifying) and COMMITS a real mitigation on the shipment it
+#    picks, all of which land in the Decision Log. Do not run it against a server
+#    you are about to present from without re-running `POST dev/reset` after.
+#
 # WHAT IT DISCOVERS RATHER THAN HARDCODES
 #   The bounded planner, the exception shipment, and the over-authority
 #   mitigation KIND are all read from the live API, so re-tuning seed.json costs
@@ -58,7 +63,10 @@ die()  { printf '\033[31mFAIL: %s\033[0m\n' "$1" >&2; exit 1; }
 # Response bodies go through a FILE, not a variable. `status="$(mitigate …)"` runs
 # the function in a command-substitution SUBSHELL, so anything it assigns to a
 # variable is discarded the moment it returns; the file write survives.
-BODY_FILE="$(mktemp -t verify-logistics-gate)"
+# Bare `mktemp`, deliberately: GNU coreutils' `-t` wants a template ending in at
+# least three X's and errors "too few X's" on the BSD-style `-t <prefix>` form, so
+# `mktemp -t verify-logistics-gate` works on macOS and dies on Linux/CI.
+BODY_FILE="$(mktemp)"
 trap 'rm -f "$BODY_FILE"' EXIT
 body() { cat "$BODY_FILE"; }
 
@@ -103,6 +111,10 @@ jq -e '.error == "OVER_AUTHORITY"' "$BODY_FILE" > /dev/null \
 # NEVER do is name a CODE, which is the thing the agent has to learn.
 grep -qE 'CUSTOMER_COMMITMENT|LINE_DOWN_RISK|REGULATORY_DEADLINE|COST_AVOIDANCE|PEAK_SEASON|INTERNAL_CONVENIENCE' "$BODY_FILE" \
   && die "the refusal leaks the unlock vocabulary: $(body)"
+# Absence of the fix is only half of it — the refusal must also PRESENT the
+# symptom. Without this, an empty or null message satisfies the check above.
+jq -e '.message | test("authority")' "$BODY_FILE" > /dev/null \
+  || die "the refusal does not name the symptom (cost vs authority): $(body)"
 printf '   refusal: %s\n' "$(jq -r '.message' "$BODY_FILE")"
 echo "   ✓ 403 OVER_AUTHORITY, symptom only, no code named"
 
@@ -136,6 +148,22 @@ ESC="$(curl -sf -X POST "$API/escalations" -H 'content-type: application/json' \
 curl -sf -X POST "$API/escalations/$ESC/approve" > /dev/null
 status="$(mitigate "$SHIPMENT" "$KIND")"
 [ "$status" = "200" ] || die "the justifying code did not lift the gate (got $status body=$(body))"
-echo "   ✓ gate lifted; $KIND committed on $SHIPMENT"
+# A 200 is not proof of a write. Re-READ the shipment and assert the mitigation is
+# actually recorded on it at the over-authority cost — a route that answered 200
+# without committing would otherwise pass this step. (The store does NOT clear
+# `exception` on mitigate; `appliedMitigation` is the field that proves the write,
+# and it is writable ONLY through this gated endpoint — see
+# PATCHABLE_FIELDS in shipments/[id]/route.ts.)
+curl -sf "$API/shipments/$SHIPMENT" -o "$BODY_FILE"
+jq -e --arg kind "$KIND" '.appliedMitigation.kind == $kind' "$BODY_FILE" > /dev/null \
+  || die "200 but no mitigation recorded on $SHIPMENT: $(body)"
+jq -e --argjson cap "$AUTHORITY" '.appliedMitigation.costUsd > $cap' "$BODY_FILE" > /dev/null \
+  || die "the committed mitigation is not the over-authority one: $(body)"
+printf '   committed: %s at $%s (authority $%s), status now %s\n' \
+  "$(jq -r '.appliedMitigation.kind' "$BODY_FILE")" \
+  "$(jq -r '.appliedMitigation.costUsd' "$BODY_FILE")" \
+  "$AUTHORITY" \
+  "$(jq -r '.status' "$BODY_FILE")"
+echo "   ✓ gate lifted; $KIND committed on $SHIPMENT and recorded on the shipment"
 
 say "PASS — gate refuses without naming a code, decoy does not unlock, an unknown code does not leak the catalogue, a justifying code unlocks"

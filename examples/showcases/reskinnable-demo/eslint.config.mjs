@@ -136,9 +136,17 @@ const interpolationThenSlash = {
  * Beat 6's claim is "when it doesn't know, it learns by watching me once". An
  * agent holding the catalogue of codes that lift a gate already knows: it clears
  * the gate unaided and there is nothing left to teach. Logistics published its
- * catalogue three ways — a `useAgentContext` readable, a `z.enum(ESCALATION_CODES)`
- * on the filing tool's schema, and the tool's own description pointing the agent
- * at "the catalogue in your context".
+ * catalogue FOUR ways — a `useAgentContext` readable, a `z.enum(ESCALATION_CODES)`
+ * on the filing tool's schema, the tool's own description pointing the agent at
+ * "the catalogue in your context", and an `agent.ts` prompt line listing "valid
+ * escalation codes" among what is "provided".
+ *
+ * WHAT THIS RULE CAN AND CANNOT SEE. It matches an IDENTIFIER, so it covers the
+ * first two only. The other two are PROSE — a tool `description` string and the
+ * prompt — and no identifier selector can catch a sentence. They are a
+ * HAND-REVIEW item; failure-modes.md § 10 says so out loud and lists the grep.
+ * Treat a green lint here as "the catalogue is not referenced", never as "the
+ * vocabulary is withheld".
  *
  * WHY A LINT RULE AND NOT A TEST. This is a project invariant, not a behaviour:
  * the app compiles, lints, type-checks and demos perfectly with the readable
@@ -151,18 +159,22 @@ const interpolationThenSlash = {
  * "z.enum(ESCALATION_CODES)" would have silently never matched. This selector
  * matches the IDENTIFIER and is immune to formatting.
  *
- * The `files` glob below is the SKINS ALREADY FIXED. Widen it as each remaining
- * skin's gate lands; a glob covering an unfixed skin turns the tree red for the
- * whole phase.
+ * The `files` glob below is the SKINS ALREADY FIXED — both agent-facing files of
+ * each, `tools.tsx` AND `agent.ts`. Widen it as each remaining skin's gate lands;
+ * a glob covering an unfixed skin turns the tree red for the whole phase.
  */
 const withheldGateVocabulary = {
   selector: "Identifier[name=/_(CODE_LABELS|CODES)$/]",
   message:
-    "Beat 6: a gate's unlock vocabulary must never reach the agent. Do not put a " +
-    "code catalogue in a useAgentContext readable, a tool-schema z.enum, a prompt, " +
-    "or a 422 body — the agent learns which code works by WATCHING the operator " +
-    "file one. Keep the labels for the human filing form only (import them in the " +
-    "form component, not in tools.tsx).",
+    "Beat 6: a gate's unlock vocabulary must never reach the agent, and this file " +
+    "is agent-facing. Do not name or import a code catalogue here — no " +
+    "useAgentContext readable, no tool-schema z.enum, no server defineTool enum. " +
+    "Take a free z.string() and say in its .describe() that the catalogue is " +
+    "withheld; the agent learns which code works by WATCHING the operator file " +
+    "one. Keep the labels for the human filing form only (import them in the form " +
+    "component, not here). This rule cannot see PROSE — a tool description or a " +
+    "prompt sentence leaks just as effectively and is a hand-review item. See " +
+    ".claude/skills/reskin/failure-modes.md § 10.",
 };
 
 // Skin tests render bare (no LockedSkinProvider), so they legitimately ASSERT on
@@ -220,14 +232,31 @@ const eslintConfig = [
       ],
     },
   },
-  // BEAT 6 — see withheldGateVocabulary. Scoped to the tool-registration file of
-  // each skin whose gate has landed. `tools.tsx` is where a readable or a schema
-  // enum would leak the vocabulary; the human filing FORM legitimately imports
-  // the labels, so it is not covered.
+  // BEAT 6 — see withheldGateVocabulary. Scoped to the two AGENT-FACING files of
+  // each skin whose gate has landed: `tools.tsx` (a readable or a client
+  // tool-schema enum) and `agent.ts` (the prompt, and a server `defineTool` enum).
+  // The human filing FORM legitimately imports the labels, so it is not covered.
+  //
+  // ⚠️ THIS BLOCK MUST RESTATE THE LOCK_SKIN SELECTORS, and every future widening
+  // of it must too. Flat-config `rules` are REPLACED, not merged: this block is the
+  // last one matching these files, so listing only `withheldGateVocabulary` here
+  // silently DISABLES the three URL-contract selectors from the `src/skins/**`
+  // block above for exactly these files. That is invisible — `logistics/tools.tsx`
+  // has no nav shape today, so nothing fails; a hardcoded `/logistics/...` href
+  // added to it later would just pass. It shipped that way once. Verify with
+  // `npx eslint --print-config <file>` and count the selectors (these files must
+  // report FOUR, any other in-skin file THREE) — a passing `pnpm lint` proves
+  // nothing here.
   {
-    files: ["src/skins/logistics/tools.tsx"],
+    files: ["src/skins/logistics/tools.tsx", "src/skins/logistics/agent.ts"],
     rules: {
-      "no-restricted-syntax": ["error", withheldGateVocabulary],
+      "no-restricted-syntax": [
+        "error",
+        literalSkinPrefix,
+        templateLeadingPrefix,
+        interpolationThenSlash,
+        withheldGateVocabulary,
+      ],
     },
   },
 ];
