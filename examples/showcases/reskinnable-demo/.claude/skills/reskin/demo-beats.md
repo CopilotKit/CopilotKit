@@ -257,11 +257,11 @@ Three mechanics worth copying verbatim:
   the pill sends — and calls two functions:
 
   ```ts
-  import {
-    attachByHand,
-    sendMessageWithAttachment,
-    type AttachmentDocument,
-  } from "@/shell/attach";
+  // Two lines, not one with an inline `type` — the commit hook's
+  // `oxlint --fix` (consistent-type-imports) rewrites the inline form, so write
+  // it this way and the hook leaves your file alone.
+  import { attachByHand, sendMessageWithAttachment } from "@/shell/attach";
+  import type { AttachmentDocument } from "@/shell/attach";
 
   const DOC: AttachmentDocument = { url: "…", filename: "…" };
 

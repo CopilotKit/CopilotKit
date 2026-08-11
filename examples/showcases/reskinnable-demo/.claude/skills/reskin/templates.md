@@ -1343,9 +1343,10 @@ const <id>: Skin = {
   // is ~660 lines of framework-specific detection you would otherwise get wrong.
   // Your skin's whole attachment file is this (see `src/skins/*/attach-*.ts`):
   //
-  //   import {
-  //     attachByHand, sendMessageWithAttachment, type AttachmentDocument,
-  //   } from "@/shell/attach";
+  //   // Two lines, not one with an inline `type`: the commit hook's
+  //   // `oxlint --fix` (consistent-type-imports) rewrites the inline form.
+  //   import { attachByHand, sendMessageWithAttachment } from "@/shell/attach";
+  //   import type { AttachmentDocument } from "@/shell/attach";
   //   import { <ID>_ATTACHMENT_MESSAGE } from "./suggestions";
   //
   //   const DOC: AttachmentDocument = { url: "…", filename: "…" };
