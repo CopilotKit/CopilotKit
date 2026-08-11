@@ -5,7 +5,7 @@ description: >
   project from scratch. Covers framework detection, package installation, runtime wiring
   (managed Intelligence or self-hosted SSE), provider setup, and first working chat
   integration.
-version: 1.3.0
+version: 1.3.1
 ---
 
 # CopilotKit Setup

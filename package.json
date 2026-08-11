@@ -40,6 +40,8 @@
     "generate:channel-native-catalogs": "node scripts/channel-native-catalogs.mjs generate",
     "check:channel-native-catalogs": "node scripts/channel-native-catalogs.mjs check",
     "audit:channel-native-catalogs": "node scripts/channel-native-catalogs.mjs audit",
+    "generate:public-api-manifest": "tsx scripts/release/generate-public-api-manifest.ts --write",
+    "check:public-api-manifest": "tsx scripts/release/generate-public-api-manifest.ts --check",
     "sync:plugin-skills": "tsx scripts/sync-plugin-skills.ts",
     "parity:sync": "tsx examples/integrations/_parity/sync.ts",
     "parity:verify": "tsx examples/integrations/_parity/verify.ts",
