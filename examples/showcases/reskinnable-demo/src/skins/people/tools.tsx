@@ -28,7 +28,7 @@ import type { Employee, PeopleStoreState } from "./data/types";
 import { BandLadder } from "./components/band-ladder";
 import { Monogram } from "./components/monogram";
 import { Pill } from "./components/primitives";
-import { useRecording } from "./components/recording-context";
+import { useRecording } from "@/shell/teach";
 
 /**
  * Every frontend tool, HITL card, gen-UI component and global readable Rowan
@@ -1297,11 +1297,15 @@ function SalaryCard({
  * the room can see that watching is really happening.
  */
 function DemonstrationCard({ onDone }: { onDone: (summary: string) => void }) {
-  const { beginRecording, endRecording, steps, getDemonstratedCode, reset } =
+  const { beginRecording, endRecording, steps, getDemonstratedCode } =
     useRecording();
 
+  // No explicit feed reset: the shell's `beginRecording` clears it when it opens
+  // a FRESH window, and deliberately inherits the feed when one is already open
+  // (the `opened → finalized → approve` chain arriving as brackets microseconds
+  // apart must read as one demonstration). An unconditional reset here would
+  // blank a live feed mid-demonstration.
   useEffect(() => {
-    reset();
     beginRecording();
     return () => endRecording();
     // eslint-disable-next-line react-hooks/exhaustive-deps

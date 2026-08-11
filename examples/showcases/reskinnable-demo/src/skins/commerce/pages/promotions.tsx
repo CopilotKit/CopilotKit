@@ -26,7 +26,7 @@ import {
   waiverCodeLabel,
 } from "../data/waiver-codes";
 import type { MarginWaiver, Product, Promotion } from "../data/types";
-import { useRecording } from "../components/recording-context";
+import { useRecording } from "@/shell/teach";
 import { SkuTile } from "../components/sku-tile";
 import { useInFlight } from "../components/use-in-flight";
 import type { InFlight } from "../components/use-in-flight";
