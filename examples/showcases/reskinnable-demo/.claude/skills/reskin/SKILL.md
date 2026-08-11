@@ -731,6 +731,16 @@ Do NOT touch anything else in the shell.
    `id === agentId` and that the agent registered correctly).
 6. Your suggestion pills appear, and if you registered frontend tools / HITL /
    gen-UI, the agent can drive them.
+
+   > **Automating a pill click? Select by ROLE, not by text.**
+   > `getByRole("button", { name: "…" })`, never `getByText("…")`. The thread rail
+   > (`.nw-chat-rail`, shell-owned, so this bites every skin identically)
+   > accumulates **saved thread titles**, and a thread gets titled after the
+   > message its pill sent — so on the second run `getByText("Decision brief")`
+   > matches the rail entry, your driver clicks a thread instead of the pill, and
+   > the beat appears not to fire. It reads as a broken app rather than a wrong
+   > selector, which is why it costs a walk or two before anyone suspects it.
+
 7. **`pnpm lint`** — green. This includes the URL-contract guard: the
    `no-restricted-syntax` skin-prefix selectors in `eslint.config.mjs`, which fail
    and NAME YOUR FILE if any link in your skin hardcodes its route prefix or
