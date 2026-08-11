@@ -54,9 +54,27 @@ const ASCII_FOLD: Record<string, string> = {
 };
 
 export function toAscii(text: string): string {
-  return text
-    .replace(/[—–’‘“”…×·]/g, (ch) => ASCII_FOLD[ch] ?? "?")
-    .replace(/[^\x20-\x7e]/g, "?");
+  return (
+    text
+      // Decompose first, then drop the combining marks: "é" (U+00E9) becomes
+      // "e" + U+0301 and the mark falls away, so an accented LETTER survives as
+      // its base letter instead of becoming "?". Names and product names are
+      // projected on screen and read aloud by the agent — "In?s Vidal" is worse
+      // than "Ines Vidal", and both are worse than a mark we simply cannot draw.
+      //
+      // The class is \p{M} (combining marks) and NOT \p{Diacritic}, which sounds
+      // righter and is wrong: \p{Diacritic} also covers the standalone ASCII
+      // accents "^" (U+005E) and "`" (U+0060) — silently deleted out of ordinary
+      // prose — and U+00B7 MIDDLE DOT, which the fold map below deliberately
+      // turns into "-" and would instead vanish.
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .replace(/[—–’‘“”…×·]/g, (ch) => ASCII_FOLD[ch] ?? "?")
+      // Anything still outside printable ASCII (CJK, emoji, symbols) has no base
+      // letter to fall back to, so it stays a visible "?" rather than vanishing —
+      // a dropped character is a silent corruption, a "?" is a legible one.
+      .replace(/[^\x20-\x7e]/g, "?")
+  );
 }
 
 /** Escape the three characters that are special inside a PDF literal string. */

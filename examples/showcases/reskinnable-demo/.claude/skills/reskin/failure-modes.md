@@ -331,9 +331,21 @@ one review:
   really cannot fail today, because `toAscii` makes characters and bytes the same
   thing. The gap neither reviewer named is that **`toAscii` was the load-bearing
   premise and nothing asserted it** — relax the fold and the assertions go on
-  passing while the PDF breaks. It is now pinned by `price-sheet-pdf.layout.test.ts`
-  § "ASCII invariant", which builds from accented input and asserts every emitted
-  byte is `< 0x80`.
+  passing while the PDF breaks. It is now pinned by `src/shell/documents/pdf.test.ts`,
+  which builds from accented input and asserts every emitted byte is `< 0x80` —
+  the fold and the byte layout both live in that primitive now, so the guard is
+  written once and inherited by every skin that generates a document. Each skin
+  re-runs the byte check over its own content
+  (`price-sheet-pdf.layout.test.ts` § "ASCII invariant", `offer-letter-pdf.test.ts`).
+
+  A postscript worth as much as the original lesson: pinning the premise is what
+  made it safe to CHANGE it. The pinned fold turned every accented letter into
+  `?`, so the offer letter said `In?s Vidal` and the price sheet `?MILE & FILS` —
+  the assertions had frozen a defect as though it were the spec. Widening the fold
+  to transliterate was then a two-line change with the blast radius visible in the
+  diff, precisely because the behaviour was written down. **A test that pins the
+  wrong behaviour is still worth more than no test; just do not mistake "asserted"
+  for "correct" when you read one.**
 
   What that taught, and the reason it is worth more than the open question: an
   argument about whether a passing check is "really" wrong is usually the wrong

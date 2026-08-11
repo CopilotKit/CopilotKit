@@ -82,27 +82,39 @@ describe("toAscii", () => {
   });
 
   /**
-   * WHAT THIS PINS, AND WHY IT IS NOT A NICER ANSWER.
+   * WHY A LETTER TRANSLITERATES AND A SYMBOL DOES NOT.
    *
-   * `ASCII_FOLD` covers punctuation only, so a LETTER outside ASCII — an accent,
-   * an umlaut — becomes "?" rather than its unaccented base. That is not an
-   * oversight to quietly fix here: this module is a verbatim move of commerce's
-   * builder, and commerce's own suite asserts exactly this substitution
-   * ("Cr?me Br?l?e Tee", "?MILE & FILS") as the proof the fold runs on every text
-   * path. Widening it to strip diacritics would change those bytes.
-   *
-   * It IS a real question for the skins about to adopt this primitive. People's
-   * seed carries "Inés Vidal", "Sasha Bergström" and "Montréal", so its offer
-   * letter renders "In?s Vidal" the moment it moves onto this fold — better than
-   * the mojibake it emits today with no fold at all, worse than the name. Decide
-   * that deliberately (NFD-normalize and strip combining marks, then fold) as its
-   * own change with commerce's expectations updated in the same commit; do not
-   * let it ride along inside a move.
+   * These strings are not hypothetical: "Inés Vidal", "Sasha Bergström" and
+   * "Montréal" are people's seed values reachable through its offer-letter route,
+   * and "Émile & Fils"/"Crème Brûlée" are commerce's. All of them are PROJECTED
+   * and read back by the agent, so "In?s Vidal" is a visible defect even though
+   * the bytes are valid. An accented letter has a base letter to fall back to; a
+   * CJK ideograph does not, and dropping it would be a silent corruption where a
+   * "?" is a legible one.
    */
-  it("substitutes, rather than transliterates, non-ASCII letters", () => {
-    expect(toAscii("Inés Vidal")).toBe("In?s Vidal");
-    expect(toAscii("Sasha Bergström")).toBe("Sasha Bergstr?m");
-    expect(toAscii("Montréal")).toBe("Montr?al");
+  it("transliterates accented letters instead of blanking them", () => {
+    expect(toAscii("Inés Vidal")).toBe("Ines Vidal");
+    expect(toAscii("Sasha Bergström")).toBe("Sasha Bergstrom");
+    expect(toAscii("Montréal")).toBe("Montreal");
+    expect(toAscii("Crème Brûlée")).toBe("Creme Brulee");
+    expect(toAscii("ÉMILE & FILS")).toBe("EMILE & FILS");
+  });
+
+  it("still marks a character with no ASCII base rather than dropping it", () => {
+    // A dropped character is a silent corruption; a "?" is a legible one.
+    expect(toAscii("東京")).toBe("??");
+  });
+
+  /**
+   * The mark-stripping pass runs over the WHOLE string, so it has to leave the
+   * ASCII characters Unicode also calls diacritics alone — "^" and "`" are
+   * `Diacritic=Yes`, and deleting them out of prose is exactly the regression a
+   * `\p{Diacritic}` class would have shipped.
+   */
+  it("leaves standalone ASCII accent characters in place", () => {
+    expect(toAscii("2^3 and a `quoted` token")).toBe(
+      "2^3 and a `quoted` token",
+    );
   });
 
   it("leaves plain ASCII untouched", () => {

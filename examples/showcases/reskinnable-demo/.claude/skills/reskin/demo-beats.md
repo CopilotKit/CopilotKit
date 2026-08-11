@@ -549,7 +549,7 @@ tools or pages, alongside this file.
 | Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`; `people`/`commerce` for 2nd takes |
 | A four-lever navigation (beat 3c)     | `commerce` — status + exception + sort + top-N, all four tinted            |
 | Attachment staging (beat 3d)          | `banking` (`attach-invoice.ts`), `people`, `commerce`                      |
-| A GENERATED uploaded document         | `people` (`offer-letter-pdf.ts`), `commerce` (`price-sheet-pdf.ts`)        |
+| A GENERATED uploaded document         | `@/shell/documents` for the bytes; `commerce`/`people` for the content     |
 | Seeded memories (beats 4, 5)          | `banking`, `people`, `commerce` — the only three with a seed file          |
 | Debugged layout + meta-utility strip  | `logistics`, `people`, `commerce`                                          |
 | Server-emitted a2ui canvas            | `logistics` (`renderBrief`), `banking` (`render_report`)                   |
@@ -558,48 +558,63 @@ tools or pages, alongside this file.
 | In-memory `useData` substrate         | `airline`, `keel`                                                          |
 | Minimal contract surface              | `airline`                                                                  |
 
-> **Writing a PDF by hand?** Two traps, both of which produce a VALID PDF that is
-> wrong on screen — nothing type-checks a rendered page, and this document is
-> projected at exactly the moment the room is looking.
+> **Generating a PDF? Do NOT write the bytes — call `@/shell/documents`.**
+> `buildPdf(lines: Line[])` emits a single page of base-14 text with a correct
+> xref, and your file supplies CONTENT only. Both shipped builders
+> (`commerce/data/price-sheet-pdf.ts`, `people/data/offer-letter-pdf.ts`) are now
+> nothing but content, and they are the shape to copy.
 >
-> 1. **Encoding.** The page declares base-14 fonts (WinAnsi, one byte per glyph)
->    while the content stream is written with `TextEncoder` (UTF-8), so a single em
->    dash goes out as three bytes: the reader shows mojibake AND the `/Length`
->    computed from JS string length no longer matches the byte count. Fold the text
->    to ASCII first — `toAscii` in `commerce/data/price-sheet-pdf.ts`.
+> The two traps below are FIXED IN THE PRIMITIVE, so you inherit both. They are
+> still written down, because each produces a VALID PDF that is wrong on screen —
+> nothing type-checks a rendered page, this document is projected at exactly the
+> moment the room is looking, and the second one is only half solvable centrally.
 >
->    **Only one of the two shipped builders does that**, so copy commerce's and
->    not the other one. `people/data/offer-letter-pdf.ts` has no fold at all while
->    using the identical `/Length ${stream.length}` and `body.length` xref math,
->    which makes this a live defect rather than a hypothetical: the seed carries
->    `Inés Vidal`, `Sasha Bergström` and `Montréal`, and
->    `GET /api/people/v1/offer-letter?employeeId=…` reaches every one of them. It
->    is named here as the counter-example; fixing it is out of scope for the PR
->    that wrote this note.
+> 1. **Encoding — handled for you.** The page declares base-14 fonts (WinAnsi, one
+>    byte per glyph) while the content stream is written with `TextEncoder`
+>    (UTF-8), so a single em dash goes out as three bytes: the reader shows
+>    mojibake AND the `/Length` computed from JS string length no longer matches
+>    the byte count. `buildPdf` runs `toAscii` on every text path, which
+>    NFD-normalizes and drops combining marks (so `Inés Vidal` transliterates to
+>    `Ines Vidal` rather than becoming `In?s Vidal`), folds typographic
+>    punctuation, and leaves a visible `?` only where there is no ASCII base at all
+>    (CJK, a currency symbol) — a dropped character is a silent corruption, a `?`
+>    is a legible one.
 >
->    **Then PIN the fold with a test, or your byte-layout assertions are
->    decorative.** Once the document is ASCII, characters and bytes are the same
->    thing, so a test that checks `/Length` or an xref offset against a
->    `TextDecoder().decode()` string passes for the same reason the builder is
->    correct — and would desync in step with the builder if the fold were ever
->    relaxed, so it can never fail for the case it exists to catch. Two cheap
->    habits close it: build a sheet from input carrying an accent, a curly quote and
->    an em dash and assert every emitted byte is `< 0x80`; and decode with
+>    This is centralized because it was a LIVE defect, twice over. People's builder
+>    carried its own copy of the byte layout with NO fold, while the seed carries
+>    `Inés Vidal`, `Sasha Bergström` and `Montréal` and
+>    `GET /api/people/v1/offer-letter?employeeId=…` reaches all three — mojibake
+>    plus a `/Length` that disagreed with the bytes. Commerce had the fold but only
+>    for punctuation, so it printed `?MILE & FILS`. **The third skin to want a PDF
+>    does not get to rediscover either one.**
+>
+>    **If you ever do write bytes yourself, PIN the fold with a test or your
+>    byte-layout assertions are decorative.** Once the document is ASCII,
+>    characters and bytes are the same thing, so a test that checks `/Length` or an
+>    xref offset against a `TextDecoder().decode()` string passes for the same
+>    reason the builder is correct — and would desync in step with the builder if
+>    the fold were ever relaxed, so it can never fail for the case it exists to
+>    catch. Two cheap habits close it: build from input carrying an accent, a curly
+>    quote and an em dash and assert every emitted byte is `< 0x80`; and decode with
 >    `new TextDecoder("latin1")` (one byte, one character) wherever an assertion is
->    about byte offsets rather than glyphs. `price-sheet-pdf.layout.test.ts` § "ASCII
->    invariant" is the worked version — and the offer letter has neither the fold
->    nor any test, so there is nothing there to be decorative in the first place.
+>    about byte offsets rather than glyphs. `src/shell/documents/pdf.test.ts` is the
+>    worked version; `offer-letter-pdf.test.ts` and `price-sheet-pdf.layout.test.ts`
+>    § "ASCII invariant" re-run the byte check over each skin's own content.
 >
-> 2. **Alignment.** Any table spaced with `padEnd` is aligned by CHARACTER COUNT,
->    which is only true in a MONOSPACED font. Drawn in Helvetica, every row starts
->    its next column somewhere new and the table renders visibly ragged. So either
->    draw each column at an explicit x-offset (and carry a glyph-width table to
->    bound overflow), or set the columnar lines in Courier — `price-sheet-pdf.ts`
->    takes the second route: `mono` on a `Line` selects `/F3` Courier or `/F4`
->    Courier-Bold, and its 600/1000-em advance turns both alignment and the
->    page-fit bound into arithmetic on character counts. If you add a face, declare
->    it in the page's `/Font` dictionary AND emit its font object — a referenced
->    but undeclared `/Fn` renders blank, which is worse than ragged.
+> 2. **Alignment — half yours.** Any table spaced with `padEnd` is aligned by
+>    CHARACTER COUNT, which is only true in a MONOSPACED font. Drawn in Helvetica,
+>    every row starts its next column somewhere new and the table renders visibly
+>    ragged. The primitive's answer is Courier: `mono` on a `Line` selects `/F3`
+>    Courier or `/F4` Courier-Bold, and its 600/1000-em advance turns both
+>    alignment and the page-fit bound into arithmetic on character counts, which
+>    `PDF_METRICS` (`monoAdvance`, `drawableWidth`) publishes so you can assert
+>    them.
+>
+>    **What the shell's test cannot know is your content**: whether YOUR columnar
+>    lines actually set `mono`, and whether YOUR column widths fit inside
+>    `drawableWidth`. Drop the flag or widen a column and the shell's suite stays
+>    green while the table renders ragged or runs off the page. Commerce keeps a
+>    test for each (`price-sheet-pdf.layout.test.ts`); copy both.
 
 > **Generating a document? Every sentence in it must be DERIVED from its own
 > rows.** The agent lifts facts out of this file and narrates them, so a claim the
