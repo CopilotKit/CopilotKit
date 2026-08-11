@@ -190,7 +190,20 @@ re-derives it. Its KPI half is the instructive part — the strip rounds
 `deriveKpiTiles` the strip itself renders rather than the raw ratio, which an
 agent quotes back as "66.7%". A one-decimal drift is small, but it is the same
 KIND of error as the 5-rows-against-6 above, so both sides read one function.
-Guard: `src/skins/logistics/readables.test.tsx`.
+
+**Guard it with TWO tests, because the two failures are different.** A source
+grep (`src/skins/logistics/readables.test.tsx`) catches OMISSION — a readable
+nobody wrote, which no render test can notice because the page renders fine and
+the agent answers fluently, just identically everywhere. A render test
+(`src/skins/logistics/pages/on-screen-readables.test.tsx`, and commerce's
+`pages/orders.test.tsx`) catches DRIFT — it stubs `useAgentContext`, renders the
+page, and asserts the readable's rows against the rows the DOM actually painted,
+element for element and IN ORDER. Only the second one can see the commerce bug.
+Two rules for the source grep: anchor every assertion INSIDE the construct it is
+about (`toContain("Control Tower")` is satisfied by the page's own `<h1>`, and
+`toContain("useSkinSegments")` by the nav's active-state call, so both stay green
+with the readable deleted), and feed the render test a fixture LARGER than the
+seed, or any cap you are guarding against sits unexercised.
 
 ### 3c — Navigate with levers, and make it complicated
 

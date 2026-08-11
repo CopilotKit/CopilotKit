@@ -16,7 +16,7 @@ import {
   LaneTable,
   TradeoffTable,
   InventoryRiskList,
-  deriveKpis,
+  deriveKpiTiles,
 } from "./components";
 import { computeMitigationOptions } from "./data/mitigation-options";
 // NOTE: the escalation-code catalogue is deliberately NOT imported here. See
@@ -77,9 +77,17 @@ export function LogisticsTools() {
       "Recent decisions already committed or escalated on the network — the audit trail of what has been done.",
     value: JSON.stringify(decisions),
   });
+  // Headline KPIs go over as the TILES, formatted exactly as the Control Tower
+  // paints them. This readable used to send the raw `deriveKpis` object, whose
+  // `onTimeRate` is a 0.6666… ratio — and the agent duly answered "66.7%" about
+  // a screen reading "67%". Sending the display strings closes that
+  // structurally, rather than leaving it to a prompt instruction. The raw
+  // figures are still reachable: every shipment is in the context above.
   useAgentContext({
-    description: "Headline KPIs for the network right now.",
-    value: JSON.stringify(deriveKpis(shipments)),
+    description:
+      "Headline KPIs for the network right now, formatted as the Control " +
+      "Tower's KPI tiles display them.",
+    value: JSON.stringify(deriveKpiTiles(shipments)),
   });
   // NO escalation-code readable. That is beat 6: the agent must learn which code
   // lifts the authority gate by watching the planner file one.

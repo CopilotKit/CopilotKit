@@ -1,24 +1,29 @@
 "use client";
 
+import { useMemo } from "react";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { useLogistics } from "../actions";
-import { InventoryRiskList } from "../components";
+import { InventoryRiskList, orderInventoryRows } from "../components";
 
 export function InventoryPage() {
   const { inventory } = useLogistics();
 
-  // BEAT 3b — `inventory` is the exact array <InventoryRiskList> maps over
-  // below. The page header reads "Inventory at Risk", so the readable says the
-  // same thing the planner sees at the top of the screen.
+  // ONE array, two consumers — see control-tower.tsx for why.
+  const visible = useMemo(() => orderInventoryRows(inventory), [inventory]);
+
+  // BEAT 3b — `visible` is the exact array <InventoryRiskList> maps over below,
+  // in the exact order it paints. The page header reads "Inventory at Risk", so
+  // the readable says the same thing the planner sees at the top of the screen.
   useAgentContext({
     description:
       "What is on the Inventory at Risk screen right now: the SKU cards the " +
-      "planner can actually see, with their days of cover and risk flag.",
+      "planner can actually see, in the order shown, with their days of cover " +
+      "and risk flag.",
     value: JSON.stringify({
       page: "Inventory at Risk",
-      visible: inventory.length,
-      at_risk: inventory.filter((i) => i.atRisk).length,
-      rows: inventory.map((i) => ({
+      visible: visible.length,
+      at_risk: visible.filter((i) => i.atRisk).length,
+      rows: visible.map((i) => ({
         sku: i.skuId,
         name: i.name,
         days_of_cover: i.daysOfCover,
@@ -41,7 +46,7 @@ export function InventoryPage() {
           Days of cover against inbound arrivals.
         </p>
       </header>
-      <InventoryRiskList items={inventory} />
+      <InventoryRiskList items={visible} />
     </div>
   );
 }

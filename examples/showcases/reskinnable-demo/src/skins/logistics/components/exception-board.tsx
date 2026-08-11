@@ -13,6 +13,22 @@ const STATUS_RANK: Record<Shipment["status"], number> = {
   resolved: 3,
 };
 
+/**
+ * The board's row order, worst first. Exported because the Control Tower's
+ * beat-3b readable must describe the rows IN THE ORDER SHOWN, and the only way
+ * that stays true is for the page and the board to share one function rather
+ * than each carrying a copy of this comparator. The board still calls it on
+ * whatever it is handed, so every other caller (the gen-UI `showExceptions`
+ * card) keeps the ordering for free, and re-ordering an already-ordered array
+ * is a no-op.
+ */
+export function orderExceptionRows(shipments: Shipment[]): Shipment[] {
+  return [...shipments].sort(
+    (a, b) =>
+      STATUS_RANK[a.status] - STATUS_RANK[b.status] || b.valueUsd - a.valueUsd,
+  );
+}
+
 export function ExceptionBoard({
   shipments,
   lanes,
@@ -29,10 +45,7 @@ export function ExceptionBoard({
   }
 
   const laneById = new Map(lanes.map((l) => [l.id, l]));
-  const rows = [...shipments].sort(
-    (a, b) =>
-      STATUS_RANK[a.status] - STATUS_RANK[b.status] || b.valueUsd - a.valueUsd,
-  );
+  const rows = orderExceptionRows(shipments);
 
   return (
     <div className="overflow-x-auto rounded-lg border border-hairline bg-surface shadow-soft">

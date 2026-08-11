@@ -8,12 +8,15 @@ export function LanesPage() {
   const { lanes } = useLogistics();
 
   // BEAT 3b — `lanes` is the exact array <LaneTable> maps over below, and the
-  // columns emitted here are the columns it renders. Same expression, never a
-  // second slice of the same source.
+  // columns emitted here are the columns it renders, formatted as it formats
+  // them (reliability is a 0..1 ratio that the table paints as a percent).
+  // Same expression, never a second slice of the same source. Unlike the other
+  // three panels this table applies no ordering of its own, so there is no
+  // `order*` helper to share — the ledger's order IS the painted order.
   useAgentContext({
     description:
       "What is on the Lanes screen right now: the lane rows the planner can " +
-      "actually see, with the columns the table shows.",
+      "actually see, in the order shown, with the columns the table shows.",
     value: JSON.stringify({
       page: "Lanes",
       visible: lanes.length,

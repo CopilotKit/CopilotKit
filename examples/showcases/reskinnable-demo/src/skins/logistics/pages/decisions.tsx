@@ -1,24 +1,30 @@
 "use client";
 
+import { useMemo } from "react";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { useLogistics } from "../actions";
-import { DecisionLog } from "../components";
+import { DecisionLog, orderDecisionRows } from "../components";
 
 export function DecisionsPage() {
   const { decisions } = useLogistics();
 
-  // BEAT 3b — `decisions` is the exact array <DecisionLog> maps over below. The
-  // log starts EMPTY in the seeded demo, so `visible: 0` is the correct answer
-  // on a fresh reset; the agent should say the log is empty rather than reach
-  // for the global readables and describe the network instead.
+  // ONE array, two consumers — see control-tower.tsx for why.
+  const visible = useMemo(() => orderDecisionRows(decisions), [decisions]);
+
+  // BEAT 3b — `visible` is the exact array <DecisionLog> maps over below, in
+  // the exact order it paints. The log starts EMPTY in the seeded demo, so
+  // `visible: 0` is the correct answer on a fresh reset; the agent should say
+  // the log is empty rather than reach for the global readables and describe
+  // the network instead.
   useAgentContext({
     description:
       "What is on the Decision Log screen right now: the decision entries the " +
-      "planner can actually see. An empty list means no decisions filed yet.",
+      "planner can actually see, newest first. An empty list means no " +
+      "decisions filed yet.",
     value: JSON.stringify({
       page: "Decision Log",
-      visible: decisions.length,
-      rows: decisions.map((d) => ({
+      visible: visible.length,
+      rows: visible.map((d) => ({
         shipment: d.shipmentId,
         kind: d.kind,
         cost_usd: d.costUsd,
@@ -40,7 +46,7 @@ export function DecisionsPage() {
           Every committed and escalated call, newest first.
         </p>
       </header>
-      <DecisionLog decisions={decisions} />
+      <DecisionLog decisions={visible} />
     </div>
   );
 }
