@@ -1,13 +1,68 @@
-# teach-mode — the banking skin's teachable over-limit flow
+# teach-mode — the teachable-gate loop, worked on the banking skin
 
-> Scope: this documents a feature of the **`banking` skin**
-> (`src/skins/banking/`), not the whole app. The app is a reskinnable shell that
-> hosts one skin per `/[skin]` route; see the top-level `CLAUDE.md`. Teach-mode
-> is per-skin, not a shell feature: `banking` (documented here) and `people`
-> (out-of-band compensation approvals, gated by 422 `OUT_OF_BAND`) implement it;
-> `airline`, `logistics` and `keel` do not. The 5-role contract below is stated
-> demo-agnostically and `people` follows it role for role, so read this file
-> before building a third.
+> Scope: teach-mode is a **per-skin feature, not a shell feature**. This file
+> documents it demo-agnostically as a 5-role contract and uses the **`banking`
+> skin** (`src/skins/banking/`) as the worked example throughout; the app is a
+> reskinnable shell that hosts one skin per `/[skin]` route, see the top-level
+> `CLAUDE.md`.
+>
+> **Which skins implement it is deliberately not listed here.** A roster written
+> into prose is the defect this repo keeps shipping — it goes stale the moment a
+> skin lands, and nothing catches it (`src/shell/skin-roster-docs.test.ts` exists
+> because that happened sixteen times in one review). The invariant instead: **a
+> skin implements teach mode exactly when its `Tools` registers the recording
+> hand-off**, so the roster is a command, not a sentence:
+>
+> ```bash
+> grep -l offerWorkflowRecording src/skins/*/tools.tsx
+> ```
+>
+> **The grep gives you the roster; it does not certify compliance.** Do not read
+> it as "every skin it names follows all five roles" — an earlier revision of this
+> paragraph said exactly that on the strength of two skins, and the third
+> falsifies it. Verified role by role at the time of writing: **`banking` and
+> `commerce` satisfy all five. `people` satisfies #1, #2, #4 and #5, and of role
+> #3's TWO replay invariants it satisfies one and violates the other** — read both
+> before deciding what to copy from it:
+>
+> - _Survives replay_ — **satisfied.** `people`'s `awaitDemonstration` render
+>   (`src/skins/people/tools.tsx:1103`) counts `\d+\.\s` in `result`, and `result`
+>   is the **tool result** — the observed-steps directive that `DemonstrationCard`
+>   builds and hands to `respond?.()` (`tools.tsx:1337-1341`), numbering included.
+>   It is not parsing its own rendering, and that branch prints no list that could
+>   disagree with the number. The directive is what replays, so the count is
+>   stable. It is still the brittle FORM — it parses a count instead of reading one
+>   the recorder reported, so a numeral inside a step label would inflate it — but
+>   that is a robustness gap, not a replay defect.
+> - _A settle is not an answer_ — **violated.** `saveLearnedProcedure`'s render
+>   (`tools.tsx:1135-1139`) prints "Saved. I'll use this next time" on ANY string
+>   result, and the _Don't save_ button settles with one (`tools.tsx:1164-1167`).
+>   The card asserts a durable write that never happened — live, and identically on
+>   every replay, which is why it survived.
+>
+> **So copy `commerce`.** It is the only one whose replay behaviour is _pinned_:
+> `src/skins/commerce/teach-mode-directives.ts` lifts the two rules out of the
+> render (`readDemonstratedStepCount`, `classifySaveProcedureResult`) so a
+> round-trip test can hold the builder and the reader together. `banking` is
+> correct but hand-rolled and unasserted, so it can rot without failing anything.
+> **Neither grep below is a verdict** — a hit is a place to read, not a defect,
+> and an empty result is not compliance:
+>
+> ```bash
+> # SMELL, not a violation: a teach card deriving a count by PARSING a directive
+> # instead of reading a count the recorder reported. This is people's hit — and
+> # it is NOT people's defect.
+> grep -n 'result\.match' src/skins/*/tools.tsx
+>
+> # WHERE people's actual defect lives: branching on the PRESENCE of a settle.
+> # Legitimate on cards whose buttons cannot disagree, so read every hit; on the
+> # "shall I remember this?" card it prints "Saved" after _Don't save_.
+> grep -n 'typeof result === "string"' src/skins/*/tools.tsx
+> ```
+>
+> Where a compliant skin diverges from banking on a load-bearing detail, the
+> divergence is called out inline as a **Per-skin divergence** note. Read this
+> file, and run both commands, before building the next one.
 
 "Teach mode" is the loop where the agent **fails a task it was never told how to
 do**, a human **demonstrates** the workaround in the UI, that demonstration is
@@ -99,6 +154,25 @@ waiting card and a live recorder feed that narrates each action as it happens
 > steps, because the point is the agent doesn't yet know them. The contrast
 > between the gated state and the unlocked effect is the signal the save distills.
 
+> **Invariant (survives replay).** Everything a teach-chain card prints must
+> travel INSIDE the tool result the card reads back. The recording context is
+> live-session state and is empty when a stored thread is reopened — which is
+> exactly when the "threads store AG-UI streams, not text" beat is on screen. So
+> the recorder REPORTS its step count in the directive and the card prints the
+> reported number. A card that re-derives a fact by parsing its own rendering
+> (counting `N.` matches in the step prose) announces a different number than the
+> list under it as soon as a step label contains a numeral. Worked example, with
+> the round-trip test that pins builder to reader:
+> `src/skins/commerce/teach-mode-directives.ts`.
+
+> **Invariant (a settle is not an answer).** The "shall I remember this?" card
+> settles with a string on BOTH buttons, so `typeof result === "string"` tells you
+> the card was answered and NOTHING about the answer. Classify the directive;
+> never branch on mere presence, and never treat an unrecognized settle as a
+> success. Getting this wrong prints "Saved. I'll use this next time" after the
+> presenter clicked _Don't save_ — a durable write asserted on stage that never
+> happened — and it mis-renders the same way on every later replay of the thread.
+
 ### 4. AGENT FRAMING — withhold the recipe, ship distractors, enforce discipline
 
 The system prompt lists the unlock's tools but **never the procedure**, and ships
@@ -122,6 +196,26 @@ default, `CopilotKitIntelligence` when configured.
 > _without_ it. In OSS mode the loop works within one conversation only; durable
 > cross-thread / cross-user recall requires Intelligence mode (the
 > `recall_memory` / `save_memory` tools attach from the memory-enabled backend).
+
+> **Invariant (recall before declining).** The prompt must make the agent
+> `recall_memory` FIRST on every refusal and branch on what comes back. A prompt
+> that states "you have no saved way past this" as a flat fact makes the agent
+> decline and offer to record even after it has been taught: the demonstration
+> works, the memory saves correctly, and the payoff never arrives — the prompt
+> overrode what the agent knew.
+
+> **Per-skin divergence — memory SCOPE.** `banking` saves the learned procedure at
+> `scope:"project"`. Later skins save at `scope:"user"` and say so in their
+> prompts, because one Intelligence backend is shared by every product in this
+> deployment: a project-scoped procedure is visible to skins that never learned
+> it. Prefer `"user"` for a new skin unless it genuinely owns its own backend.
+
+> **Per-skin divergence — tool names.** The chain's shape is fixed (offer → wait →
+> summarize → confirm → persist); the names are not. `banking` calls the middle
+> two `awaitDashboardDemonstration` / `saveLearnedWorkflow`; later skins call them
+> `awaitDemonstration` / `saveLearnedProcedure`. Match your skin, not this page —
+> and note the grep at the top keys on `offerWorkflowRecording`, which all of them
+> share.
 
 ---
 
@@ -175,7 +269,17 @@ It asserts, in order:
 
 > The store is in-memory and seeded from `src/skins/banking/data/seed.json`. Each
 > scenario uses a different seeded over-limit transaction, so one run needs no
-> reset. To re-run from scratch, restart the dev server to reseed.
+> reset. To re-run from scratch, restart the dev server, or `POST` the skin's
+> gated presenter-reset route (`/api/banking/v1/dev/reset`, enabled by
+> `PRESENTER_RESET_ENABLED=true`; the sidebar Reset button hits the same route).
+>
+> **Prefer the reset route before the learning proof below.** Restarting the dev
+> server re-seeds the in-memory store and nothing else — durable memory lives in
+> the Intelligence backend and survives it. The reset route also forgets and
+> re-seeds that memory, which is the only thing that puts the demo back into a
+> genuinely _un-taught_ state. It reports a `memoryError` when that half fails;
+> that sentence is the only warning that the loop is starting out already taught,
+> so surface it rather than collapsing the response to a status code.
 
 ### Fresh-agent learning proof — roles #3 + #5 (Intelligence mode)
 
@@ -183,13 +287,15 @@ This proves the loop _learned_, not that the REST works. It needs the env-gated
 `CopilotKitIntelligence` runtime configured (`INTELLIGENCE_API_URL`,
 `INTELLIGENCE_GATEWAY_WS_URL`, `INTELLIGENCE_API_KEY`).
 
-1. **Baseline.** In a fresh thread, ask the agent to approve an over-limit
+1. **Baseline.** Reset first (above) — durable memory outlives a dev-server
+   restart, so an un-reset run starts out already taught and the control passes
+   vacuously. Then, in a fresh thread, ask the agent to approve an over-limit
    charge. With role #4 framing intact it declines and offers to record — it does
    not fire a distractor. _This is the control._
 2. **Teach.** The human demonstrates the unlock on the dashboard (justifying code
    → finalize → approve) while the recorder card narrates each step.
-3. **Save.** The agent summarizes and calls `save_memory` (`scope:"project"`,
-   `kind:"operational"`).
+3. **Save.** The agent summarizes and calls `save_memory` (`kind:"operational"`;
+   `scope:"project"` in banking, `"user"` in the later skins — see role #5).
 4. **Fresh agent succeeds.** In a **new** thread (no memory of the human's
    session), ask to approve a _different_ over-limit charge. The agent
    `recall_memory` → files a justifying exception → finalizes → approves —
