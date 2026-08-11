@@ -5,14 +5,21 @@ export const defaultSkinId = "banking";
 
 // The registered skin ids, duplicated from `registry.ts` on purpose: this module
 // must stay import-free for the server contexts above, and `registry.ts` pulls in
-// four client skin modules. `skins-config.test.ts` asserts the two stay in sync,
-// so the duplication cannot drift silently. Keep in registry order.
+// one client skin module per registered skin. `skins-config.test.ts` asserts the
+// two stay in sync, so the duplication cannot drift silently. Keep in registry
+// order.
+//
+// There is a THIRD copy: `LINTED_SKIN_IDS` in `eslint.config.mjs`, which feeds the
+// LOCK_SKIN URL-contract selectors and cannot import this module (an ESLint flat
+// config is loaded by Node, and this is TypeScript). Adding a skin here means adding
+// it there too — `skins-config.test.ts` guards that copy as well.
 export const skinIds = [
   "banking",
   "airline",
   "logistics",
   "keel",
   "people",
+  "commerce",
 ] as const;
 
 // Skin id → { brand, tagline }, duplicated from each skin's `identity.brand`
@@ -45,5 +52,9 @@ export const skinIdentities: Record<
   people: {
     brand: "Rowan",
     tagline: "The people operations desk.",
+  },
+  commerce: {
+    brand: "Bellwether",
+    tagline: "Storefront operations, from order to margin.",
   },
 };
