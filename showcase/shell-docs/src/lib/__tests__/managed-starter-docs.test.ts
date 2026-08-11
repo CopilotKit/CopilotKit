@@ -12,6 +12,7 @@ const MANAGED_CTA_SOURCES = [
   ...MANAGED_ONBOARDING_GUIDES,
   "docs/premium/intelligence-platform.mdx",
 ];
+const MANAGED_DASHBOARD_URL = "https://dashboard.operations.copilotkit.ai/";
 
 /** Reads managed-onboarding docs as whitespace-normalized contract fixtures. */
 function readSources(relativePaths: readonly string[]): string[] {
@@ -82,5 +83,15 @@ test("removes automatic-Free promises from managed onboarding calls to action", 
   for (const source of readSources(MANAGED_CTA_SOURCES)) {
     expect(source).not.toMatch(/Create a free account/i);
     expect(source).toContain('ctaLabel="Start managed onboarding"');
+  }
+});
+
+test("points managed onboarding calls to action at the hosted dashboard", () => {
+  for (const source of readSources(MANAGED_CTA_SOURCES)) {
+    const managedCta = source.match(
+      /<OpsPlatformCTA[^>]*ctaLabel="Start managed onboarding"[^>]*\/>/,
+    )?.[0];
+
+    expect(managedCta).toContain(`href="${MANAGED_DASHBOARD_URL}"`);
   }
 });
