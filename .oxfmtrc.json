@@ -9,6 +9,7 @@
     "examples/v1/_legacy/copilot-anthropic-pinecone/src/app/api/copilotkit/route.ts",
     "examples/v1/_legacy/copilot-openai-mongodb-atlas-vector-search/src/app/api/copilotkit/route.ts",
     "packages/web-inspector/src/styles/generated.css",
+    "scripts/release/public-api/manifest.v1.json",
     "showcase/aimock/shared/**",
     "showcase/aimock/d4/**",
     "showcase/aimock/d6/**",
