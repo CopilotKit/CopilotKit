@@ -35,7 +35,12 @@ import type { ReactNode } from "react";
  *    resolves in milliseconds; without a floor the glow is never perceived.
  *  - **Feed de-dupe and fresh-window reset** (banking only). Clicking the same
  *    tab twice does not double the feed, and a second demonstration does not
- *    open showing the first one's steps.
+ *    open showing the first one's steps — once the MIN_VISIBLE_MS hold has
+ *    expired. A `beginRecording()` DURING the hold deliberately inherits the
+ *    existing feed instead of clearing it: that is the `opened → finalized →
+ *    approve` chain arriving as three brackets microseconds apart, and it must
+ *    read as one continuous demonstration, not three that each wipe the last.
+ *    Not a bug — the continuity is the point.
  *  - **Demonstrated code DERIVED from the feed** (commerce and people only).
  *    The code that lifted the gate is whatever the human actually filed, so
  *    filing a DECOY records the decoy and the write correctly still fails. A
@@ -66,6 +71,25 @@ export interface RecordingValue {
 }
 
 const RecordingContext = createContext<RecordingValue | null>(null);
+
+/**
+ * The no-provider fallback, allocated ONCE at module scope rather than per
+ * render. A fresh object literal each render would hand every consumer outside
+ * a provider new `logStep` / `beginRecording` identities on every pass, so any
+ * call site listing them in a `useEffect` or `useMemo` dep array would re-run
+ * forever. No current call site is exposed, but this module now ships to all
+ * six skins, and an infinite render loop is a far more expensive bug than the
+ * missing feed line the fallback exists to tolerate. Frozen so a consumer
+ * cannot mutate the shared instance out from under every other consumer.
+ */
+const INERT_RECORDING: RecordingValue = Object.freeze({
+  isRecording: false,
+  steps: Object.freeze([]) as RecordedStep[],
+  beginRecording: () => {},
+  endRecording: () => {},
+  logStep: () => {},
+  getDemonstratedCode: () => null,
+});
 
 export function RecordingProvider({ children }: { children: ReactNode }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -130,8 +154,26 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // The LAST coded step wins: the operator may file a decoy, be refused, then
+  // file the real code, and the gate must see the second one.
+  //
+  // `[...x].reverse()` and not `x.toReversed()` on purpose. toReversed() is
+  // ES2023 while tsconfig targets ES2017, and TypeScript does not downlevel
+  // methods or ship a polyfill — `lib: ["esnext"]` makes it type-check clean, so
+  // using it would silently raise this demo's browser floor to Chrome 110 /
+  // Safari 16.4 with nothing failing at build time. The spread is required
+  // because reverse() mutates. oxlint's unicorn/no-array-reverse would autofix
+  // this back on every commit (lefthook runs `oxlint --fix` with stage_fixed),
+  // so the disable is load-bearing, not decorative — do not "clean it up".
+  //
+  // It must be `oxlint-disable-next-line`, NOT `eslint-disable-next-line`: this
+  // app runs both linters, and ESLint has no unicorn plugin loaded, so the
+  // eslint- form fails `pnpm lint` with "Definition for rule ... was not found".
+  // The oxlint- form silences the autofixer and reads as a plain comment to
+  // ESLint, which is the only spelling that satisfies both.
   const getDemonstratedCode = useCallback(
-    () => [...stepsRef.current].toReversed().find((s) => s.code)?.code ?? null,
+    // oxlint-disable-next-line unicorn/no-array-reverse -- ES2017 target; see above
+    () => [...stepsRef.current].reverse().find((s) => s.code)?.code ?? null,
     [],
   );
 
@@ -175,16 +217,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
  * mounted is a far worse failure than a missing feed line.
  */
 export function useRecording(): RecordingValue {
-  return (
-    useContext(RecordingContext) ?? {
-      isRecording: false,
-      steps: [],
-      beginRecording: () => {},
-      endRecording: () => {},
-      logStep: () => {},
-      getDemonstratedCode: () => null,
-    }
-  );
+  return useContext(RecordingContext) ?? INERT_RECORDING;
 }
 
 /**

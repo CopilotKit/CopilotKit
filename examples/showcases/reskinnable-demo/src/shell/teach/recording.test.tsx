@@ -1,6 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen } from "@testing-library/react";
-import { RecordingProvider, RecordingFeed, useRecording } from "@/shell/teach";
+import {
+  RecordingProvider,
+  RecordingFeed,
+  RecordingVignette,
+  useRecording,
+} from "@/shell/teach";
 
 /** Drives the hook from inside the provider and exposes it to the test. */
 function harness() {
@@ -9,7 +14,12 @@ function harness() {
   };
   function Probe() {
     api.current = useRecording();
-    return <RecordingFeed />;
+    return (
+      <>
+        <RecordingFeed />
+        <RecordingVignette />
+      </>
+    );
   }
   render(
     <RecordingProvider>
@@ -37,7 +47,13 @@ describe("recording", () => {
     const api = harness();
     act(() => api.current.beginRecording());
     act(() => api.current.beginRecording());
+    // Advance PAST the MIN_VISIBLE_MS hold before and after the inner end, so
+    // the hold cannot be what keeps the flag true. Without this the assertion
+    // passes even with ref-counting deleted entirely — the 1200ms floor alone
+    // would hold the flag up for the rest of the test.
+    act(() => vi.advanceTimersByTime(1300));
     act(() => api.current.endRecording());
+    act(() => vi.advanceTimersByTime(1300));
     expect(api.current.isRecording).toBe(true); // outer bracket still open
     act(() => api.current.endRecording());
     act(() => vi.advanceTimersByTime(1300));
@@ -87,6 +103,18 @@ describe("recording", () => {
     expect(api.current.getDemonstratedCode()).toBe("MARGIN-EXC-04");
   });
 
+  // The demo scenario: the operator files a decoy, the write is refused, then
+  // they file the real code. Two CODED steps is the only shape that pins the
+  // reversal — with one coded step, or with the coded step first, a forward
+  // find() passes just as well.
+  it("takes the LAST coded step when the operator files twice", () => {
+    const api = harness();
+    act(() => api.current.beginRecording());
+    act(() => api.current.logStep("Filed a waiver", "DECOY-01"));
+    act(() => api.current.logStep("Filed a waiver again", "MARGIN-EXC-04"));
+    expect(api.current.getDemonstratedCode()).toBe("MARGIN-EXC-04");
+  });
+
   it("faithfully records a decoy code rather than correcting it", () => {
     const api = harness();
     act(() => api.current.beginRecording());
@@ -108,6 +136,24 @@ describe("recording", () => {
     act(() => api.current.logStep("Opened the Promotions page"));
     expect(screen.getByText("Opened the Promotions page")).toBeTruthy();
     expect(screen.getByText("1")).toBeTruthy();
+  });
+});
+
+// The `data-recording` attribute is the ENTIRE contract between this component
+// and the `.recording-vignette` CSS now living in the shell's globals.css. The
+// CSS only reacts to [data-recording="true"], so if the attribute stops
+// flipping the glow silently never appears — exactly what a browser check would
+// have caught.
+describe("RecordingVignette", () => {
+  it("flips data-recording so the shell CSS can react", () => {
+    const api = harness();
+    const vignette = document.querySelector(".recording-vignette")!;
+    expect(vignette.getAttribute("data-recording")).toBe("false");
+    act(() => api.current.beginRecording());
+    expect(vignette.getAttribute("data-recording")).toBe("true");
+    act(() => api.current.endRecording());
+    act(() => vi.advanceTimersByTime(1300));
+    expect(vignette.getAttribute("data-recording")).toBe("false");
   });
 });
 
