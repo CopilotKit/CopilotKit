@@ -589,8 +589,13 @@ rides along instead of asking twice.
 Read the beat-map header at the top of `people`'s or `commerce`'s `suggestions.ts`
 to see the mapping written out, and count what any skin actually ships with
 `grep -c 'title:' src/skins/<id>/suggestions.ts` rather than trusting a number in
-prose. The pre-bar skins (`airline`, `logistics`, `keel`) ship four or five and
-cover the beats only partially; do not calibrate against them.
+prose — which is not a stylistic preference: this paragraph said "`airline`,
+`logistics`, `keel` ship four or five" and was wrong about `logistics` within one
+release of being written. `airline` (5) and `keel` (4) predate this bar and cover
+the beats only partially; do not calibrate against them. `logistics` is being
+filled in beat by beat and now ships more pills than any demo-complete skin, so
+its count says nothing about its coverage either — derive that from the matrix
+commands in `CLAUDE.md`.
 
 **Every mutation gets a visible affordance.** "Make sure that you use like a
 light or a bell or whatever so people can see that it changed." If the audience

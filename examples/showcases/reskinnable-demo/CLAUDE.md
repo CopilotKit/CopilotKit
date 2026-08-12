@@ -429,11 +429,19 @@ matrix at the end of this section.
   `control-tower` (index), `lanes`, `inventory`, `decisions`. Like banking it
   **omits `useData`**, reading its ledger via `useLogistics()` and the planner via
   `usePlannerAuth()`. Sets `RuntimeProviders`, `useRuntimeProperties`,
-  `Providers`, `CanvasSurface` (fed by the server tool `renderBrief`),
-  `sandboxFunctions`, `toolLabels` and a server `identifyUser`; omits
-  `chatHeaderActions` and `onSuggestionSelect`. **The debugged reference for skin
-  layout chrome** — the `h-full overflow-hidden` root and the meta-utility strip
-  were fixed here first.
+  `Providers` (the OGUI sandbox sync plus, since beat 6, the shell's teach-mode
+  `RecordingProvider`), `CanvasSurface` (fed by the server tool `renderBrief`),
+  `sandboxFunctions`, `toolLabels`, `chatHeaderActions` + `onSuggestionSelect`
+  (both added by beat 3d, to stage the carrier rate sheet into the composer) and
+  a server `identifyUser`. **The debugged reference for skin layout chrome** —
+  the `h-full overflow-hidden` root and the meta-utility strip were fixed here
+  first. Its teachable gate is committing a mitigation **over the planner's
+  approval authority** (403 `OVER_AUTHORITY`), unlocked by an escalation filed
+  under a justifying code; two over-authority shipments are seeded so the case
+  taught on stage and the unaided replay are different freight, and
+  `data/blocked-by-authority.test.ts` fails if that ever drops to one. The one place its
+  withheld code vocabulary legitimately appears is the planner filing form,
+  `components/escalation-form.tsx`.
 - **`airline`** ("Aeronova") — **in-memory**. Its `useData` (`useAirlineData`) is
   a seed-backed React-state store with no backend; mutations (`selectSeat`,
   `issueBoardingPass`, `chooseRebooking`) update local state. It omits
@@ -500,7 +508,7 @@ matrix at the end of this section.
 | Multimodal → durable artifact    | ✅                        | ✅                        | ✅                        | ❌      | ❌        | ❌            |
 | Long-term memory recall          | ✅                        | ✅                        | ✅                        | ❌      | ✅        | plumbing only |
 | Stored-procedure replay          | ✅                        | ✅                        | ✅                        | ❌      | ✅        | ❌            |
-| Teach a new procedure            | ✅                        | ✅                        | ✅                        | ❌      | ❌        | ❌            |
+| Teach a new procedure            | ✅                        | ✅                        | ✅                        | ❌      | ✅        | ❌            |
 | Presenter reset (route + button) | ✅                        | ✅                        | ✅                        | ❌      | ✅        | ❌            |
 
 `banking`, `people` and `commerce` hit every row. `airline` and `keel` predate
@@ -514,7 +522,7 @@ Note that `keel` ships the **full per-user identity plumbing** —
 `RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — and then no
 memory prompts, no memory tools and no seed file, so it gets no demo value from
 the hardest part of what it built. Logistics was in exactly that state until
-beats 4 and 5 were retrofitted onto it. Treat every skin named here as an
+beats 4, 5 and 6 were retrofitted onto it. Treat every skin named here as an
 excellent **wiring** reference and, apart from the rows it does tick, an
 incomplete **demo** reference.
 

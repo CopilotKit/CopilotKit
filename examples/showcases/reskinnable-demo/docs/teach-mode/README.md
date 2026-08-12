@@ -20,10 +20,10 @@
 > **The grep gives you the roster; it does not certify compliance.** Do not read
 > it as "every skin it names follows all five roles" — an earlier revision of this
 > paragraph said exactly that on the strength of two skins, and the third
-> falsifies it. Verified role by role at the time of writing: **`banking` and
-> `commerce` satisfy all five. `people` satisfies #1, #2, #4 and #5, and of role
-> #3's TWO replay invariants it satisfies one and violates the other** — read both
-> before deciding what to copy from it:
+> falsifies it. Verified role by role at the time of writing: **`banking`,
+> `commerce` and `logistics` satisfy all five. `people` satisfies #1, #2, #4 and
+> #5, and of role #3's TWO replay invariants it satisfies one and violates the
+> other** — read both before deciding what to copy from it:
 >
 > - _Survives replay_ — **satisfied.** `people`'s `awaitDemonstration` render
 >   (`src/skins/people/tools.tsx:1103`) counts `\d+\.\s` in `result`, and `result`
@@ -40,11 +40,15 @@
 >   The card asserts a durable write that never happened — live, and identically on
 >   every replay, which is why it survived.
 >
-> **So copy `commerce`.** It is the only one whose replay behaviour is _pinned_:
-> `src/skins/commerce/teach-mode-directives.ts` lifts the two rules out of the
+> **So copy `commerce` or `logistics`.** They are the two whose replay behaviour
+> is _pinned_: `src/skins/commerce/teach-mode-directives.ts` and
+> `src/skins/logistics/teach-mode-directives.ts` lift the two rules out of the
 > render (`readDemonstratedStepCount`, `classifySaveProcedureResult`) so a
 > round-trip test can hold the builder and the reader together. `banking` is
 > correct but hand-rolled and unasserted, so it can rot without failing anything.
+> The two pinned files are deliberate SIBLINGS rather than one shared module: a
+> skin's only inbound dependency on shared code is the `Skin` contract, and the
+> directives are domain wording, not shell machinery.
 > **Neither grep below is a verdict** — a hit is a place to read, not a defect,
 > and an empty result is not compliance:
 >
@@ -209,6 +213,19 @@ default, `CopilotKitIntelligence` when configured.
 > prompts, because one Intelligence backend is shared by every product in this
 > deployment: a project-scoped procedure is visible to skins that never learned
 > it. Prefer `"user"` for a new skin unless it genuinely owns its own backend.
+>
+> There is a second, harder reason, and it is the one that decides the question.
+> A skin whose `intelligence/forget-memories.ts` **skips project-scoped rows** —
+> `logistics` and `commerce` both do, so that a Meridian reset cannot delete
+> banking's seeded procedure out from under it — has a presenter reset that
+> physically cannot un-teach a project-scoped memory. Save beat 6's procedure at
+> project scope in such a skin and the SECOND run of the demo opens with the agent
+> already knowing the answer: it never declines, never offers to record, and the
+> beat proves nothing while looking perfect. Check what your skin's sweep actually
+> deletes before choosing a scope. Keeping beat 5's seeded procedure and beat 6's
+> learned one distinguishable is then a job for their TEXT and the prompt clauses
+> that route to them — each says plainly that it is not the other — not for the
+> scope field.
 
 > **Per-skin divergence — tool names.** The chain's shape is fixed (offer → wait →
 > summarize → confirm → persist); the names are not. `banking` calls the middle

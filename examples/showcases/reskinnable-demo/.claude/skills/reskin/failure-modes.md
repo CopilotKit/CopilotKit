@@ -520,6 +520,21 @@ tool description says the same, and the prompt names escalation codes as the one
 thing NOT in context. The labels stay exported for the HUMAN filing form; it is
 the agent that must not see them, not the operator.
 
+**BUILD THAT FORM — it is the sixth channel, and it is the one that must be OPEN.**
+Withholding the vocabulary from the agent is only half the mechanism; the other
+half is a surface where the operator picks a code and the agent watches them do
+it. A skin that withholds perfectly and ships no form has an unlearnable gate.
+Worked example: `src/skins/logistics/components/escalation-form.tsx`, rendered on
+the Control Tower under "Authority escalations". Two properties of it are
+load-bearing. The menu lists JUSTIFYING codes and DECOYS together, unmarked and
+in catalogue order — a form that flagged the working ones turns the
+demonstration into a guided tour, following an instruction the app gave rather
+than exercising knowledge only the operator has. And the filing step logs the
+code as DATA (`logStep(label, code)`) exactly as the operator entered it, decoy
+included: a recorder that quietly corrected them would report a procedure nobody
+demonstrated, and the release they then watch stay blocked is the demonstration
+working, not failing.
+
 **Why a lint rule and not a test.** Every symptom here is invisible: the app
 compiles, type-checks, lints and demos with the readable restored. So the guard is
 an AST `no-restricted-syntax` selector, `withheldGateVocabulary` in
