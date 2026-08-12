@@ -70,6 +70,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${baseUrl}/`,
     lastModified: now,
   });
+  pushUnique({
+    url: `${baseUrl}/aeo`,
+    lastModified: now,
+  });
 
   // 2. Bare unscoped docs and 3. framework-scoped variants. Each bare
   // slug generates one bare entry plus N framework-scoped entries — one

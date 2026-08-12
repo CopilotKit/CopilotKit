@@ -34,4 +34,5 @@ Happy contributing!
 
 - [ ] I have read the [Contribution Guide](https://github.com/copilotkit/copilotkit/blob/master/CONTRIBUTING.md)
 - [ ] If the PR changes or adds functionality, I have updated the relevant documentation
+- [ ] If the PR changes a public machine-readable surface, I reviewed the [public AEO surface contract](https://docs.copilotkit.ai/aeo)
 - [ ] "Allow edits by maintainers" is checked (lets us help iterate on your PR directly — faster turnaround for everyone)

@@ -341,6 +341,13 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
+        // Stable public machine endpoint. Keep the implementation in a
+        // non-hidden App Router segment because build tooling may ignore
+        // dot-prefixed source directories.
+        {
+          source: "/.well-known/copilotkit-capabilities/v1.json",
+          destination: "/well-known/copilotkit-capabilities/v1.json",
+        },
         // PostHog reverse proxy — routes analytics through this host so
         // requests bypass ad blockers / tracking-protection that target
         // the *.i.posthog.com hostname directly. Mirrors docs/.

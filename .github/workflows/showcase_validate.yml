@@ -386,6 +386,9 @@ jobs:
         # version on a registry cache miss.
         run: pnpm exec vitest run
 
+      - name: Validate public AEO surface contract
+        run: pnpm nx run @copilotkit/showcase-scripts:validate-aeo-contract
+
       - name: CVDIAG emit perf-regression gate
         working-directory: showcase/harness
         # Perf gate for the CVDIAG `CvdiagEmitter` hot path (plan unit L2-D).

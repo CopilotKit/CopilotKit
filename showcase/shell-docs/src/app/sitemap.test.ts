@@ -103,6 +103,10 @@ test("publishes every sitemap URL at most once", () => {
   expect(new Set(urls).size).toBe(urls.length);
 });
 
+test("publishes the public AEO policy at its canonical URL", () => {
+  expect(sitemapPaths()).toContain("/aeo");
+});
+
 test("excludes every hidden framework from every sitemap surface", () => {
   const paths = sitemapPaths();
 
