@@ -7,7 +7,9 @@ description: "React hook for accessing AG-UI agent instances"
 
 `useAgent` is a React hook that returns an [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) instance. The hook subscribes to agent state changes and triggers re-renders when the agent's state, messages, or execution status changes.
 
-**Throws error** if no agent is configured with the specified `agentId`.
+By default it binds to a shared agent from the CopilotKit registry. It can also register a private proxied agent for one thread, which is useful for custom thread switchers and multi-conversation UIs.
+
+**Throws an error** if no agent is configured with the specified `agentId`, or if only part of the thread-scoped option set is provided.
 
 ## Signature
 
@@ -20,15 +22,31 @@ function useAgent(options?: UseAgentProps): {
 };
 ```
 
+For fully headless UI that does not import the built-in chat rendering stack, import the hook from the headless entry:
+
+```tsx
+import { useAgent } from "@copilotkit/react-core/v2/headless";
+```
+
 ## Parameters
 
 <PropertyReference name="options" type="UseAgentProps">
   Configuration object for the hook.
 
 <PropertyReference name="agentId" type="string" default='"default"'>
-  ID of the agent to retrieve. Must match an agent configured in
-  `CopilotKit`.
+  ID of the agent to retrieve. Resolution order is: explicit `agentId`, the
+  surrounding chat configuration's `agentId`, then `"default"`.
 </PropertyReference>
+
+  <PropertyReference name="threadId" type="string">
+    Thread ID for a private proxied agent. Must be passed together with
+    `agentId` and `runtimeAgentId`.
+  </PropertyReference>
+
+  <PropertyReference name="runtimeAgentId" type="string">
+    Runtime-side agent ID to route requests to when registering a private
+    proxied agent. Must be passed together with `agentId` and `threadId`.
+  </PropertyReference>
 
   <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]">
     Controls which agent changes trigger component re-renders. Options:
@@ -39,7 +57,20 @@ function useAgent(options?: UseAgentProps): {
     Pass an empty array `[]` to prevent automatic re-renders.
 
   </PropertyReference>
+
+  <PropertyReference name="throttleMs" type="number">
+    Throttle interval, in milliseconds, for re-renders triggered by message and
+    state changes. Run lifecycle updates still fire immediately. If omitted,
+    the hook inherits the provider's `defaultThrottleMs`; if neither value is
+    set, updates are unthrottled. Pass `0` to disable provider throttling for
+    this hook.
+  </PropertyReference>
 </PropertyReference>
+
+There are two valid option shapes:
+
+- `useAgent()` or `useAgent({ agentId })`: bind to a shared agent. The thread comes from chat configuration or the agent itself.
+- `useAgent({ agentId, runtimeAgentId, threadId })`: register a private local agent under `agentId`, route it to the runtime agent named by `runtimeAgentId`, and pin it to `threadId`.
 
 ## Return Value
 
@@ -148,7 +179,7 @@ function useAgent(options?: UseAgentProps): {
 
     `agent` is always a fully-constructed instance, so calling its methods is
     always safe. While `isReady` is `false`, the instance is a placeholder that
-    is swapped for the real agent once the runtime finishes syncing — at which
+    is swapped for the real agent once the runtime finishes syncing. At that
     point `agent` changes reference and dependent effects re-run. Guard on
     `isReady` when you only want to act against the real agent, e.g. subscribing
     to run-lifecycle events you don't want to miss during the provisional
@@ -232,6 +263,25 @@ function MultiAgentView() {
 }
 ```
 
+### Thread-scoped Agent
+
+Use the thread-scoped form when one runtime agent needs multiple independent frontend instances, for example one per open conversation. The local `agentId` must be unique in the current provider.
+
+```tsx
+function ThreadPreview({ threadId }: { threadId: string }) {
+  const { agent, isReady } = useAgent({
+    agentId: `preview-${threadId}`,
+    runtimeAgentId: "support",
+    threadId,
+    throttleMs: 100,
+  });
+
+  if (!isReady) return <div>Loading...</div>;
+
+  return <div>{agent.messages.length} messages</div>;
+}
+```
+
 ### Optimizing Re-renders
 
 ```tsx
@@ -248,8 +298,10 @@ function MessageCount() {
 ## Behavior
 
 - **Automatic Re-renders**: Component re-renders when agent state, messages, or execution status changes (configurable via `updates` parameter)
+- **Optional Throttling**: Message and state update re-renders can be throttled with `throttleMs` or the provider's `defaultThrottleMs`.
 - **Readiness**: While the runtime is connecting, `agent` is a fully-constructed provisional stand-in and `isReady` is `false`; once the runtime syncs, `agent` swaps to the real instance and `isReady` becomes `true`. Guard on `isReady` for work that must target the real agent (e.g. one-time subscriptions)
 - **Error Handling**: Throws error if no agent exists with specified `agentId`
+- **Thread Scoping**: `threadId` and `runtimeAgentId` must be passed together with an explicit local `agentId`; partial combinations throw at runtime and are rejected by the TypeScript type.
 - **State Synchronization**: State updates via `setState()` are immediately available to both app and agent
 - **Event Subscriptions**: Subscribe/unsubscribe pattern for lifecycle and custom events
 
