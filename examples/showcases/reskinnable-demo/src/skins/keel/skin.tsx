@@ -184,8 +184,8 @@ const keel: Skin = {
   // ledger as the policy register, read through `useKeelDesk()` /
   // `useKeelLedger()`, and elapsed time is settled SERVER-SIDE on every read
   // (`src/app/api/keel/v1/settle-runs.ts`). So `useSkinData<T>()` correctly
-  // returns undefined for keel, exactly as it does for the four other
-  // REST-backed skins.
+  // returns undefined for keel — as it now does for EVERY skin: nothing in the
+  // tree sets `useData` any more.
 };
 
 export default keel;

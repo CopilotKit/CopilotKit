@@ -4,9 +4,12 @@
 > `airline` skin.** Per `.claude/skills/reskin/demo-beats.md`, the beat map
 > decides all four; discovering the beats afterwards means rebuilding them.
 >
-> This file is the DESIGN. The REST substrate under `src/skins/airline/data/`
-> and `src/app/api/airline/v1/` implements it. Tools, prompt, pages and pills
-> are later slots — every one of them should read this first.
+> This file is the DESIGN, and **the design is now BUILT.** The REST substrate
+> under `src/skins/airline/data/` and `src/app/api/airline/v1/` implements it, and
+> the tools, prompt, pages, pills, readables, memories and teach loop that were
+> "later slots" when this was written have all landed — Aeronova hits every beat.
+> Read it as the design record, and check any claim about the current tree against
+> the tree (`CLAUDE.md` § "Demo-beat coverage" carries the derivation commands).
 
 ---
 
@@ -493,33 +496,37 @@ Two conventions every one of them shares:
 
 ---
 
-## What this slot did NOT build
+## What this slot did NOT build — ALL OF IT HAS SINCE LANDED
 
-The substrate only. Everything below is a later slot's, and every one of them is
-load-bearing for a beat the substrate can otherwise only half-prove.
+This section was the substrate slot's hand-off list. Every row is now built; it is
+kept as the record of what "correct wiring plus nothing else" was still missing,
+which is the most useful thing about a retrofit
+(`.claude/skills/reskin/demo-beats.md` § "Which skin to copy for what" points at
+the three retrofits for exactly this reason).
 
-| Deferred                                                          | Which beat it finishes                                       |
-| ----------------------------------------------------------------- | ------------------------------------------------------------ |
-| `tools.tsx`, `agent.ts`, `suggestions.ts`, pages, components      | all of them — the substrate has no UI yet                    |
-| Route + per-page `useAgentContext` readables                      | 3b, which airline has never hit                              |
-| `intelligence/seed-memories.ts` + `forget-memories.ts`            | 4, 5 and the re-arming half of the reset                     |
-| `intelligence/user-id.ts` + `identifyUser` in `agent-registry.ts` | per-user memory scoping                                      |
-| The human-facing fare-exception FORM                              | 6 — a withheld catalogue with no form is an unlearnable gate |
-| `attach-hotel-confirmation.ts` over `@/shell/attach`              | 3d's pill and paperclip                                      |
-| Migrating the pages off `useAirlineData` onto `/ledger`           | the two-substrates risk in point 5 below                     |
+| Was deferred                                                      | Which beat it finished                                       | Now                                                                               |
+| ----------------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `tools.tsx`, `agent.ts`, `suggestions.ts`, pages, components      | all of them — the substrate had no UI                        | ✅ shipped                                                                        |
+| Route + per-page `useAgentContext` readables                      | 3b, which airline had never hit                              | ✅ `layout.tsx` + all five pages; `readables.test.tsx` guards omission            |
+| `intelligence/seed-memories.ts` + `forget-memories.ts`            | 4, 5 and the re-arming half of the reset                     | ✅ both, scoped `user` (never `project` — see demo-beats.md § Seeding memories)   |
+| `intelligence/user-id.ts` + `identifyUser` in `agent-registry.ts` | per-user memory scoping                                      | ✅ plus `useRuntimeProperties` and NO `RuntimeProviders` (no context to read)     |
+| The human-facing fare-exception FORM                              | 6 — a withheld catalogue with no form is an unlearnable gate | ✅ `components/fare-exception-form.tsx`                                           |
+| `attach-hotel-confirmation.ts` over `@/shell/attach`              | 3d's pill and paperclip                                      | ✅ plus `CanvasSurface` + the server tool `render_trip_brief`                     |
+| Migrating the pages off `useAirlineData` onto `/ledger`           | the two-substrates risk in point 5 below                     | ✅ `useAirlineData` and `data/use-data.ts` are DELETED; `useAirlineLedger()` only |
 
-Three of those are traps rather than gaps, so they are called out again where a
-later slot will actually trip over them:
+The three traps this section flagged, and how each resolved:
 
-1. **`eslint.config.mjs`'s `withheldGateVocabulary` glob does not list airline.**
-   Append `src/skins/airline/tools.tsx` AND `src/skins/airline/agent.ts` when
-   they land, restating the LOCK_SKIN selectors in the same block, or nothing
-   checks this skin's gate. See beat 6 above.
-2. **`LINTED_SKIN_IDS` already lists airline** — no action, but check it rather
-   than trusting this sentence.
-3. **The reset route says `memoryBeats: "unarmed"` on purpose.** Delete that
-   field only in the same change that adds the seed-memories module, or the
-   button starts claiming a re-arm it does not do.
+1. **`eslint.config.mjs`'s `withheldGateVocabulary` glob did not list airline.**
+   ✅ Both `src/skins/airline/tools.tsx` and `src/skins/airline/agent.ts` are in
+   it now, and airline is in the `statusKeyedTerminalRender` glob too — both
+   restating the LOCK_SKIN selectors, per the flat-config replace-not-merge rule.
+   Do not verify by counting selectors; the resolved-selector table in
+   `src/shell/skins-config.test.ts` asserts the list by name.
+2. **`LINTED_SKIN_IDS` already lists airline** — still true, still worth checking
+   rather than trusting; `skins-config.test.ts` proves it mechanically.
+3. **The reset route said `memoryBeats: "unarmed"` on purpose.** ✅ Gone in the same
+   change that added the seed-memories module, exactly as instructed — the reset now
+   forgets and re-seeds.
 
 ---
 

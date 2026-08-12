@@ -10,12 +10,14 @@
  *
  *  - `documents` is the policy REGISTER (`register-seed.ts`), built fresh from
  *    the corpus with dates anchored to the moment of the build.
- *  - `runs` mirrors the run engine's seed (`seed.ts`). The server holds runs as
- *    STATE ONLY — it does not advance them on a timer, because the ticker lives
- *    in `useKeelData` on the client. Whichever slot migrates that hook has to
- *    decide where the ticker ends up; nothing here depends on the answer, and
- *    the pure engine below is deliberately the SAME module the hook uses so the
- *    two can never disagree about what approving a step means.
+ *  - `runs` mirrors the run engine's seed (`seed.ts`). The server still holds runs
+ *    as STATE and advances them on no timer — but it is now the only clock:
+ *    elapsed time is SETTLED ON READ by `src/app/api/keel/v1/settle-runs.ts`,
+ *    which both `GET /ledger` and `GET /runs/[runId]` call before answering. The
+ *    client ticker that used to live in `useKeelData` is gone; the provider's
+ *    interval only re-fetches. The pure engine below is deliberately the SAME
+ *    module every consumer uses, so nothing can disagree about what approving a
+ *    step means.
  *
  * `playbooks` and `personas` are static modules rather than store state: nothing
  * in the demo mutates them, and a mutable copy would be a second opinion about

@@ -103,7 +103,8 @@ export interface Skin {
    * surface (it typically wraps its data provider + <A2UIProvider catalog>).
    * The shell handles the OGUI surface kind generically, so a skin does NOT
    * supply an OGUI renderer here — this is only its own a2ui report surface.
-   * Omit if the skin has no a2ui report canvas.
+   * Omit if the skin has no a2ui report canvas; every shipped skin has one, so
+   * the canvas's "no surface for this kind" branch is currently unexercised.
    */
   CanvasSurface?: ComponentType;
   catalog: A2uiCatalog;
@@ -145,7 +146,13 @@ export interface Skin {
    * read — because `properties` is a prop of `CopilotKitProvider`, its source
    * has to live above the provider so the provider OWNS the identity from its
    * very first commit (no child racing it in via `setProperties`). Banking uses
-   * this to hoist its auth context; airline needs neither, so omits it.
+   * this to hoist its auth context.
+   *
+   * This is SEPARABLE from `useRuntimeProperties` and airline is the worked
+   * example: it supplies `useRuntimeProperties` (and a server `identifyUser`) and
+   * omits THIS, because it has one account holder and no switcher, so its hook
+   * reads no context and returns a frozen module constant. Mount this only when
+   * the hook actually has context to read.
    */
   RuntimeProviders?: ComponentType<{ children: ReactNode }>;
   /**
@@ -162,10 +169,19 @@ export interface Skin {
   useRuntimeProperties?: () => Record<string, unknown> | undefined;
   /**
    * OPTIONAL seed-backed data hook consumed by the skin's own components via
-   * `useSkinData<T>()`. Omit when a skin has no shell-managed data (banking
-   * reads REST via `useCreditCards` and the member via `useAuthContext`
-   * directly, so nothing flows through `useSkinData`). When omitted,
-   * `useSkinData<T>()` returns `undefined`.
+   * `useSkinData<T>()`. Omit when a skin has no shell-managed client state — which
+   * is every skin in the tree today: all of them are REST-backed and read their own
+   * ledger through their own context (banking `useCreditCards` + `useAuthContext`,
+   * the rest a `use<Id>Ledger()`), so `useSkinData<T>()` returns `undefined`
+   * everywhere. Derive that rather than trusting this comment:
+   * `grep -rn "useData" src/skins/-/skin.tsx` (with `-` as the glob star) returns
+   * only comments recording the omission.
+   *
+   * The field is kept, and the shell still runs the hook when a skin supplies one,
+   * because "shell-managed client state" is a legitimate shape — `airline` and
+   * `keel` both used it before migrating to REST ledgers. It just has no worked
+   * example left; `.claude/skills/reskin/templates.md` § `data/use-data.ts` is the
+   * reference, and it explains why you probably want REST instead.
    */
   useData?: () => unknown;
 }

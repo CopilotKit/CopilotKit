@@ -5,9 +5,13 @@
 > writing code)". This file is the contract the later slots build against: the
 > tools, the pages, the prompt and the pills all come out of it.
 >
-> Keel today is `useKeelData`, an in-memory `useState` store, and it hits about
-> one beat. This map is what the skin becomes once the substrate under it is a
-> real ledger.
+> **Status: BUILT.** When this was written Keel was `useKeelData`, an in-memory
+> `useState` store hitting about one beat, and this map described what the skin
+> would become. The substrate, the tools, the pages, the prompt and the pills have
+> all since landed and Keel hits every beat. Read it as the design record — the
+> reasoning is still the reasoning — not as a to-do list, and check any claim about
+> the current tree against the tree (`.claude/skills/reskin/demo-beats.md` and
+> `CLAUDE.md` § "Demo-beat coverage" carry the derivation commands).
 
 ## What Keel is, restated so the beats have somewhere to land
 
@@ -353,12 +357,19 @@ Recorded plainly rather than papered over.
    same write, which is precisely the collision failure-modes.md § 12 warns
    about — so the countersign route re-runs the release gate, and a test pins it.
 
-2. **The run engine and the register are two substrates in one skin.** Runs tick
-   on a 900 ms client interval (`useKeelData`); the register does not tick at
-   all. The REST store therefore holds runs as STATE ONLY — the server does not
-   advance them on a timer, and whichever slot migrates `useKeelData` has to
-   decide where the ticker lives. Nothing in this map depends on the answer, but
-   it is a real open question and is the biggest single risk in the migration.
+2. **The run engine and the register were two substrates in one skin.**
+   ✅ **RESOLVED — and this was correctly called the biggest single risk in the
+   migration.** Runs used to tick on a 900 ms client interval (`useKeelData`) while
+   the register did not tick at all and the server held runs as state only. The
+   answer was to move the CLOCK to the server, not to keep a ticker anywhere:
+   elapsed time is settled on read by `src/app/api/keel/v1/settle-runs.ts`, which
+   both `GET /ledger` and `GET /runs/[runId]` call, and the client interval was
+   reduced to a re-fetch. `useKeelData` and `data/use-data.ts` are deleted; runs and
+   the register are ONE ledger read through `useKeelLedger()` / `useKeelDesk()`.
+   The lesson generalises and is now in
+   `.claude/skills/reskin/failure-modes.md`-adjacent guidance in SKILL.md § step 3:
+   a client ticker beside a server store is a SECOND CLOCK — it paints progress the
+   server never heard of, and the next re-read after any write silently rewinds it.
 
 3. **"Attestation coverage" is the one figure that can be genuinely unknown**,
    and a hospital register really does contain documents nobody has been assigned

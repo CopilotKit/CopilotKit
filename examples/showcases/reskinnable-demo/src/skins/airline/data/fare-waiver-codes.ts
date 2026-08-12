@@ -22,18 +22,23 @@
  * enumerate-every-closed-set rule followed everywhere else, because for a gate,
  * reaching the model is the defect.
  *
- * ⚠️ THE LINT GUARD DOES NOT COVER THIS SKIN YET. `eslint.config.mjs`'s
+ * ✅ THE LINT GUARD NOW COVERS THIS SKIN. `eslint.config.mjs`'s
  * `withheldGateVocabulary` rule fails the build when a `*_CODES` /
- * `*_CODE_LABELS` identifier reappears in a skin's `tools.tsx` or `agent.ts`,
- * but its `files` glob lists only the skins whose gate has landed. The slot that
- * writes `src/skins/airline/tools.tsx` and `src/skins/airline/agent.ts` MUST
- * append BOTH to that glob — restating the LOCK_SKIN selectors in the same
- * block, because flat-config `rules` are replaced rather than merged — or
- * nothing checks Aeronova. Verify with
- * `npx eslint --print-config src/skins/airline/tools.tsx` and COUNT the
- * selectors. And the rule sees only IDENTIFIERS: a tool `description` or a
- * prompt sentence spelling a category out in prose is a grep-and-read
- * (`.claude/skills/reskin/failure-modes.md` § 10).
+ * `*_CODE_LABELS` identifier reappears in a skin's `tools.tsx` or `agent.ts`, and
+ * BOTH `src/skins/airline/tools.tsx` and `src/skins/airline/agent.ts` are in its
+ * `files` glob (restating the LOCK_SKIN selectors, because flat-config `rules` are
+ * replaced rather than merged). Do NOT verify that by counting selectors — the
+ * resolved-selector table in `src/shell/skins-config.test.ts` asserts the resolved
+ * list BY NAME, per file, and carries a row for each of those two files.
+ *
+ * ⚠️ But a green lint still proves only two channels are shut. The rule sees
+ * IDENTIFIERS, so a tool `description`, a prompt sentence or a 4xx body spelling a
+ * category out in prose is a grep-and-read — and Aeronova has a channel the rule
+ * cannot see at all: `Booking.waiverGround` (`./trip-types.ts`) is a code-shaped
+ * token mapping 1:1 onto a justifying category, matching neither `*_CODES` nor
+ * `*_CODE_LABELS`. `store.snapshot()` strips it and `data/store.test.ts`,
+ * `/ledger`'s and `/bookings/[id]`'s route tests plus `tools.test.ts` pin the
+ * strip. See `.claude/skills/reskin/failure-modes.md` § 10.
  *
  * `FARE_WAIVER_CODE_LABELS` is reserved for the HUMAN-facing exception form. The
  * passenger may see this vocabulary while the agent may not, and that asymmetry

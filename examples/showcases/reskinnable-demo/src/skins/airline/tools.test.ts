@@ -1,7 +1,7 @@
 /**
  * THE DRIFT GUARD `agent.ts` AND `tools.tsx` OTHERWISE DO NOT HAVE.
  *
- * Three defect classes live in these two files, and every one of them leaves the
+ * Five defect classes live in these two files, and every one of them leaves the
  * app compiling, linting and rendering:
  *
  *  1. **A tool the prompt names and nobody registered.** `CLAUDE.md` § "How to
@@ -12,13 +12,16 @@
  *     result comes back but no status transition fires, so the card renders its
  *     PENDING copy forever the moment the thread is reopened — which is precisely
  *     the reload beat 2 performs on stage. `eslint.config.mjs`'s
- *     `statusKeyedTerminalRender` rule covers logistics only; airline's glob entry
- *     is a later slot's, so until it lands this file is the whole guard.
+ *     `statusKeyedTerminalRender` rule now lists airline in its `files` glob, so
+ *     that half is mechanically covered; this file's assertion is the belt to its
+ *     braces and outlives any glob edit.
  *  3. **BEAT 6 — the withheld vocabulary reaching the agent.** It leaks through
  *     SIX channels here (five plus airline's own code-shaped `waiverGround`) and
- *     closing five of six is closing none. ESLint's `withheldGateVocabulary`
- *     catches only the two that appear as identifiers, and its `files` glob does
- *     not list airline yet either.
+ *     closing five of six is closing none. ESLint's `withheldGateVocabulary` does
+ *     now list both of airline's agent-facing files, but it matches IDENTIFIERS —
+ *     so it catches the readable and the schema enum and can see neither the prose
+ *     channels nor `waiverGround`, whose name matches no `*_CODES` pattern. Those
+ *     three are this file's job.
  *  4. **BEAT 4 — a recall with no visible "why".** A summary the agent silently
  *     shaped from memory is indistinguishable from a summary it just wrote well,
  *     so the beat is invisible and does not count. The `note` slot on `showTrips`

@@ -80,11 +80,18 @@ export const agentRegistry: Record<string, AgentRegistration> = {
   // pinned-`INTELLIGENCE_USER_ID` short-circuit) before changing this.
   airline: { createAgent: airlineAgent, identifyUser: airlineIdentifyUser },
   // Logistics resolves a per-planner identity — `PLANNER_IDENTITY` maps each
-  // planner 1:1 — so its Intelligence THREADS are scoped per planner. That is
-  // all this resolver buys: logistics ships neither
-  // `intelligence/seed-memories.ts` nor `intelligence/forget-memories.ts`, so
-  // there is nothing seeded to recall and nothing learned to forget. Identity
-  // plumbing only — do NOT read it as a durable-memory demo.
+  // planner 1:1 — so its Intelligence THREADS are scoped per planner, and it now
+  // uses that scope for durable memory too: it ships both
+  // `intelligence/seed-memories.ts` (beat 4's preference, beat 5's procedure) and
+  // `intelligence/forget-memories.ts`, and its `dev/reset` sweeps and re-seeds
+  // through them. It was "identity plumbing only" for two releases, which is the
+  // most expensive way to build the hardest half of this and get no demo out of it.
+  //
+  // ⚠ Same caveat as Rowan, Bellwether and Keel: the client's `properties`
+  // frequently do not reach `identifyUser` on a run, so switching planner often
+  // re-scopes nothing — which is why the seed targets the default bucket AND the
+  // mapped one. Read `intelligence/user-id.ts` before claiming per-planner
+  // isolation on stage.
   logistics: {
     createAgent: logisticsAgent,
     identifyUser: logisticsIdentifyUser,

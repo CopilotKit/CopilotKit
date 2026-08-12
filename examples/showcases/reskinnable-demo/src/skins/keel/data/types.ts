@@ -155,8 +155,16 @@ export interface KeelKpis {
 }
 
 /**
- * The value `useKeelData()` returns and `useSkinData<KeelData>()` yields.
- * This is the interface every page, component, and tool codes against.
+ * ⚠️ HISTORICAL — the value the deleted `useKeelData()` returned via
+ * `useSkinData<KeelData>()`. It is no longer what anything codes against, and it
+ * is no longer REFERENCED by any code: `useKeelDesk()` (`../desk-data.ts`)
+ * replaced it, whose read half is structurally this minus the synchronous
+ * mutators (every write is now an HTTP POST + re-read, so those return promises).
+ *
+ * Kept because several comments across the skin describe the migration in terms of
+ * this shape, and because it is the clearest single statement of what the desk owes
+ * its consumers. Do NOT add a consumer: `useSkinData<KeelData>()` returns
+ * `undefined` for keel, exactly as it does for every other skin.
  */
 export interface KeelData {
   playbooks: Playbook[];
@@ -186,16 +194,22 @@ export interface KeelData {
  * THE REST SUBSTRATE — the policy register
  * ==========================================================================
  *
- * Everything above this line is the ORIGINAL in-memory substrate: `useKeelData`
- * holds runs in `useState` and ticks them on a 900 ms interval. Everything below
- * is the server-side ledger that `src/app/api/keel/v1/**` serves and that the
- * demo beats are built on (`data/beat-map.md`).
+ * ONE SUBSTRATE, as of the beat-parity work. Everything in this file — the run
+ * engine's shapes above, the register's below — is served by
+ * `src/app/api/keel/v1/**` and read through a single `GET /ledger` snapshot
+ * (`../ledger-context.tsx` → `../desk-data.ts`).
  *
- * The two are deliberately not merged yet. `useKeelData` still owns the client's
- * runs, the pages still read it through `useSkinData`, and the parameterized
- * routes still render from it — migrating those consumers is a separate change,
- * and doing it in the same commit as introducing the ledger would have made both
- * unreviewable.
+ * The types above once belonged to a SECOND, client-side substrate: `useKeelData`
+ * held runs in `useState` and advanced them on a 900 ms `setInterval` while the
+ * server held them as state only. That is gone, and so is the split this banner
+ * used to announce as "deliberately not merged yet". Runs are settled SERVER-side
+ * on every read (`src/app/api/keel/v1/settle-runs.ts`, called by both
+ * `GET /ledger` and `GET /runs/[runId]`), and the client interval only re-fetches
+ * — the deleted ticker was a second clock that painted progress the server had
+ * never heard of, which the next re-read after any write silently rewound.
+ *
+ * The pure engine (`./engine.ts`) is still the SAME module the server route uses,
+ * which is why approving a step means exactly one thing.
  *
  * WHY THE CORPUS IS NOT IN HERE. `knowledge/corpus.ts` supplies a document's
  * WORDS: prose that changes only when an author edits the module. The register
