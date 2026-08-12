@@ -10,11 +10,11 @@ It is built on the **Microsoft 365 Agents SDK** (`@microsoft/agents-hosting`),
 the successor to the Bot Framework SDK.
 
 The adapter keeps its own Teams/Microsoft 365 credentials (`clientId` /
-`clientSecret` / `tenantId`, or none for anonymous local dev) — but the
-Channel itself only runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (an API key; a free tier is available). There is no
-standalone / DIY runner and no `channel.start()`; the runtime starts and owns
-the channel because Intelligence is configured.
+`clientSecret` / `tenantId`, or none for anonymous local dev) — in the managed
+path the Channel runs inside a CopilotKit Intelligence-configured
+`CopilotRuntime` (free plan available), which starts and owns the channel's
+lifecycle. Building and operating your own channel runner on the SDK primitives
+is also a supported path.
 
 ## Managed Channels: the alternative to holding your own credentials
 

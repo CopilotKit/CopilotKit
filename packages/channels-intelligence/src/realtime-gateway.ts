@@ -191,6 +191,9 @@ export interface ConnectRealtimeGatewayOptions {
   diagnosticFetch?: typeof globalThis.fetch;
 }
 
+/** Allow transports to deliver their normal close event before intervening. */
+const ERROR_WITHOUT_CLOSE_GRACE_MS = 100;
+
 /**
  * Connection-health states a {@link ConnectedRealtimeGatewaySession} surfaces to
  * a supervising manager via {@link ConnectedRealtimeGatewaySession.onStateChange}.
@@ -1061,13 +1064,41 @@ export async function connectRealtimeGateway(
       }
     }
   };
+  // Phoenix schedules socket reconnects exclusively from its transport `close`
+  // handler. Node 22's built-in WebSocket can emit only `error` when a later
+  // upgrade gets an HTTP 5xx, leaving Phoenix with no reconnect scheduled. Give
+  // normally paired events a brief window, then cycle the existing Phoenix
+  // socket so its channels rejoin on a fresh transport. This is deliberately
+  // internal: callers should not tune around a transport event mismatch.
+  let errorWithoutCloseTimer: ReturnType<typeof setTimeout> | undefined;
+  const clearErrorWithoutCloseTimer = (): void => {
+    if (errorWithoutCloseTimer === undefined) return;
+    clearTimeout(errorWithoutCloseTimer);
+    errorWithoutCloseTimer = undefined;
+  };
+  const armErrorWithoutCloseTimer = (): void => {
+    if (closingIntentionally || errorWithoutCloseTimer !== undefined) return;
+    errorWithoutCloseTimer = setTimeout(() => {
+      errorWithoutCloseTimer = undefined;
+      if (closingIntentionally) return;
+      // `disconnect` resets Phoenix's pending reconnect timer before the
+      // callback opens exactly one fresh transport, preventing duplicate
+      // attempts if an error arrived just after a normal close.
+      socket.disconnect(() => {
+        if (!closingIntentionally) socket.connect();
+      });
+    }, ERROR_WITHOUT_CLOSE_GRACE_MS);
+    (errorWithoutCloseTimer as unknown as { unref?: () => void }).unref?.();
+  };
   socket.onOpen(() => {
+    clearErrorWithoutCloseTimer();
     closeFired = false;
   });
   // A socket-level drop begins a reconnect episode; the "back online" signal
   // comes from a successful (re)join (the join-push `"ok"` hook above), NOT from
   // the socket merely reopening — the channel may still be rejoining.
   socket.onClose((event) => {
+    clearErrorWithoutCloseTimer();
     notifyClose();
     enterReconnecting();
     // Phoenix treats code 1000 as terminal and does not schedule its reconnect
@@ -1081,6 +1112,7 @@ export async function connectRealtimeGateway(
   socket.onError(() => {
     notifyClose();
     enterReconnecting();
+    armErrorWithoutCloseTimer();
   });
   // A CHANNEL-level close/error is ALSO non-sendable: Phoenix can error and
   // rejoin a channel while the socket stays open (so the socket handlers above
@@ -1123,6 +1155,7 @@ export async function connectRealtimeGateway(
     },
     disconnect: () => {
       closingIntentionally = true;
+      clearErrorWithoutCloseTimer();
       clearGiveUpTimer();
       socket.disconnect();
     },

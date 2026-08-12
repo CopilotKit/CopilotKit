@@ -220,6 +220,71 @@ describe("CopilotChat activity message rendering", () => {
     });
   });
 
+  it("re-renders activity content when ACTIVITY_SNAPSHOT replaces the same message id", async () => {
+    const agent = new MockStepwiseAgent();
+    const agentId = "progress-agent";
+    agent.agentId = agentId;
+
+    const activityRenderer: ReactActivityMessageRenderer<{
+      status: string;
+      title: string;
+    }> = {
+      activityType: "search-progress",
+      content: z.object({ status: z.string(), title: z.string() }),
+      render: ({ content }) => (
+        <div data-testid="activity-progress">{content.title}</div>
+      ),
+    };
+
+    renderWithCopilotKit({
+      agents: { [agentId]: agent },
+      agentId,
+      renderActivityMessages: [activityRenderer],
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Track progress" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Track progress")).toBeDefined();
+    });
+
+    const activityMessageId = testId("activity-replace");
+    agent.emit(runStartedEvent());
+    agent.emit(
+      activitySnapshotEvent({
+        messageId: activityMessageId,
+        activityType: "search-progress",
+        content: { status: "running", title: "Working on your request" },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("activity-progress").textContent).toBe(
+        "Working on your request",
+      );
+    });
+
+    // Same messageId + object content update must invalidate CopilotChat's
+    // messages memo key (object contentKey used to be hard-coded to 0).
+    agent.emit(
+      activitySnapshotEvent({
+        messageId: activityMessageId,
+        activityType: "search-progress",
+        content: { status: "running", title: "Understanding your request" },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("activity-progress").textContent).toBe(
+        "Understanding your request",
+      );
+    });
+
+    agent.emit(runFinishedEvent());
+  });
+
   it("skips unmatched activity types when no renderer exists", async () => {
     const agent = new MockStepwiseAgent();
 

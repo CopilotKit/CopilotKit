@@ -13,6 +13,8 @@ import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
 import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
 import type { Observable } from "rxjs";
+import { getRuntimeErrorReporter } from "../../core/runtime-error-reporter";
+import type { RuntimeErrorPhase } from "../../core/runtime-error-reporter";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -55,6 +57,7 @@ interface HandleIntelligenceRunParams {
   agentId: string;
   agent: AbstractAgent;
   input: RunAgentInput;
+  startTime?: number;
 }
 
 export async function handleIntelligenceRun({
@@ -63,6 +66,7 @@ export async function handleIntelligenceRun({
   agentId,
   agent,
   input,
+  startTime,
 }: HandleIntelligenceRunParams): Promise<Response> {
   if (!runtime.intelligence) {
     return Response.json(
@@ -244,6 +248,23 @@ export async function handleIntelligenceRun({
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
   };
 
+  const runtimeErrorReporter = getRuntimeErrorReporter(runtime);
+  let agentErrorReported = false;
+  const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
+    if (agentErrorReported) return;
+    agentErrorReported = true;
+    runtimeErrorReporter?.report({
+      request,
+      error,
+      operation: "agent.run",
+      agentId,
+      threadId: canonicalThreadId,
+      runId: canonicalRunId,
+      phase,
+      startTime,
+    });
+  };
+
   try {
     const runStart = hasRunnerStartupBoundary(runtime.runner)
       ? runtime.runner.runWithStartupBoundary(runRequest)
@@ -257,16 +278,31 @@ export async function handleIntelligenceRun({
         if (event.type === EventType.RUN_STARTED) {
           runStarted.current = true;
         }
-        if (event.type === EventType.RUN_ERROR && !runStarted.current) {
-          clearHeartbeat();
-          immediateStartupErrorMessage =
+        if (event.type === EventType.RUN_ERROR) {
+          const message =
             "message" in event && typeof event.message === "string"
               ? event.message
               : "Runner failed before the run started";
-          immediateStartupCleanup = cleanupLock("runner-start-failed");
+          reportAgentError(
+            new Error(message),
+            runStarted.current
+              ? "intelligence.subscription"
+              : "intelligence.startup",
+          );
+          if (!runStarted.current) {
+            clearHeartbeat();
+            immediateStartupErrorMessage = message;
+            immediateStartupCleanup = cleanupLock("runner-start-failed");
+          }
         }
       },
       error: (error) => {
+        reportAgentError(
+          error,
+          runStarted.current
+            ? "intelligence.subscription"
+            : "intelligence.startup",
+        );
         clearHeartbeat();
         if (!runStarted.current) {
           immediateStartupErrorMessage =
@@ -288,6 +324,7 @@ export async function handleIntelligenceRun({
 
     await runStart.startup;
   } catch (error) {
+    reportAgentError(error, "intelligence.startup");
     clearHeartbeat();
     await (immediateStartupCleanup ?? cleanupLock("runner-start-threw"));
     logger.error("Error starting agent runner:", error);

@@ -69,6 +69,7 @@ import type { FrontendId } from "./frontend-options";
 import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
+import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
 
 interface Region {
   file: string;
@@ -749,6 +750,17 @@ function expandAngularSnippets(body: string): string {
   );
 }
 
+/** Expand the interactive Rich Threads prompt for raw Markdown consumers. */
+function expandRichThreadsSetupPrompts(body: string): string {
+  return body.replace(
+    /<RichThreadsSetupPrompt\s*\/>/g,
+    `### Copy this prompt into your coding agent\n\n${fenceFor(
+      "text",
+      RICH_THREADS_SETUP_PROMPT,
+    )}`,
+  );
+}
+
 /**
  * Drop `<InlineDemo ... />` tags — these mount live iframes in the
  * browser; in plain markdown they're noise. Leave a short note so the
@@ -879,6 +891,9 @@ export function renderPageToLlmText(
   const frontend = options.frontend ?? page.frontend;
 
   let body = stripFrontmatter(raw);
+
+  // Interactive prompt buttons cannot run in raw Markdown or LLM feeds.
+  body = expandRichThreadsSetupPrompts(body);
 
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page

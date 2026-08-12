@@ -2,8 +2,8 @@
 
 Copy each block into `src/skins/<id>/<file>` and replace `<id>` / `<Brand>` /
 domain specifics. These are written against this app's frozen `Skin` contract
-(`src/shell/skin-contract.ts`) and mirror the four shipped skins
-(`src/skins/{banking,airline,logistics,keel}/`) — see
+(`src/shell/skin-contract.ts`) and mirror every shipped skin
+(`src/skins/{banking,airline,logistics,keel,people,commerce,bookstore}/`) — see
 [demo-beats.md](./demo-beats.md) § "Which skin to copy for what" for which one to
 open for which problem.
 
@@ -63,8 +63,16 @@ for a full, working example): `--brand`, `--brand-violet`, `--brand-indigo`,
 `--surface`, `--surface-muted`, `--ink`, `--ink-muted`, `--hairline`,
 `--positive`, `--positive-soft`, `--negative`, `--negative-soft`, `--radius`.
 
+**Do not remove the `prettier-ignore` below.** Prettier formats fenced blocks by
+language, and its CSS parser reads `<id>` as a token to re-space — it rewrites
+`.theme-<id>` into `.theme-<id >`, an INVALID selector that silently applies no
+theme, and then reports that broken form as correctly formatted. (The `ts`/`tsx`
+fences need no guard: they fail to parse as TypeScript, so Prettier skips them
+whole.)
+
+<!-- prettier-ignore -->
 ```css
-.theme-<id > {
+.theme-<id> {
   --radius: 1.125rem;
 
   /* OPT-IN dark mode. `src/hooks/use-theme.ts` forces any skin WITHOUT this flag
@@ -101,7 +109,7 @@ for a full, working example): `--brand`, `--brand-violet`, `--brand-indigo`,
    re-values only the tokens that DIFFER — surfaces, ink, and semantic tokens —
    and lets the brand ramp and `--radius` inherit from the light block.
    (Mirror `src/skins/logistics/theme.css` / `src/skins/banking/theme.css`.) */
-.dark .theme-<id > {
+.dark .theme-<id> {
   color-scheme: dark;
 
   --background: 252 20% 8%;
@@ -121,6 +129,53 @@ for a full, working example): `--brand`, `--brand-violet`, `--brand-indigo`,
   --negative-soft: 349 40% 18%;
 }
 ```
+
+**If your dark block LIFTS `--brand`, it MUST re-value `--brand-foreground` too.**
+The template above leaves both alone in dark on purpose. A dark-anchored brand
+(commerce's `206 72% 30%`, keel's `170 38% 28%`, people's `315 38% 36%`) vanishes
+on a dark surface, so the dark block lifts it — and that FLIPS the polarity of
+every pair the brand anchors while `--brand-foreground: 0 0% 100%` stays behind in
+the light block. Commerce shipped that way and every primary button in its dark
+mode measured **2.60:1**; the labels are small and semibold, so 4.5:1 applies, not
+3:1. Two traps make this invisible:
+
+- **Do not "fix" it by darkening `--brand`.** `--brand` is simultaneously a FILL
+  under `--brand-foreground` and TEXT on `--brand-soft` (nav active state, brand
+  pills, `activeSelectClass`). Darkening it to satisfy white labels collapses the
+  text pair instead. Re-value `--brand-foreground` to a deep ink in the brand's
+  own hue — logistics does this in light mode for its bright amber
+  (`--brand-foreground: 30 50% 10%`), commerce in dark (`206 60% 10%`).
+- **`--brand-violet` on `--brand-soft` is a real pair in DARK ONLY.** The shared
+  chrome pairs brand-soft with `text-brand-indigo` in light and reaches for
+  `dark:text-brand-violet` in dark (`components/ui/dropdown-menu.tsx`,
+  `select.tsx`, `avatar.tsx`, `button.tsx`). If your skin repurposes
+  `--brand-violet` as a domain accent, that pair still has to clear 4.5:1 in dark.
+  **It does NOT do that everywhere**, so do not conclude `--brand-indigo` is
+  exempt in dark: `button.tsx`'s `outline` variant re-inks its hovered LABEL to
+  `--brand-indigo` with no dark counterpart (2.75:1 in banking dark, 1.21:1 in
+  keel), and the theme toggle does the same for its icon. Both are shell-wide
+  follow-ups no skin can fix alone; `theme.test.ts`'s
+  `UN_OVERRIDDEN_BRAND_SOFT_INK` is the live list, and a test there fails if the
+  set grows or shrinks — read it rather than trusting this sentence.
+
+- **A tinted chip's ground is the TINT, not the card under it.** A chip written as
+  `bg-<token>/12 text-<token>` — the shape every skin reaches for to make an accent
+  chip — paints its label against a 12% wash of its own colour over the card, which
+  is darker than the card. Measure the card and you get a number the user never
+  sees: commerce's rose read 4.52:1 on `--surface` and **3.75:1** on the wash it
+  actually renders on, and the guard called that a pass for a release. Composite
+  the tint before measuring (`theme.test.ts`'s `bg.alpha` / `bg.over`).
+
+Nothing else in this app catches a contrast regression — it type-checks, lints and
+renders. Copy `src/skins/commerce/theme.test.ts`: it parses your `theme.css`,
+computes WCAG ratios for your skin's text pairs in BOTH modes and asserts them.
+Copy two habits from it as well, both earned: it locates each rule by an
+**anchored, line-start** selector (an `indexOf(".theme-<id> {")` also matches
+inside `.dark .theme-<id> {`, so reordering the file silently pointed every
+light-mode assertion at the dark block), and it **derives** each pair's render
+sites by grepping for the class pair rather than citing `file:line` — every
+hand-written citation in the first version had rotted, which is how the wrong-ground
+measurement above survived review.
 
 ## `layout.tsx`
 
@@ -156,7 +211,13 @@ import { ThemeToggle } from "@/components/ui/theme-toggle"; // SHARED shell comp
 import { useAskCopilot } from "./components/use-ask-copilot"; // PORT this into your skin (see below)
 import { cn } from "@/lib/utils";
 
-// The sidebar width doubles as the shell's nav inset — keep them the same value.
+// Sidebar width is yours alone — NOTHING in the shell reads it, so pick whatever
+// your chrome needs. The skin switcher is a dropdown in its own card at the top of
+// the assistant column, so it occupies a slot and can never overlap your nav; the
+// `--nw-nav-inset-left` / `--nw-nav-inset-right` variables older skins published
+// for the retired floating selector are gone. Do not add those publishers, and do
+// not couple this constant to anything outside your own layout. (SKILL.md § "The
+// layout contract".)
 const SIDEBAR_WIDTH_PX = 240;
 
 export function <Id>Layout({ children }: { children: ReactNode }) {
@@ -188,17 +249,46 @@ export function <Id>Layout({ children }: { children: ReactNode }) {
     value: restHead === "" ? "<index page name>" : restHead,
   });
 
+  // ⚠ Do NOT branch on `res.ok` ALONE. Your reset route wipes the store as its
+  // FIRST act and nothing rolls that back, so a non-2xx (commerce's route 502s
+  // when the memory wipe/re-seed fell short) still means THE STORE IS GONE. An
+  // ok-only branch then alerts and stays put, leaving the page — and the agent's
+  // readables, which describe that page — asserting rows that no longer exist,
+  // and leaving any module-level client journal (see rule 4 below) reciting
+  // writes the reset took away. Read what the BODY says about the store instead,
+  // navigate on every outcome except a provably untouched one, and put the
+  // route's own explanation in the alert: a bare "HTTP 502" drops the one
+  // sentence saying the memory beats may start out already taught. Commerce's
+  // `runPresenterReset` (src/skins/commerce/layout.tsx) is the worked version.
   const handleReset = async () => {
     if (!window.confirm("Reset demo state? This restores the seeded scenario.")) return;
-    const res = await fetch(`/api/${skin.id}/v1/dev/reset`, { method: "POST" });
-    if (res.ok) {
-      // Hard-navigate to the skin root for a pristine slate (fresh store, cleared
-      // canvas, new thread on the next message) AND the clean starting URL —
-      // which is `/` itself on a locked single-tenant deploy.
+    let res: Response;
+    try {
+      res = await fetch(`/api/${skin.id}/v1/dev/reset`, { method: "POST" });
+    } catch (err) {
+      // No response at all: an in-memory store whose server restarted mid-call
+      // has already reset itself, so reload rather than trust the screen.
+      window.alert(`Reset could not be confirmed: ${String(err)}. Reloading.`);
       window.location.assign(skinHref());
-    } else {
-      window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
+      return;
     }
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const reset = Array.isArray(body.reset) ? body.reset : null;
+    // `false` only where the route answered BEFORE it mutated (the 403 gate).
+    if (reset === null && typeof body.error === "string") {
+      window.alert(`The demo was NOT reset (HTTP ${res.status}). Nothing has changed.`);
+      return;
+    }
+    // Alert FIRST (it is modal, so it is read), then hard-navigate to the skin
+    // root for a pristine slate (fresh store, cleared canvas, new thread on the
+    // next message) AND the clean starting URL — `/` itself on a locked deploy.
+    if (!res.ok) {
+      window.alert(
+        `Reset incomplete (HTTP ${res.status}). The demo data WAS reset; ` +
+          `${String(body.memoryError ?? "see the server logs")}.`,
+      );
+    }
+    window.location.assign(skinHref());
   };
 
   return (
@@ -307,6 +397,157 @@ export function use<Id>Data() {
 export type <Id>Data = ReturnType<typeof use<Id>Data>;
 ```
 
+### REST-backed instead? Five rules for your write paths
+
+A REST-backed skin replaces the hook above with a ledger CONTEXT that holds one
+snapshot and exposes a `refresh()` every write path calls after its mutation
+(`src/skins/commerce/data/ledger-context.tsx` is the worked example). Every one of
+these fails **silently** if you skip it, and none is caught by lint, tsc or a
+test you would think to write:
+
+1. **Guard every `setState` behind a provider-lifetime liveness ref.** The shell
+   remounts the entire runtime subtree keyed by skin id, so switching skins in the
+   selector unmounts your provider while a mutation's `refresh()` is still in
+   flight. That is routine operation, not a rare race. One `useRef(true)` cleared
+   by the mount effect's cleanup covers the mount fetch AND `refresh`.
+2. **Type it `Promise<boolean>`, not `Promise<void>`.** A `refresh()` that
+   resolves regardless of whether the re-read succeeded lets every caller print
+   "done" over pre-mutation rows — the one failure mode indistinguishable from a
+   slow network. Resolve `true` only when a snapshot was actually committed, and
+   have callers say so when it is `false`: pages via their inline error slot or a
+   one-line notice, tool handlers by appending it to the string they return (see
+   commerce's `staleNote`). Do NOT reject — the callers `await` it bare, so
+   rejecting turns a dev-server restart into a dozen unhandled rejections and a
+   blank app mid-demo.
+3. **Check `res.ok` BEFORE you call `refresh()`, on every write path.** A
+   `refresh()` after a refused write repaints the identical rows, so a real 409 or
+   422 is indistinguishable from a slow network — and every one of these controls
+   is something a presenter clicks on stage. Surface the route's own `message`
+   (your `errorResponse` map writes them to be read by a human) and fall back to a
+   status-bearing sentence, then `return` without refreshing. Note this is a
+   DIFFERENT report from rule 2's: refused means nothing happened, stale means the
+   write landed and only the view is behind. Four of commerce's page write paths
+   shipped without this check while three others in the same files had it —
+   nothing type-checks the difference, so grep your own pages for
+   `await fetch(` and confirm each hit branches on `res.ok`.
+4. **`res.ok` is only HALF of the failures — catch the REJECTED fetch too.**
+   `fetch` rejects outright when the browser is offline, the connection drops, or
+   the dev server restarts mid-call, and `!res.ok` never runs. In a page handler
+   that is an unhandled rejection and a button that never recovers; in a TOOL
+   handler it is worse — the throw escapes the handler, so the agent receives no
+   result for that step AT ALL and cannot narrate it. Every one of commerce's
+   seven write handlers shipped checking `res.ok` and nothing else, and the same
+   grep as rule 3 passed on all seven.
+
+   Write it ONCE as a wrapper and route every handler through it —
+   `narrateWrite` in `src/skins/commerce/settle.ts` is the worked example, tested
+   in `write-failures.test.tsx`. Seven hand-written try/catches is how the eighth
+   handler ships without one. The wrapper must distinguish three outcomes, not
+   two: the write never landed, the write landed and only the follow-up broke
+   (report the SUCCESS — a failure line over a write that really happened is the
+   mirror-image lie), and the server refused it. And make the receipt's TONE
+   follow the line: a failure sentence under a green tick is the same as showing
+   no error, because from the back of a room the tick is what registers.
+
+   If a beat is a CHAIN of writes against one record — commerce's beat 5 holds
+   the order, posts the note, then notifies the customer — a failure on step two
+   leaves the ledger half-mutated. Say so: "held the order, but could not post
+   the note" is both more useful on stage and more honest than a bare failure.
+   Commerce keys a small module-level journal by record id for exactly this
+   (`landedWritesOn`); it is safe to leave unbounded only because the presenter
+   reset CLEARS IT EXPLICITLY and then hard-navigates (a real document load drops
+   the module too). Both halves, and unconditionally: relying on the navigate
+   alone was a bug, because the reset can wipe the store and answer non-2xx, and
+   the old handler only navigated on `res.ok` — so on exactly those paths the
+   journal outlived the ledger and the next failure recited writes that were
+   reset away.
+
+5. **A control that writes must not be RE-ENTRANT, and must only clear what the
+   user typed on a path that SUCCEEDED.** Two halves of one mistake, and the
+   teach-mode page is where both hurt most, because that is the surface a
+   presenter is clicking live.
+
+   A button with no in-flight guard fires twice on a double-click. Your store
+   almost certainly settles each record once — commerce refuses the repeat with
+   `ALREADY_FINALIZED` / `ALREADY_DECIDED` — so rule 3 dutifully paints that
+   refusal on a card whose action **just succeeded**, and the presenter is told
+   the thing they did failed. Guard it with a ref, not only `useState`: the state
+   is what renders "Finalizing…" and `disabled`, and the ref is what makes the
+   guard a mutex regardless of whether a lever remembered `disabled`. And guard it
+   in a `try/finally`: a rejecting `fetch` that skips the release latches the
+   button on "Issuing…" for the rest of the demo, with no way back but a reload.
+   `useInFlight` in `src/skins/commerce/components/use-in-flight.ts` is the worked
+   example — and it is in `components/`, not in a page, for a reason worth
+   copying: it first lived inside `pages/promotions.tsx`, a hook exported from a
+   PAGE does not read as importable, and the second page that needed one grew a
+   weaker `useState`-only copy with no mutex and no `finally` instead. Put shared
+   guards where a second page can plausibly import them.
+
+   **Mount an instance no finer than the MESSAGE CHANNEL its writes share.** A
+   per-button or per-surface mutex is no help when two controls report into one
+   error slot: whichever write finishes last speaks for both, so a refusal gets
+   erased by an unrelated success and the refused write says nothing at all — the
+   same silent no-op, reached through the report instead of the request. Commerce
+   needed BOTH halves: one instance per promotion card (its four levers write one
+   record) plus a separate message slot per surface (decision vs waiver), and one
+   instance per RETURNS page, because every decision there reports through the
+   page's single notice.
+
+   Note the rule cuts both ways — coarser is not automatically safer, and "one per
+   page" is not the answer, the CHANNEL is. The orders queue's two levers report
+   about a single ROW, so they share that row's guard and that row's slot, and a
+   different row's write may proceed: a page-wide slot there meant one row's
+   success cleared another row's refusal, and a page-wide guard would have blocked
+   a write that could never have spoken for it. Split the slot per record FIRST,
+   then mount the guard to match it.
+
+   The other half: a write helper that reports refusal by RETURNING (rule 3) will
+   also return on the path where the caller then does `setInput("")`. So a refused
+   filing wipes the sentence the user typed and they retype it on stage. Have the
+   helper resolve `Promise<boolean>` — "did this write LAND", which is NOT rule
+   2's "and the view is current" — and clear typed state only inside
+   `if (landed)`. A validation refusal is not exotic: commerce's justification has
+   a server-side minimum length (`INVALID_JUSTIFICATION`, 422) that no input
+   attribute enforces, so the ordinary too-short filing takes that path.
+
+   And the case that is neither: a write that LANDED whose follow-up `refresh()`
+   did not. That is not a refusal, and a control that reads it as one re-arms
+   itself and invites the write a second time — on a money path, a second refund
+   for money that already moved. Report it the way `settle.ts`'s
+   `STALE_VIEW_NOTE` / `staleNote(refreshed)` does, as "it happened, and the page
+   is behind", and LOCK the control rather than re-arming it: on a failed re-read
+   the row still shows its old status, so the control is still on screen.
+
+   Testing it: jsdom does **not** dispatch a click to a `disabled` button, so a
+   rendered double-click only ever proves the visible half. Test the guard hook
+   directly with `renderHook` for the mutex
+   (`src/skins/commerce/components/use-in-flight.test.tsx`), and drive the
+   rendered page with a `fetch` you settle by hand for the rest — see
+   `src/skins/commerce/pages/promotions.test.tsx`,
+   `src/skins/commerce/pages/returns.test.tsx` and
+   `src/skins/commerce/pages/orders.test.tsx`, which cover the double-click, the
+   rejecting fetch, the landed-but-stale write, and erasure both across surfaces
+   and across rows. Watch the ledger mock while you are there: `refresh` is
+   `Promise<boolean>`, `vi.mock` does not type-check the factory against the real
+   module, and a mock returning `Promise<void>` sends every write down the
+   stale-view branch with the happy path still green.
+
+If your `useData` needs to mirror `localStorage` instead of living purely in
+memory, don't reach for `useState` plus a hydration `useEffect` — writing state
+from an effect trips `react-hooks/set-state-in-effect`, and reading storage in
+the `useState` initializer disagrees with the server-rendered markup anyway. Use
+`useSyncExternalStore` instead: the shell's `LayoutPreferencesProvider`
+(`src/shell/layout/layout-preferences.tsx`) is the sanctioned pattern — its
+header comment names the lint rule directly — and
+`src/skins/bookstore/data/use-data.ts` (`useBookstoreData`) is the worked
+skin-level example, mirroring cart/orders per shopper. Two traps to watch for:
+`getSnapshot` must return a cached, `Object.is`-stable value (reparsing storage
+on every call hands React a new reference and loops it), and `getServerSnapshot`
+must return that SAME reference every time too — bookstore freezes a
+module-level `EMPTY_STATE` for exactly this; a freshly built
+`{ cart: [], orders: [] }` per call fails `Object.is` and infinite-loops React
+during hydration.
+
 ## `pages/<page>.tsx`
 
 One component per nav segment. Read the skin's data via `useSkinData<T>()`.
@@ -316,6 +557,23 @@ One component per nav segment. Read the skin's data via `useSkinData<T>()`.
 filters and the rows actually rendered after filtering and sorting, not the whole
 data set. That distinction is the beat: the agent describing what the user can
 literally see. Mirror `src/skins/banking/pages/charges.tsx:139`.
+
+**Every list in the readable must be the same expression the panel renders.** Derive
+each visible list ONCE — `const visible = useMemo(…)`, `const visibleNotifications =
+useMemo(() => data.notifications.slice(0, NOTIFICATION_ROWS), …)` — and hand that one
+array to both the JSX and `useAgentContext`. Two independent slices of the same source
+is how commerce's Orders page came to send five notifications while rendering six: the
+agent then confidently describes a screen the presenter is not looking at, off by one
+row, which is the version of wrong that survives a live demo. Mirror
+`src/skins/commerce/pages/orders.tsx` (its `visible` / `visibleNotifications` pair and
+`orders.test.tsx`, which asserts the readable equals the DOM).
+
+**Every COUNT obeys the same rule as every list.** A "Top N of X" caption's
+denominator, and any total you send the agent, must come off that same derivation —
+publish `matching` (levers applied) and `visible` (truncated) from one `useMemo` and
+read both. Whole-collection figures may stay whole-collection, but then label them as
+such on screen and nest them under a scoped key (commerce uses `book: { … }`) so the
+agent cannot report them as the contents of the view. See demo-beats.md § 3c.
 
 ```tsx
 "use client";
@@ -338,7 +596,10 @@ export function <Id>HomePage() {
         /* the live filter/sort state */
       },
       visibleCount: visible.length,
-      rows: visible.slice(0, 25), // cap it — this rides on every request
+      // The SAME expression the panel renders — never a second slice of the same
+      // source. If a list on screen is truncated, truncate it ONCE, above, and
+      // let both the JSX and this readable map that one array.
+      rows: visible,
     }),
   });
 
@@ -352,7 +613,7 @@ Renders `null`. Register frontend tools / HITL / gen-UI components and
 `useAgentContext` readables here (all from `@copilotkit/react-core/v2`). Mirror
 `src/skins/logistics/tools.tsx` for the wiring and
 `src/skins/banking/tools.tsx` for the beats — between them they are the debugged
-reference for the four things this file MUST get right.
+reference for the five things this file MUST get right.
 
 **1. Every registration closes with a deps array.** `useComponent`,
 `useFrontendTool`, and `useHumanInTheLoop` each take an **optional deps array as
@@ -367,6 +628,15 @@ component renders its "not found" branch over stale/empty data. Banking document
 the same trap in a code comment (search "closure captures empty arrays" in
 `src/skins/banking/tools.tsx`). Pass the data each closure reads.
 
+But the deps array only helps if it's JSON-serializable: `useFrontendTool`
+re-registers on `JSON.stringify(deps)` changing, and a `Map`, a `Set` or a
+function always stringifies to the same constant — `[byId, someCallback]` can
+never produce a new key, so the "registers once, forever" bug still happens even
+with a non-empty array. Route data like that through a ref instead
+(`src/skins/bookstore/tools.tsx`'s `openBook` is the non-write worked example;
+banking's `cardsRef` comment above `setCardPin`, `tools.tsx:130-136`, is the
+write-case original).
+
 **2. A parameterized `useComponent` render receives the schema output DIRECTLY.**
 `render: ({ myParam }) => …` — NOT `{ args }`. Per the installed types,
 `InferRenderProps<T> = T extends StandardSchemaV1 ? InferSchemaOutput<T> : any`
@@ -374,20 +644,64 @@ and `render: ComponentType<NoInfer<InferRenderProps<TSchema>>>`. By contrast
 `useHumanInTheLoop` and `useFrontendTool` renders DO receive `{ args, status,
 respond }`. Do not copy the HITL `{ args }` shape into a `useComponent`.
 
+It also receives that output **UNVALIDATED** — the schema is documentation, and a
+render-only tool posts an empty tool result, so there is nothing to correct the
+model with. Enumerate any closed-set parameter (`z.enum(YOUR_CONST_TUPLE)`) AND
+resolve it in the render, saying plainly that the value is unknown rather than
+drawing an empty visual. See SKILL.md's gen-UI enforcement rule and commerce's
+`src/skins/commerce/category-argument.ts`.
+
+And it receives that output **INCOMPLETE**: arguments STREAM, `partialJSONParse`
+returns `{}` for the first frames of every call, so each field — required ones
+included — is `undefined` in some of the renders it appears in. Never dereference
+one bare (`orderIds.map(…)` is a TypeError inside React render; banking guards the
+same shape with `columns ?? []` / `rows ?? []` at `banking/tools.tsx:793-794`) and
+never format an absent one into a confident label. Draw a visible arriving card
+instead — `ArrivingCard` / `arrivedText` in `src/skins/commerce/tools.tsx` — and
+keep the confident branch for values that actually landed. See SKILL.md's
+"EVERY argument is `undefined` mid-render" rule.
+
 **3. Renders must be REPLAY-SAFE — key them off `result`, not `status`** (beat 2).
 Reopening a thread replays recorded tool calls: you get the stored `result` and no
 live status transition. A render keyed on `status` is perfect live and blank or
 wrong on revisit — precisely when "reload and it's still there" is being demoed.
-Banking is the only skin written this way (`tools.tsx:70-89`, `418-451`,
-`553-572`).
+Banking, people, commerce and bookstore are the skins written this way — banking at
+`tools.tsx:70-89`, `418-451`, `553-572`; people's `setBaseSalary` render at
+`tools.tsx` recovers from an `answeredSalaryChanges` module map that holds the
+person's NAME and nothing else, so a replayed card can rebuild itself without
+the salary ever having been stored.
 
-**4. Readables must make the agent PAGE-AWARE** (beat 3b). Global readables
+**4. Every write handler must END IN A RESULT on all three paths** — success,
+refusal, AND a `fetch` that rejected. A handler that only checks `!res.ok` throws
+straight out when the browser is offline or the dev server restarts mid-call, and
+the agent then gets no result for that step at all: it cannot narrate it, and the
+transcript has no record that it was attempted. On a chained beat that is a
+half-mutated ledger with one visible receipt, one vanished write, and no error
+anywhere. Route every handler through ONE wrapper rather than seven try/catches —
+`narrateWrite` in `src/skins/commerce/settle.ts`, with rule 4 of the REST write-path
+rules above for the full contract, and `write-failures.test.tsx` for the coverage
+your own skin needs.
+
+**5. Readables must make the agent PAGE-AWARE** (beat 3b). Global readables
 (who the user is, the whole data set) are not enough: "what's on my screen?"
 returns the same answer everywhere without a **route** readable in `layout.tsx`
 plus **per-page** readables describing what is visibly rendered. Register the
 on-screen ones inside the page components, close to the state they describe —
 banking's richest is in `charges.tsx:139`, emitting the page name, active
 filters, visible row count and the first 25 visible rows.
+
+**5. A capped gen-UI list must SAY what it withheld.** Capping a chat list is
+right — it keeps the transcript readable. Capping it silently is not: the list
+renders as though it were the whole answer. The trap is worse than a missing row
+whenever the list is GROUPED, because the cap then eats trailing GROUPS whole and
+a group that vanished is indistinguishable from a group with nothing to report.
+Commerce's `showMarginSummary` shipped `rows.slice(0, 12)` over a 14-SKU range
+grouped by category and dropped both Outerwear SKUs, one of them below its margin
+floor — an omission that read as an all-clear. Surface the withheld count, the
+exceptions among them, and any group that disappeared, by name. Mirror
+`src/skins/commerce/margin-summary.ts` (`selectSummaryRows`, pure and tested
+apart from the component) plus `MarginSummaryList` in `src/skins/commerce/tools.tsx`.
+Rank exceptions FIRST so the cap can only ever withhold clean rows.
 
 ```tsx
 "use client";
@@ -428,7 +742,15 @@ export function <Id>Tools() {
       name: "showThingById",
       description: "Display one thing by id.",
       parameters: z.object({ id: z.string().describe("The thing's id.") }),
-      render: ({ id }) => <div className="text-ink">{/* look `id` up in `data` */}</div>,
+      // `id` is `undefined` while the arguments stream — a required field is no
+      // guarantee of a present one. Draw the arriving state, never a miss and
+      // never a bare dereference.
+      render: ({ id }) =>
+        typeof id === "string" && id.trim() ? (
+          <div className="text-ink">{/* look `id` up in `data` */}</div>
+        ) : (
+          <div className="text-ink-muted">Looking that up…</div>
+        ),
     },
     [data],
   );
@@ -453,7 +775,11 @@ export function <Id>Tools() {
           // a forced emoji prefix, a highlight ring — not just the word "Done."
           <div className="text-ink">✅ {result}</div>
         ) : (
-          <div className="text-ink-muted">Working on {args?.id}…</div>
+          // `args.id` streams too, so name it only once it is there — "Working on
+          // …" with the id missing is the same absent-value formatting.
+          <div className="text-ink-muted">
+            {args?.id ? `Working on ${args.id}…` : "Working on it…"}
+          </div>
         ),
     },
     [data], // ← deps here too
@@ -492,8 +818,13 @@ is also a correctness measure — free-typed phrasing routes to the wrong tool
 report tool instead of the in-chat chart). Keep the beat map from
 [demo-beats.md](./demo-beats.md) in a comment at the top so the mapping can't rot.
 
-Banking ships 8 pills covering its whole flow; airline/logistics/keel ship 4–5
-and cover it partially — copy banking's coverage, not their count.
+**Derive the count from the beat map, never from a target number.** The arithmetic
+is in [demo-beats.md](./demo-beats.md) § "Presentation requirements" — that is the
+one authority; do not re-derive it here. It lands on eight in `banking` and nine in
+`people` and `commerce`, whose `suggestions.ts` headers write the mapping out —
+read one of those two before writing yours, and check any skin's real count with
+`grep -c 'title:' src/skins/<id>/suggestions.ts`. Airline, logistics and keel ship
+four or five and cover the beats partially: copy the coverage, never the count.
 
 ```ts
 import type { Suggestion } from "@/shell/skin-contract";
@@ -514,6 +845,9 @@ export const <ID>_ATTACHMENT_MESSAGE =
 //   4  memory        → pill 6
 //   5  stored skill  → pill 7
 //   6  teach a skill → pill 8
+//   (canvas)         → pill 9, ONLY if the brief needs its own ask. banking has
+//                      a CanvasSurface and no such pill — its pill 5 files the
+//                      brief as well. people and commerce do add pill 9.
 export const <id>Suggestions: Suggestion[] = [
   // 1 — lead with generative UI, never a wall of text.
   { title: "<show the headline visual>", message: "<...>" },
@@ -604,8 +938,10 @@ export const <id>IdentifyUser: IdentifyRunUser = (properties) => {
 ## `intelligence/seed-memories.ts` — REQUIRED for beats 4 and 5
 
 "It already knows me" is a **file**, not emergent behaviour. Mirror
-`src/skins/banking/intelligence/seed-memories.ts` — the only implementation in
-the repo, and its comments are worth reading in full. Server-safe plain `.ts`.
+`src/skins/banking/intelligence/seed-memories.ts` or
+`src/skins/people/intelligence/seed-memories.ts` (`commerce` ships one too, and
+`bookstore` one that seeds beat 4 only) — and
+both sets of comments are worth reading in full. Server-safe plain `.ts`.
 Called by your `dev/reset` route immediately after wiping memories, so the demo
 is re-armed before the presenter says a word.
 
@@ -632,7 +968,11 @@ export interface SeedMemoriesParams {
   apiUrl: string;
   apiKey: string;
   userId: string;
+  /** Per-request timeout. NOT optional in spirit — see the note below. */
+  timeoutMs?: number;
 }
+
+const DEFAULT_TIMEOUT_MS = 10_000;
 
 interface SeedMemory {
   kind: "topical" | "episodic" | "operational";
@@ -665,14 +1005,18 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
 ];
 
 /**
- * Write the seed memories for one identity; returns how many were stored.
- * Never throws — a booth reset must still report success for the data store even
- * if the memory backend is unhappy, so failures are counted, not propagated.
+ * Write the seed memories for one identity; returns how many were STORED.
+ * Never throws — a booth reset must still restore the data store even if the
+ * memory backend is unhappy, so failures are counted, not propagated.
+ *
+ * ⚠ Because it never throws, a `try`/`catch` in your reset route learns NOTHING
+ * from it. The returned count is the only signal, so the CALLER must compare it
+ * against the expected total — see "⚠ Check the seeded count" below.
  */
 export async function seedMemories(
   params: SeedMemoriesParams,
 ): Promise<number> {
-  const { apiUrl, apiKey, userId } = params;
+  const { apiUrl, apiKey, userId, timeoutMs = DEFAULT_TIMEOUT_MS } = params;
   const base = apiUrl.replace(/\/$/, "");
   let stored = 0;
 
@@ -687,6 +1031,10 @@ export async function seedMemories(
           Accept: "application/json",
         },
         body: JSON.stringify(memory),
+        // BOUND EVERY MEMORY FETCH. A reset sweeps and re-seeds several buckets
+        // serially inside ONE request; one wedged POST with no signal leaves the
+        // presenter's Reset button spinning with no way out.
+        signal: AbortSignal.timeout(timeoutMs),
       });
       if (res.ok) stored += 1;
       else console.error(`[seed-memories] ${userId}: HTTP ${res.status}`);
@@ -705,6 +1053,154 @@ Banking pairs this with `intelligence/forget-memories.ts` so `dev/reset` can wip
 learned memories and then re-seed these — see SKILL.md § "The meta-utility strip"
 and demo-beats.md § "Presentation requirements".
 
+### ⚠ Copy `forget-memories.ts` from COMMERCE, not from banking or people
+
+All three skins have one, but only `src/skins/commerce/intelligence/forget-memories.ts`
+stops the clear from reporting success it has not earned. The banking/people copies
+still do all four of these, and every one of them fails SILENTLY behind an
+`ok: true` reset:
+
+- **They throw on the first non-ok DELETE, including a 404.** A 404 only means the
+  row is already gone — the end state you wanted — yet it abandons the current
+  bucket AND every bucket after it.
+- **They treat one bare `GET /api/memories` as exhaustive.** The list envelope has
+  no cursor and the path rejects query strings, so pagination cannot be probed:
+  verify instead — list → delete → **list again**, and only claim success when a
+  pass comes back with nothing deletable.
+- **They cast the envelope (`as MemoriesListResponse`).** When the shape changes,
+  the failure surfaces as `Cannot read properties of undefined (reading 'filter')`
+  — a message that names no layer at all. Validate and throw with your own prefix.
+- **No `AbortSignal` on any memory fetch.** Same reason as the seed template above.
+
+Return enough for the caller to tell COMPLETE from PARTIAL (commerce returns
+`{ forgot, alreadyGone, skippedProjectScoped, failed[], passes, complete,
+incompleteReason? }`) and make your `dev/reset` route report `ok: false` when the
+sweep says `complete: false`. A reset that says it cleared memory and did not is
+the one bug that makes beats 4–6 prove nothing while looking perfect.
+
+### ⚠ Do NOT hardcode the bucket list in your `dev/reset` route
+
+Your reset forgets and re-seeds a SET of user ids. Write that set down anywhere
+other than `user-id.ts` and it will disagree with what `resolveUserId` actually
+returns — and **every way it can disagree is silent**: the reset returns
+`ok: true` with a plausible `forgot` count, recall reads an empty bucket, and a
+procedure taught in beat 6 survives into the next run.
+
+Two ways it drifts, both of which shipped in commerce before being fixed:
+
+- **A pinned `INTELLIGENCE_USER_ID` wins inside `resolveUserId`**, and
+  `playwright.config.ts` pins it (to banking's `jordan-beamson`). So under e2e
+  your runs read and write BANKING's bucket while your reset scrubs your own
+  `<brand>-*` buckets — beats 4/5 recall nothing and beat 6 starts out taught.
+- **An operator in your roster but absent from your identity map** resolves to a
+  `<brand>-<role>` slug that a hand-written list does not contain.
+
+Have the reset ASK your identity module instead. Commerce is the worked example
+(`src/skins/commerce/intelligence/user-id.ts`): `memoryScopeUserIds()` and
+`memorySeedTargetUserIds()` build their sets by calling `resolveUserId` over every
+identity input the runtime can present (derived from the operator roster in
+`data/seed.ts`), so a pin collapses both onto the pinned bucket automatically.
+Both are FUNCTIONS, not module constants — a constant would freeze whatever the
+env was at import time, which is how the pinned case got missed. Guard it with a
+drift test that asserts the reset's set equals what `resolveUserId` can produce
+INCLUDING the pinned case: `src/skins/commerce/intelligence/user-id.test.ts`.
+
+### ⚠ Check the seeded count in your `dev/reset` route
+
+`seedMemories` above **never throws**: it counts stored rows and logs the rest. So
+a reset route that wraps it in `try`/`catch` and then returns
+`{ ok: true, reset: ["store", "memory"] }` reports success **on a backend that
+rejected every single POST** — `seeded: 0` sits in the body, unread, and the
+presenter walks on stage believing beats 4/5 are armed. This shipped in commerce.
+
+The expected count is KNOWABLE, so compare against it rather than reporting
+whatever happened:
+
+```ts
+const expectedSeeds = seedTargets.length * SEED_MEMORIES.length;
+// "seeded" only when every memory landed in every bucket; otherwise
+// "partial" / "failed" — and NOT `reset: ["store", "memory"]`, because a wipe
+// with no re-seed leaves the demo unarmed.
+```
+
+Return a non-2xx (commerce uses **502** — the upstream memory API is the failing
+dependency) for **both** partial and total shortfalls. The degree belongs in the
+body (`memory`, `seeded`, `expectedSeeds`), not the status line, because the only
+caller — your sidebar Reset button — branches solely on `res.ok`, and a partial
+seed must alert exactly as loudly as a total one: a shortfall does not say WHICH
+memory is missing, and beat 4's preference and beat 5's procedure are independent.
+
+**Keep every Intelligence SECRET out of every response body.** Log them — commerce
+`console.warn`s the backend and the exact bucket ids before mutating anything, so
+a human debugging a reset can see which of this repo's several vendored stacks was
+about to be touched — but do NOT echo them back to the caller. Commerce used to
+return the address as `apiUrl` in every response, success and failure alike, and
+this route is gated only by `PRESENTER_RESET_ENABLED` / `NODE_ENV`: a demo
+convenience, not an authorization boundary, so a booth deployment handed its
+internal backend address to anyone who could reach the box. Nothing consumed it —
+the sidebar button branches on `res.ok` alone.
+
+Dropping the field is only half of it: two body fields carry text your route did
+not compose (an `Error.message` in your `catch`, and the wipe's
+`incompleteReason`, which quotes the backend's own response body — and a 401
+payload is exactly the response that echoes the key it rejected). Scrub those on
+the way out with **`redactSecrets` from `src/lib/redact-secrets.ts`**, which
+derives its needle set FROM THE ENVIRONMENT and takes the text alone:
+
+```ts
+import { redactSecrets } from "@/lib/redact-secrets";
+
+memoryError: redactSecrets(detail),
+forgetShortfalls: forgetShortfalls.map((s) => redactSecrets(s)),
+```
+
+Do NOT write your own, and do NOT reintroduce the shape commerce's first attempt
+had — `redactBackend(text, apiUrl)`, a redactor handed the ONE value to scrub. It
+was correct about the address and silent about the API KEY, which was never passed
+to it, so a 401 body echoing the credential travelled to the caller through a
+field that was being sanitized. It also missed `URL.hostname` (the PORTLESS host,
+which `getaddrinfo ENOTFOUND …` names and which is a substring of neither the raw
+URL nor `URL.host`). A secret the redactor was never handed is a secret it cannot
+remove; add yours to `ENV_SECRETS` in that module instead, and every existing
+caller is covered at once.
+
+The presenter still needs to know memory failed and roughly why — `memory`,
+`memoryError`, the counters — never where the backend lives or what opens it. Each
+placeholder names its secret (`<intelligence-backend>`, `<intelligence-api-key>`),
+so a redacted reason still diagnoses.
+
+**Hold the `catch` path to the same standard**, because it is the one path nobody
+exercises until it fires on stage. Keep every accumulator (`forgot`, `seeded`,
+per-bucket loop counters, wipe shortfalls) declared OUTSIDE the `try` and report
+them, rather than inferring memory state from one number: commerce's catch used to
+answer `reset: forgot > 0 ? ["store","memory"] : ["store"]`, which told the "memory
+is armed" lie whenever the wipe ran and the seed loop did not — and, with
+`forgot === 0` (a bucket that was legitimately EMPTY, i.e. the second reset in a
+row), read as "memory untouched". A throw can never earn `"memory"` in `reset`:
+memory counts as reset only when it was wiped AND fully re-seeded. Count the
+buckets each loop got through, since `forgot`/`seeded` are 0 both when a loop never
+ran and when it ran over empty buckets.
+
+Worked example plus its red-green coverage:
+`src/app/api/commerce/v1/dev/reset/route.ts` and `route.test.ts`.
+
+### ⚠ Make your identity map a `Map`, not a plain object
+
+The same prototype-chain hazard as the `PAGES` table above applies to the
+operator→identity map inside `user-id.ts`, and it bites harder here. Its key is
+`properties.userId`, forwarded by the client and therefore untrusted. With a plain
+object, `operatorId && IDENTITY[operatorId]` resolves TRUTHY for `"toString"`,
+`"constructor"`, `"valueOf"`, `"__proto__"`, … — and `.userId` / `.userName` on the
+inherited member is then `undefined`, so `identifyUser` hands Intelligence an
+`undefined` memory bucket. Silently: writes and recall both go somewhere nobody
+intended, and beats 4/5/6 are exactly the beats that depend on that scope being
+right. `Record<string, …>` does not catch it; the annotation is a lie about a plain
+object. Use `new Map(...)` + `.get()` and cover it with a prototype-chain test:
+`src/skins/commerce/intelligence/user-id.ts` and its `user-id.test.ts`.
+
+Banking and people still carry the older hardcoded-list shape; copy commerce's,
+not theirs.
+
 ## `agent.ts` — SERVER-ONLY (no "use client", no JSX)
 
 Mirror `src/skins/airline/agent.ts` (minimal) or `src/skins/logistics/agent.ts`
@@ -719,7 +1215,10 @@ export const <id>Agent = () =>
     model: "openai/gpt-5.4", // the alias used across this repo
     prompt: <ID>_PROMPT,
     // tools: [...]       // optional server-side agent tools (defineTool)
-    temperature: 0, // banking pins 0 — a demo has to behave the same every run
+    // NO `temperature`: gpt-5.4 is a reasoning model that REJECTS the
+    // parameter — the dev server logs 'The feature "temperature" is not
+    // supported' on every run and discards the value. Get determinism from
+    // the prompt's explicit routing rules instead, not from this option.
   });
 ```
 
@@ -730,19 +1229,20 @@ just doesn't use them the way the demo needs. Banking's prompt is one long strin
 of named clauses (`src/skins/banking/agent.ts`) — copy the clause set, not the
 banking specifics. The clauses that carry beats:
 
-| Clause                        | Beat            | What it must say                                                                                                                                                                                                                                |
-| ----------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CHART / COMPONENT ANSWER RULE | 1               | Render the visual **and** answer in one or two sentences. Never one without the other.                                                                                                                                                          |
-| NEVER WRITE A MARKDOWN TABLE  | 1, presentation | If a gen-UI component exists for that data, route to it instead of emitting a table.                                                                                                                                                            |
-| SCREEN AWARENESS              | 3b              | "The context you are given IS your view of what the user is looking at." Name the current page, summarize the key elements, cite the actual figures, and **never** say you cannot see/inspect/read the screen.                                  |
-| SECRETS                       | 3a              | Never ask for the sensitive value, never repeat it, and don't ask which record first — fire the tool immediately.                                                                                                                               |
-| UPLOADED DOCUMENTS            | 3d              | Read the attachment, and merge its values into the artifact tool's payload (banking passes them through `createReport`'s `additions` array).                                                                                                    |
-| RECALL FIRST                  | 4               | Before answering this class of question, call `recall_memory`, then pass what you recalled into the component **and name the preference you applied**. Speak like a person who remembers.                                                       |
-| SAVED PROCEDURE               | 5               | Recall, then EXECUTE step by step without asking for confirmation. Resolve the named entity to its id from context. State plainly that this is a DIFFERENT procedure from beat 6's — "do not confuse the two, do not offer to record anything." |
-| FINDING IS NOT DOING          | 5               | Locating the record is not handling it. Carry the procedure through.                                                                                                                                                                            |
-| ACTION DISCIPLINE             | 6               | When there is no saved procedure, decline and offer to record — never improvise or bluff a fix.                                                                                                                                                 |
-| TEACH & RECALL                | 6               | The record → save → replay chain, and "save this procedure AT MOST ONCE".                                                                                                                                                                       |
-| PROSE STYLE                   | presentation    | Short answers, **bold** the key figures, no walls of text.                                                                                                                                                                                      |
+| Clause                        | Beat            | What it must say                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CHART / COMPONENT ANSWER RULE | 1               | Render the visual **and** answer in one or two sentences. Never one without the other.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| NEVER WRITE A MARKDOWN TABLE  | 1, presentation | If a gen-UI component exists for that data, route to it instead of emitting a table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| SCREEN AWARENESS              | 3b              | "The context you are given IS your view of what the user is looking at." Name the current page, summarize the key elements, cite the actual figures, and **never** say you cannot see/inspect/read the screen.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| SECRETS                       | 3a              | Never ask for the sensitive value, never repeat it, and don't ask which record first — fire the tool immediately.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| UPLOADED DOCUMENTS            | 3d              | Read the attachment, and merge its values into the artifact tool's payload (banking passes them through `createReport`'s `additions` array).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| RECALL FIRST                  | 4               | Before answering this class of question, call `recall_memory`, then pass what you recalled into the component **and name the preference you applied**. Speak like a person who remembers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| SAVED PROCEDURE               | 5               | Recall, then EXECUTE step by step without asking for confirmation. Resolve the named entity to its id from context. State plainly that this is a DIFFERENT procedure from beat 6's — "do not confuse the two, do not offer to record anything."                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| FINDING IS NOT DOING          | 5               | Locating the record is not handling it. Carry the procedure through.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| SAVED PROCEDURE, EMPTY RECALL | 5               | If recall comes back empty, say plainly that no saved procedure was found and stop there. Do not run the procedure's tools on a guess. Do not offer to learn, record or be told the procedure — that offer belongs to beat 6, and an empty recall in beat 5 is a failure to report, not a cue to teach. Do not reconstruct the missing values from the catalog, the cart or anything on screen; an invented answer that looks right is worse than an honest "not found." `src/skins/bookstore/agent.ts`'s clause-7 empty-recall branch is the worked example — added after a live run where, without it, the model ended its first sentence correctly and then improvised the forbidden teach-offer as its second. |
+| ACTION DISCIPLINE             | 6               | When there is no saved procedure, decline and offer to record — never improvise or bluff a fix.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| TEACH & RECALL                | 6               | The record → save → replay chain, and "save this procedure AT MOST ONCE".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| PROSE STYLE                   | presentation    | Short answers, **bold** the key figures, no walls of text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 Also keep the **tool descriptions** doing routing work: banking puts a shared
 `CHART_ANSWER_RULE` in each chart tool's description and states which question
@@ -780,6 +1280,28 @@ export const <id>Agent = () =>
   });
 ```
 
+**De-duplicate every array selection at the top of your op-builder.** zod arrays
+do not deduplicate, and the spec comes from the MODEL: `kpis:["valueAtRisk",
+"valueAtRisk"]` is an ordinary generation, not an edge case. Because op-builders
+derive each component id from its selection value (`` `kpi-${metric}` ``), a
+repeat emits two components with the SAME id — and a2ui's per-surface
+`componentsModel` is a MAP keyed by id, so the second silently overwrites the
+first (one card renders where two were asked for) while the layout renderer's
+`children.map((id) => <Slot key={id} …>)` trips a React duplicate-key warning.
+Dedupe rather than throw: a repeat has an unambiguous intent, and throwing blanks
+the canvas mid-demo. `[...new Set(...)]` keeps first-occurrence order, so the
+builder's deterministic ordering survives. Then derive the grid's `columns` and
+every `children` array from the DE-DUPED list, not from `spec.*`:
+
+```ts
+const kpis = [...new Set(spec.kpis)];
+const lists = [...new Set(spec.lists ?? [])];
+// …then use `kpis` / `lists` everywhere below, including Math.min(kpis.length, 4).
+```
+
+Worked references with tests: `src/skins/commerce/build-brief-ops.ts` +
+`build-brief-ops.test.ts`, and `src/skins/keel/ops-report.ts` + `ops-report.test.ts`.
+
 ## `skin.tsx` — assembles the contract (NEVER imports agent.ts)
 
 ```tsx
@@ -796,10 +1318,20 @@ import { <ID>_DESIGN_SKILL } from "./design-skill";
 import { use<Id>Data } from "./data/use-data"; // NO-DATA skin: delete this import AND the `useData` field below
 // import { <Id>Providers, <Id>RuntimeProviders, use<Id>RuntimeProperties } from "./providers";
 
-const PAGES: Record<string, ComponentType> = {
-  "": <Id>HomePage,
-  // "reports": <Id>ReportsPage,
-};
+// A `Map`, NOT a plain object — load-bearing for security. `segments` is the URL
+// path after `/<id>`, i.e. untrusted caller input. A plain-object lookup
+// (`PAGES[key]`) walks the prototype chain, so "toString", "constructor",
+// "valueOf", "__proto__", … all resolve TRUTHY and slip past the `?? null` 404
+// guard, handing the shell a `Function` where a `ComponentType` is declared —
+// `/<id>/toString` then 500s instead of 404ing. `Map.get` only sees own entries.
+// `Record<string, ComponentType>` cannot catch this; the annotation is a lie
+// about a plain object. See `src/skins/keel/skin.tsx` and
+// `src/skins/commerce/skin.tsx`, and cover it with a prototype-chain test like
+// `src/skins/commerce/skin.test.tsx`.
+const PAGES: Map<string, ComponentType> = new Map([
+  ["", <Id>HomePage],
+  // ["reports", <Id>ReportsPage],
+]);
 
 const <id>: Skin = {
   id: "<id>",
@@ -807,7 +1339,7 @@ const <id>: Skin = {
   themeClass: "theme-<id>",
   Layout: <Id>Layout,
   nav: [{ segment: "", label: "Home" }],
-  resolvePage: (segments) => PAGES[segments.length === 0 ? "" : segments.join("/")] ?? null,
+  resolvePage: (segments) => PAGES.get(segments.length === 0 ? "" : segments.join("/")) ?? null,
   Tools: <Id>Tools,
   catalog: <id>Catalog,
   suggestions: <id>Suggestions,
@@ -835,14 +1367,71 @@ const <id>: Skin = {
   // real composer textarea + send button. Match on the message CONSTANT shared
   // with suggestions.ts so it can never drift. Ship the paperclip too, so the
   // presenter can stage the file by hand if the pill path misbehaves on stage.
-  // (Worked implementation: banking's `skin.tsx:87-149` + `attach-invoice.ts`.)
+  //
+  // ⚠️ FAIL LOUD, OR DO NOT SHIP THIS BEAT. If any failure lets the prompt go out
+  // anyway, the model invents the document's contents, the artifact is still
+  // filed, and it reads plausibly: the beat proves the exact opposite of its claim
+  // and nobody in the room can tell.
+  //
+  // Reporting loudly is the EASY half. The half that gets skipped is DETECTING
+  // the failure: every step here is a request made of framework code you do not
+  // own, so an unobserved step is an assumption. So:
+  //   - Never send the prompt unless the file is VERIFIED attached — which means
+  //     three separate observations, not one dispatched event:
+  //       (a) the composer ACCEPTED it — a chip appeared in
+  //           `[data-testid="copilot-attachment-queue"]`. `processFiles` drops
+  //           anything failing `accept`/`maxSize` and calls an `onUploadFailed`
+  //           this app never wires, so a rejection is otherwise INVISIBLE.
+  //       (b) it finished base64 ENCODING — the chip prints its filename.
+  //           `consumeAttachments` hands over only `ready` files, and
+  //           `onSubmitInput` refuses to send while anything is `uploading`.
+  //       (c) the send button is in SEND state — the SAME button is the STOP
+  //           button mid-run, and a click then CANCELS the run and sends nothing.
+  //   - Wait on a CONDITION with a bounded budget. Never a fixed `setTimeout`: a
+  //     sleep that races an async encode is the defect, not its duration. An
+  //     expired budget is a failure, not a green light.
+  //   - Confirm the CLICK as well — the attachment leaving the queue is the only
+  //     proof that `consumeAttachments` ran and the sheet rode the message out.
+  //   - Check the BYTES of the document (`%PDF`), not just the status: a route
+  //     that throws can answer 200 with an HTML error page, and forcing
+  //     `type: "application/pdf"` onto the File would smuggle it past `accept`.
+  //   - Locate the composer BEFORE staging, so a rename aborts while the beat is
+  //     still a no-op instead of stranding an attachment you cannot submit.
+  //   - Return a machine-readable CAUSE, not a boolean, and give each cause its
+  //     own sentence: "retry the pill", "press send by hand" and "restart the dev
+  //     server" are different instructions.
+  //   - Give each throwing step its OWN `try`. One file-wide catch blames the
+  //     fetch for a `File`/`DataTransfer` failure and sends the presenter to
+  //     check a healthy network.
+  //   - Check that the textarea write LANDED (`el.value` after setting). Do not
+  //     `setter?.call()` the one failure available away and then dispatch an
+  //     `input` event carrying the stale value.
+  //   - Surface every failure where a presenter will actually see it:
+  //     `console.error` for the log AND `window.alert` for the stage (the same
+  //     pattern the reset button uses in `layout.tsx`).
+  //   - Never `void` these promises. A dropped rejection is the silent failure
+  //     again; route both entry points through one launcher that `.catch`es.
+  // (Worked implementation: commerce's `attach-price-sheet.ts` +
+  // `attach-price-sheet.test.ts`, which red-greens every row above. Banking's
+  // `attach-invoice.ts` and people's `attach-offer-letter.ts` predate the
+  // detection half — copy commerce, not those.)
   // chatHeaderActions: [ // ChatHeaderAction[] — buttons in the shared chat header
-  //   { icon: Paperclip, label: "Attach the <artifact>", onClick: stage<Id>Attachment },
+  //   {
+  //     icon: Paperclip,
+  //     label: "Attach the <artifact>",
+  //     // The paperclip is the FALLBACK, so it must be the loudest link: if it
+  //     // fails quietly too, the presenter has nothing left to try.
+  //     onClick: () => launchBeat3d(attach<Id>ByHand),
+  //   },
   // ],
   // onSuggestionSelect: (suggestion) => {
   //   if (suggestion.message !== <ID>_ATTACHMENT_MESSAGE) return false;
-  //   void send<Id>WithAttachment();
-  //   return true; // fully handled — the shell does nothing further
+  //   // `true` means "the shell must NOT run its default send" — unconditionally
+  //   // right here, because that default path drops the attachment. Claiming the
+  //   // click is only honest if the handler guarantees two outcomes: sent WITH
+  //   // the file, or aborted AND the presenter told why. Never `true` + silence.
+  //   launchBeat3d(send<Id>WithAttachment);
+  //   return true;
   // },
 
   // ── End-user identity (ONLY if your skin scopes Intelligence per user) ──
@@ -858,13 +1447,22 @@ export default <id>;
 
 ## Multi-page `nav` + `resolvePage`
 
+Extra segments are extra `Map` entries — the resolver itself does not change. Keep
+it a `Map`, never a plain object indexed by the key, for the reason spelled out on
+the `PAGES` scaffold above (`segments` is untrusted, so `/<id>/toString` 500s
+instead of 404ing).
+
 ```tsx
+const PAGES: Map<string, ComponentType> = new Map([
+  ["", <Id>HomePage],
+  ["reports", <Id>ReportsPage],
+]);
+
+// …then in the Skin object:
 nav: [
   { segment: "", label: "Home" },
   { segment: "reports", label: "Reports" },
 ],
-resolvePage: (segments) => {
-  const key = segments.length === 0 ? "" : segments.join("/");
-  return { "": <Id>HomePage, reports: <Id>ReportsPage }[key] ?? null; // else → 404
-},
+// a miss → null → 404
+resolvePage: (segments) => PAGES.get(segments.length === 0 ? "" : segments.join("/")) ?? null,
 ```

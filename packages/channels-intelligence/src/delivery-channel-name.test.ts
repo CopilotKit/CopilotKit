@@ -63,7 +63,7 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
     runtimeInstanceId: "rti_channel_name",
     appApiBaseUrl: "https://api.example",
     apiKey: "cpk-runtime",
-    appApiFetch,
+    appApiFetch: appApiFetch as unknown as typeof globalThis.fetch,
     runCanonical,
     loadHistory: async () => [],
   });

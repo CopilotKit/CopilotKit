@@ -92,11 +92,30 @@ const intelligenceEnabled = Boolean(
  */
 function agentIdFromUrl(url: string): string | undefined {
   try {
-    const segments = new URL(url).pathname.split("/").filter(Boolean);
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split("/").filter(Boolean);
     const i = segments.lastIndexOf("agent");
     if (i >= 0 && i + 1 < segments.length) {
       return decodeURIComponent(segments[i + 1]!);
     }
+    // THREAD ROUTES CARRY THE AGENT IN THE QUERY STRING, NOT THE PATH.
+    //
+    // Run/suggest/connect are `/agent/:agentId/...`, but the thread list is
+    // `/threads?agentId=<id>`. Reading only the path meant every thread-list
+    // request looked agentId-LESS and fell through to `defaultSkinId`'s
+    // resolver — i.e. banking's — so a non-default skin listed threads under
+    // banking's end-user id and got an empty array back. Its runs, which DO go
+    // through `/agent/:id/run`, resolved correctly, so threads were created
+    // under one identity and listed under another.
+    //
+    // The symptom is nasty precisely because nothing errors: the thread rail
+    // just says "No conversations yet" forever and a browser reload never
+    // restores the conversation, which reads as "this product doesn't persist
+    // threads" — the exact opposite of what the demo is trying to prove.
+    // Banking was immune only because it IS `defaultSkinId`; airline,
+    // logistics, keel and people were all affected.
+    const fromQuery = parsed.searchParams.get("agentId");
+    if (fromQuery) return fromQuery;
   } catch {
     // Malformed URL — treat as "no agentId" and fall back.
   }

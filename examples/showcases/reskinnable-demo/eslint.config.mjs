@@ -21,8 +21,36 @@ import nextTypescript from "eslint-config-next/typescript";
  * scanner kept producing). It also cannot be fooled by a `$` in a variable name.
  */
 
-// Route id segments. Keep in sync with `src/shell/skins-config.ts` `skinIds`.
-const SKIN_IDS = "banking|airline|logistics|keel";
+/**
+ * Route id segments the selectors below guard.
+ *
+ * WHY A HAND-COPY OF `skinIds` AND NOT AN IMPORT. The source of truth is
+ * `skinIds` in `src/shell/skins-config.ts`, but this file cannot import it: an
+ * ESLint flat config is loaded by Node, `skins-config.ts` is TypeScript, and
+ * teaching ESLint to load a `.ts` config needs `jiti`, which this app does not
+ * depend on. Re-exporting the ids through a plain `.mjs` module instead would
+ * cost `skinIds` its `as const` tuple type — which `skinIdentities` relies on to
+ * stay exhaustive — so the copy is the cheapest correct option.
+ *
+ * WHY IT IS EXPORTED. A hand-copied list rots SILENTLY: this literal read
+ * `banking|airline|logistics|keel` for two skins after `people` and `commerce`
+ * shipped, so a hardcoded `"/commerce/orders"` href passed `pnpm lint` cleanly
+ * while breaking the address bar on a locked deploy. Nothing failed. The export
+ * exists so `src/shell/skins-config.test.ts` can lint a synthetic prefixed link
+ * for EVERY registered skin through these very selectors and fail when one is
+ * unguarded. ESLint reads only the default export; this named one is inert to it.
+ */
+export const LINTED_SKIN_IDS = [
+  "banking",
+  "airline",
+  "logistics",
+  "keel",
+  "people",
+  "commerce",
+  "bookstore",
+];
+
+const SKIN_IDS = LINTED_SKIN_IDS.join("|");
 
 const FIX_HINT =
   "Build the link through useSkinHref(skin.id) — or the skin's own helper, e.g. " +

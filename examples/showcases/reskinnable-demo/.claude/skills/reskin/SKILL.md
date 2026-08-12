@@ -8,7 +8,7 @@ description: >-
   the user says "add a skin", "create a skin", "new skin", "reskin the app",
   "make a <domain> skin", or wants the app re-themed as a new product. Do NOT
   use for editing the shell itself (src/shell/**), the shared token vocabulary
-  (src/app/globals.css), or the four shipped skins unless explicitly asked.
+  (src/app/globals.css), or the shipped skins unless explicitly asked.
 ---
 
 # Authoring a reskinnable-demo skin
@@ -26,13 +26,18 @@ contract in `src/skins/<id>/`, (3) put its **server-only** agent in
 the identical `id`.
 
 > Before writing anything, re-open `src/shell/skin-contract.ts` (the source of
-> truth) and read the shipped skins as worked references. Four are registered —
-> `banking`, `airline`, `logistics`, `keel` — and they are good at different
-> things; **[demo-beats.md](./demo-beats.md) § "Which skin to copy for what"**
-> is the routing table. The short version: `banking` is the maximal end and the
-> only demo-complete skin, `logistics` is the debugged layout reference,
-> `airline` is the minimal contract surface, `keel` is the only one with
-> parameterized routes. Those files win on any conflict with this skill.
+> truth) and read the shipped skins as worked references. The registered set is
+> `banking`, `airline`, `logistics`, `keel`, `people`, `commerce`, `bookstore` —
+> and they are good at different things; **[demo-beats.md](./demo-beats.md) §
+> "Which skin to copy for what"** is the routing table. The short version:
+> `banking`, `people` and `commerce` are the three demo-complete skins (`banking`
+> is the original reference; `people` and `commerce` are the newer ones),
+> `bookstore` is the customer-facing one and hits every beat except the three it
+> deliberately skips, `logistics` is the debugged layout reference, `airline` is
+> the minimal contract surface, `keel` has the fullest parameterized routing.
+> `people`, `commerce` and `bookstore` are the skins whose beat maps are written
+> out in their `suggestions.ts` — copy that habit. Those files win on any conflict
+> with this skill.
 
 ---
 
@@ -65,6 +70,17 @@ chat-placement framing) and the quality bar.
 **If the user named the beats** — fewer, more, or different — theirs win. Record
 what they asked for in the beat map and build that. Absent instructions, build
 all nine.
+
+**Then read [failure-modes.md](./failure-modes.md), before you write tools or
+pages.** It is the cross-cutting half of this skill, and its through-line is the
+one thing to carry into every file: **a skin's characteristic bug is not a crash —
+it is a confident falsehood.** A crash is visible on stage and gets fixed; a
+convincing lie reads as success and proves nothing. An empty chart drawn with
+confidence, a lever chip naming a choice the agent never made, a receipt for a
+write that did not land, a readable reporting an all-clear it never checked — all
+of those compile, lint, pass tests, and land as a successful demo. That file states
+the principles and points at the shipped `commerce` code for each; the per-file
+scaffolds stay in [templates.md](./templates.md).
 
 ⚠️ Beats **2, 4, 5 and 6 are runtime-conditional**: they need all three
 `INTELLIGENCE_*` env vars, and beats 4/5 additionally need a seeded-memory file
@@ -115,6 +131,26 @@ it). A skin does **not** supply an OGUI renderer — it only contributes
 a2ui _report_ surface is different: a skin renders its own via the optional
 `CanvasSurface`.)
 
+**A `sandboxFunction`'s `parameters` schema is DOCUMENTATION, not a gate — and its
+returns are undocumented unless the `description` says so.** Two traps, both of
+which produce a generated panel that renders and is wrong:
+
+- The provider serializes `parameters` into agent context and the renderer then
+  hands your bare `handler` to the iframe (`api[fn.name] = fn.handler`). Nothing
+  validates the arguments, so a loose parameter (`category: z.string()`) filters
+  on a value nothing matches and returns `[]` — a convincingly blank view, with
+  the model never told it guessed wrong. Enumerate every parameter to its real
+  domain (`z.enum(YOUR_CONST_TUPLE)`, so the vocabulary reaches the model too) and
+  parse the args in the handler, throwing a message that names the accepted
+  values. Commerce's `define()` wrapper in `src/skins/commerce/sandbox-functions.ts`
+  is the worked example.
+- The model never sees a sample result — only `name`, `description` and the
+  JSON-schema-ified `parameters`. So a figure whose unit is not in its FIELD NAME
+  must have it in the `description`: an unlabelled ratio (`0.418`) renders as
+  "0.42%" or "41.8%" with equal confidence. Commerce ships ratios as
+  `…Ratio` + a `…Label` string built with the app's own formatter, which also makes
+  the generated panel read identically to the app card beside it.
+
 **An a2ui `CanvasSurface` must be fed by a SERVER tool, never a client one.** If
 your skin ships a `CanvasSurface`, emit its `{ [A2UI_OPERATIONS_KEY]:
 buildOps(spec) }` payload from a **server-side `defineTool` on the `BuiltInAgent`
@@ -160,17 +196,17 @@ against that file; it wins.
 
 **Optional:**
 
-| Field                   | Type                                                 | Purpose                                                                                                                                                                                                                                                                                                    |
-| ----------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Providers?`            | `ComponentType<{ children: ReactNode }>`             | Skin-specific provider stack mounted **below** `CopilotKitProvider` (escape hatch). Omit → shell substitutes a pass-through.                                                                                                                                                                               |
-| `CanvasSurface?`        | `ComponentType`                                      | Renders the skin's own a2ui report surface full-region on the shared canvas. Omit if no a2ui report canvas.                                                                                                                                                                                                |
-| `sandboxFunctions?`     | `SandboxFunction[]`                                  | Functions exposed inside OGUI sandboxed iframes for this skin.                                                                                                                                                                                                                                             |
-| `toolLabels?`           | `Record<string, string>`                             | Human labels for this skin's OWN tool-activity chips, keyed by tool name. Unlisted tools fall back to a prettified raw name.                                                                                                                                                                               |
-| `chatHeaderActions?`    | `ChatHeaderAction[]`                                 | Buttons this skin contributes to the shared chat header (drawn before the shell's own controls).                                                                                                                                                                                                           |
-| `onSuggestionSelect?`   | `(suggestion: Suggestion, index: number) => boolean` | Intercept a suggestion click. Return `true` if fully handled (shell does nothing further); return `false`/omit for the default "send the message" path.                                                                                                                                                    |
-| `RuntimeProviders?`     | `ComponentType<{ children: ReactNode }>`             | Provider stack mounted **above** `CopilotKitProvider` (unlike `Providers`, below). The sanctioned place to establish context your `useRuntimeProperties` must read — it has to sit above the provider so the provider owns `properties` from its first commit. See "Contributing end-user identity" below. |
-| `useRuntimeProperties?` | `() => Record<string, unknown> \| undefined`         | Contributes this skin's runtime `properties`; the shell threads the result into `CopilotKitProvider`'s `properties` prop. How a skin scopes its Intelligence runs / durable memory per end-user. Return a stable/memoized object. Omit if the skin contributes no runtime identity.                        |
-| `useData?`              | `() => unknown`                                      | Seed-backed data hook; the shell runs it in `SkinProvider`, components read via `useSkinData<T>()`. **Optional** — omit when the skin has no shell-managed data (banking omits it and reads REST + auth directly; then `useSkinData<T>()` returns `undefined`). Airline supplies a real one.               |
+| Field                   | Type                                                 | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Providers?`            | `ComponentType<{ children: ReactNode }>`             | Skin-specific provider stack mounted **below** `CopilotKitProvider` (escape hatch). Omit → shell substitutes a pass-through.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `CanvasSurface?`        | `ComponentType`                                      | Renders the skin's own a2ui report surface full-region on the shared canvas. Omit if no a2ui report canvas.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `sandboxFunctions?`     | `SandboxFunction[]`                                  | Functions exposed inside OGUI sandboxed iframes for this skin.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `toolLabels?`           | `Record<string, string>`                             | Human labels for this skin's OWN tool-activity chips, keyed by tool name. Unlisted tools fall back to a prettified raw name.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `chatHeaderActions?`    | `ChatHeaderAction[]`                                 | Buttons this skin contributes to the shared chat header (drawn before the shell's own controls).                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `onSuggestionSelect?`   | `(suggestion: Suggestion, index: number) => boolean` | Intercept a suggestion click. Return `true` if fully handled (shell does nothing further); return `false`/omit for the default "send the message" path. `true` is a PROMISE that something happened — the handler it launches must either do the thing or tell the presenter why it could not (see beat 3d in demo-beats.md); `true` plus silence is the bug this contract keeps producing.                                                                                                                                                     |
+| `RuntimeProviders?`     | `ComponentType<{ children: ReactNode }>`             | Provider stack mounted **above** `CopilotKitProvider` (unlike `Providers`, below). The sanctioned place to establish context your `useRuntimeProperties` must read — it has to sit above the provider so the provider owns `properties` from its first commit. See "Contributing end-user identity" below.                                                                                                                                                                                                                                      |
+| `useRuntimeProperties?` | `() => Record<string, unknown> \| undefined`         | Contributes this skin's runtime `properties`; the shell threads the result into `CopilotKitProvider`'s `properties` prop. How a skin scopes its Intelligence runs / durable memory per end-user. Return a stable/memoized object. Omit if the skin contributes no runtime identity.                                                                                                                                                                                                                                                             |
+| `useData?`              | `() => unknown`                                      | Seed-backed data hook; the shell runs it in `SkinProvider`, components read via `useSkinData<T>()`. **The standard mechanism for the three in-memory skins, deliberately unused by the four REST-backed ones** — it splits along the substrate line: `airline` (`useAirlineData`), `keel` (`useKeelData`) and `bookstore` (`useBookstoreData`) each supply a real one; banking, logistics, people and commerce all omit it and read their REST ledger through their own context/hooks, so in those four `useSkinData<T>()` returns `undefined`. |
 
 Supporting types (also in the contract):
 
@@ -231,9 +267,10 @@ overflow-hidden` on the root, plus `h-full` on the `<aside>`, so only `<main>`
 (`src/shell/skin-path.ts`), and every "which nav entry is active" derivation
 through its companion `useSkinSegments`. Both are in the layout template.
 
-Skins live under `/[skin]` on the normal four-skin demo, but a `LOCK_SKIN` deploy
-is served **at `/`** with the segment gone from the URL space entirely —
-`src/proxy.ts` rewrites the prefix-free space onto the route tree. So:
+Skins live under `/[skin]` on the normal demo (one segment per registered skin),
+but a `LOCK_SKIN` deploy is served **at `/`** with the segment gone from the URL
+space entirely — `src/proxy.ts` rewrites the prefix-free space onto the route
+tree. So:
 
 - `skinHref("cards")` → `/banking/cards` unlocked, `/cards` locked.
 - A hardcoded `` `/${skin.id}/cards` `` still RESOLVES under a lock, which is why
@@ -283,8 +320,21 @@ sidebar). Three controls:
 
 - **Reset** (`RotateCcw`) — render it only when `usePresenterReset()` (from
   `@/shell/presenter-reset-context`) is true; on click, `window.confirm` then
-  `POST /api/<id>/v1/dev/reset` then `window.location.assign(`/${skin.id}`)` for a
-  pristine slate. Keep the button and the endpoint in agreement: your skin's own
+  `POST /api/<id>/v1/dev/reset` then `window.location.assign(skinHref())` for a
+  pristine slate. **Branch on what the route says about the STORE, not on
+  `res.ok`** — the route wipes the store first and can still answer non-2xx, so an
+  ok-only branch leaves the page (and the readables describing it) asserting rows
+  that are gone, and throws away the body's `memoryError` sentence, which is the
+  only warning that beat 6 may start out already taught. See the scaffold in
+  templates.md and `runPresenterReset` in `src/skins/commerce/layout.tsx`.
+  This one deliberately IS a full document load rather than a
+  `router.push` — dropping every module reload-fresh is the point (new store, new
+  thread, cleared canvas) — but the URL it navigates to is still built by
+  `useSkinHref`, exactly as in the layout template. Do **not** hand-roll it as
+  `` `/${skin.id}` ``: that is shape (iii) from the URL contract above, so it fails
+  `pnpm lint`, and on a locked deploy it re-introduces the tenant segment the
+  reset is supposed to leave behind (`skinHref()` returns `/` there). Keep the
+  button and the endpoint in agreement: your skin's own
   `dev/reset` route should allow the reset when `presenterResetEnabled() ||
 process.env.NODE_ENV !== "production"` (mirror
   `src/app/api/logistics/v1/dev/reset/route.ts`), or a production booth shows a
@@ -301,7 +351,7 @@ process.env.NODE_ENV !== "production"` (mirror
 
 ## Registering tools: deps, render signatures, replay safety, readables
 
-Four rules that the `tools.tsx` template bakes in; miss any and the failure is
+Five rules that the `tools.tsx` template bakes in; miss any and the failure is
 silent.
 
 - **Every `useComponent` / `useFrontendTool` / `useHumanInTheLoop` registration
@@ -316,7 +366,23 @@ silent.
   while the component renders its "not found" branch over stale data. Banking
   documents the same trap in a code comment (search "closure captures empty
   arrays" in `src/skins/banking/tools.tsx`); logistics passes deps on every
-  registration.
+  registration. But a **non-empty** deps array is not automatically safe:
+  `useFrontendTool` keys its registration effect on `JSON.stringify(extraDeps)`
+  (`use-frontend-tool.tsx:45`), so only deps that actually **serialize** —
+  strings, numbers, plain objects — vary that key. A `Map`, a `Set` or a
+  function stringifies to a constant regardless of its contents
+  (`JSON.stringify([new Map(), () => {}])` is the fixed string `"[{},null]"`),
+  so a deps array built from one is as INERT as an empty one: the tool
+  registers once and its closure is stuck on whatever those values were at that
+  first commit. Data reached through a Map, a Set or a stable callback belongs
+  in a ref, read as `ref.current` inside the handler/render, not in the deps
+  array. `src/skins/bookstore/tools.tsx`'s `openBook` is the worked ref-pattern
+  example for a non-write tool (its `[]`-deps comment spells out why
+  `[router, data.books, skinHref]` would never re-register); banking's
+  `cardsRef` comment (`src/skins/banking/tools.tsx:130-136`, above
+  `setCardPin`) is the original write-case version, and warns about the
+  opposite trap too — a serializable `[cards]` dep there would tear the tool
+  down and rebuild it mid-write.
 - **A parameterized `useComponent` render receives the schema output DIRECTLY** —
   `render: ({ myParam }) => …`, NOT wrapped in `{ args }`. Per the installed
   types, `InferRenderProps<T> = T extends StandardSchemaV1 ? InferSchemaOutput<T>
@@ -324,6 +390,53 @@ silent.
   contrast `useHumanInTheLoop` and `useFrontendTool` renders DO receive `{ args,
 status, respond }`. Airline has no parameterized `useComponent`, so don't learn
   the render shape from it — see the template and logistics' `showShipment`.
+- **A gen-UI render's `parameters` schema is NOT enforced either, and a render-only
+  tool has no way to report a bad argument back.** Same trap as a
+  `sandboxFunction`'s schema (above), one degree worse. A `useComponent` render is
+  handed `partialJSONParse(toolCall.function.arguments)` verbatim
+  (`use-render-tool-call.tsx` in `@copilotkit/react-core`); the schema is only
+  serialized into the tool definition the model reads. And because a
+  render-only tool has no `handler`, core posts an EMPTY tool result
+  (`executeSpecificTool` in `run-handler.ts`), so there is no string to correct the
+  model with — the sandbox's "throw a message naming the accepted values" escape
+  hatch does not exist here. So do BOTH: enumerate the parameter to its real
+  domain (`z.enum(YOUR_CONST_TUPLE)`, which is what puts the vocabulary in front of
+  the model), AND resolve it explicitly in the render, drawing a plain "there is no
+  such X, the real ones are …" card instead of the visual. Commerce's
+  `showMarginLadder` + `src/skins/commerce/category-argument.ts` is the worked
+  example: a `z.string()` category meant "Shoes" for "Footwear" drew the signature
+  five-rail ladder with ZERO dots on it — an empty view that renders confidently is
+  the worst outcome available, because it looks like an answer. Note the third
+  state that module carries: arguments STREAM, so a value that is still a PREFIX of
+  a real member is "not arrived yet", not a refusal — refuse it and you flash a red
+  card on every call the demo makes.
+- **EVERY argument is `undefined` mid-render, including the ones your schema
+  declares REQUIRED.** The point above is about a value that arrived and was
+  wrong; this one is about a value that has not arrived at all. A render runs from
+  the first frame of its tool call, and `partialJSONParse` returns `{}` for those
+  frames, so `.optional()` is not what makes a field absent and a required field
+  is not what makes it present. Two different bugs come out of that and one guard
+  fixes only one of them:
+  - it **THROWS**: `orderIds.map(…)` / `list.length` / `id.replace(…)` on an
+    argument that is still `undefined` is a TypeError **inside React render**.
+    Guard the shape — banking's `showTable` is the reference (`columns ?? []`,
+    `rows ?? []`, `src/skins/banking/tools.tsx:793-794`) — and remember the
+    CONTENTS too: a half-streamed `["` parses to `[""]`.
+  - it **LIES**: formatting an absent value into a confident label asserts a
+    choice nobody made. `showOrderQueue`'s Sort chip printed "Sort · oldest first"
+    over an unset lever (see `src/skins/commerce/order-queue-levers.ts`);
+    `showProduct` flashed a red "nothing matches ''" before its needle arrived;
+    `showMarginSummary` drew beat 4's rose "why" band as an empty coloured bar
+    while the note streamed. The fix is never a default — it is to render only
+    what is known.
+
+  And do not over-guard into silence: a card that returns nothing while arguments
+  stream is worse television than a placeholder, because beat 1 leads with
+  generative UI and the room is watching it appear. Commerce's `ArrivingCard` +
+  `arrivedText` in `src/skins/commerce/tools.tsx` are the worked example —
+  one muted card that names only what has arrived, and the confident branch
+  (a miss, a receipt, a label) reserved for arguments that actually landed.
+
 - **Renders must be REPLAY-SAFE: key them off the tool `result`, NOT off
   `status`.** Reopening a thread (or reloading the browser in Intelligence mode)
   replays recorded tool calls, so you get the stored **result** and no live status
@@ -331,7 +444,9 @@ status, respond }`. Airline has no parameterized `useComponent`, so don't learn
   renders blank or wrong the moment anyone revisits the thread — which is exactly
   when beat 2 ("reload and the chart is still there") is being shown. Re-derive
   display state from the replayed result, and never depend on client state that
-  only existed during the live call. Banking is the only skin written this way:
+  only existed during the live call. Banking, people, commerce and bookstore are
+  the skins
+  written this way; banking's is the canonical example:
   `setCardPin` re-derives its card from the replayed result plus a module map
   holding only `brand`/`last4` — never the PIN (`tools.tsx:70-89`, `418-451`) —
   and `showCharges` keys off `result` not `status` (`tools.tsx:553-572`).
@@ -341,11 +456,15 @@ status, respond }`. Airline has no parameterized `useComponent`, so don't learn
   each _page_ component tell it what is visibly on screen (active filters, the
   rows actually rendered, the figures shown). Without both, "what's on my
   screen?" (beat 3b) returns the same answer on every page and the beat dies.
-  Banking is the only skin that does this — route readable at
+  Banking, people, commerce and bookstore are the skins that do this. Banking:
+  route readable at
   `layout.tsx:141-143`, page-scoped readables in `dashboard.tsx:148`,
-  `cards.tsx:376`, `team.tsx:54`, and the richest in `charges.tsx:139`. Pair them
-  with a prompt clause telling the agent its context IS its view of the screen
-  and that it must never claim it cannot see (`agent.ts:61-71`).
+  `cards.tsx:376`, `team.tsx:54`, and the richest in `charges.tsx:139`. People
+  does the same across all four of its pages, and is the tighter read if you want
+  one worked example — the route readable maps the index segment to a real page
+  NAME (`layout.tsx`'s `ROUTE_READABLE_NAME`) rather than reporting `""`. Pair
+  them either way with a prompt clause telling the agent its context IS its view
+  of the screen and that it must never claim it cannot see (`agent.ts:61-71`).
 
 ---
 
@@ -420,22 +539,30 @@ Optional slots you may omit — airline omits all of these EXCEPT `toolLabels` a
 `canvas-surface.tsx` (→ `CanvasSurface`), `sandboxFunctions`,
 `chatHeaderActions`, `onSuggestionSelect`.
 
-`useData` / `data/` is where the substrates split, and it is a 2-2 split rather
-than a banking-vs-airline one: **banking and logistics** are REST-backed and OMIT
-`useData` (their components read the ledger directly, so `useSkinData<T>()`
-returns `undefined`); **airline and keel** are in-memory and SET it
-(`useAirlineData`, `useKeelData`).
+`useData` / `data/` is where the substrates split, and the split runs down the
+middle of the roster rather than being a banking-vs-airline one: **banking,
+logistics, people and commerce** are REST-backed and OMIT `useData` (their
+components read the ledger directly, so `useSkinData<T>()` returns `undefined`);
+**airline, keel and bookstore** are in-memory and SET it (`useAirlineData`,
+`useKeelData`, `useBookstoreData` — bookstore's additionally mirrors the mutable
+half to `localStorage`, so its cart survives beat 2's hard reload).
 
 Airline DOES set `toolLabels` (a 9-entry map) so its tool-activity chips read as
 human phrases ("Pulling up your flight") instead of raw tool names (`showFlight`)
 — treat `toolLabels` as expected for any skin with named frontend tools, not
 optional in practice. `RuntimeProviders`/`useRuntimeProperties`/`identifyUser`
 are for a skin with its own end-user identity (see the identity section above);
-banking, logistics and keel all three ship them, airline none.
+banking, logistics, keel, people, commerce and bookstore all ship them, airline
+none.
 
 `intelligence/seed-memories.ts` is **not** optional if you are building beats 4
-and 5 — "it already knows me" is a seeded file, not emergent behaviour, and only
-banking has one. It seeds the topical preference (beat 4) and the operational
+and 5 — "it already knows me" is a seeded file, not emergent behaviour, so every
+demo-complete skin ships one (`banking`, `commerce` and `people`, each alongside a
+sibling `forget-memories.ts` its `dev/reset` route calls first — and `bookstore`
+ships the same pair for beat 4 alone, seeding a taste preference and no
+procedure); a skin claiming those beats without one is claiming behaviour it does
+not have. It seeds the
+topical preference (beat 4) and the operational
 procedure (beat 5), and deliberately does NOT seed beat 6's procedure — that is
 the one the agent has to learn on stage. See
 **[demo-beats.md](./demo-beats.md) § "Seeding memories"**.
@@ -473,9 +600,11 @@ Run `pnpm build` after wiring things up — `next build` type-checks the whole a
 
 ---
 
-## Registration (the only shared-file touch)
+## Registration (four shared-file touches)
 
-Two appends, both keyed by the identical `id`.
+Five appends. The first two are keyed by the identical `id`; the third teaches the
+lint guard that your id exists; the last two are the hand-copied config in
+`src/shell/skins-config.ts` that server components read. All five are REQUIRED.
 
 **1. Client skin** — `src/shell/registry.ts`:
 
@@ -517,7 +646,79 @@ export const agentRegistry: Record<string, AgentRegistration> = {
 (`AgentRegistration` and the `IdentifyRunUser` type are declared in
 `agent-registry.ts` itself — import the type from there for your resolver.)
 
-**3. (Optional) default skin** — set `defaultSkinId` in
+⚠️ **This is the one append with NO automated guard.** No test imports
+`agent-registry.ts` (`grep -rln agentRegistry src --include='*.test.*'` is empty),
+and its `Record<string, AgentRegistration>` type accepts a missing key, so
+forgetting it builds, lints and renders — the only symptom is Verification step 5:
+sending a chat message errors with an unknown agent. Appends 3–5 below are all
+compared against `registry.ts` by `skins-config.test.ts`; this one is on you.
+
+**3. Lint guard id list** — append your id to `LINTED_SKIN_IDS` in
+`eslint.config.mjs`. This is REQUIRED, not optional: that array is what the
+URL-contract selectors interpolate into their regexes, so until your id is in it
+`pnpm lint` is BLIND to your skin and a hardcoded `"/support/tickets"` href passes
+clean while breaking the address bar under a lock. It is a hand-copy of `skinIds`
+because an ESLint flat config is loaded by Node and cannot import a `.ts` module.
+
+```ts
+export const LINTED_SKIN_IDS = [
+  "banking",
+  "airline",
+  "logistics",
+  "keel",
+  "people",
+  "commerce",
+  "bookstore",
+  "support", // ← add
+];
+```
+
+Forgetting this fails `pnpm test:unit` — `src/shell/skins-config.test.ts` lints a
+synthetic prefixed link for every registered skin through the real selectors, so an
+unguarded id is RED rather than silent. (That test exists because this list DID rot:
+it named four skins for two releases after `people` and `commerce` shipped.)
+
+**4. LOCK_SKIN id list** — append your id to `skinIds` in
+`src/shell/skins-config.ts`, in registry order. That module stays import-free so
+server components can read it, which forces the list to be a hand-copy of the
+registry's keys — and it is the set the `LOCK_SKIN` validator accepts, so until
+your id is in it `LOCK_SKIN=<id>` throws at boot and `/` cannot serve your skin:
+
+```ts
+export const skinIds = [
+  "banking",
+  "airline",
+  "logistics",
+  "keel",
+  "people",
+  "commerce",
+  "bookstore",
+  "support", // ← add
+] as const;
+```
+
+**5. Locked-deploy metadata** — add an entry to `skinIdentities`, in the same
+file, copying your `identity.brand` and `identity.tagline` VERBATIM. The root
+layout's `generateMetadata` (`src/app/layout.tsx`) is a server component and
+reads this map — not your skin module — to give a locked deploy the brand as its
+`<title>` and the tagline as its `<meta name="description">`:
+
+```ts
+export const skinIdentities: Record<
+  (typeof skinIds)[number],
+  { brand: string; tagline: string }
+> = {
+  // …existing skins…
+  support: { brand: "Support Desk", tagline: "Every ticket, answered." }, // ← add
+};
+```
+
+Neither of those two can be forgotten quietly. A missing `skinIdentities` entry is
+a `pnpm build` type error, because the `Record` key type is derived from `skinIds`;
+a WRONG brand or tagline, or an id missing from `skinIds`, is caught by
+`skins-config.test.ts`, which compares both against the registry.
+
+**6. (Optional) default skin** — set `defaultSkinId` in
 `src/shell/skins-config.ts` if the `/` redirect should land on your new skin:
 
 ```ts
@@ -545,8 +746,15 @@ Do NOT touch anything else in the shell.
    `no-restricted-syntax` skin-prefix selectors in `eslint.config.mjs`, which fail
    and NAME YOUR FILE if any link in your skin hardcodes its route prefix or
    hand-concatenates onto a builder result (a leading `//`). It is the cheap check
-   for the contract above; step 8 is the real one. (`pnpm test:unit` should also be
-   green — it just no longer carries this particular guard, which moved to lint.)
+   for the contract above; step 8 is the real one. **This only works if your id is
+   in `LINTED_SKIN_IDS`** (registration step 3) — otherwise lint is green because it
+   is not looking. `pnpm test:unit` must also be green; `skins-config.test.ts` is
+   what catches an id missing from that list, and `skin-roster-docs.test.ts` what
+   catches prose left behind — a skin count or a "valid ids" list in CLAUDE.md,
+   README.md, `.env.example` or this skill that predates your skin.
+   While authoring, filter to one file with `pnpm test:unit <path>`. Passing the
+   path after a bare `--` is silently swallowed and runs the entire suite, which
+   destroys the red-green signal you need while writing a new skin's tests.
 8. **Run your skin locked**: stop the dev server, then
    `LOCK_SKIN=<id> pnpm dev`, and open **`/`** (not `/<id>`). Your skin must
    render at the root, every nav href in the DOM must be prefix-free, and

@@ -25,6 +25,8 @@ type JoinMode =
 interface FakeControl {
   /** When set true, `give-up-then-recover` starts replying `ok` to rejoins. */
   recover: boolean;
+  /** Make the next transport instance fail with `error` and no `close`. */
+  failNextConnectWithErrorOnly: boolean;
 }
 
 function makeFakeWebSocket(
@@ -43,7 +45,10 @@ function makeFakeWebSocket(
     | ((joinCount: number) => Record<string, unknown>),
 ) {
   const instances: FakeWebSocket[] = [];
-  const control: FakeControl = { recover: false };
+  const control: FakeControl = {
+    recover: false,
+    failNextConnectWithErrorOnly: false,
+  };
   // Shared across the reconnect-spawned instances so `ok-then-silent` /
   // `give-up-then-recover` can tell the initial join from a later rejoin.
   let joinCount = 0;
@@ -80,8 +85,15 @@ function makeFakeWebSocket(
 
     constructor(public readonly url: string) {
       instances.push(this);
+      const failWithErrorOnly = control.failNextConnectWithErrorOnly;
+      control.failNextConnectWithErrorOnly = false;
       queueMicrotask(() => {
-        this.readyState = 1;
+        if (failWithErrorOnly) {
+          this.readyState = FakeWebSocket.CLOSED;
+          this.onerror?.(transportErrorEvent("undici"));
+          return;
+        }
+        this.readyState = FakeWebSocket.OPEN;
         this.onopen?.();
       });
     }
@@ -549,6 +561,67 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
     // the rejoin re-fires the join-push "ok" hook, restoring online.
     await waitUntil(() => states.includes("online"));
     expect(states[states.length - 1]).toBe("online");
+
+    session.disconnect();
+  });
+
+  it("recovers when a reconnect attempt emits error without close", async () => {
+    const { FakeWebSocket, instances, control } = makeFakeWebSocket("ok");
+    const { fetchImpl } = makeRespondingFetch(502);
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+      diagnosticFetch: fetchImpl,
+    });
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((state) => states.push(state));
+
+    control.failNextConnectWithErrorOnly = true;
+    instances[0]!.serverClose(1006);
+
+    await waitUntil(
+      () => instances.length === 3 && states[states.length - 1] === "online",
+    );
+    expect(states).toContain("reconnecting");
+    expect(instances).toHaveLength(3);
+    expect(states[states.length - 1]).toBe("online");
+
+    session.disconnect();
+  });
+
+  it("does not force another reconnect when error is followed by close", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const { fetchImpl } = makeRespondingFetch(502);
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+      diagnosticFetch: fetchImpl,
+    });
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((state) => states.push(state));
+
+    instances[0]!.onerror?.(transportErrorEvent("undici"));
+    instances[0]!.serverClose(1006);
+
+    await waitUntil(
+      () => instances.length === 2 && states[states.length - 1] === "online",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(instances).toHaveLength(2);
 
     session.disconnect();
   });
@@ -1310,7 +1383,7 @@ describe("connection-health detail (OSS-670)", () => {
       // A gateway mid-rolling-restart: reachable, answering 503. Telling an
       // operator to rotate a working API key here is worse than saying nothing.
       diagnosticFetch: (async () =>
-        new Response("", { status: 503 })) as typeof fetch,
+        new Response("", { status: 503 })) as unknown as typeof fetch,
     });
 
     const seen: { reason?: string }[] = [];
@@ -1343,7 +1416,7 @@ describe("connection-health detail (OSS-670)", () => {
       // The host is up and answers HTTP; only the WS upgrade is refused — the
       // signature of a rejected project API key.
       diagnosticFetch: (async () =>
-        new Response("", { status: 403 })) as typeof fetch,
+        new Response("", { status: 403 })) as unknown as typeof fetch,
     });
 
     const seen: {
