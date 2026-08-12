@@ -1964,6 +1964,37 @@ describe("ProxiedCopilotRuntimeAgent (intelligence mode)", () => {
       expect(joinHeaders(1)).toMatchObject({ "X-Tenant": "tenant-b" });
     });
 
+    // The report names both endpoints. `/run` reaches the delegate through
+    // `#runViaDelegate`, which shares `resolveDelegate` with the connect path —
+    // pin that rather than infer it from the shared call site.
+    it("sends a changed header on the run path too", async () => {
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: "http://localhost:4000/api/copilotkit",
+        agentId: "default",
+        runtimeMode: RUNTIME_MODE_INTELLIGENCE,
+        intelligence: { wsUrl: "ws://localhost:4401/client" },
+        headers: { "X-Tenant": "tenant-a" },
+      });
+      agent.threadId = "thread-1";
+
+      // First connect builds and caches the delegate under tenant A.
+      await completeConnect(agent, "run-1", "event-1");
+
+      agent.headers = { "X-Tenant": "tenant-b" };
+
+      // `run` is protected on AbstractAgent; concrete agents expose it.
+      (agent as unknown as { run(input: RunAgentInput): Observable<BaseEvent> })
+        .run({ ...defaultInput, runId: "run-2" })
+        .subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
+
+      const runCall = mockFetch.mock.calls.find((call) =>
+        String(call[0]).includes("/run"),
+      );
+      expect(runCall).toBeDefined();
+      expect(runCall![1].headers).toMatchObject({ "X-Tenant": "tenant-b" });
+    });
+
     it("sends credentials changed after the delegate was created", async () => {
       const agent = new ProxiedCopilotRuntimeAgent({
         runtimeUrl: "http://localhost:4000/api/copilotkit",
