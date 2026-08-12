@@ -361,6 +361,7 @@ export class AgentRegistry {
         : RUNTIME_MODE_SSE,
       intelligence: this._intelligence,
       debug: debug ? resolveDebugConfig(debug) : undefined,
+      compactRestore: friends.compactRestore,
     });
     this.applyHeadersToAgent(agent);
 
@@ -771,6 +772,9 @@ export class AgentRegistry {
         .credentials;
       const rawDebug = (this.core as unknown as CopilotKitCoreFriendsAccess)
         .debug;
+      const compactRestore = (
+        this.core as unknown as CopilotKitCoreFriendsAccess
+      ).compactRestore;
       const agents: Record<string, AbstractAgent> = Object.fromEntries(
         Object.entries(runtimeInfo.agents).map(
           ([id, { description, capabilities }]) => {
@@ -805,6 +809,7 @@ export class AgentRegistry {
               intelligence: runtimeInfoResponse.intelligence,
               capabilities,
               debug: rawDebug ? resolveDebugConfig(rawDebug) : undefined,
+              compactRestore,
             });
             this.applyHeadersToAgent(agent);
             return [id, agent];

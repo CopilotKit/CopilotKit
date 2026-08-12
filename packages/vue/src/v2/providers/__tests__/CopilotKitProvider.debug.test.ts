@@ -19,6 +19,7 @@ function renderProvider(args: {
   properties?: Record<string, unknown>;
   agents__unsafe_dev_only?: Record<string, unknown>;
   defaultThrottleMs?: number;
+  compactRestore?: boolean;
 }) {
   const Host = defineComponent({
     components: {
@@ -57,6 +58,11 @@ function renderProvider(args: {
         required: false,
         default: undefined,
       },
+      compactRestore: {
+        type: Boolean,
+        required: false,
+        default: undefined,
+      },
     },
     template: `
       <CopilotKitProvider
@@ -67,6 +73,7 @@ function renderProvider(args: {
         :properties="properties"
         :agents__unsafe_dev_only="agents__unsafe_dev_only"
         :default-throttle-ms="defaultThrottleMs"
+        :compact-restore="compactRestore"
       >
         <ChildComponent />
       </CopilotKitProvider>
@@ -82,6 +89,7 @@ function renderProvider(args: {
       properties: args.properties,
       agents__unsafe_dev_only: args.agents__unsafe_dev_only,
       defaultThrottleMs: args.defaultThrottleMs,
+      compactRestore: args.compactRestore,
     },
   });
 }
@@ -124,6 +132,14 @@ describe("CopilotKitProvider debug", () => {
   });
 
   describe("initial threading", () => {
+    it("threads the compact restore opt-out into the core", () => {
+      const { child, getCore } = createCoreCollector();
+
+      renderProvider({ child, compactRestore: false });
+
+      expect(getCore().compactRestore).toBe(false);
+    });
+
     it("threads debug=true through to copilotkit.debug on mount", async () => {
       const { child, getCore } = createCoreCollector();
 

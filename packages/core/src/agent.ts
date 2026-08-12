@@ -97,6 +97,8 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
    * bookkeeping; only outbound routing is overridden.
    */
   runtimeAgentId?: string;
+  /** Advertise compact full-thread restore support. Defaults to true. */
+  compactRestore?: boolean;
 }
 
 export class ProxiedCopilotRuntimeAgent
@@ -110,6 +112,7 @@ export class ProxiedCopilotRuntimeAgent
   // (already captured) from `routedAgentId()` (consulted per-call by
   // stop/connect/single-route paths).
   readonly runtimeAgentId?: string;
+  readonly compactRestore: boolean;
   private transport: CopilotRuntimeTransport;
   private singleEndpointUrl?: string;
   private runtimeMode: ResolvedRuntimeMode;
@@ -143,6 +146,7 @@ export class ProxiedCopilotRuntimeAgent
     this.runtimeUrl = normalizedRuntimeUrl ?? config.runtimeUrl;
     this.credentials = config.credentials;
     this.runtimeAgentId = config.runtimeAgentId;
+    this.compactRestore = config.compactRestore ?? true;
     this.transport = transport;
     this.runtimeMode = config.runtimeMode ?? RUNTIME_MODE_SSE;
     this.intelligence = config.intelligence;
@@ -489,6 +493,7 @@ export class ProxiedCopilotRuntimeAgent
       intelligence: this.intelligence,
       capabilities: this._capabilities,
       debug: this.debug,
+      compactRestore: this.compactRestore,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);
@@ -713,6 +718,7 @@ export class ProxiedCopilotRuntimeAgent
       agentId: routedId,
       headers: { ...this.headers },
       credentials: this.credentials,
+      compactRestore: this.compactRestore,
     });
   }
 

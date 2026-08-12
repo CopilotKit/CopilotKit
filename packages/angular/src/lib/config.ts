@@ -39,6 +39,8 @@ export interface CopilotKitConfig {
   headers?: Record<string, string>;
   licenseKey?: string;
   properties?: Record<string, unknown>;
+  /** Advertise compact full-thread restore support. Defaults to true. */
+  compactRestore?: boolean;
   agents?: Record<string, AbstractAgent>;
   selfManagedAgents?: Record<string, AbstractAgent>;
   tools?: ClientTool[];

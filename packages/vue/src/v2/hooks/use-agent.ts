@@ -160,6 +160,7 @@ export function useAgent(props: UseAgentProps = {}) {
       agentId: id,
       transport,
       runtimeMode: "pending",
+      compactRestore: copilotkit.value.compactRestore,
     });
     provisional.headers = { ...headers };
     return provisional;

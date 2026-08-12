@@ -25,7 +25,6 @@ describe("compact restore configuration", () => {
     expect(new CopilotKitCore({}).compactRestore).toBe(true);
 
     const core = new CopilotKitCore({
-      runtimeUrl: "https://runtime.example",
       compactRestore: false,
     });
     const { agent } = core.registerProxiedAgent({

@@ -71,6 +71,8 @@ export interface CopilotKitCoreConfig {
   suggestionsConfig?: SuggestionsConfig[];
   /** Enable debug logging for the client-side event pipeline. */
   debug?: DebugConfig;
+  /** Advertise compact full-thread restore support. Defaults to true. */
+  compactRestore?: boolean;
 }
 
 export type {
@@ -347,6 +349,7 @@ export interface CopilotKitCoreFriendsAccess {
   readonly properties: Readonly<Record<string, unknown>>;
   readonly context: Readonly<Record<string, Context>>;
   readonly debug?: DebugConfig;
+  readonly compactRestore: boolean;
 
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
@@ -402,6 +405,7 @@ export class CopilotKitCore {
   private _properties: Record<string, unknown>;
   private _defaultThrottleMs?: number;
   private _debug?: DebugConfig;
+  private readonly _compactRestore: boolean;
 
   private subscribers: Set<CopilotKitCoreSubscriber> = new Set();
 
@@ -438,11 +442,13 @@ export class CopilotKitCore {
     tools = [],
     suggestionsConfig = [],
     debug,
+    compactRestore = true,
   }: CopilotKitCoreConfig) {
     this._headers = normalizeHeaders(headers);
     this._credentials = credentials;
     this._properties = properties;
     this._debug = debug;
+    this._compactRestore = compactRestore;
 
     // Initialize delegate classes
     this.agentRegistry = new AgentRegistry(this);
@@ -704,6 +710,10 @@ export class CopilotKitCore {
 
   get debug(): DebugConfig | undefined {
     return this._debug;
+  }
+
+  get compactRestore(): boolean {
+    return this._compactRestore;
   }
 
   setDebug(debug: DebugConfig | undefined): void {

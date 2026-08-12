@@ -119,6 +119,8 @@ export interface CopilotKitProviderProps {
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
   credentials?: RequestCredentials;
+  /** Advertise compact full-thread restore support. Defaults to true. */
+  compactRestore?: boolean;
   /** Your CopilotKit public license key. */
   publicApiKey?: string;
   /** Your public license key for accessing Enterprise Intelligence Platform features. */
@@ -273,6 +275,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   runtimeUrl,
   headers: headersProp = EMPTY_HEADERS,
   credentials,
+  compactRestore,
   publicApiKey,
   publicLicenseKey,
   licenseToken,
@@ -620,6 +623,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             : "auto",
       headers: mergedHeaders,
       credentials,
+      compactRestore,
       properties,
       agents__unsafe_dev_only: mergedAgents,
       tools: allTools,

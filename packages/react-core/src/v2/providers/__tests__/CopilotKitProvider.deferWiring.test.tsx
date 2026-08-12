@@ -79,4 +79,17 @@ describe("CopilotKitProvider — deferral wiring (mocked core, #5801)", () => {
     // ...and the provider started the connection from a commit-phase effect.
     await waitFor(() => expect(connectCalls.length).toBeGreaterThanOrEqual(1));
   });
+
+  it("threads the compact restore opt-out into the core", () => {
+    render(
+      <CopilotKitProvider
+        runtimeUrl="https://runtime.example/rest"
+        compactRestore={false}
+      >
+        <div>child</div>
+      </CopilotKitProvider>,
+    );
+
+    expect(ctorConfigs[0]?.compactRestore).toBe(false);
+  });
 });

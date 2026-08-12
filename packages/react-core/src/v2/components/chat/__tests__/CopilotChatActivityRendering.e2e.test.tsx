@@ -565,6 +565,12 @@ describe("CopilotChat activity message rendering", () => {
           restore: {
             version: 1,
             sdkVersion: "1.67.1",
+            compact: {
+              schemaVersion: 1,
+              reducerVersion: 1,
+              sanitizerVersion: 1,
+              compactorVersion: 1,
+            },
           },
         },
       });

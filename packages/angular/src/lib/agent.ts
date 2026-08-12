@@ -156,6 +156,7 @@ export class CopilotkitAgentFactory {
           runtimeUrl,
           agentId: resolvedAgentId,
           transport: this.#copilotkit.runtimeTransport(),
+          compactRestore: this.#copilotkit.core.compactRestore,
         });
         if (hasAgentHeaders(provisional)) {
           provisional.headers = { ...headers };

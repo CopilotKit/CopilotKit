@@ -102,6 +102,22 @@ describe("CopilotKit", () => {
     (globalThis as any).__copilotkitAngularLicenseWatermarkLogged = undefined;
   });
 
+  it("threads the compact restore opt-out into the core", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          runtimeUrl: "https://runtime.local",
+          licenseKey,
+          compactRestore: false,
+        }),
+      ],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(lastCoreConfig.compactRestore).toBe(false);
+  });
+
   it("initialises core with transformed tool and renderer config", () => {
     @Component({
       selector: "dummy-tool",

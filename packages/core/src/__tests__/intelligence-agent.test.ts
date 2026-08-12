@@ -324,6 +324,10 @@ describe("IntelligenceAgent", () => {
           restoreAttemptId: "ra_run",
         },
       });
+      expect(
+        (channel.params.capabilities as { restore: Record<string, unknown> })
+          .restore,
+      ).not.toHaveProperty("compact");
       channel.serverPush("restore_failed", {
         restoreAttemptId: "ra_run",
         code: "dependency_failure",
@@ -943,6 +947,15 @@ describe("IntelligenceAgent", () => {
           },
         },
       });
+      expect(
+        Object.keys(
+          (
+            channel.params.capabilities as {
+              restore: { compact: Record<string, number> };
+            }
+          ).restore.compact,
+        ).sort(),
+      ).toEqual(Object.keys(COMPACT_RESTORE_CAPABILITY).sort());
       channel.triggerJoin("ok", {
         restore: {
           mode: "failure_reporting",

@@ -85,6 +85,12 @@ const RESTORE_PROGRESS_EVENT = "restore_progress";
 const RESTORE_FAILED_EVENT = "restore_failed";
 const STOP_RUN_EVENT = "stop_run";
 const CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS = 100;
+const COMPACT_RESTORE_CAPABILITY = Object.freeze({
+  schemaVersion: 1,
+  reducerVersion: 1,
+  sanitizerVersion: 1,
+  compactorVersion: 1,
+});
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
@@ -163,6 +169,8 @@ export interface IntelligenceAgentConfig {
   headers?: Record<string, string>;
   /** Optional credentials mode for fetch requests */
   credentials?: RequestCredentials;
+  /** Advertise compact full-thread restore support. Defaults to true. */
+  compactRestore?: boolean;
 }
 
 export class IntelligenceAgent
@@ -191,7 +199,10 @@ export class IntelligenceAgent
     },
   ) {
     super();
-    this.config = config;
+    this.config = {
+      ...config,
+      compactRestore: config.compactRestore ?? true,
+    };
     this.sharedState = sharedState;
   }
 
@@ -282,6 +293,7 @@ export class IntelligenceAgent
     parameters?: RunAgentParameters,
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
+    const compactRestore = this.config.compactRestore ?? true;
     // Access private fields through a type escape hatch — these are set/read
     // by the base class and must be managed identically to the original.
     // Using `any` because these fields are private in AbstractAgent, and
@@ -323,7 +335,7 @@ export class IntelligenceAgent
         resolveCompletion = resolve;
       });
 
-      const source$ = defer(() => this.connect(input)).pipe(
+      const source$ = defer(() => this.connect(input, compactRestore)).pipe(
         // transformChunks reassembles partial/streamed messages — still needed.
         transformChunks(this.debugLogger),
         // NOTE: verifyEvents is intentionally omitted here. See JSDoc above.
@@ -453,7 +465,10 @@ export class IntelligenceAgent
    * gateway only streams events past it instead of replaying the
    * entire history every time the chat re-opens a socket.
    */
-  protected connect(input: RunAgentInput): Observable<BaseEvent> {
+  protected connect(
+    input: RunAgentInput,
+    compactRestore = this.config.compactRestore ?? true,
+  ): Observable<BaseEvent> {
     this.threadId = input.threadId;
     this.canonicalRunId = null;
     this.sharedState.latestConnectInputs.set(input.threadId, input);
@@ -466,6 +481,7 @@ export class IntelligenceAgent
       replayCursor,
       generation,
       !forceFull,
+      compactRestore,
     );
   }
 
@@ -474,6 +490,7 @@ export class IntelligenceAgent
     replayCursor: string | null,
     generation: number,
     allowInvalidCursorRetry: boolean,
+    compactRestore: boolean,
   ): Observable<BaseEvent> {
     return defer(() =>
       this.requestJoinCredentials$("connect", input, replayCursor),
@@ -499,6 +516,7 @@ export class IntelligenceAgent
           streamMode: "connect",
           replayCursor,
           restoreGeneration: generation,
+          compactRestore,
         });
       }),
       catchError((error) => {
@@ -516,6 +534,7 @@ export class IntelligenceAgent
             null,
             retryGeneration,
             false,
+            compactRestore,
           );
         }
 
@@ -673,6 +692,7 @@ export class IntelligenceAgent
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
       restoreGeneration?: number;
+      compactRestore?: boolean;
     },
   ): Observable<BaseEvent> {
     return this.observeThreadSession$(input, credentials, options).pipe(
@@ -731,6 +751,7 @@ export class IntelligenceAgent
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
       restoreGeneration?: number;
+      compactRestore?: boolean;
     },
   ): Observable<BaseEvent> {
     return defer(() => {
@@ -765,6 +786,7 @@ export class IntelligenceAgent
         input,
         options.channelMode ?? options.streamMode,
         options.replayCursor,
+        options.streamMode === "connect" && options.compactRestore === true,
       );
       const channel$ = ɵphoenixChannel$({
         socket$,
@@ -1138,11 +1160,21 @@ export class IntelligenceAgent
     input: RunAgentInput,
     streamMode: "run" | "connect",
     replayCursor?: string | null,
+    compactRestore = false,
   ): Record<string, unknown> {
+    const lastSeenEventId =
+      replayCursor === undefined
+        ? this.getReconnectCursor(input)
+        : replayCursor;
     const capabilities = {
       restore: {
         version: 1,
         sdkVersion: COPILOTKIT_VERSION,
+        ...(streamMode === "connect" &&
+        lastSeenEventId === null &&
+        compactRestore
+          ? { compact: COMPACT_RESTORE_CAPABILITY }
+          : {}),
       },
     };
 
@@ -1154,10 +1186,7 @@ export class IntelligenceAgent
         }
       : {
           stream_mode: "connect",
-          last_seen_event_id:
-            replayCursor === undefined
-              ? this.getReconnectCursor(input)
-              : replayCursor,
+          last_seen_event_id: lastSeenEventId,
           capabilities,
         };
   }
