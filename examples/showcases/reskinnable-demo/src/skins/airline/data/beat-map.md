@@ -51,14 +51,17 @@ saved travelers, and every booking made for them. It is what gives beat 3c a
 board and beat 6 more than one gated case without inventing a single
 organizational role.
 
-### It is ADDITIVE
+### It was ADDITIVE, and the addition has since replaced the original
 
-`use-data.ts` (`useAirlineData`) — the concierge's in-memory React store — is
-untouched and still drives the trip, loyalty and disruption pages. Nothing
-here deletes or rewires it. A later slot migrates those consumers; until it
-does, both substrates are live, and this seed is deliberately written NOT to
-contradict the in-memory one (see "Where the two substrates touch", last
-section).
+When this was written, `use-data.ts` (`useAirlineData`) — the concierge's
+in-memory React store — was untouched and still drove the trip, loyalty and
+disruption pages, so both substrates were live and this seed was deliberately
+written NOT to contradict the in-memory one. **That migration has since
+happened:** `useAirlineData` and `data/use-data.ts` are DELETED, every component
+reads `useAirlineLedger()` (projected onto the check-in shapes by
+`components/concierge-view.ts`), and `skin.useData` is omitted. The
+two-substrates caution in the last section is therefore historical — see the note
+there.
 
 ---
 
@@ -66,16 +69,16 @@ section).
 
 | Beat              | Aeronova's step                                                                                     | Pill (suggested)                                     | Implemented by                                                                                   |
 | ----------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| 1 face            | The trip wall as gen-UI: every booking, its fare condition, and what is disrupted right now         | "How do my trips look?"                              | `GET /ledger` → a `useComponent` chart (later slot)                                              |
-| 2 rich thread     | Every visual is `useComponent`, keyed off `result`; reload and the trip wall is still in the thread | (none — demonstrated by reloading)                   | later slot; substrate is replay-safe — every figure re-fetchable from `/ledger`                  |
+| 1 face            | The trip wall as gen-UI: every booking, its fare condition, and what is disrupted right now         | "How do my trips look?"                              | `GET /ledger` → `useComponent` (shipped)                                                         |
+| 2 rich thread     | Every visual is `useComponent`, keyed off `result`; reload and the trip wall is still in the thread | (none — demonstrated by reloading)                   | shipped; every terminal render keys off `result`, lint-guarded                                   |
 | 3a drive the app  | Pay a fare difference by typing the **last 4 of the card on file** into a card in the chat          | "Move me to the earlier Buenos Aires flight"         | `data/card-authorization.ts` + `POST /authorizations`                                            |
-| 3b sees my screen | Ask on Trips, navigate to the rebooking search, ask again                                           | "What am I looking at?"                              | route + per-page readables (later slot); `/ledger` is one snapshot                               |
+| 3b sees my screen | Ask on Trips, navigate to the rebooking search, ask again                                           | "What am I looking at?"                              | route + per-page readables (shipped); `/ledger` is one snapshot                                  |
 | 3c levers         | The rebooking search: **departure window**, **stops**, **cabin**, **sort** — plus top-N, all tinted | "Evening nonstops home, cheapest first, top 5"       | `data/rebooking-levers.ts` + `data/rebooking-options.ts`                                         |
 | 3d multimodal     | Attach a **hotel confirmation** → file a durable **Trip Brief** on the trip record                  | "Read my hotel confirmation and file the trip brief" | `GET /hotel-confirmation` + `POST /briefs` + `data/hotel-confirmation-pdf.ts`                    |
-| 4 memory          | Seeded seat + fare preferences (aisle, forward cabin, never Basic Economy, times in her timezone)   | "Summarize my trips"                                 | `intelligence/seed-memories.ts` (later slot); substrate carries every field it needs             |
+| 4 memory          | Seeded seat + fare preferences (aisle, forward cabin, never Basic Economy, times in her timezone)   | "Summarize my trips"                                 | `intelligence/seed-memories.ts` (shipped, `scope: "user"`)                                       |
 | 5 stored skill    | "My flight home just got cancelled — handle it" → rebook, reseat, notify, in order                  | "My flight home just got cancelled — handle it"      | `POST /bookings/[id]/change`, `/seat`, `/notify` + `data/handling.ts`                            |
 | 6 teach a skill   | Change a **non-changeable** fare. Refused. Unlocked by a **fare exception** under a waiver category | "Get Tomás onto the Thursday Miami flight"           | `data/fare-waiver-codes.ts` + `data/fare-rules.ts` + `POST /fare-exceptions` (+ `/[id]/approve`) |
-| (reset)           | Presenter reset restores the account and (later slot) re-seeds beats 4/5                            | (sidebar button, not a pill)                         | `POST /dev/reset`                                                                                |
+| (reset)           | Presenter reset restores the account AND forgets + re-seeds beats 4/5                               | (sidebar button, not a pill)                         | `POST /dev/reset`                                                                                |
 
 Nine beats, eight pills (beat 2 is demonstrated by reloading). No ninth canvas
 pill is proposed: the beat-3d pill both ingests the hotel confirmation AND
@@ -209,7 +212,9 @@ changes an answer, and every one of which the substrate carries the fields for:
 
 The summary tool needs a `note` slot where the agent NAMES the preference it
 applied, or the beat is invisible — the audience just sees a normal answer.
-Seeded in `intelligence/seed-memories.ts`, a later slot.
+Seeded in `intelligence/seed-memories.ts` — which has since shipped, at
+`scope: "user"` (never `project`; see
+`.claude/skills/reskin/demo-beats.md` § "Seeding memories").
 
 ---
 
@@ -480,7 +485,7 @@ POST /api/airline/v1/fare-exceptions               BEAT 6 unlock, step 1 — fil
 POST /api/airline/v1/fare-exceptions/[id]/approve  BEAT 6 unlock, step 2 — approve and link; never says whether it lifts
 GET  /api/airline/v1/hotel-confirmation            BEAT 3d — the attached PDF, generated per booking
 POST /api/airline/v1/briefs                        BEAT 3d — file the durable Trip Brief; ledger facts settled server-side
-POST /api/airline/v1/dev/reset                     presenter reset — restores the account (memory re-seed: later slot)
+POST /api/airline/v1/dev/reset                     presenter reset — restores the account AND forgets + re-seeds the memories
 ```
 
 Two conventions every one of them shares:
@@ -563,12 +568,18 @@ Stated plainly rather than papered over, because the next slot inherits these.
    standing (beat 5 does not touch it) — the seed keeps that delay for exactly
    this reason.
 
-5. **Two substrates, one passenger — they must not disagree on stage.** Camila's
-   AV1423 exists in BOTH `use-data.ts` (in-memory, drives the current pages) and
-   this REST ledger. The seed here is written to AGREE with the in-memory one:
-   same flight number, route, cities, aircraft, gate, times, `delayed` status and
-   a 55-minute delay. Everything the REST substrate adds is on records the
-   in-memory store has never heard of (the return leg, the companions' bookings,
-   the option board). **A later slot that migrates the pages must migrate BOTH
-   readings** — and until it does, do not "improve" either seed's AV1423 without
-   changing the other.
+5. **Two substrates, one passenger — they must not disagree on stage.**
+   ✅ **RESOLVED, by deleting one of them.** Camila's AV1423 used to exist in BOTH
+   `use-data.ts` (in-memory, driving the pages) and this REST ledger, so this seed
+   was written to AGREE with the in-memory one field for field — same flight
+   number, route, cities, aircraft, gate, times, `delayed` status and 55-minute
+   delay — while everything the REST substrate ADDED sat on records the in-memory
+   store had never heard of (the return leg, the companions' bookings, the option
+   board).
+
+   Keeping two readings in agreement by hand was never going to survive a reseed,
+   so the migration deleted the in-memory one rather than syncing it: the REST
+   ledger is the only authority, and `components/concierge-view.ts` projects it
+   onto the shapes the check-in pages already rendered. The generalisable part is
+   that a duplicate seed is not a safe intermediate state — it is a pair of
+   figures that can contradict each other on a projector, with nothing checking.

@@ -109,7 +109,9 @@ control.
 ## Beat 4 — the topical preference
 
 The persona is a knowledge/ops lead who reads the register the same way every
-week. The seeded memory (a later slot writes the file; this is its content):
+week. The seeded memory — since written, in `intelligence/seed-memories.ts` at
+`scope: "user"` (never `project`; see
+`.claude/skills/reskin/demo-beats.md` § "Seeding memories"):
 
 > When Sam asks for a summary of the policy library, group it by knowledge space
 > — Privacy, Clinical, Vendor — and lead each group with anything past its
