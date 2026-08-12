@@ -266,6 +266,63 @@ describe("pb-client", () => {
     expect(writeCount).toBe(1);
   });
 
+  it("drains the failed response body on the 401 re-auth path (F2.3 socket reuse)", async () => {
+    // The 429 and 5xx retry branches drain the failed response body before
+    // continuing so the runtime's HTTP agent can reuse the socket. The
+    // re-auth (401/403) branch must do the same — otherwise every token
+    // refresh leaves a half-consumed socket. Observe drain via bodyUsed on
+    // the exact Response object returned for the failing attempt.
+    const failed401 = new Response("stale-token", { status: 401 });
+    let getCount = 0;
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("auth-with-password")) {
+        return new Response(JSON.stringify({ token: "tok" }), { status: 200 });
+      }
+      getCount += 1;
+      if (getCount === 1) return failed401;
+      return new Response(JSON.stringify({ id: "r1" }), { status: 200 });
+    });
+    const pb = createPbClient({
+      url: "http://pb",
+      email: "e",
+      password: "p",
+      logger,
+      fetchImpl,
+    });
+    await pb.getOne("status", "r1");
+    // Body of the 401 response must have been consumed (drained).
+    expect(failed401.bodyUsed).toBe(true);
+  });
+
+  it("stays within the maxAttempts envelope when a token expires on the final attempt", async () => {
+    // A token that expires on the LAST attempt must not enter the re-auth
+    // branch and fire a 4th fetch beyond the documented maxAttempts=3
+    // envelope. Attempts 1 and 2 are consumed by 5xx backoff; attempt 3
+    // returns 401. The re-auth gate must honor attempts < maxAttempts like
+    // the 429/5xx gates and NOT retry.
+    let writeCount = 0;
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("auth-with-password")) {
+        return new Response(JSON.stringify({ token: "tok" }), { status: 200 });
+      }
+      writeCount += 1;
+      if (writeCount < 3) return new Response("", { status: 503 });
+      return new Response("", { status: 401 });
+    });
+    const pb = createPbClient({
+      url: "http://pb",
+      email: "e",
+      password: "p",
+      logger,
+      fetchImpl,
+    });
+    await expect(pb.getOne("status", "x")).rejects.toThrow(
+      /pb getOne failed: 401/,
+    );
+    // Exactly maxAttempts requests to the records endpoint — no 4th call.
+    expect(writeCount).toBe(3);
+  });
+
   it("retries when fetchImpl throws (network error) with same envelope as 5xx", async () => {
     let attempts = 0;
     const fetchImpl = makeFetch(() => {

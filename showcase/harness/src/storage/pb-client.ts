@@ -307,6 +307,22 @@ export function createPbClient(config: PbClientConfig): PbClient {
         }
         throw err;
       }
+      // Helper: drain the body so the underlying connection can be
+      // reused by the runtime's HTTP agent — otherwise some fetch
+      // implementations will leave the socket half-consumed and open a
+      // fresh one on every retry. Log drain errors at debug so
+      // ECONNRESET / ERR_STREAM_PREMATURE_CLOSE evidence isn't lost
+      // (F2.3) — callers rarely need this, but it's invaluable when
+      // diagnosing socket-level flakiness.
+      const drainBody = async (): Promise<void> => {
+        await res.text().catch((drainErr: unknown) => {
+          logger.debug("pb-client.body-drain-failed", {
+            path,
+            status: res.status,
+            err: String(drainErr),
+          });
+        });
+      };
       // Re-auth trigger. PB returns 401 when the Authorization token is
       // malformed/absent — but a superuser/admin token whose ~14-day TTL
       // has EXPIRED is treated as an unauthenticated (guest) request, and a
@@ -325,13 +341,16 @@ export function createPbClient(config: PbClientConfig): PbClient {
       const sentAuth = headers.has("authorization");
       if (
         (res.status === 401 || (res.status === 403 && sentAuth)) &&
-        authRetries < MAX_AUTH_RETRIES
+        authRetries < MAX_AUTH_RETRIES &&
+        attempts < maxAttempts
       ) {
-        // Note: the outer `attempts += 1` fired before entering this
-        // branch, so a single re-auth chain consumes 2 of 3 attempts,
-        // leaving 1 slot for a subsequent 5xx/429. Defensive but
-        // intentional — we prefer to fail fast on pathological
-        // 401/403→429 loops rather than burn the full envelope.
+        // Bounded like the 429/5xx branches by `attempts < maxAttempts`:
+        // the outer `attempts += 1` already fired for this attempt, so a
+        // token that expires on the final attempt does NOT re-auth-and-
+        // retry past the maxAttempts envelope — it falls through and the
+        // 401/403 is returned to the caller. A single re-auth chain thus
+        // consumes 2 of 3 attempts, leaving 1 slot for a subsequent
+        // 5xx/429.
         const authFailStatus = res.status;
         authRetries += 1;
         authToken = null;
@@ -365,24 +384,12 @@ export function createPbClient(config: PbClientConfig): PbClient {
           );
         }
         if (authToken) headers.set("authorization", authToken);
+        // Drain the failed (401/403) response before retrying, same as the
+        // 429/5xx branches, so the runtime's HTTP agent can reuse the
+        // socket instead of leaving it half-consumed on every refresh (F2.3).
+        await drainBody();
         continue;
       }
-      // Helper: drain the body so the underlying connection can be
-      // reused by the runtime's HTTP agent — otherwise some fetch
-      // implementations will leave the socket half-consumed and open a
-      // fresh one on every retry. Log drain errors at debug so
-      // ECONNRESET / ERR_STREAM_PREMATURE_CLOSE evidence isn't lost
-      // (F2.3) — callers rarely need this, but it's invaluable when
-      // diagnosing socket-level flakiness.
-      const drainBody = async (): Promise<void> => {
-        await res.text().catch((drainErr: unknown) => {
-          logger.debug("pb-client.body-drain-failed", {
-            path,
-            status: res.status,
-            err: String(drainErr),
-          });
-        });
-      };
       // HF13-B1: read the body text once, returning "" on any error
       // (premature-close, already-drained, network blip). Used BEFORE
       // drain on the terminal-failure paths so we can surface the
