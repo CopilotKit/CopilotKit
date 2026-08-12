@@ -101,6 +101,7 @@ showcase/integrations/agno/next.config.ts
 showcase/integrations/built-in-agent/next.config.ts
 showcase/integrations/claude-sdk-python/next.config.ts
 showcase/integrations/claude-sdk-typescript/next.config.ts
+showcase/integrations/crewai-conversational-flows/next.config.ts
 showcase/integrations/crewai-crews/next.config.ts
 showcase/integrations/google-adk/next.config.ts
 showcase/integrations/langgraph-fastapi/next.config.ts
