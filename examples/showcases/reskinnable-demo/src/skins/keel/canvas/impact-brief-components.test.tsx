@@ -151,7 +151,12 @@ describe("BriefImpacts", () => {
 
   it("renders nothing at all when there are none", () => {
     render(
-      BriefImpacts({ props: { items: [] } } as Parameters<
+      // `[] as string[]`, not a bare `[]`: an empty array literal infers
+      // `never[]`, which does not overlap `RendererProps<{ items: string[] }>`,
+      // so the cast below is a TS2352 error rather than a widening. Caught by
+      // `tsc --noEmit` only — `pnpm build` never reaches test files, and vitest
+      // does not typecheck, so nothing in this app's gates would have failed.
+      BriefImpacts({ props: { items: [] as string[] } } as Parameters<
         typeof BriefImpacts
       >[0]),
     );
