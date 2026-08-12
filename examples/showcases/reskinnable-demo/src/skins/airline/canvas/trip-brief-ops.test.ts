@@ -10,7 +10,7 @@ import {
 } from "./trip-brief-ops";
 
 /**
- * The trigger contract between a later slot's `render_trip_brief` tool and
+ * The trigger contract between the `render_trip_brief` server tool and
  * `AirlineCanvasSurface`. Everything here fails SILENTLY when wrong: a mistyped
  * operations key means the middleware never emits an `a2ui-surface` activity and
  * the canvas simply never opens, with nothing in the log to say why.
@@ -75,7 +75,7 @@ describe("readBriefId", () => {
   });
 
   it("also reads it off a component, so a richer later surface still works", () => {
-    // Deliberate tolerance: a later slot that builds a full component tree does
+    // Deliberate tolerance: a builder that emits a full component tree does
     // not have to come back here to make the canvas resolve the right brief.
     expect(
       readBriefId([

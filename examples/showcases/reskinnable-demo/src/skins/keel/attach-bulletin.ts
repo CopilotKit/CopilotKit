@@ -19,8 +19,7 @@
  * BOTH MOUNT POINTS ARE WIRED, in `skin.tsx`: `attachBulletinByHand` is the
  * chat-header paperclip, and `sendBulletinMessage` is what `onSuggestionSelect`
  * runs when it recognises `BULLETIN_MESSAGE`. The pill carrying that exact
- * message lives in `suggestions.ts` (a later slot's file) — until it does, the
- * paperclip is the whole beat-3d ingest path, and it works.
+ * message lives in `suggestions.ts`, which imports the constant from here.
  *
  * ⚠️ `BULLETIN_MESSAGE` is the ONLY thing tying the pill to the interception. If
  * the pill's text drifts from this constant the click takes the DEFAULT send

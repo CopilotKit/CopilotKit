@@ -4,8 +4,7 @@
  * memory, so the demo is re-armed before the presenter says a word.
  *
  * "It already knows me" is a FILE, not emergent behaviour. Four rules govern what
- * belongs here, the first three learned the hard way in banking and Bellwether
- * and the fourth specific to this skin:
+ * belongs here — the first three are general, the fourth is specific to this skin:
  *
  *  1. Seed a standing PREFERENCE, not a fact. "The desk's favourite policy"
  *     proves storage. "Group the register by knowledge space, overdue first,

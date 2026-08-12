@@ -79,7 +79,7 @@ function serveFiledBriefs() {
   return fetchSpy;
 }
 
-/** The activity a later slot's `render_trip_brief` tool will produce. */
+/** The activity the `render_trip_brief` server tool produces. */
 function openCanvasOn(briefId: string | null, activityId = "act-1") {
   messagesRef.current = [
     {

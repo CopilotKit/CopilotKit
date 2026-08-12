@@ -27,7 +27,7 @@ import { selectBrief, useTripBriefs } from "./canvas/use-trip-briefs";
  * component tree and the catalog carries the renderers. Aeronova's Trip Brief is
  * a single durable record of fixed shape that the SERVER already settled — the
  * only selection left is which brief, and that is all the ops carry. The
- * reasoning, and what happens if a later slot emits a richer tree anyway, is in
+ * reasoning, and what happens if a richer tree is emitted anyway, is in
  * `canvas/trip-brief-ops.ts`.
  *
  * The upshot for the beat is the strong version of it: what the room sees is the

@@ -21,13 +21,11 @@
  *
  * A consequence worth stating, because it is the file's one surprise: these ops
  * reference NO catalog component, and `AirlineCanvasSurface` mounts no
- * `A2UIRenderer`. Adding brief components to `catalog/index.tsx` was not this
- * slot's to do, and — more to the point — a component tree here would be
- * ceremony around a record that has exactly one layout.
+ * `A2UIRenderer`. A component tree here would be ceremony around a record that
+ * has exactly one layout.
  *
- * If the later slot instead emits a full component tree of its own, nothing
- * breaks: the surface reads only the brief id and falls back to the newest brief
- * when it finds none.
+ * Emitting a full component tree instead breaks nothing: the surface reads only
+ * the brief id and falls back to the newest brief when it finds none.
  *
  * Server-safe: plain TypeScript, no React, no JSX, no `"use client"` — it is
  * imported from `agent.ts`, which must never reach the browser bundle.

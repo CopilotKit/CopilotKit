@@ -11,17 +11,16 @@ import { skinIds } from "./skins-config";
  * id list from rotting. This file stops the PROSE copies from rotting, which is
  * the same defect class and the one that actually keeps shipping: a doc hardcodes
  * a skin count or a skin roster, the registered set grows, and the sentence turns
- * false with nothing to catch it. One CR pass over the `commerce` skin found
- * FOURTEEN live instances of exactly that across six documents — "ships four of
- * them", "these four", a four-value `LOCK_SKIN` list, "all four stay reachable",
- * "a four-tenant demo harness", "the unlocked four-skin demo", and so on.
+ * false with nothing to catch it. The shapes it takes: "ships four of them",
+ * "these four", a four-value `LOCK_SKIN` list, "all four stay reachable", "a
+ * four-tenant demo harness", "the unlocked four-skin demo" — one CR pass over the
+ * doc set found FOURTEEN live at once.
  *
- * CLAUDE.md already carries a standing rule telling the next author to re-read
- * the reskin skill after every change, and it explains why the rot is invisible:
- * "it goes stale SILENTLY — nothing type-checks it, no test imports it, and a
- * skin built from a stale template still compiles, lints and renders." That rule
- * was written BEFORE the fourteen instances, so prose discipline has already been
- * tried and has already failed. This file is the mechanical replacement.
+ * CLAUDE.md's standing rule to re-read the reskin skill after every change is not
+ * enough on its own, and it says why the rot is invisible: "it goes stale
+ * SILENTLY — nothing type-checks it, no test imports it, and a skin built from a
+ * stale template still compiles, lints and renders." Prose discipline cannot see
+ * a sentence that is merely out of date. This file is the mechanical replacement.
  *
  * The expected values are DERIVED from `skinIds`; the digit 6 and the word "six"
  * appear nowhere below, or this test would become the fifteenth instance of the
@@ -33,27 +32,26 @@ import { skinIds } from "./skins-config";
  * the size of the shipped set, and (b) inline id enumerations that the doc frames
  * as the valid/registered set.
  *
- * ── TWO FALSE POSITIVES THIS FILE SHIPPED WITH, both fixed ───────────────────
+ * ── TWO DISCRIMINATORS THAT MUST NOT BE WIDENED BACK ─────────────────────────
  *
  * A drift guard that fails CORRECT prose is worse than none: it trains the next
- * author to reach for an exemption. This file was originally validated only
- * against the tree as it stood, which is the weaker test — it proved that no
- * CURRENT sentence trips a rule, not that no LEGITIMATE sentence does. Two
- * legitimate sentences did:
+ * author to reach for an exemption. Validating only against the tree as it stands
+ * is the weaker test — it proves that no CURRENT sentence trips a rule, not that
+ * no LEGITIMATE sentence does. Two legitimate shapes trip the naive version:
  *
- *  1. **"the sixth skin"** — a TRUE reference to `commerce` — was flagged as a
- *     stale count, because the ordinal rule assumed every ordinal names the
+ *  1. **"the sixth skin"** — a TRUE reference to an existing member — reads as a
+ *     stale count if the ordinal rule assumes every ordinal names the
  *     HYPOTHETICAL NEXT skin (`registered + 1`). That holds for the indefinite
- *     article ("a fifth skin added to the registry…", the phrasing the rule was
- *     built from) and not for the definite one, which names an EXISTING member.
- *     The article now decides, and a numeral equal to the registered count is
- *     never treated as stale under either reading.
- *  2. **A deliberate partial glob** — `src/skins/{banking,people}/…` — was flagged
- *     as an incomplete roster, because the brace-glob rule demanded exhaustiveness
- *     with no totality framing at all, while the id-list rule (correctly) required
- *     one. Globs now need the same framing, from a cue window on EITHER side: the
- *     two real globs are framed by "the six shipped skins" BEFORE (templates.md)
- *     and "six implementations" AFTER (CLAUDE.md).
+ *     article ("a fifth skin added to the registry…") and not for the definite
+ *     one, which names an EXISTING member. The ARTICLE decides, and a numeral
+ *     equal to the registered count is never treated as stale under either
+ *     reading.
+ *  2. **A deliberate partial glob** — `src/skins/{banking,people}/…` — reads as an
+ *     incomplete roster if the brace-glob rule demands exhaustiveness with no
+ *     totality framing, while the id-list rule (correctly) requires one. Globs
+ *     need the same framing, from a cue window on EITHER side: the two real globs
+ *     are framed by "the six shipped skins" BEFORE (templates.md) and "six
+ *     implementations" AFTER (CLAUDE.md).
  *
  * Both discriminators are pinned below by must-flag AND must-not-flag fixtures,
  * so neither can be quietly widened back.
@@ -68,16 +66,13 @@ import { skinIds } from "./skins-config";
  *  - **Per-skin counts** — gen-UI registration counts, suggestion-pill counts,
  *    beat counts ("nine beats", "the three skins at 9/9"). Not skin-roster
  *    claims; verifying them would mean parsing each skin's source.
- *  - **Known instances OUTSIDE the doc set.** Two were named here as follow-up work
- *    for a separate PR. One is now fixed: `src/proxy.ts`'s "the other three skins"
- *    became a numeral-free "every OTHER skin's prefix" in the beat-parity docs pass.
- *    One is still open:
+ *  - **Known instances OUTSIDE the doc set.** One is open:
  *      - `e2e/inset-layout.spec.ts` — the selector assertions enumerate a hardcoded
  *        four-skin list, so the shell frame is never e2e-verified for `people` or
  *        `commerce`. Left alone because fixing it is a COVERAGE change (new
  *        assertions against skins the spec has never visited), not a prose fix.
- *    They are named rather than checked because adding a source-comment sweep would
- *    make this test red on a tree the rest of the PR considers converged. Whoever
+ *    It is named rather than checked because adding a source-comment sweep would
+ *    turn this test red outside its stated scope. Whoever
  *    fixes the remaining one should consider widening `DOC_SET` or adding that
  *    sweep here.
  */
@@ -553,11 +548,10 @@ describe("the documented skin roster", () => {
 });
 
 describe("the roster checks themselves", () => {
-  // The red half of red-green, kept permanently. Every string below is the ACTUAL
-  // stale wording that shipped in one of these six documents (or, for two of
-  // them, in src/lib/locked-skin.ts and skins-config.test.ts) and was fixed in
-  // the CR pass that motivated this file. If a regex is loosened or broken, the
-  // instance it used to catch fails here.
+  // The red half of red-green, kept permanently. Every string below is real stale
+  // wording drawn from these six documents (two of them from src/lib/locked-skin.ts
+  // and skins-config.test.ts). If a regex is loosened or broken, the instance it
+  // catches fails here.
   it.each(COUNT_RULES.flatMap((r) => r.catches.map((c) => [r.id, c] as const)))(
     "still catches the %s instance: %s",
     (ruleId, phrase) => {
@@ -636,15 +630,14 @@ describe("the roster checks themselves", () => {
     // never flag: past-tense incident history, beat vocabulary, subset counts
     // qualified by an adjective, and numbers about things that are not skins.
     //
-    // ⚠️ SEVERAL ENTRIES ARE DELIBERATELY NO LONGER IN THE DOCS. The beat-parity
-    // work made "the two in-memory skins", "the four REST-backed skins" and "five
-    // of the six skins" false as PRESENT-TENSE claims, so CLAUDE.md was rewritten
-    // and the equivalent sentences here were moved into the past tense rather than
-    // deleted. Deleting them would have quietly dropped the discriminator they
-    // pin — an adjective between the numeral and "skins" is what makes a subset
-    // claim distinguishable from a total claim, and nothing else asserts that.
-    // Keep this list a set of SHAPES; do not prune it back to whatever the docs
-    // happen to say this month, and do not add a shape that is false.
+    // ⚠️ SEVERAL ENTRIES ARE DELIBERATELY NOT IN THE DOCS. "the two in-memory
+    // skins", "the four REST-backed skins" and "five of the six skins" are false
+    // as PRESENT-TENSE claims about this tree, so they appear here only in the
+    // past tense. They stay because they pin the discriminator: an adjective
+    // between the numeral and "skins" is what makes a subset claim distinguishable
+    // from a total claim, and nothing else asserts that. Keep this list a set of
+    // SHAPES; do not prune it back to whatever the docs happen to say this month,
+    // and do not add a shape that is false.
     const legitimate = [
       "naming four skins for two releases after `people` and `commerce` shipped",
       "it named four skins for two releases after `people` and `commerce` shipped",
@@ -661,9 +654,9 @@ describe("the roster checks themselves", () => {
       "the second skin built demo-complete against the full beat list",
       "a 600/1000-em advance width",
       "Two registries, one id",
-      // Present-tense phrasings the beat-parity docs actually use, which the rules
-      // must also leave alone — the numeral-free forms this test's own failure
-      // message recommends, plus a truthful total.
+      // Present-tense phrasings the docs actually use, which the rules must also
+      // leave alone — the numeral-free forms this test's own failure message
+      // recommends, plus a truthful total.
       "Every registered skin hits every row.",
       "all six skins are REST-backed",
       "`useData` now has zero implementors",

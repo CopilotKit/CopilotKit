@@ -132,9 +132,9 @@ describe("the resolved no-restricted-syntax selectors", () => {
         "statusKeyedTerminalRender",
       ],
     ],
-    // The other two skins that now ship a withheld gate vocabulary. Both gained
-    // beat 2 AND beat 6 in the beat-parity work, so both agent-facing files
-    // resolve to the full five, exactly as logistics does.
+    // The other two skins shipping a withheld gate vocabulary. Both carry beat 2
+    // AND beat 6, so both agent-facing files resolve to the full five, exactly as
+    // logistics does.
     [
       "src/skins/airline/tools.tsx",
       [

@@ -2,12 +2,12 @@
  * Aeronova's REST substrate — the traveler profile, its bookings, and the
  * records the demo beats write.
  *
- * ⚠️ ADDITIVE, and deliberately kept in its OWN file. `types.ts` next door
- * describes the in-memory concierge store (`useAirlineData`), which is still
- * live and still drives the trip, loyalty and disruption pages. Nothing here
- * replaces it; a later slot migrates those consumers. The two seeds are written
- * to AGREE about Camila's AV1423 — see `data/beat-map.md` § "Where the two
- * substrates touch" before changing either.
+ * These are the shapes the ledger actually serves. `types.ts` next door holds the
+ * older concierge-view shapes (`Passenger`, `Flight`, `SeatMap`, …), which are
+ * now DERIVED from these by `../components/concierge-view.ts` rather than stored
+ * — `Tier` is the one type still imported from there. Keep them in separate
+ * files: the derivation direction is what stops a second seed of Camila's AV1423
+ * reappearing.
  *
  * Server-safe: plain TypeScript, no React, no JSX, no `"use client"`.
  */

@@ -3,14 +3,12 @@
 /**
  * Camila's account — the REST ledger's face.
  *
- * ⚠️ THIS PAGE IS WHERE THE REJECTED REFRAME WOULD CREEP BACK IN, so the shape
- * is deliberate. `data/beat-map.md` opens by recording that an earlier attempt
- * turned Aeronova into an irregular-operations control desk and that the reframe
- * was REJECTED: Aeronova is one traveller's account, and the user is a passenger
- * looking at their own trips. Point 3 of § "Where the passenger framing genuinely
- * fights the beats" names this page specifically — a later slot "should make the
- * profile visibly Camila's rather than letting the trips page read as an agency
- * console".
+ * ⚠️ THIS PAGE IS WHERE AN OPS-CONSOLE REFRAME WOULD CREEP BACK IN, so the shape
+ * is deliberate. Aeronova is ONE traveller's account and the user is a passenger
+ * looking at their own trips — never an irregular-operations control desk. See
+ * `data/beat-map.md` § "Where the passenger framing genuinely fights the beats",
+ * point 3, which names this page: the profile must read as visibly Camila's
+ * rather than letting the trips page read as an agency console.
  *
  * Three structural choices do that work, and none of them is cosmetic:
  *

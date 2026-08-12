@@ -7,11 +7,10 @@
  *     whose message is `HOTEL_CONFIRMATION_MESSAGE`
  *   - `attachHotelConfirmationByHand` → the `skin.chatHeaderActions` paperclip
  *
- * ⚠️ STILL ONE LOOSE END, in `suggestions.ts` (a different slot's file): no pill
- * carries `HOTEL_CONFIRMATION_MESSAGE` yet, so `onSuggestionSelect` never fires
- * and only the paperclip stages the file. The pill's `message` must be that
- * constant EXACTLY — a drifted string silently takes the default send path, which
- * DROPS attachments, and the model then invents the document's contents.
+ *   - the beat-3d pill in `suggestions.ts`, whose `message` IS
+ *     `HOTEL_CONFIRMATION_MESSAGE` (imported, never retyped). A drifted string
+ *     silently takes the default send path, which DROPS attachments, and the
+ *     model then invents the document's contents.
  *
  * Everything that makes this beat honest lives in `@/shell/attach`: locating the
  * composer before staging, checking the fetched bytes really are a PDF, waiting

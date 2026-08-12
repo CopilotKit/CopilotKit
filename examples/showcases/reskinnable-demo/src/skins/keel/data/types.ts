@@ -194,19 +194,15 @@ export interface KeelData {
  * THE REST SUBSTRATE — the policy register
  * ==========================================================================
  *
- * ONE SUBSTRATE, as of the beat-parity work. Everything in this file — the run
- * engine's shapes above, the register's below — is served by
- * `src/app/api/keel/v1/**` and read through a single `GET /ledger` snapshot
- * (`../ledger-context.tsx` → `../desk-data.ts`).
+ * ONE SUBSTRATE. Everything in this file — the run engine's shapes above, the
+ * register's below — is served by `src/app/api/keel/v1/**` and read through a
+ * single `GET /ledger` snapshot (`../ledger-context.tsx` → `../desk-data.ts`).
  *
- * The types above once belonged to a SECOND, client-side substrate: `useKeelData`
- * held runs in `useState` and advanced them on a 900 ms `setInterval` while the
- * server held them as state only. That is gone, and so is the split this banner
- * used to announce as "deliberately not merged yet". Runs are settled SERVER-side
- * on every read (`src/app/api/keel/v1/settle-runs.ts`, called by both
- * `GET /ledger` and `GET /runs/[runId]`), and the client interval only re-fetches
- * — the deleted ticker was a second clock that painted progress the server had
- * never heard of, which the next re-read after any write silently rewound.
+ * Runs are settled SERVER-side on every read
+ * (`src/app/api/keel/v1/settle-runs.ts`, called by both `GET /ledger` and
+ * `GET /runs/[runId]`), and the client interval only re-fetches. Do not
+ * reintroduce a client ticker: it is a second clock, painting progress the server
+ * never heard of, which the next re-read after any write silently rewinds.
  *
  * The pure engine (`./engine.ts`) is still the SAME module the server route uses,
  * which is why approving a step means exactly one thing.

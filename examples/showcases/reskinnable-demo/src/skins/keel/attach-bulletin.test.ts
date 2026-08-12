@@ -42,9 +42,9 @@ import {
  *      on screen to say so.
  *
  * `onSuggestionSelect` is NOT asserted here: the pill and the handler live in
- * `suggestions.ts` and `skin.tsx`, which a later slot owns. When that slot wires
- * them, the two assertions to add are commerce's — that the bulletin pill is
- * claimed, and that it is never claimed silently.
+ * `suggestions.ts` and `skin.tsx`. The two assertions that belong with them are
+ * commerce's — that the bulletin pill is claimed, and that it is never claimed
+ * silently.
  *
  * Driven against the real chain and a fake composer rather than a mocked
  * `@/shell/attach`, because a mock would prove keel passes three values to a

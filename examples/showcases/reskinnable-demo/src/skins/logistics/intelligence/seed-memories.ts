@@ -4,7 +4,7 @@
  * memory, so the demo is re-armed before the presenter says a word.
  *
  * "It already knows me" is a FILE, not emergent behaviour. Three rules govern
- * what belongs here, each learned the hard way in the banking skin:
+ * what belongs here:
  *
  *  1. Seed a standing PREFERENCE, not a fact. "Rosa's busiest lane" proves
  *     storage. "Read the queue by lane, anything past its promised date first,

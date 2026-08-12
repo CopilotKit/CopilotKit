@@ -31,8 +31,8 @@ import type { Run } from "@/skins/keel/data/types";
  * ── Why the commit is an in-place splice ────────────────────────────────────
  *
  * `data/store.ts` exposes `runs()` (the live array) and commits its own
- * mutations with `db.runs = result.runs`, but exports no setter — and the store
- * is another slot's file. Splicing the settled runs into the array `runs()`
+ * mutations with `db.runs = result.runs`, but exports no setter. Splicing the
+ * settled runs into the array `runs()`
  * hands back IS the commit: `db.runs` keeps pointing at it, so the settlement is
  * durable rather than recomputed on every request, and a subsequent
  * `store.approveStep` composes on settled steps rather than on stale ones. The

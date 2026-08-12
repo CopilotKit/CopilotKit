@@ -286,10 +286,9 @@ const eslintConfig = [
     },
   },
   // BEAT 2 — see statusKeyedTerminalRender. Scoped to the skins already re-keyed.
-  // That was logistics alone; airline and keel were re-keyed by the beat-parity
-  // work and are added here. Both were verified clean BEFORE widening the glob:
-  // every remaining `ToolCallStatus` reference in either skin is either a comment
-  // or a `=== ToolCallStatus.Executing && respond` HITL branch (the interactive
+  // Every skin named here was verified clean BEFORE its glob entry was added:
+  // every remaining `ToolCallStatus` reference in it is either a comment or a
+  // `=== ToolCallStatus.Executing && respond` HITL branch (the interactive
   // affordance drawn while a response is awaited), never a `.Complete` terminal
   // render — which is the shape this selector exists to catch. Widen this glob
   // only after checking the same, because a glob covering an unfixed skin turns

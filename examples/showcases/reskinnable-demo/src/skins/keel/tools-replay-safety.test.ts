@@ -10,13 +10,11 @@ import { describe, expect, it } from "vitest";
  * exactly when beat 2 is being demonstrated. It compiles, it lints, and every
  * behavioural test passes, because a unit test renders the live path.
  *
- * The repo enforces this with `statusKeyedTerminalRender` in `eslint.config.mjs`,
- * but that rule is applied through a PER-SKIN `files` glob and keel is not in it
- * yet (a later slot owns that file — see this suite's sibling note in the wiring
- * report). Until it is, this file is keel's enforcement, and it is deliberately
- * stronger than the lint rule: rather than banning one comparison, it asserts
- * that `ToolCallStatus` is not imported at all, so a status-keyed terminal branch
- * is not even expressible here.
+ * The repo also enforces this with `statusKeyedTerminalRender` in
+ * `eslint.config.mjs`, applied through a PER-SKIN `files` glob that keel is in.
+ * This file is deliberately STRONGER than that rule: rather than banning one
+ * comparison, it asserts that `ToolCallStatus` is not imported at all, so a
+ * status-keyed terminal branch is not even expressible here.
  *
  * Reading the source is the point. Every alternative — asserting on a rendered
  * DOM, or trusting a comment — passes against the very defect this exists to

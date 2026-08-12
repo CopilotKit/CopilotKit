@@ -1,19 +1,15 @@
 /**
  * ONE SUBSTRATE, ONE AV1423.
  *
- * `data/beat-map.md` § "Where the two substrates touch" is explicit that Camila's
- * AV1423 existed in BOTH `data/use-data.ts` (an in-memory `useState` store the
- * shell ran as `skin.useData`) and the REST ledger, and that a later slot had to
- * migrate BOTH readings. This is that slot. The hook is deleted and the ledger is
- * the only authority, and the two assertions below are the ones with no other
- * symptom: a re-added `useData` or a re-introduced seed read compiles, renders and
- * only shows up as two panels quoting different times for the same flight — on
- * stage, in front of the room.
+ * The REST ledger is the only authority on Camila's AV1423, and the two
+ * assertions below are the ones with no other symptom: a re-added `useData` or a
+ * re-introduced seed read compiles, renders, and only shows up as two panels
+ * quoting different times for the same flight — on stage, in front of the room.
  *
- * The derivations are tested because they REPLACED stored values. The in-memory
- * seed carried a hand-written "delayed roughly 55 minutes" alert that stayed at 55
- * whatever the flight said, so beat 5 could resolve a cancellation while the
- * banner still described a delay.
+ * The derivations are tested because they stand in for STORED values. A
+ * hand-written "delayed roughly 55 minutes" alert stays at 55 whatever the flight
+ * says, so beat 5 can resolve a cancellation while the banner still describes a
+ * delay.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";

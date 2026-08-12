@@ -6,9 +6,9 @@ import type { ImpactBrief } from "@/skins/keel/data/types";
  * BEAT 3d — the deterministic A2UI op-builder that puts a FILED Impact Brief on
  * the shared canvas.
  *
- * SERVER-SAFE: no React, no JSX, no "use client", no .tsx imports. A later slot
- * imports it from `agent.ts` for a `render_impact_brief` tool, the same way
- * `ops-report.ts` is imported for `render_ops_report`.
+ * SERVER-SAFE: no React, no JSX, no "use client", no .tsx imports — it is
+ * imported from `agent.ts`, the same way `ops-report.ts` is for
+ * `render_ops_report`.
  *
  * WIRED by the `render_impact_brief` server tool in `agent.ts`, which looks the
  * record up with `store.impactBriefs().find(…)` and emits

@@ -5,11 +5,11 @@
  * the imported seed. All mutations live for the server process only; restarting
  * the dev server resets to seed. Intentional demo behavior.
  *
- * ⚠️ THIS IS ADDITIVE. `use-data.ts` (`useAirlineData`) — the concierge's
- * in-memory React store — is untouched and still drives the trip, loyalty and
- * disruption pages. A later slot migrates those consumers. Until it does, both
- * substrates are live and a change to either must not assume the other moved;
- * `trip-seed.ts`'s header says which fields are deliberately identical.
+ * THE ONLY SUBSTRATE. Every page, tool and canvas reads this store through
+ * `GET /ledger` (`../ledger-context.tsx`), projected onto the check-in shapes by
+ * `../components/concierge-view.ts`. Do not add a second, client-side seed of the
+ * same trip: two seeds of Camila's AV1423 drift, and the symptom is two panels
+ * quoting different times for one flight, on stage.
  *
  * Server-safe: plain TypeScript, no React, no JSX, no `"use client"`.
  */
