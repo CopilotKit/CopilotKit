@@ -1,6 +1,8 @@
 export { deriveKpis, deriveKpiTiles, KpiStrip } from "./kpi-strip";
 export { ExceptionBoard, orderExceptionRows } from "./exception-board";
 export { ShipmentCard } from "./shipment-card";
+export { ExceptionSummaryList } from "./exception-summary";
+export { HandlingMarkers, HandlingDetail } from "./handling-strip";
 export { LaneTable } from "./lane-table";
 export { TradeoffTable } from "./tradeoff-table";
 export { InventoryRiskList, orderInventoryRows } from "./inventory-risk";
