@@ -29,8 +29,6 @@ except ImportError:
     # Langchain >= 1.0.0
     from langchain_core.messages import BaseMessage
 
-logger = logging.getLogger(__name__)
-
 
 class CustomEventNames(Enum):
     """Custom event names for CopilotKit"""
@@ -44,7 +42,6 @@ class LangGraphEventTypes(Enum):
     """LangGraph event types"""
 
     OnChatModelStream = "on_chat_model_stream"
-    OnChatModelEnd = "on_chat_model_end"
     OnCustomEvent = "on_custom_event"
 
 
@@ -115,86 +112,11 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 return super()._dispatch_event(event)
 
             if custom_event.name == CustomEventNames.ManuallyEmitToolCall.value:
-                value = custom_event.value
-                if not isinstance(value, dict):
-                    raise CopilotKitMisuseError(
-                        f"ManuallyEmitToolCall event 'value' must be a dict, got {type(value).__name__}"
-                    )
-
-                tool_call_id = value.get("id")
-                tool_call_name = value.get("name")
-                tool_call_args = value.get("args")
-
-                if not isinstance(tool_call_id, str) or not tool_call_id.strip():
-                    raise CopilotKitMisuseError(
-                        f"ManuallyEmitToolCall event missing valid 'id': got {type(tool_call_id).__name__}"
-                    )
-                if not isinstance(tool_call_name, str) or not tool_call_name.strip():
-                    raise CopilotKitMisuseError(
-                        f"ManuallyEmitToolCall event missing valid 'name': got {type(tool_call_name).__name__}"
-                    )
-                if tool_call_args is None:
-                    raise CopilotKitMisuseError(
-                        f"ManuallyEmitToolCall event missing 'args' for tool_call_id={tool_call_id}"
-                    )
-
-                try:
-                    delta = (
-                        tool_call_args
-                        if isinstance(tool_call_args, str)
-                        else json.dumps(tool_call_args)
-                    )
-                except (TypeError, ValueError) as e:
-                    raise CopilotKitMisuseError(
-                        f"ManuallyEmitToolCall 'args' is not JSON-serializable for tool_call_id={tool_call_id}: {e}"
-                    ) from e
-
-                dispatched_start = False
-                end_dispatched = False
-                try:
-                    super()._dispatch_event(
-                        ToolCallStartEvent(
-                            type=EventType.TOOL_CALL_START,
-                            tool_call_id=tool_call_id,
-                            tool_call_name=tool_call_name,
-                            parent_message_id=tool_call_id,
-                            raw_event=event,
-                        )
-                    )
-                    dispatched_start = True
-                    super()._dispatch_event(
-                        ToolCallArgsEvent(
-                            type=EventType.TOOL_CALL_ARGS,
-                            tool_call_id=tool_call_id,
-                            delta=delta,
-                            raw_event=event,
-                        )
-                    )
-                    super()._dispatch_event(
-                        ToolCallEndEvent(
-                            type=EventType.TOOL_CALL_END,
-                            tool_call_id=tool_call_id,
-                            raw_event=event,
-                        )
-                    )
-                    end_dispatched = True
-                except Exception:
-                    if dispatched_start and not end_dispatched:
-                        try:
-                            super()._dispatch_event(
-                                ToolCallEndEvent(
-                                    type=EventType.TOOL_CALL_END,
-                                    tool_call_id=tool_call_id,
-                                    raw_event=event,
-                                )
-                            )
-                        except Exception:
-                            logger.error(
-                                "Failed to emit compensating TOOL_CALL_END for %s",
-                                tool_call_id,
-                                exc_info=True,
-                            )
-                    raise
+                self._materialize_tool_call_events(
+                    custom_event.value,
+                    event,
+                    parent_message_id=None,
+                )
                 return super()._dispatch_event(event)
 
             if custom_event.name == CustomEventNames.ManuallyEmitState.value:
@@ -280,91 +202,159 @@ class LangGraphAGUIAgent(LangGraphAgent):
         async for event_str in super()._handle_single_event(event, state):
             yield event_str
 
-        if event.get("event") == LangGraphEventTypes.OnChatModelEnd.value:
-            for emitted_event in self._intercepted_frontend_tool_call_events(event):
-                yield self._dispatch_event(emitted_event)
+        if event.get("event") != "on_chain_end":
+            return
 
-    def _intercepted_frontend_tool_call_events(
-        self, event: Any
-    ) -> list[ToolCallEvents]:
-        frontend_tool_names = self._frontend_tool_names()
-        if not frontend_tool_names:
-            return []
-
-        streamed_tool_call_ids = (getattr(self, "active_run", None) or {}).setdefault(
-            "streamed_tool_call_ids",
-            set(),
-        )
         output = (event.get("data") or {}).get("output")
-        tool_calls = getattr(output, "tool_calls", None) or []
-        parent_message_id = getattr(output, "id", None)
+        copilotkit_state = (
+            output.get("copilotkit") if isinstance(output, dict) else None
+        )
+        if not isinstance(copilotkit_state, dict):
+            return
 
-        emitted_events: list[ToolCallEvents] = []
-        for tool_call in tool_calls:
-            if not isinstance(tool_call, dict):
-                continue
+        intercepted_tool_calls = copilotkit_state.get("intercepted_tool_calls")
+        parent_message_id = copilotkit_state.get("original_ai_message_id")
+        if not isinstance(intercepted_tool_calls, list) or not isinstance(
+            parent_message_id, str
+        ):
+            return
 
-            tool_call_id = tool_call.get("id")
-            tool_call_name = tool_call.get("name")
-            tool_call_args = tool_call.get("args")
-
-            if (
-                tool_call_name not in frontend_tool_names
-                or not isinstance(tool_call_id, str)
-                or not tool_call_id.strip()
-                or tool_call_id in streamed_tool_call_ids
-            ):
-                continue
-
-            try:
-                delta = (
-                    tool_call_args
-                    if isinstance(tool_call_args, str)
-                    else json.dumps(tool_call_args)
-                )
-            except (TypeError, ValueError):
-                logger.warning(
-                    "Skipping frontend tool call %s because args are not JSON-serializable",
-                    tool_call_id,
-                    exc_info=True,
-                )
-                continue
-
-            streamed_tool_call_ids.add(tool_call_id)
-            emitted_events.extend(
-                [
-                    ToolCallStartEvent(
-                        type=EventType.TOOL_CALL_START,
-                        tool_call_id=tool_call_id,
-                        tool_call_name=tool_call_name,
-                        parent_message_id=parent_message_id or tool_call_id,
-                        raw_event=event,
-                    ),
-                    ToolCallArgsEvent(
-                        type=EventType.TOOL_CALL_ARGS,
-                        tool_call_id=tool_call_id,
-                        delta=delta,
-                        raw_event=event,
-                    ),
-                    ToolCallEndEvent(
-                        type=EventType.TOOL_CALL_END,
-                        tool_call_id=tool_call_id,
-                        raw_event=event,
-                    ),
-                ]
+        valid_calls = [
+            call
+            for call in intercepted_tool_calls
+            if self._materialize_tool_call_events(
+                call, event, parent_message_id=parent_message_id, dispatch=False
             )
-
-        return emitted_events
-
-    def _frontend_tool_names(self) -> set[str]:
-        names: set[str] = set()
-        for tool in (self._copilotkit_runtime_payload or {}).get("actions") or []:
-            if not isinstance(tool, dict):
+        ]
+        streamed_tool_call_ids = (getattr(self, "active_run", None) or {}).setdefault(
+            "streamed_tool_call_ids", set()
+        )
+        for call in valid_calls:
+            tool_call_id = call["id"]
+            # The parent adapter records streamed IDs even when lifecycle emission is suppressed.
+            if tool_call_id in streamed_tool_call_ids:
                 continue
-            name = tool.get("function", {}).get("name") or tool.get("name")
-            if isinstance(name, str) and name.strip():
-                names.add(name)
-        return names
+            if self._materialize_tool_call_events(
+                call,
+                event,
+                parent_message_id=parent_message_id,
+                dispatch_via_adapter=True,
+            ):
+                streamed_tool_call_ids.add(tool_call_id)
+
+    def _materialize_tool_call_events(
+        self,
+        value: Any,
+        event: Any,
+        *,
+        parent_message_id: Optional[str],
+        dispatch: bool = True,
+        dispatch_via_adapter: bool = False,
+    ) -> bool:
+        if not isinstance(value, dict):
+            if dispatch:
+                raise CopilotKitMisuseError(
+                    f"ManuallyEmitToolCall event 'value' must be a dict, got {type(value).__name__}"
+                )
+            return False
+
+        tool_call_id = value.get("id")
+        tool_call_name = value.get("name")
+        tool_call_args = value.get("args")
+        if not isinstance(tool_call_id, str) or not tool_call_id.strip():
+            if dispatch:
+                raise CopilotKitMisuseError(
+                    f"ManuallyEmitToolCall event missing valid 'id': got {type(tool_call_id).__name__}"
+                )
+            logger.warning("Skipping intercepted tool call with invalid id")
+            return False
+        if not isinstance(tool_call_name, str) or not tool_call_name.strip():
+            if dispatch:
+                raise CopilotKitMisuseError(
+                    f"ManuallyEmitToolCall event missing valid 'name': got {type(tool_call_name).__name__}"
+                )
+            logger.warning(
+                "Skipping intercepted tool call %s with invalid name", tool_call_id
+            )
+            return False
+        if tool_call_args is None:
+            if dispatch:
+                raise CopilotKitMisuseError(
+                    f"ManuallyEmitToolCall event missing 'args' for tool_call_id={tool_call_id}"
+                )
+            logger.warning(
+                "Skipping intercepted tool call %s without args", tool_call_id
+            )
+            return False
+        try:
+            delta = (
+                tool_call_args
+                if isinstance(tool_call_args, str)
+                else json.dumps(tool_call_args)
+            )
+        except (TypeError, ValueError) as error:
+            if dispatch:
+                raise CopilotKitMisuseError(
+                    f"ManuallyEmitToolCall 'args' is not JSON-serializable for tool_call_id={tool_call_id}: {error}"
+                ) from error
+            logger.warning(
+                "Skipping intercepted tool call %s with non-serializable args",
+                tool_call_id,
+            )
+            return False
+        if not dispatch:
+            return True
+
+        dispatched_start = False
+        end_dispatched = False
+        dispatch_event = (
+            self._dispatch_event if dispatch_via_adapter else super()._dispatch_event
+        )
+        try:
+            dispatch_event(
+                ToolCallStartEvent(
+                    type=EventType.TOOL_CALL_START,
+                    tool_call_id=tool_call_id,
+                    tool_call_name=tool_call_name,
+                    parent_message_id=parent_message_id or tool_call_id,
+                    raw_event=event,
+                )
+            )
+            dispatched_start = True
+            dispatch_event(
+                ToolCallArgsEvent(
+                    type=EventType.TOOL_CALL_ARGS,
+                    tool_call_id=tool_call_id,
+                    delta=delta,
+                    raw_event=event,
+                )
+            )
+            dispatch_event(
+                ToolCallEndEvent(
+                    type=EventType.TOOL_CALL_END,
+                    tool_call_id=tool_call_id,
+                    raw_event=event,
+                )
+            )
+            end_dispatched = True
+        except Exception:
+            if dispatched_start and not end_dispatched:
+                try:
+                    dispatch_event(
+                        ToolCallEndEvent(
+                            type=EventType.TOOL_CALL_END,
+                            tool_call_id=tool_call_id,
+                            raw_event=event,
+                        )
+                    )
+                except Exception:
+                    logger.error(
+                        "Failed to emit compensating TOOL_CALL_END for %s",
+                        tool_call_id,
+                        exc_info=True,
+                    )
+            raise
+        return True
 
     @staticmethod
     def _serialize_copilotkit_runtime_payload(input: Any) -> dict[str, Any]:
