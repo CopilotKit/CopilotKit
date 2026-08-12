@@ -8,6 +8,7 @@ import { keelNav } from "@/skins/keel/nav";
 import { KeelLayout } from "@/skins/keel/layout";
 import { KeelTools } from "@/skins/keel/tools";
 import {
+  KeelProviders,
   KeelRuntimeProviders,
   useKeelRuntimeProperties,
 } from "@/skins/keel/providers";
@@ -94,6 +95,24 @@ const TOOL_LABELS: Record<string, string> = {
   countersignRelease: "Opening the e-signature card",
   fileImpactBrief: "Filing the impact brief",
   navigateTo: "Navigating",
+  // Beat 3c
+  showRegister: "Setting the register's controls",
+  // Beat 4 — the chip says WHY, so the room reads "it remembered" off the
+  // transcript even before the note lands.
+  showRegisterSummary: "Applying your saved reading preference",
+  recall_memory: "Recalling what it knows about you",
+  save_memory: "Remembering this for next time",
+  // Beat 5's three writes
+  raiseReviewFlag: "Raising a review flag",
+  sendOwnerNotice: "Notifying the owning department",
+  addDocumentNote: "Posting a note on the record",
+  // Beat 6. Deliberately says nothing about a CODE — a chip is on screen and the
+  // agent-facing surfaces are the ones that must stay clean, but naming the
+  // catalogue anywhere invites the next edit to name it somewhere that matters.
+  fileReleaseVariance: "Filing the variance",
+  offerWorkflowRecording: "Asking to be shown",
+  awaitDemonstration: "Watching you",
+  saveLearnedProcedure: "Writing up what it learned",
 };
 
 // NOTE: no `agent` field — agents are server-only, registered in
@@ -120,6 +139,13 @@ const keel: Skin = {
   // reads ONE `GET /ledger` snapshot.
   RuntimeProviders: KeelRuntimeProviders,
   useRuntimeProperties: useKeelRuntimeProperties,
+
+  // BEAT 6 — the teach-mode recorder, which must enclose BOTH the app card (where
+  // the operator demonstrates) and the chat card (where the card reading the feed
+  // lives). `Providers` mounts BELOW CopilotKitProvider, which is the only mount
+  // point that encloses both. See providers.tsx for why a narrower mount fails
+  // SILENTLY.
+  Providers: KeelProviders,
 
   // BEAT 3d — both of these exist to serve the attachment beat, and neither is
   // decorative: the framework's suggestion path DROPS attachments, so a pill
@@ -159,8 +185,7 @@ const keel: Skin = {
   // `useKeelLedger()`, and elapsed time is settled SERVER-SIDE on every read
   // (`src/app/api/keel/v1/settle-runs.ts`). So `useSkinData<T>()` correctly
   // returns undefined for keel, exactly as it does for the four other
-  // REST-backed skins. `Providers` stays omitted — nothing in this skin needs to
-  // mount below the CopilotKit provider.
+  // REST-backed skins.
 };
 
 export default keel;

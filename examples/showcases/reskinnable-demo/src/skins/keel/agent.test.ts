@@ -198,4 +198,70 @@ describe("the prompt (beat 3b's third leg, and beat 6's withholding)", () => {
     }
     expect(text.toLowerCase()).not.toContain("publication variance");
   });
+
+  /**
+   * The other half of that channel: withholding the codes is worthless if the
+   * prompt does not FORBID guessing one. Logistics needed exactly these sentences —
+   * the model will otherwise file something plausible, get a 422, and the room
+   * watches it flounder instead of watching it ask to be taught.
+   */
+  it("forbids inventing, guessing or trial-filing a code", () => {
+    const text = prompt();
+    expect(text).toContain("do not guess a code");
+    expect(text).toContain("to see what happens");
+    // And it must say the catalogue is deliberately not its to have, so "I could
+    // not find the codes" is a state it can recognise rather than a gap to fill.
+    expect(text).toContain("not given to you");
+  });
+
+  it("routes a blocked release to offerWorkflowRecording rather than to a workaround", () => {
+    const text = prompt();
+    expect(text).toContain("ACTION DISCIPLINE");
+    expect(text).toContain("offerWorkflowRecording");
+    expect(text).toContain("awaitDemonstration");
+    expect(text).toContain("saveLearnedProcedure");
+    // The two doors that must stay shut: a persona switch and the e-signature card.
+    // Both would clear a run's approval gate and neither can clear this one, so an
+    // agent offering either is offering a way past a gate that has none.
+    expect(text).toContain("Do not switch persona");
+    expect(text).toContain("never WHAT may");
+  });
+
+  it("keeps beat 5's procedure and beat 6's teach arc explicitly apart", () => {
+    // The single easiest pair in this demo for the model to confuse. Without this,
+    // it offers to record a procedure it already has — the most confusing thing it
+    // can do on this screen — or assumes the flag-and-notify procedure will clear a
+    // release gate.
+    const text = prompt();
+    expect(text).toContain("DIFFERENT procedure");
+    expect(text).toContain("offer to record");
+    // …and the reverse: finding the document is not handling it.
+    expect(text).toContain("FINDING IS NOT HANDLING");
+  });
+
+  it("requires recall BEFORE a library summary, and the why ON SCREEN", () => {
+    // Beat 4 is invisible without both halves: recall that precedes the answer, and
+    // a note the room can read. A grouped list on its own is not evidence of memory.
+    const text = prompt();
+    expect(text).toContain("recall_memory");
+    expect(text).toContain("showRegisterSummary");
+    expect(text).toContain('"note"');
+  });
+
+  it("teaches the levers as REQUIRED with an explicit not-pulled value", () => {
+    // Beat 3c. `.optional()` gets filled anyway, so the prompt has to name the
+    // sentinel — logistics shipped an empty board under four tinted controls before
+    // this clause existed, and needed a fix commit for it.
+    const text = prompt();
+    expect(text).toContain("showRegister");
+    expect(text).toContain("EVERY lever is REQUIRED");
+    expect(text).toContain("leave this lever alone");
+  });
+
+  it("pins durable saves to scope 'user'", () => {
+    // A project-scoped row is global to the shared Intelligence instance, survives
+    // every presenter reset (`forget-memories.ts` skips it), and would leave beat 6
+    // opening already taught.
+    expect(prompt()).toContain('always use scope "user"');
+  });
 });

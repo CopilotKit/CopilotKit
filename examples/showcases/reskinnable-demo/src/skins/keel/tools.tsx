@@ -16,6 +16,27 @@ import type { Citation } from "@/skins/keel/knowledge/types";
 import type { DocumentRecord } from "@/skins/keel/data/types";
 import { canonicalRef } from "@/skins/keel/data/bulletin-citations";
 import { missingEndorsements } from "@/skins/keel/data/attention";
+import {
+  REVIEW_FLAG_REASONS,
+  OWNER_NOTICE_TEMPLATES,
+} from "@/skins/keel/data/handling";
+import {
+  ATTENTION_ARGUMENTS,
+  SORT_ARGUMENTS,
+  SPACE_ARGUMENTS,
+  normalizeRegisterLevers,
+  registerLeverChips,
+  registerLeverQuery,
+} from "@/skins/keel/data/register-levers";
+import {
+  OFFER_ACCEPTED,
+  OFFER_DECLINED,
+  SAVE_PROCEDURE_CONFIRMED,
+  SAVE_PROCEDURE_DECLINED,
+  classifySaveProcedureResult,
+  readDemonstratedStepCount,
+  readOfferAccepted,
+} from "@/skins/keel/teach-mode-directives";
 import { useKeelHref } from "@/skins/keel/href";
 import { SourcesCard } from "@/skins/keel/components/sources-card";
 import { PlaybookCard } from "@/skins/keel/components/playbook-card";
@@ -24,6 +45,8 @@ import { ApprovalCard } from "@/skins/keel/components/approval-card";
 import { ApprovalsQueueSurface } from "@/skins/keel/components/approvals-queue";
 import { RunTimeline } from "@/skins/keel/components/run-timeline";
 import { RegisterHealthCard } from "@/skins/keel/components/register-health-card";
+import { RegisterSummaryCard } from "@/skins/keel/components/register-summary-card";
+import { DemonstrationCard } from "@/skins/keel/components/demonstration-card";
 import { SigningPinCard } from "@/skins/keel/components/signing-pin-card";
 import { ChatSurface } from "@/skins/keel/components/chat-surface";
 import { KeelSandboxDataSync } from "@/skins/keel/sandbox-functions";
@@ -166,6 +189,51 @@ function findRecord(
     documents.find((doc) => doc.docId === query) ??
     documents.find((doc) => canonicalRef(doc.ref) === key)
   );
+}
+
+/**
+ * The one POST path every tool in this file writes through.
+ *
+ * Deliberately NOT routed through `useKeelDesk`'s `write`: the desk exposes the
+ * run-engine mutations, and beats 5 and 6 write to document-control routes that
+ * are not part of that surface. Keel already establishes this pattern — the
+ * e-signature card and `fileImpactBrief` both POST through their own fetch and
+ * then call `refresh()` — so a second copy of the ok/reason contract here is the
+ * SAME one, in one place, rather than four hand-rolled `fetch` blocks.
+ *
+ * A refusal's `message` is relayed VERBATIM. The routes write those to be read by
+ * a human AND by the agent (the release gate names the body that has not
+ * endorsed), and flattening them into one house string costs exactly the
+ * information that tells the agent whether to relay, stop, or ask.
+ */
+async function postToDesk(
+  url: string,
+  body: unknown,
+): Promise<{ ok: boolean; message: string; payload?: unknown }> {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      const message =
+        payload &&
+        typeof payload === "object" &&
+        typeof (payload as { message?: unknown }).message === "string"
+          ? (payload as { message: string }).message
+          : `That request was refused (HTTP ${res.status}).`;
+      return { ok: false, message };
+    }
+    return { ok: true, message: "", payload };
+  } catch (error) {
+    console.error(`[keel] write to ${url} failed:`, error);
+    return {
+      ok: false,
+      message: "The desk could not be reached. Nothing was recorded.",
+    };
+  }
 }
 
 export function KeelTools() {
@@ -933,6 +1001,624 @@ export function KeelTools() {
       },
     },
     [router, keelHref],
+  );
+
+  // ══ BEAT 3c — THE FOUR LEVERS, AS A MANEUVER ═════════════════════════════
+  //
+  // A plain `navigateTo` does not earn this beat. The room has to see the levers
+  // NAMED before anything moves, and TINTED on the Register afterwards, so the
+  // claim "it reached the app's real controls" is something they can check rather
+  // than take on faith. Four rather than one, deliberately: a single filter looks
+  // like a link with extra steps.
+  //
+  // Every advertised value comes from `data/register-levers.ts` — the page's OWN
+  // control vocabulary — so this tool cannot offer a value the Register has no
+  // control for.
+  //
+  // ⚠️ EVERY LEVER IS REQUIRED, each carrying an explicit "not pulled" member
+  // ("all", or 0 for the limit — `ANY_LEVER` in `data/register-levers.ts`),
+  // rather than `.optional()`. Measured in logistics, which
+  // needed a fix commit for exactly this: told in as many words to leave the
+  // filters alone, gpt-5.4 still filled the optional enums and put an EMPTY board
+  // on screen under four confidently tinted controls. A model facing an optional
+  // enum fills it anyway, because omission is not a choice it can STATE. The
+  // sentinels are that way of saying it, and `normalizeRegisterLevers` drops them
+  // to `null` downstream — no chip, no query param, no extra branch.
+  useHumanInTheLoop(
+    {
+      name: "showRegister",
+      description:
+        "Take the operator to the Policy Register with a knowledge space, an " +
+        "attention class, a sort order and a top-N limit applied. Confirm with " +
+        "them first — the card lists the levers before anything moves. Use this " +
+        "for any 'what is overdue for review', 'which policies need attention', " +
+        "'show me the register' or 'lowest attestation first' request. EVERY " +
+        "lever is REQUIRED: set the ones the request implies, and pass 'all' (or " +
+        "0 for the limit) for the ones it does not — that is how you say 'leave " +
+        "this lever alone', and it is the only way to say it. Never omit a lever, " +
+        "and never fill one merely because the schema offers it: a lever the " +
+        "operator did not ask for narrows the board for no reason and claims a " +
+        "choice they never made. The register holds nine documents across three " +
+        "spaces, so setting `space` narrows it hard. Whatever you set, say " +
+        "afterwards how many rows the board is showing out of how many match.",
+      parameters: z.object({
+        space: z
+          .enum(SPACE_ARGUMENTS)
+          .describe(
+            "Restrict to one knowledge space, or 'all' for every space. Use 'all' unless the operator named a space.",
+          ),
+        attention: z
+          .enum(ATTENTION_ARGUMENTS)
+          .describe(
+            "Restrict to one attention class, or 'all' for any. Use 'all' unless the operator named a concern.",
+          ),
+        sort: z
+          .enum(SORT_ARGUMENTS)
+          .describe("Row order, or 'all' to keep the register's own order."),
+        top: z
+          .number()
+          .int()
+          .min(0)
+          .describe("Limit to the first N rows. Use 0 for no limit."),
+      }),
+      render: ({ args, result, respond }) => {
+        const text = settledText(result);
+        if (text) {
+          return (
+            <Receipt tone={text.startsWith("Opened") ? "positive" : "negative"}>
+              {text}
+            </Receipt>
+          );
+        }
+        if (!respond) return <AwaitingCard />;
+
+        // Normalized from ONE record — the same one the URL below is built from,
+        // so the view this opens is the view the card just promised. Arguments
+        // STREAM, so mid-render a lever that has not arrived yet is simply unset
+        // and draws NO chip; a `?? "all"` default would assert a choice the agent
+        // never made and then flip when the real value landed.
+        const levers = normalizeRegisterLevers(args ?? {});
+        const chips = registerLeverChips(levers);
+        return (
+          <ChatSurface className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+            <div className="text-sm text-ink">
+              {chips.length
+                ? "Open the Register with these controls set?"
+                : "Open the Register?"}
+            </div>
+            {chips.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {chips.map((c) => (
+                  <span
+                    key={c.label}
+                    className="rounded-md bg-brand-soft px-2 py-1 text-xs font-medium text-brand-indigo dark:text-brand-violet"
+                  >
+                    {c.label}: {c.value}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
+                onClick={() => {
+                  const query = registerLeverQuery(levers);
+                  // Through `keelHref`, never a literal `/keel/knowledge` —
+                  // under LOCK_SKIN this deploy is served at `/`. `pnpm lint`
+                  // enforces it.
+                  let navigated = true;
+                  try {
+                    router.push(
+                      `${keelHref("knowledge")}${query ? `?${query}` : ""}`,
+                    );
+                  } catch (error) {
+                    navigated = false;
+                    console.error("[keel] could not open the Register", error);
+                  }
+                  // Respond either way: a throw that escaped this handler would
+                  // leave the interrupt unsettled and WEDGE the run, which is the
+                  // one outcome worse than not navigating.
+                  void respond?.(
+                    navigated
+                      ? `Opened the Register${
+                          chips.length
+                            ? ` with ${chips
+                                .map(
+                                  (c) =>
+                                    `${c.label.toLowerCase()} ${c.value.toLowerCase()}`,
+                                )
+                                .join(", ")}`
+                            : ""
+                        }. The controls are highlighted on screen.`
+                      : "The Register could not be opened — the navigation failed, so the operator is still where they were.",
+                  );
+                }}
+              >
+                Apply and go
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
+                onClick={() =>
+                  void respond?.("The operator declined the navigation.")
+                }
+              >
+                Not now
+              </button>
+            </div>
+          </ChatSurface>
+        );
+      },
+    },
+    [router, keelHref],
+  );
+
+  // ══ BEAT 4 — MEMORY RECALL, WITH A VISIBLE "WHY" ═════════════════════════
+  //
+  // A `useComponent`, so it replays from thread history (beat 2) and re-derives
+  // every figure from the live register through `summarizeRegister` — the same
+  // function the beat-1 card uses.
+  //
+  // ⚠️ THE `note` PARAMETER IS THE BEAT. A grouped, overdue-first list is not
+  // evidence of recall: a model with no memory at all could produce one, so
+  // without the agent NAMING the preference it recalled, the room sees an
+  // ordinary answer and the beat is invisible. Banking's `note` is the pattern.
+  // The prompt (rule 10) requires `recall_memory` BEFORE this call and requires
+  // the recalled preference to be put here in the agent's own words.
+  useComponent(
+    {
+      name: "showRegisterSummary",
+      description:
+        "Summarize the policy library as a card, grouped by knowledge space " +
+        "with the documents past their review date leading each group. Call " +
+        "this for 'summarize the library', 'how does the register look', 'walk " +
+        "me through the policies', or any request for an overview of the book. " +
+        "You pass NO figures — the app reads every one from the register, so do " +
+        "NOT restate them in prose afterwards. You MUST pass `note`: the saved " +
+        "reading preference you recalled and applied, in your own words.",
+      parameters: z.object({
+        note: z
+          .string()
+          .describe(
+            "The saved reading preference you recalled and applied, in your own " +
+              "words — for example 'You read the register by space, with " +
+              "anything past its review date first'. Prose only, never a figure " +
+              "and never a percentage. If recall_memory returned nothing, say " +
+              "that plainly here instead of inventing a preference.",
+          ),
+      }),
+      // useComponent renders receive the parsed tool args directly as props.
+      render: ({ note }) => (
+        <RegisterSummaryCard records={data.documents} now={now} note={note} />
+      ),
+    },
+    [data.documents, now],
+  );
+
+  // ══ BEAT 5 — THE STORED PROCEDURE: three ordered writes on ONE record ════
+  //
+  // "POL-121 is out of date — handle it" recalls a seeded operational memory and
+  // runs `raiseReviewFlag` → `sendOwnerNotice` → `addDocumentNote`, in order,
+  // immediately, with NO confirmation.
+  //
+  // ⚠️ ALL THREE ARE `useFrontendTool`, NOT `useHumanInTheLoop`, and that is a
+  // beat requirement rather than a convenience. Banking's equivalent once opened a
+  // confirmation card mid-procedure; a presenter moved on without answering it,
+  // that tool call sat unresolved, and the NEXT message failed the whole thread
+  // with "Tool result is missing for tool call ...". A procedure with no
+  // half-finished state cannot leave one behind.
+  //
+  // ⚠️ THESE VOCABULARIES ARE THE OPPOSITE OF BEAT 6's. `REVIEW_FLAG_REASONS` and
+  // `OWNER_NOTICE_TEMPLATES` are closed AND GIVEN to the agent, enumerated on the
+  // schemas, because the whole claim of beat 5 is that it ALREADY KNOWS the
+  // procedure — there is nothing to discover, so a value outside the set is a
+  // model error worth naming. `data/handling.ts` says so out loud, and its
+  // identifiers deliberately end `_REASONS`/`_TEMPLATES` so eslint's
+  // `withheldGateVocabulary` selector (`/_(CODE_LABELS|CODES)$/`) does not match
+  // them. Beat 6's catalogue lives one directory over and is never imported here.
+  useFrontendTool(
+    {
+      name: "raiseReviewFlag",
+      description:
+        "Put a document on the desk's review list with a reason. Step 1 of " +
+        "handling a document that is out of date. Names the document by its " +
+        'register reference (e.g. "POL-121") or its docId.',
+      parameters: z.object({
+        document: z
+          .string()
+          .describe('The register reference (e.g. "POL-121") or the docId.'),
+        reason: z
+          .enum(REVIEW_FLAG_REASONS)
+          .describe("Why it is on the review list."),
+      }),
+      handler: async ({ document, reason }) => {
+        const desk = deskRef.current;
+        const record = findRecord(desk.documents, document ?? "");
+        if (!record)
+          return `REFUSED: "${document}" is not in the policy register.`;
+        const outcome = await postToDesk(
+          `/api/keel/v1/documents/${encodeURIComponent(record.docId)}/flag`,
+          { reason, personaId: desk.persona.id },
+        );
+        if (!outcome.ok) return `REFUSED: ${outcome.message}`;
+        await deskRef.current.refresh();
+        return `Raised a ${reason} review flag on ${record.ref}.`;
+      },
+      render: ({ result }) => {
+        const text = settledText(result);
+        if (!text) return null;
+        const refused = text.startsWith("REFUSED");
+        return (
+          <Receipt tone={refused ? "negative" : "positive"}>
+            {text.replace(/^REFUSED:\s*/, "")}
+          </Receipt>
+        );
+      },
+    },
+    [],
+  );
+
+  useFrontendTool(
+    {
+      name: "sendOwnerNotice",
+      description:
+        "Send the document's owning department a templated notice. Step 2 of " +
+        "handling a document that is out of date.",
+      parameters: z.object({
+        document: z
+          .string()
+          .describe('The register reference (e.g. "POL-121") or the docId.'),
+        template: z
+          .enum(OWNER_NOTICE_TEMPLATES)
+          .describe("Which notice the owning department receives."),
+      }),
+      handler: async ({ document, template }) => {
+        const desk = deskRef.current;
+        const record = findRecord(desk.documents, document ?? "");
+        if (!record)
+          return `REFUSED: "${document}" is not in the policy register.`;
+        const outcome = await postToDesk(
+          `/api/keel/v1/documents/${encodeURIComponent(record.docId)}/notices`,
+          { template, personaId: desk.persona.id },
+        );
+        if (!outcome.ok) return `REFUSED: ${outcome.message}`;
+        await deskRef.current.refresh();
+        return `Sent ${record.owner} the ${template} notice for ${record.ref}.`;
+      },
+      render: ({ result }) => {
+        const text = settledText(result);
+        if (!text) return null;
+        const refused = text.startsWith("REFUSED");
+        return (
+          <Receipt tone={refused ? "negative" : "positive"}>
+            {text.replace(/^REFUSED:\s*/, "")}
+          </Receipt>
+        );
+      },
+    },
+    [],
+  );
+
+  useFrontendTool(
+    {
+      name: "addDocumentNote",
+      description:
+        "Post a short note on a document's register record. Step 3 of handling " +
+        "a document that is out of date. One line — what was flagged and why. " +
+        "The register adds its own attention marker, so do not add one yourself.",
+      parameters: z.object({
+        document: z
+          .string()
+          .describe('The register reference (e.g. "POL-121") or the docId.'),
+        text: z.string().describe("One short line for the record."),
+      }),
+      handler: async ({ document, text }) => {
+        const desk = deskRef.current;
+        const record = findRecord(desk.documents, document ?? "");
+        if (!record)
+          return `REFUSED: "${document}" is not in the policy register.`;
+        const outcome = await postToDesk(
+          `/api/keel/v1/documents/${encodeURIComponent(record.docId)}/notes`,
+          { text, personaId: desk.persona.id },
+        );
+        if (!outcome.ok) return `REFUSED: ${outcome.message}`;
+        await deskRef.current.refresh();
+        return `Posted a note on ${record.ref}.`;
+      },
+      render: ({ result }) => {
+        const text = settledText(result);
+        if (!text) return null;
+        const refused = text.startsWith("REFUSED");
+        return (
+          <Receipt tone={refused ? "negative" : "positive"}>
+            {text.replace(/^REFUSED:\s*/, "")}
+          </Receipt>
+        );
+      },
+    },
+    [],
+  );
+
+  // ══ BEAT 6 — TEACH IT A PROCEDURE IT DOES NOT HAVE ═══════════════════════
+  //
+  // The chain, in order: offerWorkflowRecording → awaitDemonstration →
+  // saveLearnedProcedure. All three are `followUp: true`, so the agent advances to
+  // the next card as soon as one settles rather than stopping to narrate.
+  //
+  // The REPLAY chain is not new: once the procedure is saved, a request on a
+  // DIFFERENT document goes through the tools that already exist —
+  // `fileReleaseVariance` (files AND ratifies in one call) then
+  // `countersignRelease`, the very write that was refused. Nothing is
+  // special-cased for the replay, which is the point: the agent applies ordinary
+  // tools in an order it was never told, on POL-208 Rev C rather than the POL-114
+  // Rev D it was taught on.
+  //
+  // ⚠️ FIVE LEAK CHANNELS, AND CLOSING FOUR IS CLOSING NONE
+  // (`.claude/skills/reskin/failure-modes.md` § 10). There is no variance-code
+  // readable in this file, no `z.enum` on any code parameter, no code named in any
+  // description here, none in the prompt, and none in the 422 body. This INVERTS
+  // the enumerate-every-closed-set rule the beat-5 tools above follow, because for
+  // a GATE, reaching the model IS the defect. `fileReleaseVariance`'s `code` is a
+  // free `z.string()` whose `.describe()` states the withholding out loud.
+  // `tools-replay-safety.test.ts` and `agent.test.ts` both assert the absence;
+  // eslint's `withheldGateVocabulary` covers the IMPORT, and prose is a
+  // hand-review item no rule can see.
+  //
+  // ⚠️ RUNTIME-CONDITIONAL, IN ONE HALF ONLY. Gate → decline → demonstrate →
+  // summarize works on the plain OSS SSE path: every tool below is an ordinary
+  // frontend tool and the REST gate is real. What needs Intelligence is the
+  // DURABLE half — `recall_memory` and `save_memory` attach only when the
+  // Intelligence runtime is configured. Without it the save card still renders and
+  // still settles; the agent simply has no `save_memory` to call, so it reports
+  // that it has the procedure for this conversation and nothing crosses to a fresh
+  // thread. That degrades to "learned for now", not to an error.
+  useFrontendTool(
+    {
+      name: "fileReleaseVariance",
+      description:
+        "File and ratify a coded variance against a document's pending " +
+        "revision, so the register records an authorization to release it ahead " +
+        "of an endorsement it is waiting on. YOU DO NOT KNOW THE CODES: the " +
+        "catalogue is the operator's, is deliberately not published to you, and " +
+        "only some of it authorizes anything. Call this ONLY with a code a saved " +
+        "procedure or the operator gave you, VERBATIM. Never invent one, never " +
+        "guess, and never file one to see what happens — a code that does not " +
+        "authorize is recorded on the register and lifts nothing. If you have no " +
+        "code, call offerWorkflowRecording instead of calling this.",
+      parameters: z.object({
+        document: z
+          .string()
+          .describe('The register reference (e.g. "POL-208") or the docId.'),
+        code: z
+          .string()
+          .describe(
+            "The exact code, copied verbatim from a saved procedure or from " +
+              "what the operator told you. The valid codes are WITHHELD from " +
+              "you on purpose — you cannot derive one, so do not try.",
+          ),
+        rationale: z
+          .string()
+          .describe("One line for the register, in the operator's terms."),
+      }),
+      handler: async ({ document, code, rationale }) => {
+        const desk = deskRef.current;
+        const record = findRecord(desk.documents, document ?? "");
+        if (!record)
+          return `REFUSED: "${document}" is not in the policy register.`;
+        const filed = await postToDesk("/api/keel/v1/variances", {
+          docId: record.docId,
+          code,
+          rationale,
+          personaId: desk.persona.id,
+        });
+        // The route refuses an unrecognized code WITHOUT enumerating the valid
+        // set, and this relays that refusal unchanged — the fifth leak channel
+        // stays closed even on the failure path, which is where it is easiest to
+        // open by "helpfully" listing the options.
+        if (!filed.ok) return `REFUSED: ${filed.message}`;
+        const varianceId = (filed.payload as { id?: string } | null)?.id;
+        if (!varianceId) {
+          return "REFUSED: the register accepted the filing but returned no id, so it could not be ratified.";
+        }
+        // FILED AND RATIFIED IN ONE CALL. A draft variance authorizes nothing, so
+        // leaving the ratification to a second tool call doubles the failure
+        // surface for a step that has no decision in it.
+        const ratified = await postToDesk(
+          `/api/keel/v1/variances/${encodeURIComponent(varianceId)}/ratify`,
+          {},
+        );
+        if (!ratified.ok) return `REFUSED: ${ratified.message}`;
+        await deskRef.current.refresh();
+        return (
+          `Filed and ratified a ${code} variance against ${record.ref} ` +
+          `${record.pendingRevision?.label ?? "the pending revision"}. ` +
+          `Re-attempt the release to see whether it clears.`
+        );
+      },
+      render: ({ result }) => {
+        const text = settledText(result);
+        if (!text) return null;
+        const refused = text.startsWith("REFUSED");
+        return (
+          <Receipt tone={refused ? "negative" : "positive"}>
+            {text.replace(/^REFUSED:\s*/, "")}
+          </Receipt>
+        );
+      },
+    },
+    [],
+  );
+
+  useHumanInTheLoop(
+    {
+      followUp: true,
+      name: "offerWorkflowRecording",
+      description:
+        "Offer to WATCH the operator do something you have no saved procedure " +
+        "for. Call this immediately after a write is refused and recall_memory " +
+        "turned up nothing — say plainly that you do not know this one. Never " +
+        "guess a workaround, substitute a different action, or call another tool " +
+        "instead of this.",
+      parameters: z.object({
+        situation: z
+          .string()
+          .describe("What you were blocked on, in one short line."),
+      }),
+      render: ({ args, result, respond }) => {
+        const text = settledText(result);
+        // Replay-safe, and a HUMAN line rather than `result`: that string is an
+        // internal directive addressed to the agent ("Call awaitDemonstration
+        // now…"), and printing it verbatim puts the demo's own wiring on screen in
+        // front of the room.
+        if (text) {
+          return (
+            <Receipt tone={readOfferAccepted(text) ? "positive" : "negative"}>
+              {readOfferAccepted(text)
+                ? "Watching you do it once."
+                : "Left it for now — nothing was recorded."}
+            </Receipt>
+          );
+        }
+        if (!respond) return <AwaitingCard />;
+        return (
+          <ChatSurface className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+            <div className="text-sm text-ink">
+              I don&rsquo;t have a saved way through this one
+              {args?.situation
+                ? ` — ${args.situation.replace(/\.+$/, "")}`
+                : ""}
+              . Show me once and I&rsquo;ll remember it?
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
+                onClick={() => void respond?.(OFFER_ACCEPTED)}
+              >
+                Show me
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
+                onClick={() => void respond?.(OFFER_DECLINED)}
+              >
+                Not now
+              </button>
+            </div>
+          </ChatSurface>
+        );
+      },
+    },
+    [],
+  );
+
+  useHumanInTheLoop(
+    {
+      followUp: true,
+      name: "awaitDemonstration",
+      description:
+        "Hold the conversation while the operator demonstrates. Call this after " +
+        "they agree to show you. Do NOT list steps, name a code, or tell them " +
+        "where to click — you do not know the procedure, which is the entire " +
+        "reason you are watching. Say only something brief like 'go ahead, I'm " +
+        "watching'. When they finish you receive the steps they took and the " +
+        "exact code they filed.",
+      parameters: z.object({}),
+      render: ({ result, respond }) => {
+        const text = settledText(result);
+        // Replay-safe, and the count is the one the RECORDER reported — never one
+        // re-counted out of this prose. See ../teach-mode-directives.
+        if (text) {
+          const count = readDemonstratedStepCount(text);
+          return (
+            <Receipt>
+              Recorded{" "}
+              {count === null
+                ? "the demonstration"
+                : `${count} ${count === 1 ? "step" : "steps"}`}
+              .
+            </Receipt>
+          );
+        }
+        if (!respond) return <AwaitingCard />;
+        // Its own component, so it subscribes to the recorder directly and
+        // re-renders on every logged step, AND owns the outer recording bracket
+        // across the operator's two clicks. Inlining either would freeze the feed
+        // or strand the demonstrated code — see components/demonstration-card.tsx.
+        return (
+          <DemonstrationCard onDone={(summary) => void respond(summary)} />
+        );
+      },
+    },
+    [],
+  );
+
+  useHumanInTheLoop(
+    {
+      followUp: true,
+      name: "saveLearnedProcedure",
+      description:
+        "Summarize what you just watched as a numbered procedure and show it to " +
+        "the operator for confirmation. Call this after awaitDemonstration " +
+        "reports what it saw, quoting the exact code it reports. After they " +
+        "confirm, persist it with save_memory exactly as the card's result " +
+        "instructs. Save it AT MOST ONCE.",
+      parameters: z.object({
+        procedure: z
+          .string()
+          .describe(
+            "The numbered procedure, naming verbatim the code awaitDemonstration reported. Do not paraphrase it.",
+          ),
+      }),
+      render: ({ args, result, respond }) => {
+        const text = settledText(result);
+        // CLASSIFIED, never merely detected. Both buttons settle this card with a
+        // string, so "is there a result at all" would print the saved receipt over
+        // a decline — asserting a durable write that never happened, live and
+        // identically on every replay.
+        if (text) {
+          const outcome = classifySaveProcedureResult(text);
+          return (
+            <Receipt tone={outcome === "saved" ? "positive" : "negative"}>
+              {outcome === "saved"
+                ? "Saved — I'll use this next time without being asked."
+                : outcome === "declined"
+                  ? "Left it unsaved — nothing was written to memory."
+                  : "This card was already answered."}
+            </Receipt>
+          );
+        }
+        if (!respond) return <AwaitingCard />;
+        return (
+          <ChatSurface className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+            <div className="text-sm font-medium text-ink">
+              Here&rsquo;s what I picked up — shall I remember it?
+            </div>
+            <pre className="whitespace-pre-wrap rounded-md bg-surface-muted p-2.5 text-xs leading-relaxed text-ink">
+              {args?.procedure}
+            </pre>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
+                onClick={() => void respond?.(SAVE_PROCEDURE_CONFIRMED)}
+              >
+                Remember it
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
+                onClick={() => void respond?.(SAVE_PROCEDURE_DECLINED)}
+              >
+                Don&rsquo;t save
+              </button>
+            </div>
+          </ChatSurface>
+        );
+      },
+    },
+    [],
   );
 
   return <KeelSandboxDataSync />;

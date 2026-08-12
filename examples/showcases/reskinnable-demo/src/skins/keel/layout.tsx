@@ -28,6 +28,7 @@ import { useKeelDesk } from "@/skins/keel/desk-data";
 import { keelNav } from "@/skins/keel/nav";
 import { keelIdentity } from "@/skins/keel/identity";
 import { useKeelHref, useKeelSegments } from "@/skins/keel/href";
+import { PresenterResetButton } from "@/skins/keel/components/presenter-reset-button";
 
 /** Per-segment nav icon. keelNav carries labels only, so the chrome owns the
  *  glyphs — dense, monochrome, utilitarian, in keeping with the theme. */
@@ -222,6 +223,10 @@ export function KeelLayout({ children }: { children: ReactNode }) {
               </span>
             </div>
             <RoleSwitcher />
+            {/* Renders null unless PRESENTER_RESET_ENABLED is set (or the env is
+                non-production) — the SAME gate `POST /dev/reset` enforces. Gate
+                them differently and a booth shows a control that 403s. */}
+            <PresenterResetButton />
             <ThemeToggle />
           </div>
         </header>

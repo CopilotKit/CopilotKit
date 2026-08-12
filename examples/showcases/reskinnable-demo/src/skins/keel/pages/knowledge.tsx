@@ -28,6 +28,7 @@ import {
   deriveRegisterKpiTiles,
 } from "@/skins/keel/components/register-kpis";
 import { RegisterBoard } from "@/skins/keel/components/register-board";
+import { VarianceFilingForm } from "@/skins/keel/components/variance-form";
 
 /**
  * THE POLICY REGISTER — Harbor Point's document-control board, and the surface
@@ -338,21 +339,38 @@ export function KnowledgePage() {
         />
       </section>
 
-      {/* TWO SECTIONS BELONG HERE AND ARE DELIBERATELY NOT IN THIS SLOT, so the
-          next author adds them rather than discovering the page has no room.
-          Both are read straight off `data` — no new fetch, no new hook.
+      {/* ── BEAT 6 — the operator's own variance filing form ──────────────────
+
+          THE SIXTH CHANNEL, AND THE ONE THAT MUST BE OPEN. The variance-code
+          catalogue is withheld from the agent through all five of its channels (a
+          readable, a schema enum, a tool description, the prompt, a 4xx body); this
+          form is the surface a HUMAN reads, and it is how the agent learns which
+          code lifts the gate — by WATCHING the operator pick one. A skin that
+          withholds perfectly and ships no form has an unlearnable gate.
+
+          ⚠️ IT IS DELIBERATELY ABSENT FROM THE READABLE ABOVE. Describing this
+          menu to the agent leaks the catalogue through the one channel
+          `withheldGateVocabulary` cannot see (prose), and the demo would then run
+          perfectly while proving nothing. Do not add a `variance_form` key to that
+          readable, and do not "helpfully" list the codes in the section copy.
+
+          The form imports `VARIANCE_CODE_LABELS` — the sanctioned import site, and
+          the reason that export exists. See components/variance-form.tsx. */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
+          Publication variances
+        </h2>
+        <VarianceFilingForm />
+      </section>
+
+      {/* ONE SECTION STILL BELONGS HERE AND IS DELIBERATELY NOT IN THIS SLOT, so
+          the next author adds it rather than discovering the page has no room. It
+          is read straight off `data` — no new fetch, no new hook.
 
           • BEAT 3d — the filed Impact Briefs (`data.impactBriefs`). The durable
-            artifact has to be visible in the APPLICATION: delete the whole
-            thread and it is still on this page. That is the beat's only claim.
-
-          • BEAT 6 — the operator's own variance filing form, listing justifying
-            codes and decoys together, unmarked, in catalogue order. It is the
-            ONE channel through which the vocabulary may reach the room, and the
-            gate is unlearnable without it. It must NOT appear in the readable
-            above: describing the menu to the agent leaks the catalogue through
-            the channel the `withheldGateVocabulary` lint rule cannot see, and
-            the demo would run perfectly while proving nothing. */}
+            artifact has to be visible in the APPLICATION: delete the whole thread
+            and it is still on this page. That is the beat's only claim, and today
+            the brief is visible only on the CANVAS, which dies with the thread. */}
     </div>
   );
 }

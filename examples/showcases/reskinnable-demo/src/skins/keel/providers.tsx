@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { ReactNode } from "react";
+import { RecordingProvider, RecordingVignette } from "@/shell/teach";
 import { RoleProvider, useRole } from "@/skins/keel/role-context";
 import { KeelLedgerProvider } from "@/skins/keel/ledger-context";
 
@@ -48,5 +49,45 @@ export function useKeelRuntimeProperties(): Record<string, unknown> {
   return useMemo(
     () => ({ userRole: persona.role, userId: persona.id }),
     [persona.id, persona.role],
+  );
+}
+
+/**
+ * Keel's `Providers` — the BELOW-provider stack, mounted by the shell inside
+ * `CopilotKitProvider`. Everything here may consume the CopilotKit context, which
+ * is why it cannot be hoisted into `KeelRuntimeProviders` above.
+ *
+ * ── BEAT 6: WHY `RecordingProvider` IS HERE AND NOT PER SURFACE ─────────────
+ *
+ * The teach-mode recorder has to wrap BOTH cards the shell frame draws. The
+ * DEMONSTRATION happens on the Register — the operator files a variance in
+ * `components/variance-form.tsx` — while the card that reads `steps` and
+ * `getDemonstratedCode()` lives in the TRANSCRIPT
+ * (`components/demonstration-card.tsx`, inside `awaitDemonstration`'s interrupt).
+ * A provider mounted around only one of them makes every `logStep` from the other
+ * a SILENT no-op: `useRecording` returns inert fallbacks outside a provider and
+ * `logStep` returns early when idle, so nothing throws — the feed is simply empty,
+ * the glow never appears, and it is discovered on stage. `skin.Providers` is the
+ * one mount point that encloses both, which is where banking, logistics, people
+ * and commerce all put it.
+ *
+ * Imported from `@/shell/teach`, NEVER re-implemented: three skins shipped private
+ * copies and they diverged silently.
+ *
+ * `RecordingVignette` is last and is a SIBLING of `children` rather than a
+ * wrapper, so the canvas-edge glow overlays the whole frame without joining the
+ * layout. Its styling reads the shared brand tokens, so it reskins with
+ * `theme.css` and needs no keel-specific copy.
+ *
+ * Keel's OGUI snapshot sync is deliberately NOT here — `KeelSandboxDataSync` is
+ * returned by `KeelTools`, which the shell already mounts below the provider.
+ * Moving it would give the skin two sync mounts.
+ */
+export function KeelProviders({ children }: { children: ReactNode }) {
+  return (
+    <RecordingProvider>
+      {children}
+      <RecordingVignette />
+    </RecordingProvider>
   );
 }
