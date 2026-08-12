@@ -23,11 +23,10 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { useSkinData } from "@/shell/skin-provider";
 import { useRole } from "@/skins/keel/role-context";
+import { useKeelDesk } from "@/skins/keel/desk-data";
 import { keelNav } from "@/skins/keel/nav";
 import { keelIdentity } from "@/skins/keel/identity";
-import type { KeelData } from "@/skins/keel/data/types";
 import { useKeelHref, useKeelSegments } from "@/skins/keel/href";
 
 /** Per-segment nav icon. keelNav carries labels only, so the chrome owns the
@@ -87,7 +86,7 @@ function RoleSwitcher() {
  * shell, not here.
  */
 export function KeelLayout({ children }: { children: ReactNode }) {
-  const data = useSkinData<KeelData>();
+  const data = useKeelDesk();
   const keelHref = useKeelHref();
   const Logo = keelIdentity.logo;
 

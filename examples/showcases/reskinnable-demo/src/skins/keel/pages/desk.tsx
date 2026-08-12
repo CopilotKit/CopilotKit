@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSkinData } from "@/shell/skin-provider";
+import { useKeelDesk } from "@/skins/keel/desk-data";
 import { StatusPill } from "@/skins/keel/components/status-pill";
 import { Button } from "@/components/ui/button";
-import type { KeelData, Run, RunStep } from "@/skins/keel/data/types";
+import type { Run, RunStep } from "@/skins/keel/data/types";
 import { useKeelHref } from "@/skins/keel/href";
 
 /** ms → compact human duration; null (no completed run yet) renders as an em dash. */
@@ -42,22 +42,27 @@ function Kpi({ label, value }: { label: string; value: string | number }) {
 
 export function DeskPage() {
   const keelHref = useKeelHref();
-  const data = useSkinData<KeelData>();
+  const data = useKeelDesk();
   const { kpis, approvalsForMe, approvals, runs, persona } = data;
 
   // Per-gate failure reasons (the stale-approval race, spec §12), keyed run:step.
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleApprove = (runId: string, stepId: string) => {
+  // The approval is a POST followed by a ledger re-read, so it is awaited before
+  // anything on screen changes. `reason` is surfaced whenever it is present —
+  // including on a SUCCESS whose re-read failed (`stale`), where the write
+  // landed and this list is still showing the state from before it. A green tick
+  // over stale rows is indistinguishable from a slow network.
+  const handleApprove = async (runId: string, stepId: string) => {
     const key = `${runId}:${stepId}`;
-    const result = data.approveStep(
+    const result = await data.approveStep(
       runId,
       stepId,
       `Approved by ${persona.name}`,
     );
     setErrors((prev) => {
       const next = { ...prev };
-      if (result.ok) delete next[key];
+      if (result.ok && !result.reason) delete next[key];
       else next[key] = result.reason ?? "Could not approve this step.";
       return next;
     });
@@ -126,7 +131,7 @@ export function DeskPage() {
                   </div>
                   <Button
                     size="sm"
-                    onClick={() => handleApprove(run.id, step.id)}
+                    onClick={() => void handleApprove(run.id, step.id)}
                   >
                     Approve
                   </Button>
