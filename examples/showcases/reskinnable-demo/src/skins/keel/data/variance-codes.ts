@@ -20,28 +20,39 @@
  * the procedure, clears the gate unaided, and there is nothing left to teach —
  * the demo still runs, beautifully, and proves nothing.
  *
- * `VARIANCE_CODE_LABELS` is reserved for HUMAN-facing UI: the variance filing
- * form a later slot renders on the Register page. That form is the SIXTH channel
- * and the one that must be OPEN — the agent learns which code works by watching
- * the operator pick one in it, and a skin that withholds perfectly and ships no
- * form has an unlearnable gate. Two properties of that form are load-bearing
- * when it is built: it lists justifying codes and decoys TOGETHER, unmarked and
- * in this array's order (a form that flagged the working ones turns the
- * demonstration into a guided tour), and it logs the code as DATA exactly as the
- * operator entered it, decoy included.
+ * `VARIANCE_CODE_LABELS` is for HUMAN-facing UI and NOTHING ELSE. Its one
+ * sanctioned consumer now exists: `components/variance-form.tsx`, the operator's
+ * filing form on the Register page. That form is the SIXTH channel and the one
+ * that must be OPEN — the agent learns which code works by watching the operator
+ * pick one in it, and a skin that withholds perfectly and ships no form has an
+ * unlearnable gate. Two properties of that form are load-bearing and are pinned
+ * by `components/variance-form.test.tsx`: it lists justifying codes and decoys
+ * TOGETHER, unmarked and in this array's order (a form that flagged the working
+ * ones turns the demonstration into a guided tour), and it logs the code as DATA
+ * exactly as the operator entered it, decoy included.
  *
  * Do not reorder this array to group the tiers, and do not add a `justifies`
  * flag to the labels.
  *
  * `eslint.config.mjs`'s `withheldGateVocabulary` rule fails the build if a
  * `*_CODES` / `*_CODE_LABELS` identifier appears in a covered skin's `tools.tsx`
- * or `agent.ts` — keel is NOT in that rule's `files` glob yet, because keel has
- * no gate-facing tool yet. **The slot that writes `tools.tsx` must append
- * `src/skins/keel/tools.tsx` AND `src/skins/keel/agent.ts` to it, restating the
- * LOCK_SKIN selectors in the same block** (flat-config `rules` are replaced, not
- * merged). And note the rule matches IDENTIFIERS only: a tool `description`, a
- * prompt sentence and a 4xx body are prose, and are a hand-review item
- * (`.claude/skills/reskin/failure-modes.md` § 10).
+ * or `agent.ts`. **Keel's gate-facing tool (`fileReleaseVariance`) now exists, so
+ * `src/skins/keel/tools.tsx` AND `src/skins/keel/agent.ts` belong in that rule's
+ * `files` glob, restating the LOCK_SKIN selectors in the same block**
+ * (flat-config `rules` are replaced, not merged) with a matching row in
+ * `src/shell/skins-config.test.ts` § "the resolved no-restricted-syntax
+ * selectors". Until that lands, keel's own guards stand in and are deliberately
+ * stronger than the rule: `tools-replay-safety.test.ts` asserts that neither
+ * identifier nor any of the six codes appears in `tools.tsx` and that the filing
+ * tool takes a free `z.string()`, and `agent.test.ts` asserts the same of the
+ * prompt.
+ *
+ * And note the rule matches IDENTIFIERS only: a tool `description`, a prompt
+ * sentence and a 4xx body are prose, and are a hand-review item
+ * (`.claude/skills/reskin/failure-modes.md` § 10). The grep that check uses is
+ * the six literals plus "publication variance", over `agent.ts`, `tools.tsx`,
+ * `suggestions.ts`, `teach-mode-directives.ts`, `intelligence/seed-memories.ts`
+ * and every route under `src/app/api/keel/`.
  */
 export const VARIANCE_CODES = [
   "PATIENT_SAFETY_ALERT",
