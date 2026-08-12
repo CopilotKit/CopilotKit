@@ -614,15 +614,19 @@ learned memories**, and **re-seed** the "already knows" ones — while still
 leaving beat 6 unlearned. Banking's `dev/reset` route does exactly that.
 
 **The route and the button are one feature — ship both or neither counts.** Every
-skin that has one has the other: `ls -d src/app/api/*/v1/dev/reset` and
-`grep -rln usePresenterReset src/skins/` return the same set, which today is
-`banking`, `commerce`, `logistics` and `people`. Run both commands rather than
-trusting this list — a new skin is expected to appear in both. Of those four,
-banking, people and commerce also do the **memory** half (they are the only three
-with `intelligence/seed-memories.ts` + `intelligence/forget-memories.ts`);
-logistics restores its data store only, so it cannot reset beats 4–6. Treat the
-route, the button and the re-seed as required: without them you cannot re-run the
-demo for the second room in the day.
+skin that has one has the other, and the pair is DERIVABLE rather than listed
+here: `ls -d src/app/api/*/v1/dev/reset` and `grep -rln usePresenterReset
+src/skins/` return the same set. Run both commands rather than trusting any
+sentence — a new skin is expected to appear in both.
+
+The **memory** half is a second, narrower question, and it is derivable too:
+`ls src/skins/*/intelligence/seed-memories.ts` names every skin whose reset can
+re-arm beats 4–6, each alongside a sibling `forget-memories.ts`. A skin with a
+reset route but no seed file restores its data store only and CANNOT reset those
+beats — which is a silent trap, because its Reset button looks identical.
+
+Treat the route, the button and the re-seed as required: without all three you
+cannot re-run the demo for the second room in the day.
 
 **Open with the placement framing.** Say up front: this is your application, and
 the assistant can be a docked panel, a bubble, a standalone app, or its own
@@ -680,7 +684,7 @@ tools or pages, alongside this file.
 | A four-lever navigation (beat 3c)     | `commerce` — status + exception + sort + top-N, all four tinted                    |
 | Attachment staging (beat 3d)          | `@/shell/attach` for the chain; any of the four wrappers for the pill              |
 | A GENERATED uploaded document         | `@/shell/documents` for the bytes; `commerce`/`people`/`logistics` for the content |
-| Seeded memories (beats 4, 5)          | `banking`, `people`, `commerce` — the only three with a seed file                  |
+| Seeded memories (beats 4, 5)          | `ls src/skins/*/intelligence/seed-memories.ts` — copy any; `commerce` is newest    |
 | Debugged layout + meta-utility strip  | `logistics`, `people`, `commerce`                                                  |
 | Server-emitted a2ui canvas            | `logistics` (`renderBrief`), `banking` (`render_report`)                           |
 | Per-user identity plumbing            | `banking`, `logistics`, `keel`, `people`, `commerce`                               |
@@ -840,9 +844,14 @@ tools or pages, alongside this file.
 > adds.
 
 **Do not use airline, logistics or keel as demo-completeness references.** They
-predate this bar: each hits roughly one beat of nine. Logistics and keel are
-especially misleading — both ship the full per-user identity plumbing
-(`RuntimeProviders`, `useRuntimeProperties`, server `identifyUser`) and then no
-memory prompts, no memory tools and no seed file, so they get zero demo value
-from the hardest part. They are excellent _wiring_ references and incomplete
-_demo_ references.
+predate this bar and none of them hits all nine beats. Keel is especially
+misleading — it ships the full per-user identity plumbing (`RuntimeProviders`,
+`useRuntimeProperties`, server `identifyUser`) and then no memory prompts, no
+memory tools and no seed file, so it gets zero demo value from the hardest part
+of what it built. Logistics was the same until beats 4 and 5 were retrofitted
+onto it, and that retrofit is worth reading for exactly this reason: it shows
+what the plumbing was missing. Check any claim here against the tree —
+`ls src/skins/*/intelligence/seed-memories.ts` and `grep -c 'title:'
+src/skins/<id>/suggestions.ts` — rather than against this paragraph. Every skin
+named here remains an excellent _wiring_ reference and, apart from the rows it
+does tick, an incomplete _demo_ reference.

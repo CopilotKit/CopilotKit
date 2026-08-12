@@ -204,19 +204,23 @@ export type IdentifyRunUser = (
   default one, because runs frequently resolve to the default (read
   `src/skins/commerce/intelligence/user-id.ts` before writing anything about
   per-operator scoping there). **Logistics** and **keel** contribute one too
-  (`logisticsIdentifyUser`, `keelIdentifyUser`) for thread scoping — though
-  neither yet uses it for durable memory. That is five of the six skins;
-  **airline** is the only one that omits it (no auth, no memory).
+  (`logisticsIdentifyUser`, `keelIdentifyUser`) for thread scoping. **Logistics**
+  also uses it for durable memory — its `intelligence/seed-memories.ts` seeds the
+  mapped planner's bucket AND the default one, for the same measured reason
+  people and commerce do (read `src/skins/logistics/intelligence/user-id.ts`
+  before writing anything about per-planner scoping there); **keel** does not use
+  it for memory at all. That is five of the six skins; **airline** is the only one
+  that omits it (no auth, no memory).
 - Every skin that claims the memory beats additionally ships
   `intelligence/seed-memories.ts` and `intelligence/forget-memories.ts`, which its
   `dev/reset` route uses to wipe learned memories and re-seed the ones the demo
-  must start out already knowing. Today that is the three demo-complete skins —
-  **banking**, **commerce** and **people**. That pair is what makes the
-  long-term-memory, stored-procedure-replay and teach-a-procedure beats work; it
-  is not emergent behaviour. The gated `dev/reset` route is the wider set: four
-  skins have one, those three plus **logistics** — which ships neither memory
-  file, so its reset restores its data store only and cannot restore the memory
-  beats.
+  must start out already knowing. That pair is what makes the long-term-memory
+  and stored-procedure-replay beats work; it is not emergent behaviour. Derive
+  the set rather than trusting a list: `ls
+src/skins/*/intelligence/seed-memories.ts`. The gated `dev/reset` route is the
+  wider set (`ls -d src/app/api/*/v1/dev/reset`), and a reset route without a
+  seed file restores its data store only and cannot restore the memory beats —
+  a silent trap, because its Reset button looks identical.
 - `identifyUser` is reached through the **server-only** registry, so it MUST be
   server-safe: **no `"use client"`, no JSX, no `.tsx` imports.** Keep it in a
   plain `.ts` module.
@@ -486,26 +490,33 @@ matrix at the end of this section.
 
 ### Demo-beat coverage (the other axis)
 
-| Beat                             | banking                   | people                    | commerce                  | airline | logistics     | keel          |
-| -------------------------------- | ------------------------- | ------------------------- | ------------------------- | ------- | ------------- | ------------- |
-| Gen-UI in transcript             | ✅ 9                      | ✅ 4                      | ✅ 4                      | ✅ 6    | ✅ 5          | ✅ 4          |
-| Rich thread survives reload      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ replay-safe tools      | ❌      | ❌            | ❌            |
-| Drive the app, secret withheld   | ✅                        | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| "What's on my screen?"           | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables | ❌      | ❌            | ❌            |
-| Navigate via levers + filters    | ✅                        | ✅                        | ✅ four levers            | ❌      | ❌            | nav only      |
-| Multimodal → durable artifact    | ✅                        | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| Long-term memory recall          | ✅                        | ✅                        | ✅                        | ❌      | plumbing only | plumbing only |
-| Stored-procedure replay          | ✅                        | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| Teach a new procedure            | ✅                        | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| Presenter reset (route + button) | ✅                        | ✅                        | ✅                        | ❌      | ✅            | ❌            |
+| Beat                             | banking                   | people                    | commerce                  | airline | logistics | keel          |
+| -------------------------------- | ------------------------- | ------------------------- | ------------------------- | ------- | --------- | ------------- |
+| Gen-UI in transcript             | ✅ 9                      | ✅ 4                      | ✅ 4                      | ✅ 6    | ✅ 5      | ✅ 4          |
+| Rich thread survives reload      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ replay-safe tools      | ❌      | ❌        | ❌            |
+| Drive the app, secret withheld   | ✅                        | ✅                        | ✅                        | ❌      | ❌        | ❌            |
+| "What's on my screen?"           | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables | ❌      | ❌        | ❌            |
+| Navigate via levers + filters    | ✅                        | ✅                        | ✅ four levers            | ❌      | ❌        | nav only      |
+| Multimodal → durable artifact    | ✅                        | ✅                        | ✅                        | ❌      | ❌        | ❌            |
+| Long-term memory recall          | ✅                        | ✅                        | ✅                        | ❌      | ✅        | plumbing only |
+| Stored-procedure replay          | ✅                        | ✅                        | ✅                        | ❌      | ✅        | ❌            |
+| Teach a new procedure            | ✅                        | ✅                        | ✅                        | ❌      | ❌        | ❌            |
+| Presenter reset (route + button) | ✅                        | ✅                        | ✅                        | ❌      | ✅        | ❌            |
 
-`banking`, `people` and `commerce` hit every row; airline, logistics and keel
-predate this bar and hit about one each (nine beats plus the presenter-reset
-requirement are listed above). Note that logistics and keel ship the **full
-per-user identity plumbing** — `RuntimeProviders`, `useRuntimeProperties`, server
-`identifyUser` — and then no memory prompts, no memory tools and no seed file, so
-they get no demo value from the hardest part of it. Treat all three as excellent
-**wiring** references and incomplete **demo** references.
+`banking`, `people` and `commerce` hit every row. `airline` and `keel` predate
+this bar and hit about one each; `logistics` predates it too and is being filled
+in beat by beat, so **derive its column rather than trusting it** — the checks
+are in the `banking` bullet above (`grep -rln useAgentContext
+src/skins/*/layout.tsx`, `ls src/skins/*/intelligence/seed-memories.ts`,
+`grep -l offerWorkflowRecording src/skins/*/tools.tsx`).
+
+Note that `keel` ships the **full per-user identity plumbing** —
+`RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — and then no
+memory prompts, no memory tools and no seed file, so it gets no demo value from
+the hardest part of what it built. Logistics was in exactly that state until
+beats 4 and 5 were retrofitted onto it. Treat every skin named here as an
+excellent **wiring** reference and, apart from the rows it does tick, an
+incomplete **demo** reference.
 
 ## How to add a skin
 

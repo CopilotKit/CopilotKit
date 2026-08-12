@@ -274,13 +274,14 @@ const COUNT_RULES: CountRule[] = [
  * suppression.
  */
 const COUNT_EXEMPTIONS: { file: string; phrase: string; why: string }[] = [
-  {
-    file: ".claude/skills/reskin/templates.md",
-    phrase: "All three skins have one",
-    why:
-      "TRUE subset: the skins that ship intelligence/forget-memories.ts " +
-      "(banking, people, commerce), not the registered roster.",
-  },
+  // Deliberately EMPTY. It held one entry — templates.md's "All three skins have
+  // one", about the skins shipping `intelligence/forget-memories.ts` — and that
+  // sentence stopped being true the moment a fourth skin shipped one. The
+  // replacement phrases the same fact as its derivation
+  // (`ls src/skins/*/intelligence/forget-memories.ts`), which cannot rot, so the
+  // exemption was deleted rather than re-counted. Prefer that fix to a new entry
+  // here: an exemption is a promise to hand-recount a subset every time the
+  // roster changes, and this file exists because that promise is not kept.
 ];
 
 /** A backticked/bolded skin id, as the docs write them. */

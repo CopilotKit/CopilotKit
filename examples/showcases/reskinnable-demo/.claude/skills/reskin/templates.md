@@ -914,11 +914,13 @@ export const <id>IdentifyUser: IdentifyRunUser = (properties) => {
 
 ## `intelligence/seed-memories.ts` — REQUIRED for beats 4 and 5
 
-"It already knows me" is a **file**, not emergent behaviour. Mirror
-`src/skins/banking/intelligence/seed-memories.ts` or
-`src/skins/people/intelligence/seed-memories.ts` — two of the only three in the
-repo (`commerce` has the third), and
-both sets of comments are worth reading in full. Server-safe plain `.ts`.
+"It already knows me" is a **file**, not emergent behaviour. Mirror any of the
+ones already in the repo — `ls src/skins/*/intelligence/seed-memories.ts` names
+them; `src/skins/commerce/intelligence/seed-memories.ts` is the newest and the
+one with tests beside it. Every set of comments is worth reading in full, and
+they do not all say the same thing: banking scopes its procedure `project` and
+the later ones scope it `user`, for a reason each file states.
+Server-safe plain `.ts`.
 Called by your `dev/reset` route immediately after wiping memories, so the demo
 is re-armed before the presenter says a word.
 
@@ -1032,10 +1034,11 @@ and demo-beats.md § "Presentation requirements".
 
 ### ⚠ Copy `forget-memories.ts` from COMMERCE, not from banking or people
 
-All three skins have one, but only `src/skins/commerce/intelligence/forget-memories.ts`
-stops the clear from reporting success it has not earned. The banking/people copies
-still do all four of these, and every one of them fails SILENTLY behind an
-`ok: true` reset:
+Several skins have one (`ls src/skins/*/intelligence/forget-memories.ts`), but they
+are NOT interchangeable: only `src/skins/commerce/intelligence/forget-memories.ts`
+and the `logistics` copy taken from it stop the clear from reporting success it has
+not earned. The banking/people copies still do all four of the following, and every
+one of them fails SILENTLY behind an `ok: true` reset:
 
 - **They throw on the first non-ok DELETE, including a 404.** A 404 only means the
   row is already gone — the end state you wanted — yet it abandons the current

@@ -550,8 +550,9 @@ banking, logistics, keel, people and commerce all five ship them, airline none.
 
 `intelligence/seed-memories.ts` is **not** optional if you are building beats 4
 and 5 — "it already knows me" is a seeded file, not emergent behaviour, so every
-demo-complete skin ships one (`banking`, `commerce` and `people`, each alongside a
-sibling `forget-memories.ts` its `dev/reset` route calls first); a skin claiming
+skin claiming those beats ships one, each alongside a sibling
+`forget-memories.ts` its `dev/reset` route calls first
+(`ls src/skins/*/intelligence/seed-memories.ts` names them). A skin claiming
 those beats without one is claiming behaviour it does not have. It seeds the
 topical preference (beat 4) and the operational
 procedure (beat 5), and deliberately does NOT seed beat 6's procedure — that is
