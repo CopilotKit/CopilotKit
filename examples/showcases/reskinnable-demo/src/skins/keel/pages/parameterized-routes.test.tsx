@@ -15,7 +15,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
-import type { KeelData, Run } from "../data/types";
+import type { Run } from "../data/types";
 
 const route: { rest: string[] | undefined } = { rest: undefined };
 
@@ -53,26 +53,15 @@ vi.mock("@copilotkit/react-core/v2", async (importOriginal) => ({
   useAgentContext: () => {},
 }));
 
-vi.mock("../ledger-context", () => ({
-  useKeelLedger: () => ({
-    data: {
-      documents: [],
-      runs: [],
-      playbooks: [],
-      personas: [],
-      variances: [],
-      impactBriefs: [],
-      asOf: "2026-08-12T00:00:00.000Z",
-    },
-    refresh: async () => true,
-    ready: true,
-  }),
-}));
-
 /**
- * `runs/<runId>` still renders from `useKeelData` through `useSkinData` — the
- * migration to the ledger is a later slot's, and this test exists partly to
- * prove that path is still intact while the register moves.
+ * BOTH parameterized routes now read the SAME ledger snapshot.
+ *
+ * `runs/<runId>` used to render from `useKeelData` through `useSkinData`; that
+ * hook is gone, runs live in the REST ledger beside the policy register, and the
+ * page reads them through `useKeelDesk()` — which is `useKeelLedger()` plus the
+ * pure derivations. So the run below is seeded into the ledger mock, and this
+ * test is now also the proof that the migration did not cost keel the one
+ * property no other skin has.
  */
 const run: Run = {
   id: "RUN-9001",
@@ -95,35 +84,24 @@ const run: Run = {
   ],
 };
 
-const keelData = {
-  playbooks: [],
-  runs: [run],
-  persona: {
-    id: "ana-reyes",
-    name: "Ana Reyes",
-    role: "Nurse Manager",
-    unit: "4 West",
-  },
-  getRun: (id: string) => (id === run.id ? run : undefined),
-  getPlaybook: () => undefined,
-  approvals: [],
-  approvalsForMe: [],
-  kpis: {
-    openRuns: 1,
-    blockedRuns: 0,
-    completedRuns: 0,
-    approvalsForMe: 0,
-    medianCycleTimeMs: null,
-  },
-  summaryKey: "RUN-9001:running:verify",
-  startRun: () => ({ ok: true }),
-  approveStep: () => ({ ok: true }),
-  rejectStep: () => ({ ok: true }),
-  cancelRun: () => ({ ok: true }),
-} satisfies KeelData;
+vi.mock("../ledger-context", () => ({
+  KeelLedgerProvider: ({ children }: { children: React.ReactNode }) => children,
+  useKeelLedger: () => ({
+    data: {
+      documents: [],
+      runs: [run],
+      playbooks: [],
+      personas: [],
+      variances: [],
+      impactBriefs: [],
+      asOf: "2026-08-12T00:00:00.000Z",
+    },
+    refresh: async () => true,
+    ready: true,
+  }),
+}));
 
 vi.mock("@/shell/skin-provider", () => ({
-  useSkinData: () => keelData,
   useSkin: () => ({ id: "keel" }),
 }));
 

@@ -16,11 +16,18 @@
  * skin has no reason to retune the framework's encode, and the budget-expiry
  * branches are covered once, in `src/shell/attach/stage-attachment.test.ts`.
  *
- * ⚠️ SHIPPED UNMOUNTED. Nothing in this skin calls either export yet, because
- * both mount points — `chatHeaderActions` for the paperclip and
- * `onSuggestionSelect` for the pill — live in `skin.tsx`, and the pill itself
- * lives in `suggestions.ts`. Both files belong to a later slot. The exports and
- * `BULLETIN_MESSAGE` are the whole of that slot's wiring surface.
+ * BOTH MOUNT POINTS ARE WIRED, in `skin.tsx`: `attachBulletinByHand` is the
+ * chat-header paperclip, and `sendBulletinMessage` is what `onSuggestionSelect`
+ * runs when it recognises `BULLETIN_MESSAGE`. The pill carrying that exact
+ * message lives in `suggestions.ts` (a later slot's file) — until it does, the
+ * paperclip is the whole beat-3d ingest path, and it works.
+ *
+ * ⚠️ `BULLETIN_MESSAGE` is the ONLY thing tying the pill to the interception. If
+ * the pill's text drifts from this constant the click takes the DEFAULT send
+ * path, which drops attachments: the prompt goes out without the file, the model
+ * invents the bulletin's contents, and a durable brief gets filed that reads
+ * perfectly and proves the opposite of the beat. Import the constant; never
+ * retype the sentence.
  */
 
 // Two lines, not one with an inline `type` — the commit hook's `oxlint --fix`

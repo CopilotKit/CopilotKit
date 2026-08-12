@@ -19,16 +19,14 @@ import type { KeelLedger } from "@/skins/keel/data/types";
  * fetch of `GET /api/keel/v1/ledger`, shared by every consumer under the
  * provider.
  *
- * ⚠️ SHIPPED UNMOUNTED, ON PURPOSE. Nothing mounts `KeelLedgerProvider` yet:
- * `skin.tsx` belongs to a later slot, `useKeelData` is still wired, and the two
- * parameterized routes still render from it. This module is the piece that slot
- * needs in place before it can flip the consumers, and the names below are the
- * contract it will import — `KeelLedgerProvider` and `useKeelLedger`, nothing
- * else. Mounting it belongs in the skin's `RuntimeProviders` (beside
- * `RoleProvider`, in `providers.tsx`), for the reason commerce states in
+ * MOUNTED in `KeelRuntimeProviders` (`providers.tsx`), beside `RoleProvider` and
+ * therefore ABOVE `CopilotKitProvider`, for the reason commerce states in
  * `skins/commerce/data/ledger-context.tsx`: everything below the provider —
- * `Tools`, the layout, and every page — must read the SAME snapshot, or beat 3b
- * has a panel and a readable one fetch apart.
+ * `Tools`, the layout, the canvas and every page — must read the SAME snapshot,
+ * or beat 3b has a panel and a readable one fetch apart. Consumers reach it
+ * through `useKeelDesk()` (`desk-data.ts`), which is this snapshot plus the pure
+ * derivations and the write paths; only `pages/knowledge.tsx` and
+ * `pages/document.tsx` read `useKeelLedger()` directly.
  *
  * WHY A SNAPSHOT AND NOT PER-COLLECTION READS. `GET /ledger` returns documents,
  * runs, playbooks, personas, variances and impact briefs at one instant with an
@@ -37,16 +35,16 @@ import type { KeelLedger } from "@/skins/keel/data/types";
  * different moment — which shows up on stage as the assistant confidently
  * narrating a figure the screen no longer shows.
  *
- * ── WHERE TIME LIVES (the migration's open question, decided) ───────────────
+ * ── WHERE TIME LIVES (the migration's open question, decided and implemented) ─
  *
  * Keel has TWO substrates in one skin: a register that does not move at all, and
- * a run engine that does. Today `useKeelData` advances runs on a 900 ms client
- * interval by calling the pure `engine.tick(runs, now)`; the server holds runs as
- * STATE ONLY (`data/store.ts`'s header says so). Once the consumers move onto
- * this provider, keeping both would put TWO clocks on one set of runs — the
- * client's local advance would paint progress the server has never heard of, and
- * the next `refresh()` after any write would silently rewind it. Two sources of
- * truth for time is the failure this decision exists to prevent.
+ * a run engine that does. `useKeelData` used to advance runs on a 900 ms client
+ * interval by calling the pure `engine.tick(runs, now)` while the server held
+ * runs as state only. Once the consumers moved onto this provider, keeping both
+ * would have put TWO clocks on one set of runs — the client's local advance
+ * painting progress the server had never heard of, and the next `refresh()` after
+ * any write silently rewinding it. Two sources of truth for time is the failure
+ * this decision exists to prevent.
  *
  * THE DECISION: time lives on the SERVER, and the client's only interval
  * RE-READS. That is defensible rather than merely tidy because `engine.tick` is
@@ -61,21 +59,22 @@ import type { KeelLedger } from "@/skins/keel/data/types";
  * re-reads is a rendering cadence over one clock, an interval that advances is a
  * second clock.
  *
- * ⚠️ TWO THINGS THE WIRING SLOT MUST DO, or this poll spins against a frozen
- * server and a started run never moves:
+ * BOTH HALVES ARE NOW IN PLACE, and neither may be removed without the other:
  *
- *   1. `GET /api/keel/v1/ledger` and `GET /api/keel/v1/runs/<runId>` must SETTLE
- *      runs before returning — `store` advancing its runs through
- *      `engine.tick(runs, Date.now())` on read (and committing the result, so
- *      the settlement is durable rather than recomputed per request). Both read
- *      routes, not just the ledger, or the run-detail page and the register
- *      disagree.
- *   2. `useKeelData`'s `setInterval(() => setRuns(tick(...)), 900)` must be
- *      DELETED in the same change that flips the consumers — not before (it is
- *      the only clock until then) and not after (leaving it is the two-clocks
- *      bug this decision is about).
+ *   1. `GET /api/keel/v1/ledger` and `GET /api/keel/v1/runs/<runId>` both SETTLE
+ *      runs before returning, through `settleRuns()`
+ *      (`src/app/api/keel/v1/settle-runs.ts`), which advances them with
+ *      `engine.tick(runs, Date.now())` and COMMITS the result — durable, not
+ *      recomputed per request. Both read routes, or the run-detail page and the
+ *      register disagree about one run. `settle-runs.test.ts` pins all of that.
+ *   2. `useKeelData`'s `setInterval(() => setRuns(tick(...)), 900)` is GONE, and
+ *      `data/use-data.ts` with it — deleted in the same change that flipped the
+ *      consumers, because it was the only clock until then and keeping it
+ *      afterwards is the two-clocks bug this decision exists to prevent.
  *
- * Until then this provider is unmounted, so the poll costs nothing today.
+ * If a future change makes this poll spin against a frozen server, the thing to
+ * check is (1): a read route that stopped settling still returns 200 with a
+ * well-formed run, and the only symptom is a started run that never moves.
  */
 
 /** What a consumer gets. Deliberately small: a snapshot and a way to re-read it. */

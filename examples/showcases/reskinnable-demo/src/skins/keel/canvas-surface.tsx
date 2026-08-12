@@ -13,8 +13,8 @@ import type {
   RendererProps,
 } from "@copilotkit/a2ui-renderer";
 import { useAgent } from "@copilotkit/react-core/v2";
-import { useSkinData } from "@/shell/skin-provider";
-import type { KeelData, Run } from "@/skins/keel/data/types";
+import { useKeelDesk } from "@/skins/keel/desk-data";
+import type { Run } from "@/skins/keel/data/types";
 import { StatusPill } from "@/skins/keel/components/status-pill";
 import { A2UI_OPERATIONS_KEY } from "@/skins/keel/ops-report";
 import {
@@ -25,10 +25,11 @@ import {
 /**
  * The Keel skin's a2ui report canvas — `skin.CanvasSurface`. The shell owns the
  * canvas region, OGUI rendering and surface-kind detection; this component only
- * renders keel's OWN a2ui surfaces. Its renderers bind live KeelData via
- * useSkinData<KeelData>() (the canvas mounts below SkinProvider, which runs
- * useKeelData), so figures stay live while the ticker advances — the agent's ops
- * carry only label-only selections (see ops-report.ts).
+ * renders keel's OWN a2ui surfaces. Its renderers bind live desk data via
+ * useKeelDesk() (the canvas mounts below `KeelLedgerProvider`, so it reads the
+ * same ledger snapshot as the pages), so figures stay live while the ledger poll
+ * advances the runs — the agent's ops carry only label-only selections (see
+ * ops-report.ts).
  *
  * TWO SURFACES, ONE CATALOG, ONE PROVIDER. This component renders whichever
  * `a2ui-surface` activity is latest, and there are now two kinds:
@@ -221,7 +222,7 @@ type KpiMetric =
 const KpiCard = ({
   props,
 }: RendererProps<{ metric: KpiMetric; label: TextRef }>) => {
-  const { kpis } = useSkinData<KeelData>();
+  const { kpis } = useKeelDesk();
   let value = "";
   switch (props.metric) {
     case "openRuns":
@@ -261,7 +262,7 @@ const RUN_STATUS_ORDER = [
 ] as const;
 
 const RunChart = ({ props }: RendererProps<{ kind: ChartKind }>) => {
-  const data = useSkinData<KeelData>();
+  const data = useKeelDesk();
   let rows: { label: string; value: number }[] = [];
   switch (props.kind) {
     case "throughputByPlaybook":
@@ -298,7 +299,7 @@ const RunChart = ({ props }: RendererProps<{ kind: ChartKind }>) => {
 type RunFilter = "all" | "blocked" | "running" | "completed";
 
 const RunsTable = ({ props }: RendererProps<{ filter?: RunFilter }>) => {
-  const data = useSkinData<KeelData>();
+  const data = useKeelDesk();
   const filter = props.filter ?? "all";
   const rows =
     filter === "all" ? data.runs : data.runs.filter((r) => r.status === filter);

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { RoleProvider, useRole } from "@/skins/keel/role-context";
+import { KeelLedgerProvider } from "@/skins/keel/ledger-context";
 
 /**
  * Keel's `RuntimeProviders` — mounted by the shell ABOVE `CopilotKitProvider`.
@@ -16,9 +17,22 @@ import { RoleProvider, useRole } from "@/skins/keel/role-context";
  * property bag from render one — no child racing an imperative `setProperties`
  * after mount, which would make the identity "eventually correct if effects
  * fire in the right order" instead of correct from the very first run.
+ *
+ * `KeelLedgerProvider` sits inside it, and for the reason commerce's provider
+ * states: everything below — `Tools`, the layout, and every page — must read the
+ * SAME `GET /ledger` snapshot, or beat 3b has a panel and a readable one fetch
+ * apart. It goes here rather than in `Providers` (which mounts BELOW
+ * `CopilotKitProvider`) so the layout's route readable and the tools' state
+ * readables are fed from one source. Unlike commerce, nothing in keel's
+ * `useRuntimeProperties` reads the ledger — the persona is a static module — so
+ * the order of these two providers is a matter of scope, not of a race.
  */
 export function KeelRuntimeProviders({ children }: { children: ReactNode }) {
-  return <RoleProvider>{children}</RoleProvider>;
+  return (
+    <RoleProvider>
+      <KeelLedgerProvider>{children}</KeelLedgerProvider>
+    </RoleProvider>
+  );
 }
 
 /**

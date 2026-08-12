@@ -1,12 +1,23 @@
 import { z } from "zod";
 import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
 import { searchCorpus } from "@/skins/keel/knowledge/search";
+import * as store from "@/skins/keel/data/store";
 import {
   renderOpsReportParams,
   buildOpsReportOps,
   A2UI_OPERATIONS_KEY,
   SURFACE_ID,
 } from "@/skins/keel/ops-report";
+import {
+  renderImpactBriefParams,
+  buildImpactBriefOps,
+  IMPACT_BRIEF_SURFACE_ID,
+  // Aliased rather than reused from ops-report: both modules declare the key the
+  // A2UI middleware detects, and each tool must emit ITS OWN builder's spelling.
+  // Sharing one import would make a future divergence invisible — the ops would
+  // be built correctly and simply never be recognised as a surface.
+  A2UI_OPERATIONS_KEY as IMPACT_BRIEF_OPERATIONS_KEY,
+} from "@/skins/keel/canvas/impact-brief-ops";
 
 // SERVER-SAFE. No client directive, no JSX, no React. Imported only by the
 // server agent registry (src/shell/agent-registry.ts), never by the client skin
@@ -79,6 +90,56 @@ const renderOpsReportTool = defineTool({
   }),
 });
 
+/**
+ * BEAT 3d — put a FILED Impact Brief on the canvas.
+ *
+ * The parameters carry a `briefId` and NOTHING ELSE. Every string, date and
+ * citation on that canvas is read out of the stored record here, not out of the
+ * model's second telling of what it just filed — otherwise the brief on the
+ * canvas and the brief on the Register page could say different things about the
+ * same document, which is an artifact contradicting itself and is worse than
+ * either being wrong alone. See `canvas/impact-brief-ops.ts` for the full
+ * argument, including why `carried` is re-derived against the LIVE register
+ * rather than stored.
+ *
+ * A missing id returns a plain `{ error }` rather than empty ops: an agent that
+ * gets no surface and no reason will simply try again with the same wrong id.
+ *
+ * The surfaceId is suffixed per call, exactly as the ops report's is, so
+ * dismissing one brief never suppresses a later one inside a single
+ * conversation. The BASE id still differs from the ops report's, which is what
+ * keeps a filed brief from overwriting a report the presenter is reading.
+ */
+const renderImpactBriefTool = defineTool({
+  name: "render_impact_brief",
+  description:
+    "Put an ALREADY-FILED impact brief on the CANVAS (the app's main content " +
+    "area, outside the chat). Pass only the id fileImpactBrief returned — the " +
+    "canvas reads the source, the effective date, every citation and every " +
+    "impact out of the filed record, so do not restate the brief's contents " +
+    "anywhere in this call.",
+  parameters: renderImpactBriefParams,
+  execute: async ({ briefId }) => {
+    const brief = store.impactBriefs().find((b) => b.id === briefId);
+    if (!brief) {
+      return {
+        error:
+          `No impact brief is filed under "${briefId}". File it with ` +
+          `fileImpactBrief first, then pass the id it returns.`,
+      };
+    }
+    return {
+      [IMPACT_BRIEF_OPERATIONS_KEY]: buildImpactBriefOps(
+        brief,
+        // The LIVE register's refs, so "the library does not carry POL-118" is a
+        // claim about the register NOW and a reseed can change the answer.
+        store.refsOnFile(),
+        `${IMPACT_BRIEF_SURFACE_ID}-${Date.now().toString(36)}`,
+      ),
+    };
+  },
+});
+
 const KEEL_PROMPT = `You are Keel, the knowledge and operations assistant embedded in Harbor
 Point Health's internal desk. Staff ask you what a policy says, and ask you to
 start and advance the multi-step processes those policies govern. You have two
@@ -117,14 +178,34 @@ policyRef is surfaced in the approval card automatically — do NOT paraphrase o
 restate the policy from memory. Let the card show the citation. Your job is to
 route the approval to the gate, not to re-explain the rule.
 
-5. SCREEN AWARENESS. The context you are given — the current page, the live runs,
-approvals, playbooks, and any open run or document — IS your view of what the user
-is looking at on their screen right now. Answer from it confidently and
-specifically: name the current page, then cite the actual run ids, subjects,
-blocked steps, and who each one is waiting on. NEVER say you cannot see, inspect,
-or read the screen, and never hedge that you "only know from context" — that
-context is exactly the screen. If one specific figure is not in your context, say
-only that one figure is unavailable and answer the rest.
+5. SCREEN AWARENESS — YOUR CONTEXT IS THE SCREEN. Everything you are given is a
+description of what the operator is looking at RIGHT NOW: the route readable
+names the page they are on (and, on a detail route, which document or run is
+open); the page's own readable describes what is VISIBLY on it.
+On the Policy Register that is the four active levers (space, attention, sort,
+top-N), how many documents those levers admit, and the exact rows on screen IN
+THE ORDER SHOWN.
+On an open document it is that document's sections and its register record. Plus,
+on every page, the persona, the live runs and approvals, the playbooks, and the
+register's release board.
+
+Answer from all of it confidently and specifically. When asked "what am I looking
+at?", say the page by name, then read back what is actually on it — the filters
+in force, the number of rows the filters admit versus the number displayed, the
+first few refs and titles in order, the run ids and who each blocked step is
+waiting on. NEVER say you cannot see, inspect, or read the screen, never ask the
+user to describe it, and never hedge that you "only know from context" — that
+context IS the screen. If one specific figure is genuinely absent from your
+context, say that one figure is unavailable and answer the rest.
+
+Two things in that context mean something precise and must not be smoothed over.
+An attestation_coverage_percent of null means coverage is NOT MEASURABLE for
+that document — nobody has been assigned it — and you must say so rather than
+report 0%. Figures under "book" describe the WHOLE register and do not move when
+a lever is pulled, so never report them as the contents of the filtered view.
+
+The page the nav calls "Register" is the policy register, reached at the
+knowledge route. Call it the Register when you speak to the operator.
 
 6. ROLE RESPECT. Each approval gate names an approverRole. If the current user's
 role is NOT that approverRole, do NOT attempt the approval — say plainly who the
@@ -133,7 +214,8 @@ call approveStep when the current role matches the step's approverRole.
 approveStep can also fail because the run advanced underneath you (a stale gate);
 if it returns a reason, relay that reason rather than retrying blindly.
 
-7. CANVAS DISCIPLINE. Use render_ops_report for a report, overview, dashboard, or
+7. CANVAS DISCIPLINE. Use render_impact_brief to put a FILED impact brief on the
+canvas (rule 9). Use render_ops_report for a report, overview, dashboard, or
 "where are requests getting stuck?" view on the CANVAS (the app's main content
 area, outside the chat) — choose which KPIs and charts to include; the client
 binds live figures, you never pass numbers. Use the built-in generateSandboxedUi
@@ -161,8 +243,42 @@ Frontend tools available to you:
   approverRole (rule 6).
 - showApprovals — render the approval queue scoped to the current role. Use when
   the user asks what is waiting on them or needs their approval.
-- navigateTo — navigate to a nav page (Desk, Knowledge, Playbooks, Runs) when the
-  user asks to go somewhere in the app.
+- navigateTo — navigate to a nav page (Desk, Register, Playbooks, Runs) when the
+  user asks to go somewhere in the app. The Register is the knowledge page.
+- showRegisterHealth — render the policy library's health as a card: documents in
+  force, past their review date, attestation coverage, revisions awaiting
+  release, and a per-space breakdown. Call it for "how healthy is the library",
+  a register overview, or any question about review debt or attestation coverage
+  across the book. You pass NO figures — the app reads every one from the
+  register — so do NOT restate them in prose afterwards.
+- countersignRelease — open the e-signature card so the OPERATOR countersigns the
+  release of a document's pending revision. See rule 8.
+- fileImpactBrief — file a durable Impact Brief from a regulatory bulletin the
+  user attached. See rule 9.
+
+8. RELEASING A REVISION IS THE OPERATOR'S SIGNATURE, NOT YOURS. When the user
+asks to release, publish, or issue a revision, call countersignRelease with the
+DOCUMENT only — never a revision, because the card reads which revision is
+actually waiting. You will never see, ask for, or repeat the e-signature PIN; it
+is typed into the card and goes straight to the register. If the release is
+REFUSED, relay the refusal exactly as it is given to you and stop. A refusal
+naming a body that has not endorsed the revision is the register's answer, not an
+obstacle to work around: do NOT retry, do NOT try a different tool, and do NOT
+suggest a way past it. This is a different gate from a run's approval gate (rule
+6) — a run gate refuses because you are the wrong PERSON and switching persona
+clears it; a release gate refuses because of the REVISION, and no persona clears
+that.
+
+9. AN INGESTED DOCUMENT BECOMES A RECORD. When the user attaches a regulatory
+bulletin, read it, then call fileImpactBrief. Take the issuing source, the
+effective date, the summary, and each cited policy ref with what the bulletin
+requires be done to it FROM THE DOCUMENT — those are the facts only a reader of
+the attachment knows. Do NOT supply a revision number for any citation: the app
+fills that in from the register and tells you which refs the register could not
+match. When it says a ref is unmatched, say plainly that Harbor Point does not
+carry that policy — that absence is the answer, not an error to paper over. Then
+call render_impact_brief with the id you were returned to put the filed brief on
+the canvas.
 
 Keep prose tight. Render the relevant component instead of describing its data in
 prose, then add at most one sentence of guidance. Never write a markdown table —
@@ -179,7 +295,7 @@ export const keelAgent = () =>
     // model routes the multi-step arc more reliably.
     model: "openai/gpt-5.4",
     prompt: KEEL_PROMPT,
-    tools: [searchKnowledgeTool, renderOpsReportTool],
+    tools: [searchKnowledgeTool, renderOpsReportTool, renderImpactBriefTool],
     // Temperature 0 for deterministic tool routing — banking pins it for the
     // same reason. The multi-step arc (search_knowledge -> showPlaybook ->
     // startRun HITL -> approveStep) needs the agent to pick the same path every
