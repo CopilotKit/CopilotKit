@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { frameworkOverviews } from "@/data/frameworks";
 import frontendCatalogData from "@/data/frontend-catalog.json";
-import { buildAngularBackendOverview } from "../angular-backend-overview";
+import registryData from "@/data/registry.json";
+import {
+  buildAngularBackendOverview,
+  buildFrontendBackendOverview,
+} from "../angular-backend-overview";
 import { resolveAngularDoc } from "../angular-doc-navigation";
 import { getFrontendCanonicalSlug } from "../frontend-page-content";
 import { getIntegrations } from "../registry";
@@ -12,6 +16,7 @@ interface CatalogCell {
   integration: string;
   feature: string;
   runnable: boolean;
+  demo_route: string;
 }
 
 const catalogCells = (frontendCatalogData as { cells: CatalogCell[] }).cells;
@@ -197,5 +202,36 @@ describe("buildAngularBackendOverview", () => {
       ),
     ).toBe(true);
     expect(overview.liveDemos).toEqual([]);
+  });
+
+  it("derives the Vue backend overview exclusively from runnable Vue catalog cells", () => {
+    const overview = buildFrontendBackendOverview(
+      "vue",
+      frameworkOverviews.mastra,
+      "mastra",
+    );
+    const runnableVueCells = catalogCells.filter(
+      (cell) =>
+        cell.frontend === "vue" &&
+        cell.integration === "mastra" &&
+        cell.runnable,
+    );
+    const mastra = registryData.integrations.find(
+      (integration) => integration.slug === "mastra",
+    )!;
+
+    expect(overview.supportedFeatures).toHaveLength(runnableVueCells.length);
+    expect(overview.supportedFeatures.map((feature) => feature.title)).toEqual(
+      expect.arrayContaining(["Pre-Built: CopilotChat"]),
+    );
+    expect(
+      overview.supportedFeatures.map((feature) => feature.title),
+    ).not.toContain("Generative UI");
+    expect(overview.supportedFeatures[0]?.demoLink).toBe(
+      `${mastra.backend_url}/vue/agentic-chat`,
+    );
+    expect(overview.liveDemos[0]?.iframeUrl).toBe(
+      `${mastra.backend_url}/vue/agentic-chat`,
+    );
   });
 });
