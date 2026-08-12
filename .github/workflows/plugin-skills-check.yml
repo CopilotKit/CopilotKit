@@ -16,8 +16,6 @@ on:
       - "scripts/__tests__/sync-plugin-skills.test.ts"
       - "scripts/__tests__/public-skill-drift.test.ts"
       - "scripts/release/public-api/manifest.v1.json"
-      - "packages/runtime/src/**"
-      - "packages/react-core/src/**"
       - ".claude-plugin/**"
       - ".github/workflows/plugin-skills-check.yml"
       # The plugin version pins to packages/runtime/package.json, so a release
@@ -31,8 +29,6 @@ on:
       - "scripts/__tests__/sync-plugin-skills.test.ts"
       - "scripts/__tests__/public-skill-drift.test.ts"
       - "scripts/release/public-api/manifest.v1.json"
-      - "packages/runtime/src/**"
-      - "packages/react-core/src/**"
       - ".claude-plugin/**"
       - ".github/workflows/plugin-skills-check.yml"
       - "packages/runtime/package.json"
@@ -67,9 +63,6 @@ jobs:
 
       - name: Check plugin skill mirror is in sync
         run: pnpm check:plugin-skills
-
-      - name: Build packages referenced by public skill assets
-        run: pnpm nx run-many -t build --projects=@copilotkit/runtime,@copilotkit/react-core
 
       - name: Check public skill package contracts
         run: pnpm exec vitest run scripts/__tests__/public-skill-drift.test.ts

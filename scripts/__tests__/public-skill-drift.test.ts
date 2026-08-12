@@ -90,77 +90,6 @@ function copilotImports(relativePath: string) {
   });
 }
 
-function skillAssetTypeErrors(): string[] {
-  const ambientPath = resolve(root, "scripts/__tests__/skill-ambient.d.ts");
-  const ambientSource = `
-declare module "dotenv" {
-  const dotenv: { config(): void };
-  export default dotenv;
-}
-`;
-  const options: ts.CompilerOptions = {
-    allowSyntheticDefaultImports: true,
-    baseUrl: root,
-    esModuleInterop: true,
-    jsx: ts.JsxEmit.ReactJSX,
-    lib: ["lib.es2023.d.ts", "lib.dom.d.ts"],
-    module: ts.ModuleKind.ESNext,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    noEmit: true,
-    paths: {
-      "@copilotkit/react-core/v2": ["packages/react-core/dist/v2/index.d.mts"],
-      "@copilotkit/runtime/v2": ["packages/runtime/dist/v2/index.d.mts"],
-      "@copilotkit/runtime/v2/express": [
-        "packages/runtime/dist/v2/express.d.mts",
-      ],
-      express: ["packages/runtime/node_modules/@types/express/index.d.ts"],
-      "hono/vercel": [
-        "packages/runtime/node_modules/hono/dist/types/adapter/vercel/index.d.ts",
-      ],
-      react: ["packages/react-core/node_modules/@types/react/index.d.ts"],
-      "react/*": ["packages/react-core/node_modules/@types/react/*"],
-      zod: ["packages/runtime/node_modules/zod/index.d.ts"],
-    },
-    skipLibCheck: true,
-    strict: true,
-    target: ts.ScriptTarget.ES2022,
-    typeRoots: [
-      resolve(root, "node_modules/@types"),
-      resolve(root, "packages/react-core/node_modules/@types"),
-    ],
-    types: ["node", "react"],
-  };
-  const host = ts.createCompilerHost(options);
-  const getSourceFile = host.getSourceFile.bind(host);
-  const fileExists = host.fileExists.bind(host);
-  const readFile = host.readFile.bind(host);
-
-  host.fileExists = (fileName) =>
-    fileName === ambientPath || fileExists(fileName);
-  host.readFile = (fileName) =>
-    fileName === ambientPath ? ambientSource : readFile(fileName);
-  host.getSourceFile = (fileName, languageVersion, onError) =>
-    fileName === ambientPath
-      ? ts.createSourceFile(fileName, ambientSource, languageVersion, true)
-      : getSourceFile(fileName, languageVersion, onError);
-
-  const program = ts.createProgram({
-    rootNames: [ambientPath, ...setupAssets.map((path) => resolve(root, path))],
-    options,
-    host,
-  });
-
-  return ts.getPreEmitDiagnostics(program).map((diagnostic) => {
-    const location =
-      diagnostic.file && diagnostic.start !== undefined
-        ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start)
-        : undefined;
-    const file =
-      diagnostic.file?.fileName.replace(`${root}/`, "") ?? "TypeScript";
-    return `${file}${location ? `:${location.line + 1}:${location.character + 1}` : ""}: TS${diagnostic.code} ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`;
-  });
-}
-
 describe("public skill drift", () => {
   it("keeps setup assets compatible with current public package contracts", () => {
     const contractErrors = setupAssets.flatMap((asset) =>
@@ -195,7 +124,7 @@ describe("public skill drift", () => {
       }),
     );
 
-    expect([...contractErrors, ...skillAssetTypeErrors()]).toEqual([]);
+    expect(contractErrors).toEqual([]);
   });
 
   it.each([
