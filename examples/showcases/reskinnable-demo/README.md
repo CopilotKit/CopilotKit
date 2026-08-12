@@ -30,12 +30,10 @@ one **skin** per route segment `/[skin]/...`. The registered set lives in
 
 All of them run behind the **same** `Skin` contract on purpose. Every skin gets
 the same inset frame, shared chat panel, tool-activity lines, suggestion pills,
-and full-region canvas from the shell. What proves the contract is
-substrate-agnostic is now the MIGRATION rather than a split: `airline` and `keel`
-began as in-memory `useState` stores behind the contract's optional `useData` hook
-and both moved onto their own REST ledgers with **no change to the contract and no
-change to the shell**. Every skin is REST-backed today, so `useData` currently has
-zero implementors — it is still live, just unused.
+and full-region canvas from the shell. The contract is substrate-agnostic:
+changing a skin's data substrate requires **no change to the contract and no
+change to the shell**. Every skin is REST-backed today, so the contract's optional
+`useData` hook has zero implementors — it is still live, just unused.
 
 ## What it demonstrates
 
@@ -118,12 +116,12 @@ contract, and the shared canvas / OGUI model.
 
 **Every registered skin is demo-complete** against the full beat list in
 [`.claude/skills/reskin/demo-beats.md`](./.claude/skills/reskin/demo-beats.md), so
-any of them can be walked end to end and any of them is a fair reference. Three
-were brought up to that bar by retrofit — `logistics` first, then `airline` and
-`keel` — which makes those three the worked examples of raising an EXISTING skin
-rather than authoring a new one beat-first (`people` and `commerce` are the
-beat-first pair). The per-beat coverage matrix, and the one-line commands that
-derive it instead of trusting it, are in [CLAUDE.md](./CLAUDE.md).
+any of them can be walked end to end and any of them is a fair reference.
+`people` and `commerce` were authored beat-first; `logistics`, `airline` and
+`keel` were raised to the bar afterwards, so read those three commit by commit if
+you need to do the same to an EXISTING skin. The per-beat coverage matrix, and the
+one-line commands that derive it instead of trusting it, are in
+[CLAUDE.md](./CLAUDE.md).
 
 ### `banking` — the original reference demo
 
@@ -146,9 +144,9 @@ The banking skin doubles as a CopilotKit feature tour. Notable beats:
 
 ### `people` and `commerce` — authored beat-first
 
-Both were built against the beat list from the start, so each hits every beat
-banking does. Their beat maps are written out at the top of their own
-`src/skins/<id>/suggestions.ts`, one suggestion pill per beat in demo order.
+Both are built against the beat list from the start. Their beat maps are written
+out at the top of their own `src/skins/<id>/suggestions.ts`, one suggestion pill
+per beat in demo order.
 
 - **`people`** ("Rowan") — a People Ops command center over `/api/people/v1/*`.
   Its teachable gate is approving an **out-of-band** compensation request (422
@@ -163,13 +161,14 @@ banking does. Their beat maps are written out at the top of their own
   justifying code. It is also the reference for a four-lever navigation — status,
   exception class, sort and top-N all arrive from the query string.
 
-### `logistics`, `airline` and `keel` — the retrofits
+### `logistics`, `airline` and `keel`
 
-Each already existed and each was raised to the beat list afterwards, so together
-they are the record of what "demo-complete" costs on top of correct wiring. Each
-also contributes one thing no other skin does:
+Each was raised to the beat list after it already existed, so together they are the
+record of what "demo-complete" costs on top of correct wiring — read them if you
+have to do the same to an existing skin. Each also contributes one thing no other
+skin does:
 
-- **`logistics`** ("Meridian") — the debugged reference for skin layout chrome and
+- **`logistics`** ("Meridian") — the reference for skin layout chrome and
   the meta-utility strip, plus a server-emitted a2ui canvas. Its teachable gate is
   committing a mitigation **over the planner's approval authority** (403
   `OVER_AUTHORITY`).
@@ -201,10 +200,9 @@ remembered facts/preferences survive across threads and users. The bundled
 The images under `assets/` (`aurora-dashboard.png`, `copilot-chat.png`,
 `learning-mode-vignette.png`, `project-preview.png`) illustrate the **banking
 skin** specifically — its dashboard, chat panel, and learning-mode recording
-vignette. They predate the current shell chrome entirely: there is now an inset
-frame of resizable cards with a skin-selector dropdown at the top of the assistant
-column, and the app ships six skins rather than two. Treat them as historical
-banking-skin illustrations rather than a picture of the app as it looks today.
+vignette. They predate the current shell chrome (an inset frame of resizable cards
+with a skin-selector dropdown at the top of the assistant column), so treat them
+as banking-skin illustrations rather than a picture of the app today.
 
 ## Testing
 
