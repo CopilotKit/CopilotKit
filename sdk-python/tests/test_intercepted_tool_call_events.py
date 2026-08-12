@@ -161,15 +161,17 @@ def _assert_single_tool_call_triple(dispatched, tool_call_id="tc-1"):
 
 
 def test_intercepted_sdk_action_non_streaming_reproduces_issue_and_emits_once():
-    dispatched, _, model = _collect_intercepted_tool_run(streaming=False)
+    dispatched, yielded, model = _collect_intercepted_tool_run(streaming=False)
     _assert_single_tool_call_triple(dispatched)
+    _assert_single_tool_call_triple(yielded)
     assert BoundFakeToolModel.generate_calls == 1
     assert BoundFakeToolModel.astream_calls == 0
 
 
 def test_intercepted_sdk_action_streaming_emits_once():
-    dispatched, _, model = _collect_intercepted_tool_run(streaming=True)
+    dispatched, yielded, model = _collect_intercepted_tool_run(streaming=True)
     _assert_single_tool_call_triple(dispatched)
+    _assert_single_tool_call_triple(yielded)
     assert BoundFakeToolModel.astream_calls == 1
     assert BoundFakeToolModel.generate_calls == 0
 
@@ -205,8 +207,7 @@ async def _state_event(agent, state, *, calls, parent_message_id="ai-1", metadat
             }
         },
     }
-    async for _ in agent._handle_single_event(event, state):
-        pass
+    return [result async for result in agent._handle_single_event(event, state)]
 
 
 def _bridge_agent():
@@ -230,20 +231,19 @@ def _run_state_event(calls, streamed=None, metadata=None):
 
     async def _parent(self_inner, event, state):
         parent_events.append((event, state))
-        if False:
-            yield ""
+        yield "parent-event"
 
     async def _run():
         with patch.object(AGUIBase, "_handle_single_event", new=_parent):
             with patch.object(AGUIBase, "_dispatch_event", new=_track):
-                await _state_event(agent, {}, calls=calls, metadata=metadata)
+                return await _state_event(agent, {}, calls=calls, metadata=metadata)
 
-    asyncio.run(_run())
-    return dispatched, agent, parent_events
+    parent_results = asyncio.run(_run())
+    return dispatched, agent, parent_events, parent_results
 
 
 def test_multiple_intercepted_calls_dedupe_per_id():
-    dispatched, agent, _ = _run_state_event(
+    dispatched, agent, _, _ = _run_state_event(
         [
             {"id": "streamed", "name": "one", "args": {}},
             {"id": "fresh", "name": "two", "args": {"x": 1}},
@@ -280,21 +280,24 @@ def test_backend_call_is_not_published_by_intercepted_state_bridge():
     ]
     assert [call["id"] for call in result["messages"][-1].tool_calls] == ["backend"]
 
-    dispatched, _, _ = _run_state_event(result["copilotkit"]["intercepted_tool_calls"])
+    dispatched, _, _, _ = _run_state_event(
+        result["copilotkit"]["intercepted_tool_calls"]
+    )
     assert {event.tool_call_id for event in _tool_events(dispatched)} == {"frontend"}
 
 
 def test_intercepted_state_metadata_opt_out_is_not_recreated_by_bridge():
-    dispatched, _, parent_events = _run_state_event(
+    dispatched, _, parent_events, parent_results = _run_state_event(
         [{"id": "fresh", "name": "ask_user_name", "args": {}}],
         metadata={"copilotkit:emit-tool-calls": False},
     )
     assert _tool_events(dispatched) == []
     assert len(parent_events) == 1
+    assert parent_results[0] == "parent-event"
 
 
 def test_bridge_ignores_runtime_action_catalog_shapes():
-    dispatched, _, _ = _run_state_event(
+    dispatched, _, _, _ = _run_state_event(
         [{"id": "safe", "name": "ask_user_name", "args": {}}]
     )
     assert [event.tool_call_id for event in _tool_events(dispatched)] == [
@@ -305,7 +308,7 @@ def test_bridge_ignores_runtime_action_catalog_shapes():
 
 
 def test_malformed_intercepted_entries_emit_no_partial_lifecycle():
-    dispatched, _, parent_events = _run_state_event(
+    dispatched, _, parent_events, parent_results = _run_state_event(
         [
             {"id": "bad", "name": "bad", "args": object()},
             {"id": "", "name": "ignored", "args": {}},
@@ -319,3 +322,9 @@ def test_malformed_intercepted_entries_emit_no_partial_lifecycle():
     ]
     assert len(parent_events) == 1
     assert parent_events[0][0]["event"] == "on_chain_end"
+    assert parent_results[0] == "parent-event"
+    assert [event.tool_call_id for event in _tool_events(parent_results)] == [
+        "good",
+        "good",
+        "good",
+    ]

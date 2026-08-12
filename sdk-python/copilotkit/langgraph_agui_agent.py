@@ -234,13 +234,18 @@ class LangGraphAGUIAgent(LangGraphAgent):
             # The parent adapter records streamed IDs even when lifecycle emission is suppressed.
             if tool_call_id in streamed_tool_call_ids:
                 continue
+            transformed_events: List[Any] = []
             if self._materialize_tool_call_events(
                 call,
                 event,
                 parent_message_id=parent_message_id,
                 dispatch_via_adapter=True,
+                dispatched_events=transformed_events,
             ):
                 streamed_tool_call_ids.add(tool_call_id)
+            for transformed_event in transformed_events:
+                if transformed_event is not None:
+                    yield transformed_event
 
     def _materialize_tool_call_events(
         self,
@@ -250,6 +255,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
         parent_message_id: Optional[str],
         dispatch: bool = True,
         dispatch_via_adapter: bool = False,
+        dispatched_events: Optional[List[Any]] = None,
     ) -> bool:
         if not isinstance(value, dict):
             if dispatch:
@@ -311,7 +317,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
             self._dispatch_event if dispatch_via_adapter else super()._dispatch_event
         )
         try:
-            dispatch_event(
+            start_event = dispatch_event(
                 ToolCallStartEvent(
                     type=EventType.TOOL_CALL_START,
                     tool_call_id=tool_call_id,
@@ -320,8 +326,10 @@ class LangGraphAGUIAgent(LangGraphAgent):
                     raw_event=event,
                 )
             )
+            if dispatched_events is not None:
+                dispatched_events.append(start_event)
             dispatched_start = True
-            dispatch_event(
+            args_event = dispatch_event(
                 ToolCallArgsEvent(
                     type=EventType.TOOL_CALL_ARGS,
                     tool_call_id=tool_call_id,
@@ -329,24 +337,30 @@ class LangGraphAGUIAgent(LangGraphAgent):
                     raw_event=event,
                 )
             )
-            dispatch_event(
+            if dispatched_events is not None:
+                dispatched_events.append(args_event)
+            end_event = dispatch_event(
                 ToolCallEndEvent(
                     type=EventType.TOOL_CALL_END,
                     tool_call_id=tool_call_id,
                     raw_event=event,
                 )
             )
+            if dispatched_events is not None:
+                dispatched_events.append(end_event)
             end_dispatched = True
         except Exception:
             if dispatched_start and not end_dispatched:
                 try:
-                    dispatch_event(
+                    end_event = dispatch_event(
                         ToolCallEndEvent(
                             type=EventType.TOOL_CALL_END,
                             tool_call_id=tool_call_id,
                             raw_event=event,
                         )
                     )
+                    if dispatched_events is not None:
+                        dispatched_events.append(end_event)
                 except Exception:
                     logger.error(
                         "Failed to emit compensating TOOL_CALL_END for %s",
