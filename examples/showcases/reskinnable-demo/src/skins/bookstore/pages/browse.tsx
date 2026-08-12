@@ -71,7 +71,18 @@ export function BrowsePage() {
   // screen rather than from the whole catalog. This `description` must stay
   // distinct from the layout's route readable and from book.tsx's/cart.tsx's
   // (`page: "book"` / `page: "cart"`) so each page answers differently and
-  // correctly. Capped at 24 titles because that is the whole shelf.
+  // correctly. Deliberately UNCAPPED: `visible` is `filterBooks(data.books,
+  // query)`, a filtered subset of the catalog, so it is at most the whole
+  // shelf and `visible_count` can never disagree with the list below it. A
+  // literal cap here would reintroduce the bug this readable exists to avoid
+  // — `visible_count: N` reported alongside fewer than N rows — the moment
+  // the catalog grows past the literal, unless it also emitted a truncation
+  // marker. It would also be inconsistent with tools.tsx, which already
+  // ships the entire catalog to the agent as context, uncapped and with
+  // blurbs; and it would contradict agent.ts's premise that the catalog
+  // reaches the agent as context "rather than through a search tool (25
+  // books fit)". If the catalog ever outgrows context, the fix is a search
+  // tool, not a silent slice.
   useAgentContext({
     description:
       "What is visibly on the Browse page right now: the filters currently applied (as set in the URL), how many books are showing, and the books themselves in the order they appear.",
@@ -79,7 +90,7 @@ export function BrowsePage() {
       page: "browse",
       applied_filters: applied.length > 0 ? applied : ["none"],
       visible_count: visible.length,
-      books: visible.slice(0, 24).map((b) => ({
+      books: visible.map((b) => ({
         title: b.title,
         author: b.author,
         translator: b.translator,

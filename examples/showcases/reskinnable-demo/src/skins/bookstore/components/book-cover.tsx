@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 /**
  * Generated typographic covers — the skin's entire visual identity.
  *
- * Deliberately NOT images. 24 sourced cover scans would be a licensing problem,
+ * Deliberately NOT images. 25 sourced cover scans would be a licensing problem,
  * would not reskin when the theme changes, and would read as stock photography
  * in a demo whose whole argument is that the UI belongs to the product. A
  * generated cover is on-brand by construction.

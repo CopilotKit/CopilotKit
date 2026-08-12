@@ -27,6 +27,12 @@ import {
   cartTotals,
   formatUsd,
 } from "@/skins/bookstore/data/query";
+import type { CartPricing } from "@/skins/bookstore/data/query";
+import {
+  BOOKSTORE_CLUB,
+  localCalendarDay,
+  nextMeetingISO,
+} from "@/skins/bookstore/data/club";
 import { BookCard } from "@/skins/bookstore/components/book-card";
 import {
   describeQuery,
@@ -130,7 +136,7 @@ export function BookstoreTools() {
     value: JSON.stringify({ name: shopper.name, id: shopper.id }),
   });
 
-  // The whole catalog, as the agent's shelf. Small enough (24 books) to pass
+  // The whole catalog, as the agent's shelf. Small enough (25 books) to pass
   // entirely, which is what lets the agent answer "what's new in translated
   // fiction?" without a search tool.
   const catalogSummary = useMemo(
@@ -163,9 +169,22 @@ export function BookstoreTools() {
   });
 
   const cartSummary = useMemo(() => {
-    // The SAME helper the Cart page totals with, so the agent never has to do
-    // qty × price arithmetic to answer "what's my total?" off this page.
-    const { itemCount, totalCents } = cartTotals(data.books, data.cart);
+    // The SAME helper — and the SAME pricing inputs — the Cart page totals
+    // with, so the agent never has to do qty × price arithmetic to answer
+    // "what's my total?" off this page. Omitting `pricing` here would leave
+    // this readable holding the PRE-discount total the moment applyPromoCode
+    // fires, which is exactly the number the seeded procedure tells the agent
+    // to confirm in bold.
+    const pricing: CartPricing = {
+      club: BOOKSTORE_CLUB,
+      promoCode: data.promoCode ?? undefined,
+      storeCreditCents: data.storeCreditCents,
+    };
+    const { itemCount, subtotalCents, discountCents, totalCents } = cartTotals(
+      data.books,
+      data.cart,
+      pricing,
+    );
     return JSON.stringify({
       lines: data.cart.map((line) => {
         const book = byId.get(line.bookId);
@@ -176,7 +195,11 @@ export function BookstoreTools() {
         };
       }),
       item_count: itemCount,
+      subtotal: formatUsd(subtotalCents),
+      discount: formatUsd(discountCents),
       total: formatUsd(totalCents),
+      promo_code: data.promoCode,
+      deliver_by: data.deliverBy,
       orders_placed: data.orders.map((o) => ({
         order_id: o.id,
         total: formatUsd(o.totalCents),
@@ -197,6 +220,45 @@ export function BookstoreTools() {
     description:
       "The shopper's current cart and the orders they have already placed in this session, readable from any page. An order records only the last four digits of the card — you never have access to a full card number.",
     value: cartSummary,
+  });
+
+  // ── Beat 5: the shopper's standing book club procedure ────────────────────
+  // Hoisted OUT of the dep array on purpose. A call expression inside the deps
+  // array trips react-hooks/exhaustive-deps, and lint must stay green with
+  // only the one pre-existing disable (on the cart readable, above). As a
+  // plain day string it is also a stable memo key: it moves when the calendar
+  // day does and not once per render. `localCalendarDay()` — never a bare
+  // `new Date()` — because `nextMeetingISO` is UTC-only: a wall-clock date
+  // would give a presenter west of UTC the wrong meeting day.
+  const nextMeeting = nextMeetingISO(
+    BOOKSTORE_CLUB.meetsOnWeekday,
+    localCalendarDay(),
+  );
+
+  const clubContext = useMemo(() => {
+    const pair = data.books.filter(
+      (b) => b.workId === BOOKSTORE_CLUB.pickWorkId,
+    );
+    const hardcover = pair.find((b) => b.format === "hardcover");
+    const paperback = pair.find((b) => b.format === "paperback");
+    return JSON.stringify({
+      club: BOOKSTORE_CLUB.name,
+      pick: {
+        title: pair[0]?.title,
+        work_id: BOOKSTORE_CLUB.pickWorkId,
+        hardcover_book_id: hardcover?.id,
+        paperback_book_id: paperback?.id,
+      },
+      promo_code: BOOKSTORE_CLUB.promoCode,
+      club_reads: "paperback",
+      next_meeting: nextMeeting,
+    });
+  }, [data.books, nextMeeting]);
+
+  useAgentContext({
+    description:
+      "The shopper's book club: its name, this month's pick with the book id of each edition, the club's discount code, the edition the club reads, and the date of the next meeting.",
+    value: clubContext,
   });
 
   // ── Beat 1: give the agent a face ─────────────────────────────────────────
@@ -367,6 +429,200 @@ export function BookstoreTools() {
     [],
   );
 
+  // ── Beat 5, step 2 of 4: swap a cart line for another edition ─────────────
+  useFrontendTool(
+    {
+      name: "swapEdition",
+      description:
+        "Replace a cart line with a different EDITION of the same book (e.g. " +
+        "hardcover → paperback). Both ids must be editions of one work; the " +
+        "club readable gives you both ids for the club's pick. Not for adding " +
+        "a different book — use addToCart.",
+      parameters: z.object({
+        fromBookId: z.string(),
+        toBookId: z.string(),
+      }),
+      handler: async ({ fromBookId, toBookId }) => {
+        // The LIVE store, through the ref — see addToCart's dep-array comment.
+        const result = dataRef.current.swapEdition(fromBookId, toBookId);
+        if (!result.ok) {
+          return result.reason ?? "Could not swap the edition.";
+        }
+        // `byId` is seed-derived and immutable, so reading it from the closure
+        // is safe even though the dep array below cannot refresh it.
+        const toBook = byId.get(toBookId);
+        return toBook
+          ? `Swapped to ${toBook.title} (${toBook.format}).`
+          : "Swapped the edition.";
+      },
+      // Keyed off `result`, never `status` (rule 3).
+      render: ({ result }) => (
+        <div className="rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink-muted">
+          {typeof result === "string" && result.length > 0
+            ? result
+            : "Swapping the edition…"}
+        </div>
+      ),
+    },
+    // DELIBERATELY EMPTY — a write tool, same reasoning as addToCart above:
+    // deps are JSON.stringify'd, so a function/closure dep can never re-register
+    // this tool, and the live store must come from `dataRef.current` instead.
+    [],
+  );
+
+  // ── Beat 5, step 3 of 4: apply the club's discount code ───────────────────
+  useFrontendTool(
+    {
+      name: "applyPromoCode",
+      description:
+        "Apply a discount code to the cart. The club's code is in the club " +
+        "readable. This is NOT store credit.",
+      parameters: z.object({
+        code: z.string(),
+      }),
+      handler: async ({ code }) => {
+        const result = dataRef.current.applyPromoCode(code);
+        // `result.reason` echoes the SHOPPER'S ATTEMPT (use-data.ts), never the
+        // real code — so relaying it verbatim here cannot leak the club's code.
+        if (!result.ok) {
+          return result.reason ?? "Could not apply that code.";
+        }
+        return `Applied promo code ${code} to the cart.`;
+      },
+      render: ({ result }) => (
+        <div className="rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink-muted">
+          {typeof result === "string" && result.length > 0
+            ? result
+            : "Applying the code…"}
+        </div>
+      ),
+    },
+    // DELIBERATELY EMPTY — same reasoning as addToCart above.
+    [],
+  );
+
+  // ── Beat 5, step 4 of 4: set the delivery-by date ──────────────────────────
+  useFrontendTool(
+    {
+      name: "setDeliveryBy",
+      description:
+        "Set the date the order must arrive by, as YYYY-MM-DD. Use the club's " +
+        "next meeting date from the club readable. This is not a reminder.",
+      parameters: z.object({
+        isoDate: z.string(),
+      }),
+      handler: async ({ isoDate }) => {
+        const result = dataRef.current.setDeliveryBy(isoDate);
+        if (!result.ok) {
+          return result.reason ?? "Could not set the delivery date.";
+        }
+        return `Delivery set for ${isoDate}.`;
+      },
+      render: ({ result }) => (
+        <div className="rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink-muted">
+          {typeof result === "string" && result.length > 0
+            ? result
+            : "Setting the delivery date…"}
+        </div>
+      ),
+    },
+    // DELIBERATELY EMPTY — same reasoning as addToCart above.
+    [],
+  );
+
+  // ── Distractor for addToCart ───────────────────────────────────────────────
+  useFrontendTool(
+    {
+      name: "addToWishlist",
+      description:
+        "Save a book for later. Does NOT add it to the cart and does NOT " +
+        "affect the total.",
+      parameters: z.object({
+        bookId: z.string(),
+      }),
+      handler: async ({ bookId }) => {
+        const result = dataRef.current.addToWishlist(bookId);
+        if (!result.ok) {
+          return result.reason ?? "Could not save that book.";
+        }
+        const book = byId.get(bookId);
+        return book
+          ? `Saved ${book.title} for later.`
+          : "Saved the book for later.";
+      },
+      render: ({ result }) => (
+        <div className="rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink-muted">
+          {typeof result === "string" && result.length > 0
+            ? result
+            : "Saving for later…"}
+        </div>
+      ),
+    },
+    // DELIBERATELY EMPTY — same reasoning as addToCart above.
+    [],
+  );
+
+  // ── Distractor for setDeliveryBy ───────────────────────────────────────────
+  useFrontendTool(
+    {
+      name: "setReminder",
+      description:
+        "Remind the shopper about a book on a date. Does NOT affect delivery.",
+      parameters: z.object({
+        bookId: z.string(),
+        isoDate: z.string(),
+      }),
+      handler: async ({ bookId, isoDate }) => {
+        const result = dataRef.current.setReminder(bookId, isoDate);
+        if (!result.ok) {
+          return result.reason ?? "Could not set that reminder.";
+        }
+        const book = byId.get(bookId);
+        return book
+          ? `Set a reminder for ${book.title} on ${isoDate}.`
+          : `Set a reminder for ${isoDate}.`;
+      },
+      render: ({ result }) => (
+        <div className="rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink-muted">
+          {typeof result === "string" && result.length > 0
+            ? result
+            : "Setting a reminder…"}
+        </div>
+      ),
+    },
+    // DELIBERATELY EMPTY — same reasoning as addToCart above.
+    [],
+  );
+
+  // ── Distractor for applyPromoCode ──────────────────────────────────────────
+  useFrontendTool(
+    {
+      name: "applyStoreCredit",
+      description:
+        "Apply store credit to the cart. This is NOT a promo code and is NOT " +
+        "the book club discount.",
+      parameters: z.object({
+        cents: z.number().int().min(0),
+      }),
+      handler: async ({ cents }) => {
+        const result = dataRef.current.applyStoreCredit(cents);
+        if (!result.ok) {
+          return result.reason ?? "Could not apply store credit.";
+        }
+        return `Applied ${formatUsd(cents)} in store credit.`;
+      },
+      render: ({ result }) => (
+        <div className="rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink-muted">
+          {typeof result === "string" && result.length > 0
+            ? result
+            : "Applying store credit…"}
+        </div>
+      ),
+    },
+    // DELIBERATELY EMPTY — same reasoning as addToCart above.
+    [],
+  );
+
   // ── Plain navigation to one book ──────────────────────────────────────────
   useFrontendTool(
     {
@@ -394,7 +650,7 @@ export function BookstoreTools() {
     },
     // DELIBERATELY EMPTY, same reason as `addToCart`: deps are JSON-stringified,
     // so `[router, data.books, skinHref]` yields a key that never changes and
-    // cannot re-register the tool — while stringifying the whole 24-book catalog
+    // cannot re-register the tool — while stringifying the whole 25-book catalog
     // on every render of this component. The live catalog comes from
     // `dataRef.current.books`; `router` and `skinHref` are stable by construction.
     [],
@@ -521,7 +777,19 @@ export function BookstoreTools() {
         // Read through the REF, never off `data` — see the empty deps array
         // below for why this tool must not take a dep on the cart.
         const store = dataRef.current;
-        const { itemCount, totalCents } = cartTotals(store.books, store.cart);
+        // SAME pricing inputs `placeOrder` (use-data.ts) applies when it
+        // commits the order, so this form's total always agrees with the
+        // receipt `placeOrder` then produces — never the pre-discount figure.
+        const pricing: CartPricing = {
+          club: BOOKSTORE_CLUB,
+          promoCode: store.promoCode ?? undefined,
+          storeCreditCents: store.storeCreditCents,
+        };
+        const { itemCount, totalCents } = cartTotals(
+          store.books,
+          store.cart,
+          pricing,
+        );
 
         // 1. This session already answered it → show the receipt we recorded.
         //    Consulted BEFORE the replayed result because a reopened thread may

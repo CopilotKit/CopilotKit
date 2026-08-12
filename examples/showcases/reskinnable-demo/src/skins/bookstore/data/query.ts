@@ -6,6 +6,7 @@ import type {
   Genre,
   SortKey,
 } from "./types";
+import type { BookClub } from "./club";
 
 /**
  * Every pure derivation the skin needs. No React, no store access — so the
@@ -86,11 +87,33 @@ export function filterBooks(books: readonly Book[], query: BookQuery): Book[] {
   }
 }
 
+/** The inputs that can reduce a cart's total. All optional. */
+export interface CartPricing {
+  club?: BookClub;
+  promoCode?: string;
+  storeCreditCents?: number;
+}
+
 /**
- * Cart arithmetic. Returns `{ itemCount, totalCents }` and deliberately NOT a
- * separate subtotal: this skin has no tax and no shipping (spec §10), so a
- * subtotal field would be a duplicate of the total that a future edit could
- * silently let drift.
+ * Cart arithmetic.
+ *
+ * `pricing` is OPTIONAL and omitting it reproduces the original behaviour
+ * exactly — `discountCents: 0` and `subtotalCents === totalCents`. Five call
+ * sites pass two arguments; making the club required would break all of them.
+ *
+ * `subtotalCents` is the PRE-discount sum of `priceCents * qty` across the
+ * cart. `totalCents` is `subtotalCents - discountCents` — the POST-discount
+ * amount actually charged, and the field `use-data.ts` reads onto the `Order`
+ * record. Rounding happens exactly once, inside `resolveDiscountCents`, whose
+ * inputs are sanitised so it never returns a negative number itself;
+ * `discountCents` is additionally floored at `subtotalCents` here. So
+ * `subtotalCents - discountCents === totalCents` holds exactly and
+ * `0 <= discountCents <= subtotalCents`, for any `pricing` — never negative,
+ * never `NaN`, never fractional.
+ *
+ * `subtotalCents` exists now that a discount can make it differ from the
+ * total. It was deliberately absent before: with no tax and no shipping the
+ * two were identical, and a duplicated field can only drift.
  *
  * A line whose book is no longer in the catalog contributes nothing rather
  * than throwing — a stale `localStorage` cart from an older seed must not be
@@ -99,16 +122,66 @@ export function filterBooks(books: readonly Book[], query: BookQuery): Book[] {
 export function cartTotals(
   books: readonly Book[],
   cart: readonly CartLine[],
-): { itemCount: number; totalCents: number } {
+  pricing?: CartPricing,
+): {
+  itemCount: number;
+  subtotalCents: number;
+  discountCents: number;
+  totalCents: number;
+} {
   let itemCount = 0;
-  let totalCents = 0;
+  let subtotalCents = 0;
   for (const line of cart) {
     const book = books.find((b) => b.id === line.bookId);
     if (!book) continue;
     itemCount += line.qty;
-    totalCents += book.priceCents * line.qty;
+    subtotalCents += book.priceCents * line.qty;
   }
-  return { itemCount, totalCents };
+
+  const discountCents = Math.min(
+    subtotalCents,
+    resolveDiscountCents(subtotalCents, pricing),
+  );
+
+  return {
+    itemCount,
+    subtotalCents,
+    discountCents,
+    totalCents: subtotalCents - discountCents,
+  };
+}
+
+/**
+ * The club percentage (only when the supplied code actually matches the club's,
+ * compared case-insensitively) plus any store credit. Rounded ONCE, here — the
+ * single percentage boundary, same discipline as the dollars↔cents conversion.
+ *
+ * Both components are sanitised so this never returns a negative or non-finite
+ * number itself: a negative `club.discountPercent` floors its contribution at
+ * zero rather than producing a discount above the subtotal, and
+ * `storeCreditCents` is coerced to a non-negative whole number, with any
+ * non-finite value (`NaN`, `Infinity`) treated as zero. The caller still floors
+ * the sum at the subtotal, for the upper bound.
+ */
+export function resolveDiscountCents(
+  subtotalCents: number,
+  pricing?: CartPricing,
+): number {
+  if (!pricing || subtotalCents <= 0) return 0;
+  const { club, promoCode, storeCreditCents } = pricing;
+  const codeMatches =
+    club !== undefined &&
+    promoCode !== undefined &&
+    promoCode.trim().toLowerCase() === club.promoCode.toLowerCase();
+  const percentCents =
+    codeMatches && Number.isFinite(club.discountPercent)
+      ? Math.max(0, Math.round((subtotalCents * club.discountPercent) / 100))
+      : 0;
+  const credit =
+    storeCreditCents !== undefined && Number.isFinite(storeCreditCents)
+      ? Math.max(0, Math.trunc(storeCreditCents))
+      : 0;
+  return percentCents + credit;
 }
 
 /**

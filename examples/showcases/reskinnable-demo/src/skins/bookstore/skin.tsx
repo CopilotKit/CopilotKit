@@ -59,7 +59,7 @@ function resolvePage(segments: string[]): ComponentType | null {
 
 /**
  * Human-readable tool-activity chip labels, present-participle voice to match
- * the shipped skins. Covers this skin's six frontend tools — verify against
+ * the shipped skins. Covers this skin's twelve frontend tools — verify against
  * `tools.tsx` if this list and that file ever disagree.
  */
 const TOOL_LABELS: Record<string, string> = {
@@ -69,6 +69,12 @@ const TOOL_LABELS: Record<string, string> = {
   addToCart: "Adding to your cart",
   openCheckout: "Opening checkout",
   openBook: "Opening the book",
+  swapEdition: "Swapping the edition",
+  applyPromoCode: "Applying the code",
+  setDeliveryBy: "Setting the delivery date",
+  addToWishlist: "Saving for later",
+  setReminder: "Setting a reminder",
+  applyStoreCredit: "Applying store credit",
 };
 
 // NOTE: no `agent` field — agents are server-only, registered in

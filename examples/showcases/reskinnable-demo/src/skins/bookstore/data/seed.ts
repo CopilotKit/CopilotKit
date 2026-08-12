@@ -51,6 +51,7 @@ export const BOOKSTORE_BOOKS: readonly Book[] = Object.freeze([
   {
     id: "bk-003",
     slug: "trust",
+    workId: "trust",
     title: "Trust",
     author: "Hernan Diaz",
     genre: "literary",
@@ -403,6 +404,30 @@ export const BOOKSTORE_BOOKS: readonly Book[] = Object.freeze([
     published: "2022",
     blurb: "Grief for a mother, written in the tense that keeps her.",
     spineTint: 5,
+    isNew: false,
+  },
+
+  // ── the club's second edition ────────────────────────────────────────────
+  // Trust is the book club's pick, and the club reads paperback. This is the
+  // SAME work as bk-003 (shares workId: "trust"), a cheaper second edition
+  // rather than a new title — two rows on one shelf, the way a real bookshop
+  // actually stocks a popular title. `swapEdition` (landing in a later wave)
+  // moves a cart line between these two ids.
+  {
+    id: "bk-025",
+    slug: "trust-paperback",
+    workId: "trust",
+    title: "Trust",
+    author: "Hernan Diaz",
+    genre: "literary",
+    format: "paperback",
+    priceCents: 1699,
+    pages: 416,
+    rating: 4.2,
+    published: "2022",
+    blurb:
+      "Four accounts of one Gilded Age fortune, each calling the last a lie.",
+    spineTint: 2,
     isNew: false,
   },
 ]);
