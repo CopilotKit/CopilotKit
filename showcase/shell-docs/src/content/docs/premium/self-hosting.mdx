@@ -12,8 +12,9 @@ premium: true
 The realtime gateway defaults to a 60-second full-restore deadline and buffers
 live events that arrive during replay up to 10,000 events or 16 MiB after
 sanitization. The event and byte caps are independent; crossing either cap
-fails closed and does not advance the client's cursor. V1 replays retained
-events without compaction.
+fails closed and does not advance the client's cursor. Compatible frontend,
+realtime-gateway, and app-api releases negotiate compact null-cursor full
+restore by default; version skew falls back to the legacy retained-event replay.
 
 Set the controls under `realtimeGateway.restore` in your values overlay:
 
@@ -40,6 +41,20 @@ overhead. Size gateway memory and autoscaling from your expected concurrent
 restore count, not only steady-state socket count. If long restores regularly
 approach a cap, investigate retained-history size and dependency latency before
 raising the limits.
+
+### Deploy compatible service versions
+
+Deploy the realtime gateway and app-api versions pinned by the same
+`copilot-intelligence` chart release. If you manage their images separately,
+verify that both releases support the same compact-restore projection versions
+before enabling them in production. Upgrade the pair before relying on compact
+restore for capacity planning.
+
+Rolling upgrades remain safe: capability negotiation makes a mixed or older
+service pair use legacy replay instead of rejecting the connection. During that
+window, retained history size still determines full-restore work, so keep
+legacy replay capacity until every gateway and app-api replica runs a compatible
+release.
 
 Cloud-hosted and self-hosted deployments use the same negotiation, failure
 codes, ordering, recovery action, and bounded telemetry. Only this Helm wiring
