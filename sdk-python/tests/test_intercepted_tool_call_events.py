@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from contextlib import nullcontext
 from typing import Any, ClassVar
 from unittest.mock import patch
 
@@ -83,7 +84,14 @@ def _frontend_tool(name="ask_user_name") -> Tool:
     )
 
 
-def _collect_intercepted_tool_run(*, streaming=False, tools=None, forwarded_props=None):
+def _collect_intercepted_tool_run(
+    *,
+    streaming=False,
+    tools=None,
+    forwarded_props=None,
+    config_metadata=None,
+    observed_events=None,
+):
     BoundFakeToolModel.generate_calls = 0
     BoundFakeToolModel.astream_calls = 0
     model = BoundFakeToolModel(
@@ -108,7 +116,11 @@ def _collect_intercepted_tool_run(*, streaming=False, tools=None, forwarded_prop
         middleware=[CopilotKitMiddleware()],
         checkpointer=InMemorySaver(),
     )
-    agent = LangGraphAGUIAgent(name="test", graph=graph)
+    agent = LangGraphAGUIAgent(
+        name="test",
+        graph=graph,
+        config={"metadata": config_metadata} if config_metadata else None,
+    )
     run_input = RunAgentInput(
         threadId="t1",
         runId="r1",
@@ -128,9 +140,22 @@ def _collect_intercepted_tool_run(*, streaming=False, tools=None, forwarded_prop
             dispatched.append(event)
             return original(self_inner, event)
 
-        with patch.object(AGUIBase, "_dispatch_event", new=_track):
-            async for event in agent.run(run_input):
-                yielded.append(event)
+        original_adapter = LangGraphAGUIAgent._dispatch_event
+
+        def _track_adapter(self_inner, event):
+            if observed_events is not None:
+                observed_events.append(event)
+            return original_adapter(self_inner, event)
+
+        adapter_patch = (
+            patch.object(LangGraphAGUIAgent, "_dispatch_event", new=_track_adapter)
+            if observed_events is not None
+            else nullcontext()
+        )
+        with adapter_patch:
+            with patch.object(AGUIBase, "_dispatch_event", new=_track):
+                async for event in agent.run(run_input):
+                    yielded.append(event)
         return dispatched, yielded, model
 
     return asyncio.run(_run())
@@ -287,13 +312,27 @@ def test_backend_call_is_not_published_by_intercepted_state_bridge():
 
 
 def test_intercepted_state_metadata_opt_out_is_not_recreated_by_bridge():
-    dispatched, _, parent_events, parent_results = _run_state_event(
-        [{"id": "fresh", "name": "ask_user_name", "args": {}}],
-        metadata={"copilotkit:emit-tool-calls": False},
+    observed = []
+    _, yielded, _ = _collect_intercepted_tool_run(
+        config_metadata={"copilotkit:emit-tool-calls": False},
+        observed_events=observed,
     )
-    assert _tool_events(dispatched) == []
-    assert len(parent_events) == 1
-    assert parent_results[0] == "parent-event"
+    observed_tool_events = [
+        event
+        for event in observed
+        if event.type
+        in {
+            EventType.TOOL_CALL_START,
+            EventType.TOOL_CALL_ARGS,
+            EventType.TOOL_CALL_END,
+        }
+    ]
+    assert observed_tool_events
+    assert all(
+        event.raw_event["metadata"]["copilotkit:emit-tool-calls"] is False
+        for event in observed_tool_events
+    )
+    assert _tool_events(yielded) == []
 
 
 def test_bridge_ignores_runtime_action_catalog_shapes():
@@ -310,8 +349,10 @@ def test_bridge_ignores_runtime_action_catalog_shapes():
 def test_malformed_intercepted_entries_emit_no_partial_lifecycle():
     dispatched, _, parent_events, parent_results = _run_state_event(
         [
+            None,
             {"id": "bad", "name": "bad", "args": object()},
-            {"id": "", "name": "ignored", "args": {}},
+            {"id": "missing-name", "name": "", "args": {}},
+            {"id": "missing-args", "name": "ignored"},
             {"id": "good", "name": "good", "args": {}},
         ]
     )
