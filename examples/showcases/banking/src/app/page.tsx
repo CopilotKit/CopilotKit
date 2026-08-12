@@ -2,9 +2,9 @@
 
 import { useEffect, useReducer } from "react";
 import {
+  useAgentContext,
   useHumanInTheLoop,
   useComponent,
-  useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import type { NewCardRequest } from "@/app/api/v1/data";
@@ -27,6 +27,7 @@ import { useSearchParams } from "next/navigation";
 import { CardsPageOperations } from "@/components/copilot-context";
 import { PERMISSIONS } from "@/app/api/v1/permissions";
 import { ApprovalButtons } from "@/components/approval-buttons";
+import { useReportToCopilot } from "@/components/wow/use-ask-copilot";
 
 interface ChangePinState {
   newPin: string;
@@ -60,8 +61,8 @@ export default function Page() {
     addNewCard,
     changePin,
     assignPolicyToCard,
-    addNoteToTransaction,
   } = useCreditCards();
+  const reportToCopilot = useReportToCopilot();
 
   useEffect(() => {
     const operationNameToMethod: Partial<
@@ -82,12 +83,20 @@ export default function Page() {
     pin?: string;
     cardId?: string;
   }) => {
+    const resolvedCardId = cardId ?? state.cardId!;
     dispatch({ loading: true });
     await changePin({
       pin: pin ?? state.newPin,
-      cardId: cardId ?? state.cardId!,
+      cardId: resolvedCardId,
     });
     dispatch({ loading: false, newPin: "", cardId: null, dialogOpen: false });
+    // Close the loop: the PIN was entered in the app's own dialog (not the
+    // chat), so surface an agent confirmation on screen that it saw the change.
+    const card = cards.find((c) => c.id === resolvedCardId);
+    const label = card ? `${card.type} ending ${card.last4}` : "your card";
+    reportToCopilot(
+      `Done — I saw you update the PIN on the ${label} in the app. Your new PIN is set; you're all good.`,
+    );
   };
 
   const handleAddCard = async (
@@ -297,66 +306,9 @@ export default function Page() {
     [cards, policies],
   );
 
-  useHumanInTheLoop(
-    {
-      followUp: false,
-      name: "addNoteToTransaction",
-      description:
-        "Add note to transaction. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
-      available: PERMISSIONS.ADD_NOTE.includes(currentUser.role),
-      parameters: z.object({
-        transactionId: z
-          .string()
-          .describe("The transaction to add note to (ID provided by copilot)"),
-        content: z.string().describe("The content of the note"),
-      }),
-      render: ({ args, respond, status }) => {
-        const { transactionId, content } = args;
-
-        if (status === "inProgress") {
-          return (
-            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
-              Loading…
-            </div>
-          );
-        }
-
-        const transaction = transactions.find((t) => t.id === transactionId);
-
-        return (
-          <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
-            <h3 className="text-lg font-semibold text-ink">
-              Add Note to Transaction
-            </h3>
-            <div className="text-sm space-y-1">
-              <p>
-                <span className="text-ink-muted">Transaction:</span>{" "}
-                {transaction?.title ?? transactionId}
-              </p>
-              <p>
-                <span className="text-ink-muted">Note:</span> {content}
-              </p>
-            </div>
-            <ApprovalButtons
-              onApprove={async () => {
-                if (!transactionId || !content) {
-                  respond?.("Missing transaction or note content");
-                  return;
-                }
-                await addNoteToTransaction({ transactionId, content });
-                respond?.("Note added successfully");
-              }}
-              onDeny={() => respond?.("Note addition denied by user")}
-            />
-          </div>
-        );
-      },
-      // Re-register when transactions load; otherwise this render (mount-keyed
-      // effect) resolves the transaction title against the EMPTY initial array.
-      // Mirrors selectCard / showTransactions.
-    },
-    [transactions],
-  );
+  // NOTE: addNoteToTransaction moved to copilot-context.tsx — see the note on
+  // the other action tools. It is the closing step of the saved
+  // suspicious-charge procedure, so it must exist on every route.
 
   // Showcase usage of generative UI. Display-only components use `useComponent`
   // (not `useFrontendTool`): its render is unconditional, so the rendered card
@@ -412,110 +364,49 @@ export default function Page() {
     [transactions, cards],
   );
 
-  // Enable pin changing with co pilot
-  useHumanInTheLoop(
-    {
-      followUp: false,
-      name: "setCardPin",
-      description:
-        "Set the pin code of an existing card. Ask the user for the new 4-digit PIN, then call this action immediately. Do NOT ask for additional confirmation - the approval UI will handle that.",
-      available: PERMISSIONS.SET_PIN.includes(currentUser.role),
-      parameters: z.object({
-        cardId: z.string().describe("The id of the card (provided by copilot)"),
-        pin: z
-          .string()
-          .describe("The new 4-digit PIN code (provided by the user)"),
+  // What the Cards page ACTUALLY renders, labelled exactly as the UI labels it.
+  //
+  // Without this, "what's on my screen?" fell back to the global cards/policies
+  // readable and the agent answered with policy figures ("Marketing: $500 spent
+  // of $5,000") that appear nowhere on this page — the card face shows "Credit
+  // limit" and "Available" instead. Same underlying numbers, different framing,
+  // so the answer read as wrong. Mirroring the on-screen labels keeps the
+  // screen-awareness answer literally true.
+  useAgentContext({
+    description:
+      "The Cards page the user is looking at right now, with each card exactly " +
+      "as rendered on screen. These labels ARE the on-screen labels: the card " +
+      "face shows 'Credit limit' and 'Available' (there is no 'spent' figure " +
+      "displayed here). Use this — not the policy data — to answer questions " +
+      "about what is on screen.",
+    value: JSON.stringify({
+      page: "cards",
+      heading: "Credit Cards",
+      subheading: "Manage cards and spending policies for your team.",
+      visibleCards: cards.map((card) => {
+        const policy = policies.find((p) => p.id === card.expensePolicyId);
+        return {
+          brand: card.type,
+          last4: card.last4,
+          cardHolder: currentUser.name.toUpperCase(),
+          validThru: card.expiry,
+          policy: policy?.type ?? "none assigned",
+          creditLimit: policy ? policy.limit : null,
+          available: policy ? policy.limit - policy.spent : null,
+        };
       }),
-      render: ({ args, respond, status }) => {
-        const { cardId, pin } = args;
-
-        if (status === "inProgress") {
-          return (
-            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
-              Loading…
-            </div>
-          );
-        }
-
-        const card = cards.find((c) => c.id === cardId);
-
-        return (
-          <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
-            <h3 className="text-lg font-semibold text-ink">Change Card PIN</h3>
-            <div className="text-sm space-y-1">
-              <p>
-                <span className="text-ink-muted">Card:</span>{" "}
-                {card ? `${card.type} ending in ${card.last4}` : cardId}
-              </p>
-              <p>
-                <span className="text-ink-muted">New PIN:</span> {pin}
-              </p>
-            </div>
-            <ApprovalButtons
-              onApprove={async () => {
-                if (!pin || !cardId) {
-                  respond?.("Missing PIN or card information");
-                  return;
-                }
-                await changePin({ pin, cardId });
-                respond?.("PIN changed successfully");
-              }}
-              onDeny={() => respond?.("PIN change denied by user")}
-            />
-          </div>
-        );
-      },
-      // Re-register when cards load; otherwise this render (mount-keyed effect)
-      // resolves the card against the EMPTY initial array. Mirrors selectCard /
-      // showTransactions.
-    },
-    [cards],
-  );
-
-  // Distractors. Plausible card/transaction actions that do NOT solve the
-  // over-limit block. No render — they run immediately and return a
-  // non-erroring success whose `note` makes clear it changed nothing about
-  // the transaction or policy. Their job is to widen the option space.
-  useFrontendTool({
-    name: "sendSpendAlert",
-    description: "Send a spend alert notification for a card.",
-    parameters: z.object({
-      cardId: z.string(),
-      message: z.string(),
-    }),
-    handler: async ({ cardId }) => ({
-      ok: true,
-      cardId,
-      note: "Spend alert sent. Informational only; does not modify any transaction or policy.",
     }),
   });
 
-  useFrontendTool({
-    name: "requestCardReplacement",
-    description: "Request a replacement card for an existing card.",
-    parameters: z.object({
-      cardId: z.string(),
-    }),
-    handler: async ({ cardId }) => ({
-      ok: true,
-      cardId,
-      note: "Replacement card requested. Does not affect pending transactions or policy limits.",
-    }),
-  });
+  // NOTE: `setCardPin` used to live here. It now lives in copilot-context.tsx
+  // so it is registered GLOBALLY (this page-scoped registration meant the
+  // suggestion pill only worked on the cards route) and so the PIN is typed
+  // into an interactive card in the chat rather than dictated to the agent.
 
-  useFrontendTool({
-    name: "flagForReview",
-    description: "Flag a transaction for manual review.",
-    parameters: z.object({
-      transactionId: z.string(),
-      reason: z.string(),
-    }),
-    handler: async ({ transactionId }) => ({
-      ok: true,
-      transactionId,
-      note: "Flagged for manual review. Does not approve or change the transaction.",
-    }),
-  });
+  // NOTE: sendSpendAlert / requestCardReplacement / flagForReview moved to
+  // copilot-context.tsx so they exist on EVERY route. Registered here they only
+  // existed on the cards page, so the saved suspicious-charge procedure failed
+  // from anywhere else with "the required action tools aren't available".
 
   if (!cards || !policies) return null;
 

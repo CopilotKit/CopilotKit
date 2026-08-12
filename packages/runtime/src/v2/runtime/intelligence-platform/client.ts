@@ -1,4 +1,5 @@
-import { logger } from "@copilotkit/shared";
+import { logger, parseInspectorMetadataV1 } from "@copilotkit/shared";
+import type { InspectorMetadataV1 } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
 
 /**
@@ -12,6 +13,41 @@ import { randomUUID } from "crypto";
  * @internal
  */
 export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
+/** Immutable user/project Memory grant forwarded to Intelligence. */
+export const INTELLIGENCE_MEMORY_GRANT_HEADER = "x-cpki-memory-grant";
+
+interface RuntimeMemoryGrant {
+  readonly user: "none" | "read" | "read-write";
+  readonly project: "none" | "read" | "read-write";
+}
+
+const memoryRequestHeaders = (
+  userId: string,
+  grant?: RuntimeMemoryGrant,
+): Record<string, string> => ({
+  [INTELLIGENCE_USER_ID_HEADER]: userId,
+  ...(grant
+    ? { [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(grant) }
+    : {}),
+});
+
+/**
+ * REST base URL of CopilotKit's managed Intelligence platform — the default
+ * when {@link CopilotKitIntelligenceConfig.apiUrl} is omitted.
+ */
+const MANAGED_INTELLIGENCE_API_URL = "https://api.intelligence.copilotkit.ai";
+
+/**
+ * Websocket base URL of CopilotKit's managed Intelligence platform — the
+ * default when {@link CopilotKitIntelligenceConfig.wsUrl} is omitted.
+ *
+ * A different host from {@link MANAGED_INTELLIGENCE_API_URL}: the API and
+ * realtime planes are deployed separately.
+ */
+const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
+
+/** Maximum time spent on the optional Inspector metadata provider request. */
+const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
  * Error thrown when an Intelligence platform HTTP request returns a non-2xx
@@ -41,28 +77,6 @@ export class PlatformRequestError extends Error {
   }
 }
 
-/**
- * Client for the CopilotKit Intelligence Platform REST API.
- *
- * Construct the client once and pass it to any consumers that need it
- * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
- *
- * ```ts
- * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
- *
- * const intelligence = new CopilotKitIntelligence({
- *   apiUrl: "https://api.copilotkit.ai",
- *   wsUrl: "wss://api.copilotkit.ai",
- *   apiKey: process.env.COPILOTKIT_API_KEY!,
- * });
- *
- * const runtime = new CopilotRuntime({
- *   agents,
- *   intelligence,
- * });
- * ```
- */
-
 /** Payload passed to `onThreadDeleted` listeners. */
 export interface ThreadDeletedPayload {
   threadId: string;
@@ -71,10 +85,27 @@ export interface ThreadDeletedPayload {
 }
 
 export interface CopilotKitIntelligenceConfig {
-  /** Base URL of the intelligence platform API, e.g. "https://api.copilotkit.ai" */
-  apiUrl: string;
-  /** Intelligence websocket base URL. Runner and client socket URLs are derived from this. */
-  wsUrl: string;
+  /**
+   * Base URL of the intelligence platform API.
+   *
+   * Defaults to CopilotKit's managed platform,
+   * `https://api.intelligence.copilotkit.ai`. Set it only when pointing at a
+   * self-hosted or non-production deployment — and set {@link wsUrl} with it.
+   */
+  apiUrl?: string;
+  /**
+   * Intelligence websocket base URL. Runner and client socket URLs are derived
+   * from this by appending `/runner` or `/client`, so pass the bare base.
+   *
+   * Defaults to CopilotKit's managed platform,
+   * `wss://realtime.intelligence.copilotkit.ai`.
+   *
+   * This is a DIFFERENT host from {@link apiUrl} — the API and realtime planes are
+   * deployed separately — so it cannot be derived by scheme-swapping `apiUrl`.
+   * Overriding one without the other therefore points the two planes at
+   * different deployments, which logs a warning.
+   */
+  wsUrl?: string;
   /** API key for authenticating with the intelligence platform */
   apiKey: string;
   /**
@@ -87,6 +118,9 @@ export interface CopilotKitIntelligenceConfig {
    *
    * Defaults to `false` — opt-in. Existing intelligence setups continue
    * to work without these tools unless they flip this flag.
+   *
+   * @deprecated Configure `memory.access` on `CopilotRuntime` so each web
+   * request receives an explicit agent or client Memory grant.
    */
   enableEnterpriseLearning?: boolean;
   /**
@@ -165,10 +199,17 @@ export interface MemorySummary {
   sourceThreadIds: string[];
   /** ISO-8601 timestamp when the memory was retired, or `null` if live. */
   invalidatedAt: string | null;
+  /** Relevance score from a `recall` (hybrid RAG) query. Present only on recall responses. */
+  score?: number;
 }
 
 /** Response from {@link CopilotKitIntelligence.listMemories}. */
 export interface ListMemoriesResponse {
+  memories: MemorySummary[];
+}
+
+/** Response from {@link CopilotKitIntelligence.recallMemories}. */
+export interface RecallMemoriesResponse {
   memories: MemorySummary[];
 }
 
@@ -230,6 +271,7 @@ export interface SubscribeToThreadsResponse {
 
 export interface SubscribeToMemoriesRequest {
   userId: string;
+  memoryGrant?: RuntimeMemoryGrant;
 }
 
 /**
@@ -239,8 +281,17 @@ export interface SubscribeToMemoriesRequest {
  * `user_meta:memories:<joinCode>` channel topic.
  */
 export interface SubscribeToMemoriesResponse {
-  joinToken: string;
-  joinCode: string;
+  joinToken?: string;
+  joinCode?: string;
+  /**
+   * Project-scoped realtime credentials, minted by the platform only when the
+   * caller's API key resolves to a project scope. Absent when project scope is
+   * unavailable — a silent-degrade contract: the client then opens only the
+   * user channel. When present, the client builds the second
+   * `project_meta:memories:<projectJoinCode>` channel topic from them.
+   */
+  projectJoinToken?: string;
+  projectJoinCode?: string;
 }
 
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
@@ -304,8 +355,10 @@ export interface ThreadMessage {
   id: string;
   /** Message role, e.g. `"user"`, `"assistant"`, `"tool"`. */
   role: string;
-  /** Text content of the message. May be absent for tool-call-only messages. */
-  content?: string;
+  /** Structured AG-UI content. May be absent for tool-call-only messages. */
+  content?: unknown;
+  /** Standard AG-UI activity type when `role` is `"activity"`. */
+  activityType?: string;
   /** Tool calls initiated by this message (assistant role only). */
   toolCalls?: Array<{
     id: string;
@@ -361,6 +414,8 @@ export interface AcquireThreadLockRequest {
   runId: string;
   userId: string;
   agentId: string;
+  /** Internal managed-Channel delivery context for shared Thread access. */
+  channelDeliveryId?: string;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -394,10 +449,41 @@ interface ThreadEnvelope {
   thread: ThreadSummary;
 }
 
+/**
+ * Client for the CopilotKit Intelligence Platform REST API.
+ *
+ * Construct the client once and pass it to any consumers that need it
+ * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
+ *
+ * ```ts
+ * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+ *
+ * const intelligence = new CopilotKitIntelligence({
+ *   apiKey: process.env.COPILOTKIT_API_KEY!,
+ * });
+ *
+ * const runtime = new CopilotRuntime({
+ *   agents,
+ *   intelligence,
+ * });
+ * ```
+ *
+ * `apiUrl` and `wsUrl` default to CopilotKit's managed Intelligence platform.
+ * Override both together to target a self-hosted or non-production deployment:
+ *
+ * ```ts
+ * const intelligence = new CopilotKitIntelligence({
+ *   apiUrl: "https://intelligence.internal",
+ *   wsUrl: "wss://realtime.intelligence.internal",
+ *   apiKey: process.env.COPILOTKIT_API_KEY!,
+ * });
+ * ```
+ */
 export class CopilotKitIntelligence {
   #apiUrl: string;
   #runnerWsUrl: string;
   #clientWsUrl: string;
+  #channelsWsUrl: string;
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
@@ -405,11 +491,21 @@ export class CopilotKitIntelligence {
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
 
   constructor(config: CopilotKitIntelligenceConfig) {
-    const intelligenceWsUrl = normalizeIntelligenceWsUrl(config.wsUrl);
+    const configuredApiUrl = configuredUrl(config.apiUrl);
+    const configuredWsUrl = configuredUrl(config.wsUrl);
+    warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
 
-    this.#apiUrl = config.apiUrl.replace(/\/$/, "");
+    const intelligenceWsUrl = normalizeIntelligenceWsUrl(
+      configuredWsUrl ?? MANAGED_INTELLIGENCE_WS_URL,
+    );
+
+    this.#apiUrl = (configuredApiUrl ?? MANAGED_INTELLIGENCE_API_URL).replace(
+      /\/$/,
+      "",
+    );
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
+    this.#channelsWsUrl = deriveChannelsWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
 
@@ -496,6 +592,10 @@ export class CopilotKitIntelligence {
     return this.#clientWsUrl;
   }
 
+  ɵgetChannelsWsUrl(): string {
+    return this.#channelsWsUrl;
+  }
+
   ɵgetRunnerAuthToken(): string {
     return this.#apiKey;
   }
@@ -508,6 +608,74 @@ export class CopilotKitIntelligence {
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
   ɵisEnterpriseLearningEnabled(): boolean {
     return this.#enterpriseLearningEnabled;
+  }
+
+  /**
+   * Fetch trusted Inspector metadata for this runtime's Intelligence project.
+   *
+   * The request always uses the server-configured Intelligence API key. A 404
+   * is treated as compatible absence so runtimes can work with older App API
+   * deployments that do not expose this endpoint yet.
+   *
+   * @returns Sanitized V1 metadata, or `undefined` when the provider has no
+   *   supported metadata.
+   * @throws {@link PlatformRequestError} for provider failures other than 404.
+   */
+  async getInspectorMetadata(): Promise<InspectorMetadataV1 | undefined> {
+    const path = "/api/inspector/metadata";
+    const abortController = new AbortController();
+    const timeoutError = new Error(
+      "Intelligence inspector metadata request timed out",
+    );
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(timeoutError);
+        abortController.abort(timeoutError);
+      }, INSPECTOR_METADATA_REQUEST_TIMEOUT_MS);
+    });
+
+    try {
+      const response = await Promise.race([
+        fetch(`${this.#apiUrl}${path}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${this.#apiKey}` },
+          signal: abortController.signal,
+        }),
+        timeout,
+      ]);
+
+      if (response.status === 204 || response.status === 404) {
+        return undefined;
+      }
+
+      if (!response.ok) {
+        logger.error(
+          { status: response.status, path },
+          "Intelligence platform request failed",
+        );
+        throw new PlatformRequestError(
+          `Intelligence platform error ${response.status}`,
+          response.status,
+        );
+      }
+
+      const body = await Promise.race([response.text(), timeout]);
+      const decoded: unknown = JSON.parse(body);
+      return parseInspectorMetadataV1(decoded);
+    } catch (error) {
+      if (error === timeoutError) {
+        logger.warn(
+          { path, timeoutMs: INSPECTOR_METADATA_REQUEST_TIMEOUT_MS },
+          "Intelligence inspector metadata request timed out",
+        );
+      }
+      throw error;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
   }
 
   async #request<T>(
@@ -611,6 +779,7 @@ export class CopilotKitIntelligence {
    */
   async listMemories(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     includeInvalidated?: boolean;
   }): Promise<ListMemoriesResponse> {
     const qs = params.includeInvalidated ? "?includeInvalidated=true" : "";
@@ -618,7 +787,7 @@ export class CopilotKitIntelligence {
       "GET",
       `/api/memories${qs}`,
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -630,6 +799,7 @@ export class CopilotKitIntelligence {
    */
   async createMemory(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     content: string;
     kind: string;
     /** Optional: when omitted, the platform applies its default (`"user"`). */
@@ -645,7 +815,7 @@ export class CopilotKitIntelligence {
         ...(params.scope !== undefined ? { scope: params.scope } : {}),
         sourceThreadIds: params.sourceThreadIds ?? [],
       },
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -659,6 +829,7 @@ export class CopilotKitIntelligence {
    */
   async updateMemory(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     id: string;
     content: string;
     kind: string;
@@ -675,7 +846,7 @@ export class CopilotKitIntelligence {
         ...(params.scope !== undefined ? { scope: params.scope } : {}),
         sourceThreadIds: params.sourceThreadIds ?? [],
       },
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -683,12 +854,41 @@ export class CopilotKitIntelligence {
    * Non-lossily retire (forget) a memory (platform `DELETE /api/memories/:id`).
    * @throws {@link PlatformRequestError} on non-2xx responses.
    */
-  async removeMemory(params: { userId: string; id: string }): Promise<void> {
+  async removeMemory(params: {
+    userId: string;
+    id: string;
+    memoryGrant?: RuntimeMemoryGrant;
+  }): Promise<void> {
     await this.#request<void>(
       "DELETE",
       `/api/memories/${encodeURIComponent(params.id)}`,
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
+    );
+  }
+
+  /**
+   * Semantically recall the given user's memories (platform `POST
+   * /api/memories/recall`, hybrid RAG). Each returned memory carries a
+   * relevance `score`. `scope` narrows to `"user"`/`"project"`; omitted → platform default.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async recallMemories(params: {
+    userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
+    query: string;
+    limit?: number;
+    scope?: string;
+  }): Promise<RecallMemoriesResponse> {
+    return this.#request<RecallMemoriesResponse>(
+      "POST",
+      `/api/memories/recall`,
+      {
+        query: params.query,
+        ...(params.limit !== undefined ? { limit: params.limit } : {}),
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
+      },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -708,7 +908,10 @@ export class CopilotKitIntelligence {
    * Mint memory-realtime join credentials (platform `POST
    * /api/memories/subscribe`). Returns both the single-use `joinToken` and the
    * per-user `joinCode` the client needs to build the
-   * `user_meta:memories:<joinCode>` channel topic.
+   * `user_meta:memories:<joinCode>` channel topic. When the platform also
+   * resolves a project scope it returns optional `projectJoinToken` /
+   * `projectJoinCode`; both are passed through verbatim (omitted when absent,
+   * the silent-degrade contract).
    *
    * The user is supplied via the `x-cpki-user-id` header — the same way every
    * other memory endpoint (`listMemories`/`createMemory`/…) identifies the app
@@ -725,7 +928,7 @@ export class CopilotKitIntelligence {
       "POST",
       "/api/memories/subscribe",
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -854,12 +1057,40 @@ export class CopilotKitIntelligence {
   async getThreadMessages(params: {
     threadId: string;
     userId: string;
+    /** Internal managed-Channel delivery context for shared Thread access. */
+    channelDeliveryId?: string;
   }): Promise<ThreadMessagesResponse> {
     const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadMessagesResponse>(
       "GET",
       `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
+      undefined,
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
     );
+  }
+
+  /** @internal Fetches one authorized managed Channel asset for history hydration. */
+  async ɵgetManagedChannelAsset(assetId: string): Promise<{
+    bytes: Uint8Array;
+    mimeType?: string;
+  }> {
+    const path = `/api/channels/files/${encodeURIComponent(assetId)}`;
+    const response = await fetch(`${this.#apiUrl}${path}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${this.#apiKey}` },
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new PlatformRequestError(
+        `Intelligence platform error ${response.status}: ${text || response.statusText}`,
+        response.status,
+      );
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const mimeType = response.headers.get("content-type") ?? undefined;
+    return { bytes, ...(mimeType ? { mimeType } : {}) };
   }
 
   /**
@@ -1024,6 +1255,9 @@ export class CopilotKitIntelligence {
           ? { ttlSeconds: params.ttlSeconds }
           : {}),
       },
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
     );
   }
 
@@ -1083,6 +1317,47 @@ export class CopilotKitIntelligence {
   }
 }
 
+/**
+ * Normalize a configured URL to "provided" or "not provided". A blank string
+ * counts as not provided: these URLs are typically wired from environment
+ * variables, and a declared-but-empty variable (`COPILOTKIT_INTELLIGENCE_URL=`,
+ * common in generated `.env` files and container configs) arrives as `""`. Left
+ * as-is it would produce host-relative requests instead of falling back to the
+ * managed platform.
+ */
+function configuredUrl(url: string | undefined): string | undefined {
+  const trimmed = url?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+/**
+ * Warn when exactly one of `apiUrl`/`wsUrl` is configured. The API and realtime
+ * planes are separate hosts, so a lone override silently leaves the other plane
+ * on CopilotKit's managed platform — a self-hosted API paired with the managed
+ * gateway (or vice versa), which fails as a hang rather than an error.
+ */
+function warnOnPartialHostOverride(
+  apiUrl: string | undefined,
+  wsUrl: string | undefined,
+): void {
+  if (apiUrl && !wsUrl) {
+    logger.warn(
+      `CopilotKitIntelligence: apiUrl is set to "${apiUrl}" but wsUrl is not, ` +
+        `so wsUrl falls back to the managed default "${MANAGED_INTELLIGENCE_WS_URL}". ` +
+        `The API and realtime planes are separate hosts — set both when pointing at a self-hosted deployment.`,
+    );
+    return;
+  }
+
+  if (wsUrl && !apiUrl) {
+    logger.warn(
+      `CopilotKitIntelligence: wsUrl is set to "${wsUrl}" but apiUrl is not, ` +
+        `so apiUrl falls back to the managed default "${MANAGED_INTELLIGENCE_API_URL}". ` +
+        `The API and realtime planes are separate hosts — set both when pointing at a self-hosted deployment.`,
+    );
+  }
+}
+
 function normalizeIntelligenceWsUrl(wsUrl: string): string {
   return wsUrl.replace(/\/$/, "");
 }
@@ -1094,6 +1369,10 @@ function deriveRunnerWsUrl(wsUrl: string): string {
 
   if (wsUrl.endsWith("/client")) {
     return `${wsUrl.slice(0, -"/client".length)}/runner`;
+  }
+
+  if (wsUrl.endsWith("/channels")) {
+    return `${wsUrl.slice(0, -"/channels".length)}/runner`;
   }
 
   return `${wsUrl}/runner`;
@@ -1108,5 +1387,20 @@ function deriveClientWsUrl(wsUrl: string): string {
     return `${wsUrl.slice(0, -"/runner".length)}/client`;
   }
 
+  if (wsUrl.endsWith("/channels")) {
+    return `${wsUrl.slice(0, -"/channels".length)}/client`;
+  }
+
   return `${wsUrl}/client`;
+}
+
+function deriveChannelsWsUrl(wsUrl: string): string {
+  if (wsUrl.endsWith("/channels")) return wsUrl;
+  if (wsUrl.endsWith("/runner")) {
+    return `${wsUrl.slice(0, -"/runner".length)}/channels`;
+  }
+  if (wsUrl.endsWith("/client")) {
+    return `${wsUrl.slice(0, -"/client".length)}/channels`;
+  }
+  return `${wsUrl}/channels`;
 }

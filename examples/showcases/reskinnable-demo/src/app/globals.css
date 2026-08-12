@@ -1,0 +1,507 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Banking app uses a class-based dark mode (`.dark` / `.light` on <html>). In
+   Tailwind v4 the default dark variant is `prefers-color-scheme`; the
+   `@custom-variant` directive below re-enables the class-based behavior so
+   utilities like `dark:bg-neutral-800` continue to work. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ──────────────────────────────────────────────────────────────────────────
+   SHARED DESIGN-TOKEN VOCABULARY
+
+   The shell owns the token NAMES; each skin owns the VALUES. The `@theme inline`
+   block below maps Tailwind utilities onto the named tokens (`bg-surface` →
+   `--surface`, `text-ink` → `--ink`, `border-hairline` → `--hairline`, …) — that
+   mapping IS the vocabulary and is brand-neutral. Each skin supplies the actual
+   colors via its own theme.css (`.theme-banking`, `.theme-airline`),
+   side-effect-imported from that skin's layout; the shell applies the skin's
+   `themeClass` to the theme root.
+
+   The `:root` defaults further down are deliberately BRAND-NEUTRAL (a plain
+   neutral-slate light palette) so every token still resolves — and a bare page
+   never renders unstyled — even before any skin class is applied. No single
+   skin's brand lives here, so a reskin is a pure value swap and no utility class
+   moves.
+   ────────────────────────────────────────────────────────────────────────── */
+@theme inline {
+  /* shadcn bridges (`bg-background` / `text-foreground` resolve through here). */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  /* Brand palette, exposed as Tailwind colors so `bg-brand`, `text-brand`,
+     `from-brand-violet`, `to-brand-indigo`, `ring-brand` all work. */
+  --color-brand: hsl(var(--brand));
+  --color-brand-violet: hsl(var(--brand-violet));
+  --color-brand-indigo: hsl(var(--brand-indigo));
+  --color-brand-foreground: hsl(var(--brand-foreground));
+  --color-brand-soft: hsl(var(--brand-soft));
+  --color-surface: hsl(var(--surface));
+  --color-surface-muted: hsl(var(--surface-muted));
+  --color-canvas: hsl(var(--canvas));
+  --color-ink: hsl(var(--ink));
+  --color-ink-muted: hsl(var(--ink-muted));
+  --color-positive: hsl(var(--positive));
+  --color-positive-soft: hsl(var(--positive-soft));
+  --color-negative: hsl(var(--negative));
+  --color-negative-soft: hsl(var(--negative-soft));
+  --color-hairline: hsl(var(--hairline));
+
+  /* Radius scale — large and friendly. `--radius` is the card baseline. */
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 6px);
+  --radius-sm: calc(var(--radius) - 10px);
+  --radius-xl: calc(var(--radius) + 6px);
+  --radius-2xl: calc(var(--radius) + 12px);
+
+  /* Neutral shadows (no skin-specific hue). soft/lift use a brand-agnostic
+     slate; the glow follows the ACTIVE skin's `--brand` so any accent glow
+     matches whichever skin is mounted. */
+  --shadow-soft:
+    0 1px 2px hsl(220 20% 20% / 0.04), 0 8px 24px hsl(220 20% 20% / 0.06);
+  --shadow-lift:
+    0 2px 6px hsl(220 20% 20% / 0.06), 0 18px 48px hsl(220 20% 20% / 0.12);
+  --shadow-glow: 0 12px 30px hsl(var(--brand) / 0.35);
+
+  /* Headings pick up the brand font (Inter via next/font), body too. */
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+}
+
+/* ── Inset frame geometry (shell-owned) ──────────────────────────────────────
+   The frame's card radius is a FIXED 12px and deliberately does NOT read
+   `--radius`: the inset frame is shell chrome, so it must read identically in
+   every skin and a reskin must not be able to round or square it. This is the
+   one geometry value the shell keeps out of the skin token vocabulary — do not
+   add it to any theme.css.
+
+   Card COLOURS stay themed, applied at each call site (`bg-surface`,
+   `border-hairline`, `shadow-soft`), so a reskin still restyles the frame; only
+   the corners are constant. `overflow: hidden` is what clips a skin's own
+   edge-to-edge chrome to the card. */
+.nw-panel-card {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ── Chat cluster: fixed rail beside a flexible conversation ──────────────────
+   The rail is a fixed width, not a resizable panel — see chat-panel.tsx for why.
+   The container query is the floor guard: when the assistant column is dragged
+   narrow, the rail gets out of the way rather than squeezing the conversation
+   into the remainder. Keyed to the CARD's own width, so it reacts to the drag
+   rather than to the viewport. The header toggle remains the explicit control. */
+.nw-chat-cluster {
+  container-type: inline-size;
+}
+
+.nw-chat-rail {
+  width: 200px;
+}
+
+@container (max-width: 520px) {
+  .nw-chat-rail {
+    display: none;
+  }
+}
+
+/* ── Base type scale (shell-owned, applies to every skin) ────────────────────
+   The whole design system is rem-based — Tailwind's `text-*`, `p-*`, `w-*` and
+   the skins' own `text-[0.8125rem]`-style values all resolve against this — so
+   setting the ROOT size is the single lever that rescales type across the shell
+   AND every skin with no per-skin edits.
+
+   15px rather than the browser's 16px default: the demo reads as a dense product
+   UI rather than a document, and a 6.25% reduction gets there without touching a
+   single component.
+
+   Note the knock-on: rem drives SPACING too, so padding and rem-based widths
+   scale with it (a `w-56` nav rail is 210px here, not 224px). That is intended —
+   it keeps type and rhythm proportional. Anything that must NOT scale is written
+   in px on purpose: the frame's 12px card radius, the panel floors, the 200px
+   thread rail, and the media/container query breakpoints. */
+html {
+  font-size: 15px;
+}
+
+body {
+  font-family:
+    var(--font-inter),
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Helvetica,
+    Arial,
+    sans-serif;
+  background-color: hsl(var(--canvas));
+  color: hsl(var(--ink));
+}
+
+@layer base {
+  /* Brand-agnostic DEFAULTS (a plain neutral-slate light palette) so body +
+     shared chrome have sane values even before a skin's theme class mounts.
+     Every skin overrides all of these via its own `.theme-<id>` block; no single
+     skin's brand lives here. Deliberately light-only — a bare page (no skin
+     mounted) is just a fallback, and each skin owns its own light/dark split. */
+  :root {
+    --radius: 0.75rem;
+
+    --brand: 220 9% 46%;
+    --brand-violet: 220 9% 46%;
+    --brand-indigo: 220 13% 34%;
+    --brand-foreground: 0 0% 100%;
+    --brand-soft: 220 14% 96%;
+
+    --background: 0 0% 100%;
+    --foreground: 220 20% 12%;
+    color-scheme: light;
+
+    --canvas: 220 16% 97%;
+    --surface: 0 0% 100%;
+    --surface-muted: 220 14% 96%;
+    --ink: 220 20% 14%;
+    --ink-muted: 220 9% 46%;
+    --hairline: 220 13% 91%;
+
+    --positive: 152 55% 42%;
+    --positive-soft: 152 60% 95%;
+    --negative: 0 72% 51%;
+    --negative-soft: 0 86% 97%;
+  }
+}
+
+/* ── Reusable brand helpers ─────────────────────────────────────────────── */
+@layer components {
+  /* The signature violet→indigo gradient, reused on the primary button, the
+     credit card, and CTAs. */
+  .brand-gradient {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--brand-violet)),
+      hsl(var(--brand-indigo))
+    );
+  }
+
+  /* Glassmorphism-lite surface used by cards and the floating sidebar. */
+  .glass-surface {
+    background-color: hsl(var(--surface) / 0.85);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+
+  /* Section heading — medium-weight, tinted with the active skin's brand. */
+  .section-heading {
+    color: hsl(var(--brand-indigo));
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .dark .section-heading {
+    color: hsl(var(--brand-violet));
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+.prefix-arrow::before {
+  content: "↑ ";
+}
+
+/* ── The chat surface reads as ChatGPT ──────────────────────────────────────
+   The chat is deliberately NOT Aurora: the brief is "as close to ChatGPT as
+   possible", so this one surface runs ChatGPT's neutral palette (white canvas,
+   grey user bubble, near-black send button) while the banking app around it
+   keeps the violet Aurora identity. The v2 chat scopes its shadcn-style tokens
+   to `[data-copilotkit]`, so re-pointing those tokens restyles the composer,
+   bubbles, borders and focus rings without touching a single component prop —
+   and it degrades gracefully if the SDK changes.
+
+   `--muted` is the user bubble (`cpk:bg-muted` on CopilotChatUserMessage) and
+   `--primary` is the send button; both match ChatGPT's own values. */
+[data-copilotkit] {
+  --background: #ffffff;
+  --foreground: #0d0d0d;
+  --muted: #f4f4f4;
+  --muted-foreground: #8f8f8f;
+  --border: #e3e3e3;
+  --primary: #0d0d0d;
+  --primary-foreground: #ffffff;
+  --ring: #0d0d0d;
+}
+
+.dark [data-copilotkit],
+[data-copilotkit].dark {
+  --background: #212121;
+  --foreground: #ececec;
+  --muted: #303030;
+  --muted-foreground: #b4b4b4;
+  --border: #ffffff26;
+  --primary: #ffffff;
+  --primary-foreground: #0d0d0d;
+  --ring: #ffffff;
+}
+
+/* Removing the "AI can make mistakes…" disclaimer (`input={{ showDisclaimer:
+   false }}` in chat-panel.tsx) also removed the only thing holding the composer
+   off the bottom edge — it carried the trailing padding — so the input sat flush
+   against the card. Give it its own breathing room. */
+.nw-chat .copilotKitInput {
+  margin-bottom: 0.875rem;
+}
+
+/* Tool activity, in flight: ChatGPT sweeps a lighter band across the label so an
+   unfinished action reads as live without adding a second spinner or a progress
+   bar. Gradient-on-text is used here as a MOTION affordance (it says "still
+   working"), not as decorative emphasis. */
+.tool-activity-shimmer {
+  background: linear-gradient(
+    90deg,
+    #6e6e6e 0%,
+    #6e6e6e 35%,
+    #c9c9c9 50%,
+    #6e6e6e 65%,
+    #6e6e6e 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: tool-activity-sweep 1.6s linear infinite;
+}
+
+.dark .tool-activity-shimmer {
+  background: linear-gradient(
+    90deg,
+    #b4b4b4 0%,
+    #b4b4b4 35%,
+    #ffffff 50%,
+    #b4b4b4 65%,
+    #b4b4b4 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+@keyframes tool-activity-sweep {
+  from {
+    background-position: 120% 0;
+  }
+
+  to {
+    background-position: -20% 0;
+  }
+}
+
+/* Reduced motion: keep the muted label, drop the sweep (the spinner beside it
+   already carries the "in progress" signal). */
+@media (prefers-reduced-motion: reduce) {
+  .tool-activity-shimmer {
+    animation: none;
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: #6e6e6e;
+  }
+
+  .dark .tool-activity-shimmer {
+    background: none;
+    color: #b4b4b4;
+  }
+}
+
+/* ── Assistant markdown ─────────────────────────────────────────────────────
+   The SDK renders assistant text with Streamdown (GFM + streaming-safe) inside
+   a bare Tailwind `prose` wrapper. Prose is tuned for article measure, so in a
+   480px chat column its margins, marker indents and heading sizes all read
+   wrong: headings arrive article-sized, list items sit far from their markers,
+   and stacked "Label: value" lines collapse into an undifferentiated block.
+
+   Everything below is scoped to `.cpk\:prose` — the actual class on that
+   wrapper — NOT to `.copilotKitAssistantMessage`, because our HITL cards and
+   gen-UI charts render inside the same message and contain their own <p>/<li>/
+   <h3>. Scoping to the wrapper leaves those untouched. */
+/* `1rem`, i.e. exactly the root size. This was `0.9375rem` back when the root was
+   the browser's 16px default and that arithmetic landed on 15px; expressing it as
+   the base keeps the transcript at the shell's default type size instead of
+   drifting 6.25% below it. */
+.nw-chat .cpk\:prose {
+  font-size: 1rem;
+  line-height: 1.65;
+  color: #0d0d0d;
+}
+
+.dark .nw-chat .cpk\:prose {
+  color: #ececec;
+}
+
+/* Vertical rhythm: tight inside a block, clear between blocks, and no leading
+   or trailing margin so the bubble never gains phantom padding. */
+.nw-chat .cpk\:prose > * + * {
+  margin-top: 0.75em;
+}
+
+.nw-chat .cpk\:prose > :first-child {
+  margin-top: 0;
+}
+
+.nw-chat .cpk\:prose > :last-child {
+  margin-bottom: 0;
+}
+
+/* Headings: chat-sized, not article-sized. Same weight, descending scale. */
+.nw-chat .cpk\:prose :is(h1, h2, h3, h4) {
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.25em;
+  margin-bottom: 0.4em;
+}
+
+.nw-chat .cpk\:prose h1 {
+  font-size: 1.125rem;
+}
+
+.nw-chat .cpk\:prose h2 {
+  font-size: 1.0625rem;
+}
+
+.nw-chat .cpk\:prose :is(h3, h4) {
+  font-size: 1rem;
+}
+
+/* Lists: pull the marker in close, and give rows breathing room without the
+   double-spacing prose applies to "loose" lists. */
+.nw-chat .cpk\:prose :is(ul, ol) {
+  margin-top: 0.5em;
+  padding-left: 1.15em;
+}
+
+.nw-chat .cpk\:prose li {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+  padding-left: 0.15em;
+}
+
+.nw-chat .cpk\:prose li > p {
+  margin: 0;
+}
+
+/* Markers carry structure, so they are dark enough to read as part of the text
+   and sized up a touch — a faint small dot made lists look like loose prose. */
+.nw-chat .cpk\:prose li::marker {
+  color: #3d3d3d;
+  font-size: 1.15em;
+  font-weight: 600;
+}
+
+.dark .nw-chat .cpk\:prose li::marker {
+  color: #d4d4d4;
+}
+
+.nw-chat .cpk\:prose :is(ul, ol) :is(ul, ol) {
+  margin-top: 0.25em;
+}
+
+/* Inline code as a chip; blocks as a bordered, scrollable slab. */
+.nw-chat .cpk\:prose :not(pre) > code {
+  background: #f4f4f4;
+  border-radius: 0.3rem;
+  padding: 0.1em 0.32em;
+  font-size: 0.875em;
+  font-weight: 500;
+}
+
+.nw-chat .cpk\:prose :not(pre) > code::before,
+.nw-chat .cpk\:prose :not(pre) > code::after {
+  content: none;
+  /* prose adds literal backticks */
+}
+
+.dark .nw-chat .cpk\:prose :not(pre) > code {
+  background: #ffffff1a;
+}
+
+.nw-chat .cpk\:prose pre {
+  background: #f7f7f8;
+  color: #0d0d0d;
+  border: 1px solid #e3e3e3;
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.dark .nw-chat .cpk\:prose pre {
+  background: #ffffff0d;
+  color: #ececec;
+  border-color: #ffffff1f;
+}
+
+/* No markdown-table styling here on purpose: the agent is instructed never to
+   emit one (tabular data goes through the showTable component instead), so
+   styling markdown tables would only make a forbidden output look acceptable.
+   Streamdown still renders one safely if a model ever slips. */
+
+.nw-chat .cpk\:prose strong {
+  font-weight: 600;
+}
+
+.nw-chat .cpk\:prose a {
+  color: hsl(var(--brand-indigo));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dark .nw-chat .cpk\:prose a {
+  color: hsl(var(--brand-violet));
+}
+
+.nw-chat .cpk\:prose blockquote {
+  border-left: 2px solid #e3e3e3;
+  padding-left: 0.75rem;
+  color: #6e6e6e;
+  font-style: normal;
+  /* prose italicises; quotes here are data, not voice */
+}
+
+.dark .nw-chat .cpk\:prose blockquote {
+  border-left-color: #ffffff29;
+  color: #b4b4b4;
+}
+
+.nw-chat .cpk\:prose hr {
+  border-color: #e3e3e3;
+  margin: 1em 0;
+}
+
+.dark .nw-chat .cpk\:prose hr {
+  border-color: #ffffff1f;
+}
+
+/* ── Legacy dark-mode overrides, retargeted to the new tokens ───────────── */
+.dark body {
+  background-color: hsl(var(--canvas));
+  color: hsl(var(--ink));
+}
+
+.dark header,
+.dark .border-b,
+.dark .border-r {
+  border-color: hsl(var(--hairline));
+}
+
+/* Radix popper overlays (Select, DropdownMenu, Popover, Tooltip) portal to
+   <body> at z-50, which loses to the shell's own fixed layers — the mobile
+   sidebar overlay (1200), the collapsed-sidebar launcher (1250) and the
+   recording vignette (1300) — so an opened menu can render behind them and look
+   like nothing happened. Lifting every popper to 1300 fixes the whole class of
+   overlay in one rule; the skin selector's dropdown relies on it. */
+[data-radix-popper-content-wrapper] {
+  z-index: 1300 !important;
+}

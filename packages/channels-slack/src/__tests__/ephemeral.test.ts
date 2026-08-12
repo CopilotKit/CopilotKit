@@ -16,7 +16,7 @@ describe("SlackAdapter.postEphemeral", () => {
     const ir = [{ type: "text", props: { value: "hi" } }];
     const res = await adapter.postEphemeral!(
       { channel: "C1", threadTs: "1.0" },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
       ir,
       { fallbackToDM: false },
     );
@@ -60,9 +60,14 @@ describe("SlackAdapter.postEphemeral", () => {
       .mockResolvedValue({ ok: true, message_ts: "7.0" });
     // @ts-expect-error inject stub
     adapter.client = { chat: { postEphemeral } };
-    await adapter.postEphemeral!({ channel: "C3" }, { id: "U3" }, [], {
-      fallbackToDM: false,
-    });
+    await adapter.postEphemeral!(
+      { channel: "C3" },
+      { id: "U3", kind: "human" },
+      [],
+      {
+        fallbackToDM: false,
+      },
+    );
     const args = postEphemeral.mock.calls[0]![0] as Record<string, unknown>;
     expect(args["thread_ts"]).toBeUndefined();
   });
@@ -80,7 +85,7 @@ describe("SlackAdapter.postEphemeral", () => {
     adapter.client = { chat: { postEphemeral } };
     const res = await adapter.postEphemeral!(
       { channel: "C4" },
-      { id: "U4" },
+      { id: "U4", kind: "human" },
       [],
       { fallbackToDM: true },
     );
@@ -100,7 +105,7 @@ describe("SlackAdapter.postEphemeral", () => {
     adapter.client = { chat: { postEphemeral } };
     const res = await adapter.postEphemeral!(
       { channel: "C5" },
-      { id: "U5" },
+      { id: "U5", kind: "human" },
       [],
       { fallbackToDM: false },
     );

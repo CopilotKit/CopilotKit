@@ -348,6 +348,46 @@ and `voice /info` returns 200. This is a `next dev` dev-server limitation with
 catch-all API routes + the V2 runtime handler, not an integration bug — no
 code change is warranted. Prod is unaffected.
 
+### Per-demo system prompts — the named-agent registry is NOT prompt-neutral
+
+LGP gives each demo its own graph **and its own system prompt** (28 graphs in
+`langgraph.json`). BIA's registry pointed ~20 demos at one prompt-less
+`createBuiltInAgent()`, on the theory that "per-demo behavior is driven by the
+aimock fixture". That holds for D6 and fails against a real LLM, because the
+fixture answers a question the model was never asked. Five demos were broken
+live while every cell was D6-green:
+
+| Demo                | Live symptom                                                                                              | Missing instruction                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `gen-ui-tool-based` | charts plotted zeros; the assistant said "I used placeholder values since no sales figures were provided" | invent illustrative values instead of asking for data (`gen_ui_tool_based.py`) |
+| `gen-ui-agent`      | one `set_steps` call then a wall of prose; progress card frozen on step 1                                 | walk each step pending → in_progress → completed (`gen_ui_agent.py`)           |
+| `subagents`         | delegation panel always empty                                                                             | — (converter gap, see below)                                                   |
+| `a2ui-recovery`     | five identical cards per pill                                                                             | call `generate_a2ui` exactly once                                              |
+
+Prompts now live in `src/lib/factory/demo-prompts.ts`, passed via
+`createBuiltInAgent({ systemPrompt })`. **When porting a demo from LGP, port its
+graph's prompt too** — the fixture will not tell you it's missing.
+
+### `state.<slot>` needs a converter branch — there is no per-agent state schema
+
+`tanstack-factory.ts`'s `convertStream` is the only place agent state is
+emitted. `subagents` shipped a frontend reading `agent.state.delegations` with
+nothing emitting that slot, so the sub-agent tools ran, the chat filled in, and
+the left-hand log stayed empty forever. It now emits a `/delegations` delta per
+sub-agent result (LGP declares the same slot with an `operator.add` reducer),
+and ports LGP's `_MAX_CRITIQUE_ITERATIONS = 1` cap so the supervisor can't stack
+duplicate critique rows. Pinned by `src/lib/factory/tanstack-factory.test.ts`.
+
+### `a2ui-recovery` demonstrates recovery only under aimock
+
+The heal / recovery-exhausted branches need a designer LLM that emits invalid
+surfaces on demand. Against a real LLM the secondary designer succeeds on
+attempt 1, so live the demo paints one ordinary card and no recovery is visible;
+the `SINGLE_CALL_ADDENDUM` prompt exists to stop the supervisor from re-calling
+the tool and painting duplicates. Making the loop reproducible live would need
+deliberate fault injection — a demo that fails on purpose. Deferred as a
+product decision, not an oversight.
+
 ## When to update this file
 
 - Adding a per-demo capability divergence vs. LGP → document the rationale.

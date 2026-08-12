@@ -408,14 +408,15 @@ def get_sales_todos():
 # @region[backend-tool-call]
 # Strands has no native interrupt primitive, so the gen-ui-interrupt and
 # interrupt-headless demos register `schedule_meeting` as a frontend tool
-# via `useFrontendTool`. Its async handler returns a Promise that only
-# resolves once the user picks a slot or cancels in the in-chat picker
+# through the frontend's tool registration API. Its async handler returns a
+# Promise that only resolves once the user picks a slot or cancels in the
+# in-chat picker
 # (the Strands shim for LangGraph's `interrupt()` / `resolve()` pair).
 #
 # This `@tool` declaration is the backend's contract with the LLM: the
 # docstring and signature are what the model sees when deciding to call
 # `schedule_meeting`. CopilotKit's runtime routes the call to the frontend
-# handler registered with `useFrontendTool` (same name), so the local
+# handler registered with the same name, so the local
 # `schedule_meeting_impl` body acts as a fallback for non-UI invocations.
 @tool
 def schedule_meeting(reason: str):
@@ -610,7 +611,7 @@ def set_theme_color(theme_color: str):
     """Change the theme color of the UI.
 
     This is a frontend tool - it returns None as the actual
-    execution happens on the frontend via useFrontendTool.
+    execution happens through the frontend tool registration.
 
     Args:
         theme_color: The color to set as theme
@@ -696,7 +697,7 @@ async def notes_state_from_args(context):
 # ---- Shared State (Streaming) demo --------------------------------------
 #
 # The shared-state-streaming demo writes a document into ``state["document"]``
-# via a ``write_document`` tool; the frontend subscribes via ``useAgent`` and
+# via a ``write_document`` tool; the frontend subscribes to state changes and
 # renders ``state.document`` live. Mirrors langgraph-python's
 # ``StateStreamingMiddleware`` target. Strands updates state from the complete
 # tool args (not per-token), which the d5 probe tolerates — it only asserts the
@@ -815,9 +816,9 @@ def _seed_delegations_from_state(thread_id: str, state) -> list[dict]:
     """Initialise the per-thread scratchpad from the inbound state.
 
     Called lazily from each delegation tool. The frontend persists
-    ``state["delegations"]`` across runs via ``useAgent``, so a multi-turn
-    conversation should APPEND to the prior list rather than overwriting
-    it.
+    ``state["delegations"]`` across runs through its agent store, so a
+    multi-turn conversation should APPEND to the prior list rather than
+    overwriting it.
     """
     with _delegations_lock:
         if thread_id in _delegations_by_thread:

@@ -150,9 +150,16 @@ internal sealed class SubagentsStore
             Result: "");
         lock (_lock)
         {
-            var slot = GetOrCreateSlot(_activeThreadKey.Value ?? _globalSlot);
-            slot.Delegations.Add(entry);
-            slot.DirtyVersion++;
+            // Mirror into every live conversation slot when the active key
+            // collapses to global — harness tool invocation can drop the
+            // AsyncLocal set by SetActiveThread (same root cause as
+            // D5ParityAgents SnapshotStore). Without this the left-panel UI
+            // stays empty while chat tool cards still stream.
+            foreach (var slot in WriteTargets())
+            {
+                slot.Delegations.Add(entry);
+                slot.DirtyVersion++;
+            }
         }
         return entry.Id;
     }
@@ -161,18 +168,20 @@ internal sealed class SubagentsStore
     {
         lock (_lock)
         {
-            var slot = GetOrCreateSlot(_activeThreadKey.Value ?? _globalSlot);
-            for (var i = 0; i < slot.Delegations.Count; i++)
+            foreach (var slot in WriteTargets())
             {
-                if (slot.Delegations[i].Id == id)
+                for (var i = 0; i < slot.Delegations.Count; i++)
                 {
-                    slot.Delegations[i] = slot.Delegations[i] with
+                    if (slot.Delegations[i].Id == id)
                     {
-                        Status = status,
-                        Result = result,
-                    };
-                    slot.DirtyVersion++;
-                    return;
+                        slot.Delegations[i] = slot.Delegations[i] with
+                        {
+                            Status = status,
+                            Result = result,
+                        };
+                        slot.DirtyVersion++;
+                        break;
+                    }
                 }
             }
         }
@@ -182,8 +191,8 @@ internal sealed class SubagentsStore
     {
         lock (_lock)
         {
-            var key = (object?)thread ?? _globalSlot;
-            if (!_slots.TryGetValue(key, out var slot))
+            var slot = ResolveSlotForRead(thread);
+            if (slot is null)
             {
                 return false;
             }
@@ -200,13 +209,58 @@ internal sealed class SubagentsStore
     {
         lock (_lock)
         {
-            var key = (object?)thread ?? _globalSlot;
-            if (!_slots.TryGetValue(key, out var slot))
+            var slot = ResolveSlotForRead(thread);
+            if (slot is null)
             {
                 return new SubagentsSnapshot(Array.Empty<SubagentDelegation>());
             }
             // Defensive copy — caller may serialize after the lock releases.
             return new SubagentsSnapshot(slot.Delegations.ToArray());
+        }
+    }
+
+    /// <summary>
+    /// Prefer the per-thread slot when it has delegations; otherwise fall
+    /// back to the global slot that tools land in when AsyncLocal doesn't
+    /// flow into the harness function-invocation context.
+    /// </summary>
+    private ThreadSlot? ResolveSlotForRead(AgentSession? thread)
+    {
+        if (thread is not null &&
+            _slots.TryGetValue(thread, out var threadSlot) &&
+            (threadSlot.Delegations.Count > 0 || threadSlot.DirtyVersion > 0))
+        {
+            return threadSlot;
+        }
+        if (_slots.TryGetValue(_globalSlot, out var globalSlot) &&
+            (globalSlot.Delegations.Count > 0 || globalSlot.DirtyVersion > 0))
+        {
+            return globalSlot;
+        }
+        if (thread is not null && _slots.TryGetValue(thread, out threadSlot))
+        {
+            return threadSlot;
+        }
+        return _slots.TryGetValue(_globalSlot, out globalSlot) ? globalSlot : null;
+    }
+
+    private IEnumerable<ThreadSlot> WriteTargets()
+    {
+        var key = _activeThreadKey.Value ?? _globalSlot;
+        yield return GetOrCreateSlot(key);
+
+        // When AsyncLocal missed and we wrote to global, also mirror into
+        // any already-bound conversation slots so the post-run snapshot
+        // (which keys by AgentSession) still sees the delegations.
+        if (ReferenceEquals(key, _globalSlot))
+        {
+            foreach (var kvp in _slots)
+            {
+                if (!ReferenceEquals(kvp.Key, _globalSlot))
+                {
+                    yield return kvp.Value;
+                }
+            }
         }
     }
 

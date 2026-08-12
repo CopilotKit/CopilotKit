@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, test, vi, beforeEach } from "vitest";
+import { logger } from "@copilotkit/shared";
 import { CopilotKitIntelligence } from "../client";
 
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock as unknown as typeof fetch;
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
 function jsonResponse(body: unknown, status = 200) {
   return Promise.resolve({
@@ -31,6 +33,7 @@ describe("CopilotKitIntelligence", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     consoleErrorSpy.mockClear();
+    consoleWarnSpy.mockClear();
     client = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com/socket",
@@ -51,7 +54,7 @@ describe("CopilotKitIntelligence", () => {
     );
   });
 
-  it("derives runner and client websocket URLs from a single intelligence websocket URL", () => {
+  it("derives runner, client, and Channels websocket URLs from one host", () => {
     const c = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com",
@@ -60,6 +63,94 @@ describe("CopilotKitIntelligence", () => {
 
     expect(c.ɵgetRunnerWsUrl()).toBe("wss://ws.example.com/runner");
     expect(c.ɵgetClientWsUrl()).toBe("wss://ws.example.com/client");
+    expect(c.ɵgetChannelsWsUrl()).toBe("wss://ws.example.com/channels");
+  });
+
+  describe("managed platform URL defaults", () => {
+    it("defaults apiUrl to the managed Intelligence API host", async () => {
+      const c = new CopilotKitIntelligence({ apiKey: "k" });
+      fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
+      await c.listThreads({ userId: "u", agentId: "a" });
+      expect(fetchMock.mock.calls[0][0]).toMatch(
+        /^https:\/\/api\.intelligence\.copilotkit\.ai\/api/,
+      );
+    });
+
+    it("defaults the websocket URLs to the managed realtime host", () => {
+      const c = new CopilotKitIntelligence({ apiKey: "k" });
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/runner",
+      );
+      expect(c.ɵgetClientWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/client",
+      );
+      expect(c.ɵgetChannelsWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/channels",
+      );
+    });
+
+    it("treats blank URLs as unset, so an empty env var still reaches the managed platform", async () => {
+      const c = new CopilotKitIntelligence({
+        apiUrl: "",
+        wsUrl: "   ",
+        apiKey: "k",
+      });
+      fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
+      await c.listThreads({ userId: "u", agentId: "a" });
+      expect(fetchMock.mock.calls[0][0]).toMatch(
+        /^https:\/\/api\.intelligence\.copilotkit\.ai\/api/,
+      );
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/runner",
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not warn when both URLs are omitted", () => {
+      const c = new CopilotKitIntelligence({ apiKey: "k" });
+      expect(c).toBeInstanceOf(CopilotKitIntelligence);
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not warn when both URLs are provided", () => {
+      const c = new CopilotKitIntelligence({
+        apiUrl: "https://intelligence.internal",
+        wsUrl: "wss://realtime.intelligence.internal",
+        apiKey: "k",
+      });
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.internal/runner",
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it("warns that wsUrl fell back to the managed host when only apiUrl is set", () => {
+      const c = new CopilotKitIntelligence({
+        apiUrl: "https://intelligence.internal",
+        apiKey: "k",
+      });
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/runner",
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/wsUrl falls back to the managed default/),
+      );
+    });
+
+    it("warns that apiUrl fell back to the managed host when only wsUrl is set", async () => {
+      const c = new CopilotKitIntelligence({
+        wsUrl: "wss://realtime.intelligence.internal",
+        apiKey: "k",
+      });
+      fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
+      await c.listThreads({ userId: "u", agentId: "a" });
+      expect(fetchMock.mock.calls[0][0]).toMatch(
+        /^https:\/\/api\.intelligence\.copilotkit\.ai\/api/,
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/apiUrl falls back to the managed default/),
+      );
+    });
   });
 
   it("sends Bearer authorization header", async () => {
@@ -290,6 +381,26 @@ describe("CopilotKitIntelligence", () => {
       expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
       expect(opts.body).toBeUndefined();
     });
+
+    it("passes through optional project credentials when the platform returns them", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          joinToken: "jt-mem",
+          joinCode: "jc-mem",
+          projectJoinToken: "pjt-mem",
+          projectJoinCode: "pjc-mem",
+        }),
+      );
+
+      const result = await client.ɵsubscribeToMemories({ userId: "user-1" });
+
+      expect(result).toEqual({
+        joinToken: "jt-mem",
+        joinCode: "jc-mem",
+        projectJoinToken: "pjt-mem",
+        projectJoinCode: "pjc-mem",
+      });
+    });
   });
 
   describe("updateThread", () => {
@@ -441,6 +552,7 @@ describe("CopilotKitIntelligence", () => {
       const result = await client.getThreadMessages({
         threadId: "t-1",
         userId: "user-1",
+        channelDeliveryId: "dlv_delivery_1",
       });
 
       expect(result).toEqual(payload);
@@ -449,6 +561,9 @@ describe("CopilotKitIntelligence", () => {
         "https://api.example.com/api/threads/t-1/messages?userId=user-1",
       );
       expect(opts.method).toBe("GET");
+      expect(opts.headers).toMatchObject({
+        "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
+      });
     });
   });
 
@@ -577,6 +692,7 @@ describe("CopilotKitIntelligence", () => {
         runId: "r-1",
         userId: "user-1",
         agentId: "agent-1",
+        channelDeliveryId: "dlv_delivery_1",
       });
 
       expect(result).toEqual({
@@ -591,6 +707,9 @@ describe("CopilotKitIntelligence", () => {
         runId: "r-1",
         userId: "user-1",
         agentId: "agent-1",
+      });
+      expect(opts.headers).toMatchObject({
+        "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
       });
     });
 
@@ -923,4 +1042,244 @@ describe("CopilotKitIntelligence", () => {
       });
     });
   });
+
+  describe("recallMemories", () => {
+    it("POSTs to /api/memories/recall with the user header and returns the envelope", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          memories: [
+            {
+              id: "m1",
+              kind: "topical",
+              scope: "user",
+              content: "User likes jazz.",
+              sourceThreadIds: [],
+              invalidatedAt: null,
+              score: 0.87,
+            },
+          ],
+        }),
+      );
+
+      const result = await client.recallMemories({
+        userId: "user-1",
+        query: "music taste",
+        limit: 5,
+        scope: "user",
+      });
+
+      expect(result.memories[0]).toMatchObject({ id: "m1", score: 0.87 });
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/recall");
+      expect(init.method).toBe("POST");
+      expect(init.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(JSON.parse(init.body)).toEqual({
+        query: "music taste",
+        limit: 5,
+        scope: "user",
+      });
+    });
+
+    it("omits limit and scope from the body when not provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ memories: [] }));
+
+      await client.recallMemories({ userId: "user-1", query: "hi" });
+
+      const [, init] = fetchMock.mock.calls[0];
+      expect(JSON.parse(init.body)).toEqual({ query: "hi" });
+    });
+  });
+});
+
+function setupInspectorMetadataClient() {
+  fetchMock.mockReset();
+
+  const client = new CopilotKitIntelligence({
+    apiUrl: "https://api.example.com/",
+    wsUrl: "wss://ws.example.com",
+    apiKey: "server-api-key",
+  });
+
+  return { client };
+}
+
+test("inspector-metadata client sends server auth and sanitizes a valid V1 response", async () => {
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        schemaVersion: 1,
+        identity: {
+          organizationName: "Acme",
+          projectName: "Support",
+          privateId: "do-not-forward",
+        },
+        license: { state: "valid" },
+        futureTopLevelField: true,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ),
+  );
+
+  const metadata = await client.getInspectorMetadata();
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://api.example.com/api/inspector/metadata",
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer server-api-key" },
+      signal: expect.any(AbortSignal),
+    },
+  );
+  expect(metadata).toEqual({
+    schemaVersion: 1,
+    identity: { organizationName: "Acme", projectName: "Support" },
+    license: { state: "valid" },
+  });
+});
+
+test("inspector-metadata client treats 204 and 404 as compatible absence", async () => {
+  const { client } = setupInspectorMetadataClient();
+
+  for (const status of [204, 404]) {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status }));
+
+    await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
+  }
+});
+
+test("inspector-metadata client aborts and settles a stalled provider request", async () => {
+  vi.useFakeTimers();
+  const { client } = setupInspectorMetadataClient();
+  const loggerWarn = vi
+    .spyOn(logger, "warn")
+    .mockImplementation(() => undefined);
+  fetchMock.mockImplementation(() => new Promise<Response>(() => undefined));
+
+  try {
+    const request = client.getInspectorMetadata();
+    const rejection = expect(request).rejects.toThrow(
+      "Intelligence inspector metadata request timed out",
+    );
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await rejection;
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init.signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(loggerWarn).toHaveBeenCalledWith(
+      { path: "/api/inspector/metadata", timeoutMs: 5_000 },
+      "Intelligence inspector metadata request timed out",
+    );
+  } finally {
+    loggerWarn.mockRestore();
+    vi.useRealTimers();
+  }
+});
+
+test("inspector-metadata client aborts and settles a stalled provider body", async () => {
+  vi.useFakeTimers();
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(new Response(new ReadableStream<Uint8Array>()));
+
+  try {
+    const request = client.getInspectorMetadata();
+    const rejection = expect(request).rejects.toThrow(
+      "Intelligence inspector metadata request timed out",
+    );
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await rejection;
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("inspector-metadata client throws provider errors for 401 and 500", async () => {
+  const { client } = setupInspectorMetadataClient();
+
+  for (const status of [401, 500]) {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "provider failure" }), { status }),
+    );
+
+    await expect(client.getInspectorMetadata()).rejects.toMatchObject({
+      status,
+    });
+  }
+});
+
+test("inspector-metadata client does not expose provider error bodies", async () => {
+  const { client } = setupInspectorMetadataClient();
+  const sensitiveMarker = "private-provider-body-7d52c";
+  const loggerError = vi
+    .spyOn(logger, "error")
+    .mockImplementation(() => undefined);
+
+  try {
+    for (const status of [401, 500]) {
+      fetchMock.mockResolvedValueOnce(
+        new Response(sensitiveMarker, { status }),
+      );
+      let thrown: unknown;
+
+      try {
+        await client.getInspectorMetadata();
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(Error);
+      if (!(thrown instanceof Error)) {
+        throw new Error("Expected inspector metadata request to throw");
+      }
+      expect(thrown.message).toBe(`Intelligence platform error ${status}`);
+      expect(thrown.message).not.toContain(sensitiveMarker);
+    }
+
+    expect(JSON.stringify(loggerError.mock.calls)).not.toContain(
+      sensitiveMarker,
+    );
+    expect(loggerError).toHaveBeenNthCalledWith(
+      1,
+      { status: 401, path: "/api/inspector/metadata" },
+      "Intelligence platform request failed",
+    );
+    expect(loggerError).toHaveBeenNthCalledWith(
+      2,
+      { status: 500, path: "/api/inspector/metadata" },
+      "Intelligence platform request failed",
+    );
+  } finally {
+    loggerError.mockRestore();
+  }
+});
+
+test("inspector-metadata client throws when a 200 response is malformed JSON", async () => {
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(new Response("{", { status: 200 }));
+
+  await expect(client.getInspectorMetadata()).rejects.toBeInstanceOf(
+    SyntaxError,
+  );
+});
+
+test("inspector-metadata client rejects invalid and unknown schemas", async () => {
+  const { client } = setupInspectorMetadataClient();
+  fetchMock
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ schemaVersion: 2 }), { status: 200 }),
+    )
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ schemaVersion: "1" }), { status: 200 }),
+    );
+
+  await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
+  await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
 });

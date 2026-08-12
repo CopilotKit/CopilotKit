@@ -9,7 +9,7 @@ import type {
   ReplyTarget as BotReplyTarget,
   ConversationStore,
   MessageRef,
-  PlatformUser,
+  ProviderActor,
   UserQuery,
   CommandSpec,
 } from "@copilotkit/channels-core";
@@ -510,7 +510,7 @@ export class TelegramAdapter implements PlatformAdapter {
     return decodeInteraction(raw);
   }
 
-  async lookupUser(q: UserQuery): Promise<PlatformUser | undefined> {
+  async lookupUser(q: UserQuery): Promise<ProviderActor | undefined> {
     const query = q.query.trim();
     if (!query.startsWith("@")) return undefined;
     try {
@@ -522,6 +522,7 @@ export class TelegramAdapter implements PlatformAdapter {
       };
       return {
         id: String(chat.id),
+        kind: "human",
         name: chat.title ?? chat.first_name,
         handle: chat.username,
       };
@@ -662,7 +663,7 @@ export class TelegramAdapter implements PlatformAdapter {
 
   async postEphemeral(
     _target: BotReplyTarget,
-    user: PlatformUser | string,
+    user: ProviderActor | string,
     ir: ChannelNode[],
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {

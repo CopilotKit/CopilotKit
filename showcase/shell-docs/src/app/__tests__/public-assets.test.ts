@@ -28,10 +28,25 @@ describe("public image assets", () => {
     }
   });
 
-  it("serves the slack early-access gate previews as real PNG files", () => {
+  it("serves the Slack generative UI previews as real PNG files", () => {
     for (const assetPath of [
       "images/slack-bot-generative-ui-light.png",
       "images/slack-bot-generative-ui-dark.png",
+    ]) {
+      const bytes = readPublicAsset(assetPath);
+
+      expect(bytes.subarray(0, pngSignature.length)).toEqual(pngSignature);
+      expect(bytes.toString("utf8", 0, 32)).not.toContain(
+        "version https://git-lfs",
+      );
+    }
+  });
+
+  it("serves Channels diagrams and the Intelligence overview as real PNG files", () => {
+    for (const assetPath of [
+      "images/channels/channels-architecture-light.png",
+      "images/channels/channels-architecture-dark.png",
+      "images/channels/intelligence-channels-overview.png",
     ]) {
       const bytes = readPublicAsset(assetPath);
 

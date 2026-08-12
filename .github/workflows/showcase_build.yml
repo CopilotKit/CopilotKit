@@ -9,6 +9,26 @@ name: "Showcase: Build & Push"
 # Every push to main runs to completion so that rapid-fire PR merges never
 # cancel in-flight builds. This was the #1 operational pain point with the
 # old combined workflow.
+#
+# This is NOT merely a convenience: `detect-changes` builds a per-push,
+# path-filtered matrix, so concurrent runs build OVERLAPPING BUT NON-IDENTICAL
+# service sets. Cancelling an older run therefore drops the services only IT
+# builds — trading a stale-image bug for a never-shipped bug. Concurrent runs
+# are not redundant and must not be cancelled.
+#
+# The corollary, and the thing that bit us on 2026-07-26: if runs are never
+# serialized, they RACE on the one shared mutable resource — the `:latest`
+# tag. Three merges landed in 34s, the newest commit's build finished first,
+# and the two older builds overwrote its `:latest` on every shared service.
+# All three runs reported `success`. Staging served pre-#6158 code while CI,
+# the redeploy gate, and deploy verification all looked clean.
+#
+# The fix is NOT a concurrency group (see above — that breaks the matrix
+# contract). Instead the mutable pointer is made monotonic: the build step
+# pushes ONLY the immutable `:<sha>` tag, and a guarded step moves `:latest`
+# unless the tag already holds a DESCENDANT of the commit being built. See
+# showcase/scripts/advance-latest-tag.ts for the incident reconstruction, the
+# decision table, and the residual sub-second TOCTOU this does not close.
 
 on:
   push:
@@ -104,7 +124,7 @@ jobs:
           persist-credentials: false
 
       - name: Detect changed paths
-        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           # All filter values use list form for consistency. `shell`
@@ -375,7 +395,7 @@ jobs:
       # drifted from package.json whenever the repo bumped pnpm —
       # resulting in lockfile-vs-engine mismatches that only surfaced on
       # the slow `--frozen-lockfile` path.
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
@@ -420,7 +440,7 @@ jobs:
 
       - name: Setup pnpm
         if: needs.detect-changes.outputs.needs_angular == 'true'
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
       - name: Setup Node
         if: needs.detect-changes.outputs.needs_angular == 'true'
@@ -490,7 +510,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -575,9 +595,18 @@ jobs:
           # variant available".
           platforms: linux/amd64
           push: true
-          tags: |
-            ghcr.io/copilotkit/${{ matrix.service.image }}:latest
-            ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}
+          # ONLY the immutable per-commit tag is pushed here. `:latest` is
+          # moved by the guarded step below, which refuses to roll staging
+          # back when a NEWER commit's build already claimed it. Pushing
+          # `:latest` from this step is what let an older concurrent build
+          # overwrite a newer one (2026-07-26; see advance-latest-tag.ts for
+          # the full incident reconstruction and run IDs).
+          tags: ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}
+          # The revision label is how the guard identifies which commit the
+          # image currently tagged `:latest` was built from. Without it the
+          # guard cannot prove a regression and (correctly) fails open.
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
           build-args: ${{ steps.build-args.outputs.args }}
 
       - name: Write per-slot build result
@@ -665,7 +694,7 @@ jobs:
           persist-credentials: false
 
       - name: Detect changed starter paths
-        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
@@ -785,7 +814,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -802,9 +831,11 @@ jobs:
           # pull with "does not have a linux/amd64 variant available".
           platforms: linux/amd64
           push: true
-          tags: |
-            ghcr.io/copilotkit/${{ matrix.starter.image }}:latest
-            ghcr.io/copilotkit/${{ matrix.starter.image }}:${{ github.sha }}
+          # Immutable tag only — `:latest` is moved by the guarded step
+          # below. Same rationale as the showcase `build` matrix above.
+          tags: ghcr.io/copilotkit/${{ matrix.starter.image }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Write per-slot starter build result
         if: always()
@@ -870,7 +901,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -945,9 +976,27 @@ jobs:
           && needs.detect-changes.outputs.has_changes == 'true'
           && needs.aggregate-build-results.outputs.any_success == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 20, not the historical 5. This job no longer just POSTs to Railway: the
+    # "Advance :latest" guard below walks EVERY successfully-built slot
+    # serially, and each slot costs up to three network round-trips (an
+    # `imagetools inspect` of `:latest`, a `gh api .../compare`, and an
+    # `imagetools create` retag). At full fleet width (~28 slots) that is ~84
+    # serial calls before the Railway redeploy loop even starts.
+    #
+    # Under-sizing this is not a benign "job takes longer" bug: an overrun
+    # concludes the job `cancelled`, and a cancelled conclusion is invisible to
+    # both `if: failure()` and `if: cancelled()` in dependent jobs (proven on
+    # run 30166429073 — see the "Write per-slot build result" step). The
+    # redeploy would silently not happen and nothing would alert.
+    timeout-minutes: 20
     permissions:
       contents: read
+      # The "Advance :latest" step performs an authenticated GHCR WRITE
+      # (`docker buildx imagetools create`). Without `packages: write` the
+      # retag 401s, the guard exits non-zero, the redeploy step never runs,
+      # and — because the build step no longer pushes `:latest` itself —
+      # `:latest` freezes permanently and staging stops redeploying at all.
+      packages: write # GHCR retag (imagetools create) in the guard below
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -955,6 +1004,18 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
+      # Mirrors the `build` job's login (see "Login to GHCR" there). Required
+      # for BOTH directions of the guard, not just the retag: the showcase
+      # packages are `visibility: private`, so an unauthenticated
+      # `imagetools inspect` also 401s. The guard treats a failed read as
+      # "unknown revision" and advances anyway — i.e. without this step it
+      # would silently FAIL OPEN and never actually guard.
+      - name: Login to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Compute changed-service list from build matrix
         id: changed
         env:
@@ -998,6 +1059,65 @@ jobs:
           fi
           echo "services=$csv" >> "$GITHUB_OUTPUT"
           echo "Computed services CSV (matrix ∩ build-success): $csv"
+          # Same intersection, projected onto GHCR image names, MINUS the
+          # `skip_build` slots. This is the exact set whose `:latest` may move,
+          # so a service that failed to build can never have its tag advanced.
+          #
+          # The `skip_build` exclusion is load-bearing and applies to `images`
+          # ONLY — never to the `services` CSV above:
+          #
+          #   * `webhooks` (the sole skip_build slot) is built and released by
+          #     its OWN repo's workflow, not this one. Its build step is
+          #     skipped by `if: matrix.service.skip_build != true`, yet the
+          #     slot still concludes job.status == success, so it lands in
+          #     success_names like any other slot.
+          #   * It therefore has NO `:<sha>` tag in GHCR from this run. Handing
+          #     it to the guard makes `imagetools create` fail with
+          #     "manifest unknown"; the guard exits non-zero and blocks the
+          #     redeploy for the ENTIRE fleet. This fires on a `service=all`
+          #     dispatch and on any push matching the `workflow_config`
+          #     paths-filter disjunct (which selects every slot) — including
+          #     this workflow file's own merge commit.
+          #   * It must nevertheless STAY in `services`: bouncing webhooks so
+          #     Railway re-pulls its out-of-band `:latest` is the documented,
+          #     intended behavior. See the `webhooks` entry in
+          #     showcase/scripts/railway-envs.ts.
+          #
+          # `.skip_build` is absent (null) on every other slot, so
+          # `select(.skip_build != true)` keeps them all.
+          images="$(jq -rn --argjson m "$(echo "$MATRIX_JSON" | jq -c '[.[] | {dispatch_name, image, skip_build}]')" --argjson s "$success_names" \
+            '($m | map(select(.dispatch_name as $n | $s | index($n))) | map(select(.skip_build != true)) | map("ghcr.io/copilotkit/" + .image)) | join(",")')"
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+          echo "Computed images CSV: $images"
+
+      - name: Advance :latest for successfully-built images
+        if: steps.changed.outputs.images != ''
+        env:
+          IMAGES: ${{ steps.changed.outputs.images }}
+          # GITHUB_SHA / GITHUB_REPOSITORY are deliberately NOT declared here:
+          # the runner exports both as default environment variables and
+          # advance-latest-tag.ts reads them straight off process.env, so
+          # restating them was pure shadowing. GH_TOKEN is NOT a default —
+          # without it every `gh api …/compare` fails and the guard degrades to
+          # advancing unconditionally.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Runs immediately BEFORE the Railway redeploy below, which is what
+        # pulls `:latest`. Doing it here rather than per-build-slot keeps the
+        # decision as close as possible to the pull, so the read→retag window
+        # an older concurrent run could slip through is as narrow as it gets.
+        #
+        # Exits non-zero if a retag fails, which reds the job and stops the
+        # redeploy — the right outcome, since redeploying against a `:latest`
+        # that did not move would look like a fresh, healthy deploy of code
+        # that was never shipped.
+        #
+        # tsx is pinned to the exact version pnpm-lock.yaml resolves for the
+        # workspace. showcase_validate.yml enforces the same no-drift rule via
+        # `pnpm exec tsx`; that form is unavailable here because this job has
+        # no workspace install, and bare `npx tsx` would fetch a drifting
+        # version on a registry cache miss.
+        run: npx --yes tsx@4.21.0 showcase/scripts/advance-latest-tag.ts
+
       - name: Redeploy changed services in staging
         if: steps.changed.outputs.services != ''
         env:
@@ -1111,9 +1231,17 @@ jobs:
       ${{ !cancelled()
           && needs.detect-starter-changes.outputs.has_changes == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 20, not the historical 5 — same reasoning as the sibling
+    # `redeploy-staging` job: the "Advance starter :latest" guard adds up to
+    # three serial registry/API round-trips per successfully-built starter,
+    # and an overrun concludes `cancelled`, which dependent jobs cannot see.
+    # Sized identically to the sibling because the two lanes run the same
+    # guard + redeploy shape.
+    timeout-minutes: 20
     permissions:
       contents: read
+      # Same rationale as `redeploy-staging` above.
+      packages: write # GHCR retag (imagetools create) in the guard below
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -1121,6 +1249,17 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
+
+      # Mirrors the `build` job's "Login to GHCR". Needed for the guard's
+      # `imagetools inspect` READ as well as its `imagetools create` WRITE —
+      # these packages are private, and an unauthenticated read makes the
+      # guard fail open instead of guarding.
+      - name: Login to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download per-slot starter build-result artifacts
         # `pattern` (not `name`) download: unlike a `name:` download, a
@@ -1214,6 +1353,22 @@ jobs:
           fi
           echo "services=$csv" >> "$GITHUB_OUTPUT"
           echo "Computed starter services CSV (matrix ∩ build-success): $csv"
+          # The starter CSV is already a list of GHCR repo names (`.image`),
+          # so the image list is just that CSV qualified with the registry.
+          images="$(echo "$csv" | tr ',' '\n' | sed -e '/^$/d' -e 's#^#ghcr.io/copilotkit/#' | paste -sd, -)"
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+          echo "Computed starter images CSV: $images"
+
+      - name: Advance starter :latest for successfully-built images
+        if: steps.changed.outputs.images != ''
+        env:
+          IMAGES: ${{ steps.changed.outputs.images }}
+          # No GITHUB_SHA / GITHUB_REPOSITORY shadowing; see the sibling job.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Same placement rationale as the showcase redeploy job: advance the
+        # mutable tag immediately before the pull that consumes it. tsx pinned
+        # to the lockfile-resolved version for the same no-drift reason.
+        run: npx --yes tsx@4.21.0 showcase/scripts/advance-latest-tag.ts
 
       - name: Redeploy changed starters in staging
         # Empty CSV = no starter built successfully (or the build hard-crashed

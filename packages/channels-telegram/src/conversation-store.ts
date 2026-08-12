@@ -22,6 +22,7 @@ const MAX_HISTORY = 200;
  *    that callers can use for lightweight within-session context.
  */
 export class TelegramConversationStore implements ConversationStore {
+  readonly seedsInboundTurn = true;
   private readonly sessions = new Map<string, AgentSession>();
   private readonly history = new Map<string, ThreadMessage[]>();
   /**

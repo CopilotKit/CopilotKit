@@ -128,7 +128,7 @@ Before you begin, you'll need the following:
                 Add Pydantic AI with AG-UI support and uvicorn to your project:
 
                 ```bash
-                uv add 'pydantic-ai-slim[ag-ui]' 'pydantic-ai-slim[openai]' uvicorn starlette==0.45.3
+                uv add 'pydantic-ai-slim[ag-ui,openai]>=2,<3' 'starlette>=0.46.2' uvicorn
                 ```
             </Step>
             <Step>
@@ -151,11 +151,63 @@ Before you begin, you'll need the following:
 
                 ```python title="main.py"
                 from pydantic_ai import Agent
+                from pydantic_ai.ui.ag_ui import AGUIAdapter
+                from starlette.applications import Starlette
+                from starlette.requests import Request
+                from starlette.responses import Response
+                from starlette.routing import Route
 
                 agent = Agent('openai:gpt-4.1-mini', instructions='Be fun!')
-                app = agent.to_ag_ui()
+
+
+                async def run_agent(request: Request) -> Response:
+                    return await AGUIAdapter.dispatch_request(request, agent=agent)
+
+
+                app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
 
                 if __name__ == "__main__":
+                    import uvicorn
+
+                    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+                ```
+
+                <Callout type="info" title="What is AG-UI?">
+                  AG-UI is the protocol that lets Copilot Runtime communicate with your Pydantic AI agent.
+                </Callout>
+            </Step>
+            <Step>
+                ### Create your frontend
+
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+                ```bash
+                cd ..
+                npx create-next-app@latest my-copilot-app
+                cd my-copilot-app
+                ```
+            </Step>
+            <Step>
+                ### Install CopilotKit packages
+
+                ```npm
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                ```
+            </Step>
+            <Step>
+                ### Setup Copilot Runtime
+
+                Create an API route that connects CopilotKit to the Pydantic AI
+                AG-UI endpoint:
+
+                ```tsx title="app/api/copilotkit/route.ts"
+                import {
+                  CopilotRuntime,
+                  ExperimentalEmptyAdapter,
+                  copilotRuntimeNextJSAppRouterEndpoint,
+                } from "@copilotkit/runtime";
+                import { HttpAgent } from "@ag-ui/client";
+                import { NextRequest } from "next/server";
 
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
@@ -174,7 +226,7 @@ Before you begin, you'll need the following:
 
                   return handleRequest(req);
                 };
-               ```
+                ```
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
@@ -222,10 +274,11 @@ Before you begin, you'll need the following:
             <Step>
                 ### Start your agent
 
-                From your agent directory, start the agent server:
+                From the frontend directory created above, start the agent
+                server:
 
                 ```bash
-                cd ..
+                cd ../my-agent
                 uv run main.py
                 ```
 

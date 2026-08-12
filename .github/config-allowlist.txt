@@ -58,6 +58,7 @@ examples/showcases/pydantic-ai-todos/next.config.ts
 examples/showcases/research-canvas/final/frontend/next.config.ts
 examples/showcases/research-canvas/frontend/next.config.ts
 examples/showcases/research-canvas/start/frontend/next.config.ts
+examples/showcases/reskinnable-demo/next.config.mjs
 examples/showcases/scene-creator/next.config.ts
 examples/showcases/spreadsheet/next.config.mjs
 examples/showcases/strands-crm/frontend/next.config.ts

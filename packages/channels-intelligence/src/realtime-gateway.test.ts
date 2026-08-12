@@ -1,28 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   connectRealtimeGateway,
-  RealtimeGatewayChannelStateError,
-  RealtimeGatewaySetupRequiredError,
+  RealtimeGatewayPushError,
+  RealtimeGatewayUnreachableError,
 } from "./realtime-gateway.js";
 import type { RealtimeGatewayConnectionState } from "./realtime-gateway.js";
 
 type JoinMode =
   | "ok"
+  | "invitation-before-join"
   | "error"
   | "never"
   | "error-undefined-reason"
-  // `channel_declaration_unavailable` where the sole non-live channel is a
-  // genuine unconfigured/waiting state → setup_required.
-  | "error-setup-required"
-  // `channel_declaration_unavailable` with NO channels array — the defensive
-  // fallback path (nothing to classify) degrades to setup_required.
-  | "error-setup-required-no-channels"
-  // `channel_declaration_unavailable` where a non-live channel is a hard-error
-  // state (`runtime_conflict`) → must NOT downgrade to setup_required.
-  | "error-conflict"
-  // `channel_declaration_unavailable` with one waiting AND one hard-error
-  // channel → fail loud on the worst (hard error).
-  | "error-mixed"
   // Replies `ok` to the FIRST join then never replies to a rejoin — the socket
   // reopens but the (re)join never completes, so the reconnect give-up window
   // can elapse. Used to exercise the `gave_up` transition.
@@ -36,11 +25,30 @@ type JoinMode =
 interface FakeControl {
   /** When set true, `give-up-then-recover` starts replying `ok` to rejoins. */
   recover: boolean;
+  /** Make the next transport instance fail with `error` and no `close`. */
+  failNextConnectWithErrorOnly: boolean;
 }
 
-function makeFakeWebSocket(mode: JoinMode) {
+function makeFakeWebSocket(
+  mode: JoinMode,
+  pushErrorResponse?: Record<string, unknown>,
+  /**
+   * Body of a successful `phx_reply` to `phx_join`. Defaults to `{}`.
+   *
+   * A function form receives the 1-based join count, so a test can make a REJOIN
+   * reply differ from the initial one — the gateway reports provider attachment
+   * on this reply, and it legitimately changes between joins (a Channel
+   * provisioned while the runtime was disconnected).
+   */
+  joinOkResponse?:
+    | Record<string, unknown>
+    | ((joinCount: number) => Record<string, unknown>),
+) {
   const instances: FakeWebSocket[] = [];
-  const control: FakeControl = { recover: false };
+  const control: FakeControl = {
+    recover: false,
+    failNextConnectWithErrorOnly: false,
+  };
   // Shared across the reconnect-spawned instances so `ok-then-silent` /
   // `give-up-then-recover` can tell the initial join from a later rejoin.
   let joinCount = 0;
@@ -54,27 +62,6 @@ function makeFakeWebSocket(mode: JoinMode) {
     switch (mode) {
       case "error-undefined-reason":
         return undefined;
-      case "error-setup-required":
-        return {
-          reason: "channel_declaration_unavailable",
-          channels: [{ state: "adapter_setup_required" }],
-        };
-      case "error-setup-required-no-channels":
-        return { reason: "channel_declaration_unavailable" };
-      case "error-conflict":
-        return {
-          reason: "channel_declaration_unavailable",
-          channels: [{ state: "runtime_conflict" }],
-        };
-      case "error-mixed":
-        return {
-          reason: "channel_declaration_unavailable",
-          channels: [
-            { state: "adapter_setup_required" },
-            { state: "runtime_conflict" },
-            { state: "channel_live" },
-          ],
-        };
       default:
         return { reason: "unauthorized" };
     }
@@ -98,8 +85,15 @@ function makeFakeWebSocket(mode: JoinMode) {
 
     constructor(public readonly url: string) {
       instances.push(this);
+      const failWithErrorOnly = control.failNextConnectWithErrorOnly;
+      control.failNextConnectWithErrorOnly = false;
       queueMicrotask(() => {
-        this.readyState = 1;
+        if (failWithErrorOnly) {
+          this.readyState = FakeWebSocket.CLOSED;
+          this.onerror?.(transportErrorEvent("undici"));
+          return;
+        }
+        this.readyState = FakeWebSocket.OPEN;
         this.onopen?.();
       });
     }
@@ -120,7 +114,22 @@ function makeFakeWebSocket(mode: JoinMode) {
         string,
         string,
       ];
-      if (event !== "phx_join") return;
+      if (event !== "phx_join") {
+        if (pushErrorResponse) {
+          queueMicrotask(() =>
+            this.onmessage?.({
+              data: JSON.stringify([
+                joinRef,
+                ref,
+                topic,
+                "phx_reply",
+                { status: "error", response: pushErrorResponse },
+              ]),
+            }),
+          );
+        }
+        return;
+      }
       this.lastJoinRef = joinRef;
       this.lastTopic = topic;
       joinCount += 1;
@@ -136,21 +145,45 @@ function makeFakeWebSocket(mode: JoinMode) {
       }
       const isOkMode =
         mode === "ok" ||
+        mode === "invitation-before-join" ||
         mode === "ok-then-silent" ||
         mode === "give-up-then-recover";
       const status = isOkMode ? "ok" : "error";
+      // Resolved per join (not once at construction) so the function form can
+      // vary the reply across the initial join and each rejoin.
+      const okResponse =
+        typeof joinOkResponse === "function"
+          ? joinOkResponse(joinCount)
+          : joinOkResponse;
       const reply =
         status === "ok"
-          ? { status, response: {} }
+          ? { status, response: okResponse ?? {} }
           : {
               status,
               ...(errorResponse() ? { response: errorResponse() } : {}),
             };
-      queueMicrotask(() =>
+      queueMicrotask(() => {
+        if (mode === "invitation-before-join" && isInitialJoin) {
+          this.onmessage?.({
+            data: JSON.stringify([
+              joinRef,
+              null,
+              topic,
+              "delivery_invitation",
+              {
+                protocol: "channel_delivery_v1",
+                deliveryId: "dlv_first_invitation",
+                canonicalThreadId: "thread_first_invitation",
+                channelName: "opentag",
+                adapter: "slack",
+              },
+            ]),
+          });
+        }
         this.onmessage?.({
           data: JSON.stringify([joinRef, ref, topic, "phx_reply", reply]),
-        }),
-      );
+        });
+      });
     }
 
     /**
@@ -172,37 +205,15 @@ function makeFakeWebSocket(mode: JoinMode) {
       });
     }
 
-    /**
-     * Simulate the gateway's explicit generation-fence notification followed by
-     * its clean `phx_close`. Phoenix treats that close as terminal and will not
-     * auto-rejoin this Channel instance.
-     */
-    triggerListenerFenced(): void {
-      if (this.lastJoinRef === undefined || this.lastTopic === undefined)
-        return;
-      this.onmessage?.({
-        data: JSON.stringify([
-          this.lastJoinRef,
-          null,
-          this.lastTopic,
-          "channel.listener_fenced.v1",
-          { reason: "listener_activation_fenced" },
-        ]),
-      });
-      this.onmessage?.({
-        data: JSON.stringify([
-          this.lastJoinRef,
-          null,
-          this.lastTopic,
-          "phx_close",
-          {},
-        ]),
-      });
+    serverClose(code: number): void {
+      this.closed = true;
+      this.readyState = FakeWebSocket.CLOSED;
+      this.onclose?.({ code });
     }
 
     close(): void {
       this.closed = true;
-      this.readyState = 3;
+      this.readyState = FakeWebSocket.CLOSED;
       this.onclose?.();
     }
   }
@@ -220,13 +231,13 @@ describe("connectRealtimeGateway", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/channels",
         apiKey: "cpk-test",
         projectId: 0,
         join: {
+          protocol: "channel_delivery_v1",
           runtimeInstanceId: "rti_1",
-          declaredChannels: [],
-          observedAt: "2026-07-10T00:00:00.000Z",
+          channels: [],
         },
         webSocket: NeverWebSocket,
       }),
@@ -237,13 +248,13 @@ describe("connectRealtimeGateway", () => {
   it("joins the channel topic with declared channels and disconnects the gateway session", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const join = {
+      protocol: "channel_delivery_v1" as const,
       runtimeInstanceId: "rti_1",
-      declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-      observedAt: "2026-07-10T00:00:00.000Z",
+      channels: [{ channelName: "opentag", adapter: "slack" }],
     };
 
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join,
@@ -254,11 +265,40 @@ describe("connectRealtimeGateway", () => {
     const joinFrame = instances[0]!.frames.find(
       (frame) => Array.isArray(frame) && frame[3] === "phx_join",
     ) as [string, string, string, string, unknown];
-    expect(joinFrame[2]).toBe("channels:project:7");
+    expect(joinFrame[2]).toBe("control");
     expect(joinFrame[4]).toEqual(join);
 
     session.disconnect();
     expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("delivers an invitation sent before the control join reply", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("invitation-before-join");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+    });
+    const invitations: unknown[] = [];
+
+    session.on("delivery_invitation", (value) => invitations.push(value));
+
+    expect(invitations).toEqual([
+      {
+        protocol: "channel_delivery_v1",
+        deliveryId: "dlv_first_invitation",
+        canonicalThreadId: "thread_first_invitation",
+        channelName: "opentag",
+        adapter: "slack",
+      },
+    ]);
+    session.disconnect();
   });
 });
 
@@ -266,13 +306,13 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("fires a registered onClose callback exactly once when the socket drops unexpectedly", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -293,13 +333,13 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("fires onClose again for a second drop after the socket reopens", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -337,13 +377,13 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("does not fire onClose when the drop is our own disconnect()", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -362,13 +402,13 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("still fires later onClose callbacks when an earlier one throws", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -394,13 +434,13 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/channels",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
+          protocol: "channel_delivery_v1",
           runtimeInstanceId: "rti_1",
-          declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-          observedAt: "2026-07-10T00:00:00.000Z",
+          channels: [{ channelName: "opentag", adapter: "slack" }],
         },
         webSocket: FakeWebSocket,
       }),
@@ -417,13 +457,13 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/channels",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
+          protocol: "channel_delivery_v1",
           runtimeInstanceId: "rti_1",
-          declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-          observedAt: "2026-07-10T00:00:00.000Z",
+          channels: [{ channelName: "opentag", adapter: "slack" }],
         },
         webSocket: FakeWebSocket,
       }),
@@ -437,13 +477,13 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/channels",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
+          protocol: "channel_delivery_v1",
           runtimeInstanceId: "rti_1",
-          declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-          observedAt: "2026-07-10T00:00:00.000Z",
+          channels: [{ channelName: "opentag", adapter: "slack" }],
         },
         webSocket: FakeWebSocket,
         timeoutMs: 10,
@@ -455,125 +495,35 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
   });
 });
 
-describe("connectRealtimeGateway — per-channel state classification (OSS-473)", () => {
-  it("rejects with a SETUP_REQUIRED-coded error when a non-live channel is genuinely unconfigured", async () => {
-    const { FakeWebSocket, instances } = makeFakeWebSocket(
-      "error-setup-required",
-    );
-
-    const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+describe("connectRealtimeGateway — structured push errors", () => {
+  it("preserves the gateway code from a delivery packet rejection", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("ok", {
+      reason: "app_api_error",
+      status: 409,
+      code: "CHANNEL_EFFECT_SEQUENCE_GAP",
+    });
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
-    }).then(
+    });
+
+    const rejected = await session.push("channel.effect.v1", {}).then(
       () => undefined,
-      (e: unknown) => e,
+      (error: unknown) => error,
     );
 
-    expect(err).toBeInstanceOf(RealtimeGatewaySetupRequiredError);
-    expect((err as RealtimeGatewaySetupRequiredError).code).toBe(
-      "SETUP_REQUIRED",
-    );
-    // The raw gateway reason is preserved for diagnostics.
-    expect((err as RealtimeGatewaySetupRequiredError).reason).toBe(
-      "channel_declaration_unavailable",
-    );
-    // The offending waiting state is preserved for diagnostics.
-    expect((err as RealtimeGatewaySetupRequiredError).channelStates).toEqual([
-      "adapter_setup_required",
-    ]);
-    // The socket-leak-teardown behavior is unchanged: a failed join still tears
-    // the socket down rather than leaking it.
-    expect(instances[0]!.closed).toBe(true);
-  });
-
-  it("degrades to SETUP_REQUIRED when channel_declaration_unavailable carries no channel detail", async () => {
-    const { FakeWebSocket } = makeFakeWebSocket(
-      "error-setup-required-no-channels",
-    );
-
-    const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: {
-        runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
-      },
-      webSocket: FakeWebSocket,
-    }).then(
-      () => undefined,
-      (e: unknown) => e,
-    );
-
-    expect(err).toBeInstanceOf(RealtimeGatewaySetupRequiredError);
-    expect((err as RealtimeGatewaySetupRequiredError).channelStates).toEqual(
-      [],
-    );
-  });
-
-  it("does NOT downgrade a runtime_conflict to setup_required — it is a hard error", async () => {
-    const { FakeWebSocket, instances } = makeFakeWebSocket("error-conflict");
-
-    const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: {
-        runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
-      },
-      webSocket: FakeWebSocket,
-    }).then(
-      () => undefined,
-      (e: unknown) => e,
-    );
-
-    expect(err).toBeInstanceOf(RealtimeGatewayChannelStateError);
-    // A hard error must NOT carry the SETUP_REQUIRED marker (the manager keys
-    // `ready()` off it — a conflict must surface as `error`, not resolve).
-    expect((err as { code?: string }).code).not.toBe("SETUP_REQUIRED");
-    expect(err).not.toBeInstanceOf(RealtimeGatewaySetupRequiredError);
-    // The offending state is preserved for diagnostics.
-    expect((err as RealtimeGatewayChannelStateError).channelStates).toEqual([
-      "runtime_conflict",
-    ]);
-    expect((err as Error).message).toMatch(/runtime_conflict/);
-    expect(instances[0]!.closed).toBe(true);
-  });
-
-  it("fails loud on the worst state when waiting and hard-error channels are mixed", async () => {
-    const { FakeWebSocket } = makeFakeWebSocket("error-mixed");
-
-    const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: {
-        runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
-      },
-      webSocket: FakeWebSocket,
-    }).then(
-      () => undefined,
-      (e: unknown) => e,
-    );
-
-    expect(err).toBeInstanceOf(RealtimeGatewayChannelStateError);
-    // Only the hard-error state(s) are surfaced (channel_live is dropped, and
-    // the waiting adapter_setup_required is subsumed by the louder failure).
-    expect((err as RealtimeGatewayChannelStateError).channelStates).toEqual([
-      "runtime_conflict",
-    ]);
+    expect(rejected).toBeInstanceOf(RealtimeGatewayPushError);
+    expect(rejected).toMatchObject({
+      code: "CHANNEL_EFFECT_SEQUENCE_GAP",
+    });
+    session.disconnect();
   });
 });
 
@@ -589,13 +539,13 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("transitions to reconnecting on an unexpected drop and back to online on a successful rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -615,16 +565,104 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
     session.disconnect();
   });
 
-  it("transitions to reconnecting on a channel-level error while the socket stays open, then back to online on channel rejoin", async () => {
-    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+  it("recovers when a reconnect attempt emits error without close", async () => {
+    const { FakeWebSocket, instances, control } = makeFakeWebSocket("ok");
+    const { fetchImpl } = makeRespondingFetch(502);
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+      diagnosticFetch: fetchImpl,
+    });
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((state) => states.push(state));
+
+    control.failNextConnectWithErrorOnly = true;
+    instances[0]!.serverClose(1006);
+
+    await waitUntil(
+      () => instances.length === 3 && states[states.length - 1] === "online",
+    );
+    expect(states).toContain("reconnecting");
+    expect(instances).toHaveLength(3);
+    expect(states[states.length - 1]).toBe("online");
+
+    session.disconnect();
+  });
+
+  it("does not force another reconnect when error is followed by close", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const { fetchImpl } = makeRespondingFetch(502);
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+      diagnosticFetch: fetchImpl,
+    });
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((state) => states.push(state));
+
+    instances[0]!.onerror?.(transportErrorEvent("undici"));
+    instances[0]!.serverClose(1006);
+
+    await waitUntil(
+      () => instances.length === 2 && states[states.length - 1] === "online",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(instances).toHaveLength(2);
+
+    session.disconnect();
+  });
+
+  it("recovers after an unexpected clean socket close", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+    });
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((state) => states.push(state));
+
+    instances[0]!.serverClose(1000);
+
+    expect(states).toContain("reconnecting");
+    await waitUntil(
+      () => instances.length === 2 && states[states.length - 1] === "online",
+    );
+    expect(instances).toHaveLength(2);
+
+    session.disconnect();
+  });
+
+  it("transitions to reconnecting on a channel-level error while the socket stays open, then back to online on channel rejoin", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -649,45 +687,16 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
     session.disconnect();
   });
 
-  it("surfaces a superseded listener as fenced instead of pretending Phoenix will rejoin it", async () => {
-    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
-    const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
-      apiKey: "cpk-test",
-      projectId: 7,
-      join: {
-        runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
-      },
-      webSocket: FakeWebSocket,
-    });
-
-    const states: string[] = [];
-    session.onStateChange((state) => states.push(state));
-
-    instances[0]!.triggerListenerFenced();
-
-    expect(states).toEqual(["fenced"]);
-    expect(
-      instances[0]!.frames.filter(
-        (frame) => Array.isArray(frame) && frame[3] === "phx_join",
-      ),
-    ).toHaveLength(1);
-
-    session.disconnect();
-  });
-
   it("gives up (emits gave_up) when the reconnect window elapses without a successful rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
       reconnectGiveUpMs: 40,
@@ -712,13 +721,13 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       "give-up-then-recover",
     );
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
       // Small window so give-up fires fast; small push timeout so silent rejoins
@@ -749,13 +758,13 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       "give-up-then-recover",
     );
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
       // Small window so give-up fires fast; small push timeout so silent rejoins
@@ -800,13 +809,13 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("does not emit a connection-state transition for our own disconnect()", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/channels",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_delivery_v1",
         runtimeInstanceId: "rti_1",
-        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
-        observedAt: "2026-07-10T00:00:00.000Z",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
       },
       webSocket: FakeWebSocket,
     });
@@ -818,5 +827,709 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
 
     expect(instances[0]!.closed).toBe(true);
     expect(states).toEqual([]);
+  });
+});
+
+/**
+ * How the WebSocket transport reports a connect that never opened. Verified
+ * against the real implementations on 2026-07-28:
+ *
+ * - `undici` — Node's GLOBAL WebSocket, and therefore the production default.
+ *   Dispatches the SAME detail-free `ErrorEvent` for every underlying cause
+ *   (nonexistent host, refused port, HTTPS host with no socket mounted): message
+ *   `"Received network error or non-101 status code."`, no `code`, and an inner
+ *   `Error` carrying nothing more. This is why the cause has to come from the
+ *   HTTP diagnosis instead of from the socket.
+ * - `coded` — the `ws` package / custom transports, which DO expose the OS error
+ *   (an `Error` with `code`). Those are trusted directly, with no probe.
+ * - `opaque` — a browser-style bare `Event`.
+ * - `silent` — nothing at all: no open, no error (black-holed IP, dropped SYN).
+ */
+type TransportFailure = "undici" | "coded" | "opaque" | "silent";
+
+/** The `error` event a real WebSocket surfaces for `failure`. */
+function transportErrorEvent(
+  failure: TransportFailure,
+  code?: string,
+): unknown {
+  switch (failure) {
+    case "undici":
+      return {
+        type: "error",
+        message: "Received network error or non-101 status code.",
+        error: new Error("Received network error or non-101 status code."),
+      };
+    case "coded":
+      return {
+        type: "error",
+        message: "connection error",
+        error: Object.assign(
+          new Error(`connect ${code ?? "ECONNREFUSED"} 127.0.0.1:4001`),
+          { code: code ?? "ECONNREFUSED" },
+        ),
+      };
+    default:
+      return { type: "error" };
+  }
+}
+
+/**
+ * The failure `fetch` throws for `cause`, matching Node's shape exactly (a
+ * `TypeError("fetch failed")` whose `cause` is the coded OS error) — verified
+ * against the real `fetch` on 2026-07-28.
+ */
+function fetchFailure(code: string, detail: string): TypeError {
+  return new TypeError("fetch failed", {
+    cause: Object.assign(new Error(detail), { code }),
+  });
+}
+
+/** A `fetch` seam that always throws `error`, recording the URLs it was asked for. */
+function makeFailingFetch(error: unknown): {
+  fetchImpl: typeof globalThis.fetch;
+  urls: string[];
+} {
+  const urls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    urls.push(String(url));
+    throw error;
+  }) as unknown as typeof globalThis.fetch;
+  return { fetchImpl, urls };
+}
+
+/** A `fetch` seam that answers with `status`, recording the URLs it was asked for. */
+function makeRespondingFetch(status: number): {
+  fetchImpl: typeof globalThis.fetch;
+  urls: string[];
+} {
+  const urls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    urls.push(String(url));
+    return new Response(null, { status });
+  }) as unknown as typeof globalThis.fetch;
+  return { fetchImpl, urls };
+}
+
+/**
+ * A WebSocket whose first `openAfter - 1` connection attempts fail with
+ * `failure`; the attempt at `openAfter` (default: never) opens normally and
+ * replies `ok` to the channel join, modeling a gateway that was still booting.
+ */
+function makeFailingWebSocket(
+  failure: TransportFailure,
+  opts: { openAfter?: number; code?: string } = {},
+) {
+  const instances: FailingWebSocket[] = [];
+
+  class FailingWebSocket {
+    static readonly CONNECTING = 0;
+    static readonly OPEN = 1;
+    static readonly CLOSING = 2;
+    static readonly CLOSED = 3;
+    readyState = 0;
+    onopen: ((ev?: unknown) => void) | null = null;
+    onmessage: ((ev: { data: string }) => void) | null = null;
+    onerror: ((ev?: unknown) => void) | null = null;
+    onclose: ((ev?: unknown) => void) | null = null;
+    closed = false;
+
+    constructor(public readonly url: string) {
+      instances.push(this);
+      const attempt = instances.length;
+      queueMicrotask(() => {
+        if (opts.openAfter !== undefined && attempt >= opts.openAfter) {
+          this.readyState = 1;
+          this.onopen?.();
+          return;
+        }
+        if (failure === "silent") return;
+        this.readyState = 3;
+        this.onerror?.(transportErrorEvent(failure, opts.code));
+        // A failed connect closes uncleanly (1006), which is what drives
+        // Phoenix's reconnect timer — the retry-forever behavior under test.
+        this.onclose?.({ code: 1006, wasClean: false });
+      });
+    }
+
+    send(data: string): void {
+      let frame: unknown;
+      try {
+        frame = JSON.parse(data);
+      } catch {
+        return;
+      }
+      if (!Array.isArray(frame)) return;
+      const [joinRef, ref, topic, event] = frame as [
+        string,
+        string,
+        string,
+        string,
+      ];
+      if (event !== "phx_join") return;
+      queueMicrotask(() =>
+        this.onmessage?.({
+          data: JSON.stringify([
+            joinRef,
+            ref,
+            topic,
+            "phx_reply",
+            { status: "ok", response: {} },
+          ]),
+        }),
+      );
+    }
+
+    close(): void {
+      this.closed = true;
+      this.readyState = 3;
+      this.onclose?.();
+    }
+  }
+  return { FailingWebSocket, instances };
+}
+
+const JOIN = {
+  protocol: "channel_delivery_v1" as const,
+  runtimeInstanceId: "rti_1",
+  channels: [{ channelName: "opentag", adapter: "slack" }],
+};
+
+describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => {
+  it("fails immediately when the HTTP diagnosis shows the host does not resolve", async () => {
+    // The socket reports nothing useful (undici's shape), so the verdict has to
+    // come from the probe — which is exactly the production arrangement.
+    const { FailingWebSocket, instances } = makeFailingWebSocket("undici");
+    const { fetchImpl, urls } = makeFailingFetch(
+      fetchFailure("ENOTFOUND", "getaddrinfo ENOTFOUND realtime.copilotkit.ai"),
+    );
+
+    const started = Date.now();
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://realtime.copilotkit.ai/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      // Generous window: a host that does not exist must NOT burn it, because
+      // no amount of retrying will make the name resolve.
+      connectTimeoutMs: 5_000,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    const elapsed = Date.now() - started;
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect(elapsed).toBeLessThan(1_000);
+    // The probe targets the same host AND path over http(s) — the path is what
+    // separates "wrong host" from "no socket mounted here".
+    expect(urls).toEqual(["https://realtime.copilotkit.ai/channels"]);
+    // The message names the endpoint and the real cause, not a stopwatch.
+    expect((err as Error).message).toMatch(/wss:\/\/realtime\.copilotkit\.ai/);
+    expect((err as Error).message).toMatch(/does not resolve/);
+    expect((err as Error).message).toMatch(/ENOTFOUND/);
+    expect((err as RealtimeGatewayUnreachableError).endpoint).toBe(
+      "wss://realtime.copilotkit.ai/channels",
+    );
+    expect((err as RealtimeGatewayUnreachableError).code).toBe(
+      "GATEWAY_UNREACHABLE",
+    );
+    // The underlying failure is preserved for a caller that wants to inspect it.
+    expect(
+      (err as { cause?: { cause?: { code?: string } } }).cause?.cause?.code,
+    ).toBe("ENOTFOUND");
+    expect((err as { code?: string }).code).not.toBe("SETUP_REQUIRED");
+    // The socket must not be left retrying a host that will never resolve.
+    expect(instances.every((instance) => instance.closed)).toBe(true);
+  });
+
+  it("waits out the connect window when the host merely refuses the connection", async () => {
+    const { FailingWebSocket } = makeFailingWebSocket("undici");
+    const { fetchImpl } = makeFailingFetch(
+      fetchFailure("ECONNREFUSED", "connect ECONNREFUSED 127.0.0.1:4001"),
+    );
+
+    const started = Date.now();
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 150,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    const elapsed = Date.now() - started;
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    // A refusal may just be a gateway that has not booted yet, so it is given
+    // the full window rather than failing on the first error.
+    expect(elapsed).toBeGreaterThanOrEqual(140);
+    expect((err as Error).message).toMatch(/wss:\/\/gateway\.example/);
+    expect((err as Error).message).toMatch(/refused the connection/);
+    expect((err as Error).message).toMatch(/ECONNREFUSED/);
+  });
+
+  it("reports a host that answers HTTP as a handshake/path problem, not a missing host", async () => {
+    // The split-plane trap: the host is up and serving HTTP, but there is no
+    // Phoenix socket at the wsUrl path.
+    const { FailingWebSocket } = makeFailingWebSocket("undici");
+    const { fetchImpl, urls } = makeRespondingFetch(404);
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://api.intelligence.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 150,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect(urls).toEqual(["https://api.intelligence.example/channels"]);
+    expect((err as Error).message).toMatch(/answered HTTP 404/);
+    expect((err as Error).message).toMatch(/handshake/);
+  });
+
+  it("trusts a transport that exposes the OS code, without probing", async () => {
+    // The `ws` package and custom transports DO surface the cause, so an
+    // NXDOMAIN there needs no HTTP probe at all.
+    const { FailingWebSocket } = makeFailingWebSocket("coded", {
+      code: "ENOTFOUND",
+    });
+    const { fetchImpl, urls } = makeFailingFetch(
+      new Error("must not be called"),
+    );
+
+    const started = Date.now();
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 5_000,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(urls).toEqual([]);
+    expect((err as Error).message).toMatch(/ENOTFOUND/);
+  });
+
+  it("rejects at the connect deadline when the connect hangs with no transport event at all", async () => {
+    const { FailingWebSocket } = makeFailingWebSocket("silent");
+    const { fetchImpl, urls } = makeFailingFetch(
+      fetchFailure("ETIMEDOUT", "connect ETIMEDOUT 10.0.0.1:443"),
+    );
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 150,
+      // Far larger than the connect window: a black-holed connect must be
+      // bounded by the CONNECT budget, not by the join timeout.
+      timeoutMs: 60_000,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect((err as Error).message).toMatch(/wss:\/\/gateway\.example/);
+    // Nothing arrived from the socket, so the deadline itself starts the probe
+    // and the reported cause still comes from it.
+    expect(urls).toEqual(["https://gateway.example/channels"]);
+    expect((err as Error).message).toMatch(/ETIMEDOUT/);
+  });
+
+  it("still names the endpoint when neither the transport nor the probe yields a cause", async () => {
+    const { FailingWebSocket } = makeFailingWebSocket("opaque");
+    // A probe that itself yields nothing usable (no message, no code).
+    const { fetchImpl } = makeFailingFetch({});
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 150,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect((err as Error).message).toMatch(
+      /wss:\/\/gateway\.example\/channels/,
+    );
+    expect((err as Error).message).toMatch(/no transport error within 150ms/);
+    expect(
+      (err as RealtimeGatewayUnreachableError).transportError,
+    ).toBeUndefined();
+  });
+
+  it("diagnoses a real closed port through the default fetch", async () => {
+    // No seam, no fake: exercises the SHIPPED probe against a port nothing is
+    // listening on (loopback only — no DNS, no network egress).
+    const { FailingWebSocket } = makeFailingWebSocket("undici");
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "ws://127.0.0.1:45999/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      connectTimeoutMs: 1_500,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect((err as Error).message).toMatch(/refused the connection/);
+    expect((err as Error).message).toMatch(/ECONNREFUSED/);
+  }, 10_000);
+
+  it("does not fail a gateway that is merely still booting", async () => {
+    // The first connect attempt fails; the second succeeds — the boot race a
+    // fail-on-first-error rule would turn into a permanent activation failure
+    // (the manager does not retry activation).
+    const { FailingWebSocket, instances } = makeFailingWebSocket("undici", {
+      openAfter: 2,
+    });
+    const { fetchImpl } = makeFailingFetch(
+      fetchFailure("ECONNREFUSED", "connect ECONNREFUSED 127.0.0.1:4001"),
+    );
+
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 2_000,
+    });
+
+    expect(instances.length).toBeGreaterThanOrEqual(2);
+    session.disconnect();
+  });
+
+  it("issues no diagnostic request at all when the connect succeeds", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("ok");
+    const { fetchImpl, urls } = makeFailingFetch(
+      new Error("must not be called"),
+    );
+
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FakeWebSocket,
+      diagnosticFetch: fetchImpl,
+    });
+
+    expect(urls).toEqual([]);
+    session.disconnect();
+  });
+
+  it("disarms the connect deadline once connected — a later drop is a reconnect, not an unreachable host", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FakeWebSocket,
+      connectTimeoutMs: 30,
+    });
+
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((s) => states.push(s));
+
+    // Drop AFTER a successful connect, then wait past the (already elapsed)
+    // connect deadline: the session must treat this as a reconnect episode and
+    // must not tear itself down as "never connected".
+    instances[0]!.onclose?.();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    expect(states).toContain("reconnecting");
+    await waitUntil(() => states.includes("online"));
+    expect(states[states.length - 1]).toBe("online");
+
+    session.disconnect();
+  });
+});
+
+describe("connection-health detail (OSS-670)", () => {
+  it("reports the drop cause alongside reconnecting/gave_up", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+      reconnectGiveUpMs: 40,
+    });
+
+    const seen: {
+      state: RealtimeGatewayConnectionState;
+      detail?: { reason?: string; code?: string };
+    }[] = [];
+    session.onStateChange((state, detail) => seen.push({ state, detail }));
+
+    // A transport error with an OS code, then the drop it belongs to.
+    instances[0]!.onerror?.(
+      Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }),
+    );
+    instances[0]!.onclose?.();
+    await waitUntil(() => seen.some((s) => s.state === "gave_up"));
+
+    const gaveUp = seen.find((s) => s.state === "gave_up")!;
+    expect(gaveUp.detail?.code).toBe("ECONNRESET");
+    expect(gaveUp.detail?.reason).toContain("ECONNRESET");
+
+    session.disconnect();
+  });
+
+  it("does not attribute a later outage to the previous one's cause", async () => {
+    const { FakeWebSocket, instances, control } = makeFakeWebSocket(
+      "give-up-then-recover",
+    );
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+      reconnectGiveUpMs: 40,
+      timeoutMs: 50,
+    });
+
+    const seen: {
+      state: RealtimeGatewayConnectionState;
+      detail?: { reason?: string; code?: string };
+    }[] = [];
+    session.onStateChange((state, detail) => seen.push({ state, detail }));
+
+    // Outage 1 reports a concrete OS code, then heals.
+    instances[0]!.onerror?.(
+      Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }),
+    );
+    instances[0]!.onclose?.();
+    control.recover = true;
+    await waitUntil(() => seen.some((s) => s.state === "online"), 8000);
+
+    // Outage 2 is a clean close that reports NOTHING. Inheriting outage 1's
+    // cause would send an operator chasing an error that already healed.
+    const afterOnline = seen.length;
+    instances[instances.length - 1]!.onclose?.();
+    await waitUntil(
+      () => seen.slice(afterOnline).some((s) => s.state === "reconnecting"),
+      8000,
+    );
+
+    const second = seen
+      .slice(afterOnline)
+      .find((s) => s.state === "reconnecting")!;
+    expect(second.detail?.code).toBeUndefined();
+    expect(second.detail?.reason ?? "").not.toContain("ECONNRESET");
+
+    session.disconnect();
+  });
+
+  it("reports an unhealthy gateway as unhealthy, not as a bad credential", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+      reconnectGiveUpMs: 40,
+      // A gateway mid-rolling-restart: reachable, answering 503. Telling an
+      // operator to rotate a working API key here is worse than saying nothing.
+      diagnosticFetch: (async () =>
+        new Response("", { status: 503 })) as unknown as typeof fetch,
+    });
+
+    const seen: { reason?: string }[] = [];
+    session.onStateChange((_state, detail) => seen.push({ ...detail }));
+
+    instances[0]!.onerror?.(new Error("Received network error"));
+    instances[0]!.onclose?.();
+    await waitUntil(() => seen.some((s) => s.reason?.includes("503")));
+
+    const named = seen.find((s) => s.reason?.includes("503"))!;
+    expect(named.reason).toMatch(/reachable but not healthy/i);
+    expect(named.reason).not.toMatch(/API key/i);
+
+    session.disconnect();
+  });
+
+  it("probes the endpoint when a reconnect is refused and names the cause", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+      reconnectGiveUpMs: 40,
+      // The host is up and answers HTTP; only the WS upgrade is refused — the
+      // signature of a rejected project API key.
+      diagnosticFetch: (async () =>
+        new Response("", { status: 403 })) as unknown as typeof fetch,
+    });
+
+    const seen: {
+      state: RealtimeGatewayConnectionState;
+      detail?: { reason?: string; code?: string };
+    }[] = [];
+    session.onStateChange((state, detail) => seen.push({ state, detail }));
+
+    instances[0]!.onerror?.(new Error("Received network error"));
+    instances[0]!.onclose?.();
+    await waitUntil(() =>
+      seen.some((s) => s.detail?.reason?.includes("handshake was refused")),
+    );
+
+    const named = seen.find((s) =>
+      s.detail?.reason?.includes("handshake was refused"),
+    )!;
+    expect(named.detail!.reason).toContain("403");
+    expect(named.detail!.reason).toMatch(/API key/i);
+
+    session.disconnect();
+  });
+});
+
+describe("connectRealtimeGateway provider states", () => {
+  it("exposes the provider states the gateway reported on the control join reply", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("ok", undefined, {
+      protocol: "channel_delivery_v1",
+      runtimeInstanceId: "rti_1",
+      channels: { opentag: "not_attached" },
+    });
+
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FakeWebSocket,
+    });
+
+    // Proves the whole wiring: the reply argument is captured off the join hook
+    // (it used to be discarded) and surfaced through the session.
+    expect(session.providerStates()).toEqual({ opentag: "not_attached" });
+
+    session.disconnect();
+  });
+
+  it("reports undefined when the gateway sends no channels map", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("ok");
+
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FakeWebSocket,
+    });
+
+    // An older gateway omits the key; this must stay "not reported" so callers
+    // fall back to transport-only status.
+    expect(session.providerStates()).toBeUndefined();
+
+    session.disconnect();
+  });
+
+  // The load-bearing test for the "getter, not a snapshot" design. The claim it
+  // defends is that Phoenix's `Push.resend` (used by `channel.rejoin`) resets the
+  // received response but PRESERVES `recHooks`, so the join-push "ok" hook
+  // re-fires on every auto-rejoin and refreshes `controlJoinReply`. Without it,
+  // `providerStates` could be a captured snapshot — or `Push.resend` could stop
+  // preserving hooks upstream — and every other test in this area would still
+  // pass while a Channel provisioned during a disconnect stayed
+  // `setup_required` forever.
+  //
+  // Note this asserts the SESSION's value actually changes across a reconnect,
+  // which is distinct from (and not implied by) the manager re-reading the getter
+  // on each `status()` call.
+  it("refreshes provider states from the rejoin reply after a transport drop", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket(
+      "ok",
+      undefined,
+      (joinCount) => ({
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: {
+          opentag: joinCount === 1 ? "not_attached" : "attached",
+        },
+      }),
+    );
+
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FakeWebSocket,
+    });
+
+    expect(session.providerStates()).toEqual({ opentag: "not_attached" });
+
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((s) => states.push(s));
+
+    // Full transport drop: Phoenix reconnects on a FRESH socket and rejoins.
+    instances[0]!.onclose?.();
+    expect(states).toContain("reconnecting");
+    await waitUntil(() => states.includes("online"), 8000);
+    // Prove the reconnect really used a new socket, so this covers a genuinely
+    // different path from the channel-error case above.
+    expect(instances.length).toBeGreaterThan(1);
+
+    expect(session.providerStates()).toEqual({ opentag: "attached" });
+
+    session.disconnect();
   });
 });

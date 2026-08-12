@@ -1,9 +1,11 @@
 import type { IncomingReaction } from "@copilotkit/channels-core";
+import type { ProviderActor } from "@copilotkit/channels-ui";
 import type { IncomingTurn, ReplyTarget } from "./types.js";
 import { decodeReaction } from "./interaction.js";
 import type { PendingInteractions } from "./pending-interactions.js";
 
 interface MessageLike {
+  id: string;
   author: {
     id: string;
     bot?: boolean;
@@ -50,7 +52,8 @@ export interface IncomingCommandRaw {
   rawOptions: Record<string, unknown>;
   conversationKey: string;
   replyTarget: ReplyTarget;
-  senderUserId: string;
+  actor: ProviderActor;
+  raw: unknown;
   /** Pending-interaction triggerId (the live interaction id) — backs `openModal`. */
   triggerId?: string;
 }
@@ -91,9 +94,17 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
     void Promise.resolve(
       onTurn({
         conversationKey: msg.channelId,
+        messageId: msg.id,
+        mentioned: msg.mentions.has(botId),
         replyTarget,
         userText: stripMention(msg.content, botId),
-        senderUserId: msg.author.id,
+        actor: {
+          id: msg.author.id,
+          kind: msg.author.bot ? "bot" : "human",
+          name: msg.author.globalName ?? msg.author.username,
+          handle: msg.author.username,
+        },
+        raw: msg,
       }),
     ).catch((e) => console.error("[bot-discord] onTurn handler failed:", e));
   });
@@ -120,7 +131,13 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
         rawOptions,
         conversationKey: i.channelId,
         replyTarget,
-        senderUserId: i.user.id,
+        actor: {
+          id: i.user.id,
+          kind: "human",
+          name: i.user.globalName ?? i.user.username,
+          handle: i.user.username,
+        },
+        raw: i,
         triggerId,
       });
     } catch (e) {

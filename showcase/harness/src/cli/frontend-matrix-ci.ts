@@ -13,6 +13,7 @@ import {
 } from "../probes/frontend-matrix-ci.js";
 import type { FrontendMatrixAggregateReport } from "../probes/frontend-matrix-ci.js";
 import {
+  evaluateCurrentFrontendParity,
   evaluateFrontendParity,
   frontendParityCellsFromAggregate,
 } from "../probes/frontend-parity-gate.js";
@@ -30,6 +31,7 @@ import {
   buildMeasuredShardPlan,
   createFrontendMatrixArtifact,
   executeFrontendMatrixShard,
+  mergeFrontendMatrixShardArtifacts,
 } from "../probes/frontend-matrix-runner.js";
 import type {
   FrontendMatrixArtifact,
@@ -274,9 +276,17 @@ function createProgram(): Command {
     .option("--concurrency <n>", "parallel isolated cells", positiveInteger, 4)
     .action(async (options) => {
       const shardIndex = Number(options.shardIndex);
-      const matrix = await loadMatrix(options.catalog, options);
+      const matrix = await loadMatrix(options.catalog, {
+        integration: options.integration,
+        features: options.features,
+      });
       const plan = await readJson<MeasuredShardPlan>(options.plan);
-      const cells = selectFrontendMatrixShard(matrix, plan, shardIndex);
+      const plannedCells = selectFrontendMatrixShard(matrix, plan, shardIndex);
+      const cells = options.frontend
+        ? plannedCells.filter(
+            (cell) => cell.frontend === (options.frontend as RunnableFrontend),
+          )
+        : plannedCells;
       const integrationBaseUrl = new URL(
         options.integrationBaseUrl,
       ).href.replace(/\/$/, "");
@@ -326,6 +336,29 @@ function createProgram(): Command {
     });
 
   program
+    .command("merge-shard")
+    .description(
+      "Merge independently executed frontend phases for one logical shard",
+    )
+    .requiredOption(
+      "--inputs <files>",
+      "comma-separated frontend phase artifacts",
+      commaSeparatedValues,
+    )
+    .requiredOption("--output <file>")
+    .action(async (options) => {
+      const artifacts = await Promise.all(
+        (options.inputs as string[]).map((file) =>
+          readJson<FrontendMatrixArtifact>(file),
+        ),
+      );
+      await writeJson(
+        options.output,
+        mergeFrontendMatrixShardArtifacts(artifacts),
+      );
+    });
+
+  program
     .command("aggregate")
     .requiredOption("--artifacts <directory>")
     .requiredOption("--output <file>")
@@ -353,6 +386,39 @@ function createProgram(): Command {
       if (report.summary.p95ShardWallTimeMs > P95_WALL_TIME_LIMIT_MS) {
         process.exitCode = 1;
       }
+    });
+
+  program
+    .command("pair")
+    .description("Compare React and Angular at one exact source revision")
+    .requiredOption("--pull-request <file>", "verified aggregate report")
+    .requiredOption("--output <file>")
+    .option("--integration <slug>", "limit comparison to one integration")
+    .option(
+      "--features <slugs>",
+      "limit comparison to comma-separated feature slugs",
+      commaSeparatedValues,
+    )
+    .action(async (options) => {
+      const pullRequest = await readJson<FrontendMatrixAggregateReport>(
+        options.pullRequest,
+      );
+      const cells = scopeByIntegrationAndFeature(
+        frontendParityCellsFromAggregate(pullRequest),
+        {
+          integration: options.integration,
+          features: options.features,
+        },
+      );
+      const report = evaluateCurrentFrontendParity({
+        sourceCommit: pullRequest.sourceCommit,
+        cells,
+      });
+      await writeJson(options.output, report);
+      console.log(
+        `Classified ${report.comparisons.length} current-revision frontend pairs; ${report.passed ? "no Angular regressions" : "blocking Angular regressions found"}.`,
+      );
+      if (!report.passed) process.exitCode = 1;
     });
 
   program

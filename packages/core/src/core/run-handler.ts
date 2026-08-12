@@ -13,6 +13,7 @@ import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
+import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
@@ -79,6 +80,19 @@ interface ExecuteToolHandlerResult {
 }
 
 /**
+ * A registered A2UI catalog component, as exposed to the inspector via
+ * `CopilotKitCore.catalogComponents`. `schema` is an opaque JSON-schema-ish
+ * value (the built catalog's Zod schema or a serialized form); the inspector
+ * treats it as unknown. `description` is optional because the built
+ * `ComponentApi` does not carry descriptions.
+ */
+export interface CopilotKitCoreCatalogComponent {
+  name: string;
+  description?: string;
+  schema: unknown;
+}
+
+/**
  * Absolute safety cap on the depth of recursive follow-up runs triggered by
  * `processAgentResult`. Without this, any scenario that keeps
  * `needsFollowUp = true` (e.g. the LLM repeatedly calling the same tool, a
@@ -99,6 +113,27 @@ const MAX_FOLLOW_UP_DEPTH = 100;
 export class RunHandler {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _tools: FrontendTool<any>[] = [];
+
+  /**
+   * The full list of A2UI catalog components registered by the provider.
+   * Order is preserved for display in the inspector.
+   */
+  private _catalogComponents: CopilotKitCoreCatalogComponent[] = [];
+
+  /**
+   * Names of catalog components the caller has explicitly disabled. A name
+   * absent from this set is enabled (default). Survives re-registration so a
+   * catalog identity change does not silently re-enable a disabled component.
+   */
+  private _disabledCatalogComponents: Set<string> = new Set();
+
+  /**
+   * Keys of frontend tools explicitly disabled at runtime via the Inspector's
+   * Capabilities tool (`setToolEnabled`). Kept independently of each tool's own
+   * `available` flag so a hook re-registering the tool (which resets
+   * `available`) does not clobber the override. Key = `capabilityKey(name, agentId)`.
+   */
+  private _disabledToolKeys = new Set<string>();
 
   /**
    * Tracks whether the current run (including in-flight tool execution)
@@ -254,6 +289,39 @@ export class RunHandler {
   }
 
   /**
+   * Return the registered A2UI catalog components (readonly).
+   */
+  get catalogComponents(): ReadonlyArray<CopilotKitCoreCatalogComponent> {
+    return this._catalogComponents;
+  }
+
+  /**
+   * Replace the registered catalog component list. Preserves the disabled set
+   * (by name) so re-registration does not re-enable disabled components.
+   */
+  setCatalogComponents(components: CopilotKitCoreCatalogComponent[]): void {
+    this._catalogComponents = [...components];
+  }
+
+  /**
+   * Enable or disable a catalog component by name.
+   */
+  setCatalogComponentEnabled(name: string, enabled: boolean): void {
+    if (enabled) {
+      this._disabledCatalogComponents.delete(name);
+    } else {
+      this._disabledCatalogComponents.add(name);
+    }
+  }
+
+  /**
+   * Whether a catalog component is enabled. Unknown names default to enabled.
+   */
+  isCatalogComponentEnabled(name: string): boolean {
+    return !this._disabledCatalogComponents.has(name);
+  }
+
+  /**
    * Connect an agent (establish initial connection)
    */
   async connectAgent({
@@ -353,12 +421,10 @@ export class RunHandler {
   /**
    * Run an agent
    */
-  async runAgent({
-    agent,
-    forwardedProps,
-    resume,
-    runId,
-  }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
+  async runAgent(
+    { agent, forwardedProps, resume, runId }: CopilotKitCoreRunAgentParams,
+    continuationHandoff?: CopilotKitCoreContinuationHandoff,
+  ): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
@@ -383,7 +449,12 @@ export class RunHandler {
     // (ConnectNotImplementedError → EMPTY) always runs the finalize block,
     // so the completion promise now resolves reliably.
     if (agent.detachActiveRun) {
-      await agent.detachActiveRun();
+      try {
+        await agent.detachActiveRun();
+      } catch (error) {
+        continuationHandoff?.cancel();
+        throw error;
+      }
     }
 
     // Set up abort controller and agent.abortRun() intercept only for the
@@ -423,21 +494,62 @@ export class RunHandler {
     this._runDepth++;
 
     try {
-      const runAgentResult = await agent.runAgent(
-        {
-          forwardedProps: {
-            ...this._internal.properties,
-            ...forwardedProps,
-          },
-          ...(resume !== undefined ? { resume } : {}),
-          ...(runId !== undefined ? { runId } : {}),
-          tools: this.buildFrontendTools(agent.agentId),
-          context: this._internal.getContextForAgent(agent.agentId),
+      let logicalRunId = runId;
+      const agentSubscriber = this.createAgentErrorSubscriber(agent);
+      let started = false;
+      const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
+      const onRunInitialized = agentSubscriber.onRunInitialized;
+      agentSubscriber.onRunInitialized = async (params) => {
+        continuationHandoff?.bind(params.input);
+        return onRunInitialized?.(params);
+      };
+      agentSubscriber.onRunStartedEvent = async (params) => {
+        started = true;
+        // A continuation keeps reporting under the run it continues; only an
+        // ordinary run adopts the id the transport assigned it.
+        if (!continuationHandoff) {
+          logicalRunId = params.input.runId;
+        }
+        return onRunStartedEvent?.(params);
+      };
+      // An internal continuation (a human-in-the-loop tool resolved and this is
+      // the recursive follow-up) deliberately does NOT pin the originating run
+      // id on the wire. Pinning it made the transport treat the follow-up as a
+      // resumption of a run it had already completed: it re-delivered that
+      // run's applied half — duplicating every tool call already on the
+      // message, each duplicate carrying empty arguments — and the follow-up's
+      // own tool call never reached client state, so its card never rendered.
+      //
+      // One logical run is still what everything downstream sees: the state
+      // manager re-stamps the continuation's events onto `runId` (passed to
+      // markNextRunAsContinuation), and `logicalRunId` below keeps the result
+      // reported under it. So external tracing still gets a single run without
+      // the wire having to lie about which invocation this is.
+      const pinRunIdOnWire = runId !== undefined && !continuationHandoff;
+      const agentRunInput = {
+        forwardedProps: {
+          ...this._internal.properties,
+          ...forwardedProps,
         },
-        this.createAgentErrorSubscriber(agent),
+        ...(resume !== undefined ? { resume } : {}),
+        ...(pinRunIdOnWire ? { runId } : {}),
+        tools: this.buildFrontendTools(agent.agentId),
+        context: this._internal.getContextForAgent(agent.agentId),
+      };
+      const runAgentResult = await agent.runAgent(
+        agentRunInput,
+        agentSubscriber,
       );
-      return await this.processAgentResult({ runAgentResult, agent });
+      if (!started) {
+        continuationHandoff?.cancel();
+      }
+      return await this.processAgentResult({
+        runAgentResult,
+        agent,
+        runId: logicalRunId,
+      });
     } catch (error) {
+      continuationHandoff?.cancel();
       const runError =
         error instanceof Error ? error : new Error(String(error));
       const context: Record<string, any> = {};
@@ -466,10 +578,12 @@ export class RunHandler {
   private async processAgentResult({
     runAgentResult,
     agent,
+    runId,
     executeFrontendTools = true,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
+    runId?: string;
     executeFrontendTools?: boolean;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
@@ -578,7 +692,15 @@ export class RunHandler {
         // complete and write fresh values into the context store before runAgent
         // reads it. The base implementation is a no-op; React overrides this.
         await this._internal.waitForPendingFrameworkUpdates();
-        return await this.runAgent({ agent });
+        const continuationHandoff =
+          this._internal.stateManager.markNextRunAsContinuation(agent, runId);
+        return await this.runAgent(
+          {
+            agent,
+            ...(runId !== undefined ? { runId } : {}),
+          },
+          continuationHandoff,
+        );
       }
     }
 
@@ -1083,6 +1205,31 @@ export class RunHandler {
     };
   }
 
+  /** Stable identity for a tool override: agent-scope + name (NUL-separated). */
+  private capabilityKey(name: string, agentId?: string): string {
+    return `${agentId ?? ""}\u0000${name}`;
+  }
+
+  /**
+   * Enable/disable a registered frontend tool at runtime without unregistering
+   * it. A disabled tool is omitted from {@link buildFrontendTools}, so the agent
+   * never receives it. Unlike the per-tool `available` flag, this override
+   * survives the tool being re-registered.
+   */
+  setToolEnabled(name: string, enabled: boolean, agentId?: string): void {
+    const key = this.capabilityKey(name, agentId);
+    if (enabled) {
+      this._disabledToolKeys.delete(key);
+    } else {
+      this._disabledToolKeys.add(key);
+    }
+  }
+
+  /** Whether a tool is currently enabled (not overridden off). Defaults true. */
+  isToolEnabled(name: string, agentId?: string): boolean {
+    return !this._disabledToolKeys.has(this.capabilityKey(name, agentId));
+  }
+
   /**
    * Build frontend tools for an agent
    */
@@ -1092,7 +1239,8 @@ export class RunHandler {
         (tool) =>
           tool.available !== false &&
           (tool.available as boolean | string | undefined) !== "disabled" &&
-          (!tool.agentId || tool.agentId === agentId),
+          (!tool.agentId || tool.agentId === agentId) &&
+          this.isToolEnabled(tool.name, tool.agentId),
       )
       .map((tool) => ({
         name: tool.name,

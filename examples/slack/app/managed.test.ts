@@ -4,10 +4,12 @@ const fakes = vi.hoisted(() => {
   const stop = vi.fn(async () => {
     throw new Error("stop failed");
   });
-  // The Node listener is a callable object carrying `.channels` (the shutdown
-  // surface), mirroring the real `createCopilotNodeListener` return.
-  const listener = Object.assign(vi.fn(), { channels: { stop } });
+  const ready = vi.fn(async () => {});
+  // The Node listener is a callable object carrying `.channels` (the activation
+  // + shutdown surface), mirroring the real `createCopilotNodeListener` return.
+  const listener = Object.assign(vi.fn(), { channels: { ready, stop } });
   return {
+    ready,
     stop,
     listener,
     createCopilotNodeListener: vi.fn(() => listener),
@@ -35,11 +37,11 @@ const fakes = vi.hoisted(() => {
 vi.mock("node:http", () => ({ createServer: fakes.createServer }));
 vi.mock("@copilotkit/channels", () => ({
   createChannel: vi.fn(() => fakes.bot),
+  HttpAgent: function HttpAgent() {},
 }));
 vi.mock("@copilotkit/channels/slack", () => ({
   defaultSlackTools: [],
   defaultSlackContext: [],
-  SanitizingHttpAgent: function SanitizingHttpAgent() {},
 }));
 vi.mock("@copilotkit/runtime/v2", () => ({
   CopilotRuntime: fakes.CopilotRuntime,
@@ -80,8 +82,11 @@ describe("managed channel entrypoint", () => {
   it("mounts the normal handler over a channels-carrying runtime and stops channels on shutdown", async () => {
     for (const key of envKeys) previousEnv.set(key, process.env[key]);
     process.env.AGENT_URL = "http://agent.test/run";
+    // Overrides the managed-platform defaults to point at a local stack. Both
+    // are set together, and deliberately at a different host+port: the realtime
+    // plane is deployed separately, so there is no derive from apiUrl.
     process.env.COPILOTKIT_INTELLIGENCE_URL = "http://localhost:4201";
-    delete process.env.COPILOTKIT_INTELLIGENCE_WS_URL;
+    process.env.COPILOTKIT_INTELLIGENCE_WS_URL = "ws://localhost:4401";
     process.env.COPILOTKIT_API_KEY = "cpk-test";
 
     let sigterm: (() => void) | undefined;
@@ -108,6 +113,12 @@ describe("managed channel entrypoint", () => {
     expect(fakes.runtimeOptions).toEqual(
       expect.objectContaining({ channels: [fakes.bot] }),
     );
+
+    // Activation is what connects the Channel to the Realtime Gateway, and
+    // mounting the listener does not do it. Regression guard: this example
+    // shipped without the call and so connected nothing (OSS-646).
+    expect(fakes.ready).toHaveBeenCalledOnce();
+    expect(fakes.ready).toHaveBeenCalledWith({ timeoutMs: 30_000 });
 
     // Shutdown stops the managed Channel via listener.channels.stop().
     sigterm!();

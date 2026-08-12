@@ -14,10 +14,11 @@ import type {
   ReplyTarget as BotReplyTarget,
   ConversationStore,
   MessageRef,
-  PlatformUser,
+  ProviderActor,
   UserQuery,
   CommandSpec,
   NativePayload,
+  IngressIdentityContext,
 } from "@copilotkit/channels-core";
 import type {
   ChannelNode,
@@ -131,7 +132,7 @@ export class DiscordAdapter implements PlatformAdapter {
   private botUserId = "";
   private isReady = false;
   private pendingCommands: readonly CommandSpec[] = [];
-  private readonly userCache = new Map<string, PlatformUser>();
+  private readonly userCache = new Map<string, ProviderActor>();
   /**
    * Tracks live component interactions so a handler can open a modal (which
    * must be the interaction's INITIAL response, within ~3s) before the adapter
@@ -229,25 +230,40 @@ export class DiscordAdapter implements PlatformAdapter {
         // the bridge passes context only; no per-turn content-part building.
         await sink.onTurn({
           conversationKey: turn.conversationKey,
+          operation: {
+            kind: "created",
+            logicalMessageId: turn.messageId,
+            revisionId: turn.messageId,
+            mentioned: turn.mentioned,
+          },
           replyTarget: turn.replyTarget,
           userText: turn.userText,
-          user: turn.senderUserId
-            ? await this.resolveUser(turn.senderUserId)
-            : undefined,
+          actor: turn.actor,
+          identityContext: this.identityContext({
+            actor: turn.actor,
+            target: turn.replyTarget,
+            trigger: "message",
+            eventId: turn.messageId,
+            raw: turn.raw,
+          }),
           platform: "discord",
         });
       },
       onCommand: async (cmd) => {
-        const user = cmd.senderUserId
-          ? await this.resolveUser(cmd.senderUserId)
-          : undefined;
         await sink.onCommand({
           command: cmd.command,
           text: cmd.text,
           rawOptions: cmd.rawOptions,
           conversationKey: cmd.conversationKey,
           replyTarget: cmd.replyTarget,
-          user,
+          actor: cmd.actor,
+          identityContext: this.identityContext({
+            actor: cmd.actor,
+            target: cmd.replyTarget,
+            trigger: "command",
+            eventId: cmd.triggerId,
+            raw: cmd.raw,
+          }),
           platform: "discord",
           triggerId: cmd.triggerId,
         });
@@ -405,7 +421,7 @@ export class DiscordAdapter implements PlatformAdapter {
     return decodeInteraction(raw);
   }
 
-  async lookupUser(q: UserQuery): Promise<PlatformUser | undefined> {
+  async lookupUser(q: UserQuery): Promise<ProviderActor | undefined> {
     const query = q.query.trim();
     if (!query) return undefined;
     // Search guild members by username/displayName across cached guilds.
@@ -417,6 +433,7 @@ export class DiscordAdapter implements PlatformAdapter {
           const user = member.user;
           return {
             id: user.id,
+            kind: user.bot ? "bot" : "human",
             name: user.globalName ?? user.username,
             handle: user.username,
           };
@@ -463,6 +480,7 @@ export class DiscordAdapter implements PlatformAdapter {
             user: m.author
               ? {
                   id: m.author.id,
+                  kind: m.author.bot ? "bot" : "human",
                   name: m.author.globalName ?? m.author.username,
                   handle: m.author.username,
                 }
@@ -550,7 +568,7 @@ export class DiscordAdapter implements PlatformAdapter {
 
   async postEphemeral(
     _target: BotReplyTarget,
-    user: PlatformUser | string,
+    user: ProviderActor | string,
     ir: ChannelNode[],
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
@@ -615,25 +633,48 @@ export class DiscordAdapter implements PlatformAdapter {
         };
   }
 
-  async resolveUser(userId: string): Promise<PlatformUser> {
+  async resolveUser(userId: string): Promise<ProviderActor> {
     const cached = this.userCache.get(userId);
     if (cached) return cached;
     try {
       const u = await this.client.users.fetch(userId);
-      const user: PlatformUser = {
+      const user: ProviderActor = {
         id: u.id,
+        kind: u.bot ? "bot" : "human",
         name: u.globalName ?? u.username,
         handle: u.username,
       };
-      // Note: bots cannot read user email; PlatformUser.email stays undefined.
+      // Note: bots cannot read user email; ProviderActor.email stays undefined.
       // Cache ONLY on success — a transient fetch failure must not pin the
       // bare-id fallback forever; a later call should retry.
       this.userCache.set(userId, user);
       return user;
     } catch (err) {
       console.error(`[bot-discord] resolveUser fetch failed (${userId}):`, err);
-      return { id: userId }; // bare-id fallback, intentionally not cached
+      return { id: userId, kind: "unknown" }; // bare-id fallback, intentionally not cached
     }
+  }
+
+  private identityContext(input: {
+    actor: ProviderActor;
+    target: ReplyTarget;
+    trigger: string;
+    eventId?: string;
+    raw: unknown;
+  }): IngressIdentityContext {
+    const tenantId = input.target.guildId ?? "direct";
+    return {
+      tenant: { id: tenantId },
+      installation: { id: this.opts.appId },
+      conversation: {
+        id: input.target.channelId,
+        kind: input.target.guildId ? "guild" : "direct",
+      },
+      trigger: input.trigger,
+      event: { id: input.eventId },
+      raw: input.raw,
+      lookupProfile: () => this.resolveUser(input.actor.id),
+    };
   }
 
   private channelIdOf(ref: MessageRef): string {

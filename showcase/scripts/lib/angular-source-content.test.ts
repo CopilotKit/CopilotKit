@@ -33,4 +33,61 @@ describe("Angular source content", () => {
     );
     expect(JSON.stringify(content)).not.toMatch(/hashbrown/i);
   });
+
+  it("extracts named documentation regions without exposing marker comments", () => {
+    const content = buildAngularSourceContent(showcaseRoot);
+
+    expect(content.regions["frontend-tool-registration"]).toEqual(
+      expect.objectContaining({
+        file: "features/tools/tool-feature-model.ts",
+        language: "typescript",
+      }),
+    );
+    expect(content.regions["frontend-tool-registration"]?.content).toContain(
+      'name: "change_background"',
+    );
+    expect(content.regions["agent-config-context"]).toEqual(
+      expect.objectContaining({
+        file: "features/app-settings/app-settings-feature.component.ts",
+        language: "typescript",
+      }),
+    );
+    expect(content.regions["agent-config-context"]?.content).toContain(
+      "connectAgentContext(this.configContext)",
+    );
+    expect(content.regions["subagent-delegation-state"]).toEqual(
+      expect.objectContaining({
+        file: "features/agent-state/agent-state-feature.component.ts",
+        language: "typescript",
+      }),
+    );
+    expect(content.regions["subagent-delegation-state"]?.content).toContain(
+      "readDelegations(this.agentStore().state())",
+    );
+    expect(content.regions["voice-tool-renderers"]).toEqual(
+      expect.objectContaining({
+        file: "features/media/media-feature.component.ts",
+        language: "typescript",
+      }),
+    );
+    expect(content.regions["multimodal-message"]?.content).toContain(
+      'type: spec.mimeType === "application/pdf" ? "document" : "image"',
+    );
+    expect(content.regions["a2ui-schema-and-recovery"]?.content).toContain(
+      "recovery: { showAfterMs: 2_000, showAfterAttempts: 2 }",
+    );
+    expect(content.regions["a2ui-fixed-schema"]?.content).toContain(
+      "props: z.object",
+    );
+    expect(content.regions["a2ui-styling"]).toEqual(
+      expect.objectContaining({
+        file: "styles.css",
+        language: "css",
+      }),
+    );
+    expect(content.regions["a2ui-styling"]?.content).toContain(
+      ".a2ui-status-success",
+    );
+    expect(JSON.stringify(content.files)).not.toContain("@region[");
+  });
 });

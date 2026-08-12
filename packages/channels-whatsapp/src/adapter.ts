@@ -10,7 +10,7 @@ import type {
 import type {
   ChannelNode,
   MessageRef,
-  PlatformUser,
+  ProviderActor,
   ThreadMessage,
   PostFileResult,
 } from "@copilotkit/channels-ui";
@@ -100,6 +100,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
           sink: this.sink,
           history: this.history,
           phoneNumberId: this.opts.phoneNumberId,
+          tenantId: entry.id,
           commandPrefix: this.commandPrefix,
           client: this.client,
           files: this.opts.files ?? {},
@@ -163,7 +164,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
     return decodeInteraction(r.message, r.replyTarget);
   }
 
-  async lookupUser(_q: UserQuery): Promise<PlatformUser | undefined> {
+  async lookupUser(_q: UserQuery): Promise<ProviderActor | undefined> {
     return undefined; // WhatsApp exposes no user directory.
   }
 

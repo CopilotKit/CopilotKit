@@ -9,6 +9,7 @@ import type {
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+  InspectorMetadataV1,
   ThreadEndpointRuntimeInfo,
 } from "../types";
 import type {
@@ -26,10 +27,12 @@ import type {
   CopilotKitCoreGetToolParams,
   CopilotKitCoreRunToolParams,
   CopilotKitCoreRunToolResult,
+  CopilotKitCoreCatalogComponent,
 } from "./run-handler";
 import { RunHandler } from "./run-handler";
 import type { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
+import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
@@ -81,6 +84,7 @@ export type {
   CopilotKitCoreGetToolParams,
   CopilotKitCoreRunToolParams,
   CopilotKitCoreRunToolResult,
+  CopilotKitCoreCatalogComponent,
 };
 
 export interface CopilotKitCoreStopAgentParams {
@@ -166,6 +170,15 @@ export interface CopilotKitCoreSubscriber {
     copilotkit: CopilotKitCore;
     context: Readonly<Record<string, Context>>;
   }) => void | Promise<void>;
+  /**
+   * Fired when the A2UI catalog component list changes (registration) or when
+   * a component is enabled/disabled. Consumers (the provider, the inspector)
+   * re-derive the filtered catalog from this event.
+   */
+  onCatalogComponentsChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    catalogComponents: ReadonlyArray<CopilotKitCoreCatalogComponent>;
+  }) => void | Promise<void>;
   onSuggestionsConfigChanged?: (event: {
     copilotkit: CopilotKitCore;
     suggestionsConfig: Readonly<Record<string, SuggestionsConfig>>;
@@ -190,6 +203,10 @@ export interface CopilotKitCoreSubscriber {
   onHeadersChanged?: (event: {
     copilotkit: CopilotKitCore;
     headers: Readonly<Record<string, string>>;
+  }) => void | Promise<void>;
+  onInspectorMetadataChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    inspectorMetadata: InspectorMetadataV1 | undefined;
   }) => void | Promise<void>;
   onError?: (event: {
     copilotkit: CopilotKitCore;
@@ -354,6 +371,13 @@ export interface CopilotKitCoreFriendsAccess {
    * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
+
+  readonly stateManager: {
+    markNextRunAsContinuation(
+      agent: AbstractAgent,
+      expectedRunId?: string,
+    ): CopilotKitCoreContinuationHandoff;
+  };
 }
 
 /**
@@ -595,6 +619,10 @@ export class CopilotKitCore {
     return this.runHandler.tools;
   }
 
+  get catalogComponents(): ReadonlyArray<CopilotKitCoreCatalogComponent> {
+    return this.runHandler.catalogComponents;
+  }
+
   get runtimeUrl(): string | undefined {
     return this.agentRegistry.runtimeUrl;
   }
@@ -706,6 +734,16 @@ export class CopilotKitCore {
     return this.agentRegistry.suggestions;
   }
 
+  /** Trusted, optional metadata advertised by the connected runtime. */
+  get inspectorMetadata(): InspectorMetadataV1 | undefined {
+    return this.agentRegistry.inspectorMetadata;
+  }
+
+  /** Refresh trusted inspector metadata without reconnecting runtime agents. */
+  async refreshInspectorMetadata(): Promise<void> {
+    await this.agentRegistry.refreshInspectorMetadata();
+  }
+
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
   }
@@ -768,6 +806,7 @@ export class CopilotKitCore {
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+    this.agentRegistry.handleHeadersChanged();
     void this.notifySubscribers(
       (subscriber) =>
         subscriber.onHeadersChanged?.({
@@ -783,6 +822,7 @@ export class CopilotKitCore {
     this.agentRegistry.applyCredentialsToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+    this.agentRegistry.handleCredentialsChanged();
   }
 
   setProperties(properties: Record<string, unknown>): void {
@@ -994,6 +1034,53 @@ export class CopilotKitCore {
 
   setTools(tools: FrontendTool<any>[]): void {
     this.runHandler.setTools(tools);
+  }
+
+  /**
+   * Enable/disable a registered frontend tool at runtime without unregistering
+   * it (Inspector "Capabilities" tool). A disabled tool is omitted from the
+   * tool list sent to the agent on the next run. The override is keyed by name
+   * (+ optional agentId) and survives the tool being re-registered.
+   */
+  setToolEnabled(name: string, enabled: boolean, agentId?: string): void {
+    this.runHandler.setToolEnabled(name, enabled, agentId);
+  }
+
+  /** Whether a registered tool is currently enabled (defaults true). */
+  isToolEnabled(name: string, agentId?: string): boolean {
+    return this.runHandler.isToolEnabled(name, agentId);
+  }
+
+  /**
+   * A2UI catalog component management (delegated to RunHandler).
+   * Registers the full component list and controls per-component enablement.
+   */
+  setCatalogComponents(components: CopilotKitCoreCatalogComponent[]): void {
+    this.runHandler.setCatalogComponents(components);
+    void this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onCatalogComponentsChanged?.({
+          copilotkit: this,
+          catalogComponents: this.runHandler.catalogComponents,
+        }),
+      "Subscriber onCatalogComponentsChanged error:",
+    );
+  }
+
+  setCatalogComponentEnabled(name: string, enabled: boolean): void {
+    this.runHandler.setCatalogComponentEnabled(name, enabled);
+    void this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onCatalogComponentsChanged?.({
+          copilotkit: this,
+          catalogComponents: this.runHandler.catalogComponents,
+        }),
+      "Subscriber onCatalogComponentsChanged error:",
+    );
+  }
+
+  isCatalogComponentEnabled(name: string): boolean {
+    return this.runHandler.isCatalogComponentEnabled(name);
   }
 
   /**

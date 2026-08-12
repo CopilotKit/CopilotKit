@@ -38,7 +38,7 @@
       "id": "slack",
       "name": "Slack",
       "icon": "slack",
-      "summary": "Slack bot quickstart with streaming agent replies.",
+      "summary": "Production-ready managed Slack channel through CopilotKit Intelligence.",
       "runnable": false,
       "feature_support_required": false
     },
@@ -46,7 +46,7 @@
       "id": "teams",
       "name": "Teams",
       "icon": "teams",
-      "summary": "Microsoft Teams bot quickstart with the M365 Agents Playground.",
+      "summary": "Production-ready managed Teams channel through CopilotKit Intelligence.",
       "runnable": false,
       "feature_support_required": false
     }

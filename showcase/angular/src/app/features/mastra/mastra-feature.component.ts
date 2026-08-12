@@ -34,6 +34,7 @@ export class MastraFeatureComponent {
     (inject(ActivatedRoute).snapshot.data["feature"] as string | undefined) ??
     "unknown";
 
+  // region:mastra-activity-registration
   constructor() {
     switch (this.feature) {
       case "background-agents":
@@ -53,4 +54,5 @@ export class MastraFeatureComponent {
         break;
     }
   }
+  // endregion:mastra-activity-registration
 }

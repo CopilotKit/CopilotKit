@@ -13,6 +13,38 @@ export type Step = {
   status: "pending" | "in_progress" | "completed";
 };
 
+/**
+ * Derive what the card says from the STEP DATA, never from `status` alone.
+ *
+ * `status === "complete"` only means the run ended — it does not mean the agent
+ * finished its plan. Treating the two as equivalent made the card announce
+ * "All 3 steps complete" over a list whose last step still rendered as pending,
+ * which is how a truncated agent run (the loop budget cutting the walk short)
+ * read as a UI glitch rather than as the agent stopping early.
+ *
+ * Exported as a pure function so the wording is unit-testable without a DOM.
+ */
+export function describeProgress(
+  steps: Step[],
+  status: "inProgress" | "complete",
+): { headline: string; allDone: boolean; stalled: boolean } {
+  const total = steps.length;
+  const done = steps.filter((s) => s.status === "completed").length;
+  const allDone = total > 0 && done === total;
+  // Run over, plan unfinished — its own state, distinct from both "running" and
+  // "done". An empty plan is never "complete".
+  const stalled = status === "complete" && !allDone;
+  const headline =
+    total === 0
+      ? "Planning…"
+      : allDone
+        ? `All ${total} steps complete`
+        : stalled
+          ? `Stopped at step ${Math.min(done + 1, total)} of ${total}`
+          : `Step ${Math.min(done + 1, total)} of ${total}`;
+  return { headline, allDone, stalled };
+}
+
 export function InlineAgentStateCard({
   steps,
   status,
@@ -20,26 +52,20 @@ export function InlineAgentStateCard({
   steps: Step[];
   status: "inProgress" | "complete";
 }) {
-  const total = steps.length;
-  const done = steps.filter((s) => s.status === "completed").length;
-  const headline =
-    status === "complete" || (total > 0 && done === total)
-      ? `All ${total} steps complete`
-      : total > 0
-        ? `Step ${Math.min(done + 1, total)} of ${total}`
-        : "Planning…";
+  const { headline, allDone, stalled } = describeProgress(steps, status);
 
   return (
     <div
       data-testid="agent-state-card"
+      data-complete={allDone ? "true" : "false"}
+      data-stalled={stalled ? "true" : "false"}
       className="my-3 mx-4 rounded-2xl border border-[#DBDBE5] bg-white p-4 shadow-sm"
     >
       <div className="flex items-center gap-2">
-        {status === "inProgress" && done < total ? (
-          <SpinnerIcon />
-        ) : (
-          <CheckIcon />
-        )}
+        {/* A check mark asserts completion, so it is gated on the data too. A
+            stalled run gets neither icon: it is not running, and it is not
+            done. */}
+        {allDone ? <CheckIcon /> : stalled ? null : <SpinnerIcon />}
         <span className="text-sm font-semibold text-[#010507]">{headline}</span>
       </div>
 

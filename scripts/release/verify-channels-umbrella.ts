@@ -16,6 +16,10 @@ import {
   validatePackedManifests,
 } from "./lib/channels-umbrella.js";
 import type { PackedManifest } from "./lib/channels-umbrella.js";
+import {
+  packPackage,
+  workspaceDependencyClosure,
+} from "./lib/pack-workspace.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -53,70 +57,6 @@ function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, "utf8")) as T;
 }
 
-function packageDirectory(name: string): string {
-  return join(ROOT, "packages", name.replace("@copilotkit/", ""));
-}
-
-function tarballName(manifest: PackedManifest): string {
-  return `${manifest.name.replace(/^@/, "").replace("/", "-")}-${manifest.version}.tgz`;
-}
-
-function packPackage(
-  name: string,
-  tarballDir: string,
-): { manifest: PackedManifest; tarball: string } {
-  const cwd = packageDirectory(name);
-  const source = readJson<PackedManifest>(join(cwd, "package.json"));
-  capture("pnpm", ["pack", "--pack-destination", tarballDir], cwd);
-
-  const tarball = join(tarballDir, tarballName(source));
-  const manifest = JSON.parse(
-    capture("tar", ["-xOf", tarball, "package/package.json"]),
-  ) as PackedManifest;
-
-  return { manifest, tarball };
-}
-
-interface SourceManifest {
-  dependencies?: Record<string, string>;
-  peerDependencies?: Record<string, string>;
-}
-
-/**
- * The Channels family depends on monorepo-versioned packages (e.g.
- * `@copilotkit/core`, `@copilotkit/shared`) via the `workspace:` protocol.
- * `pnpm pack` rewrites those ranges to the workspace's current version — which,
- * on a release PR, is the freshly-bumped version that is not on the registry
- * until this very release publishes. Packing them locally too keeps the
- * consumer install hermetic instead of racing the registry against our own
- * in-flight release. Discovered transitively via `workspace:` so the list never
- * drifts as the family's internal dependencies change.
- */
-function workspaceSiblings(): string[] {
-  const seen = new Set<string>(FAMILY);
-  const siblings: string[] = [];
-  const queue: string[] = [...FAMILY];
-
-  while (queue.length) {
-    const name = queue.shift() as string;
-    const source = readJson<SourceManifest>(
-      join(packageDirectory(name), "package.json"),
-    );
-    for (const deps of [source.dependencies, source.peerDependencies]) {
-      for (const [dep, range] of Object.entries(deps ?? {})) {
-        if (!dep.startsWith("@copilotkit/")) continue;
-        if (!range.startsWith("workspace:")) continue;
-        if (seen.has(dep)) continue;
-        seen.add(dep);
-        siblings.push(dep);
-        queue.push(dep);
-      }
-    }
-  }
-
-  return siblings;
-}
-
 function packLocalFamily(tarballDir: string): {
   manifests: Map<string, PackedManifest>;
   tarballs: Map<string, string>;
@@ -132,7 +72,7 @@ function packLocalFamily(tarballDir: string): {
 
   // Pin monorepo siblings to local tarballs too (overrides only — they are not
   // part of the packed-manifest contract that `validatePackedManifests` checks).
-  for (const name of workspaceSiblings()) {
+  for (const name of workspaceDependencyClosure(FAMILY)) {
     const { tarball } = packPackage(name, tarballDir);
     tarballs.set(name, tarball);
   }
@@ -287,13 +227,12 @@ function writeConsumer(
     `import { Button, createChannel, Message } from "@copilotkit/channels";
 import { slack } from "@copilotkit/channels/slack";
 import { teams } from "@copilotkit/channels/teams";
-import { intelligenceAdapter } from "@copilotkit/channels/intelligence";
 import { discord } from "@copilotkit/channels/discord";
 import { telegram } from "@copilotkit/channels/telegram";
 import { whatsapp } from "@copilotkit/channels/whatsapp";
 
 const view = <Message><Button>OK</Button></Message>;
-void [createChannel, slack, teams, intelligenceAdapter, discord, telegram, whatsapp, view];
+void [createChannel, slack, teams, discord, telegram, whatsapp, view];
 `,
   );
 }

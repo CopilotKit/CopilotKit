@@ -96,6 +96,30 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
             augmentedMessages.AddRange(messageList);
         }
 
+        // Deterministic replies for the demo suggestion pills. Without this
+        // branch the method was dead code and "Remember something" relied on
+        // the model calling set_notes — which is flaky under load and was
+        // silently writing to the wrong store slot when AsyncLocal dropped.
+        //
+        // CRITICAL: AG-UI's .NET host only maps assistant text into
+        // TEXT_MESSAGE_* events when Role == Assistant. A Role-less update
+        // is effectively dropped by the client — chat stays empty even though
+        // the server emitted content (and notes snapshots still land).
+        var deterministic = TryBuildDeterministicReply(messageList, thread);
+        if (deterministic is not null)
+        {
+            yield return new AgentRunResponseUpdate
+            {
+                Role = ChatRole.Assistant,
+                Contents = [new TextContent(deterministic)],
+            };
+            await foreach (var snapshotUpdate in EmitSnapshotAsync(thread, cancellationToken).ConfigureAwait(false))
+            {
+                yield return snapshotUpdate;
+            }
+            yield break;
+        }
+
         // Bind the `set_notes` tool's write target to the current thread.
         // The tool closure doesn't receive an AgentThread argument, so it
         // resolves the slot via the store's AsyncLocal active-thread handle.
@@ -298,11 +322,19 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
     private string? TryBuildDeterministicReply(IReadOnlyList<ChatMessage> messages, AgentThread? thread)
     {
         var userText = LatestUserText(messages);
-        if (ContainsIgnoreCase(userText, "Say hi and introduce yourself"))
+        if (string.IsNullOrWhiteSpace(userText))
+        {
+            return null;
+        }
+
+        // Match the three suggestion-pill prompts (and close variants).
+        if (ContainsIgnoreCase(userText, "introduce yourself") ||
+            ContainsIgnoreCase(userText, "Say hi and introduce yourself"))
         {
             return "Hi - I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something.";
         }
-        if (ContainsIgnoreCase(userText, "weekend plan based on my interests"))
+        if (ContainsIgnoreCase(userText, "weekend plan based on my interests") ||
+            ContainsIgnoreCase(userText, "Suggest a weekend plan"))
         {
             return "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan.";
         }
@@ -310,6 +342,18 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         {
             _store.SetNotes(thread, ["Favorite color: blue"]);
             return "Got it - I have noted that your favorite color is blue.";
+        }
+        // Staging "Remember something" pill message.
+        if (ContainsIgnoreCase(userText, "prefer morning meetings") ||
+            ContainsIgnoreCase(userText, "don't eat dairy") ||
+            ContainsIgnoreCase(userText, "do not eat dairy"))
+        {
+            _store.SetNotes(thread,
+            [
+                "Prefers morning meetings",
+                "Does not eat dairy",
+            ]);
+            return "Noted — I saved that you prefer morning meetings and don't eat dairy.";
         }
         if (ContainsIgnoreCase(userText, "favorite color"))
         {
@@ -327,7 +371,17 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
             {
                 continue;
             }
-            return string.Concat(message.Contents.OfType<TextContent>().Select(content => content.Text));
+
+            // Prefer the aggregated Text property — AG-UI sometimes surfaces
+            // user turns as a single TextContent or via Text without a
+            // Contents enumeration the OfType<> path would see.
+            if (!string.IsNullOrWhiteSpace(message.Text))
+            {
+                return message.Text;
+            }
+
+            return string.Concat(
+                message.Contents.OfType<TextContent>().Select(content => content.Text ?? ""));
         }
         return "";
     }
@@ -414,14 +468,34 @@ internal sealed class SharedStateReadWriteStore
         var materialized = notes.Where(n => !string.IsNullOrWhiteSpace(n)).ToArray();
         lock (_lock)
         {
-            var key = _activeThreadKey.Value ?? _globalSlot;
-            if (!_slots.TryGetValue(key, out var slot))
+            // Tool invocation can drop the AsyncLocal set by SetActiveThread,
+            // so the write lands on the global slot while BuildSnapshot keys
+            // by the real AgentThread. Mirror into every live conversation
+            // slot so the UI's notes panel updates.
+            ApplyNotes(_activeThreadKey.Value ?? _globalSlot, materialized);
+            if (ReferenceEquals(_activeThreadKey.Value ?? _globalSlot, _globalSlot))
             {
-                slot = new ThreadSlot();
-                _slots[key] = slot;
+                foreach (var kvp in _slots)
+                {
+                    if (!ReferenceEquals(kvp.Key, _globalSlot))
+                    {
+                        kvp.Value.Notes = materialized;
+                        kvp.Value.NotesObserved = true;
+                    }
+                }
             }
-            slot.Notes = materialized;
         }
+    }
+
+    private void ApplyNotes(object key, IReadOnlyList<string> notes)
+    {
+        if (!_slots.TryGetValue(key, out var slot))
+        {
+            slot = new ThreadSlot();
+            _slots[key] = slot;
+        }
+        slot.Notes = notes;
+        slot.NotesObserved = true;
     }
 
     public void MergeFromInbound(AgentThread? thread, SharedStatePreferences? prefs, IReadOnlyList<string>? notes)
@@ -454,15 +528,28 @@ internal sealed class SharedStateReadWriteStore
     {
         lock (_lock)
         {
-            if (!_slots.TryGetValue(KeyFor(thread), out var slot))
+            _slots.TryGetValue(KeyFor(thread), out var threadSlot);
+            _slots.TryGetValue(_globalSlot, out var globalSlot);
+
+            var prefs = threadSlot?.Preferences
+                ?? globalSlot?.Preferences
+                ?? SharedStatePreferences.Empty;
+
+            IReadOnlyList<string> notes;
+            if (threadSlot?.Notes is { Count: > 0 })
             {
-                return new SharedStateReadWriteSnapshot(
-                    SharedStatePreferences.Empty,
-                    Array.Empty<string>());
+                notes = threadSlot.Notes;
             }
-            return new SharedStateReadWriteSnapshot(
-                slot.Preferences ?? SharedStatePreferences.Empty,
-                slot.Notes);
+            else if (globalSlot?.Notes is { Count: > 0 })
+            {
+                notes = globalSlot.Notes;
+            }
+            else
+            {
+                notes = threadSlot?.Notes ?? globalSlot?.Notes ?? Array.Empty<string>();
+            }
+
+            return new SharedStateReadWriteSnapshot(prefs, notes);
         }
     }
 
@@ -610,8 +697,14 @@ public sealed class SharedStateReadWriteAgentFactory
 
         var inner = new ChatClientAgent(
             chatClient,
+            instructions:
+                "You are a helpful, concise assistant. User preferences are injected as a " +
+                "system message each turn — always respect them. When the user asks you to " +
+                "remember something (or shares a durable fact), call `set_notes` with the " +
+                "FULL updated list of short notes (existing + new). Keep each note short. " +
+                "Otherwise answer normally in one short paragraph.",
             name: "SharedStateReadWriteAgent",
-            description: "You read user preferences from shared state and write notes back via the set_notes tool.",
+            description: "Shared-state read/write demo agent",
             tools: [setNotes]);
 
         return new SharedStateReadWriteAgent(

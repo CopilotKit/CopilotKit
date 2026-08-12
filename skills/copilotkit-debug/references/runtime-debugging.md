@@ -2,7 +2,7 @@
 
 ## Runtime Architecture
 
-CopilotKit v2 runtime (`@copilotkit/runtime`) runs as a Hono HTTP server. It exposes these endpoints under the configured `basePath`:
+CopilotKit v2 runtime (`@copilotkit/runtime`) exposes a fetch-native handler with these endpoints under the configured `basePath`:
 
 | Endpoint                  | Method                | Purpose                                                        |
 | ------------------------- | --------------------- | -------------------------------------------------------------- |
@@ -42,17 +42,17 @@ CopilotKit v2 runtime (`@copilotkit/runtime`) runs as a Hono HTTP server. It exp
 
    Expected response: JSON with `version`, `agents`, `mode` fields.
 
-2. **Check basePath alignment**: The `basePath` in `createCopilotEndpoint()` must match the `runtimeUrl` on the `CopilotKit` provider (from `@copilotkit/react-core/v2`):
+2. **Check basePath alignment**: The `basePath` in `createCopilotRuntimeHandler()` must match the `runtimeUrl` on the `CopilotKit` provider (from `@copilotkit/react-core/v2`):
 
    ```ts
    // Server
-   createCopilotEndpoint({ runtime, basePath: "/api/copilotkit" });
+   createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
 
    // Client
    <CopilotKit runtimeUrl="/api/copilotkit">
    ```
 
-3. **Check the Hono app mounting**: If using a framework adapter (Next.js, Express), ensure the Hono app is mounted at the right path. The framework's route path combined with `basePath` must form the full URL.
+3. **Check the framework mounting**: Ensure the fetch handler is mounted at the right path. The framework's route path combined with `basePath` must form the full URL.
 
 4. **Proxy/reverse proxy issues**: If running behind nginx, Vercel, or similar, ensure the proxy passes the full path and does not strip the prefix.
 
@@ -78,7 +78,7 @@ CopilotKit v2 runtime (`@copilotkit/runtime`) runs as a Hono HTTP server. It exp
 
 ### Default CORS Behavior
 
-When no `cors` option is provided to `createCopilotEndpoint`, the runtime defaults to:
+When `cors: true` is provided to `createCopilotRuntimeHandler`, the runtime defaults to:
 
 - `origin: "*"` (all origins allowed)
 - `credentials: false`
@@ -90,7 +90,7 @@ When no `cors` option is provided to `createCopilotEndpoint`, the runtime defaul
 When using HTTP-only cookies for authentication, you must configure CORS explicitly:
 
 ```ts
-createCopilotEndpoint({
+createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: {
@@ -111,12 +111,12 @@ On the client side, enable credentials:
 
 ### Common CORS Errors
 
-| Browser Error                                   | Cause                                    | Fix                                                                                     |
-| ----------------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------- |
-| "No 'Access-Control-Allow-Origin' header"       | Runtime not sending CORS headers         | Verify `createCopilotEndpoint` is handling the request (not a 404 from another handler) |
-| "Credential is not supported if origin is '\*'" | `credentials: true` with wildcard origin | Set an explicit `origin` in the CORS config                                             |
-| "Method PUT is not allowed"                     | Preflight failure                        | Ensure the runtime's CORS allows the method (default config allows all)                 |
-| CORS error only in production                   | Different origins in dev vs prod         | Update the `origin` config for the production domain                                    |
+| Browser Error                                   | Cause                                    | Fix                                                                                           |
+| ----------------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------- |
+| "No 'Access-Control-Allow-Origin' header"       | Runtime not sending CORS headers         | Verify `createCopilotRuntimeHandler` is handling the request (not a 404 from another handler) |
+| "Credential is not supported if origin is '\*'" | `credentials: true` with wildcard origin | Set an explicit `origin` in the CORS config                                                   |
+| "Method PUT is not allowed"                     | Preflight failure                        | Ensure the runtime's CORS allows the method (default config allows all)                       |
+| CORS error only in production                   | Different origins in dev vs prod         | Update the `origin` config for the production domain                                          |
 
 ### Diagnosing CORS Issues
 
@@ -199,7 +199,7 @@ For Intelligence mode, the response also includes:
 ```json
 {
   "intelligence": {
-    "wsUrl": "wss://api.copilotkit.ai/client"
+    "wsUrl": "wss://realtime.intelligence.copilotkit.ai/client"
   }
 }
 ```

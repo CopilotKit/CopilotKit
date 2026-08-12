@@ -185,6 +185,46 @@ export function bumpPackages(
   return updated;
 }
 
+/**
+ * Replace internal dependency ranges with the exact versions from this canary
+ * publish set. This runs after the publish job's frozen install and is only
+ * called by the prerelease publisher, so stable manifests are unaffected.
+ */
+export function pinPrereleaseDependencies(
+  packages: PublishablePackage[],
+): number {
+  const versions = new Map(
+    packages.map((p) => [p.name, p.pkg.version as string]),
+  );
+  let pinned = 0;
+
+  for (const p of packages) {
+    let changed = false;
+    for (const field of [
+      "dependencies",
+      "peerDependencies",
+      "optionalDependencies",
+    ] as const) {
+      const dependencies = p.pkg[field] as Record<string, string> | undefined;
+      if (!dependencies) continue;
+
+      for (const [name, range] of Object.entries(dependencies)) {
+        const version = versions.get(name);
+        if (!version || range === version) continue;
+        dependencies[name] = version;
+        pinned++;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      fs.writeFileSync(p.pkgJsonPath, `${JSON.stringify(p.pkg, null, 2)}\n`);
+    }
+  }
+
+  return pinned;
+}
+
 /** A cross-scope dependency edge whose published pin won't be this run's version. */
 export interface CrossScopePin {
   /** Package being published. */

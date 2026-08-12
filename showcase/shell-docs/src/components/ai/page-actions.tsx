@@ -27,10 +27,10 @@ import { getRuntimeConfig } from "@/lib/runtime-config.client";
 /**
  * Resolve the canonical base URL on the client. Reads from
  * window.__SHOWCASE_CONFIG__ (populated by the root layout's inline
- * <script>) so the rendered absolute URL reflects the current deploy's
- * NEXT_PUBLIC_BASE_URL without rebuilding the artifact. The runtime
- * reader already strips trailing slashes so callers can concatenate
- * `${BASE}${path}` safely.
+ * <script>) so non-production can reflect its runtime base URL without
+ * rebuilding the artifact. Production runtime config always injects the
+ * public canonical docs origin. The reader strips trailing slashes so callers
+ * can concatenate `${BASE}${path}` safely.
  *
  * Still inlined here (rather than reaching into `@/lib/sitemap-helpers`)
  * because that module also pulls in `fs` / `path` / `gray-matter` for

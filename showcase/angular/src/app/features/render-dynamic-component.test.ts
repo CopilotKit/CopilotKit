@@ -7,6 +7,7 @@ import type {
 import {
   EnvironmentInjector as EnvironmentInjectorToken,
   inject,
+  inputBinding,
   InjectionToken,
   Injector,
 } from "@angular/core";
@@ -76,6 +77,40 @@ describe("renderDynamicComponent", () => {
       ),
     ).toBe(component);
     expect(createComponent).toHaveBeenCalledWith(DynamicComponent, {
+      environmentInjector,
+    });
+  });
+
+  it("forwards initial input bindings into component creation", () => {
+    const environmentInjector = {} as EnvironmentInjector;
+    const injector = Injector.create({
+      providers: [
+        {
+          provide: EnvironmentInjectorToken,
+          useValue: environmentInjector,
+        },
+      ],
+    });
+    class DynamicComponent {
+      readonly marker = "dynamic";
+    }
+    const component = {} as ComponentRef<DynamicComponent>;
+    const createComponent = vi.fn(() => component);
+    const container = {
+      injector,
+      createComponent,
+    } as unknown as ViewContainerRef;
+    const bindings = [inputBinding("agentId", () => "named-agent")];
+
+    expect(
+      createDynamicComponent(
+        container,
+        DynamicComponent as Type<DynamicComponent>,
+        { bindings },
+      ),
+    ).toBe(component);
+    expect(createComponent).toHaveBeenCalledWith(DynamicComponent, {
+      bindings,
       environmentInjector,
     });
   });

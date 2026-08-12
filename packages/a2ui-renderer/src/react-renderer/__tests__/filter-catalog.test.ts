@@ -1,0 +1,115 @@
+import { describe, it, expect } from "vitest";
+import { z } from "zod";
+import { Catalog, createFunctionImplementation } from "@a2ui/web_core/v0_9";
+import type { ComponentApi } from "@a2ui/web_core/v0_9";
+import { filterCatalog } from "../filter-catalog";
+// Namespace import of the package's SOURCE entry, used by the export test below.
+// Deliberately top-level: pulling in the root barrel transforms the whole
+// renderer graph (lit, markdown-it, zod), which takes longer than vitest's 5s
+// default testTimeout on a cold cache. At module scope that cost is paid during
+// collection, which is not bounded by testTimeout.
+import * as packageEntry from "../../index";
+
+function makeCatalog(): Catalog<ComponentApi> {
+  const components: ComponentApi[] = [
+    {
+      name: "PieChart",
+      schema: z.object({ innerRadius: z.number().optional() }),
+    },
+    { name: "FlightCard", schema: z.object({ airline: z.string() }) },
+    { name: "Badge", schema: z.object({ text: z.string() }) },
+  ];
+  return new Catalog<ComponentApi>(
+    "copilotkit://custom-catalog",
+    components,
+    [],
+  );
+}
+
+describe("filterCatalog", () => {
+  it("keeps only components whose name passes the predicate", () => {
+    const catalog = makeCatalog();
+    const filtered = filterCatalog(catalog, (name) => name !== "FlightCard");
+    expect(filtered.components.has("PieChart")).toBe(true);
+    expect(filtered.components.has("Badge")).toBe(true);
+    expect(filtered.components.has("FlightCard")).toBe(false);
+  });
+
+  it("preserves the catalog id and functions", () => {
+    const catalog = makeCatalog();
+    const filtered = filterCatalog(catalog, () => true);
+    expect(filtered.id).toBe("copilotkit://custom-catalog");
+    expect(filtered.components.size).toBe(3);
+  });
+
+  it("preserves themeSchema and real functions when narrowing components", () => {
+    const themeSchema = z.object({
+      primaryColor: z.string(),
+      radius: z.number().optional(),
+    });
+    const uppercase = createFunctionImplementation(
+      {
+        name: "uppercase",
+        returnType: "string",
+        schema: z.object({ value: z.string() }),
+      },
+      (args) => args.value.toUpperCase(),
+    );
+    const components: ComponentApi[] = [
+      {
+        name: "PieChart",
+        schema: z.object({ innerRadius: z.number().optional() }),
+      },
+      { name: "Badge", schema: z.object({ text: z.string() }) },
+    ];
+    const catalog = new Catalog<ComponentApi>(
+      "copilotkit://themed-catalog",
+      components,
+      [uppercase],
+      themeSchema,
+    );
+
+    const filtered = filterCatalog(catalog, (name) => name === "Badge");
+
+    // component set narrowed
+    expect(filtered.components.has("Badge")).toBe(true);
+    expect(filtered.components.has("PieChart")).toBe(false);
+    // themeSchema is the exact same schema instance (not dropped)
+    expect(filtered.themeSchema).toBe(themeSchema);
+    // functions are preserved
+    expect(filtered.functions.has("uppercase")).toBe(true);
+    expect(filtered.functions.get("uppercase")).toBe(uppercase);
+  });
+
+  it("does not mutate the source catalog", () => {
+    const catalog = makeCatalog();
+    filterCatalog(catalog, () => false);
+    expect(catalog.components.size).toBe(3);
+  });
+
+  it("returns an empty-component catalog when predicate rejects all", () => {
+    const catalog = makeCatalog();
+    const filtered = filterCatalog(catalog, () => false);
+    expect(filtered.components.size).toBe(0);
+    expect(filtered.id).toBe("copilotkit://custom-catalog");
+  });
+});
+
+describe("filterCatalog package export", () => {
+  // Guards the re-export chain that makes filterCatalog public:
+  // src/index.ts -> react-renderer/index.ts -> ./filter-catalog. Adding the
+  // function without the barrel line would leave callers unable to import it.
+  //
+  // Asserts against the SOURCE entry, not "@copilotkit/a2ui-renderer": the
+  // package name resolves through node_modules to dist/, which `nx test` does
+  // not guarantee exists — nx.json sets test.dependsOn to ["^build"], and the
+  // caret means dependencies' builds, NOT this package's own. Self-importing the
+  // package name therefore passed or failed purely on whether a previous run had
+  // left dist/ populated. The package.json "exports" mapping is covered
+  // separately by this package's publint + attw targets.
+  it("is reachable from the package entry", () => {
+    expect(
+      typeof (packageEntry as { filterCatalog?: unknown }).filterCatalog,
+    ).toBe("function");
+  });
+});
