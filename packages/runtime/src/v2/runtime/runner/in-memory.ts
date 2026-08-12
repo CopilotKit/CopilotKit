@@ -10,8 +10,6 @@ import { ReplaySubject } from "rxjs";
 import type {
   AbstractAgent,
   BaseEvent,
-  MessagesSnapshotEvent,
-  RunAgentInput,
   Message,
   RunStartedEvent,
   StateSnapshotEvent,
@@ -863,19 +861,17 @@ export class InMemoryAgentRunner extends AgentRunner {
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
 
     if (!store) {
-      // Fall back to upstream agent's connect endpoint when available
+      // Fall back to the agent's public connect entry point when available.
       if (request.agent) {
-        const input: RunAgentInput = {
-          threadId: request.threadId,
-          runId: "",
-          messages: [],
-          state: {},
-        };
-        return (
-          request.agent as unknown as {
-            connect(input: RunAgentInput): Observable<BaseEvent>;
-          }
-        ).connect(input);
+        void request.agent
+          .connectAgent({}, {
+            onEvent: ({ event }) => connectionSubject.next(event),
+          })
+          .then(
+            () => connectionSubject.complete(),
+            (error) => connectionSubject.error(error),
+          );
+        return connectionSubject.asObservable();
       }
 
       // No store and no agent — return empty

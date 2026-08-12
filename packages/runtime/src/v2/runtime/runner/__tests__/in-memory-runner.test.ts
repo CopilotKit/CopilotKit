@@ -17,7 +17,12 @@ import type {
   TextMessageStartEvent,
   ToolCallResultEvent,
 } from "@ag-ui/client";
-import { AbstractAgent, EventType, verifyEvents } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  EventType,
+  HttpAgent,
+  verifyEvents,
+} from "@ag-ui/client";
 import { EMPTY, Observable, firstValueFrom, from } from "rxjs";
 import { toArray } from "rxjs/operators";
 
@@ -70,32 +75,6 @@ class TestAgent extends AbstractAgent {
 
   protected connect(): ReturnType<AbstractAgent["connect"]> {
     return EMPTY;
-  }
-}
-
-/**
- * Agent that returns pre-configured events from its connect() method.
- * Simulates an upstream agent (e.g. HttpAgent) with persistent storage.
- */
-class ConnectableAgent extends AbstractAgent {
-  constructor(private readonly connectEvents: BaseEvent[]) {
-    super();
-  }
-
-  async runAgent(): Promise<void> {
-    throw new Error("not used");
-  }
-
-  clone(): AbstractAgent {
-    return new ConnectableAgent(this.connectEvents);
-  }
-
-  protected run(): ReturnType<AbstractAgent["run"]> {
-    return EMPTY;
-  }
-
-  protected connect(): ReturnType<AbstractAgent["connect"]> {
-    return from(this.connectEvents);
   }
 }
 
@@ -377,39 +356,18 @@ describe("InMemoryAgentRunner", () => {
   });
 
   describe("Agent fallback on connect", () => {
-    it("falls back to agent connect when threadId is not in GLOBAL_STORE", async () => {
+    it("gracefully falls back to an HttpAgent when no store exists", async () => {
       const threadId = "unknown-thread-serverless";
-      const upstreamEvents: BaseEvent[] = [
-        {
-          type: EventType.RUN_STARTED,
-          threadId,
-          runId: "upstream-run-1",
-        } as RunStartedEvent,
-        {
-          type: EventType.TEXT_MESSAGE_START,
-          messageId: "upstream-msg-1",
-          role: "assistant",
-        } as TextMessageStartEvent,
-        {
-          type: EventType.TEXT_MESSAGE_CONTENT,
-          messageId: "upstream-msg-1",
-          delta: "Hello from upstream",
-        } as TextMessageContentEvent,
-        {
-          type: EventType.TEXT_MESSAGE_END,
-          messageId: "upstream-msg-1",
-        } as TextMessageEndEvent,
-      ];
+      const agent = new HttpAgent({
+        url: "https://upstream.example.com/agent",
+        threadId,
+      });
 
-      const agent = new ConnectableAgent(upstreamEvents);
-
-      // connect with a threadId that has never been run locally
       const events = await firstValueFrom(
         runner.connect({ threadId, agent }).pipe(toArray()),
       );
 
-      expect(events.length).toBeGreaterThan(0);
-      expect(events).toEqual(upstreamEvents);
+      expect(events).toEqual([]);
     });
 
     it("prefers in-memory store over agent fallback when store exists", async () => {
@@ -436,19 +394,23 @@ describe("InMemoryAgentRunner", () => {
                 messageId: "local-msg",
               } as TextMessageEndEvent,
             ]),
-            input: { threadId, runId: "run-1", messages: [], state: {} },
+            input: {
+              threadId,
+              runId: "run-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
           })
           .pipe(toArray()),
       );
 
-      // Create an agent with different events (simulating upstream)
-      const upstreamAgent = new ConnectableAgent([
-        {
-          type: EventType.RUN_STARTED,
-          threadId,
-          runId: "upstream-run",
-        } as RunStartedEvent,
-      ]);
+      // Create an upstream agent that should not be used when memory exists
+      const upstreamAgent = new HttpAgent({
+        url: "https://upstream.example.com/agent",
+        threadId,
+      });
 
       // connect with the agent - should use in-memory store, NOT the agent
       const events = await firstValueFrom(
