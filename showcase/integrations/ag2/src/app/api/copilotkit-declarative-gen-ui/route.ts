@@ -1,16 +1,19 @@
 // Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic Schema)
 // cell. The backend is the dedicated `a2ui_dynamic.py` agent mounted at
-// `/declarative-gen-ui` (NOT the root catch-all `agent.py`): it wires a
-// no-arg `generate_a2ui` tool stub. The CopilotKit runtime middleware
-// (`a2ui.injectA2UITool: true`, enabled by default) intercepts the agent's
-// `generate_a2ui` toolcall before it reaches Python and drives the secondary
-// `render_a2ui` LLM pass itself, emitting `a2ui_operations` that the frontend
-// renderer paints. This is Option A (JS-runtime-injected A2UI) — same
-// pattern as the langgraph-python and crewai-crews siblings.
+// `/declarative-gen-ui` (NOT the root catch-all `agent.py`): it is an ag2
+// `A2UIServer` + `AgUiTransport`, so the BACKEND owns A2UI generation. ag2
+// injects its server-side catalog into the prompt, validates the model's
+// `<a2ui-json>` block, and emits the validated operations as the AG-UI
+// `a2ui-surface` activity the frontend renderer paints.
 //
-// `defaultCatalogId` pins the catalog the page registers so the middleware's
-// secondary-LLM pass uses the correct component set (omitting `catalogId`
-// falls back to the unregistered basic catalog → "Catalog not found" error).
+// Hence `injectA2UITool: false`: the JS middleware must not inject its
+// `render_a2ui` tool or drive a secondary LLM pass — that would re-generate a
+// surface the backend already produced. The middleware still runs, and passes
+// the backend's `a2ui-surface` activity through untouched.
+//
+// The pydantic-ai / ms-agent-python siblings also set `injectA2UITool: false`,
+// but there the backend returns `a2ui_operations` as a TOOL RESULT; ag2 emits
+// them as an AG-UI activity instead. Both reach the same renderer.
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -31,10 +34,18 @@ const runtime = new CopilotRuntime({
     }),
   },
   a2ui: {
-    // Pin the catalog the page registers so the middleware's secondary-LLM
-    // pass uses the correct component set. Models that follow the tool-usage
-    // guide and omit `catalogId` would otherwise fall back to the unregistered
-    // basic catalog ("Catalog not found" render error).
+    // The ag2 backend owns A2UI generation (see src/agents/a2ui_dynamic.py):
+    // it emits validated operations directly, so the middleware must not
+    // inject its `render_a2ui` tool or drive its own render pass. An explicit
+    // `false` is respected even though the provider forwards a catalog (see
+    // runtime handlers/shared/agent-utils.ts).
+    injectA2UITool: false,
+    // Declared for parity with the sibling cells, but inert on this path:
+    // `defaultCatalogId` is only consulted where the middleware SYNTHESISES a
+    // surface from a `render_a2ui`-style toolcall, and this backend emits none.
+    // The catalogId that reaches the renderer is the one ag2 stamps on every
+    // `createSurface` — the `$id` of the server-side catalog, which must stay
+    // equal to the value below and to the id the page registers.
     defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
