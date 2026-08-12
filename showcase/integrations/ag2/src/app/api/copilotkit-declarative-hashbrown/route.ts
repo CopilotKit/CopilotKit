@@ -1,4 +1,4 @@
-// Dedicated runtime for the byoc-hashbrown demo (AG2).
+// Dedicated runtime for the declarative-hashbrown demo (AG2).
 //
 // The demo page wraps CopilotChat in the HashBrownDashboard provider and
 // overrides the assistant message slot with a renderer that consumes
@@ -6,8 +6,17 @@
 // `useJsonParser`. The agent behind this endpoint (`byoc_hashbrown`) has a
 // system prompt tuned to emit that shape — see
 // `src/agents/byoc_hashbrown_agent.py`.
+//
+// The directory name, the `endpoint` below and the agent key are all part of
+// the frontend contract: `demos/declarative-hashbrown/page.tsx` (byte-identical
+// across integrations, so it cannot be adapted) requests
+// `runtimeUrl="/api/copilotkit-declarative-hashbrown"` with
+// `agent="declarative-hashbrown-demo"`. They previously read `byoc-*`, which
+// 404'd the whole cell. The AG2-side mount path (`/byoc-hashbrown/`) is
+// internal and deliberately left alone.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -24,7 +33,7 @@ const byocHashbrownAgent = new HttpAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts; published agents type generic mismatch.
   agents: {
-    "byoc-hashbrown-demo": byocHashbrownAgent,
+    "declarative-hashbrown-demo": byocHashbrownAgent,
     default: byocHashbrownAgent,
   },
 });
@@ -32,7 +41,7 @@ const runtime = new CopilotRuntime({
 export const POST = async (req: NextRequest) => {
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-byoc-hashbrown",
+      endpoint: "/api/copilotkit-declarative-hashbrown",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime,
     });
