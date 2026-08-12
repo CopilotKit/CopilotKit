@@ -18,17 +18,24 @@ one **skin** per route segment `/[skin]/...`. The registered set lives in
 - **`commerce`** — "Bellwether", a storefront operations console for a DTC retail
   brand. **REST-backed** (`/api/commerce/v1/*`): orders, catalog, promotions, and
   returns, with a margin ladder and a teachable below-floor markdown approval.
-- **`airline`** — "Aeronova", a passenger concierge. **In-memory** (a seed-backed
-  React store): check-in and seat selection, loyalty, and disruption rebooking.
+- **`airline`** — "Aeronova", a passenger concierge and the one skin written from
+  the TRAVELLER's side rather than an operator's. **REST-backed**
+  (`/api/airline/v1/*`): trips, seat selection, loyalty, and disruption rebooking,
+  with a teachable fare-exception approval whose gate is entitlement (the fare's
+  own conditions) rather than organizational authority.
 - **`keel`** — "Keel", Harbor Point Health's knowledge and operations desk.
-  **In-memory** (a seed-backed React store), and the only skin with parameterized
-  routes (`knowledge/<docId>`, `runs/<runId>`).
+  **REST-backed** (`/api/keel/v1/*`): a policy register, playbooks and runs on a
+  server-settled clock, with a teachable policy-release approval — and the only
+  skin with parameterized routes (`knowledge/<docId>`, `runs/<runId>`).
 
-All of them run behind the **same** `Skin` contract on purpose: banking,
-logistics, people and commerce are REST-backed, airline and keel are in-memory,
-which proves the contract is substrate-agnostic. Every skin gets the same inset
-frame, shared chat panel, tool-activity lines, suggestion pills, and full-region
-canvas from the shell.
+All of them run behind the **same** `Skin` contract on purpose. Every skin gets
+the same inset frame, shared chat panel, tool-activity lines, suggestion pills,
+and full-region canvas from the shell. What proves the contract is
+substrate-agnostic is now the MIGRATION rather than a split: `airline` and `keel`
+began as in-memory `useState` stores behind the contract's optional `useData` hook
+and both moved onto their own REST ledgers with **no change to the contract and no
+change to the shell**. Every skin is REST-backed today, so `useData` currently has
+zero implementors — it is still live, just unused.
 
 ## What it demonstrates
 
@@ -109,14 +116,14 @@ contract, and the shared canvas / OGUI model.
 
 ## Demo capabilities
 
-Four of the six skins — **`banking`**, **`people`**, **`commerce`** and
-**`logistics`** — are demo-complete against the full beat list in
-[`.claude/skills/reskin/demo-beats.md`](./.claude/skills/reskin/demo-beats.md).
-`airline` and `keel` predate that bar: treat them as wiring references (contract
-surface, layout chrome, parameterized routes) rather than as demo references.
-`logistics` was in that group until beats 2 through 6 were retrofitted onto it,
-so it doubles as the worked example of bringing an existing skin up to the bar.
-The per-beat coverage matrix is in [CLAUDE.md](./CLAUDE.md).
+**Every registered skin is demo-complete** against the full beat list in
+[`.claude/skills/reskin/demo-beats.md`](./.claude/skills/reskin/demo-beats.md), so
+any of them can be walked end to end and any of them is a fair reference. Three
+were brought up to that bar by retrofit — `logistics` first, then `airline` and
+`keel` — which makes those three the worked examples of raising an EXISTING skin
+rather than authoring a new one beat-first (`people` and `commerce` are the
+beat-first pair). The per-beat coverage matrix, and the one-line commands that
+derive it instead of trusting it, are in [CLAUDE.md](./CLAUDE.md).
 
 ### `banking` — the original reference demo
 
@@ -137,7 +144,7 @@ The banking skin doubles as a CopilotKit feature tour. Notable beats:
   no saved procedure, watches you clear one, and (in Intelligence mode) recalls
   it on a later thread. See `docs/teach-mode/`.
 
-### `people` and `commerce` — the later demo-complete skins
+### `people` and `commerce` — authored beat-first
 
 Both were built against the beat list from the start, so each hits every beat
 banking does. Their beat maps are written out at the top of their own
@@ -156,6 +163,26 @@ banking does. Their beat maps are written out at the top of their own
   justifying code. It is also the reference for a four-lever navigation — status,
   exception class, sort and top-N all arrive from the query string.
 
+### `logistics`, `airline` and `keel` — the retrofits
+
+Each already existed and each was raised to the beat list afterwards, so together
+they are the record of what "demo-complete" costs on top of correct wiring. Each
+also contributes one thing no other skin does:
+
+- **`logistics`** ("Meridian") — the debugged reference for skin layout chrome and
+  the meta-utility strip, plus a server-emitted a2ui canvas. Its teachable gate is
+  committing a mitigation **over the planner's approval authority** (403
+  `OVER_AUTHORITY`).
+- **`airline`** ("Aeronova") — the only PASSENGER-facing skin, and the worked
+  example of contributing runtime identity WITHOUT `RuntimeProviders` (one account
+  holder, no switcher, so the hook reads no context). Its gate is entitlement — a
+  fare whose conditions do not permit the change (422 `FARE_NOT_CHANGEABLE`) —
+  lifted only by an exception category MATCHING what the booking's own record
+  documents, so the learned procedure is a procedure rather than a memorized code.
+- **`keel`** ("Keel") — parameterized routes, and a server-settled clock: run
+  progress is settled on every read rather than ticked on a client interval. Its
+  gate is who may **release** a policy revision (403 `UNENDORSED_REVISION`).
+
 ### Memory & durable self-learning (Intelligence mode)
 
 By default the runtime is pure OSS — the teach-a-workflow loop works within a
@@ -163,8 +190,8 @@ single conversation, but nothing persists across threads or restarts. When
 `INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, and `INTELLIGENCE_API_KEY`
 are all set (`src/app/api/copilotkit/[[...slug]]/route.ts`), the runtime builds
 in Intelligence mode: the agent gains durable long-term memory via the
-`recall_memory` / `save_memory` tools, so a demonstrated procedure — banking's
-over-limit approval, people's band exception, commerce's margin waiver — and
+`recall_memory` / `save_memory` tools, so a demonstrated procedure — every skin
+has one; `grep -l offerWorkflowRecording src/skins/*/tools.tsx` names them — and
 remembered facts/preferences survive across threads and users. The bundled
 `docker-compose.yml` and `*-demo.sh` scripts stand up the memory stack; the
 `.env.example` documents the required variables.
@@ -182,11 +209,19 @@ banking-skin illustrations rather than a picture of the app as it looks today.
 ## Testing
 
 ```bash
-pnpm test:unit          # vitest
-pnpm test:e2e           # playwright
-pnpm test:e2e:ogui      # open generative UI suite
-pnpm test:self-learning # the memory CI gate
+pnpm lint                # eslint (also the LOCK_SKIN URL-contract guard)
+pnpm exec tsc --noEmit   # the ONLY full type-check — see below
+pnpm test:unit           # vitest
+pnpm build               # production build
+pnpm test:e2e            # playwright
+pnpm test:e2e:ogui       # open generative UI suite
+pnpm test:self-learning  # the memory CI gate
 ```
+
+There is no `typecheck` script, and **`pnpm build` is not a substitute for
+`pnpm exec tsc --noEmit`**: `next build` type-checks only what the app's module
+graph reaches, so it never visits the test files, and Vitest transpiles without
+type-checking at all. `tsconfig.json` includes them; only `tsc --noEmit` looks.
 
 ## Tech
 

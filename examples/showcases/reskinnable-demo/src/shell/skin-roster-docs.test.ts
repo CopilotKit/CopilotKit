@@ -68,14 +68,18 @@ import { skinIds } from "./skins-config";
  *  - **Per-skin counts** — gen-UI registration counts, suggestion-pill counts,
  *    beat counts ("nine beats", "the three skins at 9/9"). Not skin-roster
  *    claims; verifying them would mean parsing each skin's source.
- *  - **Two known instances OUTSIDE the doc set**, both classified as follow-up
- *    work for a separate PR and both still stale as of this file's commit:
- *      1. `src/proxy.ts` — a comment saying "the other three skins".
- *      2. `e2e/inset-layout.spec.ts` — a loop over a hardcoded four-skin list, so
- *         the shell frame is never e2e-verified for `people` or `commerce`.
- *    They are named here rather than checked because adding them would make this
- *    test red on a tree the rest of the PR considers converged. Whoever fixes
- *    them should consider widening `DOC_SET`/adding a source-comment sweep here.
+ *  - **Known instances OUTSIDE the doc set.** Two were named here as follow-up work
+ *    for a separate PR. One is now fixed: `src/proxy.ts`'s "the other three skins"
+ *    became a numeral-free "every OTHER skin's prefix" in the beat-parity docs pass.
+ *    One is still open:
+ *      - `e2e/inset-layout.spec.ts` — the selector assertions enumerate a hardcoded
+ *        four-skin list, so the shell frame is never e2e-verified for `people` or
+ *        `commerce`. Left alone because fixing it is a COVERAGE change (new
+ *        assertions against skins the spec has never visited), not a prose fix.
+ *    They are named rather than checked because adding a source-comment sweep would
+ *    make this test red on a tree the rest of the PR considers converged. Whoever
+ *    fixes the remaining one should consider widening `DOC_SET` or adding that
+ *    sweep here.
  */
 
 /** Walks up from this file to the app root (the dir holding package.json + the skill). */
@@ -627,25 +631,42 @@ describe("the roster checks themselves", () => {
   });
 
   it("ignores the legitimate phrasings that must never be flagged", () => {
-    // Verbatim from the current docs. Each is TRUE and must stay as written:
-    // past-tense incident history, beat vocabulary, subset counts qualified by an
-    // adjective, and numbers about things that are not skins.
+    // A SHAPE fixture, not a doc mirror. Each string is TRUE on the registry this
+    // test derives from, and each is the shape of a sentence the rules above must
+    // never flag: past-tense incident history, beat vocabulary, subset counts
+    // qualified by an adjective, and numbers about things that are not skins.
+    //
+    // ⚠️ SEVERAL ENTRIES ARE DELIBERATELY NO LONGER IN THE DOCS. The beat-parity
+    // work made "the two in-memory skins", "the four REST-backed skins" and "five
+    // of the six skins" false as PRESENT-TENSE claims, so CLAUDE.md was rewritten
+    // and the equivalent sentences here were moved into the past tense rather than
+    // deleted. Deleting them would have quietly dropped the discriminator they
+    // pin — an adjective between the numeral and "skins" is what makes a subset
+    // claim distinguishable from a total claim, and nothing else asserts that.
+    // Keep this list a set of SHAPES; do not prune it back to whatever the docs
+    // happen to say this month, and do not add a shape that is false.
     const legitimate = [
       "naming four skins for two releases after `people` and `commerce` shipped",
       "it named four skins for two releases after `people` and `commerce` shipped",
       "Absent instructions, build all nine rows",
-      "`banking`, `people` or `commerce` — the only three at 9/9 beats",
+      "the beat-first pair, `people` and `commerce`",
       "Set by the four REST-backed skins — banking, people and commerce",
-      "**This is the standard mechanism for the two in-memory skins**",
-      "That is five of the six skins; **airline** is the only one that omits it",
-      "The gated `dev/reset` route is the wider set: four skins have one",
+      "It was the mechanism the two in-memory skins used",
+      "That was five of the six skins; **airline** was the only one that omitted it",
+      "The gated `dev/reset` route was the wider set: four skins had one",
       "The ask is 8–12 skins spanning that space",
-      "banking, logistics, keel, people and commerce all five ship them",
+      "banking, logistics, keel, people and commerce all five shipped them",
       "All four appends are guarded: `skins-config.test.ts` fails on any of them",
       "the same grep as rule 3 passed on all seven",
       "the second skin built demo-complete against the full beat list",
       "a 600/1000-em advance width",
       "Two registries, one id",
+      // Present-tense phrasings the beat-parity docs actually use, which the rules
+      // must also leave alone — the numeral-free forms this test's own failure
+      // message recommends, plus a truthful total.
+      "Every registered skin hits every row.",
+      "all six skins are REST-backed",
+      "`useData` now has zero implementors",
     ];
     expect(
       legitimate.flatMap((text) =>
