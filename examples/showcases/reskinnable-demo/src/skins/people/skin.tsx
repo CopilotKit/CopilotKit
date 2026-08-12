@@ -37,17 +37,22 @@ const nav: NavRoute[] = [
  * are valid. It accepts `roster` as an alias for the index that the nav never
  * lists, so a deep link or a typed URL lands somewhere sensible instead of 404.
  */
-const PAGES: Record<string, ComponentType> = {
-  "": RosterPage,
-  roster: RosterPage,
-  compensation: CompensationPage,
-  requests: RequestsPage,
-  onboarding: OnboardingPage,
-};
+// A Map, NOT an object literal: an object inherits Object.prototype, so
+// PAGES["constructor"] returns a truthy Function and `?? null` never fires.
+// /people/constructor would then sail past the shell's `if (!Page) notFound()`
+// and try to render a non-component -- a 500 where a 404 belongs.
+// `src/shell/resolve-page-prototype.test.ts` walks every registered skin.
+const PAGES = new Map<string, ComponentType>([
+  ["", RosterPage],
+  ["roster", RosterPage],
+  ["compensation", CompensationPage],
+  ["requests", RequestsPage],
+  ["onboarding", OnboardingPage],
+]);
 
 function resolvePage(segments: string[]): ComponentType | null {
   const key = segments.length === 0 ? "" : segments.join("/");
-  return PAGES[key] ?? null;
+  return PAGES.get(key) ?? null;
 }
 
 /**

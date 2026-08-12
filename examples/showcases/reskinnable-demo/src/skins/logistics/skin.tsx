@@ -28,12 +28,19 @@ import {
 } from "./attach-rate-sheet";
 
 // Route segments after /logistics → page component. Empty → the control tower.
-const PAGES: Record<string, ComponentType> = {
-  "": ControlTowerPage,
-  lanes: LanesPage,
-  inventory: InventoryPage,
-  decisions: DecisionsPage,
-};
+//
+// A Map, NOT an object literal: an object inherits Object.prototype, so
+// PAGES["constructor"] returns a truthy Function and `?? null` never fires.
+// /logistics/constructor would then sail past the shell's
+// `if (!Page) notFound()` and try to render a non-component -- a 500 where a 404
+// belongs. Same for toString, valueOf, hasOwnProperty and __proto__.
+// `src/shell/resolve-page-prototype.test.ts` walks every registered skin.
+const PAGES = new Map<string, ComponentType>([
+  ["", ControlTowerPage],
+  ["lanes", LanesPage],
+  ["inventory", InventoryPage],
+  ["decisions", DecisionsPage],
+]);
 
 // Human-readable activity-chip labels for this skin's own tools, in the
 // present-participle voice both shipped skins use. Unlisted tools fall back to
@@ -84,7 +91,7 @@ const logistics: Skin = {
   Layout: LogisticsLayout,
   nav: logisticsNav,
   resolvePage: (segments) =>
-    PAGES[segments.length === 0 ? "" : segments.join("/")] ?? null,
+    PAGES.get(segments.length === 0 ? "" : segments.join("/")) ?? null,
   Tools: LogisticsTools,
   catalog,
   suggestions: logisticsSuggestions,

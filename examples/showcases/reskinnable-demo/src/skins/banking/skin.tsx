@@ -38,17 +38,24 @@ import TeamPage from "@/skins/banking/pages/team";
 // the roster. `""` and the explicit `"cards"` alias both resolve to the cards
 // face; the old `/cards` → dashboard re-export is dropped (dashboard is reached
 // via its own segment). Anything else → null → 404.
-const PAGES: Record<string, ComponentType> = {
-  "": CardsPage,
-  cards: CardsPage,
-  dashboard: DashboardPage,
-  charges: ChargesPage,
-  team: TeamPage,
-};
+// A Map, NOT an object literal: an object inherits Object.prototype, so
+// PAGES["constructor"] returns a truthy Function and `?? null` never fires.
+// /banking/constructor would then sail past the shell's `if (!Page) notFound()`
+// and try to render a non-component -- a 500 where a 404 belongs. Same for
+// toString, valueOf, hasOwnProperty, __proto__ and the rest of the prototype.
+// A Map has no prototype keys, so the ?? is the only gate needed.
+// `src/shell/resolve-page-prototype.test.ts` walks every registered skin.
+const PAGES = new Map<string, ComponentType>([
+  ["", CardsPage],
+  ["cards", CardsPage],
+  ["dashboard", DashboardPage],
+  ["charges", ChargesPage],
+  ["team", TeamPage],
+]);
 
 function resolvePage(segments: string[]): ComponentType | null {
   const key = segments.length === 0 ? "" : segments.join("/");
-  return PAGES[key] ?? null;
+  return PAGES.get(key) ?? null;
 }
 
 // Human-readable labels for the tool-activity chips (banking-domain; moved off
