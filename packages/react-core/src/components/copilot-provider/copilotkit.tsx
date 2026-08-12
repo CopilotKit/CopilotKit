@@ -100,7 +100,15 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
       code: string;
       context: Record<string, any>;
     }) => {
-      if (!_onError || event.context?.source !== "headers") return;
+      if (event.context?.source !== "headers") {
+        console.error(
+          `[CopilotKit] Error (${event.code}):`,
+          event.error,
+          event.context ?? {},
+        );
+        return;
+      }
+      if (!_onError) return;
       await _onError({
         type: "error",
         timestamp: Date.now(),

@@ -16,7 +16,18 @@ function isRecord(value: unknown): value is HeaderRecord {
     typeof value === "object" &&
     value !== null &&
     !Array.isArray(value) &&
-    Object.values(value).every((entry) => typeof entry === "string")
+    Object.values(value).every(
+      (entry) => entry == null || typeof entry === "string",
+    )
+  );
+}
+
+function sameHeaders(left: HeaderRecord, right: HeaderRecord): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) => left[key] === right[key])
   );
 }
 
@@ -41,7 +52,7 @@ function evaluate(source: HeaderSource): Evaluation {
       : {
           kind: "error",
           error: new Error(
-            "Resolved request headers must be a record of strings",
+            "Resolved request headers must be a record of strings, null, or undefined",
           ),
         };
   } catch (error) {
@@ -69,7 +80,16 @@ export function useHeaderSource(source: HeaderSource): {
     previous.source !== source ||
     (previous.value.kind !== "async" && previous.value.kind !== "error")
   ) {
-    evaluationRef.current = { source, value: evaluation };
+    if (
+      previous?.source === source &&
+      previous.value.kind === "sync" &&
+      evaluation.kind === "sync" &&
+      sameHeaders(previous.value.value, evaluation.value)
+    ) {
+      evaluationRef.current = previous;
+    } else {
+      evaluationRef.current = { source, value: evaluation };
+    }
   }
 
   const initial = evaluation.kind === "sync" ? evaluation.value : null;
@@ -109,7 +129,7 @@ export function useHeaderSource(source: HeaderSource): {
             setState({
               headers: lastGood.current === EMPTY ? null : lastGood.current,
               error: new Error(
-                "Resolved request headers must be a record of strings",
+                "Resolved request headers must be a record of strings, null, or undefined",
               ),
             });
           }
@@ -133,7 +153,17 @@ export function useHeaderSource(source: HeaderSource): {
   }, [evaluation]);
 
   return {
-    headers: evaluation.kind === "sync" ? evaluation.value : state.headers,
-    error: evaluation.kind === "error" ? evaluation.error : state.error,
+    headers:
+      evaluation.kind === "sync"
+        ? evaluation.value
+        : lastGood.current === EMPTY
+          ? state.headers
+          : lastGood.current,
+    error:
+      evaluation.kind === "error"
+        ? evaluation.error
+        : evaluation.kind === "sync"
+          ? null
+          : state.error,
   };
 }

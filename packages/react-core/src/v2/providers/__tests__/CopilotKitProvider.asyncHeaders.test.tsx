@@ -48,4 +48,26 @@ describe("CopilotKitProvider async headers", () => {
       context: { source: "headers", runtimeUrl: "https://runtime.example" },
     });
   });
+
+  it("keeps core nullish-value normalization for static records", async () => {
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ version: "1", agents: {} }), {
+        status: 200,
+      }),
+    );
+    render(
+      <CopilotKitProvider
+        runtimeUrl="https://runtime.example"
+        headers={
+          { Authorization: undefined } as unknown as Record<string, string>
+        }
+      >
+        <div>child</div>
+      </CopilotKitProvider>,
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const requestHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(requestHeaders.has("Authorization")).toBe(false);
+    fetchMock.mockRestore();
+  });
 });
