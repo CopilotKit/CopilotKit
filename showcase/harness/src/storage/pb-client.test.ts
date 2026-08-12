@@ -144,6 +144,128 @@ describe("pb-client", () => {
     expect(authCount).toBe(2);
   });
 
+  it("re-auths on 403 (expired superuser token treated as guest) then retries the write", async () => {
+    // Root cause of the 46h dashboard blackout: PocketBase treats an
+    // Authorization token whose ~14-day TTL has expired as an
+    // unauthenticated (guest) request, so a guest write to a
+    // superuser-gated collection returns 403 "Only admins can perform this
+    // action" — NOT 401. The client must recognize that a 403 on a request
+    // that DID carry a token means the session went stale, refresh the
+    // token, and retry the write once.
+    let authCount = 0;
+    let writeCount = 0;
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("auth-with-password")) {
+        authCount += 1;
+        return new Response(JSON.stringify({ token: "t" + authCount }), {
+          status: 200,
+        });
+      }
+      writeCount += 1;
+      // First write carries the (now-expired) cached token -> PB 403 guest.
+      if (writeCount === 1) {
+        return new Response(
+          JSON.stringify({
+            code: 403,
+            message: "Only admins can perform this action.",
+            data: {},
+          }),
+          { status: 403 },
+        );
+      }
+      // Retry after re-auth carries a fresh, valid token -> success.
+      return new Response(JSON.stringify({ id: "created" }), { status: 200 });
+    });
+    const pb = createPbClient({
+      url: "http://pb",
+      email: "e",
+      password: "p",
+      logger,
+      fetchImpl,
+    });
+    const out = await pb.create<{ id: string }>("status", {
+      key: "k",
+      state: "green",
+    });
+    expect(out.id).toBe("created");
+    // Initial auth + exactly one re-auth.
+    expect(authCount).toBe(2);
+    // Original 403'd write + the successful retry.
+    expect(writeCount).toBe(2);
+  });
+
+  it("caps 403 re-auth at 1 — a 403 that persists after a fresh auth surfaces (no infinite loop)", async () => {
+    // A 403 that is STILL returned after a fresh, successful re-auth is a
+    // genuine permission error, not an expired session. It must surface to
+    // the caller (classified `pb_permission`) rather than spin the re-auth
+    // path forever.
+    let authCount = 0;
+    let writeCount = 0;
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("auth-with-password")) {
+        authCount += 1;
+        return new Response(JSON.stringify({ token: "t" + authCount }), {
+          status: 200,
+        });
+      }
+      writeCount += 1;
+      return new Response(
+        JSON.stringify({
+          code: 403,
+          message: "Only admins can perform this action.",
+          data: {},
+        }),
+        { status: 403 },
+      );
+    });
+    const pb = createPbClient({
+      url: "http://pb",
+      email: "e",
+      password: "p",
+      logger,
+      fetchImpl,
+    });
+    await expect(pb.create("status", { key: "k" })).rejects.toThrow(
+      /pb create failed: 403/,
+    );
+    // Initial auth + exactly one re-auth, then the persistent 403 surfaces.
+    expect(authCount).toBe(2);
+    // Original write + one retry; no third attempt.
+    expect(writeCount).toBe(2);
+  });
+
+  it("does NOT re-auth on 403 when no credentials were sent (genuine guest-forbidden)", async () => {
+    // Guard against masking real authz errors: a 403 on a request that
+    // carried NO Authorization header (creds unset) can never be fixed by
+    // re-auth, so the client must surface it directly without burning a
+    // re-auth attempt.
+    let authCount = 0;
+    let writeCount = 0;
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("auth-with-password")) {
+        authCount += 1;
+        return new Response(JSON.stringify({ token: "t" }), { status: 200 });
+      }
+      writeCount += 1;
+      return new Response(
+        JSON.stringify({
+          code: 403,
+          message: "Only admins can perform this action.",
+          data: {},
+        }),
+        { status: 403 },
+      );
+    });
+    // No email/password -> ensureAuth never mints a token -> no header sent.
+    const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
+    await expect(pb.create("status", { key: "k" })).rejects.toThrow(
+      /pb create failed: 403/,
+    );
+    // Never attempted auth, and never retried the write.
+    expect(authCount).toBe(0);
+    expect(writeCount).toBe(1);
+  });
+
   it("retries when fetchImpl throws (network error) with same envelope as 5xx", async () => {
     let attempts = 0;
     const fetchImpl = makeFetch(() => {
