@@ -10,15 +10,17 @@ import type { ImpactBrief } from "@/skins/keel/data/types";
  * imports it from `agent.ts` for a `render_impact_brief` tool, the same way
  * `ops-report.ts` is imported for `render_ops_report`.
  *
- * ⚠️ SHIPPED UNMOUNTED. Nothing calls `buildImpactBriefOps` yet — the tool that
- * does belongs in `agent.ts`, which is a later slot's file. See the wiring note
- * on `renderImpactBriefParams` for the two lines that slot writes.
+ * WIRED by the `render_impact_brief` server tool in `agent.ts`, which looks the
+ * record up with `store.impactBriefs().find(…)` and emits
+ * `buildImpactBriefOps(brief, store.refsOnFile())`. `agent.test.ts` is the drift
+ * guard: `agent.ts` has no other one, and a tool defined but never added to the
+ * `tools` array fails exactly once — on stage, as "the canvas never opened".
  *
  * ── WHY THE MODEL AUTHORS NOTHING THAT REACHES THIS CANVAS ───────────────────
  *
- * `ops-report.ts` keeps figures out of the ops because run KPIs TICK: the agent
- * picks WHICH tiles, the renderers read live `useSkinData<KeelData>()`, so the
- * canvas cannot show yesterday's number. A filed Impact Brief is the opposite
+ * `ops-report.ts` keeps figures out of the ops because run KPIs MOVE: the agent
+ * picks WHICH tiles, the renderers read live `useKeelDesk()`, so the canvas
+ * cannot show yesterday's number. A filed Impact Brief is the opposite
  * kind of fact — it is IMMUTABLE the instant `POST /briefs` returns, and it is
  * durable on the server whether or not this thread survives. So its values are
  * expanded into the ops here, read out of the stored record.
@@ -79,7 +81,7 @@ const REPORT_CATALOG_ID = "keel-report";
  * quietly restate — the failure mode `POST /briefs` already had to defend
  * against in `currentRevision` (see that route's header).
  *
- * The wiring a later slot writes in `agent.ts`:
+ * The wiring, as `agent.ts` now has it:
  *
  * ```ts
  * const brief = store.impactBriefs().find((b) => b.id === briefId);
