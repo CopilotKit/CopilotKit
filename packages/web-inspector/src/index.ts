@@ -4727,17 +4727,14 @@ class CpkMemoryList extends LitElement {
 // implementation.
 export class ɵCpkThreadDetails extends CpkThreadInspector {}
 
-if (!customElements.get("cpk-thread-list")) {
-  customElements.define("cpk-thread-list", CpkThreadList);
-}
-if (!customElements.get(THREAD_INSPECTOR_TAG)) {
-  customElements.define(THREAD_INSPECTOR_TAG, CpkThreadInspector);
-}
-if (!customElements.get("cpk-thread-details")) {
-  customElements.define("cpk-thread-details", ɵCpkThreadDetails);
-}
-if (!customElements.get("cpk-memory-list")) {
-  customElements.define("cpk-memory-list", CpkMemoryList);
+function defineElementOnce(
+  registry: CustomElementRegistry,
+  tag: string,
+  ctor: CustomElementConstructor,
+): void {
+  if (!registry.get(tag)) {
+    registry.define(tag, ctor);
+  }
 }
 
 export class WebInspectorElement extends LitElement {
@@ -13495,10 +13492,19 @@ ${prettyEvent}</pre
   }
 }
 
-export function defineWebInspector(): void {
-  if (!customElements.get(WEB_INSPECTOR_TAG)) {
-    customElements.define(WEB_INSPECTOR_TAG, WebInspectorElement);
-  }
+// `customElements` is missing during SSR and in torn-down DOM test
+// environments. Resolve it when this function is called so registration can
+// be retried once a browser registry becomes available.
+export function defineWebInspector(
+  registry: CustomElementRegistry | undefined = globalThis.customElements,
+): void {
+  if (!registry) return;
+
+  defineElementOnce(registry, "cpk-thread-list", CpkThreadList);
+  defineElementOnce(registry, THREAD_INSPECTOR_TAG, CpkThreadInspector);
+  defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);
+  defineElementOnce(registry, "cpk-memory-list", CpkMemoryList);
+  defineElementOnce(registry, WEB_INSPECTOR_TAG, WebInspectorElement);
 }
 
 defineWebInspector();
