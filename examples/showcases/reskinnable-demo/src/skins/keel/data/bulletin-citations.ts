@@ -100,16 +100,26 @@ export const freshCitationFor = (
 ): BulletinCitation | undefined => {
   const fresh = FRESH_CITATIONS.get(space);
   if (!fresh) return undefined;
-  const key = canonical(fresh.ref);
-  return refsOnFile.some((ref) => canonical(ref) === key) ? undefined : fresh;
+  const key = canonicalRef(fresh.ref);
+  return refsOnFile.some((ref) => canonicalRef(ref) === key)
+    ? undefined
+    : fresh;
 };
 
 /**
  * The same reduction `store.canonicalRef` applies, restated because that one is
  * private to the store. Kept trivially identical on purpose — a looser rule here
  * would let a register that carries "POL 118" still be told it does not.
+ *
+ * EXPORTED so beat 3d's canvas can ask the same question of the same refs. The
+ * Impact Brief canvas has to decide, per cited row, whether the library carries
+ * that ref — the uncarried row is the beat's entire proof, and it is drawn
+ * differently. A third private copy of this rule is exactly how one of the two
+ * surfaces comes to disagree with the other about POL-118, so the canvas imports
+ * this one. Two copies in the skin (this and the store's) is the floor, not an
+ * accident: the store's runs where there is no import path back to here.
  */
-const canonical = (ref: string) =>
+export const canonicalRef = (ref: string) =>
   ref
     .trim()
     .replace(/[\s_-]+/g, "")

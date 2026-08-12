@@ -17,16 +17,39 @@ import { useSkinData } from "@/shell/skin-provider";
 import type { KeelData, Run } from "@/skins/keel/data/types";
 import { StatusPill } from "@/skins/keel/components/status-pill";
 import { A2UI_OPERATIONS_KEY } from "@/skins/keel/ops-report";
+import {
+  impactBriefDefinitions,
+  impactBriefRenderers,
+} from "@/skins/keel/canvas/impact-brief-components";
 
 /**
  * The Keel skin's a2ui report canvas — `skin.CanvasSurface`. The shell owns the
  * canvas region, OGUI rendering and surface-kind detection; this component only
- * renders keel's OWN a2ui operations report. Its renderers bind live KeelData via
+ * renders keel's OWN a2ui surfaces. Its renderers bind live KeelData via
  * useSkinData<KeelData>() (the canvas mounts below SkinProvider, which runs
  * useKeelData), so figures stay live while the ticker advances — the agent's ops
  * carry only label-only selections (see ops-report.ts).
  *
+ * TWO SURFACES, ONE CATALOG, ONE PROVIDER. This component renders whichever
+ * `a2ui-surface` activity is latest, and there are now two kinds:
+ *
+ *  - the operations report (`keel-ops-report`, built by `ops-report.ts`), whose
+ *    figures are LIVE because runs tick;
+ *  - beat 3d's filed Impact Brief (`keel-impact-brief`, built by
+ *    `canvas/impact-brief-ops.ts`), whose figures are EXPANDED INTO THE OPS
+ *    because a filed artifact is immutable and durable — see that file's header
+ *    for why that is the same discipline reaching the other answer.
+ *
+ * Nothing below dispatches between them: `useReportSurface` reads the surfaceId
+ * out of whichever op list arrived, and the a2ui provider keys its surfaces by
+ * that id. The two are told apart by surfaceId, never by catalog — one
+ * `A2UIProvider` is mounted here, so both op lists MUST name the same
+ * `catalogId` ("keel-report").
+ *
  * SCOPE (spec §8): this file + ops-report.ts are the single DROPPABLE unit.
+ * Beat 3d's pair (`canvas/impact-brief-ops.ts` + `canvas/impact-brief-components.tsx`)
+ * is droppable on its own: remove the two spreads below and the ops report is
+ * untouched.
  */
 
 type A2UIOp = Record<string, unknown> & { version?: string };
@@ -141,6 +164,9 @@ const reportDefinitions = {
       filter: z.enum(["all", "blocked", "running", "completed"]).optional(),
     }),
   },
+  // Beat 3d's filed Impact Brief. Additive — the ops report neither emits nor
+  // sees these, and dropping this spread leaves it exactly as it was.
+  ...impactBriefDefinitions,
 } satisfies CatalogDefinitions;
 
 const Stack = ({
@@ -309,10 +335,20 @@ const RunsTable = ({ props }: RendererProps<{ filter?: RunFilter }>) => {
   );
 };
 
-// catalogId MUST equal REPORT_CATALOG_ID ("keel-report") in ops-report.ts.
+// catalogId MUST equal REPORT_CATALOG_ID in BOTH ops-report.ts and
+// canvas/impact-brief-ops.ts ("keel-report"); one provider serves both surfaces.
 const reportCatalog = createCatalog(
   reportDefinitions,
-  { Stack, Grid, Heading, Text, KpiCard, RunChart, RunsTable },
+  {
+    Stack,
+    Grid,
+    Heading,
+    Text,
+    KpiCard,
+    RunChart,
+    RunsTable,
+    ...impactBriefRenderers,
+  },
   { catalogId: "keel-report", includeBasicCatalog: false },
 );
 
