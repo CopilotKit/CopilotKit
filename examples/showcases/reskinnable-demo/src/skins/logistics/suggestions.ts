@@ -105,6 +105,45 @@ export const logisticsSuggestions: Suggestion[] = [
     title: "Norte's gone quiet",
     message: "Norte Freight has gone dark on PO-88251 — handle it.",
   },
+  // BEAT 6 — teach it a procedure it does not have. LAST in demo order on
+  // purpose: the room has to have seen the assistant succeed at everything else
+  // before it is shown failing, or "it doesn't know this one" reads as a bug
+  // rather than as the setup.
+  //
+  // WHAT THIS ACTUALLY PRODUCES, on the seeded network. The figures below are
+  // not hoped — `data/authority.test.ts` re-derives every one of them from
+  // `seed.json` through the same pure function the mitigate route recomputes
+  // with, and fails if any drifts:
+  //   - PO-88213's expedite costs $8,400 against Rosa's $5,000 authority, so the
+  //     commit comes back 403 OVER_AUTHORITY. The refusal names the cost and the
+  //     cap and NOTHING about escalation codes — that is asserted too;
+  //   - the reroute ($572) and the split ($4,350) on the same shipment are both
+  //     INSIDE her authority, which is what keeps this pill and beat 3a's
+  //     "Release the reroute" distinguishable on the same shipment;
+  //   - exactly TWO shipments on the network are gated for Rosa: PO-88213 and
+  //     PO-88281 (its expedite is $5,640). The second one is the replay case —
+  //     the one it must handle unaided after being taught, because the first is
+  //     released by the demonstration itself;
+  //   - the Control Tower's "Authority escalations" panel offers both, with the
+  //     four justifying codes and the two decoys listed together and unmarked.
+  //
+  // The demonstration is TWO clicks in that panel — file the escalation, then
+  // release the mitigation — and both are bracketed into ONE recording, so the
+  // chat's card shows three steps and hands the agent the code that was filed.
+  //
+  // ⚠️ RUNTIME-CONDITIONAL, in one half. Gate → decline → demonstrate →
+  // summarize needs no Intelligence at all (`docs/teach-mode/verify-logistics-gate.sh`
+  // proves the REST half with no agent in the loop). What needs it is the
+  // DURABLE half: with no `save_memory` the agent keeps the procedure for this
+  // conversation only, and the fresh-thread replay on PO-88281 — the actual
+  // proof of learning — cannot happen. NOT VERIFIED HERE: everything downstream
+  // of the model's choice of tool. Whether it declines rather than bluffing,
+  // whether it reaches for `offerWorkflowRecording` rather than a distractor,
+  // and whether a fresh thread recalls and replays are all live-runtime
+  // properties, and no test in this repo asserts them for this skin.
+  // The two general-capability pills sit BEFORE it: beat 6 is the finale and has
+  // to be the last thing on the strip, so a presenter working left to right ends
+  // on the teach arc rather than on an inventory question.
   {
     title: "Inventory at risk",
     message: "Which SKUs run out before their inbound arrives?",
@@ -112,5 +151,10 @@ export const logisticsSuggestions: Suggestion[] = [
   {
     title: "Decision brief",
     message: "Build me a decision brief for this week's exceptions.",
+  },
+  {
+    title: "Expedite the LAX box",
+    message:
+      "PO-88213 has to make its promised date — put the whole shipment on the air lane.",
   },
 ];

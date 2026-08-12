@@ -62,6 +62,12 @@ const TOOL_LABELS: Record<string, string> = {
   bookDrayageSlot: "Booking a drayage slot",
   requestLaneCapacityForecast: "Requesting a capacity forecast",
   openCargoClaim: "Opening a cargo claim",
+  // BEAT 6 — the teach chain. Present-participle like the rest, and phrased so
+  // the chip itself narrates the arc the room is watching: it does not know,
+  // it watches, it keeps what it saw.
+  offerWorkflowRecording: "Asking to be shown",
+  awaitDemonstration: "Watching you do it",
+  saveLearnedProcedure: "Writing up what it learned",
   renderBrief: "Building the decision brief",
   generateSandboxedUi: "Generating an interactive view",
   recall_memory: "Recalling from long-term memory",

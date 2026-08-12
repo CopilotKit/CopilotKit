@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import {
@@ -11,6 +12,17 @@ import {
 } from "@copilotkit/react-core/v2";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref } from "@/shell/skin-path";
+import { useRecording } from "@/shell/teach";
+import {
+  OFFER_ACCEPTED,
+  OFFER_DECLINED,
+  SAVE_PROCEDURE_CONFIRMED,
+  SAVE_PROCEDURE_DECLINED,
+  buildDemonstrationDirective,
+  classifySaveProcedureResult,
+  readDemonstratedStepCount,
+  readOfferAccepted,
+} from "./teach-mode-directives";
 import { useLogistics, notifyDataChanged } from "./actions";
 import { usePlannerAuth } from "./components/planner-auth-context";
 import {
@@ -1050,7 +1062,305 @@ export function LogisticsTools() {
     [fileRateBrief],
   );
 
+  // ══ BEAT 6 — TEACH IT A PROCEDURE IT DOES NOT HAVE ═══════════════════════
+  //
+  // The chain, in order: offerWorkflowRecording → awaitDemonstration →
+  // saveLearnedProcedure. All three are `followUp: true`, so the agent advances
+  // to the next card as soon as one settles rather than stopping to narrate.
+  //
+  // The REPLAY chain is not new: once the procedure is saved, a later request on
+  // a DIFFERENT gated shipment goes through the tools that already exist —
+  // `fileEscalation` (opens + approves in one REST call) then
+  // `commitMitigation`, the very write that was refused. Nothing here is
+  // special-cased for the replay, which is the point: the agent applies ordinary
+  // tools in an order it was never told.
+  //
+  // ⚠️ WHAT IS DELIBERATELY ABSENT. There is no escalation-code readable, no
+  // z.enum on any code parameter, no code named in any description here and none
+  // in the prompt or the 403 body. Those are the five channels the vocabulary
+  // leaks through, and closing four is closing none
+  // (`.claude/skills/reskin/failure-modes.md` § 10). `fileEscalation`'s `code`
+  // is a free `z.string()` whose `.describe()` states the withholding out loud —
+  // this INVERTS the enumerate-every-closed-set rule the rest of this file
+  // follows, because for a gate, reaching the model IS the defect.
+  //
+  // ⚠️ RUNTIME-CONDITIONAL, in ONE HALF ONLY. Gate → decline → demonstrate →
+  // summarize works on the plain OSS SSE path: every tool below is an ordinary
+  // frontend tool and the REST gate is real (`docs/teach-mode/verify-logistics-gate.sh`
+  // proves that half with no agent at all). What needs Intelligence is the
+  // DURABLE half — `recall_memory` and `save_memory` attach only when the
+  // Intelligence runtime is configured. Without it the save card still renders
+  // and still settles; the agent simply has no `save_memory` to call, so it
+  // reports that it has the procedure for this conversation and nothing crosses
+  // to a fresh thread. That degrades to "learned for now", not to an error.
+
+  useHumanInTheLoop(
+    {
+      followUp: true,
+      name: "offerWorkflowRecording",
+      description:
+        "Offer to WATCH the planner do something you have no saved procedure for. Call this immediately after a " +
+        "write is refused and recall_memory turned up nothing — say plainly that you do not know this one. Never " +
+        "guess a workaround, substitute a cheaper action, or call another tool instead of this.",
+      parameters: z.object({
+        situation: z
+          .string()
+          .describe("What you were blocked on, in one short line."),
+      }),
+      render: ({ args, status: toolStatus, respond, result }) => {
+        if (toolStatus === ToolCallStatus.Executing && respond) {
+          return (
+            <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+              <div className="text-sm text-ink">
+                I don&rsquo;t have a saved way through this one
+                {args?.situation
+                  ? ` — ${args.situation.replace(/\.+$/, "")}`
+                  : ""}
+                . Show me once and I&rsquo;ll remember it?
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
+                  onClick={() => void respond(OFFER_ACCEPTED)}
+                >
+                  Show me
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
+                  onClick={() => void respond(OFFER_DECLINED)}
+                >
+                  Not now
+                </button>
+              </div>
+            </div>
+          );
+        }
+        // Replay-safe, and a HUMAN line rather than `result`: that string is an
+        // internal directive addressed to the agent ("Call awaitDemonstration
+        // now…"), and printing it verbatim puts the demo's own wiring on screen
+        // in front of the room.
+        return (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {result === undefined || result === null
+              ? "Checking whether I know this one…"
+              : readOfferAccepted(result)
+                ? "Watching you do it once."
+                : "Left it for now — nothing was recorded."}
+          </div>
+        );
+      },
+    },
+    [],
+  );
+
+  useHumanInTheLoop(
+    {
+      followUp: true,
+      name: "awaitDemonstration",
+      description:
+        "Hold the conversation while the planner demonstrates. Call this after they agree to show you. Do NOT " +
+        "list steps, name a code, or tell them where to click — you do not know the procedure, which is the " +
+        "entire reason you are watching. Say only something brief like 'go ahead, I'm watching'. When they " +
+        "finish you receive the steps they took and the exact code they filed.",
+      parameters: z.object({}),
+      render: ({ status: toolStatus, respond, result }) => {
+        if (toolStatus === ToolCallStatus.Executing && respond) {
+          // Its own component, so it subscribes to the recorder directly and
+          // re-renders on every logged step. Inlining the feed into this closure
+          // would freeze it on the `steps` snapshot taken when the card first
+          // rendered — which is before the planner has done anything at all.
+          return (
+            <DemonstrationCard onDone={(summary) => void respond(summary)} />
+          );
+        }
+        // Replay-safe, and the count is the one the RECORDER reported — never
+        // one re-counted out of this prose. See ./teach-mode-directives.
+        if (result === undefined || result === null) {
+          return (
+            <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+              Getting ready to watch…
+            </div>
+          );
+        }
+        const count = readDemonstratedStepCount(result);
+        return (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            Recorded{" "}
+            {count === null
+              ? "the demonstration"
+              : `${count} ${count === 1 ? "step" : "steps"}`}
+            .
+          </div>
+        );
+      },
+    },
+    [],
+  );
+
+  useHumanInTheLoop(
+    {
+      followUp: true,
+      name: "saveLearnedProcedure",
+      description:
+        "Summarize what you just watched as a numbered procedure and show it to the planner for confirmation. " +
+        "Call this after awaitDemonstration reports what it saw, quoting the exact code it reports. After they " +
+        "confirm, persist it with save_memory exactly as the card's result instructs. Save it AT MOST ONCE.",
+      parameters: z.object({
+        procedure: z
+          .string()
+          .describe(
+            "The numbered procedure, naming verbatim the code awaitDemonstration reported. Do not paraphrase it.",
+          ),
+      }),
+      render: ({ args, status: toolStatus, respond, result }) => {
+        if (toolStatus === ToolCallStatus.Executing && respond) {
+          return (
+            <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+              <div className="text-sm font-medium text-ink">
+                Here&rsquo;s what I picked up — shall I remember it?
+              </div>
+              <pre className="whitespace-pre-wrap rounded-md bg-surface-muted p-2.5 text-xs leading-relaxed text-ink">
+                {args?.procedure}
+              </pre>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
+                  onClick={() => void respond(SAVE_PROCEDURE_CONFIRMED)}
+                >
+                  Remember it
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
+                  onClick={() => void respond(SAVE_PROCEDURE_DECLINED)}
+                >
+                  Don&rsquo;t save
+                </button>
+              </div>
+            </div>
+          );
+        }
+        // CLASSIFIED, never merely detected. Both buttons settle this card with
+        // a string, so "is there a result at all" would print the saved receipt
+        // over a decline — asserting a durable write that never happened, live
+        // and identically on every replay.
+        const outcome = classifySaveProcedureResult(result);
+        return (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {outcome === "saved"
+              ? "Saved — I'll use this next time without being asked."
+              : outcome === "declined"
+                ? "Left it unsaved — nothing was written to memory."
+                : outcome === "unknown"
+                  ? "This card was already answered."
+                  : "Writing up what I saw…"}
+          </div>
+        );
+      },
+    },
+    [],
+  );
+
   return null;
+}
+
+/**
+ * BEAT 6 — the live "I'm watching" card.
+ *
+ * A component rather than an inline render for two reasons, both of which have
+ * bitten this app before:
+ *
+ *  1. It subscribes to the recorder ITSELF, so each `logStep` re-renders the
+ *     feed. A feed read from the host card's closure freezes on the snapshot
+ *     taken before the planner touched anything.
+ *  2. It OWNS THE OUTER RECORDING BRACKET — `beginRecording()` on mount,
+ *     `endRecording()` on unmount. That bracket must stay open across the
+ *     planner's whole demonstration (file the escalation, then release the
+ *     mitigation: two separate clicks, each with its own nested bracket in
+ *     `components/escalation-form.tsx`). If the ref count reaches zero between
+ *     them the shell clears the feed and STRANDS the demonstrated code, and
+ *     `getDemonstratedCode()` then reports null on a demonstration that plainly
+ *     happened. Holding it here is what makes the two clicks read as one
+ *     recording.
+ *
+ * No feed reset on mount: the shell's `beginRecording` clears it when it opens a
+ * FRESH window and deliberately inherits an already-open one.
+ */
+export function DemonstrationCard({
+  onDone,
+}: {
+  onDone: (summary: string) => void;
+}) {
+  const { beginRecording, endRecording, steps, getDemonstratedCode } =
+    useRecording();
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    beginRecording();
+    return () => endRecording();
+  }, [beginRecording, endRecording]);
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+      <div className="flex items-center gap-2">
+        <span className="relative flex h-2.5 w-2.5" aria-hidden>
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-negative opacity-75" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-negative" />
+        </span>
+        <span className="text-sm text-ink">
+          Watching — go ahead and show me.
+        </span>
+        <span className="ml-auto text-[0.65rem] font-semibold uppercase tracking-wide text-negative">
+          Rec
+        </span>
+      </div>
+
+      {steps.length > 0 ? (
+        <ol className="space-y-1 border-l-2 border-brand/30 pl-3">
+          {steps.map((step, index) => (
+            <li key={step.id} className="text-xs text-ink">
+              <span className="mr-1.5 tabular-nums text-ink-muted">
+                {index + 1}.
+              </span>
+              {step.label}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="text-xs italic text-ink-muted">Nothing captured yet.</p>
+      )}
+
+      <button
+        type="button"
+        disabled={sending}
+        className="self-start rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90 disabled:opacity-50"
+        onClick={() => {
+          // The recorder is the only thing that KNOWS what it caught, so the
+          // directive it hands over REPORTS the count and the code; the card
+          // that renders the settled result reads them back rather than
+          // re-deriving them from the prose. Both halves live in
+          // ./teach-mode-directives, held together by a round-trip test.
+          //
+          // Read BEFORE settling, while this component is still mounted and the
+          // bracket is therefore still open — unmounting ends the recording and
+          // the shell's minimum-visible hold is the only thing that would keep
+          // the feed alive afterwards.
+          setSending(true);
+          onDone(
+            buildDemonstrationDirective({
+              steps: steps.map((s) => s.label),
+              code: getDemonstratedCode(),
+            }),
+          );
+        }}
+      >
+        {sending ? "Wrapping up…" : "I'm done"}
+      </button>
+    </div>
+  );
 }
 
 export default LogisticsTools;
