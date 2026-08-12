@@ -14,7 +14,7 @@ on:
       - "skills/**"
       - "scripts/sync-plugin-skills.ts"
       - "scripts/__tests__/sync-plugin-skills.test.ts"
-      - "scripts/public-skill-evals/**"
+      - "scripts/__tests__/public-skill-drift.test.ts"
       - "scripts/release/public-api/manifest.v1.json"
       - "packages/runtime/src/**"
       - "packages/react-core/src/**"
@@ -29,7 +29,7 @@ on:
       - "skills/**"
       - "scripts/sync-plugin-skills.ts"
       - "scripts/__tests__/sync-plugin-skills.test.ts"
-      - "scripts/public-skill-evals/**"
+      - "scripts/__tests__/public-skill-drift.test.ts"
       - "scripts/release/public-api/manifest.v1.json"
       - "packages/runtime/src/**"
       - "packages/react-core/src/**"
@@ -68,8 +68,8 @@ jobs:
       - name: Check plugin skill mirror is in sync
         run: pnpm check:plugin-skills
 
-      - name: Test public skill evaluator
-        run: pnpm nx run public-skill-evals:test
+      - name: Build packages referenced by public skill assets
+        run: pnpm nx run-many -t build --projects=@copilotkit/runtime,@copilotkit/react-core
 
-      - name: Evaluate public skills against current packages
-        run: pnpm nx run public-skill-evals:check
+      - name: Check public skill package contracts
+        run: pnpm exec vitest run scripts/__tests__/public-skill-drift.test.ts
