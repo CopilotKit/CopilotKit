@@ -40,8 +40,9 @@ tell a deliberate choice from an oversight.
 **If the user named which beats to hit** — fewer, more, or different ones — theirs
 win outright. Record what they asked for in the map (`"user: BI dashboards only,
 no teach mode"`) and build that. Absent instructions, build all nine rows: that
-is what makes a skin demo-complete, and three of the six shipped skins are
-missing most of them (see "Which skin to copy" at the end).
+is what makes a skin demo-complete, and every shipped skin now hits all nine, so
+there is no partial precedent left to hide behind (see "Which skin to copy" at
+the end).
 
 ---
 
@@ -168,12 +169,14 @@ value: <current segment> })` in your layout. Without it the agent has no idea
    screen: name the page, summarize the key elements, cite the actual figures,
    and **never** say it cannot see the screen.
 
-Every shipped skin registers readables. Only banking, people, commerce and
-logistics register a route readable AND per-page on-screen readables — which is
-why this beat is impossible in airline and keel today: they answer identically
-no matter which page is open. Derive that list rather than trusting this
-sentence: `grep -rln useAgentContext src/skins/*/layout.tsx` is the route
-readable, `grep -rln useAgentContext src/skins/*/pages/` the page ones.
+**Every shipped skin now registers both**, so every one is a fair reference — and
+that is worth deriving rather than believing, because this paragraph named four
+skins for a release after the other two shipped theirs:
+`grep -rln useAgentContext src/skins/*/layout.tsx` is the route readable,
+`grep -rln useAgentContext src/skins/*/pages/` the page ones. Both return every
+registered skin, so a MISSING entry is the signal. The failure this beat dies of
+is a route readable that was never written: the agent then answers identically no
+matter which page is open, fluently, and only a presenter who asks twice notices.
 
 **Banking:** route readable at `layout.tsx:141-143`; global page/operation
 readables at `tools.tsx:162-170`; page-scoped on-screen readables in
@@ -289,8 +292,10 @@ still there, because it is part of your product.
 
 **Your skin needs:** an attachment path, plus a tool that writes its output to
 your skin's **store**, plus a surface in the app that lists those artifacts.
-Deleting the thread must not remove it. In-memory skins can fake half of this;
-a server-backed store makes it true.
+Deleting the thread must not remove it. A client-state store can only fake half of
+this — the artifact dies with the tab, and the beat's claim is precisely that it
+does not — which is one of the reasons no skin holds its data in client state any
+more. Write the artifact through a REST route into a server store.
 
 Three mechanics worth copying verbatim:
 
@@ -377,7 +382,9 @@ Three mechanics worth copying verbatim:
     implementation AND driven by a test in
     `src/shell/attach/stage-attachment.test.ts`, and the exhaustiveness gate there
     is **type-only** on one half — Vitest transpiles without type-checking, so run
-    `npx tsc --noEmit -p tsconfig.json` if you touch the union.
+    `pnpm exec tsc --noEmit` if you touch the union. (Not `pnpm build`: `next build`
+    type-checks only what the app's module graph reaches, so it never opens the
+    test file that gate lives in. See SKILL.md § Verification step 1.)
   - **The `[attach:<cause>]` prefix on the `console.error` line is load-bearing,
     not decoration.** `attachByHand` and `sendMessageWithAttachment` return bare
     booleans, so the tagged log line is the ONLY place a send-path cause is
@@ -497,11 +504,16 @@ and then does it alone, on a different case.
    recipe and carries an ACTION DISCIPLINE clause so it says "I don't know this
    one — want me to record how you do it?" instead of improvising.
 
-   ⚠️ **The vocabulary leaks through FIVE channels and closing four is closing
-   none:** a `useAgentContext` readable, a `z.enum(YOUR_CODES)` on the filing
+   ⚠️ **The vocabulary leaks through FIVE GENERIC channels and closing four is
+   closing none:** a `useAgentContext` readable, a `z.enum(YOUR_CODES)` on the filing
    tool's schema, the tool's own `description`, the prompt, and the refusal body.
    Logistics shipped parts 1 and 2 correctly and still handed the agent the answer
-   through the first four of those. Take a free `z.string()` on the code parameter
+   through the first four of those. **Then enumerate YOUR skin's own channels, because
+   the list of five is not exhaustive** — if any code-shaped value is stored on a
+   record your ledger publishes, the ledger readable is a sixth: airline's
+   `Booking.waiverGround` maps 1:1 onto a justifying category, so `store.snapshot()`
+   strips it and `data/store.test.ts` pins the strip. Ask "what does my `/ledger`
+   answer with", not just "what did I write into a prompt". Take a free `z.string()` on the code parameter
    and state the withholding in its `.describe()`. This INVERTS the enumerate-every-
    closed-set rule you follow everywhere else — for a gate, reaching the model is
    the defect. The guard is `withheldGateVocabulary` in `eslint.config.mjs`, and its
@@ -536,8 +548,9 @@ and then does it alone, on a different case.
 
 **Banking's HITL chain:** `offerWorkflowRecording` (`tools.tsx:1101`) →
 `awaitDashboardDemonstration` (`1176`, live pulsing "Rec" badge + step feed) →
-`saveLearnedWorkflow` (`1258`, then `save_memory` with scope `project`, kind
-`operational`) → replay via `openPolicyException` (`907`) →
+`saveLearnedWorkflow` (`1258`, then `save_memory` with scope `project` — the
+historical exception, do NOT copy it; see the scope box under "Seeding memories" —
+kind `operational`) → replay via `openPolicyException` (`907`) →
 `finalizePolicyException` (`975`) → `approveTransaction` (`1035`). Line numbers
 drift with every edit to that file — grep the tool NAME, which is stable.
 
@@ -559,9 +572,44 @@ mirror `src/skins/banking/intelligence/seed-memories.ts`. Three rules:
 - **Deliberately do NOT seed beat 6's procedure.** That is the one the agent must
   learn on stage. Banking's seed file omits it on purpose
   (`seed-memories.ts:53-60`) — if you seed it, beat 6 has nothing to teach.
-- **Scope them** so beat 5's procedure and beat 6's learned procedure can never
-  be mistaken for each other. Banking scopes the learned one `project` /
-  `operational` and words both prompts to force the distinction.
+- **Word beat 5's procedure and beat 6's so they can never be mistaken for each
+  other**, and force the distinction in both prompt clauses too. This is the single
+  easiest thing in the demo for the agent to confuse.
+
+### 🚨 Scope BOTH procedures `user`. Not `project`.
+
+**`project` scope survives every presenter reset, so a project-scoped learned
+procedure means beat 6 opens ALREADY TAUGHT on the second run of the day** — the
+agent clears the gate unaided, the room sees no failure, and there is nothing to
+demonstrate. Nothing errors; the beat just silently stops existing.
+
+The mechanism, and the reason the two halves must agree. Project scope is **global
+to the shared Intelligence instance**, and every skin in this app points at one, so
+a sweep that deletes project rows would delete a SIBLING skin's seeds. Every skin
+bar banking therefore ships a `forget-memories.ts` that skips them —
+
+```bash
+grep -ln 'scope !== "project"' src/skins/*/intelligence/forget-memories.ts
+```
+
+— and in such a skin the reset physically CANNOT clear what beat 6 taught if beat 6
+saved it at project scope. Copy that sweep (you should) and then save at project
+scope, and you have built the failure.
+
+Verified against a running stack: a project-scoped memory is returned for EVERY
+user id, so it also leaks across products — one skin's procedure recalled inside
+another reads to the room like the memory system confused two applications.
+
+**`banking` scopes its learned procedure `project`. It is the historical exception,
+not the pattern**, and it gets away with it only because its own sweep deletes
+every row including project ones — self-consistent, and the reason it is safe there
+is exactly the reason it is not safe anywhere else. Every skin written since scopes
+`user`, and each seed file records why in a comment beside the field:
+`grep -n 'scope:' src/skins/*/intelligence/seed-memories.ts`.
+
+Keeping beat 5's seeded procedure and beat 6's learned one distinguishable is then
+a job for their TEXT and the prompt clauses that route to them — each says plainly
+that it is not the other — not for the scope field.
 
 Reset must re-seed. See the Reset requirement below.
 
@@ -588,14 +636,16 @@ rides along instead of asking twice.
 
 Read the beat-map header at the top of `people`'s or `commerce`'s `suggestions.ts`
 to see the mapping written out, and count what any skin actually ships with
-`grep -c 'title:' src/skins/<id>/suggestions.ts` rather than trusting a number in
-prose — which is not a stylistic preference: this paragraph said "`airline`,
-`logistics`, `keel` ship four or five" and was wrong about `logistics` within one
-release of being written. `airline` (5) and `keel` (4) predate this bar and cover
-the beats only partially; do not calibrate against them. `logistics` is now
-demo-complete and ships more pills than any other skin, which is the same lesson
-from the other side: a count says nothing about coverage in either direction —
-derive coverage from the matrix commands in `CLAUDE.md`.
+`grep -c 'title:' src/skins/*/suggestions.ts` rather than trusting a number in
+prose. That is not a stylistic preference. This paragraph has now been wrong
+twice: it said "`airline`, `logistics`, `keel` ship four or five" and was wrong
+about `logistics` within one release, then wrong about the other two the moment
+they were brought up to the bar. **Every shipped skin is demo-complete and the
+counts still disagree with each other** — that is the whole point: a count says
+nothing about coverage in either direction. The highest count in the tree belongs
+to a skin whose extra pills are identity pills predating the beat list, kept
+verbatim (the arithmetic is written out at the top of its `suggestions.ts`).
+Derive coverage from the matrix commands in `CLAUDE.md`, never from a pill count.
 
 **Every mutation gets a visible affordance.** "Make sure that you use like a
 light or a bell or whatever so people can see that it changed." If the audience
@@ -680,22 +730,30 @@ tools or pages, alongside this file.
 
 ## Which skin to copy for what
 
-| Need                                  | Copy from                                                                          |
-| ------------------------------------- | ---------------------------------------------------------------------------------- |
-| Every beat, end to end                | `banking`, `people`, `commerce` or `logistics` — the four at 9/9 beats             |
-| A written-out beat map                | `people` or `commerce` — the table at the top of their `suggestions.ts`            |
-| Route + on-screen readables (beat 3b) | `banking`, `people`, `commerce`                                                    |
-| Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`; `people`/`commerce` for 2nd takes         |
-| A four-lever navigation (beat 3c)     | `commerce` — status + exception + sort + top-N, all four tinted                    |
-| Attachment staging (beat 3d)          | `@/shell/attach` for the chain; any of the four wrappers for the pill              |
-| A GENERATED uploaded document         | `@/shell/documents` for the bytes; `commerce`/`people`/`logistics` for the content |
-| Seeded memories (beats 4, 5)          | `ls src/skins/*/intelligence/seed-memories.ts` — copy any; `commerce` is newest    |
-| Debugged layout + meta-utility strip  | `logistics`, `people`, `commerce`                                                  |
-| Server-emitted a2ui canvas            | `logistics` (`renderBrief`), `banking` (`render_report`)                           |
-| Per-user identity plumbing            | `banking`, `logistics`, `keel`, `people`, `commerce`                               |
-| Parameterized routes in `resolvePage` | `keel` (`knowledge/<docId>`, `runs/<runId>`)                                       |
-| In-memory `useData` substrate         | `airline`, `keel`                                                                  |
-| Minimal contract surface              | `airline`                                                                          |
+**Every registered skin is demo-complete**, so the question is no longer "which
+ones are finished" but "which one is the cleanest read for the thing I am stuck
+on". Rows naming a set rather than a skin give you the derivation instead, because
+a set rots and a command does not.
+
+| Need                                      | Copy from                                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| Every beat, end to end                    | any registered skin — pick the domain nearest yours                                   |
+| A written-out beat map                    | `people` or `commerce` — the table at the top of their `suggestions.ts`               |
+| Route + on-screen readables (beat 3b)     | `grep -rln useAgentContext src/skins/*/layout.tsx` — all of them; `banking` richest   |
+| Teach mode (beat 6)                       | `docs/teach-mode/README.md` first; then any skin shipping `teach-mode-directives.ts`  |
+| A four-lever navigation (beat 3c)         | `commerce` — status + exception + sort + top-N, all four tinted                       |
+| Attachment staging (beat 3d)              | `@/shell/attach` for the chain; any skin's `attach-*.ts` for the pill                 |
+| A GENERATED uploaded document             | `@/shell/documents` for the bytes; `commerce`/`people`/`logistics` for the content    |
+| Seeded memories (beats 4, 5)              | `ls src/skins/*/intelligence/seed-memories.ts` — copy any one that scopes `user`      |
+| Debugged layout + meta-utility strip      | `logistics`, `people`, `commerce`                                                     |
+| Server-emitted a2ui canvas                | `logistics` (`renderBrief`), `banking` (`render_report`)                              |
+| Per-user identity plumbing                | `ls src/skins/*/intelligence/user-id.ts` — all of them; `commerce`'s is the `Map` one |
+| Runtime identity with NO context to read  | `airline` — `useRuntimeProperties` + `identifyUser`, no `RuntimeProviders`            |
+| Parameterized routes in `resolvePage`     | `keel` (`knowledge/<docId>`, `runs/<runId>`)                                          |
+| A server-settled clock (no client tick)   | `keel` — `src/app/api/keel/v1/settle-runs.ts`, settled on every read                  |
+| Raising an EXISTING skin to the beats     | `logistics`, then `airline` and `keel` — the three retrofits, commit by commit        |
+| A gate that is ENTITLEMENT, not authority | `airline` — the fare's own conditions refuse; the exception must MATCH the record     |
+| An in-memory `useData` substrate          | nothing — no skin sets `useData` any more; templates.md § `data/use-data.ts` only     |
 
 > **Generating a PDF? Do NOT write the bytes — call `@/shell/documents`.**
 > `buildPdf(lines: Line[])` emits a single page of base-14 text with a correct
@@ -848,16 +906,24 @@ tools or pages, alongside this file.
 > mitigate route applies to cost, extended to the one field a document ingestion
 > adds.
 
-**Do not use airline or keel as demo-completeness references.** They predate this
-bar and neither hits all nine beats. Keel is especially misleading — it ships the
-full per-user identity plumbing (`RuntimeProviders`, `useRuntimeProperties`,
-server `identifyUser`) and then no memory prompts, no memory tools and no seed
-file, so it gets zero demo value from the hardest part of what it built.
-Logistics was the same until beats 2 through 6 were retrofitted onto it, and that
-retrofit is the single most useful thing here to read for this reason: it is the
-worked example of what the plumbing was missing, commit by commit. Check any
-claim here against the tree —
-`ls src/skins/*/intelligence/seed-memories.ts` and `grep -c 'title:'
-src/skins/<id>/suggestions.ts` — rather than against this paragraph. Every skin
-named here remains an excellent _wiring_ reference and, apart from the rows it
-does tick, an incomplete _demo_ reference.
+**There is no longer a partial skin to warn you off.** This paragraph used to say
+"do not use airline or keel as demo-completeness references"; both have since been
+retrofitted and hit every beat, so the warning is gone and with it the excuse.
+
+What replaces it is the lesson the retrofits taught, which generalises better than
+the roster ever did: **`keel` shipped the full per-user identity plumbing —
+`RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — and then no
+memory prompts, no memory tools and no seed file, so it got ZERO demo value from
+the hardest part of what it had already built.** `logistics` was in exactly that
+state before it. Wiring the expensive half and skipping the cheap half is the
+characteristic way a skin ends up technically impressive and demo-worthless, and it
+is invisible in a diff: everything compiles, everything renders, and the beat
+simply is not there. If you find yourself building identity plumbing, build the
+seed file in the same phase.
+
+The three retrofits (`logistics`, then `airline` and `keel`) are consequently the
+most useful history here to read: each is a commit-by-commit record of exactly what
+correct wiring was still missing. And check every claim on this page against the
+tree — `ls src/skins/*/intelligence/seed-memories.ts`,
+`grep -c 'title:' src/skins/*/suggestions.ts` — rather than against the prose,
+because this paragraph has now been rewritten twice for the same reason.

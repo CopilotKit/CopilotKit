@@ -5,10 +5,11 @@ traps live in [templates.md](./templates.md) and this file cross-links to them.
 It is the set of ideas you need up front, because each one changes a decision you
 make while writing, and none of them belongs to a single file.
 
-Everything here came out of one review of the `commerce` skin: two rounds, one of
+Most of this came out of one review of the `commerce` skin: two rounds, one of
 them twenty-four independent agents, ~233 findings that resolved into about a
-dozen recurring classes. The classes are what generalise; the individual bugs do
-not.
+dozen recurring classes. §§ 13–14 were added later, by the run that brought
+`airline` and `keel` up to the full beat list. The classes are what generalise;
+the individual bugs do not.
 
 ---
 
@@ -384,8 +385,9 @@ was what every earlier gate relied on for confidence — the gate was weaker tha
 the record said it was.
 
 **The general rule: for every assertion, ask what would have to break for this to
-go red. If you cannot answer, the test is decoration.** The concrete, transferable
-traps:
+go red. If you cannot answer, the test is decoration.** The same question applied
+one level up — to the GATES rather than the assertions — is § 13, which is how a
+type error survived three green gates. The concrete, transferable traps:
 
 - **Vitest `it.each` SPREADS array rows.** An `[]` case therefore runs with NO
   argument — the title prints a literal `%o` — and silently duplicates the
@@ -398,7 +400,9 @@ traps:
   branch. `vi.mock` does not type-check its factory against the real module. This
   is the natural companion to § 3: the moment `refresh()` became
   `Promise<boolean>`, every `async () => {}` mock of it started asserting the
-  stale-view branch while looking green.
+  stale-view branch while looking green. (And nothing else would have caught it
+  either — see § 13: no gate in this app type-checks a test file unless you run
+  `pnpm exec tsc --noEmit` by hand.)
 - **Asserting a byte layout in decoded characters** can never catch a multi-byte
   desync (§ 6).
 - **`vi.stubEnv` without `afterEach(vi.unstubAllEnvs)`** leaks into later test
@@ -513,6 +517,25 @@ the codes are provided leaves a sentence that is now also false. Enumerate the
 channels — readable, schema, tool description, prompt, error body — and record a
 verdict for each (§ 11).
 
+🚨 **AND THE LIST OF FIVE IS NOT EXHAUSTIVE — enumerate YOUR skin's channels, not
+this file's.** The five above are the ones every skin has. A skin can invent a
+sixth, and one did: `airline`'s gate is grounded, so `Booking.waiverGround` holds a
+CODE-SHAPED token (`"schedule_change"`, `"medical"`) that maps 1:1 onto a justifying
+category. It lives on a record the ledger publishes, so the ledger readable would
+have handed the agent half the catalogue sideways — through no readable, schema,
+description, prompt or error body. `store.snapshot()` strips the field
+(`data/store.ts`'s `toDto`), and three tests pin the strip: `data/store.test.ts`,
+`/ledger`'s and `/bookings/[id]`'s route tests, plus a client-side
+`tools.test.ts` case asserting neither agent-facing file so much as mentions the
+identifier. The honest substitute ships in its place — `fareNotes`, human prose the
+passenger reads on their own booking, which is what the learned procedure has to
+READ in order to choose a matching category.
+
+The transferable question is therefore **"what does my `GET /ledger` answer
+with?"**, not only "what did I write into a prompt". Any code-shaped value stored
+on a published record is a channel, and it is the least visible one, because
+nothing about it looks like an instruction to the model.
+
 **The shipped shape.** A gate's code parameter is a free `z.string()` whose
 `.describe()` states the withholding out loud ("You are NOT given the catalogue —
 use the exact code the planner demonstrated, or ask them which code applies"), the
@@ -544,14 +567,15 @@ with no runtime symptom. It matches an `Identifier` named `*_CODES` /
 (`.enum(ESCALATION_CODES)` sat on its own line), so a guard for the string
 `"z.enum(ESCALATION_CODES)"` would have silently never matched.
 
-🚨 **THE RULE COVERS TWO OF THE FIVE CHANNELS. Do not read a green lint as a
-withheld vocabulary.** It matches an IDENTIFIER, so it catches the readable and
-the schema enum — the two channels that name the catalogue in code. The tool
-`description`, the agent prompt and a 422 body are **prose**, and no identifier
-selector can catch a sentence. They are a HAND-REVIEW item, and they are not the
-minor half: the tool description and the prompt are the two channels that
-survived the first pass at this exact fix. The cheap check, run it every time you
-touch a gate:
+🚨 **THE RULE COVERS TWO CHANNELS. Do not read a green lint as a withheld
+vocabulary.** It matches an IDENTIFIER, so it catches the readable and the schema
+enum — the two channels that name the catalogue in code. The tool `description`,
+the agent prompt and a 422 body are **prose**, and no identifier selector can catch
+a sentence. A domain-named field like `waiverGround` is not caught either, since it
+matches neither `*_CODES` nor `*_CODE_LABELS`. All of those are a HAND-REVIEW item,
+and they are not the minor half: the tool description and the prompt are the two
+channels that survived the first pass at this exact fix. The cheap check, run it
+every time you touch a gate:
 
 ```bash
 grep -nE 'ESCALATION_CODE|_CODES|catalogue|valid codes' \
@@ -568,15 +592,24 @@ glob covering an unfixed skin turns the tree red for a whole phase. `agent.ts`
 matters as much as `tools.tsx`: it is where the prompt leak actually shipped, and
 where a server-side `defineTool` could carry the same enum.
 
-⚠️⚠️ **And when you widen that glob, RESTATE the LOCK_SKIN selectors in the
-block.** Flat-config `rules` options are **replaced, not merged**, so a block
-listing only `withheldGateVocabulary` silently disables the three URL-contract
+⚠️⚠️ **And when you widen that glob, RESTATE every selector the block's files
+already resolve to.** Flat-config `rules` options are **replaced, not merged**, so a
+block listing only `withheldGateVocabulary` silently disables the three URL-contract
 selectors for exactly the files it names. This is not hypothetical — it shipped
 that way, was green, and no test noticed, because the file it disabled them for
-had no nav shape to violate. Verify with
-`npx eslint --print-config src/skins/<id>/tools.tsx` and COUNT the selectors
-(covered files: four; any other in-skin file: three). A passing `pnpm lint`
-proves nothing about a rule you have just switched off.
+had no nav shape to violate. A passing `pnpm lint` proves nothing about a rule you
+have just switched off.
+
+**Do NOT verify this by COUNTING selectors.** This paragraph used to prescribe a
+count ("covered files: four; any other in-skin file: three") and the count had
+already rotted by the time anyone read it — `actions.ts` resolves to two, and the
+number for a gated file moved again when `statusKeyedTerminalRender` was added to
+the same block. The mechanical check is the resolved-selector table in
+`src/shell/skins-config.test.ts` § "the resolved `no-restricted-syntax` selectors",
+which asserts the resolved selector LIST **by name, per file**, through
+`ESLint#calculateConfigForFile`. Add a row for every file whose selector set you
+change. `npx eslint --print-config src/skins/<id>/tools.tsx` is the by-hand version
+— read the names, do not tally them.
 
 **And prove it over pure REST, with no agent in the loop.** Four assertions in
 order: the gate refuses with a symptom and no code named; a DECOY code records and
@@ -701,3 +734,95 @@ block — so the test says what the unlock path IS, not only what it is not.
 "REJECTED: over your approval authority" and will try the other tool it has. Say
 in `agent.ts`, out loud, that the PIN is a second factor and never a way past a
 rejection.
+
+---
+
+## 13. Nothing in this app type-checks a test file unless you run `tsc` yourself
+
+**`pnpm lint` · `pnpm test:unit` · `pnpm build` can all be green over a test file
+that does not type-check.** Three gates, three greens, and the type error is still
+sitting there. That is not a hypothetical: a slot on this branch reported all three
+green and `pnpm exec tsc --noEmit` then found a live `TS2352`.
+
+Why each one misses it:
+
+- **`next build`** type-checks only what the app's **module graph reaches**. A test
+  file is imported by nothing the app renders, so Next never opens it. This is the
+  part that misleads — there is no `typecheck` script in `package.json`, so "the
+  build type-checks" is the natural conclusion, and both this skill and CLAUDE.md
+  asserted it in as many words for several releases.
+- **Vitest** transpiles. It does not type-check, at all, ever.
+- **ESLint** is not a type checker.
+- **`tsconfig.json` DOES include `**/*.tsx`\*\* — so the tests were always *in\* the
+  project. Nothing was looking.
+
+```bash
+pnpm exec tsc --noEmit   # the ONLY full type-check in this tree. Run it.
+```
+
+**Why this belongs in a file about lies rather than a file about commands.** A
+green gate is a CLAIM, and this one is a false claim of exactly the shape
+everything else here is about: it renders as success. Worse, it silently voids a
+whole class of guard this skill tells you to write. Several of the strongest
+assertions in the tree are **type-only** — the exhaustiveness gate over
+`AttachmentFailureCause` (demo-beats.md § 3d), a fixture typed against the real DTO
+so a field rename fails the test rather than the demo, `satisfies` on a lever
+vocabulary. Every one of those is _decoration_ until `tsc` runs. § 7's rule applies
+one level up: for every GATE, ask what would have to break for it to go red.
+
+Add it to your verification list beside lint and tests (SKILL.md § Verification
+step 1 now names all four, cheapest first), and run it after any change to a type
+surface a test asserts against — which is most of them.
+
+---
+
+## 14. A lookup keyed by URL input must be a `Map`, or the 404 branch never fires
+
+`resolvePage` receives the URL segments after `/<skin>` — **untrusted caller
+input** — and the obvious scaffold for it is a table plus a `?? null`:
+
+```ts
+const PAGES: Record<string, ComponentType> = { "": Home, reports: Reports };
+resolvePage: (segments) => PAGES[segments.join("/")] ?? null; // 🚨 BROKEN
+```
+
+An object literal inherits `Object.prototype`, so `PAGES["constructor"]` is a
+truthy `Function`. `?? null` never fires, the shell's `if (!Page) notFound()` is
+bypassed, and `/<skin>/constructor` hands React a `Function` where a
+`ComponentType` was declared: **a 500 where a 404 belongs.** Same for
+`"toString"`, `"valueOf"`, `"hasOwnProperty"`, `"__proto__"`, …
+
+**`Record<string, ComponentType>` cannot catch this. The annotation is a lie about
+a plain object** — it describes the own keys and says nothing about the chain,
+which is exactly why the bug reads as correct in review. Three shipped skins
+carried it.
+
+The fix makes the bad state unrepresentable rather than adding a guard per call
+site:
+
+```ts
+const PAGES: Map<string, ComponentType> = new Map([
+  ["", Home],
+  ["reports", Reports],
+]);
+resolvePage: (segments) =>
+  PAGES.get(segments.length === 0 ? "" : segments.join("/")) ?? null;
+```
+
+`Map.get` only ever sees own entries. templates.md's scaffolds are already written
+this way, and `src/shell/resolve-page-prototype.test.ts` pins it for every
+registered skin, so a new skin that copies the template is covered without adding
+a test.
+
+**Then sweep the class, per § 11 — this is not one call site.** Any lookup whose
+KEY comes from outside your code has the same defect, and the second one in this
+app was worse than the first: the operator→identity map inside
+`intelligence/user-id.ts` is keyed by `properties.userId`, forwarded by the
+CLIENT. With a plain object, `operatorId && IDENTITY[operatorId]` resolves truthy
+for `"toString"`, and `.userId` on the inherited member is `undefined` — so
+`identifyUser` hands Intelligence an `undefined` memory bucket. No error. Writes
+and recall both go somewhere nobody intended, and beats 4/5/6 are precisely the
+beats that depend on that scope being right. `src/skins/commerce/intelligence/user-id.ts`
+
+- its `user-id.test.ts` are the worked pair; templates.md carries the same warning
+  inline.

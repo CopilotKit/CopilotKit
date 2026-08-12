@@ -373,16 +373,29 @@ skin's `dev/reset` route should allow the reset when
 `src/app/api/logistics/v1/dev/reset/route.ts`) — otherwise a production booth
 shows a Reset button that 403s.
 
-## `data/use-data.ts` (OPTIONAL → `useData`)
+## `data/use-data.ts` (OPTIONAL → `useData`) — and you almost certainly want REST instead
 
-The seed-backed hook the shell runs inside `SkinProvider`. For an **in-memory**
-skin, hold state locally (mirror `src/skins/airline/data/use-data.ts`) and set
-`useData` on the skin. A **REST-backed** skin with no shell-managed data can
-**omit `useData` entirely** and have components read the backend directly — that
-is what banking does (it reads REST via `useCreditCards` and the member via
-`useAuthContext`, and never sets `useData`). When `useData` is omitted,
-`useSkinData<T>()` returns `undefined`, so only add this file if your components
-will actually consume it.
+⚠️ **No shipped skin sets `useData` any more, so this template is the only
+reference for it and there is no worked example to open.** `ls
+src/skins/*/data/use-data.ts` returns nothing. `airline` and `keel` held state this
+way and both migrated onto their own REST ledgers; the
+field is still live in the contract and the shell still runs it, but choosing it
+today means choosing the shape every skin moved off.
+
+**Two reasons they moved, both of which will bite a new skin the same way.**
+(1) Beat 3d's whole claim is that the artifact belongs to the application and
+survives deleting the thread — client state cannot make that true. (2) Anything
+TIME-DEPENDENT held in client state becomes a second clock: keel ticked runs on a
+900 ms `setInterval` while the server held them as state only, so the client painted
+progress the server had never heard of and the next re-read after any write silently
+rewound it. Time now settles server-side on every read
+(`src/app/api/keel/v1/settle-runs.ts`) and the interval only re-fetches.
+
+So: put your seed, types and pure derivations in `data/`, put the store behind
+`src/app/api/<id>/v1/*`, and read it through one snapshot context
+(`ledger-context.tsx`) — mirror any shipped skin. Set `useData` only for state that
+is genuinely client-owned and genuinely shell-managed. When it is omitted (the norm),
+`useSkinData<T>()` returns `undefined`.
 
 ```ts
 "use client";
@@ -562,11 +575,14 @@ agent cannot report them as the contents of the view. See demo-beats.md § 3c.
 ```tsx
 "use client";
 import { useAgentContext } from "@copilotkit/react-core/v2";
-import { useSkinData } from "@/shell/skin-provider";
-import type { <Id>Data } from "../data/use-data";
+// The REST path, which is what every shipped skin does: ONE `GET /ledger`
+// snapshot shared through your own context. Only reach for
+// `useSkinData<<Id>Data>()` from "@/shell/skin-provider" if you set `useData`,
+// which nothing currently does — and then guard the `undefined`.
+import { use<Id>Ledger } from "../ledger-context";
 
 export function <Id>HomePage() {
-  const data = useSkinData<<Id>Data>();
+  const data = use<Id>Ledger();
   const visible = /* the rows actually rendered, after filter + sort */ [];
 
   // BEAT 3b — what is VISIBLY on screen right now, not the whole data set.
@@ -689,18 +705,20 @@ import {
   useFrontendTool,
   ToolCallStatus,
 } from "@copilotkit/react-core/v2";
-import { useSkinData } from "@/shell/skin-provider";
-import type { <Id>Data } from "./data/use-data";
+import { use<Id>Ledger } from "./ledger-context";
 
 export function <Id>Tools() {
-  // If your skin sets `useData`, read it here. For a NO-DATA skin (banking /
-  // logistics path) `useSkinData` returns undefined — never feed that raw into
-  // useAgentContext; guard it (or read your own REST hook / auth context here).
-  const data = useSkinData<<Id>Data>();
+  // Read the SAME snapshot the pages and the canvas read, so the agent and the
+  // screen can never describe two different worlds. That is the REST path every
+  // shipped skin takes. If instead your skin sets `useData`, read it with
+  // `useSkinData<<Id>Data>()` from "@/shell/skin-provider" — and never feed that
+  // raw into useAgentContext, because it is `undefined` for every skin that omits
+  // the field (i.e. all of them today).
+  const data = use<Id>Ledger();
 
   useAgentContext({
     description: "<what the agent should know>",
-    value: JSON.stringify(data ?? {}), // ?? {} — data is undefined for a no-data skin
+    value: JSON.stringify(data ?? {}), // ?? {} — guard the not-yet-loaded case
   });
 
   // Gen-UI, NO parameters → render takes no schema arg.
@@ -797,13 +815,16 @@ report tool instead of the in-chat chart). Keep the beat map from
 
 **Derive the count from the beat map, never from a target number.** The arithmetic
 is in [demo-beats.md](./demo-beats.md) § "Presentation requirements" — that is the
-one authority; do not re-derive it here. It lands on eight in `banking` and nine in
-`people` and `commerce`, whose `suggestions.ts` headers write the mapping out —
-read one of those two before writing yours, and check any skin's real count with
-`grep -c 'title:' src/skins/<id>/suggestions.ts`. Airline and keel ship four or
-five and cover the beats only partially; logistics is demo-complete and ships ten.
-Copy the coverage, never the count — the spread runs 4 to 10 and neither end of it
-predicts whether a skin hits its beats.
+one authority; do not re-derive it here. `people` and `commerce` write the mapping
+out in their `suggestions.ts` headers, so read one of those before writing yours,
+and check what any skin actually ships with
+`grep -c 'title:' src/skins/*/suggestions.ts`.
+
+**Copy the coverage, never the count.** Every shipped skin is demo-complete and no
+two agree on a number, so a count predicts nothing in either direction. The skin
+with the MOST pills got there by keeping four identity pills that predate the beat
+list, not by hitting more beats — its header shows the arithmetic. Do not calibrate
+against any of them; calibrate against your own beat map.
 
 ```ts
 import type { Suggestion } from "@/shell/skin-contract";
@@ -1185,9 +1206,12 @@ not theirs.
 
 ## `agent.ts` — SERVER-ONLY (no "use client", no JSX)
 
-Mirror `src/skins/airline/agent.ts` (minimal) or `src/skins/logistics/agent.ts`
-(with a canvas tool). Imported ONLY by `src/shell/agent-registry.ts`; the client
-skin never imports it.
+Mirror `src/skins/logistics/agent.ts` (the shortest of the six) or any other —
+`wc -l src/skins/*/agent.ts` shows the real spread, and none of them is "minimal"
+any more, because this file is where most beats are actually enforced (screen
+awareness, recall-first, the beat-5/beat-6 separation, the withheld gate
+vocabulary). Imported ONLY by `src/shell/agent-registry.ts`; the client skin never
+imports it.
 
 ```ts
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
@@ -1293,7 +1317,7 @@ import { <Id>Tools } from "./tools";
 import { <id>Catalog } from "./catalog";
 import { <id>Suggestions } from "./suggestions";
 import { <ID>_DESIGN_SKILL } from "./design-skill";
-import { use<Id>Data } from "./data/use-data"; // NO-DATA skin: delete this import AND the `useData` field below
+import { use<Id>Data } from "./data/use-data"; // REST-backed skin (i.e. every shipped one): delete this import AND the `useData` field below
 // import { <Id>Providers, <Id>RuntimeProviders, use<Id>RuntimeProperties } from "./providers";
 
 // A `Map`, NOT a plain object — load-bearing for security. `segments` is the URL
@@ -1324,15 +1348,20 @@ const <id>: Skin = {
   designSkill: <ID>_DESIGN_SKILL,
 
   // ── Optional slots ──
-  // "Optional" per the CONTRACT; a demo-complete skin sets most of them. Airline
-  // omits every one below EXCEPT `toolLabels` + `useData` — and airline hits one
-  // beat of nine, so do not read its restraint as a model. `toolLabels` in
-  // particular is optional in name only: it is what makes activity chips read as
-  // human phrases ("Pulling up your flight") instead of raw tool names
-  // (`showFlight`). Any skin with named frontend tools wants it.
-  useData: use<Id>Data, // () => unknown — OMIT if the skin has no shell-managed
-                        //   data (banking omits it, reads REST + auth directly);
-                        //   then useSkinData<T>() returns undefined.
+  // "Optional" per the CONTRACT; a demo-complete skin sets nearly all of them.
+  // Across the six shipped skins there are exactly two real omissions — airline's
+  // `sandboxFunctions` and `RuntimeProviders`, each for a stated reason — plus
+  // `useData`, which nothing sets. So do NOT read a skin's omission as a model;
+  // derive what the tree does:
+  //   grep -nE '^\s+(Providers|CanvasSurface|sandboxFunctions|toolLabels|chatHeaderActions|onSuggestionSelect|RuntimeProviders|useRuntimeProperties|useData)[,:]' src/skins/*/skin.tsx
+  // `toolLabels` in particular is optional in name only: it is what makes activity
+  // chips read as human phrases ("Pulling up your flight") instead of raw tool
+  // names (`showFlight`). Any skin with named frontend tools wants it.
+  useData: use<Id>Data, // () => unknown — DELETE THIS LINE unless your skin has
+                        //   genuinely client-owned, shell-managed state. No
+                        //   shipped skin sets it; every one reads a REST ledger
+                        //   through its own context. Omitted → useSkinData<T>()
+                        //   returns undefined.
   // Providers,           // ComponentType<{ children: ReactNode }> — stack BELOW CopilotKitProvider
   // CanvasSurface,       // ComponentType — full-region a2ui report surface
   // sandboxFunctions,    // SandboxFunction[] — exposed inside OGUI iframes
@@ -1436,10 +1465,14 @@ const <id>: Skin = {
   //   return true;
   // },
 
-  // ── End-user identity (ONLY if your skin scopes Intelligence per user) ──
+  // ── End-user identity (any skin with memory beats needs this) ──
   // Mount above CopilotKitProvider + contribute its `properties`; pair with a
   // server-safe `identifyUser` in agent-registry.ts. Banking uses all three;
-  // airline none. See the "Contributing end-user identity" section in SKILL.md.
+  // every shipped skin ships `useRuntimeProperties` + `identifyUser`, and airline
+  // ships those two and NOT `RuntimeProviders` — the provider exists so the hook
+  // can read CONTEXT, and airline's has none to read (one account holder, no
+  // switcher), so it returns a frozen module constant instead. Do not mount an
+  // empty provider for symmetry. See "Contributing end-user identity" in SKILL.md.
   // RuntimeProviders: <Id>RuntimeProviders,         // ComponentType<{ children: ReactNode }>
   // useRuntimeProperties: use<Id>RuntimeProperties, // () => Record<string, unknown> | undefined
 };
