@@ -6,19 +6,20 @@ import type {
 } from "@/data/frameworks/types";
 import { resolveAngularDoc } from "./angular-doc-navigation";
 import { getFrontendCanonicalSlug } from "./frontend-page-content";
+import { frontendPathForBackend } from "./frontend-options";
+import type { FrontendId } from "./frontend-options";
+import { resolveFrontendDemoUrl } from "./frontend-demo-url";
+import type { FrontendDemoCell } from "./frontend-demo-url";
 
 const SHOWCASE_ORIGIN = "https://showcase.copilotkit.ai";
 
-interface FrontendCatalogCell {
-  frontend: string;
-  integration: string;
-  feature: string;
-  runnable: boolean;
-}
+type FrontendCatalogCell = FrontendDemoCell;
 
 interface RegistryFeature {
   id: string;
   name: string;
+  description: string;
+  shell_docs_path?: string;
 }
 
 interface RunnableDemo {
@@ -40,6 +41,23 @@ const registryFeatureById = new Map(
 
 function showcaseHref(cell: FrontendCatalogCell): string {
   return `${SHOWCASE_ORIGIN}/${cell.frontend}/${cell.integration}/${cell.feature}`;
+}
+
+function backendDemoHref(cell: FrontendCatalogCell): string {
+  const integration = (
+    registryData as {
+      integrations: Array<{ slug: string; backend_url: string }>;
+    }
+  ).integrations.find((candidate) => candidate.slug === cell.integration);
+  if (!integration) return showcaseHref(cell);
+  const resolution = resolveFrontendDemoUrl({
+    frontend: cell.frontend,
+    integration: cell.integration,
+    feature: cell.feature,
+    backendUrl: integration.backend_url,
+    catalogCells,
+  });
+  return resolution.kind === "catalog" ? resolution.url : showcaseHref(cell);
 }
 
 function matchTokens(value: string): string[] {
@@ -128,22 +146,38 @@ function angularDocumentationLink(
   );
 }
 
+function frontendDocumentationLink(
+  frontend: FrontendId,
+  feature: RegistryFeature,
+  integration: string,
+): string {
+  const slug = feature.shell_docs_path?.replace(/^\/+/, "");
+  return frontendPathForBackend(
+    frontend,
+    slug ?? "using-these-docs",
+    integration,
+  );
+}
+
 /**
- * Adapt a generated backend overview to the Angular docs surface.
+ * Adapt a generated backend overview to a catalog-backed frontend docs surface.
  *
  * The overview's structure, media, architecture, and CTA remain owned by the
  * generated framework record. Only frontend-sensitive copy and links change.
  * Demo URLs are accepted exclusively from exact runnable
- * `(angular, integration, feature)` catalog cells, so selecting a backend can
- * never silently fall through to another integration's demo.
+ * `(frontend, integration, feature)` catalog cells, so selecting a backend can
+ * never silently fall through to another integration's demo. Vue uses the
+ * runnable catalog cells as its complete feature list because it has no
+ * separate authored feature catalog.
  */
-export function buildAngularBackendOverview(
+export function buildFrontendBackendOverview(
+  frontend: FrontendId,
   overview: FrameworkOverviewData,
   integration: string,
 ): FrameworkOverviewData {
   const demos = catalogCells.flatMap((cell): RunnableDemo[] => {
     if (
-      cell.frontend !== "angular" ||
+      cell.frontend !== frontend ||
       cell.integration !== integration ||
       !cell.runnable
     ) {
@@ -159,22 +193,45 @@ export function buildAngularBackendOverview(
   }> = [];
 
   const overviewSourceSlug = overview.guideLink.split("/")[1] ?? integration;
-  const supportedFeatures = overview.supportedFeatures.map((feature) => {
+  const sourceFeatures =
+    frontend === "vue"
+      ? demos.map(({ feature }) => ({
+          title: feature.name,
+          description: feature.description,
+          documentationLink: frontendDocumentationLink(
+            frontend,
+            feature,
+            integration,
+          ),
+        }))
+      : overview.supportedFeatures;
+  const supportedFeatures = sourceFeatures.map((feature) => {
     const demo = findDemoForFeature(feature, demos);
     const overviewFeature = {
       ...feature,
       description: feature.description.replace(
         /\bReact components?\b/g,
         (match) =>
-          match.endsWith("s") ? "Angular components" : "an Angular component",
+          frontend === "angular"
+            ? match.endsWith("s")
+              ? "Angular components"
+              : "an Angular component"
+            : "Vue components",
       ),
-      documentationLink: angularDocumentationLink(
-        feature,
-        demo,
-        overviewSourceSlug,
-        integration,
-      ),
-      demoLink: demo ? showcaseHref(demo.cell) : undefined,
+      documentationLink:
+        frontend === "angular"
+          ? angularDocumentationLink(
+              feature,
+              demo,
+              overviewSourceSlug,
+              integration,
+            )
+          : feature.documentationLink,
+      demoLink: demo
+        ? frontend === "vue"
+          ? backendDemoHref(demo.cell)
+          : showcaseHref(demo.cell)
+        : undefined,
     };
 
     if (demo && !matchedDemos.some(({ demo: seen }) => seen === demo)) {
@@ -192,7 +249,18 @@ export function buildAngularBackendOverview(
       type: demo.cell.feature,
       title: overviewFeature.title,
       description: overviewFeature.description,
-      iframeUrl: showcaseHref(demo.cell),
+      iframeUrl:
+        frontend === "vue"
+          ? backendDemoHref(demo.cell)
+          : showcaseHref(demo.cell),
     })),
   };
+}
+
+/** Preserve the established Angular entrypoint for callers and tests. */
+export function buildAngularBackendOverview(
+  overview: FrameworkOverviewData,
+  integration: string,
+): FrameworkOverviewData {
+  return buildFrontendBackendOverview("angular", overview, integration);
 }

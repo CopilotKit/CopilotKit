@@ -71,18 +71,22 @@ test("keeps frontend root pages available under frontend/backend routes", () => 
   expect(backendScopingIndex).toBeGreaterThan(-1);
   expect(frontendRootIndex).toBeLessThan(backendScopingIndex);
   expect(pageSource).toContain(
-    'framework === "angular" && activeBackendFramework',
+    '(framework === "angular" || framework === "vue") &&\n        activeBackendFramework',
   );
   expect(pageSource).toContain("<FrameworkRootPage");
   expect(pageSource).toContain("<FrontendQuickstartDocsPage");
 });
 
 test("keeps generated backend overviews on the generated overview contract", () => {
+  expect(pageSource).toContain("preferIndexMdx &&");
+  expect(pageSource).toContain('docsMode !== "generated"');
+  expect(pageSource).toContain("indexDoc");
   expect(pageSource).toContain(
-    'preferIndexMdx && docsMode !== "generated" && indexDoc',
+    "buildFrontendBackendOverview(frontendOverride, overview, framework)",
   );
+  expect(pageSource).toContain('frontendOverride !== "vue"');
   expect(pageSource).toContain(
-    "buildAngularBackendOverview(overview, framework)",
+    'docsMode === "generated" || frontendOverride === "vue"',
   );
 });
 
