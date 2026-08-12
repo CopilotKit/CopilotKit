@@ -5,6 +5,7 @@ export { LaneTable } from "./lane-table";
 export { TradeoffTable } from "./tradeoff-table";
 export { InventoryRiskList, orderInventoryRows } from "./inventory-risk";
 export { DecisionLog, orderDecisionRows } from "./decision-log";
+export { RateBriefLog, orderRateBriefRows } from "./rate-brief-log";
 export { PlannerPinCard } from "./planner-pin-card";
 export {
   LanePerformanceChart,

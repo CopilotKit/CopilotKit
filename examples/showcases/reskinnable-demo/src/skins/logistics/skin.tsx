@@ -1,7 +1,8 @@
 "use client";
 
 import type { ComponentType } from "react";
-import type { Skin } from "@/shell/skin-contract";
+import { Paperclip } from "lucide-react";
+import type { Skin, Suggestion } from "@/shell/skin-contract";
 import { logisticsIdentity } from "./identity";
 import { logisticsNav } from "./nav";
 import { LogisticsLayout } from "./layout";
@@ -20,6 +21,11 @@ import { ControlTowerPage } from "./pages/control-tower";
 import { LanesPage } from "./pages/lanes";
 import { InventoryPage } from "./pages/inventory";
 import { DecisionsPage } from "./pages/decisions";
+import {
+  attachRateSheetByHand,
+  sendRateSheetMessage,
+  RATE_SHEET_MESSAGE,
+} from "./attach-rate-sheet";
 
 // Route segments after /logistics → page component. Empty → the control tower.
 const PAGES: Record<string, ComponentType> = {
@@ -43,6 +49,7 @@ const TOOL_LABELS: Record<string, string> = {
   authorizeWithPlannerPin: "Opening the authorization card",
   fileEscalation: "Filing an escalation",
   createDecisionRecord: "Filing to the decision log",
+  fileRateBrief: "Filing the rate brief",
   renderBrief: "Building the decision brief",
   generateSandboxedUi: "Generating an interactive view",
   recall_memory: "Recalling from long-term memory",
@@ -74,11 +81,40 @@ const logistics: Skin = {
   sandboxFunctions,
   toolLabels: TOOL_LABELS,
 
+  // BEAT 3d — both of these exist to serve the attachment beat, and neither is
+  // decorative: the framework's suggestion path DROPS attachments, so a pill
+  // that must carry a file has to be intercepted here and driven through the
+  // real composer instead.
+  chatHeaderActions: [
+    {
+      icon: Paperclip,
+      label: "Attach the carrier rate sheet",
+      // The manual escape hatch: if the pill path misbehaves on stage the
+      // presenter can still stage the file by hand and carry on typing. It is
+      // the fallback, so it must be the LOUDEST link in the chain — if this one
+      // failed quietly too, the presenter would have nothing left to try.
+      onClick: () => void attachRateSheetByHand(),
+    },
+  ],
+
+  onSuggestionSelect: (suggestion: Suggestion) => {
+    if (suggestion.message !== RATE_SHEET_MESSAGE) {
+      return false; // every other pill takes the default "send the message" path
+    }
+    // `true` means "the shell must not run its default send", and that is
+    // unconditionally correct for this pill: the default path would send
+    // "ingest this rate sheet" with the attachment DROPPED, which is the exact
+    // failure beat 3d cannot survive — the model would invent the document's
+    // contents and file a brief that proves nothing. So the click is claimed
+    // either way, and `sendRateSheetMessage` guarantees the only two outcomes
+    // are "sent with the sheet" or "aborted and the presenter was told why".
+    void sendRateSheetMessage();
+    return true;
+  },
+
   // `useData` is omitted: like banking, components read the REST ledger through
   // useLogistics() and the planner through usePlannerAuth() directly, so
   // useSkinData<T>() correctly returns undefined.
-  // `chatHeaderActions` and `onSuggestionSelect` are omitted deliberately —
-  // both exist in banking only to serve its PDF-attachment beat.
 };
 
 export default logistics;

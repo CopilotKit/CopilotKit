@@ -324,7 +324,8 @@ Three mechanics worth copying verbatim:
 
   That is the whole file. Every shipped wrapper that runs this beat
   (`banking/attach-invoice.ts`, `people/attach-offer-letter.ts`,
-  `commerce/attach-price-sheet.ts`) is about 45 lines, most of it comment.
+  `commerce/attach-price-sheet.ts`, `logistics/attach-rate-sheet.ts`) is about 45
+  lines, most of it comment.
 
   **The attachment chain must fail LOUD, and must never send without the file.**
   This is not defensive polish; it is what makes the beat honest. If any failure
@@ -670,30 +671,32 @@ tools or pages, alongside this file.
 
 ## Which skin to copy for what
 
-| Need                                  | Copy from                                                                  |
-| ------------------------------------- | -------------------------------------------------------------------------- |
-| Every beat, end to end                | `banking`, `people` or `commerce` — the only three at 9/9 beats            |
-| A written-out beat map                | `people` or `commerce` — the table at the top of their `suggestions.ts`    |
-| Route + on-screen readables (beat 3b) | `banking`, `people`, `commerce`                                            |
-| Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`; `people`/`commerce` for 2nd takes |
-| A four-lever navigation (beat 3c)     | `commerce` — status + exception + sort + top-N, all four tinted            |
-| Attachment staging (beat 3d)          | `@/shell/attach` for the chain; any of the three for the wrapper + pill    |
-| A GENERATED uploaded document         | `@/shell/documents` for the bytes; `commerce`/`people` for the content     |
-| Seeded memories (beats 4, 5)          | `banking`, `people`, `commerce` — the only three with a seed file          |
-| Debugged layout + meta-utility strip  | `logistics`, `people`, `commerce`                                          |
-| Server-emitted a2ui canvas            | `logistics` (`renderBrief`), `banking` (`render_report`)                   |
-| Per-user identity plumbing            | `banking`, `logistics`, `keel`, `people`, `commerce`                       |
-| Parameterized routes in `resolvePage` | `keel` (`knowledge/<docId>`, `runs/<runId>`)                               |
-| In-memory `useData` substrate         | `airline`, `keel`                                                          |
-| Minimal contract surface              | `airline`                                                                  |
+| Need                                  | Copy from                                                                          |
+| ------------------------------------- | ---------------------------------------------------------------------------------- |
+| Every beat, end to end                | `banking`, `people` or `commerce` — the only three at 9/9 beats                    |
+| A written-out beat map                | `people` or `commerce` — the table at the top of their `suggestions.ts`            |
+| Route + on-screen readables (beat 3b) | `banking`, `people`, `commerce`                                                    |
+| Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`; `people`/`commerce` for 2nd takes         |
+| A four-lever navigation (beat 3c)     | `commerce` — status + exception + sort + top-N, all four tinted                    |
+| Attachment staging (beat 3d)          | `@/shell/attach` for the chain; any of the four wrappers for the pill              |
+| A GENERATED uploaded document         | `@/shell/documents` for the bytes; `commerce`/`people`/`logistics` for the content |
+| Seeded memories (beats 4, 5)          | `banking`, `people`, `commerce` — the only three with a seed file                  |
+| Debugged layout + meta-utility strip  | `logistics`, `people`, `commerce`                                                  |
+| Server-emitted a2ui canvas            | `logistics` (`renderBrief`), `banking` (`render_report`)                           |
+| Per-user identity plumbing            | `banking`, `logistics`, `keel`, `people`, `commerce`                               |
+| Parameterized routes in `resolvePage` | `keel` (`knowledge/<docId>`, `runs/<runId>`)                                       |
+| In-memory `useData` substrate         | `airline`, `keel`                                                                  |
+| Minimal contract surface              | `airline`                                                                          |
 
 > **Generating a PDF? Do NOT write the bytes — call `@/shell/documents`.**
 > `buildPdf(lines: Line[])` emits a single page of base-14 text with a correct
 > xref, and your file supplies CONTENT only. Both shipped builders
-> (`commerce/data/price-sheet-pdf.ts`, `people/data/offer-letter-pdf.ts`) are now
-> nothing but content, and they are the shape to copy.
+> (`commerce/data/price-sheet-pdf.ts`, `people/data/offer-letter-pdf.ts`,
+> `logistics/data/rate-sheet-pdf.ts`) are now nothing but content, and they are
+> the shape to copy.
 >
-> The two traps below are FIXED IN THE PRIMITIVE, so you inherit both. They are
+> The first two traps below are FIXED IN THE PRIMITIVE, so you inherit both; the
+> third is entirely yours. They are
 > still written down, because each produces a VALID PDF that is wrong on screen —
 > nothing type-checks a rendered page, this document is projected at exactly the
 > moment the room is looking, and the second one is only half solvable centrally.
@@ -744,6 +747,21 @@ tools or pages, alongside this file.
 >    `drawableWidth`. Drop the flag or widen a column and the shell's suite stays
 >    green while the table renders ragged or runs off the page. Commerce keeps a
 >    test for each (`price-sheet-pdf.layout.test.ts`); copy both.
+>
+> 3. **Wrapping — entirely yours, and there is none.** `buildPdf` draws every
+>    `Line` at a fixed x and NEVER wraps: a line that does not fit simply runs off
+>    the right margin, where the reader clips it. That is fine for the literals you
+>    type and eyeball, and it is a live trap for the sentences you DERIVE, whose
+>    length depends on data — logistics shipped a 111-character "New service"
+>    sentence that ran a third of the way off the page, in the one paragraph the
+>    agent reads aloud. Wrap derived prose on word boundaries against a character
+>    budget computed from `PDF_METRICS` (`wrapProse` in
+>    `logistics/data/rate-sheet-pdf.ts`), and assert it on the EMITTED bytes rather
+>    than on the helper — parse the content stream's `Tf`/`Tj` pairs and check
+>    every drawn line against its own size's budget, which catches the hand-typed
+>    literals too. Note the budget is approximate: prose is Helvetica, whose
+>    advances vary per glyph, so Courier's 600/1000 is used as a conservative
+>    stand-in (it is NOT a bound for ALL-CAPS text — keep shouted words short).
 
 > **Generating a document? Every sentence in it must be DERIVED from its own
 > rows.** The agent lifts facts out of this file and narrates them, so a claim the
@@ -768,6 +786,27 @@ tools or pages, alongside this file.
 > that vendor actually supplies, re-checked against the vendor's own rows, and
 > DROPPED rather than misattributed when a reseed moves them). Losing the row for
 > one party is recoverable; a false claim about them is not.
+
+> **And the artifact must not contradict the document it was filed from.** The
+> tool that files the record is the last place this beat can go wrong, and it goes
+> wrong through an OPTIONAL parameter: a model fills one anyway. Logistics gave
+> `fileRateBrief` an optional `oldRateUsdPerKg` documented as "omit for a lane the
+> sheet prints as new", and on the first live run the agent copied the QUOTED rate
+> into it — so the artifact rendered "$0.49 → $0.49, flat" for the one lane the
+> attached sheet prints as new service with no prior rate on file. The record
+> contradicted the document it was filed from, on exactly the row that proves the
+> document was read.
+>
+> Prompt wording does not close this. Split the fields by WHO OWNS THE FACT and
+> let the server settle its own: the NEW figure comes from the document and only
+> the reader knows it, so it stays model-authored (that is the beat's proof); the
+> PRIOR figure is a ledger fact, so the route settles it — `POST /briefs`
+> (`app/api/logistics/v1/briefs/route.ts`) strips a prior rate on any lane the
+> network does not carry, since the absence of the row IS the answer, and returns
+> the stripped lanes so the tool can tell the agent rather than silently overrule
+> it. This is the same rule `POST /decisions` already applies to `decidedBy` and
+> the mitigate route applies to cost, extended to the one field a document
+> ingestion adds.
 
 **Do not use airline, logistics or keel as demo-completeness references.** They
 predate this bar: each hits roughly one beat of nine. Logistics and keel are

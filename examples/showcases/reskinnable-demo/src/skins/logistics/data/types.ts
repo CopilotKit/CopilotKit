@@ -87,6 +87,49 @@ export interface Decision {
   createdAt: string;
 }
 
+/**
+ * BEAT 3d — the DURABLE artifact, filed from an ingested carrier rate sheet.
+ *
+ * Deliberately NOT a `Decision`, though that type is already persisted and
+ * already on the Decision Log page. An ingested rate sheet is not a mitigation
+ * on one shipment: it has no `shipmentId`, no `kind` in that union and no single
+ * `costUsd`. Forcing it in would mean a `shipmentId` that lies and a `kind` that
+ * is not a mitigation kind, polluting every consumer that reads the log as
+ * decisions — the KPI tiles, the readables and the audit trail alike.
+ *
+ * Equally NOT the canvas brief: `build-brief-ops.ts` builds a2ui operations
+ * under `SURFACE_ID = "decision-brief"` for the tool `renderBrief`, and that is
+ * a RENDER — it lives as long as the canvas shows it and dies with the thread.
+ * This record is the opposite claim: delete the whole thread and it is still
+ * here, because it belongs to the application.
+ */
+export interface RateBrief {
+  id: string;
+  /** The carrier whose sheet was ingested. */
+  carrier: string;
+  /** The effective date the DOCUMENT states, carried across verbatim. */
+  effective: string;
+  summary: string;
+  /**
+   * The rates as the document lists them — including any lane the network does
+   * not carry, which is the row that proves the file was read. `oldRate` is
+   * absent, never zero, for a lane with no rate on file.
+   */
+  laneRates: RateBriefLane[];
+  /** At most three short consequences the planner should act on. */
+  impacts: string[];
+  filedBy: string;
+  role: string;
+  createdAt: string;
+}
+
+export interface RateBriefLane {
+  lane: string;
+  mode: string;
+  oldRateUsdPerKg?: number;
+  newRateUsdPerKg: number;
+}
+
 /** Computed on demand from lane + shipment; never persisted. */
 export interface MitigationOption {
   kind: MitigationKind;

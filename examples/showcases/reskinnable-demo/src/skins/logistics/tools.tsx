@@ -53,6 +53,7 @@ export function LogisticsTools() {
     commitMitigation,
     fileEscalation,
     fileDecision,
+    fileRateBrief,
   } = useLogistics();
   const { currentPlanner } = usePlannerAuth();
   const skin = useSkin();
@@ -665,6 +666,95 @@ export function LogisticsTools() {
       ),
     },
     [shipments, fileDecision],
+  );
+
+  // ══ BEAT 3d — MULTIMODAL IN, DURABLE ARTIFACT OUT ════════════════════════
+  // The planner attaches a carrier rate sheet; the agent reads it and files the
+  // rates it found into a record that belongs to the APP. Delete the whole
+  // thread and the brief is still on the Decision Log — which is the entire
+  // claim, and the reason this is a stored `RateBrief` rather than the canvas
+  // brief `renderBrief` paints (that one dies with the thread).
+  useFrontendTool(
+    {
+      name: "fileRateBrief",
+      description:
+        "File a durable rate brief from a carrier rate sheet the planner has ATTACHED. Read the document and " +
+        "carry its REAL figures across — the per-lane rates it lists, its effective date, and the lanes it " +
+        "quotes — rather than re-deriving them from the network context you already have. If the sheet quotes a " +
+        "lane the network does not carry, include it: leave `oldRateUsdPerKg` unset for it, because there is no " +
+        "prior rate on file. Never state a rate the document does not list.",
+      parameters: z.object({
+        carrier: z.string().describe("The carrier whose sheet was attached."),
+        effective: z
+          .string()
+          .describe(
+            "The effective date exactly as the sheet states it. If the sheet does not state one, say so rather than guessing.",
+          ),
+        summary: z
+          .string()
+          .describe(
+            "Two sentences on what the sheet changes and why it matters.",
+          ),
+        laneRates: z
+          .array(
+            z.object({
+              lane: z
+                .string()
+                .describe('Lane code as the sheet prints it, e.g. "SHA-LAX".'),
+              mode: z.string().describe("Mode as the sheet prints it."),
+              oldRateUsdPerKg: z
+                .number()
+                .optional()
+                .describe(
+                  "The rate on file today, per kg. OMIT for a lane the sheet introduces — never send 0.",
+                ),
+              newRateUsdPerKg: z
+                .number()
+                .describe("The quoted forward rate, per kg."),
+            }),
+          )
+          .describe("The rates the DOCUMENT lists, one row per lane."),
+        // The row caps are deliberately not repeated here: they are a layout
+        // budget owned by `POST /briefs`, which names the limit in its refusal,
+        // and a second copy of the number is a second thing to drift.
+        impacts: z
+          .array(z.string())
+          .describe(
+            "At most three short consequences for the network, each derived from the rates above.",
+          ),
+      }),
+      handler: async ({ carrier, effective, summary, laneRates, impacts }) => {
+        const outcome = await fileRateBrief({
+          carrier: carrier ?? "",
+          effective: effective ?? "",
+          summary: summary ?? "",
+          laneRates: laneRates ?? [],
+          impacts: impacts ?? [],
+        });
+        if (outcome.ok) {
+          // The server strips a prior rate it can prove does not exist (a lane
+          // the network does not carry). Say so, so the transcript and the
+          // artifact agree — the alternative is the agent narrating a movement
+          // the filed record does not hold.
+          const corrected = outcome.noPriorRateOnFile.length
+            ? ` ${outcome.noPriorRateOnFile.join(", ")} is not a lane on this network, so it was filed with no prior rate — report it as new service, not as a change.`
+            : "";
+          return `Filed the ${carrier} rate brief. It is on the Decision Log under "Rate briefs on file", and it stays there whatever happens to this thread.${corrected}`;
+        }
+        // Surface the route's own message: it refuses a brief that would not fit
+        // the card or whose rows it cannot read, and names the offending field —
+        // which is only actionable if the agent can see it.
+        return `REJECTED: ${outcome.error}`;
+      },
+      // Replay-safe — see commitMitigation's render above. This tool has no
+      // `respond`, so `result` is the handler's own return sentence.
+      render: ({ result }) => (
+        <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+          {result ? String(result) : "Filing the rate brief…"}
+        </div>
+      ),
+    },
+    [fileRateBrief],
   );
 
   return null;

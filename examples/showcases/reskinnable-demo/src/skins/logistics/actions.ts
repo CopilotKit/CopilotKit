@@ -9,6 +9,8 @@ import type {
   Lane,
   MitigationKind,
   MitigationOption,
+  RateBrief,
+  RateBriefLane,
   Shipment,
 } from "./data/types";
 
@@ -50,12 +52,16 @@ export function useLogistics() {
   const [lanes, setLanes] = useState<Lane[]>([]);
   const [inventory, setInventory] = useState<InventoryRisk[]>([]);
   const [decisions, setDecisions] = useState<Decision[]>([]);
+  // BEAT 3d — the durable artifact. Fetched like every other collection here,
+  // because it belongs to the app rather than to the thread that produced it.
+  const [rateBriefs, setRateBriefs] = useState<RateBrief[]>([]);
 
   const refresh = useCallback(() => {
     void getJson<Shipment[]>("/shipments", []).then(setShipments);
     void getJson<Lane[]>("/lanes", []).then(setLanes);
     void getJson<InventoryRisk[]>("/inventory", []).then(setInventory);
     void getJson<Decision[]>("/decisions", []).then(setDecisions);
+    void getJson<RateBrief[]>("/briefs", []).then(setRateBriefs);
   }, []);
 
   useEffect(() => {
@@ -192,16 +198,67 @@ export function useLogistics() {
     [currentPlanner.id],
   );
 
+  /**
+   * BEAT 3d — file the rate brief read out of an attached carrier rate sheet.
+   *
+   * Sends NO `filedBy`/`role`: the server derives both from the planner, exactly
+   * as `fileDecision` does, so the artifact's attribution cannot be forged by
+   * whatever the model happened to type. Surfaces the route's own message on a
+   * refusal — `POST /briefs` names the offending field, and the agent can only
+   * act on that if it can see it.
+   */
+  const fileRateBrief = useCallback(
+    async (input: {
+      carrier: string;
+      effective: string;
+      summary: string;
+      laneRates: RateBriefLane[];
+      impacts: string[];
+    }) => {
+      try {
+        const res = await fetch(`${BASE}/briefs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...input, plannerId: currentPlanner.id }),
+        });
+        const body = await res.json().catch(() => null);
+        notifyDataChanged();
+        if (!res.ok)
+          return {
+            ok: false as const,
+            error: body?.message ?? "Could not file the rate brief.",
+          };
+        return {
+          ok: true as const,
+          brief: body as RateBrief,
+          // Lanes whose claimed prior rate the server REFUSED to store, because
+          // the network carries no such lane and therefore no rate on file.
+          // Surfaced so the agent can say so rather than narrate a comparison
+          // the filed record does not contain. See POST /briefs.
+          noPriorRateOnFile: Array.isArray(body?.noPriorRateOnFile)
+            ? (body.noPriorRateOnFile as string[])
+            : [],
+        };
+      } catch (error) {
+        console.error("[logistics] fileRateBrief failed:", error);
+        return { ok: false as const, error: "Network error." };
+      }
+    },
+    [currentPlanner.id],
+  );
+
   return {
     shipments,
     lanes,
     inventory,
     decisions,
+    rateBriefs,
     refresh,
     fetchOptions,
     commitMitigation,
     fileEscalation,
     fileDecision,
+    fileRateBrief,
   };
 }
 

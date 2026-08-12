@@ -35,6 +35,7 @@ import type {
   ExceptionCode,
   InventoryRisk,
   Lane,
+  RateBrief,
   Shipment,
 } from "../data/types";
 
@@ -76,6 +77,10 @@ const ledger = {
   lanes: [] as Lane[],
   inventory: [] as InventoryRisk[],
   decisions: [] as Decision[],
+  // Beat 3d's durable artifact. Present and empty rather than absent: the
+  // Decision Log page reads it, and a missing key here would fail as a crash in
+  // the page under test rather than as the mock omission it actually is.
+  rateBriefs: [] as RateBrief[],
 };
 vi.mock("../actions", () => ({
   useLogistics: () => ledger,

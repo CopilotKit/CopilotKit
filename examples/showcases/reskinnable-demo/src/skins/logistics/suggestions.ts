@@ -1,4 +1,8 @@
 import type { Suggestion } from "@/shell/skin-contract";
+// The pill's message is the SAME VALUE `skin.tsx`'s onSuggestionSelect matches
+// on, so the interception cannot drift out of sync with the pill. A drifted
+// string sends the prompt with the attachment dropped — see attach-rate-sheet.ts.
+import { RATE_SHEET_MESSAGE } from "./attach-rate-sheet";
 
 export const logisticsSuggestions: Suggestion[] = [
   { title: "Triage the tower", message: "What needs my attention right now?" },
@@ -40,6 +44,11 @@ export const logisticsSuggestions: Suggestion[] = [
     title: "Release the reroute",
     message: "Release the reroute on PO-88213 — I'll authorize it.",
   },
+  // BEAT 3d — multimodal in, durable artifact out. Intercepted in skin.tsx,
+  // which stages the generated carrier rate sheet into the composer first. The
+  // sheet quotes a lane the network does NOT carry, so a brief that cites it
+  // could not have been assembled from the ledger the agent can already see.
+  { title: "Ingest this rate sheet", message: RATE_SHEET_MESSAGE },
   {
     title: "Inventory at risk",
     message: "Which SKUs run out before their inbound arrives?",
