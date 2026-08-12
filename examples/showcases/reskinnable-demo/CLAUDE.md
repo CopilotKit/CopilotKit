@@ -21,8 +21,8 @@ real levers, ingest a document into a durable artifact), recall long-term memory
 replay a stored procedure, and learn a new one on stage. `banking` is the original
 reference implementation; `people` and `commerce` are the later skins built to hit
 every beat; `bookstore` is the one skin whose skipped beats are a DIRECTION rather
-than an oversight — its beat map marks multimodal ingest, stored-procedure replay
-and teach-a-procedure `SKIPPED` instead of deleting the rows. The
+than an oversight — its beat map marks multimodal ingest and teach-a-procedure
+`SKIPPED` instead of deleting the rows. The
 beats, and what each one must prove, are specified in
 [`.claude/skills/reskin/demo-beats.md`](.claude/skills/reskin/demo-beats.md) —
 read it before adding or changing a skin's tools, prompt or suggestion pills,
@@ -225,9 +225,10 @@ export type IdentifyRunUser = (
   `dev/reset` route uses to wipe learned memories and re-seed the ones the demo
   must start out already knowing. Today that is the three demo-complete skins —
   **banking**, **commerce** and **people** — plus **bookstore**, which claims the
-  long-term-memory beat and skips the stored-procedure ones, so it seeds a taste
-  preference (into the default bucket as well as the mapped shopper's) and no
-  procedure at all. That pair is what makes the long-term-memory,
+  long-term-memory and stored-procedure-replay beats (but skips
+  teach-a-procedure), so it seeds a taste preference AND a `kind: "operational"`
+  book-club procedure, each into the default bucket as well as the mapped
+  shopper's. Seeding memory this way is what makes the long-term-memory,
   stored-procedure-replay and teach-a-procedure beats work; it
   is not emergent behaviour. The gated `dev/reset` route is the wider set: those
   four plus **logistics** — which ships neither memory file, so its reset restores
@@ -511,9 +512,12 @@ matrix at the end of this section.
   second `commerce`: commerce is the merchant's operations console (orders,
   catalog, promotions, returns), bookstore is the shopper's own storefront. Its
   routes are the index shelf (also reachable as `browse`), the parameterized
-  `book/<slug>`, and `cart`. Sets `useData: useBookstoreData` — a frozen 24-book
-  seed catalog plus a cart/orders store mirrored to `localStorage` **per shopper**,
-  which is what lets the basket survive the hard reload beat 2 turns on — plus
+  `book/<slug>`, and `cart`. Sets `useData: useBookstoreData` — a frozen 25-book
+  seed catalog (the 25th is the club pick's paperback edition, sharing a
+  `workId` with its hardcover — that shared id is what makes the edition swap
+  demonstrable) plus a cart/orders store mirrored to `localStorage` **per
+  shopper**, which is what lets the basket survive the hard reload beat 2 turns
+  on — plus
   `RuntimeProviders` + `useRuntimeProperties` (a Maya/Guest shopper switcher in the
   sidebar, forwarding `{ userId, userRole }`), `toolLabels` and a server
   `identifyUser`; omits `Providers`, `CanvasSurface`, `sandboxFunctions`,
@@ -522,31 +526,32 @@ matrix at the end of this section.
   as context, `showBooks` and `recommendBooks` are `useComponent` cover-card renders,
   and `browseWithFilters` / `openCheckout` are HITL (the shopper types the card
   number into the checkout card and only the last four digits ever leave it). Its
-  beat map — including the three rows marked `SKIPPED` — is written out at the top
+  beat map — including the two rows marked `SKIPPED` — is written out at the top
   of `src/skins/bookstore/suggestions.ts`. **Read the runtime warning there before
-  demoing it:** beats 2 and 4 are its headline claims and both exist only in
-  Intelligence mode. Beat 4 is the RECALL — the agent applies a seeded taste
+  demoing it:** beats 2, 4 and 5 are three of its four headline claims and all
+  three exist only in Intelligence mode — the OSS path leaves a pretty
+  storefront with a chatbot. Beat 4 is the RECALL — the agent applies a seeded taste
   nobody typed and names it in `recommendBooks`' `note` slot — and NOT a
   Maya-vs-Guest contrast: switching shopper does not re-scope memory (see the
   `identifyUser` bullet above and the CAVEAT in `.env.example`).
 
 ### Demo-beat coverage (the other axis)
 
-| Beat                             | banking                   | people                    | commerce                  | bookstore                 | airline | logistics     | keel          |
-| -------------------------------- | ------------------------- | ------------------------- | ------------------------- | ------------------------- | ------- | ------------- | ------------- |
-| Gen-UI in transcript             | ✅ 9                      | ✅ 4                      | ✅ 4                      | ✅ 2                      | ✅ 6    | ✅ 5          | ✅ 4          |
-| Rich thread survives reload      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ replay-safe tools      | ❌      | ❌            | ❌            |
-| Drive the app, secret withheld   | ✅                        | ✅                        | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| "What's on my screen?"           | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables | ❌      | ❌            | ❌            |
-| Navigate via levers + filters    | ✅                        | ✅                        | ✅ four levers            | ✅ four levers            | ❌      | ❌            | nav only      |
-| Multimodal → durable artifact    | ✅                        | ✅                        | ✅                        | ❌ skipped by direction   | ❌      | ❌            | ❌            |
-| Long-term memory recall          | ✅                        | ✅                        | ✅                        | ✅                        | ❌      | plumbing only | plumbing only |
-| Stored-procedure replay          | ✅                        | ✅                        | ✅                        | ❌ skipped by direction   | ❌      | ❌            | ❌            |
-| Teach a new procedure            | ✅                        | ✅                        | ✅                        | ❌ skipped by direction   | ❌      | ❌            | ❌            |
-| Presenter reset (route + button) | ✅                        | ✅                        | ✅                        | ✅                        | ❌      | ✅            | ❌            |
+| Beat                             | banking                   | people                    | commerce                  | bookstore                  | airline | logistics     | keel          |
+| -------------------------------- | ------------------------- | ------------------------- | ------------------------- | -------------------------- | ------- | ------------- | ------------- |
+| Gen-UI in transcript             | ✅ 9                      | ✅ 4                      | ✅ 4                      | ✅ 2                       | ✅ 6    | ✅ 5          | ✅ 4          |
+| Rich thread survives reload      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ replay-safe tools       | ❌      | ❌            | ❌            |
+| Drive the app, secret withheld   | ✅                        | ✅                        | ✅                        | ✅                         | ❌      | ❌            | ❌            |
+| "What's on my screen?"           | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables  | ❌      | ❌            | ❌            |
+| Navigate via levers + filters    | ✅                        | ✅                        | ✅ four levers            | ✅ four levers             | ❌      | ❌            | nav only      |
+| Multimodal → durable artifact    | ✅                        | ✅                        | ✅                        | ❌ skipped by direction    | ❌      | ❌            | ❌            |
+| Long-term memory recall          | ✅                        | ✅                        | ✅                        | ✅                         | ❌      | plumbing only | plumbing only |
+| Stored-procedure replay          | ✅                        | ✅                        | ✅                        | ✅ seeded op-memory replay | ❌      | ❌            | ❌            |
+| Teach a new procedure            | ✅                        | ✅                        | ✅                        | ❌ skipped by direction    | ❌      | ❌            | ❌            |
+| Presenter reset (route + button) | ✅                        | ✅                        | ✅                        | ✅                         | ❌      | ✅            | ❌            |
 
 `banking`, `people` and `commerce` hit every row. `bookstore` hits every row it
-claims and marks the other three `SKIPPED` in its own beat map, so read its blanks
+claims and marks the other two `SKIPPED` in its own beat map, so read its blanks
 as a scope decision and the rest as a beat list it does meet — including the two
 that only exist in Intelligence mode. airline, logistics and keel predate this bar
 and hit about one each (nine beats plus the presenter-reset requirement are listed
@@ -621,7 +626,16 @@ type-checks as part of `next build`):
 - `pnpm build` — production build (also the type-check gate).
 - `pnpm start` — serve the production build.
 - `pnpm lint` — ESLint. Also carries the LOCK_SKIN URL-contract guard (the
-  `no-restricted-syntax` skin-prefix selectors in `eslint.config.mjs`).
+  `no-restricted-syntax` skin-prefix selectors in `eslint.config.mjs`). It is
+  **not** the whole gate: the repo root's `lefthook.yml` `pre-commit` hook
+  additionally runs `oxlint --fix` and `oxfmt --write` over staged files and
+  re-stages the result (`stage_fixed: true`), enforcing rules ESLint does not —
+  e.g. the repo root's `.oxlintrc.json` sets
+  `import/consistent-type-specifier-style: "prefer-top-level"`, which splits a
+  merged `import { x, type Y }` into two statements. Practically: a change can
+  satisfy `pnpm lint` and still be silently rewritten at commit time. Run
+  `pnpm exec oxlint --fix` + `oxfmt --write` on your changed files before
+  committing to see that rewrite up front instead of after.
 - `pnpm test:unit` — Vitest unit tests.
 - `pnpm test:e2e` / `pnpm test:e2e:ogui` / `pnpm test:self-learning` — Playwright
   suites. `test:e2e` has TWO projects, each with its own dev server, because the

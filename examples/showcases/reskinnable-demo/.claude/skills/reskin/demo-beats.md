@@ -359,6 +359,20 @@ several steps, in order, no hand-holding.
    easiest thing in the whole demo for the agent to confuse. Say plainly that
    this is a _different_ procedure and it must not offer to record anything.
 5. **A prompt clause** that finding the record is not handling it.
+6. **An explicit empty-recall branch.** The list above only covers the recall
+   landing something — say what the agent must do when it doesn't. If the
+   recall comes back empty, the prompt must have the agent say plainly that no
+   saved procedure was found and stop there: not run the procedure's tools on
+   a guess, not reconstruct the missing values from the catalog, the cart, or
+   anything else on screen (an invented answer that looks right is worse than
+   an honest "not found," because on stage the two are indistinguishable), and
+   — this is the one that actually gets missed — not offer to learn, record,
+   or be told the procedure. That offer belongs to beat 6; an empty recall
+   here is a failure to report, not a cue to teach, and the two beats blurring
+   together is exactly the confusion item 4 above already warns about.
+   `src/skins/bookstore/agent.ts`'s clause-7 empty-recall branch is the worked
+   example, added only after a live run improvised the forbidden teach-offer
+   the moment recall came back empty.
 
 **Banking:** pill `"I don't recognize the Delta charge"` → seeded operational
 memory (`seed-memories.ts:61-76`) → `flagForReview` (`tools.tsx:323`) +
