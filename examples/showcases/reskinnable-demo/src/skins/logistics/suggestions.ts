@@ -92,10 +92,11 @@ export const logisticsSuggestions: Suggestion[] = [
   //     "Messaging the carrier", "Noting it on the shipment" — and then a single
   //     confirming sentence;
   //   - on the Control Tower board, the PO-88251 row grows a red WATCH chip, a
-  //     "Carrier notified" chip and a 🚨 count. The seven other registered write
-  //     tools (proof of delivery, drayage, capacity forecast, cargo claim, and
-  //     the three real ones) are what make "it picked the right three" a claim
-  //     rather than a tautology.
+  //     "Carrier notified" chip and a 🚨 count. The distractors registered
+  //     alongside the three real writes — proof of delivery, drayage, a lane
+  //     capacity forecast, a cargo claim — are what make "it picked the right
+  //     three" a claim rather than a tautology. Count them from the source
+  //     (`grep -n 'name: "' tools.tsx`) rather than from this comment.
   //
   // ⚠️ RUNTIME-CONDITIONAL, as beat 4: with no `recall_memory` the agent finds
   // no procedure and asks what the planner would like done. Not an error, not
