@@ -144,6 +144,14 @@ test("generates shell-docs data before tests on a fresh checkout", async () => {
   ) as { scripts?: Record<string, string> };
 
   expect(packageJson.scripts?.pretest).toBe("npm run pretypecheck");
+  expect(packageJson.scripts?.predev).toContain(
+    "bundle-angular-source-content.ts",
+  );
+  expect(packageJson.scripts?.predev).toContain("bundle-vue-source-content.ts");
+  expect(packageJson.scripts?.build).toContain("bundle-vue-source-content.ts");
+  expect(packageJson.scripts?.pretypecheck).toContain(
+    "bundle-vue-source-content.ts",
+  );
 });
 test("generates Angular source content in the shell-docs image", async () => {
   const dockerfile = await readFile(
@@ -154,6 +162,18 @@ test("generates Angular source content in the shell-docs image", async () => {
   expect(dockerfile).toContain("COPY showcase/angular/src/ ./angular/src/");
   expect(dockerfile).toContain(
     "node node_modules/tsx/dist/cli.mjs bundle-angular-source-content.ts",
+  );
+});
+
+test("generates Vue source content in the shell-docs image", async () => {
+  const dockerfile = await readFile(
+    resolve(repositoryRoot, "showcase/shell-docs/Dockerfile"),
+    "utf8",
+  );
+
+  expect(dockerfile).toContain("COPY showcase/vue/src/ ./vue/src/");
+  expect(dockerfile).toContain(
+    "node node_modules/tsx/dist/cli.mjs bundle-vue-source-content.ts",
   );
 });
 
