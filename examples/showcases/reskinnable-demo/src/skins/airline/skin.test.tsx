@@ -18,19 +18,18 @@ import { describe, expect, it, vi } from "vitest";
 // below is about WHICH pill is intercepted, not about the chain. The message
 // constant is deliberately the real one, so a drifted pill still fails.
 const sent = vi.fn(() => Promise.resolve(true));
-vi.mock(
-  "@/skins/airline/attach-hotel-confirmation",
-  async (importOriginal) => ({
-    // `importOriginal` keeps the REAL `HOTEL_CONFIRMATION_MESSAGE`, so a pill whose
-    // text drifts from the constant still fails this file. Only the two functions
-    // that touch the DOM are replaced.
-    ...(await importOriginal<
-      typeof import("@/skins/airline/attach-hotel-confirmation")
-    >()),
+vi.mock("@/skins/airline/attach-hotel-confirmation", async (importOriginal) => {
+  // `importOriginal` keeps the REAL `HOTEL_CONFIRMATION_MESSAGE`, so a pill
+  // whose text drifts from the constant still fails this file. Only the two
+  // functions that touch the DOM are replaced. Spread through a plain record
+  // rather than an `import()` type annotation, which the repo's lint forbids.
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
     sendHotelConfirmationMessage: () => sent(),
     attachHotelConfirmationByHand: () => Promise.resolve(true),
-  }),
-);
+  };
+});
 
 import airline from "@/skins/airline/skin";
 import {
