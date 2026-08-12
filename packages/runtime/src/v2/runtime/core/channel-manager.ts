@@ -5,6 +5,8 @@ import {
 } from "./channel-activation-config";
 import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
+import { telemetry } from "../telemetry";
+import type { AnalyticsEvents } from "../telemetry";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type {
   AgentSubscriber,
@@ -347,6 +349,8 @@ interface ChannelEntry {
   handleStopped: boolean;
   /** Epoch ms this outage episode began; unset while the session is healthy. */
   downSince?: number;
+  /** Cause of THIS outage episode, replayed on each "still down" reminder. */
+  downCause?: string;
   /** Next "still down" logger for this outage; cleared on recovery/teardown. */
   reconnectLogTimer?: ReturnType<typeof setTimeout>;
   /** Delay before the next reminder; doubles after each emitted reminder. */
@@ -1589,15 +1593,34 @@ export class ChannelManager implements ChannelsControl {
       if (state === "reconnecting") {
         entry.status = "reconnecting";
         entry.downSince ??= Date.now();
+        // Remembered for the repeat line below: an operator reading a reminder
+        // hours into an outage should not have to find the first line to learn
+        // the cause.
+        if (cause !== undefined) entry.downCause = cause;
         this.log?.(
           `channel "${name}" managed session dropped; reconnecting (Phoenix auto-rejoin)${because}`,
         );
+        this.captureChannelTelemetry("oss.runtime.channel_session_dropped", {
+          ...(detail?.reason !== undefined ? { reason: detail.reason } : {}),
+          ...(detail?.code !== undefined ? { code: detail.code } : {}),
+        });
         this.startReconnectLog(name, entry);
       } else if (state === "online") {
         entry.status = "online";
         this.clearReconnectLog(entry);
+        // Read BEFORE clearing `downSince`, and only when an outage was
+        // actually in progress — a session may report `online` with no
+        // preceding drop, which is not a recovery.
+        const downSince = entry.downSince;
         entry.downSince = undefined;
+        entry.downCause = undefined;
         this.log?.(`channel "${name}" managed session back online`);
+        if (downSince !== undefined) {
+          this.captureChannelTelemetry(
+            "oss.runtime.channel_session_recovered",
+            { downForMs: Date.now() - downSince },
+          );
+        }
       } else if (state === "gave_up") {
         // `error` here means "not sendable", NOT "dead": Phoenix keeps retrying
         // underneath and a successful rejoin restores `online`. Say so, or the
@@ -1609,6 +1632,28 @@ export class ChannelManager implements ChannelsControl {
         );
       }
     });
+  }
+
+  /**
+   * Report a Channel connection event. A managed session that drops is
+   * otherwise invisible outside the host process — the `log` seam reaches only
+   * whoever reads that process's stdout, which for a self-hosted runtime is
+   * nobody who can act on it.
+   *
+   * Fire-and-forget, and failures are swallowed: telemetry must never break a
+   * live session. Same contract as `fireInstanceCreatedTelemetry`. The `try`
+   * also covers a `capture` that throws synchronously or returns no promise.
+   */
+  private captureChannelTelemetry<
+    K extends
+      | "oss.runtime.channel_session_dropped"
+      | "oss.runtime.channel_session_recovered",
+  >(event: K, props: AnalyticsEvents[K]): void {
+    try {
+      void telemetry.capture(event, props).catch(() => {});
+    } catch {
+      // Swallow — a telemetry transport must not take the session with it.
+    }
   }
 
   /** Rendered downtime for this outage episode (`"45s"`), or `"unknown"`. */
@@ -1635,7 +1680,8 @@ export class ChannelManager implements ChannelsControl {
         return;
       }
       this.log?.(
-        `channel "${name}" managed session still down after ${this.downFor(entry)}; Phoenix is retrying`,
+        `channel "${name}" managed session still down after ${this.downFor(entry)}; Phoenix is retrying` +
+          (entry.downCause !== undefined ? ` — ${entry.downCause}` : ""),
       );
       entry.reconnectLogDelayMs = Math.min(
         delayMs * 2,
