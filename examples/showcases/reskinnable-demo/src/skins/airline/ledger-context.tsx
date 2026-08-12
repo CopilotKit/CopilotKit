@@ -16,8 +16,9 @@
  *   1. `skin.tsx` → `Providers: AirlineLedgerProvider` (or compose it into an
  *      existing stack). It belongs BELOW `CopilotKitProvider`; it contributes
  *      no runtime identity, so it does not need `RuntimeProviders`.
- *   2. `skin.tsx` → `nav: airlineNav` and `resolvePage: resolveAirlinePage`,
- *      both from `./nav` — that is what makes the two new pages reachable.
+ *   2. `skin.tsx` → `nav: airlineNav` (from `./nav`) and `resolvePage:
+ *      resolveAirlinePage` (from `./pages`) — that is what makes the two new
+ *      pages reachable at all.
  *   3. Any tool that WRITES through `/api/airline/v1/*` must call
  *      `notifyAirlineDataChanged()` afterwards (see below).
  *

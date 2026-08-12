@@ -2,7 +2,15 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Plane, Ticket, Award, AlertTriangle } from "lucide-react";
+import {
+  Plane,
+  Ticket,
+  Award,
+  AlertTriangle,
+  UserRound,
+  PlaneTakeoff,
+} from "lucide-react";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 import { cn } from "@/lib/utils";
 import { useSkin, useSkinData } from "@/shell/skin-provider";
 import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
@@ -15,6 +23,8 @@ import "./theme.css";
 
 const NAV_ICONS: Record<string, typeof Plane> = {
   "": Ticket,
+  account: UserRound,
+  rebook: PlaneTakeoff,
   loyalty: Award,
   disruptions: AlertTriangle,
 };
@@ -30,6 +40,24 @@ export function AirlineLayout({ children }: { children: ReactNode }) {
   const skinHref = useSkinHref(skin.id);
   const restHead = useSkinSegments(skin.id)[0] ?? "";
   const Logo = skin.identity.logo;
+
+  // ── BEAT 3b, part 1 — the agent's view of WHICH page is open ─────────────
+  // Airline shipped only GLOBAL readables before this, so "what's on my
+  // screen?" answered identically everywhere — which reads as working right up
+  // until the presenter navigates and asks a second time. That is the exact
+  // failure demo-beats.md § 3b calls "most often broken by omission".
+  //
+  // `restHead` comes from `useSkinSegments`, NOT a hand-rolled
+  // `pathname.split("/")[2]`. The manual form slices a FIXED offset, so it is
+  // right only while the URL carries the skin prefix and reports the wrong page
+  // on a LOCK_SKIN deploy — where the skin is served at `/` — while still
+  // passing every test run against an unlocked dev server.
+  useAgentContext({
+    description:
+      "The page the passenger is looking at right now, as a route segment. " +
+      "An empty segment is the Trip page (the index).",
+    value: restHead,
+  });
 
   return (
     // `h-full`, not `min-h-screen`: this chrome now fills the shell's app card,
