@@ -2,75 +2,77 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AEO_CONTRACT_PATH } from "./validate-aeo-contract";
+import {
+  markdownLinkUrls,
+  metadataUrl,
+  sitemapUrls,
+  sourceUrls,
+} from "./verify-deploy.drivers.docs";
 
-const REQUIRED_USER_AGENTS = [
-  "oai-searchbot",
-  "claude-searchbot",
-  "perplexitybot",
-  "googlebot",
+// Crawler identities and provenance:
+// OpenAI: https://help.openai.com/en/articles/20001243-advertiser-guidance-for-allowing-openai-web-crawlers
+// Anthropic: https://support.anthropic.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler
+// Perplexity: https://docs.perplexity.ai/docs/resources/perplexity-crawlers
+// Google: https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers
+const CRAWLERS = [
+  { id: "oai-searchbot", value: "OAI-SearchBot" },
+  { id: "claude-searchbot", value: "Claude-SearchBot" },
+  {
+    id: "perplexitybot",
+    value:
+      "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)",
+  },
+  {
+    id: "googlebot",
+    value:
+      "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+  },
 ] as const;
-const REQUIRED_CONTRACT_FIELDS = [
-  "schemaVersion",
-  "policyUrl",
-  "capabilitiesUrl",
-  "canonicalHosts",
-  "classifications",
-  "compatibility",
-  "responseSemantics",
-  "owners",
-  "surfaces",
-  "syntheticMonitoring",
-  "reviewChecklist",
-] as const;
-const ASSERTIONS = [
-  "non-empty",
-  "no-soft-404",
-  "canonical-host",
-  "open-graph-host",
-  "structured-data",
-  "robots-sitemap-host",
-  "sitemap-host",
-  "sample-links",
-  "links-host",
-  "required-contract-fields",
-] as const;
+
+const REQUIRED_ENDPOINTS = {
+  website: new Map([
+    ["/", "text/html"],
+    ["/robots.txt", "text/plain"],
+    ["/sitemap.xml", "application/xml"],
+    ["/llms.txt", "text/plain"],
+    ["/llms-full.txt", "text/plain"],
+  ]),
+  docs: new Map([
+    ["/", "text/html"],
+    ["/robots.txt", "text/plain"],
+    ["/sitemap.xml", "application/xml"],
+    ["/llms.txt", "text/plain"],
+    ["/llms-full.txt", "text/plain"],
+  ]),
+} as const;
+
 const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_MAX_CONCURRENCY = 4;
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
-const SAMPLE_LINK_COUNT = 1;
 
-type HostKey = "website" | "docs" | "docsMcp";
-type Assertion = (typeof ASSERTIONS)[number];
-export type FetchLike = (
-  input: string,
-  init?: RequestInit,
-) => Promise<Response>;
+type MonitoredHost = keyof typeof REQUIRED_ENDPOINTS;
 
-interface ContractSurface {
-  id: string;
-  host: HostKey;
+interface ContractEndpoint {
+  path: string;
   contentTypes: string[];
 }
 
-interface SyntheticTarget {
-  surfaceId: string;
-  path: string;
-  contentType: string;
-  assertions: Assertion[];
+interface ContractSurface {
+  id: string;
+  host: "website" | "docs" | "docsMcp";
+  classification: string;
+  endpoints: ContractEndpoint[];
 }
 
 export interface AeoSyntheticContract {
-  schemaVersion: number;
-  policyUrl: string;
-  capabilitiesUrl: string;
-  canonicalHosts: Record<HostKey, string>;
+  canonicalHosts: Record<"website" | "docs" | "docsMcp", string>;
   surfaces: ContractSurface[];
-  syntheticMonitoring: {
-    cadence: string;
-    alertOwner: string;
-    runbook?: { repositoryPath: string; url: string };
-    userAgents: Array<{ id: string; value: string; sourceUrl: string }>;
-    targets: SyntheticTarget[];
-  };
+}
+
+interface SyntheticTarget {
+  host: MonitoredHost;
+  path: string;
+  contentType: string;
 }
 
 export interface SyntheticFailure {
@@ -84,12 +86,14 @@ export interface SyntheticFailure {
 
 interface RunOptions {
   timeoutMs?: number;
+  maxConcurrency?: number;
   validateConfig?: boolean;
 }
 
-function nonEmpty(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
+export type FetchLike = (
+  input: string,
+  init?: RequestInit,
+) => Promise<Response>;
 
 export function loadAeoSyntheticContract(
   repositoryRoot: string,
@@ -98,136 +102,71 @@ export function loadAeoSyntheticContract(
   try {
     return JSON.parse(readFileSync(path, "utf8")) as AeoSyntheticContract;
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `Unable to load AEO synthetic baseline ${path}: ${detail}`,
-      {
-        cause: error,
-      },
+      `Unable to load AEO synthetic baseline ${path}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
     );
   }
+}
+
+function declaredEndpoints(
+  contract: AeoSyntheticContract,
+  host: MonitoredHost,
+): Map<string, ReadonlySet<string>> {
+  const endpoints = new Map<string, Set<string>>();
+  for (const surface of contract.surfaces) {
+    if (
+      surface.host !== host ||
+      surface.classification === "copilotkit-contract"
+    ) {
+      continue;
+    }
+    for (const endpoint of surface.endpoints) {
+      const path = endpoint.path === "/**" ? "/" : endpoint.path;
+      const types = endpoints.get(path) ?? new Set<string>();
+      endpoint.contentTypes.forEach((type) => types.add(type));
+      endpoints.set(path, types);
+    }
+  }
+  return endpoints;
 }
 
 export function validateAeoSyntheticConfig(
   contract: AeoSyntheticContract,
 ): string[] {
   const errors: string[] = [];
-  const monitoring = contract.syntheticMonitoring;
-  if (!monitoring || typeof monitoring !== "object") {
-    return ["syntheticMonitoring must be an object"];
-  }
-  if (!nonEmpty(monitoring.cadence)) {
-    errors.push("syntheticMonitoring.cadence must be a non-empty string");
-  }
-  if (!nonEmpty(monitoring.alertOwner)) {
-    errors.push("syntheticMonitoring.alertOwner must be a non-empty string");
-  }
-  if (
-    !monitoring.runbook ||
-    !nonEmpty(monitoring.runbook.repositoryPath) ||
-    !nonEmpty(monitoring.runbook.url) ||
-    !URL.canParse(monitoring.runbook.url) ||
-    new URL(monitoring.runbook.url).protocol !== "https:"
-  ) {
-    errors.push("syntheticMonitoring.runbook must name a path and HTTPS URL");
-  }
-  if (!Array.isArray(monitoring.userAgents)) {
-    errors.push("syntheticMonitoring.userAgents must be an array");
-  } else {
-    const ids = new Set(monitoring.userAgents.map(({ id }) => id));
-    for (const required of REQUIRED_USER_AGENTS) {
-      if (!ids.has(required)) {
-        errors.push(`synthetic user agent is missing: ${required}`);
+  for (const host of ["website", "docs"] as const) {
+    try {
+      const origin = new URL(contract.canonicalHosts[host]);
+      if (origin.protocol !== "https:" || origin.pathname !== "/") {
+        throw new Error("not an HTTPS origin");
       }
+    } catch {
+      errors.push(`${host} canonical host must be an HTTPS origin`);
     }
-    monitoring.userAgents.forEach((agent, index) => {
-      if (
-        !nonEmpty(agent.id) ||
-        !nonEmpty(agent.value) ||
-        !nonEmpty(agent.sourceUrl)
-      ) {
-        errors.push(`syntheticMonitoring.userAgents[${index}] is invalid`);
-      } else {
-        if (!URL.canParse(agent.sourceUrl)) {
-          errors.push(
-            `syntheticMonitoring.userAgents[${index}].sourceUrl is not an absolute URL`,
-          );
-        } else if (new URL(agent.sourceUrl).protocol !== "https:") {
-          errors.push(
-            `syntheticMonitoring.userAgents[${index}].sourceUrl must use https`,
-          );
-        }
-      }
-    });
-  }
 
-  const surfaces = new Map(
-    contract.surfaces.map((surface) => [surface.id, surface]),
-  );
-  if (!Array.isArray(monitoring.targets) || monitoring.targets.length === 0) {
-    errors.push("syntheticMonitoring.targets must be a non-empty array");
-    return errors;
-  }
-  const targetKeys = new Set<string>();
-  for (const target of monitoring.targets) {
-    const key = `${target.surfaceId}:${target.path}`;
-    if (targetKeys.has(key)) errors.push(`duplicate synthetic target: ${key}`);
-    targetKeys.add(key);
-    const surface = surfaces.get(target.surfaceId);
-    if (!surface) {
-      errors.push(
-        `synthetic target references unknown surface: ${target.surfaceId}`,
-      );
-      continue;
-    }
-    if (!surface.contentTypes.includes(target.contentType)) {
-      errors.push(
-        `synthetic target ${target.surfaceId} content type ${target.contentType} is not declared by its contract surface`,
-      );
-    }
-    if (!nonEmpty(target.path) || !target.path.startsWith("/")) {
-      errors.push(
-        `synthetic target ${target.surfaceId} path must start with /`,
-      );
-    }
-    if (!Array.isArray(target.assertions) || target.assertions.length === 0) {
-      errors.push(`synthetic target ${key} must declare assertions`);
-    } else {
-      for (const assertion of target.assertions) {
-        if (!ASSERTIONS.includes(assertion)) {
-          errors.push(
-            `synthetic target ${key} has unknown assertion ${assertion}`,
-          );
-        }
+    const declared = declaredEndpoints(contract, host);
+    for (const [path, contentType] of REQUIRED_ENDPOINTS[host]) {
+      const declaredTypes = declared.get(path);
+      if (!declaredTypes) {
+        errors.push(`${host} baseline is missing ${path}`);
+      } else if (!declaredTypes.has(contentType)) {
+        errors.push(`${host} ${path} must declare Content-Type ${contentType}`);
       }
     }
-  }
-  for (const host of ["website", "docs", "docsMcp"] as const) {
-    if (
-      !monitoring.targets.some(
-        (target) => surfaces.get(target.surfaceId)?.host === host,
-      )
-    ) {
-      errors.push(
-        `synthetic baseline has no target for canonical host: ${host}`,
-      );
-    }
-  }
-  if (
-    !monitoring.targets.some(({ assertions }) =>
-      assertions.includes("sample-links"),
-    )
-  ) {
-    errors.push("synthetic baseline must sample at least one published link");
-  }
-  if (
-    !monitoring.targets.some(({ assertions }) =>
-      assertions.includes("required-contract-fields"),
-    )
-  ) {
-    errors.push("synthetic baseline must verify required contract fields");
   }
   return errors;
+}
+
+function targetsFromContract(
+  contract: AeoSyntheticContract,
+): SyntheticTarget[] {
+  return (["website", "docs"] as const).flatMap((host) => {
+    const declared = declaredEndpoints(contract, host);
+    return [...REQUIRED_ENDPOINTS[host]].flatMap(([path, contentType]) =>
+      declared.has(path) ? [{ host, path, contentType }] : [],
+    );
+  });
 }
 
 function attributes(tag: string): Map<string, string> {
@@ -239,151 +178,67 @@ function attributes(tag: string): Map<string, string> {
   return values;
 }
 
-function metadataUrl(
-  html: string,
-  attribute: "rel" | "property",
-  value: "canonical" | "og:url",
-  urlAttribute: "href" | "content",
-): string | undefined {
-  for (const tag of html.match(/<(?:link|meta)\b[^>]*>/gi) ?? []) {
-    const attrs = attributes(tag);
-    const discriminator = attrs.get(attribute)?.toLowerCase();
-    if (
-      discriminator === value ||
-      (attribute === "rel" && discriminator?.split(/\s+/).includes(value))
-    ) {
-      return attrs.get(urlAttribute);
-    }
-  }
-  return undefined;
-}
-
-function sitemapUrls(text: string): string[] {
-  return [...text.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)].map(
-    (match) => match[1],
-  );
-}
-
 function soft404Reason(body: string, contentType: string): string | undefined {
   if (!contentType.startsWith("text/html")) return undefined;
-  for (const tag of body.match(/<meta\b[^>]*>/gi) ?? []) {
+  const noindex = (body.match(/<meta\b[^>]*>/gi) ?? []).some((tag) => {
     const attrs = attributes(tag);
-    if (
+    return (
       attrs.get("name")?.toLowerCase() === "robots" &&
       attrs.get("content")?.toLowerCase().includes("noindex")
-    ) {
-      return "HTML response declares robots noindex (soft-404 signal)";
-    }
-  }
+    );
+  });
+  if (noindex) return "HTML response declares robots noindex (soft-404 signal)";
   if (/<h1[^>]*>\s*(?:404|page (?:not found|does not exist))/i.test(body)) {
     return "HTML response contains a not-found heading (soft-404 signal)";
   }
-  if (/page (?:not found|could not be found|doesn'?t exist)/i.test(body)) {
-    return "HTML response contains a not-found message (soft-404 signal)";
-  }
   return undefined;
 }
 
-function assertUrlHost(
-  raw: string | undefined,
+function hostError(
+  rawUrl: string | undefined,
   expectedOrigin: string,
   label: string,
 ): string | undefined {
-  if (!raw) return `${label} is missing`;
+  if (!rawUrl) return `${label} is missing`;
   try {
-    const parsed = new URL(raw);
-    if (parsed.origin !== expectedOrigin) {
-      return `${label} uses ${parsed.origin}; expected ${expectedOrigin}`;
-    }
+    const actualOrigin = new URL(rawUrl).origin;
+    return actualOrigin === expectedOrigin
+      ? undefined
+      : `${label} uses ${actualOrigin}; expected ${expectedOrigin}`;
   } catch {
-    return `${label} is not an absolute URL: ${raw}`;
+    return `${label} is not an absolute URL: ${rawUrl}`;
   }
-  return undefined;
 }
 
-function structuredDataReason(html: string): string | undefined {
-  const blocks = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
-    .filter((match) => {
-      const attrs = attributes(`<script ${match[1]}>`);
-      return attrs.get("type")?.toLowerCase() === "application/ld+json";
-    })
-    .map((match) => match[2]);
-  if (blocks.length === 0) return "schema.org JSON-LD script is missing";
-
-  for (const block of blocks) {
-    try {
-      const value = JSON.parse(block) as Record<string, unknown>;
-      const context = value["@context"];
-      if (
-        context === "https://schema.org" ||
-        context === "http://schema.org" ||
-        (Array.isArray(context) &&
-          context.some(
-            (item) =>
-              item === "https://schema.org" || item === "http://schema.org",
-          ))
-      ) {
-        return undefined;
-      }
-    } catch {
-      // A later block may still be the valid schema.org document.
-    }
-  }
-  return "no JSON-LD block parses successfully with a schema.org @context";
-}
-
-async function readBoundedBody(
-  response: Response,
-  streaming: boolean,
-): Promise<string> {
+async function readBoundedBody(response: Response): Promise<string> {
   const reader = response.body?.getReader();
   if (!reader) return "";
   const chunks: Uint8Array[] = [];
-  let byteCount = 0;
+  let size = 0;
   let done = false;
   try {
-    while (!done && byteCount < MAX_BODY_BYTES) {
+    while (!done && size < MAX_BODY_BYTES) {
       const result = await reader.read();
       done = result.done;
       if (result.value) {
-        const remaining = MAX_BODY_BYTES - byteCount;
-        chunks.push(result.value.slice(0, remaining));
-        byteCount += Math.min(result.value.byteLength, remaining);
+        const chunk = result.value.slice(0, MAX_BODY_BYTES - size);
+        chunks.push(chunk);
+        size += chunk.byteLength;
       }
-      if (streaming) break;
     }
-    const merged = new Uint8Array(byteCount);
+    const body = new Uint8Array(size);
     let offset = 0;
     for (const chunk of chunks) {
-      merged.set(chunk, offset);
+      body.set(chunk, offset);
       offset += chunk.byteLength;
     }
-    return new TextDecoder().decode(merged);
+    return new TextDecoder().decode(body);
   } finally {
     if (!done) await reader.cancel().catch(() => undefined);
   }
 }
 
-function createFailure(
-  userAgent: string,
-  url: string,
-  reason: string,
-  status: number,
-  contentType: string,
-  body: string,
-): SyntheticFailure {
-  return {
-    userAgent,
-    url,
-    reason,
-    observedStatus: status,
-    observedContentType: contentType || "(missing)",
-    responseSnippet:
-      body.replace(/\s+/g, " ").trim().slice(0, 240) || "(empty body)",
-  };
-}
-
-async function fetchTarget(
+async function fetchSurface(
   url: string,
   userAgent: string,
   fetchImpl: FetchLike,
@@ -397,95 +252,96 @@ async function fetchTarget(
       headers: { "User-Agent": userAgent },
       signal: controller.signal,
     });
-    const body = await readBoundedBody(
-      response,
-      response.headers.get("content-type")?.startsWith("text/event-stream") ??
-        false,
-    );
-    return { response, body };
+    return { response, body: await readBoundedBody(response) };
   } finally {
     clearTimeout(timer);
   }
 }
 
-function targetReasons(
+function createFailure(
+  crawler: string,
+  url: string,
+  reason: string,
+  response?: Response,
+  body = "",
+): SyntheticFailure {
+  return {
+    userAgent: crawler,
+    url,
+    reason,
+    observedStatus: response?.status ?? 0,
+    observedContentType: response?.headers.get("content-type") ?? "(missing)",
+    responseSnippet:
+      body.replace(/\s+/g, " ").trim().slice(0, 240) || "(empty body)",
+  };
+}
+
+function responseReasons(
+  contract: AeoSyntheticContract,
   target: SyntheticTarget,
+  response: Response,
   body: string,
-  contentType: string,
-  expectedOrigin: string,
-  expectedUrl: string,
-  canonicalOrigins: ReadonlySet<string>,
 ): string[] {
+  const origin = contract.canonicalHosts[target.host];
+  const contentType = response.headers.get("content-type") ?? "";
   const reasons: string[] = [];
-  if (target.assertions.includes("non-empty") && body.trim().length === 0) {
-    reasons.push("response body is empty");
+  if (response.status !== 200) {
+    reasons.push(`expected HTTP 200, received HTTP ${response.status}`);
   }
-  if (target.assertions.includes("no-soft-404")) {
-    const reason = soft404Reason(body, contentType);
-    if (reason) reasons.push(reason);
-  }
-  if (target.assertions.includes("canonical-host")) {
-    const canonical = metadataUrl(body, "rel", "canonical", "href");
-    const reason = assertUrlHost(canonical, expectedOrigin, "canonical URL");
-    if (reason) reasons.push(reason);
-    if (canonical) {
-      try {
-        if (new URL(canonical).href !== expectedUrl) {
-          reasons.push(
-            `canonical URL is ${canonical}; expected ${expectedUrl}`,
-          );
-        }
-      } catch {
-        // assertUrlHost already records the malformed absolute URL.
-      }
-    }
-  }
-  if (target.assertions.includes("open-graph-host")) {
-    const reason = assertUrlHost(
-      metadataUrl(body, "property", "og:url", "content"),
-      expectedOrigin,
-      "Open Graph URL",
+  if (!contentType.toLowerCase().startsWith(target.contentType)) {
+    reasons.push(
+      `expected Content-Type ${target.contentType}, received ${contentType || "(missing)"}`,
     );
-    if (reason) reasons.push(reason);
   }
-  if (target.assertions.includes("structured-data")) {
-    const reason = structuredDataReason(body);
-    if (reason) reasons.push(reason);
-  }
-  if (target.assertions.includes("robots-sitemap-host")) {
+  if (body.trim().length === 0) reasons.push("response body is empty");
+  const soft404 = soft404Reason(body, contentType);
+  if (soft404) reasons.push(soft404);
+
+  if (target.path === "/") {
+    const canonical = metadataUrl(body, "rel", "canonical", "href");
+    const error = hostError(canonical, origin, "canonical URL");
+    if (error) reasons.push(error);
+    if (
+      canonical &&
+      URL.canParse(canonical) &&
+      new URL(canonical).href !== `${origin}/`
+    ) {
+      reasons.push(`canonical URL is ${canonical}; expected ${origin}/`);
+    }
+  } else if (target.path === "/robots.txt") {
     const sitemap = body.match(/^Sitemap:\s*(\S+)/im)?.[1];
-    const reason = assertUrlHost(sitemap, expectedOrigin, "robots sitemap URL");
-    if (reason) reasons.push(reason);
-  }
-  if (target.assertions.includes("sitemap-host")) {
+    const error = hostError(sitemap, origin, "robots sitemap URL");
+    if (error) reasons.push(error);
+  } else if (target.path === "/sitemap.xml") {
     const urls = sitemapUrls(body);
     if (urls.length === 0) reasons.push("sitemap contains no <loc> URLs");
-    for (const url of urls) {
-      const reason = assertUrlHost(url, expectedOrigin, "sitemap URL");
-      if (reason) {
-        reasons.push(reason);
-        break;
-      }
-    }
-  }
-  if (target.assertions.includes("links-host")) {
-    const indexedUrls = [
-      ...body.matchAll(/\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/g),
-      ...body.matchAll(/^## Source:\s+(https?:\/\/\S+)\s*$/gm),
-    ].map((match) => match[1]);
-    if (indexedUrls.length === 0) {
+    const error = urls
+      .map((url) => hostError(url, origin, "sitemap URL"))
+      .find(Boolean);
+    if (error) reasons.push(error);
+  } else {
+    const urls =
+      target.path === "/llms-full.txt"
+        ? sourceUrls(body)
+        : markdownLinkUrls(body);
+    if (urls.length === 0)
       reasons.push("machine content contains no indexed URLs");
-    }
-    for (const url of indexedUrls) {
+    const canonicalOrigins = new Set(Object.values(contract.canonicalHosts));
+    for (const rawUrl of urls) {
       try {
-        const parsed = new URL(url);
+        const parsed = new URL(rawUrl);
+        if (target.path === "/llms-full.txt") {
+          const error = hostError(rawUrl, origin, "llms-full source URL");
+          if (error) reasons.push(error);
+          if (error) break;
+          continue;
+        }
         const isCopilotKitHost =
           parsed.hostname === "copilotkit.ai" ||
           parsed.hostname.endsWith(".copilotkit.ai");
-        const isDeploymentHost = parsed.hostname.endsWith(".up.railway.app");
         if (
           (isCopilotKitHost && !canonicalOrigins.has(parsed.origin)) ||
-          isDeploymentHost
+          parsed.hostname.endsWith(".up.railway.app")
         ) {
           reasons.push(
             `machine-content URL uses non-canonical production origin ${parsed.origin}`,
@@ -493,26 +349,113 @@ function targetReasons(
           break;
         }
       } catch {
-        reasons.push(`machine-content URL is not absolute: ${url}`);
+        reasons.push(`machine-content URL is not absolute: ${rawUrl}`);
         break;
       }
     }
   }
-  if (target.assertions.includes("required-contract-fields")) {
-    try {
-      const json = JSON.parse(body) as Record<string, unknown>;
-      for (const field of REQUIRED_CONTRACT_FIELDS) {
-        if (!(field in json)) {
-          reasons.push(`required contract field ${field} is missing`);
-        }
-      }
-    } catch (error) {
-      reasons.push(
-        `capability response is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+  return reasons;
+}
+
+async function checkTarget(
+  contract: AeoSyntheticContract,
+  target: SyntheticTarget,
+  crawler: (typeof CRAWLERS)[number],
+  fetchImpl: FetchLike,
+  timeoutMs: number,
+): Promise<SyntheticFailure[]> {
+  const url = new URL(target.path, `${contract.canonicalHosts[target.host]}/`)
+    .href;
+  let fetched: { response: Response; body: string };
+  try {
+    fetched = await fetchSurface(url, crawler.value, fetchImpl, timeoutMs);
+  } catch (error) {
+    return [
+      createFailure(
+        crawler.id,
+        url,
+        `fetch failed: ${error instanceof Error ? error.message : String(error)}`,
+      ),
+    ];
+  }
+
+  const reasons = responseReasons(
+    contract,
+    target,
+    fetched.response,
+    fetched.body,
+  );
+  const failures = reasons.length
+    ? [
+        createFailure(
+          crawler.id,
+          url,
+          reasons.join("; "),
+          fetched.response,
+          fetched.body,
+        ),
+      ]
+    : [];
+
+  const sampleUrl =
+    target.path === "/sitemap.xml" ? sitemapUrls(fetched.body)[0] : undefined;
+  if (!sampleUrl) return failures;
+  try {
+    const sample = await fetchSurface(
+      sampleUrl,
+      crawler.value,
+      fetchImpl,
+      timeoutMs,
+    );
+    const sampleType = sample.response.headers.get("content-type") ?? "";
+    const sampleError = soft404Reason(sample.body, sampleType);
+    if (
+      sample.response.status !== 200 ||
+      sample.body.trim().length === 0 ||
+      sampleError
+    ) {
+      failures.push(
+        createFailure(
+          crawler.id,
+          sampleUrl,
+          `sampled sitemap link failed: ${sampleError ?? `HTTP ${sample.response.status} or empty body`}`,
+          sample.response,
+          sample.body,
+        ),
       );
     }
+  } catch (error) {
+    failures.push(
+      createFailure(
+        crawler.id,
+        sampleUrl,
+        `sampled sitemap link fetch failed: ${error instanceof Error ? error.message : String(error)}`,
+      ),
+    );
   }
-  return reasons;
+  return failures;
+}
+
+async function mapWithConcurrency<T, R>(
+  values: T[],
+  limit: number,
+  operation: (value: T) => Promise<R>,
+): Promise<R[]> {
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new Error("maxConcurrency must be a positive integer");
+  }
+  const results: R[] = [];
+  results.length = values.length;
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, values.length) }, async () => {
+      while (next < values.length) {
+        const index = next++;
+        results[index] = await operation(values[index]!);
+      }
+    }),
+  );
+  return results;
 }
 
 export async function runAeoSyntheticChecks(
@@ -521,126 +464,28 @@ export async function runAeoSyntheticChecks(
   options: RunOptions = {},
 ): Promise<SyntheticFailure[]> {
   if (options.validateConfig !== false) {
-    const configErrors = validateAeoSyntheticConfig(contract);
-    if (configErrors.length > 0) {
-      throw new Error(
-        `Invalid AEO synthetic baseline:\n${configErrors.join("\n")}`,
-      );
+    const errors = validateAeoSyntheticConfig(contract);
+    if (errors.length > 0) {
+      throw new Error(`Invalid AEO synthetic baseline:\n${errors.join("\n")}`);
     }
   }
-  const failures: SyntheticFailure[] = [];
-  const surfaces = new Map(
-    contract.surfaces.map((surface) => [surface.id, surface]),
+  const jobs = CRAWLERS.flatMap((crawler) =>
+    targetsFromContract(contract).map((target) => ({ crawler, target })),
   );
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const canonicalOrigins = new Set(Object.values(contract.canonicalHosts));
-
-  for (const agent of contract.syntheticMonitoring.userAgents) {
-    for (const target of contract.syntheticMonitoring.targets) {
-      const surface = surfaces.get(target.surfaceId)!;
-      const expectedOrigin = contract.canonicalHosts[surface.host];
-      const url = `${expectedOrigin}${target.path}`;
-      let response: Response;
-      let body: string;
-      try {
-        ({ response, body } = await fetchTarget(
-          url,
-          agent.value,
-          fetchImpl,
-          timeoutMs,
-        ));
-      } catch (error) {
-        failures.push(
-          createFailure(
-            agent.id,
-            url,
-            `fetch failed: ${error instanceof Error ? error.message : String(error)}`,
-            0,
-            "",
-            "",
-          ),
-        );
-        continue;
-      }
-      const contentType = response.headers.get("content-type") ?? "";
-      const reasons: string[] = [];
-      if (response.status !== 200) {
-        reasons.push(`expected HTTP 200, received HTTP ${response.status}`);
-      }
-      if (!contentType.toLowerCase().startsWith(target.contentType)) {
-        reasons.push(
-          `expected Content-Type ${target.contentType}, received ${contentType || "(missing)"}`,
-        );
-      }
-      reasons.push(
-        ...targetReasons(
+  return (
+    await mapWithConcurrency(
+      jobs,
+      options.maxConcurrency ?? DEFAULT_MAX_CONCURRENCY,
+      ({ crawler, target }) =>
+        checkTarget(
+          contract,
           target,
-          body,
-          contentType,
-          expectedOrigin,
-          new URL(target.path, `${expectedOrigin}/`).href,
-          canonicalOrigins,
+          crawler,
+          fetchImpl,
+          options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
         ),
-      );
-      if (reasons.length > 0) {
-        failures.push(
-          createFailure(
-            agent.id,
-            url,
-            reasons.join("; "),
-            response.status,
-            contentType,
-            body,
-          ),
-        );
-        continue;
-      }
-
-      if (target.assertions.includes("sample-links")) {
-        for (const sampleUrl of sitemapUrls(body).slice(0, SAMPLE_LINK_COUNT)) {
-          try {
-            const sample = await fetchTarget(
-              sampleUrl,
-              agent.value,
-              fetchImpl,
-              timeoutMs,
-            );
-            const sampleType =
-              sample.response.headers.get("content-type") ?? "";
-            const sampleSoft404 = soft404Reason(sample.body, sampleType);
-            if (
-              sample.response.status !== 200 ||
-              sample.body.trim().length === 0 ||
-              sampleSoft404
-            ) {
-              failures.push(
-                createFailure(
-                  agent.id,
-                  sampleUrl,
-                  `sampled sitemap link failed: ${sampleSoft404 ?? `HTTP ${sample.response.status} or empty body`}`,
-                  sample.response.status,
-                  sampleType,
-                  sample.body,
-                ),
-              );
-            }
-          } catch (error) {
-            failures.push(
-              createFailure(
-                agent.id,
-                sampleUrl,
-                `sampled sitemap link fetch failed: ${error instanceof Error ? error.message : String(error)}`,
-                0,
-                "",
-                "",
-              ),
-            );
-          }
-        }
-      }
-    }
-  }
-  return failures;
+    )
+  ).flat();
 }
 
 export function formatSyntheticFailure(result: SyntheticFailure): string {
@@ -665,11 +510,11 @@ async function main(): Promise<void> {
         .join("\n")}`,
     );
     process.exitCode = 1;
-    return;
+  } else {
+    console.log(
+      `AEO synthetic checks passed: 10 website/docs targets × ${CRAWLERS.length} crawler user agents`,
+    );
   }
-  console.log(
-    `AEO synthetic checks passed: ${contract.syntheticMonitoring.targets.length} targets × ${contract.syntheticMonitoring.userAgents.length} crawler user agents`,
-  );
 }
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : undefined;

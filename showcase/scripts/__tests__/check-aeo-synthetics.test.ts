@@ -1,4 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
 import {
   formatSyntheticFailure,
   loadAeoSyntheticContract,
@@ -6,16 +8,14 @@ import {
   validateAeoSyntheticConfig,
 } from "../check-aeo-synthetics";
 import type { AeoSyntheticContract } from "../check-aeo-synthetics";
-import { resolve } from "node:path";
 
-const repositoryRoot = resolve(import.meta.dirname, "../../..");
+const repositoryRoot = resolve(
+  fileURLToPath(new URL(".", import.meta.url)),
+  "../../..",
+);
 
 function fixtureContract(): AeoSyntheticContract {
   return {
-    schemaVersion: 1,
-    policyUrl: "https://docs.copilotkit.ai/aeo",
-    capabilitiesUrl:
-      "https://docs.copilotkit.ai/.well-known/copilotkit-capabilities/v1.json",
     canonicalHosts: {
       website: "https://www.copilotkit.ai",
       docs: "https://docs.copilotkit.ai",
@@ -25,206 +25,165 @@ function fixtureContract(): AeoSyntheticContract {
       {
         id: "website-discovery",
         host: "website",
-        contentTypes: ["text/html", "application/xml"],
+        classification: "standard",
+        endpoints: [
+          { path: "/", contentTypes: ["text/html"] },
+          { path: "/robots.txt", contentTypes: ["text/plain"] },
+          { path: "/sitemap.xml", contentTypes: ["application/xml"] },
+        ],
+      },
+      {
+        id: "website-llms-indexes",
+        host: "website",
+        classification: "community-convention",
+        endpoints: [
+          { path: "/llms.txt", contentTypes: ["text/plain"] },
+          { path: "/llms-full.txt", contentTypes: ["text/plain"] },
+        ],
+      },
+      {
+        id: "docs-page-metadata",
+        host: "docs",
+        classification: "standard",
+        endpoints: [{ path: "/**", contentTypes: ["text/html"] }],
+      },
+      {
+        id: "docs-discovery",
+        host: "docs",
+        classification: "standard",
+        endpoints: [
+          { path: "/robots.txt", contentTypes: ["text/plain"] },
+          { path: "/sitemap.xml", contentTypes: ["application/xml"] },
+        ],
+      },
+      {
+        id: "docs-llms-indexes",
+        host: "docs",
+        classification: "community-convention",
+        endpoints: [
+          { path: "/llms.txt", contentTypes: ["text/plain"] },
+          { path: "/llms-full.txt", contentTypes: ["text/plain"] },
+        ],
       },
       {
         id: "docs-capabilities-v1",
         host: "docs",
-        contentTypes: ["application/json"],
+        classification: "copilotkit-contract",
+        endpoints: [
+          {
+            path: "/.well-known/copilotkit-capabilities/v1.json",
+            contentTypes: ["application/json"],
+          },
+        ],
       },
       {
-        id: "docs-mcp-discovery",
+        id: "docs-mcp-transport",
         host: "docsMcp",
-        contentTypes: ["text/event-stream"],
+        classification: "copilotkit-contract",
+        endpoints: [{ path: "/sse", contentTypes: ["text/event-stream"] }],
       },
     ],
-    syntheticMonitoring: {
-      alertOwner: "#oss-alerts",
-      cadence: "0 */6 * * *",
-      runbook: {
-        repositoryPath: ".claude/docs/aeo-synthetics.md",
-        url: "https://github.com/CopilotKit/CopilotKit/blob/main/.claude/docs/aeo-synthetics.md",
-      },
-      userAgents: [
-        {
-          id: "oai-searchbot",
-          value: "OAI-SearchBot/1.0",
-          sourceUrl: "https://example.com/oai",
-        },
-        {
-          id: "claude-searchbot",
-          value: "Claude-SearchBot/1.0",
-          sourceUrl: "https://example.com/claude",
-        },
-        {
-          id: "perplexitybot",
-          value: "PerplexityBot/1.0",
-          sourceUrl: "https://example.com/perplexity",
-        },
-        {
-          id: "googlebot",
-          value: "Googlebot/2.1",
-          sourceUrl: "https://example.com/google",
-        },
-      ],
-      targets: [
-        {
-          surfaceId: "website-discovery",
-          path: "/",
-          contentType: "text/html",
-          assertions: [
-            "non-empty",
-            "no-soft-404",
-            "canonical-host",
-            "open-graph-host",
-            "structured-data",
-          ],
-        },
-        {
-          surfaceId: "website-discovery",
-          path: "/sitemap.xml",
-          contentType: "application/xml",
-          assertions: ["non-empty", "sitemap-host", "sample-links"],
-        },
-        {
-          surfaceId: "docs-capabilities-v1",
-          path: "/.well-known/copilotkit-capabilities/v1.json",
-          contentType: "application/json",
-          assertions: ["non-empty", "required-contract-fields"],
-        },
-        {
-          surfaceId: "docs-mcp-discovery",
-          path: "/sse",
-          contentType: "text/event-stream",
-          assertions: ["non-empty"],
-        },
-      ],
-    },
   };
 }
 
+function successfulResponse(rawUrl: string): Response {
+  const url = new URL(rawUrl);
+  const origin = url.origin;
+  if (url.pathname === "/") {
+    return new Response(
+      `<html><head><link rel="canonical" href="${origin}/"></head><body>Home. This guide explains what happens when a page doesn't exist.</body></html>`,
+      { headers: { "content-type": "text/html; charset=utf-8" } },
+    );
+  }
+  if (url.pathname === "/robots.txt") {
+    return new Response(`User-agent: *\nSitemap: ${origin}/sitemap.xml\n`, {
+      headers: { "content-type": "text/plain" },
+    });
+  }
+  if (url.pathname === "/sitemap.xml") {
+    return new Response(`<urlset><url><loc>${origin}/</loc></url></urlset>`, {
+      headers: { "content-type": "application/xml" },
+    });
+  }
+  if (url.pathname === "/llms-full.txt") {
+    return new Response(
+      `## Source: ${origin}/\n\nSee [CopilotKit](https://copilotkit.ai/).`,
+      { headers: { "content-type": "text/plain" } },
+    );
+  }
+  return new Response(`[Home](${origin}/)`, {
+    headers: { "content-type": "text/plain" },
+  });
+}
+
 describe("AEO production synthetics", () => {
-  it("loads a committed baseline covering major crawler user agents", () => {
+  it("derives only the website and docs baseline from the public contract", () => {
     const contract = loadAeoSyntheticContract(repositoryRoot);
 
     expect(validateAeoSyntheticConfig(contract)).toEqual([]);
-    expect(contract.syntheticMonitoring.userAgents.map(({ id }) => id)).toEqual(
-      expect.arrayContaining([
-        "oai-searchbot",
-        "claude-searchbot",
-        "perplexitybot",
-        "googlebot",
-      ]),
-    );
+    expect(contract).not.toHaveProperty("syntheticMonitoring");
   });
 
-  it("passes canonical HTML, sitemap, capability, and streaming surfaces", async () => {
+  it("checks the ten website/docs surfaces for four crawlers with bounded concurrency", async () => {
     const contract = fixtureContract();
-    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
-      const url = new URL(String(input));
-      if (url.pathname === "/") {
-        return new Response(
-          '<html><head><link rel="canonical" href="https://www.copilotkit.ai/"><meta property="og:url" content="https://www.copilotkit.ai/"><script type="application/ld+json">{"@context":"https://schema.org"}</script></head><body>Home</body></html>',
-          { headers: { "content-type": "text/html; charset=utf-8" } },
-        );
-      }
-      if (url.pathname === "/sitemap.xml") {
-        return new Response(
-          "<urlset><url><loc>https://www.copilotkit.ai/</loc></url></urlset>",
-          { headers: { "content-type": "application/xml" } },
-        );
-      }
-      if (url.pathname.endsWith("v1.json")) {
-        return Response.json({
-          schemaVersion: 1,
-          policyUrl: contract.policyUrl,
-          capabilitiesUrl: contract.capabilitiesUrl,
-          canonicalHosts: contract.canonicalHosts,
-          classifications: [],
-          owners: [{}],
-          surfaces: [{}],
-          compatibility: {},
-          responseSemantics: {},
-          reviewChecklist: [],
-          syntheticMonitoring: contract.syntheticMonitoring,
-        });
-      }
-      return new Response("event: endpoint\ndata: /messages\n\n", {
-        headers: { "content-type": "text/event-stream" },
-      });
-    });
+    let active = 0;
+    let maximumActive = 0;
+    let requestCount = 0;
 
-    const failures = await runAeoSyntheticChecks(contract, fetchImpl, {
-      timeoutMs: 1_000,
-    });
+    const failures = await runAeoSyntheticChecks(
+      contract,
+      async (input) => {
+        requestCount += 1;
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 1));
+        active -= 1;
+        return successfulResponse(String(input));
+      },
+      { timeoutMs: 1_000, maxConcurrency: 4 },
+    );
 
     expect(failures).toEqual([]);
-    expect(fetchImpl).toHaveBeenCalledTimes(20);
-    expect(fetchImpl).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        headers: { "User-Agent": "OAI-SearchBot/1.0" },
-      }),
-    );
+    expect(requestCount).toBe(48);
+    expect(maximumActive).toBeGreaterThan(1);
+    expect(maximumActive).toBeLessThanOrEqual(4);
   });
 
   it("reports status, content type, and soft-404 evidence with the URL", async () => {
     const contract = fixtureContract();
-    contract.syntheticMonitoring.targets = [
-      {
-        surfaceId: "docs-capabilities-v1",
-        path: "/.well-known/copilotkit-capabilities/v1.json",
-        contentType: "application/json",
-        assertions: ["non-empty", "no-soft-404"],
-      },
-    ];
-    const fetchImpl = vi.fn(async () =>
-      Response.json("Page not found", {
-        status: 200,
-        headers: { "content-type": "text/html" },
-      }),
-    );
-
-    const failures = await runAeoSyntheticChecks(contract, fetchImpl, {
-      validateConfig: false,
-    });
-
-    expect(failures).toHaveLength(4);
-    expect(formatSyntheticFailure(failures[0]!)).toContain(
-      "https://docs.copilotkit.ai/.well-known/copilotkit-capabilities/v1.json",
-    );
-    expect(formatSyntheticFailure(failures[0]!)).toContain(
-      "observed HTTP 200 text/html",
-    );
-    expect(formatSyntheticFailure(failures[0]!)).toContain("Page not found");
-  });
-
-  it("rejects a capability document missing required contract fields", async () => {
-    const contract = fixtureContract();
-    contract.syntheticMonitoring.targets =
-      contract.syntheticMonitoring.targets.filter(
-        ({ surfaceId }) => surfaceId === "docs-capabilities-v1",
-      );
+    contract.surfaces = [contract.surfaces[0]!];
 
     const failures = await runAeoSyntheticChecks(
       contract,
-      async () => Response.json({ schemaVersion: 1 }),
+      async () =>
+        new Response(
+          '<html><head><meta name="robots" content="noindex"></head><body>Page not found</body></html>',
+          { status: 404, headers: { "content-type": "text/html" } },
+        ),
       { validateConfig: false },
     );
 
-    expect(failures[0]?.reason).toContain(
-      "required contract field canonicalHosts is missing",
+    expect(failures).toHaveLength(12);
+    expect(formatSyntheticFailure(failures[0]!)).toContain(
+      "https://www.copilotkit.ai/",
+    );
+    expect(formatSyntheticFailure(failures[0]!)).toContain("soft-404 signal");
+    expect(formatSyntheticFailure(failures[0]!)).toContain(
+      "expected HTTP 200, received HTTP 404",
+    );
+    expect(formatSyntheticFailure(failures[1]!)).toContain(
+      "expected Content-Type text/plain",
     );
   });
 
-  it("rejects malformed JSON-LD", async () => {
+  it("rejects a canonical URL on the wrong host", async () => {
     const contract = fixtureContract();
-    contract.syntheticMonitoring.targets = [
+    contract.surfaces = [
       {
-        surfaceId: "website-discovery",
-        path: "/",
-        contentType: "text/html",
-        assertions: ["non-empty", "structured-data"],
+        id: "website-home",
+        host: "website",
+        classification: "standard",
+        endpoints: [{ path: "/", contentTypes: ["text/html"] }],
       },
     ];
 
@@ -232,88 +191,25 @@ describe("AEO production synthetics", () => {
       contract,
       async () =>
         new Response(
-          '<script type="application/ld+json">{"@context":</script>',
+          '<link rel="canonical" href="https://preview.example.com/">Home',
           { headers: { "content-type": "text/html" } },
         ),
       { validateConfig: false },
     );
 
     expect(failures[0]?.reason).toContain(
-      "no JSON-LD block parses successfully with a schema.org @context",
+      "canonical URL uses https://preview.example.com",
     );
   });
 
-  it("rejects JSON-LD with a non-schema.org context", async () => {
+  it("fails configuration when the public contract loses an in-scope endpoint", () => {
     const contract = fixtureContract();
-    contract.syntheticMonitoring.targets = [
-      {
-        surfaceId: "website-discovery",
-        path: "/",
-        contentType: "text/html",
-        assertions: ["non-empty", "structured-data"],
-      },
-    ];
-
-    const failures = await runAeoSyntheticChecks(
-      contract,
-      async () =>
-        new Response(
-          '<script type="application/ld+json">{"@context":"https://example.com"}</script>',
-          { headers: { "content-type": "text/html" } },
-        ),
-      { validateConfig: false },
+    contract.surfaces[0]!.endpoints = contract.surfaces[0]!.endpoints.filter(
+      ({ path }) => path !== "/robots.txt",
     );
-
-    expect(failures[0]?.reason).toContain(
-      "no JSON-LD block parses successfully with a schema.org @context",
-    );
-  });
-
-  it("rejects leaked non-canonical CopilotKit hosts in machine indexes", async () => {
-    const contract = fixtureContract();
-    contract.syntheticMonitoring.targets = [
-      {
-        surfaceId: "docs-capabilities-v1",
-        path: "/llms.txt",
-        contentType: "text/plain",
-        assertions: ["non-empty", "links-host"],
-      },
-    ];
-
-    const failures = await runAeoSyntheticChecks(
-      contract,
-      async () =>
-        new Response(
-          "[Preview](https://docs-preview.up.railway.app/quickstart)",
-          { headers: { "content-type": "text/plain" } },
-        ),
-      { validateConfig: false },
-    );
-
-    expect(failures[0]?.reason).toContain(
-      "machine-content URL uses non-canonical production origin https://docs-preview.up.railway.app",
-    );
-  });
-
-  it("rejects baseline targets that drift from their contract surface", () => {
-    const contract = fixtureContract();
-    contract.syntheticMonitoring.targets[0]!.surfaceId = "not-declared";
-    contract.syntheticMonitoring.targets[1]!.contentType = "text/plain";
-
-    expect(validateAeoSyntheticConfig(contract)).toEqual(
-      expect.arrayContaining([
-        "synthetic target references unknown surface: not-declared",
-        "synthetic target website-discovery content type text/plain is not declared by its contract surface",
-      ]),
-    );
-  });
-
-  it("rejects a crawler baseline without an official source URL", () => {
-    const contract = fixtureContract();
-    contract.syntheticMonitoring.userAgents[0]!.sourceUrl = "";
 
     expect(validateAeoSyntheticConfig(contract)).toContain(
-      "syntheticMonitoring.userAgents[0] is invalid",
+      "website baseline is missing /robots.txt",
     );
   });
 });

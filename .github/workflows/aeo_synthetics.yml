@@ -1,12 +1,16 @@
 name: "AEO: Production Synthetics"
 
 on:
-  schedule:
-    # Keep this in sync with syntheticMonitoring.cadence in the public
-    # contract. The checker validates targets and user agents from that
-    # contract; this workflow intentionally contains no host/route copy.
-    - cron: "0 */6 * * *"
-  workflow_dispatch: {}
+  # Keep this manual until both the production baseline and the Slack alert
+  # path have been exercised successfully. A follow-up can add a schedule
+  # without changing the contract-driven checker.
+  workflow_dispatch:
+    inputs:
+      exercise_alert:
+        description: "Deliberately fail after the check to verify #oss-alerts"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -45,6 +49,12 @@ jobs:
         run: |
           set -o pipefail
           pnpm nx run @copilotkit/showcase-scripts:check-aeo-synthetics 2>&1 | tee aeo-synthetic-output.txt
+
+      - name: Exercise the alert path
+        if: inputs.exercise_alert
+        run: |
+          echo "Deliberate failure requested to verify the AEO alert path." | tee -a aeo-synthetic-output.txt
+          exit 1
 
       - name: Upload failure evidence
         if: failure()

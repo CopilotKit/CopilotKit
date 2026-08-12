@@ -1,49 +1,58 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parse } from "yaml";
 import { expect, test } from "vitest";
 
-const repositoryRoot = resolve(import.meta.dirname, "../../..");
+const repositoryRoot = resolve(
+  fileURLToPath(new URL(".", import.meta.url)),
+  "../../..",
+);
 
-test("scheduled AEO synthetics stay contract-driven and alert the owned channel", () => {
-  const workflow = readFileSync(
-    resolve(repositoryRoot, ".github/workflows/aeo_synthetics.yml"),
-    "utf8",
-  );
-  const contract = JSON.parse(
+test("production synthetics remain manual until the baseline and alert path are proven", () => {
+  const workflow = parse(
     readFileSync(
-      resolve(
-        repositoryRoot,
-        "showcase/shared/aeo/public-surface-contract.v1.json",
-      ),
+      resolve(repositoryRoot, ".github/workflows/aeo_synthetics.yml"),
       "utf8",
     ),
   ) as {
-    syntheticMonitoring: {
-      cadence: string;
-      runbook: { repositoryPath: string };
+    on: Record<string, unknown>;
+    jobs: {
+      check: {
+        steps: Array<{
+          name?: string;
+          if?: string;
+          run?: string;
+          uses?: string;
+          with?: Record<string, unknown>;
+        }>;
+      };
     };
   };
 
-  expect(workflow).toContain("schedule:");
-  expect(workflow).toContain("workflow_dispatch:");
-  expect(workflow).toContain(
-    `- cron: "${contract.syntheticMonitoring.cadence}"`,
-  );
-  expect(workflow).toContain(
-    "pnpm nx run @copilotkit/showcase-scripts:check-aeo-synthetics",
-  );
-  expect(workflow).toContain("SLACK_WEBHOOK_OSS_ALERTS");
-  expect(workflow).toContain("slackapi/slack-github-action@");
-  expect(workflow).toContain("aeo-synthetic-output.txt");
-  expect(workflow).not.toContain("docs.copilotkit.ai");
-  expect(workflow).not.toContain("www.copilotkit.ai");
+  expect(workflow.on).toHaveProperty("workflow_dispatch");
+  expect(workflow.on).not.toHaveProperty("schedule");
+
+  const steps = workflow.jobs.check.steps;
   expect(
-    readFileSync(
-      resolve(
-        repositoryRoot,
-        contract.syntheticMonitoring.runbook.repositoryPath,
+    steps.some(({ run }) =>
+      run?.includes(
+        "pnpm nx run @copilotkit/showcase-scripts:check-aeo-synthetics",
       ),
-      "utf8",
     ),
-  ).toContain("#oss-alerts");
+  ).toBe(true);
+  expect(
+    steps.some(
+      (step) =>
+        step.if?.includes("inputs.exercise_alert") &&
+        step.run?.includes("exit 1"),
+    ),
+  ).toBe(true);
+  expect(
+    steps.some(
+      ({ uses, with: input }) =>
+        uses?.startsWith("slackapi/slack-github-action@") &&
+        String(input?.webhook).includes("SLACK_WEBHOOK_OSS_ALERTS"),
+    ),
+  ).toBe(true);
 });
