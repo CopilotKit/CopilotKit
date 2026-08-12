@@ -17,6 +17,100 @@ export interface RealtimeGatewaySession {
   ): Promise<RealtimeGatewayDeliveryChannel>;
 }
 
+/**
+ * Managed provider attachment state the Gateway reports for one declared
+ * Channel on the control join reply.
+ *
+ * Mirrors `RealtimeGateway.Channels.ChannelProviderStateStore`, which is
+ * authoritative. Keep these descriptions in step with it — the whole reason this
+ * seam exists is that a state's description outlived its mechanism once already.
+ *
+ * - `attached`: a declared adapter is `active` AND finished setup, and its last
+ *   health check did not fail — the Channel can actually receive provider
+ *   traffic. The adapter's own `status` is part of the predicate, not just its
+ *   setup state: Slack ingress only resolves an inbound event through an
+ *   `active` adapter, so reporting `attached` for a `draft`, `disabled`, or
+ *   `error` adapter would reintroduce the false green one state further along.
+ * - `unhealthy`: a declared adapter is bound but broken — either `active` and
+ *   set up with a failed health check, or set up with the adapter row itself in
+ *   `error` (which is `unhealthy` even with no failed health check recorded).
+ * - `not_attached`: the Channel exists on the project but no declared adapter
+ *   has a row, none has finished setup, or none is `active` — the normal state
+ *   while setup is still in progress.
+ * - `disabled`: the Channel row itself is disabled on the project.
+ * - `channel_not_declared`: the project has no Channel with that name.
+ *
+ * A Runtime declares EVERY supported adapter per Channel (the launcher emits a
+ * `slack` and a `teams` pair unconditionally), so the Gateway folds the adapter
+ * states BEST-of — `attached` > `unhealthy` > `not_attached` — answering "is at
+ * least one provider bound?". A correctly configured Slack-only Channel is
+ * therefore `attached`, not dragged to `not_attached` by the Teams adapter
+ * nobody asked for. The two Channel-level states above are properties of the
+ * Channel row and dominate every adapter state.
+ */
+export type ChannelProviderState =
+  | "attached"
+  | "unhealthy"
+  | "not_attached"
+  | "disabled"
+  | "channel_not_declared";
+
+/** Provider attachment state keyed by declared Channel name. */
+export type ChannelProviderStates = Readonly<
+  Record<string, ChannelProviderState>
+>;
+
+/**
+ * Every state {@link parseChannelProviderStates} will accept.
+ *
+ * The runtime's `channel-manager.ts` duplicates this set as `PROVIDER_LEGS`,
+ * because that package must not take a static dependency on this one (it reaches
+ * this module only through a dynamic import), so the `providerStates` seam
+ * between them is deliberately duck-typed as `Record<string, string>`.
+ *
+ * Adding a state here therefore needs the same addition THERE, plus a `case` in
+ * that file's `foldChannelLegs`. Until both land, the new state fails open to
+ * `unknown` on the consuming side — the Channel keeps its transport-derived
+ * status rather than being wrongly certified or condemned. Safe, but silent.
+ */
+const PROVIDER_STATES: ReadonlySet<string> = new Set<ChannelProviderState>([
+  "attached",
+  "unhealthy",
+  "not_attached",
+  "disabled",
+  "channel_not_declared",
+]);
+
+/**
+ * Read the `channels` map off a control join reply.
+ *
+ * Returns `undefined` — meaning "the Gateway did not tell us" — when the key is
+ * absent, malformed, or carries an unrecognised state. A Gateway older than the
+ * provider-state contract and a Gateway whose database read failed both omit the
+ * key, and both must degrade to transport-only status rather than be mistaken
+ * for "no provider attached". Unknown values are dropped individually so one bad
+ * entry cannot hide the states that did parse.
+ *
+ * @param reply - Raw control-topic join reply.
+ * @returns Parsed provider states, or `undefined` when none were reported.
+ */
+export function parseChannelProviderStates(
+  reply: unknown,
+): ChannelProviderStates | undefined {
+  if (typeof reply !== "object" || reply === null) return undefined;
+  const raw = (reply as { channels?: unknown }).channels;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return undefined;
+  }
+  const states: Record<string, ChannelProviderState> = {};
+  for (const [name, value] of Object.entries(raw)) {
+    if (typeof value === "string" && PROVIDER_STATES.has(value)) {
+      states[name] = value as ChannelProviderState;
+    }
+  }
+  return Object.keys(states).length > 0 ? states : undefined;
+}
+
 /** One joined delivery topic. */
 export interface RealtimeGatewayDeliveryChannel extends RealtimeGatewaySession {
   /** Prepared delivery returned by the token-consuming join. */
@@ -82,11 +176,10 @@ export interface ConnectRealtimeGatewayOptions {
    *
    * The window exists rather than failing on the first transport error because
    * a refused connect is often just a gateway that has not finished booting,
-   * and a supervising `ChannelManager` does NOT retry activation — a
-   * fail-on-first-error rule would turn a boot race into a permanently errored
-   * Channel. The default is deliberately long enough to outlast a rolling
-   * restart of the gateway. Causes that CANNOT resolve themselves (a host that
-   * does not exist) skip the window entirely; see {@link diagnoseEndpoint}.
+   * and a supervising `ChannelManager` retries classified transient failures.
+   * The window avoids opening a new socket for every failed attempt during a
+   * short boot race. Causes that CANNOT resolve themselves (a host that does
+   * not exist) skip the window entirely; see {@link diagnoseEndpoint}.
    */
   connectTimeoutMs?: number;
   /**
@@ -97,6 +190,9 @@ export interface ConnectRealtimeGatewayOptions {
    */
   diagnosticFetch?: typeof globalThis.fetch;
 }
+
+/** Allow transports to deliver their normal close event before intervening. */
+const ERROR_WITHOUT_CLOSE_GRACE_MS = 100;
 
 /**
  * Connection-health states a {@link ConnectedRealtimeGatewaySession} surfaces to
@@ -139,12 +235,15 @@ export interface RealtimeGatewayConnectionDetail {
  * endpoint that was tried and the underlying transport error so the message
  * points at the misconfigured URL rather than at a stopwatch (OSS-623).
  *
- * An unreachable host is a caller configuration error that must reject
- * `ready()`.
+ * Permanent reachability failures such as NXDOMAIN reject `ready()`. Transient
+ * failures such as an HTTP 5xx response carry `retryable=true`, allowing the
+ * runtime manager to attempt a fresh initial connection with backoff.
  */
 export class RealtimeGatewayUnreachableError extends Error {
   /** Cross-package marker, mirroring the `code` convention of its siblings. */
   readonly code = "GATEWAY_UNREACHABLE";
+  /** Whether reconnecting later can succeed without changing configuration. */
+  readonly retryable: boolean;
   /** The gateway endpoint that was tried, minus any query string. */
   readonly endpoint: string;
   /**
@@ -158,14 +257,13 @@ export class RealtimeGatewayUnreachableError extends Error {
    * @param transportError - Rendered transport failure, if one was reported.
    * @param connectTimeoutMs - The elapsed connect window, named when no
    *   transport error was reported (the only signal the caller has left).
-   * @param options - Standard error options; carries the raw transport error
-   *   as `cause`.
+   * @param options - Retry classification plus the raw transport error.
    */
   constructor(
     endpoint: string,
     transportError: string | undefined,
     connectTimeoutMs: number,
-    options?: { cause?: unknown },
+    options?: { cause?: unknown; retryable?: boolean },
   ) {
     super(
       `realtime gateway unreachable: the socket never connected to ${endpoint} ` +
@@ -178,7 +276,52 @@ export class RealtimeGatewayUnreachableError extends Error {
     this.name = "RealtimeGatewayUnreachableError";
     this.endpoint = endpoint;
     this.transportError = transportError;
+    this.retryable = options?.retryable ?? false;
   }
+}
+
+/**
+ * Signals that the gateway accepted the socket but rejected its initial
+ * logical join. Structured retry hints survive this boundary so a supervising
+ * runtime can distinguish a draining gateway from a permanent rejection.
+ */
+export class RealtimeGatewayJoinError extends Error {
+  /** Cross-package marker used by the runtime activation retry policy. */
+  readonly code = "GATEWAY_JOIN_FAILED";
+  /** Gateway response returned with the failed join. */
+  readonly reason: unknown;
+  /** Whether a fresh activation can succeed without a configuration change. */
+  readonly retryable: boolean;
+
+  /**
+   * @param reason - Structured gateway join rejection.
+   * @param options - Optional retry override and timeout-specific message.
+   */
+  constructor(
+    reason: unknown,
+    options?: { message?: string; retryable?: boolean },
+  ) {
+    super(
+      options?.message ??
+        `realtime gateway session join failed: ${safeReason(reason)}`,
+      { cause: reason },
+    );
+    this.name = "RealtimeGatewayJoinError";
+    this.reason = reason;
+    this.retryable = options?.retryable ?? isRetryableJoinRejection(reason);
+  }
+}
+
+/** Whether a structured gateway join rejection asks the client to retry. */
+function isRetryableJoinRejection(reason: unknown): boolean {
+  if (typeof reason !== "object" || reason === null) {
+    return false;
+  }
+  const response = reason as { reason?: unknown; retryable?: unknown };
+  if (response.retryable === false) {
+    return false;
+  }
+  return response.retryable === true || response.reason === "gateway_draining";
 }
 
 /** Typed rejection returned by a joined realtime gateway channel push. */
@@ -402,6 +545,22 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
       detail?: RealtimeGatewayConnectionDetail,
     ) => void,
   ): void;
+  /**
+   * Managed provider attachment state per declared Channel, as reported on the
+   * newest control join reply — or `undefined` when the Gateway did not report
+   * it.
+   *
+   * A GETTER rather than a snapshot so callers always read the current value:
+   * the join hooks re-fire on every Phoenix auto-rejoin, so a Channel
+   * provisioned while the runtime was disconnected reports `attached` after the
+   * next rejoin with no extra plumbing.
+   *
+   * `undefined` means "not reported", NOT "no provider attached". A Gateway
+   * predating this contract and one whose database read failed both omit the
+   * key, and a caller must degrade to transport-only status in both cases rather
+   * than claim a Channel is unprovisioned.
+   */
+  providerStates(): ChannelProviderStates | undefined;
 }
 
 /**
@@ -475,6 +634,9 @@ export async function connectRealtimeGateway(
   let closingIntentionally = false;
   let everConnected = false;
   let initialJoinSettled = false;
+  // Newest control-topic join reply, refreshed on every successful (re)join.
+  // Read through `providerStates()` below rather than exposed raw.
+  let controlJoinReply: unknown;
   let lastTransportError: string | undefined;
   let lastTransportCode: string | undefined;
   let lastTransportRaw: unknown;
@@ -570,12 +732,23 @@ export async function connectRealtimeGateway(
           ? await diagnosis
           : await startDiagnosis();
       const cause = probed?.cause ?? lastTransportRaw;
+      const retryable =
+        !(
+          lastTransportCode !== undefined &&
+          NON_RETRYABLE_TRANSPORT_CODES.has(lastTransportCode)
+        ) &&
+        (probed === undefined ||
+          (!probed.nonRetryable &&
+            (probed.status === undefined || probed.status >= 500)));
       failConnect(
         new RealtimeGatewayUnreachableError(
           endpoint,
           probed?.text ?? lastTransportError,
           connectTimeoutMs,
-          cause !== undefined ? { cause } : undefined,
+          {
+            ...(cause !== undefined ? { cause } : {}),
+            retryable,
+          },
         ),
       );
     })();
@@ -752,7 +925,12 @@ export async function connectRealtimeGateway(
   // promise vs. the ongoing health transitions.
   const joinPush = channel.join(timeout);
   joinPush
-    .receive("ok", () => {
+    .receive("ok", (reply: unknown) => {
+      // Keep the newest control reply. Because these hooks re-fire on every
+      // Phoenix auto-rejoin, provider attachment state refreshes for free when
+      // the socket recovers — a Channel provisioned while the runtime was
+      // disconnected stops reporting `setup_required` after the next rejoin.
+      controlJoinReply = reply;
       if (!initialJoinSettled) {
         initialJoinSettled = true;
         clearConnectDeadline();
@@ -773,11 +951,7 @@ export async function connectRealtimeGateway(
         socket.disconnect();
         // The hard-cut control topic has one join-error path and no compatibility
         // mapping for prior setup or listener-generation states.
-        failConnect(
-          new Error(
-            `realtime gateway session join failed: ${safeReason(reason)}`,
-          ),
-        );
+        failConnect(new RealtimeGatewayJoinError(reason));
       } else {
         // A rejoin failed (e.g. credentials revoked server-side). Phoenix
         // keeps retrying; surface reconnecting and let the window bound it.
@@ -790,7 +964,12 @@ export async function connectRealtimeGateway(
         clearConnectDeadline();
         closingIntentionally = true;
         socket.disconnect();
-        failConnect(new Error("realtime gateway session join timed out"));
+        failConnect(
+          new RealtimeGatewayJoinError(undefined, {
+            message: "realtime gateway session join timed out",
+            retryable: true,
+          }),
+        );
       } else {
         enterReconnecting();
       }
@@ -885,19 +1064,55 @@ export async function connectRealtimeGateway(
       }
     }
   };
+  // Phoenix schedules socket reconnects exclusively from its transport `close`
+  // handler. Node 22's built-in WebSocket can emit only `error` when a later
+  // upgrade gets an HTTP 5xx, leaving Phoenix with no reconnect scheduled. Give
+  // normally paired events a brief window, then cycle the existing Phoenix
+  // socket so its channels rejoin on a fresh transport. This is deliberately
+  // internal: callers should not tune around a transport event mismatch.
+  let errorWithoutCloseTimer: ReturnType<typeof setTimeout> | undefined;
+  const clearErrorWithoutCloseTimer = (): void => {
+    if (errorWithoutCloseTimer === undefined) return;
+    clearTimeout(errorWithoutCloseTimer);
+    errorWithoutCloseTimer = undefined;
+  };
+  const armErrorWithoutCloseTimer = (): void => {
+    if (closingIntentionally || errorWithoutCloseTimer !== undefined) return;
+    errorWithoutCloseTimer = setTimeout(() => {
+      errorWithoutCloseTimer = undefined;
+      if (closingIntentionally) return;
+      // `disconnect` resets Phoenix's pending reconnect timer before the
+      // callback opens exactly one fresh transport, preventing duplicate
+      // attempts if an error arrived just after a normal close.
+      socket.disconnect(() => {
+        if (!closingIntentionally) socket.connect();
+      });
+    }, ERROR_WITHOUT_CLOSE_GRACE_MS);
+    (errorWithoutCloseTimer as unknown as { unref?: () => void }).unref?.();
+  };
   socket.onOpen(() => {
+    clearErrorWithoutCloseTimer();
     closeFired = false;
   });
   // A socket-level drop begins a reconnect episode; the "back online" signal
   // comes from a successful (re)join (the join-push `"ok"` hook above), NOT from
   // the socket merely reopening — the channel may still be rejoining.
-  socket.onClose(() => {
+  socket.onClose((event) => {
+    clearErrorWithoutCloseTimer();
     notifyClose();
     enterReconnecting();
+    // Phoenix treats code 1000 as terminal and does not schedule its reconnect
+    // timer. For a live managed session, only our own disconnect is terminal.
+    if (!closingIntentionally && event?.code === 1000) {
+      socket.disconnect(() => {
+        if (!closingIntentionally) socket.connect();
+      });
+    }
   });
   socket.onError(() => {
     notifyClose();
     enterReconnecting();
+    armErrorWithoutCloseTimer();
   });
   // A CHANNEL-level close/error is ALSO non-sendable: Phoenix can error and
   // rejoin a channel while the socket stays open (so the socket handlers above
@@ -916,6 +1131,7 @@ export async function connectRealtimeGateway(
 
   return {
     ...wrapChannel(channel, undefined),
+    providerStates: () => parseChannelProviderStates(controlJoinReply),
     onClose: (cb) => {
       closeCallbacks.push(cb);
     },
@@ -939,6 +1155,7 @@ export async function connectRealtimeGateway(
     },
     disconnect: () => {
       closingIntentionally = true;
+      clearErrorWithoutCloseTimer();
       clearGiveUpTimer();
       socket.disconnect();
     },

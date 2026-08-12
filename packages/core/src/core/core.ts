@@ -9,6 +9,7 @@ import type {
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+  InspectorMetadataV1,
   ThreadEndpointRuntimeInfo,
 } from "../types";
 import type {
@@ -31,6 +32,7 @@ import type {
 import { RunHandler } from "./run-handler";
 import type { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
+import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
@@ -202,6 +204,10 @@ export interface CopilotKitCoreSubscriber {
     copilotkit: CopilotKitCore;
     headers: Readonly<Record<string, string>>;
   }) => void | Promise<void>;
+  onInspectorMetadataChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    inspectorMetadata: InspectorMetadataV1 | undefined;
+  }) => void | Promise<void>;
   onError?: (event: {
     copilotkit: CopilotKitCore;
     error: Error;
@@ -365,6 +371,13 @@ export interface CopilotKitCoreFriendsAccess {
    * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
+
+  readonly stateManager: {
+    markNextRunAsContinuation(
+      agent: AbstractAgent,
+      expectedRunId?: string,
+    ): CopilotKitCoreContinuationHandoff;
+  };
 }
 
 /**
@@ -721,6 +734,16 @@ export class CopilotKitCore {
     return this.agentRegistry.suggestions;
   }
 
+  /** Trusted, optional metadata advertised by the connected runtime. */
+  get inspectorMetadata(): InspectorMetadataV1 | undefined {
+    return this.agentRegistry.inspectorMetadata;
+  }
+
+  /** Refresh trusted inspector metadata without reconnecting runtime agents. */
+  async refreshInspectorMetadata(): Promise<void> {
+    await this.agentRegistry.refreshInspectorMetadata();
+  }
+
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
   }
@@ -783,6 +806,7 @@ export class CopilotKitCore {
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+    this.agentRegistry.handleHeadersChanged();
     void this.notifySubscribers(
       (subscriber) =>
         subscriber.onHeadersChanged?.({
@@ -798,6 +822,7 @@ export class CopilotKitCore {
     this.agentRegistry.applyCredentialsToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+    this.agentRegistry.handleCredentialsChanged();
   }
 
   setProperties(properties: Record<string, unknown>): void {

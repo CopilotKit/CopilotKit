@@ -5,6 +5,7 @@ import {
   ChannelProviderDeliveryError,
   ClaimedChannelDelivery,
   ChannelDeliveryTransport,
+  safeChannelErrorMetadata,
 } from "./delivery-transport.js";
 import type { PreparedChannelDelivery } from "./delivery-transport.js";
 import type {
@@ -148,7 +149,7 @@ async function runTranscriptFailure(input: {
     runtimeInstanceId: "rti_runtime_01",
     appApiBaseUrl: "https://api.example",
     apiKey: "cpk-runtime",
-    fileFetch: appApiFetch,
+    fileFetch: appApiFetch as unknown as typeof globalThis.fetch,
   });
   transport.start(async (claimedDelivery) => {
     await claimedDelivery.getTranscript();
@@ -1446,7 +1447,6 @@ test("does not count stream.stop alone as provider output", async () => {
 });
 
 test("classifies timeout/expiry errors from message text", async () => {
-  const { safeChannelErrorMetadata } = await import("./delivery-transport.js");
   expect(
     safeChannelErrorMetadata(
       new Error("realtime gateway delivery join timed out"),
@@ -1649,12 +1649,27 @@ test("rejects raw provider ids in prepared text operations", async () => {
 });
 
 test("surfaces a failed provider result as an already-terminal error", async () => {
+  const details = {
+    category: "validation",
+    provider: "slack",
+    operation: "chat.postMessage",
+    effectKind: "slack.message.create",
+    providerCode: "invalid_blocks",
+    validationMessages: ["invalid field at /blocks/2/elements/0/children"],
+    retryable: false,
+    deliveryId: "dlv_delivery_01",
+  } as const;
   const deliveryChannel = channel();
   vi.mocked(deliveryChannel.push).mockImplementation((_event, packet) =>
     Promise.resolve(
       acknowledgement(packet, {
         phase: "failed",
-        result: { error: "provider_call_failed", status: "failed" },
+        result: {
+          error: "provider_call_failed",
+          status: "failed",
+          details,
+          unsafeProviderResponse: "must not escape the gateway",
+        },
       }),
     ),
   );
@@ -1676,5 +1691,97 @@ test("surfaces a failed provider result as an already-terminal error", async () 
     .catch((caught: unknown) => caught);
   expect(error).toBeInstanceOf(ChannelProviderDeliveryError);
   expect(error).toBeInstanceOf(ChannelDeliveryTerminatedError);
+  expect(error).toMatchObject({
+    code: "provider_call_failed",
+    status: "failed",
+    details,
+    category: "validation",
+    provider: "slack",
+    operation: "chat.postMessage",
+    effectKind: "slack.message.create",
+    providerCode: "invalid_blocks",
+    validationMessages: ["invalid field at /blocks/2/elements/0/children"],
+    retryable: false,
+    deliveryId: "dlv_delivery_01",
+    cause: details,
+  });
+  expect(error).not.toHaveProperty("unsafeProviderResponse");
+  expect(safeChannelErrorMetadata(error)).toEqual({
+    errorCategory: "validation",
+    provider: "slack",
+    operation: "chat.postMessage",
+    effectKind: "slack.message.create",
+    providerCode: "invalid_blocks",
+    retryable: false,
+  });
   expect(session.hasProviderOutput()).toBe(false);
+});
+
+test("keeps effects open after a best-effort provider failure", async () => {
+  const deliveryChannel = channel();
+  vi.mocked(deliveryChannel.push)
+    .mockImplementationOnce((_event, packet) =>
+      Promise.resolve(
+        acknowledgement(packet, {
+          phase: "failed",
+          result: { error: "stream_start_failed", status: "failed" },
+        }),
+      ),
+    )
+    .mockImplementation((_event, packet) =>
+      Promise.resolve(acknowledgement(packet)),
+    );
+  const session = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    {
+      ownerGeneration: 7,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    deliveryChannel,
+    vi.fn(),
+  );
+
+  const error = await session
+    .effect("response_01", { kind: "slack.stream.start" }, { bestEffort: true })
+    .catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(Error);
+  expect(error).not.toBeInstanceOf(ChannelDeliveryTerminatedError);
+  await expect(
+    session.effect("response_01", {
+      kind: "slack.message.create",
+      text: "Hello",
+    }),
+  ).resolves.toMatchObject({ providerReference: "pref_v1_message_01" });
+});
+
+test("does not terminate delivery after a failed Slack status", async () => {
+  const deliveryChannel = channel();
+  vi.mocked(deliveryChannel.push).mockImplementation((_event, packet) =>
+    Promise.resolve(
+      acknowledgement(packet, {
+        phase: "failed",
+        result: { error: "status_failed", status: "failed" },
+      }),
+    ),
+  );
+  const session = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    {
+      ownerGeneration: 7,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    deliveryChannel,
+    vi.fn(),
+  );
+
+  const error = await session
+    .effect("response_01", {
+      kind: "slack.thread.status",
+      status: "is thinking…",
+    })
+    .catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(Error);
+  expect(error).not.toBeInstanceOf(ChannelDeliveryTerminatedError);
 });

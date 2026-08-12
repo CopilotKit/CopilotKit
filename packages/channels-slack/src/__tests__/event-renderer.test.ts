@@ -317,6 +317,32 @@ describe("createRunRenderer", () => {
     expect(fake.posts[0]?.thread_ts).toBe("100.0");
   });
 
+  it("logs a failed best-effort error notice at debug level", async () => {
+    const failure = new Error("Slack cleanup failed");
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const transport: SlackRenderTransport = {
+      postMessage: vi.fn(async () => Promise.reject(failure)),
+      updateMessage: vi.fn(async () => {}),
+    };
+    const { subscriber } = createRunRenderer({
+      transport,
+      target: { channel: "C1", threadTs: "100.0" },
+    });
+
+    await subscriber.onRunErrorEvent!({
+      event: { message: "primary failure" },
+    } as never);
+
+    expect(debug).toHaveBeenCalledWith(
+      "[slack-renderer] error notice failed:",
+      failure,
+    );
+    expect(error).not.toHaveBeenCalled();
+    debug.mockRestore();
+    error.mockRestore();
+  });
+
   it("markInterrupted: appends _(interrupted)_ to a partial reply and finalises", async () => {
     const fake = makeFakeClient();
     const { subscriber, markInterrupted } = createRunRenderer({
@@ -485,6 +511,76 @@ describe("createRunRenderer — native status mode", () => {
       loading_messages: ["a"],
       thread_ts: "100.0",
     });
+  });
+
+  it("clears the status when a tool call follows the first reply", async () => {
+    // text → tool → text. The first reply clears the status, then the tool call
+    // re-arms it; before `setStatus` reset the latch, nothing cleared it again
+    // and Slack showed "is thinking…" long after the answer had landed.
+    const f = makePaneClient();
+    const renderer = createRunRenderer({
+      transport: f.transport,
+      target: { channel: "D1", threadTs: "100.0" },
+      status: {
+        threadTs: "100.0",
+        isPane: true,
+        config: { thinking: "is thinking…" },
+      },
+    });
+    const sub = renderer.subscriber;
+
+    await sub.onRunStartedEvent!({} as never);
+    await sub.onTextMessageStartEvent!({ event: { messageId: "m1" } } as never);
+    await sub.onTextMessageContentEvent!({
+      event: { messageId: "m1", delta: "I am about to run a tool." },
+    } as never);
+    await sub.onTextMessageEndEvent!({ event: { messageId: "m1" } } as never);
+
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "run_command" },
+      toolCallName: "run_command",
+    } as never);
+    await sub.onToolCallEndEvent!({
+      event: { toolCallId: "t1" },
+      toolCallName: "run_command",
+      toolCallArgs: {},
+    } as never);
+
+    await sub.onTextMessageStartEvent!({ event: { messageId: "m2" } } as never);
+    await sub.onTextMessageContentEvent!({
+      event: { messageId: "m2", delta: "Here is the result." },
+    } as never);
+    await sub.onTextMessageEndEvent!({ event: { messageId: "m2" } } as never);
+
+    await renderer.finish!();
+
+    expect(f.statuses.at(-1)?.status).toBe("");
+  });
+
+  it("logs a failed best-effort status update at debug level", async () => {
+    const failure = new Error("Slack status cleanup failed");
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const transport: SlackRenderTransport = {
+      setStatus: vi.fn(async () => Promise.reject(failure)),
+      postMessage: vi.fn(async () => ({ ts: "1.000" })),
+      updateMessage: vi.fn(async () => {}),
+    };
+    const { subscriber } = createRunRenderer({
+      transport,
+      target: { channel: "D1" },
+      status: { threadTs: "100.0", isPane: true, config: {} },
+    });
+
+    await subscriber.onRunStartedEvent!({} as never);
+
+    expect(debug).toHaveBeenCalledWith(
+      "[slack-renderer] setStatus failed:",
+      failure,
+    );
+    expect(error).not.toHaveBeenCalled();
+    debug.mockRestore();
+    error.mockRestore();
   });
 
   it("surfaces tool calls as live status, not :wrench: rows", async () => {

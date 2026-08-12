@@ -24,6 +24,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Nx monorepo** — always run tasks through `nx` (`nx run`, `nx run-many`, `nx affected`), never the underlying tooling directly.
 - **Flat package structure** — all packages live directly under `packages/` (no `v1/` or `v2/` subdirectories). Every package uses the `@copilotkit/` scope.
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
+- **No changesets** — releases are conventional-commit-driven (`scripts/release/` reads commit subjects). This repo migrated off Changesets; never create `.changeset/*` files — nothing consumes them and CI fails on them. Describe the change in the commit subject instead, and leave `package.json` versions and `CHANGELOG.md` files to the release tooling.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
 - **Documentation lives in shell-docs** — author all CopilotKit docs in `showcase/shell-docs/src/content/`. The top-level `docs/` path is only a symlink to `showcase/shell-docs/`; never recreate the old `docs/content/docs/` tree. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not here. See [Documentation](.claude/docs/documentation.md).
 

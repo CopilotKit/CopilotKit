@@ -8,11 +8,11 @@ streaming, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Slack.
 
-The adapter keeps its own Slack credentials (`botToken` / `appToken`) — but the
-Channel itself only runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (an API key; a free tier is available). There is no
-standalone / DIY runner and no `channel.start()`; the runtime starts and owns
-the channel because Intelligence is configured.
+The adapter keeps its own Slack credentials (`botToken` / `appToken`) — in the
+managed path the Channel runs inside a CopilotKit Intelligence-configured
+`CopilotRuntime` (free plan available), which starts and owns the channel's
+lifecycle. Building and operating your own channel runner on the SDK primitives
+is also a supported path.
 
 ## Managed Channels: the alternative to holding your own credentials
 
@@ -173,6 +173,22 @@ Native trees reject wrong-provider nodes, missing required fields, invalid
 top-level elements, and messages over Slack's 50-block limit. `Slack.Raw`
 accepts a reviewed Block Kit object but does not bind callbacks. Direct Slack
 and managed Slack use the same serializer and fallback-text rules.
+
+Card buttons belong in `actions`, and Carousel cards belong in `elements`.
+The shared renderer checks both shapes before direct or managed delivery and
+reports invalid fields with a JSON pointer.
+
+```tsx
+const approve = Slack.Element.Button({
+  text: <Slack.Object.PlainText text="Approve" />,
+});
+const card = Slack.Block.Card({
+  title: <Slack.Object.MarkdownText text="*Deploy ready*" />,
+  actions: [approve],
+});
+
+await thread.post(<Slack.Block.Carousel elements={[card]} />);
+```
 
 The generated [native catalog](../channels/native-catalogs.md) lists the 20
 message blocks and all exported elements and objects. Run

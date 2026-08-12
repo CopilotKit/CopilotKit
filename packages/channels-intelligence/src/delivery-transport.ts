@@ -120,6 +120,17 @@ export interface PreparedChannelDelivery {
 
 type ProviderPayloadInput = ChannelProviderPayload;
 
+export interface ChannelProviderDeliveryDetails {
+  readonly category: "validation";
+  readonly provider: "slack" | "teams";
+  readonly operation: string;
+  readonly effectKind: string;
+  readonly providerCode: "invalid_arguments" | "invalid_blocks";
+  readonly validationMessages: readonly string[];
+  readonly retryable: false;
+  readonly deliveryId: string;
+}
+
 interface DeliveryOwner {
   readonly ownerGeneration: number;
   readonly runtimeInstanceId: string;
@@ -127,12 +138,35 @@ interface DeliveryOwner {
 
 /** Gateway result for a provider call that already recorded delivery terminal state. */
 export class ChannelProviderDeliveryError extends ChannelDeliveryTerminatedError {
+  readonly category?: ChannelProviderDeliveryDetails["category"];
+  readonly provider?: ChannelProviderDeliveryDetails["provider"];
+  readonly operation?: string;
+  readonly effectKind?: string;
+  readonly providerCode?: ChannelProviderDeliveryDetails["providerCode"];
+  readonly validationMessages?: readonly string[];
+  readonly retryable?: false;
+  readonly deliveryId?: string;
+
   constructor(
     readonly code: string,
     readonly status: string,
+    readonly details?: ChannelProviderDeliveryDetails,
   ) {
-    super(`Channel provider delivery ended with ${code}`);
+    super(
+      `Channel provider delivery ended with ${code}`,
+      details ? { cause: details, details } : undefined,
+    );
     this.name = "ChannelProviderDeliveryError";
+    if (details) {
+      this.category = details.category;
+      this.provider = details.provider;
+      this.operation = details.operation;
+      this.effectKind = details.effectKind;
+      this.providerCode = details.providerCode;
+      this.validationMessages = details.validationMessages;
+      this.retryable = details.retryable;
+      this.deliveryId = details.deliveryId;
+    }
   }
 }
 
@@ -311,7 +345,7 @@ export class ClaimedChannelDelivery {
   effect(
     _responseId: string,
     payload: ProviderPayloadInput,
-    options: { charge?: boolean } = {},
+    options: { charge?: boolean; bestEffort?: boolean } = {},
   ): Promise<Record<string, unknown>> {
     if (isVisibleProviderEffect(payload)) {
       this.providerOutputExpected = true;
@@ -329,7 +363,7 @@ export class ClaimedChannelDelivery {
     const charged =
       options.charge === false ? Promise.resolve() : this.charge();
     return charged
-      .then(() => this.enqueue(payload))
+      .then(() => this.enqueue(payload, options.bestEffort === true))
       .then((result) => {
         const error =
           typeof result.error === "string" ? result.error : undefined;
@@ -341,10 +375,19 @@ export class ClaimedChannelDelivery {
           status === "failed_before_output" ||
           status === "uncertain"
         ) {
+          if (
+            options.bestEffort === true ||
+            payload.kind === "slack.thread.status"
+          ) {
+            throw new Error(
+              `Channel provider effect failed with ${error ?? "provider_failed"}`,
+            );
+          }
           this.effectsClosed = true;
           throw new ChannelProviderDeliveryError(
             error ?? "provider_failed",
             status,
+            parseProviderDeliveryDetails(result.details),
           );
         }
         const capabilityError =
@@ -547,6 +590,7 @@ export class ClaimedChannelDelivery {
 
   private enqueue(
     payload: ChannelDeliveryPayload,
+    bestEffort = false,
   ): Promise<Record<string, unknown>> {
     const isTerminal = payload.kind === "channel.delivery.terminal";
     // Stream stop must remain sendable after mid-stream effect failure so
@@ -578,7 +622,11 @@ export class ClaimedChannelDelivery {
         return acknowledgement.result;
       } catch (error) {
         this.unacknowledgedPacket = undefined;
-        if (!isCleanupPacket) {
+        if (
+          !isCleanupPacket &&
+          !bestEffort &&
+          payload.kind !== "slack.thread.status"
+        ) {
           this.effectsClosed = true;
         }
         throw error;
@@ -704,7 +752,58 @@ export class ClaimedChannelDelivery {
     if (providerMessageId !== undefined) {
       assertProviderMessageId(providerMessageId);
     }
+    if (acknowledgement.result.details !== undefined) {
+      const details = parseProviderDeliveryDetails(
+        acknowledgement.result.details,
+      );
+      if (!details || details.deliveryId !== packet.deliveryId) {
+        throw new TypeError("Gateway returned unsafe provider diagnostics");
+      }
+    }
   }
+}
+
+function parseProviderDeliveryDetails(
+  value: unknown,
+): ChannelProviderDeliveryDetails | undefined {
+  if (
+    !isRecord(value) ||
+    !hasExactFields(value, [
+      "category",
+      "provider",
+      "operation",
+      "effectKind",
+      "providerCode",
+      "validationMessages",
+      "retryable",
+      "deliveryId",
+    ]) ||
+    value.category !== "validation" ||
+    (value.provider !== "slack" && value.provider !== "teams") ||
+    typeof value.operation !== "string" ||
+    value.operation.length === 0 ||
+    value.operation.length > 80 ||
+    typeof value.effectKind !== "string" ||
+    value.effectKind.length === 0 ||
+    value.effectKind.length > 80 ||
+    (value.providerCode !== "invalid_arguments" &&
+      value.providerCode !== "invalid_blocks") ||
+    value.retryable !== false ||
+    typeof value.deliveryId !== "string" ||
+    value.deliveryId.length === 0 ||
+    value.deliveryId.length > 512 ||
+    !Array.isArray(value.validationMessages) ||
+    value.validationMessages.length > 5 ||
+    !value.validationMessages.every(
+      (message) =>
+        typeof message === "string" &&
+        message.length <= 256 &&
+        message.startsWith("invalid field at /"),
+    )
+  ) {
+    return undefined;
+  }
+  return value as unknown as ChannelProviderDeliveryDetails;
 }
 
 function restorePreparedTriggerFiles(
@@ -1195,7 +1294,22 @@ export function safeChannelErrorMetadata(error: unknown): {
     | "validation"
     | "conflict"
     | "unknown";
+  provider?: "slack" | "teams";
+  operation?: string;
+  effectKind?: string;
+  providerCode?: "invalid_arguments" | "invalid_blocks";
+  retryable?: false;
 } {
+  if (error instanceof ChannelProviderDeliveryError && error.details) {
+    return {
+      errorCategory: error.details.category,
+      provider: error.details.provider,
+      operation: error.details.operation,
+      effectKind: error.details.effectKind,
+      providerCode: error.details.providerCode,
+      retryable: error.details.retryable,
+    };
+  }
   const value = error as {
     name?: unknown;
     code?: unknown;

@@ -97,6 +97,7 @@ export async function handleGetRuntimeInfo({
             intelligence: {
               wsUrl: runtime.intelligence.ɵgetClientWsUrl(),
             },
+            inspectorMetadata: true,
           }
         : {}),
       // Legacy flat flag, kept for older clients. The `a2ui` object below is

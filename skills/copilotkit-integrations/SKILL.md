@@ -31,7 +31,7 @@ CopilotKit connects to external agent frameworks through the **AG-UI (Agent-UI) 
 | LangGraph (JS)                         | TypeScript  | `LangGraphAgent` from `@copilotkit/runtime/langgraph`     | Built into `@copilotkit/sdk-js/langgraph`                        | 8123               |
 | CrewAI Flows                           | Python      | `HttpAgent` from `@ag-ui/client`                          | `ag-ui-crewai` (`add_crewai_flow_fastapi_endpoint`)              | 8000               |
 | CrewAI Crews                           | Python      | `CrewAIAgent` from `@ag-ui/crewai`                        | `ag-ui-crewai` (`add_crewai_crew_fastapi_endpoint`)              | 8000               |
-| PydanticAI                             | Python      | `HttpAgent` from `@ag-ui/client`                          | `pydantic-ai-slim[ag-ui]` (`agent.to_ag_ui()`)                   | 8000               |
+| PydanticAI                             | Python      | `HttpAgent` from `@ag-ui/client`                          | `pydantic-ai-slim[ag-ui]` (`AGUIAdapter.dispatch_request()`)     | 8000               |
 | Mastra                                 | TypeScript  | `MastraAgent` from `@ag-ui/mastra`                        | Built into `@ag-ui/mastra`                                       | Next.js dev server |
 | Google ADK                             | Python      | `HttpAgent` from `@ag-ui/client`                          | `ag-ui-adk` (`add_adk_fastapi_endpoint`)                         | 8000               |
 | LlamaIndex                             | Python      | `LlamaIndexAgent` from `@ag-ui/llamaindex`                | `llama-index-protocols-ag-ui` (`get_ag_ui_workflow_router`)      | 9000               |

@@ -6,3 +6,10 @@ fastapi>=0.115.0
 logfire>=4.10.0
 starlette<1.0.0
 pypdf>=4.0.0,<7.0.0
+# pydantic-ai 1.0.18 imports `opentelemetry._events`, which opentelemetry-api
+# removed in 1.44.0 (last present in 1.43.0). pydantic-ai's own floor is an
+# unbounded `opentelemetry-api>=1.28.0`, so a fresh resolve picks up 1.44.0 and
+# `import pydantic_ai` fails with ModuleNotFoundError. Until now this was masked
+# by the cached Docker pip layer, which predates 1.44.0 (released 2026-07-16).
+# Drop this ceiling when this package moves to pydantic-ai v2.
+opentelemetry-api<1.44

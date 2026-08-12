@@ -8,9 +8,9 @@
 //
 // Privacy invariants enforced here:
 //   - We never send message content, agent state, prompts, completions,
-//     or banner markdown. Properties are scoped to event metadata only
-//     (banner_id/timestamp, cta location). Reviewers should grep call
-//     sites for any unintended payload.
+//     or banner markdown. Feature-specific properties are scoped to event
+//     metadata only (banner_id/timestamp, cta location). Reviewers should grep
+//     call sites for any unintended payload.
 //   - The opt-out short-circuits before any network call. There is no
 //     buffer, no retry queue.
 //   - All errors are swallowed; telemetry must never break the host app.
@@ -49,6 +49,8 @@ export const TELEMETRY_EVENTS = {
   threadsExampleTourCompleted: "oss.inspector.threads_example_tour_completed",
   threadsExampleTourReopened: "oss.inspector.threads_example_tour_reopened",
   memoriesTabClicked: "oss.inspector.memories_tab_clicked",
+  metadataModuleViewed: "oss.inspector.metadata_module_viewed",
+  metadataActionClicked: "oss.inspector.metadata_action_clicked",
 } as const;
 
 export type TelemetryEvent =
@@ -59,8 +61,8 @@ export type TelemetryEvent =
 export const TELEMETRY_INGEST_URL = "https://telemetry.copilotkit.ai/ingest";
 
 // Surfaced in console disclosure and the in-product opt-out panel.
-// Keep in sync with the canonical telemetry docs page on main
-// (`docs/content/docs/(root)/(other)/telemetry/index.mdx`).
+// Keep in sync with the live shell-docs telemetry page
+// (`showcase/shell-docs/src/content/docs/integrations/built-in-agent/telemetry.mdx`).
 // Mirror constant: packages/runtime/src/lib/telemetry-disclosure.ts
 export const TELEMETRY_DOCS_URL = "https://docs.copilotkit.ai/telemetry";
 
@@ -94,7 +96,9 @@ function isEnrichedTelemetryEvent(event: TelemetryEvent): boolean {
     event === TELEMETRY_EVENTS.threadsExampleTourDismissed ||
     event === TELEMETRY_EVENTS.threadsExampleTourCompleted ||
     event === TELEMETRY_EVENTS.threadsExampleTourReopened ||
-    event === TELEMETRY_EVENTS.memoriesTabClicked
+    event === TELEMETRY_EVENTS.memoriesTabClicked ||
+    event === TELEMETRY_EVENTS.metadataModuleViewed ||
+    event === TELEMETRY_EVENTS.metadataActionClicked
   );
 }
 
@@ -151,17 +155,16 @@ export function track(
 ): void {
   if (isTelemetryOptedOut()) return;
 
-  const distinctId = getOrCreateTelemetryDistinctId();
-  const enrichedProperties = isEnrichedTelemetryEvent(event)
-    ? {
-        package_name: PACKAGE_NAME,
-        package_version: PACKAGE_VERSION,
-        inspector_distinct_id: distinctId,
-      }
-    : {};
-  let body: string;
   try {
-    body = JSON.stringify({
+    const distinctId = getOrCreateTelemetryDistinctId();
+    const enrichedProperties = isEnrichedTelemetryEvent(event)
+      ? {
+          package_name: PACKAGE_NAME,
+          package_version: PACKAGE_VERSION,
+          inspector_distinct_id: distinctId,
+        }
+      : {};
+    const body = JSON.stringify({
       event,
       properties: {
         ...properties,
@@ -176,11 +179,10 @@ export function track(
       },
       ts: Math.floor(Date.now() / 1000),
     });
+    void postBestEffort(TELEMETRY_INGEST_URL, body, distinctId);
   } catch {
-    return;
+    // Identity and serialization failures are best-effort too.
   }
-
-  void postBestEffort(TELEMETRY_INGEST_URL, body, distinctId);
 }
 
 // --- Typed per-event helpers ---
@@ -264,10 +266,29 @@ export function trackInspectorOpened(
   track(TELEMETRY_EVENTS.opened, props);
 }
 
-export type InspectorThreadTelemetryProps = {
-  package_name?: typeof PACKAGE_NAME;
-  package_version?: string;
-  inspector_distinct_id?: string;
+export type ExampleKind = "realtime_sync" | "manage_history" | "inspect_runs";
+export type ThreadsUsageBucket =
+  | "absent"
+  | "empty"
+  | "within_limit"
+  | "at_or_over_limit"
+  | "unlimited"
+  | "unknown_limit";
+export type ThreadsExpiryBucket = "unavailable" | "zero" | "positive";
+export type InspectorGroupKey = "threads" | "agents" | "learning";
+export type InspectorLeafKey =
+  | "threads"
+  | "ag-ui-events"
+  | "agents"
+  | "frontend-tools"
+  | "capabilities"
+  | "agent-context"
+  | "memories";
+export type MetadataActionPlacement = "threads_footer" | "threads_locked";
+export type ExampleTourStep = 1 | 2 | 3;
+export type ExampleTourTab = "timeline" | "raw-events" | "state";
+
+export type InspectorThreadTelemetryProps = Readonly<{
   posthog_distinct_id?: string;
   intelligence_status?:
     | "intelligence_not_enabled"
@@ -290,95 +311,204 @@ export type InspectorThreadTelemetryProps = {
     | "threads_populated";
   cta?: "signup" | "talk_to_engineer";
   telemetry_disabled?: boolean;
-  thread_count?: number;
-  example_thread_id?: string;
-  tour_step?: number;
-  tour_tab?: "timeline" | "raw-events" | "state";
+  has_threads?: boolean;
+  usage_bucket?: ThreadsUsageBucket;
+  expiry_bucket?: ThreadsExpiryBucket;
+  group_key?: InspectorGroupKey;
+  leaf_key?: InspectorLeafKey;
+  example_kind?: ExampleKind;
+  tour_step?: ExampleTourStep;
+  tour_tab?: ExampleTourTab;
   dismiss_method?: "skip" | "done";
-};
+}>;
+
+/** Rebuild the common Thread payload from its closed coarse allowlist. */
+function threadCommonProperties(props: InspectorThreadTelemetryProps) {
+  return {
+    ...(props.intelligence_status === undefined
+      ? {}
+      : { intelligence_status: props.intelligence_status }),
+    ...(props.thread_service_status === undefined
+      ? {}
+      : { thread_service_status: props.thread_service_status }),
+    ...(props.license_status === undefined
+      ? {}
+      : { license_status: props.license_status }),
+    ...(props.runtime_mode === undefined
+      ? {}
+      : { runtime_mode: props.runtime_mode }),
+    ...(props.runtime_url_type === undefined
+      ? {}
+      : { runtime_url_type: props.runtime_url_type }),
+    ...(props.telemetry_disabled === undefined
+      ? {}
+      : { telemetry_disabled: props.telemetry_disabled }),
+    ...(props.has_threads === undefined
+      ? {}
+      : { has_threads: props.has_threads }),
+    ...(props.usage_bucket === undefined
+      ? {}
+      : { usage_bucket: props.usage_bucket }),
+    ...(props.expiry_bucket === undefined
+      ? {}
+      : { expiry_bucket: props.expiry_bucket }),
+    ...(props.group_key === undefined ? {} : { group_key: props.group_key }),
+    ...(props.leaf_key === undefined ? {} : { leaf_key: props.leaf_key }),
+  };
+}
+
+/** Add only the fields used by the three Thread CTA funnels. */
+function threadCtaProperties(props: InspectorThreadTelemetryProps) {
+  return {
+    ...threadCommonProperties(props),
+    ...(props.cta === undefined ? {} : { cta: props.cta }),
+    ...(props.cta_surface === undefined
+      ? {}
+      : { cta_surface: props.cta_surface }),
+    ...(props.posthog_distinct_id === undefined
+      ? {}
+      : { posthog_distinct_id: props.posthog_distinct_id }),
+  };
+}
+
+/** Add only the closed example kind used by example impressions/selections. */
+function threadExampleProperties(props: InspectorThreadTelemetryProps) {
+  return {
+    ...threadCommonProperties(props),
+    ...(props.example_kind === undefined
+      ? {}
+      : { example_kind: props.example_kind }),
+  };
+}
+
+/** Add only a bounded example kind and tour step/tab pair. */
+function threadTourProperties(props: InspectorThreadTelemetryProps) {
+  return {
+    ...threadExampleProperties(props),
+    ...(props.tour_step === undefined ? {} : { tour_step: props.tour_step }),
+    ...(props.tour_tab === undefined ? {} : { tour_tab: props.tour_tab }),
+  };
+}
+
+/** Add the bounded dismissal leaf used only by terminal tour events. */
+function threadTourTerminalProperties(props: InspectorThreadTelemetryProps) {
+  return {
+    ...threadTourProperties(props),
+    ...(props.dismiss_method === undefined
+      ? {}
+      : { dismiss_method: props.dismiss_method }),
+  };
+}
 
 export function trackThreadsTabClicked(
   props: InspectorThreadTelemetryProps = {},
 ): void {
-  track(TELEMETRY_EVENTS.threadsTabClicked, props);
+  track(TELEMETRY_EVENTS.threadsTabClicked, threadCommonProperties(props));
 }
 
 export function trackThreadsLockedViewed(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsLockedViewed, props);
+  track(TELEMETRY_EVENTS.threadsLockedViewed, threadCommonProperties(props));
 }
 
 export function trackThreadsIntelligenceSignupClicked(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsIntelligenceSignupClicked, props);
+  track(
+    TELEMETRY_EVENTS.threadsIntelligenceSignupClicked,
+    threadCtaProperties(props),
+  );
 }
 
 export function trackThreadsTalkToEngineerClicked(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsTalkToEngineerClicked, props);
+  track(
+    TELEMETRY_EVENTS.threadsTalkToEngineerClicked,
+    threadCtaProperties(props),
+  );
 }
 
 export function trackTalkToEngineerClicked(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.talkToEngineerClicked, props);
+  track(TELEMETRY_EVENTS.talkToEngineerClicked, threadCtaProperties(props));
 }
 
 export function trackThreadsEmptyEnabledViewed(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsEmptyEnabledViewed, props);
+  track(
+    TELEMETRY_EVENTS.threadsEmptyEnabledViewed,
+    threadCommonProperties(props),
+  );
 }
 
 export function trackThreadsEnabledViewed(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsEnabledViewed, props);
+  track(TELEMETRY_EVENTS.threadsEnabledViewed, threadCommonProperties(props));
 }
 
 export function trackThreadsExampleViewed(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsExampleViewed, props);
+  track(TELEMETRY_EVENTS.threadsExampleViewed, threadExampleProperties(props));
 }
 
 export function trackThreadsExampleSelected(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsExampleSelected, props);
+  track(
+    TELEMETRY_EVENTS.threadsExampleSelected,
+    threadExampleProperties(props),
+  );
 }
 
 export function trackThreadsExampleTourStarted(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsExampleTourStarted, props);
+  track(
+    TELEMETRY_EVENTS.threadsExampleTourStarted,
+    threadTourProperties(props),
+  );
 }
 
 export function trackThreadsExampleTourStepViewed(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsExampleTourStepViewed, props);
+  track(
+    TELEMETRY_EVENTS.threadsExampleTourStepViewed,
+    threadTourProperties(props),
+  );
 }
 
 export function trackThreadsExampleTourDismissed(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsExampleTourDismissed, props);
+  track(
+    TELEMETRY_EVENTS.threadsExampleTourDismissed,
+    threadTourTerminalProperties(props),
+  );
 }
 
 export function trackThreadsExampleTourCompleted(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsExampleTourCompleted, props);
+  track(
+    TELEMETRY_EVENTS.threadsExampleTourCompleted,
+    threadTourTerminalProperties(props),
+  );
 }
 
 export function trackThreadsExampleTourReopened(
   props: InspectorThreadTelemetryProps,
 ): void {
-  track(TELEMETRY_EVENTS.threadsExampleTourReopened, props);
+  track(
+    TELEMETRY_EVENTS.threadsExampleTourReopened,
+    threadTourProperties(props),
+  );
 }
 
 export type InspectorMemoryTelemetryProps = {
@@ -394,6 +524,90 @@ export function trackMemoriesTabClicked(
   props: InspectorMemoryTelemetryProps = {},
 ): void {
   track(TELEMETRY_EVENTS.memoriesTabClicked, props);
+}
+
+export type InspectorMetadataTelemetryModule = "identity" | "plan" | "action";
+export type InspectorMetadataLicenseBucket =
+  | "valid"
+  | "none"
+  | "expired"
+  | "unknown";
+export type InspectorMetadataActionKind =
+  | "manage_plan"
+  | "renew"
+  | "enable_intelligence";
+
+export type InspectorMetadataModuleViewedTelemetryProps = Readonly<{
+  module: InspectorMetadataTelemetryModule;
+  license_bucket: InspectorMetadataLicenseBucket;
+  action_kind?: InspectorMetadataActionKind;
+  usage_bucket: ThreadsUsageBucket;
+  expiry_bucket: ThreadsExpiryBucket;
+  group_key?: InspectorGroupKey;
+  leaf_key?: InspectorLeafKey;
+  action_placement?: MetadataActionPlacement;
+}>;
+
+export type InspectorMetadataActionClickedTelemetryProps = Readonly<{
+  action_kind: Exclude<InspectorMetadataActionKind, "enable_intelligence">;
+  license_bucket: InspectorMetadataLicenseBucket;
+  usage_bucket: ThreadsUsageBucket;
+  expiry_bucket: ThreadsExpiryBucket;
+  group_key?: InspectorGroupKey;
+  leaf_key?: InspectorLeafKey;
+  action_placement?: MetadataActionPlacement;
+}>;
+
+function metadataCoarseProperties(
+  props:
+    | InspectorMetadataModuleViewedTelemetryProps
+    | InspectorMetadataActionClickedTelemetryProps,
+) {
+  const navigation =
+    props.group_key === undefined || props.leaf_key === undefined
+      ? {}
+      : { group_key: props.group_key, leaf_key: props.leaf_key };
+  return {
+    license_bucket: props.license_bucket,
+    usage_bucket: props.usage_bucket,
+    expiry_bucket: props.expiry_bucket,
+    ...navigation,
+    ...(props.action_placement === undefined
+      ? {}
+      : { action_placement: props.action_placement }),
+  };
+}
+
+/**
+ * Tracks one visible Inspector metadata module using coarse fields only.
+ * Rebuilding the payload here prevents local labels, IDs, URLs, and usage
+ * values from crossing the telemetry boundary through extra object fields.
+ */
+export function trackMetadataModuleViewed(
+  props: InspectorMetadataModuleViewedTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.metadataModuleViewed, {
+    module: props.module,
+    ...(props.action_kind === undefined
+      ? {}
+      : { action_kind: props.action_kind }),
+    ...metadataCoarseProperties(props),
+  });
+}
+
+/**
+ * Tracks clicks for managed plan and renewal actions. The existing
+ * Intelligence-enable funnel keeps its original event and never calls this
+ * helper, which prevents a single click from producing two wire events.
+ */
+export function trackMetadataActionClicked(
+  props: InspectorMetadataActionClickedTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.metadataActionClicked, {
+    module: "action",
+    action_kind: props.action_kind,
+    ...metadataCoarseProperties(props),
+  });
 }
 
 /**
@@ -453,9 +667,10 @@ async function postBestEffort(
   distinctId: string,
 ): Promise<void> {
   if (typeof fetch === "undefined") return;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
+    const controller = new AbortController();
+    timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     await fetch(url, {
       method: "POST",
       headers: {
@@ -469,6 +684,6 @@ async function postBestEffort(
   } catch {
     // Silent failure — telemetry must not break the application.
   } finally {
-    clearTimeout(timeoutId);
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
 }

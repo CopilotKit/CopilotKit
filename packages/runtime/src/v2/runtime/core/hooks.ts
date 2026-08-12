@@ -39,6 +39,7 @@ export type RouteInfo =
   | { method: "agent/connect"; agentId: string }
   | { method: "agent/stop"; agentId: string; threadId: string }
   | { method: "info" }
+  | { method: "inspector/metadata" }
   | { method: "transcribe" }
   | { method: "threads/list" }
   | { method: "threads/subscribe" }

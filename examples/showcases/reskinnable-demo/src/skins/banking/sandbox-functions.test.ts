@@ -5,7 +5,7 @@ import type {
   ExpensePolicy,
   Transaction,
 } from "@/skins/banking/data/data";
-import { CardBrand, ExpenseRole } from "@/skins/banking/data/data";
+import { CardBrand, PolicyType } from "@/skins/banking/data/data";
 
 const fn = (name: string) => {
   const f = sandboxFunctions.find((s) => s.name === name);
@@ -25,7 +25,7 @@ const cards: Card[] = [
   },
 ];
 const policies: ExpensePolicy[] = [
-  { id: "pol-mkt", type: ExpenseRole.Marketing, limit: 5000, spent: 500 },
+  { id: "pol-mkt", type: PolicyType.GoToMarket, limit: 5000, spent: 500 },
 ];
 const transactions: Transaction[] = [
   {
@@ -74,7 +74,7 @@ describe("getPolicies", () => {
       unknown
     >[];
     expect(out).toEqual([
-      { id: "pol-mkt", type: ExpenseRole.Marketing, limit: 5000, spent: 500 },
+      { id: "pol-mkt", type: PolicyType.GoToMarket, limit: 5000, spent: 500 },
     ]);
   });
 });
