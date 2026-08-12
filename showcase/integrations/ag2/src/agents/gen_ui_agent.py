@@ -118,11 +118,8 @@ agent = Agent(
     name="gen_ui_agent",
     prompt=SYSTEM_PROMPT,
     config=OpenAIConfig(model="gpt-4o-mini", streaming=True),
-    # Nominal cost is ~7 set_steps cycles + 1 final model turn. The 0.x
-    # version capped runaway behavior with max_consecutive_auto_reply=15
-    # (~2x headroom for retries); AG2 1.0 has no direct per-turn
-    # auto-reply cap, so the system prompt's explicit termination rules
-    # are the guard against pathological runaway (Railway log-rate limits).
+    # Nominal cost is ~7 set_steps cycles + 1 final model turn; the system
+    # prompt's explicit termination rules are what stop the loop.
     tools=[set_steps],
 )
 

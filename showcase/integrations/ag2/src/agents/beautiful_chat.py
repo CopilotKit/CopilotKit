@@ -151,9 +151,7 @@ agent = Agent(
     config=OpenAIConfig(model="gpt-4.1", streaming=True),
     # The agent may call generate_a2ui (its own backend tool) and
     # generateSandboxedUi (frontend tool injected by the OGUI runtime
-    # middleware). Guard-rationale note: the 0.x port capped the loop with
-    # max_consecutive_auto_reply=8 to keep tool storms bounded; ag2 1.0 has
-    # no direct per-turn auto-reply cap, so no equivalent parameter is set.
+    # middleware).
     tools=[generate_a2ui],
 )
 

@@ -43,9 +43,6 @@ interrupt_agent = Agent(
     name="scheduling_agent",
     prompt=SYSTEM_PROMPT,
     config=OpenAIConfig(model="gpt-4o-mini", streaming=True),
-    # Guard-rationale note: the 0.x port capped tool-call loops with
-    # max_consecutive_auto_reply=5; ag2 1.0 has no direct per-turn
-    # auto-reply cap, so no equivalent parameter is set here.
     # No backend tools. `schedule_meeting` is registered on the frontend
     # via `useFrontendTool` and dispatched through the CopilotKit runtime.
     # When the agent calls `schedule_meeting`, the request is routed to

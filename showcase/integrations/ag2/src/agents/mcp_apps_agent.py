@@ -60,9 +60,6 @@ agent = Agent(
     prompt=SYSTEM_PROMPT,
     # gpt-4o-mini for speed, mirroring the langgraph reference.
     config=OpenAIConfig(model="gpt-4o-mini", streaming=True),
-    # Guard-rationale note: the 0.x port capped tool-call loops with
-    # max_consecutive_auto_reply=6; ag2 1.0 has no direct per-turn
-    # auto-reply cap, so no equivalent parameter is set here.
     # No bespoke tools — MCP server tools are injected by the runtime
     # middleware at request time.
     tools=[],
