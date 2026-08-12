@@ -3,11 +3,11 @@ import type { Suggestion } from "@/shell/skin-contract";
 /**
  * ⚠️ RUNTIME REQUIREMENT — read before demoing this skin.
  *
- * Beats 2 and 4 exist ONLY in Intelligence mode: all three of
+ * Beats 2, 4 and 5 exist ONLY in Intelligence mode: all three of
  * INTELLIGENCE_API_URL, INTELLIGENCE_GATEWAY_WS_URL and INTELLIGENCE_API_KEY must
  * be set. On the default OSS path the runner is in-memory, so threads are
- * ephemeral and recall_memory does not exist — which removes TWO of this skin's
- * three headline claims and leaves a pretty storefront with a chatbot. Demo this
+ * ephemeral and recall_memory does not exist — which removes THREE of this skin's
+ * four headline claims and leaves a pretty storefront with a chatbot. Demo this
  * in Intelligence mode or do not demo this skin.
  *
  * ── THE BEAT MAP (mandatory — .claude/skills/reskin/demo-beats.md) ──────────
@@ -21,10 +21,10 @@ import type { Suggestion } from "@/shell/skin-contract";
  * | 3c levers         | confirms the filters, navigates, controls light up| Cheapest sci-fi     | browseWithFilters (HITL) + browse query params |
  * | 3d multimodal     | SKIPPED — deferred to phase 2 (no attachment path, no artifact store) | — | — |
  * | 4 memory          | the pill recalls a taste nobody typed, NAMED in the answer | Something for me | recommendBooks note slot + intelligence/seed-memories.ts |
- * | 5 stored skill    | SKIPPED — deferred to phase 2 (the book club run) | — | — |
+ * | 5 stored skill    | one vague sentence fires four writes in order     | Book club order     | seeded operational memory + swapEdition/applyPromoCode/setDeliveryBy + 3 distractors |
  * | 6 teach a skill   | SKIPPED — deferred to phase 2 (needs a gate + recording context) | — | — |
  *
- * Beats 3d, 5 and 6 are deliberate omissions at the user's direction, not
+ * Beats 3d and 6 are deliberate omissions at the user's direction, not
  * oversights — the rows are kept so a reader can tell the difference.
  *
  * ── PRESENTER NOTES ────────────────────────────────────────────────────────
@@ -48,6 +48,13 @@ import type { Suggestion } from "@/shell/skin-contract";
  *  · Messages are fixed by the demo script. A reword routes differently — say
  *    "cheapest sci-fi paperbacks", not "cheap sci-fi books" — which is the
  *    correctness reason pills exist, not just a convenience.
+ *  · The run ends with a filled, unpaid cart — that is the accepted cost of
+ *    placing it last, so close the demo by clicking "Check out" once more,
+ *    which is the adjacent pill.
+ *  · Beat 5 is runtime-conditional exactly like beats 2 and 4: no
+ *    Intelligence, no seeded procedure, no beat — and the agent improvises
+ *    instead, which is worse on stage than an obvious failure because it
+ *    looks like it *almost* knows.
  */
 export const bookstoreSuggestions: Suggestion[] = [
   {
@@ -73,5 +80,9 @@ export const bookstoreSuggestions: Suggestion[] = [
   {
     title: "Check out",
     message: "Check out.",
+  },
+  {
+    title: "Book club order",
+    message: "Set up my book club order.",
   },
 ];

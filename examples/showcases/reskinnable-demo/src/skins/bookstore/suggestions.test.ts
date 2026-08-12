@@ -13,8 +13,8 @@ const SOURCE = readFileSync(
 );
 
 describe("bookstoreSuggestions", () => {
-  it("ships six pills, one per demo step", () => {
-    expect(bookstoreSuggestions).toHaveLength(6);
+  it("ships seven pills, one per demo step", () => {
+    expect(bookstoreSuggestions).toHaveLength(7);
   });
 
   it("keeps them in demo order", () => {
@@ -27,6 +27,7 @@ describe("bookstoreSuggestions", () => {
       "What's on screen?",
       "Add the top pick",
       "Check out",
+      "Book club order",
     ]);
   });
 
@@ -58,6 +59,6 @@ describe("bookstoreSuggestions", () => {
 
   it("records the deferred beats as SKIPPED rather than dropping the rows", () => {
     const source = SOURCE;
-    expect(source.match(/SKIPPED/g) ?? []).toHaveLength(3);
+    expect(source.match(/SKIPPED/g) ?? []).toHaveLength(2);
   });
 });
