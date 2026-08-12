@@ -45,7 +45,7 @@
       }
     },
     {
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-05-134Z-890eead9.json",
+      "_comment": "beautiful-chat Sales Dashboard — after query_data + generate_a2ui, the model narrates. The recorded 2026-05-15 gpt-4o session ALSO fired standalone pieChart+barChart at this turn, painting loose charts next to the A2UI dashboard. That over-call is dropped so aimock matches the fixed live behavior (parallelToolCalls:false + steering → generate_a2ui draws the charts inside the surface, no standalone chart tools).",
       "match": {
         "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
         "model": "gpt-4o",
@@ -54,35 +54,11 @@
         "context": "mastra"
       },
       "response": {
-        "toolCalls": [
-          {
-            "name": "pieChart",
-            "arguments": "{\"title\": \"Revenue by Category\", \"description\": \"Distribution of revenue across different categories\", \"data\": [{\"label\": \"Enterprise Subscriptions\", \"value\": 94000}, {\"label\": \"Pro Tier Upgrades\", \"value\": 66500}, {\"label\": \"API Usage Overages\", \"value\": 34500}, {\"label\": \"Consulting Services\", \"value\": 54000}, {\"label\": \"Marketplace Sales\", \"value\": 42800}, {\"label\": \"Partnership Revenue\", \"value\": 25700}, {\"label\": \"Training & Workshops\", \"value\": 10200}]}",
-            "id": "call_OJDsrTtDcWoV0PObgKtU9fXv"
-          },
-          {
-            "name": "barChart",
-            "arguments": "{\"title\": \"Monthly Sales\", \"description\": \"Sales performance over the months\", \"data\": [{\"label\": \"January\", \"value\": 82800}, {\"label\": \"February\", \"value\": 119000}, {\"label\": \"March\", \"value\": 135700}]}",
-            "id": "call_o9RdNrZTq8qV0Majn12OTZcu"
-          }
-        ]
+        "content": "The sales dashboard is ready — total revenue, new customers, and conversion rate, with a pie chart of revenue by category and a bar chart of monthly sales, all in one surface."
       }
     },
     {
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-07-715Z-9531bf64.json",
-      "match": {
-        "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
-        "model": "gpt-4o",
-        "turnIndex": 3,
-        "hasToolResult": true,
-        "context": "mastra"
-      },
-      "response": {
-        "content": "The sales dashboard is now available, featuring metrics for total revenue, new customers, and conversion rate. Additionally, you can view a pie chart of revenue by category and a bar chart of monthly sales."
-      }
-    },
-    {
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-02-547Z-7afa30ad.json",
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-02-547Z-7afa30ad.json. SUPERSEDED: this entry is unreachable and editing it has no effect — the calculator pill is served by the specific calculator fixtures in _from-feature-parity.json (loaded first alphabetically; first match wins). Note the model gate (gpt-4o) is NOT an independent safety net — whether it matches depends on each integration's current model; unreachability is guaranteed only by the load-order shadowing above. Kept for historical reference; do not delete.",
       "match": {
         "userMessage": "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",
         "model": "gpt-4o",
@@ -101,7 +77,7 @@
       }
     },
     {
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-04-559Z-1bafed55.json",
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-04-559Z-1bafed55.json. SUPERSEDED: this entry is unreachable and editing it has no effect — the calculator pill is served by the specific calculator fixtures in _from-feature-parity.json (loaded first alphabetically; first match wins). Note the model gate (gpt-4o) is NOT an independent safety net — whether it matches depends on each integration's current model; unreachability is guaranteed only by the load-order shadowing above. Kept for historical reference; do not delete.",
       "match": {
         "userMessage": "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",
         "model": "gpt-4o",

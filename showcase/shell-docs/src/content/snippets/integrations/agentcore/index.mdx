@@ -29,8 +29,8 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
 ## What you get
 
-- **Chat UI** — prebuilt chat interface, or headless hooks to build your own
-- **Shared state** — bidirectional sync between agent state and your React UI
+- **Chat UI** — prebuilt chat interface, or headless APIs to build your own
+- **Shared state** — bidirectional sync between agent state and your frontend UI
 - **Generative UI** — render custom components from tool calls in real time
 - **Human-in-the-loop** — let users review, approve, or redirect agent actions
 - **AgentCore memory** — conversation history persists across sessions via AgentCore's memory layer
@@ -38,8 +38,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 ## Quickstart
 
 <Callout type="info" title="AWS CLI required">
-  Both paths below require AWS credentials configured locally. If you haven't done this yet,
-  follow the [AWS CLI getting started guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
+  Both paths below require AWS credentials configured locally. If you haven't
+  done this yet, follow the [AWS CLI getting started
+  guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
   before continuing.
 </Callout>
 
@@ -65,7 +66,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ### Run the CLI
 
         <AgentCoreCommandTabs
-          framework={props.framework}
+          framework={framework}
           lgCommand="npx copilotkit@latest create -f agentcore-langgraph"
           stCommand="npx copilotkit@latest create -f agentcore-strands"
         />
@@ -90,7 +91,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         One command deploys everything — CDK infrastructure, AgentCore Runtime, and the frontend:
 
         <AgentCoreCommandTabs
-          framework={props.framework}
+          framework={framework}
           lgCommand="./deploy-langgraph.sh"
           stCommand="./deploy-strands.sh"
         />
@@ -335,6 +336,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         the `/api/copilotkit` route forwards each call to the invocation URL using your token.
       </Step>
     </TailoredContentOption>
+
   </TailoredContent>
 </Steps>
 
@@ -343,14 +345,14 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 <Cards>
   <Card
     title="Generative UI"
-    description="Render custom React components directly from your agent's tool calls."
-    href="/langgraph/generative-ui/tool-rendering"
+    description="Render custom frontend components directly from your agent's tool calls."
+    href="/generative-ui/tool-rendering"
     icon={<PaintbrushIcon />}
   />
   <Card
     title="Shared State"
-    description="Sync structured state between your agent and your React UI bidirectionally."
-    href="/langgraph/shared-state/in-app-agent-read"
+    description="Sync structured state between your agent and your frontend UI bidirectionally."
+    href="/shared-state/in-app-agent-read"
     icon={<RepeatIcon />}
   />
 </Cards>

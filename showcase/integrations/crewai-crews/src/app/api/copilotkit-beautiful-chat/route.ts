@@ -10,13 +10,15 @@
 // Agent URL points at the dedicated `/beautiful-chat` FastAPI endpoint
 // mounted by `agent_server.py`.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -39,6 +41,10 @@ const runtime = new CopilotRuntime({
   a2ui: {
     // Backend crew owns its own generate_a2ui tool; don't double-inject.
     injectA2UITool: false,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "copilotkit://app-dashboard-catalog",
   },
 });
 

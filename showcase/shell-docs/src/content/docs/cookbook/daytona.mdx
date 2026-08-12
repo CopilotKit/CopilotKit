@@ -1,17 +1,18 @@
 ---
-title: "Run agent code in a Daytona sandbox"
+title: "Daytona"
 description: "Give CopilotKit's Built-in Agent a tool that executes code in an isolated Daytona sandbox, then return the output to the chat."
-icon: "lucide/Boxes"
+icon: "custom/daytona"
+showIcon: true
 doc_type: how-to
 ---
 
 [Daytona](https://www.daytona.io) gives AI agents isolated cloud **sandboxes** — full Linux runtimes with
 their own filesystem, network, and CPU/RAM. This recipe adds a server tool to CopilotKit's
-[Built-in Agent](/built-in-agent) that runs code inside one of those sandboxes and returns the result to
+[Built-in Agent](/) that runs code inside one of those sandboxes and returns the result to
 the chat, so the agent can execute code it writes without touching your host.
 
 This guide assumes you already have a running Built-in Agent app. If you don't, follow the
-[Quickstart](/built-in-agent/quickstart) first — it takes a few minutes.
+[Quickstart](/quickstart) first — it takes a few minutes.
 
 ## Try it live
 
@@ -25,7 +26,7 @@ This guide assumes you already have a running Built-in Agent app. If you don't, 
 
 ## Prerequisites
 
-- A running Built-in Agent app (see the [Quickstart](/built-in-agent/quickstart)).
+- A running Built-in Agent app (see the [Quickstart](/quickstart)).
 - A Daytona account and API key — create one in the [Daytona dashboard](https://app.daytona.io/dashboard/keys).
 
 Add the key to your `.env`:
@@ -42,7 +43,7 @@ npm install @daytonaio/sdk
 
 ## Define the sandbox tool
 
-Add a `runCode` [server tool](/built-in-agent/server-tools) and register it on your `BuiltInAgent`. The
+Add a `runCode` [server tool](/server-tools) and register it on your `BuiltInAgent`. The
 tool creates a fresh sandbox, runs the code, returns stdout, and cleans the sandbox up — so every call is
 isolated.
 

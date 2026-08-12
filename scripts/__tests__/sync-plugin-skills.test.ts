@@ -132,7 +132,13 @@ describe("syncPluginSkills", () => {
   it("exports the reserved lifecycle slug set", () => {
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-setup");
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-self-update");
-    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(8);
+    // A standalone skill MUST be listed here. It is not generated from
+    // packages/*/skills, so without an entry the sync treats it as an orphan and
+    // deletes it.
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-channels");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("setup-slack-channel");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("channels-setup");
+    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(11);
   });
 
   // Version sync — the plugin version tracks packages/runtime/package.json.
@@ -164,6 +170,7 @@ describe("syncPluginSkills", () => {
       JSON.stringify(
         {
           name: "copilotkit",
+          metadata: { version: initialPluginVersion },
           plugins: [
             { name: "copilotkit", source: "./", version: initialPluginVersion },
           ],
@@ -186,6 +193,30 @@ describe("syncPluginSkills", () => {
     );
     expect(plugin.version).toBe("1.56.2");
     expect(market.plugins[0].version).toBe("1.56.2");
+    // metadata.version tracks the runtime package too — both marketplace fields
+    // must move together so neither rots independently.
+    expect(market.metadata.version).toBe("1.56.2");
+  });
+
+  it("write mode re-syncs marketplace.json metadata.version when it lags plugins[0].version", async () => {
+    await makeRepo(repo);
+    await addVersionFixtures(repo, "1.56.2", "1.56.2");
+    // Simulate the historical drift: plugins[0] was bumped by an earlier sync
+    // but metadata.version was left behind because it was unmanaged.
+    const marketPath = join(repo, ".claude-plugin/marketplace.json");
+    const market = JSON.parse(await readFile(marketPath, "utf8"));
+    market.metadata.version = "1.55.0";
+    await writeFile(marketPath, JSON.stringify(market, null, 2) + "\n");
+
+    const drift = await syncPluginSkills({ cwd: repo, mode: "check" });
+    expect(drift.exitCode).toBe(1);
+    expect(drift.message).toMatch(/metadata\.version/i);
+    expect(drift.message).toContain("1.55.0");
+
+    await syncPluginSkills({ cwd: repo, mode: "write" });
+    const fixed = JSON.parse(await readFile(marketPath, "utf8"));
+    expect(fixed.metadata.version).toBe("1.56.2");
+    expect(fixed.plugins[0].version).toBe("1.56.2");
   });
 
   it("check mode detects plugin.json version drift", async () => {

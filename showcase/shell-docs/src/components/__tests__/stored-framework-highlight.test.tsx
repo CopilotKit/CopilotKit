@@ -13,6 +13,7 @@ describe("StoredFrameworkHighlight", () => {
       <StoredFrameworkHighlight slug="built-in-agent" />,
     );
 
-    expect(markup).toMatch(/hidden[^"]*sm:inline-flex/);
+    expect(markup).toContain("sr-only");
+    expect(markup).toContain("Current backend selection");
   });
 });

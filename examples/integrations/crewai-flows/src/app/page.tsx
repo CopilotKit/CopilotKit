@@ -5,9 +5,17 @@ import {
   useFrontendTool,
   useRenderTool,
   CopilotSidebar,
+  CopilotChatConfigurationProvider,
+  CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
-import { CSSProperties, useState } from "react";
+import type { CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
+
+import styles from "./page.module.css";
+
+// The agent key registered in the runtime route (`agents: { default: ... }`).
+const AGENT_ID = "default";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
@@ -22,60 +30,68 @@ export default function CopilotKitPage() {
     }),
     handler: async ({ themeColor }) => {
       setThemeColor(themeColor);
+      return `Changing background to ${themeColor}`;
     },
   });
 
   return (
-    <main
-      style={{ "--copilot-kit-primary-color": themeColor } as CSSProperties}
-    >
-      <CopilotSidebar
-        disableSystemMessage={true}
-        clickOutsideToClose={false}
-        labels={{
-          title: "Popup Assistant",
-          initial: "👋 Hi, there! You're chatting with an agent.",
-        }}
-        suggestions={[
-          {
-            title: "Generative UI",
-            message: "Get the weather in San Francisco.",
-          },
-          {
-            title: "Frontend Tools",
-            message: "Set the theme to green.",
-          },
-          {
-            title: "Write Agent State",
-            message: "Add a proverb about AI.",
-          },
-          {
-            title: "Update Agent State",
-            message:
-              "Please remove 1 random proverb from the list if there are any.",
-          },
-          {
-            title: "Read Agent State",
-            message: "What are the proverbs?",
-          },
-        ]}
-      >
-        <YourMainContent themeColor={themeColor} />
-      </CopilotSidebar>
-    </main>
+    /*
+      One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop) owns
+      the active thread for the whole surface. The SDK <CopilotThreadsDrawer> drives it
+      directly — selecting a row sets the active thread, "+ New" resets to a
+      fresh thread — with no host thread-state. The content and the
+      CopilotSidebar read the same active thread from the provider (the content's
+      `useAgent()` falls back to it). A *controlled* provider would block
+      "+ New" from resetting, so uncontrolled-inside-provider is required.
+      `.threadsLayout` (globals.css) pins the light theme vars the drawer +
+      sidebar inherit; the SDK drawer follows them by token inheritance.
+    */
+    <CopilotChatConfigurationProvider agentId={AGENT_ID}>
+      <div className={`${styles.layout} threadsLayout`}>
+        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+        <CopilotThreadsDrawer agentId={AGENT_ID} />
+        <div className={styles.mainPanel}>
+          <main
+            style={
+              {
+                "--copilot-kit-primary-color": themeColor,
+              } as CSSProperties
+            }
+          >
+            <YourMainContent themeColor={themeColor} />
+            <CopilotSidebar
+              defaultOpen={true}
+              labels={{
+                modalHeaderTitle: "Popup Assistant",
+                welcomeMessageText:
+                  "👋 Hi, there! You're chatting with an agent.",
+              }}
+            />
+          </main>
+        </div>
+      </div>
+    </CopilotChatConfigurationProvider>
   );
 }
 
-// State of the agent, make sure this aligns with your agent's state.
-type AgentState = {
-  proverbs: string[];
-};
-
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
+  // V2: useAgent returns the agent; read agent.state and write via agent.setState.
   const { agent } = useAgent({
-    agentId: "sample_agent",
+    agentId: "default",
   });
+  const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
+
+  // Seed an initial proverb once (the V2 agent starts with empty state).
+  useEffect(() => {
+    if ((agent.state as AgentState | undefined)?.proverbs === undefined) {
+      agent.setState({
+        proverbs: [
+          "CopilotKit may be new, but it's the best thing since sliced bread.",
+        ],
+      });
+    }
+  }, [agent]);
 
   // 🪁 Frontend Tools: https://docs.copilotkit.ai/coagents/frontend-actions
   useFrontendTool(
@@ -90,12 +106,13 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       }),
       handler: async ({ proverbs }) => {
         agent.setState({
-          ...agent.state,
+          ...state,
           proverbs: [...proverbs],
         });
+        return `Updated proverbs`;
       },
     },
-    [agent],
+    [agent, state],
   );
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
@@ -125,7 +142,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         </p>
         <hr className="border-white/20 my-6" />
         <div className="flex flex-col gap-3">
-          {agent.state?.proverbs?.map((proverb, index) => (
+          {state.proverbs?.map((proverb, index) => (
             <div
               key={index}
               className="bg-white/15 p-4 rounded-xl text-white relative group hover:bg-white/20 transition-all"
@@ -134,8 +151,8 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
               <button
                 onClick={() =>
                   agent.setState({
-                    ...agent.state,
-                    proverbs: agent.state?.proverbs?.filter(
+                    ...state,
+                    proverbs: state.proverbs?.filter(
                       (_: string, i: number) => i !== index,
                     ),
                   })
@@ -148,7 +165,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
             </div>
           ))}
         </div>
-        {agent.state?.proverbs?.length === 0 && (
+        {state.proverbs?.length === 0 && (
           <p className="text-center text-white/80 italic my-8">
             No proverbs yet. Ask the assistant to add some!
           </p>

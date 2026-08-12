@@ -27,6 +27,13 @@ So, you've got an awesome feature in mind? Throw it over to us by [creating an i
 
 If you don't feel ready to make a code contribution yet, no problem! You can also check out the [documentation issues](https://github.com/CopilotKit/CopilotKit/issues?q=is%3Aopen+is%3Aissue+label%3Adocumentation).
 
+## Contributing to documentation
+
+There are two documentation domains — make sure your change goes to the right place, or it won't reach the live site:
+
+- **CopilotKit docs** (docs.copilotkit.ai) are authored in **`showcase/shell-docs/src/content/`** (`docs/`, `reference/`, `snippets/`, `framework-overviews/`). When adding a page, update the relevant `meta.json` so it appears in navigation. Top-level `docs/` is only a symlink to `showcase/shell-docs/`; do not recreate the old `docs/content/docs/` tree.
+- **AG-UI protocol docs** (docs.ag-ui.com) are authored upstream in [`ag-ui-protocol/ag-ui`](https://github.com/ag-ui-protocol/ag-ui), not in this repo. The `showcase/shell-docs/src/content/ag-ui/` copy is a downstream mirror.
+
 # How do I make a code contribution?
 
 ## Good first issues
@@ -142,6 +149,22 @@ Remember, it's okay if your pull request is not perfect (no pull request ever is
 3.  Make changes to the pull request if the reviewing maintainer recommends them.
 
 Celebrate your success after your pull request is merged :-)
+
+## Changelogs and releases — do not add a changeset
+
+**Do not add files under `.changeset/` to your pull request.** If you (or your AI coding assistant) see a `.changeset/` directory in your checkout, it is stale — delete it and sync your fork with `main`.
+
+CopilotKit did use [Changesets](https://github.com/changesets/changesets) for releases, and the per-package `CHANGELOG.md` files still carry that history and its formatting. We have since migrated to **conventional-commit-driven releases**: the release tooling in `scripts/release/` builds the changelog from commit subjects in `git log <lastTag>..HEAD`. Nothing reads `.changeset/*.md` anymore, and `@changesets/cli` is not a dependency of this repo — a changeset file in your PR is inert, and CI will fail on it.
+
+What to do instead: write a good conventional commit subject (see [Git Commit Messages](#git-commit-messages)). That line is what ships in the release notes, so make it describe the user-visible change:
+
+```
+fix(runtime): coalesce consecutive same-role Anthropic messages before dispatch
+```
+
+Version bumps and `CHANGELOG.md` edits are made by maintainers during a release, not in your PR — please leave `package.json` versions and changelogs alone.
+
+> Working from an older fork or a long-lived branch? Rebase onto current `main` before opening your PR. Branches cut before mid-2026 can reintroduce `.changeset/` debris.
 
 ## Git Commit Messages
 

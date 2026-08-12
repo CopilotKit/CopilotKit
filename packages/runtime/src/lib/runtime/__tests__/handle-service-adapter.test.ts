@@ -1,3 +1,4 @@
+import type { AbstractAgent } from "@ag-ui/client";
 import type { LanguageModel } from "ai";
 import { CopilotKitMisuseError } from "@copilotkit/shared";
 import { describe, expect, it } from "vitest";
@@ -18,7 +19,10 @@ function makeAdapter(
 }
 
 async function getDefaultAgent(runtime: CopilotRuntime) {
-  const agents = await runtime.instance.agents;
+  const agents = (await runtime.instance.agents) as Record<
+    string,
+    AbstractAgent
+  >;
   return agents.default;
 }
 

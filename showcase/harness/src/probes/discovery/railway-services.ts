@@ -43,7 +43,7 @@ import {
 /**
  * Service shape — identifies the deployment archetype for `showcase-*`
  * services on Railway. Drivers branch on this field to pick the right
- * probe contract (see `drivers/liveness.ts` and `drivers/e2e-chat-tools.ts`).
+ * probe contract (see `drivers/d2-liveness.ts` and `drivers/e2e-chat-tools.ts`).
  *
  *   - `package`  Shell-based showcases (`showcase-ag2`, `showcase-mastra`,
  *                ...). They expose `/smoke`, `/health`, `/demos/*`, and
@@ -315,7 +315,7 @@ interface RegistryIntegrationInfo {
 
 /**
  * Read `registry.json` and build a `slug -> {demos, notSupportedFeatures}`
- * map. Mirrors the parsing logic in `drivers/e2e-readiness.ts`'s
+ * map. Mirrors the parsing logic in `drivers/d3-readiness.ts`'s
  * `defaultDemosResolver` so behaviour stays consistent across the two
  * readers — the discovery source feeds the invoker's pre-dispatch sort
  * + downstream NSF reclassification, while the driver's resolver feeds
@@ -448,6 +448,98 @@ function deriveSlugFromServiceName(name: string): string {
   return name.startsWith("showcase-") ? name.slice("showcase-".length) : name;
 }
 
+/**
+ * Static local-injection schema for `LOCAL_SERVICES_JSON`. The local D6 gate
+ * (and any non-Railway driver) feeds the IDENTICAL `RailwayServiceInfo[]`
+ * shape to the probe path without querying Railway — only the URLs differ
+ * (local container hostnames vs Railway public domains). Required fields:
+ * `name` (e.g. `showcase-langgraph-python`) and `publicUrl` (the live URL the
+ * specs navigate against, e.g. `http://langgraph-python:10000`). Every other
+ * `RailwayServiceInfo` field defaults so an operator only has to supply the
+ * two that actually vary by environment.
+ *
+ * `shape` is recomputed from `name` via `classifyShape` (single source of
+ * truth) so an injected record can never disagree with the classifier the
+ * Railway path uses.
+ *
+ * `demos` is load-bearing: the d6-all-pills driver derives its feature matrix
+ * via `demosToFeatureTypes(input.demos ?? [])`, so an injected record with an
+ * empty/missing `demos` array short-circuits the driver to a zero-cell
+ * false-green. Callers that want a real Playwright run MUST supply the demo
+ * IDs for the integration here.
+ */
+const LocalServiceSchema = z
+  .object({
+    name: z.string().min(1),
+    publicUrl: z.string().url(),
+    imageRef: z.string().optional(),
+    env: z.record(z.string()).optional(),
+    deployedDigest: z.string().optional(),
+    demos: z.array(z.string()).optional(),
+    notSupportedFeatures: z.array(z.string()).optional(),
+    deployedAt: z.string().optional(),
+  })
+  .passthrough();
+
+const LocalServicesSchema = z.array(LocalServiceSchema);
+
+/**
+ * Build the full `RailwayServiceInfo[]` from `LOCAL_SERVICES_JSON`, applying
+ * the SAME `namePrefix` / `nameExcludes` filter the Railway path applies so a
+ * probe's discovery filter behaves identically against injected records.
+ * Throws `DiscoverySourceSchemaError` (same taxonomy as a Railway shape
+ * failure) when the JSON is malformed, so the invoker surfaces a single keyed
+ * synthetic error rather than a silent empty roster.
+ */
+function buildLocalServices(
+  ctx: DiscoveryContext,
+  raw: string,
+  filter: z.infer<typeof ConfigSchema>,
+): RailwayServiceInfo[] {
+  let parsedUnknown: unknown;
+  try {
+    parsedUnknown = JSON.parse(raw);
+  } catch (err) {
+    throw new DiscoverySourceSchemaError(
+      "railway-services",
+      `LOCAL_SERVICES_JSON was not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+      undefined,
+      err,
+    );
+  }
+  const parsed = LocalServicesSchema.safeParse(parsedUnknown);
+  if (!parsed.success) {
+    throw new DiscoverySourceSchemaError(
+      "railway-services",
+      `LOCAL_SERVICES_JSON did not match expected shape: ${parsed.error.message}`,
+      undefined,
+      parsed.error,
+    );
+  }
+  const excludeSet = new Set(filter.nameExcludes ?? []);
+  const out: RailwayServiceInfo[] = [];
+  for (const svc of parsed.data) {
+    if (filter.namePrefix && !svc.name.startsWith(filter.namePrefix)) continue;
+    if (excludeSet.has(svc.name)) continue;
+    out.push({
+      name: svc.name,
+      imageRef: svc.imageRef ?? "",
+      publicUrl: svc.publicUrl,
+      env: svc.env ?? {},
+      shape: classifyShape(svc.name, { logger: ctx.logger }),
+      deployedDigest: svc.deployedDigest ?? "",
+      demos: svc.demos ?? [],
+      notSupportedFeatures: svc.notSupportedFeatures ?? [],
+      deployedAt: svc.deployedAt ?? "",
+    });
+  }
+  ctx.logger.info("discovery.railway-services.local-injection", {
+    count: out.length,
+    names: out.map((s) => s.name),
+  });
+  return out;
+}
+
 export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
   name: "railway-services",
   configSchema: ConfigSchema,
@@ -456,6 +548,20 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
     // see ConfigSchema docstring above for why this is flat, not a
     // `{filter: {...}}` wrapper.
     const filter = ConfigSchema.parse(rawConfig ?? {});
+
+    // Local-injection seam: when `LOCAL_SERVICES_JSON` is set, feed the
+    // IDENTICAL RailwayServiceInfo[] shape from a static list instead of
+    // querying Railway. This lets the local D6 gate exercise the EXACT probe
+    // code path the cron/staging entrypoint uses — only the service URLs
+    // differ (local container hostnames vs Railway public domains). Nothing
+    // downstream (invoker, driver, rollup) can tell the records came from a
+    // static list. Railway creds are NOT consulted on this path. An empty
+    // string is treated as unset so an exported-but-empty env var falls back
+    // to the Railway path rather than failing as malformed JSON.
+    const localServicesJson = ctx.env.LOCAL_SERVICES_JSON;
+    if (localServicesJson) {
+      return buildLocalServices(ctx, localServicesJson, filter);
+    }
 
     // Load registry-derived demos map once per enumerate(). The map is
     // the source of truth for the invoker's `e2e_demos` shortest-first

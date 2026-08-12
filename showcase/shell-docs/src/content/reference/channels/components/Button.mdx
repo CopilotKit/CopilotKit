@@ -1,0 +1,40 @@
+---
+title: Button
+description: Post a portable callback or link button in Slack and Microsoft Teams.
+---
+
+`Button` creates the most portable managed interaction control.
+
+```tsx
+import { Actions, Button } from "@copilotkit/channels/ui";
+
+<Actions>
+  <Button
+    value={{ approved: true }}
+    style="primary"
+    onClick={async ({ action, thread }) => {
+      if (action.value) await thread.resume(action.value);
+    }}
+  >
+    Approve
+  </Button>
+</Actions>;
+```
+
+## Props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `value` | `TValue` | JSON-serializable value returned as `ctx.action.value`. It also infers the callback value type. |
+| `onClick` | `ClickHandler<TValue>` | Callback for a native button submission. |
+| `url` | `string` | Creates a native link button. When set, `onClick` and `value` are ignored. |
+| `style` | `"primary" \| "danger"` | Maps to the closest provider emphasis. |
+| `children` | `BotChildren` | Button label. |
+
+Managed Slack renders a Block Kit button. Managed Teams renders
+`Action.Submit`, or `Action.OpenUrl` when `url` is set. A Teams submission can
+arrive without a source message reference, so only call `thread.update()` when
+`ctx.message.ref.id` is non-empty.
+
+Register the named component that owns `onClick`. Add a durable `StateStore`
+when buttons must remain usable across a runner restart.

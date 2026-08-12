@@ -8,7 +8,7 @@ Generated: 2026-03-28
 - examples/v2/ (Angular, React, Node, Node-Express, Next Pages Router directory structures)
 - examples/integrations/ (integration example directory structures for framework patterns)
 - packages/v2/runtime/src/ (endpoint factories: createCopilotEndpoint, createCopilotEndpointExpress, createCopilotEndpointSingleRoute)
-- packages/v2/react/src/ (CopilotKitProvider props, stylesheet imports)
+- packages/v2/react/src/ (`CopilotKit` provider props, stylesheet imports)
 - packages/v2/angular/src/ (Angular component package structure)
 
 ## runtime-architecture.md
@@ -33,5 +33,19 @@ Generated: 2026-03-28
 
 ## assets/nextjs-app-router-page.tsx
 
-- packages/v2/react/src/ (CopilotKitProvider, CopilotChat component exports)
+- packages/v2/react/src/ (`CopilotKit` provider, CopilotChat component exports)
 - examples/v2/react/ (Next.js App Router page component patterns)
+
+## Step 2 Intelligence runtime and Step 6 (added 2026-08-01)
+
+- packages/runtime/dist/v2/runtime/core/runtime.d.mts (CopilotIntelligenceRuntimeOptions:
+  `intelligence`, required `identifyUser`, `channels`; CopilotSseRuntimeOptions has
+  `channels?: undefined`)
+- packages/runtime/dist/v2/runtime/intelligence-platform/client.d.mts
+  (CopilotKitIntelligenceConfig: required `apiKey`, optional `apiUrl`/`wsUrl` defaulting to
+  the managed platform, separate API and realtime hosts)
+- examples/slack/app/managed.ts (canonical managed wiring and env var names)
+- apps/cli help output in CopilotKit/Intelligence (the command is `login`, not `auth`)
+- CopilotKit/Intelligence `2026-08-01-teams-one-command-setup-prd.md` (Teams provider setup
+  starts from a durable browser draft; Fast CLI and Guided manual are peer paths; provider
+  completion is separate from runtime and message verification)

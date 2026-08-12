@@ -1,6 +1,6 @@
-import {
+import type {
   BaseEvent,
-  EventType,
+  Interrupt,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
   ReasoningMessageEndEvent,
@@ -14,7 +14,9 @@ import {
   StateSnapshotEvent,
   StateDeltaEvent,
 } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import { createStateEventNormalizer } from "../state-delta";
 
 /**
  * Converts an AI SDK `fullStream` into AG-UI `BaseEvent` objects.
@@ -25,14 +27,21 @@ import { randomUUID } from "@copilotkit/shared";
  *
  * Terminal stream events (finish, error, abort) cause the generator to
  * return so the caller can handle lifecycle appropriately.
+ *
+ * `pendingInterrupts`, when provided, is filled with one AG-UI Interrupt per
+ * AI SDK `tool-approval-request` part (a tool declared `needsApproval: true`).
+ * The caller turns a non-empty array into a RUN_FINISHED `outcome:interrupt`.
  */
 export async function* convertAISDKStream(
   fullStream: AsyncIterable<unknown>,
   abortSignal: AbortSignal,
+  pendingInterrupts?: Interrupt[],
+  initialState?: unknown,
 ): AsyncGenerator<BaseEvent> {
   let messageId = randomUUID();
   let reasoningMessageId = randomUUID();
   let isInReasoning = false;
+  const normalizeStateEvent = createStateEventNormalizer(initialState);
 
   const toolCallStates = new Map<
     string,
@@ -241,6 +250,78 @@ export async function* convertAISDKStream(
           break;
         }
 
+        case "tool-approval-request": {
+          // AI SDK native human-in-the-loop: a tool declared `needsApproval`
+          // was called. The preceding "tool-call" part already streamed the
+          // tool name + args; this part carries the toolCallId to pause on.
+          // (Some shapes nest the call under `toolCall` — read both.)
+          const nested = (p.toolCall ?? {}) as {
+            toolCallId?: string;
+            toolName?: string;
+            input?: unknown;
+          };
+          const toolCallId =
+            (p.toolCallId as string | undefined) ?? nested.toolCallId;
+          if (!toolCallId) {
+            throw new Error(
+              "AI SDK tool-approval-request is missing toolCallId",
+            );
+          }
+          const state = ensureToolCallState(toolCallId);
+          const toolName = state.toolName ?? nested.toolName;
+
+          // Defensive: emit the tool-call lifecycle if the "tool-call" part
+          // didn't precede this one, so the assistant tool-call is in history
+          // for the resume run (which keys the injected result by toolCallId).
+          if (!state.started) {
+            state.started = true;
+            const startEvent: ToolCallStartEvent = {
+              type: EventType.TOOL_CALL_START,
+              parentMessageId: messageId,
+              toolCallId,
+              toolCallName: toolName ?? "",
+            };
+            yield startEvent;
+          }
+          if (!state.hasArgsDelta && nested.input !== undefined) {
+            let serialized = "";
+            try {
+              serialized =
+                typeof nested.input === "string"
+                  ? nested.input
+                  : JSON.stringify(nested.input);
+            } catch {
+              serialized = String(nested.input);
+            }
+            if (serialized.length > 0) {
+              const argsEvent: ToolCallArgsEvent = {
+                type: EventType.TOOL_CALL_ARGS,
+                toolCallId,
+                delta: serialized,
+              };
+              yield argsEvent;
+              state.hasArgsDelta = true;
+            }
+          }
+          if (!state.ended) {
+            state.ended = true;
+            const endEvent: ToolCallEndEvent = {
+              type: EventType.TOOL_CALL_END,
+              toolCallId,
+            };
+            yield endEvent;
+          }
+
+          pendingInterrupts?.push({
+            id: toolCallId,
+            toolCallId,
+            reason: "tool_approval",
+            message: toolName ? `Approve "${toolName}"?` : undefined,
+            ...(toolName ? { metadata: { toolName } } : {}),
+          });
+          break;
+        }
+
         case "tool-result": {
           // AI SDK tool-result uses "output"; older versions used "result" — check both
           const toolResult =
@@ -260,20 +341,25 @@ export async function* convertAISDKStream(
                 type: EventType.STATE_SNAPSHOT,
                 snapshot,
               };
-              yield stateSnapshotEvent;
+              for (const event of normalizeStateEvent(stateSnapshotEvent)) {
+                yield event;
+              }
             }
           } else if (
             toolName === "AGUISendStateDelta" &&
             toolResult &&
             typeof toolResult === "object"
           ) {
-            const delta = (toolResult as Record<string, unknown>).delta;
+            const delta = (toolResult as { delta?: StateDeltaEvent["delta"] })
+              .delta;
             if (delta !== undefined) {
               const stateDeltaEvent: StateDeltaEvent = {
                 type: EventType.STATE_DELTA,
                 delta,
               };
-              yield stateDeltaEvent;
+              for (const event of normalizeStateEvent(stateDeltaEvent)) {
+                yield event;
+              }
             }
           }
 

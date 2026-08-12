@@ -1,0 +1,366 @@
+---
+title: "CopilotChatView"
+description: "Vue 3 layout component that combines a scrollable transcript with the input area"
+---
+
+## Overview
+
+`CopilotChatView` is a Vue 3 component that combines a scrollable message transcript with the chat input area, suggestion pills, a scroll-to-bottom button, an attachment queue, and an optional welcome screen. It is the visual core of the chat interface and is used internally by the higher-level chat components in `@copilotkit/vue`.
+
+Every visual piece of `CopilotChatView` is exposed as a named **slot**, so you can replace, style, or extend any part of the layout (this is the Vue equivalent of React's render-prop sub-component customization). The component drives its own behavior (auto-scroll, mobile keyboard handling, resize observation) and emits events for the actions a parent needs to handle.
+
+## Import
+
+```vue
+<script setup lang="ts">
+import { CopilotChatView } from "@copilotkit/vue/v2";
+</script>
+```
+
+<Callout type="info">
+  `CopilotChatView` is a controlled, presentational component. It does not own
+  the messages, agent state, or input value. When you use it standalone you must
+  supply `messages`, react to its emitted events, and (optionally) drive the
+  input value yourself.
+</Callout>
+
+## Example
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { CopilotChatView } from "@copilotkit/vue/v2";
+import type { Message } from "@ag-ui/core";
+
+const messages = ref<Message[]>([]);
+const isRunning = ref(false);
+
+function handleSubmit(value: string) {
+  // append the user message, kick off your agent run, etc.
+}
+</script>
+
+<template>
+  <CopilotChatView
+    :messages="messages"
+    :is-running="isRunning"
+    auto-scroll="pin-to-bottom"
+    @submit-message="handleSubmit"
+  />
+</template>
+```
+
+## Props
+
+<PropertyReference name="messages" type="Message[]" default="[]">
+  Array of conversation messages to display. When wired into an agent these are
+  managed for you. When using `CopilotChatView` standalone, supply the messages
+  yourself.
+</PropertyReference>
+
+<PropertyReference name="autoScroll" type='AutoScrollMode | boolean' default="true">
+  Controls how the view scrolls as new messages stream in. Accepts the modern
+  `AutoScrollMode` strings or the legacy boolean shorthand:
+
+  - `"pin-to-bottom"` / `true` -- stick to the bottom while the user is at the bottom.
+  - `"pin-to-send"` -- anchor the latest user message near the top of the viewport while the assistant streams a response.
+  - `"none"` / `false` -- never auto-scroll.
+
+  A scroll-to-bottom button appears whenever the user has scrolled up.
+</PropertyReference>
+
+<PropertyReference name="isRunning" type="boolean" default="false">
+  Whether the agent is currently processing. When `true`, the input shows a stop
+  button and the message view displays a typing cursor on the latest assistant
+  message.
+</PropertyReference>
+
+<PropertyReference name="suggestions" type="Suggestion[]" default="[]">
+  Array of suggestion objects to display as clickable pills near the input area.
+  Suggestions are only shown when the view is not connecting and not running.
+</PropertyReference>
+
+<PropertyReference name="suggestionLoadingIndexes" type="ReadonlyArray<number>" default="[]">
+  Indexes of suggestions that are currently in a loading state (for example, the
+  user just clicked one and the agent is processing).
+</PropertyReference>
+
+<PropertyReference name="welcomeScreen" type="boolean" default="true">
+  Whether to show the welcome screen when the `messages` array is empty. Set to
+  `false` to disable it. Customize the welcome layout with the `welcome-screen`
+  and `welcome-message` slots.
+</PropertyReference>
+
+<PropertyReference name="attachments" type="Attachment[]">
+  File attachments to render in the attachment queue above the input. When
+  present, the queue is shown in both the welcome screen and the main input
+  overlay.
+</PropertyReference>
+
+<PropertyReference name="dragOver" type="boolean">
+  When `true`, renders a "Drop files here" overlay across the chat area. Drive
+  this from your own drag handlers (see `onDragOver` / `onDragLeave` / `onDrop`).
+</PropertyReference>
+
+<PropertyReference name="inputValue" type="string">
+  Optional controlled value for the input. When provided, the component treats
+  the input as controlled and reflects this value; emit handling stays in sync
+  via the `input-change` event. When omitted, the input is uncontrolled and the
+  component manages its own value internally.
+</PropertyReference>
+
+<PropertyReference name="inputMode" type='CopilotChatInputMode' default='"input"'>
+  The input mode, one of `"input"`, `"transcribe"`, or `"processing"`. Controls
+  whether the input shows the text area, the transcription UI, or a processing
+  state.
+</PropertyReference>
+
+<PropertyReference name="inputToolsMenu" type='(ToolsMenuItem | "-")[]' default="[]">
+  Items for the input's tools menu. Each item has a `label` plus either an
+  `action` callback or nested `items`. Use the `"-"` string to insert a divider.
+</PropertyReference>
+
+<PropertyReference name="isConnecting" type="boolean" default="false">
+  When `true`, suppresses the welcome screen while a thread's initial connect is
+  in flight. Prevents the welcome greeting from flashing between mounting an
+  empty agent and the bootstrap messages arriving.
+</PropertyReference>
+
+<PropertyReference name="hasExplicitThreadId" type="boolean" default="false">
+  When `true`, the caller has explicitly picked a thread, so the welcome screen
+  is suppressed unconditionally and the thread's messages (or an empty panel
+  during connect) are rendered instead of a generic greeting.
+</PropertyReference>
+
+<PropertyReference name="onRemoveAttachment" type="(id: string) => void">
+  Callback invoked when the user removes an attachment from the queue. Receives
+  the attachment id.
+</PropertyReference>
+
+<PropertyReference name="onAddFile" type="() => void">
+  Handler that enables the "add file" affordance on the input. The input only
+  exposes the add-file control when this prop (or an `add-file` listener) is
+  present.
+</PropertyReference>
+
+<PropertyReference name="onDragOver" type="(event: DragEvent) => void">
+  Called on the chat container's `dragover` event. Use it together with the
+  `dragOver` prop to drive a custom drag-and-drop experience.
+</PropertyReference>
+
+<PropertyReference name="onDragLeave" type="(event: DragEvent) => void">
+  Called on the chat container's `dragleave` event.
+</PropertyReference>
+
+<PropertyReference name="onDrop" type="(event: DragEvent) => void">
+  Called on the chat container's `drop` event.
+</PropertyReference>
+
+<PropertyReference name="onFinishTranscribeWithAudio" type="(audioBlob: Blob) => void | Promise<void>">
+  Handler invoked when audio transcription finishes and an audio blob is
+  available. Presence of this prop enables the corresponding control on the
+  input.
+</PropertyReference>
+
+## Events
+
+`CopilotChatView` emits the following events. Listen with `@event-name` in the template.
+
+<PropertyReference name="submit-message" type="(value: string) => void">
+  Emitted when the user submits a message from the input. The payload is the
+  message text.
+</PropertyReference>
+
+<PropertyReference name="stop" type="() => void">
+  Emitted when the user clicks the stop button while the agent is running.
+</PropertyReference>
+
+<PropertyReference name="input-change" type="(value: string) => void">
+  Emitted whenever the input value changes. Use this to keep a controlled
+  `inputValue` in sync.
+</PropertyReference>
+
+<PropertyReference name="select-suggestion" type="(suggestion: Suggestion, index: number) => void">
+  Emitted when the user clicks a suggestion pill. Receives the selected
+  suggestion and its index.
+</PropertyReference>
+
+<PropertyReference name="add-file" type="() => void">
+  Emitted when the user activates the add-file control.
+</PropertyReference>
+
+<PropertyReference name="start-transcribe" type="() => void">
+  Emitted when the user starts audio transcription.
+</PropertyReference>
+
+<PropertyReference name="cancel-transcribe" type="() => void">
+  Emitted when the user cancels audio transcription.
+</PropertyReference>
+
+<PropertyReference name="finish-transcribe" type="() => void">
+  Emitted when the user finishes audio transcription.
+</PropertyReference>
+
+## Slots
+
+Each named slot has a sensible default. Override a slot to replace, restyle, or
+extend that part of the layout. Slots receive scoped props (data and handlers)
+that the default implementation also consumes, so a replacement can reuse them.
+
+<PropertyReference name="message-view" type="{ messages: Message[]; isRunning: boolean }">
+  The message list that renders the conversation transcript. Defaults to
+  `CopilotChatMessageView`. Any additional (unrecognized) slots you pass to
+  `CopilotChatView` are forwarded into the default message view, so you can
+  customize individual message parts without replacing the whole list.
+</PropertyReference>
+
+<PropertyReference name="scroll-view" type="{ messages: Message[]; isRunning: boolean; suggestions: Suggestion[]; loadingIndexes: ReadonlyArray<number>; messagePaddingBottom: string; showScrollToBottomButton: boolean; onSelectSuggestion: (suggestion, index) => void; onScroll: () => void; scrollToBottom: () => void }">
+  The scrollable container wrapping the message list. The default handles
+  auto-scroll behavior and scroll-position tracking. Replace it to implement
+  custom scroll mechanics.
+</PropertyReference>
+
+<PropertyReference name="feather" type="() => unknown">
+  A slot rendered between the scroll view and the input overlay. The default
+  renders an empty element so consumer styling or a replacement can apply a
+  decorative gradient transition above the input.
+</PropertyReference>
+
+<PropertyReference name="scroll-to-bottom-button" type="{ onClick: () => void }">
+  The button that appears when the user has scrolled up from the bottom.
+  Clicking it scrolls the view back to the latest message. The default is a
+  rounded chevron button.
+</PropertyReference>
+
+<PropertyReference name="interrupt" type="{ event: InterruptEvent; result: unknown; resolve: (response: unknown) => void }">
+  Renders an active interrupt (human-in-the-loop) request. Receives the
+  `event` describing the interrupt, the current `result`, and a `resolve`
+  callback to send a response back and resume the run.
+</PropertyReference>
+
+<PropertyReference name="input" type="{ modelValue: string; isRunning: boolean; inputMode: CopilotChatInputMode; inputToolsMenu: (ToolsMenuItem | '-')[]; attachments: Attachment[]; onUpdateModelValue; onSubmitMessage; onStop?; onAddFile; onStartTranscribe; onCancelTranscribe; onFinishTranscribe; onFinishTranscribeWithAudio }">
+  The message input. Defaults to `CopilotChatInput`, which provides a text area
+  with a send button, transcription controls, file upload, and a tools menu.
+  This slot is rendered in both the welcome screen and the main input overlay.
+  Replace it to build a fully custom input experience.
+</PropertyReference>
+
+<PropertyReference name="suggestion-view" type="{ suggestions: Suggestion[]; loadingIndexes: ReadonlyArray<number>; onSelectSuggestion: (suggestion, index) => void }">
+  The component that renders suggestion pills. Defaults to
+  `CopilotChatSuggestionView`. Rendered in the welcome screen and within the
+  transcript when suggestions are present.
+</PropertyReference>
+
+<PropertyReference name="welcome-screen" type="{ suggestions: Suggestion[]; loadingIndexes: ReadonlyArray<number>; attachments: Attachment[]; modelValue: string; isRunning: boolean; inputMode: CopilotChatInputMode; inputToolsMenu: (ToolsMenuItem | '-')[]; onUpdateModelValue; onSubmitMessage; onStop?; onAddFile; onStartTranscribe; onCancelTranscribe; onFinishTranscribe; onFinishTranscribeWithAudio; onSelectSuggestion }">
+  The full welcome screen shown when `messages` is empty and the welcome screen
+  is not suppressed. The default centers the welcome message, the input, and any
+  suggestions. Receives the input and suggestion handlers so a replacement can
+  compose them in a custom layout.
+</PropertyReference>
+
+<PropertyReference name="welcome-message" type="() => unknown">
+  The heading shown inside the default welcome screen. The default renders the
+  configured welcome message text. Override it to provide custom welcome content.
+</PropertyReference>
+
+## Usage
+
+### Standalone Usage
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { CopilotChatView } from "@copilotkit/vue/v2";
+import type { Message } from "@ag-ui/core";
+
+const messages = ref<Message[]>([]);
+const isRunning = ref(false);
+</script>
+
+<template>
+  <CopilotChatView :messages="messages" :is-running="isRunning" />
+</template>
+```
+
+### Controlling the Input Value
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { CopilotChatView } from "@copilotkit/vue/v2";
+
+const inputValue = ref("");
+
+function handleInputChange(value: string) {
+  inputValue.value = value;
+}
+
+function handleSubmit(value: string) {
+  // send the message, then clear the input
+  inputValue.value = "";
+}
+</script>
+
+<template>
+  <CopilotChatView
+    :input-value="inputValue"
+    @input-change="handleInputChange"
+    @submit-message="handleSubmit"
+  />
+</template>
+```
+
+### Replacing a Slot
+
+```vue
+<script setup lang="ts">
+import { CopilotChatView } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotChatView :messages="messages" :is-running="isRunning">
+    <template #welcome-message>
+      <h1 class="text-2xl font-semibold">How can I help you today?</h1>
+    </template>
+
+    <template #scroll-to-bottom-button="{ onClick }">
+      <button type="button" @click="onClick">Jump to latest</button>
+    </template>
+  </CopilotChatView>
+</template>
+```
+
+### Custom Input via the `input` Slot
+
+```vue
+<script setup lang="ts">
+import { CopilotChatView } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotChatView :messages="messages" :is-running="isRunning">
+    <template #input="{ modelValue, onUpdateModelValue, onSubmitMessage }">
+      <form @submit.prevent="onSubmitMessage(modelValue)">
+        <input
+          :value="modelValue"
+          @input="onUpdateModelValue(($event.target as HTMLInputElement).value)"
+        />
+        <button type="submit">Send</button>
+      </form>
+    </template>
+  </CopilotChatView>
+</template>
+```
+
+## Behavior
+
+- **Auto-scroll**: `pin-to-bottom` keeps the latest message visible while the user is at the bottom; `pin-to-send` anchors the latest user message near the top while the assistant streams. A scroll-to-bottom button appears when the user scrolls up.
+- **Welcome screen**: Rendered when `messages` is empty and the welcome screen is not suppressed by `welcomeScreen="false"`, `isConnecting`, or `hasExplicitThreadId`. The welcome screen embeds the input and suggestion slots.
+- **Input overlay positioning**: The input is rendered in an absolutely positioned overlay at the bottom of the chat, and the scroll content is padded to avoid overlap. The component measures the overlay height with a `ResizeObserver` and keeps the padding in sync.
+- **Mobile keyboard**: The view tracks the on-screen keyboard height so the input can translate above the keyboard on mobile devices.
+
+## Related
+
+- [`useAgent`](/reference/vue/hooks/useAgent) -- access and subscribe to an AG-UI agent to drive the chat view
+- [`useSuggestions`](/reference/vue/hooks/useSuggestions) -- generate the suggestion pills shown by this view
+- [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) -- read the labels (including the welcome message text) consumed by the default slots

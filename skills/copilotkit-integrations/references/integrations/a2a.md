@@ -26,59 +26,60 @@ Orchestrator (ADK, port 9000)
 - Python 3.10+
 - Google API key + OpenAI API key
 
-### Next.js Route (app/api/copilotkit/route.ts)
+### Next.js Route (app/api/copilotkit/[[...slug]]/route.ts)
 
 ```typescript
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware";
-import { NextRequest } from "next/server";
+import { handle } from "hono/vercel";
 
-export async function POST(request: NextRequest) {
-  const researchAgentUrl =
-    process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
-  const analysisAgentUrl =
-    process.env.ANALYSIS_AGENT_URL || "http://localhost:9002";
-  const orchestratorUrl =
-    process.env.ORCHESTRATOR_URL || "http://localhost:9000";
+const researchAgentUrl =
+  process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
+const analysisAgentUrl =
+  process.env.ANALYSIS_AGENT_URL || "http://localhost:9002";
+const orchestratorUrl = process.env.ORCHESTRATOR_URL || "http://localhost:9000";
 
-  // Connect to orchestrator via AG-UI Protocol
-  const orchestrationAgent = new HttpAgent({ url: orchestratorUrl });
+// Connect to orchestrator via AG-UI Protocol
+const orchestrationAgent = new HttpAgent({ url: orchestratorUrl });
 
-  // A2A Middleware wraps orchestrator and injects send_message_to_a2a_agent tool
-  const a2aMiddlewareAgent = new A2AMiddlewareAgent({
-    description: "Research assistant with 2 specialized agents",
-    agentUrls: [researchAgentUrl, analysisAgentUrl],
-    orchestrationAgent,
-    instructions: `
-      You are a research assistant that orchestrates between 2 specialized agents.
-      - Research Agent (LangGraph): Gathers and summarizes information
-      - Analysis Agent (ADK): Analyzes research findings
+// A2A Middleware wraps orchestrator and injects send_message_to_a2a_agent tool
+const a2aMiddlewareAgent = new A2AMiddlewareAgent({
+  description: "Research assistant with 2 specialized agents",
+  agentUrls: [researchAgentUrl, analysisAgentUrl],
+  orchestrationAgent,
+  instructions: `
+    You are a research assistant that orchestrates between 2 specialized agents.
+    - Research Agent (LangGraph): Gathers and summarizes information
+    - Analysis Agent (ADK): Analyzes research findings
 
-      When the user asks to research a topic:
-      1. Research Agent - gather information
-      2. Analysis Agent - analyze the findings
-      3. Present the complete research and analysis
-    `,
-  });
+    When the user asks to research a topic:
+    1. Research Agent - gather information
+    2. Analysis Agent - analyze the findings
+    3. Present the complete research and analysis
+  `,
+});
 
-  const runtime = new CopilotRuntime({
-    agents: {
-      a2a_chat: a2aMiddlewareAgent,
-    },
-  });
+const runtime = new CopilotRuntime({
+  agents: {
+    a2a_chat: a2aMiddlewareAgent,
+  },
+  runner: new InMemoryAgentRunner(),
+});
 
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter: new ExperimentalEmptyAdapter(),
-    endpoint: "/api/copilotkit",
-  });
-  return handleRequest(request);
-}
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
 Key patterns:
@@ -88,6 +89,10 @@ Key patterns:
 - `orchestrationAgent` is the main agent that receives requests from the UI
 - `instructions` guide the orchestrator on how to use the specialized agents
 - The middleware automatically injects the `send_message_to_a2a_agent` tool
+
+> The shipped `a2a-middleware` example subclasses `A2AMiddlewareAgent` to recreate an isolated middleware agent per run (overriding `runAgent`/`clone`) so concurrent threads don't share orchestrator state. The flat construction above is the pedagogical baseline; reach for the per-run subclass pattern when serving multiple concurrent users.
+>
+> Cross-reference: the `runtime` skill documents an alternate single-agent A2A path using `A2AAgent` from `@ag-ui/a2a` (connecting directly to one A2A server). Use `A2AMiddlewareAgent` from `@ag-ui/a2a-middleware` (shown here) when orchestrating multiple A2A agents from one chat.
 
 ### Adding New Agents
 
@@ -135,8 +140,14 @@ The main `page.tsx` is minimal -- the agent drives the UI:
 MCP Apps integrate Model Context Protocol servers as middleware on a `BuiltInAgent`:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import {
+  CopilotRuntime,
+  BuiltInAgent,
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+import { handle } from "hono/vercel";
 
 const middlewares = [
   new MCPAppsMiddleware({
@@ -161,7 +172,18 @@ for (const middleware of middlewares) {
 
 const runtime = new CopilotRuntime({
   agents: { default: agent },
+  runner: new InMemoryAgentRunner(),
 });
+
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
 Key patterns:

@@ -1,7 +1,7 @@
 ---
 title: "Fixed Schema A2UI"
 icon: "lucide/FileJson"
-description: "Pre-defined A2UI schema with dynamic data. The fastest approach — no LLM schema generation needed."
+description: "Pre-defined A2UI schema with dynamic data. The fastest approach, with no LLM schema generation needed."
 snippet_cell: a2ui-fixed-schema
 ---
 
@@ -18,13 +18,13 @@ varies between integrations:
 
 - **Schema-loading** (langgraph-python, langgraph-typescript,
   langgraph-fastapi, llamaindex, crewai-crews, pydantic-ai,
-  ms-agent-python, google-adk) — the schema is saved as a `.json`
+  ms-agent-python, google-adk), the schema is saved as a `.json`
   file next to the agent and loaded once at startup.
-- **Schema-inline** (spring-ai, ms-agent-dotnet) — the schema is
+- **Schema-inline** (spring-ai, ms-agent-dotnet), the schema is
   declared inline as a typed literal in source. The host language
   doesn't ship a `load_schema` JSON loader, so the structure is
   compiled in directly.
-- **LLM-driven** (mastra, strands) — the agent runs a secondary LLM
+- **LLM-driven** (mastra, strands), the agent runs a secondary LLM
   call to produce the operations container per-request. The catalog
   is still fixed; the schema is generated on demand.
 
@@ -32,9 +32,7 @@ Ask about a flight and the agent renders a fully structured card from a pre-defi
 
 ## How it works
 
-<FrameworkSetup concept="agent-setup" />
-
-1. The schema is made available to the agent — either loaded from a
+1. The schema is made available to the agent, either loaded from a
    JSON file at startup, declared inline, or generated per-request,
    depending on the integration.
 2. The agent's `display_flight` tool receives data from the primary LLM
@@ -59,7 +57,7 @@ Card
      └─ Button       (Book)
 ```
 
-That tree lives backend-side — as a JSON file, an inline literal, or
+That tree lives backend-side, as a JSON file, an inline literal, or
 a per-request LLM output, depending on the integration. Components
 without data bindings (like `Title` or `Arrow`) carry their value
 inline; components bound to the LLM's data (like `Airport`) reference
@@ -134,7 +132,7 @@ does the rest:
 ### Define the schema inline
 
 Spring AI / .NET don't ship a `load_schema` JSON helper, so the
-component tree is declared inline as a typed literal in source —
+component tree is declared inline as a typed literal in source,
 equivalent to deserialising a `flight_schema.json` but compiled into
 the agent class. The structure is identical to the JSON form; only
 the surface syntax changes:
@@ -177,25 +175,35 @@ A single big `FlightCard` component would be faster to write but would
 lock the design in place. Assembling the card from Card / Column /
 Row / Title / Airport / Arrow / AirlineBadge / PriceTag gives you:
 
-- **Reusable primitives** — the same `Airport` renderer works in
+- **Reusable primitives** the same `Airport` renderer works in
   search results, booking confirmations, and future seat maps.
-- **Schema-level design iteration** — re-arranging rows or swapping a
+- **Schema-level design iteration** re-arranging rows or swapping a
   badge requires only a JSON edit; the renderer code is untouched.
-- **A2UI Composer compatibility** — hand-written and Composer-built
+- **A2UI Composer compatibility** hand-written and Composer-built
   schemas share the same primitive vocabulary.
 
 ## Registering the runtime
 
-On the TypeScript side, A2UI's middleware auto-detects the operations
-in any tool result, so even with a fixed schema, the minimum setup
-is `a2ui: {}`. The `a2ui-fixed-schema` cell happens to also keep
-`injectA2UITool: true` so the same agent can be pointed at
-dynamic-schema workflows later without re-configuring.
+Your agent owns the tool in the fixed-schema approach, so you do not
+want the runtime to inject its own. Enable A2UI but turn injection off.
+
+Passing a catalog on the provider is enough to enable A2UI:
+
+```tsx title="app/page.tsx"
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+  {children}
+</CopilotKit>
+```
+
+Because a catalog auto-injects the A2UI tool by default, set
+`injectA2UITool: false` on the runtime so your agent's own tool is the
+only one in play. The middleware still auto-detects the operations the
+tool returns and renders the surface, with no subagent involved:
 
 ```typescript title="app/api/copilotkit/route.ts"
 const runtime = new CopilotRuntime({
   agents: { "a2ui-fixed-schema": agent },
-  a2ui: { injectA2UITool: true, agents: ["a2ui-fixed-schema"] },
+  a2ui: { injectA2UITool: false, agents: ["a2ui-fixed-schema"] },
 });
 ```
 

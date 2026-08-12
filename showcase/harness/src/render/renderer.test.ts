@@ -21,7 +21,7 @@ describe("renderer", () => {
       { text: "hello {{signal.slug}}" },
       ctx({ signal: { slug: "mastra" } }),
     );
-    expect(out.payload).toEqual({ text: "hello mastra" });
+    expect(out.payload).toEqual({ text: "[unknown] hello mastra" });
     expect(out.contentType).toBe("application/json");
   });
 
@@ -34,7 +34,7 @@ describe("renderer", () => {
       },
       ctx({ trigger: flags }),
     );
-    expect(out.payload.text).toBe("RED");
+    expect(out.payload.text).toBe("[unknown] RED");
   });
 
   it("applies stripAnsi | truncateUtf8 pipeline", () => {
@@ -43,7 +43,7 @@ describe("renderer", () => {
       { text: "summary: {{ signal.details | stripAnsi | truncateUtf8 5 }}" },
       ctx({ signal: { details: "\u001b[31mhello world\u001b[0m" } }),
     );
-    expect(out.payload.text).toBe("summary: hello");
+    expect(out.payload.text).toBe("[unknown] summary: hello");
   });
 
   it("applies truncateCsv with list", () => {
@@ -82,7 +82,7 @@ describe("renderer", () => {
     );
     // Filter output must be inserted AFTER Mustache renders — so the literal
     // `{{env.dashboardUrl}}` survives untouched rather than being resolved.
-    expect(out.payload.text).toBe("body: {{env.dashboardUrl}}");
+    expect(out.payload.text).toBe("[unknown] body: {{env.dashboardUrl}}");
     expect(out.payload.text).not.toContain("https://secret");
   });
 
@@ -97,7 +97,7 @@ describe("renderer", () => {
       { text: "got: {{ signal.__proto__.toString | stripAnsi }}" },
       ctx({ signal: {} }),
     );
-    expect(out.payload.text).toBe("got: ");
+    expect(out.payload.text).toBe("[unknown] got: ");
   });
 
   it("missing paths render empty string, not the literal word 'undefined'", () => {
@@ -109,7 +109,7 @@ describe("renderer", () => {
       { text: "got: {{ signal.not_present | stripAnsi }}" },
       ctx({ signal: {} }),
     );
-    expect(out.payload.text).toBe("got: ");
+    expect(out.payload.text).toBe("[unknown] got: ");
     expect(out.payload.text).not.toContain("undefined");
   });
 
@@ -125,7 +125,7 @@ describe("renderer", () => {
       ctx({ signal: { name: "hello" } }),
     );
     // .toString lives on Object.prototype — must NOT resolve to the method.
-    expect(out.payload.text).toBe("via: ");
+    expect(out.payload.text).toBe("[unknown] via: ");
   });
 
   it("permits array .length in filter path (consistent with Mustache sections)", () => {
@@ -138,7 +138,7 @@ describe("renderer", () => {
       { text: "len: {{ signal.failed.length | stripAnsi }}" },
       ctx({ signal: { failed: ["a", "b", "c"] } }),
     );
-    expect(out.payload.text).toBe("len: 3");
+    expect(out.payload.text).toBe("[unknown] len: 3");
   });
 
   it("strips U+FEFF BOM from template before filter extraction", () => {
@@ -151,7 +151,7 @@ describe("renderer", () => {
       { text: "\uFEFFhello \uFEFF{{ signal.slug | stripAnsi }}\uFEFF" },
       ctx({ signal: { slug: "mastra" } }),
     );
-    expect(out.payload.text).toBe("hello mastra");
+    expect(out.payload.text).toBe("[unknown] hello mastra");
     expect(out.payload.text).not.toContain("\uFEFF");
   });
 
@@ -218,7 +218,7 @@ describe("renderer", () => {
       { text: "link: {{{signal.url}}}" },
       ctx({ signal: { url: "<https://ci/123|run 123>" } }),
     );
-    expect(out.payload.text).toBe("link: <https://ci/123|run 123>");
+    expect(out.payload.text).toBe("[unknown] link: <https://ci/123|run 123>");
   });
 
   // HF-A4: filter pipeline throw must propagate out of render() rather than
@@ -258,5 +258,51 @@ describe("renderer", () => {
     // The critical invariant: the `slackEscape` filter DOES NOT execute (if
     // it did, `<` would become `&lt;`). That's the only thing we're pinning.
     expect(out.payload.text).not.toContain("&lt;");
+  });
+
+  // Source-env prefix: every alert states whether it came from staging or
+  // production so operators can triage without guessing. Applied at the
+  // single render chokepoint so all rule templates get it automatically.
+  it("prefixes the rendered alert with the staging source-env tag", () => {
+    const r = createRenderer();
+    const out = r.render(
+      { text: ":x: smoke failing {{signal.slug}}" },
+      ctx({
+        signal: { slug: "langgraph-js" },
+        env: {
+          dashboardUrl: "https://d",
+          repo: "r/r",
+          sourceEnv: "staging",
+        },
+      }),
+    );
+    expect(out.payload.text).toBe("[staging] :x: smoke failing langgraph-js");
+  });
+
+  it("prefixes the rendered alert with the production source-env tag", () => {
+    const r = createRenderer();
+    const out = r.render(
+      { text: ":x: smoke failing {{signal.slug}}" },
+      ctx({
+        signal: { slug: "mastra" },
+        env: {
+          dashboardUrl: "https://d",
+          repo: "r/r",
+          sourceEnv: "production",
+        },
+      }),
+    );
+    expect(out.payload.text).toBe("[production] :x: smoke failing mastra");
+  });
+
+  it("falls back to [unknown] when sourceEnv is missing or empty", () => {
+    const r = createRenderer();
+    const missing = r.render({ text: "ping" }, ctx({}));
+    expect(missing.payload.text).toBe("[unknown] ping");
+    const empty = r.render(
+      { text: "ping" },
+      ctx({ env: { dashboardUrl: "https://d", repo: "r/r", sourceEnv: "  " } }),
+    );
+    expect(empty.payload.text).toBe("[unknown] ping");
   });
 });

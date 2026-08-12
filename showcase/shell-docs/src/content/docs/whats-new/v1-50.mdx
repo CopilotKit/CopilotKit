@@ -19,7 +19,8 @@ npm install @copilotkit/react-core@latest @copilotkit/react-ui@latest @copilotki
 
 # Overview
 
-CopilotKit v1.50 is a major update. It includes many highly sought after new features, under the hood improvements and simplifications, and extensive improvements to existing core elements:
+CopilotKit v1.50 is a major update. It includes requested features, internal
+simplifications, and improvements to existing core elements:
 
 | Feature                                                           | Description                                                                                                                      |
 | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -48,12 +49,12 @@ You can opt into any of the new developer interfaces or keep using the old ones.
 - New v2 APIs are exposed under a subpath:
 
   ```tsx
-
+  import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";
   ```
 
 ---
 
-# `useAgent`
+# useAgent
 
 The v2 hook useAgent is a proper superset of `useCoAgent` which gives more control over the agent connection, including:
 
@@ -110,11 +111,12 @@ v1.50 is available now, with useAgent fully ready. The other features (listed be
 
 ### Threads & Persistence
 
-v1.50 delivers support for threaded conversations, with built in thread storage and connection components. Support for development with InMemory or SQLite is provided out of the box.
+v1.50 delivers support for threaded conversations, with built-in thread storage
+and connection components. For development, use InMemory or SQLite.
 
 #### Thread storage
 
-    - **For development:** `InMemory` or `SQLite` out of the box
+    - **For development:** `InMemory` or `SQLite`
 
         ```tsx
 
@@ -127,8 +129,8 @@ v1.50 delivers support for threaded conversations, with built in thread storage 
         ```
 
     - **For production**
-        - **Coming soon! -** Use **Copilot Cloud** (managed) or **Copilot Enterprise** (self hosted) to persist threads to your own databases, get automatic stream reconnection, in-built product analytics.
-            - **👉 Join the [Enterprise Early Access](https://go.copilotkit.ai/enterprise-threads-waitlist) waitlist!**
+        - Use the **Enterprise Intelligence Platform**, managed via **Copilot Cloud** or self-hosted via **Copilot Enterprise**, to persist threads, get automatic stream reconnection, and in-built product analytics. See the [Threads guide](/threads) to get started on the free Developer tier.
+            - **👉 Join the [Enterprise Early Access](https://go.copilotkit.ai/enterprise-threads-waitlist) form.**
 
 #### Thread connection
 
@@ -180,17 +182,16 @@ Earlier versions of CopilotKit required GraphQL installation. That is completely
 
 Our direct to LLM integration now supports more models and implements shared state.
 
-#### BasicAgent - Now with broader model support
+#### BuiltInAgent - Now with broader model support
 
 ```tsx
-
 const runtime = new CopilotRuntime({
   agents: {
-    myBasicAgent: new BasicAgent({
-		  model: "openai/gpt-5.4", // much broader model support
-		  prompt: "You are a helpful AI assistant.",
-		  temperature: 0.7,
-		});
+    myAgent: new BuiltInAgent({
+      model: "openai/gpt-4o-mini", // much broader model support
+      prompt: "You are a helpful AI assistant.",
+      temperature: 0.7,
+    }),
   },
 });
 ```
@@ -198,7 +199,7 @@ const runtime = new CopilotRuntime({
 #### Shared state support
 
 ```tsx
-const { agent } = useAgent({ agentId: "myBasicAgent" });
+const { agent } = useAgent({ agentId: "myAgent" });
 const { state, setState } = agent;
 ```
 
@@ -210,7 +211,7 @@ const { state, setState } = agent;
 
 If you run into anything unexpected:
 
-→ **Please raise an issue in the CopilotKit [Discord support channel](https://go.copilotkit.ai/discord)**
+**Please raise an issue in the CopilotKit [Discord support channel](https://go.copilotkit.ai/discord).**
 
 Your feedback is incredibly valuable at this stage.
 

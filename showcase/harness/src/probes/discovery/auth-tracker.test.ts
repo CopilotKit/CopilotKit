@@ -31,9 +31,12 @@ function makeWriter(): StatusWriter & { writes: ProbeResult<unknown>[] } {
           transition: "first",
           firstFailureAt: null,
           failCount: 0,
+          persisted: true,
         };
       },
     ),
+    // H1 overlay path — unused by these tests; present to satisfy StatusWriter.
+    writeOverlay: vi.fn(async () => ({ applied: false, state: null })),
   };
 }
 

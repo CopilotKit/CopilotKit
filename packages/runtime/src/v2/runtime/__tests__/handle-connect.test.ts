@@ -1,9 +1,10 @@
 import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
-import { BaseEvent } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import { handleConnectAgent } from "../handlers/handle-connect";
-import { CopilotRuntime } from "../core/runtime";
-import { AgentRunnerConnectRequest } from "../runner/agent-runner";
+import type { CopilotRuntime } from "../core/runtime";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
+import type { AgentRunnerConnectRequest } from "../runner/agent-runner";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 
 describe("handleConnectAgent", () => {
@@ -18,6 +19,7 @@ describe("handleConnectAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: {
         run: () =>
           new Observable<BaseEvent>((subscriber) => {
@@ -32,7 +34,7 @@ describe("handleConnectAgent", () => {
         isRunning: async () => false,
         stop: async () => false,
       },
-    } as CopilotRuntime;
+    } as unknown as CopilotRuntime;
   };
 
   it("should return 404 when agent does not exist", async () => {
@@ -434,7 +436,7 @@ describe("handleConnectAgent", () => {
         .fn()
         .mockResolvedValue({ id: "resolved-user", name: "Resolved User" });
       const runtime = createIntelligenceRuntime(platform);
-      runtime.identifyUser = identifyUser;
+      Object.assign(runtime, { identifyUser });
       const request = createConnectRequest(
         { "X-User-Id": "legacy-user" },
         "event-9",
@@ -461,9 +463,9 @@ describe("handleConnectAgent", () => {
         ɵconnectThread: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(platform);
-      runtime.identifyUser = vi
-        .fn()
-        .mockResolvedValue({ id: "", name: "User" });
+      Object.assign(runtime, {
+        identifyUser: vi.fn().mockResolvedValue({ id: "", name: "User" }),
+      });
 
       const response = await handleConnectAgent({
         runtime,
@@ -480,9 +482,9 @@ describe("handleConnectAgent", () => {
         ɵconnectThread: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(platform);
-      runtime.identifyUser = vi
-        .fn()
-        .mockResolvedValue({ id: "user-1", name: "" });
+      Object.assign(runtime, {
+        identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "" }),
+      });
 
       const response = await handleConnectAgent({
         runtime,
@@ -499,9 +501,9 @@ describe("handleConnectAgent", () => {
         ɵconnectThread: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(platform);
-      runtime.identifyUser = vi
-        .fn()
-        .mockRejectedValue(new Error("auth failed"));
+      Object.assign(runtime, {
+        identifyUser: vi.fn().mockRejectedValue(new Error("auth failed")),
+      });
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       try {

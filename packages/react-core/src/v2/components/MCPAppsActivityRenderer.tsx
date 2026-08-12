@@ -5,6 +5,56 @@ import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 
+/**
+ * The subset of `CopilotKitCore` that {@link ɵrunMcpFollowUp} depends on.
+ * Declared structurally so the runner can be unit-tested without a full core.
+ */
+export interface ɵMcpFollowUpHost {
+  runAgent(params: { agent: AbstractAgent }): Promise<RunAgentResult>;
+}
+
+/**
+ * Run an MCP app `ui/message` follow-up, scoped to the thread it was enqueued
+ * for (issue #5819).
+ *
+ * The MCP request queue delays follow-up work until the agent is idle. There is
+ * a single shared registry agent per id, and switching threads overwrites its
+ * `threadId`/`messages` in place. So if the host switches threads while a
+ * follow-up is queued, running it now would execute against — and stream into —
+ * the now-foreground thread.
+ *
+ * - **Same thread** (the common case): run on the shared agent, unchanged.
+ * - **Thread changed**: the shared agent has moved on, so the follow-up can no
+ *   longer run in its originating thread's context. Drop it rather than leak it
+ *   into the current thread. (The MCP app already received its `ui/message` ack
+ *   at enqueue time; only the optional agent turn is skipped.)
+ *
+ * @internal exported for testing.
+ */
+export async function ɵrunMcpFollowUp({
+  host,
+  agent,
+  capturedThreadId,
+}: {
+  host: ɵMcpFollowUpHost;
+  agent: AbstractAgent;
+  capturedThreadId: string;
+}): Promise<RunAgentResult> {
+  const currentThreadId = agent.threadId || "default";
+  const originThreadId = capturedThreadId || "default";
+
+  if (currentThreadId === originThreadId) {
+    return host.runAgent({ agent });
+  }
+
+  console.warn(
+    "[MCPAppsRenderer] ui/message follow-up dropped: the thread changed " +
+      `(${originThreadId} → ${currentThreadId}) between enqueue and execution, ` +
+      "so running it would leak into the now-foreground thread.",
+  );
+  return { result: undefined, newMessages: [] };
+}
+
 // Protocol version supported
 const PROTOCOL_VERSION = "2025-06-18";
 
@@ -450,6 +500,15 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             "sandbox",
             "allow-scripts allow-same-origin allow-forms",
           );
+          // Cross-frontend MCP-apps surface contract: the host-created sandbox
+          // iframe is the addressable render surface for the MCP app, and every
+          // frontend must expose it under the SAME testid so one shared probe
+          // (harness `d5-mcp-apps`) and one shared e2e spec can assert the
+          // surface mounted without per-frontend selectors. Angular declares
+          // the same pair on its `copilot-mcp-apps-widget` template iframe;
+          // Vue's renderer mirrors this block.
+          iframe.setAttribute("data-testid", "mcp-app-iframe");
+          iframe.setAttribute("title", "Interactive MCP application");
 
           // Wait for sandbox proxy to be ready
           const sandboxReady = new Promise<void>((resolve) => {
@@ -570,12 +629,24 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                     const shouldFollowUp = params.followUp ?? role === "user";
 
                     if (shouldFollowUp && textContent) {
+                      // Capture the thread this work is enqueued for NOW. The
+                      // queue delays it until the agent is idle; if the host
+                      // switches threads meanwhile, the shared agent's threadId
+                      // is overwritten. ɵrunMcpFollowUp compares against the
+                      // capture so a stale follow-up is dropped rather than run
+                      // against the now-foreground thread (issue #5819).
+                      const capturedThreadId =
+                        currentAgent.threadId || "default";
                       // Use copilotkit.runAgent to go through RunHandler — provides
                       // frontend tools, context, tool execution, and abort support.
                       // Fire-and-forget: errors are handled by RunHandler's error emission.
                       mcpAppsRequestQueue
                         .enqueue(currentAgent, () =>
-                          copilotkit.runAgent({ agent: currentAgent }),
+                          ɵrunMcpFollowUp({
+                            host: copilotkit,
+                            agent: currentAgent,
+                            capturedThreadId,
+                          }),
                         )
                         .catch((err) =>
                           console.error(

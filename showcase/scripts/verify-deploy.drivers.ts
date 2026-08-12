@@ -57,6 +57,17 @@ export async function runDriver(target: ProbeTarget): Promise<ProbeOutcome> {
         return (await import("./verify-deploy.drivers.agent")).probeAgent(
           target,
         );
+      case "starter":
+        // The starter-template fleet (`starter-<slug>`) is verified by the
+        // verify-deploy baseline driver (deployment-SUCCESS + HTTP 200 on
+        // `/`), exactly like the Next.js shells — the starters EXPOSE only
+        // their Next.js frontend (serving `/` + `/api/copilotkit`, NO
+        // `/api/health`), so `/` is the only correct healthcheck. Starters
+        // are always-on + staging-probed, so resolve-verify-matrix routes
+        // them here like every other managed showcase service.
+        return (await import("./verify-deploy.drivers.starter")).probeStarter(
+          target,
+        );
       default: {
         const exhaustive: never = target.driver;
         return { ok: false, error: `unknown driver: ${String(exhaustive)}` };

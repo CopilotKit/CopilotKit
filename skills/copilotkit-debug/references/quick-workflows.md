@@ -11,14 +11,14 @@ curl -v http://localhost:3001/api/copilotkit/info
 ```
 
 - **No response / connection refused** -> The server is not running. Start it.
-- **404** -> The basePath is wrong. Check `createCopilotEndpoint({ basePath })` vs the URL you are hitting.
+- **404** -> The basePath is wrong. Check `createCopilotRuntimeHandler({ basePath })` vs the URL you are hitting.
 - **500** -> The agent loading failed. Check server logs for the error.
 - **200 with JSON** -> Runtime is up. Proceed to step 2.
 
 ### Step 2: Check the client configuration
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit">
+<CopilotKit runtimeUrl="/api/copilotkit">
 ```
 
 - Does `runtimeUrl` match the runtime's basePath exactly?
@@ -34,17 +34,17 @@ curl -v http://localhost:3001/api/copilotkit/info
 ### Step 4: Check package versions
 
 ```bash
-npm ls @copilotkit/runtime @copilotkit/react @copilotkit/core @ag-ui/client
+npm ls @copilotkit/runtime @copilotkit/react-core @copilotkit/core @ag-ui/client
 ```
 
 All `@copilotkit/*` packages should be the same version. Mismatches cause `VERSION_MISMATCH` errors.
 
 ### Step 5: Check CORS (if cross-origin)
 
-Default CORS allows all origins without credentials. If you need credentials:
+With `cors: true`, the default CORS policy allows all origins without credentials. If you need credentials:
 
 ```ts
-createCopilotEndpoint({
+createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: {
@@ -57,7 +57,7 @@ createCopilotEndpoint({
 And on the client:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="https://your-api.com/api/copilotkit"
   credentials="include"
 />

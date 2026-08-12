@@ -128,8 +128,11 @@ function getOrCreateThreadClone(
  * ```
  */
 export function useAgent(props: UseAgentProps = {}) {
-  const agentId = computed(() => toValue(props.agentId) ?? DEFAULT_AGENT_ID);
   const chatConfig = useCopilotChatConfiguration();
+  const agentId = computed(
+    () =>
+      toValue(props.agentId) ?? chatConfig.value?.agentId ?? DEFAULT_AGENT_ID,
+  );
   const threadId = computed(
     () => toValue(props.threadId) ?? chatConfig.value?.threadId,
   );

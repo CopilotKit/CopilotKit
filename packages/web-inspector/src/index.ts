@@ -11,14 +11,23 @@ import type { CopilotKitCore } from "@copilotkit/core";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
   ɵselectThreads,
+  ɵselectThreadsIsLoading,
   ɵselectThreadsError,
   ɵcreateThreadStore,
+  ɵselectMemories,
+  ɵselectMemoriesIsLoading,
+  ɵselectMemoriesError,
+  ɵselectMemoriesAvailable,
+  ɵselectMemoriesRealtimeStatus,
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
   CopilotKitCoreErrorCode,
   ɵThreadStore,
   ɵThread,
+  Memory,
+  MemoryRealtimeStatus,
+  RuntimeLicenseStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -28,7 +37,7 @@ import type {
   DockMode,
   Position,
   Size,
-} from "./lib/types";
+} from "./lib/types.js";
 import {
   applyAnchorPosition as applyAnchorPositionHelper,
   centerContext as centerContextHelper,
@@ -37,7 +46,7 @@ import {
   updateAnchorFromPosition as updateAnchorFromPositionHelper,
   updateSizeFromElement,
   clampSize as clampSizeToViewport,
-} from "./lib/context-helpers";
+} from "./lib/context-helpers.js";
 import {
   loadInspectorState,
   saveInspectorState,
@@ -45,35 +54,129 @@ import {
   isValidPosition,
   isValidSize,
   isValidDockMode,
-} from "./lib/persistence";
-import type { PersistedState } from "./lib/persistence";
+} from "./lib/persistence.js";
+import type { PersistedState } from "./lib/persistence.js";
+import { projectInspectorMetadata } from "./lib/inspector-metadata.js";
+import type {
+  InspectorMetadataAction,
+  InspectorMetadataProjection,
+} from "./lib/inspector-metadata.js";
+import { selectVisibleRealThreadId } from "./lib/thread-selection.js";
 import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
+  getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
   trackBannerClicked,
+  trackBannerDismissed,
   trackBannerViewed,
+  trackInspectorOpened,
+  trackMetadataActionClicked,
+  trackMetadataModuleViewed,
+  trackTalkToEngineerClicked,
+  trackThreadsEmptyEnabledViewed,
+  trackThreadsEnabledViewed,
+  trackThreadsExampleSelected,
+  trackThreadsExampleTourCompleted,
+  trackThreadsExampleTourDismissed,
+  trackThreadsExampleTourReopened,
+  trackThreadsExampleTourStarted,
+  trackThreadsExampleTourStepViewed,
+  trackThreadsExampleViewed,
+  trackThreadsIntelligenceSignupClicked,
+  trackThreadsLockedViewed,
+  trackMemoriesTabClicked,
   trackThreadsTabClicked,
-} from "./lib/telemetry";
+  trackThreadsTalkToEngineerClicked,
+} from "./lib/telemetry.js";
+import type {
+  BannerSurface,
+  ExampleKind,
+  ExampleTourStep,
+  ExampleTourTab,
+  InspectorMetadataLicenseBucket,
+  InspectorMetadataModuleViewedTelemetryProps,
+  InspectorMetadataTelemetryModule,
+  InspectorMemoryTelemetryProps,
+  InspectorOpenSource,
+  InspectorThreadTelemetryProps,
+  MetadataActionPlacement,
+  ThreadsExpiryBucket,
+  ThreadsUsageBucket,
+} from "./lib/telemetry.js";
+
+export type { Anchor } from "./lib/types.js";
+export { buildCapabilityRows as ɵbuildCapabilityRows };
+export type { CapabilityToolRow as ɵCapabilityToolRow };
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
+export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
+
+/**
+ * User-facing label for the memory view header. The legacy menu key stays
+ * "memories" for persistence and telemetry stability.
+ */
+const MEMORY_VIEW_LABEL = "Memory";
 
 type LucideIconName = keyof typeof icons;
 
-type MenuKey =
-  | "ag-ui-events"
-  | "agents"
-  | "frontend-tools"
-  | "agent-context"
-  | "threads"
-  | "settings";
+const INSPECTOR_GROUPS = {
+  threads: ["threads"],
+  agents: [
+    "ag-ui-events",
+    "agents",
+    "frontend-tools",
+    "capabilities",
+    "agent-context",
+  ],
+  learning: ["memories"],
+} as const;
+
+type InspectorGroupKey = keyof typeof INSPECTOR_GROUPS;
+type MenuKey = (typeof INSPECTOR_GROUPS)[InspectorGroupKey][number];
+
+const INSPECTOR_MENU_KEYS: ReadonlyArray<MenuKey> = [
+  ...INSPECTOR_GROUPS.threads,
+  ...INSPECTOR_GROUPS.agents,
+  ...INSPECTOR_GROUPS.learning,
+];
+
+/** Return whether persisted state names a legacy Inspector leaf. */
+function isInspectorMenuKey(value: unknown): value is MenuKey {
+  return (
+    typeof value === "string" &&
+    INSPECTOR_MENU_KEYS.some((menuKey) => menuKey === value)
+  );
+}
 
 type MenuItem = {
   key: MenuKey;
   label: string;
   icon: LucideIconName;
 };
+
+const INSPECTOR_PRIMARY_NAVIGATION = [
+  {
+    key: "threads",
+    label: "Threads",
+    icon: "MessageSquare",
+  },
+  {
+    key: "agents",
+    label: "Agents",
+    icon: "Bot",
+  },
+  {
+    key: "learning",
+    label: "Learning",
+    icon: "Brain",
+  },
+] as const satisfies ReadonlyArray<{
+  key: InspectorGroupKey;
+  label: string;
+  icon: LucideIconName;
+}>;
 
 const EDGE_MARGIN = 16;
 const DRAG_THRESHOLD = 6;
@@ -87,12 +190,95 @@ const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
 const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
+const INTERACTIVE_FOCUS_BASE_STYLE =
+  "outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;";
+// Cap on banner impressions held while waiting for the runtime handshake, so a
+// runtime that never connects can't accumulate an unbounded queue.
+const MAX_PENDING_BANNER_VIEWED = 20;
 const MAX_TOTAL_EVENTS = 500;
+const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
+const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
+// Label for the Capabilities tab (client-authoritative dev experimentation
+// surface: toggle frontend tools + A2UI catalog components on/off, enforced
+// immediately via core.setToolEnabled / core.setCatalogComponentEnabled).
+// Renameable — keep the display string in this one place.
+const CAPABILITIES_TAB_LABEL = "Capabilities";
+const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
+const THREADS_RUNTIME_SETUP_DOCS_URL =
+  "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes";
+const THREADS_RUNTIME_SETUP_PROMPT = [
+  `Read ${THREADS_RUNTIME_SETUP_DOCS_URL} and finish setting up Rich Threads in this repository.`,
+  "",
+  "First inspect the repository's agent instructions, installed CopilotKit versions, Runtime adapter, frontend provider, route or proxy setup, and existing authentication. Preserve the current framework and deployment model. Preserve existing authentication middleware and access checks on every Runtime route.",
+  "",
+  "Follow the guide to enable the multi-route Runtime, align the frontend transport, scope identifyUser to the existing server-verified signed-in application user, and expose the full Runtime subtree for GET, POST, PATCH, and DELETE. Never use a fixed demo identity in production. If no trusted user identity exists, stop and ask me which auth source to use.",
+  "",
+  "Start the app and verify GET {basePath}/info reports threadEndpoints.list, inspect, mutations, and realtimeMetadata as true. Run focused tests, lint, and typecheck. Report the files changed, commands run, and verification result. If blocked, explain the missing input; do not invent setup.",
+].join("\n");
+const SELF_HOSTED_INTELLIGENCE_URL =
+  "https://docs.copilotkit.ai/premium/self-hosting";
+const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
+  "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
+const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
+  "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.";
+const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
+  "cpk:inspector:threads-example-tour:v1";
+const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
+
+type ThreadServiceStatus = "available" | "unavailable" | "unknown" | "error";
+type ThreadsExampleOverviewVideoState =
+  | "deferred"
+  | "ready"
+  | "playing"
+  | "failed";
+type ThreadsSetupPromptCopyState = "idle" | "copied" | "error";
+type ThreadsExampleOverviewVideoListeners = Readonly<{
+  loadeddata: EventListener;
+  play: EventListener;
+  pause: EventListener;
+  error: EventListener;
+}>;
+
+type ThreadStoreStatus = Readonly<{
+  error: Error | null;
+  isLoading: boolean;
+}>;
+
+/**
+ * Selects the Thread store status with a stable object identity so loading-only
+ * transitions reach one of the Inspector's two existing store subscriptions.
+ */
+function createThreadStoreStatusSelector(): (
+  state: ReturnType<ɵThreadStore["getState"]>,
+) => ThreadStoreStatus {
+  let previousError: Error | null | undefined;
+  let previousIsLoading: boolean | undefined;
+  let previousStatus: ThreadStoreStatus | undefined;
+
+  return (state) => {
+    const error = ɵselectThreadsError(state);
+    const isLoading = ɵselectThreadsIsLoading(state);
+    if (
+      previousStatus &&
+      previousError === error &&
+      previousIsLoading === isLoading
+    ) {
+      return previousStatus;
+    }
+
+    previousError = error;
+    previousIsLoading = isLoading;
+    previousStatus = { error, isLoading };
+    return previousStatus;
+  };
+}
 
 type InspectorAgentEventType =
   | "RUN_STARTED"
   | "RUN_FINISHED"
   | "RUN_ERROR"
+  | "STEP_STARTED"
+  | "STEP_FINISHED"
   | "TEXT_MESSAGE_START"
   | "TEXT_MESSAGE_CONTENT"
   | "TEXT_MESSAGE_END"
@@ -118,6 +304,8 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "RUN_STARTED",
   "RUN_FINISHED",
   "RUN_ERROR",
+  "STEP_STARTED",
+  "STEP_FINISHED",
   "TEXT_MESSAGE_START",
   "TEXT_MESSAGE_CONTENT",
   "TEXT_MESSAGE_END",
@@ -176,6 +364,55 @@ type InspectorToolDefinition = {
   type: "handler" | "renderer";
 };
 
+// ─── Capabilities tab view-models ────────────────────────────────────────────
+// A single toggle row. `key` is the stable identity used as a Lit list key; for
+// tools it is `${agentId}:${name}` (agentId "" for global tools), for catalog
+// components it is the component name.
+type CapabilityToolRow = {
+  key: string;
+  name: string;
+  description?: string;
+  agentId?: string;
+  enabled: boolean;
+};
+
+// Minimal structural view of CopilotKitCore that the pure helper needs, so
+// buildCapabilityRows is trivially unit-testable with a plain object. Method
+// names MUST match the A1 contract exactly.
+type CapabilityToolSource = {
+  tools?: ReadonlyArray<{
+    name: string;
+    description?: string;
+    agentId?: string;
+  }>;
+  isToolEnabled: (name: string, agentId?: string) => boolean;
+};
+
+/**
+ * Map core.tools (the registry INCLUDING disabled tools) into Capabilities-tab
+ * frontend-tool rows. Pure: no DOM, no `this`. Reads current on/off state from
+ * core.isToolEnabled(name, agentId?) per the A1 contract.
+ */
+function buildCapabilityRows(core: CapabilityToolSource): CapabilityToolRow[] {
+  const rows: CapabilityToolRow[] = [];
+  for (const tool of core.tools ?? []) {
+    const agentId = tool.agentId ?? "";
+    const key = `${agentId}:${tool.name}`;
+    rows.push({
+      key,
+      name: tool.name,
+      description: tool.description,
+      agentId: tool.agentId,
+      enabled: core.isToolEnabled(tool.name, tool.agentId),
+    });
+  }
+  return rows.sort((a, b) => {
+    const agentCompare = (a.agentId ?? "").localeCompare(b.agentId ?? "");
+    if (agentCompare !== 0) return agentCompare;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 type InspectorEvent = {
   id: string;
   agentId: string;
@@ -186,15 +423,62 @@ type InspectorEvent = {
 
 // ─── Thread details types ────────────────────────────────────────────────────
 
-interface ApiThreadMessage {
+export type ThreadDebuggerProviderLoadOptions = {
+  signal: AbortSignal;
+};
+
+export type ThreadDebuggerToolCall = {
+  id: string;
+  name: string;
+  args: string | Record<string, unknown>;
+};
+
+export type ThreadDebuggerMessage = {
   id: string;
   role: string;
   content?: string;
-  toolCalls?: Array<{ id: string; name: string; args: string }>;
+  toolCalls?: ThreadDebuggerToolCall[];
   toolCallId?: string;
   /** Present when role === "activity" (Generative UI output). */
   activityType?: string;
-}
+};
+
+export type ThreadDebuggerEvent = {
+  type: string;
+  timestamp: string | number;
+  payload?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+export type ThreadDebuggerMetadata = {
+  id: string;
+  name?: string | null;
+  agentId?: string | null;
+  endUserId?: string | null;
+  createdById?: string | null;
+  status?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type ThreadDebuggerProvider = {
+  getThreadMetadata?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<ThreadDebuggerMetadata | null>;
+  getMessages?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<ThreadDebuggerMessage[]>;
+  getEvents?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<ThreadDebuggerEvent[]>;
+  getState?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<Record<string, unknown> | null>;
+};
 
 interface ConversationUser {
   id: string;
@@ -268,9 +552,310 @@ interface ApiAgentEvent {
   type: string;
   timestamp: string | number;
   payload: Record<string, unknown>;
+  sourceIndex?: number;
+  rawEvent?: ThreadDebuggerEvent;
 }
 
-type ThreadDetailsTab = "conversation" | "agent-state" | "ag-ui-events";
+type ThreadDetailsTab = "timeline" | "state" | "raw-events";
+type ThreadDetailsPanelCacheSlot = ThreadDetailsTab | "timeline-fallback";
+
+type TimelineItemKind =
+  | "message"
+  | "tool"
+  | "state"
+  | "run"
+  | "event"
+  | "warning";
+
+type TimelineItem = {
+  id: string;
+  kind: TimelineItemKind;
+  title: string;
+  body?: string;
+  timestamp: string | number;
+  sourceIndex: number;
+  severity?: "warning" | "error";
+  details?: Record<string, unknown>;
+};
+
+type RuntimeEventsFetchResult =
+  | { status: "available"; events: ThreadDebuggerEvent[] }
+  | { status: "not-available" };
+
+type RuntimeStateFetchResult =
+  | { status: "available"; state: Record<string, unknown> | null }
+  | { status: "not-available" };
+
+type ExampleThread = ɵThread & { isExample: true };
+
+type ExampleThreadDetails = {
+  messages: ThreadDebuggerMessage[];
+  events: ThreadDebuggerEvent[];
+  state: Record<string, unknown>;
+};
+
+const THREADS_EXAMPLE_THREADS: ExampleThread[] = [
+  {
+    id: "example-realtime-sync",
+    name: "Realtime thread sync",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-08T16:00:00.000Z",
+    updatedAt: "2026-07-08T16:30:00.000Z",
+    isExample: true,
+  },
+  {
+    id: "example-manage-history",
+    name: "Manage saved conversations",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-07T17:45:00.000Z",
+    updatedAt: "2026-07-07T18:15:00.000Z",
+    isExample: true,
+  },
+  {
+    id: "example-inspect-runs",
+    name: "Inspect durable run history",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-06T20:15:00.000Z",
+    updatedAt: "2026-07-06T20:45:00.000Z",
+    isExample: true,
+  },
+];
+
+/** Map Sam's fixed example IDs to a closed telemetry vocabulary. */
+function getExampleKind(threadId: string): ExampleKind | undefined {
+  switch (threadId) {
+    case "example-realtime-sync":
+      return "realtime_sync";
+    case "example-manage-history":
+      return "manage_history";
+    case "example-inspect-runs":
+      return "inspect_runs";
+    default:
+      return undefined;
+  }
+}
+
+const THREADS_EXAMPLE_DETAILS: Record<string, ExampleThreadDetails> = {
+  "example-realtime-sync": {
+    messages: [
+      {
+        id: "example-sync-user",
+        role: "user",
+        content: "Resume the checkout support thread from yesterday.",
+      },
+      {
+        id: "example-sync-assistant",
+        role: "assistant",
+        content:
+          "I found the saved thread, restored the cart state, and continued from the latest user message.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-08T16:30:00.000Z",
+        payload: {
+          threadId: "example-realtime-sync",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "MESSAGES_SNAPSHOT",
+        timestamp: "2026-07-08T16:30:01.000Z",
+        payload: {
+          messageCount: 6,
+          source: "thread-history",
+        },
+      },
+      {
+        type: "STATE_SNAPSHOT",
+        timestamp: "2026-07-08T16:30:02.000Z",
+        payload: {
+          cartId: "cart_demo_42",
+          checkoutStep: "shipping",
+          resumed: true,
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-08T16:30:04.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      cartId: "cart_demo_42",
+      checkoutStep: "shipping",
+      userIntent: "resume_previous_checkout",
+      persistedThread: true,
+    },
+  },
+  "example-manage-history": {
+    messages: [
+      {
+        id: "example-history-user",
+        role: "user",
+        content: "Rename this saved support conversation for the handoff.",
+      },
+      {
+        id: "example-history-assistant",
+        role: "assistant",
+        content:
+          "Renamed the thread and kept the prior messages available for the next session.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-07T18:15:00.000Z",
+        payload: {
+          threadId: "example-manage-history",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "CUSTOM_EVENT",
+        timestamp: "2026-07-07T18:15:01.000Z",
+        payload: {
+          action: "thread_renamed",
+          previousName: "Untitled",
+          name: "Billing escalation handoff",
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-07T18:15:03.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      name: "Billing escalation handoff",
+      savedMessages: 14,
+      lastHandoff: "support-team",
+    },
+  },
+  "example-inspect-runs": {
+    messages: [
+      {
+        id: "example-inspect-user",
+        role: "user",
+        content: "Why did the assistant recommend the enterprise plan?",
+      },
+      {
+        id: "example-inspect-assistant",
+        role: "assistant",
+        content:
+          "The recommendation came from the account size, SSO requirement, and audit-log constraint in state.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-06T20:45:00.000Z",
+        payload: {
+          threadId: "example-inspect-runs",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "TOOL_CALL_START",
+        timestamp: "2026-07-06T20:45:01.000Z",
+        payload: {
+          toolCallId: "call_account_lookup",
+          toolName: "lookupAccount",
+        },
+      },
+      {
+        type: "TOOL_CALL_RESULT",
+        timestamp: "2026-07-06T20:45:02.000Z",
+        payload: {
+          toolCallId: "call_account_lookup",
+          seats: 220,
+          requiresSso: true,
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-06T20:45:04.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      accountTier: "growth",
+      seats: 220,
+      requiresSso: true,
+      auditLogsRequired: true,
+    },
+  },
+};
+
+const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
+  tab: ThreadDetailsTab;
+  label: string;
+  title: string;
+  body: string;
+}> = [
+  {
+    tab: "timeline",
+    label: "Messages",
+    title: "Read the run as a story",
+    body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
+  },
+  {
+    tab: "raw-events",
+    label: "AG-UI Events",
+    title: "Drop into the protocol payloads",
+    body: "Raw events show the exact AG-UI stream behind the timeline when you need to verify ordering or payload shape.",
+  },
+  {
+    tab: "state",
+    label: "State",
+    title: "Check the durable state",
+    body: "The state tab shows the saved values that make a thread resumable across sessions.",
+  },
+];
+
+type ExampleTourTelemetryPair = Readonly<{
+  tour_step: ExampleTourStep;
+  tour_tab: ExampleTourTab;
+}>;
+
+/** Return only the three supported tour step/tab pairs. */
+function getExampleTourTelemetryPair(
+  index: number,
+): ExampleTourTelemetryPair | undefined {
+  switch (index) {
+    case 0:
+      return { tour_step: 1, tour_tab: "timeline" };
+    case 1:
+      return { tour_step: 2, tour_tab: "raw-events" };
+    case 2:
+      return { tour_step: 3, tour_tab: "state" };
+    default:
+      return undefined;
+  }
+}
+
+/** Convert rendered action placement to its stable telemetry key. */
+function getMetadataActionPlacement(
+  placement: "threads-footer" | "locked",
+): MetadataActionPlacement {
+  return placement === "threads-footer" ? "threads_footer" : "threads_locked";
+}
 
 // ─── JSON syntax highlighter ─────────────────────────────────────────────────
 // Inline-styled so shadow DOM encapsulation preserves colors when the output
@@ -294,10 +879,10 @@ function highlightedJson(obj: unknown): string {
   }
   const colors = {
     key: "#5558B2",
-    str: "#189370",
-    num: "#996300",
+    str: "#087653",
+    num: "#8a5900",
     bool: "#c0333a",
-    nil: "#838389",
+    nil: "#68686e",
   };
   const json = JSON.stringify(obj, null, 2);
   if (!json) return "";
@@ -331,13 +916,14 @@ function highlightedJson(obj: unknown): string {
 function eventColors(type: string): { bg: string; fg: string } {
   if (type.startsWith("TEXT_MESSAGE")) return { bg: "#EEE6FE", fg: "#57575B" };
   if (type.startsWith("TOOL_CALL"))
-    return { bg: "rgba(133,236,206,0.15)", fg: "#189370" };
+    return { bg: "rgba(133,236,206,0.15)", fg: "#087653" };
   if (type.startsWith("STATE"))
     return { bg: "rgba(190,194,255,0.102)", fg: "#5558B2" };
+  if (type === "RUN_ERROR" || type === "ERROR")
+    return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
   if (type.startsWith("RUN_") || type.startsWith("STEP_"))
-    return { bg: "rgba(255,172,77,0.2)", fg: "#996300" };
-  if (type === "ERROR") return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
-  return { bg: "#F7F7F9", fg: "#838389" };
+    return { bg: "rgba(255,172,77,0.2)", fg: "#8a5900" };
+  return { bg: "#F7F7F9", fg: "#68686e" };
 }
 
 function formatTimestamp(ts: string | number): string {
@@ -363,6 +949,7 @@ class CpkThreadList extends LitElement {
     threads: { attribute: false },
     selectedThreadId: { attribute: false },
     errorMessage: { attribute: false },
+    suppressEmptyState: { attribute: false },
     _query: { state: true },
   };
   threads: ɵThread[] = [];
@@ -374,6 +961,7 @@ class CpkThreadList extends LitElement {
    * empty data with no indication of what went wrong.
    */
   errorMessage: string | null = null;
+  suppressEmptyState = false;
   private _query = "";
 
   static styles = css`
@@ -428,7 +1016,18 @@ class CpkThreadList extends LitElement {
 
     /* ── Thread item ── */
     .cpk-tl__item {
+      appearance: none;
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
       padding: 11px 13px;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
       cursor: pointer;
       border-bottom: 1px solid #e9e9ef;
       border-left: 3px solid transparent;
@@ -446,6 +1045,13 @@ class CpkThreadList extends LitElement {
 
     .cpk-tl__item--active:hover {
       background: #bec2ff33;
+    }
+
+    .cpk-tl__item:focus-visible {
+      outline-color: #5558b2;
+      outline-offset: -2px;
+      outline-style: solid;
+      outline-width: 2px;
     }
 
     .cpk-tl__row1 {
@@ -466,7 +1072,7 @@ class CpkThreadList extends LitElement {
     }
 
     .cpk-tl__name--unnamed {
-      color: #838389;
+      color: #68686e;
       font-style: italic;
       font-weight: 400;
     }
@@ -474,7 +1080,7 @@ class CpkThreadList extends LitElement {
     .cpk-tl__time {
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
-      color: #838389;
+      color: #68686e;
       flex-shrink: 0;
     }
 
@@ -497,11 +1103,16 @@ class CpkThreadList extends LitElement {
       color: #57575b;
     }
 
+    .cpk-tl__pill--example {
+      background: rgba(133, 236, 206, 0.22);
+      color: #087653;
+    }
+
     /* ── Empty state ── */
     .cpk-tl__empty {
       padding: 32px 16px;
       text-align: center;
-      color: #838389;
+      color: #68686e;
       font-size: 12px;
       display: flex;
       flex-direction: column;
@@ -571,7 +1182,11 @@ class CpkThreadList extends LitElement {
         <div class="cpk-tl__list">
           ${filtered.map(
             (thread) => html`
-              <div
+              <button
+                type="button"
+                aria-current=${
+                  this.selectedThreadId === thread.id ? "true" : nothing
+                }
                 class="cpk-tl__item ${
                   this.selectedThreadId === thread.id
                     ? "cpk-tl__item--active"
@@ -579,7 +1194,7 @@ class CpkThreadList extends LitElement {
                 }"
                 @click=${() => this.onThreadClick(thread.id)}
               >
-                <div class="cpk-tl__row1">
+                <span class="cpk-tl__row1">
                   <span
                     class="cpk-tl__name ${
                       !thread.name ? "cpk-tl__name--unnamed" : ""
@@ -589,42 +1204,51 @@ class CpkThreadList extends LitElement {
                   <span class="cpk-tl__time"
                     >${this.relativeTime(thread.updatedAt)}</span
                   >
-                </div>
-                <div class="cpk-tl__meta">
+                </span>
+                <span class="cpk-tl__meta">
                   <span class="cpk-tl__pill">${thread.agentId}</span>
-                </div>
-              </div>
+                  ${
+                    (thread as Partial<ExampleThread>).isExample
+                      ? html`
+                          <span class="cpk-tl__pill cpk-tl__pill--example">Example</span>
+                        `
+                      : nothing
+                  }
+                </span>
+              </button>
             `,
           )}
           ${
-            filtered.length === 0
+            filtered.length === 0 && !this.suppressEmptyState
               ? html`
                 <div class="cpk-tl__empty">
                   ${
                     this.errorMessage
                       ? html`
-                          <svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            class="cpk-tl__empty-icon"
+                        <svg
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="cpk-tl__empty-icon"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="8" x2="12" y2="12" />
+                          <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        <div>
+                          Failed to load threads
+                          <div
+                            style="font-size:11px;margin-top:4px;color:#c0333a;"
                           >
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="8" x2="12" y2="12" />
-                            <line x1="12" y1="16" x2="12.01" y2="16" />
-                          </svg>
-                          <div>
-                            Failed to load threads
-                            <div style="font-size:11px;margin-top:4px;color:#c0333a;">
-                              ${this.errorMessage}
-                            </div>
+                            ${this.errorMessage}
                           </div>
-                        `
+                        </div>
+                      `
                       : this.threads.length === 0
                         ? html`
                             <svg
@@ -656,28 +1280,23 @@ class CpkThreadList extends LitElement {
   }
 }
 
-// ─── cpk-thread-details ──────────────────────────────────────────────────────
-// Renders the selected thread's conversation, agent state, and AG-UI events.
-// Conversation comes from the runtime's `/threads/:id/messages` endpoint
-// (always thread-accurate). Agent state and AG-UI events accept live inputs
-// (`agentStateInput`, `agentEventsInput`) from the parent inspector's ongoing
-// agent subscriptions; when those are absent we fall back to the per-thread
-// fetched data via `/threads/:id/{events,state}`.
-
-// Exported (with the underscore-prefixed name signalling internal/test-only)
-// so unit tests can pin down the per-panel template-cache invariants without
-// reaching through `customElements`. Production consumers continue to use the
-// `cpk-thread-details` custom element registered below.
-export class ɵCpkThreadDetails extends LitElement {
+// ─── cpk-thread-inspector ────────────────────────────────────────────────────
+// Renders the selected thread's read-only timeline, state, raw AG-UI events,
+// and compact technical metadata. External hosts provide a ThreadDebuggerProvider;
+// the legacy CopilotKit Inspector wrapper can still pass runtime URL inputs.
+export class CpkThreadInspector extends LitElement {
   static properties = {
     threadId: { attribute: false },
+    provider: { attribute: false },
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
+    threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
     liveMessageVersion: { attribute: false },
     _tab: { state: true },
+    _fetchedMetadata: { state: true },
     _conversation: { state: true },
     _fetchedEvents: { state: true },
     _fetchedState: { state: true },
@@ -689,6 +1308,8 @@ export class ɵCpkThreadDetails extends LitElement {
     _stateError: { state: true },
     _expandedTools: { state: true },
     _expandedMessages: { state: true },
+    _expandedTimelineDetails: { state: true },
+    _expandedRawEvents: { state: true },
     _showDetailPanel: { state: true },
     _detailPanelWidth: { state: true },
     _eventsNotAvailable: { state: true },
@@ -698,9 +1319,11 @@ export class ɵCpkThreadDetails extends LitElement {
   };
 
   threadId: string | null = null;
-  thread: ɵThread | null = null;
+  provider: ThreadDebuggerProvider | null = null;
+  thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
   headers: Record<string, string> = {};
+  threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
   /**
@@ -711,7 +1334,8 @@ export class ɵCpkThreadDetails extends LitElement {
    */
   liveMessageVersion = 0;
 
-  private _tab: ThreadDetailsTab = "conversation";
+  private _tab: ThreadDetailsTab = "timeline";
+  private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
   private _conversation: ConversationItem[] = [];
   private _fetchedEvents: ApiAgentEvent[] | null = null;
   private _fetchedState: Record<string, unknown> | null = null;
@@ -723,6 +1347,8 @@ export class ɵCpkThreadDetails extends LitElement {
   private _stateError: string | null = null;
   private _expandedTools = new Set<string>();
   private _expandedMessages = new Set<string>();
+  private _expandedTimelineDetails = new Set<string>();
+  private _expandedRawEvents = new Set<string>();
   private _showDetailPanel = false;
   private _detailPanelWidth = 250;
   /** True when the /events endpoint returned 501 — don't fall back to live data. */
@@ -744,9 +1370,9 @@ export class ɵCpkThreadDetails extends LitElement {
    * switching back to AG-UI Events on a thread with hundreds of events
    * triggers a multi-second DOM-creation pass each time.
    *
-   * Reset to {"conversation"} when the selected thread changes.
+   * Reset to {"timeline"} when the selected thread changes.
    */
-  private _activatedTabs: Set<ThreadDetailsTab> = new Set(["conversation"]);
+  private _activatedTabs: Set<ThreadDetailsTab> = new Set(["timeline"]);
   /**
    * Memoized per-panel templates keyed by the inputs they render from.
    * When the underlying data hasn't changed (same `_conversation` /
@@ -758,9 +1384,17 @@ export class ɵCpkThreadDetails extends LitElement {
    * reference; if any element flips, the cache misses and rebuilds.
    */
   private _panelTplCache: Map<
-    ThreadDetailsTab,
+    ThreadDetailsPanelCacheSlot,
     { key: readonly unknown[]; tpl: TemplateResult }
   > = new Map();
+  private _timelineItemsCache: {
+    events: ApiAgentEvent[];
+    items: TimelineItem[];
+  } | null = null;
+  private _liveEventsWithSourceIndexCache: {
+    events: ApiAgentEvent[];
+    indexedEvents: ApiAgentEvent[];
+  } | null = null;
   /**
    * Tracks whether we've fetched events for the current thread yet. Events
    * fetch lazily on first sub-tab click so a large response's JSON.parse
@@ -773,30 +1407,112 @@ export class ɵCpkThreadDetails extends LitElement {
    * lazy-load reasoning as `_eventsFetched`.
    */
   private _stateFetched = false;
-  private _lastFetchedThreadId: string | null = null;
+  private _lastLoadKey: string | null = null;
   private _lastSeenLiveMessageVersion = 0;
+  private _metadataAbort: AbortController | null = null;
   private _messagesAbort: AbortController | null = null;
   private _eventsAbort: AbortController | null = null;
   private _stateAbort: AbortController | null = null;
+  private _hasConnectedOnce = false;
   private _dividerResizing = false;
   private _dividerPointerId = -1;
   private _dividerStartX = 0;
   private _dividerStartWidth = 0;
+  private static nextDomId = 1;
+  private readonly domIdPrefix = `cpk-thread-detail-${CpkThreadInspector.nextDomId++}`;
 
   static readonly COLLAPSE_THRESHOLD = 800;
-  private static readonly TAB_LIST: ReadonlyArray<{
+  static readonly TAB_LIST: ReadonlyArray<{
     id: ThreadDetailsTab;
     label: string;
   }> = [
-    { id: "conversation", label: "Conversation" },
-    { id: "agent-state", label: "Agent State" },
-    { id: "ag-ui-events", label: "AG-UI Events" },
+    { id: "timeline", label: "Messages" },
+    { id: "raw-events", label: "AG-UI Events" },
+    { id: "state", label: "State" },
   ];
 
+  private static providerIds = new WeakMap<ThreadDebuggerProvider, number>();
+  private static nextProviderId = 1;
+
+  private static providerLoadKey(
+    provider: ThreadDebuggerProvider | null,
+  ): string {
+    if (!provider) return "provider:none";
+    let id = CpkThreadInspector.providerIds.get(provider);
+    if (!id) {
+      id = CpkThreadInspector.nextProviderId;
+      CpkThreadInspector.nextProviderId += 1;
+      CpkThreadInspector.providerIds.set(provider, id);
+    }
+    return [
+      `provider:${id}`,
+      provider.getThreadMetadata ? "metadata:1" : "metadata:0",
+      provider.getMessages ? "messages:1" : "messages:0",
+      provider.getEvents ? "events:1" : "events:0",
+      provider.getState ? "state:1" : "state:0",
+    ].join("|");
+  }
+
+  /**
+   * Build a deterministic signature for runtime fetch headers so auth/CSRF
+   * changes invalidate cached thread data even when the selected thread is
+   * otherwise unchanged.
+   */
+  private static headersLoadKey(headers: Record<string, string>): string {
+    return JSON.stringify(
+      Object.entries(headers).sort(([leftKey], [rightKey]) =>
+        leftKey.localeCompare(rightKey),
+      ),
+    );
+  }
+
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
-    if (id === "conversation") return this.renderConversation();
-    if (id === "agent-state") return this.renderState();
+    if (id === "timeline") return this.renderTimeline();
+    if (id === "state") return this.renderState();
     return this.renderEvents();
+  }
+
+  /** Returns the stable DOM ID for one tab in this inspector instance. */
+  private tabDomId(id: ThreadDetailsTab): string {
+    return `${this.domIdPrefix}-tab-${id}`;
+  }
+
+  /** Returns the stable DOM ID for the panel controlled by one tab. */
+  private panelDomId(id: ThreadDetailsTab): string {
+    return `${this.domIdPrefix}-panel-${id}`;
+  }
+
+  /** Selects and focuses the tab targeted by an ARIA tabs navigation key. */
+  private handleTabKeyDown(
+    event: KeyboardEvent,
+    currentId: ThreadDetailsTab,
+  ): void {
+    const currentIndex = CpkThreadInspector.TAB_LIST.findIndex(
+      (tab) => tab.id === currentId,
+    );
+    if (currentIndex < 0) return;
+
+    let targetIndex: number | null = null;
+    if (event.key === "ArrowRight") {
+      targetIndex = (currentIndex + 1) % CpkThreadInspector.TAB_LIST.length;
+    } else if (event.key === "ArrowLeft") {
+      targetIndex =
+        (currentIndex - 1 + CpkThreadInspector.TAB_LIST.length) %
+        CpkThreadInspector.TAB_LIST.length;
+    } else if (event.key === "Home") {
+      targetIndex = 0;
+    } else if (event.key === "End") {
+      targetIndex = CpkThreadInspector.TAB_LIST.length - 1;
+    }
+    if (targetIndex === null) return;
+
+    const target = CpkThreadInspector.TAB_LIST[targetIndex];
+    if (!target) return;
+    event.preventDefault();
+    this.activateTab(target.id);
+    this.shadowRoot
+      ?.querySelector<HTMLButtonElement>(`#${this.tabDomId(target.id)}`)
+      ?.focus();
   }
 
   private activateTab(id: ThreadDetailsTab): void {
@@ -820,6 +1536,10 @@ export class ɵCpkThreadDetails extends LitElement {
     this.maybeFetchTabData(id);
   }
 
+  selectTab(id: ThreadDetailsTab): void {
+    this.activateTab(id);
+  }
+
   private maybeFetchTabData(id: ThreadDetailsTab): void {
     // Lazy-trigger the events / state fetches so their (potentially huge)
     // JSON.parse only blocks the main thread after the user has shown
@@ -828,10 +1548,10 @@ export class ɵCpkThreadDetails extends LitElement {
     // the entire panel for seconds — including making the tab buttons
     // themselves feel unresponsive.
     if (!this.threadId) return;
-    if (id === "ag-ui-events" && !this._eventsFetched) {
+    if ((id === "timeline" || id === "raw-events") && !this._eventsFetched) {
       this._eventsFetched = true;
       void this.fetchEvents(this.threadId);
-    } else if (id === "agent-state" && !this._stateFetched) {
+    } else if (id === "state" && !this._stateFetched) {
       this._stateFetched = true;
       void this.fetchState(this.threadId);
     }
@@ -899,7 +1619,7 @@ export class ɵCpkThreadDetails extends LitElement {
       border-bottom: 2px solid transparent;
       cursor: pointer;
       background: transparent;
-      color: #838389;
+      color: #68686e;
       transition:
         color 0.12s,
         border-color 0.12s;
@@ -908,6 +1628,12 @@ export class ɵCpkThreadDetails extends LitElement {
 
     .cpk-td__tab:hover {
       color: #010507;
+    }
+
+    .cpk-td__tab:focus-visible {
+      outline: 2px solid #5558b2;
+      outline-offset: -3px;
+      border-radius: 4px;
     }
 
     .cpk-td__tab--active {
@@ -929,7 +1655,7 @@ export class ɵCpkThreadDetails extends LitElement {
       border: none;
       border-left: 1px solid #dbdbe5;
       background: transparent;
-      color: #838389;
+      color: #68686e;
       cursor: pointer;
       flex-shrink: 0;
       transition:
@@ -963,6 +1689,63 @@ export class ɵCpkThreadDetails extends LitElement {
       flex-shrink: 0;
     }
 
+    .cpk-td__metadata-strip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 10px 16px;
+      border-bottom: 1px solid #e9e9ef;
+      background: #fbfbfd;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__metadata-pills {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .cpk-td__metadata-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 220px;
+      padding: 3px 7px;
+      border: 1px solid #e9e9ef;
+      border-radius: 5px;
+      background: #ffffff;
+      color: #57575b;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .cpk-td__metadata-label {
+      color: #68686e;
+      text-transform: uppercase;
+      font-size: 9px;
+    }
+
+    .cpk-td__metadata-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cpk-td__metadata-pill--wrap {
+      max-width: 100%;
+      white-space: normal;
+    }
+
+    .cpk-td__metadata-value--wrap {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
     /*
      * Each tab's content is wrapped in this panel so the keep-mounted
      * inactive panels can be hidden via display:none without disturbing
@@ -980,6 +1763,10 @@ export class ɵCpkThreadDetails extends LitElement {
       flex-shrink: 0;
     }
 
+    .cpk-td__panel[hidden] {
+      display: none;
+    }
+
     /* ── Empty state ─────────────────────────────────────────────────── */
     .cpk-td__empty-state {
       flex: 1;
@@ -988,14 +1775,14 @@ export class ɵCpkThreadDetails extends LitElement {
       align-items: center;
       justify-content: center;
       gap: 8px;
-      color: #838389;
+      color: #68686e;
       font-size: 13px;
       padding: 40px 0;
     }
 
     .cpk-td__empty-hint {
       font-size: 11px;
-      color: #838389;
+      color: #68686e;
       text-align: center;
       max-width: 220px;
       line-height: 1.5;
@@ -1005,7 +1792,7 @@ export class ɵCpkThreadDetails extends LitElement {
     .cpk-td__status {
       padding: 16px;
       font-size: 12px;
-      color: #838389;
+      color: #68686e;
       text-align: center;
     }
 
@@ -1084,7 +1871,7 @@ export class ɵCpkThreadDetails extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
       font-weight: 500;
-      color: #189370;
+      color: #087653;
       text-transform: uppercase;
       flex: 1;
     }
@@ -1093,15 +1880,15 @@ export class ɵCpkThreadDetails extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       text-transform: uppercase;
-      color: #189370;
+      color: #087653;
     }
 
     .cpk-td__tool-status--pending {
-      color: #996300;
+      color: #8a5900;
     }
 
     .cpk-td__tool-chevron {
-      color: #838389;
+      color: #68686e;
       font-size: 10px;
     }
 
@@ -1115,7 +1902,7 @@ export class ɵCpkThreadDetails extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       font-weight: 500;
-      color: #838389;
+      color: #68686e;
       text-transform: uppercase;
       margin-bottom: 4px;
       letter-spacing: 0.3px;
@@ -1147,7 +1934,7 @@ export class ɵCpkThreadDetails extends LitElement {
       background: rgba(133, 236, 206, 0.15);
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
-      color: #189370;
+      color: #087653;
       text-transform: uppercase;
       font-weight: 500;
       border-bottom: 1px solid #e9e9ef;
@@ -1169,7 +1956,7 @@ export class ɵCpkThreadDetails extends LitElement {
       align-items: center;
       gap: 8px;
       padding: 5px 0;
-      color: #838389;
+      color: #68686e;
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       text-transform: uppercase;
@@ -1181,6 +1968,140 @@ export class ɵCpkThreadDetails extends LitElement {
       flex: 1;
       height: 1px;
       background: #e9e9ef;
+    }
+
+    /* ── Interaction timeline ───────────────────────────────────────── */
+    .cpk-td__timeline-item {
+      border: 1px solid #e9e9ef;
+      border-radius: 6px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .cpk-td__timeline-item--warning {
+      border-color: rgba(250, 95, 103, 0.35);
+      background: rgba(250, 95, 103, 0.04);
+    }
+
+    .cpk-td__timeline-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      background: #f7f7f9;
+    }
+
+    .cpk-td__timeline-kind {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #5558b2;
+    }
+
+    .cpk-td__timeline-title {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+      font-weight: 500;
+      color: #010507;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .cpk-td__timeline-time {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      color: #68686e;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__timeline-body {
+      margin: 0;
+      padding: 0 10px 9px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #57575b;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .cpk-td__timeline-toolbar {
+      display: flex;
+      gap: 6px;
+      margin-left: auto;
+    }
+
+    .cpk-td__timeline-bulk-toggle {
+      margin: 0;
+      padding: 4px 8px;
+      border: 1px solid #dcdce8;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #36363a;
+      cursor: pointer;
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .cpk-td__timeline-bulk-toggle:hover {
+      border-color: rgba(85, 88, 178, 0.38);
+      background: #f7f7ff;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-bulk-toggle:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .cpk-td__source-link {
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: #5558b2;
+      cursor: pointer;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__source-link:hover {
+      color: #010507;
+    }
+
+    .cpk-td__timeline-details-toggle {
+      margin: 0;
+      padding: 5px 10px;
+      border: none;
+      background: #ffffff;
+      color: #5558b2;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: "Inter", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.2;
+      width: 100%;
+    }
+
+    .cpk-td__timeline-details-toggle:hover {
+      background: #f7f7ff;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-details-toggle svg {
+      width: 12px;
+      height: 12px;
+      stroke-width: 2;
     }
 
     /* ── Generative UI ──────────────────────────────────────────────── */
@@ -1270,7 +2191,7 @@ export class ɵCpkThreadDetails extends LitElement {
     .cpk-td__event-time {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
-      color: #838389;
+      color: #68686e;
     }
 
     .cpk-td__event-payload {
@@ -1342,7 +2263,7 @@ export class ɵCpkThreadDetails extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
       font-weight: 500;
-      color: #838389;
+      color: #68686e;
       text-transform: uppercase;
       letter-spacing: 0.6px;
       margin-bottom: 8px;
@@ -1363,7 +2284,7 @@ export class ɵCpkThreadDetails extends LitElement {
     }
 
     .cpk-tdp__label {
-      color: #838389;
+      color: #68686e;
       font-size: 11px;
       white-space: nowrap;
       flex-shrink: 0;
@@ -1392,36 +2313,28 @@ export class ɵCpkThreadDetails extends LitElement {
   `;
 
   updated(_changed: Map<string, unknown>): void {
-    if (this.threadId !== this._lastFetchedThreadId) {
-      this._lastFetchedThreadId = this.threadId;
+    if (!this.isConnected) return;
+    const loadKey = this.currentLoadKey();
+    if (loadKey !== this._lastLoadKey) {
+      this._lastLoadKey = loadKey;
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
-      this._tab = "conversation";
-      this._activatedTabs = new Set(["conversation"]);
-      this._panelTplCache = new Map();
-      this._expandedTools = new Set();
-      this._expandedMessages = new Set();
-      this._messagesAbort?.abort();
-      this._messagesAbort = null;
-      this._eventsAbort?.abort();
-      this._eventsAbort = null;
-      this._stateAbort?.abort();
-      this._stateAbort = null;
-      // Reset cleared so the next click into events/state triggers a fresh
-      // fetch. Eagerly clear `_fetchedEvents` / `_fetchedState` so the empty
-      // state doesn't briefly show last thread's data.
-      this._eventsFetched = false;
-      this._stateFetched = false;
-      this._fetchedEvents = null;
-      this._fetchedState = null;
+      this.resetLoadedThreadData();
 
       if (this.threadId) {
-        // Conversation is the default tab and shows immediately on thread
-        // open, so fetch eagerly. Events and state are only visible once the
-        // user clicks their sub-tab; deferring those fetches prevents a long
-        // JSON.parse of a large events payload from blocking the main thread
-        // before the user has even shown intent to view them.
-        void this.fetchMessages(this.threadId);
+        // Timeline is the default tab and should be event-derived. Fetch
+        // events eagerly; the raw tab reuses the same response when opened.
+        void this.fetchMetadata(this.threadId);
+        if (this.canFetchEvents()) {
+          this._eventsFetched = true;
+          void this.fetchEvents(this.threadId);
+        } else {
+          // Last-resort compatibility path for consumers that only implement
+          // messages. New integrations should provide events so Timeline can
+          // expose source references and decode warnings.
+          void this.fetchMessages(this.threadId);
+        }
       } else {
+        this._fetchedMetadata = null;
         this._conversation = [];
       }
     } else if (
@@ -1442,6 +2355,106 @@ export class ɵCpkThreadDetails extends LitElement {
     }
   }
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    if (this._hasConnectedOnce) {
+      this.requestUpdate();
+    }
+    this._hasConnectedOnce = true;
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.resetLoadedThreadData();
+    this._lastLoadKey = null;
+  }
+
+  private canFetchMessages(): boolean {
+    return (
+      !!this.provider?.getMessages ||
+      (!!this.runtimeUrl && this.threadInspectionAvailable)
+    );
+  }
+
+  private canFetchEvents(): boolean {
+    return (
+      !!this.provider?.getEvents ||
+      (!!this.runtimeUrl && this.threadInspectionAvailable)
+    );
+  }
+
+  private canFetchState(): boolean {
+    return (
+      !!this.provider?.getState ||
+      (!!this.runtimeUrl && this.threadInspectionAvailable)
+    );
+  }
+
+  private currentLoadKey(): string {
+    return [
+      this.threadId ?? "thread:none",
+      CpkThreadInspector.providerLoadKey(this.provider),
+      `runtime:${this.runtimeUrl}`,
+      `headers:${CpkThreadInspector.headersLoadKey(this.headers)}`,
+      `inspect:${this.threadInspectionAvailable ? "1" : "0"}`,
+    ].join("||");
+  }
+
+  private resetLoadedThreadData(): void {
+    this._tab = "timeline";
+    this._activatedTabs = new Set(["timeline"]);
+    this._panelTplCache = new Map();
+    this._timelineItemsCache = null;
+    this._liveEventsWithSourceIndexCache = null;
+    this._expandedTools = new Set();
+    this._expandedMessages = new Set();
+    this._expandedTimelineDetails = new Set();
+    this._expandedRawEvents = new Set();
+    this._metadataAbort?.abort();
+    this._metadataAbort = null;
+    this._messagesAbort?.abort();
+    this._messagesAbort = null;
+    this._eventsAbort?.abort();
+    this._eventsAbort = null;
+    this._stateAbort?.abort();
+    this._stateAbort = null;
+    // Reset cleared so the next click into events/state triggers a fresh
+    // fetch. Eagerly clear fetched data so a provider/runtime swap cannot
+    // briefly show the old source's values for the same threadId.
+    this._eventsFetched = false;
+    this._stateFetched = false;
+    this._eventsNotAvailable = false;
+    this._stateNotAvailable = false;
+    this._loadingMessages = false;
+    this._loadingEvents = false;
+    this._loadingState = false;
+    this._messagesError = null;
+    this._eventsError = null;
+    this._stateError = null;
+    this._fetchedMetadata = null;
+    this._conversation = [];
+    this._fetchedEvents = null;
+    this._fetchedState = null;
+  }
+
+  private async fetchMetadata(threadId: string): Promise<void> {
+    if (!this.provider?.getThreadMetadata) return;
+    this._metadataAbort?.abort();
+    const controller = new AbortController();
+    this._metadataAbort = controller;
+    try {
+      const metadata = await this.provider.getThreadMetadata(threadId, {
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted || this.threadId !== threadId) return;
+      this._fetchedMetadata = metadata;
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      if (this.threadId !== threadId) return;
+      this._fetchedMetadata = null;
+    }
+  }
+
   /**
    * Fetch the canonical conversation for `threadId` from the runtime.
    *
@@ -1456,10 +2469,11 @@ export class ɵCpkThreadDetails extends LitElement {
     threadId: string,
     silent: boolean = false,
   ): Promise<void> {
-    if (!this.runtimeUrl) {
+    if (!this.canFetchMessages()) {
       if (!silent) this._conversation = [];
       return;
     }
+    this._messagesAbort?.abort();
     const controller = new AbortController();
     this._messagesAbort = controller;
     if (!silent) {
@@ -1467,15 +2481,13 @@ export class ɵCpkThreadDetails extends LitElement {
       this._messagesError = null;
     }
     try {
-      const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
-        { headers: { ...this.headers }, signal: controller.signal },
-      );
+      const messages = this.provider?.getMessages
+        ? await this.provider.getMessages(threadId, {
+            signal: controller.signal,
+          })
+        : await this.fetchRuntimeMessages(threadId, controller.signal);
       if (controller.signal.aborted || this.threadId !== threadId) return;
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { messages: ApiThreadMessage[] };
-      if (controller.signal.aborted || this.threadId !== threadId) return;
-      this._conversation = this.mapMessages(data.messages);
+      this._conversation = this.mapMessages(messages);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (!silent) {
@@ -1493,45 +2505,51 @@ export class ɵCpkThreadDetails extends LitElement {
   }
 
   private async fetchEvents(threadId: string): Promise<void> {
-    this._eventsNotAvailable = false;
-    if (!this.runtimeUrl) {
+    if (!this.canFetchEvents()) {
       this._fetchedEvents = null;
       return;
     }
+    this._eventsAbort?.abort();
     const controller = new AbortController();
     this._eventsAbort = controller;
     this._loadingEvents = true;
     this._eventsError = null;
     try {
-      const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/events`,
-        { headers: { ...this.headers }, signal: controller.signal },
-      );
+      const result = this.provider?.getEvents
+        ? {
+            status: "available" as const,
+            events: await this.provider.getEvents(threadId, {
+              signal: controller.signal,
+            }),
+          }
+        : await this.fetchRuntimeEvents(threadId, controller.signal);
       // Drop results if a newer fetch superseded this one (thread switched
-      // mid-flight). Without this, switching A→B can leave thread B's view
-      // showing thread A's events when A's request resolves last.
+      // or provider/runtime changed mid-flight). Without this, switching A→B
+      // can leave thread B's view showing thread A's events when A's request
+      // resolves last.
       if (controller.signal.aborted || this.threadId !== threadId) return;
-      if (res.status === 501) {
-        // Endpoint not supported on this runtime (e.g. Intelligence platform).
-        // Mark unavailable so we don't misleadingly fall back to the parent's
-        // live agent events — those are agent-keyed, not thread-keyed, and
-        // would render identical across every thread on the same agent.
+      if (result.status === "not-available") {
         this._eventsNotAvailable = true;
-        this._fetchedEvents = null;
+        this._fetchedEvents = [];
+        if (this.canFetchMessages()) {
+          void this.fetchMessages(threadId);
+        }
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as {
-        events: Array<Record<string, unknown>>;
-      };
-      if (controller.signal.aborted || this.threadId !== threadId) return;
-      this._fetchedEvents = this.mapApiEvents(data.events);
+      const mappedEvents = this.mapApiEvents(result.events);
+      this._fetchedEvents = mappedEvents;
+      if (mappedEvents.length === 0 && this.canFetchMessages()) {
+        void this.fetchMessages(threadId);
+      }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (this.threadId !== threadId) return;
       this._eventsError =
         err instanceof Error ? err.message : "Failed to load events";
       this._fetchedEvents = [];
+      if (this.canFetchMessages()) {
+        void this.fetchMessages(threadId);
+      }
     } finally {
       if (!controller.signal.aborted && this.threadId === threadId) {
         this._loadingEvents = false;
@@ -1540,32 +2558,31 @@ export class ɵCpkThreadDetails extends LitElement {
   }
 
   private async fetchState(threadId: string): Promise<void> {
-    this._stateNotAvailable = false;
-    if (!this.runtimeUrl) {
+    if (!this.canFetchState()) {
       this._fetchedState = null;
       return;
     }
+    this._stateAbort?.abort();
     const controller = new AbortController();
     this._stateAbort = controller;
     this._loadingState = true;
     this._stateError = null;
     try {
-      const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/state`,
-        { headers: { ...this.headers }, signal: controller.signal },
-      );
+      const result = this.provider?.getState
+        ? {
+            status: "available" as const,
+            state: await this.provider.getState(threadId, {
+              signal: controller.signal,
+            }),
+          }
+        : await this.fetchRuntimeState(threadId, controller.signal);
       if (controller.signal.aborted || this.threadId !== threadId) return;
-      if (res.status === 501) {
+      if (result.status === "not-available") {
         this._stateNotAvailable = true;
         this._fetchedState = null;
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as {
-        state: Record<string, unknown> | null;
-      };
-      if (controller.signal.aborted || this.threadId !== threadId) return;
-      this._fetchedState = data.state ?? null;
+      this._fetchedState = result.state ?? null;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (this.threadId !== threadId) return;
@@ -1579,7 +2596,63 @@ export class ɵCpkThreadDetails extends LitElement {
     }
   }
 
-  private mapMessages(messages: ApiThreadMessage[]): ConversationItem[] {
+  private async fetchRuntimeMessages(
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<ThreadDebuggerMessage[]> {
+    const res = await fetch(this.getThreadInspectionUrl(threadId, "messages"), {
+      headers: { ...this.headers },
+      signal,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as { messages: ThreadDebuggerMessage[] };
+    return data.messages;
+  }
+
+  private async fetchRuntimeEvents(
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<RuntimeEventsFetchResult> {
+    const res = await fetch(this.getThreadInspectionUrl(threadId, "events"), {
+      headers: { ...this.headers },
+      signal,
+    });
+    if (res.status === 501) {
+      return { status: "not-available" };
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as {
+      events: ThreadDebuggerEvent[];
+    };
+    return { status: "available", events: data.events };
+  }
+
+  private async fetchRuntimeState(
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<RuntimeStateFetchResult> {
+    const res = await fetch(this.getThreadInspectionUrl(threadId, "state"), {
+      headers: { ...this.headers },
+      signal,
+    });
+    if (res.status === 501) {
+      return { status: "not-available" };
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as {
+      state: Record<string, unknown> | null;
+    };
+    return { status: "available", state: data.state ?? null };
+  }
+
+  private getThreadInspectionUrl(
+    threadId: string,
+    resource: "messages" | "events" | "state",
+  ): string {
+    return `${this.runtimeUrl.replace(/\/+$/, "")}/threads/${encodeURIComponent(threadId)}/${resource}`;
+  }
+
+  private mapMessages(messages: ThreadDebuggerMessage[]): ConversationItem[] {
     const items: ConversationItem[] = [];
     const toolCallMap = new Map<string, ConversationToolCall>();
     for (const msg of messages) {
@@ -1594,19 +2667,20 @@ export class ɵCpkThreadDetails extends LitElement {
         if (msg.toolCalls?.length) {
           for (const tc of msg.toolCalls) {
             let args: Record<string, unknown> = {};
-            try {
-              args = JSON.parse(tc.args) as Record<string, unknown>;
-            } catch (err) {
-              // Inspector is a debugging surface — surface malformed payloads
-              // instead of silently substituting `{}`. The sentinel lets the
-              // renderer flag "raw arguments — failed to parse" if/when it
-              // grows that branch; the console.error gives anyone with the
-              // devtools open immediate visibility into the offending blob.
-              console.error(
-                "[CopilotKit Inspector] Failed to parse tool-call arguments",
-                { toolCallId: tc.id, raw: tc.args, error: err },
-              );
-              args = { __parseError: true, __raw: tc.args };
+            if (typeof tc.args === "string") {
+              try {
+                args = this.parseToolCallContent(tc.args);
+              } catch (err) {
+                // Empty content is normalized to `{}` for both tool arguments
+                // and results. The inspector still surfaces malformed JSON.
+                console.error(
+                  "[CopilotKit Inspector] Failed to parse tool-call arguments",
+                  { toolCallId: tc.id, raw: tc.args, error: err },
+                );
+                args = { __parseError: true, __raw: tc.args };
+              }
+            } else {
+              args = tc.args;
             }
             const item: ConversationToolCall = {
               id: tc.id,
@@ -1640,10 +2714,7 @@ export class ɵCpkThreadDetails extends LitElement {
         const tc = toolCallMap.get(msg.toolCallId);
         if (tc) {
           try {
-            tc.result = JSON.parse(msg.content ?? "{}") as Record<
-              string,
-              unknown
-            >;
+            tc.result = this.parseToolCallContent(msg.content);
           } catch (err) {
             // See the comment on the assistant tool-call args parse above —
             // same rationale, same sentinel shape so the renderer can treat
@@ -1660,20 +2731,293 @@ export class ɵCpkThreadDetails extends LitElement {
     return items;
   }
 
-  private mapApiEvents(
-    events: Array<Record<string, unknown>>,
-  ): ApiAgentEvent[] {
-    return events.map((event) => {
-      const { type, timestamp, ...rest } = event;
+  private parseToolCallContent(
+    content: string | null | undefined,
+  ): Record<string, unknown> {
+    const normalizedContent = content?.trim();
+    if (!normalizedContent) {
+      return {};
+    }
+
+    return JSON.parse(normalizedContent) as Record<string, unknown>;
+  }
+
+  private mapApiEvents(events: ThreadDebuggerEvent[]): ApiAgentEvent[] {
+    return events.map((event, index) => {
+      const { type, timestamp, payload, ...rest } = event;
       return {
         type: typeof type === "string" ? type : "UNKNOWN",
         timestamp:
           typeof timestamp === "string" || typeof timestamp === "number"
             ? timestamp
             : Date.now(),
-        payload: rest,
+        payload: payload ?? rest,
+        sourceIndex: index + 1,
+        rawEvent: event,
       };
     });
+  }
+
+  private get activeTimelineItems(): TimelineItem[] {
+    return this.timelineItemsForEvents(this.activeEvents);
+  }
+
+  private timelineItemsForEvents(events: ApiAgentEvent[]): TimelineItem[] {
+    if (this._timelineItemsCache?.events === events) {
+      return this._timelineItemsCache.items;
+    }
+    const items = this.timelineItemsFromEvents(events);
+    this._timelineItemsCache = { events, items };
+    return items;
+  }
+
+  private timelineItemsFromEvents(events: ApiAgentEvent[]): TimelineItem[] {
+    if (events.length === 0) return [];
+
+    const items: TimelineItem[] = [];
+    const messageItems = new Map<string, TimelineItem>();
+    const toolItems = new Map<string, TimelineItem & { rawArgs?: string }>();
+
+    const readString = (
+      payload: Record<string, unknown>,
+      keys: string[],
+    ): string | null => {
+      for (const key of keys) {
+        const value = payload[key];
+        if (typeof value === "string") return value;
+      }
+      return null;
+    };
+
+    const sourceIndexFor = (event: ApiAgentEvent): number =>
+      event.sourceIndex ?? 0;
+
+    const appendWarning = (
+      event: ApiAgentEvent,
+      title: string,
+      body: string,
+      severity: "warning" | "error" = "warning",
+    ): void => {
+      const sourceIndex = sourceIndexFor(event);
+      items.push({
+        id: `warning-${sourceIndex}-${items.length}`,
+        kind: "warning",
+        title,
+        body,
+        timestamp: event.timestamp,
+        sourceIndex,
+        severity,
+      });
+    };
+
+    const ensureMessage = (
+      event: ApiAgentEvent,
+      role: string,
+    ): TimelineItem => {
+      const sourceIndex = sourceIndexFor(event);
+      const key =
+        readString(event.payload, ["messageId", "message_id", "id"]) ??
+        `message-${sourceIndex}`;
+      let item = messageItems.get(key);
+      if (!item) {
+        item = {
+          id: `message-${key}`,
+          kind: "message",
+          title: `${role || "message"} message`,
+          body: "",
+          timestamp: event.timestamp,
+          sourceIndex,
+        };
+        messageItems.set(key, item);
+        items.push(item);
+      }
+      return item;
+    };
+
+    const ensureTool = (
+      event: ApiAgentEvent,
+    ): TimelineItem & {
+      rawArgs?: string;
+    } => {
+      const sourceIndex = sourceIndexFor(event);
+      const key =
+        readString(event.payload, [
+          "toolCallId",
+          "tool_call_id",
+          "id",
+          "callId",
+        ]) ?? `tool-${sourceIndex}`;
+      let item = toolItems.get(key);
+      if (!item) {
+        item = {
+          id: `tool-${key}`,
+          kind: "tool",
+          title:
+            readString(event.payload, [
+              "toolCallName",
+              "toolName",
+              "name",
+              "functionName",
+            ]) ?? "Tool call",
+          body: "",
+          timestamp: event.timestamp,
+          sourceIndex,
+        };
+        toolItems.set(key, item);
+        items.push(item);
+      }
+      return item;
+    };
+
+    for (const event of events) {
+      const { type, payload } = event;
+      const sourceIndex = sourceIndexFor(event);
+
+      if (type === "UNKNOWN") {
+        appendWarning(
+          event,
+          "Unknown AG-UI event",
+          "The event is missing a string type and could not be normalized.",
+        );
+        continue;
+      }
+
+      if (type === "RUN_STARTED" || type === "STEP_STARTED") {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "run",
+          title: type === "RUN_STARTED" ? "Run started" : "Step started",
+          timestamp: event.timestamp,
+          sourceIndex,
+          details: payload,
+        });
+        continue;
+      }
+
+      if (type === "RUN_FINISHED" || type === "STEP_FINISHED") {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "run",
+          title: type === "RUN_FINISHED" ? "Run finished" : "Step finished",
+          timestamp: event.timestamp,
+          sourceIndex,
+          details: payload,
+        });
+        continue;
+      }
+
+      if (type === "RUN_ERROR" || type === "ERROR") {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "warning",
+          title: "Run error",
+          body: readString(payload, ["message", "error", "description"]) ?? "",
+          timestamp: event.timestamp,
+          sourceIndex,
+          severity: "error",
+          details: payload,
+        });
+        continue;
+      }
+
+      if (type === "TEXT_MESSAGE_START") {
+        ensureMessage(event, readString(payload, ["role"]) ?? "assistant");
+        continue;
+      }
+
+      if (type === "TEXT_MESSAGE_CONTENT") {
+        const item = ensureMessage(
+          event,
+          readString(payload, ["role"]) ?? "assistant",
+        );
+        item.body = `${item.body ?? ""}${
+          readString(payload, ["delta", "content", "text"]) ?? ""
+        }`;
+        continue;
+      }
+
+      if (type === "TEXT_MESSAGE_END") {
+        ensureMessage(event, readString(payload, ["role"]) ?? "assistant");
+        continue;
+      }
+
+      if (type === "TOOL_CALL_START") {
+        ensureTool(event);
+        continue;
+      }
+
+      if (type === "TOOL_CALL_ARGS") {
+        const item = ensureTool(event);
+        const chunk =
+          readString(payload, ["args", "arguments", "delta"]) ??
+          (typeof payload.args === "object"
+            ? JSON.stringify(payload.args)
+            : null);
+        if (chunk) {
+          item.rawArgs = `${item.rawArgs ?? ""}${chunk}`;
+          item.body = item.rawArgs;
+        }
+        continue;
+      }
+
+      if (type === "TOOL_CALL_END") {
+        const item = ensureTool(event);
+        if (item.rawArgs) {
+          try {
+            JSON.parse(item.rawArgs);
+          } catch {
+            appendWarning(
+              event,
+              "Could not decode tool call arguments",
+              item.rawArgs,
+            );
+          }
+        }
+        continue;
+      }
+
+      if (type === "TOOL_CALL_RESULT") {
+        const item = ensureTool(event);
+        const result = readString(payload, ["result", "content", "delta"]);
+        if (result) {
+          item.body = item.body
+            ? `${item.body}\nResult: ${result}`
+            : `Result: ${result}`;
+          try {
+            JSON.parse(result);
+          } catch {
+            appendWarning(event, "Could not decode tool result", result);
+          }
+        }
+        continue;
+      }
+
+      if (type.startsWith("STATE_")) {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "state",
+          title:
+            type === "STATE_SNAPSHOT"
+              ? "State snapshot captured"
+              : "State delta captured",
+          timestamp: event.timestamp,
+          sourceIndex,
+          details: payload,
+        });
+        continue;
+      }
+
+      items.push({
+        id: `event-${sourceIndex}`,
+        kind: "event",
+        title: type,
+        timestamp: event.timestamp,
+        sourceIndex,
+        details: payload,
+      });
+    }
+
+    return items;
   }
 
   private get renderItems(): RenderItem[] {
@@ -1718,7 +3062,7 @@ export class ɵCpkThreadDetails extends LitElement {
   }
 
   private get duration(): string {
-    const t = this.thread;
+    const t = this.metadata;
     if (!t?.createdAt || !t?.updatedAt) return "—";
     const ms =
       new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime();
@@ -1745,13 +3089,63 @@ export class ɵCpkThreadDetails extends LitElement {
     this._expandedMessages = next;
   }
 
+  private toggleTimelineDetails(id: string): void {
+    const next = new Set(this._expandedTimelineDetails);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expandedTimelineDetails = next;
+  }
+
+  private expandTimelineDetails(ids: string[]): void {
+    this._expandedTimelineDetails = new Set([
+      ...this._expandedTimelineDetails,
+      ...ids,
+    ]);
+  }
+
+  private collapseTimelineDetails(ids: string[]): void {
+    const next = new Set(this._expandedTimelineDetails);
+    for (const id of ids) next.delete(id);
+    this._expandedTimelineDetails = next;
+  }
+
+  private toggleRawEventDetails(id: string): void {
+    const next = new Set(this._expandedRawEvents);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expandedRawEvents = next;
+  }
+
+  private expandRawEventDetails(ids: string[]): void {
+    this._expandedRawEvents = new Set([...this._expandedRawEvents, ...ids]);
+  }
+
+  private collapseRawEventDetails(ids: string[]): void {
+    const next = new Set(this._expandedRawEvents);
+    for (const id of ids) next.delete(id);
+    this._expandedRawEvents = next;
+  }
+
+  private rawEventId(event: ApiAgentEvent): string {
+    return `raw-event-${event.sourceIndex ?? event.timestamp ?? event.type}`;
+  }
+
   private get activeEvents(): ApiAgentEvent[] {
     // When the endpoint explicitly returned 501 we report no events rather
     // than leaking the parent's agent-keyed live events across historical
     // threads (those would render identically for every thread on the same
     // agent and mislead the reader).
     if (this._eventsNotAvailable) return [];
-    return this._fetchedEvents ?? this.agentEventsInput ?? [];
+    const events = this._fetchedEvents ?? this.agentEventsInput ?? [];
+    if (events.every((event) => event.sourceIndex != null)) return events;
+    if (this._liveEventsWithSourceIndexCache?.events === events) {
+      return this._liveEventsWithSourceIndexCache.indexedEvents;
+    }
+    const indexedEvents = events.map((event, index) =>
+      event.sourceIndex == null ? { ...event, sourceIndex: index + 1 } : event,
+    );
+    this._liveEventsWithSourceIndexCache = { events, indexedEvents };
+    return indexedEvents;
   }
 
   private get activeState(): Record<string, unknown> | null {
@@ -1767,6 +3161,10 @@ export class ɵCpkThreadDetails extends LitElement {
   private shortId(id: string | null | undefined): string {
     if (!id) return "—";
     return id.length > 20 ? id.slice(0, 8) + "…" : id;
+  }
+
+  private get metadata(): ThreadDebuggerMetadata | null {
+    return this._fetchedMetadata ?? this.thread ?? null;
   }
 
   private fmtTime(dateStr: string | null | undefined): string {
@@ -1816,15 +3214,26 @@ export class ɵCpkThreadDetails extends LitElement {
         <div class="cpk-td__left">
           <!-- Tab bar -->
           <div class="cpk-td__tabs-header">
-            <div class="cpk-td__tab-group" role="tablist">
-              ${ɵCpkThreadDetails.TAB_LIST.map(
+            <div
+              class="cpk-td__tab-group"
+              role="tablist"
+              aria-label="Thread detail views"
+            >
+              ${CpkThreadInspector.TAB_LIST.map(
                 (tab) => html`
                   <button
+                    id=${this.tabDomId(tab.id)}
+                    type="button"
                     role="tab"
+                    aria-controls=${this.panelDomId(tab.id)}
+                    aria-selected=${this._tab === tab.id ? "true" : "false"}
+                    tabindex=${this._tab === tab.id ? "0" : "-1"}
                     class="cpk-td__tab ${
                       this._tab === tab.id ? "cpk-td__tab--active" : ""
                     }"
                     @click=${() => this.activateTab(tab.id)}
+                    @keydown=${(event: KeyboardEvent) =>
+                      this.handleTabKeyDown(event, tab.id)}
                   >
                     ${tab.label}
                   </button>
@@ -1833,6 +3242,7 @@ export class ɵCpkThreadDetails extends LitElement {
             </div>
             ${this.renderPanelToggle()}
           </div>
+          ${this.renderMetadataStrip()}
 
           <!-- Scrollable content -->
           <div class="cpk-td__content">
@@ -1843,18 +3253,17 @@ export class ɵCpkThreadDetails extends LitElement {
                   `
                 : nothing
             }
-            ${ɵCpkThreadDetails.TAB_LIST.map((tab) =>
+            ${CpkThreadInspector.TAB_LIST.map((tab) =>
               this._activatedTabs.has(tab.id)
                 ? html`<div
-                      class="cpk-td__panel"
-                      style=${
-                        this._tab === tab.id && !this._panelInitializing
-                          ? ""
-                          : "display:none"
-                      }
-                    >
-                      ${this.renderTabContent(tab.id)}
-                    </div>`
+                    id=${this.panelDomId(tab.id)}
+                    class="cpk-td__panel"
+                    role="tabpanel"
+                    aria-labelledby=${this.tabDomId(tab.id)}
+                    ?hidden=${this._tab !== tab.id || this._panelInitializing}
+                  >
+                    ${this.renderTabContent(tab.id)}
+                  </div>`
                 : nothing,
             )}
           </div>
@@ -1887,6 +3296,276 @@ export class ɵCpkThreadDetails extends LitElement {
           }
           ${this.renderDetailPanel()}
         </div>
+      </div>
+    `;
+  }
+
+  private renderMetadataStrip() {
+    const metadata = this.metadata;
+    const pills: Array<{ label: string; value: string; wrap?: boolean }> = [
+      {
+        label: "Name",
+        value: metadata?.name ?? this.thread?.name ?? "Untitled",
+      },
+      { label: "ID", value: metadata?.id ?? this.threadId ?? "—", wrap: true },
+    ];
+    for (const fact of [
+      { label: "Agent", value: metadata?.agentId },
+      { label: "Created", value: metadata?.createdAt },
+      { label: "Updated", value: metadata?.updatedAt },
+    ]) {
+      if (fact.value == null || fact.value === "") continue;
+      pills.push({
+        label: fact.label,
+        value:
+          fact.label === "Created" || fact.label === "Updated"
+            ? this.fmtTime(fact.value)
+            : fact.value,
+      });
+    }
+    const bulkControls = this.renderActiveBulkControls();
+
+    return html`
+      <div
+        class="cpk-td__metadata-strip"
+        role="group"
+        aria-label="Thread metadata"
+      >
+        <div class="cpk-td__metadata-pills">
+          ${pills.map(
+            (pill) => html`
+              <span
+                class="cpk-td__metadata-pill ${
+                  pill.wrap ? "cpk-td__metadata-pill--wrap" : ""
+                }"
+                role="group"
+                title=${pill.value}
+                aria-label=${`${pill.label}: ${pill.value}`}
+              >
+                <span class="cpk-td__metadata-label">${pill.label}</span>
+                <span
+                  class="cpk-td__metadata-value ${
+                    pill.wrap ? "cpk-td__metadata-value--wrap" : ""
+                  }"
+                  >${pill.value}</span
+                >
+              </span>
+            `,
+          )}
+        </div>
+        ${bulkControls}
+      </div>
+    `;
+  }
+
+  private renderActiveBulkControls() {
+    if (this._eventsNotAvailable) return nothing;
+    if (this._tab === "raw-events") return this.renderRawEventBulkControls();
+    if (this._tab !== "timeline") return nothing;
+
+    const detailIds = this.timelineItemsForEvents(this.activeEvents)
+      .filter((item) => item.details)
+      .map((item) => item.id);
+    if (detailIds.length <= 1) return nothing;
+
+    const allExpanded = detailIds.every((id) =>
+      this._expandedTimelineDetails.has(id),
+    );
+    const allCollapsed = detailIds.every(
+      (id) => !this._expandedTimelineDetails.has(id),
+    );
+
+    return html`<div class="cpk-td__timeline-toolbar">
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allExpanded}
+        @click=${() => this.expandTimelineDetails(detailIds)}
+      >
+        Expand all
+      </button>
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allCollapsed}
+        @click=${() => this.collapseTimelineDetails(detailIds)}
+      >
+        Collapse all
+      </button>
+    </div>`;
+  }
+
+  private renderRawEventBulkControls() {
+    const eventIds = this.activeEvents.map((event) => this.rawEventId(event));
+    if (eventIds.length <= 1) return nothing;
+
+    const allExpanded = eventIds.every((id) => this._expandedRawEvents.has(id));
+    const allCollapsed = eventIds.every(
+      (id) => !this._expandedRawEvents.has(id),
+    );
+
+    return html`<div class="cpk-td__timeline-toolbar">
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allExpanded}
+        @click=${() => this.expandRawEventDetails(eventIds)}
+      >
+        Expand all
+      </button>
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allCollapsed}
+        @click=${() => this.collapseRawEventDetails(eventIds)}
+      >
+        Collapse all
+      </button>
+    </div>`;
+  }
+
+  private revealSourceEvent(sourceIndex: number): void {
+    this._activatedTabs = new Set([...this._activatedTabs, "raw-events"]);
+    this._tab = "raw-events";
+    this.requestUpdate();
+    requestAnimationFrame(() => {
+      const source = this.shadowRoot?.querySelector<HTMLElement>(
+        `[data-source-index="${sourceIndex}"]`,
+      );
+      source?.scrollIntoView?.({ block: "center" });
+    });
+  }
+
+  private renderTimeline() {
+    if (this._loadingEvents) {
+      return html`
+        <div class="cpk-td__status">Loading timeline…</div>
+      `;
+    }
+    if (this._eventsError) {
+      return html`<div class="cpk-td__status cpk-td__status--error">
+        ${this._eventsError}
+      </div>`;
+    }
+    if (this._eventsNotAvailable) {
+      if (this._conversation.length > 0) return this.renderConversation();
+      if (this._loadingMessages) return this.renderConversation();
+      return html`
+        <div class="cpk-td__empty-state">
+          <span>Timeline event history not available</span>
+          <span class="cpk-td__empty-hint"
+            >This runtime doesn't yet expose per-thread AG-UI events. Check State for
+            the latest snapshot when available.</span
+          >
+        </div>
+      `;
+    }
+
+    const events = this.activeEvents;
+    const cachedTimeline = this.getCachedPanelTpl("timeline", [
+      events,
+      this._expandedTimelineDetails,
+    ]);
+    if (cachedTimeline) return cachedTimeline;
+
+    const timelineItems = this.timelineItemsForEvents(events);
+    if (timelineItems.length === 0) {
+      if (this._conversation.length > 0) return this.renderConversation();
+      if (this._loadingMessages) return this.renderConversation();
+      return html`
+        <div class="cpk-td__empty-state">
+          <span>No timeline events captured</span>
+          <span class="cpk-td__empty-hint"
+            >Timeline rows are normalized from AG-UI events. Open AG-UI Events or State
+            to inspect the available thread data.</span
+          >
+        </div>
+      `;
+    }
+
+    return this.cachedPanelTpl(
+      "timeline",
+      [events, this._expandedTimelineDetails],
+      () => html`${timelineItems.map((item) => this.renderTimelineItem(item))}`,
+    );
+  }
+
+  private renderTimelineItem(item: TimelineItem) {
+    const isWarning = item.kind === "warning";
+    const detailsExpanded = this._expandedTimelineDetails.has(item.id);
+    return html`
+      <div
+        class="cpk-td__timeline-item ${
+          isWarning ? "cpk-td__timeline-item--warning" : ""
+        }"
+      >
+        <div class="cpk-td__timeline-header">
+          <span class="cpk-td__timeline-kind"
+            >${item.severity === "error" ? "error" : item.kind}</span
+          >
+          <span class="cpk-td__timeline-title">${item.title}</span>
+          <button
+            type="button"
+            class="cpk-td__source-link"
+            @click=${() => this.revealSourceEvent(item.sourceIndex)}
+          >
+            Source event #${item.sourceIndex}
+          </button>
+          <span class="cpk-td__timeline-time"
+            >${formatTimestamp(item.timestamp)}</span
+          >
+        </div>
+        ${
+          item.details
+            ? html`<button
+                type="button"
+                class="cpk-td__timeline-details-toggle"
+                aria-expanded=${detailsExpanded ? "true" : "false"}
+                @click=${() => this.toggleTimelineDetails(item.id)}
+              >
+                ${
+                  detailsExpanded
+                    ? html`
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      `
+                    : html`
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="m9 18 6-6-6-6" />
+                        </svg>
+                      `
+                }
+                <span>${detailsExpanded ? "Hide details" : "Show details"}</span>
+              </button>`
+            : nothing
+        }
+        ${
+          item.body
+            ? html`<div class="cpk-td__timeline-body">${item.body}</div>`
+            : nothing
+        }
+        ${
+          item.details && detailsExpanded
+            ? html`<pre class="cpk-td__timeline-body">${unsafeHTML(
+                highlightedJson(item.details),
+              )}</pre>`
+            : nothing
+        }
       </div>
     `;
   }
@@ -1927,7 +3606,7 @@ export class ɵCpkThreadDetails extends LitElement {
     // `_conversation` — without those keys the cache returns the
     // pre-toggle template and the disclosure appears broken.
     return this.cachedPanelTpl(
-      "conversation",
+      "timeline-fallback",
       [this._conversation, this._expandedTools, this._expandedMessages],
       () => {
         const items = this.renderItems;
@@ -1946,10 +3625,21 @@ export class ɵCpkThreadDetails extends LitElement {
    * change without the listed key flipping.
    */
   private cachedPanelTpl(
-    slot: ThreadDetailsTab,
+    slot: ThreadDetailsPanelCacheSlot,
     key: readonly unknown[],
     build: () => TemplateResult,
   ): TemplateResult {
+    const cached = this.getCachedPanelTpl(slot, key);
+    if (cached) return cached;
+    const tpl = build();
+    this._panelTplCache.set(slot, { key, tpl });
+    return tpl;
+  }
+
+  private getCachedPanelTpl(
+    slot: ThreadDetailsPanelCacheSlot,
+    key: readonly unknown[],
+  ): TemplateResult | null {
     const cached = this._panelTplCache.get(slot);
     if (
       cached &&
@@ -1958,9 +3648,7 @@ export class ɵCpkThreadDetails extends LitElement {
     ) {
       return cached.tpl;
     }
-    const tpl = build();
-    this._panelTplCache.set(slot, { key, tpl });
-    return tpl;
+    return null;
   }
 
   private renderRenderItem(item: RenderItem) {
@@ -1991,7 +3679,7 @@ export class ɵCpkThreadDetails extends LitElement {
 
   private renderBubble(item: ConversationUser | ConversationAssistant) {
     const isUser = item.type === "user";
-    const threshold = ɵCpkThreadDetails.COLLAPSE_THRESHOLD;
+    const threshold = CpkThreadInspector.COLLAPSE_THRESHOLD;
     const expanded = this._expandedMessages.has(item.id);
     const tooLong = item.content.length > threshold;
     const shown =
@@ -2037,7 +3725,7 @@ export class ɵCpkThreadDetails extends LitElement {
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <path
               d="M1 9C1 9 2 7 5 7C8 7 9 9 9 9M5 1C5 1 7 2.5 7 4.5C7 6.5 5 7 5 7C5 7 3 6.5 3 4.5C3 2.5 5 1 5 1Z"
-              stroke="#189370"
+              stroke="#087653"
               stroke-width="1.2"
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -2174,7 +3862,7 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
       `;
     }
     const stateValue = this.activeState;
-    return this.cachedPanelTpl("agent-state", [stateValue], () => {
+    return this.cachedPanelTpl("state", [stateValue], () => {
       return html`<pre class="cpk-td__json-block">
 ${unsafeHTML(highlightedJson(stateValue))}</pre
       >`;
@@ -2214,11 +3902,16 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
         </div>
       `;
     }
-    return this.cachedPanelTpl("ag-ui-events", [events], () => {
-      return html`${events.map((event) => {
-        const { bg, fg } = eventColors(event.type);
-        return html`
-          <div class="cpk-td__event">
+    return this.cachedPanelTpl(
+      "raw-events",
+      [events, this._expandedRawEvents],
+      () => {
+        return html`${events.map((event) => {
+          const { bg, fg } = eventColors(event.type);
+          const eventId = this.rawEventId(event);
+          const detailsExpanded = this._expandedRawEvents.has(eventId);
+          return html`
+          <div class="cpk-td__event" data-source-index=${event.sourceIndex}>
             <div class="cpk-td__event-header" style="background:${bg}">
               <span class="cpk-td__event-type" style="color:${fg}"
                 >${event.type}</span
@@ -2227,13 +3920,53 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
                 >${formatTimestamp(event.timestamp)}</span
               >
             </div>
-            <pre class="cpk-td__event-payload">
-${unsafeHTML(highlightedJson(event.payload))}</pre
+            <button
+              type="button"
+              class="cpk-td__timeline-details-toggle"
+              aria-expanded=${detailsExpanded ? "true" : "false"}
+              @click=${() => this.toggleRawEventDetails(eventId)}
             >
+              ${
+                detailsExpanded
+                  ? html`
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    `
+                  : html`
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
+                    `
+              }
+              <span>${detailsExpanded ? "Hide details" : "Show details"}</span>
+            </button>
+            ${
+              detailsExpanded
+                ? html`<pre class="cpk-td__event-payload">${unsafeHTML(
+                    highlightedJson(event.rawEvent ?? event),
+                  )}</pre>`
+                : nothing
+            }
           </div>
         `;
-      })}`;
-    });
+        })}`;
+      },
+    );
   }
 
   private renderPanelToggle() {
@@ -2267,29 +4000,42 @@ ${unsafeHTML(highlightedJson(event.payload))}</pre
 
   private renderDetailPanel() {
     const counts = this.activityCounts;
+    const metadata = this.metadata;
     return html`
       <!-- Thread -->
       <div class="cpk-tdp__section-title">Thread</div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">ID</span>
         <span class="cpk-tdp__value cpk-tdp__value--wrap"
-          >${this.shortId(this.thread?.id)}</span
+          >${metadata?.id ?? this.threadId ?? "—"}</span
         >
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Name</span>
-        <span class="cpk-tdp__value">${this.thread?.name ?? "—"}</span>
+        <span class="cpk-tdp__value">${metadata?.name ?? "—"}</span>
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Agent</span>
         <span class="cpk-tdp__value cpk-tdp__value--truncate"
-          >${this.thread?.agentId ?? "—"}</span
+          >${metadata?.agentId ?? "—"}</span
+        >
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">End user</span>
+        <span class="cpk-tdp__value cpk-tdp__value--truncate"
+          >${metadata?.endUserId ?? "—"}</span
         >
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Created by</span>
         <span class="cpk-tdp__value cpk-tdp__value--truncate"
-          >${this.thread?.createdById ?? "—"}</span
+          >${metadata?.createdById ?? "—"}</span
+        >
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">Status</span>
+        <span class="cpk-tdp__value cpk-tdp__value--truncate"
+          >${metadata?.status ?? "—"}</span
         >
       </div>
 
@@ -2299,11 +4045,11 @@ ${unsafeHTML(highlightedJson(event.payload))}</pre
       <div class="cpk-tdp__section-title">Timestamps</div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Created</span>
-        <span class="cpk-tdp__value">${this.fmtTime(this.thread?.createdAt)}</span>
+        <span class="cpk-tdp__value">${this.fmtTime(metadata?.createdAt)}</span>
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Updated</span>
-        <span class="cpk-tdp__value">${this.fmtTime(this.thread?.updatedAt)}</span>
+        <span class="cpk-tdp__value">${this.fmtTime(metadata?.updatedAt)}</span>
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Duration</span>
@@ -2330,23 +4076,718 @@ ${unsafeHTML(highlightedJson(event.payload))}</pre
   }
 }
 
-if (!customElements.get("cpk-thread-list")) {
-  customElements.define("cpk-thread-list", CpkThreadList);
+// ─── memory recall relevance helpers ─────────────────────────────────────────
+
+/**
+ * Normalizes a memory's raw recall score to a 0..1 relevance ratio relative to
+ * the strongest result in the same result set. Recall scores are RRF scores
+ * (relative), so a bar is only meaningful against the set max. Returns
+ * `undefined` when no meaningful ranking exists (empty set, non-positive max,
+ * missing score) so the caller renders no bar.
+ */
+function normalizeRelevance(
+  score: number | undefined,
+  maxScore: number,
+): number | undefined {
+  if (maxScore <= 0) return undefined;
+  if (score === undefined || !Number.isFinite(score)) return undefined;
+  const ratio = score / maxScore;
+  if (ratio <= 0) return 0;
+  return ratio > 1 ? 1 : ratio;
 }
-if (!customElements.get("cpk-thread-details")) {
-  customElements.define("cpk-thread-details", ɵCpkThreadDetails);
+
+/** Largest finite `score` across a result set, or 0 when none present. */
+function maxRecallScore(memories: readonly Memory[]): number {
+  let max = 0;
+  for (const m of memories) {
+    const s = m.score;
+    if (typeof s === "number" && Number.isFinite(s) && s > max) max = s;
+  }
+  return max;
+}
+
+/**
+ * Percent width for a relevance bar. Mirrors the banking reference
+ * (`max(6, round(rel*100))%`) so a matched-but-weak result still shows a sliver.
+ * Returns a whole number in [6, 100].
+ */
+function relevanceBarWidth(relevance: number): number {
+  return Math.max(6, Math.min(100, Math.round(relevance * 100)));
+}
+
+export {
+  normalizeRelevance as ɵnormalizeRelevance,
+  maxRecallScore as ɵmaxRecallScore,
+  relevanceBarWidth as ɵrelevanceBarWidth,
+};
+
+// ─── cpk-memory-list ─────────────────────────────────────────────────────────
+
+/** Memory kind values including the "all" sentinel used by the filter UI. */
+type MemoryKindFilter = "all" | "topical" | "episodic" | "operational";
+
+class CpkMemoryList extends LitElement {
+  static properties = {
+    memories: { attribute: false },
+    recallResults: { attribute: false },
+    recallLoading: { attribute: false },
+    recallError: { attribute: false },
+    recallQueryText: { attribute: false },
+    search: { state: true },
+    kind: { state: true },
+  };
+
+  /** Ordered (newest-first) list of memories supplied by the parent. */
+  memories: Memory[] = [];
+  /** Semantic-recall results. `null` = no recall run (section hidden); `[]` = ran, no matches. */
+  recallResults: Memory[] | null = null;
+  /** True while a recall request is in flight. */
+  recallLoading = false;
+  /** Error message from the most recent recall attempt, or null. */
+  recallError: string | null = null;
+  /** The recall input text (owned by the parent). */
+  recallQueryText = "";
+  private search = "";
+  private kind: MemoryKindFilter = "all";
+
+  static styles = css`
+    @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap");
+
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .cpk-ml {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      background: #f7f7f9;
+    }
+
+    /* ── Search ── */
+    .cpk-ml__search {
+      padding: 10px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+    }
+
+    .cpk-ml__search-input {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #ffffff;
+      color: #010507;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .cpk-ml__search-input:focus {
+      border-color: #bec2ff;
+    }
+
+    /* ── Kind filter ── */
+    .cpk-ml__filter {
+      display: flex;
+      gap: 4px;
+      padding: 8px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .cpk-ml__filter-seg {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 5px;
+      border: 1px solid #dbdbe5;
+      background: #ffffff;
+      color: #57575b;
+      cursor: pointer;
+      transition:
+        background 0.1s,
+        border-color 0.1s,
+        color 0.1s;
+      user-select: none;
+    }
+
+    .cpk-ml__filter-seg:hover {
+      background: #f0f0f5;
+    }
+
+    .cpk-ml__filter-seg--active {
+      background: #bec2ff1a;
+      border-color: #bec2ff;
+      color: #010507;
+    }
+
+    .cpk-ml__filter-count {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      margin-left: 4px;
+      color: #68686e;
+    }
+
+    /* ── List ── */
+    .cpk-ml__list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── Card ── */
+    .cpk-ml__card {
+      background: #ffffff;
+      border: 1px solid #e9e9ef;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .cpk-ml__card-badges {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* Kind badge — color per kind */
+    .cpk-ml__kind-badge {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .cpk-ml__kind-badge--topical {
+      background: #eee6fe;
+      color: #57575b;
+    }
+
+    .cpk-ml__kind-badge--episodic {
+      background: #e6f4fe;
+      color: #2d5f80;
+    }
+
+    .cpk-ml__kind-badge--operational {
+      background: #e6feee;
+      color: #2d6645;
+    }
+
+    /* Scope badge */
+    .cpk-ml__scope-badge {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: nowrap;
+      background: #f0f0f5;
+      color: #68686e;
+    }
+
+    /* Content */
+    .cpk-ml__content {
+      font-size: 12px;
+      color: #010507;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    /* Footer */
+    .cpk-ml__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .cpk-ml__footer-threads {
+      font-size: 10px;
+      color: #68686e;
+    }
+
+    .cpk-ml__footer-id {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      color: #c0c0c8;
+    }
+
+    /* ── Empty state ── */
+    .cpk-ml__empty {
+      padding: 32px 16px;
+      text-align: center;
+      color: #68686e;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cpk-ml__empty-icon {
+      color: #c0c0c8;
+    }
+
+    /* ── Recall ── */
+    .cpk-ml__recall {
+      display: flex;
+      gap: 6px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+    }
+    .cpk-ml__recall-input {
+      flex: 1;
+      box-sizing: border-box;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #fff;
+      color: #010507;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .cpk-ml__recall-input:focus {
+      border-color: #bec2ff;
+    }
+    .cpk-ml__recall-btn {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #fff;
+      color: #010507;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .cpk-ml__recall-btn:hover:not(:disabled) {
+      background: #f0f0f5;
+    }
+    .cpk-ml__recall-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .cpk-ml__recall-section {
+      flex-shrink: 0;
+      max-height: 45%;
+      overflow-y: auto;
+      padding: 8px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      background: #fbfbfd;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cpk-ml__recall-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .cpk-ml__recall-title {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: #010507;
+    }
+    .cpk-ml__recall-clear {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 10px;
+      color: #68686e;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+    }
+    .cpk-ml__recall-clear:hover {
+      color: #010507;
+    }
+    .cpk-ml__recall-msg {
+      font-size: 11px;
+      color: #68686e;
+      line-height: 1.45;
+    }
+    .cpk-ml__recall-msg--error {
+      color: #c0333a;
+    }
+
+    /* ── Relevance bar ── */
+    .cpk-ml__relevance {
+      height: 4px;
+      width: 100%;
+      overflow: hidden;
+      border-radius: 9999px;
+      background: #f0f0f5;
+    }
+    .cpk-ml__relevance-fill {
+      height: 100%;
+      border-radius: 9999px;
+      background: #6366f1;
+    }
+
+    /* ── Scope badge variants ── */
+    .cpk-ml__scope-badge--user {
+      background: #f0f0f5;
+      color: #68686e;
+    }
+    .cpk-ml__scope-badge--project {
+      background: #fef3c7;
+      color: #92660c;
+    }
+  `;
+
+  /** Memories that pass the current text search (before kind filter). */
+  private get searchFiltered(): Memory[] {
+    const q = this.search.trim().toLowerCase();
+    if (!q) return this.memories;
+    return this.memories.filter((m) => m.content.toLowerCase().includes(q));
+  }
+
+  /** Memories that pass both search and kind filter. */
+  private get filtered(): Memory[] {
+    const searched = this.searchFiltered;
+    if (this.kind === "all") return searched;
+    return searched.filter((m) => m.kind === this.kind);
+  }
+
+  /** Count of search-filtered memories for a given kind (for segment labels). */
+  private countForKind(kind: Exclude<MemoryKindFilter, "all">): number {
+    return this.searchFiltered.filter((m) => m.kind === kind).length;
+  }
+
+  private onSearchInput = (event: Event): void => {
+    this.search = (event.target as HTMLInputElement).value;
+  };
+
+  private onKindClick = (event: Event): void => {
+    const seg = (event.target as HTMLElement).closest("[data-kind]");
+    if (!seg) return;
+    const k = (seg as HTMLElement).dataset["kind"] as MemoryKindFilter;
+    this.kind = k;
+  };
+
+  /** Truncate an id to first-4…last-4 characters. */
+  private shortId(id: string): string {
+    if (id.length <= 12) return id;
+    return `${id.slice(0, 4)}…${id.slice(-4)}`;
+  }
+
+  private renderKindBadge(kind: string): TemplateResult {
+    return html`<span class="cpk-ml__kind-badge cpk-ml__kind-badge--${kind}"
+      >${kind}</span
+    >`;
+  }
+
+  private renderScopeBadge(scope: string): TemplateResult {
+    const variant = scope === "project" ? "project" : "user";
+    return html`<span
+      class="cpk-ml__scope-badge cpk-ml__scope-badge--${variant}"
+      >${scope}</span
+    >`;
+  }
+
+  /**
+   * Renders one memory card. `relevance` (0..1) is supplied only for recall
+   * results — when present a relevance bar is drawn; the full list omits it.
+   */
+  private renderCard(m: Memory, relevance?: number): TemplateResult {
+    const threads = m.sourceThreadIds.length;
+    return html`
+      <div class="cpk-ml__card">
+        <div class="cpk-ml__card-badges">
+          ${this.renderKindBadge(m.kind)}${this.renderScopeBadge(m.scope)}
+        </div>
+        <div class="cpk-ml__content">${m.content}</div>
+        ${
+          relevance !== undefined
+            ? html`<div class="cpk-ml__relevance">
+              <div
+                class="cpk-ml__relevance-fill"
+                style="width:${relevanceBarWidth(relevance)}%;"
+              ></div>
+            </div>`
+            : nothing
+        }
+        <div class="cpk-ml__footer">
+          <span class="cpk-ml__footer-threads"
+            >${threads} source thread${threads === 1 ? "" : "s"}</span
+          >
+          <span class="cpk-ml__footer-id">${this.shortId(m.id)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  private onRecallInput = (event: Event): void => {
+    const value = (event.target as HTMLInputElement).value;
+    this.recallQueryText = value;
+    this.dispatchEvent(
+      new CustomEvent<string>("recallQueryChanged", {
+        detail: value,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private onRecallSubmit = (event: Event): void => {
+    event.preventDefault();
+    const query = this.recallQueryText.trim();
+    if (query.length === 0 || this.recallLoading) return;
+    this.dispatchEvent(
+      new CustomEvent<string>("recallSubmitted", {
+        detail: query,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private onRecallClear = (): void => {
+    this.dispatchEvent(
+      new CustomEvent("recallCleared", { bubbles: true, composed: true }),
+    );
+  };
+
+  private renderRecallForm(): TemplateResult {
+    const disabled =
+      this.recallLoading || this.recallQueryText.trim().length === 0;
+    return html`
+      <form class="cpk-ml__recall" @submit=${this.onRecallSubmit}>
+        <input
+          type="text"
+          placeholder="Recall by meaning…"
+          aria-label="Recall memories by meaning"
+          class="cpk-ml__recall-input"
+          .value=${this.recallQueryText}
+          @input=${this.onRecallInput}
+        />
+        <button type="submit" class="cpk-ml__recall-btn" ?disabled=${disabled}>
+          ${this.recallLoading ? "…" : "Recall"}
+        </button>
+      </form>
+    `;
+  }
+
+  private renderRecallSection(): TemplateResult {
+    const results = this.recallResults;
+    if (results === null) return html``;
+    const max = maxRecallScore(results);
+    return html`
+      <section
+        class="cpk-ml__recall-section"
+        aria-label="Semantic recall results"
+      >
+        <div class="cpk-ml__recall-header">
+          <span class="cpk-ml__recall-title"
+            >Semantic recall (${results.length})</span
+          >
+          <button
+            type="button"
+            class="cpk-ml__recall-clear"
+            @click=${this.onRecallClear}
+          >
+            Clear
+          </button>
+        </div>
+        ${
+          this.recallError
+            ? html`<p class="cpk-ml__recall-msg cpk-ml__recall-msg--error">
+              Recall failed: ${this.recallError}
+            </p>`
+            : results.length === 0
+              ? html`
+                  <p class="cpk-ml__recall-msg">No memories matched that query.</p>
+                `
+              : results.map((m) =>
+                  this.renderCard(m, normalizeRelevance(m.score, max)),
+                )
+        }
+      </section>
+    `;
+  }
+
+  private renderEmpty(): TemplateResult {
+    const q = this.search.trim();
+    if (this.memories.length === 0) {
+      return html`
+        <div class="cpk-ml__empty">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="cpk-ml__empty-icon"
+          >
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+          </svg>
+          No memories yet — tell the agent a durable fact and watch it appear.
+        </div>
+      `;
+    }
+    if (q) {
+      return html`
+        <div class="cpk-ml__empty">
+          No memories match &ldquo;${q}&rdquo;.
+        </div>
+      `;
+    }
+    return html`
+      <div class="cpk-ml__empty">No ${this.kind} memories yet.</div>
+    `;
+  }
+
+  render() {
+    const filtered = this.filtered;
+    const kinds: Array<Exclude<MemoryKindFilter, "all">> = [
+      "topical",
+      "episodic",
+      "operational",
+    ];
+
+    return html`
+      <div class="cpk-ml">
+        <!-- Semantic recall -->
+        ${this.renderRecallForm()} ${this.renderRecallSection()}
+
+        <!-- Search -->
+        <div class="cpk-ml__search">
+          <input
+            type="text"
+            placeholder="Search memories…"
+            .value=${this.search}
+            @input=${this.onSearchInput}
+            class="cpk-ml__search-input"
+          />
+        </div>
+
+        <!-- Kind filter -->
+        <div class="cpk-ml__filter" @click=${this.onKindClick}>
+          <button
+            class="cpk-ml__filter-seg ${this.kind === "all" ? "cpk-ml__filter-seg--active" : ""}"
+            data-kind="all"
+          >
+            All<span class="cpk-ml__filter-count">${this.searchFiltered.length}</span>
+          </button>
+          ${kinds.map(
+            (k) => html`
+              <button
+                class="cpk-ml__filter-seg ${this.kind === k ? "cpk-ml__filter-seg--active" : ""}"
+                data-kind="${k}"
+              >
+                ${k}<span class="cpk-ml__filter-count">${this.countForKind(k)}</span>
+              </button>
+            `,
+          )}
+        </div>
+
+        <!-- Memory list -->
+        <div class="cpk-ml__list">
+          ${filtered.map((m) => this.renderCard(m))}
+          ${filtered.length === 0 ? this.renderEmpty() : nothing}
+        </div>
+      </div>
+    `;
+  }
+}
+
+// Backwards-compatible internal element name used by the full CopilotKit
+// Inspector shell. Keep this class thin so the public body remains the single
+// implementation.
+export class ɵCpkThreadDetails extends CpkThreadInspector {}
+
+function defineElementOnce(
+  registry: CustomElementRegistry,
+  tag: string,
+  ctor: CustomElementConstructor,
+): void {
+  if (!registry.get(tag)) {
+    registry.define(tag, ctor);
+  }
 }
 
 export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
+    _capabilitiesVersion: { state: true },
   } as const;
 
   private _core: CopilotKitCore | null = null;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
+  private _memories: Memory[] = [];
+  private _memoriesLoading = false;
+  private _memoriesError: Error | null = null;
+  private _memoriesAvailable = true;
+  // Realtime-connection health, independent of `_memoriesAvailable` (the REST
+  // list route). Drives the "live" indicator: only "connected" shows "live".
+  private _memoriesRealtimeStatus: MemoryRealtimeStatus = "connecting";
+  private _memoryUnsub: (() => void) | null = null;
+  // Lazy-subscription guard. The memory store is created + started + opens
+  // realtime the first time `core.getMemoryStore()` is called, so we defer
+  // that call until the user actually activates the Memories tab (see
+  // `ensureMemorySubscription`). This flag prevents a repeated tab click from
+  // double-subscribing; `detachFromCore` resets it so a later attach + tab
+  // activation re-subscribes cleanly.
+  private _memorySubscribed = false;
+  // True when the attached core predates `getMemoryStore` (older @copilotkit
+  // SDK). Distinct from `_memoriesAvailable` (memory not enabled on an
+  // otherwise-current deployment) so the teaser can show upgrade-the-SDK copy.
+  private _memoryStoreUnsupported = false;
+  // ── Semantic recall (B3) ──────────────────────────────────────────────
+  // `null` = no recall run yet (section hidden). `[]` = ran, no matches.
+  private _recallResults: Memory[] | null = null;
+  private _recallLoading = false;
+  private _recallError: string | null = null;
+  private _recallQuery = "";
+  // Monotonic token so a slow recall resolving after a newer one / Clear /
+  // detach is ignored — last-write-wins without racing state.
+  private _recallSeq = 0;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
+  private inspectorMetadataValue: unknown;
+  private inspectorMetadataProjection: InspectorMetadataProjection =
+    projectInspectorMetadata(undefined, undefined);
+  // The last *visible* local fingerprint for each metadata module. This is a
+  // map rather than a cumulative set so A → B → A produces three impressions,
+  // while close/reopen with unchanged metadata produces only one. Fingerprint
+  // values can contain local labels and URLs because the map never leaves the
+  // browser; outbound helpers rebuild a coarse allowlisted payload.
+  private metadataTelemetryFingerprints: Map<
+    InspectorMetadataTelemetryModule,
+    string
+  > = new Map();
   private coreProperties: Readonly<Record<string, unknown>> = {};
   private lastCoreError: {
     code: CopilotKitCoreErrorCode;
@@ -2377,8 +4818,20 @@ export class WebInspectorElement extends LitElement {
   private isOpen = false;
   private draggedDuringInteraction = false;
   private ignoreNextButtonClick = false;
-  private selectedMenu: MenuKey = "ag-ui-events";
+  private selectedMenu: MenuKey = "threads";
+  private pendingPersistedMenu: MenuKey | null = null;
+  private hasResolvedCore = false;
+  private settingsOpen = false;
+  private readonly lastSelectedMenuByGroup: Record<InspectorGroupKey, MenuKey> =
+    {
+      threads: "threads",
+      agents: "ag-ui-events",
+      learning: "memories",
+    };
+  private lastScrolledAgentNavigationLayout: string | null = null;
   private selectedThreadId: string | null = null;
+  private selectedRealThreadIsExplicit = false;
+  private selectedLocalExampleThreadId: string | null = null;
   private threadListWidth = 290;
   private threadDividerResizing = false;
   private threadDividerPointerId = -1;
@@ -2392,8 +4845,11 @@ export class WebInspectorElement extends LitElement {
   // selection, the threads view renders an error state instead of stale
   // data with no indication.
   private _threadsErrorByAgent: Map<string, Error> = new Map();
+  private _threadsLoadingByAgent: Map<string, boolean> = new Map();
   // Thread stores created and owned by the inspector (keyed by agentId)
   private _ownedThreadStores: Map<string, ɵThreadStore> = new Map();
+  private threadCapabilityEnabled: boolean | null = null;
+  private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
   private dockMode: DockMode = "floating";
   private previousBodyMargins: { left: string; bottom: string } | null = null;
@@ -2405,6 +4861,12 @@ export class WebInspectorElement extends LitElement {
   private attemptedAutoAttach = false;
   private cachedTools: InspectorToolDefinition[] = [];
   private toolSignature = "";
+  // Bumped after every core.setToolEnabled / core.setCatalogComponentEnabled
+  // call so the Capabilities tab re-paints from the fresh isToolEnabled /
+  // isCatalogComponentEnabled getters. There is no core subscriber for
+  // enablement changes — the inspector itself drives the toggle, so we force
+  // the re-render locally.
+  private _capabilitiesVersion = 0;
   private eventFilterText = "";
   private eventTypeFilter: InspectorAgentEventType | "all" = "all";
   // Column widths for the AG-UI events table (agent, time, event-type; last col is auto)
@@ -2430,20 +4892,57 @@ export class WebInspectorElement extends LitElement {
   private announcementPromise: Promise<void> | null = null;
   private showAnnouncementPreview = true;
   private announcementExpanded = false;
-  // Per-instance dedup for `oss.inspector.banner_viewed` so the event fires
-  // at most once per announcement timestamp per inspector mount. Plan calls
-  // for "de-dup per timestamp per session"; instance-scoping is closer
-  // to per-mount than per-tab (sessionStorage), but for the inspector the
-  // distinction is academic — inspector instances rarely outlive the page.
-  private viewedBannerTimestamps: Set<string> = new Set();
-  private pendingBannerViewed: {
+  // Per-instance dedup for `oss.inspector.banner_viewed`, keyed by
+  // `${timestamp}:${surface}` so the event fires at most once per
+  // announcement per surface per inspector mount. Plan calls for "de-dup per
+  // timestamp per session"; instance-scoping is closer to per-mount than
+  // per-tab (sessionStorage), but for the inspector the distinction is
+  // academic — inspector instances rarely outlive the page. The surface is
+  // part of the key (OSS-568) because the bubble on the collapsed widget and
+  // the card inside the opened panel are separate impressions: a user can see
+  // one without ever seeing the other.
+  private viewedBannerSurfaces: Set<string> = new Set();
+  // Impressions wait for the runtime handshake before going out: the runtime's
+  // opt-out arrives in the /info response, and `telemetryDisabled` reads `false`
+  // until then, so sending directly would post on a placeholder. This deferral
+  // predates the surface split — preserved here, widened from a single slot to a
+  // queue because opening the panel reveals the second surface and can happen
+  // before the first impression has flushed.
+  private pendingBannerViewed: Array<{
     banner_id: string;
+    surface: BannerSurface;
     cta_label?: string;
-  } | null = null;
+  }> = [];
   // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
   private clickedBannerIds: Set<string> = new Set();
+  private viewedThreadsTelemetryStates: Set<string> = new Set();
+  private viewedExampleKinds: Set<ExampleKind> = new Set();
+  private selectedExampleKinds: Set<ExampleKind> = new Set();
+  private viewedExampleTourSteps: Set<string> = new Set();
+  private exampleThreadProviders: Map<string, ThreadDebuggerProvider> =
+    new Map();
+  private exampleTourDismissed = false;
+  private exampleTourActive = false;
+  private exampleTourStep = 0;
+  private exampleTourAutoShown = false;
+  private threadsExampleOverviewVideoState: ThreadsExampleOverviewVideoState =
+    "deferred";
+  private threadsExampleOverviewVideoLoaded = false;
+  private threadsExampleOverviewVideoReducedMotion = false;
+  private threadsExampleOverviewVideoLoadTimer: number | null = null;
+  private threadsExampleOverviewVideoIdleCallbackId: number | null = null;
+  private threadsExampleOverviewVideoElement: HTMLVideoElement | null = null;
+  private threadsExampleOverviewVideoListeners: ThreadsExampleOverviewVideoListeners | null =
+    null;
+  private threadsExampleOverviewVideoLifecycleGeneration = 0;
+  private threadsExampleOverviewVideoPlayAttemptGeneration = 0;
+  private threadsExampleOverviewVideoPlayPromise: Promise<void> | null = null;
+  private threadsExampleOverviewVideoPlayOnNextBind = false;
+  private threadsSetupPromptCopyState: ThreadsSetupPromptCopyState = "idle";
+  private threadsSetupPromptCopyResetTimeoutId: number | null = null;
+  private threadsSetupPromptCopyGeneration = 0;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -2457,7 +4956,17 @@ export class WebInspectorElement extends LitElement {
 
     this.detachFromCore();
 
+    const hadResolvedCore = this.hasResolvedCore;
     this._core = value ?? null;
+    if (this._core) {
+      this.hasResolvedCore = true;
+    }
+
+    if (!hadResolvedCore && this._core) {
+      this.resolvePendingPersistedMenu();
+    } else if (hadResolvedCore) {
+      this.reconcileSelectedMenuVisibility();
+    }
     this.requestUpdate("core", oldValue);
 
     if (this._core) {
@@ -2496,6 +5005,8 @@ export class WebInspectorElement extends LitElement {
 
   private get menuItems(): MenuItem[] {
     const hasFrontendTools = (this._core?.tools?.length ?? 0) > 0;
+    const hasCatalog = (this._core?.catalogComponents?.length ?? 0) > 0;
+    const hasCapabilities = hasFrontendTools || hasCatalog;
     return [
       {
         key: "ag-ui-events",
@@ -2512,6 +5023,15 @@ export class WebInspectorElement extends LitElement {
             },
           ]
         : []),
+      ...(hasCapabilities
+        ? [
+            {
+              key: "capabilities" as const,
+              label: CAPABILITIES_TAB_LABEL,
+              icon: "SlidersHorizontal" as LucideIconName,
+            },
+          ]
+        : []),
       {
         key: "agent-context",
         label: "Context",
@@ -2522,32 +5042,371 @@ export class WebInspectorElement extends LitElement {
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
       },
+      {
+        key: "memories",
+        label: MEMORY_VIEW_LABEL,
+        icon: "Brain" as LucideIconName,
+      },
     ];
   }
 
+  /** Return the primary navigation group that owns a legacy leaf key. */
+  private getGroupForMenu(key: MenuKey): InspectorGroupKey {
+    for (const group of INSPECTOR_PRIMARY_NAVIGATION) {
+      if (INSPECTOR_GROUPS[group.key].some((menuKey) => menuKey === key)) {
+        return group.key;
+      }
+    }
+
+    return "threads";
+  }
+
+  /** Return the primary group for the current legacy leaf selection. */
+  private get selectedGroup(): InspectorGroupKey {
+    return this.getGroupForMenu(this.selectedMenu);
+  }
+
+  /** Return only currently visible legacy leaves owned by a group. */
+  private getVisibleMenuItemsForGroup(group: InspectorGroupKey): MenuItem[] {
+    return this.menuItems.filter((item) =>
+      INSPECTOR_GROUPS[group].some((menuKey) => menuKey === item.key),
+    );
+  }
+
+  /** Resolve a group's last visible leaf, falling back to its first leaf. */
+  private getMenuForGroup(group: InspectorGroupKey): MenuKey {
+    const visibleItems = this.getVisibleMenuItemsForGroup(group);
+    const rememberedMenu = this.lastSelectedMenuByGroup[group];
+    return (
+      visibleItems.find((item) => item.key === rememberedMenu)?.key ??
+      visibleItems[0]?.key ??
+      "threads"
+    );
+  }
+
+  /** Replace a leaf that became hidden with its group's first visible leaf. */
+  private reconcileSelectedMenuVisibility(): void {
+    if (this.menuItems.some((item) => item.key === this.selectedMenu)) {
+      return;
+    }
+
+    const group = this.getGroupForMenu(this.selectedMenu);
+    const fallbackMenu = this.getVisibleMenuItemsForGroup(group)[0]?.key;
+    this.selectedMenu = fallbackMenu ?? "threads";
+    this.lastSelectedMenuByGroup[group] = this.selectedMenu;
+    this.persistState();
+  }
+
+  /** Open a primary group at its last currently visible legacy leaf. */
+  private handleGroupSelect(group: InspectorGroupKey): void {
+    this.handleMenuSelect(this.getMenuForGroup(group));
+  }
+
+  /** Toggle Settings without replacing or persisting the active legacy leaf. */
+  private handleSettingsToggle(): void {
+    this.settingsOpen = !this.settingsOpen;
+    this.contextMenuOpen = false;
+    this.requestUpdate();
+  }
+
+  private getThreadServiceStatus(): ThreadServiceStatus {
+    if (!this._core) return "unknown";
+    if (!this._core.threadEndpoints) return "unknown";
+    return this._core.threadEndpoints?.list === false
+      ? "unavailable"
+      : "available";
+  }
+
+  private areThreadEndpointsAvailable(): boolean {
+    const endpoints = this._core?.threadEndpoints;
+    return (
+      endpoints !== null &&
+      typeof endpoints === "object" &&
+      endpoints.list !== false
+    );
+  }
+
+  private synchronizeThreadCapability(): void {
+    const enabled = this.areThreadEndpointsAvailable();
+    if (this.threadCapabilityEnabled === enabled) return;
+
+    this.threadCapabilityEnabled = enabled;
+    this.threadCapabilityGeneration += 1;
+
+    if (enabled) {
+      const core = this.core;
+      if (!core) return;
+
+      const threadStores =
+        typeof core.getThreadStores === "function"
+          ? core.getThreadStores()
+          : {};
+      for (const [agentId, store] of Object.entries(threadStores)) {
+        this.subscribeToThreadStore(agentId, store);
+      }
+      for (const agent of Object.values(core.agents)) {
+        if (agent?.agentId) {
+          this.ensureOwnedThreadStore(agent.agentId);
+        }
+      }
+      return;
+    }
+
+    this.teardownThreadStoreSubscriptions();
+    this.teardownOwnedThreadStores();
+    if (this.selectedThreadId !== this.selectedLocalExampleThreadId) {
+      this.selectedThreadId = null;
+      this.selectedLocalExampleThreadId = null;
+    }
+    this.selectedRealThreadIsExplicit = false;
+    this.requestUpdate();
+  }
+
+  private getActiveThreadsState(): {
+    displayThreads: ɵThread[];
+    threadsErrorMessage: string | null;
+    threadsLoading: boolean;
+  } {
+    const displayThreads =
+      this.selectedContext === "all-agents"
+        ? this._threads
+        : (this._threadsByAgent.get(this.selectedContext) ?? []);
+
+    // Surface a thread-store load error inline. For "all-agents" we report
+    // the first error encountered across all agents (good enough for a
+    // debugging surface — the per-agent context filter narrows down the
+    // culprit). For a specific agent we use that agent's error directly.
+    let threadsErrorMessage: string | null = null;
+    if (this.selectedContext === "all-agents") {
+      const firstError = this._threadsErrorByAgent.values().next().value;
+      threadsErrorMessage = firstError?.message ?? null;
+    } else {
+      threadsErrorMessage =
+        this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
+    }
+
+    const threadsLoading =
+      this.selectedContext === "all-agents"
+        ? Array.from(this._threadsLoadingByAgent.values()).some(Boolean)
+        : (this._threadsLoadingByAgent.get(this.selectedContext) ?? false);
+
+    return { displayThreads, threadsErrorMessage, threadsLoading };
+  }
+
+  /** Bucket trusted usage without retaining exact counts or limits. */
+  private getThreadsUsageBucket(): ThreadsUsageBucket {
+    const usage = this.inspectorMetadataProjection.usage;
+    if (!usage) return "absent";
+    if (usage.used === 0) return "empty";
+    if (usage.limit.kind === "finite") {
+      return usage.used < usage.limit.value
+        ? "within_limit"
+        : "at_or_over_limit";
+    }
+    if (usage.limit.kind === "unlimited") return "unlimited";
+    return "unknown_limit";
+  }
+
+  /** Classify finite usage for render-only capacity copy and color. */
+  private getThreadsCapacityState():
+    | "normal"
+    | "warning"
+    | "critical"
+    | undefined {
+    const usage = this.inspectorMetadataProjection.usage;
+    if (!usage || usage.limit.kind !== "finite") return undefined;
+    if (usage.used >= usage.limit.value) return "critical";
+
+    const warningThreshold =
+      usage.limit.value - Math.floor(usage.limit.value / 10);
+    return usage.used >= warningThreshold ? "warning" : "normal";
+  }
+
+  /** Bucket trusted expiry data independently from the usage-limit bucket. */
+  private getThreadsExpiryBucket(): ThreadsExpiryBucket {
+    const usage = this.inspectorMetadataProjection.usage;
+    if (
+      !usage ||
+      !Object.prototype.hasOwnProperty.call(usage, "expiringSoonCount")
+    ) {
+      return "unavailable";
+    }
+    if (usage.expiringSoonCount === 0) return "zero";
+    return typeof usage.expiringSoonCount === "number" &&
+      usage.expiringSoonCount > 0
+      ? "positive"
+      : "unavailable";
+  }
+
+  /** Report only real rows visible in the active, settled Threads view. */
+  private hasActiveVisibleThreads(): boolean {
+    if (
+      this.selectedMenu !== "threads" ||
+      this.settingsOpen ||
+      !this.areThreadEndpointsAvailable()
+    ) {
+      return false;
+    }
+    const { displayThreads, threadsErrorMessage, threadsLoading } =
+      this.getActiveThreadsState();
+    return !threadsErrorMessage && !threadsLoading && displayThreads.length > 0;
+  }
+
+  /** Build the closed common property set shared by all Thread events. */
+  private getThreadsTelemetryProps(): InspectorThreadTelemetryProps {
+    const threadServiceStatus = this.getThreadServiceStatus();
+    return {
+      intelligence_status:
+        threadServiceStatus === "available"
+          ? "intelligence_enabled"
+          : threadServiceStatus === "unavailable"
+            ? "intelligence_not_enabled"
+            : "unknown",
+      thread_service_status: threadServiceStatus,
+      license_status: this.core?.licenseStatus ?? undefined,
+      runtime_mode: this.core?.runtimeMode ?? undefined,
+      runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
+      telemetry_disabled: false,
+      has_threads: this.hasActiveVisibleThreads(),
+      usage_bucket: this.getThreadsUsageBucket(),
+      expiry_bucket: this.getThreadsExpiryBucket(),
+      group_key: "threads",
+      leaf_key: "threads",
+    };
+  }
+
+  /** Add the frozen CTA leaves and anonymous URL attribution when allowed. */
+  private getThreadsCtaTelemetryProps(
+    cta: "signup" | "talk_to_engineer",
+    ctaSurface: "threads_locked" | "threads_header",
+  ): InspectorThreadTelemetryProps {
+    const distinctId = getTelemetryDistinctIdForUrl();
+    return {
+      ...this.getThreadsTelemetryProps(),
+      cta,
+      cta_surface: ctaSurface,
+      posthog_distinct_id: distinctId ?? undefined,
+    };
+  }
+
+  private getMemoriesTelemetryProps(): InspectorMemoryTelemetryProps {
+    const distinctId = !this.core?.telemetryDisabled
+      ? getTelemetryDistinctIdForUrl()
+      : null;
+    return {
+      posthog_distinct_id: distinctId ?? undefined,
+      memory_count: this._memories.length,
+      available: this._memoriesAvailable,
+    };
+  }
+
+  private getIntelligenceSignupUrl(): string {
+    return this.appendRefParam(INTELLIGENCE_SIGNUP_URL, "cpk-inspector");
+  }
+
+  private getTalkToEngineerUrl(): string {
+    return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
+  }
+
+  private getThreadsTalkToEngineerUrl(): string {
+    return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
+  }
+
+  private getThreadsDocsUrl(): string {
+    return this.appendRefParam(THREADS_DOCS_URL, "cpk-inspector-threads");
+  }
+
+  private getThreadsRuntimeSetupDocsUrl(): string {
+    return this.appendRefParam(
+      THREADS_RUNTIME_SETUP_DOCS_URL,
+      "cpk-inspector-threads",
+    );
+  }
+
+  private getThreadsIntelligenceSignupUrl(): string {
+    return this.appendRefParam(
+      INTELLIGENCE_SIGNUP_URL,
+      "cpk-inspector-threads",
+    );
+  }
+
+  private getSelfHostedIntelligenceUrl(): string {
+    return this.appendRefParam(
+      SELF_HOSTED_INTELLIGENCE_URL,
+      "cpk-inspector-threads",
+    );
+  }
+
+  /** Selects the onboarding path for an enabled runtime with no saved Threads. */
+  private getThreadsEmptyOnboardingAction(): Readonly<{
+    href: string;
+    label: "Sign up for Intelligence" | "Explore self-hosted Intelligence";
+  }> {
+    const planCode = this.inspectorMetadataProjection.plan?.code
+      .trim()
+      .toLowerCase();
+    if (planCode === "team_self_hosted" || planCode === "team-self-hosted") {
+      return {
+        href: this.getSelfHostedIntelligenceUrl(),
+        label: "Explore self-hosted Intelligence",
+      };
+    }
+    return {
+      href: this.getThreadsIntelligenceSignupUrl(),
+      label: "Sign up for Intelligence",
+    };
+  }
+
   private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     if (this._threadStoreSubscriptions.has(agentId)) return;
+    const capabilityGeneration = this.threadCapabilityGeneration;
     const threadsSub = store.select(ɵselectThreads).subscribe((threads) => {
+      if (
+        capabilityGeneration !== this.threadCapabilityGeneration ||
+        !this.areThreadEndpointsAvailable()
+      ) {
+        return;
+      }
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
       this._threads = Array.from(this._threadsByAgent.values()).flat();
       this.autoSelectLatestThread();
       this.requestUpdate();
     });
-    const errorSub = store.select(ɵselectThreadsError).subscribe((error) => {
-      if (error) {
-        this._threadsErrorByAgent.set(agentId, error);
-      } else {
-        this._threadsErrorByAgent.delete(agentId);
-      }
-      this.requestUpdate();
-    });
+    const statusSub = store
+      .select(createThreadStoreStatusSelector())
+      .subscribe(({ error, isLoading }) => {
+        if (
+          capabilityGeneration !== this.threadCapabilityGeneration ||
+          !this.areThreadEndpointsAvailable()
+        ) {
+          return;
+        }
+        if (error) {
+          this._threadsErrorByAgent.set(agentId, error);
+        } else {
+          this._threadsErrorByAgent.delete(agentId);
+        }
+        this._threadsLoadingByAgent.set(agentId, isLoading);
+        this.requestUpdate();
+      });
     this._threadStoreSubscriptions.set(agentId, () => {
       threadsSub.unsubscribe();
-      errorSub.unsubscribe();
+      statusSub.unsubscribe();
     });
     // Populate immediately from current state
+    if (
+      capabilityGeneration !== this.threadCapabilityGeneration ||
+      !this.areThreadEndpointsAvailable()
+    ) {
+      return;
+    }
     const initialState = store.getState();
     this._threadsByAgent.set(agentId, ɵselectThreads(initialState));
+    this._threadsLoadingByAgent.set(
+      agentId,
+      ɵselectThreadsIsLoading(initialState),
+    );
     const initialError = ɵselectThreadsError(initialState);
     if (initialError) {
       this._threadsErrorByAgent.set(agentId, initialError);
@@ -2559,14 +5418,34 @@ export class WebInspectorElement extends LitElement {
   }
 
   private autoSelectLatestThread(): void {
-    if (this._threads.length === 0) return;
-    const stillValid =
-      this.selectedThreadId != null &&
-      this._threads.some((t) => t.id === this.selectedThreadId);
-    if (!stillValid) {
-      // Threads are sorted most-recently-updated first
-      this.selectedThreadId = this._threads[0]!.id;
+    if (!this.areThreadEndpointsAvailable()) return;
+    const { displayThreads } = this.getActiveThreadsState();
+    const previousSelectedThreadId = this.selectedThreadId;
+
+    if (
+      this.selectedLocalExampleThreadId !== null &&
+      previousSelectedThreadId === this.selectedLocalExampleThreadId &&
+      displayThreads.length === 0
+    ) {
+      this.selectedRealThreadIsExplicit = false;
+      return;
     }
+
+    if (this.selectedLocalExampleThreadId !== null) {
+      this.exampleTourActive = false;
+    }
+    this.selectedLocalExampleThreadId = null;
+    const explicitSelectedThreadId = this.selectedRealThreadIsExplicit
+      ? previousSelectedThreadId
+      : null;
+    const nextSelectedThreadId = selectVisibleRealThreadId({
+      threads: displayThreads,
+      selectedThreadId: explicitSelectedThreadId,
+    });
+    this.selectedThreadId = nextSelectedThreadId;
+    this.selectedRealThreadIsExplicit =
+      explicitSelectedThreadId !== null &&
+      nextSelectedThreadId === explicitSelectedThreadId;
   }
 
   private teardownThreadStoreSubscriptions(): void {
@@ -2576,10 +5455,12 @@ export class WebInspectorElement extends LitElement {
     this._threadStoreSubscriptions.clear();
     this._threadsByAgent.clear();
     this._threadsErrorByAgent.clear();
+    this._threadsLoadingByAgent.clear();
     this._threads = [];
   }
 
   private ensureOwnedThreadStore(agentId: string): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     if (this._ownedThreadStores.has(agentId)) return;
     // Don't overwrite a store already registered by useThreads() or another external caller
     if (this.core?.getThreadStore(agentId)) return;
@@ -2590,7 +5471,8 @@ export class WebInspectorElement extends LitElement {
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: {},
+      headers: { ...core.headers },
+      wsUrl: core.intelligence?.wsUrl,
       agentId,
     });
     this._ownedThreadStores.set(agentId, store);
@@ -2602,6 +5484,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private refreshOwnedThreadStore(agentId: string): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
     // refresh() re-fetches without resetting threads to [] first, so the list
@@ -2609,38 +5492,110 @@ export class WebInspectorElement extends LitElement {
     store.refresh();
   }
 
+  // Keep inspector-owned thread stores in sync when the host updates headers
+  // at runtime (e.g. a refreshed auth/CSRF token via core.setHeaders). Mirrors
+  // useThreads(), which re-dispatches the context whenever core.headers change,
+  // so the owned stores' /threads requests stay authorized.
+  private updateOwnedThreadStoreHeaders(
+    headers: Readonly<Record<string, string>>,
+  ): void {
+    if (!this.areThreadEndpointsAvailable()) return;
+    const core = this.core;
+    if (!core?.runtimeUrl) return;
+    for (const [agentId, store] of this._ownedThreadStores) {
+      store.setContext({
+        runtimeUrl: core.runtimeUrl,
+        headers: { ...headers },
+        wsUrl: core.intelligence?.wsUrl,
+        agentId,
+      });
+    }
+  }
+
   private removeOwnedThreadStore(agentId: string): void {
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
-    store.stop();
-    this.core?.unregisterThreadStore(agentId);
     this._ownedThreadStores.delete(agentId);
+    store.stop();
+    if (this.core?.getThreadStore(agentId) === store) {
+      this.core.unregisterThreadStore(agentId);
+    }
   }
 
   private teardownOwnedThreadStores(): void {
-    for (const [agentId, store] of this._ownedThreadStores) {
-      store.stop();
-      this.core?.unregisterThreadStore(agentId);
-    }
+    const ownedThreadStores = Array.from(this._ownedThreadStores);
     this._ownedThreadStores.clear();
+    for (const [agentId, store] of ownedThreadStores) {
+      store.stop();
+      if (this.core?.getThreadStore(agentId) === store) {
+        this.core.unregisterThreadStore(agentId);
+      }
+    }
+  }
+
+  private coreSupportsInspectorMetadata(core: CopilotKitCore): boolean {
+    try {
+      return "inspectorMetadata" in core;
+    } catch {
+      return false;
+    }
+  }
+
+  private readCoreInspectorMetadata(core: CopilotKitCore): unknown {
+    if (!this.coreSupportsInspectorMetadata(core)) {
+      return undefined;
+    }
+
+    try {
+      return core.inspectorMetadata;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private updateInspectorMetadataProjection(value: unknown): void {
+    this.inspectorMetadataValue = value;
+    let runtimeLicense: RuntimeLicenseStatus | undefined;
+    try {
+      runtimeLicense = this._core?.licenseStatus;
+    } catch {
+      runtimeLicense = undefined;
+    }
+    this.inspectorMetadataProjection = projectInspectorMetadata(
+      value,
+      runtimeLicense,
+    );
   }
 
   private attachToCore(core: CopilotKitCore): void {
     this.runtimeStatus = core.runtimeConnectionStatus;
     this.coreProperties = core.properties;
     this.lastCoreError = null;
+    const supportsInspectorMetadata = this.coreSupportsInspectorMetadata(core);
+    this.updateInspectorMetadataProjection(
+      this.readCoreInspectorMetadata(core),
+    );
 
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
+        this.updateInspectorMetadataProjection(this.inspectorMetadataValue);
+        const threadCapabilityWasEnabled =
+          this.threadCapabilityEnabled === true;
+        this.synchronizeThreadCapability();
         if (status === "connected") {
           if (!core.telemetryDisabled) {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
           this.flushPendingBannerViewed();
-          for (const agentId of this._ownedThreadStores.keys()) {
-            this.refreshOwnedThreadStore(agentId);
+          if (
+            threadCapabilityWasEnabled &&
+            this.areThreadEndpointsAvailable()
+          ) {
+            for (const agentId of this._ownedThreadStores.keys()) {
+              this.refreshOwnedThreadStore(agentId);
+            }
           }
         } else {
           // Clear stale thread data immediately when the server goes away
@@ -2653,6 +5608,21 @@ export class WebInspectorElement extends LitElement {
         this.coreProperties = properties;
         this.requestUpdate();
       },
+      onHeadersChanged: ({ headers }) => {
+        this.updateOwnedThreadStoreHeaders(headers);
+        this.requestUpdate();
+      },
+      ...(supportsInspectorMetadata
+        ? {
+            onInspectorMetadataChanged: ({ inspectorMetadata }) => {
+              if (this._core !== core) {
+                return;
+              }
+              this.updateInspectorMetadataProjection(inspectorMetadata);
+              this.requestUpdate();
+            },
+          }
+        : {}),
       onError: ({ code, error }) => {
         this.lastCoreError = { code, message: error.message };
         this.requestUpdate();
@@ -2660,23 +5630,38 @@ export class WebInspectorElement extends LitElement {
       onAgentsChanged: ({ agents }) => {
         this.processAgentsChanged(agents);
       },
+      onAgentRunStarted: ({ agent }) => {
+        // Per-thread clones (from useAgent) are not in the agent registry, so
+        // onAgentsChanged never fires for them. Subscribe to the running
+        // instance here so its AG-UI events reach the event timeline.
+        if (agent?.agentId) {
+          this.subscribeToAgent(agent);
+        }
+      },
       onContextChanged: ({ context }) => {
         this.contextStore = this.normalizeContextStore(context);
         this.requestUpdate();
       },
       onThreadStoreRegistered: ({ agentId, store }) => {
+        if (!this.areThreadEndpointsAvailable()) return;
         this.subscribeToThreadStore(agentId, store);
         this.requestUpdate();
       },
-      onThreadStoreUnregistered: ({ agentId }) => {
+      onThreadStoreUnregistered: ({ agentId, prevStore }) => {
         const unsub = this._threadStoreSubscriptions.get(agentId);
         if (unsub) {
           unsub();
           this._threadStoreSubscriptions.delete(agentId);
         }
+        if (this._ownedThreadStores.get(agentId) === prevStore) {
+          this._ownedThreadStores.delete(agentId);
+          prevStore.stop();
+        }
         this._threadsByAgent.delete(agentId);
         this._threadsErrorByAgent.delete(agentId);
+        this._threadsLoadingByAgent.delete(agentId);
         this._threads = Array.from(this._threadsByAgent.values()).flat();
+        this.autoSelectLatestThread();
         this.requestUpdate();
       },
     } satisfies CopilotKitCoreSubscriber;
@@ -2684,28 +5669,206 @@ export class WebInspectorElement extends LitElement {
     this.coreUnsubscribe = core.subscribe(this.coreSubscriber).unsubscribe;
     this.processAgentsChanged(core.agents);
 
+    if (core.runtimeConnectionStatus === "connected") {
+      if (!core.telemetryDisabled) {
+        ensureTelemetryDistinctId();
+        maybeShowDisclosure();
+      }
+      this.flushPendingBannerViewed();
+    }
+
     // Subscribe to any already-registered thread stores. `getThreadStores` was
     // added in the same release as this inspector; guard so consumers still on
     // an older @copilotkit/core don't throw when assigning `inspector.core`.
     const threadStores =
       typeof core.getThreadStores === "function" ? core.getThreadStores() : {};
-    for (const [agentId, store] of Object.entries(threadStores)) {
-      this.subscribeToThreadStore(agentId, store);
+    if (this.areThreadEndpointsAvailable()) {
+      for (const [agentId, store] of Object.entries(threadStores)) {
+        this.subscribeToThreadStore(agentId, store);
+      }
     }
 
     // Initialize context from core
     if (core.context) {
       this.contextStore = this.normalizeContextStore(core.context);
     }
+
+    // NOTE: the memory store is intentionally NOT touched here. Calling
+    // `core.getMemoryStore()` lazily creates + `.start()`s the store and opens
+    // a realtime connection, so merely attaching the inspector would spin up a
+    // memory store + realtime even in apps that never use memory. Instead, the
+    // store is created + subscribed on first Memories-tab activation via
+    // `ensureMemorySubscription` (user-initiated, acceptable). Attaching the
+    // inspector creates nothing.
+    //
+    // Exception: if the Memories tab is ALREADY the active tab when core is
+    // wired (e.g. core attaches after `firstUpdated` restored a persisted
+    // `selectedMenu: "memories"`), subscribe now so the live store + realtime
+    // status paint instead of the stuck defaults. This preserves INSP-1 (no
+    // unconditional subscribe on attach) because it is gated on the active tab,
+    // and is safe to call when already subscribed — `ensureMemorySubscription`
+    // early-returns on `_memorySubscribed`.
+    if (this.selectedMenu === "memories") {
+      this.ensureMemorySubscription();
+    }
+  }
+
+  /**
+   * Lazily subscribes to the singleton memory store the first time the user
+   * activates the Memories tab. This is deferred out of `attachToCore` because
+   * `core.getMemoryStore()` is what creates + starts the store and opens
+   * realtime — doing it on attach would start memory for apps that never use
+   * it. Idempotent: repeated tab activations are guarded by
+   * `_memorySubscribed`. On an older @copilotkit/core without `getMemoryStore`,
+   * records the unsupported state so the teaser can guide an SDK upgrade.
+   */
+  private ensureMemorySubscription(): void {
+    if (this._memorySubscribed) {
+      return;
+    }
+    const core = this._core;
+    if (!core) {
+      return;
+    }
+
+    // Guard like getThreadStores: older @copilotkit/core has no getMemoryStore.
+    // When absent, flag the unsupported state so the teaser shows upgrade copy
+    // instead of throwing a TypeError that would break the entire inspector.
+    if (typeof core.getMemoryStore !== "function") {
+      this._memoryStoreUnsupported = true;
+      this._memoriesAvailable = false;
+      this.requestUpdate();
+      return;
+    }
+
+    this._memorySubscribed = true;
+    this._memoryStoreUnsupported = false;
+
+    // First touch of getMemoryStore() — creates + starts the store, opens realtime.
+    const memoryStore = core.getMemoryStore();
+    const ms = memoryStore.getState();
+    this._memories = ɵselectMemories(ms);
+    this._memoriesLoading = ɵselectMemoriesIsLoading(ms);
+    this._memoriesError = ɵselectMemoriesError(ms);
+    this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
+    this._memoriesRealtimeStatus = ɵselectMemoriesRealtimeStatus(ms);
+    const memSubs = [
+      memoryStore.select(ɵselectMemories).subscribe((v) => {
+        this._memories = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => {
+        this._memoriesLoading = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesError).subscribe((v) => {
+        this._memoriesError = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => {
+        this._memoriesAvailable = v;
+        this.requestUpdate();
+      }),
+      // Group E — realtime connection health.
+      memoryStore.select(ɵselectMemoriesRealtimeStatus).subscribe((v) => {
+        this._memoriesRealtimeStatus = v;
+        this.requestUpdate();
+      }),
+    ];
+    this._memoryUnsub = () => memSubs.forEach((s) => s.unsubscribe());
+    this.requestUpdate();
+  }
+
+  /**
+   * Runs a semantic recall via the memory store (`core.getMemoryStore().recall`,
+   * from B2) and stores ranked results. Guarded by a monotonic sequence token
+   * so a stale request cannot overwrite a newer result / Clear / detach. Only
+   * reachable from the Intelligence-gated memory view, so it inherits the gate.
+   */
+  private runRecall(query: string): void {
+    const trimmed = query.trim();
+    if (trimmed.length === 0) return;
+    const store = this._core?.getMemoryStore?.();
+    if (!store || typeof store.recall !== "function") {
+      this._recallResults = [];
+      this._recallError = "Recall is not supported by this SDK version.";
+      this._recallLoading = false;
+      this.requestUpdate();
+      return;
+    }
+
+    const seq = ++this._recallSeq;
+    this._recallLoading = true;
+    this._recallError = null;
+    this.requestUpdate();
+
+    store
+      .recall(trimmed)
+      .then((results) => {
+        if (seq !== this._recallSeq) return;
+        this._recallResults = results;
+        this._recallError = null;
+        this._recallLoading = false;
+        this.requestUpdate();
+      })
+      .catch((error: unknown) => {
+        if (seq !== this._recallSeq) return;
+        this._recallResults = [];
+        this._recallError =
+          error instanceof Error ? error.message : "unknown error";
+        this._recallLoading = false;
+        this.requestUpdate();
+      });
+  }
+
+  /** Clears recall results/section and cancels any in-flight recall. */
+  private clearRecall(): void {
+    this._recallSeq += 1;
+    this._recallResults = null;
+    this._recallError = null;
+    this._recallLoading = false;
+    this._recallQuery = "";
+    this.requestUpdate();
   }
 
   private detachFromCore(): void {
+    this.threadCapabilityGeneration += 1;
+    this.threadCapabilityEnabled = null;
+    if (this.selectedThreadId !== this.selectedLocalExampleThreadId) {
+      this.selectedThreadId = null;
+      this.selectedLocalExampleThreadId = null;
+    }
+    this.selectedRealThreadIsExplicit = false;
     if (this.coreUnsubscribe) {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
     }
+    this._memoryUnsub?.();
+    this._memoryUnsub = null;
+    this._memories = [];
+    this._memoriesLoading = false;
+    this._memoriesError = null;
+    this._memoriesAvailable = true;
+    this._memoriesRealtimeStatus = "connecting";
+    // Reset the lazy-subscription guards so a later attach + Memories-tab
+    // activation re-subscribes (and re-evaluates SDK support) cleanly.
+    this._memorySubscribed = false;
+    this._memoryStoreUnsupported = false;
+    // Reset recall state and bump the sequence token so any in-flight recall
+    // resolving after detach is ignored.
+    this._recallSeq += 1;
+    this._recallResults = null;
+    this._recallLoading = false;
+    this._recallError = null;
+    this._recallQuery = "";
     this.coreSubscriber = null;
     this.runtimeStatus = null;
+    this.inspectorMetadataValue = undefined;
+    this.inspectorMetadataProjection = projectInspectorMetadata(
+      undefined,
+      undefined,
+    );
+    this.metadataTelemetryFingerprints.clear();
     this.lastCoreError = null;
     this.coreProperties = {};
     this.cachedTools = [];
@@ -2730,6 +5893,7 @@ export class WebInspectorElement extends LitElement {
   private processAgentsChanged(
     agents: Readonly<Record<string, AbstractAgent>>,
   ): void {
+    this.synchronizeThreadCapability();
     const seenAgentIds = new Set<string>();
 
     for (const agent of Object.values(agents)) {
@@ -2830,12 +5994,23 @@ export class WebInspectorElement extends LitElement {
       onRunStartedEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RUN_STARTED", event);
       },
-      onRunFinishedEvent: ({ event, result }) => {
-        this.recordAgentEvent(agentId, "RUN_FINISHED", { event, result });
-        this.refreshOwnedThreadStore(agentId);
+      onRunFinishedEvent: (params) => {
+        this.recordAgentEvent(agentId, "RUN_FINISHED", {
+          event: params.event,
+          result: "result" in params ? params.result : undefined,
+        });
+        if (this.areThreadEndpointsAvailable()) {
+          this.refreshOwnedThreadStore(agentId);
+        }
       },
       onRunErrorEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RUN_ERROR", event);
+      },
+      onStepStartedEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "STEP_STARTED", event);
+      },
+      onStepFinishedEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "STEP_FINISHED", event);
       },
       onTextMessageStartEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "TEXT_MESSAGE_START", event);
@@ -3071,6 +6246,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private updateContextOptions(agentIds: Set<string>): void {
+    let selectedContextChanged = false;
     const nextOptions: Array<{ key: string; label: string }> = [
       { key: "all-agents", label: "All Agents" },
       ...Array.from(agentIds)
@@ -3101,6 +6277,7 @@ export class WebInspectorElement extends LitElement {
       if (shouldRestore) {
         if (this.selectedContext !== pendingContext) {
           this.selectedContext = pendingContext;
+          selectedContextChanged = true;
           this.expandedRows.clear();
         }
         this.pendingSelectedContext = null;
@@ -3109,6 +6286,7 @@ export class WebInspectorElement extends LitElement {
         // agents — reset to "all-agents" so nothing is silently filtered.
         if (this.selectedContext !== "all-agents") {
           this.selectedContext = "all-agents";
+          selectedContextChanged = true;
           this.expandedRows.clear();
         }
         this.pendingSelectedContext = null;
@@ -3131,9 +6309,14 @@ export class WebInspectorElement extends LitElement {
 
       if (this.selectedContext !== nextSelected) {
         this.selectedContext = nextSelected;
+        selectedContextChanged = true;
         this.expandedRows.clear();
         this.persistState();
       }
+    }
+
+    if (selectedContextChanged) {
+      this.autoSelectLatestThread();
     }
   }
 
@@ -3375,6 +6558,10 @@ ${argsString}</pre
     const base =
       "font-mono text-[10px] font-medium inline-flex items-center rounded-sm px-1.5 py-0.5 border";
 
+    if (type === "RUN_ERROR") {
+      return `${base} bg-rose-50 text-rose-700 border-rose-200`;
+    }
+
     if (type.startsWith("RUN_")) {
       return `${base} bg-blue-50 text-blue-700 border-blue-200`;
     }
@@ -3397,10 +6584,6 @@ ${argsString}</pre
 
     if (type.startsWith("MESSAGES")) {
       return `${base} bg-sky-50 text-sky-700 border-sky-200`;
-    }
-
-    if (type === "RUN_ERROR") {
-      return `${base} bg-rose-50 text-rose-700 border-rose-200`;
     }
 
     return `${base} bg-gray-100 text-gray-600 border-gray-200`;
@@ -3461,6 +6644,11 @@ ${argsString}</pre
 
       :host([data-transitioning="true"]) {
         transition: transform 300ms ease;
+      }
+
+      .console-button-wrapper {
+        position: relative;
+        display: inline-flex;
       }
 
       .console-button {
@@ -3590,11 +6778,41 @@ ${argsString}</pre
         box-shadow: -6px 6px 10px rgba(1, 5, 7, 0.08);
       }
 
+      .announcement-preview__dismiss {
+        flex: none;
+        margin-top: -1px;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        appearance: none;
+        background: none;
+        border: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: #68686e;
+        cursor: pointer;
+        transition:
+          background 120ms ease,
+          color 120ms ease;
+      }
+
+      .announcement-preview__dismiss:hover {
+        background: rgba(0, 0, 0, 0.06);
+        color: #010507;
+      }
+
+      .announcement-preview__dismiss:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
       .announcement-dismiss {
         background: none;
         border: none;
         cursor: pointer;
-        color: #838389;
+        color: #68686e;
         width: 28px;
         height: 28px;
         display: flex;
@@ -3643,7 +6861,7 @@ ${argsString}</pre
         height: 24px;
         border-radius: 50%;
         background-color: #f0f0f4;
-        color: #838389;
+        color: #68686e;
         flex-shrink: 0;
         transition: transform 0.2s;
       }
@@ -3760,7 +6978,7 @@ ${argsString}</pre
       }
 
       .announcement-content a {
-        color: #757cf2;
+        color: #5558b2;
         text-decoration: underline;
       }
 
@@ -3884,7 +7102,7 @@ ${argsString}</pre
         font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         font-size: 12px;
         font-weight: 500;
-        color: #757cf2;
+        color: #5558b2;
         cursor: pointer;
         text-align: center;
       }
@@ -3955,14 +7173,14 @@ ${argsString}</pre
         align-items: center;
       }
       .cpk-tab-active .cpk-tab-icon {
-        color: #757cf2;
+        color: #5558b2;
       }
       .cpk-tab-inactive {
         background-color: transparent;
         color: #2b2b2b;
       }
       .cpk-tab-inactive .cpk-tab-icon {
-        color: #838389;
+        color: #68686e;
       }
       .cpk-tab-inactive:hover {
         background-color: rgba(190, 194, 255, 0.08);
@@ -3972,17 +7190,62 @@ ${argsString}</pre
       .cpk-tab-active {
         cursor: pointer;
       }
+      .cpk-threads-overview-video-frame {
+        position: relative;
+        display: block;
+        width: 100%;
+        max-width: 440px;
+        aspect-ratio: 16 / 9;
+        margin: 0 0 14px;
+        overflow: hidden;
+        border: 1px solid #dbdbe5;
+        border-radius: 8px;
+        background:
+          linear-gradient(
+            135deg,
+            rgba(190, 194, 255, 0.18),
+            rgba(133, 236, 206, 0.12)
+          ),
+          #ffffff;
+        box-shadow: 0 8px 20px rgba(1, 5, 7, 0.08);
+      }
+      .cpk-threads-overview-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
 
-      /* ── Header control buttons (dock, close) — first row only ───── */
-      .drag-handle > div:first-child button {
-        color: #838389 !important;
+      /* ── Header controls on the dark account strip ──────────────── */
+      .drag-handle > div[data-inspector-account-strip] button {
+        color: #afafb7 !important;
+        cursor: pointer;
       }
-      .drag-handle > div:first-child button:hover {
-        background-color: #f0f0f4 !important;
-        color: #57575b !important;
+      .drag-handle > div[data-inspector-account-strip] button,
+      .inspector-nav-control,
+      [data-inspector-thread-cta] {
+        outline: 2px solid transparent;
+        outline-offset: 2px;
       }
-      .drag-handle > div:first-child button:focus-visible {
+      .drag-handle > div[data-inspector-account-strip] button:hover {
+        background-color: rgba(255, 255, 255, 0.12) !important;
+        color: #ffffff !important;
+      }
+      .drag-handle > div[data-inspector-account-strip] button:focus-visible {
         outline-color: #bec2ff !important;
+      }
+      .drag-handle > div[data-inspector-account-strip] button:focus,
+      .drag-handle > div[data-inspector-account-strip] button:focus-visible {
+        outline: 2px solid #bec2ff !important;
+        outline-offset: 2px;
+      }
+      .inspector-nav-control:focus,
+      .inspector-nav-control:focus-visible,
+      [data-inspector-thread-cta]:focus,
+      [data-inspector-thread-cta]:focus-visible,
+      [data-inspector-action-placement="threads-footer"]:focus,
+      [data-inspector-action-placement="threads-footer"]:focus-visible {
+        outline: 2px solid #6430ab !important;
+        outline-offset: 2px;
       }
 
       /* ── Agent/context dropdown ──────────────────────────────────── */
@@ -3995,7 +7258,7 @@ ${argsString}</pre
         background-color: #f7f7f9 !important;
       }
       [data-context-dropdown-root="true"] > button > span:last-child {
-        color: #838389 !important;
+        color: #68686e !important;
       }
       [data-context-dropdown-root="true"] > div {
         border-color: #dbdbe5 !important;
@@ -4004,6 +7267,28 @@ ${argsString}</pre
       [data-context-dropdown-root="true"] > div button:hover,
       [data-context-dropdown-root="true"] > div button:focus {
         background-color: #f7f7f9 !important;
+      }
+      [data-inspector-account-strip]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button {
+        border-color: rgba(255, 255, 255, 0.28) !important;
+        background-color: transparent !important;
+        color: #e7e7ec !important;
+      }
+      [data-inspector-account-strip]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button:hover {
+        border-color: rgba(190, 194, 255, 0.7) !important;
+        background-color: rgba(255, 255, 255, 0.08) !important;
+      }
+      [data-inspector-account-strip]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button
+        > span:last-child {
+        color: #afafb7 !important;
       }
 
       /* ── Status bar (bottom chrome) ──────────────────────────────── */
@@ -4014,7 +7299,7 @@ ${argsString}</pre
 
       /* ── Resize handle ───────────────────────────────────────────── */
       .resize-handle {
-        color: #838389 !important;
+        color: #68686e !important;
       }
       .resize-handle:hover {
         color: #57575b !important;
@@ -4035,7 +7320,7 @@ ${argsString}</pre
       /* Copy "copied" state: generic green → brand mint */
       button[class*="bg-green-100"] {
         background-color: rgba(133, 236, 206, 0.2) !important;
-        color: #189370 !important;
+        color: #087653 !important;
       }
 
       /* ── Agents tab ──────────────────────────────────────────────── */
@@ -4044,14 +7329,14 @@ ${argsString}</pre
         background-color: rgba(190, 194, 255, 0.15) !important;
       }
       span[class*="text-blue-600"] {
-        color: #757cf2 !important;
+        color: #5558b2 !important;
       }
       /* Running badge: emerald → mint */
       span[class*="bg-emerald-50"] {
         background-color: rgba(133, 236, 206, 0.15) !important;
       }
       span[class*="text-emerald-700"] {
-        color: #189370 !important;
+        color: #087653 !important;
       }
       /* Running status dot */
       span[class*="bg-emerald-500"] {
@@ -4071,7 +7356,7 @@ ${argsString}</pre
       span[class*="bg-green-100"][class*="text-green-800"] {
         background-color: rgba(133, 236, 206, 0.18) !important;
         border: 1px solid rgba(133, 236, 206, 0.4) !important;
-        color: #189370 !important;
+        color: #087653 !important;
       }
       /* Tool role badge (amber → orange brand) */
       span[class*="bg-amber-100"][class*="text-amber-800"] {
@@ -4112,13 +7397,17 @@ ${argsString}</pre
         > div:last-child:has(div[class*="bg-emerald-50"]) {
         background-color: rgba(91, 228, 187, 0.08) !important;
         border-top-color: rgba(91, 228, 187, 0.3) !important;
-        color: #189370 !important;
+        color: #087653 !important;
       }
       /* Inner badge — slightly more opaque on the mint bg */
       div[class*="bg-emerald-50"][class*="border-emerald-200"] {
         background-color: rgba(91, 228, 187, 0.12) !important;
         border-color: rgba(91, 228, 187, 0.4) !important;
-        color: #189370 !important;
+        color: #087653 !important;
+      }
+      div[class*="bg-emerald-50"][class*="border-emerald-200"]
+        span[class*="opacity-80"] {
+        opacity: 1 !important;
       }
       /* Icon bubble inside connected badge → mint tint */
       div[class*="bg-emerald-50"] span[class*="bg-white"] {
@@ -4133,7 +7422,7 @@ ${argsString}</pre
       span[class*="bg-slate-900"],
       div[class*="bg-slate-900"] {
         background-color: #eee6fe !important;
-        color: #757cf2 !important;
+        color: #5558b2 !important;
       }
       span[class*="text-slate-800"],
       div[class*="text-slate-800"] {
@@ -4145,6 +7434,9 @@ ${argsString}</pre
   connectedCallback(): void {
     super.connectedCallback();
     if (typeof window !== "undefined") {
+      this.threadsExampleOverviewVideoReducedMotion =
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
+        false;
       this.ensureBrandFonts();
       window.addEventListener("resize", this.handleResize);
       window.addEventListener(
@@ -4154,9 +7446,11 @@ ${argsString}</pre
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
+      this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
     }
+    this.requestUpdate();
   }
 
   private ensureBrandFonts(): void {
@@ -4188,6 +7482,13 @@ ${argsString}</pre
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
     }
+    this.threadsSetupPromptCopyGeneration += 1;
+    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
+      this.threadsSetupPromptCopyResetTimeoutId = null;
+    }
+    this.threadsSetupPromptCopyState = "idle";
+    this.cleanupThreadsExampleOverviewVideo();
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
   }
@@ -4211,6 +7512,21 @@ ${argsString}</pre
     this.contextState.window.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
     this.hydrateStateFromStorage();
+    this.contextState.window.size = this.clampWindowSize(
+      this.contextState.window.size,
+    );
+
+    // `hydrateStateFromStorage` may have restored `selectedMenu: "memories"`.
+    // The memory subscription is normally created on a Memories-tab CLICK via
+    // `handleMenuSelect`, which never fires when the tab boots already active —
+    // leaving the realtime indicator stuck on the default "connecting" and the
+    // list empty until the user toggles tabs. Subscribe now when the Memories
+    // tab is the active tab. Gated on the active tab to preserve INSP-1 (no
+    // unconditional subscribe), and safe if core is not yet attached or already
+    // subscribed — `ensureMemorySubscription` early-returns in both cases.
+    if (this.selectedMenu === "memories") {
+      this.ensureMemorySubscription();
+    }
 
     // Apply docking styles if open and docked (skip transition on initial load)
     if (this.isOpen && this.dockMode !== "floating") {
@@ -4234,6 +7550,51 @@ ${argsString}</pre
 
   render() {
     return this.isOpen ? this.renderWindow() : this.renderButton();
+  }
+
+  protected willUpdate(): void {
+    this.reconcileSelectedMenuVisibility();
+  }
+
+  protected updated(): void {
+    this.syncThreadsExampleOverviewVideo();
+    this.maybeTrackInspectorMetadataViews();
+
+    if (!this.isOpen || this.selectedGroup !== "agents") {
+      this.lastScrolledAgentNavigationLayout = null;
+      return;
+    }
+
+    const navigation = this.shadowRoot?.querySelector<HTMLElement>(
+      'nav[aria-label="Agent navigation"]',
+    );
+    if (!navigation) {
+      return;
+    }
+
+    const activeControl = navigation.querySelector<HTMLElement>(
+      '[aria-current="page"]',
+    );
+    if (!activeControl) {
+      return;
+    }
+
+    const layoutKey = [
+      this.selectedMenu,
+      this.dockMode,
+      Math.round(this.contextState.window.size.width),
+      typeof window === "undefined" ? 0 : window.innerWidth,
+      navigation.clientWidth,
+      navigation.scrollWidth,
+    ].join(":");
+    if (this.lastScrolledAgentNavigationLayout === layoutKey) {
+      return;
+    }
+
+    if (typeof activeControl.scrollIntoView === "function") {
+      activeControl.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+    this.lastScrolledAgentNavigationLayout = layoutKey;
   }
 
   private renderButton() {
@@ -4270,29 +7631,115 @@ ${argsString}</pre
       this.isDragging ? "cursor-grabbing" : "cursor-grab",
     ].join(" ");
 
+    // The announcement preview renders as a SIBLING of the floating button (not
+    // a child) so its dismiss affordance can be a real <button>. Nesting any
+    // interactive/tabbable element inside the floating <button> violates the
+    // HTML button content model. The wrapper is position: relative so the
+    // absolutely-positioned preview still anchors to the button's edge.
     return html`
-      <button
-        class=${buttonClasses}
-        type="button"
-        aria-label="Web Inspector"
-        data-drag-context="button"
-        data-dragging=${
-          this.isDragging && this.pointerContext === "button" ? "true" : "false"
-        }
-        @pointerdown=${this.handlePointerDown}
-        @pointermove=${this.handlePointerMove}
-        @pointerup=${this.handlePointerUp}
-        @pointercancel=${this.handlePointerCancel}
-        @click=${this.handleButtonClick}
-      >
+      <div class="console-button-wrapper">
+        <button
+          class=${buttonClasses}
+          type="button"
+          aria-label="Web Inspector"
+          data-drag-context="button"
+          data-dragging=${
+            this.isDragging && this.pointerContext === "button"
+              ? "true"
+              : "false"
+          }
+          @pointerdown=${this.handlePointerDown}
+          @pointermove=${this.handlePointerMove}
+          @pointerup=${this.handlePointerUp}
+          @pointercancel=${this.handlePointerCancel}
+          @click=${this.handleButtonClick}
+        >
+          <img
+            src=${inspectorLogoIconUrl}
+            alt="Inspector logo"
+            class="h-5 w-auto"
+            loading="lazy"
+          />
+        </button>
         ${this.renderAnnouncementPreview()}
-        <img
-          src=${inspectorLogoIconUrl}
-          alt="Inspector logo"
-          class="h-5 w-auto"
-          loading="lazy"
-        />
-      </button>
+      </div>
+    `;
+  }
+
+  /** Render a trusted action with optional context-specific copy. */
+  private renderInspectorAction(
+    action: InspectorMetadataAction,
+    placement: "threads-footer" | "locked",
+    displayLabel:
+      | InspectorMetadataAction["label"]
+      | "Upgrade Your Plan" = action.label,
+  ) {
+    const actionIntent =
+      displayLabel === "Upgrade Your Plan" ? "upgrade" : undefined;
+    return html`
+      <a
+        data-inspector-action-placement=${placement}
+        data-inspector-action-intent=${actionIntent ?? nothing}
+        href=${action.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="${displayLabel} (opens in a new tab)"
+        style=${
+          placement === "threads-footer"
+            ? ""
+            : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"
+        }
+        @click=${() =>
+          this.handleInspectorMetadataActionClick(action, placement)}
+      >
+        ${displayLabel}
+      </a>
+    `;
+  }
+
+  private renderInspectorMetadataHeader() {
+    const { identity, plan } = this.inspectorMetadataProjection;
+    if (!identity && !plan) {
+      return nothing;
+    }
+
+    return html`
+      <div
+        style="display:flex;min-width:0;flex:1 1 220px;flex-wrap:wrap;align-items:center;gap:6px 8px;"
+        role="group"
+        aria-label="Inspector account details"
+      >
+        ${
+          identity
+            ? html`
+                <div
+                  data-inspector-metadata="identity"
+                  style="display:flex;min-width:0;max-width:100%;align-items:center;gap:6px;color:#e7e7ec;font-size:11px;line-height:1.3;"
+                  title="${identity.organizationName} / ${identity.projectName}"
+                >
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                    >${identity.organizationName}</span
+                  >
+                  <span aria-hidden="true" style="color:#68686e;">/</span>
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                    >${identity.projectName}</span
+                  >
+                </div>
+              `
+            : nothing
+        }
+        ${
+          plan
+            ? html`
+                <span
+                  data-inspector-metadata="plan"
+                  style="display:inline-flex;min-height:22px;align-items:center;border:1px solid rgba(133,236,206,0.5);border-radius:4px;background:rgba(133,236,206,0.14);padding:2px 7px;color:#85ecce;font-size:10px;font-weight:600;line-height:1.2;white-space:nowrap;"
+                  >${plan.label}</span
+                >
+              `
+            : nothing
+        }
+      </div>
     `;
   }
 
@@ -4302,15 +7749,18 @@ ${argsString}</pre
     const isTransitioning = this.hasAttribute("data-transitioning");
 
     const windowStyles = isDocked
-      ? this.getDockedWindowStyles()
+      ? { ...this.getDockedWindowStyles(), overflowX: "hidden" }
       : {
           width: `${Math.round(windowState.size.width)}px`,
           height: `${Math.round(windowState.size.height)}px`,
           minWidth: `${MIN_WINDOW_WIDTH}px`,
           minHeight: `${MIN_WINDOW_HEIGHT}px`,
+          overflowX: "hidden",
         };
 
-    const hasContextDropdown = this.contextOptions.length > 0;
+    const hasContextDropdown = this.contextOptions.some(
+      (option) => option.key !== "all-agents",
+    );
     const contextDropdown = hasContextDropdown
       ? this.renderContextDropdown()
       : nothing;
@@ -4319,7 +7769,7 @@ ${argsString}</pre
       ? contextDropdown
       : html`
           <div
-            class="flex items-center gap-2 rounded-md border border-dashed border-gray-200 px-2 py-1 text-xs text-gray-400"
+            class="inspector-agent-placeholder flex items-center gap-2 rounded-md border border-dashed px-2 py-1 text-xs"
           >
             <span>${this.renderIcon("Bot")}</span>
             <span class="truncate">No agents available</span>
@@ -4365,41 +7815,45 @@ ${argsString}</pre
             @pointerup=${isDocked ? undefined : this.handlePointerUp}
             @pointercancel=${isDocked ? undefined : this.handlePointerCancel}
           >
-            <div class="flex flex-wrap items-center gap-3 px-4 py-3">
+            <div
+              class="inspector-account-strip flex flex-wrap items-center gap-3 px-4 py-3"
+              data-inspector-account-strip
+              style="width:100%;min-width:0;background-color:#010507;color:#ffffff;"
+            >
               <div class="flex items-center min-w-0">
                 <img
                   src=${inspectorLogoUrl}
                   alt="Inspector logo"
-                  class="h-6 w-auto"
+                  class="inspector-account-logo h-6 w-auto"
                   loading="lazy"
                 />
               </div>
+              ${this.renderInspectorMetadataHeader()}
               <div class="ml-auto flex min-w-0 items-center gap-2">
-                <div class="min-w-[160px] max-w-xs">${agentSelector}</div>
+                <div class="inspector-agent-selector min-w-[160px] max-w-xs">
+                  ${agentSelector}
+                </div>
                 <div class="flex items-center gap-1">
                   ${this.renderDockControls()}
                   <button
-                    class="flex h-8 w-8 items-center justify-center rounded-md transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 ${
-                      this.selectedMenu === "settings"
-                        ? "bg-gray-100 text-gray-700"
-                        : "text-gray-400 hover:text-gray-600"
+                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                      this.settingsOpen
+                        ? "inspector-account-control-active"
+                        : ""
                     }"
                     type="button"
                     aria-label="Settings"
-                    aria-pressed=${this.selectedMenu === "settings"}
-                    @click=${() =>
-                      this.handleMenuSelect(
-                        this.selectedMenu === "settings"
-                          ? "ag-ui-events"
-                          : "settings",
-                      )}
+                    aria-pressed=${this.settingsOpen}
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                    @click=${this.handleSettingsToggle}
                   >
                     ${this.renderIcon("Settings")}
                   </button>
                   <button
-                    class="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                     type="button"
                     aria-label="Close Web Inspector"
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
                     @pointerdown=${this.handleClosePointerDown}
                     @click=${this.handleCloseClick}
                   >
@@ -4408,27 +7862,36 @@ ${argsString}</pre
                 </div>
               </div>
             </div>
-            <div
-              class="flex flex-wrap items-center gap-2 border-t border-gray-100 px-3 py-2 text-xs"
+            <nav
+              class="inspector-primary-navigation"
+              aria-label="Inspector primary navigation"
+              style="overflow-x:auto;overflow-y:hidden;cursor:default;"
             >
-              ${this.menuItems.map(({ key, label, icon }) => {
-                const isSelected = this.selectedMenu === key;
-                const tabClasses = [
-                  "inline-flex items-center gap-2 rounded-md px-3 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300",
-                  isSelected ? "cpk-tab-active" : "cpk-tab-inactive",
-                ].join(" ");
+              ${INSPECTOR_PRIMARY_NAVIGATION.map(({ key, label, icon }) => {
+                const isSelected = this.selectedGroup === key;
+                const legacyMenuKey =
+                  key === "threads"
+                    ? "threads"
+                    : key === "learning"
+                      ? "memories"
+                      : undefined;
 
                 return html`
                   <button
                     type="button"
-                    class=${tabClasses}
-                    aria-pressed=${isSelected}
-                    @click=${() => this.handleMenuSelect(key)}
+                    class="inspector-nav-control inspector-primary-control ${
+                      isSelected ? "inspector-nav-control-active" : ""
+                    }"
+                    data-inspector-group=${key}
+                    data-inspector-menu-key=${legacyMenuKey ?? nothing}
+                    aria-current=${isSelected ? "page" : nothing}
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                    @click=${() => this.handleGroupSelect(key)}
                   >
-                    <span class="cpk-tab-icon">
+                    <span class="inspector-nav-icon" aria-hidden="true">
                       ${
-                        key in this.customTabIcons
-                          ? unsafeHTML(this.customTabIcons[key])
+                        key === "threads"
+                          ? unsafeHTML(this.customTabIcons.threads)
                           : this.renderIcon(icon)
                       }
                     </span>
@@ -4436,7 +7899,60 @@ ${argsString}</pre
                   </button>
                 `;
               })}
-            </div>
+              ${
+                this.selectedGroup === "threads"
+                  ? html`
+                      <a
+                        data-inspector-thread-cta
+                        href=${this.getThreadsTalkToEngineerUrl()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Talk to an Engineer (opens in a new tab)"
+                        style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                        @click=${this.handleTalkToEngineerClick}
+                      >
+                        Talk to an Engineer
+                      </a>
+                    `
+                  : nothing
+              }
+            </nav>
+            ${
+              this.selectedGroup === "agents"
+                ? html`
+                    <nav
+                      class="inspector-child-navigation"
+                      aria-label="Agent navigation"
+                      style="overflow-x:auto;overflow-y:hidden;white-space:nowrap;cursor:default;"
+                    >
+                      ${this.getVisibleMenuItemsForGroup("agents").map(
+                        ({ key, label, icon }) => {
+                          const isSelected = this.selectedMenu === key;
+                          return html`
+                            <button
+                              type="button"
+                              class="inspector-nav-control inspector-child-control ${
+                                isSelected ? "inspector-nav-control-active" : ""
+                              }"
+                              data-inspector-menu-key=${key}
+                              aria-current=${isSelected ? "page" : nothing}
+                              style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                              @click=${() => this.handleMenuSelect(key)}
+                            >
+                              <span
+                                class="inspector-nav-icon"
+                                aria-hidden="true"
+                                >${this.renderIcon(icon)}</span
+                              >
+                              <span>${label}</span>
+                            </button>
+                          `;
+                        },
+                      )}
+                    </nav>
+                  `
+                : nothing
+            }
           </div>
           <div class="flex flex-1 flex-col overflow-hidden">
             <div id="cpk-main-scroll" class="flex-1 overflow-auto">
@@ -4507,15 +8023,7 @@ ${argsString}</pre
       this.dockMode = persisted.dockMode;
     }
 
-    // Restore selected menu
-    if (typeof persisted.selectedMenu === "string") {
-      const validMenu = this.menuItems.find(
-        (item) => item.key === persisted.selectedMenu,
-      );
-      if (validMenu) {
-        this.selectedMenu = validMenu.key;
-      }
-    }
+    this.restorePersistedMenu(persisted.selectedMenu);
 
     // Restore selected context (agent), will be validated later against available agents
     if (typeof persisted.selectedContext === "string") {
@@ -4533,6 +8041,8 @@ ${argsString}</pre
     if (!persisted) {
       return;
     }
+
+    this.restorePersistedMenu(persisted.selectedMenu);
 
     const persistedButton = persisted.button;
     if (persistedButton) {
@@ -4577,6 +8087,41 @@ ${argsString}</pre
     }
   }
 
+  /** Restore a visible legacy leaf, or use Threads for stale state. */
+  private restorePersistedMenu(value: unknown): void {
+    this.selectedMenu = "threads";
+    this.lastSelectedMenuByGroup.threads = "threads";
+    this.pendingPersistedMenu = null;
+
+    if (!isInspectorMenuKey(value)) {
+      return;
+    }
+
+    const validMenu = this.menuItems.find((item) => item.key === value);
+    if (!validMenu) {
+      if (!this.hasResolvedCore) {
+        this.pendingPersistedMenu = value;
+      }
+      return;
+    }
+
+    this.selectedMenu = validMenu.key;
+    this.lastSelectedMenuByGroup[this.getGroupForMenu(validMenu.key)] =
+      validMenu.key;
+  }
+
+  /** Resolve a valid stored leaf after the first Core exposes its sources. */
+  private resolvePendingPersistedMenu(): void {
+    const pendingMenu = this.pendingPersistedMenu;
+    if (!pendingMenu) {
+      return;
+    }
+
+    this.pendingPersistedMenu = null;
+    this.restorePersistedMenu(pendingMenu);
+    this.persistState();
+  }
+
   private get activeContext(): ContextKey {
     return this.isOpen ? "window" : "button";
   }
@@ -4592,7 +8137,7 @@ ${argsString}</pre
     const context: ContextKey = contextAttr === "window" ? "window" : "button";
 
     const eventTarget = event.target as HTMLElement | null;
-    if (context === "window" && eventTarget?.closest("button")) {
+    if (context === "window" && eventTarget?.closest("button, a, nav")) {
       return;
     }
 
@@ -4678,7 +8223,7 @@ ${argsString}</pre
       !this.isOpen &&
       !this.draggedDuringInteraction
     ) {
-      this.openInspector();
+      this.openInspector("floating_button");
     }
 
     this.resetPointerTracking();
@@ -4711,7 +8256,7 @@ ${argsString}</pre
 
     if (!this.isOpen) {
       event.preventDefault();
-      this.openInspector();
+      this.openInspector("floating_button");
     }
   };
 
@@ -4831,12 +8376,16 @@ ${argsString}</pre
     this.applyAnchorPosition("button");
 
     this.measureContext("window");
+    this.contextState.window.size = this.clampWindowSize(
+      this.contextState.window.size,
+    );
     if (this.hasCustomPosition.window) {
       this.applyAnchorPosition("window");
     } else {
       this.centerContext("window");
     }
 
+    this.requestUpdate();
     this.updateHostTransform();
   };
 
@@ -4947,7 +8496,7 @@ ${argsString}</pre
       },
       isOpen: this.isOpen,
       dockMode: this.dockMode,
-      selectedMenu: this.selectedMenu,
+      selectedMenu: this.pendingPersistedMenu ?? this.selectedMenu,
       selectedContext: this.selectedContext,
     };
     saveInspectorState(INSPECTOR_STORAGE_KEY, state);
@@ -5001,7 +8550,7 @@ ${argsString}</pre
       this.applyDockStyles();
     } else {
       // When floating, set size first then center
-      this.contextState.window.size = { ...DEFAULT_WINDOW_SIZE };
+      this.contextState.window.size = this.clampWindowSize(DEFAULT_WINDOW_SIZE);
       this.centerContext("window");
     }
 
@@ -5182,17 +8731,24 @@ ${argsString}</pre
     this.draggedDuringInteraction = false;
   }
 
-  private openInspector(): void {
+  private openInspector(source: InspectorOpenSource): void {
     if (this.isOpen) {
       return;
     }
 
+    const hadUnseenAnnouncement = this.hasUnseenAnnouncement;
     this.showAnnouncementPreview = false; // hide the bubble once the inspector is opened
 
     this.ensureAnnouncementLoading();
 
     this.isOpen = true;
     this.persistState(); // Save the open state
+
+    this.trackOpened(source, hadUnseenAnnouncement);
+    // The in-panel announcement card is now the visible surface, so it earns
+    // its own banner_viewed impression (no-op when the announcement hasn't
+    // loaded yet — fetchAnnouncement records it on arrival instead).
+    this.maybeTrackBannerViewed();
 
     // Apply docking styles if in docked mode
     if (this.dockMode !== "floating") {
@@ -5270,6 +8826,7 @@ ${argsString}</pre
           type="button"
           aria-label="Dock to left"
           title="Dock Left"
+          style=${INTERACTIVE_FOCUS_BASE_STYLE}
           @click=${() => this.handleDockClick("docked-left")}
         >
           ${this.renderIcon("PanelLeft")}
@@ -5283,6 +8840,7 @@ ${argsString}</pre
           type="button"
           aria-label="Float window"
           title="Float"
+          style=${INTERACTIVE_FOCUS_BASE_STYLE}
           @click=${() => this.handleDockClick("floating")}
         >
           ${this.renderIcon("Maximize2")}
@@ -5640,6 +9198,10 @@ ${argsString}</pre
   }
 
   private renderMainContent() {
+    if (this.settingsOpen) {
+      return this.renderSettingsPanel();
+    }
+
     if (this.selectedMenu === "ag-ui-events") {
       return this.renderEventsTable();
     }
@@ -5652,6 +9214,10 @@ ${argsString}</pre
       return this.renderToolsView();
     }
 
+    if (this.selectedMenu === "capabilities") {
+      return this.renderCapabilitiesView();
+    }
+
     if (this.selectedMenu === "agent-context") {
       return this.renderContextView();
     }
@@ -5660,8 +9226,8 @@ ${argsString}</pre
       return this.renderThreadsView();
     }
 
-    if (this.selectedMenu === "settings") {
-      return this.renderSettingsPanel();
+    if (this.selectedMenu === "memories") {
+      return this.renderMemoriesView();
     }
 
     return nothing;
@@ -5677,7 +9243,9 @@ ${argsString}</pre
 
             <div class="space-y-2">
               <h3 class="text-sm text-slate-500">Privacy</h3>
-              <div class="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+              <div
+                class="rounded-lg border border-slate-200 bg-white p-4 space-y-3"
+              >
                 <p class="text-sm text-gray-600 flex items-start gap-2">
                   <span>${optedOut ? "❌" : "✅"}</span>
                   <span>
@@ -5693,13 +9261,232 @@ ${argsString}</pre
                   href=${TELEMETRY_DOCS_URL}
                   target="_blank"
                   rel="noopener"
-                >Learn more →</a>
+                  >Learn more →</a
+                >
               </div>
             </div>
           </div>
         </div>
       </div>
     `;
+  }
+
+  // Fires `oss.inspector.opened` for a user-initiated open (OSS-566).
+  // Restoring a persisted-open panel on mount assigns `isOpen` directly
+  // instead of routing through `openInspector`, so page reloads and dev-server
+  // hot reloads are not counted as opens.
+  private trackOpened(
+    source: InspectorOpenSource,
+    hadUnseenAnnouncement: boolean,
+  ): void {
+    if (this.core?.telemetryDisabled) return;
+    // `license_status` and `runtime_mode` come from /info. Before the handshake
+    // `licenseStatus` is undefined and `runtimeMode` reads its `sse` default, so
+    // recording them would permanently attribute an early open against an
+    // Intelligence runtime to SSE. Omitted rather than guessed — an absent
+    // dimension is honest, a wrong one is not. `runtime_url_type` is derived
+    // from configuration, so it is accurate immediately.
+    const handshakeComplete = this.runtimeStatus === "connected";
+    trackInspectorOpened({
+      open_source: source,
+      ...(handshakeComplete
+        ? {
+            license_status: this.core?.licenseStatus ?? undefined,
+            runtime_mode: this.core?.runtimeMode ?? undefined,
+          }
+        : {}),
+      runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
+      has_unseen_announcement: hadUnseenAnnouncement,
+    });
+  }
+
+  private getVisibleInspectorMetadataAction():
+    | Readonly<{
+        action: InspectorMetadataAction;
+        placement: "threads-footer" | "locked";
+      }>
+    | undefined {
+    const { threadsFooterAction, lockedAction } =
+      this.inspectorMetadataProjection;
+    if (
+      threadsFooterAction &&
+      !this.settingsOpen &&
+      this.selectedMenu === "threads"
+    ) {
+      return { action: threadsFooterAction, placement: "threads-footer" };
+    }
+    if (
+      lockedAction &&
+      !this.settingsOpen &&
+      this.selectedMenu === "threads" &&
+      !this.areThreadEndpointsAvailable()
+    ) {
+      return { action: lockedAction, placement: "locked" };
+    }
+    return undefined;
+  }
+
+  /** Return paired stable navigation keys, or neither for an invalid leaf. */
+  private getMetadataTelemetryNavigation(): Readonly<{
+    group_key?: InspectorGroupKey;
+    leaf_key?: MenuKey;
+  }> {
+    const selectedLeaf: unknown = this.selectedMenu;
+    if (!isInspectorMenuKey(selectedLeaf)) return {};
+    for (const group of INSPECTOR_PRIMARY_NAVIGATION) {
+      if (
+        INSPECTOR_GROUPS[group.key].some((menuKey) => menuKey === selectedLeaf)
+      ) {
+        return { group_key: group.key, leaf_key: selectedLeaf };
+      }
+    }
+    return {};
+  }
+
+  /** Build metadata's shared coarse buckets and stable navigation context. */
+  private getMetadataTelemetryContext(): Readonly<{
+    usage_bucket: ThreadsUsageBucket;
+    expiry_bucket: ThreadsExpiryBucket;
+    group_key?: InspectorGroupKey;
+    leaf_key?: MenuKey;
+  }> {
+    return {
+      usage_bucket: this.getThreadsUsageBucket(),
+      expiry_bucket: this.getThreadsExpiryBucket(),
+      ...this.getMetadataTelemetryNavigation(),
+    };
+  }
+
+  private trackMetadataModuleIfChanged(
+    props: InspectorMetadataModuleViewedTelemetryProps,
+    fingerprint: string,
+  ): void {
+    if (this.metadataTelemetryFingerprints.get(props.module) === fingerprint) {
+      return;
+    }
+    this.metadataTelemetryFingerprints.set(props.module, fingerprint);
+    try {
+      trackMetadataModuleViewed(props);
+    } catch {
+      // Telemetry is best-effort and must never break Inspector rendering.
+    }
+  }
+
+  private maybeTrackInspectorMetadataViews(): void {
+    if (
+      !this.isOpen ||
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
+
+    const { identity, plan } = this.inspectorMetadataProjection;
+    const license_bucket: InspectorMetadataLicenseBucket =
+      this.inspectorMetadataProjection.licenseState;
+    const telemetryContext = this.getMetadataTelemetryContext();
+    const contextFingerprint = [
+      telemetryContext.usage_bucket,
+      telemetryContext.expiry_bucket,
+      telemetryContext.group_key ?? null,
+      telemetryContext.leaf_key ?? null,
+    ];
+
+    if (identity) {
+      this.trackMetadataModuleIfChanged(
+        { module: "identity", license_bucket, ...telemetryContext },
+        JSON.stringify([
+          license_bucket,
+          ...contextFingerprint,
+          identity.organizationName,
+          identity.projectName,
+        ]),
+      );
+    } else {
+      this.metadataTelemetryFingerprints.delete("identity");
+    }
+
+    if (plan) {
+      this.trackMetadataModuleIfChanged(
+        { module: "plan", license_bucket, ...telemetryContext },
+        JSON.stringify([
+          license_bucket,
+          ...contextFingerprint,
+          plan.code,
+          plan.label,
+        ]),
+      );
+    } else {
+      this.metadataTelemetryFingerprints.delete("plan");
+    }
+
+    const visibleAction = this.getVisibleInspectorMetadataAction();
+    if (visibleAction) {
+      const { action, placement } = visibleAction;
+      const action_placement = getMetadataActionPlacement(placement);
+      this.trackMetadataModuleIfChanged(
+        {
+          module: "action",
+          action_kind: action.kind,
+          license_bucket,
+          ...telemetryContext,
+          action_placement,
+        },
+        JSON.stringify([
+          license_bucket,
+          ...contextFingerprint,
+          action_placement,
+          action.kind,
+          action.url,
+        ]),
+      );
+    } else {
+      this.metadataTelemetryFingerprints.delete("action");
+    }
+  }
+
+  private handleInspectorMetadataActionClick = (
+    action: InspectorMetadataAction,
+    placement: "threads-footer" | "locked",
+  ): void => {
+    if (
+      !this.isOpen ||
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
+    if (action.kind === "enable_intelligence") {
+      this.handleThreadsIntelligenceSignupClick();
+      return;
+    }
+    try {
+      trackMetadataActionClicked({
+        action_kind: action.kind,
+        license_bucket: this.inspectorMetadataProjection.licenseState,
+        ...this.getMetadataTelemetryContext(),
+        action_placement: getMetadataActionPlacement(placement),
+      });
+    } catch {
+      // Telemetry is best-effort and must never break action navigation.
+    }
+  };
+
+  // Fires `banner_dismissed` at most once per `${bannerId}:${surface}` per
+  // mount. Emitted alongside `banner_clicked { cta: "dismiss" }` rather than
+  // replacing it, so dashboards reading the `cta` value keep working.
+  private trackBannerDismissedOnce(surface: BannerSurface): void {
+    if (this.core?.telemetryDisabled) return;
+    const id = this.announcementTimestamp;
+    if (!id) return;
+    const key = `${id}:dismissed:${surface}`;
+    if (this.clickedBannerIds.has(key)) return;
+    this.clickedBannerIds.add(key);
+    trackBannerDismissed({
+      banner_id: id,
+      surface,
+      cta_label: this.announcementCtaLabel ?? undefined,
+    });
   }
 
   // Fires `banner_clicked` at most once per `${bannerId}:${cta}` per mount so
@@ -5717,6 +9504,27 @@ ${argsString}</pre
       cta_label: this.announcementCtaLabel ?? undefined,
     });
   }
+
+  private handleTalkToEngineerClick = (): void => {
+    if (this.core?.telemetryDisabled) return;
+    trackTalkToEngineerClicked(
+      this.getThreadsCtaTelemetryProps("talk_to_engineer", "threads_header"),
+    );
+  };
+
+  private handleThreadsIntelligenceSignupClick = (): void => {
+    if (this.core?.telemetryDisabled) return;
+    trackThreadsIntelligenceSignupClicked(
+      this.getThreadsCtaTelemetryProps("signup", "threads_locked"),
+    );
+  };
+
+  private handleThreadsTalkToEngineerClick = (): void => {
+    if (this.core?.telemetryDisabled) return;
+    trackThreadsTalkToEngineerClicked(
+      this.getThreadsCtaTelemetryProps("talk_to_engineer", "threads_locked"),
+    );
+  };
 
   private handleThreadDividerPointerDown = (event: PointerEvent) => {
     this.threadDividerResizing = true;
@@ -5750,112 +9558,1818 @@ ${argsString}</pre
     this.threadDividerResizing = false;
   };
 
-  private renderThreadsView() {
-    const displayThreads =
-      this.selectedContext === "all-agents"
-        ? this._threads
-        : (this._threadsByAgent.get(this.selectedContext) ?? []);
-
-    // Surface a thread-store load error inline. For "all-agents" we report
-    // the first error encountered across all agents (good enough for a
-    // debugging surface — the per-agent context filter narrows down the
-    // culprit). For a specific agent we use that agent's error directly.
-    let threadsErrorMessage: string | null = null;
-    if (this.selectedContext === "all-agents") {
-      const firstError = this._threadsErrorByAgent.values().next().value;
-      threadsErrorMessage = firstError?.message ?? null;
+  private trackThreadsViewStateOnce(
+    state: "locked" | "empty_enabled" | "enabled",
+  ): void {
+    if (this.core?.telemetryDisabled) return;
+    const key = `${state}:${this.getThreadServiceStatus()}`;
+    if (this.viewedThreadsTelemetryStates.has(key)) return;
+    this.viewedThreadsTelemetryStates.add(key);
+    const props = this.getThreadsTelemetryProps();
+    if (state === "locked") {
+      trackThreadsLockedViewed(props);
+    } else if (state === "empty_enabled") {
+      trackThreadsEmptyEnabledViewed(props);
     } else {
-      threadsErrorMessage =
-        this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
+      trackThreadsEnabledViewed(props);
+    }
+  }
+
+  private shouldRenderExampleThreads(
+    locked: boolean,
+    displayThreads: ɵThread[],
+    threadsErrorMessage: string | null,
+    threadsLoading: boolean,
+  ): boolean {
+    return (
+      locked ||
+      (!threadsErrorMessage && !threadsLoading && displayThreads.length === 0)
+    );
+  }
+
+  private isExampleThreadId(threadId: string | null | undefined): boolean {
+    return THREADS_EXAMPLE_THREADS.some((thread) => thread.id === threadId);
+  }
+
+  private getExampleThreadProvider(threadId: string): ThreadDebuggerProvider {
+    const cached = this.exampleThreadProviders.get(threadId);
+    if (cached) return cached;
+    const thread = THREADS_EXAMPLE_THREADS.find((item) => item.id === threadId);
+    const details = THREADS_EXAMPLE_DETAILS[threadId];
+    const provider: ThreadDebuggerProvider = {
+      getThreadMetadata: async () =>
+        thread
+          ? {
+              id: thread.id,
+              name: thread.name,
+              agentId: thread.agentId,
+              endUserId: "example-user",
+              status: "completed",
+              createdAt: thread.createdAt,
+              updatedAt: thread.updatedAt,
+            }
+          : null,
+      getMessages: async () => details?.messages ?? [],
+      getEvents: async () => details?.events ?? [],
+      getState: async () => details?.state ?? null,
+    };
+    this.exampleThreadProviders.set(threadId, provider);
+    return provider;
+  }
+
+  private trackThreadsExampleViewedOnce(): void {
+    if (this.core?.telemetryDisabled) return;
+    for (const thread of THREADS_EXAMPLE_THREADS) {
+      const exampleKind = getExampleKind(thread.id);
+      if (!exampleKind || this.viewedExampleKinds.has(exampleKind)) continue;
+      this.viewedExampleKinds.add(exampleKind);
+      trackThreadsExampleViewed({
+        ...this.getThreadsTelemetryProps(),
+        example_kind: exampleKind,
+      });
+    }
+  }
+
+  private trackThreadsExampleSelectedOnce(threadId: string): void {
+    if (this.core?.telemetryDisabled) return;
+    const exampleKind = getExampleKind(threadId);
+    if (!exampleKind || this.selectedExampleKinds.has(exampleKind)) return;
+    this.selectedExampleKinds.add(exampleKind);
+    trackThreadsExampleSelected({
+      ...this.getThreadsTelemetryProps(),
+      example_kind: exampleKind,
+    });
+  }
+
+  private getCurrentExampleTourProps():
+    | (InspectorThreadTelemetryProps &
+        Readonly<{
+          example_kind: ExampleKind;
+          tour_step: ExampleTourStep;
+          tour_tab: ExampleTourTab;
+        }>)
+    | undefined {
+    const exampleKind = this.selectedThreadId
+      ? getExampleKind(this.selectedThreadId)
+      : undefined;
+    const tourPair = getExampleTourTelemetryPair(this.exampleTourStep);
+    if (!exampleKind || !tourPair) return undefined;
+    return {
+      ...this.getThreadsTelemetryProps(),
+      example_kind: exampleKind,
+      ...tourPair,
+    };
+  }
+
+  private trackThreadsExampleTourStepViewedOnce(): void {
+    if (this.core?.telemetryDisabled || !this.selectedThreadId) return;
+    const props = this.getCurrentExampleTourProps();
+    if (!props) return;
+    const key = `${props.example_kind}:${props.tour_step}`;
+    if (this.viewedExampleTourSteps.has(key)) return;
+    this.viewedExampleTourSteps.add(key);
+    trackThreadsExampleTourStepViewed(props);
+  }
+
+  private syncExampleTourTab(): void {
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    if (!step) return;
+    void this.updateComplete.then(() => {
+      const details = this.shadowRoot?.querySelector("cpk-thread-details") as
+        | (ɵCpkThreadDetails & { selectTab?: (id: ThreadDetailsTab) => void })
+        | null;
+      details?.selectTab?.(step.tab);
+    });
+  }
+
+  private startExampleTour(autoStarted: boolean): void {
+    if (!this.selectedThreadId) return;
+    this.exampleTourActive = true;
+    this.exampleTourStep = 0;
+    if (autoStarted) {
+      this.exampleTourAutoShown = true;
+      if (!this.core?.telemetryDisabled) {
+        const props = this.getCurrentExampleTourProps();
+        if (props) trackThreadsExampleTourStarted(props);
+      }
+    } else if (!this.core?.telemetryDisabled) {
+      const props = this.getCurrentExampleTourProps();
+      if (props) trackThreadsExampleTourReopened(props);
+    }
+    this.trackThreadsExampleTourStepViewedOnce();
+    this.syncExampleTourTab();
+    this.requestUpdate();
+  }
+
+  private setExampleTourStep(nextStep: number): void {
+    const telemetryStepIsValid =
+      getExampleTourTelemetryPair(nextStep) !== undefined;
+    this.exampleTourStep = Math.max(
+      0,
+      Math.min(THREADS_EXAMPLE_TOUR_STEPS.length - 1, nextStep),
+    );
+    if (telemetryStepIsValid) this.trackThreadsExampleTourStepViewedOnce();
+    this.syncExampleTourTab();
+    this.requestUpdate();
+  }
+
+  private dismissExampleTour(method: "skip" | "done"): void {
+    if (!this.selectedThreadId) return;
+    this.exampleTourActive = false;
+    this.exampleTourDismissed = true;
+    this.writeThreadsExampleTourDismissed();
+    if (!this.core?.telemetryDisabled) {
+      const currentProps = this.getCurrentExampleTourProps();
+      if (currentProps) {
+        const props = { ...currentProps, dismiss_method: method };
+        if (method === "done") {
+          trackThreadsExampleTourCompleted(props);
+        } else {
+          trackThreadsExampleTourDismissed(props);
+        }
+      }
+    }
+    this.requestUpdate();
+  }
+
+  private handleThreadsThreadSelected(
+    threadId: string,
+    showingExamples: boolean,
+  ): void {
+    if (
+      showingExamples &&
+      this.selectedThreadId === threadId &&
+      this.selectedLocalExampleThreadId === threadId
+    ) {
+      this.selectedThreadId = null;
+      this.selectedRealThreadIsExplicit = false;
+      this.selectedLocalExampleThreadId = null;
+      this.exampleTourActive = false;
+      this.requestUpdate();
+      return;
+    }
+
+    this.selectedThreadId = threadId;
+    if (showingExamples && this.isExampleThreadId(threadId)) {
+      this.selectedRealThreadIsExplicit = false;
+      this.selectedLocalExampleThreadId = threadId;
+      this.trackThreadsExampleSelectedOnce(threadId);
+      if (!this.exampleTourDismissed && !this.exampleTourAutoShown) {
+        this.startExampleTour(true);
+      } else {
+        this.exampleTourActive = false;
+      }
+    } else {
+      const { displayThreads } = this.getActiveThreadsState();
+      this.selectedRealThreadIsExplicit = displayThreads.some(
+        (thread) => thread.id === threadId,
+      );
+      this.selectedLocalExampleThreadId = null;
+      this.exampleTourActive = false;
+    }
+    this.requestUpdate();
+  }
+
+  private readThreadsExampleTourDismissed(): boolean {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = window.localStorage.getItem(THREADS_EXAMPLE_TOUR_STORAGE_KEY);
+      if (!raw) return false;
+      const value = JSON.parse(raw) as { dismissed?: unknown };
+      return value.dismissed === true;
+    } catch {
+      return false;
+    }
+  }
+
+  private writeThreadsExampleTourDismissed(): void {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        THREADS_EXAMPLE_TOUR_STORAGE_KEY,
+        JSON.stringify({ dismissed: true }),
+      );
+    } catch {
+      // Persistence is best-effort; the inspector should keep working without it.
+    }
+  }
+
+  /** Cancels the one deferred gate without disturbing a newer lifecycle. */
+  private cancelThreadsExampleOverviewVideoGate(): void {
+    if (this.threadsExampleOverviewVideoLoadTimer !== null) {
+      if (typeof window !== "undefined") {
+        window.clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
+      }
+      this.threadsExampleOverviewVideoLoadTimer = null;
+    }
+    if (this.threadsExampleOverviewVideoIdleCallbackId !== null) {
+      if (
+        typeof window !== "undefined" &&
+        typeof window.cancelIdleCallback === "function"
+      ) {
+        window.cancelIdleCallback(
+          this.threadsExampleOverviewVideoIdleCallbackId,
+        );
+      }
+      this.threadsExampleOverviewVideoIdleCallbackId = null;
+    }
+  }
+
+  /** Returns whether media work still belongs to the mounted lifecycle. */
+  private isCurrentThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+  ): boolean {
+    return (
+      this.isConnected &&
+      video.isConnected &&
+      this.threadsExampleOverviewVideoElement === video &&
+      this.threadsExampleOverviewVideoLifecycleGeneration ===
+        lifecycleGeneration
+    );
+  }
+
+  /** Invalidates any unresolved play request without exposing another state. */
+  private invalidateThreadsExampleOverviewVideoPlay(): void {
+    this.threadsExampleOverviewVideoPlayAttemptGeneration += 1;
+    this.threadsExampleOverviewVideoPlayPromise = null;
+  }
+
+  /** Moves a current media lifecycle into its readable failure state. */
+  private failThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+  ): void {
+    if (
+      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
+    ) {
+      return;
+    }
+    this.invalidateThreadsExampleOverviewVideoPlay();
+    this.threadsExampleOverviewVideoLoaded = false;
+    this.threadsExampleOverviewVideoState = "failed";
+    this.requestUpdate();
+  }
+
+  /** Settles one guarded play promise and ignores stale completion. */
+  private async settleThreadsExampleOverviewVideoPlay(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+    playAttemptGeneration: number,
+    playback: Promise<void>,
+  ): Promise<void> {
+    try {
+      await playback;
+      if (
+        this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration) &&
+        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
+          playAttemptGeneration &&
+        this.threadsExampleOverviewVideoState !== "failed"
+      ) {
+        this.threadsExampleOverviewVideoState = "playing";
+        this.requestUpdate();
+      }
+    } catch {
+      if (
+        this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration) &&
+        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
+          playAttemptGeneration
+      ) {
+        this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
+      }
+    } finally {
+      if (
+        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
+        playAttemptGeneration
+      ) {
+        this.threadsExampleOverviewVideoPlayPromise = null;
+      }
+    }
+  }
+
+  /** Starts at most one play request for the current media lifecycle. */
+  private playThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+  ): void {
+    if (
+      this.threadsExampleOverviewVideoPlayPromise !== null ||
+      this.threadsExampleOverviewVideoState === "deferred" ||
+      this.threadsExampleOverviewVideoState === "failed" ||
+      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
+    ) {
+      return;
+    }
+
+    const playAttemptGeneration =
+      this.threadsExampleOverviewVideoPlayAttemptGeneration + 1;
+    this.threadsExampleOverviewVideoPlayAttemptGeneration =
+      playAttemptGeneration;
+    try {
+      const playback = Promise.resolve(video.play());
+      this.threadsExampleOverviewVideoPlayPromise =
+        this.settleThreadsExampleOverviewVideoPlay(
+          video,
+          lifecycleGeneration,
+          playAttemptGeneration,
+          playback,
+        );
+    } catch {
+      this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
+    }
+  }
+
+  /** Attaches the sole source for a generation and optionally starts playback. */
+  private activateThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+    play: boolean,
+  ): void {
+    if (
+      this.threadsExampleOverviewVideoState !== "deferred" ||
+      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
+    ) {
+      return;
+    }
+
+    this.threadsExampleOverviewVideoState = "ready";
+    this.threadsExampleOverviewVideoLoaded = false;
+    video.autoplay = !this.threadsExampleOverviewVideoReducedMotion;
+    video.setAttribute("src", THREADS_EXAMPLE_OVERVIEW_VIDEO_URL);
+    this.requestUpdate();
+    if (play) {
+      this.playThreadsExampleOverviewVideo(video, lifecycleGeneration);
+    }
+  }
+
+  /** Schedules exactly one idle or timer gate for the current video. */
+  private scheduleThreadsExampleOverviewVideoLoad(): void {
+    const video = this.threadsExampleOverviewVideoElement;
+    if (
+      !video ||
+      !this.isConnected ||
+      this.threadsExampleOverviewVideoState !== "deferred" ||
+      this.threadsExampleOverviewVideoLoadTimer !== null ||
+      this.threadsExampleOverviewVideoIdleCallbackId !== null ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    const lifecycleGeneration =
+      this.threadsExampleOverviewVideoLifecycleGeneration;
+    if (typeof window.requestIdleCallback === "function") {
+      let idleCallbackId = 0;
+      const loadVideo = () => {
+        if (this.threadsExampleOverviewVideoIdleCallbackId !== idleCallbackId) {
+          return;
+        }
+        this.threadsExampleOverviewVideoIdleCallbackId = null;
+        this.activateThreadsExampleOverviewVideo(
+          video,
+          lifecycleGeneration,
+          !this.threadsExampleOverviewVideoReducedMotion,
+        );
+      };
+      idleCallbackId = window.requestIdleCallback(loadVideo, { timeout: 1200 });
+      this.threadsExampleOverviewVideoIdleCallbackId = idleCallbackId;
+      return;
+    }
+
+    const loadTimer = window.setTimeout(() => {
+      if (this.threadsExampleOverviewVideoLoadTimer !== loadTimer) {
+        return;
+      }
+      this.threadsExampleOverviewVideoLoadTimer = null;
+      this.activateThreadsExampleOverviewVideo(
+        video,
+        lifecycleGeneration,
+        !this.threadsExampleOverviewVideoReducedMotion,
+      );
+    }, 450);
+    this.threadsExampleOverviewVideoLoadTimer = loadTimer;
+  }
+
+  /** Attaches one generation-scoped media listener set to the stable video. */
+  private bindThreadsExampleOverviewVideo(video: HTMLVideoElement): void {
+    const lifecycleGeneration =
+      this.threadsExampleOverviewVideoLifecycleGeneration;
+    const listeners: ThreadsExampleOverviewVideoListeners = {
+      loadeddata: () => {
+        if (
+          !this.isCurrentThreadsExampleOverviewVideo(
+            video,
+            lifecycleGeneration,
+          ) ||
+          this.threadsExampleOverviewVideoState === "deferred" ||
+          this.threadsExampleOverviewVideoState === "failed"
+        ) {
+          return;
+        }
+        this.threadsExampleOverviewVideoLoaded = true;
+        this.requestUpdate();
+      },
+      play: () => {
+        if (
+          this.isCurrentThreadsExampleOverviewVideo(
+            video,
+            lifecycleGeneration,
+          ) &&
+          this.threadsExampleOverviewVideoState !== "deferred" &&
+          this.threadsExampleOverviewVideoState !== "failed"
+        ) {
+          this.threadsExampleOverviewVideoState = "playing";
+          this.requestUpdate();
+        }
+      },
+      pause: () => {
+        if (
+          this.isCurrentThreadsExampleOverviewVideo(
+            video,
+            lifecycleGeneration,
+          ) &&
+          this.threadsExampleOverviewVideoState !== "deferred" &&
+          this.threadsExampleOverviewVideoState !== "failed"
+        ) {
+          this.invalidateThreadsExampleOverviewVideoPlay();
+          this.threadsExampleOverviewVideoState = "ready";
+          this.requestUpdate();
+        }
+      },
+      error: () => {
+        this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
+      },
+    };
+    this.threadsExampleOverviewVideoElement = video;
+    this.threadsExampleOverviewVideoListeners = listeners;
+    video.addEventListener("loadeddata", listeners.loadeddata);
+    video.addEventListener("play", listeners.play);
+    video.addEventListener("pause", listeners.pause);
+    video.addEventListener("error", listeners.error);
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.autoplay =
+      this.threadsExampleOverviewVideoState !== "deferred" &&
+      !this.threadsExampleOverviewVideoReducedMotion;
+  }
+
+  /** Tears down gates, listeners, playback, and source in cleanup order. */
+  private cleanupThreadsExampleOverviewVideo(): void {
+    const video = this.threadsExampleOverviewVideoElement;
+    if (video) {
+      this.threadsExampleOverviewVideoLifecycleGeneration += 1;
+    }
+    this.invalidateThreadsExampleOverviewVideoPlay();
+    this.cancelThreadsExampleOverviewVideoGate();
+    this.threadsExampleOverviewVideoPlayOnNextBind = false;
+
+    const listeners = this.threadsExampleOverviewVideoListeners;
+    if (video && listeners) {
+      video.removeEventListener("loadeddata", listeners.loadeddata);
+      video.removeEventListener("play", listeners.play);
+      video.removeEventListener("pause", listeners.pause);
+      video.removeEventListener("error", listeners.error);
+    }
+    this.threadsExampleOverviewVideoElement = null;
+    this.threadsExampleOverviewVideoListeners = null;
+
+    if (video) {
+      try {
+        video.pause();
+      } catch {
+        // Some DOM shims expose media methods that throw instead of no-oping.
+      }
+      video.removeAttribute("src");
+      try {
+        video.load();
+      } catch {
+        // Cleanup must stay synchronous and never surface media abort errors.
+      }
+    }
+    this.threadsExampleOverviewVideoLoaded = false;
+    this.threadsExampleOverviewVideoState = "deferred";
+  }
+
+  /** Reconciles the rendered media node with its current lifecycle. */
+  private syncThreadsExampleOverviewVideo(): void {
+    const video = this.shadowRoot?.querySelector<HTMLVideoElement>(
+      ".cpk-threads-overview-video",
+    );
+    if (!video) {
+      if (
+        this.threadsExampleOverviewVideoElement ||
+        this.threadsExampleOverviewVideoState !== "deferred" ||
+        this.threadsExampleOverviewVideoLoadTimer !== null ||
+        this.threadsExampleOverviewVideoIdleCallbackId !== null ||
+        this.threadsExampleOverviewVideoPlayOnNextBind
+      ) {
+        this.cleanupThreadsExampleOverviewVideo();
+      }
+      return;
+    }
+
+    if (this.threadsExampleOverviewVideoElement !== video) {
+      if (this.threadsExampleOverviewVideoElement) {
+        this.cleanupThreadsExampleOverviewVideo();
+      }
+      this.bindThreadsExampleOverviewVideo(video);
+    }
+    if (this.threadsExampleOverviewVideoPlayOnNextBind) {
+      this.threadsExampleOverviewVideoPlayOnNextBind = false;
+      this.activateThreadsExampleOverviewVideo(
+        video,
+        this.threadsExampleOverviewVideoLifecycleGeneration,
+        true,
+      );
+      return;
+    }
+    this.scheduleThreadsExampleOverviewVideoLoad();
+  }
+
+  /** Handles the external native Play/Pause control. */
+  private handleThreadsExampleOverviewVideoControl = (): void => {
+    const video = this.threadsExampleOverviewVideoElement;
+    if (!video) return;
+
+    if (this.threadsExampleOverviewVideoState === "playing") {
+      this.invalidateThreadsExampleOverviewVideoPlay();
+      try {
+        video.pause();
+      } catch {
+        // Keep the visible state usable when a media shim cannot pause.
+      }
+      this.threadsExampleOverviewVideoState = "ready";
+      this.requestUpdate();
+      return;
+    }
+
+    if (this.threadsExampleOverviewVideoState === "failed") {
+      this.cleanupThreadsExampleOverviewVideo();
+      if (!this.isConnected || !video.isConnected) return;
+      this.threadsExampleOverviewVideoPlayOnNextBind = true;
+      this.requestUpdate();
+      return;
+    }
+
+    this.cancelThreadsExampleOverviewVideoGate();
+    const lifecycleGeneration =
+      this.threadsExampleOverviewVideoLifecycleGeneration;
+    if (this.threadsExampleOverviewVideoState === "deferred") {
+      this.activateThreadsExampleOverviewVideo(
+        video,
+        lifecycleGeneration,
+        true,
+      );
+      return;
+    }
+    this.playThreadsExampleOverviewVideo(video, lifecycleGeneration);
+  };
+
+  private renderThreadsExampleOverviewVideo() {
+    const isPlaying = this.threadsExampleOverviewVideoState === "playing";
+    const sourceIsAttached =
+      this.threadsExampleOverviewVideoState !== "deferred";
+    const video = html`<video
+      class="cpk-threads-overview-video"
+      data-loaded=${this.threadsExampleOverviewVideoLoaded}
+      ?autoplay=${
+        sourceIsAttached && !this.threadsExampleOverviewVideoReducedMotion
+      }
+      .autoplay=${
+        sourceIsAttached && !this.threadsExampleOverviewVideoReducedMotion
+      }
+      loop
+      .loop=${true}
+      muted
+      .muted=${true}
+      playsinline
+      .playsInline=${true}
+      preload="metadata"
+    ></video>`;
+    // Alternating template identities retire the prior media node after cleanup.
+    // The node remains stable for every render within one lifecycle generation.
+    const generationScopedVideo =
+      this.threadsExampleOverviewVideoLifecycleGeneration % 2 === 0
+        ? html`<!-- cpk-video-generation-even -->${video}`
+        : html`<!-- cpk-video-generation-odd -->${video}`;
+    return html`
+      <div class="cpk-threads-overview-video-frame" aria-hidden="true">
+        ${generationScopedVideo}
+      </div>
+      <button
+        class="cpk-threads-overview-video-control"
+        type="button"
+        aria-pressed=${isPlaying ? "false" : "true"}
+        @click=${this.handleThreadsExampleOverviewVideoControl}
+      >
+        ${isPlaying ? "Pause demo" : "Play demo"}
+      </button>
+      ${
+        this.threadsExampleOverviewVideoState === "failed"
+          ? html`
+              <p class="cpk-threads-overview-video-fallback" role="status">
+                ${THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK}
+              </p>
+            `
+          : nothing
+      }
+    `;
+  }
+
+  /** Show a copy result briefly and announce it to assistive technology. */
+  private showThreadsSetupPromptCopyState(
+    state: Exclude<ThreadsSetupPromptCopyState, "idle">,
+    generation: number,
+  ): void {
+    if (
+      !this.isConnected ||
+      generation !== this.threadsSetupPromptCopyGeneration
+    ) {
+      return;
+    }
+    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
+    }
+    this.threadsSetupPromptCopyState = state;
+    this.requestUpdate();
+    this.threadsSetupPromptCopyResetTimeoutId = window.setTimeout(() => {
+      if (
+        !this.isConnected ||
+        generation !== this.threadsSetupPromptCopyGeneration
+      ) {
+        return;
+      }
+      this.threadsSetupPromptCopyState = "idle";
+      this.threadsSetupPromptCopyResetTimeoutId = null;
+      this.requestUpdate();
+    }, 2_000);
+  }
+
+  /** Copy the static, docs-backed Rich Threads repair prompt. */
+  private handleThreadsSetupPromptCopy = async (): Promise<void> => {
+    const generation = (this.threadsSetupPromptCopyGeneration += 1);
+    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
+      this.threadsSetupPromptCopyResetTimeoutId = null;
+    }
+    this.threadsSetupPromptCopyState = "idle";
+    this.requestUpdate();
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      this.showThreadsSetupPromptCopyState("error", generation);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(THREADS_RUNTIME_SETUP_PROMPT);
+      this.showThreadsSetupPromptCopyState("copied", generation);
+    } catch {
+      this.showThreadsSetupPromptCopyState("error", generation);
+    }
+  };
+
+  private renderThreadsExampleOverview(locked: boolean) {
+    const lockedCopy = locked ? this.getThreadsLockedCopy() : undefined;
+    const { lockedAction } = this.inspectorMetadataProjection;
+    const onboardingAction = this.getThreadsEmptyOnboardingAction();
+    return html`
+      <div
+        style="
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 32px;
+          background: #f7f7f9;
+        "
+      >
+        <div style="max-width: 440px; color: #57575b;">
+          <h2
+            style="
+              margin: 0 0 10px;
+              font-size: 20px;
+              line-height: 1.25;
+              font-weight: 600;
+              color: #010507;
+            "
+          >
+            ${
+              lockedCopy?.heading ??
+              "Threads are persistent, inspectable conversations"
+            }
+          </h2>
+          ${this.renderThreadsExampleOverviewVideo()}
+          <p
+            style="
+              margin: 0 0 16px;
+              font-size: 13px;
+              line-height: 1.55;
+              color: #57575b;
+            "
+          >
+            ${
+              lockedCopy?.description ??
+              "Take a tour with the example threads in the sidebar. Then, start chatting in your app to create the first real thread."
+            }
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            ${
+              locked
+                ? html`
+                    ${
+                      this.inspectorMetadataProjection.licenseState === "valid"
+                        ? html`
+                            <button
+                              data-inspector-threads-setup-prompt
+                              type="button"
+                              aria-label=${
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Setup prompt copied"
+                                  : this.threadsSetupPromptCopyState === "error"
+                                    ? "Copy setup prompt failed. Try again"
+                                    : "Copy setup prompt for your coding agent"
+                              }
+                              @click=${this.handleThreadsSetupPromptCopy}
+                            >
+                              ${this.renderIcon(
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Check"
+                                  : "Copy",
+                              )}
+                              ${
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Copied"
+                                  : this.threadsSetupPromptCopyState === "error"
+                                    ? "Copy blocked"
+                                    : "Copy prompt for your agent"
+                              }
+                            </button>
+                            <a
+                              data-inspector-threads-setup-link
+                              href=${this.getThreadsRuntimeSetupDocsUrl()}
+                              target="_blank"
+                              rel="noopener"
+                              aria-label="Open setup guide (opens in a new tab)"
+                            >
+                              Open setup guide
+                            </a>
+                            <span
+                              class="sr-only"
+                              data-inspector-threads-setup-copy-status
+                              aria-live="polite"
+                              >${
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Setup prompt copied."
+                                  : this.threadsSetupPromptCopyState === "error"
+                                    ? "Setup prompt copy failed. Open the setup guide and copy it manually."
+                                    : ""
+                              }</span
+                            >
+                          `
+                        : nothing
+                    }
+                    ${
+                      lockedAction
+                        ? this.renderInspectorAction(lockedAction, "locked")
+                        : nothing
+                    }
+                  `
+                : html`
+                    <a
+                      href=${this.getThreadsDocsUrl()}
+                      target="_blank"
+                      rel="noopener"
+                      style="
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        min-height: 34px;
+                        border-radius: 6px;
+                        background: #010507;
+                        padding: 8px 12px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #ffffff;
+                        text-decoration: none;
+                      "
+                    >
+                      Learn how Threads work
+                    </a>
+                    <a
+                      href=${onboardingAction.href}
+                      target="_blank"
+                      rel="noopener"
+                      style="
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        min-height: 34px;
+                        border-radius: 6px;
+                        border: 1px solid #dbdbe5;
+                        background: #ffffff;
+                        padding: 8px 12px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #010507;
+                        text-decoration: none;
+                      "
+                    >
+                      ${onboardingAction.label}
+                    </a>
+                  `
+            }
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderThreadsExampleTour() {
+    if (
+      !this.selectedThreadId ||
+      this.selectedThreadId !== this.selectedLocalExampleThreadId
+    ) {
+      return nothing;
+    }
+
+    if (!this.exampleTourActive) {
+      return html`
+        <button
+          type="button"
+          style="
+            position: absolute;
+            right: 16px;
+            bottom: 16px;
+            z-index: 2;
+            border: 1px solid #dbdbe5;
+            border-radius: 6px;
+            background: #ffffff;
+            padding: 7px 10px;
+            color: #57575b;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(1, 5, 7, 0.08);
+          "
+          @click=${() => this.startExampleTour(false)}
+        >
+          Show tour
+        </button>
+      `;
+    }
+
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    const isFirst = this.exampleTourStep === 0;
+    const isLast =
+      this.exampleTourStep === THREADS_EXAMPLE_TOUR_STEPS.length - 1;
+
+    return html`
+      <div
+        role="dialog"
+        aria-label="Example thread tour"
+        style="
+          position: absolute;
+          right: 16px;
+          bottom: 16px;
+          z-index: 3;
+          width: min(340px, calc(100% - 32px));
+          border: 1px solid #dbdbe5;
+          border-radius: 8px;
+          background: #ffffff;
+          padding: 14px;
+          box-shadow: 0 16px 36px rgba(1, 5, 7, 0.14);
+          color: #57575b;
+        "
+      >
+        <div
+          style="
+            margin-bottom: 8px;
+            font-family: 'Spline Sans Mono', monospace;
+            font-size: 10px;
+            font-weight: 600;
+            color: #087653;
+            text-transform: uppercase;
+          "
+        >
+          ${this.exampleTourStep + 1}/${THREADS_EXAMPLE_TOUR_STEPS.length}
+          ${step.label}
+        </div>
+        <div
+          style="
+            margin-bottom: 6px;
+            font-size: 14px;
+            line-height: 1.35;
+            font-weight: 600;
+            color: #010507;
+          "
+        >
+          ${step.title}
+        </div>
+        <div style="font-size: 12px; line-height: 1.5; color: #57575b;">
+          ${step.body}
+        </div>
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 14px;
+          "
+        >
+          <button
+            type="button"
+            style="border:0;background:transparent;color:#68686e;font-size:12px;font-weight:600;cursor:pointer;padding:7px 0;"
+            @click=${() => this.dismissExampleTour("skip")}
+          >
+            Skip
+          </button>
+          <div style="display:flex;gap:8px;">
+            <button
+              type="button"
+              style="border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;color:#57575b;font-size:12px;font-weight:600;cursor:pointer;padding:7px 10px;"
+              ?disabled=${isFirst}
+              @click=${() => this.setExampleTourStep(this.exampleTourStep - 1)}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              style="border:1px solid #010507;border-radius:6px;background:#010507;color:#ffffff;font-size:12px;font-weight:600;cursor:pointer;padding:7px 10px;"
+              @click=${() =>
+                isLast
+                  ? this.dismissExampleTour("done")
+                  : this.setExampleTourStep(this.exampleTourStep + 1)}
+            >
+              ${isLast ? "Done" : "Next"}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderThreadsLockedBackgroundMockup() {
+    const threadRows = [
+      { width: 74, accent: true },
+      { width: 92 },
+      { width: 68 },
+      { width: 84 },
+      { width: 58 },
+      { width: 76 },
+    ];
+
+    return html`
+      <div
+        aria-hidden="true"
+        style="
+          position: absolute;
+          inset: 0;
+          display: grid;
+          grid-template-columns: minmax(180px, 28%) 1fr;
+          overflow: hidden;
+          opacity: 0.58;
+          pointer-events: none;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 28px 24px;
+            border-right: 1px solid #dbdbe5;
+            background: #fafafa;
+          "
+        >
+          ${threadRows.map(
+            (row) => html`
+              <div
+                style="
+                  padding: 12px;
+                  border-radius: 8px;
+                  background: ${row.accent ? "#eee6fe" : "#ffffff"};
+                  box-shadow: inset 0 0 0 1px #eeeef4;
+                "
+              >
+                <div
+                  style="
+                    height: 8px;
+                    width: ${row.width}%;
+                    border-radius: 99px;
+                    background: ${row.accent ? "#a984f5" : "#d7d7df"};
+                  "
+                ></div>
+                <div
+                  style="
+                    height: 6px;
+                    width: 88%;
+                    margin-top: 10px;
+                    border-radius: 99px;
+                    background: #e3e3eb;
+                  "
+                ></div>
+                <div
+                  style="
+                    height: 6px;
+                    width: 62%;
+                    margin-top: 7px;
+                    border-radius: 99px;
+                    background: #e8e8ef;
+                  "
+                ></div>
+              </div>
+            `,
+          )}
+        </div>
+        <div
+          style="
+            min-width: 0;
+            padding: 42px 48px;
+            background: #ffffff;
+          "
+        >
+          <div
+            style="
+              height: 10px;
+              width: 180px;
+              border-radius: 99px;
+              background: #d7d7df;
+            "
+          ></div>
+          <div
+            style="
+              height: 8px;
+              width: min(520px, 58%);
+              margin-top: 28px;
+              border-radius: 99px;
+              background: #e3e3eb;
+            "
+          ></div>
+          <div
+            style="
+              height: 8px;
+              width: min(430px, 48%);
+              margin-top: 12px;
+              border-radius: 99px;
+              background: #e8e8ef;
+            "
+          ></div>
+          <div
+            style="
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 16px;
+              max-width: 620px;
+              margin-top: 30px;
+            "
+          >
+            <div
+              style="
+                height: 116px;
+                border-radius: 8px;
+                background: #f5f5f8;
+                box-shadow: inset 0 0 0 1px #eeeef4;
+              "
+            ></div>
+            <div
+              style="
+                height: 116px;
+                border-radius: 8px;
+                background: #f5f5f8;
+                box-shadow: inset 0 0 0 1px #eeeef4;
+              "
+            ></div>
+          </div>
+          <div
+            style="
+              height: 10px;
+              width: min(680px, 74%);
+              margin-top: 34px;
+              border-radius: 99px;
+              background: #e3e3eb;
+            "
+          ></div>
+          <div
+            style="
+              height: 10px;
+              width: min(560px, 60%);
+              margin-top: 14px;
+              border-radius: 99px;
+              background: #e8e8ef;
+            "
+          ></div>
+        </div>
+      </div>
+    `;
+  }
+
+  private getThreadsLockedCopy(): {
+    heading: string;
+    description: string;
+  } {
+    switch (this.inspectorMetadataProjection.licenseState) {
+      case "valid":
+        return {
+          heading: "Finish setting up Rich Threads",
+          description:
+            "Copy this prompt into your coding agent to finish the setup.",
+        };
+      case "none":
+        return {
+          heading: "Enable Intelligence to inspect Threads.",
+          description:
+            "Persist conversations and inspect saved thread history from the Inspector.",
+        };
+      case "expired":
+        return {
+          heading: "Renew Intelligence to inspect Threads.",
+          description:
+            "Your Intelligence access has expired. Renew it to inspect saved thread history.",
+        };
+      case "unknown":
+        return {
+          heading: "Threads are unavailable.",
+          description:
+            "This runtime does not expose Threads for the Inspector.",
+        };
+    }
+  }
+
+  /**
+   * Renders the realtime-connection indicator in the memory-store header.
+   * Only `"connected"` shows the live (green-dot) state; `"connecting"` shows a
+   * muted amber "reconnecting" and `"unavailable"` a muted grey "offline", so
+   * the indicator never claims "live" over a frozen snapshot once the realtime
+   * socket has permanently given up.
+   */
+  private renderMemoryRealtimeIndicator() {
+    const status = this._memoriesRealtimeStatus;
+    const connected = status === "connected";
+    const dotColor = connected
+      ? "#22c55e"
+      : status === "connecting"
+        ? "#f59e0b"
+        : "#9ca3af";
+    const label =
+      status === "connected"
+        ? "live"
+        : status === "connecting"
+          ? "reconnecting"
+          : "offline";
+    return html`
+      <span
+        style="
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 10px;
+          font-weight: 500;
+          color: ${connected ? "#57575b" : "#68686e"};
+        "
+      >
+        <span
+          style="
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: ${dotColor};
+          "
+        ></span>
+        ${label}
+      </span>
+    `;
+  }
+
+  private renderMemoriesView() {
+    // 1. Locked teaser — intelligence not configured or memories not available.
+    if (!this.core?.intelligence || !this._memoriesAvailable) {
+      return html`
+        <div
+          style="
+            position: relative;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            overflow: hidden;
+            background: #ffffff;
+          "
+        >
+          ${this.renderThreadsLockedBackgroundMockup()}
+          <div
+            aria-hidden="true"
+            style="
+              position: absolute;
+              inset: 0;
+              pointer-events: none;
+              background:
+                radial-gradient(circle at center, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.78) 24%, rgba(255,255,255,0.34) 48%, rgba(255,255,255,0.56) 100%);
+            "
+          ></div>
+          <div
+            style="
+              position: relative;
+              z-index: 1;
+              max-width: 440px;
+              text-align: center;
+              color: #57575b;
+            "
+          >
+            <div
+              aria-hidden="true"
+              style="
+                margin: 0 auto 18px;
+                display: flex;
+                justify-content: center;
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  height: 44px;
+                  width: 44px;
+                  align-items: center;
+                  justify-content: center;
+                  border: 1px solid #dfd6fb;
+                  border-radius: 8px;
+                  background: #eee6fe;
+                  color: #57575b;
+                  box-shadow: 0 8px 18px rgba(87, 87, 91, 0.14);
+                "
+              >
+                ${this.renderIcon("Lock")}
+              </div>
+            </div>
+            <h2
+              style="
+                margin: 0 0 8px;
+                font-size: 16px;
+                line-height: 1.35;
+                font-weight: 600;
+                color: #010507;
+              "
+            >
+              Long-term memory
+            </h2>
+            <p
+              style="
+                margin: 0 auto 18px;
+                max-width: 380px;
+                font-size: 13px;
+                line-height: 1.55;
+                color: #57575b;
+              "
+            >
+              ${
+                this._memoryStoreUnsupported
+                  ? "Long-term memory isn't available in this version of the @copilotkit SDK. Upgrade @copilotkit/core (and @copilotkit/react) to a version that supports memory."
+                  : "Long-term memory isn't enabled on this deployment."
+              }
+            </p>
+            <div
+              style="
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 8px;
+              "
+            >
+              <a
+                href=${this.getTalkToEngineerUrl()}
+                target="_blank"
+                rel="noopener"
+                style="
+                  display: inline-flex;
+                  min-height: 34px;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  border-radius: 6px;
+                  background: #010507;
+                  padding: 8px 12px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #ffffff;
+                  text-decoration: none;
+                "
+                @click=${this.handleThreadsTalkToEngineerClick}
+              >
+                Talk to an Engineer
+              </a>
+              <a
+                href=${this.getIntelligenceSignupUrl()}
+                target="_blank"
+                rel="noopener"
+                style="
+                  display: inline-flex;
+                  min-height: 34px;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  border-radius: 6px;
+                  border: 1px solid #dbdbe5;
+                  background: #ffffff;
+                  padding: 8px 12px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #57575b;
+                  text-decoration: none;
+                "
+                @click=${this.handleThreadsIntelligenceSignupClick}
+              >
+                Sign up for Intelligence
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 2. Full-screen error — only for a snapshot-LOAD failure (no memories
+    // loaded). A mutation failure that arrives while memories are already on
+    // screen must NOT blank the list; it is surfaced inline below (step 4).
+    if (this._memoriesError && this._memories.length === 0) {
+      return html`
+        <div
+          style="
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #68686e;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#c0333a"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span style="font-size: 13px; color: #c0333a;">
+            Failed to load memories
+          </span>
+          <span
+            style="
+              max-width: 320px;
+              text-align: center;
+              font-size: 11px;
+              line-height: 1.5;
+              color: #c0333a;
+            "
+          >
+            ${this._memoriesError.message}
+          </span>
+        </div>
+      `;
+    }
+
+    // 3. Initial loading placeholder (no memories yet to show behind it).
+    if (this._memoriesLoading && this._memories.length === 0) {
+      return html`
+        <div
+          style="
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #68686e;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#c0c0c8"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+          <span style="font-size: 13px">Loading memories…</span>
+        </div>
+      `;
+    }
+
+    // 4. Content — header + memory list.
+    return html`
+      <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
+        <div class="cpk-section-header" style="display:flex;align-items:center;justify-content:space-between;">
+          <h4>${MEMORY_VIEW_LABEL}</h4>
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${this.renderMemoryRealtimeIndicator()}
+            <span
+              style="
+                font-size: 11px;
+                font-weight: 500;
+                color: #57575b;
+                background: rgba(0,0,0,0.07);
+                border-radius: 9999px;
+                padding: 1px 7px;
+              "
+            >
+              ${this._memories.length}
+            </span>
+          </div>
+        </div>
+        ${
+          this._memoriesError
+            ? html`
+                <div
+                  role="alert"
+                  style="
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 8px;
+                    flex-shrink: 0;
+                    border-bottom: 1px solid #f1c7c9;
+                    background: #fdf3f3;
+                    padding: 8px 12px;
+                    color: #c0333a;
+                    font-size: 12px;
+                    line-height: 1.45;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#c0333a"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    style="flex-shrink:0;margin-top:1px;"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span>Action failed: ${this._memoriesError.message}</span>
+                </div>
+              `
+            : nothing
+        }
+        <div style="flex:1;min-height:0;overflow:hidden;">
+          <cpk-memory-list
+            style="height:100%;"
+            .memories=${this._memories}
+            .recallResults=${this._recallResults}
+            .recallLoading=${this._recallLoading}
+            .recallError=${this._recallError}
+            .recallQueryText=${this._recallQuery}
+            @recallQueryChanged=${(e: CustomEvent<string>) => {
+              this._recallQuery = e.detail;
+            }}
+            @recallSubmitted=${(e: CustomEvent<string>) => {
+              this.runRecall(e.detail);
+            }}
+            @recallCleared=${() => {
+              this.clearRecall();
+            }}
+          ></cpk-memory-list>
+        </div>
+      </div>
+    `;
+  }
+
+  /** Renders trusted Threads usage and its independent plan action. */
+  private renderThreadsUsageFooter() {
+    const { usage, threadsFooterAction } = this.inspectorMetadataProjection;
+    if (!usage && !threadsFooterAction) {
+      return nothing;
+    }
+
+    let countLabel: string | undefined;
+    let progressMax: number | undefined;
+    let progressValue: number | undefined;
+    const capacityState = this.getThreadsCapacityState();
+    if (usage) {
+      if (usage.limit.kind === "finite") {
+        const overLimit = usage.used > usage.limit.value;
+        const visibleUsed = overLimit
+          ? `${usage.limit.value}+`
+          : String(usage.used);
+        countLabel = `${visibleUsed} / ${usage.limit.value} Threads`;
+        progressMax = usage.limit.value;
+        progressValue = Math.min(usage.used, usage.limit.value);
+      } else if (usage.limit.kind === "unlimited") {
+        countLabel = `${usage.used} Threads · Unlimited`;
+      } else {
+        countLabel = `${usage.used} Threads · Limit unavailable`;
+      }
+    }
+
+    return html`
+      <footer
+        class="inspector-threads-footer"
+        data-inspector-threads-footer
+        role="group"
+        aria-label="Threads usage"
+      >
+        ${
+          usage && countLabel
+            ? html`
+                <div class="inspector-threads-usage">
+                  <span data-inspector-thread-count>${countLabel}</span>
+                  ${
+                    progressMax !== undefined && progressValue !== undefined
+                      ? html`
+                          <progress
+                            class="inspector-thread-progress"
+                            data-inspector-thread-progress
+                            data-inspector-thread-capacity=${capacityState}
+                            max=${progressMax}
+                            value=${progressValue}
+                            aria-label=${
+                              capacityState === "warning"
+                                ? `${countLabel}. Near thread limit.`
+                                : capacityState === "critical"
+                                  ? `${countLabel}. Thread limit reached.`
+                                  : countLabel
+                            }
+                            >${countLabel}</progress
+                          >
+                        `
+                      : nothing
+                  }
+                  ${
+                    usage.expiringSoonCount !== undefined
+                      ? html`
+                          <span data-inspector-thread-expiry
+                            >${usage.expiringSoonCount} Expiring Soon</span
+                          >
+                        `
+                      : nothing
+                  }
+                </div>
+              `
+            : nothing
+        }
+        ${
+          threadsFooterAction
+            ? this.renderInspectorAction(
+                threadsFooterAction,
+                "threads-footer",
+                capacityState === "warning" || capacityState === "critical"
+                  ? "Upgrade Your Plan"
+                  : threadsFooterAction.label,
+              )
+            : nothing
+        }
+      </footer>
+    `;
+  }
+
+  private renderThreadsView() {
+    const locked = !this.areThreadEndpointsAvailable();
+    const { displayThreads, threadsErrorMessage, threadsLoading } =
+      this.getActiveThreadsState();
+    const loadingWithoutRows =
+      !locked &&
+      threadsLoading &&
+      !threadsErrorMessage &&
+      displayThreads.length === 0;
+
+    const showingExamples = this.shouldRenderExampleThreads(
+      locked,
+      displayThreads,
+      threadsErrorMessage,
+      threadsLoading,
+    );
+    const visibleThreads =
+      !locked && (threadsErrorMessage || loadingWithoutRows)
+        ? []
+        : showingExamples
+          ? THREADS_EXAMPLE_THREADS
+          : displayThreads;
+    if (showingExamples) {
+      this.trackThreadsExampleViewedOnce();
     }
 
     const selectedThread =
       this.selectedThreadId != null
-        ? (displayThreads.find((t) => t.id === this.selectedThreadId) ?? null)
+        ? (visibleThreads.find((t) => t.id === this.selectedThreadId) ?? null)
         : null;
+    const selectedThreadIsLocalExample =
+      selectedThread !== null &&
+      selectedThread.id === this.selectedLocalExampleThreadId;
+
+    if (locked) {
+      this.trackThreadsViewStateOnce("locked");
+    } else if (
+      !threadsErrorMessage &&
+      (!threadsLoading || displayThreads.length > 0)
+    ) {
+      this.trackThreadsViewStateOnce(
+        displayThreads.length === 0 ? "empty_enabled" : "enabled",
+      );
+    }
 
     return html`
-      <div style="display:flex;height:100%;overflow:hidden;">
-        <!-- Left sidebar: thread list -->
-        <div
-          style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
-        >
-          <cpk-thread-list
-            style="height:100%;"
-            .threads=${displayThreads}
-            .selectedThreadId=${this.selectedThreadId}
-            .errorMessage=${threadsErrorMessage}
-            @threadSelected=${(e: CustomEvent<string>) => {
-              this.selectedThreadId = e.detail;
-              this.requestUpdate();
-            }}
-          ></cpk-thread-list>
-        </div>
+      <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
+        <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
+          <!-- Left sidebar: thread list -->
+          <div
+            style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+          >
+            <cpk-thread-list
+              style="min-height:0;flex:1;"
+              .threads=${visibleThreads}
+              .selectedThreadId=${this.selectedThreadId}
+              .errorMessage=${threadsErrorMessage}
+              .suppressEmptyState=${loadingWithoutRows}
+              @threadSelected=${(e: CustomEvent<string>) => {
+                this.handleThreadsThreadSelected(e.detail, showingExamples);
+              }}
+            ></cpk-thread-list>
+            ${this.renderThreadsUsageFooter()}
+          </div>
 
-        <!-- Resize divider -->
-        <div
-          style="width:4px;flex-shrink:0;cursor:col-resize;background:transparent;position:relative;z-index:1;"
-          @pointerdown=${this.handleThreadDividerPointerDown}
-          @pointermove=${this.handleThreadDividerPointerMove}
-          @pointerup=${this.handleThreadDividerPointerUp}
-          @pointercancel=${this.handleThreadDividerPointerUp}
-        ></div>
+          <!-- Resize divider -->
+          <div
+            style="width:4px;flex-shrink:0;cursor:col-resize;background:transparent;position:relative;z-index:1;"
+            @pointerdown=${this.handleThreadDividerPointerDown}
+            @pointermove=${this.handleThreadDividerPointerMove}
+            @pointerup=${this.handleThreadDividerPointerUp}
+            @pointercancel=${this.handleThreadDividerPointerUp}
+          ></div>
 
-        <!-- Center + right: thread details or empty state -->
-        <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
-          ${
-            this.selectedThreadId
-              ? html`<cpk-thread-details
-                  style="flex:1;min-width:0;"
-                  .threadId=${this.selectedThreadId}
-                  .thread=${selectedThread}
-                  .runtimeUrl=${this._core?.runtimeUrl ?? ""}
-                  .headers=${this._core?.headers ?? {}}
-                  .liveMessageVersion=${
-                    this.selectedThreadId
-                      ? (this.liveMessageVersion.get(this.selectedThreadId) ??
-                        0)
-                      : 0
-                  }
-                  .agentStateInput=${
-                    selectedThread
-                      ? this.getLatestStateForAgent(selectedThread.agentId)
-                      : null
-                  }
-                  .agentEventsInput=${
-                    selectedThread
-                      ? (this.agentEvents.get(selectedThread.agentId) ?? [])
-                      : []
-                  }
-                ></cpk-thread-details>`
-              : html`
-                  <div
-                    style="
-                      flex: 1;
-                      display: flex;
-                      flex-direction: column;
-                      align-items: center;
-                      justify-content: center;
-                      gap: 8px;
-                      color: #838389;
-                    "
-                  >
-                    <svg
-                      width="32"
-                      height="32"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#c0c0c8"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
+          <!-- Center + right: thread details or empty state -->
+          <div style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;">
+            ${
+              !locked && threadsErrorMessage
+                ? html`
+                    <div
+                      role="alert"
+                      style="
+                        display: flex;
+                        flex: 1;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        padding: 24px;
+                        color: #c0333a;
+                        text-align: center;
+                      "
                     >
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                    <span style="font-size: 13px">${displayThreads.length === 0 ? "No threads yet" : "Select a thread to inspect"}</span>
-                  </div>
-                `
-          }
+                      <strong style="font-size:13px;">Failed to load threads</strong>
+                      <span style="max-width:440px;font-size:12px;line-height:1.5;"
+                        >${threadsErrorMessage}</span
+                      >
+                    </div>
+                  `
+                : loadingWithoutRows
+                  ? html`
+                      <div
+                        role="status"
+                        style="
+                          display: flex;
+                          flex: 1;
+                          align-items: center;
+                          justify-content: center;
+                          color: #57575b;
+                          font-size: 13px;
+                        "
+                      >
+                        Loading threads…
+                      </div>
+                    `
+                  : selectedThread
+                    ? html`<cpk-thread-details
+                    style="flex:1;min-width:0;"
+                    .threadId=${selectedThread.id}
+                    .thread=${selectedThread}
+                    .provider=${
+                      selectedThreadIsLocalExample
+                        ? this.getExampleThreadProvider(selectedThread.id)
+                        : null
+                    }
+                    .runtimeUrl=${
+                      selectedThreadIsLocalExample
+                        ? ""
+                        : (this._core?.runtimeUrl ?? "")
+                    }
+                    .headers=${this._core?.headers ?? {}}
+                    .threadInspectionAvailable=${
+                      selectedThreadIsLocalExample ||
+                      (this.areThreadEndpointsAvailable() &&
+                        this._core?.threadEndpoints?.inspect !== false)
+                    }
+                    .liveMessageVersion=${
+                      this.liveMessageVersion.get(selectedThread.id) ?? 0
+                    }
+                    .agentStateInput=${this.getLatestStateForAgent(
+                      selectedThread.agentId,
+                    )}
+                    .agentEventsInput=${
+                      this.agentEvents.get(selectedThread.agentId) ?? []
+                    }
+                  ></cpk-thread-details>
+                  ${
+                    selectedThreadIsLocalExample
+                      ? this.renderThreadsExampleTour()
+                      : nothing
+                  }`
+                    : showingExamples
+                      ? this.renderThreadsExampleOverview(locked)
+                      : html`
+                    <div
+                      style="
+                        flex: 1;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        color: #68686e;
+                      "
+                    >
+                      <svg
+                        width="32"
+                        height="32"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#c0c0c8"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      <span style="font-size: 13px">${
+                        displayThreads.length === 0
+                          ? "No threads yet"
+                          : "Select a thread to inspect"
+                      }</span>
+                    </div>
+                  `
+            }
+          </div>
         </div>
       </div>
     `;
@@ -5992,28 +11506,30 @@ ${argsString}</pre
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
             <colgroup>
-              <col style="width:${this.evtColWidths[0]}px">
-              <col style="width:${this.evtColWidths[1]}px">
-              <col style="width:${this.evtColWidths[2]}px">
-              <col>
+              <col style="width:${this.evtColWidths[0]}px" />
+              <col style="width:${this.evtColWidths[1]}px" />
+              <col style="width:${this.evtColWidths[2]}px" />
+              <col />
             </colgroup>
             <thead class="sticky top-0 z-10">
               <tr class="bg-white">
                 ${["Agent", "Time", "Event Type"].map(
-                  (label, col) => html`
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                  style="position:relative;overflow:hidden;"
-                >
-                  ${label}
-                  <div
-                    style="position:absolute;top:0;right:0;width:5px;height:100%;cursor:col-resize;user-select:none;background:transparent;"
-                    @pointerdown=${(e: PointerEvent) => this._onEvtColResizeStart(e, col)}
-                    @pointermove=${(e: PointerEvent) => this._onEvtColResizeMove(e)}
-                    @pointerup=${() => this._onEvtColResizeEnd()}
-                    @pointercancel=${() => this._onEvtColResizeEnd()}
-                  ></div>
-                </th>`,
+                  (label, col) =>
+                    html` <th
+                      class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                      style="position:relative;overflow:hidden;"
+                    >
+                      ${label}
+                      <div
+                        style="position:absolute;top:0;right:0;width:5px;height:100%;cursor:col-resize;user-select:none;background:transparent;"
+                        @pointerdown=${(e: PointerEvent) =>
+                          this._onEvtColResizeStart(e, col)}
+                        @pointermove=${(e: PointerEvent) =>
+                          this._onEvtColResizeMove(e)}
+                        @pointerup=${() => this._onEvtColResizeEnd()}
+                        @pointercancel=${() => this._onEvtColResizeEnd()}
+                      ></div>
+                    </th>`,
                 )}
                 <th
                   class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
@@ -6345,8 +11861,14 @@ ${prettyEvent}</pre
                 ? html`
                   <div class="w-full text-xs">
                     <div class="flex bg-gray-50">
-                      <div class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700">Role</div>
-                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">Content</div>
+                      <div
+                        class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700"
+                      >
+                        Role
+                      </div>
+                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">
+                        Content
+                      </div>
                     </div>
                     <div class="divide-y divide-gray-200">
                       ${messages.map((msg) => {
@@ -6369,7 +11891,9 @@ ${prettyEvent}</pre
                           <div class="flex items-start">
                             <div class="w-40 shrink-0 px-4 py-2">
                               <span
-                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${roleColors[role] || roleColors.unknown}"
+                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${
+                                  roleColors[role] || roleColors.unknown
+                                }"
                               >
                                 ${role}
                               </span>
@@ -6485,15 +12009,15 @@ ${prettyEvent}</pre
   }
 
   private handleMenuSelect(key: MenuKey): void {
-    if (
-      key !== "settings" &&
-      !this.menuItems.some((item) => item.key === key)
-    ) {
+    if (!this.menuItems.some((item) => item.key === key)) {
       return;
     }
 
     const previousMenu = this.selectedMenu;
+    this.pendingPersistedMenu = null;
     this.selectedMenu = key;
+    this.settingsOpen = false;
+    this.lastSelectedMenuByGroup[this.getGroupForMenu(key)] = key;
 
     // If switching to agents view and "all-agents" is selected, switch to the most recently active agent
     if (key === "agents" && this.selectedContext === "all-agents") {
@@ -6527,10 +12051,20 @@ ${prettyEvent}</pre
     }
 
     if (key === "threads") {
-      if (this.selectedMenu !== "threads" && !this.core?.telemetryDisabled) {
-        trackThreadsTabClicked();
+      if (previousMenu !== "threads" && !this.core?.telemetryDisabled) {
+        trackThreadsTabClicked(this.getThreadsTelemetryProps());
       }
       this.autoSelectLatestThread();
+    }
+
+    if (key === "memories") {
+      // Lazily create + subscribe to the memory store on first activation. This
+      // is the only place that touches getMemoryStore(), so the store/realtime
+      // are never started just by attaching the inspector.
+      this.ensureMemorySubscription();
+      if (previousMenu !== "memories" && !this.core?.telemetryDisabled) {
+        trackMemoriesTabClicked(this.getMemoriesTelemetryProps());
+      }
     }
 
     if (key === "ag-ui-events" || key === "agents") {
@@ -6560,10 +12094,157 @@ ${prettyEvent}</pre
     if (this.selectedContext !== key) {
       this.selectedContext = key;
       this.expandedRows.clear();
+      this.autoSelectLatestThread();
     }
 
     this.contextMenuOpen = false;
     this.persistState();
+    this.requestUpdate();
+  }
+
+  private renderCapabilitiesView() {
+    if (!this._core) {
+      return html`
+        <div
+          class="flex h-full items-center justify-center px-4 py-8 text-xs text-gray-500"
+        >
+          No core instance available
+        </div>
+      `;
+    }
+
+    const toolRows = buildCapabilityRows(
+      this._core as unknown as CapabilityToolSource,
+    );
+    const catalog = this._core.catalogComponents ?? [];
+    const hasCatalog = catalog.length > 0;
+
+    if (toolRows.length === 0 && !hasCatalog) {
+      return html`
+        <div class="flex h-full items-center justify-center px-4 py-8 text-center">
+          <div class="max-w-md">
+            <div class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8">
+              ${this.renderIcon("SlidersHorizontal")}
+            </div>
+            <p class="text-sm text-gray-600">No capabilities registered</p>
+            <p class="mt-2 text-xs text-gray-500">
+              Frontend tools and A2UI catalog components will appear here once
+              they are registered on the CopilotKit core.
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="flex h-full flex-col overflow-hidden">
+        <div class="overflow-auto p-4">
+          <div class="space-y-3">
+            <p class="text-xs text-gray-500">
+              Toggle a capability off to omit it from what the agent sees. This
+              is a client-side experimentation surface and takes effect
+              immediately.
+            </p>
+          </div>
+
+          ${
+            toolRows.length > 0
+              ? html`
+                <div class="mt-4 space-y-2">
+                  <h3 class="text-sm text-slate-500">Frontend tools</h3>
+                  <div class="space-y-2">
+                    ${toolRows.map((row) => this.renderCapabilityRow(row))}
+                  </div>
+                </div>
+              `
+              : nothing
+          }
+
+          ${
+            hasCatalog
+              ? html`
+                <div class="mt-6 space-y-2">
+                  <h3 class="text-sm text-slate-500">A2UI catalog components</h3>
+                  <div class="space-y-2">
+                    ${catalog.map((component) =>
+                      this.renderCapabilityRow({
+                        key: component.name,
+                        name: component.name,
+                        description: component.description,
+                        enabled: this._core!.isCatalogComponentEnabled(
+                          component.name,
+                        ),
+                      }),
+                    )}
+                  </div>
+                </div>
+              `
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private renderCapabilityRow(row: CapabilityToolRow) {
+    // Frontend-tool keys are always `${agentId}:${name}` (agentId may be ""),
+    // so they contain a ":"; catalog keys are the bare component name.
+    const isTool = row.key.includes(":");
+    return html`
+      <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-sm font-semibold text-gray-900">${row.name}</span>
+            ${
+              row.agentId
+                ? html`<span class="inline-flex items-center gap-1 text-xs text-gray-500">
+                    ${this.renderIcon("Bot")}<span class="font-mono">${row.agentId}</span>
+                  </span>`
+                : nothing
+            }
+          </div>
+          ${row.description ? html`<p class="mt-1 text-xs text-gray-600">${row.description}</p>` : nothing}
+        </div>
+        ${this.renderCapabilitySwitch(row.enabled, () =>
+          isTool
+            ? this.handleToggleTool(row)
+            : this.handleToggleCatalogComponent(row.name),
+        )}
+      </div>
+    `;
+  }
+
+  private renderCapabilitySwitch(enabled: boolean, onToggle: () => void) {
+    const track = enabled ? "bg-emerald-500" : "bg-gray-300";
+    const knob = enabled ? "translate-x-4" : "translate-x-0.5";
+    return html`
+      <button
+        type="button"
+        role="switch"
+        aria-checked=${enabled ? "true" : "false"}
+        class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 ${track}"
+        @click=${onToggle}
+      >
+        <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${knob}"></span>
+      </button>
+    `;
+  }
+
+  private handleToggleTool(row: CapabilityToolRow): void {
+    if (!this._core) return;
+    const next = !row.enabled;
+    // A1 contract: setToolEnabled(name, enabled, agentId?). Pass agentId only
+    // when the tool is agent-scoped so global tools toggle globally.
+    this._core.setToolEnabled(row.name, next, row.agentId);
+    this._capabilitiesVersion += 1;
+    this.requestUpdate();
+  }
+
+  private handleToggleCatalogComponent(name: string): void {
+    if (!this._core) return;
+    const next = !this._core.isCatalogComponentEnabled(name);
+    this._core.setCatalogComponentEnabled(name, next);
+    this._capabilitiesVersion += 1;
     this.requestUpdate();
   }
 
@@ -7208,6 +12889,22 @@ ${prettyEvent}</pre
                           }
                         </button>
                       </div>
+                      <pre
+                        style="
+                          margin: 0;
+                          max-height: 180px;
+                          overflow: auto;
+                          white-space: pre-wrap;
+                          word-break: break-word;
+                          border-radius: 6px;
+                          border: 1px solid #eeeef4;
+                          background: #f7f7f9;
+                          padding: 10px;
+                          font-size: 11px;
+                          line-height: 1.5;
+                          color: #2d2d30;
+                        "
+                      >${this.formatContextValue(context.value)}</pre>
                     `
                     : html`
                         <div class="flex items-center justify-center py-4 text-xs text-gray-500">
@@ -7359,7 +13056,9 @@ ${prettyEvent}</pre
       return nothing;
     }
 
-    return html`<div class="mx-4 mt-3 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+    return html`<div
+      class="mx-4 mt-3 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
+    >
       <div
         class="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-900"
       >
@@ -7372,13 +13071,19 @@ ${prettyEvent}</pre
         <button
           class="announcement-dismiss ml-auto"
           type="button"
-          @click=${this.handleDismissAnnouncement}
+          @click=${() => this.dismissAnnouncement("expanded_card")}
           aria-label="Dismiss announcement"
         >
           ${this.renderIcon("X")}
         </button>
       </div>
-      <div class="announcement-body ${this.announcementExpanded ? "announcement-body--expanded" : "announcement-body--collapsed"}">
+      <div
+        class="announcement-body ${
+          this.announcementExpanded
+            ? "announcement-body--expanded"
+            : "announcement-body--collapsed"
+        }"
+      >
         <div
           class="announcement-content"
           @click=${this.handleAnnouncementContentClick}
@@ -7406,14 +13111,56 @@ ${prettyEvent}</pre
     </div>`;
   }
 
+  /**
+   * Which announcement surface is on screen right now, or null when the
+   * announcement isn't visible. Mirrors the render gates in
+   * `renderAnnouncementPreview` (bubble) and `renderAnnouncementBanner`
+   * (in-panel card) — opening the panel clears `showAnnouncementPreview`, so
+   * the two are mutually exclusive.
+   */
+  private getVisibleBannerSurface(): BannerSurface | null {
+    if (!this.hasUnseenAnnouncement) return null;
+    if (this.isOpen) {
+      return this.announcementHtml ? "expanded_card" : null;
+    }
+    return this.showAnnouncementPreview && this.announcementPreviewText
+      ? "collapsed_preview"
+      : null;
+  }
+
+  /**
+   * Records a `banner_viewed` impression for whichever surface is currently
+   * visible, once per announcement per surface.
+   */
+  private maybeTrackBannerViewed(): void {
+    const id = this.announcementTimestamp;
+    if (!id) return;
+    const surface = this.getVisibleBannerSurface();
+    if (!surface) return;
+    const key = `${id}:${surface}`;
+    if (this.viewedBannerSurfaces.has(key)) return;
+    if (this.pendingBannerViewed.length >= MAX_PENDING_BANNER_VIEWED) return;
+    this.viewedBannerSurfaces.add(key);
+    this.pendingBannerViewed.push({
+      banner_id: id,
+      surface,
+      cta_label: this.announcementCtaLabel ?? undefined,
+    });
+    this.flushPendingBannerViewed();
+  }
+
+  // Releases held impressions once /info has answered, or discards them when it
+  // reports telemetry disabled.
   private flushPendingBannerViewed(): void {
-    if (!this.pendingBannerViewed || this.core?.telemetryDisabled) {
-      this.pendingBannerViewed = null;
+    if (this.pendingBannerViewed.length === 0) return;
+    if (this.core?.telemetryDisabled) {
+      this.pendingBannerViewed = [];
       return;
     }
     if (this.runtimeStatus !== "connected") return;
-    trackBannerViewed(this.pendingBannerViewed);
-    this.pendingBannerViewed = null;
+    const queued = this.pendingBannerViewed;
+    this.pendingBannerViewed = [];
+    for (const props of queued) trackBannerViewed(props);
   }
 
   private ensureAnnouncementLoading(): void {
@@ -7439,6 +13186,9 @@ ${prettyEvent}</pre
     const side =
       this.contextState.button.anchor.horizontal === "left" ? "right" : "left";
 
+    // The preview is a sibling of the floating button (see renderButton), so the
+    // dismiss control is a real <button>. stopPropagation keeps the X from
+    // bubbling to the preview body, whose click opens the inspector.
     return html`<div
       class="announcement-preview"
       data-side=${side}
@@ -7446,19 +13196,41 @@ ${prettyEvent}</pre
       @click=${() => this.handleAnnouncementPreviewClick()}
     >
       <span>${this.announcementPreviewText}</span>
+      <button
+        type="button"
+        class="announcement-preview__dismiss"
+        aria-label="Dismiss announcement"
+        @click=${this.handleDismissAnnouncementPreview}
+      >
+        ${this.renderIcon("X")}
+      </button>
       <span class="announcement-preview__arrow"></span>
     </div>`;
   }
 
   private handleAnnouncementPreviewClick(): void {
     this.showAnnouncementPreview = false;
-    this.openInspector();
+    this.openInspector("announcement_preview");
   }
 
-  private handleDismissAnnouncement = (): void => {
-    this.trackBannerClickedOnce({ cta: "dismiss" });
-    this.markAnnouncementSeen();
+  // Dismissing the preview bubble must PERSIST via markAnnouncementSeen(),
+  // otherwise the bubble pops back out on the next mount because
+  // fetchAnnouncement() recomputes showAnnouncementPreview from the stored
+  // timestamp. Clearing only the in-memory flag (as handleAnnouncementPreviewClick
+  // and openInspector do) is intentionally transient — it's the X that makes
+  // the dismissal stick.
+  private handleDismissAnnouncementPreview = (event: Event): void => {
+    // Don't let the dismiss bubble to the preview body, whose click opens the
+    // inspector.
+    event.stopPropagation();
+    this.dismissAnnouncement("collapsed_preview");
   };
+
+  private dismissAnnouncement(surface: BannerSurface): void {
+    this.trackBannerClickedOnce({ cta: "dismiss" });
+    this.trackBannerDismissedOnce(surface);
+    this.markAnnouncementSeen();
+  }
 
   private async fetchAnnouncement(): Promise<void> {
     try {
@@ -7499,21 +13271,9 @@ ${prettyEvent}</pre
       this.announcementHtml = await this.convertMarkdownToHtml(markdown);
       this.announcementLoaded = true;
 
-      // banner_viewed: gate on actual visibility and per-mount dedup.
-      // Store as pending rather than firing immediately — telemetryDisabled
-      // may not be known yet if /info hasn't returned. Flushed in
-      // onRuntimeConnectionStatusChanged once the handshake completes.
-      if (
-        this.hasUnseenAnnouncement &&
-        !this.viewedBannerTimestamps.has(timestamp)
-      ) {
-        this.viewedBannerTimestamps.add(timestamp);
-        this.pendingBannerViewed = {
-          banner_id: timestamp,
-          cta_label: ctaLabel ?? undefined,
-        };
-        this.flushPendingBannerViewed();
-      }
+      // banner_viewed: gate on actual visibility and per-mount dedup, and
+      // stamp the surface the announcement is showing on right now.
+      this.maybeTrackBannerViewed();
 
       this.requestUpdate();
     } catch (error) {
@@ -7532,10 +13292,15 @@ ${prettyEvent}</pre
   ): Promise<string | null> {
     const renderer = new marked.Renderer();
     renderer.link = (href, title, text) => {
-      const safeHref = this.escapeHtmlAttr(this.appendRefParam(href ?? ""));
+      const safeHref = this.escapeHtmlAttr(
+        this.isSafeAnnouncementHref(href ?? "")
+          ? this.appendRefParam(href ?? "")
+          : "#",
+      );
       const titleAttr = title ? ` title="${this.escapeHtmlAttr(title)}"` : "";
       return `<a href="${safeHref}" target="_blank" rel="noopener"${titleAttr}>${text}</a>`;
     };
+    renderer.html = (html) => escapeHtml(html);
     renderer.code = (code, lang) => {
       const safeLang = (lang ?? "").replace(/[^a-z0-9-]/gi, "");
       const langClass = safeLang ? ` class="language-${safeLang}"` : "";
@@ -7544,6 +13309,24 @@ ${prettyEvent}</pre
       return `<div class="announcement-code"><pre><code${langClass}>${escaped}</code></pre><div class="announcement-code__copy-shield"><button type="button" class="announcement-code__copy" data-copy="${encoded}" aria-label="Copy code">Copy</button></div></div>`;
     };
     return marked.parse(markdown, { renderer, async: false });
+  }
+
+  private isSafeAnnouncementHref(href: string): boolean {
+    try {
+      const url = new URL(
+        href,
+        typeof window !== "undefined"
+          ? window.location.href
+          : "https://copilotkit.ai",
+      );
+      return (
+        url.protocol === "http:" ||
+        url.protocol === "https:" ||
+        url.protocol === "mailto:"
+      );
+    } catch {
+      return false;
+    }
   }
 
   private copyResetTimeouts = new WeakMap<HTMLButtonElement, number>();
@@ -7610,8 +13393,9 @@ ${prettyEvent}</pre
     }
   };
 
-  private appendRefParam(href: string): string {
+  private appendRefParam(href: string, ref = "cpk-inspector"): string {
     try {
+      const isRootRelative = href.startsWith("/") && !href.startsWith("//");
       const url = new URL(
         href,
         typeof window !== "undefined"
@@ -7619,7 +13403,7 @@ ${prettyEvent}</pre
           : "https://copilotkit.ai",
       );
       if (!url.searchParams.has("ref")) {
-        url.searchParams.append("ref", "cpk-inspector");
+        url.searchParams.append("ref", ref);
       }
       // Propagate the inspector's anonymous distinct-ID so the website /
       // Ops API can call posthog.alias(...) on signup-flow landing and
@@ -7628,17 +13412,26 @@ ${prettyEvent}</pre
       // suppresses cross-domain ID leaks too.
       if (
         !url.searchParams.has("posthog_distinct_id") &&
-        !this.core?.telemetryDisabled
+        !this.core?.telemetryDisabled &&
+        this.isCopilotKitDestination(url)
       ) {
         const distinctId = getTelemetryDistinctIdForUrl();
         if (distinctId) {
           url.searchParams.append("posthog_distinct_id", distinctId);
         }
       }
+      if (isRootRelative) {
+        return `${url.pathname}${url.search}${url.hash}`;
+      }
       return url.toString();
     } catch {
       return href;
     }
+  }
+
+  private isCopilotKitDestination(url: URL): boolean {
+    const hostname = url.hostname.toLowerCase();
+    return hostname === "copilotkit.ai" || hostname.endsWith(".copilotkit.ai");
   }
 
   private escapeHtmlAttr(value: string): string {
@@ -7699,10 +13492,19 @@ ${prettyEvent}</pre
   }
 }
 
-export function defineWebInspector(): void {
-  if (!customElements.get(WEB_INSPECTOR_TAG)) {
-    customElements.define(WEB_INSPECTOR_TAG, WebInspectorElement);
-  }
+// `customElements` is missing during SSR and in torn-down DOM test
+// environments. Resolve it when this function is called so registration can
+// be retried once a browser registry becomes available.
+export function defineWebInspector(
+  registry: CustomElementRegistry | undefined = globalThis.customElements,
+): void {
+  if (!registry) return;
+
+  defineElementOnce(registry, "cpk-thread-list", CpkThreadList);
+  defineElementOnce(registry, THREAD_INSPECTOR_TAG, CpkThreadInspector);
+  defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);
+  defineElementOnce(registry, "cpk-memory-list", CpkMemoryList);
+  defineElementOnce(registry, WEB_INSPECTOR_TAG, WebInspectorElement);
 }
 
 defineWebInspector();

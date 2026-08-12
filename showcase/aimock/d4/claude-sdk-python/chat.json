@@ -266,8 +266,9 @@
       }
     },
     {
+      "_comment": "Disabled: prior matcher 'weather' load-order-shadowed D6 pills including the productized reasoning-chain prompt 'Find flights from SFO to JFK and show me the weather there.' D4 loads before D6 and AIMock uses substring matching; downstream D6 fixtures own get_weather flows.",
       "match": {
-        "userMessage": "weather",
+        "userMessage": "_d4_unused_weather_probe_tokyo",
         "hasToolResult": false,
         "context": "claude-sdk-python"
       },
@@ -473,8 +474,9 @@
       }
     },
     {
+      "_comment": "Narrowed from bare 'flights from SFO to JFK' so it does not shadow the D6 reasoning-chain prompt 'Find flights from SFO to JFK and show me the weather there.' D4 loads before D6 and AIMock uses substring matching; the beautiful-chat D4/D5 prompt includes 'for next Tuesday'.",
       "match": {
-        "userMessage": "flights from SFO to JFK",
+        "userMessage": "Find flights from SFO to JFK for next Tuesday",
         "hasToolResult": false,
         "context": "claude-sdk-python"
       },
@@ -630,8 +632,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Summarize' button — narrowed from bare 'summarize' to 'Summarize the sales pipeline' (verbatim D4 toolbar probe) so it doesn't shadow D6 subagents pills like 'Summarize the current state of reusable rockets...'. Mirrors the LangGraph/TypeScript D4 narrowing.",
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the sales pipeline",
         "context": "claude-sdk-python"
       },
       "response": {
@@ -657,8 +660,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Detailed' button — tightened from bare 'detailed' so it doesn't shadow D6 agent-config 'responseLength:detailed — describe agent context per your config'. Anchored on the longer phrase that the D4 button actually sends.",
       "match": {
-        "userMessage": "detailed",
+        "userMessage": "Make this more detailed",
         "context": "claude-sdk-python"
       },
       "response": {
@@ -876,8 +880,9 @@
       }
     },
     {
+      "_comment": "Narrowed from bare 'Roll a 20-sided die' to the old D4 prompt with a period so it no longer shadows the D6 reasoning-chain pill 'Roll a 20-sided die for me and compare it to a smaller one.' D4 loads before D6 and AIMock uses substring matching, so the period is load-bearing.",
       "match": {
-        "userMessage": "Roll a 20-sided die",
+        "userMessage": "Roll a 20-sided die for me.",
         "hasToolResult": false,
         "context": "claude-sdk-python"
       },

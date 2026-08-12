@@ -114,4 +114,30 @@ describe("orchestrator BrowserPool env construction (NaN footgun regression)", (
     expect(count()).toBe(3);
     await pool.shutdown();
   });
+
+  it("an unset BROWSER_POOL_MAX_CONTEXTS yields the default cap of 24", async () => {
+    delete process.env.BROWSER_POOL_MAX_CONTEXTS;
+
+    const { launch } = makeCountingLauncher();
+    const pool = new BrowserPool({ launchBrowser: launch, launchStaggerMs: 0 });
+    await pool.init();
+
+    // `stats().size` exposes the resolved maxContexts. LOWERED from 40 to 24 to
+    // cap THREAD demand under the platform-fixed cgroup pids.max=1000 ceiling
+    // (the proven browser-pool wedge): fewer concurrent contexts → fewer
+    // chromium renderer threads → peak pids.current stays well under the ceiling.
+    expect(pool.stats().size).toBe(24);
+    await pool.shutdown();
+  });
+
+  it("a valid numeric BROWSER_POOL_MAX_CONTEXTS env still wins over the default", async () => {
+    process.env.BROWSER_POOL_MAX_CONTEXTS = "12";
+
+    const { launch } = makeCountingLauncher();
+    const pool = new BrowserPool({ launchBrowser: launch, launchStaggerMs: 0 });
+    await pool.init();
+
+    expect(pool.stats().size).toBe(12);
+    await pool.shutdown();
+  });
 });

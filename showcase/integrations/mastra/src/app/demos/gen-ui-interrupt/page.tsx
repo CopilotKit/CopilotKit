@@ -23,26 +23,35 @@ export default function GenUiInterruptDemo() {
   );
 }
 
+// Shape the backend `schedule_meeting` tool suspends with (its suspendSchema),
+// wrapped by the @ag-ui/mastra bridge under `mastra_suspend`.
+type SuspendPayload = {
+  topic?: string;
+  attendee?: string;
+  slots?: TimeSlot[];
+};
+
 function Chat() {
   useGenUiInterruptSuggestions();
 
-  // `useInterrupt` is the low-level primitive for handling LangGraph
-  // `interrupt(...)` events. The backend's `schedule_meeting` tool surfaces
-  // a structured payload — `{ topic, attendee, slots }` — which we render
-  // inline in the chat as a message bubble. Calling `resolve(...)` resumes
-  // the LangGraph run with the user's selection.
+  // Native interrupt path (OSS-383). The backend `schedule_meeting` tool
+  // `suspend()`s; the @ag-ui/mastra bridge surfaces that as an AG-UI interrupt
+  // and `useInterrupt` renders the picker inline. `resolve(...)` resumes the
+  // Mastra run (re-invoking the tool's `execute` with the selection as
+  // `resumeData`).
   useInterrupt({
     agentId: "gen-ui-interrupt",
     renderInChat: true,
     render: ({ event, resolve }) => {
-      // The AG-UI adapter JSON-stringifies interrupt values, so parse
-      // when needed to extract the structured payload.
+      // Mastra wraps the suspend value as
+      // `{ type: "mastra_suspend", toolName, suspendPayload, ... }` and the
+      // AG-UI adapter JSON-stringifies it — parse, then read `suspendPayload`
+      // (NOT the raw value, which is the wrapper).
       const raw = event.value ?? {};
-      const payload = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
-        topic?: string;
-        attendee?: string;
-        slots?: TimeSlot[];
-      };
+      const parsed = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
+        suspendPayload?: SuspendPayload;
+      } & SuspendPayload;
+      const payload: SuspendPayload = parsed.suspendPayload ?? parsed;
       const slots =
         payload.slots && payload.slots.length > 0
           ? payload.slots
@@ -53,12 +62,9 @@ function Chat() {
           attendee={payload.attendee}
           slots={slots}
           onSubmit={(result) => {
-            // Defer resolve so React commits the picked/cancelled state
-            // before useInterrupt clears the interrupt element. A single
-            // requestAnimationFrame is not reliable — rAF fires before
-            // React's commit in some scheduling scenarios. Using a short
-            // setTimeout ensures the commit lands first and the user sees
-            // the "Booked"/"Cancelled" badge before the card unmounts.
+            // Defer resolve so React commits the picked/cancelled badge before
+            // useInterrupt clears the interrupt element (a single rAF is not
+            // reliable — it can fire before React's commit).
             setTimeout(() => resolve(result), 500);
           }}
         />

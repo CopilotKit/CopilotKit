@@ -1,4 +1,4 @@
-import {
+import type {
   AbstractAgent,
   Message,
   State,
@@ -6,9 +6,33 @@ import {
   StateSnapshotEvent,
   StateDeltaEvent,
   MessagesSnapshotEvent,
-  randomUUID,
 } from "@ag-ui/client";
+import { randomUUID } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
+
+const isContinuation = (input: RunAgentInput): boolean =>
+  input.resume !== undefined ||
+  Object.prototype.hasOwnProperty.call(
+    (input.forwardedProps as { command?: object } | undefined)?.command ?? {},
+    "resume",
+  );
+
+export interface CopilotKitCoreContinuationHandoff {
+  cancel(): void;
+  bind(input: object): void;
+}
+
+interface PendingContinuation extends CopilotKitCoreContinuationHandoff {
+  expectedInput?: object;
+  active: boolean;
+  /**
+   * The logical run id this continuation belongs to. Events arriving on the
+   * continuation are re-stamped with it, so the run reads as ONE run to
+   * everything downstream (state/message association, external tracing) even
+   * though the transport minted a fresh id for the follow-up invocation.
+   */
+  expectedRunId?: string;
+}
 
 /**
  * Manages state and message tracking by run for CopilotKitCore.
@@ -28,6 +52,13 @@ export class StateManager {
   // Agent subscriptions for cleanup
   private agentSubscriptions: Map<string, () => void> = new Map();
 
+  // Internal follow-ups are marked in memory so the marker never reaches a
+  // runtime or becomes user-controlled forwardedProps data.
+  private pendingContinuations = new WeakMap<
+    AbstractAgent,
+    Set<PendingContinuation>
+  >();
+
   constructor(private core: CopilotKitCore) {}
 
   /**
@@ -35,6 +66,35 @@ export class StateManager {
    */
   initialize(): void {
     // Will be called when CopilotKitCore is initialized
+  }
+
+  markNextRunAsContinuation(
+    agent: AbstractAgent,
+    expectedRunId?: string,
+  ): CopilotKitCoreContinuationHandoff {
+    let pendingForAgent = this.pendingContinuations.get(agent);
+    if (!pendingForAgent) {
+      pendingForAgent = new Set();
+      this.pendingContinuations.set(agent, pendingForAgent);
+    }
+
+    const pending: PendingContinuation = {
+      active: true,
+      expectedRunId,
+      bind: (input) => {
+        if (pending.active) pending.expectedInput = input;
+      },
+      cancel: () => {
+        if (!pending.active) return;
+        pending.active = false;
+        pendingForAgent!.delete(pending);
+        if (pendingForAgent!.size === 0) {
+          this.pendingContinuations.delete(agent);
+        }
+      },
+    };
+    pendingForAgent.add(pending);
+    return pending;
   }
 
   /**
@@ -66,12 +126,9 @@ export class StateManager {
     //
     // 2. Run isolation within one subscription: in tests (and edge cases), a new
     //    run's events can arrive through the same subscription before the new
-    //    pipeline is set up. Concretely: the test emits RUN_STARTED for run2
-    //    before copilotkit.runAgent() has had a chance to set up the new
-    //    pipeline. At that point S1 is still active and sees run2's events with
-    //    input1.runId. To prevent both runs from sharing the same runId key, we
-    //    detect the "seen RUN_FINISHED, then RUN_STARTED again" pattern and
-    //    generate a fresh runId for the second logical run.
+    //    pipeline is set up. An explicit standard or legacy resume input is a
+    //    continuation, so only an ordinary new run gets a fresh ID after
+    //    RUN_FINISHED.
     let revoked = false;
     let subRunId: string | undefined; // runId assigned to the current logical run
     let runFinished = false; // true after RUN_FINISHED, reset on next RUN_STARTED
@@ -84,7 +141,17 @@ export class StateManager {
     const { unsubscribe } = agent.subscribe({
       onRunStartedEvent: ({ input, state }) => {
         if (revoked) return;
-        if (runFinished && input.runId === subRunId) {
+        const pendingForAgent = this.pendingContinuations.get(agent);
+        const internalContinuation = [...(pendingForAgent ?? [])].find(
+          (pending) => pending.expectedInput === input,
+        );
+        internalContinuation?.cancel();
+        if (
+          runFinished &&
+          input.runId === subRunId &&
+          !internalContinuation &&
+          !isContinuation(input)
+        ) {
           // A new logical run's events are arriving through this same (old)
           // subscription. This happens when the test emits events before
           // copilotkit.runAgent() has had a chance to set up the new pipeline:
@@ -93,7 +160,12 @@ export class StateManager {
           // runId so the new run's state doesn't collide with the old one.
           subRunId = randomUUID();
         } else {
-          subRunId = input.runId;
+          // An internal continuation re-stamps onto the run id it continues, so
+          // the follow-up does not have to REUSE that id on the wire to look
+          // like one run. Reusing it on the wire made the transport treat the
+          // follow-up as the same run and re-deliver the already-applied half,
+          // which duplicated its tool calls and lost the continuation's own.
+          subRunId = internalContinuation?.expectedRunId ?? input.runId;
         }
         runFinished = false;
         this.handleRunStarted(agent, effectiveInput(input), state);
@@ -138,6 +210,7 @@ export class StateManager {
 
     this.agentSubscriptions.set(agentId, () => {
       revoked = true;
+      this.pendingContinuations.delete(agent);
       unsubscribe();
     });
   }
@@ -272,7 +345,7 @@ export class StateManager {
     agent: AbstractAgent,
     event: MessagesSnapshotEvent,
     input: RunAgentInput,
-    messages: Message[],
+    messages: readonly Message[],
   ): void {
     if (!agent.agentId) return;
 

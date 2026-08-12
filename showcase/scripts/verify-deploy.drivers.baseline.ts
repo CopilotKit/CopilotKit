@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import type { ProbeTarget } from "./verify-deploy";
 import type { ProbeOutcome } from "./verify-deploy.drivers";
-import { PRODUCTION_ENV_ID, SERVICES, STAGING_ENV_ID } from "./railway-envs";
+import { ENV_ID_BY_NAME, SERVICES } from "./railway-envs";
 import type { EnvName } from "./railway-envs";
 import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
 import { resolveRailwayTokenFromConfig } from "./lib/railway-token";
@@ -125,9 +125,71 @@ export interface BaselineOpts {
   getRailwayToken?: () => string | undefined;
   /** Per-call timeout for each fetch (ms). Default 30s. */
   timeoutMs?: number;
+  /**
+   * Poll/wait config for the deployment-SUCCESS check. Forwarded to
+   * `checkDeploymentSuccess` so an in-progress Railway rollout is waited
+   * out rather than failed on the first read. Production callers omit it
+   * (defaults: ~150s budget / 5s interval, real sleep). Tests inject a
+   * `sleep`/`now` seam + a small budget for determinism.
+   */
+  deployPoll?: DeployPollOpts;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+/**
+ * Railway deployment statuses that are NON-terminal — the rollout is
+ * still in flight and the status WILL change to a terminal state on its
+ * own. `checkDeploymentSuccess` polls (rather than failing fast) while
+ * the latest deployment sits in any of these, because a verify-prod that
+ * fires seconds after a promote pins a new digest legitimately observes
+ * the new deployment mid-roll. (Empirically: promote run 26966193624's
+ * predecessor pinned the docs digest, then verify-prod ran ~17s later and
+ * saw status="DEPLOYING" — a transient, not a failure.)
+ *
+ * Matches Railway's `DeploymentStatus` enum non-terminal members.
+ */
+const IN_PROGRESS_DEPLOY_STATUSES: ReadonlySet<string> = new Set([
+  "QUEUED",
+  "BUILDING",
+  "INITIALIZING",
+  "DEPLOYING",
+  "WAITING",
+  "NEEDS_APPROVAL",
+]);
+
+/**
+ * Poll budget for waiting out an in-progress deployment. ~150s total at
+ * a 5s interval — long enough to outlast a normal Railway container
+ * rollout, short enough that a genuinely stuck deploy still reds the gate
+ * in bounded time. Terminal-failure statuses (FAILED/CRASHED/REMOVED/...)
+ * NEVER consume this budget; only the in-progress set above triggers a
+ * wait.
+ */
+const DEFAULT_DEPLOY_POLL_TIMEOUT_MS = 150_000;
+const DEFAULT_DEPLOY_POLL_INTERVAL_MS = 5_000;
+
+export interface DeployPollOpts {
+  /** Total budget to wait out in-progress statuses (ms). */
+  pollTimeoutMs?: number;
+  /** Delay between polls while in-progress (ms). */
+  pollIntervalMs?: number;
+  /**
+   * Test seam — replaces the real wall-clock sleep so the poll loop is
+   * deterministic and instant under test. Production callers omit it and
+   * get a real `setTimeout`-backed delay.
+   */
+  sleep?: (ms: number) => Promise<void>;
+  /**
+   * Test seam — monotonic clock source for the budget check. Defaults to
+   * `Date.now`. Injected so tests can drive the timeout deterministically.
+   */
+  now?: () => number;
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Walk `RAILWAY_TOKEN` env var → `~/.railway/config.json` and return the
@@ -194,13 +256,24 @@ export function defaultGetRailwayToken(): string | undefined {
 export function envForTarget(target: ProbeTarget): EnvName | undefined {
   const entry = SERVICES[target.name];
   if (!entry) return undefined;
-  if (target.host === entry.domains.staging) return "staging";
-  if (target.host === entry.domains.prod) return "prod";
+  // Reverse-map: find the env whose declared domain matches the target
+  // host. Iterates the service's `environments` (not a hardcoded
+  // prod/staging pair) so it generalizes to any SSOT env. Domainless envs
+  // (no `domain`) never match a real host, so they are naturally skipped.
+  for (const [env, cfg] of Object.entries(entry.environments)) {
+    if (cfg.domain !== undefined && target.host === cfg.domain) return env;
+  }
   return undefined;
 }
 
 function envIdFor(env: EnvName): string {
-  return env === "prod" ? PRODUCTION_ENV_ID : STAGING_ENV_ID;
+  const envId = ENV_ID_BY_NAME[env];
+  if (!envId) {
+    throw new Error(
+      `envIdFor: unknown env "${env}" — no Railway env-id registered in ENV_ID_BY_NAME.`,
+    );
+  }
+  return envId;
 }
 
 async function fetchWithTimeout(
@@ -219,27 +292,33 @@ async function fetchWithTimeout(
 }
 
 /**
- * Query Railway for the latest deployment of the given service in the
- * given env and assert `status === "SUCCESS"`. Returns a string error
- * message on any failure (network, GraphQL `errors[]`, missing edge,
- * non-SUCCESS status); returns `undefined` on success.
+ * Outcome of a SINGLE Railway deployment-status query. Either an
+ * infrastructure/contract error (terminal — surfaced immediately) or the
+ * raw `status` string of the latest deployment for further classification
+ * by the poll loop.
  */
-export async function checkDeploymentSuccess(
+type DeployQueryResult =
+  | { kind: "error"; error: string }
+  | { kind: "status"; status: string };
+
+/**
+ * Issue ONE `deployments(first:1)` query for the service's latest
+ * deployment in the target env. Returns the raw status string on a clean
+ * response, or a structured error for any network / GraphQL / shape
+ * failure. Does NOT interpret the status — that classification (SUCCESS
+ * vs in-progress vs terminal-fail) lives in `checkDeploymentSuccess` so
+ * it can decide whether to wait or fail fast.
+ */
+async function queryDeploymentStatus(
   serviceId: string,
+  environmentId: string,
   env: EnvName,
   token: string,
   fetchImpl: FetchLike,
   timeoutMs: number,
   driverLabel: string,
-  serviceName?: string,
-): Promise<string | undefined> {
-  const environmentId = envIdFor(env);
-  // Tag identifies the offending service in multi-service runs. When
-  // the caller does not supply a name we fall back to the serviceId so
-  // a Railway operator can still grep the diagnostic to a target.
-  const tag = serviceName
-    ? `service="${serviceName}" (serviceId=${serviceId})`
-    : `serviceId=${serviceId}`;
+  tag: string,
+): Promise<DeployQueryResult> {
   const query = `query latestDeployment($serviceId: String!, $environmentId: String!) {
   deployments(first: 1, input: { serviceId: $serviceId, environmentId: $environmentId }) {
     edges { node { id status } }
@@ -269,11 +348,17 @@ export async function checkDeploymentSuccess(
       : e instanceof Error
         ? e.message
         : String(e);
-    return `${driverLabel}: Railway GraphQL fetch failed [${tag}]: ${msg}`;
+    return {
+      kind: "error",
+      error: `${driverLabel}: Railway GraphQL fetch failed [${tag}]: ${msg}`,
+    };
   }
   if (!res.ok) {
     const body = (await res.text()).slice(0, 200);
-    return `${driverLabel}: Railway GraphQL HTTP ${res.status} [${tag}]: ${body}`;
+    return {
+      kind: "error",
+      error: `${driverLabel}: Railway GraphQL HTTP ${res.status} [${tag}]: ${body}`,
+    };
   }
   let json: RailwayDeploymentsResponse;
   try {
@@ -283,21 +368,115 @@ export async function checkDeploymentSuccess(
     // Release the body in the error path even if json() partially
     // consumed it — undici will leak the socket otherwise.
     await releaseBody(res);
-    return `${driverLabel}: Railway GraphQL JSON parse failed [${tag}]: ${msg}`;
+    return {
+      kind: "error",
+      error: `${driverLabel}: Railway GraphQL JSON parse failed [${tag}]: ${msg}`,
+    };
   }
   if (json.errors?.length) {
-    return `${driverLabel}: Railway GraphQL errors [${tag}]: ${json.errors
-      .map((e) => e.message)
-      .join("; ")}`;
+    return {
+      kind: "error",
+      error: `${driverLabel}: Railway GraphQL errors [${tag}]: ${json.errors
+        .map((e) => e.message)
+        .join("; ")}`,
+    };
   }
   const node = json.data?.deployments?.edges?.[0]?.node;
   if (!node) {
-    return `${driverLabel}: Railway returned no deployments for ${env} [${tag}]`;
+    return {
+      kind: "error",
+      error: `${driverLabel}: Railway returned no deployments for ${env} [${tag}]`,
+    };
   }
-  if (node.status !== "SUCCESS") {
-    return `${driverLabel}: latest ${env} deployment status="${node.status}" (expected SUCCESS) [${tag}]`;
+  return { kind: "status", status: node.status };
+}
+
+/**
+ * Query Railway for the latest deployment of the given service in the
+ * given env and assert it reaches `status === "SUCCESS"`. Returns a
+ * string error message on any failure; returns `undefined` on success.
+ *
+ * In-progress handling: a deployment whose latest status is still in
+ * flight (`DEPLOYING`/`BUILDING`/`INITIALIZING`/`QUEUED`/`WAITING`/
+ * `NEEDS_APPROVAL` — see `IN_PROGRESS_DEPLOY_STATUSES`) is NOT a failure.
+ * verify-prod commonly runs seconds after a promote pins a new digest,
+ * while Railway is still rolling the container out. We POLL (every
+ * `pollIntervalMs`, up to `pollTimeoutMs` total) until the deployment
+ * reaches a terminal state, then assert SUCCESS. Terminal-failure
+ * statuses (`FAILED`/`CRASHED`/`REMOVED`/anything not SUCCESS and not
+ * in-progress) fail FAST with no waiting — preserving the prior
+ * fail-on-non-SUCCESS behavior for those. Infrastructure/contract errors
+ * (network, GraphQL `errors[]`, missing edge) also fail fast.
+ *
+ * Backward-compatible signature: `pollOpts` is optional and trailing.
+ * Callers that omit it get the production poll budget; tests inject a
+ * `sleep`/`now` seam (and a small budget) for deterministic, instant
+ * runs.
+ */
+export async function checkDeploymentSuccess(
+  serviceId: string,
+  env: EnvName,
+  token: string,
+  fetchImpl: FetchLike,
+  timeoutMs: number,
+  driverLabel: string,
+  serviceName?: string,
+  pollOpts?: DeployPollOpts,
+): Promise<string | undefined> {
+  const environmentId = envIdFor(env);
+  // Tag identifies the offending service in multi-service runs. When
+  // the caller does not supply a name we fall back to the serviceId so
+  // a Railway operator can still grep the diagnostic to a target.
+  const tag = serviceName
+    ? `service="${serviceName}" (serviceId=${serviceId})`
+    : `serviceId=${serviceId}`;
+
+  const pollTimeoutMs =
+    pollOpts?.pollTimeoutMs ?? DEFAULT_DEPLOY_POLL_TIMEOUT_MS;
+  const pollIntervalMs =
+    pollOpts?.pollIntervalMs ?? DEFAULT_DEPLOY_POLL_INTERVAL_MS;
+  const sleep = pollOpts?.sleep ?? defaultSleep;
+  const now = pollOpts?.now ?? Date.now;
+
+  const deadline = now() + pollTimeoutMs;
+  let lastInProgressStatus = "";
+  for (;;) {
+    const result = await queryDeploymentStatus(
+      serviceId,
+      environmentId,
+      env,
+      token,
+      fetchImpl,
+      timeoutMs,
+      driverLabel,
+      tag,
+    );
+    // Infra/contract failures are terminal — surface immediately.
+    if (result.kind === "error") return result.error;
+
+    const status = result.status;
+    if (status === "SUCCESS") return undefined;
+
+    // In-progress: the rollout is still settling. Wait and re-query
+    // until terminal or the poll budget is exhausted.
+    if (IN_PROGRESS_DEPLOY_STATUSES.has(status)) {
+      lastInProgressStatus = status;
+      if (now() >= deadline) {
+        return `${driverLabel}: latest ${env} deployment still in progress (status="${status}") after ${pollTimeoutMs}ms wait (expected SUCCESS) [${tag}]`;
+      }
+      await sleep(pollIntervalMs);
+      continue;
+    }
+
+    // Any other status (FAILED/CRASHED/REMOVED/unknown) is a terminal
+    // non-SUCCESS — fail fast, no waiting. Preserves the original
+    // error-string shape so existing assertions/greps keep matching.
+    return `${driverLabel}: latest ${env} deployment status="${status}" (expected SUCCESS) [${tag}]${
+      lastInProgressStatus
+        ? ` [transitioned from in-progress "${lastInProgressStatus}"]`
+        : ""
+    }`;
   }
-  return undefined;
 }
 
 /**
@@ -388,6 +567,7 @@ export async function probeBaseline(
     timeoutMs,
     opts.driverLabel,
     target.name,
+    opts.deployPoll,
   );
   if (deployErr) return { ok: false, error: deployErr };
 

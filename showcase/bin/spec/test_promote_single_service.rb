@@ -27,10 +27,10 @@ class PromoteSingleServiceTest < Minitest::Test
             @calls << [q, vars]
             sid = vars[:serviceId]
             if q.include?("serviceInstanceUpdate")
-                @pinned_by_service[sid] = vars[:image]
+                @pinned_by_service[sid] = vars.dig(:input, :source, :image)
                 { "serviceInstanceUpdate" => true }
-            elsif q.include?("serviceInstanceRedeploy")
-                { "serviceInstanceRedeploy" => true }
+            elsif q.include?("serviceInstanceDeployV2")
+                { "serviceInstanceDeployV2" => "dep-#{sid}" }
             elsif q.include?("ServiceInstanceRecheck")
                 pinned = @pinned_by_service[sid]
                 if pinned.nil?
@@ -43,11 +43,16 @@ class PromoteSingleServiceTest < Minitest::Test
                     }
                 else
                     @ts_counter += 1
+                    pinned_digest = pinned.include?("@") ? pinned.split("@", 2).last : nil
                     {
                         "serviceInstance" => {
                             "id" => "i",
                             "source" => { "image" => pinned },
                             "updatedAt" => "2026-05-29T00:00:#{format('%02d', @ts_counter)}Z",
+                            "latestDeployment" => {
+                                "id" => "dep-#{sid}", "status" => "SUCCESS",
+                                "meta" => { "imageDigest" => pinned_digest },
+                            },
                         },
                     }
                 end
@@ -58,12 +63,12 @@ class PromoteSingleServiceTest < Minitest::Test
 
         def pinned_services
             @calls.select { |q, _| q.include?("serviceInstanceUpdate") }
-                  .map { |_, vars| [vars[:serviceId], vars[:image]] }
+                  .map { |_, vars| [vars[:serviceId], vars.dig(:input, :source, :image)] }
         end
 
         def pinned_image_for(service_id)
             row = @calls.find { |q, vars| q.include?("serviceInstanceUpdate") && vars[:serviceId] == service_id }
-            row && row[1][:image]
+            row && row[1].dig(:input, :source, :image)
         end
     end
 
@@ -83,7 +88,10 @@ class PromoteSingleServiceTest < Minitest::Test
         {
             "name" => name, "service_id" => "svc-#{name}",
             "image" => "ghcr.io/copilotkit/#{name}:latest",
-            "env_keys" => [],
+            # All CRITICAL_ENV_KEYS present so the (now unconditional) critical
+            # env-key presence assertion does not fire — this spec isolates the
+            # single-service narrowing behavior, not env-key parity.
+            "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
             "start_command" => "node server.js", "healthcheck_path" => "/health",
             "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
         }
@@ -93,7 +101,10 @@ class PromoteSingleServiceTest < Minitest::Test
         {
             "name" => name, "service_id" => "prod-#{name}",
             "image" => "ghcr.io/copilotkit/#{name}@sha256:OLD#{name.gsub('-', '')}",
-            "env_keys" => [],
+            # All CRITICAL_ENV_KEYS present so the (now unconditional) critical
+            # env-key presence assertion does not fire — this spec isolates the
+            # single-service narrowing behavior, not env-key parity.
+            "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
             "start_command" => "node server.js", "healthcheck_path" => "/health",
             "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
         }

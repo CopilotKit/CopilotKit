@@ -73,6 +73,16 @@
       "response": {
         "content": "Your favorite color is blue — I noted it earlier."
       }
+    },
+    {
+      "_comment": "shared-state-read-write — 'What is my favorite color?' recall pill, ungated fallback. In multi-pill demo sessions a PRIOR pill (e.g. set_notes) already left assistant/tool messages in the thread, so turnIndex (thread-global assistant count) is not 0 and the turnIndex:0 fixture above is skipped → strict 503. This content-only fallback matches regardless of thread history; it carries no toolCalls so it is loop-safe and never re-emits a tool.",
+      "match": {
+        "userMessage": "favorite color",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Your favorite color is blue — I noted it earlier."
+      }
     }
   ]
 }

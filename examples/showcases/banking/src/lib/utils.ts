@@ -1,10 +1,16 @@
-import { Card, Transaction } from "@/app/api/v1/data";
-import { clsx, type ClassValue } from "clsx";
+import type { Card, Transaction } from "@/app/api/v1/data";
+import { clsx } from "clsx";
+import type { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+export const formatCurrency = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+    n,
+  );
 
 export function randomDigits(digitsAmount: number): number {
   const min = Math.pow(10, digitsAmount - 1);

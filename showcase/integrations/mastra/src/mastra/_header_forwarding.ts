@@ -47,6 +47,21 @@ export function withForwardedHeaders<T>(
   fn: () => Promise<T> | T,
 ): Promise<T> | T {
   const headers = extractXHeaders(req);
+  // CVDIAG (als-snapshot): record whether the inbound x-aimock-context
+  // discriminator was present at the moment we capture the header
+  // snapshot into ALS. Never log the full value — prefix only.
+  const slug = headers["x-aimock-context"];
+  const runId = headers["x-diag-run-id"];
+  const hops = headers["x-diag-hops"];
+  const hopCount = hops ? hops.split(",").filter(Boolean).length : 0;
+  console.log(
+    `CVDIAG component=route-mastra boundary=als-snapshot ` +
+      `run_id=${runId ?? "none"} slug=${slug ?? "MISSING"} ` +
+      `header_present=${slug != null} ` +
+      `header_value_prefix=${slug ? slug.slice(0, 12) : ""} ` +
+      `hop=${hops ? hopCount : "-"} status=${slug ? "ok" : "miss"} ` +
+      `test_id=${headers["x-test-id"] ?? "none"} error=`,
+  );
   return headersStorage.run(headers, fn);
 }
 
@@ -55,18 +70,106 @@ function getForwardedHeaders(): Record<string, string> {
   return headersStorage.getStore() ?? {};
 }
 
+/**
+ * OpenAI's Responses API validates `input[].id` and REJECTS any id containing
+ * a dash. (Its 400 message misleadingly lists dashes as allowed — empirically
+ * only `[A-Za-z0-9_]` is accepted; an id like `msg-92Y7BhMpWBhXt7dm` 400s while
+ * `msg_92Y7BhMpWBhXt7dm` succeeds.) CopilotKit mints message ids like `msg-…`,
+ * and @ag-ui/mastra + the AI SDK forward them straight into `input[].id`, so
+ * every multi-turn run fails with
+ *   AI_APICallError: Invalid 'input[N].id': 'msg-…'
+ * (OSS-381). Fix at the HTTP boundary: rewrite dashes (and any other
+ * non-`[A-Za-z0-9_]` char) in each outbound `input[].id` to `_`.
+ *
+ * Why here and not in the bridge's message conversion: this touches ONLY the
+ * bytes sent to OpenAI. Mastra's in-memory `CoreMessage.id` — which drives its
+ * upsert-by-id history dedup — is left untouched, so dedup is unaffected.
+ * OpenAI-issued ids (`msg_…`, `rs_…`) contain no dashes and pass through
+ * unchanged, preserving server-side conversation-state references.
+ */
+export function toOpenAiResponsesSafeId(id: string): string {
+  return /^[A-Za-z0-9_]+$/.test(id) ? id : id.replace(/[^A-Za-z0-9_]/g, "_");
+}
+
+/**
+ * Rewrite out-of-charset `input[].id`s in an outbound OpenAI Responses request
+ * body. Returns the body unchanged when it isn't a JSON string, has no `input`
+ * array, or needs no rewrite (the common case — a no-op).
+ */
+export function sanitizeOutboundResponsesIds(
+  body: BodyInit | null | undefined,
+): BodyInit | null | undefined {
+  if (typeof body !== "string") return body;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return body;
+  }
+  const input = (parsed as { input?: unknown } | null)?.input;
+  if (!Array.isArray(input)) return body;
+  let changed = false;
+  for (const item of input) {
+    const withId = item as { id?: unknown } | null;
+    if (withId && typeof withId.id === "string") {
+      const safe = toOpenAiResponsesSafeId(withId.id);
+      if (safe !== withId.id) {
+        withId.id = safe;
+        changed = true;
+      }
+    }
+  }
+  return changed ? JSON.stringify(parsed) : body;
+}
+
 /** fetch wrapper that injects ALS-bound x-* headers into every outbound call. */
 const forwardingFetch: typeof fetch = (input, init) => {
   const forwarded = getForwardedHeaders();
-  if (Object.keys(forwarded).length === 0) {
-    return fetch(input, init);
-  }
   const merged = new Headers(init?.headers);
+  // Make client-minted message ids (e.g. `msg-…`) legal for the OpenAI
+  // Responses API. No-op for valid ids; never touches Mastra's dedup state.
+  const body = sanitizeOutboundResponsesIds(init?.body);
   for (const [k, v] of Object.entries(forwarded)) {
     // Don't clobber an explicit per-call header.
     if (!merged.has(k)) merged.set(k, v);
   }
-  return fetch(input, { ...init, headers: merged });
+  // Local aimock testing: a real browser does NOT send x-aimock-context, but
+  // every mastra d6 fixture is context-scoped ("mastra"), so aimock returns
+  // "No fixture matched" for browser-driven demos. Default the context to this
+  // integration's slug when absent so the demos replay against aimock in a
+  // plain browser. Harmless in production (real LLM providers ignore the
+  // header); the harness still sends its own x-aimock-context, which wins.
+  if (!merged.has("x-aimock-context")) {
+    merged.set("x-aimock-context", "mastra");
+  }
+  // GATING RULE: only deviate from the original control flow (append the
+  // x-diag-hops breadcrumb, emit the per-outbound CVDIAG log) when a
+  // diagnostic header is present (x-diag-run-id OR x-aimock-context). On
+  // non-diagnostic traffic the outbound headers stay byte-identical and we
+  // skip the noisy per-outbound log.
+  const slug = forwarded["x-aimock-context"];
+  const runId = forwarded["x-diag-run-id"];
+  const diagnosticPresent = runId != null || slug != null;
+  if (!diagnosticPresent) {
+    return fetch(input, { ...init, headers: merged, body });
+  }
+  // CVDIAG (outbound-llm): append this layer's hop tag to the breadcrumb
+  // and log header presence at the moment the outbound LLM request is
+  // built. x-diag-run-id / x-diag-hops ride the same x-* forwarding path
+  // as x-aimock-context above; we only mutate the hops breadcrumb here.
+  const priorHops = merged.get("x-diag-hops") ?? forwarded["x-diag-hops"] ?? "";
+  const nextHops = priorHops ? `${priorHops},backend-mastra` : "backend-mastra";
+  merged.set("x-diag-hops", nextHops);
+  const hopCount = nextHops.split(",").filter(Boolean).length;
+  console.log(
+    `CVDIAG component=backend-mastra boundary=outbound-llm ` +
+      `run_id=${runId ?? "none"} slug=${slug ?? "MISSING"} ` +
+      `header_present=${slug != null} ` +
+      `header_value_prefix=${slug ? slug.slice(0, 12) : ""} ` +
+      `hop=${hopCount} status=${slug ? "ok" : "miss"} ` +
+      `test_id=${forwarded["x-test-id"] ?? "none"} error=`,
+  );
+  return fetch(input, { ...init, headers: merged, body });
 };
 
 /**

@@ -98,7 +98,7 @@ Use predictive state updates when you want to:
         var app = builder.Build();
 
         string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-        string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+        string deployment = builder.Configuration["AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"]!;
 
         // Define a tool the LLM may call as it progresses to report partial steps
         [Description("Report current step progress.")]
@@ -111,7 +111,7 @@ Use predictive state updates when you want to:
             .CreateAIAgent(
                 name: "AGUIAssistant",
                 instructions: "You are a helpful assistant that may call the 'step_progress' tool to report intermediate steps.",
-                tools: [AIFunctionFactory.Create(StepProgress)]);
+                tools: [AIFunctionFactory.Create(StepProgress, options: new() { Name = "step_progress" })]);
 
         // Wrap with a streaming middleware that emits interim state snapshots (typed, source-generated).
         // See the "Stream state from your agent" section in the Agent State guide for a full example of a DelegatingAIAgent
@@ -194,7 +194,7 @@ Use predictive state updates when you want to:
         from __future__ import annotations
         from typing import Annotated
         from agent_framework import Agent, SupportsChatGetResponse, tool
-        from agent_framework_ag_ui import AgentFrameworkAgent
+        from agent_framework.ag_ui import AgentFrameworkAgent
         from pydantic import Field
 
         # 1) Define state schema for AG-UI
@@ -250,6 +250,9 @@ Use predictive state updates when you want to:
     Add a state renderer to observe the predicted `observed_steps` updates as they stream in.
 
     ```tsx title="ui/app/page.tsx"
+    "use client";
+
+    import { useAgent } from "@copilotkit/react-core/v2";
 
     type AgentState = {
       observed_steps: string[];
@@ -259,25 +262,20 @@ Use predictive state updates when you want to:
       // Access both predicted and final states
       const { agent } = useAgent({ agentId: "sample_agent" });
 
-      // Observe predictions (render inside the chat)
-      useAgent({
-        agentId: "sample_agent",
-        render: ({ state }) => {
-          if (!state.observed_steps?.length) return null;
-          return (
-            <div>
-              <h3>Current Progress:</h3>
-              <ul>
-                {state.observed_steps.map((step, i) => (
-                  <li key={i}>{step}</li>
-                ))}
-              </ul>
-            </div>
-          );
-        },
-      });
+      // Observe predictions by reading the agent's streamed state
+      const progress =
+        agent.state?.observed_steps?.length ? (
+          <div>
+            <h3>Current Progress:</h3>
+            <ul>
+              {agent.state.observed_steps.map((step, i) => (
+                <li key={i}>{step}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null;
 
-      return <div>...</div>;
+      return <div>{progress}</div>;
     }
     ```
 

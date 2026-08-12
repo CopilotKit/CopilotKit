@@ -1,6 +1,7 @@
 import { defineCatalog } from "@json-render/core";
 import { schema } from "@json-render/react/schema";
-import { z } from "zod";
+// json-render 0.18 requires Zod 4; the rest of this showcase stays on Zod 3.
+import { z } from "zod4";
 
 const dataPoint = z.object({ label: z.string(), value: z.number() });
 

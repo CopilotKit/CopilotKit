@@ -52,6 +52,8 @@ from ag_ui.core import (
 )
 from ag_ui.encoder import EventEncoder
 
+from agents.claude_agent_sdk_adapter import normalize_claude_model
+
 
 SYSTEM_PROMPT = dedent(
     """
@@ -105,6 +107,8 @@ def _build_anthropic_tools(input_tools: list[Any] | None) -> list[dict[str, Any]
         name = getattr(tool, "name", None) or (
             tool.get("name") if isinstance(tool, dict) else None
         )
+        if not name:
+            continue
         description = getattr(tool, "description", None) or (
             tool.get("description") if isinstance(tool, dict) else ""
         )
@@ -134,29 +138,108 @@ def _build_anthropic_tools(input_tools: list[Any] | None) -> list[dict[str, Any]
 def _convert_messages(input_data: RunAgentInput) -> list[dict[str, Any]]:
     """Flatten AG-UI messages into Anthropic ``messages`` shape.
 
-    Mirrors the text-only fast path in ``run_agent`` — adequate for the
-    MCP Apps demo, which is single-turn and pure text on the user side.
+    Preserve frontend/MCP tool continuations: after the runtime resolves a
+    tool call it re-invokes this agent with the original assistant tool_use
+    plus a tool result message. Anthropic needs those as structured
+    assistant/user blocks, not flattened text, or the model never sees the MCP
+    result and can repeat the same call.
     """
     messages: list[dict[str, Any]] = []
     for msg in input_data.messages or []:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+        if role == "tool":
+            tool_call_id = getattr(msg, "tool_call_id", None) or (
+                getattr(msg, "toolCallId", None)
+            )
+            raw_content = getattr(msg, "content", None)
+            result_text = _text_from_content(raw_content)
+            if tool_call_id:
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": tool_call_id,
+                                "content": result_text,
+                            }
+                        ],
+                    }
+                )
+            continue
+
         if role not in ("user", "assistant"):
             continue
         raw_content = getattr(msg, "content", None)
-        content = ""
-        if isinstance(raw_content, str):
-            content = raw_content
-        elif isinstance(raw_content, list):
-            parts: list[str] = []
-            for part in raw_content:
-                if hasattr(part, "text"):
-                    parts.append(part.text)
-                elif isinstance(part, dict) and "text" in part:
-                    parts.append(part["text"])
-            content = "".join(parts)
+        content = _text_from_content(raw_content)
+
+        if role == "assistant":
+            tool_calls = getattr(msg, "tool_calls", None) or getattr(
+                msg, "toolCalls", None
+            )
+            if tool_calls:
+                content_blocks: list[dict[str, Any]] = []
+                if content:
+                    content_blocks.append({"type": "text", "text": content})
+                for tool_call in tool_calls:
+                    tool_call_id = getattr(tool_call, "id", None) or (
+                        tool_call.get("id") if isinstance(tool_call, dict) else None
+                    )
+                    function = getattr(tool_call, "function", None) or (
+                        tool_call.get("function")
+                        if isinstance(tool_call, dict)
+                        else None
+                    )
+                    tool_name = "unknown"
+                    args_raw: Any = "{}"
+                    if function:
+                        tool_name = getattr(function, "name", None) or (
+                            function.get("name")
+                            if isinstance(function, dict)
+                            else "unknown"
+                        )
+                        args_raw = getattr(function, "arguments", None) or (
+                            function.get("arguments", "{}")
+                            if isinstance(function, dict)
+                            else "{}"
+                        )
+                    try:
+                        tool_args = (
+                            json.loads(args_raw)
+                            if isinstance(args_raw, str)
+                            else args_raw
+                        )
+                    except json.JSONDecodeError:
+                        tool_args = {}
+                    content_blocks.append(
+                        {
+                            "type": "tool_use",
+                            "id": tool_call_id or "unknown",
+                            "name": tool_name,
+                            "input": tool_args,
+                        }
+                    )
+                messages.append({"role": "assistant", "content": content_blocks})
+                continue
+
         if content:
             messages.append({"role": role, "content": content})
     return messages
+
+
+def _text_from_content(raw_content: Any) -> str:
+    if isinstance(raw_content, str):
+        return raw_content
+    if isinstance(raw_content, list):
+        parts: list[str] = []
+        for part in raw_content:
+            if hasattr(part, "text"):
+                parts.append(part.text)
+            elif isinstance(part, dict) and "text" in part:
+                parts.append(part["text"])
+        parts_text = "".join(parts)
+        return parts_text if parts_text else json.dumps(raw_content)
+    return ""
 
 
 async def run_mcp_apps_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
@@ -191,7 +274,9 @@ async def run_mcp_apps_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
 
     try:
         stream_kwargs: dict[str, Any] = {
-            "model": os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
+            "model": normalize_claude_model(
+                os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6")
+            ),
             "max_tokens": 4096,
             "system": SYSTEM_PROMPT,
             "messages": messages,

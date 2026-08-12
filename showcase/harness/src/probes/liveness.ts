@@ -108,12 +108,12 @@ export const livenessProbe: Probe<LivenessInput, LivenessSignal> = {
 export const LIVENESS_SLACK_SAFE_FIELDS = [
   // A3: the `links` object lives on the old `LivenessSignal` shape below (still
   // exported for backward compatibility). The driver-emitted
-  // `SmokeDriverSignal` (probes/drivers/liveness.ts) carries `url` instead —
+  // `SmokeDriverSignal` (probes/drivers/d2-liveness.ts) carries `url` instead —
   // the URL that was actually probed — which is now the canonical field
   // template authors reference for endpoint links.
   "url",
   // errorDesc is pre-sanitized at the probe driver's 8 assignment sites
-  // (probes/drivers/liveness.ts via sanitizeErrorDesc) — triple-brace is
+  // (probes/drivers/d2-liveness.ts via sanitizeErrorDesc) — triple-brace is
   // intentional so already-stripped HTML / mrkdwn control tokens render
   // as literal characters in Slack rather than being double-escaped.
   "errorDesc",

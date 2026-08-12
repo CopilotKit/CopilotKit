@@ -2,12 +2,12 @@
 
 ## Agent Types in CopilotKit v2
 
-| Agent Type             | Package             | Description                                                                          |
-| ---------------------- | ------------------- | ------------------------------------------------------------------------------------ |
-| `BuiltInAgent`         | `@copilotkit/agent` | Uses Vercel AI SDK `streamText` with configurable model providers                    |
-| `LangGraphAgent`       | `@ag-ui/langgraph`  | Wraps a LangGraph deployment (Python or JS)                                          |
-| `A2AAgent`             | Varies              | Agent-to-Agent protocol agent                                                        |
-| Custom `AbstractAgent` | `@ag-ui/client`     | Any class extending `AbstractAgent` with a `run()` returning `Observable<BaseEvent>` |
+| Agent Type             | Package                  | Description                                                                          |
+| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
+| `BuiltInAgent`         | `@copilotkit/runtime/v2` | Uses Vercel AI SDK `streamText` with configurable model providers                    |
+| `LangGraphAgent`       | `@ag-ui/langgraph`       | Wraps a LangGraph deployment (Python or JS)                                          |
+| `A2AAgent`             | Varies                   | Agent-to-Agent protocol agent                                                        |
+| Custom `AbstractAgent` | `@ag-ui/client`          | Any class extending `AbstractAgent` with a `run()` returning `Observable<BaseEvent>` |
 
 ## Agent Discovery Issues
 
@@ -149,7 +149,7 @@ RunFinishedEvent
 
 1. Context is sent as `forwardedProps` in the AG-UI `RunAgentInput`. Check the request body to `/agent/:id/run`.
 2. For Mastra agents: context propagation through the middleware chain may not work correctly (issue #3426).
-3. Verify that `useAgentContext` is called inside the `CopilotKitProvider` tree and before the agent runs.
+3. Verify that `useAgentContext` is called inside the `CopilotKit` provider tree (from `@copilotkit/react-core/v2`) and before the agent runs.
 
 ## Tool Execution Issues
 
@@ -187,7 +187,7 @@ The tool's `execute` function threw an exception.
 **Diagnostic steps**:
 
 1. Check the browser console for the error.
-2. The `onError` callback in `CopilotChat` or `CopilotKitProvider` receives the error with context.
+2. The `onError` callback in `CopilotChat` or the `CopilotKit` provider receives the error with context.
 3. Wrap the tool handler in try/catch for better error reporting.
 
 ### Tool Call Succeeds But Agent Does Not Continue
@@ -292,8 +292,8 @@ Enable it during development:
 ```tsx
 import { CopilotKitWebInspector } from "@copilotkit/web-inspector";
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit">
+<CopilotKit runtimeUrl="/api/copilotkit">
   <CopilotKitWebInspector />
   <YourApp />
-</CopilotKitProvider>;
+</CopilotKit>;
 ```

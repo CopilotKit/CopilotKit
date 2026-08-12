@@ -1,0 +1,51 @@
+# Docker Compose stack for a no-key build + boot smoke.
+#
+# Builds and starts the Next.js frontend + the Claude Agent SDK (FastAPI/uvicorn)
+# agent and checks both are healthy. This does NOT exercise the LLM: the Claude
+# Agent SDK drives Claude via the bundled Claude Code CLI, which can't be mocked
+# — running an actual turn requires a real ANTHROPIC_API_KEY.
+#
+# Usage: docker compose -f docker-compose.test.yml up --build --wait
+services:
+  agent:
+    build:
+      context: ./agent
+      dockerfile: ../docker/Dockerfile.agent
+    environment:
+      # A real key is only needed to run a turn; the build + /health check don't
+      # call the LLM. Pass ANTHROPIC_API_KEY in the environment to try a real turn.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-placeholder}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+    environment:
+      - AGENT_URL=http://agent:8000
+    depends_on:
+      agent:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const http = require('http'); const req = http.get('http://localhost:3000/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.setTimeout(2000, () => { req.destroy(); process.exit(1); });",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 60s

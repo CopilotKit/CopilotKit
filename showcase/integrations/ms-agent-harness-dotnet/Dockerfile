@@ -10,6 +10,13 @@ RUN npm run build
 FROM mcr.microsoft.com/dotnet/sdk:9.0.312 AS agent-build
 WORKDIR /agent
 COPY agent/ ./
+# CVDIAG shared binding (plan unit L1-F): the single-source emitter lives at
+# showcase/integrations/_shared/dotnet/ and is source-included by the csproj via
+# ..\_shared\dotnet\*.cs. The `_shared` symlink at this integration's root is
+# materialized to a real dir by the harness stage_shared step, so it is present
+# in the build context here. Land it at /_shared/dotnet so the csproj at /agent
+# resolves ..\_shared\dotnet (= /_shared/dotnet) identically to the local layout.
+COPY _shared/dotnet/*.cs /_shared/dotnet/
 RUN dotnet publish BeautifulChatAgent.csproj -c Release -o /agent/publish
 
 # Stage 3: Production image — aspnet runtime + Node.js (no SDK, no build tools)

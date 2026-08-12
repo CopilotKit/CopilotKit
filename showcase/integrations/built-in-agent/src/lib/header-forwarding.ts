@@ -48,6 +48,21 @@ export function withForwardedHeaders<T>(
   fn: () => Promise<T> | T,
 ): Promise<T> | T {
   const headers = extractXHeaders(req);
+  // CVDIAG (als-snapshot): record whether the inbound x-aimock-context
+  // discriminator was present at the moment we capture the header
+  // snapshot into ALS. Never log the full value — prefix only.
+  const slug = headers["x-aimock-context"];
+  const runId = headers["x-diag-run-id"];
+  const hops = headers["x-diag-hops"];
+  const hopCount = hops ? hops.split(",").filter(Boolean).length : 0;
+  console.log(
+    `CVDIAG component=route-built-in-agent boundary=als-snapshot ` +
+      `run_id=${runId ?? "none"} slug=${slug ?? "MISSING"} ` +
+      `header_present=${slug != null} ` +
+      `header_value_prefix=${slug ? slug.slice(0, 12) : ""} ` +
+      `hop=${hops ? hopCount : "-"} status=${slug ? "ok" : "miss"} ` +
+      `test_id=${headers["x-test-id"] ?? "none"} error=`,
+  );
   return headersStorage.run(headers, fn);
 }
 
@@ -70,5 +85,34 @@ export const forwardingFetch: typeof fetch = (input, init) => {
     // Don't clobber an explicit per-call header.
     if (!merged.has(k)) merged.set(k, v);
   }
+  // GATING RULE: only deviate from the original control flow (append the
+  // x-diag-hops breadcrumb, emit the per-outbound CVDIAG log) when a
+  // diagnostic header is present (x-diag-run-id OR x-aimock-context). On
+  // non-diagnostic traffic the outbound headers stay byte-identical and we
+  // skip the noisy per-outbound log.
+  const slug = forwarded["x-aimock-context"];
+  const runId = forwarded["x-diag-run-id"];
+  const diagnosticPresent = runId != null || slug != null;
+  if (!diagnosticPresent) {
+    return fetch(input, { ...init, headers: merged });
+  }
+  // CVDIAG (outbound-llm): append this layer's hop tag to the breadcrumb
+  // and log header presence at the moment the outbound LLM request is
+  // built. x-diag-run-id / x-diag-hops ride the same x-* forwarding path
+  // as x-aimock-context above; we only mutate the hops breadcrumb here.
+  const priorHops = merged.get("x-diag-hops") ?? forwarded["x-diag-hops"] ?? "";
+  const nextHops = priorHops
+    ? `${priorHops},backend-built-in-agent`
+    : "backend-built-in-agent";
+  merged.set("x-diag-hops", nextHops);
+  const hopCount = nextHops.split(",").filter(Boolean).length;
+  console.log(
+    `CVDIAG component=backend-built-in-agent boundary=outbound-llm ` +
+      `run_id=${runId ?? "none"} slug=${slug ?? "MISSING"} ` +
+      `header_present=${slug != null} ` +
+      `header_value_prefix=${slug ? slug.slice(0, 12) : ""} ` +
+      `hop=${hopCount} status=${slug ? "ok" : "miss"} ` +
+      `test_id=${forwarded["x-test-id"] ?? "none"} error=`,
+  );
   return fetch(input, { ...init, headers: merged });
 };

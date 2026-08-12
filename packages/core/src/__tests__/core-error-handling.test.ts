@@ -73,6 +73,112 @@ describe("CopilotKitCore error handling", () => {
       sub.unsubscribe();
     });
 
+    it("suppresses AGENT_RUN_ERROR_EVENT when the agent emits RUN_ERROR with code 'abort' (user stop, #5966)", async () => {
+      const core = new CopilotKitCore({});
+      const errors: Array<{ code: CopilotKitCoreErrorCode }> = [];
+      const sub = core.subscribe({ onError: (e) => void errors.push(e) });
+
+      const agent = {
+        agentId: "agent-abort",
+        threadId: "t1",
+        messages: [] as any[],
+        state: {},
+        addMessages: (_m: any[]) => {},
+        addMessage: (_m: any) => {},
+        abortRun: () => {},
+        clone: () => agent,
+        subscribe: () => ({ unsubscribe() {} }),
+        async runAgent(_params: any, subscriber?: any) {
+          await subscriber?.onRunErrorEvent?.({
+            event: {
+              type: "RUN_ERROR",
+              threadId: this.threadId,
+              runId: "r1",
+              message: "This operation was aborted",
+              code: "abort",
+              rawEvent: {},
+            } as any,
+            agent: this,
+            messages: this.messages,
+            state: this.state,
+            input: {
+              threadId: this.threadId,
+              runId: "r1",
+              messages: this.messages,
+              state: this.state,
+            },
+          });
+          return { newMessages: [] };
+        },
+      } as any;
+
+      core.addAgent__unsafe_dev_only({ id: agent.agentId, agent });
+      await core.runAgent({ agent });
+
+      expect(
+        errors.some(
+          (e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
+        ),
+      ).toBe(false);
+
+      sub.unsubscribe();
+    });
+
+    it("suppresses AGENT_RUN_ERROR_EVENT for a RUN_ERROR after the run was user-aborted, regardless of code (#5966)", async () => {
+      const core = new CopilotKitCore({});
+      const errors: Array<{ code: CopilotKitCoreErrorCode }> = [];
+      const sub = core.subscribe({ onError: (e) => void errors.push(e) });
+
+      const agent = {
+        agentId: "agent-stopped",
+        threadId: "t1",
+        messages: [] as any[],
+        state: {},
+        addMessages: (_m: any[]) => {},
+        addMessage: (_m: any) => {},
+        abortRun: () => {},
+        clone: () => agent,
+        subscribe: () => ({ unsubscribe() {} }),
+        async runAgent(_params: any, subscriber?: any) {
+          // Simulate the user pressing Stop mid-run. RunHandler intercepts
+          // agent.abortRun to abort its AbortController, so this flips
+          // _runAbortController.signal.aborted before the terminal arrives.
+          this.abortRun();
+          await subscriber?.onRunErrorEvent?.({
+            event: {
+              type: "RUN_ERROR",
+              threadId: this.threadId,
+              runId: "r1",
+              message: "aborted by user",
+              code: "server_error",
+              rawEvent: {},
+            } as any,
+            agent: this,
+            messages: this.messages,
+            state: this.state,
+            input: {
+              threadId: this.threadId,
+              runId: "r1",
+              messages: this.messages,
+              state: this.state,
+            },
+          });
+          return { newMessages: [] };
+        },
+      } as any;
+
+      core.addAgent__unsafe_dev_only({ id: agent.agentId, agent });
+      await core.runAgent({ agent });
+
+      expect(
+        errors.some(
+          (e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
+        ),
+      ).toBe(false);
+
+      sub.unsubscribe();
+    });
+
     it("emits AGENT_THREAD_LOCKED when onRunFailed receives AgentThreadLockedError", async () => {
       const core = new CopilotKitCore({});
       const errors: Array<{
@@ -188,7 +294,7 @@ describe("CopilotKitCore error handling", () => {
 
     it("emits RUNTIME_INFO_FETCH_FAILED when runtime info sync fails", async () => {
       const fetchMock = vi.fn().mockRejectedValue(new Error("network failure"));
-      global.fetch = fetchMock;
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       const core = new CopilotKitCore({
         runtimeUrl: "https://runtime.example/rest",
@@ -215,7 +321,7 @@ describe("CopilotKitCore error handling", () => {
     it("emits AGENT_RUN_FAILED when proxied runtime agent run fails (REST)", async () => {
       const runtimeUrl = "https://runtime.example/rest";
       const fetchMock = vi.fn().mockRejectedValue(new Error("fetch failure"));
-      global.fetch = fetchMock;
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       const core = new CopilotKitCore({});
       const errors: Array<{
@@ -247,7 +353,7 @@ describe("CopilotKitCore error handling", () => {
     it("connectAgent emits AGENT_CONNECT_FAILED and resolves (does not throw)", async () => {
       const runtimeUrl = "https://runtime.example/rest";
       const fetchMock = vi.fn().mockRejectedValue(new Error("connect failure"));
-      global.fetch = fetchMock;
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       const core = new CopilotKitCore({});
       const errors: Array<{

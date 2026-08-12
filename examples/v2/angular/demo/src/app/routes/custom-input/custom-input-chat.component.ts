@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import {
   CopilotChatView,
   CopilotChat,
@@ -10,10 +10,10 @@ import { CustomChatInputComponent } from "./custom-chat-input.component";
 @Component({
   selector: "nextgen-custom-input-chat",
   standalone: true,
-  imports: [CommonModule, CopilotChat],
+  imports: [CopilotChat],
   template: `
     <div style="display: block; height: 100vh">
-      <copilot-chat [inputComponent]="customInput"></copilot-chat>
+      <copilot-chat [inputComponent]="customInput" />
     </div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

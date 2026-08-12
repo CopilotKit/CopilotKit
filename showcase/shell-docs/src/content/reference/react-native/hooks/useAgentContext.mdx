@@ -1,0 +1,146 @@
+---
+title: "useAgentContext"
+description: "React hook for providing dynamic context to agents"
+---
+
+## Overview
+
+`useAgentContext` registers a dynamic context object with the active Copilot runtime for the lifetime of the component. The hook adds the context on mount and removes it on unmount, so the agent always sees an up-to-date snapshot of your application state without manual cleanup.
+
+<Callout type="info">
+  Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useAgentContext`](/reference/v2/hooks/useAgentContext); only the import path differs.
+</Callout>
+
+Update the incoming context object to refresh what the agent sees. This is the v2 equivalent of `useCopilotReadable`. It lets you surface any serializable application state (user preferences, selected items, computed values, and so on) as context that agents can reference when generating responses or making decisions.
+
+## Signature
+
+```tsx
+import { useAgentContext } from "@copilotkit/react-native";
+
+function useAgentContext(context: AgentContextInput): void;
+```
+
+## Parameters
+
+<PropertyReference name="context" type="AgentContextInput" required>
+  An object describing the context to expose to the agent.
+
+<PropertyReference name="description" type="string" required>
+  A human-readable description of the context. The agent uses this to understand
+  what the value represents and when to reference it.
+</PropertyReference>
+
+  <PropertyReference name="value" type="JsonSerializable" required>
+    The context value to provide. Must be JSON-serializable: `string`, `number`, `boolean`, `null`, arrays, or plain objects with string keys and serializable values. Object values are serialized automatically.
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+### Basic Usage
+
+Provide simple application state as context for the agent.
+
+```tsx
+import { useAgentContext } from "@copilotkit/react-native";
+import { Text, View } from "react-native";
+
+function UserGreeting({ user }: { user: { name: string; role: string } }) {
+  useAgentContext({
+    description: "The currently logged-in user",
+    value: { name: user.name, role: user.role },
+  });
+
+  return (
+    <View>
+      <Text>Welcome, {user.name}</Text>
+    </View>
+  );
+}
+```
+
+### Dynamic Context from Component State
+
+The context updates automatically when the value changes between renders.
+
+```tsx
+import { useState } from "react";
+import { useAgentContext } from "@copilotkit/react-native";
+import { Text, TouchableOpacity, View } from "react-native";
+
+function ProductCatalog() {
+  const [selectedCategory, setSelectedCategory] = useState("electronics");
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 500 });
+
+  useAgentContext({
+    description: "The user's current product filter settings",
+    value: {
+      category: selectedCategory,
+      priceRange,
+    },
+  });
+
+  return (
+    <View>
+      {["electronics", "books", "clothing"].map((category) => (
+        <TouchableOpacity
+          key={category}
+          onPress={() => setSelectedCategory(category)}
+        >
+          <Text>{category}</Text>
+        </TouchableOpacity>
+      ))}
+      {/* ... price range controls ... */}
+    </View>
+  );
+}
+```
+
+### Multiple Contexts in Nested Components
+
+Each component can register its own context. All registered contexts are visible to the agent simultaneously.
+
+```tsx
+import { useState } from "react";
+import { useAgentContext } from "@copilotkit/react-native";
+import { View } from "react-native";
+
+function Dashboard() {
+  useAgentContext({
+    description: "Current dashboard view and layout",
+    value: { view: "analytics", columns: 3 },
+  });
+
+  return (
+    <View>
+      <Sidebar />
+      <MainPanel />
+    </View>
+  );
+}
+
+function Sidebar() {
+  const [collapsed, setCollapsed] = useState(false);
+
+  useAgentContext({
+    description: "Sidebar navigation state",
+    value: { collapsed, activeSection: "reports" },
+  });
+
+  return <View>{/* ... */}</View>;
+}
+```
+
+## Behavior
+
+- **Mount/Unmount lifecycle**: The context is registered when the component mounts and automatically removed when it unmounts. There is no manual cleanup required.
+- **Reactive updates**: When the `context` object changes between renders, the agent immediately sees the updated value.
+- **Serialization**: The `value` must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will cause errors.
+- **Multiple contexts**: Multiple `useAgentContext` calls across your component tree are all visible to the agent concurrently. Each is identified by its description and value.
+- **No return value**: The hook returns `void`. Unlike `useCopilotReadable`, it does not return an ID for parent-child hierarchies.
+
+## Related
+
+- [`useCopilotReadable`](/reference/v1/hooks/useCopilotReadable): v1 equivalent for providing context
+- [React (V2) reference](/reference/v2/hooks/useAgentContext): the web `useAgentContext` this hook mirrors

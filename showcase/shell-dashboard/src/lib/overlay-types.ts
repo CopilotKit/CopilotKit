@@ -13,6 +13,7 @@ export const ALL_OVERLAYS: readonly Overlay[] = [
 export const DEFAULT_OVERLAYS: readonly Overlay[] = [
   "links",
   "health",
+  "depth",
 ] as const;
 
 export interface OverlayPreset {

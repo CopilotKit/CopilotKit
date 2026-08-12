@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act, waitFor } from "@testing-library/react";
 import React from "react";
 import { CopilotKitProvider } from "../CopilotKitProvider";
+import { useLicenseContext } from "../../context";
 
 /**
  * These tests verify that the license banner is driven by the server-reported
@@ -96,6 +97,62 @@ describe("CopilotKitProvider license (server-driven)", () => {
     await waitFor(() => {
       expect(screen.queryByText(/Powered by CopilotKit/)).toBeNull();
       expect(screen.queryByText(/expired/i)).toBeNull();
+    });
+  });
+});
+
+describe("CopilotKitProvider license context (server-driven)", () => {
+  function LicenseProbe() {
+    const { status, checkFeature } = useLicenseContext();
+    return (
+      <div data-testid="license-probe">
+        {`status:${status ?? "null"} chat:${checkFeature("chat")}`}
+      </div>
+    );
+  }
+
+  async function probeWithStatus(licenseStatus?: string) {
+    globalThis.fetch = mockFetchWithLicenseStatus(licenseStatus) as any;
+    render(
+      <CopilotKitProvider runtimeUrl="/api">
+        <LicenseProbe />
+      </CopilotKitProvider>,
+    );
+    return screen.getByTestId("license-probe");
+  }
+
+  it("enables features when server reports 'valid'", async () => {
+    const probe = await probeWithStatus("valid");
+    await waitFor(() => {
+      expect(probe.textContent).toBe("status:valid chat:true");
+    });
+  });
+
+  it("enables features when server reports 'none'", async () => {
+    const probe = await probeWithStatus("none");
+    await waitFor(() => {
+      expect(probe.textContent).toBe("status:none chat:true");
+    });
+  });
+
+  it("disables features when server reports 'expired'", async () => {
+    const probe = await probeWithStatus("expired");
+    await waitFor(() => {
+      expect(probe.textContent).toBe("status:expired chat:false");
+    });
+  });
+
+  it("disables features when server reports 'invalid'", async () => {
+    const probe = await probeWithStatus("invalid");
+    await waitFor(() => {
+      expect(probe.textContent).toBe("status:invalid chat:false");
+    });
+  });
+
+  it("fails open while status is not yet known", async () => {
+    const probe = await probeWithStatus(undefined);
+    await waitFor(() => {
+      expect(probe.textContent).toBe("status:null chat:true");
     });
   });
 });

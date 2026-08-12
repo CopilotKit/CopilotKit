@@ -1,14 +1,27 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ArrowRight, Check, ChevronDown, Search, X } from "lucide-react";
 import searchIndex from "@/data/search-index.json";
 import { DEFAULT_FRAMEWORK, useFramework } from "./framework-provider";
+import { frontendFromPathname } from "@/lib/frontend-options";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import type { Registry } from "@/lib/registry";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
+import {
+  buildFrameworkSearchOptions,
+  frameworkDocsHref,
+  isChannelDocsHref,
+  normalizeHref,
+  parseChannelDocsHref,
+  parseDocsHref,
+  parseIntegrationDocsHref,
+  reconcileFrameworkSearchSelection,
+  resolveChannelSearchResults,
+} from "@/lib/search-hrefs";
+import type { FrameworkSearchOption } from "@/lib/search-hrefs";
 
 // Integrations explorer + per-integration demo pages live on the shell
 // host (showcase.copilotkit.ai), not on shell-docs. Search results that
@@ -31,12 +44,6 @@ interface SearchIndexEntry {
   subtitle: string;
   section?: string;
   href: string;
-}
-
-interface FrameworkOption {
-  slug: string;
-  name: string;
-  logo?: string | null;
 }
 
 interface SearchResult {
@@ -76,6 +83,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "google-adk": "adk",
   "crewai-crews": "crewai-flows",
   strands: "aws-strands",
+  "strands-typescript": "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",
   "ms-agent-python": "microsoft-agent-framework",
 };
@@ -86,8 +94,8 @@ function getDocsFolderForSlug(slug: string): string {
 
 function buildDocsFolderMap(
   registryData: Registry | null,
-): Map<string, FrameworkOption[]> {
-  const map = new Map<string, FrameworkOption[]>();
+): Map<string, FrameworkSearchOption[]> {
+  const map = new Map<string, FrameworkSearchOption[]>();
   for (const integration of registryData?.integrations ?? []) {
     if (integration.docs_mode === "hidden") continue;
     const folder = getDocsFolderForSlug(integration.slug);
@@ -95,7 +103,7 @@ function buildDocsFolderMap(
     next.push({
       slug: integration.slug,
       name: integration.name,
-      logo: integration.logo,
+      logo: integration.logo ?? null,
     });
     map.set(folder, next);
   }
@@ -105,37 +113,6 @@ function buildDocsFolderMap(
   }
 
   return map;
-}
-
-function parseIntegrationDocsHref(
-  href: string,
-): { folder: string; topic: string } | null {
-  const prefix = "/docs/integrations/";
-  if (!href.startsWith(prefix)) return null;
-  const rest = href.slice(prefix.length);
-  const [folder, ...topicParts] = rest.split("/").filter(Boolean);
-  if (!folder) return null;
-  return { folder, topic: topicParts.join("/") };
-}
-
-function parseDocsHref(href: string): string | null {
-  if (!href.startsWith("/docs/")) return null;
-  if (href.startsWith("/docs/integrations/")) return null;
-  return href.slice("/docs/".length);
-}
-
-function frameworkDocsHref(framework: string, topic: string): string {
-  return topic ? `/${framework}/${topic}` : `/${framework}`;
-}
-
-function normalizeHref(href: string, shellHost: string): string {
-  if (href === "/integrations" || href === "/matrix") {
-    return `${shellHost}${href}`;
-  }
-  if (href.startsWith("/docs/")) {
-    return href.slice("/docs".length) || "/";
-  }
-  return href;
 }
 
 function matchesQuery(
@@ -175,7 +152,8 @@ function scoreResult(result: SearchResult, query: string): number {
 }
 
 export function SearchModal({ onClose }: { onClose: () => void }) {
-  const { effectiveFramework, setStoredFramework } = useFramework();
+  const { effectiveFramework, knownFrameworks, setStoredFramework } =
+    useFramework();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedFramework, setSelectedFramework] = useState(
@@ -187,6 +165,8 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedIndexRef = useRef(0);
   const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const activeFrontend = frontendFromPathname(pathname);
 
   // Keep a ref in sync with selectedIndex so the Enter handler never reads
   // a stale closure value (reset-on-input + key-handler race).
@@ -234,16 +214,12 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   const frameworkOptions = useMemo(() => {
-    const integrations = registryData?.integrations ?? [];
-    return integrations
-      .filter((i) => i.docs_mode !== "hidden")
-      .map((i) => ({
-        slug: i.slug,
-        name: i.name,
-        logo: i.logo,
-      }))
-      .sort((a, b) => compareByDisplayOrder(a.slug, b.slug));
-  }, [registryData]);
+    if (!registryData) return [];
+    return buildFrameworkSearchOptions(
+      registryData.integrations,
+      knownFrameworks,
+    );
+  }, [registryData, knownFrameworks]);
 
   const selectedFrameworkOption = useMemo(
     () =>
@@ -253,14 +229,13 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
   );
 
   useEffect(() => {
-    if (frameworkOptions.length === 0) return;
-    if (frameworkOptions.some((option) => option.slug === selectedFramework)) {
-      return;
+    const reconciledFramework = reconcileFrameworkSearchSelection(
+      selectedFramework,
+      frameworkOptions,
+    );
+    if (reconciledFramework !== selectedFramework) {
+      setSelectedFramework(reconciledFramework);
     }
-    const fallback =
-      frameworkOptions.find((option) => option.slug === DEFAULT_FRAMEWORK) ??
-      frameworkOptions[0];
-    setSelectedFramework(fallback.slug);
   }, [frameworkOptions, selectedFramework]);
 
   const chooseFramework = useCallback(
@@ -299,6 +274,8 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
         topic: string;
         entry: SearchIndexEntry;
         href: string;
+        id?: string;
+        title?: string;
         frameworkCount?: number;
       }
     >();
@@ -309,6 +286,37 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     const pages = searchIndex as SearchIndexEntry[];
 
     for (const p of pages) {
+      const channelDoc = parseChannelDocsHref(p.href);
+      if (channelDoc) {
+        const channelResults = resolveChannelSearchResults({
+          topic: channelDoc.topic,
+          title: p.title,
+          selectedFramework,
+          activeFrontend,
+        });
+        for (const channelResult of channelResults) {
+          if (
+            !matchesQuery(
+              [channelResult.title, p.subtitle, p.section, channelDoc.topic],
+              q,
+            )
+          ) {
+            continue;
+          }
+          docsGroups.set(channelResult.groupKey, {
+            topic: channelDoc.topic,
+            entry: p,
+            href: channelResult.href,
+            id: channelResult.id,
+            title: channelResult.title,
+          });
+        }
+        continue;
+      }
+      // A stale or malformed index must not route an unknown Channels source
+      // through the generic framework-docs path.
+      if (isChannelDocsHref(p.href)) continue;
+
       const integrationDoc = parseIntegrationDocsHref(p.href);
       if (integrationDoc) {
         const options = docsFolderMap.get(integrationDoc.folder) ?? [];
@@ -334,7 +342,11 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
         docsGroups.set(integrationDoc.topic || "overview", {
           topic: integrationDoc.topic,
           entry: p,
-          href: frameworkDocsHref(selectedOption.slug, integrationDoc.topic),
+          href: frameworkDocsHref(
+            selectedOption.slug,
+            integrationDoc.topic,
+            activeFrontend,
+          ),
           frameworkCount: options.length,
         });
         continue;
@@ -349,7 +361,11 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
           docsGroups.set(docsTopic, {
             topic: docsTopic,
             entry: p,
-            href: normalizeHref(p.href, shellHost),
+            href: frameworkDocsHref(
+              selectedFramework,
+              docsTopic,
+              activeFrontend,
+            ),
           });
         }
         continue;
@@ -369,9 +385,9 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
 
     for (const group of docsGroups.values()) {
       items.push({
-        id: `docs:${group.topic}`,
+        id: group.id ?? `docs:${group.topic}`,
         type: "docs",
-        title: group.entry.title,
+        title: group.title ?? group.entry.title,
         subtitle: group.entry.subtitle,
         section: group.entry.section || "Framework docs",
         href: group.href,
@@ -418,7 +434,14 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     return dedupeResults(items)
       .sort((a, b) => scoreResult(a, q) - scoreResult(b, q))
       .slice(0, 12);
-  }, [query, registryData, selectedFramework, frameworkOptions, shellHost]);
+  }, [
+    query,
+    registryData,
+    selectedFramework,
+    frameworkOptions,
+    shellHost,
+    activeFrontend,
+  ]);
 
   useEffect(() => {
     setSelectedIndex((idx) =>
@@ -478,7 +501,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div
-        className="fixed inset-0 z-[200] bg-black/25 backdrop-blur-sm"
+        className="fixed inset-0 z-[200] bg-[var(--overlay-backdrop)] backdrop-blur-sm"
         onMouseDown={onClose}
       />
       <div
@@ -495,7 +518,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
           }
         }}
       >
-        <div className="overflow-visible rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_24px_70px_rgba(1,5,7,0.22),0_0_0_1px_rgba(109,69,249,0.05)]">
+        <div className="shell-docs-radius-surface overflow-visible border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-modal)]">
           <div
             aria-hidden="true"
             className="h-px bg-gradient-to-r from-transparent via-[var(--accent)]/70 to-transparent"
@@ -526,7 +549,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                 e.stopPropagation();
                 onClose();
               }}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] transition-colors"
+              className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
               aria-label="Close search"
             >
               <X className="h-4 w-4" />
@@ -546,7 +569,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                 type="button"
                 disabled={!hasFrameworkPicker}
                 onClick={() => setFrameworkPickerOpen((open) => !open)}
-                className="inline-flex h-8 max-w-[min(56vw,220px)] items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-left text-xs font-semibold text-[var(--text)] outline-none transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-hover)] focus-visible:border-[var(--accent)] disabled:opacity-60"
+                className="shell-docs-radius-control inline-flex h-8 max-w-[min(56vw,220px)] items-center justify-between gap-2 border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-left text-xs font-semibold text-[var(--text)] outline-none transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-hover)] focus-visible:border-[var(--accent)] disabled:opacity-60"
                 aria-haspopup="listbox"
                 aria-expanded={frameworkPickerOpen}
                 aria-label={`Choose docs framework. Currently ${
@@ -572,7 +595,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
               {frameworkPickerOpen && hasFrameworkPicker && (
                 <div
                   role="listbox"
-                  className="absolute left-0 top-full z-10 mt-2 max-h-[280px] w-[min(360px,calc(100vw-3rem))] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-[0_18px_50px_rgba(1,5,7,0.18)]"
+                  className="shell-docs-radius-surface absolute left-0 top-full z-10 mt-2 max-h-[280px] w-[min(360px,calc(100vw-3rem))] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-[var(--shadow-panel)]"
                 >
                   {frameworkOptions.map((option) => {
                     const selected = option.slug === selectedFramework;
@@ -583,16 +606,16 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                         role="option"
                         aria-selected={selected}
                         onClick={() => chooseFramework(option.slug)}
-                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                        className={`shell-docs-radius-control flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
                           selected
                             ? "bg-[var(--accent)]/10 text-[var(--text)]"
                             : "text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
                         }`}
                       >
                         <span
-                          className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${
+                          className={`shell-docs-radius-icon inline-flex h-7 w-7 shrink-0 items-center justify-center border ${
                             selected
-                              ? "border-[var(--accent)]/20 bg-[var(--accent)]/10 text-[var(--accent)]"
+                              ? "border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
                               : "border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-muted)]"
                           }`}
                         >
@@ -634,7 +657,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                 <button
                   key={r.id}
                   type="button"
-                  className={`w-full text-left rounded-lg px-3 py-3 flex items-center gap-3 transition-colors ${
+                  className={`shell-docs-radius-control flex w-full items-center gap-3 px-3 py-3 text-left transition-colors ${
                     idx === selectedIndex
                       ? "bg-[var(--bg-elevated)]"
                       : "hover:bg-[var(--bg-hover)]"

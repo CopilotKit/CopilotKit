@@ -7,8 +7,8 @@ import { Chat } from "./chat";
 export default function ByocHashbrownDemoPage() {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit-declarative-hashbrown"
-      agent="declarative-hashbrown-demo"
+      runtimeUrl="/api/copilotkit-byoc-hashbrown"
+      agent="byoc-hashbrown-demo"
     >
       <HashBrownDashboard>
         <div className="flex h-screen flex-col gap-3 p-6">

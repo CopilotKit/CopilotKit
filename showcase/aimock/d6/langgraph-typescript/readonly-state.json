@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / readonly-state",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -38,5 +37,8 @@
         "content": "Based on your context I can see your name and recent activity. I'll keep responses calibrated to your timezone."
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

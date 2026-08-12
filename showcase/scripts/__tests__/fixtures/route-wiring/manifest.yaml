@@ -1,0 +1,7 @@
+name: Fixture Integration
+slug: fixture-int
+features:
+  - shipped-ok
+  - shipped-broken
+  - base-route
+not_supported_features: []

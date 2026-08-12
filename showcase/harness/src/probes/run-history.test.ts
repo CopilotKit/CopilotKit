@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import {
   PROBE_RUNS_COLLECTION,
   createProbeRunWriter,
@@ -52,6 +52,10 @@ function fakePb(): {
         const m = opts.filter.match(/probe_id\s*=\s*"([^"]+)"/);
         if (m) {
           items = items.filter((r) => r.probe_id === m[1]);
+        }
+        const j = opts.filter.match(/job_id\s*=\s*"([^"]+)"/);
+        if (j) {
+          items = items.filter((r) => r.job_id === j[1]);
         }
       }
       if (opts?.sort) {
@@ -161,6 +165,75 @@ describe("run-history", () => {
         triggered: true,
       });
       expect(fake.createCalls[0]!.record.triggered).toBe(true);
+    });
+
+    it("stamps the fleet jobId (empty string when omitted for in-process runs)", async () => {
+      const writer = createProbeRunWriter(fake.pb);
+      await writer.start({
+        probeId: "e2e_d6:langgraph-python",
+        startedAt: 1_700_000_000_000,
+        triggered: false,
+        jobId: "job-abc",
+      });
+      expect(fake.createCalls[0]!.record.job_id).toBe("job-abc");
+
+      await writer.start({
+        probeId: "smoke",
+        startedAt: 1_700_000_000_000,
+        triggered: false,
+      });
+      // No jobId supplied → empty string, not undefined.
+      expect(fake.createCalls[1]!.record.job_id).toBe("");
+    });
+  });
+
+  describe("findByJobId()", () => {
+    let fake: ReturnType<typeof fakePb>;
+    beforeEach(() => {
+      fake = fakePb();
+    });
+
+    it("returns null when no row carries the jobId", async () => {
+      const writer = createProbeRunWriter(fake.pb);
+      expect(await writer.findByJobId("nope")).toBeNull();
+    });
+
+    it("returns null for an empty jobId without querying PB", async () => {
+      const writer = createProbeRunWriter(fake.pb);
+      const before = fake.listCalls.length;
+      expect(await writer.findByJobId("")).toBeNull();
+      // Empty id short-circuits — never hits the in-process job population.
+      expect(fake.listCalls.length).toBe(before);
+    });
+
+    it("reports a running row as non-terminal", async () => {
+      const writer = createProbeRunWriter(fake.pb);
+      const { id } = await writer.start({
+        probeId: "e2e_d6:x",
+        startedAt: 1_700_000_000_000,
+        triggered: false,
+        jobId: "job-running",
+      });
+      const found = await writer.findByJobId("job-running");
+      expect(found).toEqual({ id, terminal: false });
+    });
+
+    it("reports a finished row as terminal", async () => {
+      const writer = createProbeRunWriter(fake.pb);
+      const { id } = await writer.start({
+        probeId: "e2e_d6:x",
+        startedAt: 1_700_000_000_000,
+        triggered: false,
+        jobId: "job-done",
+      });
+      await writer.finish({
+        id,
+        finishedAt: 1_700_000_005_000,
+        state: "completed",
+        summary: { total: 1, passed: 1, failed: 0 },
+      });
+      const found = await writer.findByJobId("job-done");
+      expect(found).toEqual({ id, terminal: true });
     });
   });
 
@@ -352,6 +425,10 @@ describe("run-history", () => {
   // probe_runs then showed `failed / total:0` instead of reality.
   // ---------------------------------------------------------------------
   describe("sweepStaleRuns() — partial-rollup preservation", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it("preserves an existing partial summary instead of zeroing it", async () => {
       const fake = fakePb();
       const stale = new Date(Date.now() - 20 * 60 * 1000).toISOString();
@@ -384,6 +461,59 @@ describe("run-history", () => {
       // rollup MUST survive — not be overwritten with zeros.
       expect(updated.record.state).toBe("failed");
       expect(updated.record.summary).toEqual(partialSummary);
+    });
+
+    it("logs (does not silently swallow) when sweeping a row fails, then continues", async () => {
+      // A PB update failure while sweeping a zombie row must be observable —
+      // the previous empty catch discarded it silently despite a comment that
+      // claimed to "log but don't block boot". The sweep must log the failing
+      // row id + error and continue to the next row.
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const fake = fakePb();
+      const stale = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+      await fake.pb.create(PROBE_RUNS_COLLECTION, {
+        probe_id: "smoke-a",
+        started_at: stale,
+        finished_at: null,
+        duration_ms: null,
+        triggered: false,
+        state: "running",
+        summary: null,
+      });
+      const goodRow = await fake.pb.create<{ id: string }>(
+        PROBE_RUNS_COLLECTION,
+        {
+          probe_id: "smoke-b",
+          started_at: stale,
+          finished_at: null,
+          duration_ms: null,
+          triggered: false,
+          state: "running",
+          summary: null,
+        },
+      );
+      // First update (the first stale row) throws; the second succeeds.
+      let updateCount = 0;
+      const realUpdate = fake.pb.update.bind(fake.pb);
+      fake.pb.update = (async (collection, id, record) => {
+        updateCount++;
+        if (updateCount === 1) throw new Error("pb update boom");
+        return realUpdate(collection, id, record);
+      }) as typeof fake.pb.update;
+
+      const swept = await sweepStaleRuns(fake.pb);
+
+      // The failing row did not count; the second row was still swept (the
+      // loop continued past the error instead of aborting boot).
+      expect(swept).toBe(1);
+      // The failure was logged with the row id and the error — not swallowed.
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const [msg, meta] = warnSpy.mock.calls[0]!;
+      expect(String(msg)).toMatch(/sweepStaleRuns/);
+      expect(meta).toMatchObject({ runId: expect.any(String) });
+      expect(String(JSON.stringify(meta))).toContain("pb update boom");
+      // The surviving row reached a terminal failed state.
+      expect(fake.rows.get(goodRow.id)?.state).toBe("failed");
     });
 
     it("still zeroes the summary for a row that never accumulated partial results", async () => {

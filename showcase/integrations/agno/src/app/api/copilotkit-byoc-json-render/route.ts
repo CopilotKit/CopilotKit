@@ -15,7 +15,7 @@ const byocJsonRenderAgent = new HttpAgent({
 });
 
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts
+  // @ts-expect-error -- see main route.ts
   agents: { byoc_json_render: byocJsonRenderAgent },
 });
 

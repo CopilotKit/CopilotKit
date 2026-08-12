@@ -63,4 +63,42 @@ class PromoteP3Test < Minitest::Test
         out, _ = capture_io { cmd.run_with_preflight_only }
         refute_match(/REFUSE: P3/, out)
     end
+
+    # A service the SSOT marks probe.staging=false (harness-workers) must be
+    # treated as N/A by P3 — NOT handed to the probe (which crashes on a
+    # not-probe-eligible name) and NOT a REFUSE. Before the fix this REFUSEd
+    # via "staging is not green ... not probe-eligible", gating later tiers.
+    def test_ineligible_service_is_skipped_not_refused
+        skip "no probe.staging=false service in SSOT" if Railway::STAGING_PROBE_INELIGIBLE.empty?
+        ineligible = Railway::STAGING_PROBE_INELIGIBLE.first
+        cmd = make_cmd(probe_result: { ok: true, summary: "unused" }, flag: nil)
+        # Fail LOUD if P3 ever hands an ineligible-only set to the probe.
+        cmd.define_singleton_method(:run_staging_probe) do |services:|
+            raise "probe must not run for an ineligible-only set (#{services.inspect})"
+        end
+        staging = { "services" => [{ "name" => ineligible }] }
+        out, _ = capture_io { @findings = cmd.check_p3_staging_live_green(staging) }
+        assert_empty @findings, "P3 must produce no REFUSE for an ineligible-only service"
+        assert_match(/P3 N\/A \(#{Regexp.escape(ineligible)}\).*not staging-probe-eligible/, out)
+    end
+
+    # A mixed set (ineligible + eligible) must skip the ineligible one but
+    # STILL probe — and still gate on — the eligible one.
+    def test_mixed_set_still_probes_eligible
+        skip "no probe.staging=false service in SSOT" if Railway::STAGING_PROBE_INELIGIBLE.empty?
+        ineligible = Railway::STAGING_PROBE_INELIGIBLE.first
+        eligible = Railway::STAGING_SERVICES.find { |n| !Railway::STAGING_PROBE_INELIGIBLE.include?(n) }
+        cmd = make_cmd(probe_result: { ok: false, summary: "#{eligible}: HTTP 502" }, flag: nil)
+        probed = nil
+        cmd.define_singleton_method(:run_staging_probe) do |services:|
+            probed = services
+            { ok: false, summary: "#{eligible}: HTTP 502" }
+        end
+        staging = { "services" => [{ "name" => ineligible }, { "name" => eligible }] }
+        out, _ = capture_io { @findings = cmd.check_p3_staging_live_green(staging) }
+        assert_equal [eligible], probed, "P3 must probe only the eligible service"
+        assert_match(/P3 N\/A \(#{Regexp.escape(ineligible)}\)/, out)
+        assert_equal 1, @findings.size
+        assert_match(/REFUSE: P3.*#{Regexp.escape(eligible)}.*HTTP 502/, @findings.first)
+    end
 end

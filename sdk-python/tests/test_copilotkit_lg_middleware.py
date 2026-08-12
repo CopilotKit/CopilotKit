@@ -8,8 +8,8 @@ and what state updates the middleware emits):
   the agent's own tools when the model is called. When there are no frontend
   tools the request reaches the model unchanged.
 * App context from ``state["copilotkit"]["context"]`` (or ``runtime.context``)
-  becomes a ``SystemMessage`` containing ``"App Context:\\n<json>"``. Empty
-  context is a no-op. Re-running ``before_agent`` does not duplicate the note.
+  is appended to ``ModelRequest.system_message`` as ``"App Context:\\n<json>"``.
+  Empty context is a no-op. ``before_agent`` does not mutate message history.
 * ``after_model`` peels frontend tool calls off the last AIMessage so the
   ToolNode does not try to execute them; ``after_agent`` re-attaches them
   before the run ends.
@@ -30,19 +30,30 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from ag_ui.core import RunAgentInput, UserMessage
+from pydantic import Field
+from typing_extensions import TypedDict
+from langchain.agents import create_agent
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
+    BaseMessage,
     HumanMessage,
     SystemMessage,
     ToolMessage,
 )
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langgraph.constants import END, START
+from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents.middleware import ModelRequest
+from langgraph.graph import StateGraph
 
 from copilotkit.copilotkit_lg_middleware import (
     CopilotKitMiddleware,
     _extract_forwarded_headers_from_config,
 )
 from copilotkit.header_propagation import get_forwarded_headers, set_forwarded_headers
+from copilotkit.langgraph_agui_agent import LangGraphAGUIAgent
 
 
 # ---------------------------------------------------------------------------
@@ -58,13 +69,15 @@ def _make_request(
     messages: list[Any] | None = None,
 ) -> ModelRequest:
     """Build a ModelRequest with sensible defaults for testing."""
+    runtime = MagicMock(name="runtime")
+    runtime.context = None
     return ModelRequest(
         model=MagicMock(name="model"),
         messages=messages if messages is not None else [],
         system_message=system_message,
         tools=tools if tools is not None else [],
         state=state if state is not None else {"messages": []},
-        runtime=MagicMock(name="runtime"),
+        runtime=runtime,
     )
 
 
@@ -85,6 +98,39 @@ def _run_wrap(middleware: CopilotKitMiddleware, request: ModelRequest):
     result = middleware.wrap_model_call(request, handler)
     assert handler.received is not None, "handler must be called"
     return handler.received, result
+
+
+class _RecordingToolAwareChatModel(BaseChatModel):
+    """Minimal model that records the messages/tools LangChain bound to it."""
+
+    bound_tools: list[Any] = Field(default_factory=list)
+    last_messages: list[BaseMessage] = Field(default_factory=list)
+
+    @property
+    def _llm_type(self) -> str:
+        return "recording-tool-aware-chat-model"
+
+    def bind_tools(self, tools, *, tool_choice=None, **kwargs):
+        self.bound_tools = list(tools)
+        return self
+
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager=None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        self.last_messages = list(messages)
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content="ok"))])
+
+
+class _ParentState(TypedDict):
+    messages: list[Any]
+
+
+class _ParentContext(TypedDict, total=False):
+    copilotkit: dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +177,215 @@ def test_frontend_tools_merge_does_not_mutate_input_request():
     # The override(...) contract is to return a fresh request — the original
     # tools list must not have grown.
     assert [t["name"] for t in request.tools] == ["backend"]
+
+
+# ---------------------------------------------------------------------------
+# _get_copilotkit_context — fallback to LangGraph runtime carriers
+# ---------------------------------------------------------------------------
+
+
+def test_get_copilotkit_context_returns_state_level_when_present(monkeypatch):
+    """When state["copilotkit"] has actions, return it unchanged."""
+    middleware = CopilotKitMiddleware()
+    state = {
+        "copilotkit": {
+            "actions": [{"name": "fe_one"}],
+            "context": "some context",
+        }
+    }
+
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == state["copilotkit"]
+
+
+def test_get_copilotkit_context_falls_back_to_langgraph_context(monkeypatch):
+    """When state lacks copilotkit, prefer config.context.copilotkit."""
+    middleware = CopilotKitMiddleware()
+    config_copilotkit = {
+        "actions": [{"name": "fe_from_context"}],
+        "context": [{"description": "viewer role", "value": "admin"}],
+    }
+
+    def mock_get_config():
+        return {"context": {"copilotkit": config_copilotkit}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == config_copilotkit
+
+
+def test_get_copilotkit_context_falls_back_to_configurable_when_context_missing(
+    monkeypatch,
+):
+    """Older configurable-only carriers still work as a fallback."""
+    middleware = CopilotKitMiddleware()
+    config_copilotkit = {
+        "actions": [{"name": "fe_from_configurable"}],
+        "context": [{"description": "workspace", "value": "prod"}],
+    }
+
+    def mock_get_config():
+        return {"configurable": {"copilotkit": config_copilotkit}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    result = middleware._get_copilotkit_context({})
+
+    assert result == config_copilotkit
+
+
+def test_get_copilotkit_context_prefers_state_over_runtime_carriers(monkeypatch):
+    """State-level copilotkit takes precedence over config/context fallbacks."""
+    middleware = CopilotKitMiddleware()
+    state = {
+        "copilotkit": {
+            "actions": [{"name": "fe_state"}],
+        }
+    }
+
+    def mock_get_config():
+        return {
+            "configurable": {
+                "copilotkit": {
+                    "actions": [{"name": "fe_config"}],
+                }
+            }
+        }
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    result = middleware._get_copilotkit_context(state)
+
+    assert result["actions"][0]["name"] == "fe_state"
+
+
+def test_get_copilotkit_context_returns_empty_dict_when_not_found(monkeypatch):
+    """When copilotkit is not in state or config, return empty dict."""
+    middleware = CopilotKitMiddleware()
+
+    def mock_get_config():
+        return {"configurable": {}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == {}
+
+
+def test_get_copilotkit_context_handles_missing_config(monkeypatch):
+    """When get_config raises, return empty state copilotkit."""
+    middleware = CopilotKitMiddleware()
+
+    def mock_get_config():
+        raise RuntimeError("No active context")
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == {}
+
+
+def test_wrap_model_call_injects_frontend_tools_from_context_bridge(monkeypatch):
+    """wrap_model_call uses the runtime context bridge when state lacks copilotkit."""
+    middleware = CopilotKitMiddleware()
+    backend_tool = {"name": "backend_tool"}
+    fe_tools = [{"name": "fe_from_context"}]
+
+    def mock_get_config():
+        return {"context": {"copilotkit": {"actions": fe_tools}}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    # State has no copilotkit key, but config does.
+    request = _make_request(state={"messages": []}, tools=[backend_tool])
+
+    seen, _ = _run_wrap(middleware, request)
+
+    seen_names = [t["name"] for t in seen.tools]
+    assert "backend_tool" in seen_names
+    assert "fe_from_context" in seen_names
+
+
+def test_real_subgraph_context_bridge_reaches_child_agent():
+    """A real AG-UI run carries tools and app context into a child agent."""
+    model = _RecordingToolAwareChatModel()
+    middleware = CopilotKitMiddleware()
+    child_agent = create_agent(
+        model=model,
+        tools=[],
+        middleware=[middleware],
+        context_schema=_ParentContext,
+    )
+    parent = StateGraph(_ParentState, context_schema=_ParentContext)
+    parent.add_node("child", child_agent)
+    parent.add_edge(START, "child")
+    parent.add_edge("child", END)
+    agent = LangGraphAGUIAgent(
+        name="parent", graph=parent.compile(checkpointer=MemorySaver())
+    )
+
+    async def consume_run():
+        return [
+            event
+            async for event in agent.run(
+                RunAgentInput(
+                    thread_id="t-1",
+                    run_id="r-1",
+                    state={},
+                    messages=[UserMessage(id="m-1", content="hi")],
+                    tools=[
+                        {
+                            "name": "frontend_lookup",
+                            "description": "frontend tool",
+                        }
+                    ],
+                    context=[
+                        {
+                            "description": "viewer role",
+                            "value": "admin",
+                        }
+                    ],
+                    forwarded_props={},
+                )
+            )
+        ]
+
+    asyncio.run(consume_run())
+
+    assert model.last_messages, "child model should receive the parent run"
+    assert [tool.get("name") for tool in model.bound_tools] == ["frontend_lookup"]
+    system_messages = [
+        msg for msg in model.last_messages if isinstance(msg, SystemMessage)
+    ]
+    assert system_messages, "middleware should inject an app-context system message"
+    assert any("App Context:" in msg.content for msg in system_messages)
+    assert any("admin" in msg.content for msg in system_messages)
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +628,52 @@ def test_expose_state_allowlist_never_surfaces_forwarded_headers():
 
 
 # ---------------------------------------------------------------------------
+# App Context system prompt injection
+# ---------------------------------------------------------------------------
+
+
+def test_wrap_model_call_appends_app_context_to_existing_system_message():
+    middleware = CopilotKitMiddleware()
+    request = _make_request(
+        state={
+            "messages": [HumanMessage("previous turn")],
+            "copilotkit": {
+                "context": [{"description": "viewer role", "value": "admin"}]
+            },
+        },
+        messages=[HumanMessage("previous turn")],
+        system_message=SystemMessage(content="You are a helpful assistant."),
+    )
+
+    seen, _ = _run_wrap(middleware, request)
+
+    assert seen.system_message is not None
+    body = seen.system_message.content
+    assert isinstance(body, str)
+    assert "You are a helpful assistant." in body
+    assert "App Context:" in body
+    assert "admin" in body
+    assert body.index("You are a helpful assistant.") < body.index("App Context:")
+    assert all(
+        "App Context:" not in (m.content if isinstance(m.content, str) else "")
+        for m in seen.messages
+    )
+
+
+def test_before_agent_does_not_inject_app_context_into_message_state():
+    middleware = CopilotKitMiddleware()
+    state = {
+        "messages": [HumanMessage("hi")],
+        "copilotkit": {"context": [{"description": "viewer role", "value": "admin"}]},
+    }
+    runtime = MagicMock(name="runtime", context=None)
+
+    result = middleware.before_agent(state, runtime)
+
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
 # Async wrapper parity
 # ---------------------------------------------------------------------------
 
@@ -408,16 +709,15 @@ def test_async_wrap_mirrors_sync_behavior_for_state_and_tools():
 
 
 # ---------------------------------------------------------------------------
-# before_agent — App Context injection
+# App Context injection
 # ---------------------------------------------------------------------------
 
 
-def _system_contents(messages: list[Any]) -> list[str]:
-    return [
-        m.content if isinstance(m.content, str) else str(m.content)
-        for m in messages
-        if isinstance(m, SystemMessage)
-    ]
+def _system_message_text(request: ModelRequest) -> str:
+    assert request.system_message is not None
+    content = request.system_message.content
+    assert isinstance(content, str)
+    return content
 
 
 def test_before_agent_no_context_returns_no_update():
@@ -430,23 +730,25 @@ def test_before_agent_no_context_returns_no_update():
     assert result is None
 
 
-def test_before_agent_injects_app_context_system_message():
+def test_wrap_model_call_injects_app_context_system_message():
     middleware = CopilotKitMiddleware()
-    state = {
-        "messages": [HumanMessage("hi")],
-        "copilotkit": {"context": [{"description": "viewer role", "value": "admin"}]},
-    }
-    runtime = MagicMock(name="runtime", context=None)
+    request = _make_request(
+        state={
+            "messages": [HumanMessage("hi")],
+            "copilotkit": {
+                "context": [{"description": "viewer role", "value": "admin"}]
+            },
+        }
+    )
 
-    result = middleware.before_agent(state, runtime)
+    seen, _ = _run_wrap(middleware, request)
 
-    assert result is not None
-    sys_contents = _system_contents(result["messages"])
-    assert any("App Context:" in s for s in sys_contents)
-    assert any("admin" in s for s in sys_contents)
+    body = _system_message_text(seen)
+    assert "App Context:" in body
+    assert "admin" in body
 
 
-def test_before_agent_idempotent_does_not_duplicate_context():
+def test_before_agent_repeated_calls_do_not_mutate_messages():
     middleware = CopilotKitMiddleware()
     state = {
         "messages": [HumanMessage("hi")],
@@ -457,25 +759,20 @@ def test_before_agent_idempotent_does_not_duplicate_context():
     first = middleware.before_agent(state, runtime) or state
     second = middleware.before_agent(first, runtime) or first
 
-    sys_messages = [m for m in second["messages"] if isinstance(m, SystemMessage)]
-    app_context_messages = [
-        m
-        for m in sys_messages
-        if isinstance(m.content, str) and m.content.startswith("App Context:")
-    ]
-    assert len(app_context_messages) == 1
+    assert first is state
+    assert second is state
+    assert second["messages"] == [HumanMessage("hi")]
 
 
-def test_before_agent_uses_runtime_context_when_state_context_empty():
+def test_wrap_model_call_uses_runtime_context_when_state_context_empty():
     middleware = CopilotKitMiddleware()
-    state = {"messages": [HumanMessage("hi")], "copilotkit": {}}
-    runtime = MagicMock(name="runtime", context="route=/dashboard")
+    request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
+    request.runtime.context = "route=/dashboard"
 
-    result = middleware.before_agent(state, runtime)
+    seen, _ = _run_wrap(middleware, request)
 
-    assert result is not None
-    sys_contents = _system_contents(result["messages"])
-    assert any("/dashboard" in s for s in sys_contents)
+    body = _system_message_text(seen)
+    assert "/dashboard" in body
 
 
 def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context():
@@ -518,36 +815,33 @@ def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context()
     )
 
 
-def test_before_agent_strips_forwarded_headers_but_keeps_real_app_context():
+def test_wrap_model_call_strips_forwarded_headers_but_keeps_real_app_context():
     """When ``runtime.context`` contains both a genuine app key AND the
     transport-only ``copilotkit_forwarded_headers`` wrapper, the App Context
-    system message must still be injected with the real key, but the forwarded
+    system note must still be injected with the real key, but the forwarded
     headers must be filtered out.
     """
     middleware = CopilotKitMiddleware()
-    state = {"messages": [HumanMessage("hi")], "copilotkit": {}}
-    runtime = MagicMock(
-        name="runtime",
-        context={
-            "user_tier": "pro",
-            "copilotkit_forwarded_headers": {
-                "x-aimock-context": "showcase/d6",
-            },
+    request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
+    request.runtime.context = {
+        "user_tier": "pro",
+        "copilotkit_forwarded_headers": {
+            "x-aimock-context": "showcase/d6",
         },
-    )
+    }
 
-    result = middleware.before_agent(state, runtime)
+    seen, _ = _run_wrap(middleware, request)
 
-    assert result is not None
-    sys_contents = _system_contents(result["messages"])
+    body = _system_message_text(seen)
     # The genuine app context is still surfaced.
-    assert any("App Context:" in s for s in sys_contents)
-    assert any("user_tier" in s and "pro" in s for s in sys_contents)
+    assert "App Context:" in body
+    assert "user_tier" in body
+    assert "pro" in body
     # The transport-layer wrapper is stripped from the rendered prompt.
-    assert not any("copilotkit_forwarded_headers" in s for s in sys_contents), (
+    assert "copilotkit_forwarded_headers" not in body, (
         "copilotkit_forwarded_headers must be filtered out of the App Context message"
     )
-    assert not any("x-aimock-context" in s for s in sys_contents), (
+    assert "x-aimock-context" not in body, (
         "forwarded header values must never appear in a system prompt"
     )
 
@@ -1072,3 +1366,331 @@ class TestExtractForwardedHeadersFromConfig:
         _extract_forwarded_headers_from_config()
         headers = get_forwarded_headers()
         assert headers.get("x-aimock-context") == "via-context"
+
+
+# ---------------------------------------------------------------------------
+# Auto-A2UI — middleware injects + executes generate_a2ui when the frontend
+# registered a catalog (surfaced into state["ag-ui"]["a2ui_schema"])
+# ---------------------------------------------------------------------------
+#
+# Contract: the developer passes nothing — using the middleware is enough.
+# generate_a2ui is advertised to the model only when an A2UI catalog is
+# present, is built from the agent's own (inferred) model, and is executed by
+# the middleware itself (it is never in the agent's static tool registry).
+
+from langgraph.prebuilt.tool_node import ToolCallRequest  # noqa: E402
+from copilotkit.copilotkit_lg_middleware import (  # noqa: E402
+    get_a2ui_tools,
+    _a2ui_tools_by_thread,
+)
+
+_a2ui_unavailable = pytest.mark.skipif(
+    get_a2ui_tools is None,
+    reason=(
+        "ag-ui-langgraph without get_a2ui_tools; the single-arg "
+        "A2UIToolParams API needs the OSS-248 release (>=0.0.41)"
+    ),
+)
+
+
+def _make_tool_request(name: str, *, tool: Any = None, state: dict | None = None):
+    return ToolCallRequest(
+        tool_call={"name": name, "id": "tc-1", "args": {}},
+        tool=tool,
+        state=state if state is not None else {"messages": []},
+        runtime=MagicMock(name="runtime"),
+    )
+
+
+def _run_wrap_tool(middleware: CopilotKitMiddleware, request: ToolCallRequest):
+    handler = _CapturingHandler()
+    middleware.wrap_tool_call(request, handler)
+    return handler.received
+
+
+# A2UI is opt-in: injection requires the inject_a2ui_tool flag (forwarded by the
+# A2UI middleware and surfaced into ag-ui state). The catalog/schema only binds
+# generated surfaces; it is not the gate.
+_A2UI_STATE = {
+    "messages": [],
+    "ag-ui": {"a2ui_schema": "<components/>", "inject_a2ui_tool": True},
+}
+
+
+@_a2ui_unavailable
+class TestAutoA2UI:
+    def setup_method(self) -> None:
+        # Isolate the module-level bridge between tests (thread id is None in
+        # unit tests, so all calls share _DEFAULT_THREAD_KEY).
+        _a2ui_tools_by_thread.clear()
+
+    def test_not_injected_without_flag(self):
+        middleware = CopilotKitMiddleware()
+        request = _make_request(state={"messages": []}, tools=[{"name": "backend"}])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        assert [t["name"] for t in seen.tools] == ["backend"]
+
+    def test_not_injected_when_flag_absent_even_with_catalog(self):
+        """Opt-in: a catalog alone never triggers injection without the flag."""
+        middleware = CopilotKitMiddleware()
+        state = {"messages": [], "ag-ui": {"a2ui_schema": "<components/>"}}
+        request = _make_request(state=state, tools=[{"name": "backend"}])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        assert "generate_a2ui" not in names
+        assert "backend" in names
+
+    def test_injected_when_flag_present(self):
+        middleware = CopilotKitMiddleware()
+        request = _make_request(state=dict(_A2UI_STATE), tools=[{"name": "backend"}])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        assert "backend" in names
+        assert "generate_a2ui" in names
+
+    # --- host a2ui_params override (the design-guidelines parity gap) ---------
+    #
+    # Before this, the auto-inject path hardwired get_a2ui_tools to the toolkit
+    # defaults: a host serving via CopilotKitMiddleware() could NOT override the
+    # design/generation guidelines (e.g. to favor a repeating-card layout). The
+    # a2ui_params kwarg threads a host override through; the middleware still
+    # injects the bound model and folds the registered catalog in (host wins).
+
+    @staticmethod
+    def _spy_get_a2ui_tools(monkeypatch) -> "list[dict]":
+        """Patch get_a2ui_tools to capture the params dict it is called with and
+        return a stub tool named generate_a2ui. Returns the capture list."""
+        captured: "list[dict]" = []
+
+        def _spy(params):
+            captured.append(params)
+            stub = MagicMock(name="generate_a2ui_tool")
+            stub.name = "generate_a2ui"
+            return stub
+
+        monkeypatch.setattr("copilotkit.copilotkit_lg_middleware.get_a2ui_tools", _spy)
+        return captured
+
+    # Runtime-proxy path: a registered catalog arrives as a context entry, so
+    # the middleware derives a component_schema + catalog_id to fold in.
+    _A2UI_CONTEXT_STATE = {
+        "messages": [],
+        "ag-ui": {"inject_a2ui_tool": True},
+        "copilotkit": {
+            "context": [
+                {
+                    "description": "A2UI catalog capabilities",
+                    "value": "Available A2UI catalog:\n- my-custom-catalog\n"
+                    "  - Card: {...}",
+                }
+            ]
+        },
+    }
+
+    def test_host_a2ui_params_guidelines_reach_subagent(self, monkeypatch):
+        captured = self._spy_get_a2ui_tools(monkeypatch)
+        middleware = CopilotKitMiddleware(
+            a2ui_params={"guidelines": {"design_guidelines": "REPEAT_CARDS_MARK"}}
+        )
+        request = _make_request(state=dict(_A2UI_STATE), tools=[])
+
+        _run_wrap(middleware, request)
+
+        assert len(captured) == 1
+        params = captured[0]
+        # Host override survives...
+        assert params["guidelines"]["design_guidelines"] == "REPEAT_CARDS_MARK"
+        # ...the middleware still injects the bound model...
+        assert params["model"] is request.model
+        # ...and the native path contributes no composition_guide.
+        assert "composition_guide" not in params["guidelines"]
+
+    def test_host_override_merges_with_registered_catalog(self, monkeypatch):
+        captured = self._spy_get_a2ui_tools(monkeypatch)
+        middleware = CopilotKitMiddleware(
+            a2ui_params={"guidelines": {"design_guidelines": "REPEAT_CARDS_MARK"}}
+        )
+
+        _run_wrap(
+            middleware, _make_request(state=dict(self._A2UI_CONTEXT_STATE), tools=[])
+        )
+
+        params = captured[0]
+        # Host guidance preserved alongside the catalog the middleware folded in.
+        assert params["guidelines"]["design_guidelines"] == "REPEAT_CARDS_MARK"
+        assert "my-custom-catalog" in params["guidelines"]["composition_guide"]
+        assert params["default_catalog_id"] == "my-custom-catalog"
+
+    def test_host_composition_guide_and_catalog_id_win(self, monkeypatch):
+        captured = self._spy_get_a2ui_tools(monkeypatch)
+        middleware = CopilotKitMiddleware(
+            a2ui_params={
+                "default_catalog_id": "host-catalog",
+                "guidelines": {"composition_guide": "HOST_COMP"},
+            }
+        )
+
+        _run_wrap(
+            middleware, _make_request(state=dict(self._A2UI_CONTEXT_STATE), tools=[])
+        )
+
+        params = captured[0]
+        # Host-set values are never clobbered by the registered catalog.
+        assert params["guidelines"]["composition_guide"] == "HOST_COMP"
+        assert params["default_catalog_id"] == "host-catalog"
+
+    def test_default_no_params_carries_only_model(self, monkeypatch):
+        captured = self._spy_get_a2ui_tools(monkeypatch)
+        middleware = CopilotKitMiddleware()
+        request = _make_request(state=dict(_A2UI_STATE), tools=[])
+
+        _run_wrap(middleware, request)
+
+        params = captured[0]
+        # Prior behavior intact: just the inferred model, no host guidelines, no
+        # catalog (native path with a non-JSON schema yields neither).
+        assert params["model"] is request.model
+        assert "guidelines" not in params
+        assert "default_catalog_id" not in params
+
+    def test_executed_via_wrap_tool_call_with_inferred_model(self):
+        middleware = CopilotKitMiddleware()
+        # Model call infers the model + stashes the built tool.
+        _run_wrap(middleware, _make_request(state=dict(_A2UI_STATE), tools=[]))
+
+        received = _run_wrap_tool(
+            middleware, _make_tool_request("generate_a2ui", tool=None)
+        )
+
+        assert received.tool is not None
+        assert received.tool.name == "generate_a2ui"
+
+    def test_other_tool_call_passes_through_untouched(self):
+        middleware = CopilotKitMiddleware()
+        _run_wrap(middleware, _make_request(state=dict(_A2UI_STATE), tools=[]))
+
+        backend_tool = MagicMock(name="backend")
+        received = _run_wrap_tool(
+            middleware, _make_tool_request("backend", tool=backend_tool)
+        )
+
+        assert received.tool is backend_tool
+
+    def test_bridge_cleared_after_agent_stops_execution(self):
+        middleware = CopilotKitMiddleware()
+        _run_wrap(middleware, _make_request(state=dict(_A2UI_STATE), tools=[]))
+        middleware.after_agent(dict(_A2UI_STATE), MagicMock(name="runtime"))
+
+        received = _run_wrap_tool(
+            middleware, _make_tool_request("generate_a2ui", tool=None)
+        )
+
+        assert received.tool is None
+
+    # --- catalog sourced from wherever the frontend passed it ----------------
+
+    def test_injected_from_copilotkit_context(self):
+        """CopilotKit runtime-proxy path: catalog arrives as a context entry
+        (the flag still gates injection)."""
+        middleware = CopilotKitMiddleware()
+        state = {
+            "messages": [],
+            "ag-ui": {"inject_a2ui_tool": True},
+            "copilotkit": {
+                "context": [
+                    {
+                        "description": "A2UI catalog capabilities: available "
+                        "catalog IDs and custom component definitions.",
+                        "value": "Available A2UI catalog:\n- my-custom-catalog\n"
+                        "  - Card: {...}\n  - Metric: {...}",
+                    }
+                ]
+            },
+        }
+        request = _make_request(state=state, tools=[{"name": "backend"}])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        assert "generate_a2ui" in names
+        assert "backend" in names
+
+    def test_resolve_catalog_from_context_extracts_catalog_id(self):
+        schema, catalog_id = CopilotKitMiddleware._resolve_a2ui_catalog(
+            {
+                "copilotkit": {
+                    "context": [
+                        {
+                            "description": "A2UI catalog capabilities",
+                            "value": "Available A2UI catalog:\n- declarative-gen-ui-catalog\n  ...",
+                        }
+                    ]
+                }
+            }
+        )
+        assert catalog_id == "declarative-gen-ui-catalog"
+        assert schema and "declarative-gen-ui-catalog" in schema
+
+    def test_resolve_catalog_from_native_schema_extracts_catalog_id(self):
+        schema, catalog_id = CopilotKitMiddleware._resolve_a2ui_catalog(
+            {
+                "ag-ui": {
+                    "a2ui_schema": json.dumps({"catalogId": "cat-x", "components": []})
+                }
+            }
+        )
+        # Native path: toolkit reads a2ui_schema from state, so no guide needed.
+        assert schema is None
+        assert catalog_id == "cat-x"
+
+    def test_resolve_catalog_none_when_absent(self):
+        assert CopilotKitMiddleware._resolve_a2ui_catalog({"messages": []}) is None
+
+    # --- A2UI injectA2UITool flag (forwarded → ag-ui state) ------------------
+
+    def test_inject_decision_reads_ag_ui_flag(self):
+        read = CopilotKitMiddleware._a2ui_inject_decision
+        assert read({"ag-ui": {"inject_a2ui_tool": True}}) is True
+        assert read({"ag-ui": {"inject_a2ui_tool": "render_x"}}) == "render_x"
+        assert read({"ag-ui": {"inject_a2ui_tool": False}}) is False
+        # No flag at all → None (opt-in: no injection).
+        assert read({"ag-ui": {}}) is None
+        assert read({"messages": []}) is None
+
+    def test_render_tool_dropped_when_ours_injected(self):
+        """When we inject generate_a2ui, the runtime's render_a2ui (forwarded as
+        a frontend action) is not advertised — the model sees one A2UI tool."""
+        middleware = CopilotKitMiddleware()
+        state = {
+            **_A2UI_STATE,
+            "copilotkit": {
+                "actions": [{"name": "render_a2ui"}, {"name": "fe_tool"}],
+            },
+        }
+        request = _make_request(state=state, tools=[])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        assert "generate_a2ui" in names
+        assert "fe_tool" in names
+        assert "render_a2ui" not in names
+
+    def test_not_injected_when_agent_already_defines_tool(self):
+        """Agent already exposes generate_a2ui → don't double-inject."""
+        middleware = CopilotKitMiddleware()
+        existing = MagicMock()
+        existing.name = "generate_a2ui"
+        request = _make_request(state=dict(_A2UI_STATE), tools=[existing])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        # Only the agent's own tool — no second generate_a2ui appended.
+        assert names.count("generate_a2ui") == 1

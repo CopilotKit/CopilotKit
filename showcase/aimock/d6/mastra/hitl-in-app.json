@@ -45,10 +45,10 @@
       }
     },
     {
-      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call. The post-tool-result fixture above (with toolCallId + hasToolResult: true) is more specific and wins on the 2nd turn, so hasToolResult: false is NOT needed here — omitting it allows this fixture to match even in multi-pill conversations where prior tool results exist.",
+      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call. Keyed on hasToolResult:false (NOT turnIndex) so it matches the emit turn (no tool result yet) and is excluded on the post-approval turn (hasToolResult:true), which the toolCallId fixture above handles. Multi-pill-safe: each pill click is a fresh user turn, so hasToolResult is scoped to after the latest user message and is false at emit time regardless of prior pills. Do NOT use turnIndex here — aimock's relaxed-turnIndex selection (default) would re-serve this emit fixture on the post-approval turn, re-triggering the approval loop (PNI-100).",
       "match": {
         "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {
@@ -74,10 +74,10 @@
       }
     },
     {
-      "_comment": "hitl-in-app — downgrade pill (#12346). 1st turn: emit request_user_approval tool call. Specific userMessage substring takes precedence over the bare 'plan' fixture in feature-parity.json (which lives later in the load order). hasToolResult: false omitted so multi-pill conversations still match.",
+      "_comment": "hitl-in-app — downgrade pill (#12346). 1st turn: emit request_user_approval tool call. Specific userMessage substring takes precedence over the bare 'plan' fixture in feature-parity.json (which lives later in the load order). Keyed on hasToolResult:false (NOT turnIndex) so it matches the emit turn and is excluded post-approval; the toolCallId fixture above handles the post-approval turn. See the refund fixture comment re: PNI-100 / relaxed-turnIndex.",
       "match": {
         "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {
@@ -103,10 +103,10 @@
       }
     },
     {
-      "_comment": "hitl-in-app — escalate pill (#12347). 1st turn: emit request_user_approval tool call. hasToolResult: false omitted so multi-pill conversations still match (the post-tool-result fixture above with toolCallId is more specific and wins on the 2nd turn).",
+      "_comment": "hitl-in-app — escalate pill (#12347). 1st turn: emit request_user_approval tool call. Keyed on hasToolResult:false (NOT turnIndex) so it matches the emit turn and is excluded post-approval; the toolCallId fixture above handles the post-approval turn. See the refund fixture comment re: PNI-100 / relaxed-turnIndex.",
       "match": {
         "userMessage": "escalate ticket #12347 to the payments team",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {

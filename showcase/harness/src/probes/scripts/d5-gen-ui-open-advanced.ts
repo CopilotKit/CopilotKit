@@ -29,7 +29,7 @@
  *                                                          on the host page).
  *
  * Side effect: importing this module triggers `registerD5Script`. The
- * default loader in `e2e-deep.ts` discovers it via the `d5-*` filename
+ * default loader in `d6-all-pills.ts` discovers it via the `d5-*` filename
  * convention.
  */
 
@@ -117,7 +117,12 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return [
     {
       input: "Inline expression evaluator",
-      assertions: assertAdvancedIframe,
+      // Wrapped so the assertions callback ignores the Phase-4 `ctx`
+      // argument: `assertAdvancedIframe` takes `(page, timeoutMs?)`, not
+      // `(page, ctx)`, and ctx is irrelevant to the iframe-mount probe.
+      assertions: async (page) => {
+        await assertAdvancedIframe(page);
+      },
     },
   ];
 }

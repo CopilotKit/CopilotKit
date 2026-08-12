@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, test } from "vitest";
 import { matchRoute } from "../core/fetch-router";
 
 describe("fetch-router", () => {
@@ -28,6 +28,14 @@ describe("fetch-router", () => {
       expect(result).toEqual({ method: "agent/connect", agentId: "myAgent" });
     });
 
+    it("matches POST /agent/:agentId/suggest", () => {
+      const result = matchRoute(
+        "/api/copilotkit/agent/myAgent/suggest",
+        basePath,
+      );
+      expect(result).toEqual({ method: "agent/suggest", agentId: "myAgent" });
+    });
+
     it("matches POST /agent/:agentId/stop/:threadId", () => {
       const result = matchRoute(
         "/api/copilotkit/agent/myAgent/stop/thread-123",
@@ -53,6 +61,34 @@ describe("fetch-router", () => {
     it("matches GET /threads", () => {
       const result = matchRoute("/api/copilotkit/threads", basePath);
       expect(result).toEqual({ method: "threads/list" });
+    });
+
+    it("matches GET /memories", () => {
+      const result = matchRoute("/api/copilotkit/memories", basePath);
+      expect(result).toEqual({ method: "memories/list" });
+    });
+
+    it("matches /memories/:id to memories/mutate with the id", () => {
+      const result = matchRoute("/api/copilotkit/memories/mem-123", basePath);
+      expect(result).toEqual({
+        method: "memories/mutate",
+        memoryId: "mem-123",
+      });
+    });
+
+    it("matches POST /memories/subscribe (not memories/mutate)", () => {
+      const result = matchRoute("/api/copilotkit/memories/subscribe", basePath);
+      expect(result).toEqual({ method: "memories/subscribe" });
+    });
+
+    it("matches POST /memories/recall to memories/recall (not memories/mutate)", () => {
+      const result = matchRoute("/api/copilotkit/memories/recall", basePath);
+      expect(result).toEqual({ method: "memories/recall" });
+    });
+
+    it("matches POST /annotate", () => {
+      const result = matchRoute("/api/copilotkit/annotate", basePath);
+      expect(result).toEqual({ method: "annotate" });
     });
 
     it("matches POST /threads/subscribe", () => {
@@ -212,6 +248,18 @@ describe("fetch-router", () => {
       });
     });
 
+    it("matches /agent/:agentId/suggest suffix", () => {
+      const result = matchRoute("/anything/agent/myAgent/suggest");
+      expect(result).toEqual({ method: "agent/suggest", agentId: "myAgent" });
+    });
+
+    it("matches /agent/:agentId/suggest", () => {
+      expect(matchRoute("/agent/default/suggest", "")).toEqual({
+        method: "agent/suggest",
+        agentId: "default",
+      });
+    });
+
     it("matches /agent/:agentId/stop/:threadId suffix", () => {
       const result = matchRoute("/anything/agent/ag/stop/t1");
       expect(result).toEqual({
@@ -229,6 +277,11 @@ describe("fetch-router", () => {
     it("matches /threads suffix", () => {
       const result = matchRoute("/anything/threads");
       expect(result).toEqual({ method: "threads/list" });
+    });
+
+    it("matches /annotate suffix", () => {
+      const result = matchRoute("/anything/annotate");
+      expect(result).toEqual({ method: "annotate" });
     });
 
     it("matches /threads/subscribe suffix", () => {
@@ -272,5 +325,14 @@ describe("fetch-router", () => {
       const result = matchRoute("/api/cpk-debug-events", "/api");
       expect(result).toEqual({ method: "cpk-debug-events" });
     });
+  });
+});
+
+test("fetch-router matches inspector metadata with and without a base path", () => {
+  expect(
+    matchRoute("/api/copilotkit/inspector-metadata", "/api/copilotkit"),
+  ).toEqual({ method: "inspector/metadata" });
+  expect(matchRoute("/nested/runtime/inspector-metadata")).toEqual({
+    method: "inspector/metadata",
   });
 });

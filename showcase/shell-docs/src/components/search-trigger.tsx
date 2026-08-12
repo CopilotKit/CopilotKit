@@ -78,7 +78,7 @@ export function SearchTrigger({
     return (
       <button
         onClick={toggleShellSearch}
-        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-[0_1px_0_rgba(1,5,7,0.03)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+        className="shell-docs-radius-control flex h-10 w-10 cursor-pointer items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
         aria-label="Search"
         title="Search"
       >
@@ -94,7 +94,7 @@ export function SearchTrigger({
       <button
         onClick={toggleShellSearch}
         aria-label="Search"
-        className="flex h-9 w-9 cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-[var(--text-muted)] shadow-[0_1px_0_rgba(1,5,7,0.03)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] lg:w-[220px] xl:w-[260px]"
+        className="shell-docs-radius-control flex h-10 w-10 cursor-pointer items-center gap-2 border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-[var(--text-muted)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] lg:w-[220px] xl:w-[260px]"
       >
         <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
 
@@ -103,10 +103,9 @@ export function SearchTrigger({
         </span>
 
         <span
-          className="hidden xl:inline-flex items-center justify-center gap-1 font-mono text-[11px] border border-[var(--border)] px-1.5 py-0.5 rounded-md text-[var(--text-faint)] bg-[var(--bg-surface)]"
+          className="shell-docs-radius-control hidden min-w-[3.25rem] items-center justify-center gap-1 border border-[var(--border)] bg-[var(--bg-surface)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--text-faint)] xl:inline-flex"
           // Reserve horizontal room so the button doesn't reflow when the
           // shortcut hint appears after hydration.
-          style={{ minWidth: "3.25rem" }}
           suppressHydrationWarning
         >
           {isMac === null ? (

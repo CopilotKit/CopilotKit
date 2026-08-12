@@ -135,6 +135,7 @@ describe("d5-multimodal script", () => {
     await expect(
       turns[0]!.assertions!(
         makePage("the image attachment shows a small abstract test pattern"),
+        { bubbleIndex: 0, text: "" },
       ),
     ).resolves.toBeUndefined();
   });
@@ -150,7 +151,10 @@ describe("d5-multimodal script", () => {
     // the assertion has time to exhaust its budget and throw the
     // missing-keyword error.
     await expect(
-      turns[0]!.assertions!(makePage("nothing here")),
+      turns[0]!.assertions!(makePage("nothing here"), {
+        bubbleIndex: 0,
+        text: "",
+      }),
     ).rejects.toThrow(/missing keyword "image"/);
   }, 8_000);
 });

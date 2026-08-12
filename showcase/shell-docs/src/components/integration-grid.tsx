@@ -28,24 +28,13 @@ export function IntegrationGrid({
     <>
       <h2>Choose your AI backend</h2>
       {description && (
-        <p style={{ marginBottom: "1rem", color: "var(--text-secondary)" }}>
-          {description}
-        </p>
+        <p className="mb-4 text-[var(--text-secondary)]">{description}</p>
       )}
-      <div
-        style={{
-          padding: "1rem",
-          background: "var(--bg-elevated)",
-          borderRadius: "0.5rem",
-          marginBottom: "1rem",
-          fontSize: "0.875rem",
-          color: "var(--text-muted)",
-        }}
-      >
+      <div className="shell-docs-radius-surface mb-4 bg-[var(--bg-elevated)] p-4 text-sm text-[var(--text-muted)]">
         See{" "}
         <a
           href={`${shellHost}/integrations`}
-          style={{ color: "var(--accent)" }}
+          className="text-[var(--accent)]"
           // shellHost is the SSR placeholder during server-render and the
           // real value post-hydration (runtime-config.client.ts). React
           // would otherwise log a hydration mismatch on this href every

@@ -1,54 +1,41 @@
-import { data } from "../../../data";
-import { NextRequest } from "next/server";
-
-const getCardById = (id: string) => {
-  const card = data.cards.find((card) => card.id === id);
-  if (!card) {
-    return null;
-  }
-  return card;
-};
+import * as store from "@/lib/store";
+import type { NextRequest } from "next/server";
 
 // Get policy per card
 export const GET = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
-  const card = getCardById(params.id);
+  const { id } = await params;
+  const card = store.findCard(id);
   if (!card) {
     return new Response(JSON.stringify({ error: "Card not found" }), {
       status: 404,
     });
   }
-  const policy = data.policies.find(
-    (policy) => policy.id === card.expensePolicyId,
-  );
+  const policy = card.expensePolicyId
+    ? store.findPolicy(card.expensePolicyId)
+    : undefined;
   return new Response(JSON.stringify(policy), { status: 200 });
 };
 
 // Assign policy
 export const POST = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
   try {
-    const card = getCardById(params.id);
+    const { id } = await params;
+    const card = store.findCard(id);
     if (!card) {
       return new Response(JSON.stringify({ error: "Card not found" }), {
         status: 404,
       });
     }
-    // Handle new card creation
     const body = await req.json();
     const { policyId } = body;
-    const newCard = { ...card, expensePolicyId: policyId };
-    data.cards = data.cards.map((card) => {
-      if (card.id === params.id) {
-        return newCard;
-      }
-      return card;
-    });
-    return new Response(JSON.stringify(newCard), { status: 201 });
+    const updated = store.assignPolicyToCard(id, policyId);
+    return new Response(JSON.stringify(updated), { status: 201 });
   } catch (error) {
     console.error("POST Request error", error);
   }

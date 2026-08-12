@@ -16,7 +16,7 @@ Example:
 
 import json
 import re
-from typing import Any, Callable, Awaitable, ClassVar, Iterable, Union
+from typing import Any, Callable, Awaitable, ClassVar, Iterable, Optional, Union
 
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain.agents.middleware import (
@@ -30,9 +30,51 @@ from langgraph.runtime import Runtime
 from .header_propagation import install_httpx_hook, set_forwarded_headers
 from .langgraph import CopilotKitProperties
 
+# Optional dependency: the A2UI subagent-tool factory ships in ag-ui-langgraph.
+# Guarded so an older/skewed version without the factory degrades to
+# "no auto-A2UI" instead of breaking the whole middleware import.
+try:  # pragma: no cover - exercised indirectly via the a2ui injection path
+    from ag_ui_langgraph import get_a2ui_tools, A2UIToolParams
+except Exception:  # noqa: BLE001 - any import failure means the feature is off
+    get_a2ui_tools = None
+    A2UIToolParams = None
+
 # Track which httpx clients already have the header-propagation hook installed
 # (by object id) so we never double-install on repeated model calls.
 _hooked_clients: set[int] = set()
+
+# ---------------------------------------------------------------------------
+# Auto-A2UI: bridge the inferred model from the model-call hook to the
+# tool-call hook
+# ---------------------------------------------------------------------------
+# The generate_a2ui tool drives a structured-output subagent and so needs a
+# chat model. We "infer" that model from ``request.model`` in
+# ``wrap_model_call`` (the only hook that exposes the bound model) and reuse it.
+# But the tool actually *executes* later in ``wrap_tool_call``, whose request
+# does NOT carry the model. ContextVars do not reliably survive LangGraph node
+# boundaries, so we bridge the built tool across nodes via a module-level map
+# keyed by the run's thread id.
+_a2ui_tools_by_thread: dict[str, Any] = {}
+
+# Fallback key for runs without a thread id (e.g. an in-memory invoke with no
+# checkpointer). Collisions across concurrent context-less runs are an
+# acceptable edge — the deployed path always carries a thread id.
+_DEFAULT_THREAD_KEY = "__copilotkit_a2ui_default__"
+
+
+def _current_thread_id() -> "str | None":
+    """Best-effort read of the active run's thread id from the LangGraph config.
+
+    Returns ``None`` outside a runnable context (e.g. unit tests); callers then
+    fall back to ``_DEFAULT_THREAD_KEY``.
+    """
+    try:
+        from langgraph.config import get_config
+
+        cfg = get_config() or {}
+        return (cfg.get("configurable") or {}).get("thread_id")
+    except Exception:  # noqa: BLE001 - no active context / older langgraph
+        return None
 
 
 def _extract_forwarded_headers_from_config() -> None:
@@ -147,6 +189,9 @@ class StateSchema(AgentState):
     copilotkit: CopilotKitProperties
 
 
+StateSchema.__annotations__["ag-ui"] = CopilotKitProperties
+
+
 # Internal/framework keys that should never be surfaced to the LLM as
 # user-facing state. These are either reducer-managed message buckets,
 # CopilotKit/AG-UI plumbing, or graph-internal scaffolding.
@@ -189,6 +234,20 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             - ``list``/``tuple``/``set[str]`` — only surface the named keys.
               Use this when you want explicit control over what the LLM
               sees (e.g. ``["liked", "todos"]``).
+        a2ui_params: Optional host overrides for the auto-injected
+            ``generate_a2ui`` tool, forwarded to ``get_a2ui_tools`` when A2UI
+            injection fires. An ``A2UIToolParams``-shaped dict: ``guidelines``
+            (``generation_guidelines`` / ``design_guidelines`` /
+            ``composition_guide``), ``default_catalog_id``,
+            ``default_surface_id``, ``tool_name``, ``recovery``, etc. Lets a
+            host steer the subagent (e.g. override the default design
+            guidelines to favor a repeating-card layout) on the auto-inject
+            path, which otherwise only ever uses the toolkit defaults.
+
+            The middleware always injects ``model`` from the bound request
+            model (the host cannot supply the live, header-hooked model), and
+            folds the registered catalog id + component schema into the params
+            unless the host already set them — so host values win.
     """
 
     state_schema = StateSchema
@@ -198,16 +257,74 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         self,
         *,
         expose_state: Union[bool, Iterable[str]] = False,
+        a2ui_params: "Optional[A2UIToolParams]" = None,
     ):
         super().__init__()
         if isinstance(expose_state, bool):
             self._expose_state: Union[bool, frozenset[str]] = expose_state
         else:
             self._expose_state = frozenset(expose_state)
+        # Host-supplied A2UI tool overrides (guidelines, catalog id, tool name,
+        # recovery, ...). Copied so later mutation of the caller's dict can't
+        # bleed into the middleware. ``model`` + the registered catalog are
+        # layered in at build time; everything here is host-owned and wins.
+        self._a2ui_params: dict = dict(a2ui_params or {})
 
     @property
     def name(self) -> str:
         return "CopilotKitMiddleware"
+
+    @staticmethod
+    def _has_copilotkit_payload(candidate: Any) -> bool:
+        return isinstance(candidate, dict) and (
+            bool(candidate.get("actions")) or bool(candidate.get("context"))
+        )
+
+    @staticmethod
+    def _copilotkit_from_runtime_context(runtime_context: Any) -> dict[str, Any]:
+        if not isinstance(runtime_context, dict):
+            return {}
+        nested = runtime_context.get("copilotkit")
+        if CopilotKitMiddleware._has_copilotkit_payload(nested):
+            return nested
+        if CopilotKitMiddleware._has_copilotkit_payload(runtime_context):
+            return runtime_context
+        return {}
+
+    @staticmethod
+    def _get_copilotkit_context(
+        state: dict,
+        runtime_context: Any = None,
+    ) -> dict:
+        """Read copilotkit context from state, runtime context, then config carriers.
+
+        When the agent runs as a subgraph, the parent may not propagate the
+        copilotkit state key onto child state, but it may still be present on
+        the model request/runtime context. Current LangGraph prefers
+        ``config["context"]`` for run-scoped context and older paths still rely on
+        ``config["configurable"]``, so we check both.
+        """
+        ck = state.get("copilotkit") or {}
+        if CopilotKitMiddleware._has_copilotkit_payload(ck):
+            return ck
+        runtime_ck = CopilotKitMiddleware._copilotkit_from_runtime_context(
+            runtime_context
+        )
+        if runtime_ck:
+            return runtime_ck
+        try:
+            from langgraph.config import get_config
+
+            cfg = get_config() or {}
+            for carrier in (cfg.get("context"), cfg.get("configurable")):
+                candidate = CopilotKitMiddleware._copilotkit_from_runtime_context(
+                    carrier or {}
+                )
+                if candidate:
+                    return candidate
+            return ck
+        except Exception:  # noqa: BLE001 - no active context / older langgraph
+            return ck
 
     # ------------------------------------------------------------------
     # State-to-prompt surfacing
@@ -273,7 +390,208 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             system_message=SystemMessage(content=f"{base}\n\n{note}")
         )
 
-    # Inject frontend tools and surface user state before model call
+    def _build_app_context_note(
+        self,
+        state: dict[str, Any],
+        runtime_context: Any = None,
+    ) -> str | None:
+        copilotkit_state = self._get_copilotkit_context(state, runtime_context)
+        app_context = copilotkit_state.get("context")
+
+        if not app_context:
+            if isinstance(runtime_context, dict):
+                app_context = {
+                    k: v
+                    for k, v in runtime_context.items()
+                    if k != "copilotkit_forwarded_headers"
+                }
+            else:
+                app_context = runtime_context
+
+        if isinstance(app_context, dict):
+            app_context = {
+                k: v
+                for k, v in app_context.items()
+                if k != "copilotkit_forwarded_headers"
+            }
+
+        if not app_context:
+            return None
+        if isinstance(app_context, str) and app_context.strip() == "":
+            return None
+        if isinstance(app_context, dict) and len(app_context) == 0:
+            return None
+
+        if isinstance(app_context, str):
+            context_content = app_context
+        else:
+            if hasattr(app_context, "model_dump"):
+                app_context = app_context.model_dump()
+            elif isinstance(app_context, list):
+                app_context = [
+                    item.model_dump() if hasattr(item, "model_dump") else item
+                    for item in app_context
+                ]
+            context_content = json.dumps(app_context, indent=2)
+
+        return f"App Context:\n{context_content}"
+
+    def _apply_app_context_note(self, request: ModelRequest) -> ModelRequest:
+        note = self._build_app_context_note(
+            request.state or {},
+            getattr(request.runtime, "context", None),
+        )
+        if not note:
+            return request
+        existing = request.system_message
+        if existing is None:
+            return request.override(system_message=SystemMessage(content=note))
+        base = (
+            existing.content
+            if isinstance(existing.content, str)
+            else str(existing.content)
+        )
+        return request.override(
+            system_message=SystemMessage(content=f"{base}\n\n{note}")
+        )
+
+    # ------------------------------------------------------------------
+    # Auto-A2UI tool injection
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_a2ui_catalog(state: dict) -> "tuple[str | None, str | None] | None":
+        """Find the frontend-registered A2UI catalog wherever it was passed.
+
+        Returns ``(component_schema, catalog_id)`` when a catalog is present,
+        else ``None`` (so the tool is never advertised when the client can't
+        render A2UI). Two delivery paths are supported, because the catalog
+        lands in different places depending on how the agent is served:
+
+        - **AG-UI native endpoint** → ``state["ag-ui"]["a2ui_schema"]``, a JSON
+          string ``{"catalogId": ..., "components": [...]}``.
+        - **CopilotKit runtime proxy** → a ``state["copilotkit"]["context"]``
+          entry describing the A2UI catalog (catalog id + component schemas as
+          text).
+
+        ``component_schema`` is the text/JSON the subagent should compose from;
+        ``catalog_id`` binds generated surfaces to the frontend's catalog (so
+        BYOC custom catalogs render their own components, not the basic one).
+        """
+        # AG-UI native path.
+        ag_ui = state.get("ag-ui") or {}
+        a2ui_schema = ag_ui.get("a2ui_schema")
+        if a2ui_schema:
+            catalog_id = None
+            try:
+                parsed = (
+                    json.loads(a2ui_schema)
+                    if isinstance(a2ui_schema, str)
+                    else a2ui_schema
+                )
+                if isinstance(parsed, dict):
+                    catalog_id = parsed.get("catalogId")
+            except (TypeError, ValueError):
+                pass
+            # Native path: the toolkit reads ``a2ui_schema`` from state itself,
+            # so no composition_guide is needed — just surface the catalog id.
+            return None, catalog_id
+
+        # CopilotKit runtime-proxy path: the catalog arrives as a context entry.
+        context = (
+            CopilotKitMiddleware._get_copilotkit_context(state).get("context") or []
+        )
+        for entry in context:
+            if not isinstance(entry, dict):
+                continue
+            description = entry.get("description") or ""
+            value = entry.get("value") or ""
+            if "A2UI catalog" not in description or not value:
+                continue
+            # The value lists catalogs as "- <catalogId>" lines; the first is
+            # the custom catalog the client registered.
+            match = re.search(r"(?m)^\s*-\s+(\S+)", value)
+            catalog_id = match.group(1) if match else None
+            return value, catalog_id
+
+        return None
+
+    @staticmethod
+    def _a2ui_inject_decision(state: dict) -> "bool | str | None":
+        """Return the A2UI ``injectA2UITool`` decision, or ``None``.
+
+        The ``@ag-ui/a2ui-middleware`` forwards its ``injectA2UITool`` setting on
+        ``forwardedProps``, which ``ag-ui-langgraph`` surfaces into agent state at
+        ``state["ag-ui"]["inject_a2ui_tool"]`` — present only when the host turned
+        the runtime A2UI tool on (truthy or a custom tool-name string). ``None``
+        means no signal at all (off, or no A2UI middleware in the pipeline), in
+        which case we do not auto-inject.
+        """
+        return (state.get("ag-ui") or {}).get("inject_a2ui_tool")
+
+    def _maybe_build_a2ui_tool(self, request: ModelRequest) -> Any | None:
+        """Build a ``generate_a2ui`` tool bound to the agent's own model when
+        A2UI tool injection is turned on for this run.
+
+        Gating, in order:
+
+        1. **Opt-in.** Only inject when the A2UI ``injectA2UITool`` flag is
+           truthy (forwarded by ``@ag-ui/a2ui-middleware`` and surfaced at
+           ``state["ag-ui"]["inject_a2ui_tool"]``). No flag → no injection. This
+           is the whole contract: "no injectA2UITool, no A2UI tool injection."
+        2. **No double-inject.** If the agent already exposes a tool with the
+           same name (e.g. a backend-defined ``generate_a2ui``), don't inject —
+           the host owns it, and a duplicate would show the model two tools with
+           one name.
+
+        The model is inferred from ``request.model`` (the bound agent model); the
+        component schema and catalog id come from the registered catalog (when
+        present) so the subagent composes the right components and surfaces bind
+        to the frontend's catalog — otherwise the toolkit's basic catalog is
+        used. The built tool is stashed for the tool-call hook to execute.
+        Returns the tool or ``None`` when A2UI is not applicable.
+        """
+        if get_a2ui_tools is None:
+            return None
+        state = request.state or {}
+
+        # (1) Opt-in: only inject when the host turned the A2UI tool on.
+        if not self._a2ui_inject_decision(state):
+            return None
+
+        # Bind to the frontend's catalog when one was registered (optional).
+        resolved = self._resolve_a2ui_catalog(state)
+        component_schema, catalog_id = resolved if resolved else (None, None)
+
+        # Shared A2UIToolParams: a single params object owned by the toolkit.
+        # Start from the host overrides (guidelines / catalog id / tool name /
+        # recovery) so a host can steer the subagent, then layer in only what
+        # the host cannot know — the bound model, and the registered catalog id
+        # + component schema — without clobbering any host-set value.
+        params: "A2UIToolParams" = dict(self._a2ui_params)
+        params["model"] = request.model
+        if catalog_id and "default_catalog_id" not in params:
+            params["default_catalog_id"] = catalog_id
+        # Feed the registered component schema to the subagent so it composes
+        # only catalog components (the toolkit appends this to its prompt).
+        # Merge into any host ``guidelines`` bag; a host-set composition_guide
+        # wins, and host generation/design overrides are preserved.
+        if component_schema:
+            guidelines = dict(params.get("guidelines") or {})
+            guidelines.setdefault("composition_guide", component_schema)
+            params["guidelines"] = guidelines
+
+        tool = get_a2ui_tools(params)
+
+        # (2) Don't double-inject if the agent already defines this tool.
+        existing_names = {getattr(t, "name", None) for t in (request.tools or [])}
+        if tool.name in existing_names:
+            return None
+
+        _a2ui_tools_by_thread[_current_thread_id() or _DEFAULT_THREAD_KEY] = tool
+        return tool
+
+    # Inject frontend + A2UI tools and surface user state before model call
     def wrap_model_call(
         self,
         request: ModelRequest,
@@ -282,13 +600,29 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         _extract_forwarded_headers_from_config()
         _ensure_httpx_hook(request.model)
         request = self._apply_state_note(request)
-        frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
+        request = self._apply_app_context_note(request)
 
-        if not frontend_tools:
+        a2ui_tool = self._maybe_build_a2ui_tool(request)
+        frontend_tools = self._get_copilotkit_context(
+            request.state or {},
+            getattr(request.runtime, "context", None),
+        ).get("actions", [])
+        if a2ui_tool is not None:
+            # Our generate_a2ui replaces the runtime's render tool — don't
+            # advertise both. Drop the render tool the A2UI middleware injected.
+            decision = self._a2ui_inject_decision(request.state or {})
+            drop = decision if isinstance(decision, str) else "render_a2ui"
+            frontend_tools = [
+                t
+                for t in frontend_tools
+                if ((t.get("function") or {}).get("name") or t.get("name")) != drop
+            ]
+
+        if not frontend_tools and a2ui_tool is None:
             return handler(request)
 
-        # Merge frontend tools with existing tools
-        merged_tools = [*request.tools, *frontend_tools]
+        extra_tools = [a2ui_tool] if a2ui_tool is not None else []
+        merged_tools = [*request.tools, *extra_tools, *frontend_tools]
 
         return handler(request.override(tools=merged_tools))
 
@@ -473,16 +807,66 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         _ensure_httpx_hook(request.model)
         self._fix_messages_for_bedrock(request.messages)
         request = self._apply_state_note(request)
+        request = self._apply_app_context_note(request)
 
-        frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
+        a2ui_tool = self._maybe_build_a2ui_tool(request)
+        frontend_tools = self._get_copilotkit_context(
+            request.state or {},
+            getattr(request.runtime, "context", None),
+        ).get("actions", [])
+        if a2ui_tool is not None:
+            # Our generate_a2ui replaces the runtime's render tool — don't
+            # advertise both. Drop the render tool the A2UI middleware injected.
+            decision = self._a2ui_inject_decision(request.state or {})
+            drop = decision if isinstance(decision, str) else "render_a2ui"
+            frontend_tools = [
+                t
+                for t in frontend_tools
+                if ((t.get("function") or {}).get("name") or t.get("name")) != drop
+            ]
 
-        if not frontend_tools:
+        if not frontend_tools and a2ui_tool is None:
             return await handler(request)
 
-        # Merge frontend tools with existing tools
-        merged_tools = [*request.tools, *frontend_tools]
+        extra_tools = [a2ui_tool] if a2ui_tool is not None else []
+        merged_tools = [*request.tools, *extra_tools, *frontend_tools]
 
         return await handler(request.override(tools=merged_tools))
+
+    # ------------------------------------------------------------------
+    # Auto-A2UI tool execution
+    # ------------------------------------------------------------------
+    # The generate_a2ui tool is advertised dynamically in wrap_model_call and is
+    # NOT in create_agent's static tool registry, so the tool node cannot
+    # execute it on its own. These hooks supply the implementation (built with
+    # the inferred model) for that one tool; their presence also disables
+    # create_agent's "unknown tool" guard for dynamically-advertised tools.
+
+    def _resolve_a2ui_request(self, request: Any) -> Any:
+        """Return a request overridden with the stashed A2UI tool when this
+        tool call targets it, else the original request unchanged."""
+        tool = _a2ui_tools_by_thread.get(_current_thread_id() or _DEFAULT_THREAD_KEY)
+        if (
+            tool is not None
+            and getattr(request, "tool", None) is None
+            and request.tool_call.get("name") == tool.name
+        ):
+            return request.override(tool=tool)
+        return request
+
+    def wrap_tool_call(
+        self,
+        request: Any,
+        handler: Callable[[Any], Any],
+    ) -> Any:
+        return handler(self._resolve_a2ui_request(request))
+
+    async def awrap_tool_call(
+        self,
+        request: Any,
+        handler: Callable[[Any], Awaitable[Any]],
+    ) -> Any:
+        return await handler(self._resolve_a2ui_request(request))
 
     # Inject app context before agent runs
     def before_agent(
@@ -490,117 +874,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state: StateSchema,
         runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
-        messages = state.get("messages", [])
-
-        if not messages:
-            return None
-
-        # Get app context from state or runtime
-        copilotkit_state = state.get("copilotkit", {})
-        app_context = copilotkit_state.get("context") or getattr(
-            runtime, "context", None
-        )
-
-        # Strip the reserved transport-layer key ``copilotkit_forwarded_headers``
-        # so it is never rendered into the LLM prompt. langgraph-api auto-copies
-        # ``config.configurable`` into ``runtime.context``, which means the
-        # forwarded-headers wrapper dict shows up here even though it is only
-        # meant for the httpx hook (which reads it from a separate ContextVar
-        # via ``_extract_forwarded_headers_from_config``).
-        if isinstance(app_context, dict):
-            app_context = {
-                k: v
-                for k, v in app_context.items()
-                if k != "copilotkit_forwarded_headers"
-            }
-
-        # Check if app_context is missing or empty
-        if not app_context:
-            return None
-        if isinstance(app_context, str) and app_context.strip() == "":
-            return None
-        if isinstance(app_context, dict) and len(app_context) == 0:
-            return None
-
-        # Create the context content
-        if isinstance(app_context, str):
-            context_content = app_context
-        else:
-            # Handle Pydantic models (e.g. ag_ui Context)
-            if hasattr(app_context, "model_dump"):
-                app_context = app_context.model_dump()
-            elif isinstance(app_context, list):
-                app_context = [
-                    item.model_dump() if hasattr(item, "model_dump") else item
-                    for item in app_context
-                ]
-            context_content = json.dumps(app_context, indent=2)
-
-        context_message_content = f"App Context:\n{context_content}"
-        context_message_prefix = "App Context:\n"
-
-        # Helper to get message content as string
-        def get_content_string(msg: Any) -> str | None:
-            content = getattr(msg, "content", None)
-            if isinstance(content, str):
-                return content
-            if isinstance(content, list) and content and isinstance(content[0], dict):
-                return content[0].get("text")
-            return None
-
-        # Find the first system/developer message (not our context message)
-        # to determine where to insert our context message (right after it)
-        first_system_index = -1
-
-        for i, msg in enumerate(messages):
-            msg_type = getattr(msg, "type", None)
-            if msg_type in ("system", "developer"):
-                content = get_content_string(msg)
-                # Skip if this is our own context message
-                if content and content.startswith(context_message_prefix):
-                    continue
-                first_system_index = i
-                break
-
-        # Check if our context message already exists
-        existing_context_index = -1
-        for i, msg in enumerate(messages):
-            msg_type = getattr(msg, "type", None)
-            if msg_type in ("system", "developer"):
-                content = get_content_string(msg)
-                if content and content.startswith(context_message_prefix):
-                    existing_context_index = i
-                    break
-
-        # Create the context message.
-        # When replacing an existing context message, reuse its ID so the
-        # add_messages reducer updates in-place instead of appending a
-        # duplicate at the end of the message list.
-        if existing_context_index != -1:
-            existing_id = getattr(messages[existing_context_index], "id", None)
-            context_message = SystemMessage(
-                content=context_message_content, id=existing_id
-            )
-        else:
-            context_message = SystemMessage(content=context_message_content)
-
-        if existing_context_index != -1:
-            # Replace existing context message
-            updated_messages = list(messages)
-            updated_messages[existing_context_index] = context_message
-        else:
-            # Insert after the first system message, or at position 0 if no system message
-            insert_index = first_system_index + 1 if first_system_index != -1 else 0
-            updated_messages = [
-                *messages[:insert_index],
-                context_message,
-                *messages[insert_index:],
-            ]
-
-        return {
-            **state,
-            "messages": updated_messages,
-        }
+        return None
 
     async def abefore_agent(
         self,
@@ -616,7 +890,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state: StateSchema,
         runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
-        frontend_tools = state.get("copilotkit", {}).get("actions", [])
+        frontend_tools = self._get_copilotkit_context(
+            state,
+            getattr(runtime, "context", None),
+        ).get("actions", [])
         if not frontend_tools:
             return None
 
@@ -678,6 +955,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state: StateSchema,
         runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
+        # Drop the bridged A2UI tool for this run — all tool calls for the turn
+        # have executed by now; the next model call re-stashes if needed.
+        _a2ui_tools_by_thread.pop(_current_thread_id() or _DEFAULT_THREAD_KEY, None)
+
         copilotkit_state = state.get("copilotkit", {})
         intercepted_tool_calls = copilotkit_state.get("intercepted_tool_calls")
         original_message_id = copilotkit_state.get("original_ai_message_id")

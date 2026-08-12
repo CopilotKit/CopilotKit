@@ -6,3 +6,6 @@ export * from "./intelligence-agent";
 export * from "./utils/micro-redux";
 export * from "./utils/phoenix-observable";
 export * from "./threads";
+export * from "./memory";
+export * from "./features";
+export * from "./interrupt-state";

@@ -1,10 +1,19 @@
 import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
-import { isIntelligenceRuntime, resolveAgents } from "../core/runtime";
-import type { AgentDescription, RuntimeInfo } from "@copilotkit/shared";
-import { type RuntimeLicenseStatus } from "@copilotkit/shared";
+import {
+  isA2UIEnabled,
+  isIntelligenceRuntime,
+  resolveAgents,
+} from "../core/runtime";
+import type {
+  AgentDescription,
+  RuntimeInfo,
+  ThreadEndpointRuntimeInfo,
+} from "@copilotkit/shared";
+import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
+import { supportsLocalThreadEndpoints } from "../runner/agent-runner";
 
 function resolveLicenseStatus(
   runtime: CopilotRuntimeLike,
@@ -22,14 +31,20 @@ function resolveLicenseStatus(
 interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntimeLike;
   request: Request;
+  threadEndpointsEnabled?: boolean;
 }
 
 export async function handleGetRuntimeInfo({
   runtime,
   request,
+  threadEndpointsEnabled = true,
 }: HandleGetRuntimeInfoParameters) {
   try {
-    const agents = await resolveAgents(runtime.agents, request);
+    const webEnabled =
+      !isIntelligenceRuntime(runtime) || runtime.identifyUser !== undefined;
+    const agents = webEnabled
+      ? await resolveAgents(runtime.agents, request)
+      : {};
 
     const agentEntries = await Promise.all(
       Object.entries(agents).map(async ([name, agent]) => {
@@ -65,17 +80,41 @@ export async function handleGetRuntimeInfo({
     const runtimeInfo: RuntimeInfo = {
       version: VERSION,
       agents: agentsDict,
-      audioFileTranscriptionEnabled: !!runtime.transcriptionService,
+      audioFileTranscriptionEnabled:
+        webEnabled && !!runtime.transcriptionService,
       mode: runtime.mode,
-      ...(isIntelligenceRuntime(runtime)
+      threadEndpoints: resolveThreadEndpointInfo(
+        runtime,
+        threadEndpointsEnabled && webEnabled,
+      ),
+      // Advertised unconditionally. Multi-route runtimes expose the dedicated
+      // POST /agent/:agentId/suggest path; single-route clients fall back to a
+      // client-side run (they don't construct the single-route envelope for
+      // suggest). The flag lets multi-route clients detect the stateless path.
+      suggestions: webEnabled,
+      ...(isIntelligenceRuntime(runtime) && webEnabled
         ? {
             intelligence: {
               wsUrl: runtime.intelligence.ɵgetClientWsUrl(),
             },
+            inspectorMetadata: true,
           }
         : {}),
-      a2uiEnabled: !!runtime.a2ui,
-      openGenerativeUIEnabled: !!runtime.openGenerativeUI,
+      // Legacy flat flag, kept for older clients. The `a2ui` object below is
+      // the source of truth: it preserves the per-agent scoping that this
+      // boolean discards (see CopilotKit/CopilotKit#5369). Both go through the
+      // shared isA2UIEnabled() predicate so an explicit `enabled: false`
+      // disables a2ui here exactly as it does on the run path.
+      a2uiEnabled: webEnabled && isA2UIEnabled(runtime.a2ui),
+      ...(webEnabled && isA2UIEnabled(runtime.a2ui)
+        ? {
+            a2ui: {
+              enabled: true,
+              ...(runtime.a2ui.agents ? { agents: runtime.a2ui.agents } : {}),
+            },
+          }
+        : {}),
+      openGenerativeUIEnabled: webEnabled && !!runtime.openGenerativeUI,
       ...(isIntelligenceRuntime(runtime)
         ? { licenseStatus: resolveLicenseStatus(runtime) }
         : {}),
@@ -98,4 +137,23 @@ export async function handleGetRuntimeInfo({
       },
     );
   }
+}
+
+function resolveThreadEndpointInfo(
+  runtime: CopilotRuntimeLike,
+  threadEndpointsEnabled: boolean,
+): ThreadEndpointRuntimeInfo {
+  const hasRestThreadBackend =
+    isIntelligenceRuntime(runtime) ||
+    supportsLocalThreadEndpoints(runtime.runner);
+  const restEndpointsAvailable = threadEndpointsEnabled && hasRestThreadBackend;
+  const managedThreadMetadata =
+    threadEndpointsEnabled && isIntelligenceRuntime(runtime);
+
+  return {
+    list: restEndpointsAvailable,
+    inspect: restEndpointsAvailable,
+    mutations: managedThreadMetadata,
+    realtimeMetadata: managedThreadMetadata,
+  };
 }

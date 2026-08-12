@@ -1,0 +1,94 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="-10%" r="120%">
+      <stop offset="0%" stop-color="#ede9fe"/>
+      <stop offset="45%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="26" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+    <filter id="cardshadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.07"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Heading -->
+  <g transform="translate(80,64)">
+    <rect width="36" height="36" rx="10" fill="#0f172a"/>
+    <text x="18" y="25" text-anchor="middle" fill="#ffffff" font-size="20" font-weight="700">A</text>
+    <text x="50" y="25" fill="#0f172a" font-size="19" font-weight="600">Arcade <tspan fill="#94a3b8">×</tspan> CopilotKit</text>
+    <text x="50" y="48" fill="#64748b" font-size="14">Authenticated tools, rendered as generative UI</text>
+  </g>
+
+  <!-- Chat panel -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="150" width="1040" height="430" rx="22" fill="#ffffff" stroke="#e5e7eb"/>
+  </g>
+  <!-- Panel header -->
+  <g transform="translate(104,176)">
+    <circle cx="6" cy="6" r="6" fill="#f87171"/>
+    <circle cx="26" cy="6" r="6" fill="#fbbf24"/>
+    <circle cx="46" cy="6" r="6" fill="#34d399"/>
+    <text x="70" y="11" fill="#94a3b8" font-size="13" font-weight="500">Assistant  powered by Arcade tools</text>
+  </g>
+  <line x1="80" y1="208" x2="1120" y2="208" stroke="#f1f5f9"/>
+
+  <!-- User message bubble -->
+  <g transform="translate(596,236)">
+    <rect width="500" height="44" rx="14" fill="#0f172a"/>
+    <text x="24" y="28" fill="#e2e8f0" font-size="15">Email me a 3-bullet summary of today's AI news</text>
+  </g>
+
+  <!-- Authorization card (the star) -->
+  <g transform="translate(104,308)" filter="url(#cardshadow)">
+    <rect width="560" height="150" rx="18" fill="#f5f3ff" stroke="#ddd6fe"/>
+    <!-- icon chip -->
+    <rect x="20" y="20" width="40" height="40" rx="12" fill="url(#accent)"/>
+    <!-- lock icon -->
+    <g transform="translate(30,30)" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="9" width="15" height="9.5" rx="2"/>
+      <path d="M6 9V6a4 4 0 0 1 8 0v3"/>
+    </g>
+    <text x="74" y="38" fill="#1e293b" font-size="16" font-weight="600">Connect Gmail</text>
+    <rect x="455" y="24" width="86" height="22" rx="11" fill="#ffffff" stroke="#e9d5ff"/>
+    <text x="498" y="39" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="600">Authorization</text>
+    <text x="20" y="78" fill="#64748b" font-size="13.5">Arcade needs you to authorize Gmail once. Your credentials are</text>
+    <text x="20" y="97" fill="#64748b" font-size="13.5">vaulted by Arcade and never shared with the model.</text>
+    <!-- Connect button -->
+    <rect x="20" y="110" width="160" height="34" rx="9" fill="url(#accent)"/>
+    <text x="44" y="132" fill="#ffffff" font-size="14" font-weight="600">Connect Gmail</text>
+    <g transform="translate(150,121)" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M0 6h12M7 1l5 5-5 5"/>
+    </g>
+    <text x="196" y="132" fill="#94a3b8" font-size="12">Opens in a new tab</text>
+  </g>
+
+  <!-- Email sent card -->
+  <g transform="translate(688,308)" filter="url(#cardshadow)">
+    <rect width="408" height="150" rx="18" fill="#ecfdf5" stroke="#a7f3d0"/>
+    <rect x="20" y="20" width="40" height="40" rx="12" fill="#059669"/>
+    <!-- check icon -->
+    <g transform="translate(30,30)" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17 4 7.5 14 2 8.5"/>
+    </g>
+    <text x="74" y="38" fill="#1e293b" font-size="16" font-weight="600">Email sent</text>
+    <rect x="320" y="24" width="64" height="22" rx="11" fill="#ffffff" stroke="#bbf7d0"/>
+    <text x="352" y="39" text-anchor="middle" fill="#059669" font-size="12" font-weight="600">Gmail</text>
+    <text x="20" y="84" fill="#94a3b8" font-size="13">To</text>
+    <text x="64" y="84" fill="#334155" font-size="13" font-weight="500">me@example.com</text>
+    <text x="20" y="112" fill="#94a3b8" font-size="13">Subject</text>
+    <text x="80" y="112" fill="#334155" font-size="13" font-weight="500">Today's AI news  3 bullets</text>
+  </g>
+
+  <!-- Caption -->
+  <text x="600" y="612" text-anchor="middle" fill="#94a3b8" font-size="14">
+    Arcade brokers the OAuth · CopilotKit renders it as generative UI · credentials never reach the LLM
+  </text>
+</svg>

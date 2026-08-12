@@ -20,14 +20,34 @@ import {
   TranscriptionService,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
-import type { TranscribeFileOptions } from "@copilotkit/runtime/v2";
-import { HttpAgent } from "@ag-ui/client";
+import type {
+  CopilotRuntimeOptions,
+  TranscribeFileOptions,
+} from "@copilotkit/runtime/v2";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
+type VoiceOpenAI = ConstructorParameters<
+  typeof TranscriptionServiceOpenAI
+>[0]["openai"];
 
-const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/` });
+const voiceDemoAgent = createClaudeHttpAgent(`${AGENT_URL}/`);
+type StaticRuntimeAgents = Awaited<
+  Exclude<CopilotRuntimeOptions["agents"], (...args: never[]) => unknown>
+>;
+type RuntimeAgent = StaticRuntimeAgents[keyof StaticRuntimeAgents];
+
+// CopilotRuntime 1.59.4 types against @ag-ui/client@0.0.53 while the
+// current local install may still expose @ag-ui/client@0.0.55 at the app root.
+// AbstractAgent has private fields, so TypeScript treats those otherwise
+// compatible HttpAgent instances nominally. Keep the bridge at the runtime
+// boundary; package.json/lock align the clean install back to 0.0.53.
+const voiceDemoAgents: Record<string, RuntimeAgent> = {
+  "voice-demo": voiceDemoAgent as unknown as RuntimeAgent,
+  default: voiceDemoAgent as unknown as RuntimeAgent,
+};
 
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;
@@ -36,7 +56,12 @@ class GuardedOpenAITranscriptionService extends TranscriptionService {
     super();
     const apiKey = process.env.OPENAI_API_KEY;
     this.delegate = apiKey
-      ? new TranscriptionServiceOpenAI({ openai: new OpenAI({ apiKey }) })
+      ? new TranscriptionServiceOpenAI({
+          // @copilotkit/voice currently bundles its own OpenAI package copy.
+          // The runtime client shape is compatible, but OpenAI's private fields
+          // make TypeScript treat the two package instances nominally.
+          openai: new OpenAI({ apiKey }) as unknown as VoiceOpenAI,
+        })
       : null;
   }
 
@@ -57,13 +82,7 @@ function getHandler(): (req: Request) => Promise<Response> {
   if (cachedHandler) return cachedHandler;
 
   const runtime = new CopilotRuntime({
-    // @ts-ignore -- Published CopilotRuntime agents type wraps Record in
-    // MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in
-    // source, pending release.
-    agents: {
-      "voice-demo": voiceDemoAgent,
-      default: voiceDemoAgent,
-    },
+    agents: voiceDemoAgents,
     transcriptionService: new GuardedOpenAITranscriptionService(),
   });
 

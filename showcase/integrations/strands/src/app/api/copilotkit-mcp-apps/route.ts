@@ -31,6 +31,11 @@ function createAgent() {
 
 const mcpAppsAgent = createAgent();
 const agents = {
+  // headless-complete shares this runtime (its page wires
+  // runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the single
+  // shared Strands Agent at "/" — the same backend the main route
+  // registers it against.
+  "headless-complete": createAgent(),
   "mcp-apps": mcpAppsAgent,
   default: mcpAppsAgent,
 };
@@ -42,7 +47,9 @@ const agents = {
 // `activity` event that the built-in `MCPAppsActivityRenderer` renders
 // inline in the chat.
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
+  // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
+  // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
+  // plain Records. Fixed in source, pending release.
   agents,
   mcpApps: {
     servers: [

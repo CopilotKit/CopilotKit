@@ -1,0 +1,62 @@
+---
+title: "CopilotKitCoreRuntimeConnectionStatus"
+description: "Connection states between CopilotKitCore and the CopilotRuntime."
+---
+
+## Overview
+
+`CopilotKitCoreRuntimeConnectionStatus` represents the state of the connection between `CopilotKitCore` and its runtime. You encounter it via `copilotkit.runtimeConnectionStatus` and the `onRuntimeConnectionStatusChanged` subscriber callback.
+
+## Import
+
+```ts
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+```
+
+## Definition
+
+```ts
+enum CopilotKitCoreRuntimeConnectionStatus {
+  Disconnected = "disconnected",
+  Connected = "connected",
+  Connecting = "connecting",
+  Error = "error",
+}
+```
+
+## Members
+
+<PropertyReference name="Disconnected" type="disconnected">
+  No connection to the runtime has been established. This is the initial state when no `runtimeUrl` is set.
+</PropertyReference>
+
+<PropertyReference name="Connected" type="connected">
+  The runtime responded successfully and the client is ready to run agents.
+</PropertyReference>
+
+<PropertyReference name="Connecting" type="connecting">
+  A connection attempt is in flight — runtime info is being fetched.
+</PropertyReference>
+
+<PropertyReference name="Error" type="error">
+  The connection attempt failed.
+</PropertyReference>
+
+## Usage
+
+```ts
+copilotkit.subscribe({
+  onRuntimeConnectionStatusChanged: ({ status }) => {
+    if (status === CopilotKitCoreRuntimeConnectionStatus.Connected) {
+      enableChat();
+    } else if (status === CopilotKitCoreRuntimeConnectionStatus.Error) {
+      showConnectionError();
+    }
+  },
+});
+```
+
+## Related
+
+- [CopilotKitCore](/reference/core/classes/CopilotKitCore) — exposes the connection lifecycle via `runtimeConnectionStatus`.
+- [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber) — `onRuntimeConnectionStatusChanged` receives this status.

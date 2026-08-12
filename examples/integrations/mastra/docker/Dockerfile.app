@@ -4,8 +4,13 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install dependencies (no lockfile in this starter)
-COPY package.json ./
+# Install dependencies (no lockfile in this starter).
+# .npmrc must be copied alongside package.json: it carries
+# legacy-peer-deps=true, without which npm install fails with ERESOLVE
+# (@ag-ui/mastra's "@copilotkit/runtime": "^1.10.5" peer cannot match the
+# prerelease pin, since semver excludes prereleases from a caret range).
+# The later `COPY . .` is too late -- the install has already run.
+COPY package.json .npmrc ./
 RUN npm install
 
 # Copy source code

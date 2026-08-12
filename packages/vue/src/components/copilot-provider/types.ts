@@ -7,13 +7,13 @@ import type { CopilotKitProviderProps } from "../../v2/providers/CopilotKitProvi
  */
 export interface CopilotKitProps extends CopilotKitProviderProps {
   /**
-   * Your Copilot Cloud API key.
+   * Your CopilotKit public license key.
    * @deprecated Use publicLicenseKey with the v2 CopilotKitProvider instead.
    */
   publicApiKey?: string;
 
   /**
-   * Your public license key for accessing premium CopilotKit features.
+   * Your public license key for accessing Enterprise Intelligence Platform features.
    */
   publicLicenseKey?: string;
 

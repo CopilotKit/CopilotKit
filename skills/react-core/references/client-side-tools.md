@@ -269,7 +269,7 @@ Wrong:
 
 ```bash
 pnpm install @copilotkit/react-core
-# zod missing — CopilotKitProvider fails to load
+# zod missing — the CopilotKit provider fails to load
 ```
 
 Correct:

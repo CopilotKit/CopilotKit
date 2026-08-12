@@ -19,19 +19,38 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
+  # UPSTREAM GAP, not an oversight. `multimodal` (Attachments) has never worked
+  # on LlamaIndex: the pinned `llama-index-protocols-ag-ui==0.2.2` adapter
+  # (`llama_index/protocols/ag_ui/utils.py:82-85`) passes an AG-UI UserMessage's
+  # `content` straight into `ChatMessage(...)`. For a text-only turn that is a
+  # plain string and works, but an attachment turn carries a LIST of AG-UI
+  # content-part models, which pydantic routes into `ChatMessage.blocks` — a
+  # union discriminated on `block_type`, a field AG-UI's TextInputContent /
+  # ImageInputContent / BinaryInputContent do not have. Every attachment turn
+  # therefore dies with `3 validation errors for ChatMessage / Unable to extract
+  # tag using discriminator 'block_type' [type=union_tag_not_found,
+  # input_type=TextInputContent]`. Fixing it needs an upstream content-part ->
+  # ContentBlock conversion (or replacing `get_ag_ui_workflow_router` for this
+  # demo). Marked not-supported so the cell reads unsupported (gray/🚫) rather
+  # than green (which would claim it works) or red (which would claim a
+  # regression). The demo entry stays wired below, matching every other
+  # not-supported feature here.
+  - multimodal
   - shared-state-streaming
   - gen-ui-interrupt
   - interrupt-headless
   - hitl-in-chat-booking
+  - reasoning-default-render
+  - agentic-chat-reasoning
+  - tool-rendering-reasoning-chain
 features:
   - beautiful-chat
   - cli-start
   - agentic-chat
-  - agentic-chat-reasoning
+  - reasoning-custom
   - gen-ui-tool-based
   - mcp-apps
-  - reasoning-default-render
-  - tool-rendering-reasoning-chain
+  - reasoning-default
   - frontend-tools
   - frontend-tools-async
   - hitl-in-chat
@@ -45,7 +64,6 @@ features:
   - a2ui-fixed-schema
   - byoc-json-render
   - byoc-hashbrown
-  - multimodal
   - auth
   - voice
   - open-gen-ui
@@ -60,6 +78,7 @@ features:
   - headless-simple
   - headless-complete
   - readonly-state-agent-context
+  - shared-state-read
 a2ui_pattern: schema-loading
 interrupt_pattern: promise-based
 agent_config_pattern: shared-state
@@ -363,6 +382,29 @@ demos:
     animated_preview_url:
     highlight:
       - src/app/demos/readonly-state-agent-context/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-custom
+    name: Agentic Chat (Reasoning)
+    description: Visible reasoning / thinking chain rendered via a custom messageView slot
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-default
+    name: Reasoning (Default Render)
+    description: Reasoning rendered via CopilotKit's built-in collapsible card with zero custom config
+    tags:
+      - chat-ui
+    route: /demos/reasoning-default
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/reasoning-default/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering + Reasoning Chain (testing)

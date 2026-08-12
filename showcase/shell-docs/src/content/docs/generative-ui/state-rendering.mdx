@@ -32,12 +32,13 @@ output.
 
 <Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx — agent state subscription" />
 
-On the backend, a state-streaming middleware forwards a specific tool
-argument straight into a state key *as it's being generated*, so the UI can
-watch the answer assemble token-by-token rather than appearing in one burst
-between node transitions.
+On the backend, a state-streaming mapping forwards a specific tool argument
+straight into a state key *as it's being generated*. Some frameworks provide
+that as middleware; direct SDK adapters can emit `STATE_SNAPSHOT` events from
+their streaming loop. Either way, the UI can watch the answer assemble
+token-by-token rather than appearing in one burst between checkpoints.
 
-<Snippet region="state-streaming-middleware" title="backend — StateStreamingMiddleware" />
+<Snippet region="state-streaming-middleware" title="backend — state streaming mapping" />
 
 <IntegrationGrid
   path="generative-ui/state-rendering"

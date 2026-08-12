@@ -169,6 +169,7 @@ export const REGISTRY_TO_D5: Readonly<
   // semantics differ from sync (settle assertions are not reusable).
   "frontend-tools": ["frontend-tools"],
   "frontend-tools-async": ["frontend-tools-async"],
+  "threadid-frontend-tool-roundtrip": ["threadid-frontend-tool-roundtrip"],
 
   // Reasoning family — single `reasoning-display` literal covers both
   // demo routes via preNavigateRoute.
@@ -190,6 +191,9 @@ export const REGISTRY_TO_D5: Readonly<
   // does not — the advanced probe asserts iframe presence as its
   // distinguishing signal.
   "declarative-gen-ui": ["gen-ui-declarative"],
+  // A2UI error recovery — the validate->retry recovery loop demo
+  // (heal vs. exhaust). Registry id == D5 featureType == demo route.
+  "a2ui-recovery": ["a2ui-recovery"],
   "a2ui-fixed-schema": ["gen-ui-a2ui-fixed"],
   "open-gen-ui": ["gen-ui-open"],
   "open-gen-ui-advanced": ["gen-ui-open-advanced"],
@@ -219,6 +223,12 @@ export const REGISTRY_TO_D5: Readonly<
 
   // Voice family — voice input/output.
   voice: ["voice"],
+
+  // Mastra-only features use deterministic activity probes. Browser Use is a
+  // hydration smoke because live web navigation cannot be replayed safely.
+  "background-agents": ["background-agents"],
+  "observational-memory": ["observational-memory"],
+  "browser-use": ["browser-use-smoke"],
 };
 
 /**

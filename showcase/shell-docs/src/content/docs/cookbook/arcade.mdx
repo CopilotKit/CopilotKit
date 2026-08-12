@@ -1,0 +1,397 @@
+---
+title: "Arcade"
+description: "Give CopilotKit's Built-in Agent OAuth-backed tools (Gmail, Google News) through Arcade, and render the authorization step as generative UI in the chat."
+icon: "custom/arcade"
+showIcon: true
+doc_type: how-to
+---
+
+[Arcade](https://www.arcade.dev) is an MCP runtime for production agents: it brokers per-user
+OAuth, vaults and refreshes tokens, and runs a large catalog of agent-optimized tools, all
+without the credentials ever reaching the LLM. This recipe gives CopilotKit's [Built-in Agent](/) a set of
+Arcade-backed tools (send Gmail, read the inbox, search Google News) and renders Arcade's one-time
+**authorization** step as a generative-UI **Connect** card right in the chat. Approve it once, and
+the agent completes the action.
+
+This guide assumes you already have a running Built-in Agent app. If you don't, follow the
+[Quickstart](/quickstart) first. It takes a few minutes.
+
+## Prerequisites
+
+- A running Built-in Agent app (see the [Quickstart](/quickstart)).
+- An Arcade account and API key. Create one in the [Arcade dashboard](https://api.arcade.dev/dashboard).
+- An OpenAI API key (or any provider the Built-in Agent supports).
+
+Add them to your `.env`:
+
+```plaintext title=".env"
+ARCADE_API_KEY=arc_your_key
+ARCADE_USER_ID=you@example.com
+OPENAI_API_KEY=sk-your_key
+```
+
+`ARCADE_USER_ID` is the stable id Arcade scopes every authorization and tool call to. In production
+you derive it per request from your authenticated session, which is what makes the agent safe for
+multiple users. For local testing, use the email you signed up to Arcade with.
+
+## Install the Arcade SDK
+
+```npm
+npm install @arcadeai/arcadejs
+```
+
+## Add an authorize-then-execute helper
+
+This is the heart of the integration. `runArcadeTool` authorizes the user for a tool and, **only
+if** the user hasn't connected yet, hands the auth URL back to the chat instead of blocking.
+Otherwise it executes the tool and returns its structured output.
+
+<Callout type="info" title="Failures come back as data, not exceptions">
+  Arcade reports a tool's *runtime* failures as data (`success === false` / `output.error`), not as
+  a thrown exception. If you only read `output.value`, a failed send renders a green "success" card,
+  so the helper checks for errors explicitly and returns an `{ error }` shape the UI can show.
+</Callout>
+
+```ts title="lib/arcade.ts"
+import Arcade from "@arcadeai/arcadejs";
+
+// Created lazily so the module can be imported during `next build` without the
+// key set (the SDK throws on construction when ARCADE_API_KEY is missing).
+let arcadeClient: Arcade | undefined;
+function getArcade() {
+  if (!arcadeClient) arcadeClient = new Arcade({ apiKey: process.env.ARCADE_API_KEY });
+  return arcadeClient;
+}
+
+export function getArcadeUserId(): string {
+  const userId = process.env.ARCADE_USER_ID;
+  if (userId) return userId;
+  // Fail CLOSED in production: a shared fallback id would put every user on ONE
+  // Arcade token vault (cross-account access). In dev, fall back for convenience.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("ARCADE_USER_ID is not set. Derive it per-request from your session.");
+  }
+  return "demo-user@example.com";
+}
+
+export type ArcadeToolResult =
+  | { authorizationRequired: true; toolName: string; provider: string; authUrl: string }
+  | { authorizationRequired: false; toolName: string; provider: string; output: unknown }
+  | { error: string; toolName: string };
+
+export async function runArcadeTool({
+  toolName,
+  input,
+  userId,
+}: {
+  toolName: string;
+  input: Record<string, unknown>;
+  userId: string;
+}): Promise<ArcadeToolResult> {
+  const provider = toolName.split(".")[0] ?? toolName;
+  try {
+    const arcade = getArcade();
+
+    // 1. Does this user already have the scopes this tool needs? Status is one of
+    //    not_started | pending | completed | failed.
+    const auth = await arcade.tools.authorize({ tool_name: toolName, user_id: userId });
+
+    // 2. Not connected yet → return the URL so CopilotKit renders a "Connect" card.
+    //    A `failed` status (or a missing URL) is an error, not a dead card.
+    if (auth.status !== "completed") {
+      if (auth.status === "failed" || !auth.url) {
+        return { error: `Couldn't start authorization for ${provider}.`, toolName };
+      }
+      return { authorizationRequired: true, toolName, provider, authUrl: auth.url };
+    }
+
+    // 3. Otherwise run the tool with the user's vaulted credentials.
+    const response = await arcade.tools.execute({ tool_name: toolName, input, user_id: userId });
+
+    // 4. Fail closed: runtime failures come back as data, not as a thrown error.
+    if (response.success === false || response.output?.error) {
+      return { error: response.output?.error?.message ?? "The tool call failed.", toolName };
+    }
+    return { authorizationRequired: false, toolName, provider, output: response.output?.value ?? null };
+  } catch (err) {
+    // Unexpected/transport error. Return an error shape instead of throwing, since a
+    // thrown error kills the run. Don't surface raw internals in production.
+    console.error(`[arcade] ${toolName} failed:`, err);
+    const detail = err instanceof Error ? err.message : String(err);
+    return {
+      error: process.env.NODE_ENV === "production" ? "The tool call failed unexpectedly." : detail,
+      toolName,
+    };
+  }
+}
+```
+
+## Define the Arcade tools and mount the agent
+
+Each CopilotKit tool is a thin `defineTool` wrapper that calls `runArcadeTool` with an
+[Arcade tool name](https://www.arcade.dev/tools). `searchNews` needs no auth; Gmail does. Keep tool
+descriptions about *what the tool does*. The agent learns the Connect-then-retry protocol from the
+system prompt and the tool's result, not from prose in the description it can misread. Match each
+tool's parameter names to the Arcade tool's own schema, or unknown params are silently dropped.
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  BuiltInAgent,
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+  defineTool,
+} from "@copilotkit/runtime/v2";
+import { z } from "zod";
+import { getArcadeUserId, runArcadeTool } from "@/lib/arcade";
+
+// Tools are built per request so each runs against the *current* user's id.
+function buildTools(userId: string) {
+  const searchNews = defineTool({
+    name: "searchNews",
+    description: "Search recent news stories by keyword using Google News.",
+    parameters: z.object({ keywords: z.string().describe("Search keywords") }),
+    execute: async ({ keywords }) =>
+      runArcadeTool({ toolName: "GoogleNews.SearchNewsStories", input: { keywords }, userId }),
+  });
+
+  const sendEmail = defineTool({
+    name: "sendEmail",
+    description: "Send an email from the user's connected Gmail account.",
+    parameters: z.object({
+      recipient: z.string().describe("Recipient email address"),
+      subject: z.string().describe("Subject line"),
+      body: z.string().describe("Plain-text body"),
+    }),
+    execute: async ({ recipient, subject, body }) =>
+      runArcadeTool({ toolName: "Gmail.SendEmail", input: { recipient, subject, body }, userId }),
+  });
+
+  const listEmails = defineTool({
+    name: "listEmails",
+    description: "List recent emails from the user's connected Gmail inbox.",
+    // Param name mirrors the Arcade tool's schema (Gmail.ListEmails takes `n_emails`).
+    parameters: z.object({
+      n_emails: z.number().int().min(1).max(50).default(10).describe("How many to return"),
+    }),
+    execute: async ({ n_emails }) =>
+      runArcadeTool({ toolName: "Gmail.ListEmails", input: { n_emails }, userId }),
+  });
+
+  return [searchNews, sendEmail, listEmails];
+}
+
+const SYSTEM_PROMPT = `You can act for the user through Arcade tools: searching Google News, and reading and sending Gmail.
+
+When a tool result is { "authorizationRequired": true, ... }, the chat shows a "Connect" card.
+Do NOT retry or invent a result. In one sentence, tell the user to click Connect, then come
+back and say continue. When they confirm, call the SAME tool again with the SAME arguments.
+
+Before sending email, confirm the recipient and subject in one line. Keep replies short. The
+tool cards show the details.`;
+
+function buildAgent(userId: string) {
+  return new BuiltInAgent({
+    model: process.env.OPENAI_MODEL || "openai/gpt-4o",
+    apiKey: process.env.OPENAI_API_KEY,
+    prompt: SYSTEM_PROMPT,
+    tools: buildTools(userId),
+    maxSteps: 6, // > 1 so the agent can call a tool and then respond
+  });
+}
+
+// Resolve the Arcade user id per request from your SERVER-VERIFIED session. A
+// single shared id would put every visitor on ONE Arcade vault (cross-account
+// access). getArcadeUserId() is the demo fallback and throws in production.
+function resolveArcadeUserId(request: Request): string {
+  // const { userId } = await verifySession(request); return userId;
+  return getArcadeUserId();
+}
+
+// The runtime can read and send email on your keys, so never leave it open in prod.
+// Replace this with your real session check; it fails CLOSED until you do.
+function authorizeRuntimeRequest(request: Request): void {
+  // const session = await verifySession(request);
+  // if (!session) throw new Response("Unauthorized", { status: 401 });
+  if (process.env.NODE_ENV === "production") {
+    throw new Response("Runtime auth is not configured.", { status: 503 });
+  }
+}
+
+const runtime = new CopilotRuntime({
+  // Per request → a fresh agent scoped to THIS user's id. // [!code highlight]
+  agents: ({ request }) => ({ default: buildAgent(resolveArcadeUserId(request)) }),
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+  hooks: {
+    // Reject unauthorized calls before the agent runs. // [!code highlight]
+    onRequest: ({ request }) => authorizeRuntimeRequest(request),
+  },
+});
+
+export const GET = handler;
+export const POST = handler;
+export const OPTIONS = handler;
+```
+
+<Callout type="info" title="Single-route transport">
+  CopilotKit's `<CopilotKit>` provider defaults to `useSingleEndpoint`, so the client POSTs every
+  call as a `{ method, params, body }` envelope to the base path. Mount a single-route handler to
+  match (`createCopilotRuntimeHandler({ mode: "single-route" })`), and `createCopilotRuntimeHandler`
+  is the preferred primitive, so avoid the deprecated `createCopilotEndpointSingleRoute` / hono
+  adapters.
+</Callout>
+
+## Render the authorization step as generative UI
+
+On the client, `useRenderTool` subscribes to each tool call. When the result is
+`authorizationRequired`, render a **Connect** card with the `authUrl`; otherwise render the result.
+This is the generative-UI moment: the OAuth handshake becomes a card in the chat.
+
+```tsx title="app/page.tsx"
+"use client";
+import { CopilotChat, useRenderTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
+// useRenderTool usually hands `result` back as a JSON string, but tolerate an
+// already-parsed object or an empty/missing value so a partial result never throws.
+function parse<T>(result: unknown): T | undefined {
+  if (result == null) return undefined;
+  if (typeof result === "object") return result as T;
+  if (typeof result !== "string" || result.length === 0) return undefined;
+  try {
+    return JSON.parse(result) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+export default function Page() {
+  useRenderTool({
+    name: "sendEmail",
+    parameters: z.object({ recipient: z.string(), subject: z.string(), body: z.string() }),
+    render: ({ status, parameters, result }) => {
+      if (status !== "complete") return <LoadingCard label="Sending email…" />;
+      const r = parse<any>(result);
+      if (r?.error) return <ErrorCard message={r.error} />;
+      if (r?.authorizationRequired)
+        return <AuthorizationCard provider={r.provider} authUrl={r.authUrl} />;
+      return <EmailSentCard recipient={parameters.recipient} subject={parameters.subject} />;
+    },
+  });
+
+  return <CopilotChat agentId="default" />;
+}
+```
+
+The `AuthorizationCard` is just a normal component with a link styled as a button:
+
+```tsx title="components/authorization-card.tsx"
+// Tool output flows into an href, so only ever link to a real http(s) URL,
+// never a javascript:/data: scheme.
+function safeHttpUrl(url: string): string | undefined {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:" ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function AuthorizationCard({ provider, authUrl }: { provider: string; authUrl: string }) {
+  const href = safeHttpUrl(authUrl);
+  return (
+    <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
+      <p className="font-semibold">Connect {provider}</p>
+      <p className="mt-1 text-sm text-zinc-600">
+        Arcade needs you to authorize {provider} once. Your credentials are vaulted by Arcade
+        and never shared with the model.
+      </p>
+      {href && (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-block rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white"
+        >
+          Connect {provider}
+        </a>
+      )}
+    </div>
+  );
+}
+```
+
+Wrap your app in the v2 `<CopilotKit>` provider (`runtimeUrl="/api/copilotkit"` plus
+`useSingleEndpoint` to match the single-route handler) and import
+`@copilotkit/react-core/v2/styles.css`, exactly as in the Built-in Agent quickstart.
+
+## Try it
+
+Start your app and ask the agent to do something that needs a connection:
+
+```text
+Send an email to me@example.com with the subject "Hello from my agent" and a friendly one-liner.
+```
+
+The first time, the agent calls `sendEmail`, Arcade reports authorization is required, and the chat
+shows a **Connect Gmail** card. Click it, approve in the new tab, come back, and say:
+
+```text
+Done, go ahead.
+```
+
+The agent re-calls `sendEmail`; this time Arcade returns `completed` and the email sends. Now chain
+a no-auth tool into an authed one:
+
+```text
+Find the latest news on open-source AI agents and email me a 3-bullet summary.
+```
+
+`searchNews` runs instantly (no auth); `sendEmail` reuses the Gmail connection you already granted.
+
+## How it works
+
+- **Authorization is evaluated at runtime, per user.** `tools.authorize` returns `completed` only
+  when this `user_id` already holds the required scopes. That's why the same code works for one user
+  locally and thousands in production. Pass each user's id.
+- **The model never sees a token.** Credentials are vaulted by Arcade; `execute` runs the tool
+  server-side and returns only the structured result to the agent.
+- **Failures come back as data, not exceptions.** A runtime error is `success: false` /
+  `output.error`. Check for it so you don't render a false success.
+- **The auth step is non-blocking.** Returning the `authUrl` (instead of waiting on the server) is
+  what lets CopilotKit render it as a card and keeps the chat responsive.
+
+<Callout type="warn" title="Before you deploy this publicly">
+  The runtime can read and send email on your keys, so treat `/api/copilotkit` like any privileged
+  endpoint:
+
+  - **Authenticate the runtime** with an `onRequest` hook that throws a `Response` for unauthorized
+    calls. Validate your real session (the example fails closed in production until you wire one).
+  - **Scope every call to a real user.** Resolve the Arcade `user_id` per request from a
+    server-verified session (not a spoofable client header, and not one shared env value) via the
+    `agents: ({ request }) => ...` factory. A single `ARCADE_USER_ID` for all visitors is one shared
+    token vault.
+  - **Use disposable keys** and a throwaway Google account for any public demo, add rate limiting,
+    and set CSP / HSTS / `X-Frame-Options`.
+</Callout>
+
+## Going further
+
+Arcade is a *runtime*, not a single connector. The three tools here are the on-ramp. Scale up
+roughly in this order:
+
+- **From 3 tools to thousands.** Instead of hand-writing a `defineTool` per tool, pull formatted
+  tool definitions from Arcade and generate the wrappers, the bridge from a demo to a real toolset
+  (GitHub, Slack, Notion, Google Calendar, Jira, and more). Browse the
+  [tool catalog](https://www.arcade.dev/tools).
+- **MCP gateways.** Expose exactly the tools an agent should have behind a single OAuth-protected
+  [MCP gateway](https://docs.arcade.dev), the same authorize-then-execute model, managed centrally,
+  with per-user scoping built in. This is the production shape.
+- **Human-in-the-loop confirmation.** Gate destructive tools behind CopilotKit's `useHumanInTheLoop`
+  so the user approves the arguments before the tool runs.
+
+See the [Arcade docs](https://docs.arcade.dev) for the full tool reference and auth model.

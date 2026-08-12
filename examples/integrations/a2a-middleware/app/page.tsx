@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import Chat from "@/components/chat";
+import {
+  CopilotChatConfigurationProvider,
+  CopilotThreadsDrawer,
+  CopilotKitProvider,
+} from "@copilotkit/react-core/v2";
+import styles from "./page.module.css";
 
 export type ResearchData = {
   topic: string;
@@ -24,12 +30,15 @@ export type AnalysisData = {
   conclusion: string;
 };
 
-export default function Home() {
+// Disable static optimization for this page
+export const dynamic = "force-dynamic";
+
+function ResearchAssistant() {
   const [researchData, setResearchData] = useState<ResearchData | null>(null);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-[#DEDEE9] p-2">
+    <div className="relative flex min-h-dvh overflow-hidden bg-[#DEDEE9] p-2">
       {/* Background blur circles - Creating the gradient effect */}
       <div
         className="absolute w-[445px] h-[445px] left-[1040px] top-[11px] rounded-full z-0"
@@ -51,9 +60,9 @@ export default function Home() {
         }}
       />
 
-      <div className="flex flex-1 overflow-hidden z-10 gap-2">
-        <div className="w-[450px] flex-shrink-0 border-2 border-white bg-white/50 backdrop-blur-md shadow-elevation-lg flex flex-col rounded-lg overflow-hidden">
-          <div className="p-6 border-b border-[#DBDBE5]">
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto z-10 lg:flex-row lg:overflow-hidden">
+        <div className="flex min-h-[calc(100dvh-1rem)] w-full flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 border-white bg-white/50 shadow-elevation-lg backdrop-blur-md lg:w-[450px]">
+          <div className="p-6 max-lg:pl-16 border-b border-[#DBDBE5]">
             <h1 className="text-2xl font-semibold text-[#010507] mb-1">
               Research Assistant
             </h1>
@@ -76,8 +85,8 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto rounded-lg bg-white/30 backdrop-blur-sm">
-          <div className="mx-auto p-8">
+        <div className="min-h-[520px] flex-1 overflow-y-auto rounded-lg bg-white/30 backdrop-blur-sm lg:min-h-0">
+          <div className="mx-auto p-4 sm:p-8">
             <div className="mb-8">
               <h2 className="text-3xl font-semibold text-[#010507] mb-2">
                 Research Results
@@ -104,7 +113,7 @@ export default function Home() {
               </div>
             )}
 
-            <div className="flex flex-row gap-2 items-stretch">
+            <div className="flex flex-col gap-2 items-stretch xl:flex-row">
               {researchData && (
                 <div className="flex-1 bg-white/60 backdrop-blur-md rounded-xl border-2 border-[#DBDBE5] shadow-elevation-md p-6">
                   <div className="flex flex-col gap-0 mb-4">
@@ -187,5 +196,34 @@ export default function Home() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      showDevConsole="auto"
+      useSingleEndpoint={false}
+    >
+      {/*
+        One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop)
+        owns the active thread for the whole surface. The SDK <CopilotThreadsDrawer>
+        drives it directly — picking a row sets the active thread, "+ New"
+        resets to a fresh thread — with no host thread-state. The chat (inside
+        ResearchAssistant) reads the same active thread from the provider. A
+        *controlled* provider would block "+ New" from resetting, so
+        uncontrolled-inside-provider is required, not optional.
+      */}
+      <CopilotChatConfigurationProvider agentId="a2a_chat">
+        <div className={`${styles.layout} threadsLayout`}>
+          {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+          <CopilotThreadsDrawer agentId="a2a_chat" />
+          <div className={styles.mainPanel}>
+            <ResearchAssistant />
+          </div>
+        </div>
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>
   );
 }

@@ -7,7 +7,7 @@
     "example-build": "next build",
     "example-start": "next start",
     "lint": "next lint",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
+    "clean": "node -e \"const fs=require('fs');['.turbo','node_modules','dist','.next'].forEach(d=>fs.rmSync(d,{recursive:true,force:true}))\""
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",

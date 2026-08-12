@@ -1,5 +1,299 @@
 import type { NextConfig } from "next";
 
+interface PermanentRedirect {
+  readonly source: string;
+  readonly destination: string;
+  readonly permanent: true;
+}
+
+// Keep redirect configuration self-contained. Importing an application module
+// from next.config.ts causes Turbopack to trace the config into app-route NFT
+// output when that module is also used at runtime. The redirect tests iterate
+// the central channel registry, so omissions here fail the maintained-matrix
+// coverage instead of silently drifting.
+const CHANNEL_REDIRECT_FRONTENDS = ["slack", "teams"] as const;
+
+const CHANNEL_REDIRECT_GUIDE_SLUGS = [
+  "overview",
+  "intelligence",
+  "connect",
+  "tools",
+  "identity-and-memory",
+  "rich-messages",
+  "interactive",
+  "commands-and-reactions",
+  "files-and-multimodality",
+  "threads-and-state",
+  "persistence-and-scaling",
+  "history-and-transcripts",
+  "deploy-and-operate",
+] as const;
+
+// A raw Markdown request reaches redirects before the `.md` / `.mdx` rewrite.
+// Keep suffix-specific wildcard rules first so a broad HTML rule cannot strip
+// the suffix before the LLM route handler receives the canonical URL.
+const REDIRECT_SUFFIXES = [".md", ".mdx", ""] as const;
+
+function permanentRedirectsWithSuffixes(
+  source: string,
+  destination: string,
+): PermanentRedirect[] {
+  return REDIRECT_SUFFIXES.map((suffix) => ({
+    source: `${source}${suffix}`,
+    destination: `${destination}${suffix}`,
+    permanent: true,
+  }));
+}
+
+function channelChildRedirects(
+  legacySlug: string,
+  canonicalSlug: string,
+  options: { collapseExplicitDefaultGuide?: boolean } = {},
+): PermanentRedirect[] {
+  const redirects: PermanentRedirect[] = [];
+  const canonicalSuffix =
+    canonicalSlug === "overview" ? "" : `/${canonicalSlug}`;
+
+  for (const frontend of CHANNEL_REDIRECT_FRONTENDS) {
+    redirects.push(
+      ...permanentRedirectsWithSuffixes(
+        `/${frontend}/built-in-agent/channels/${legacySlug}`,
+        `/${frontend}${canonicalSuffix}`,
+      ),
+    );
+
+    if (options.collapseExplicitDefaultGuide) {
+      redirects.push(
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/built-in-agent/${legacySlug}`,
+          `/${frontend}${canonicalSuffix}`,
+        ),
+      );
+    }
+
+    redirects.push(
+      ...permanentRedirectsWithSuffixes(
+        `/${frontend}/:framework/channels/${legacySlug}`,
+        `/${frontend}/:framework${canonicalSuffix}`,
+      ),
+      ...permanentRedirectsWithSuffixes(
+        `/${frontend}/channels/${legacySlug}`,
+        `/${frontend}${canonicalSuffix}`,
+      ),
+    );
+  }
+
+  redirects.push(
+    ...permanentRedirectsWithSuffixes(
+      `/built-in-agent/channels/${legacySlug}`,
+      `/slack${canonicalSuffix}`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/:framework((?!reference)[^/]+)/channels/${legacySlug}`,
+      `/slack/:framework${canonicalSuffix}`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/channels/${legacySlug}`,
+      `/slack${canonicalSuffix}`,
+    ),
+  );
+
+  return redirects;
+}
+
+const RETIRED_CHANNEL_GUIDES = [
+  ["quickstart", "connect"],
+  ["ui-library", "rich-messages"],
+  ["mcp", "tools"],
+  ["configuration", "intelligence"],
+  ["persistence", "persistence-and-scaling"],
+  ["transcripts", "history-and-transcripts"],
+] as const;
+
+const CHANNEL_REFERENCE_PATHS = [
+  ["reference/channel", "classes/Channel"],
+  ["reference/thread", "classes/Thread"],
+  ["reference/callbacks", "types/JSXCallbacks"],
+] as const;
+
+const CHANNEL_REFERENCE_REDIRECTS: PermanentRedirect[] =
+  CHANNEL_REFERENCE_PATHS.flatMap(([legacyPath, referencePath]) => {
+    const destination = `/reference/channels/${referencePath}`;
+    return [
+      ...CHANNEL_REDIRECT_FRONTENDS.flatMap((frontend) => [
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/built-in-agent/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/:framework/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/channels/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/built-in-agent/channels/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/:framework/channels/${legacyPath}`,
+          destination,
+        ),
+      ]),
+      ...permanentRedirectsWithSuffixes(`/channels/${legacyPath}`, destination),
+      ...permanentRedirectsWithSuffixes(
+        `/built-in-agent/channels/${legacyPath}`,
+        destination,
+      ),
+      ...permanentRedirectsWithSuffixes(
+        `/:framework((?!reference)[^/]+)/channels/${legacyPath}`,
+        destination,
+      ),
+    ];
+  });
+
+const RENAMED_CHANNEL_REFERENCE_REDIRECTS: PermanentRedirect[] = [
+  ["functions/createBot", "functions/createChannel"],
+  ["functions/defineBotCommand", "functions/defineChannelCommand"],
+  ["functions/defineBotTool", "functions/defineChannelTool"],
+  ["types/BotNode", "types/ChannelNode"],
+].flatMap(([legacyPath, canonicalPath]) =>
+  permanentRedirectsWithSuffixes(
+    `/reference/channels/${legacyPath}`,
+    `/reference/channels/${canonicalPath}`,
+  ),
+);
+
+const DIRECT_PROVIDER_REFERENCE_REDIRECTS: PermanentRedirect[] = [
+  "slack",
+  "discord",
+].flatMap((provider) => [
+  ...permanentRedirectsWithSuffixes(
+    `/reference/channels/${provider}`,
+    "/reference/channels/sdk/direct-adapters",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    `/reference/channels/${provider}/:path*`,
+    "/reference/channels/sdk/direct-adapters",
+  ),
+]);
+
+const MAINTAINED_CHANNEL_GUIDE_REDIRECTS = CHANNEL_REDIRECT_GUIDE_SLUGS.flatMap(
+  (slug) =>
+    channelChildRedirects(slug, slug, {
+      collapseExplicitDefaultGuide: true,
+    }),
+);
+
+const RETIRED_CHANNEL_GUIDE_REDIRECTS = RETIRED_CHANNEL_GUIDES.flatMap(
+  ([legacySlug, canonicalSlug]) =>
+    channelChildRedirects(legacySlug, canonicalSlug),
+);
+
+const RETIRED_INTERACTIVE_SUBGUIDE_REDIRECTS = channelChildRedirects(
+  "interactive/:path+",
+  "interactive",
+);
+
+const BOTS_REDIRECTS: PermanentRedirect[] = [
+  ...CHANNEL_REDIRECT_GUIDE_SLUGS.flatMap((slug) =>
+    permanentRedirectsWithSuffixes(
+      `/bots/${slug}`,
+      slug === "overview" ? "/slack" : `/slack/${slug}`,
+    ),
+  ),
+  ...RETIRED_CHANNEL_GUIDES.flatMap(([legacySlug, canonicalSlug]) =>
+    permanentRedirectsWithSuffixes(
+      `/bots/${legacySlug}`,
+      `/slack/${canonicalSlug}`,
+    ),
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/bots/interactive/:path+",
+    "/slack/interactive",
+  ),
+  ...permanentRedirectsWithSuffixes("/reference/bot", "/reference/channels"),
+  ...permanentRedirectsWithSuffixes(
+    "/reference/bot/:path*",
+    "/reference/channels",
+  ),
+  ...permanentRedirectsWithSuffixes("/bots", "/slack"),
+  ...permanentRedirectsWithSuffixes("/bots/:path*", "/slack"),
+];
+
+const CHANNEL_ROOT_REDIRECTS: PermanentRedirect[] = [
+  ...CHANNEL_REDIRECT_FRONTENDS.flatMap((frontend) => [
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/quickstart`,
+      `/${frontend}/connect`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/:framework/quickstart`,
+      `/${frontend}/:framework/connect`,
+    ),
+    ...permanentRedirectsWithSuffixes(`/${frontend}/overview`, `/${frontend}`),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/:framework/overview`,
+      `/${frontend}/:framework`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/built-in-agent/channels`,
+      `/${frontend}`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/built-in-agent`,
+      `/${frontend}`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/:framework/channels`,
+      `/${frontend}/:framework`,
+    ),
+    ...permanentRedirectsWithSuffixes(`/${frontend}/channels`, `/${frontend}`),
+  ]),
+  ...permanentRedirectsWithSuffixes("/built-in-agent/channels", "/slack"),
+  ...permanentRedirectsWithSuffixes(
+    "/:framework((?!reference)[^/]+)/channels",
+    "/slack/:framework",
+  ),
+  ...permanentRedirectsWithSuffixes("/channels", "/slack"),
+];
+
+const CHANNEL_PLATFORM_REDIRECTS: PermanentRedirect[] = [
+  ...permanentRedirectsWithSuffixes("/channels/platforms/slack", "/slack"),
+  ...permanentRedirectsWithSuffixes("/channels/platforms/teams", "/teams"),
+  ...permanentRedirectsWithSuffixes("/channels/platforms", "/slack"),
+  ...permanentRedirectsWithSuffixes("/channels/platforms/:path*", "/slack"),
+  ...permanentRedirectsWithSuffixes("/whatsapp", "/slack"),
+  ...permanentRedirectsWithSuffixes("/whatsapp/:path*", "/slack"),
+  ...permanentRedirectsWithSuffixes("/frontends/whatsapp", "/slack"),
+];
+
+const CHANNEL_REDIRECTS: PermanentRedirect[] = [
+  // Provider-scoped reference routes move back to the global SDK reference.
+  // Keep these before the broad legacy framework roots. Those roots also
+  // exclude the reserved `reference` segment so `/reference/channels` remains
+  // canonical.
+  ...CHANNEL_REFERENCE_REDIRECTS,
+  ...RENAMED_CHANNEL_REFERENCE_REDIRECTS,
+  ...DIRECT_PROVIDER_REFERENCE_REDIRECTS,
+  ...MAINTAINED_CHANNEL_GUIDE_REDIRECTS,
+  ...RETIRED_CHANNEL_GUIDE_REDIRECTS,
+  ...RETIRED_INTERACTIVE_SUBGUIDE_REDIRECTS,
+  ...BOTS_REDIRECTS,
+  ...CHANNEL_PLATFORM_REDIRECTS,
+  ...permanentRedirectsWithSuffixes("/slack/using-these-docs", "/slack"),
+  ...permanentRedirectsWithSuffixes("/teams/using-these-docs", "/teams"),
+  // Keep the broad legacy roots last. Child redirects are intentionally exact:
+  // an unknown `/channels/*` child must not become an accidental guide URL.
+  ...CHANNEL_ROOT_REDIRECTS,
+];
+
 // NEXT_PUBLIC_BASE_URL and NEXT_PUBLIC_SHELL_URL are read at REQUEST
 // time by the server `getRuntimeConfig()` reader and injected into the
 // client via `window.__SHOWCASE_CONFIG__` from the root layout. They
@@ -10,6 +304,18 @@ import type { NextConfig } from "next";
 // `console.error` from `runtime-config.ts` instead.
 
 const nextConfig: NextConfig = {
+  // The raw-MDX route intentionally traces runtime-readable content. Next
+  // 16.2.10 also reports this config file as an "unexpected" NFT entry even
+  // though the config has no application imports. Keep the filter exact so
+  // every other Turbopack issue remains visible.
+  turbopack: {
+    ignoreIssue: [
+      {
+        path: /showcase\/shell-docs\/next\.config\.ts$/,
+        title: "Encountered unexpected file in NFT list",
+      },
+    ],
+  },
   images: {
     // Bypass the Next.js image optimizer (`/_next/image`). The optimizer
     // requires `sharp` at runtime, which is missing from the Railway image
@@ -66,12 +372,23 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // OSS-615: legacy global, scoped, generated-reference, and Bots URLs
+      // resolve directly to the canonical Slack/Teams guide trees.
+      ...CHANNEL_REDIRECTS,
       {
         // Built-in agent is the default framework, so its overview page
         // is the docs root. Avoid surfacing a redundant "Introduction"
         // entry inside the built-in-agent sidebar by canonicalizing the
         // bare /built-in-agent URL to the root overview.
         source: "/built-in-agent",
+        destination: "/",
+        permanent: true,
+      },
+      // The BIA index.mdx is reachable through the content fallback as
+      // `/index`, which would duplicate the home page under a second
+      // URL. Canonicalize it to the root.
+      {
+        source: "/index",
         destination: "/",
         permanent: true,
       },
@@ -100,63 +417,52 @@ const nextConfig: NextConfig = {
         destination: "/concepts/oss-vs-enterprise",
         permanent: true,
       },
-      // Quickstart needs a real backing page when hit without a stored
-      // framework. `SidebarLink` rewrites `/quickstart` → `/<framework>/quickstart`
-      // when a framework is selected; users who land here cold (or who
-      // explicitly picked the bare CopilotKit / Built-in Agent view)
-      // get the Built-in Agent quickstart by default. 308 keeps the
-      // sidebar's `/quickstart` href intact while always sending the
-      // user to a real guide.
-      {
-        source: "/quickstart",
-        destination: "/built-in-agent/quickstart",
-        permanent: true,
-      },
-
       // /unselected/* tree retired. Files moved to integrations/built-in-agent/
       // (BIA replaced the old "unselected" slot as the default integration).
-      // Per-path entries below cover BIA-canonical mappings (direct moves +
-      // slug renames from SUBPATH_RENAMES in seo-redirects.ts); the catch-all
-      // at the bottom routes everything else into /built-in-agent/ to preserve
-      // SEO equity, since these legacy URLs historically served BIA content.
+      // The Built-in Agent docs are served at the ROOT surface (no
+      // framework prefix), so per-path entries below map directly onto
+      // root URLs (direct moves + slug renames from SUBPATH_RENAMES in
+      // seo-redirects.ts); the catch-all at the bottom routes everything
+      // else to the root to preserve SEO equity, since these legacy URLs
+      // historically served BIA content.
       {
         source: "/unselected",
-        destination: "/built-in-agent",
+        destination: "/",
         permanent: true,
       },
       {
         source: "/unselected/quickstart",
-        destination: "/built-in-agent/quickstart",
+        destination: "/quickstart",
         permanent: true,
       },
       {
         source: "/unselected/advanced-configuration",
-        destination: "/built-in-agent/advanced-configuration",
+        destination: "/advanced-configuration",
         permanent: true,
       },
       {
         source: "/unselected/mcp-servers",
-        destination: "/built-in-agent/mcp-servers",
+        destination: "/mcp-servers",
         permanent: true,
       },
       {
         source: "/unselected/model-selection",
-        destination: "/built-in-agent/model-selection",
+        destination: "/model-selection",
         permanent: true,
       },
       {
         source: "/unselected/server-tools",
-        destination: "/built-in-agent/server-tools",
+        destination: "/server-tools",
         permanent: true,
       },
       {
         source: "/unselected/shared-state",
-        destination: "/built-in-agent/shared-state",
+        destination: "/shared-state",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/mcp-apps",
-        destination: "/built-in-agent/generative-ui/mcp-apps",
+        destination: "/generative-ui/mcp-apps",
         permanent: true,
       },
       // Cat C promotions whose canonical home moved off the unselected
@@ -174,8 +480,9 @@ const nextConfig: NextConfig = {
       // custom-agent: consolidate two divergent shell-docs copies onto the
       // structurally-complete backend/custom-agent.mdx (508 lines, matches
       // upstream snippet). The integrations/built-in-agent/custom-agent.mdx
-      // copy (240 lines, missing 5 sections) was retired; redirect both
-      // historical paths.
+      // copy (240 lines, missing 5 sections) was retired; redirect all
+      // historical paths, including the bare root URL the BIA sidebar's
+      // Backend section links to.
       {
         source: "/built-in-agent/custom-agent",
         destination: "/backend/custom-agent",
@@ -184,6 +491,38 @@ const nextConfig: NextConfig = {
       {
         source: "/integrations/built-in-agent/custom-agent",
         destination: "/backend/custom-agent",
+        permanent: true,
+      },
+      {
+        source: "/custom-agent",
+        destination: "/backend/custom-agent",
+        permanent: true,
+      },
+
+      // ----------------------------------------------------------------
+      // Built-in Agent served at the root: /built-in-agent/<page> moved
+      // to /<page>. Specific entries first (they must win over the
+      // catch-all), then the catch-all that strips the prefix.
+      // ----------------------------------------------------------------
+      // BIA's AG-UI backend page lives at /backend/ag-ui at the root —
+      // the bare /ag-ui segment is owned by the AG-UI protocol docs
+      // (src/app/ag-ui/), so the page can't keep its old slug.
+      {
+        source: "/built-in-agent/ag-ui",
+        destination: "/backend/ag-ui",
+        permanent: true,
+      },
+      // Tutorials are retired (see /tutorials/:path* below). Preserve the
+      // old middleware behavior of sending framework-scoped tutorial URLs
+      // to the quickstart rather than bouncing them through /tutorials → /.
+      {
+        source: "/built-in-agent/tutorials/:path*",
+        destination: "/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/built-in-agent/:path*",
+        destination: "/:path*",
         permanent: true,
       },
       // troubleshooting/migrate-to-* in unselected → existing
@@ -222,97 +561,99 @@ const nextConfig: NextConfig = {
         destination: "/human-in-the-loop",
         permanent: true,
       },
-      // agent-app-context was concept-per-framework only; no canonical
-      // root home. Send legacy URLs to `/` rather than 404 — readers
-      // who stored the old link will land on docs and can navigate.
+      // agent-app-context now has a root home: the BIA-authored page is
+      // served at the bare URL.
       {
         source: "/unselected/agent-app-context",
-        destination: "/",
+        destination: "/agent-app-context",
         permanent: true,
       },
       // Slug-rename entries (mirror SUBPATH_RENAMES in seo-redirects.ts).
       // These MUST come before the catch-all so the rename wins. Each
-      // historical slug under /unselected/ has been renamed under
-      // /built-in-agent/; e.g. agentic-chat-ui → prebuilt-components.
+      // historical slug under /unselected/ has been renamed at the root
+      // BIA surface; e.g. agentic-chat-ui → prebuilt-components.
       {
         source: "/unselected/agentic-chat-ui",
-        destination: "/built-in-agent/prebuilt-components",
+        destination: "/prebuilt-components",
         permanent: true,
       },
       {
         source: "/unselected/use-agent-hook",
-        destination: "/built-in-agent/programmatic-control",
+        destination: "/programmatic-control",
         permanent: true,
       },
       {
         source: "/unselected/frontend-actions",
-        destination: "/built-in-agent/frontend-tools",
+        destination: "/frontend-tools",
         permanent: true,
       },
+      // No coding-agents page exists any more; match the root-level
+      // R19 (/vibe-coding-mcp) and R18 (/mcp) rules in seo-redirects.ts.
       {
         source: "/unselected/vibe-coding-mcp",
-        destination: "/built-in-agent/coding-agents",
+        destination: "/build-with-agents",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/agentic",
-        destination:
-          "/built-in-agent/generative-ui/your-components/display-only",
+        destination: "/generative-ui/your-components/display-only",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/backend-tools",
-        destination: "/built-in-agent/generative-ui/tool-rendering",
+        destination: "/generative-ui/tool-rendering",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/frontend-tools",
-        destination: "/built-in-agent/frontend-tools",
+        destination: "/frontend-tools",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/render-only",
-        destination:
-          "/built-in-agent/generative-ui/your-components/display-only",
+        destination: "/generative-ui/your-components/display-only",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/tool-based",
-        destination: "/built-in-agent/generative-ui/tool-rendering",
+        destination: "/generative-ui/tool-rendering",
         permanent: true,
       },
       {
         source: "/unselected/custom-look-and-feel/bring-your-own-components",
-        destination: "/built-in-agent/custom-look-and-feel/slots",
+        destination: "/custom-look-and-feel/slots",
         permanent: true,
       },
       {
         source:
           "/unselected/custom-look-and-feel/customize-built-in-ui-components",
-        destination: "/built-in-agent/custom-look-and-feel/slots",
+        destination: "/custom-look-and-feel/slots",
         permanent: true,
       },
       {
         source: "/unselected/custom-look-and-feel/markdown-rendering",
-        destination: "/built-in-agent/custom-look-and-feel/slots",
+        destination: "/custom-look-and-feel/slots",
         permanent: true,
       },
+      // The /guides tree no longer exists anywhere (the old destination
+      // 404'd through the BIA route); send readers home instead.
       {
         source: "/unselected/guide",
-        destination: "/built-in-agent/guides",
+        destination: "/",
         permanent: true,
       },
       {
         source: "/unselected/mcp",
-        destination: "/built-in-agent/coding-agents",
+        destination: "/build-with-agents",
         permanent: true,
       },
-      // Catch-all: route remaining /unselected/* paths into /built-in-agent/.
-      // BIA is the canonical owner of the legacy unselected/ content tree;
-      // matches P1×unselected in seo-redirects.ts.
+      // Catch-all: route remaining /unselected/* paths to the root.
+      // BIA is the canonical owner of the legacy unselected/ content
+      // tree, and BIA is served at the root; matches P1×unselected in
+      // seo-redirects.ts.
       {
         source: "/unselected/:path*",
-        destination: "/built-in-agent/:path*",
+        destination: "/:path*",
         permanent: true,
       },
 
@@ -487,21 +828,11 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
 
-      // Root `/generative-ui/your-components/*` pages do not exist in
-      // the unscoped docs tree, so keep those bare redirects. Do not
-      // redirect `/:framework/generative-ui/your-components/*`: several
-      // framework-scoped docs, including Built-in Agent, are authored at
-      // those paths and should render directly.
-      {
-        source: "/generative-ui/your-components/display-only",
-        destination: "/generative-ui/tool-based",
-        permanent: false,
-      },
-      {
-        source: "/generative-ui/your-components/interactive",
-        destination: "/human-in-the-loop",
-        permanent: false,
-      },
+      // No bare redirects for `/generative-ui/your-components/*`: the
+      // Built-in Agent docs are served at the root, and BIA authors real
+      // pages at those paths (display-only, interactive). Framework-scoped
+      // variants (`/:framework/generative-ui/your-components/*`) also
+      // render directly.
     ];
   },
 };

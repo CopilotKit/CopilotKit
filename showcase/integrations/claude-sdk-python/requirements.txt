@@ -1,6 +1,7 @@
-anthropic>=0.43.0
-openai>=1.40.0
-ag-ui-protocol>=0.1.14
+anthropic==0.111.0
+claude-agent-sdk==0.2.104
+ag-ui-claude-sdk==0.1.5
+ag-ui-protocol==0.1.19
 fastapi>=0.115.0
 uvicorn>=0.34.0
 python-dotenv>=1.0.1

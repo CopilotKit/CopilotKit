@@ -25,14 +25,8 @@ export function StoredFrameworkHighlight({ slug }: { slug: string }) {
     <>
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-[var(--accent)]"
+        className="shell-docs-radius-surface pointer-events-none absolute inset-0 ring-1 ring-inset ring-[var(--nav-control-border)]"
       />
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute right-3 top-3 hidden rounded-full border border-[var(--accent)] bg-[var(--accent-dim)] px-2 py-0.5 text-[11px] font-semibold text-[var(--accent)] sm:inline-flex"
-      >
-        Selected
-      </span>
       <span className="sr-only">Current backend selection</span>
     </>
   );

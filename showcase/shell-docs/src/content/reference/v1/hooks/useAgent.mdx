@@ -3,8 +3,8 @@ title: "useAgent"
 description: "React hook for accessing AG-UI agent instances"
 ---
 
-<Callout type="warning">
-  `useAgent` is still supported, but we recommend migrating to [`useAgent`](/reference/v2/hooks/useAgent) from the v2 API (`@copilotkit/react-core/v2`).
+<Callout type="info">
+  `useAgent` is a v2 API, exported from `@copilotkit/react-core/v2`. See the [v2 `useAgent` reference](/reference/v2/hooks/useAgent) for the full, up-to-date documentation.
 </Callout>
 
 ## Overview
@@ -16,12 +16,12 @@ description: "React hook for accessing AG-UI agent instances"
 ## Signature
 
 ```tsx
-function useAgent(options?: UseAgentOptions): { agent: AbstractAgent }
+function useAgent(options?: UseAgentProps): { agent: AbstractAgent }
 ```
 
 ## Parameters
 
-<PropertyReference name="options" type="UseAgentOptions">
+<PropertyReference name="options" type="UseAgentProps">
   Configuration object for the hook.
 
   <PropertyReference name="agentId" type="string" default='"default"'>
@@ -81,15 +81,15 @@ function useAgent(options?: UseAgentOptions): { agent: AbstractAgent }
 
     ### Methods
 
-    <PropertyReference name="runAgent" type="(options?: RunAgentOptions) => Promise<void>">
-      Manually triggers agent execution.
+    <PropertyReference name="runAgent" type="(parameters?: RunAgentParameters, subscriber?: AgentSubscriber) => Promise<RunAgentResult>">
+      Manually triggers agent execution. Resolves with a `RunAgentResult` (`{ result, newMessages }`) once the run finalizes. `result` is the final value of the run and `newMessages` are the messages produced during it.
 
       **Parameters:**
-      - `options.forwardedProps?: any` - Data to pass to the agent execution context
+      - `parameters.forwardedProps?: any` - Data to pass to the agent execution context
 
       **Example:**
       ```tsx
-      await agent.runAgent({
+      const { result, newMessages } = await agent.runAgent({
         forwardedProps: {
           command: { resume: "user response" }
         }

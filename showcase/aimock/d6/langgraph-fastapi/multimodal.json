@@ -6,9 +6,9 @@
   },
   "fixtures": [
     {
-      "_comment": "multimodal — image attachment pill. The script clicks the sample-image button, attaches sample.png, then sends this query.",
+      "_comment": "multimodal \u2014 image attachment pill. The script clicks the sample-image button, attaches sample.png, then sends this query.",
       "match": {
-        "userMessage": "describe the sample image",
+        "userMessage": "can you tell me what is in this demo image I just attached",
         "context": "langgraph-fastapi"
       },
       "response": {
@@ -16,9 +16,9 @@
       }
     },
     {
-      "_comment": "multimodal — PDF attachment pill. The script attaches the sample PDF, then sends this query.",
+      "_comment": "multimodal \u2014 PDF attachment pill. The script attaches the sample PDF, then sends this query.",
       "match": {
-        "userMessage": "summarize the sample document",
+        "userMessage": "can you tell me what is in this demo pdf I just attached",
         "context": "langgraph-fastapi"
       },
       "response": {

@@ -15,8 +15,8 @@
  *      further and asserts the exact shape (e.g. an SVG donut chart for
  *      `render_pie_chart`).
  *
- * Why a leading-underscore filename? The D5 driver's script loader
- * (`drivers/e2e-deep.ts → defaultScriptLoader`) matches files against
+ * Why a leading-underscore filename? The D5 script loader
+ * (`drivers/d6-all-pills.ts → defaultScriptLoader`) matches files against
  * `^d5-.*\.(js|ts)$`. Files prefixed with `_` (or any non-`d5-` prefix)
  * are skipped, so this helper file co-exists in `scripts/` without the
  * loader trying to import it as a script.
@@ -29,12 +29,34 @@
  * through `globalThis`. Same pattern as `conversation-runner.ts`.
  */
 
-import {
-  ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
-  ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
-  ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
-  type Page,
-} from "../helpers/conversation-runner.js";
+import type { Page as PlaywrightPage } from "playwright";
+
+import { findAssistantBubbleAt } from "../helpers/assistant-message-count.js";
+import { type Page } from "../helpers/conversation-runner.js";
+
+/**
+ * Turn-scoped replacement for `readLastAssistantText`. Resolves the
+ * assistant bubble at strict 0-based `bubbleIndex` via the shared
+ * cascade (`findAssistantBubbleAt`) and returns its untruncated
+ * `textContent`. Returns `""` when the bubble is absent — callers MUST
+ * treat empty as "turn not yet complete", not as "turn produced an
+ * empty answer".
+ *
+ * The runner's structural `Page` surface erases playwright's overload
+ * set, so we widen via `unknown as PlaywrightPage` at the boundary —
+ * same pattern as `readMessageCount` in `conversation-runner.ts`. The
+ * helper only invokes `page.evaluate(...)` which both surfaces satisfy.
+ */
+export async function readAssistantTextAt(
+  page: Page,
+  bubbleIndex: number,
+): Promise<string> {
+  const text = await findAssistantBubbleAt(
+    page as unknown as PlaywrightPage,
+    bubbleIndex,
+  );
+  return text ?? "";
+}
 
 /**
  * Selector cascade used to find a rendered gen-UI component in the
@@ -270,92 +292,6 @@ export async function readSvgChartShape(page: Page): Promise<SvgChartShape> {
       drawingChildren: circles.length + paths.length + rects.length,
     };
   });
-}
-
-/**
- * Look up the assistant's most recent textual content — used by the
- * headless assertion to confirm the model acknowledged the rendered
- * component (per the recorded fixture, the second-leg response is a
- * short narration of what was shown). Returns the empty string when
- * no assistant text is present.
- *
- * IMPORTANT: The canonical CopilotKit assistant message DOM is:
- *
- *   <div data-testid="copilot-assistant-message">
- *     <div class="cpk:prose ...">   ← text content (markdown)
- *     tool-call renders             ← rendered components (SVG charts, cards, etc.)
- *     toolbar                       ← copy/thumbs/read-aloud buttons
- *   </div>
- *
- * Reading `textContent` on the outer wrapper picks up EVERYTHING —
- * including rendered tool-component labels (e.g. pie-chart SVG text
- * like "Electronics42,000" or "Clothing28,000"). This function
- * targets ONLY the prose div (first child) to extract the actual
- * assistant text message, not rendered component output.
- *
- * For non-canonical selectors (role="article", data-message-role)
- * the prose-scoping is attempted but falls back to the full element
- * when the expected DOM structure isn't present.
- */
-export async function readLastAssistantText(page: Page): Promise<string> {
-  const code = `
-    (() => {
-      const doc = globalThis.document;
-      const canonical = doc.querySelectorAll(${JSON.stringify(
-        ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
-      )});
-      let list = canonical.length > 0
-        ? canonical
-        : doc.querySelectorAll(${JSON.stringify(
-          ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
-        )});
-      if (list.length === 0) {
-        list = doc.querySelectorAll(${JSON.stringify(
-          ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
-        )});
-      }
-      if (list.length === 0) return "";
-      const last = list[list.length - 1];
-      if (!last) return "";
-
-      // Scope to the prose/markdown child to exclude rendered tool
-      // components (charts, cards) and toolbar buttons. The prose div
-      // is always the first child of the canonical assistant-message
-      // wrapper and carries a class containing "prose".
-      var proseChild = last.querySelector && last.querySelector('[class*="prose"]');
-      if (!proseChild) {
-        // Fallback: first child div (the prose wrapper is always the
-        // first <div> child in the canonical layout).
-        var firstDiv = last.querySelector && last.querySelector(':scope > div:first-child');
-        if (firstDiv) {
-          // Only use this if the assistant message has more than one
-          // child (i.e. there's a tool-call render or toolbar sibling).
-          // If there's only one child, the whole element IS the text.
-          if (last.childElementCount > 1) {
-            proseChild = firstDiv;
-          }
-        }
-      }
-
-      var target = proseChild || last;
-      var text = (target.textContent || "").trim();
-
-      // Debug: log what we're reading so production traces show exactly
-      // which element was selected and what text was extracted.
-      if (typeof console !== "undefined" && console.log) {
-        console.log(
-          "[readLastAssistantText] selector=" +
-          (canonical.length > 0 ? ${JSON.stringify(ASSISTANT_MESSAGE_PRIMARY_SELECTOR)} : "fallback") +
-          " scoped=" + (proseChild ? "prose" : "full") +
-          " text=" + JSON.stringify(text.slice(0, 120))
-        );
-      }
-
-      return text;
-    })()
-  `;
-  const fn = new Function(`return ${code.trim()};`) as () => string;
-  return await page.evaluate(fn);
 }
 
 function sleep(ms: number): Promise<void> {

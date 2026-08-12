@@ -228,6 +228,7 @@ def _stub_agent_server_deps():
         "shared_state_read_write",
         "subagents",
         "tool_rendering",
+        "reasoning_agent",
         "_header_forwarding",
     ):
         sys.modules[f"agents.{name}"] = types.ModuleType(f"agents.{name}")
@@ -260,6 +261,12 @@ def _stub_agent_server_deps():
     setattr(sys.modules["agents.subagents"], "subagents_flow", object())
     setattr(sys.modules["agents.tool_rendering"], "tool_rendering_flow", object())
     setattr(sys.modules["agents.gen_ui_agent"], "gen_ui_agent_flow", object())
+    # agent_server mounts the reasoning sub-app at import time via
+    # `app.mount("/reasoning", reasoning_app)`. `Starlette.mount` only STORES the
+    # app on a Mount route (it isn't invoked unless a request hits /reasoning,
+    # which these tests never do), so a bare sentinel is sufficient here — same
+    # rationale as the Flow sentinels above.
+    setattr(sys.modules["agents.reasoning_agent"], "reasoning_app", object())
 
     # agent_server imports the header-forwarding helpers at top level and calls
     # install_global_httpx_hook() at import time, then mounts

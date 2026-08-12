@@ -1,0 +1,95 @@
+---
+title: "CopilotKitCoreConfig"
+description: "Configuration object passed to the CopilotKitCore constructor."
+---
+
+## Overview
+
+`CopilotKitCoreConfig` is the configuration object accepted by the [`CopilotKitCore`](/reference/core/classes/CopilotKitCore) constructor. It wires the core to a CopilotRuntime endpoint and seeds it with frontend tools, suggestions, request headers, and forwarded properties.
+
+## Import
+
+```ts
+import type { CopilotKitCoreConfig } from "@copilotkit/core";
+```
+
+## Definition
+
+```ts
+interface CopilotKitCoreConfig {
+  runtimeUrl?: string;
+  runtimeTransport?: CopilotRuntimeTransport;
+  agents__unsafe_dev_only?: Record<string, AbstractAgent>;
+  headers?: Record<string, string>;
+  credentials?: RequestCredentials;
+  properties?: Record<string, unknown>;
+  tools?: FrontendTool<any>[];
+  suggestionsConfig?: SuggestionsConfig[];
+  debug?: DebugConfig;
+}
+```
+
+## Properties
+
+<PropertyReference name="runtimeUrl" type="string">
+  The endpoint of the CopilotRuntime.
+</PropertyReference>
+
+<PropertyReference name="runtimeTransport" type='"rest" | "single" | "auto"' default="auto">
+  Transport style for CopilotRuntime endpoints. `"auto"` probes REST and falls back to single-route.
+</PropertyReference>
+
+<PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>">
+  Mapping from agent name to its `AbstractAgent` instance. For development only — production requires a CopilotRuntime.
+</PropertyReference>
+
+<PropertyReference name="headers" type="Record<string, string>" default="{}">
+  Headers appended to every HTTP request made by `CopilotKitCore`.
+</PropertyReference>
+
+<PropertyReference name="credentials" type="RequestCredentials">
+  Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies).
+</PropertyReference>
+
+<PropertyReference name="properties" type="Record<string, unknown>" default="{}">
+  Properties sent as `forwardedProps` to the AG-UI agent.
+</PropertyReference>
+
+<PropertyReference name="tools" type="FrontendTool<any>[]" default="[]">
+  Ordered collection of [frontend tools](/reference/core/types/FrontendTool) available to the core.
+</PropertyReference>
+
+<PropertyReference name="suggestionsConfig" type="SuggestionsConfig[]" default="[]">
+  [Suggestions configuration](/reference/core/types/SuggestionsConfig) for the core.
+</PropertyReference>
+
+<PropertyReference name="debug" type="DebugConfig">
+  Enable debug logging for the client-side event pipeline.
+</PropertyReference>
+
+## Usage
+
+```ts
+import { CopilotKitCore } from "@copilotkit/core";
+import { z } from "zod";
+
+const copilotkit = new CopilotKitCore({
+  runtimeUrl: "/api/copilotkit",
+  headers: { Authorization: "Bearer token" },
+  properties: { userId: "user_123" },
+  tools: [
+    {
+      name: "sayHello",
+      description: "Greet the user",
+      parameters: z.object({ name: z.string() }),
+      handler: async ({ name }) => `Hello, ${name}!`,
+    },
+  ],
+});
+```
+
+## Related
+
+- [CopilotKitCore](/reference/core/classes/CopilotKitCore)
+- [FrontendTool](/reference/core/types/FrontendTool)
+- [SuggestionsConfig](/reference/core/types/SuggestionsConfig)

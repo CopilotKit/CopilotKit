@@ -64,7 +64,7 @@ The example showcases how to implement complex conversational flows using a stat
      ```
    </details>
 
-3. Create a `.env` file in the project root and add your [Copilot Cloud Public API Key](https://cloud.copilotkit.ai):
+3. Create a `.env` file in the project root and add your [Copilot Cloud Public API Key](https://dashboard.operations.copilotkit.ai):
 
    ```
    NEXT_PUBLIC_CPK_PUBLIC_API_KEY=your_api_key_here
@@ -144,7 +144,7 @@ useCopilotAction({
 Ready to build your own AI-powered state machine? Check out these resources:
 
 - [CopilotKit Documentation](https://docs.copilotkit.ai) - Comprehensive guides and API references
-- [CopilotKit Cloud](https://cloud.copilotkit.ai/) - Deploy your copilots with our managed cloud solution
+- [CopilotKit Cloud](https://dashboard.operations.copilotkit.ai/) - Deploy your copilots with our managed cloud solution
 - [React Flow Documentation](https://reactflow.dev/docs/introduction/) - Learn more about building interactive node-based UIs
 
 ## 🤝 Contributing

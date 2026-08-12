@@ -1,8 +1,10 @@
 const METHOD_NAMES = [
   "agent/run",
+  "agent/suggest",
   "agent/connect",
   "agent/stop",
   "info",
+  "inspector/metadata",
   "transcribe",
 ] as const;
 
@@ -33,7 +35,7 @@ export async function parseMethodCall(request: Request): Promise<MethodCall> {
   let jsonEnvelope: JsonEnvelope;
   try {
     jsonEnvelope = (await request.clone().json()) as JsonEnvelope;
-  } catch (error) {
+  } catch {
     throw createResponseError("Invalid JSON payload", 400);
   }
 
@@ -114,7 +116,9 @@ function serializeJsonBody(body: unknown): BodyInit {
     body instanceof ArrayBuffer ||
     body instanceof Uint8Array
   ) {
-    return body;
+    // Uint8Array<ArrayBufferLike> is a valid fetch body at runtime, but the
+    // DOM lib's BodyInit only admits ArrayBuffer-backed views.
+    return body as BodyInit;
   }
 
   if (body instanceof FormData || body instanceof URLSearchParams) {

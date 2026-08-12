@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Env / secrets (keep .env.example tracked)
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+.next/
+out/
+build/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local SQLite database
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Generated video captures (large binaries; keep video/ source tracked)
+video/captures/

@@ -1,0 +1,77 @@
+---
+title: Transcripts
+description: Append, query, retain, and delete an application-owned transcript keyed by a stable user identity.
+---
+
+`Transcripts` stores an optional SDK-owned record on the Channel's
+`StateStore`. Configure top-level `identifyUser` and `store.transcripts`.
+
+## Configuration
+
+```ts
+const channel = createChannel({
+  name: "support-slack",
+  identifyUser: ({ actor }) => accounts.resolveApplicationUser(actor.id),
+  agent: makeAgent,
+  store: {
+    adapter: durableStateStore,
+    transcripts: {
+      retention: "30d",
+      maxPerUser: 500,
+    },
+  },
+});
+```
+
+`retention` accepts milliseconds or a duration string. Entries are stored on
+the `list` facet, so that facet must be durable for production transcripts.
+
+## append
+
+```ts
+await channel.transcripts.append(
+  thread,
+  {
+    role: "assistant",
+    text: "The incident owner is Payments.",
+  },
+  { userId: "usr_123" },
+);
+```
+
+Append silently does nothing when `userId` is `null`.
+
+## list
+
+```ts
+const entries = await channel.transcripts.list({
+  userId: "usr_123",
+  limit: 20,
+  roles: ["user", "assistant"],
+});
+```
+
+Entries are oldest-first and can be filtered by platform, `threadId`, or role.
+On managed Channels, `platform` is the native provider (`"slack"` or
+`"teams"`). Use the stable application `userId` to carry context between
+providers, and filter by platform only when you want one provider's entries.
+
+## delete
+
+```ts
+const { deleted } = await channel.transcripts.delete({
+  userId: "usr_123",
+});
+```
+
+This deletes only the SDK-owned transcript. It does not delete provider history
+or a separate Intelligence record.
+
+## Automatic bridge
+
+`thread.runAgent({ transcript: true })` injects prior entries, appends the
+current user turn, runs the agent, and appends its response. Do not manually
+append those same turns.
+
+`channel.transcripts` becomes available after the runtime starts the Channel.
+See [History and transcripts](/slack/history-and-transcripts).

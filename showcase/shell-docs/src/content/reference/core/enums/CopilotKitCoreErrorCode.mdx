@@ -1,0 +1,127 @@
+---
+title: "CopilotKitCoreErrorCode"
+description: "Stable error codes surfaced through the onError subscriber callback."
+---
+
+## Overview
+
+`CopilotKitCoreErrorCode` enumerates the stable, machine-readable codes that `CopilotKitCore` attaches to errors. You encounter it in the `onError` callback of a subscriber, where you can branch on `code` to handle specific failures.
+
+## Import
+
+```ts
+import { CopilotKitCoreErrorCode } from "@copilotkit/core";
+```
+
+## Definition
+
+```ts
+enum CopilotKitCoreErrorCode {
+  RUNTIME_INFO_FETCH_FAILED = "runtime_info_fetch_failed",
+  AGENT_CONNECT_FAILED = "agent_connect_failed",
+  AGENT_RUN_FAILED = "agent_run_failed",
+  AGENT_RUN_FAILED_EVENT = "agent_run_failed_event",
+  AGENT_RUN_ERROR_EVENT = "agent_run_error_event",
+  TOOL_ARGUMENT_PARSE_FAILED = "tool_argument_parse_failed",
+  TOOL_HANDLER_FAILED = "tool_handler_failed",
+  TOOL_NOT_FOUND = "tool_not_found",
+  AGENT_NOT_FOUND = "agent_not_found",
+  AGENT_THREAD_LOCKED = "agent_thread_locked",
+  TRANSCRIPTION_FAILED = "transcription_failed",
+  TRANSCRIPTION_SERVICE_NOT_CONFIGURED = "transcription_service_not_configured",
+  TRANSCRIPTION_INVALID_AUDIO = "transcription_invalid_audio",
+  TRANSCRIPTION_RATE_LIMITED = "transcription_rate_limited",
+  TRANSCRIPTION_AUTH_FAILED = "transcription_auth_failed",
+  TRANSCRIPTION_NETWORK_ERROR = "transcription_network_error",
+  SUBSCRIBER_CALLBACK_FAILED = "subscriber_callback_failed",
+}
+```
+
+## Members
+
+<PropertyReference name="RUNTIME_INFO_FETCH_FAILED" type="runtime_info_fetch_failed">
+  Fetching runtime info (agents, version, capabilities) from the runtime URL failed.
+</PropertyReference>
+
+<PropertyReference name="AGENT_CONNECT_FAILED" type="agent_connect_failed">
+  Connecting an agent to the runtime failed.
+</PropertyReference>
+
+<PropertyReference name="AGENT_RUN_FAILED" type="agent_run_failed">
+  An agent run threw before or while starting.
+</PropertyReference>
+
+<PropertyReference name="AGENT_RUN_FAILED_EVENT" type="agent_run_failed_event">
+  The agent emitted a `RUN_FAILED` event during execution.
+</PropertyReference>
+
+<PropertyReference name="AGENT_RUN_ERROR_EVENT" type="agent_run_error_event">
+  The agent emitted a `RUN_ERROR` event during execution.
+</PropertyReference>
+
+<PropertyReference name="TOOL_ARGUMENT_PARSE_FAILED" type="tool_argument_parse_failed">
+  A tool call's arguments could not be parsed against the tool's schema.
+</PropertyReference>
+
+<PropertyReference name="TOOL_HANDLER_FAILED" type="tool_handler_failed">
+  A frontend tool handler threw while executing.
+</PropertyReference>
+
+<PropertyReference name="TOOL_NOT_FOUND" type="tool_not_found">
+  The agent called a tool that is not registered.
+</PropertyReference>
+
+<PropertyReference name="AGENT_NOT_FOUND" type="agent_not_found">
+  An operation referenced an agent ID that is not registered.
+</PropertyReference>
+
+<PropertyReference name="AGENT_THREAD_LOCKED" type="agent_thread_locked">
+  An agent run failed because the thread is already locked by another active run.
+</PropertyReference>
+
+<PropertyReference name="TRANSCRIPTION_FAILED" type="transcription_failed">
+  Audio transcription failed for an unspecified reason.
+</PropertyReference>
+
+<PropertyReference name="TRANSCRIPTION_SERVICE_NOT_CONFIGURED" type="transcription_service_not_configured">
+  Transcription was requested but no transcription service is configured.
+</PropertyReference>
+
+<PropertyReference name="TRANSCRIPTION_INVALID_AUDIO" type="transcription_invalid_audio">
+  The supplied audio could not be transcribed because it was invalid.
+</PropertyReference>
+
+<PropertyReference name="TRANSCRIPTION_RATE_LIMITED" type="transcription_rate_limited">
+  The transcription service rejected the request due to rate limiting.
+</PropertyReference>
+
+<PropertyReference name="TRANSCRIPTION_AUTH_FAILED" type="transcription_auth_failed">
+  Authentication with the transcription service failed.
+</PropertyReference>
+
+<PropertyReference name="TRANSCRIPTION_NETWORK_ERROR" type="transcription_network_error">
+  A network error occurred while contacting the transcription service.
+</PropertyReference>
+
+<PropertyReference name="SUBSCRIBER_CALLBACK_FAILED" type="subscriber_callback_failed">
+  A subscriber callback threw while handling an event.
+</PropertyReference>
+
+## Usage
+
+```ts
+copilotkit.subscribe({
+  onError: ({ code, error, context }) => {
+    if (code === CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED) {
+      // Show "Agent is busy, retry?" UI
+      return;
+    }
+    console.error(code, error, context);
+  },
+});
+```
+
+## Related
+
+- [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber) — the `onError` callback receives this code.
+- [CopilotKitCore](/reference/core/classes/CopilotKitCore)

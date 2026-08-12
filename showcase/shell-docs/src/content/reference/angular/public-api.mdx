@@ -1,0 +1,56 @@
+---
+title: "Public API inventory"
+description: "Supported entry points and API families for @copilotkit/angular."
+---
+
+The supported entry points are `@copilotkit/angular`,
+`@copilotkit/angular/mcp-apps`, and `@copilotkit/angular/styles.css`. The
+published package includes `API.md`, an alphabetized, machine-validated list of
+every exported value and type. A test resolves both TypeScript entry points and
+requires every export to appear exactly once in that inventory.
+
+## Root API families
+
+- **Setup and runtime:** `provideCopilotKit`, `CopilotKit`, `CopilotKitConfig`,
+  configuration and label providers, and injection tokens.
+- **Complete UI:** `CopilotChat`, `CopilotPopup`, `CopilotSidebar`,
+  `CopilotThreadsDrawer`, and their input/model types.
+- **Composable chat UI:** `CopilotChatView`, message, input, textarea,
+  suggestion, toolbar, button, attachment, audio, scroll, cursor, disclaimer,
+  feather, tools-menu, and renderer components plus their slot/context types.
+- **Agents and application state:** `injectAgentStore`, `AgentStore`,
+  `connectAgentContext`, `CopilotKitAgentContext`, `injectChatState`,
+  `injectThreads`, `injectMemories`, and their stores, controllers, and types.
+- **Tools and activities:** `registerFrontendTool`, `registerRenderToolCall`,
+  `registerHumanInTheLoop`, `registerRenderActivityMessage`, `RenderToolCalls`,
+  `CopilotDefaultToolRenderer`, schemas, configurations, renderer interfaces,
+  and safe parsing/serialization utilities.
+- **Interrupts:** `injectInterrupt`, `InterruptController`,
+  `InterruptExpiredError`, and the event, view, runner, handler, and options
+  types.
+- **Generative UI:** A2UI configuration, activity/tool/progress/recovery
+  components and lifecycle schemas; Open Generative UI configuration,
+  sandboxes, activity/tool renderers, content schemas, and constants.
+- **Attachments and transcription:** attachment types, queue and renderer
+  components, attachment directive, audio recorder controls, transcription
+  function, errors, and result/state types.
+- **Slots, directives, and utilities:** slot registry and render helpers,
+  stick-to-bottom, tooltip, resize/scroll services and state, class-name and
+  tool-call utilities.
+- **Protocol types:** selected AG-UI messages and CopilotKit suggestion and
+  memory types are re-exported so application signatures use the same types as
+  the SDK.
+
+The exported `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS` token is explicitly
+internal. It exists only for CopilotKit-maintained secondary entry points and
+applications must not depend on it.
+
+## MCP Apps API family
+
+The secondary entry point exports `provideMCPApps`, its configuration and DI
+tokens, the snapshot schema and type, the ready-made activity renderer config,
+and `CopilotMCPAppsActivityRenderer`/`CopilotMCPAppsWidget` for advanced hosts.
+
+Use the task-specific reference pages for signatures and behavior. Consult the
+`API.md` included beside the package README when reviewing the exact symbol
+inventory for an installed version; that file is the normative export list.

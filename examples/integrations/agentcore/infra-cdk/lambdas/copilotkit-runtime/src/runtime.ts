@@ -2,9 +2,11 @@
  * Shared CopilotKit runtime — the single source of truth.
  * Imported by index.ts (Lambda) and server.ts (local dev).
  */
-import { EventType, HttpAgent, type BaseEvent } from "@ag-ui/client";
+import { EventType, HttpAgent } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import {
+  CopilotKitIntelligence,
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
@@ -126,7 +128,22 @@ export function buildApp() {
 
   const runtime = new CopilotRuntime({
     agents: { ...agents, default: defaultAgent },
-    runner: new AgentCoreRunner(),
+    // --- copilotkit:intelligence (remove this block to opt out) ---
+    ...(process.env.COPILOTKIT_LICENSE_TOKEN
+      ? {
+          intelligence: new CopilotKitIntelligence({
+            apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
+            apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
+            wsUrl:
+              process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
+          }),
+          // Demo stub — replace with your real auth-derived user identity before any
+          // multi-user deployment, or all users share one thread history.
+          identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+          licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
+        }
+      : { runner: new AgentCoreRunner() }),
+    // --- /copilotkit:intelligence ---
   });
 
   return createCopilotEndpoint({ runtime, basePath: "/copilotkit" });

@@ -1,0 +1,31 @@
+{
+  "name": "strands-typescript-agent",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --import tsx --watch server.ts",
+    "start": "node --import tsx server.ts"
+  },
+  "dependencies": {
+    "@ag-ui/a2ui-toolkit": "0.0.4",
+    "@ag-ui/aws-strands": "0.2.3",
+    "@ag-ui/client": "0.0.57",
+    "@ag-ui/core": "0.0.57",
+    "@ag-ui/encoder": "0.0.57",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@opentelemetry/api": "1.9.1",
+    "@strands-agents/sdk": "1.6.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "openai": "^6.7.0",
+    "tsx": "^4.19.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.9.0",
+    "typescript": "^5.7.0"
+  }
+}

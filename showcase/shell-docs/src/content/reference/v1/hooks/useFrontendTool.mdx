@@ -4,11 +4,11 @@ description: "The useFrontendTool hook allows the Copilot to execute tools in th
 ---
 
 <Callout type="warning">
-  `useFrontendTool` is still supported, but we recommend migrating to [`useFrontendTool`](/reference/v2/hooks/useFrontendTool) from the v2 API, which uses Zod schemas for parameters.
+  This is the v1 `useFrontendTool`, which takes an array of parameter definitions. It is still supported, but we recommend migrating to the [v2 `useFrontendTool`](/reference/v2/hooks/useFrontendTool) (from `@copilotkit/react-core/v2`), which uses Zod schemas for parameters.
 </Callout>
 
 `useFrontendTool` allows you to define executable actions that the AI can call with a handler function.
-This is the primary way to give your AI agent the ability to perform actions in your application—whether
+This is the primary way to give your AI agent the ability to perform actions in your application, whether
 that's updating state, making API calls, or triggering side effects.
 
 The hook requires three main pieces:

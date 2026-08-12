@@ -1,6 +1,6 @@
 # CopilotKit v2 Runtime API Reference
 
-Package: `@copilotkit/runtime`
+Package: `@copilotkit/runtime/v2` (`createCopilotExpressHandler` from `@copilotkit/runtime/v2/express`)
 
 ---
 
@@ -11,7 +11,7 @@ Package: `@copilotkit/runtime`
 Compatibility shim that auto-detects the mode based on whether `intelligence` is provided. Delegates to `CopilotSseRuntime` or `CopilotIntelligenceRuntime`.
 
 ```ts
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
   agents: { myAgent: new LangGraphAgent({ ... }) },
@@ -24,7 +24,7 @@ const runtime = new CopilotRuntime({
 Explicit SSE-mode runtime. Agents run in-memory via `InMemoryAgentRunner`.
 
 ```ts
-import { CopilotSseRuntime } from "@copilotkit/runtime";
+import { CopilotSseRuntime } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotSseRuntime({
   agents: { myAgent: agent },
@@ -40,12 +40,15 @@ Intelligence-mode runtime with durable threads, realtime events, and persistent 
 import {
   CopilotIntelligenceRuntime,
   CopilotKitIntelligence,
-} from "@copilotkit/runtime";
+} from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotIntelligenceRuntime({
   agents: { myAgent: agent },
   intelligence: new CopilotKitIntelligence({ ... }),
-  identifyUser: async (request) => ({ id: getUserIdFromRequest(request) }),
+  identifyUser: async (request) => ({
+    id: getUserIdFromRequest(request),
+    name: getUserNameFromRequest(request),
+  }),
   generateThreadNames?: boolean,  // default: true
 });
 ```
@@ -93,14 +96,15 @@ type McpAppsServerConfig = MCPClientConfig & {
 
 ## Endpoint Factories
 
-### createCopilotEndpoint (Hono)
+### createCopilotHonoHandler (Hono)
 
 ```ts
-import { createCopilotEndpoint } from "@copilotkit/runtime";
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2";
 
-const app = createCopilotEndpoint({
+const app = createCopilotHonoHandler({
   runtime: CopilotRuntimeLike,
   basePath: string,
+  mode?: "multi-route" | "single-route", // default: "multi-route"
   cors?: {
     origin: string | string[] | ((origin: string) => string | null);
     credentials?: boolean;
@@ -108,16 +112,17 @@ const app = createCopilotEndpoint({
 });
 ```
 
-Returns a Hono app instance with all CopilotKit routes mounted under `basePath`.
+Returns a Hono app instance with all CopilotKit routes mounted under `basePath`. Defaults to multi-route mode; pass `mode: "single-route"` to expose a single combined route.
 
-### createCopilotEndpointExpress (Express)
+### createCopilotExpressHandler (Express)
 
 ```ts
-import { createCopilotEndpointExpress } from "@copilotkit/runtime";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 
-const router = createCopilotEndpointExpress({
+const router = createCopilotExpressHandler({
   runtime: CopilotRuntimeLike,
   basePath: string,
+  mode?: "multi-route" | "single-route", // default: "multi-route"
 });
 
 // Use in Express app:
@@ -204,7 +209,7 @@ const runtime = new CopilotRuntime({
 Client for the CopilotKit Intelligence platform (durable threads, realtime WebSocket).
 
 ```ts
-import { CopilotKitIntelligence } from "@copilotkit/runtime";
+import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
   // Configuration for the Intelligence platform
@@ -217,7 +222,9 @@ const intelligence = new CopilotKitIntelligence({
 Required for Intelligence mode. Resolves the authenticated user from the incoming request.
 
 ```ts
-type IdentifyUserCallback = (request: Request) => MaybePromise<{ id: string }>;
+type IdentifyUserCallback = (
+  request: Request,
+) => MaybePromise<{ id: string; name: string }>;
 ```
 
 ### Thread Management Types
@@ -286,7 +293,7 @@ Implement this class to provide audio-to-text transcription. The runtime exposes
 The Hono endpoint factory accepts explicit CORS configuration:
 
 ```ts
-createCopilotEndpoint({
+createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: {
@@ -306,38 +313,40 @@ The Express endpoint factory uses `cors({ origin: "*" })` by default. Override b
 
 ```ts
 // app/api/copilotkit/[[...path]]/route.ts
-import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime";
-import { LangGraphAgent } from "@ag-ui/langgraph";
+import {
+  CopilotRuntime,
+  createCopilotHonoHandler,
+} from "@copilotkit/runtime/v2";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
     researcher: new LangGraphAgent({
       graphId: "researcher",
-      url: process.env.LANGGRAPH_URL!,
+      deploymentUrl: process.env.LANGGRAPH_URL!,
     }),
   },
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
 
-export const GET = app.fetch;
-export const POST = app.fetch;
-export const PATCH = app.fetch;
-export const DELETE = app.fetch;
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
 ## Complete Example: Express
 
 ```ts
 import express from "express";
-import {
-  CopilotRuntime,
-  createCopilotEndpointExpress,
-} from "@copilotkit/runtime";
-import { LangGraphAgent } from "@ag-ui/langgraph";
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const app = express();
 
@@ -345,13 +354,13 @@ const runtime = new CopilotRuntime({
   agents: {
     researcher: new LangGraphAgent({
       graphId: "researcher",
-      url: process.env.LANGGRAPH_URL!,
+      deploymentUrl: process.env.LANGGRAPH_URL!,
     }),
   },
 });
 
 app.use(
-  createCopilotEndpointExpress({
+  createCopilotExpressHandler({
     runtime,
     basePath: "/api/copilotkit",
   }),

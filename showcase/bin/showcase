@@ -43,7 +43,96 @@ cmd_up() {
   require_env
   trap restore_symlinks EXIT
   stage_shared
-  $COMPOSE_CMD up -d --build "$@"
+
+  # Fleet topology: bring up the SAME shape prod runs — the control-plane
+  # container + worker container(s) + PocketBase + demos + aimock — NOT an
+  # in-process pool. The harness control-plane and pool worker(s) live in the
+  # `infra` profile (alongside aimock/pocketbase/dashboard), so always include
+  # `--profile infra`.
+  #
+  # Demo slugs (bare args like `langgraph-python`) select that demo's compose
+  # PROFILE — they must become `--profile <slug>` flags, NOT positional service
+  # names. A positional service arg restricts `up` to only that service + its
+  # deps, which (a) leaves the demo's own profile disabled and (b) makes
+  # `--scale harness-pool-worker=N` fail with "no such service:
+  # harness-pool-worker: disabled" because the worker is no longer in the active
+  # set. Raw compose flags (anything starting with `-`, e.g. `--no-build`) are
+  # passed through verbatim.
+  #
+  # HARNESS_POOL_COUNT drives the worker fleet size. Local default is 1 (a
+  # single worker container); staging/prod export HARNESS_POOL_COUNT=2. The
+  # compose `harness-pool-worker` service is scaled to that count via
+  # `--scale` so the same compose file scales from local (1) to prod (N)
+  # purely by the env var — no per-environment compose edits.
+  local pool_count="${HARNESS_POOL_COUNT:-1}"
+  export HARNESS_POOL_COUNT="$pool_count"
+
+  # Split args: bare slugs → `--profile <slug>` + build target; flags (-*) →
+  # pass through. `--dev` is intercepted (not passed to compose): it layers
+  # the dev overlay (docker-compose.dev.yml) which bind-mounts integration
+  # source + overrides the run command to a hot-reload entrypoint — fast
+  # iteration without an image rebuild. The built-image mode (no --dev) stays
+  # the faithful default.
+  local profile_args=()
+  local build_targets=()
+  local passthrough_args=()
+  local dev_mode=false
+  local arg
+  for arg in "$@"; do
+    if [[ "$arg" == "--dev" ]]; then
+      dev_mode=true
+    elif [[ "$arg" == -* ]]; then
+      passthrough_args+=("$arg")
+    else
+      profile_args+=(--profile "$arg")
+      build_targets+=("$arg")
+    fi
+  done
+
+  local compose_cmd="$COMPOSE_CMD"
+  if $dev_mode; then
+    compose_cmd="$compose_cmd -f $SHOWCASE_ROOT/docker-compose.dev.yml"
+    info "DEV MODE: bind-mounting integration source + hot reload (NOT the faithful built-image path)"
+  fi
+
+  info "Launching fleet topology: control-plane + ${pool_count} worker(s) + PocketBase + demos + aimock (HARNESS_POOL_COUNT=${pool_count})"
+  # Two-call strategy to preserve A21's BuildKit-contention fix (target-only
+  # rebuild) WITHOUT regressing infra startup that A21 inadvertently dropped
+  # (A21b, issue #5495).
+  #
+  # docker compose semantics: positional service names after `up` restrict
+  # WHICH services start to the named ones + their `depends_on` chain — not
+  # just which ones get `--build`-rebuilt. So a single
+  # `up -d --build <slug>` only brings up the slug + its depends_on (aimock),
+  # leaving the rest of the infra profile (pocketbase/dashboard/harness/
+  # harness-pool-worker) down. Under `--isolate` with a sibling stack on the
+  # same host ports, health checks then cross onto foreign containers and
+  # cells silently misroute → 0.0s red.
+  #
+  # Fix: when slugs are present, emit TWO compose calls:
+  #   1. <profiles> up -d (no --build, no positional services) — start all
+  #      services in the active profiles using cached images.
+  #   2. <profiles> up -d --build <slug...> — force-rebuild ONLY the named
+  #      services and ensure they're up. Other services from call (1) are
+  #      no-ops.
+  # When no slugs are present (infra-only bring-up), keep the single blanket
+  # `--build` call so first-time bootstrap still builds missing images.
+  #
+  # bash 3.2 (macOS default) errors on `${arr[@]}` for an EMPTY array under
+  # `set -u`; the `${arr[@]+...}` guard expands to nothing when unset/empty.
+  if [[ ${#build_targets[@]} -gt 0 ]]; then
+    # Call 1: bring up ALL services in active profiles, no build.
+    $compose_cmd --profile infra ${profile_args[@]+"${profile_args[@]}"} up -d \
+      --scale harness-pool-worker="$pool_count" ${passthrough_args[@]+"${passthrough_args[@]}"}
+    # Call 2: rebuild ONLY the targeted slug(s) and ensure they're up.
+    $compose_cmd --profile infra ${profile_args[@]+"${profile_args[@]}"} up -d --build \
+      --scale harness-pool-worker="$pool_count" ${passthrough_args[@]+"${passthrough_args[@]}"} \
+      "${build_targets[@]}"
+  else
+    # Infra-only: single call with blanket --build for first-time bootstrap.
+    $compose_cmd --profile infra up -d --build \
+      --scale harness-pool-worker="$pool_count" ${passthrough_args[@]+"${passthrough_args[@]}"}
+  fi
 }
 
 cmd_down() {
@@ -76,6 +165,8 @@ Usage: showcase <command> [options]
 
 Core commands:
   up [slug...]      Start containers (rebuilds if source changed)
+                    --dev  bind-mount integration source + hot reload
+                           (fast iteration; NOT the faithful built-image path)
   down [slug...]    Stop containers
   build [slug...]   Build Docker images
   ps                Show running containers

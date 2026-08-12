@@ -108,3 +108,18 @@ html {
   border-color: var(--cpk-mint-400);
   background: color-mix(in srgb, var(--cpk-mint-400) 15%, var(--background));
 }
+
+/*
+ * Position the CopilotKit inspector FAB BENEATH the Chat/App toggle in the
+ * top-right, instead of the header row where it would overlap it. The gap below
+ * the toggle matches the toggle's own 16px gap from the top of the viewport.
+ * The toggle is 16px from the top and 46px tall (both breakpoints), so its
+ * bottom is at 62px; a 16px gap puts the FAB circle at 78px. The visible circle
+ * renders ~16px below the host's `top`, so host top = 78 - 16 = 62px. Right edge
+ * matches the toggle's 16px inset.
+ */
+cpk-web-inspector {
+  top: 62px !important;
+  bottom: auto !important;
+  right: 16px !important;
+}

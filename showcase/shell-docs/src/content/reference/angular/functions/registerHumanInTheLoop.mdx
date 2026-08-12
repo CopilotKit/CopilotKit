@@ -1,0 +1,202 @@
+---
+title: "registerHumanInTheLoop"
+description: "Angular function for registering a human-in-the-loop tool with CopilotKit that pauses the agent and resumes it when the user responds from a rendered component"
+---
+
+## Overview
+
+`registerHumanInTheLoop` registers a tool that pauses the agent and waits for human input. When the agent calls the tool, CopilotKit renders the `component` you provide and suspends the agent run. The component collects a decision from the user (for example a confirm or reject choice) and calls `respond(result)`. That call resolves the tool with the serialized result envelope described below and lets the run continue.
+
+You call `registerHumanInTheLoop` inside an Angular injection context (a component or service constructor, or a field initializer). The tool registers immediately. When the owning injector is destroyed, CopilotKit removes tool and renderer registrations with the same name and optional agent id.
+
+Unlike [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool), you do not write a `handler`. CopilotKit supplies one that waits for the user's `respond` call, so the rendered component controls when the agent resumes.
+
+<Callout type="info">
+  Import from the package root, `@copilotkit/angular`. There is no `/v2`
+  subpath. `registerHumanInTheLoop` must run in an injection context that has
+  [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) in
+  scope.
+</Callout>
+
+## Signature
+
+```ts
+import { registerHumanInTheLoop } from "@copilotkit/angular";
+
+function registerHumanInTheLoop<Args extends Record<string, unknown>>(
+  humanInTheLoop: HumanInTheLoopConfig<Args>,
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="humanInTheLoop" type="HumanInTheLoopConfig<Args>" required>
+  The tool definition object.
+
+  <PropertyReference name="name" type="string" required>
+    A unique name for the tool. The agent references this name when it decides
+    to call the tool.
+  </PropertyReference>
+
+  <PropertyReference name="description" type="string" required>
+    A natural-language description that tells the agent what the tool does and
+    when to use it.
+  </PropertyReference>
+
+  <PropertyReference name="parameters" type="StandardSchemaV1<unknown, Args>" required>
+    A [Standard Schema](https://standardschema.dev) (for example a Zod object)
+    that defines the advertised tool input schema and drives type inference for
+    the `args` exposed to your component. Runtime arguments are JSON-parsed and
+    cast to `Args`; this helper does not validate them against the schema. For a
+    tool that takes no parameters, pass an empty object schema such as
+    `z.object({})`.
+  </PropertyReference>
+
+  <PropertyReference name="component" type="Type<HumanInTheLoopToolRenderer<Args>>" required>
+    The standalone Angular component class to render while the agent waits.
+    CopilotKit instantiates it and binds a `toolCall` signal input whose value
+    carries the `args`, the `status`, the `result`, and the `respond` callback.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Optional agent scope. When set, the tool is only offered to the agent with
+    this id. Cleanup on destroy is scoped to the same `agentId`.
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+`registerHumanInTheLoop` returns `void`. It registers the tool as a side effect and wires up name-and-agent-id cleanup for the owning injector.
+
+## The renderer component
+
+Your `component` implements the `HumanInTheLoopToolRenderer<Args>` interface. It exposes a single `toolCall` signal input, so declare it with Angular's `input()`:
+
+```ts
+import { Signal } from "@angular/core";
+
+interface HumanInTheLoopToolRenderer<Args extends Record<string, unknown>> {
+  toolCall: Signal<HumanInTheLoopToolCall<Args>>;
+}
+```
+
+### HumanInTheLoopToolCall
+
+`toolCall()` returns a discriminated union keyed on `status`. Every variant carries a `respond` callback:
+
+```ts
+type HumanInTheLoopToolCall<Args extends Record<string, unknown>> =
+  | {
+      name?: string;
+      args: Partial<Args>; // streaming, may be incomplete
+      status: "in-progress";
+      result: undefined;
+      respond: (result: unknown) => void;
+    }
+  | {
+      name?: string;
+      args: Args; // fully parsed
+      status: "executing";
+      result: undefined;
+      respond: (result: unknown) => void;
+    }
+  | {
+      name?: string;
+      args: Args; // fully parsed
+      status: "complete";
+      result: string; // stored tool-message content
+      respond: (result: unknown) => void;
+    };
+```
+
+The `respond(result)` callback is how your component resumes the agent. The current implementation resolves the internal handler with `{ toolCallId, toolName, result }`; core serializes that object to JSON for the tool result. While the agent waits, `status` is `executing` (or `in-progress` while the arguments are still streaming). Once the tool message arrives, `status` becomes `complete` and `result` contains the stored tool-message string.
+
+## Usage
+
+### A confirmation dialog
+
+This component renders a confirm and a reject button. Each records a different
+decision and resumes the agent.
+
+```ts title="src/app/confirm-dialog.component.ts"
+import { Component, computed, input } from "@angular/core";
+import { HumanInTheLoopToolCall, HumanInTheLoopToolRenderer } from "@copilotkit/angular";
+
+type ConfirmArgs = { message: string };
+
+@Component({
+  selector: "app-confirm-dialog",
+  standalone: true,
+  template: `
+    @let call = toolCall();
+    @if (call.status === "complete") {
+      <pre class="text-sm opacity-70">{{ call.result }}</pre>
+    } @else {
+      <div class="rounded border p-4">
+        <p>{{ message() }}</p>
+        <div class="mt-3 flex gap-2">
+          <button type="button" (click)="call.respond('confirmed')">Confirm</button>
+          <button type="button" (click)="call.respond('rejected')">Reject</button>
+        </div>
+      </div>
+    }
+  `,
+})
+export class ConfirmDialogComponent implements HumanInTheLoopToolRenderer<ConfirmArgs> {
+  readonly toolCall = input.required<HumanInTheLoopToolCall<ConfirmArgs>>();
+  readonly message = computed(() => this.toolCall().args.message ?? "Are you sure?");
+}
+```
+
+Register the tool with that component:
+
+```ts title="src/app/chat.component.ts"
+import { Component } from "@angular/core";
+import { z } from "zod";
+import { registerHumanInTheLoop } from "@copilotkit/angular";
+import { ConfirmDialogComponent } from "./confirm-dialog.component";
+
+@Component({
+  selector: "app-chat",
+  standalone: true,
+  template: ``,
+})
+export class ChatComponent {
+  constructor() {
+    registerHumanInTheLoop({
+      name: "confirmAction",
+      description: "Ask the user to confirm before performing a sensitive action",
+      parameters: z.object({
+        message: z.string().describe("The confirmation question to show the user"),
+      }),
+      component: ConfirmDialogComponent,
+    });
+  }
+}
+```
+
+When the agent calls `confirmAction`, the dialog appears in the chat and the run pauses. A button click sends `"confirmed"` or `"rejected"` in the serialized result envelope described above. The completed tool call exposes that stored string.
+
+Cleanup uses the same shared name-and-agent-id removal path as the other tool
+registration helpers. Frontend tools, human-in-the-loop tools, and tool-call
+renderers that share that key are removed together.
+
+## Related
+
+<Cards>
+  <Card
+    title="registerFrontendTool"
+    description="Register a client-side tool with an async handler and an optional renderer component."
+    href="/reference/angular/functions/registerFrontendTool"
+  />
+  <Card
+    title="registerRenderToolCall"
+    description="Register a renderer for a tool call with access to streaming status and results, without a handler."
+    href="/reference/angular/functions/registerRenderToolCall"
+  />
+  <Card
+    title="CopilotKit service"
+    description="The central service that holds agents, tools, and the runtime connection."
+    href="/reference/angular/services/CopilotKit"
+  />
+</Cards>

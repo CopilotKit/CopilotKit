@@ -26,7 +26,7 @@ export const revalidate = false;
 
 export function GET(): NextResponse {
   const baseUrl = getBaseUrl();
-  const pages = getAllLlmPages();
+  const pages = getAllLlmPages({ channelGuideVariants: "content-unique" });
   const chunks: string[] = [];
 
   // Top matter — short site description so the LLM has context before
@@ -40,7 +40,10 @@ export function GET(): NextResponse {
   );
 
   for (const page of pages) {
-    const body = renderPageToLlmText(page);
+    const body = renderPageToLlmText(page, {
+      ...(page.frontend ? { frontend: page.frontend } : {}),
+      ...(page.framework ? { framework: page.framework } : {}),
+    });
     if (!body) continue;
     const url = `${baseUrl}/${page.url}`;
     chunks.push(`---\n\n## Source: ${url}\n`);

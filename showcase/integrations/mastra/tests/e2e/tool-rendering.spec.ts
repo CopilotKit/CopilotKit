@@ -51,11 +51,14 @@ test.describe("Tool Rendering", () => {
       "San Francisco",
       { timeout: TOOL_TIMEOUT },
     );
+    // getWeatherImpl seeds deterministically per city; "San Francisco" yields
+    // humidity 77 / wind 3 (mastra uses the seeded shared-tools impl, a
+    // documented divergence from the gold fixed 55/10).
     await expect(
       card.locator('[data-testid="weather-humidity"]'),
-    ).toContainText("55%", { timeout: TOOL_TIMEOUT });
+    ).toContainText("77%", { timeout: TOOL_TIMEOUT });
     await expect(card.locator('[data-testid="weather-wind"]')).toContainText(
-      "10",
+      "3",
       { timeout: TOOL_TIMEOUT },
     );
   });
@@ -85,6 +88,16 @@ test.describe("Tool Rendering", () => {
     await expect
       .poll(async () => rows.count(), { timeout: TOOL_TIMEOUT })
       .toBeGreaterThanOrEqual(2);
+
+    // Regression guard for PNI-121: each row must show the tool RESULT's
+    // depart/arrive/price, not the placeholder "? → ?" / "—" that appeared
+    // when search_flights emitted Mastra-flavored keys the card never read.
+    const firstRow = rows.first();
+    await expect(firstRow).toContainText("United", { timeout: TOOL_TIMEOUT });
+    await expect(firstRow).toContainText("08:15", { timeout: TOOL_TIMEOUT });
+    await expect(firstRow).toContainText("16:45", { timeout: TOOL_TIMEOUT });
+    await expect(firstRow).toContainText("$348", { timeout: TOOL_TIMEOUT });
+    await expect(firstRow).not.toContainText("? → ?");
   });
 
   test("Stock price pill renders the AAPL stock card", async ({ page }) => {

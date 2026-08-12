@@ -1,0 +1,53 @@
+# Probe: cross-env-pin-drift (plan U11 / spec §7.3)
+#
+# Weekly CROSS-ENV pin-drift check (U6's `pin_drift_cross_env` driver).
+# For each prod-pinned `showcase-*` service it reads BOTH envs' running
+# digests and asserts prod is RUNNING the digest it was LAST PROMOTED to
+# (its pinned `@sha256:` ref) AND that the digest is still present in GHCR
+# — distinct from `image-drift` (one env vs GHCR `:latest`), which the Ops
+# surface uses for STAGING only. The Ops surface routes PROD services HERE
+# (see src/probes/ops-drift-routing.ts) so pinned prod is VERIFIED, not
+# suppressed-to-green via image-drift's `pinnedExpected`.
+#
+# Discovery `cross-env-pin-drift` delegates the `showcase-*` roster + image
+# refs to railway-services, then stamps the prod/staging env-ids onto every
+# record. The driver itself runs the two-env project query.
+#
+# Schedule: Monday 10:00 UTC — same weekly cadence as the `pin-drift`
+# validate-pins ratchet (`pin-drift.yml`) and the weekly CI ratchet in
+# `.github/workflows/showcase_validate.yml`, so the in-cluster cross-env
+# tick lines up with the existing weekly drift cadence. timeout_ms is
+# generous enough for the two-env project query plus one GHCR manifest
+# GET per service on a cold TCP stack. max_concurrency=4 matches
+# image-drift's GHCR pool size.
+kind: pin_drift_cross_env
+id: pin-drift-cross-env-weekly
+schedule: "0 10 * * 1"
+timeout_ms: 30000
+max_concurrency: 4
+discovery:
+  source: cross-env-pin-drift
+  filter:
+    namePrefix: "showcase-"
+    nameExcludes:
+      # Decommissioned starters — Railway services stopped (PR #4390).
+      # Mirrors image-drift.yml's exclusion list (the cross-env probe
+      # enumerates the same railway-services roster).
+      - "showcase-starter-ag2"
+      - "showcase-starter-agno"
+      - "showcase-starter-claude-sdk-python"
+      - "showcase-starter-claude-sdk-typescript"
+      - "showcase-starter-crewai-crews"
+      - "showcase-starter-google-adk"
+      - "showcase-starter-langgraph-fastapi"
+      - "showcase-starter-langgraph-python"
+      - "showcase-starter-langgraph-typescript"
+      - "showcase-starter-langroid"
+      - "showcase-starter-llamaindex"
+      - "showcase-starter-mastra"
+      - "showcase-starter-ms-agent-dotnet"
+      - "showcase-starter-ms-agent-python"
+      - "showcase-starter-pydantic-ai"
+      - "showcase-starter-spring-ai"
+      - "showcase-starter-strands"
+  key_template: "pin_drift_cross_env:${name}"

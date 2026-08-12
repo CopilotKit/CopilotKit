@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-native",
-  "version": "1.59.2",
+  "version": "1.67.1",
   "private": false,
   "keywords": [
     "ai",
@@ -19,6 +19,7 @@
   "type": "module",
   "sideEffects": [
     "./dist/index.*",
+    "./dist/headless.*",
     "./dist/polyfills.*",
     "./dist/polyfills/**/*"
   ],
@@ -29,6 +30,10 @@
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./headless": {
+      "import": "./dist/headless.mjs",
+      "require": "./dist/headless.cjs"
     },
     "./polyfills": {
       "import": "./dist/polyfills.mjs",
@@ -74,7 +79,7 @@
     "unlink:global": "pnpm unlink --global"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.53",
+    "@ag-ui/client": "0.0.57",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/shared": "workspace:*",

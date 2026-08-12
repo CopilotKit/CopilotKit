@@ -58,7 +58,8 @@ Both methods trigger the agent, but they operate at different levels:
 object accepts every AG-UI lifecycle callback: `onCustomEvent`,
 `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and the streaming
 deltas. Use it to drive custom progress UI, forward events to
-analytics, or catch LangGraph `interrupt(...)` events and resume with a payload (the pattern below).
+analytics, or catch framework pause/resume events and resolve them with
+a payload (the pattern below).
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
@@ -82,15 +83,15 @@ hook would power a modal, a toast, a sidebar form, or a voice UI.
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
 
-## Resolving an MS Agent tool call from a button
+## Resolving a frontend tool call from a button
 
-On Microsoft Agent Framework there's no native interrupt primitive —
+For promise-based integrations there is no native interrupt primitive —
 the demo uses `useFrontendTool` with a Promise-based handler instead.
-The handler stages its `resolve` callback and pending payload via
-React state, the app surface renders the picker outside the chat, and
-the user's pick resolves the Promise that the agent's tool call is
-awaiting. Same UX, different mechanism — the agent never knows it's
-talking to a button grid instead of a chat picker:
+The handler stages its `resolve` callback and pending payload via React
+state, the app surface renders the picker outside the chat, and the
+user's pick resolves the Promise that the agent's tool call is awaiting.
+Same UX, different mechanism — the agent never knows it's talking to a
+button grid instead of a chat picker:
 
 <Snippet region="headless-promise-primitives" cell="interrupt-headless" title="frontend/src/app/page.tsx — useFrontendTool + Promise resolver" />
 
@@ -108,8 +109,8 @@ UI.
 > **Interrupt-style pause/resume isn't available on this framework.**
 > The headless interrupt pattern shown above requires the underlying
 > runtime to expose either a native `interrupt(...)` primitive
-> (LangGraph) or a Promise-resolving frontend-tool path (Microsoft
-> Agent Framework). For all other integrations, drive pauses through
+> (LangGraph) or a Promise-resolving frontend-tool path. For all other
+> integrations, drive pauses through
 > [`useHumanInTheLoop`](./human-in-the-loop) instead — it's the
 > standard hook for tool-call-based pause/resume flows and works on
 > every framework that supports tool calls. The `agent.addMessage`,

@@ -37,6 +37,9 @@ export const useCopilotKit = (): CopilotKitContextValue => {
       onRuntimeConnectionStatusChanged: () => {
         forceUpdate();
       },
+      onHeadersChanged: () => {
+        forceUpdate();
+      },
     });
     return () => {
       subscription.unsubscribe();

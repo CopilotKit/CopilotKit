@@ -5,3 +5,11 @@ node_modules/
 .DS_Store
 
 .next
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/

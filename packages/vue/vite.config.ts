@@ -31,6 +31,13 @@ export default defineConfig({
         "@copilotkit/core",
         "@copilotkit/shared",
         "@copilotkit/web-inspector",
+        // Keep @copilotkit/web-components (the Lit drawer element) + its subpaths
+        // external. It's a runtime dependency loaded via the drawer wrapper's
+        // client-only dynamic import; bundling it inline would ship a duplicate
+        // element + a second copy of lit-html, which breaks Vite/Nuxt consumers
+        // (duplicate top-level lit binding → "Identifier 'h' has already been
+        // declared") and risks double custom-element registration.
+        /^@copilotkit\/web-components(\/.*)?$/,
         "@jetbrains/websandbox",
         "streamdown-vue",
         "katex",

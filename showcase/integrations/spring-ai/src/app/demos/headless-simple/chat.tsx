@@ -25,17 +25,40 @@ import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { TypingIndicator } from "./typing-indicator";
 
+/**
+ * Browser-friendly UUID. `crypto.randomUUID` only exists in secure
+ * contexts — the local harness drives this page over plain http
+ * (http://spring-ai:10000), where it is undefined and the page throws
+ * before the message ever sends. Fall back to a math-based UUIDv4
+ * (same pattern as the multimodal demo's generateMessageId).
+ */
+function generateMessageId(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export function Chat() {
   // @region[use-agent-simple]
   const { agent } = useAgent({ agentId: "headless-simple" });
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const send = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || agent.isRunning) return;
+    setError(null);
     agent.addMessage({
-      id: crypto.randomUUID(),
+      id: generateMessageId(),
       role: "user",
       content: trimmed,
     });
@@ -45,8 +68,10 @@ export function Chat() {
       // design system" example users copy-paste as a starting point.
       // Silently swallowing errors here would model broken practice;
       // log so a network failure / runtime error / transport disconnect
-      // surfaces in the console for the developer.
-      console.error("[langgraph-python:headless-simple] runAgent failed", err);
+      // surfaces in the console for the developer — and render an
+      // inline banner so the end user isn't staring at a frozen UI.
+      console.error("[spring-ai:headless-simple] runAgent failed", err);
+      setError(err instanceof Error ? err.message : String(err));
     });
   };
   // @endregion[use-agent-simple]
@@ -100,6 +125,16 @@ export function Chat() {
                 {showTyping && <TypingIndicator />}
               </div>
             </ScrollArea>
+          )}
+
+          {error && (
+            <div
+              data-testid="headless-simple-error"
+              role="alert"
+              className="border-t border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+            >
+              {error}
+            </div>
           )}
 
           <Separator className="bg-border/60" />

@@ -41,7 +41,6 @@ import { cn } from "../../utils";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message",
   host: { "data-copilotkit": "" },
   imports: [
@@ -55,7 +54,13 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div [class]="computedClass()" [attr.data-message-id]="message().id">
+    <div
+      [class]="computedClass()"
+      [attr.data-message-id]="message().id"
+      data-testid="copilot-assistant-message"
+      data-message-role="assistant"
+      role="article"
+    >
       <!-- Markdown Renderer -->
       @if (markdownRendererTemplate || markdownRendererComponent()) {
         <copilot-slot
@@ -84,6 +89,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
         <copilot-chat-tool-calls-view
           [message]="message()!"
           [messages]="messages()"
+          [agentId]="agentId()"
           [isLoading]="isLoading()"
         >
         </copilot-chat-tool-calls-view>
@@ -100,7 +106,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
           </copilot-slot>
         } @else {
           <div copilotChatAssistantMessageToolbar [inputClass]="toolbarClass()">
-            <div class="flex items-center gap-1">
+            <div class="cpk:flex cpk:items-center cpk:gap-1">
               <!-- Copy button -->
               @if (copyButtonTemplate || copyButtonComponent()) {
                 <copilot-slot
@@ -395,6 +401,7 @@ export class CopilotChatAssistantMessage {
   // Regular inputs
   readonly message = input.required<AssistantMessage>();
   readonly messages = input<Message[]>([]);
+  readonly agentId = input<string | undefined>();
   readonly isLoading = input<boolean>(false);
   readonly additionalToolbarItems = input<TemplateRef<any> | undefined>(
     undefined,
@@ -426,7 +433,7 @@ export class CopilotChatAssistantMessage {
   // Computed values
   computedClass = computed(() => {
     return cn(
-      "prose max-w-full break-words dark:prose-invert",
+      "copilotKitMessage copilotKitAssistantMessage cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
       this.customClass(),
     );
   });
@@ -464,9 +471,7 @@ export class CopilotChatAssistantMessage {
 
   // Return true if assistant message has non-empty text content
   hasMessageContent(): boolean {
-    const raw = (this.message()?.content ?? "") as any;
-    const content = typeof raw === "string" ? raw : String(raw ?? "");
-    return content.trim().length > 0;
+    return (this.message()?.content ?? "").trim().length > 0;
   }
 
   toolCallsViewContext = computed(() => ({

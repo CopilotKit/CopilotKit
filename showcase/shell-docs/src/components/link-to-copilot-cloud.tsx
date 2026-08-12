@@ -25,7 +25,7 @@ export function LinkToCopilotCloud({
   }, []);
 
   // Build base URL without PostHog session ID to avoid hydration issues
-  const baseUrl = new URL(`https://go.copilotkit.ai/copilot-cloud-button-docs`);
+  const baseUrl = new URL(`https://dashboard.operations.copilotkit.ai/sign-in`);
   baseUrl.searchParams.set("ref", "docs");
 
   if (subPath) {
@@ -50,9 +50,9 @@ export function LinkToCopilotCloud({
 
   if (asButton) {
     cn =
-      "text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex p-3 px-4 no-underline whitespace-nowrap";
+      "shell-docs-radius-control flex items-center whitespace-nowrap border border-[var(--accent)] bg-[var(--accent-dim)] p-3 px-4 text-sm text-[var(--accent)] no-underline shadow-[var(--shadow-control)]";
     cn +=
-      " transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 rounded-lg";
+      " transition-colors duration-100 hover:bg-[var(--accent)] hover:text-[var(--primary-foreground)]";
   } else {
     cn =
       "_text-primary-600 decoration-from-font underline [text-underline-position:from-font]";

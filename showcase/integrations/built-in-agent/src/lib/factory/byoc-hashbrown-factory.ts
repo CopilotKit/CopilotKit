@@ -3,6 +3,12 @@ import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+// Custom fetch that injects ALS-bound inbound x-* headers (e.g.
+// x-aimock-context) onto every outbound OpenAI call. Required so aimock
+// can match fixtures by integration context. See ../header-forwarding.ts
+// for the full rationale; mirrors the Mastra precedent.
+import { forwardingFetch } from "../header-forwarding";
+import { DEMO_AGENT_LOOP_STRATEGY, throwOnRunError } from "./demo-stream";
 
 const BYOC_HASHBROWN_SYSTEM_PROMPT = `\
 You are a sales analytics assistant that replies by emitting a single JSON
@@ -76,6 +82,9 @@ async function* convertStream(
     const raw = chunk as any;
     const type = raw.type as string;
 
+    // Fail loud on an upstream rejection — see ./demo-stream.
+    throwOnRunError(raw);
+
     // Skip RUN_FINISHED from TanStack's adapter — the Agent class emits
     // its own lifecycle events.
     if (type === "RUN_FINISHED") continue;
@@ -115,7 +124,7 @@ export function createByocHashbrownAgent() {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
       const stream = chat({
-        adapter: openaiText("gpt-4o-mini"),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [BYOC_HASHBROWN_SYSTEM_PROMPT, ...systemPrompts],
         tools: [],
@@ -123,6 +132,7 @@ export function createByocHashbrownAgent() {
           temperature: 0.2,
         },
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
 
       return convertStream(stream, abortController.signal);

@@ -81,29 +81,33 @@ export const GET = (req: NextRequest) => handler(req);
 
 ## Frontend
 
-Pass your token via the `properties` prop. CopilotKit forwards it to LangGraph as a Bearer token automatically.
+Pass your token via the `headers` prop. CopilotKit attaches it to every runtime request, and the runtime forwards the `Authorization` header on to your agent — whether that's a LangGraph deployment or a self-hosted AG-UI endpoint.
 
 ```tsx title="frontend/src/app/page.tsx"
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit
   runtimeUrl="/api/copilotkit"
-  properties={{
-    authorization: userToken,
+  headers={{
+    Authorization: `Bearer ${userToken}`,
   }}
 >
   <YourApp />
 </CopilotKit>
 ```
 
+<Callout type="warning" title="`properties` is not an auth channel">
+Older versions of this guide passed the token as `properties={{ authorization: userToken }}`. The runtime delivers `properties` to the agent as AG-UI `forwardedProps` — run payload data, not a request header — so nothing turns them into a Bearer credential. Use `headers` for auth. Headers the server configured on the agent itself still win on collision, so a service-to-service token can't be overridden from the browser.
+</Callout>
+
 ## Backend
 
 LangGraph supports two deployment modes. The frontend code above is the same in both, but the backend wiring differs in where the resolved user identity lands. Pick the tab that matches where your agent runs.
 
-<Tabs items={['LangGraph Platform', 'Self-hosted']}>
+<Tabs items={['LangGraph Platform', 'Self-hosted (FastAPI)']}>
 <Tab value="LangGraph Platform">
 
-On LangGraph Platform, authentication is a managed service. You declare an `@auth.authenticate` handler, and Platform runs it on every request before the graph starts. The handler returns a user object that becomes available to every node in the run.
+On LangGraph Platform (and on `langgraph dev`), authentication is a managed service. You declare an `@auth.authenticate` handler, and the server runs it on every request before the graph starts. The forwarded `Authorization` header arrives as the handler's `authorization` argument, and the handler's return value becomes available to every node in the run.
 
 ```python title="backend/auth.py"
 from langgraph_sdk import Auth
@@ -125,11 +129,13 @@ async def authenticate(authorization: str | None):
     }
 ```
 
-The return value of the handler shows up in every node's `config["configuration"]["langgraph_auth_user"]`. From there, scoping tool access or filtering data is straightforward:
+The return value of the handler shows up in every node's `config["configurable"]["langgraph_auth_user"]`. From there, scoping tool access or filtering data is straightforward:
 
 ```python title="backend/agent.py"
+from langchain_core.runnables import RunnableConfig
+
 async def my_agent_node(state: AgentState, config: RunnableConfig):
-    user_info = config["configuration"]["langgraph_auth_user"]
+    user_info = config["configurable"]["langgraph_auth_user"]
     user_id = user_info["identity"]
     user_role = user_info.get("role")
     # agent logic with user context
@@ -139,43 +145,71 @@ async def my_agent_node(state: AgentState, config: RunnableConfig):
 For full handler details, see the [LangGraph Platform Authentication documentation](https://docs.langchain.com/langsmith/auth#authentication).
 
 </Tab>
-<Tab value="Self-hosted">
+<Tab value="Self-hosted (FastAPI)">
 
-When you self-host the agent, there's no managed auth handler to plug into. Instead, you forward the raw token onto every run by configuring the agent dynamically — the request's `properties.authorization` becomes part of `langgraph_config["configurable"]`, where every node can read it back later.
+When you self-host the agent behind FastAPI, there's no managed auth handler to plug into — validation is your job, and the natural place for it is the endpoint that serves the AG-UI stream. `add_langgraph_fastapi_endpoint` mounts that endpoint for you, but it takes one pre-built agent and gives you no per-request hook, so replace it with the equivalent route of your own: a FastAPI dependency verifies the `Authorization` header the runtime forwarded, and the resolved user is baked into a per-request agent's `config`.
 
-```python title="backend/demo.py"
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
+```python title="backend/main.py"
+from typing import Optional
 
-sdk = CopilotKitRemoteEndpoint(
-    agents=lambda context: [
-        LangGraphAGUIAgent(
-            name="sample_agent",
-            description="Agent with authentication support",
-            graph=graph,
-            langgraph_config={
-                "configurable": {
-                    "copilotkit_auth": context["properties"].get("authorization"),
-                },
-            },
-        ),
-    ],
-)
+from ag_ui.core.types import RunAgentInput
+from ag_ui.encoder import EventEncoder
+from copilotkit import LangGraphAGUIAgent
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import StreamingResponse
+
+from src.agent import graph
+
+app = FastAPI()
+
+def current_user(authorization: Optional[str] = Header(default=None)) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    return validate_your_token(authorization.removeprefix("Bearer ").strip())  # your validation
+
+@app.post("/")
+async def run_agent(
+    input_data: RunAgentInput,
+    request: Request,
+    user: dict = Depends(current_user),
+):
+    encoder = EventEncoder(accept=request.headers.get("accept"))
+
+    # One agent per request: the verified identity rides on this run only, and
+    # each request gets its own isolated streaming state.
+    agent = LangGraphAGUIAgent(
+        name="sample_agent",
+        graph=graph,
+        config={"configurable": {"auth_user": user}},
+    )
+
+    async def event_generator():
+        async for event in agent.run(input_data):
+            yield encoder.encode(event)
+
+    return StreamingResponse(event_generator(), media_type=encoder.get_content_type())
 ```
 
-Validation is your job in this mode. Inside any node, pull the token out of `config["configurable"]` and run it through your verifier. Decide the policy explicitly: reject unauthenticated calls, or fall through to an `anonymous` branch as the example below does.
+Unauthenticated requests never reach the graph — they get a 401 from the dependency. Authenticated ones arrive with an already-verified user on the config, so nodes read identity instead of re-validating a raw token:
 
-```python title="backend/agent.py"
+```python title="backend/src/agent.py"
+from langchain_core.runnables import RunnableConfig
+
 async def my_agent_node(state: AgentState, config: RunnableConfig):
-    auth_token = config["configurable"].get("copilotkit_auth")
-    if auth_token:
-        user_info = validate_your_token(auth_token)
-        user_id = user_info["user_id"]
-        user_role = user_info.get("role")
-    else:
-        user_id = "anonymous"
-        user_role = None
+    user = config["configurable"]["auth_user"]
+    user_id = user["user_id"]
+    user_role = user.get("role")
+    # agent logic with user context
     return state
 ```
+
+<Callout type="info" title="If you only need the 401 gate">
+When nodes don't need the identity — you just want unauthenticated traffic rejected — keep `add_langgraph_fastapi_endpoint` and hang the dependency off the app: `FastAPI(dependencies=[Depends(current_user)])`. The gate applies, but nothing lands on the run config, so `config["configurable"]` stays empty of user context.
+</Callout>
+
+<Callout type="warning" title="`CopilotKitRemoteEndpoint` no longer works here">
+Guides written for CopilotKit v1 wrapped the graph in `CopilotKitRemoteEndpoint(agents=lambda context: [...])`. That path is retired: `copilotkit` no longer exports `LangGraphAgent` (`ImportError`), and the current `LangGraphAGUIAgent` exposes `run()` rather than the `execute()` that `CopilotKitRemoteEndpoint` calls — giving `AgentExecutionException: 'LangGraphAGUIAgent' object has no attribute 'execute'`. Use the endpoint above instead.
+</Callout>
 
 </Tab>
 </Tabs>

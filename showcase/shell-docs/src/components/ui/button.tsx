@@ -3,15 +3,17 @@ import type { VariantProps } from "class-variance-authority";
 
 const variants = {
   primary:
-    "bg-fd-primary text-fd-primary-foreground hover:bg-fd-primary/80 disabled:bg-fd-secondary disabled:text-fd-secondary-foreground",
-  outline: "border hover:bg-fd-accent hover:text-fd-accent-foreground",
-  ghost: "hover:bg-fd-accent hover:text-fd-accent-foreground",
+    "border border-[var(--accent)] bg-[var(--accent)] text-[var(--primary-foreground)] hover:bg-[var(--accent-strong)] disabled:border-[var(--border)] disabled:bg-[var(--bg-elevated)] disabled:text-[var(--text-muted)]",
+  outline:
+    "border border-[var(--border)] bg-transparent text-[var(--text-secondary)] hover:border-[var(--accent)] hover:bg-[var(--accent-dim)] hover:text-[var(--accent)]",
+  ghost:
+    "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]",
   secondary:
-    "border bg-fd-secondary text-fd-secondary-foreground hover:bg-fd-accent hover:text-fd-accent-foreground",
+    "border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] shadow-[var(--shadow-control)] hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]",
 } as const;
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-md p-2 text-sm font-medium transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring",
+  "shell-docs-radius-control inline-flex items-center justify-center p-2 text-sm font-medium transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
   {
     variants: {
       variant: variants,

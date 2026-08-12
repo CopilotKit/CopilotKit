@@ -51,18 +51,21 @@ features:
   - byoc-json-render
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
-  - agentic-chat-reasoning
-  - reasoning-default-render
-  - tool-rendering-reasoning-chain
+  - reasoning-custom
+  - reasoning-default
   - headless-complete
   - auth
   - beautiful-chat
   - a2ui-fixed-schema
   - declarative-gen-ui
+  - shared-state-read
 not_supported_features:
   - shared-state-streaming
   - gen-ui-interrupt
   - interrupt-headless
+  - reasoning-default-render
+  - agentic-chat-reasoning
+  - tool-rendering-reasoning-chain
 agent_config_pattern: shared-state
 
 a2ui_pattern: schema-loading
@@ -301,6 +304,33 @@ demos:
       - src/agents/main.py
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-custom
+    name: Agentic Chat (Reasoning)
+    description: Visible reasoning / thinking chain rendered via a custom
+      reasoningMessage slot on the reasoning-enabled Agno agent
+    tags:
+      - chat-ui
+      - reasoning
+    route: /demos/reasoning-custom
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-default
+    name: Reasoning (Default Render)
+    description: Zero-config rendering of the agent's reasoning chain via
+      CopilotKit's built-in reasoning message
+    tags:
+      - chat-ui
+      - reasoning
+    route: /demos/reasoning-default
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/reasoning-default/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering (Reasoning Chain)

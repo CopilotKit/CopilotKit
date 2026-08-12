@@ -6,7 +6,7 @@ internally by `<CopilotChat>` / `<CopilotChatView>`.
 
 Key rules:
 
-- Renderers are passed to `CopilotKitProvider` via `renderCustomMessages`.
+- Renderers are passed to the `CopilotKit` provider via `renderCustomMessages`.
 - The hook returns `null` when called outside `CopilotChatConfigurationProvider`.
 - First non-null result wins — agent-scoped renderers evaluated first.
 - `stateSnapshot` is `undefined` before the run's `runId` resolves.
@@ -15,7 +15,7 @@ Key rules:
 
 ```tsx
 "use client";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import type { ReactCustomMessageRenderer } from "@copilotkit/react-core/v2";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -41,12 +41,9 @@ const CopyButton: ReactCustomMessageRenderer = {
 export function Providers({ children }: { children: React.ReactNode }) {
   const renderers = useMemo(() => [CopyButton], []);
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      renderCustomMessages={renderers}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" renderCustomMessages={renderers}>
       {children}
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```
@@ -129,9 +126,9 @@ Correct:
 
 ```tsx
 // Option A — register renderers via the provider prop so <CopilotChat> picks them up:
-<CopilotKitProvider renderCustomMessages={renderers}>
+<CopilotKit renderCustomMessages={renderers}>
   <CopilotChat agentId="default" />
-</CopilotKitProvider>;
+</CopilotKit>;
 
 // Option B — call the hook only inside a chat-configured subtree:
 import { CopilotChatConfigurationProvider } from "@copilotkit/react-core/v2";
@@ -207,7 +204,7 @@ Source: `packages/react-core/src/v2/hooks/use-render-custom-messages.tsx:73-95`
 Wrong:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   renderCustomMessages={[CopyButton, DebugBefore]} // fresh array every render
 />
 ```
@@ -216,7 +213,7 @@ Correct:
 
 ```tsx
 const renderers = useMemo(() => [CopyButton, DebugBefore], []);
-<CopilotKitProvider renderCustomMessages={renderers} />;
+<CopilotKit renderCustomMessages={renderers} />;
 ```
 
 The provider's stable-array-prop diff console-errors when a new array

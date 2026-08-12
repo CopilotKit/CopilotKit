@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / gen-ui-custom (pie chart path). Mastra's gen-ui-tool-based page is the LGP-style useComponent chart demo (render_pie_chart / render_bar_chart), so it takes the CHART_INTEGRATIONS branch of the d5-gen-ui-custom probe. Mirrors langgraph-python/gen-ui-custom.json with context: mastra.",
+    "sourceFile": "harness/fixtures/d5/gen-ui-custom.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-07-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-custom pie chart — first leg: emit render_pie_chart tool call. hasToolResult:false ensures this only matches when there's no prior tool result in the conversation. Narration content (with 'pie chart' tokens) is inlined so the D5 probe's last-assistant-text assertion passes even when the runtime does not re-invoke the LLM after a frontend tool result returns. chunkSize: 9999 keeps the large render_pie_chart args in a single chunk so partial-JSON tool-call parsing can't trip RUN_ERROR.",
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books.",
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_001",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category (Q4)\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "gen-ui-custom pie chart — second leg: narration after the pie chart tool result lands. Safety net for when the runtime DOES loop back to the LLM. The follow-up text contains 'pie' and 'chart' tokens — the D5 probe asserts their presence.",
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": true,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      },
+      "chunkSize": 9999
+    }
+  ]
+}

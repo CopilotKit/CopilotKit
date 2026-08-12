@@ -50,10 +50,10 @@ vi.mock("../../../src/graphql/types/converted", () => {
     role: string;
     id: string;
 
-    constructor(role: string, content: string) {
-      this.role = role;
-      this.content = content;
-      this.id = "mock-text-" + Math.random().toString(36).substring(7);
+    constructor(options: { role: string; content: string }) {
+      this.role = options.role;
+      this.content = options.content;
+      this.id = "mock-text-" + Math.random().toString(36).slice(7);
     }
 
     isTextMessage() {
@@ -103,7 +103,7 @@ vi.mock("../../../src/graphql/types/converted", () => {
     constructor(params: { actionExecutionId: string; result: string }) {
       this.actionExecutionId = params.actionExecutionId;
       this.result = params.result;
-      this.id = "mock-result-" + Math.random().toString(36).substring(7);
+      this.id = "mock-result-" + Math.random().toString(36).slice(7);
     }
 
     isTextMessage() {
@@ -124,6 +124,13 @@ vi.mock("../../../src/graphql/types/converted", () => {
     TextMessage: MockTextMessage,
     ActionExecutionMessage: MockActionExecutionMessage,
     ResultMessage: MockResultMessage,
+    Role: {
+      assistant: "assistant",
+      developer: "developer",
+      system: "system",
+      tool: "tool",
+      user: "user",
+    },
   };
 });
 
@@ -133,6 +140,7 @@ import {
   TextMessage,
   ActionExecutionMessage,
   ResultMessage,
+  Role,
 } from "../../../src/graphql/types/converted";
 
 describe("OpenAIAdapter", () => {
@@ -161,8 +169,14 @@ describe("OpenAIAdapter", () => {
   describe("Tool ID handling", () => {
     it("should filter out tool_result messages that don't have corresponding tool_call IDs", async () => {
       // Create messages including one valid pair and one invalid tool_result
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "User message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "User message",
+      });
 
       // Valid tool execution message
       const validToolExecution = new ActionExecutionMessage({
@@ -210,7 +224,10 @@ describe("OpenAIAdapter", () => {
 
     it("should handle duplicate tool IDs by only using each once", async () => {
       // Create messages including duplicate tool results for the same ID
-      const systemMessage = new TextMessage("system", "System message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
 
       // Valid tool execution message
       const toolExecution = new ActionExecutionMessage({
@@ -256,8 +273,14 @@ describe("OpenAIAdapter", () => {
 
     it("should call the stream method on eventSource", async () => {
       // Create messages
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "User message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "User message",
+      });
 
       await adapter.process({
         threadId: "test-thread",
@@ -274,7 +297,10 @@ describe("OpenAIAdapter", () => {
 
     it("should return the provided threadId", async () => {
       // Create a message
-      const systemMessage = new TextMessage("system", "System message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
 
       const result = await adapter.process({
         threadId: "test-thread",

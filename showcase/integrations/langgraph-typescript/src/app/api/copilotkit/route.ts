@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import {
   CopilotRuntime,
@@ -6,12 +7,23 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+// CVDIAG backend instrumentation (L1-E). No-op pass-through unless
+// CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
+import { withCvdiagBackend } from "@/cvdiag-backend";
 
 // The LangGraph TypeScript agent runs as a separate process on port 8123
 // via @langchain/langgraph-cli. This runtime proxies CopilotKit requests
 // to it via AG-UI protocol.
 const AGENT_URL =
   process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
+
+// Per-request request/response logging is gated behind this flag (default off).
+// Under d6 probe fan-out, unconditional per-request logs flooded Railway's
+// 500-logs/sec cap and killed the replica ("Messages dropped" → container stop).
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
 
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
@@ -28,7 +40,6 @@ function createAgent(graphId: string = "starterAgent") {
 const starterAgentNames = [
   "agentic_chat",
   "human_in_the_loop",
-  "gen-ui-tool-based",
   "shared-state-read",
   "shared-state-write",
   // Chat-UI demos — all reuse the default starterAgent.
@@ -69,15 +80,22 @@ const demoAgents: Record<string, string> = {
   "shared-state-streaming": "shared_state_streaming",
   subagents: "subagents",
   "gen-ui-agent": "gen_ui_agent",
-  // Reasoning demos — use dedicated reasoning agent graph.
-  "agentic-chat-reasoning": "agentic-chat-reasoning",
+  // Tool-Based Generative UI — dedicated data-viz graph; the frontend
+  // registers render_bar_chart / render_pie_chart via useComponent.
+  "gen-ui-tool-based": "gen_ui_tool_based",
+  // Thread-id frontend-tool roundtrip — reuses the frontend_tools graph
+  // (non-manifest demo, kept for frontend byte-parity with langgraph-python).
+  "threadid-frontend-tool-roundtrip": "frontend_tools",
+  // Reasoning demos (reasoning-custom + reasoning-default) share one dedicated
+  // reasoning graph — the only frontend difference is the reasoningMessage slot.
   "reasoning-custom": "agentic-chat-reasoning",
   "reasoning-default": "agentic-chat-reasoning",
-  "reasoning-default-render": "reasoning-default-render",
-  // Tool rendering variants — each has its own graph in langgraph.json.
+  // Tool rendering variants all share the ONE tool_rendering graph (same
+  // backend tools); the cells differ only in the frontend renderer wiring.
+  // Mirrors langgraph-python, which maps all three cells to `tool_rendering`.
   "tool-rendering": "tool_rendering",
-  "tool-rendering-default-catchall": "tool-rendering-default-catchall",
-  "tool-rendering-custom-catchall": "tool-rendering-custom-catchall",
+  "tool-rendering-default-catchall": "tool_rendering",
+  "tool-rendering-custom-catchall": "tool_rendering",
   "tool-rendering-reasoning-chain": "tool-rendering-reasoning-chain",
 };
 for (const [agentName, graphId] of Object.entries(demoAgents)) {
@@ -88,10 +106,14 @@ console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
 );
 
-export const POST = async (req: NextRequest) => {
+const copilotkitPost = async (req: NextRequest): Promise<Response> => {
   const url = req.url;
   const contentType = req.headers.get("content-type");
-  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
+  if (ROUTE_DEBUG) {
+    console.log(
+      `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
+    );
+  }
 
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
@@ -103,7 +125,11 @@ export const POST = async (req: NextRequest) => {
     });
 
     const response = await handleRequest(req);
-    console.log(`[copilotkit/route] Response status: ${response.status}`);
+    if (!response.ok) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    } else if (ROUTE_DEBUG) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    }
     return response;
   } catch (error: unknown) {
     // Log full error details server-side with a correlation id, but only
@@ -130,8 +156,19 @@ export const POST = async (req: NextRequest) => {
   }
 };
 
+// Wrap with CVDIAG backend instrumentation. `withCvdiagBackend` returns
+// `copilotkitPost` unchanged when CVDIAG_BACKEND_EMITTER is off (default), so
+// the instrumented path costs nothing in normal operation.
+export const POST = withCvdiagBackend(copilotkitPost, {
+  slug: "langgraph-typescript",
+  agentName: "starterAgent",
+  provider: "openai",
+});
+
 export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  if (ROUTE_DEBUG) {
+    console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  }
 
   let agentStatus = "unknown";
   try {

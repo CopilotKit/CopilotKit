@@ -1,14 +1,15 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryAgentRunner } from "../runner/in-memory";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   Message,
   RunAgentInput,
+  RunAgentResult,
   RunStartedEvent,
 } from "@ag-ui/client";
-import { EMPTY, Observable, firstValueFrom } from "rxjs";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 type RunAgentCallbacks = {
@@ -25,14 +26,14 @@ class MessageAwareAgent extends AbstractAgent {
     super();
   }
 
-  protected run(_input: RunAgentInput): Observable<BaseEvent> {
+  run(_input: RunAgentInput): Observable<BaseEvent> {
     return EMPTY;
   }
 
   async runAgent(
     input: RunAgentInput,
     callbacks: RunAgentCallbacks,
-  ): Promise<void> {
+  ): Promise<RunAgentResult> {
     if (this.emitDefaultRunStarted) {
       const runStarted: RunStartedEvent = {
         type: EventType.RUN_STARTED,
@@ -47,6 +48,7 @@ class MessageAwareAgent extends AbstractAgent {
     for (const event of this.events) {
       callbacks.onEvent({ event });
     }
+    return { result: undefined, newMessages: [] };
   }
 }
 
@@ -89,6 +91,8 @@ describe("InMemoryAgentRunner – run started inputs", () => {
       threadId,
       runId: "run-1",
       state: {},
+      tools: [],
+      context: [],
       messages,
     };
 
@@ -139,7 +143,14 @@ describe("InMemoryAgentRunner – run started inputs", () => {
         .run({
           threadId,
           agent: new MessageAwareAgent(),
-          input: { threadId, runId: "run-0", state: {}, messages: [existing] },
+          input: {
+            threadId,
+            runId: "run-0",
+            state: {},
+            tools: [],
+            context: [],
+            messages: [existing],
+          },
         })
         .pipe(toArray()),
     );
@@ -159,6 +170,8 @@ describe("InMemoryAgentRunner – run started inputs", () => {
             threadId,
             runId: "run-1",
             state: {},
+            tools: [],
+            context: [],
             messages: [existing, newMessage],
           },
         })
@@ -194,6 +207,8 @@ describe("InMemoryAgentRunner – run started inputs", () => {
       threadId,
       runId: "run-preserve",
       state: { injected: true },
+      tools: [],
+      context: [],
       messages: [],
     };
 
@@ -218,6 +233,8 @@ describe("InMemoryAgentRunner – run started inputs", () => {
             threadId,
             runId: "run-preserve",
             state: {},
+            tools: [],
+            context: [],
             messages: [{ id: "extra", role: "user", content: "Hello" }],
           },
         })

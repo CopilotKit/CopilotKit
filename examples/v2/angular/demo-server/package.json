@@ -4,18 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nodemon --verbose --cwd ../../../../ --watch packages/core/dist/** --watch packages/shared/dist/** --watch packages/runtime/dist/** --watch packages/demo-agents/dist/** --watch examples/v2/angular/demo-server/src/** --ext mjs,js,json,ts --delay 800ms --signal SIGTERM --exec \"tsx --env-file=examples/v2/angular/demo-server/.env examples/v2/angular/demo-server/src/index.ts\"",
-    "start": "node --env-file=.env --loader tsx src/index.ts"
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx --env-file-if-exists ../demo/.env --env-file-if-exists .env src/index.ts",
+    "start": "tsx --env-file-if-exists ../demo/.env --env-file-if-exists .env src/index.ts"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.51",
     "@ag-ui/langgraph": "^0.0.11",
+    "@ai-sdk/openai": "3.0.36",
     "@copilotkit/demo-agents": "workspace:^",
     "@copilotkit/runtime": "workspace:^",
     "@hono/node-server": "^1.13.6",
-    "hono": "^4.11.4",
-    "openai": "^4.56.1",
-    "rxjs": "^7.8.1"
+    "hono": "^4.11.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.7",

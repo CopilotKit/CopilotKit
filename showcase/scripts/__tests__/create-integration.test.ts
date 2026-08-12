@@ -233,6 +233,12 @@ describe("Template Generator", () => {
     for (const file of requiredFiles) {
       expect(fs.existsSync(path.join(TEST_DIR, file))).toBe(true);
     }
+
+    const gitignore = fs.readFileSync(
+      path.join(TEST_DIR, ".gitignore"),
+      "utf-8",
+    );
+    expect(gitignore.split(/\r?\n/)).toContain(".copilotkit/");
   });
 
   it("generates a manifest that passes schema validation", () => {

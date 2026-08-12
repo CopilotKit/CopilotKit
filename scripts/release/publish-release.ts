@@ -13,10 +13,11 @@
  *   NOTION_API_KEY    — for reading edited release notes from Notion (optional)
  *   GITHUB_OUTPUT     — CI output file
  *
- * Auth: Uses npm OIDC trusted publishers (id-token: write) via npx npm@11.
+ * Auth: Uses npm OIDC trusted publishers (id-token: write) via the pinned npm 11
+ * resolved by lib/npm-cli.ts.
  * No NPM_TOKEN needed — NODE_AUTH_TOKEN must be empty to avoid blocking OIDC.
  *
- * Usage: tsx scripts/release/publish-release.ts --scope <monorepo|angular>
+ * Usage: tsx scripts/release/publish-release.ts --scope <scope from release.config.json>
  */
 
 import fs from "fs";
@@ -28,7 +29,12 @@ import {
   parseSemver,
 } from "./lib/versions.js";
 import { readReleaseDraft } from "./lib/notion.js";
-import { ROOT, getScopeConfig, type ReleaseScope } from "./lib/config.js";
+import { ROOT, getScopeConfig, loadConfig } from "./lib/config.js";
+import type { ReleaseScope } from "./lib/config.js";
+import { emitGithubOutputs } from "./lib/github-output.js";
+import { resolvePublishNpm } from "./lib/npm-cli.js";
+
+type PublishPhase = "all" | "dependencies" | "umbrella";
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   const result = spawnSync(cmd, args, {
@@ -71,7 +77,8 @@ function isGreaterVersion(next: string, current: string): boolean {
   return a.patch > b.patch;
 }
 
-const VALID_SCOPES = ["monorepo", "angular"];
+// Valid scopes come from release.config.json — the single source of truth.
+const VALID_SCOPES = Object.keys(loadConfig().scopes);
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -79,6 +86,10 @@ async function main() {
   const scope = (
     scopeIdx !== -1 ? argv[scopeIdx + 1] : null
   ) as ReleaseScope | null;
+  const phaseIdx = argv.indexOf("--phase");
+  const phase = (phaseIdx !== -1 ? argv[phaseIdx + 1] : "all") as
+    | PublishPhase
+    | undefined;
 
   if (!scope || !VALID_SCOPES.includes(scope)) {
     console.error(
@@ -86,11 +97,46 @@ async function main() {
     );
     process.exit(1);
   }
+  if (!phase || !["all", "dependencies", "umbrella"].includes(phase)) {
+    console.error("Usage: --phase <all|dependencies|umbrella>");
+    process.exit(1);
+  }
+  if (scope !== "channels" && phase !== "all") {
+    console.error(
+      `Publish phase ${phase} is only valid for the channels scope.`,
+    );
+    process.exit(1);
+  }
 
   const version = getCurrentVersion(scope);
   const scopeConfig = getScopeConfig(scope);
+
+  // Resolve packages before any version/registry safety checks so that a
+  // misconfigured scope fails with a clear "no packages" error instead of a
+  // misleading "not greater than published" one.
+  const packages = getPackagesForScope(scope);
+  if (packages.length === 0) {
+    console.error(
+      `No packages found for scope "${scope}" — refusing to emit a version for a publish that did nothing.`,
+    );
+    process.exit(1);
+  }
+  const packagesToPublish =
+    phase === "dependencies"
+      ? packages.filter((pkg) => pkg.name !== scopeConfig.versionSource)
+      : phase === "umbrella"
+        ? packages.filter((pkg) => pkg.name === scopeConfig.versionSource)
+        : packages;
+  if (packagesToPublish.length === 0) {
+    console.error(
+      `No packages found for publish phase ${phase} in scope ${scope}.`,
+    );
+    process.exit(1);
+  }
+
   console.log(`Scope: ${scope}`);
   console.log(`Publishing version: ${version}`);
+  console.log(`Publish phase: ${phase}`);
 
   // Safety check: only allow clean semver (no prerelease suffixes like -canary.123)
   const v = parseSemver(version);
@@ -127,7 +173,7 @@ async function main() {
   const notionRefPath = path.join(ROOT, "release-notes-notion.json");
   const releaseNotesPath = path.join(ROOT, "release-notes.md");
 
-  if (fs.existsSync(notionRefPath)) {
+  if (phase !== "dependencies" && fs.existsSync(notionRefPath)) {
     try {
       const ref = JSON.parse(fs.readFileSync(notionRefPath, "utf8"));
       if (ref.pageId && process.env.NOTION_API_KEY) {
@@ -150,13 +196,17 @@ async function main() {
   // build process tree.
 
   // Publish each package in scope.
-  // Uses pnpm pack (workspace-aware) + npx npm@11 publish (OIDC-aware).
+  // Uses pnpm pack (workspace-aware) + the pinned npm 11 publish (OIDC-aware).
   // npm 11 uses GitHub Actions OIDC tokens for auth when id-token: write
   // is granted, eliminating the need for long-lived NPM_TOKEN secrets.
   // Skips packages already published at this version (idempotent retries).
+  //
+  // The npm CLI is resolved ONCE up front rather than via `npx npm@<v>` per
+  // package — see lib/npm-cli.ts for the measured cost of the old approach.
+  const npmBin = resolvePublishNpm();
   console.log("\nPublishing packages...");
   let skipped = 0;
-  for (const p of getPackagesForScope(scope)) {
+  for (const p of packagesToPublish) {
     const pubVersion = getPublishedVersion(p.name);
     if (pubVersion === version) {
       console.log(`  Skipping ${p.name}@${version} (already published)`);
@@ -166,33 +216,22 @@ async function main() {
     console.log(`  Publishing ${p.name}@${version}...`);
     run("pnpm", ["pack"], { cwd: p.dir });
     const tarball = `${p.name.replace("@", "").replace("/", "-")}-${version}.tgz`;
-    run(
-      "npx",
-      [
-        "--yes",
-        "npm@11.15.0",
-        "publish",
-        tarball,
-        "--tag",
-        "latest",
-        "--access",
-        "public",
-      ],
-      { cwd: p.dir },
-    );
+    run(npmBin, ["publish", tarball, "--tag", "latest", "--access", "public"], {
+      cwd: p.dir,
+    });
   }
   if (skipped > 0) {
     console.log(`\n${skipped} package(s) skipped (already at ${version}).`);
   }
 
-  // Output version for downstream steps
-  const outputPath = process.env.GITHUB_OUTPUT;
-  if (outputPath) {
-    fs.appendFileSync(outputPath, `version=${version}\n`);
-    fs.appendFileSync(outputPath, `scope=${scope}\n`);
+  if (phase === "dependencies") {
+    console.log(`\nRelease dependencies published: ${version} (${scope})`);
+  } else {
+    // Output version for downstream tag/release steps only after the final
+    // package in the scope has been published.
+    emitGithubOutputs({ version, scope });
+    console.log(`\nRelease published: ${version} (${scope})`);
   }
-
-  console.log(`\nRelease published: ${version} (${scope})`);
 }
 
 main().catch((err) => {

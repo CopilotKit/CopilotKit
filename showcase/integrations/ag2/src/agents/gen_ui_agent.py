@@ -26,8 +26,6 @@ AG2 specifics:
   ContextVariables slot, isolated from the shared default agent.
 """
 
-from __future__ import annotations
-
 import logging
 from textwrap import dedent
 from typing import Annotated, List

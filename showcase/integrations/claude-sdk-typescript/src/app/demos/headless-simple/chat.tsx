@@ -25,6 +25,18 @@ import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { TypingIndicator } from "./typing-indicator";
 
+function createMessageId() {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  return `msg-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+}
+
 export function Chat() {
   // @region[use-agent-simple]
   const { agent } = useAgent({ agentId: "headless-simple" });
@@ -35,7 +47,7 @@ export function Chat() {
     const trimmed = text.trim();
     if (!trimmed || agent.isRunning) return;
     agent.addMessage({
-      id: crypto.randomUUID(),
+      id: createMessageId(),
       role: "user",
       content: trimmed,
     });
@@ -46,7 +58,10 @@ export function Chat() {
       // Silently swallowing errors here would model broken practice;
       // log so a network failure / runtime error / transport disconnect
       // surfaces in the console for the developer.
-      console.error("[langgraph-python:headless-simple] runAgent failed", err);
+      console.error(
+        "[claude-sdk-typescript:headless-simple] runAgent failed",
+        err,
+      );
     });
   };
   // @endregion[use-agent-simple]

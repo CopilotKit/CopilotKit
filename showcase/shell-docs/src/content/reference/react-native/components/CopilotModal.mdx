@@ -1,0 +1,135 @@
+---
+title: "CopilotModal"
+description: "Headless modal wrapper around CopilotChat, plus a prebuilt bottom-sheet chat from the /components subpath."
+---
+
+## Overview
+
+Like [`CopilotChat`](/reference/react-native/components/CopilotChat), `CopilotModal` ships in **two** versions, chosen by import path:
+
+- **Headless** (`@copilotkit/react-native`) is a thin wrapper around `CopilotChat` that mirrors the web SDK's `CopilotModal` API. It provides agent wiring only; you handle modal presentation with React Native's `Modal` (or any overlay) and build the chat UI from [`useCopilotChatContext`](/reference/react-native/components/CopilotChat#usecopilotchatcontext).
+- **Prebuilt UI** (`@copilotkit/react-native/components`) is a ready-made chat in a [`@gorhom/bottom-sheet`](https://ui.gorhom.dev/components/bottom-sheet/) with snap points and swipe-to-dismiss. See [Prebuilt UI](#prebuilt-ui).
+
+## Headless `CopilotModal`
+
+```tsx
+import { CopilotModal } from "@copilotkit/react-native";
+```
+
+Accepts all [headless `CopilotChat` props](/reference/react-native/components/CopilotChat#props) (`agentId`, `agentName`, `threadId`, `onError`, `throttleMs`, `attachments`), plus:
+
+<PropertyReference name="children" type="ReactNode">
+  Your chat UI, rendered inside the chat context. Consume
+  [`useCopilotChatContext`](/reference/react-native/components/CopilotChat#usecopilotchatcontext)
+  to read messages and submit input.
+</PropertyReference>
+
+### Usage
+
+```tsx
+import { CopilotModal } from "@copilotkit/react-native";
+import { Modal } from "react-native";
+
+function App({ isOpen }: { isOpen: boolean }) {
+  return (
+    <Modal visible={isOpen} animationType="slide">
+      <CopilotModal agentId="default">
+        <MyChatUI />
+      </CopilotModal>
+    </Modal>
+  );
+}
+```
+
+## Prebuilt UI
+
+Import `CopilotModal` from the `/components` subpath for a bottom-sheet chat. Control it imperatively through a `CopilotModalRef`, or declaratively with the `visible` prop. Requires the `@gorhom/bottom-sheet`, `react-native-gesture-handler`, and `react-native-reanimated` peer dependencies.
+
+```tsx
+import { CopilotModal, type CopilotModalRef } from "@copilotkit/react-native/components";
+```
+
+### Props
+
+<Callout type="info">
+  Like the prebuilt `CopilotChat`, this component selects its agent with
+  `agentName` (the prop the prebuilt UI currently exposes), not the headless
+  `agentId`.
+</Callout>
+
+<PropertyReference name="visible" type="boolean">
+  Controlled visibility: `true` opens the sheet, `false` closes it.
+</PropertyReference>
+
+<PropertyReference name="onDismiss" type="() => void">
+  Called when the sheet is dismissed (backdrop tap, swipe-down, or `close()`).
+</PropertyReference>
+
+<PropertyReference name="snapPoints" type="(string | number)[]" default="['50%', '90%']">
+  Bottom-sheet snap points, passed through to `@gorhom/bottom-sheet`.
+</PropertyReference>
+
+<PropertyReference name="initialSnapIndex" type="number" default="0">
+  Which snap-point index to open at.
+</PropertyReference>
+
+<PropertyReference name="enableDismissOnClose" type="boolean" default="true">
+  Whether closing the sheet fires `onDismiss`.
+</PropertyReference>
+
+<PropertyReference name="backdropOpacity" type="number" default="0.5">
+  Backdrop opacity when the sheet is open.
+</PropertyReference>
+
+<PropertyReference name="agentName" type="string">
+  Which agent to connect to. Passed through to the inner `CopilotChat`.
+</PropertyReference>
+
+<PropertyReference name="placeholder" type="string">
+  Input placeholder text.
+</PropertyReference>
+
+<PropertyReference name="initialMessages" type="string[]">
+  Suggestion pills shown in the empty state.
+</PropertyReference>
+
+<PropertyReference name="headerTitle" type="string">
+  Title shown in the chat header area.
+</PropertyReference>
+
+### Ref handle
+
+<PropertyReference name="CopilotModalRef" type="{ open(): void; close(): void }">
+  Imperative handle exposed via `ref` for opening and closing the sheet
+  programmatically.
+</PropertyReference>
+
+### Usage
+
+```tsx
+import { CopilotModal, type CopilotModalRef } from "@copilotkit/react-native/components";
+import { useRef } from "react";
+import { Button, View } from "react-native";
+
+export function ChatScreen() {
+  const modalRef = useRef<CopilotModalRef>(null);
+
+  return (
+    <View style={{ flex: 1 }}>
+      <Button title="Open chat" onPress={() => modalRef.current?.open()} />
+      <CopilotModal
+        ref={modalRef}
+        agentName="default"
+        headerTitle="Assistant"
+        snapPoints={["50%", "90%"]}
+      />
+    </View>
+  );
+}
+```
+
+## Related
+
+- [`CopilotChat`](/reference/react-native/components/CopilotChat): the underlying chat primitive and prebuilt UI
+- [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar): slide-in drawer variant
+- [`CopilotPopup`](/reference/react-native/components/CopilotPopup): floating action button + overlay

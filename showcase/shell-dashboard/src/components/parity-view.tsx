@@ -5,12 +5,10 @@
  * Composes: stats bar + parity legend + ParityMatrix.
  */
 import { useMemo } from "react";
-import { ParityBadge, type ParityTier } from "./parity-badge";
-import {
-  ParityMatrix,
-  type IntegrationInfo,
-  type FeatureInfo,
-} from "./parity-matrix";
+import { ParityBadge } from "./parity-badge";
+import type { ParityTier } from "./parity-badge";
+import { ParityMatrix } from "./parity-matrix";
+import type { IntegrationInfo, FeatureInfo } from "./parity-matrix";
 import type { LiveStatusMap, ConnectionStatus } from "@/lib/live-status";
 import type { FeatureCategory } from "@/lib/registry";
 import type { CatalogData } from "@/data/catalog-types";

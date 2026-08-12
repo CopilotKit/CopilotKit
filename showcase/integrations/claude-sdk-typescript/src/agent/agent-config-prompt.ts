@@ -11,6 +11,7 @@
  * repacking is required for this runtime.
  */
 
+// @region[agent-config-setup]
 export type Tone = "professional" | "casual" | "enthusiastic";
 export type Expertise = "beginner" | "intermediate" | "expert";
 export type ResponseLength = "concise" | "detailed";
@@ -87,3 +88,4 @@ export function buildAgentConfigSystemPrompt(
 export const AGENT_CONFIG_DEFAULT_SYSTEM_PROMPT = buildAgentConfigSystemPrompt(
   {},
 );
+// @endregion[agent-config-setup]

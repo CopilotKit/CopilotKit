@@ -4,16 +4,13 @@ import {
 } from "@copilotkit/shared";
 import { catchError, mergeMap, ReplaySubject, scan } from "rxjs";
 import { generateHelpfulErrorMessage } from "../../lib/streaming";
+import type { RuntimeEvent } from "../../service-adapters/events";
 import {
-  RuntimeEvent,
   RuntimeEventTypes,
   RuntimeMetaEventName,
 } from "../../service-adapters/events";
-import {
-  CustomEventNames,
-  LangGraphEvent,
-  LangGraphEventTypes,
-} from "./events";
+import type { LangGraphEvent } from "./events";
+import { CustomEventNames, LangGraphEventTypes } from "./events";
 
 interface LangGraphEventWithState {
   event: LangGraphEvent | null;
@@ -47,10 +44,15 @@ export class RemoteLangGraphEventSource {
     return shouldEmitToolCalls === toolCallName;
   }
 
+  // LangGraph Platform implementation stores data outside of kwargs, and not
+  // every member of the LangGraphEvent union carries a `data` payload.
+  private getEventData(event: LangGraphEvent) {
+    return "data" in event ? event.data : undefined;
+  }
+
   private getCurrentContent(event: LangGraphEvent) {
-    // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
-    const content =
-      event.data?.chunk?.kwargs?.content ?? event.data?.chunk?.content;
+    const data = this.getEventData(event);
+    const content = data?.chunk?.kwargs?.content ?? data?.chunk?.content;
 
     if (!content) {
       const toolCallChunks = this.getCurrentToolCallChunks(event) ?? [];
@@ -71,23 +73,21 @@ export class RemoteLangGraphEventSource {
   }
 
   private getCurrentMessageId(event: LangGraphEvent) {
-    // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
-    return event.data?.chunk?.kwargs?.id ?? event.data?.chunk?.id;
+    const data = this.getEventData(event);
+    return data?.chunk?.kwargs?.id ?? data?.chunk?.id;
   }
 
   private getCurrentToolCallChunks(event: LangGraphEvent) {
-    // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
+    const data = this.getEventData(event);
     return (
-      event.data?.chunk?.kwargs?.tool_call_chunks ??
-      event.data?.chunk?.tool_call_chunks
+      data?.chunk?.kwargs?.tool_call_chunks ?? data?.chunk?.tool_call_chunks
     );
   }
 
   private getResponseMetadata(event: LangGraphEvent) {
-    // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
+    const data = this.getEventData(event);
     return (
-      event.data?.chunk?.kwargs?.response_metadata ??
-      event.data?.chunk?.response_metadata
+      data?.chunk?.kwargs?.response_metadata ?? data?.chunk?.response_metadata
     );
   }
 

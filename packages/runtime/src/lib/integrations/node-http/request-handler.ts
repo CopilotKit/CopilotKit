@@ -103,7 +103,9 @@ export function synthesizeBodyFromParsedBody(
   }
 
   if (parsedBody instanceof Buffer || parsedBody instanceof Uint8Array) {
-    return { body: parsedBody };
+    // Buffer/Uint8Array<ArrayBufferLike> are valid fetch bodies at runtime,
+    // but the DOM lib's BodyInit only admits ArrayBuffer-backed views.
+    return { body: parsedBody as BodyInit };
   }
 
   if (typeof parsedBody === "string") {

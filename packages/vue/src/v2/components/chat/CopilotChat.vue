@@ -35,10 +35,8 @@ import {
   TranscriptionError,
 } from "../../lib/transcription-client";
 import CopilotChatView from "./CopilotChatView.vue";
-import {
-  LastUserMessageKey,
-  type LastUserMessageState,
-} from "./last-user-message-context";
+import { LastUserMessageKey } from "./last-user-message-context";
+import type { LastUserMessageState } from "./last-user-message-context";
 import type { Message } from "@ag-ui/core";
 import type { InputContent } from "@copilotkit/shared";
 import type {
@@ -421,6 +419,26 @@ watch(
       void activeCycle.agent.detachActiveRun?.();
       activeConnectCycle.value = null;
     });
+  },
+  { immediate: true },
+);
+
+// Clear stale messages when the active thread switches to a fresh,
+// non-explicit thread (e.g. a "+ New" reset). Explicit thread switches
+// replay their history via the /connect cycle above, and the very first
+// resolution (mount) or an agent-store swap that keeps the same thread id
+// must never clear — only a real fresh-thread transition does.
+const lastFreshThreadId = ref<string | undefined>(undefined);
+watch(
+  [resolvedThreadId, hasExplicitThreadId, () => agent.value],
+  ([threadId, isExplicit, currentAgent]) => {
+    const previous = lastFreshThreadId.value;
+    lastFreshThreadId.value = threadId;
+    if (!currentAgent) return;
+    if (isExplicit) return;
+    if (previous === undefined) return;
+    if (threadId === previous) return;
+    currentAgent.setMessages([]);
   },
   { immediate: true },
 );

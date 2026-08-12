@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { EventType } from "@ag-ui/client";
+import { compactEvents, EventType } from "@ag-ui/client";
 import {
   createAgent,
   createDefaultInput,
   collectEvents,
+  collectEventsIncludingErrors,
   expectLifecycleWrapped,
   expectEventSequence,
   eventField,
@@ -319,6 +320,99 @@ describe("TanStack AI converter (via Agent)", () => {
   });
 });
 
+describe("TanStack AI converter — multi-turn agent loop", () => {
+  // chat() emits a RUN_STARTED / RUN_FINISHED pair PER model turn and executes
+  // server-side tools (MCP / provider tools) itself between turns. The run
+  // lifecycle is owned by the Agent wrapper, so per-turn markers must be
+  // dropped and every turn's content converted — a regression here truncated
+  // the run at the first tool turn, dropping the tool result and final answer.
+
+  it("does NOT truncate at a per-turn RUN_FINISHED — tool result + final text still convert", async () => {
+    const agent = createAgent("tanstack", [
+      // Turn 1: model emits a tool call, then the turn finishes.
+      tanstackToolCallStart("tc-1", "list_issues"),
+      tanstackToolCallArgs("tc-1", '{"team":"CPK"}'),
+      tanstackToolCallEnd("tc-1"),
+      { type: "RUN_FINISHED" },
+      // Between turns: chat() executes the MCP tool itself.
+      tanstackToolCallResult("tc-1", { issues: [] }),
+      // Turn 2: model produces the final answer.
+      { type: "RUN_STARTED" },
+      tanstackTextChunk("No open issues."),
+      { type: "RUN_FINISHED" },
+    ]);
+    const events = await collectEvents(agent.run(createDefaultInput()));
+
+    expectLifecycleWrapped(events);
+    expectEventSequence(events, [
+      EventType.RUN_STARTED,
+      EventType.TOOL_CALL_START,
+      EventType.TOOL_CALL_ARGS,
+      EventType.TOOL_CALL_END,
+      EventType.TOOL_CALL_RESULT,
+      EventType.TEXT_MESSAGE_CHUNK,
+      EventType.RUN_FINISHED,
+    ]);
+
+    // Exactly one RUN_FINISHED — the outer wrapper's, not TanStack's per-turn ones.
+    expect(
+      events.filter((e) => e.type === EventType.RUN_FINISHED),
+    ).toHaveLength(1);
+    // The final answer survived the per-turn RUN_FINISHED.
+    const textEvent = events.find(
+      (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+    )!;
+    expect(eventField<string>(textEvent, "delta")).toBe("No open issues.");
+  });
+
+  it("de-duplicates a tool call re-announced after execution", async () => {
+    const agent = createAgent("tanstack", [
+      tanstackToolCallStart("tc-1", "search"),
+      tanstackToolCallEnd("tc-1"),
+      { type: "RUN_FINISHED" },
+      tanstackToolCallResult("tc-1", { ok: true }),
+      // chat() re-announces the same call when it re-prompts — must be dropped.
+      tanstackToolCallStart("tc-1", "search"),
+      tanstackToolCallArgs("tc-1", '{"q":"x"}'),
+      tanstackToolCallEnd("tc-1"),
+      { type: "RUN_STARTED" },
+      tanstackTextChunk("done"),
+    ]);
+    const events = await collectEvents(agent.run(createDefaultInput()));
+
+    expectLifecycleWrapped(events);
+    expectEventSequence(events, [
+      EventType.RUN_STARTED,
+      EventType.TOOL_CALL_START,
+      EventType.TOOL_CALL_END,
+      EventType.TOOL_CALL_RESULT,
+      EventType.TEXT_MESSAGE_CHUNK,
+      EventType.RUN_FINISHED,
+    ]);
+  });
+
+  it("surfaces a RUN_ERROR chunk as a terminal RUN_ERROR event", async () => {
+    const agent = createAgent("tanstack", [
+      tanstackTextChunk("partial"),
+      { type: "RUN_ERROR", message: "provider 400" },
+      // Anything after the error must never be converted.
+      tanstackTextChunk("should not appear"),
+    ]);
+    const { events, errored } = await collectEventsIncludingErrors(
+      agent.run(createDefaultInput()),
+    );
+
+    expect(errored).toBe(true);
+    const errorEvent = events.find((e) => e.type === EventType.RUN_ERROR)!;
+    expect(errorEvent).toBeDefined();
+    expect(eventField<string>(errorEvent, "message")).toBe("provider 400");
+    // The post-error text chunk was not emitted.
+    const texts = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
+    expect(texts).toHaveLength(1);
+    expect(eventField<string>(texts[0], "delta")).toBe("partial");
+  });
+});
+
 describe("TanStack AI converter — state tools", () => {
   it("emits STATE_SNAPSHOT before TOOL_CALL_RESULT for AGUISendStateSnapshot", async () => {
     const snapshot = { counter: 5, items: ["x", "y"] };
@@ -365,6 +459,97 @@ describe("TanStack AI converter — state tools", () => {
     expect(deltaIdx).toBeGreaterThanOrEqual(0);
     expect(deltaIdx).toBeLessThan(resultIdx);
     expect(eventField<unknown>(events[deltaIdx], "delta")).toEqual(delta);
+  });
+
+  it("normalizes missing arrays before compaction", async () => {
+    const todo = { text: "Buy milk", completed: false };
+    const delta = [{ op: "add", path: "/todos/-", value: todo }];
+    const agent = createAgent("tanstack", [
+      tanstackToolCallStart("call1", "AGUISendStateDelta"),
+      tanstackToolCallEnd("call1"),
+      tanstackToolCallResult("call1", { success: true, delta }),
+    ]);
+    const events = await collectEvents(
+      agent.run(createDefaultInput({ state: {} })),
+    );
+    const stateDelta = events.find(
+      (event) => event.type === EventType.STATE_DELTA,
+    );
+
+    expect(eventField<unknown>(stateDelta, "delta")).toEqual([
+      { op: "add", path: "/todos", value: [] },
+      ...delta,
+    ]);
+    expect(compactEvents(events)).toContainEqual(
+      expect.objectContaining({
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: { todos: [todo] },
+      }),
+    );
+  });
+
+  it("preserves copy, move, and test before later appends", async () => {
+    const sourceItem = { id: "source" };
+    const movedItem = { id: "moved" };
+    const delta = [
+      { op: "copy", from: "/source", path: "/copied" },
+      { op: "move", from: "/moving", path: "/moved" },
+      { op: "test", path: "/copied/0", value: sourceItem },
+      { op: "add", path: "/copied/-", value: { id: "copied-append" } },
+      { op: "add", path: "/moved/-", value: { id: "moved-append" } },
+    ];
+    const agent = createAgent("tanstack", [
+      tanstackToolCallStart("call-copy-move", "AGUISendStateDelta"),
+      tanstackToolCallEnd("call-copy-move"),
+      tanstackToolCallResult("call-copy-move", { success: true, delta }),
+    ]);
+    const events = await collectEvents(
+      agent.run(
+        createDefaultInput({
+          state: { source: [sourceItem], moving: [movedItem] },
+        }),
+      ),
+    );
+
+    expect(
+      eventField<unknown>(
+        events.find((event) => event.type === EventType.STATE_DELTA),
+        "delta",
+      ),
+    ).toEqual(delta);
+    expect(compactEvents(events)).toContainEqual(
+      expect.objectContaining({
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: {
+          source: [sourceItem],
+          copied: [sourceItem, { id: "copied-append" }],
+          moved: [movedItem, { id: "moved-append" }],
+        },
+      }),
+    );
+  });
+
+  it("preserves malformed delta entries for downstream validation", async () => {
+    const delta = [null];
+    const agent = createAgent("tanstack", [
+      tanstackToolCallStart("call-malformed", "AGUISendStateDelta"),
+      tanstackToolCallEnd("call-malformed"),
+      tanstackToolCallResult("call-malformed", { success: true, delta }),
+    ]);
+    const events = await collectEvents(
+      agent.run(createDefaultInput({ state: {} })),
+    );
+    const deltaIdx = events.findIndex(
+      (event) => event.type === EventType.STATE_DELTA,
+    );
+    const resultIdx = events.findIndex(
+      (event) => event.type === EventType.TOOL_CALL_RESULT,
+    );
+
+    expect(deltaIdx).toBeGreaterThanOrEqual(0);
+    expect(deltaIdx).toBeLessThan(resultIdx);
+    expect(eventField<unknown>(events[deltaIdx], "delta")).toEqual(delta);
+    expect(() => compactEvents(events)).toThrow("OPERATION_NOT_AN_OBJECT");
   });
 
   it("emits STATE_SNAPSHOT when payload arrives in raw.result instead of raw.content", async () => {

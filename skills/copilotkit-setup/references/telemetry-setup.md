@@ -1,77 +1,62 @@
-# CopilotCloud Telemetry Setup
+# CopilotKit Intelligence Telemetry Setup
 
-## What is CopilotCloud?
+## What is CopilotKit Intelligence?
 
-CopilotCloud is CopilotKit's hosted platform that provides:
+CopilotKit Intelligence is CopilotKit's hosted platform that provides:
 
 - **Usage analytics** -- see how users interact with your AI features (message volume, tool usage, session duration)
 - **Error monitoring** -- surface runtime errors and failed agent interactions
 - **Premium features** -- access to hosted runtimes, advanced agent orchestration, and priority support (requires a paid plan)
 
-The license key is a lightweight identifier that connects your local CopilotKit instance to CopilotCloud. It does not gate any open-source functionality -- CopilotKit works fully without it.
+The license key is a lightweight identifier that connects your local CopilotKit instance to CopilotKit Intelligence. It does not gate any open-source functionality -- CopilotKit works fully without it.
 
-## The `npx copilotkit auth` flow
+## The `npx copilotkit login` flow
 
-Running the CLI command starts an interactive authentication (verify the exact command with `npx copilotkit --help` as it may vary by version):
+Running the CLI command starts an interactive authentication (verify the available commands with `npx copilotkit --help` if a version differs):
 
 ```bash
-npx copilotkit auth
+npx copilotkit login
+npx copilotkit project select
 ```
 
-1. The CLI opens your default browser to the CopilotCloud login/signup page.
+1. `login` opens your default browser to the CopilotKit Intelligence login/signup page.
 2. Sign in with GitHub, Google, or email.
-3. Select or create a project in the CopilotCloud dashboard.
-4. The CLI receives the license key and prints it to stdout:
-   ```
-   Successfully authenticated!
-   Your license key: ck_abc123...
-   ```
+3. `project select` picks or creates a hosted project and records it in `.copilotkit/project.json`.
+4. The CLI provisions a project API key for the runtime and reports the license key for the client.
 
 If the browser does not open automatically, the CLI prints a URL you can copy-paste manually.
 
+There is no `copilotkit auth` command. The command is `login`.
+
 ## Where to put the license key
 
-### Option A: Inline in CopilotKitProvider
-
-Pass the key directly as a prop:
-
-```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit" licenseKey="ck_abc123...">
-  {children}
-</CopilotKitProvider>
-```
-
-This is the simplest approach for quick prototyping but exposes the key in source code.
-
-### Option B: Environment variable (recommended)
-
-Add the key to your environment file:
+Store the key in an environment variable. Add it to your environment file:
 
 **Next.js** (`.env.local`):
 
 ```
-NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=ck_abc123...
+NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=<your-license-key>
 ```
 
 **Vite** (`.env`):
 
 ```
-VITE_COPILOTKIT_LICENSE_KEY=ck_abc123...
+VITE_COPILOTKIT_LICENSE_KEY=<your-license-key>
 ```
 
 Then reference it in the provider:
 
 ```tsx
 // Next.js
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
-  licenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
 >
 
 // Vite
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
-  licenseKey={import.meta.env.VITE_COPILOTKIT_LICENSE_KEY}
+  publicLicenseKey={import.meta.env.VITE_COPILOTKIT_LICENSE_KEY}
 >
 ```
 
@@ -79,4 +64,4 @@ The `NEXT_PUBLIC_` or `VITE_` prefix is required because the license key is used
 
 ## Opting out
 
-To disconnect from CopilotCloud, simply remove the `licenseKey` prop from `CopilotKitProvider` (and delete the environment variable if you set one). No other changes are needed -- CopilotKit will continue to function normally without it.
+To disconnect from CopilotKit Intelligence, simply remove the `publicLicenseKey` prop from the `CopilotKit` provider (and delete the environment variable if you set one). No other changes are needed -- CopilotKit will continue to function normally without it.

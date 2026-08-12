@@ -1,16 +1,17 @@
-import { Parameter } from "@copilotkit/shared";
+import type { Parameter } from "@copilotkit/shared";
 import { Fragment, useCallback, useRef } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import { FrontendAction, ActionRenderProps } from "../types/frontend-action";
+import type {
+  FrontendAction,
+  ActionRenderProps,
+} from "../types/frontend-action";
 import { useCopilotAction } from "./use-copilot-action";
 import React from "react";
 
 /**
  * Hook to create an authenticated action that requires user sign-in before execution.
  *
- * @remarks
- * This feature is only available when using CopilotKit's hosted cloud service.
- * To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey.
+ * @internal Defunct — retained for backward compatibility.
  *
  * @param action - The frontend action to be wrapped with authentication
  * @param dependencies - Optional array of dependencies that will trigger recreation of the action when changed

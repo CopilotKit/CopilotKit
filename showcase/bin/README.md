@@ -1,5 +1,10 @@
 # `bin/railway`
 
+Tagline: Ruby CLI for showcase Railway day-to-day ops — snapshot, restore,
+rollback, promote, pin, env-diff, resolve-digest, lint-prod. Mutating
+subcommands require typed `production` confirmation. For fleet auto-update
+config / new-service provisioning, see [`../RAILWAY.md`](../RAILWAY.md).
+
 Single-file Ruby tooling for showcase Railway operations.
 
 ## Why

@@ -2,7 +2,7 @@
 
 This skill builds on `copilotkit/provider-setup`. Activity-message
 renderers are registered as entries in the `renderActivityMessages` array
-prop on `CopilotKitProvider` and resolved at render time by
+prop on the `CopilotKit` provider and resolved at render time by
 `useRenderActivityMessage` (consumed internally by chat components).
 
 User renderers are placed first in the array so they override the built-in
@@ -20,7 +20,7 @@ Resolver order:
 
 ```tsx
 "use client";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import { useMemo } from "react";
@@ -46,12 +46,9 @@ const progressRenderer: ReactActivityMessageRenderer<{
 export function Providers({ children }: { children: React.ReactNode }) {
   const renderers = useMemo(() => [progressRenderer], []);
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      renderActivityMessages={renderers}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" renderActivityMessages={renderers}>
       {children}
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```
@@ -184,7 +181,7 @@ Source: `packages/react-core/src/v2/hooks/use-render-activity-message.tsx`
 Wrong:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   renderActivityMessages={[progressRenderer, customMcpRenderer]}
 />
@@ -194,10 +191,7 @@ Correct:
 
 ```tsx
 const renderers = useMemo(() => [progressRenderer, customMcpRenderer], []);
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  renderActivityMessages={renderers}
-/>;
+<CopilotKit runtimeUrl="/api/copilotkit" renderActivityMessages={renderers} />;
 ```
 
 The provider uses `useStableArrayProp` and console-errors when a new array

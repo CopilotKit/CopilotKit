@@ -5,10 +5,12 @@
  * The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
  */
 
-import express, { Request, Response } from "express";
+import type { Request, Response } from "express";
+import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
-import { BaseEvent, EventType, RunAgentInput, Message } from "@ag-ui/core";
+import type { BaseEvent, RunAgentInput, Message } from "@ag-ui/core";
+import { EventType } from "@ag-ui/core";
 import * as dotenv from "dotenv";
 import { randomUUID } from "crypto";
 
@@ -140,10 +142,9 @@ function buildTools(tools: RunAgentInput["tools"]): Anthropic.Tool[] {
 
 app.post("/", async (req: Request, res: Response): Promise<void> => {
   const input = req.body as RunAgentInput;
-  const accept = req.headers["accept"] ?? "";
 
-  const encoder = new EventEncoder({ accept });
-  res.setHeader("Content-Type", encoder.getContentType());
+  const encoder = new EventEncoder();
+  res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 

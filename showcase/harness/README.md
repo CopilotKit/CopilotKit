@@ -1,5 +1,11 @@
 # showcase-harness
 
+Tagline: showcase-harness service — Part 1 (operate it: env vars, alert
+rules, probe configs, Slack webhook aliases, secret rotation) and Part 2
+(build/extend it: architecture, code layout, local dev, tests, deploy, adding
+probes/rules/targets/filters). For the secret rotation runbook see
+[`./docs/rotation-drill.md`](./docs/rotation-drill.md).
+
 In-cluster observability service for the showcase fleet. Runs on Railway, receives signed webhooks from GitHub Actions, executes cron-driven probes, persists state to PocketBase, classifies state transitions, and delivers alerts to Slack.
 
 Replaces four legacy GitHub Actions cron workflows (`showcase_smoke-monitor`, `showcase_drift-detection`, `showcase_drift-report`, `showcase_redirect-report`) with a single long-lived process that can hold transition state, dedupe, rate-limit, and render rich templates without each tick re-reading GitHub artifacts.
@@ -247,7 +253,7 @@ Every `kind` resolves to a driver registered in `src/probes/drivers/index.ts`. T
 
 | YAML `kind`             | Driver file                        | Emitted key prefix(es)                 | Shape     |
 | ----------------------- | ---------------------------------- | -------------------------------------- | --------- |
-| `smoke`                 | `drivers/liveness.ts`              | `smoke:<slug>` **and** `health:<slug>` | static    |
+| `smoke`                 | `drivers/d2-liveness.ts`           | `smoke:<slug>` **and** `health:<slug>` | static    |
 | `e2e_smoke` (deferred)  | `drivers/e2e-chat-tools.ts`        | `e2e_smoke:<suite>`                    | static    |
 | `image_drift`           | `drivers/image-drift.ts`           | `image_drift:<service>`                | discovery |
 | `version_drift`         | `drivers/version-drift.ts`         | `version_drift:<pkg>`                  | discovery |

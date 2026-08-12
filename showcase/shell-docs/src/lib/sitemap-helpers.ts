@@ -139,9 +139,10 @@ export function resolveLastModified(absFilePath: string): Date {
  * root URL is emitted only once by the caller.
  */
 export function getBareDocsPages(): MdxEntry[] {
-  return walkMdx(DOCS_CONTENT_DIR, new Set(["integrations"])).filter(
-    (e) => e.slug.length > 0,
-  );
+  return walkMdx(
+    DOCS_CONTENT_DIR,
+    new Set(["frontends", "integrations"]),
+  ).filter((e) => e.slug.length > 0);
 }
 
 /**
@@ -175,12 +176,11 @@ export function getAgUiPages(): MdxEntry[] {
 
 /**
  * Resolve the canonical base URL. Delegates to the server runtime
- * config reader (which itself reads `NEXT_PUBLIC_BASE_URL` at REQUEST
- * time, strips trailing slashes, and applies a sensible prod/dev
- * fallback). Lives behind this thin wrapper so existing sitemap /
- * robots call sites keep their shape — the runtime-config switch is
- * what makes a single built artifact serve different hosts across
- * Railway environments.
+ * config reader. Non-production can override `NEXT_PUBLIC_BASE_URL`; a
+ * production-mode server always returns the canonical docs origin so a stale
+ * deployment variable or alternate serving hostname cannot leak into machine
+ * surfaces. Lives behind this wrapper so sitemap / robots / metadata / LLM
+ * call sites stay single-sourced.
  */
 export function getBaseUrl(): string {
   return getRuntimeConfig().baseUrl;

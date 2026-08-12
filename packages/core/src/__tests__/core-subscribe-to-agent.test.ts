@@ -1,18 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  AbstractAgent,
-  EventType,
-  type AgentSubscriberParams,
-  type RunAgentInput,
-  type RunErrorEvent,
-  type BaseEvent,
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type {
+  AgentSubscriberParams,
+  RunAgentInput,
+  RunErrorEvent,
+  BaseEvent,
 } from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
-import {
-  CopilotKitCore,
-  CopilotKitCoreErrorCode,
-  type SubscribeToAgentSubscriber,
-} from "../core";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
+import { CopilotKitCore, CopilotKitCoreErrorCode } from "../core";
+import type { SubscribeToAgentSubscriber } from "../core";
 
 // ---------------------------------------------------------------------------
 // Minimal mock agent that extends AbstractAgent for subscribe() support
@@ -186,7 +183,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
     vi.advanceTimersByTime(100);
     expect(onMessages).toHaveBeenCalledTimes(2);
     // Should receive the latest params
-    expect(onMessages.mock.calls[1][0].messages).toHaveLength(2);
+    expect(onMessages.mock.calls[1]![0].messages).toHaveLength(2);
   });
 
   // -------------------------------------------------------------------------
@@ -223,7 +220,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
     // Fires at t=200
     vi.advanceTimersByTime(100);
     expect(onMessages).toHaveBeenCalledTimes(3);
-    expect(onMessages.mock.calls[2][0].messages).toHaveLength(3);
+    expect(onMessages.mock.calls[2]![0].messages).toHaveLength(3);
 
     // Window closes when no further events arrive
     vi.advanceTimersByTime(100);
@@ -261,7 +258,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
 
     vi.advanceTimersByTime(100);
     expect(onMessages).toHaveBeenCalledTimes(2); // + trailing
-    expect(onMessages.mock.calls[1][0].messages).toHaveLength(6);
+    expect(onMessages.mock.calls[1]![0].messages).toHaveLength(6);
   });
 
   // -------------------------------------------------------------------------
@@ -291,7 +288,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
     // Trailing edge fires state
     vi.advanceTimersByTime(100);
     expect(onState).toHaveBeenCalledTimes(1);
-    expect(onState.mock.calls[0][0].state).toEqual({ count: 42 });
+    expect(onState.mock.calls[0]![0].state).toEqual({ count: 42 });
   });
 
   // -------------------------------------------------------------------------
@@ -409,7 +406,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
 
     vi.advanceTimersByTime(100);
     expect(onState).toHaveBeenCalledTimes(2);
-    expect(onState.mock.calls[1][0].state).toEqual({ v: 2 });
+    expect(onState.mock.calls[1]![0].state).toEqual({ v: 2 });
   });
 
   // -------------------------------------------------------------------------
@@ -730,8 +727,8 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
     // window expired after the trailing fires).
     vi.advanceTimersByTime(100);
     expect(onMessages).toHaveBeenCalledTimes(3);
-    expect(onMessages.mock.calls[1][0].messages).toHaveLength(2);
-    expect(onMessages.mock.calls[2][0].messages).toHaveLength(3);
+    expect(onMessages.mock.calls[1]![0].messages).toHaveLength(2);
+    expect(onMessages.mock.calls[2]![0].messages).toHaveLength(3);
   });
 
   // -------------------------------------------------------------------------

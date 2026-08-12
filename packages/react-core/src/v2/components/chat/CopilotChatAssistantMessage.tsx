@@ -1,4 +1,4 @@
-import { AssistantMessage, Message } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import { useEffect, useRef, useState } from "react";
 import {
   Copy,
@@ -20,7 +20,8 @@ import {
   TooltipTrigger,
 } from "../../components/ui/tooltip";
 import { useKatexStyles } from "../../hooks/useKatexStyles";
-import { WithSlots, renderSlot } from "../../lib/slots";
+import type { WithSlots } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import { Streamdown } from "streamdown";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
@@ -277,7 +278,7 @@ export namespace CopilotChatAssistantMessage {
       let success = false;
       if (onClick) {
         // onClick may return a boolean indicating copy success
-        const result = await Promise.resolve(onClick(event));
+        const result: unknown = await Promise.resolve(onClick(event));
         success = result === true;
       }
 

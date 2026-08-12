@@ -53,7 +53,7 @@ vi.mock("../messages/UserMessage", () => ({
 }));
 
 vi.mock("../../hooks/RenderToolContext", () => ({
-  useRenderToolRegistry: (...args: any[]) => hoisted.mockToolRegistry(...args),
+  useRenderToolRegistry: () => hoisted.mockToolRegistry(),
 }));
 
 // Mock react-native components with testable DOM elements

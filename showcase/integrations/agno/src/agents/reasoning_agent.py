@@ -1,18 +1,22 @@
 """Reasoning-capable Agno agent for the reasoning family of demos.
 
 Backs three showcase cells:
-    - agentic-chat-reasoning       (custom amber ReasoningBlock slot)
-    - reasoning-default-render     (CopilotKit's built-in reasoning card)
+    - reasoning-custom             (custom amber ReasoningBlock slot)
+    - reasoning-default            (CopilotKit's built-in reasoning card)
     - tool-rendering-reasoning-chain (reasoning + sequential tool calls)
 
 Mirrors `showcase/integrations/langgraph-python/src/agents/reasoning_agent.py`
 (shared across the three reasoning demos there).
 
 Uses reasoning=False with a custom AGUI handler in agent_server.py that
-synthesizes REASONING_MESSAGE_* AG-UI events from <reasoning>...</reasoning>
-XML tags in the model output. This avoids Agno's multi-call CoT loop
-(which breaks aimock fixtures) while still producing the proper AG-UI
-events that CopilotKit's frontend renders via the reasoningMessage slot.
+emits REASONING_MESSAGE_* AG-UI events. The primary channel is Agno's
+native `reasoning_content` (chat-completions stream a `delta.reasoning_content`
+field surfaced on each `RunContentEvent.reasoning_content`), tee'd into the
+AG-UI reasoning stream; parsing of <reasoning>...</reasoning> XML tags in the
+model output remains as a defensive fallback when the native channel is empty.
+Running with reasoning=False avoids Agno's multi-call CoT loop (which breaks
+aimock fixtures) while still producing the proper AG-UI events that
+CopilotKit's frontend renders via the reasoningMessage slot.
 
 For the reasoning-chain demo we also expose the same shared backend tools
 (`get_weather`, `search_flights`, `get_stock_price`, `roll_dice`) as the

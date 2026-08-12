@@ -5,7 +5,10 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { useCopilotKit } from "../v2/context";
 import { useAgent } from "../v2/hooks/use-agent";
 import { CopilotChatConfigurationProvider } from "../v2/providers/CopilotChatConfigurationProvider";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  CopilotKitCoreRuntimeConnectionStatus,
+  ProxiedCopilotRuntimeAgent,
+} from "@copilotkit/core";
 
 vi.mock("../v2/context", () => ({
   useCopilotKit: vi.fn(),
@@ -38,11 +41,13 @@ const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 describe("useAgent → agent.threadId sync from chat configuration", () => {
   let mockCopilotkit: {
     getAgent: ReturnType<typeof vi.fn>;
+    registerProxiedAgent: ReturnType<typeof vi.fn>;
     runtimeUrl: string | undefined;
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
     runtimeTransport: string;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
+    applyHeadersToAgent: (agent: AbstractAgent) => void;
     subscribeToAgentWithOptions: (
       agent: AbstractAgent,
       subscriber: any,
@@ -52,12 +57,53 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
   beforeEach(() => {
     mockCopilotkit = {
       getAgent: vi.fn(() => undefined),
+      // Mini-registry stand-in for CopilotKitCore.registerProxiedAgent: hands
+      // back a real ProxiedCopilotRuntimeAgent (so `.threadId` and
+      // `.runtimeAgentId` behave authentically) registered under the local
+      // agentId, and an unregister that removes it. Distinct agentIds yield
+      // distinct instances — the property the no-clobber fix relies on.
+      registerProxiedAgent: vi.fn(
+        ({
+          agentId,
+          runtimeAgentId,
+        }: {
+          agentId: string;
+          runtimeAgentId: string;
+        }) => {
+          const proxy = new ProxiedCopilotRuntimeAgent({
+            runtimeUrl: mockCopilotkit.runtimeUrl,
+            agentId,
+            runtimeAgentId,
+            // transport left at its "auto" default — the harness's loosely-typed
+            // runtimeTransport string isn't assignable, and these tests assert
+            // threadId/runtimeAgentId only, never transport behavior.
+            runtimeMode: "pending",
+          }) as unknown as AbstractAgent;
+          mockCopilotkit.agents[agentId] = proxy;
+          return {
+            agent: proxy,
+            unregister: () => {
+              delete mockCopilotkit.agents[agentId];
+            },
+          };
+        },
+      ),
       runtimeUrl: "http://localhost:3000/api/copilotkit",
       runtimeConnectionStatus:
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       runtimeTransport: "rest",
       headers: {},
       agents: {},
+      // Additive stand-in for core's merge (core headers ON TOP of the
+      // agent's own). These tests only assert threadId propagation and never
+      // remove a header, so this approximation is sufficient; it does NOT
+      // model core's frozen construction-time baseline.
+      applyHeadersToAgent: (agent) => {
+        const target = agent as { headers?: Record<string, string> };
+        if (target.headers) {
+          target.headers = { ...target.headers, ...mockCopilotkit.headers };
+        }
+      },
       subscribeToAgentWithOptions: (agent, subscriber) =>
         agent.subscribe(subscriber),
     };
@@ -153,6 +199,205 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
 
     // Same agent instance (provisional cache keeps reference stable), updated threadId
     expect(capturedAgent!.threadId).toBe("second-thread");
+  });
+
+  it("honors an explicit threadId prop even without a CopilotChatConfigurationProvider", () => {
+    // Headless usage (e.g. the React Native demo) has no chat-configuration
+    // provider in the tree. Before the fix the `threadId` prop was silently
+    // dropped and the agent shipped its own auto-minted UUID; the prop must now
+    // land on the agent so runs address the intended thread. `threadId`
+    // requires `runtimeAgentId` so the hook scopes it to a private proxied
+    // agent instead of a shared singleton.
+    const propThreadId = "prop-supplied-thread-id";
+    let capturedAgent: AbstractAgent | null = null;
+
+    function Probe() {
+      const { agent } = useAgent({
+        agentId: "test-agent",
+        runtimeAgentId: "runtime-agent",
+        threadId: propThreadId,
+      });
+      capturedAgent = agent;
+      return null;
+    }
+
+    render(<Probe />);
+
+    expect(capturedAgent).not.toBeNull();
+    expect(capturedAgent!.threadId).toBe(propThreadId);
+  });
+
+  it("prefers the threadId prop over the chat configuration's threadId", () => {
+    // Precedence: an explicit prop always wins over the surrounding config.
+    const propThreadId = "prop-thread";
+    const configThreadId = "config-thread";
+    let capturedAgent: AbstractAgent | null = null;
+
+    function Probe() {
+      const { agent } = useAgent({
+        agentId: "test-agent",
+        runtimeAgentId: "runtime-agent",
+        threadId: propThreadId,
+      });
+      capturedAgent = agent;
+      return null;
+    }
+
+    render(
+      <CopilotChatConfigurationProvider threadId={configThreadId}>
+        <Probe />
+      </CopilotChatConfigurationProvider>,
+    );
+
+    expect(capturedAgent).not.toBeNull();
+    expect(capturedAgent!.threadId).toBe(propThreadId);
+  });
+
+  it("re-syncs agent.threadId when the threadId prop changes", () => {
+    let capturedAgent: AbstractAgent | null = null;
+
+    function Probe({ threadId }: { threadId: string }) {
+      const { agent } = useAgent({
+        agentId: "test-agent",
+        runtimeAgentId: "runtime-agent",
+        threadId,
+      });
+      capturedAgent = agent;
+      return null;
+    }
+
+    const { rerender } = render(<Probe threadId="first-prop-thread" />);
+    expect(capturedAgent!.threadId).toBe("first-prop-thread");
+
+    act(() => {
+      rerender(<Probe threadId="second-prop-thread" />);
+    });
+
+    expect(capturedAgent!.threadId).toBe("second-prop-thread");
+  });
+
+  it("throws when threadId is provided without runtimeAgentId", () => {
+    // A threadId written onto a shared-singleton agent would let two useAgent
+    // callers clobber each other's thread; requiring runtimeAgentId forces the
+    // safe private-proxy path. Fail loud rather than silently mutate.
+    //
+    // UseAgentProps rejects this combination at compile time (see
+    // use-agent-types.test.tsx), so reaching the runtime guard requires opting
+    // out of the type — which is precisely the untyped-caller case the guard
+    // exists for. The @ts-expect-error doubles as the assertion that the
+    // compile-time half of the contract is still in force: if the type ever
+    // stopped rejecting this, check-types would fail on the unused directive.
+    function Probe() {
+      // @ts-expect-error threadId requires runtimeAgentId
+      useAgent({ agentId: "default", threadId: "some-thread" });
+      return null;
+    }
+
+    // Silence React's error-boundary console noise for the expected throw.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(() => render(<Probe />)).toThrow(/requires `runtimeAgentId`/);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("throws when runtimeAgentId is provided without threadId", () => {
+    // The converse guard: a private proxied agent with no thread to scope
+    // behaves like the shared agent while costing a registration and a local
+    // agentId to keep unique. Rejected rather than left looking meaningful.
+    function Probe() {
+      // @ts-expect-error runtimeAgentId requires threadId
+      useAgent({ agentId: "chat-1", runtimeAgentId: "assistant" });
+      return null;
+    }
+
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(() => render(<Probe />)).toThrow(/requires `threadId`/);
+    } finally {
+      spy.mockRestore();
+    }
+    // Nothing should have been registered before the throw.
+    expect(mockCopilotkit.registerProxiedAgent).not.toHaveBeenCalled();
+  });
+
+  it("throws when runtimeAgentId is provided without an explicit agentId", () => {
+    // The proxy is registered under the resolved agentId. Falling back to the
+    // chat configuration or DEFAULT_AGENT_ID would register over an agent that
+    // already exists — `already registered` if runtime discovery has landed,
+    // silent shadowing if it hasn't. Demand the caller name a local id.
+    function Probe() {
+      // @ts-expect-error runtimeAgentId requires an explicit agentId
+      useAgent({ runtimeAgentId: "assistant", threadId: "thread-1" });
+      return null;
+    }
+
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(() => render(<Probe />)).toThrow(/requires an explicit `agentId`/);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(mockCopilotkit.registerProxiedAgent).not.toHaveBeenCalled();
+  });
+
+  it("does not clobber threadIds across two hooks sharing a runtimeAgentId", () => {
+    // mme's review case: two useAgent calls routing to the same runtime agent
+    // but scoped to different threads. Each must get its own agent instance
+    // (distinct local agentId → distinct proxy), so their threadIds don't
+    // overwrite one another the way a shared singleton would.
+    let agent1: AbstractAgent | null = null;
+    let agent2: AbstractAgent | null = null;
+
+    function Probe() {
+      agent1 = useAgent({
+        agentId: "chat-1",
+        runtimeAgentId: "assistant",
+        threadId: "thread-1",
+      }).agent;
+      agent2 = useAgent({
+        agentId: "chat-2",
+        runtimeAgentId: "assistant",
+        threadId: "thread-2",
+      }).agent;
+      return null;
+    }
+
+    render(<Probe />);
+
+    expect(agent1).not.toBe(agent2);
+    expect(agent1!.threadId).toBe("thread-1");
+    expect(agent2!.threadId).toBe("thread-2");
+    // Both proxies route outbound to the one shared runtime agent.
+    expect(
+      (agent1 as unknown as { runtimeAgentId: string }).runtimeAgentId,
+    ).toBe("assistant");
+    expect(
+      (agent2 as unknown as { runtimeAgentId: string }).runtimeAgentId,
+    ).toBe("assistant");
+  });
+
+  it("registers a proxied agent for runtimeAgentId and unregisters on unmount", () => {
+    function Probe() {
+      useAgent({
+        agentId: "chat-1",
+        runtimeAgentId: "assistant",
+        threadId: "thread-1",
+      });
+      return null;
+    }
+
+    const { unmount } = render(<Probe />);
+
+    expect(mockCopilotkit.registerProxiedAgent).toHaveBeenCalledWith({
+      agentId: "chat-1",
+      runtimeAgentId: "assistant",
+    });
+    expect(mockCopilotkit.agents["chat-1"]).toBeDefined();
+
+    unmount();
+    expect(mockCopilotkit.agents["chat-1"]).toBeUndefined();
   });
 
   it("is a no-op when no CopilotChatConfigurationProvider is in scope", () => {

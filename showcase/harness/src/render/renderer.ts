@@ -261,6 +261,29 @@ function stripBom(s: string): string {
   return s.replace(/\uFEFF/g, "");
 }
 
+/**
+ * Build the source-env prefix prepended to every alert body. Operators
+ * triaging a red probe need to know whether staging or production is
+ * affected — the per-rule YAML templates never carried that context, so a
+ * "smoke test failing" ping was ambiguous about which environment broke.
+ *
+ * The label is the harness's own deploy environment (derived from
+ * RAILWAY_ENVIRONMENT_NAME in the orchestrator). An empty / missing value
+ * falls back to `unknown` rather than dropping the tag entirely — a missing
+ * env var should surface as a visible "we don't know" rather than silently
+ * looking like an un-prefixed legacy alert.
+ *
+ * Format mimics the existing `*bold*`/emoji alert idiom: a leading
+ * `[staging]` / `[production]` tag on its own line so the rest of the
+ * rendered template body is untouched. Exported so the alert-engine's
+ * aggregation flush path (which bypasses `render`) can reuse the exact
+ * same prefix.
+ */
+export function sourceEnvPrefix(sourceEnv: string | undefined): string {
+  const env = sourceEnv && sourceEnv.trim().length > 0 ? sourceEnv : "unknown";
+  return `[${env}] `;
+}
+
 export function createRenderer(): Renderer {
   return {
     render(tmpl, ctx) {
@@ -268,7 +291,12 @@ export function createRenderer(): Renderer {
       const { template, values } = extractFilters(safeText, ctx);
       const rendered = Mustache.render(template, ctx);
       const withFilters = splatSentinels(rendered, values);
-      const text = enforceSoftLimit(withFilters);
+      // Prefix the source-env tag so every alert states which deploy
+      // environment it came from. Applied here (the single chokepoint for
+      // per-key, cron, and on-error dispatch) rather than in each YAML
+      // template, so coverage is automatic for current AND future rules.
+      const prefixed = sourceEnvPrefix(ctx.env.sourceEnv) + withFilters;
+      const text = enforceSoftLimit(prefixed);
       return {
         payload: { text },
         contentType: "application/json",

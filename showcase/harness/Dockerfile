@@ -4,6 +4,10 @@ WORKDIR /repo
 RUN corepack enable
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .pnpmfile.cjs ./
+# The root package.json pins `patchedDependencies` (eventsource@3.0.7), so the
+# frozen install below hashes patches/*.patch to verify the lockfile. Copy the
+# patch dir into the build context or pnpm ENOENTs on the patch file (exit 254).
+COPY patches ./patches
 COPY showcase/harness/package.json ./showcase/harness/package.json
 # Copy every workspace package.json manifest (but NOT source / node_modules).
 # The version-drift probe's pnpm-packages discovery source parses these at
@@ -72,6 +76,13 @@ ENV QA_REPO_ROOT=/app
 # dist/probes/drivers/pin-drift.js, five `..` segments overshoot /app
 # and land at /. Override so the driver finds showcase/scripts/fail-baseline.json.
 ENV PIN_DRIFT_REPO_ROOT=/app
+# /api/matrix read-model: catalog-flatten's SHOWCASE_ROOT walk-up
+# (`../../../..` from dist/shared/catalog) lands at / here — the runtime
+# stage copies harness/dist → /app/dist, dropping the `harness/` segment the
+# walk-up assumes. Override so loadFeatureRegistry reads
+# /app/showcase/shared/feature-registry.json and findManifests reads
+# /app/showcase/integrations/<slug>/manifest.yaml (both copied below).
+ENV SHOWCASE_ROOT=/app/showcase
 # Playwright cache lives outside /home/node so `chown` below doesn't
 # have to recurse over the ~300MB chromium tree on every build. Setting
 # PLAYWRIGHT_BROWSERS_PATH at this stage pins the install target; the
@@ -110,6 +121,13 @@ COPY --from=build /repo/showcase/scripts/fail-baseline.json ./showcase/scripts/f
 # keep the runtime image lean. The qa/ subdirectories are also needed
 # since the driver file-stats qa/<featureId>.md per demo.
 COPY --from=build /repo/showcase/integrations ./showcase/integrations
+# /api/matrix read-model: the route reads the committed
+# shared/feature-registry.json (via loadFeatureRegistry) to enumerate catalog
+# cells. Only the build stage staged showcase/shared (for generate-registry.ts),
+# so without this the runtime image lacks the file and /api/matrix degrades to
+# matrix_unavailable. Paired with SHOWCASE_ROOT=/app/showcase above so the file
+# resolves at /app/showcase/shared/feature-registry.json.
+COPY --from=build /repo/showcase/shared ./showcase/shared
 # e2e-smoke probe: the driver's default demos resolver reads
 # `/app/data/registry.json` to look up each Railway service slug's demo
 # list (`tool-rendering` gates the L4 tool-rendering check). The registry
@@ -151,4 +169,44 @@ EXPOSE 8080
 # serve" to its supervisor.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "require('http').get('http://127.0.0.1:8080/health',r=>process.exit(r.statusCode>=200&&r.statusCode<300?0:1)).on('error',()=>process.exit(1))" || exit 1
-CMD ["node", "dist/orchestrator.js"]
+# FIX #3 — raise the process nproc SOFT rlimit before exec'ing the orchestrator.
+# THE OUTAGE (PROVEN root cause): the harness runs a long-lived chromium pool;
+# under a d6 launch storm the cgroup PID/thread ceiling is exhausted —
+# `chromium.launch()` throws `pthread_create: Resource temporarily unavailable
+# (errno 11)` → "Target page, context or browser has been closed" → permanent
+# crash-loop, with `pids.current` pegged at the cgroup `pids.max` ceiling.
+#
+# CRUCIAL CORRECTION — this `ulimit -u` does NOT and CANNOT fix that ceiling:
+#   * `ulimit -u` only lifts THIS PROCESS's RLIMIT_NPROC (the per-process soft
+#     rlimit). It is unrelated to — and cannot raise — the cgroup `pids.max`,
+#     which is the actual control that wedges the pool.
+#   * The cgroup `pids.max` is set by the CONTAINER RUNTIME (e.g. Railway via
+#     `--pids-limit`), NOT from inside the image. On staging it is
+#     platform-fixed at `pids.max=1000` and is NOT raisable from this Dockerfile.
+#     (The earlier "16384 pids cgroup" claim was ASPIRATIONAL and never applied.)
+#   * cgroup counts THREADS, not just processes — and each chromium renderer
+#     carries ~15 threads, so PID/thread demand is the binding constraint.
+#
+# Because the ceiling is platform-fixed and demand-side, the REAL mitigation
+# lives in the application, not here:
+#   1. reduce thread demand — BROWSER_POOL_MAX_CONTEXTS default lowered 40 → 24
+#      (fewer concurrent contexts → fewer renderer threads → peak `pids.current`
+#      stays well under 1000), and
+#   2. resource-gauge early-warning logging (`pids.current`/`pids.max` + thread
+#      count on every launch / self-heal failure / probe tick) plus the
+#      circuit-breaker give-up + `pool-unrecoverable` alarm as the agnostic
+#      backstop that signals "redeploy required" when the ceiling does not relax.
+#
+# We KEEP the `ulimit -u $(ulimit -Hu)` line — it is HARMLESS (it lifts the soft
+# rlimit to the inherited hard rlimit) and removes the per-process rlimit as a
+# confound — but it must NOT be mistaken for a fix to the cgroup ceiling.
+# `exec` replaces the shell so node remains PID 1 (correct signal handling /
+# Railway shutdown). The fallback `|| true` keeps boot resilient if the runtime
+# forbids raising the soft limit.
+#
+# MUST run under bash, NOT the default `/bin/sh`. On this image (node:22-
+# bookworm-slim) `/bin/sh` is dash, whose builtin `ulimit` does NOT support the
+# `-u` (max-user-processes / nproc) flag — it errors `ulimit: Illegal option -u`,
+# which the `2>/dev/null || true` then SILENTLY swallows. bash IS present
+# (/usr/bin/bash) and its `ulimit -u` works.
+CMD ["/bin/bash", "-c", "ulimit -u $(ulimit -Hu) 2>/dev/null || true; exec node dist/orchestrator.js"]

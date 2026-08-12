@@ -1,0 +1,10 @@
+**/node_modules
+.next
+.git
+**/vitest.config.ts
+**/test-setup.ts
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+tests/e2e

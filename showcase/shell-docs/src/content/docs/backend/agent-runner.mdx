@@ -1,0 +1,236 @@
+---
+title: "AgentRunner and persistence"
+icon: "lucide/Database"
+description: "Control how the runtime starts, reconnects to, and stops agent runs with AgentRunner."
+---
+
+Every CopilotKit runtime delegates agent execution and persistence to an
+`AgentRunner`. The runner turns `POST /agent/:id/run` into a live stream of
+AG-UI events, remembers a thread so `POST /agent/:id/connect` can attach to it,
+and stops a run on demand. Pick or subclass a runner when you need to control
+where conversation state lives.
+
+## The abstraction
+
+`AgentRunner` is an abstract class with four methods, mirroring the runtime's
+[HTTP routes](/backend/runtime-endpoints):
+
+```ts
+import type { Observable } from "rxjs";
+import type { BaseEvent } from "@ag-ui/client";
+
+abstract class AgentRunner {
+  // Start a run; returns the stream of AG-UI events.
+  abstract run(request: AgentRunnerRunRequest): Observable<BaseEvent>;
+  // Re-attach to an existing thread's stream (reconnect / refresh).
+  abstract connect(request: AgentRunnerConnectRequest): Observable<BaseEvent>;
+  // Is a run currently active on this thread?
+  abstract isRunning(request: AgentRunnerIsRunningRequest): Promise<boolean>;
+  // Stop the active run on this thread.
+  abstract stop(request: AgentRunnerStopRequest): Promise<boolean | undefined>;
+}
+```
+
+`run` receives the `threadId`, the cloned `agent`, the AG-UI `RunAgentInput`, and
+any `persistedInputMessages`. `connect` receives the `threadId` (plus optional
+headers and a `joinCode`). The runner owns whatever storage backs those threads.
+
+## The built-in runners
+
+| Runner | Import | Use it for |
+|---|---|---|
+| `InMemoryAgentRunner` | `@copilotkit/runtime/v2` | The default v2 runner. Stores thread runs in process memory. Use it for local development, single-instance deployments, or as a base class to extend. |
+| `SqliteAgentRunner` | `@copilotkit/sqlite-runner` | First-party, file-backed durable runner. Persists thread runs to a SQLite file so history survives restarts on a single instance. Requires the `better-sqlite3` peer dependency and a real (non-`:memory:`) `dbPath`. |
+| `IntelligenceAgentRunner` | `@copilotkit/runtime/v2` | Backs the Enterprise Intelligence Platform with durable threads, cross-instance persistence, and threads/history features. Used automatically on an Intelligence runtime. |
+| `TelemetryAgentRunner` | `@copilotkit/runtime` | Legacy wrapper behavior. The root runtime composes telemetry around a runner when telemetry is enabled; `@copilotkit/runtime/v2` does not. |
+
+If you don't pass a `runner`, the runtime uses `InMemoryAgentRunner`. Because it
+holds threads in process memory, history is lost on restart, **bounded** while
+the process runs (see [bounding in-memory history](#bounding-in-memory-history)),
+and **not shared across instances**. For a restart-resilient single-instance
+deployment, move to the first-party file-backed `SqliteAgentRunner` (from
+`@copilotkit/sqlite-runner`). For horizontal scaling across instances, move to
+the Enterprise Intelligence Platform's `IntelligenceAgentRunner` or supply your
+own runner backed by a shared datastore.
+
+## Choosing a runner
+
+```ts title="app/api/copilotkit/route.ts"
+import { CopilotRuntime, BuiltInAgent, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
+  // Explicit, but this is also the default if omitted:
+  runner: new InMemoryAgentRunner(),
+});
+```
+
+<Callout type="info">
+The `runner` is configured once on the `CopilotRuntime` and applies to every
+agent it serves. The same runner handles `run`, `connect`, and `stop` for all
+registered agents.
+</Callout>
+
+## Bounding in-memory history
+
+`InMemoryAgentRunner` holds every thread's run history in a process-global
+store. That store is **bounded by default**, so a long-lived server evicts old
+history instead of growing until the Node.js heap is exhausted. Pass limits to
+the constructor when the defaults don't match your workload:
+
+```ts title="app/api/copilotkit/route.ts"
+import { CopilotRuntime, BuiltInAgent, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
+  runner: new InMemoryAgentRunner({
+    maxThreads: 200,
+    maxRunsPerThread: 50,
+    maxBytes: 128 * 1024 ** 2, // 128 MiB
+  }),
+});
+```
+
+| Option | Default | What it bounds |
+|---|---|---|
+| `maxThreads` | `1000` | Distinct threads retained. Past the cap, the least-recently-used thread is dropped whole. |
+| `maxRunsPerThread` | `100` | Runs retained per thread, evicted oldest-first. `Infinity` (or `0`) disables the cap — but this is the only *per-thread* bound (`maxBytes` only evicts other threads), so a single hot thread then grows unbounded; raise it to a large finite value instead. |
+| `maxBytes` | `536870912` (512 MiB) | Approximate total size of retained history across all threads. This is the primary guard; the two counts are secondary sanity limits. |
+
+Whichever bound trips first wins. Two rules keep eviction safe:
+
+- A thread with an **active or still-finalizing run is never evicted**, even if
+  that means temporarily exceeding a limit.
+- `maxBytes` is a **cross-thread ceiling**: it evicts other least-recently-used
+  threads and never trims the thread that just finished a run. A single hot
+  thread is bounded by `maxRunsPerThread`, not by `maxBytes`.
+
+Eviction takes one of two forms, and they differ in what they remove and what
+stays visible:
+
+- **Whole-thread eviction** drops the entire least-recently-used thread — every
+  run, its events, and the thread's message snapshot. Both the thread-count cap
+  (`maxThreads`) and the byte ceiling (`maxBytes`) trigger it. A thread dropped
+  this way no longer appears in [`GET /threads`](/backend/runtime-endpoints), and
+  a later `connect()` has nothing left to replay for it.
+- **Run-cap trimming** (`maxRunsPerThread`) drops only the *oldest runs* of a
+  single over-cap thread and keeps the thread itself. The thread stays visible in
+  `GET /threads` with its original creation time, and its latest message snapshot
+  and newest run survive — only the trimmed runs' events are gone, so a later
+  `connect()` replays what remains.
+
+Either form logs the same one-line warning the first time it fires, then goes
+quiet. The warning is latched **once per store** (not once per eviction), so a
+busy thread that trims a run on every append still logs a single line rather than
+flooding your logs — but for the same reason every eviction after that first line
+is silent. The latch resets only when the store is cleared (`clearThreads()` /
+`POST /threads/clear`), after which one further warning can fire. Treat the line
+as a signal that eviction is happening, not a per-drop audit.
+
+Eviction also weakens message de-duplication on that thread. `run()` strips
+already-seen messages from the next `RUN_STARTED` input by scanning the runs it
+still holds, so once a thread passes `maxRunsPerThread` and its oldest runs are
+dropped, a message that lived only in an evicted run is no longer recognized as
+seen — a later `connect()` or `run()` can re-present it, and the client may
+briefly show a historical message it already observed. This is a display
+artifact, not corruption. If a thread must never re-surface old messages, move
+to a durable runner, or raise `maxRunsPerThread` to a large finite value — do
+not set it to `Infinity` (or `0`), which removes the only per-thread bound
+(`maxBytes` evicts only *other* threads, never the hot thread itself) and lets a
+single long-lived thread grow until the heap is exhausted.
+
+<Callout type="warn" title="Limits are process-global">
+The in-memory store is shared by every `InMemoryAgentRunner` in the process, so
+these limits are too — the **last** runner constructed with limits wins for
+**all** in-memory threads, silently reconfiguring the bounds any earlier runner
+set. Don't count on a log to catch this: the clobber warning fires only when a
+runner passing limits is followed by *another* runner passing **different**
+limits. The common case — one runner on defaults and a second passing custom
+limits — is the first explicit override and logs nothing, as do identical
+re-sets and runners that pass only `onConcurrentRun`. Configure one consistent
+set of limits per process.
+</Callout>
+
+Bounding prevents the crash; it does not make the runner durable. If losing
+history is unacceptable, move to a durable backend. The first-party
+`SqliteAgentRunner` (from `@copilotkit/sqlite-runner`) persists thread runs to a
+SQLite file so history survives restarts on a single instance — install its
+`better-sqlite3` peer dependency and give it a real, non-`:memory:` `dbPath`:
+
+```ts title="app/api/copilotkit/route.ts"
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { SqliteAgentRunner } from "@copilotkit/sqlite-runner";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
+  runner: new SqliteAgentRunner({ dbPath: "./data/threads.db" }),
+});
+```
+
+For durability across horizontally scaled instances, move to the Enterprise
+Intelligence Platform's `IntelligenceAgentRunner`, or supply your own runner
+backed by a shared datastore.
+
+## Handling a second run on a busy thread
+
+By default, calling `run()` on a thread that already has a run in flight throws
+`Thread already running`. That is the right behavior when a duplicate request
+means a bug. When your UX lets a user send a fast follow-up — or a wedged run
+needs to be displaced — opt into superseding instead:
+
+```ts
+import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+
+const runner = new InMemoryAgentRunner({ onConcurrentRun: "supersede" });
+```
+
+| Value | Behavior |
+|---|---|
+| `"throw"` (default) | A concurrent `run()` on the same thread throws `Thread already running`. |
+| `"supersede"` | The in-flight run is aborted (the same path `stop()` takes) and the new run starts. The superseded run's partial output is discarded rather than written to history. |
+
+Unlike the memory limits, `onConcurrentRun` is per-runner — it applies only to
+the runner you pass it to.
+
+## Extending a runner for a custom backend
+
+The most common customization is **subclassing `InMemoryAgentRunner`** to layer
+your own persistence (or to reconcile history replayed by an external memory
+layer). Override only the methods you need and call `super` for the rest:
+
+```ts
+import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+
+export class MyRunner extends InMemoryAgentRunner {
+  override run(request: Parameters<InMemoryAgentRunner["run"]>[0]) {
+    // persist request.threadId / input here, then delegate
+    return super.run(request);
+  }
+
+  override connect(request: Parameters<InMemoryAgentRunner["connect"]>[0]) {
+    // re-hydrate the thread from your store before re-attaching
+    return super.connect(request);
+  }
+}
+```
+
+For a complete production example, see the
+[AWS AgentCore integration](/deploy/agentcore). It extends
+`InMemoryAgentRunner` into an `AgentCoreRunner`, handles a `connect()` that
+arrives **before** any `run()` for a thread, and synthesizes missing tool-call
+results from a replayed history.
+
+<Callout type="warn">
+If `connect()` can be called for a thread your runner has never seen, such as a
+new thread id on first page load, handle that case explicitly. Otherwise the
+`POST /agent/:id/connect` route can return a 404 or an error before the user
+sends a message. See the [`/connect` 404 troubleshooting entry](/troubleshooting/common-issues#connect-route-returns-404-on-a-fresh-thread).
+</Callout>
+
+## Related
+
+- [Runtime HTTP endpoints](/backend/runtime-endpoints): the routes each runner method backs.
+- [Copilot Runtime](/backend/copilot-runtime): configuring the runtime and `runner`.
+- [AWS AgentCore](/deploy/agentcore): a custom runner subclass for an external memory layer.
+- [Common issues](/troubleshooting/common-issues#runtime-memory-keeps-growing-or-the-process-runs-out-of-heap): diagnosing runtime memory growth and eviction warnings.
+- [Self-Hosting Enterprise Intelligence](/premium/self-hosting): the durable, multi-instance `IntelligenceAgentRunner` backend.

@@ -10,11 +10,19 @@ import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
+// Per-request request/response logging is gated behind this flag (default off).
+// Under d6 probe fan-out, unconditional per-request logs flooded Railway's
+// 500-logs/sec cap and killed the replica ("Messages dropped" → container stop).
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
+
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
-function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+function createAgent(path = "/") {
+  return new HttpAgent({ url: `${AGENT_URL}${path}` });
 }
 
 // Register the same agent under all names used by demo pages.
@@ -46,9 +54,6 @@ const agentNames = [
   // HITL variants — use existing agent's schedule_meeting flow.
   "hitl-in-chat",
   "hitl-in-app",
-  // Reasoning variants — agent emits chain-of-thought; default vs custom render.
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
   // Read-only agent context — frontend exposes useAgentContext; same agent.
   "readonly-state-agent-context",
   // Tool rendering variants — all share the unified agent; frontend differs.
@@ -68,9 +73,27 @@ const agentNames = [
   "interrupt-headless",
 ];
 
+// Reasoning agent names — backed by the reasoning-enabled sub-app at
+// /reasoning. Langroid's stock unified agent calls OpenAI non-streaming and
+// drops the model's reasoning_content channel, so reasoning cells route here
+// instead. Emits AG-UI REASONING_MESSAGE_* events that the frontend renders
+// via the `reasoningMessage` slot (built-in card for `reasoning-default`,
+// custom amber ReasoningBlock for `reasoning-custom`). `agentic-chat-reasoning`
+// and `reasoning-default-render` are legacy aliases kept for any cell that
+// still references them.
+const reasoningAgentNames = [
+  "reasoning-default",
+  "reasoning-custom",
+  "reasoning-default-render",
+  "agentic-chat-reasoning",
+];
+
 const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
+}
+for (const name of reasoningAgentNames) {
+  agents[name] = createAgent("/reasoning/");
 }
 agents["default"] = createAgent();
 
@@ -88,7 +111,11 @@ console.log(
 export const POST = async (req: NextRequest) => {
   const url = req.url;
   const contentType = req.headers.get("content-type");
-  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
+  if (ROUTE_DEBUG) {
+    console.log(
+      `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
+    );
+  }
 
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
@@ -101,21 +128,39 @@ export const POST = async (req: NextRequest) => {
     });
 
     const response = await handleRequest(req);
-    console.log(`[copilotkit/route] Response status: ${response.status}`);
+    if (!response.ok) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    } else if (ROUTE_DEBUG) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    }
     return response;
   } catch (error: unknown) {
-    const err = error as Error;
-    console.error(`[copilotkit/route] ERROR: ${err.message}`);
-    console.error(`[copilotkit/route] Stack: ${err.stack}`);
+    // Log full details server-side (operators grep `errorId` to correlate),
+    // but never echo `err.message` / `err.stack` back to the HTTP client —
+    // that leaks internal paths, dependency versions, and stack traces.
+    const err = error instanceof Error ? error : new Error(String(error));
+    const errorId = crypto.randomUUID();
+    console.error(
+      JSON.stringify({
+        at: new Date().toISOString(),
+        level: "error",
+        scope: "copilotkit/route",
+        errorId,
+        message: err.message,
+        stack: err.stack,
+      }),
+    );
     return NextResponse.json(
-      { error: err.message, stack: err.stack },
+      { error: "internal runtime error", errorId },
       { status: 500 },
     );
   }
 };
 
 export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  if (ROUTE_DEBUG) {
+    console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  }
 
   let agentStatus = "unknown";
   try {

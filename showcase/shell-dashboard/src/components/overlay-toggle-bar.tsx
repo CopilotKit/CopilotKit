@@ -6,33 +6,12 @@
  * individual visual overlays; presets apply curated combinations.
  */
 
-import type { Overlay } from "@/lib/overlay-types";
-export type { Overlay };
-
-export interface OverlayPreset {
-  id: string;
-  label: string;
-  overlays: readonly Overlay[];
-}
-
-export const ALL_OVERLAYS: readonly Overlay[] = [
-  "links",
-  "depth",
-  "health",
-  "parity",
-  "docs",
-  "d6",
-];
-
-export const PRESETS: readonly OverlayPreset[] = [
-  { id: "catalog", label: "Catalog", overlays: ["links", "health", "docs"] },
-  { id: "assessment", label: "Assessment", overlays: ["depth", "health"] },
-  {
-    id: "parity-review",
-    label: "Parity Review",
-    overlays: ["depth", "parity"],
-  },
-];
+// Single source of truth for overlay/preset definitions lives in
+// @/lib/overlay-types. Re-export here for backwards-compatible imports.
+import type { Overlay, OverlayPreset } from "@/lib/overlay-types";
+import { ALL_OVERLAYS, PRESETS } from "@/lib/overlay-types";
+export type { Overlay, OverlayPreset };
+export { ALL_OVERLAYS, PRESETS };
 
 const OVERLAY_LABELS: Record<Overlay, string> = {
   links: "Links",

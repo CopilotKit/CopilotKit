@@ -1,17 +1,27 @@
 # CopilotKit for Angular
 
-Angular bindings for CopilotKit core and AG-UI agents. This package provides services, directives, and utilities for building custom, headless Copilot UIs.
+First-party Angular bindings for CopilotKit core and AG-UI agents. The package
+ships standalone chat, popup, and sidebar components as well as signal-based
+headless APIs, tool and activity renderers, threads, memories, interrupts,
+attachments, A2UI, Open Generative UI, and opt-in MCP Apps support.
 
 ## Installation
 
 ```bash
 # npm
-npm install @copilotkit/{core,angular}
+npm install @copilotkit/angular
 ```
 
-- `@angular/core` and `@angular/common` (19+)
+Peer dependencies you provide in your app:
+
+- `@angular/core` and `@angular/common` (20, 21, or 22)
 - `@angular/cdk` (match your Angular major)
-- `rxjs`
+- `rxjs` 7.8 or newer
+
+The exact versions exercised by the packed-consumer release matrix are stored
+in `package.json` under `copilotkit.angularSupport`. The library is compiled at
+the Angular 20 support floor and installed with strict peer checking against
+all three supported majors.
 
 ## Quick start
 
@@ -26,7 +36,6 @@ import { provideCopilotKit } from "@copilotkit/angular";
 export const appConfig: ApplicationConfig = {
   providers: [
     provideCopilotKit({
-      licenseKey: "ck_pub_your_public_api_key",
       runtimeUrl: "http://localhost:3001/api/copilotkit",
       headers: { Authorization: "Bearer ..." },
       properties: { app: "demo" },
@@ -101,22 +110,35 @@ export interface CopilotKitConfig {
   licenseKey?: string;
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;
+  selfManagedAgents?: Record<string, AbstractAgent>;
   tools?: ClientTool[];
   renderToolCalls?: RenderToolCallConfig[];
+  renderActivityMessages?: RenderActivityMessageConfig[];
+  suggestionsConfig?: SuggestionsConfig[];
   frontendTools?: FrontendToolConfig[];
   humanInTheLoop?: HumanInTheLoopConfig[];
+  defaultToolRendering?: boolean;
+  a2ui?: A2UIConfig;
+  openGenerativeUI?: OpenGenerativeUIConfig;
 }
 ```
 
 - `runtimeUrl`: URL to your CopilotKit runtime.
 - `headers`: Default headers sent to the runtime.
-- `licenseKey`: Copilot Cloud public API key (`ck_pub_...`), required by `provideCopilotKit`.
 - `properties`: Arbitrary props forwarded to agent runs.
 - `agents`: Local, in-browser agents keyed by `agentId`.
+- `selfManagedAgents`: AG-UI agents managed directly by the application.
 - `tools`: Tool definitions advertised to the runtime (no handler).
 - `renderToolCalls`: Components to render tool calls in the UI.
+- `renderActivityMessages`: Components to render AG-UI activity messages.
+- `suggestionsConfig`: Static or runtime-generated chat suggestions.
 - `frontendTools`: Client-side tools with handlers.
 - `humanInTheLoop`: Tools that pause for user input.
+- `defaultToolRendering`: Opt in to the text-only renderer for unknown tools.
+  It is disabled by default so missing renderers remain visible integration
+  errors rather than silently changing the experience.
+- `a2ui`: Theme, catalog, schema, loading UI, and recovery policy for A2UI.
+- `openGenerativeUI`: Sandboxed UI functions and optional design guidance.
 
 ### Injection helpers
 
@@ -278,7 +300,6 @@ registerHumanInTheLoop({
 
 ```ts
 provideCopilotKit({
-  licenseKey: "ck_pub_your_public_api_key",
   frontendTools: [
     /* FrontendToolConfig[] */
   ],
@@ -295,6 +316,59 @@ provideCopilotKit({
 ```
 
 `tools` are advertised to the runtime. If you include `renderer` + `parameters` on a `ClientTool`, CopilotKit will also register a renderer for tool calls.
+
+## Prebuilt UI
+
+All UI exports are standalone Angular components. Import the component classes
+directly and import `@copilotkit/angular/styles.css` once in the application's
+global stylesheet.
+
+### Full-page chat
+
+```ts
+import { Component } from "@angular/core";
+import { CopilotChat } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-assistant",
+  imports: [CopilotChat],
+  template: `<copilot-chat [agentId]="'default'" />`,
+})
+export class AssistantComponent {}
+```
+
+Use `CopilotPopup` for a floating dialog and `CopilotSidebar` for responsive
+overlay or docked presentation. Their `open` inputs are model signals, so
+`[(open)]` supports controlled application state. Both include focus trapping,
+Escape handling, focus restoration, accessible dialog naming, reduced-motion
+behavior, and safe-area-aware mobile layouts.
+
+```ts
+import { Component, signal } from "@angular/core";
+import { CopilotPopup, CopilotSidebar } from "@copilotkit/angular";
+
+@Component({
+  imports: [CopilotPopup, CopilotSidebar],
+  template: `
+    <copilot-popup [(open)]="popupOpen" title="Support assistant" />
+    <copilot-sidebar
+      [(open)]="sidebarOpen"
+      mode="docked"
+      position="right"
+      title="Workspace assistant"
+    />
+  `,
+})
+export class AssistantSurfacesComponent {
+  readonly popupOpen = signal(false);
+  readonly sidebarOpen = signal(false);
+}
+```
+
+`CopilotChatView`, message, input, toolbar, button, attachment, and slot
+components are supported public customization primitives. See
+[`API.md`](./API.md) for the exhaustive export inventory; use the higher-level
+components unless you are replacing part of the default composition.
 
 ## `RenderToolCalls` component
 
@@ -322,6 +396,71 @@ Tool arguments are parsed with `partialJSONParse`, so incomplete JSON during str
 - If you need to change runtime settings at runtime, call `CopilotKit.updateRuntime(...)`.
 - `runtimeTransport` supports `"rest"` or `"single"` (SSE single-stream transport).
 
-## Not documented here
+## Activity renderers and generative UI
 
-This package also exports a full set of chat UI components under `src/lib/components/chat`. Those APIs are intentionally omitted from this README.
+Register application activity renderers with `registerRenderActivityMessage`
+or the `renderActivityMessages` provider option. Application registrations
+take precedence over optional built-ins.
+
+- A2UI is enabled when the runtime advertises the capability or when
+  `a2ui.catalog` is supplied. An explicit catalog enables its renderers and
+  agent context even when runtime `/info` does not advertise A2UI, matching the
+  React provider contract. Configure recovery exposure independently of
+  server-provided lifecycle content.
+- Open Generative UI is enabled with `openGenerativeUI: { ... }`. Generated UI
+  runs in an isolated WebSandbox; expose only narrowly scoped
+  `sandboxFunctions` and never place credentials in browser configuration.
+- MCP Apps is intentionally a secondary entry point. Add
+  `provideMCPApps()` to application providers and import advanced host APIs
+  from `@copilotkit/angular/mcp-apps`. MCP resource and tool requests travel
+  through the selected AG-UI agent; the browser provider does not accept a
+  server URL. The renderer uses the same inline `srcdoc` sandbox, sandbox
+  permissions, and resource-domain CSP as the React SDK.
+
+## Lifecycle and cleanup
+
+Call `injectAgentStore`, `connectAgentContext`, `registerFrontendTool`,
+`registerRenderToolCall`, `registerRenderActivityMessage`, `injectInterrupt`,
+`injectThreads`, and `injectMemories` from an Angular injection context. The
+helpers bind subscriptions, effects, timers, runtime registrations, and
+observers to the owning `DestroyRef`. Changing a signal-based agent ID tears
+down the previous agent subscription before connecting the replacement.
+
+Do not create these helpers in module-level code or cache an injected
+controller beyond the lifetime of its injector. `AgentStore.teardown()` is
+public for advanced manually constructed stores; stores returned by
+`injectAgentStore` are cleaned up automatically and should not need a manual
+call.
+
+Application-owned asynchronous work remains application-owned. Cancel fetches
+or other side effects started by a frontend-tool handler when its host is
+destroyed, and do not resolve an interrupt after its controller has left the
+view.
+
+## SSR, hydration, and zoneless Angular
+
+The package is designed for standalone, OnPush, signal-based applications and
+is tested with `provideZonelessChangeDetection()`. No Zone.js dependency is
+required. Keep application state in signals or Angular outputs so zoneless
+change detection can observe updates.
+
+Browser-only DOM setup is deferred to render lifecycle hooks or guarded by the
+platform where the package owns it. For SSR and hydration:
+
+- provide the same CopilotKit configuration and initial `open`/`agentId`
+  values on the server and first client render;
+- do not access returned agents or run tools during server rendering;
+- make runtime URLs absolute when the server and browser use different
+  origins, or proxy a same-origin `/api/copilotkit` endpoint;
+- enable A2UI, Open Generative UI, audio recording, and MCP Apps in the browser;
+  their interactive sandboxes, custom elements, media APIs, and iframes become
+  active after hydration;
+- avoid branching the component tree on `window` before hydration. Use Angular
+  platform guards and `afterNextRender` for application-owned browser work.
+
+## Public API contract
+
+[`API.md`](./API.md) lists every supported export from the root and MCP Apps
+entry points and identifies the single internal extension token. A package test
+compares that inventory to TypeScript's resolved entry-point exports so a new
+public symbol cannot be introduced without documentation.

@@ -10,6 +10,9 @@ const r = (...p: string[]) => resolve(__dirname, ...p);
 export default defineConfig(({ mode }) => ({
   plugins: [angular()],
   resolve: {
+    alias: {
+      "@copilotkit/angular": r("src/public-api.ts"),
+    },
     dedupe: [
       "@angular/core",
       "@angular/common",

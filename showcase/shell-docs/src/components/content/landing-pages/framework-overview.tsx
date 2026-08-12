@@ -5,14 +5,20 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { usePostHog } from "posthog-js/react";
 
 import { customIcons } from "@/components/icons";
 import type { IconKey } from "@/components/icons";
+import {
+  HeroStartActions,
+  QuickstartLinkButton,
+} from "@/components/hero-start-commands";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import type {
   FrameworkOverviewData,
   OpsPlatformCTAData,
 } from "@/data/frameworks/types";
+import type { FrontendId } from "@/lib/frontend-options";
 
 export interface FrameworkOverviewProps {
   data: FrameworkOverviewData;
@@ -24,6 +30,14 @@ export interface FrameworkOverviewProps {
    * because the data record's `guideLink` embeds the primary variant's slug.
    */
   currentFramework: string;
+  /**
+   * Optional public route prefix for nested docs surfaces such as
+   * `/angular/langgraph-python`. Framework links are rewritten into this
+   * prefix after variant normalization.
+   */
+  hrefPrefix?: string;
+  /** Frontend selected by the route, used for framework-sensitive copy. */
+  frontendOverride?: FrontendId;
   /**
    * Optional slot rendered between the supported-features section and the
    * architecture section. When supplied, this takes precedence over `data.cta`
@@ -88,9 +102,33 @@ function SectionEyebrow({ label }: { label: string }) {
   );
 }
 
+// Docs framework slug -> the `copilotkit` CLI's own `--framework` value. The
+// CLI uses different identifiers than our docs slugs, so the create command on
+// a framework page only pre-selects a framework when there's a verified 1:1
+// template match (values confirmed against the CLI's AGENT_FRAMEWORKS enum).
+// Slugs intentionally omitted fall back to a bare `npx copilotkit create`:
+//   - crewai-crews: the CLI ships "CrewAI Flows" (`flows`), not Crews — different
+//   - langgraph-fastapi, claude-sdk-*, langroid, ms-agent-harness-dotnet,
+//     spring-ai, agent-spec, deepagents: no matching CLI template
+const DOCS_SLUG_TO_CLI_FRAMEWORK: Record<string, string> = {
+  "langgraph-python": "langgraph-py",
+  "langgraph-typescript": "langgraph-js",
+  "google-adk": "adk",
+  strands: "aws-strands-py",
+  "ms-agent-dotnet": "microsoft-agent-framework-dotnet",
+  "ms-agent-python": "microsoft-agent-framework-py",
+  mastra: "mastra",
+  "pydantic-ai": "pydantic-ai",
+  llamaindex: "llamaindex",
+  agno: "agno",
+  ag2: "ag2",
+};
+
 export function FrameworkOverview({
   data,
   currentFramework,
+  hrefPrefix,
+  frontendOverride,
   afterFeatures,
   iconOverride,
 }: FrameworkOverviewProps) {
@@ -101,12 +139,25 @@ export function FrameworkOverview({
     subheader,
     guideLink: rawGuideLink,
     initCommand,
-    supportedFeatures = [],
+    supportedFeatures: rawSupportedFeatures = [],
     architectureImage,
     architectureVideo,
     liveDemos = [],
     cta,
   } = data;
+  const supportedFeatures =
+    frontendOverride === "angular"
+      ? rawSupportedFeatures.map((feature) => ({
+          ...feature,
+          description: feature.description.replace(
+            /\bReact components?\b/g,
+            (match) =>
+              match.endsWith("s")
+                ? "Angular components"
+                : "an Angular component",
+          ),
+        }))
+      : rawSupportedFeatures;
 
   // Derive the primary variant's slug from the data record's own links —
   // typically the path segment after the leading `/` of `guideLink`
@@ -114,14 +165,49 @@ export function FrameworkOverview({
   // rewrite *away from* so that variant users land on their own variant's
   // sub-pages.
   const fromSlug = rawGuideLink.split("/")[1] ?? "";
-  const link = (href: string) => rewriteHref(href, fromSlug, currentFramework);
+  const link = (href: string) => {
+    const rewritten = rewriteHref(href, fromSlug, currentFramework);
+    if (!hrefPrefix || !rewritten.startsWith("/")) return rewritten;
 
-  const guideLink = link(rawGuideLink);
+    const frameworkPrefix = `/${currentFramework}`;
+    if (rewritten === frameworkPrefix) return hrefPrefix;
+    if (rewritten.startsWith(`${frameworkPrefix}/`)) {
+      return `${hrefPrefix}${rewritten.slice(frameworkPrefix.length)}`;
+    }
+    return rewritten;
+  };
+
+  // Frameworks whose init is the generic top-level command get the unified
+  // two-command recommendation (matching the home hero). Frameworks with
+  // bespoke setup (e.g. a2a's `git clone`, ms-agent-dotnet) keep their own
+  // single command chip — those commands aren't interchangeable with the CLI.
+  const isGenericInit = initCommand.trim() === "npx copilotkit@latest init";
+  const createFramework = DOCS_SLUG_TO_CLI_FRAMEWORK[currentFramework];
 
   const [activeDemo, setActiveDemo] = useState<string>(
     liveDemos[0]?.type || "saas",
   );
   const [copied, setCopied] = useState(false);
+  const posthog = usePostHog();
+  const selectedFrontend = frontendOverride ?? "react";
+  const overviewPath = hrefPrefix ?? `/${currentFramework}`;
+
+  const captureJourneyContinuation = (
+    destinationType: "demo" | "quickstart",
+    destinationPath: string,
+  ) => {
+    try {
+      posthog?.capture("docs.journey_continued", {
+        destination_type: destinationType,
+        destination_path: destinationPath,
+        frontend: selectedFrontend,
+        backend: currentFramework,
+        from_path: overviewPath,
+      });
+    } catch {
+      // Analytics must never block a docs journey.
+    }
+  };
 
   // Look up the icon by key. If the key isn't registered (forward-compat with
   // string IconKey from Track A), fall back to rendering nothing rather than
@@ -157,6 +243,9 @@ export function FrameworkOverview({
         body={cta.body}
         ctaLabel={cta.ctaLabel}
         surface={cta.surface}
+        frontend={selectedFrontend}
+        backend={currentFramework}
+        fromPath={overviewPath}
       />
     ) : null);
 
@@ -164,40 +253,6 @@ export function FrameworkOverview({
 
   return (
     <div className="relative pb-24">
-      {/* Hero atmosphere — single restrained accent glow behind the
-          framework name + headline. Sits at zIndex 0 so all hero text
-          renders cleanly on top. Subtle in light mode, more present in
-          dark mode (where the page bg gives the accent room to breathe). */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[480px] overflow-hidden"
-      >
-        <div
-          className="absolute left-1/2 -translate-x-1/2 -top-40 h-[520px] w-[820px] rounded-full opacity-60 dark:opacity-50"
-          style={{
-            background:
-              "radial-gradient(closest-side, var(--accent-light), transparent 70%)",
-            filter: "blur(48px)",
-          }}
-        />
-        <div
-          className="absolute left-[8%] top-24 h-[260px] w-[260px] rounded-full opacity-40 dark:opacity-30"
-          style={{
-            background:
-              "radial-gradient(closest-side, rgba(190, 194, 255, 0.45), transparent 70%)",
-            filter: "blur(60px)",
-          }}
-        />
-        <div
-          className="absolute right-[6%] top-44 h-[220px] w-[220px] rounded-full opacity-35 dark:opacity-25"
-          style={{
-            background:
-              "radial-gradient(closest-side, rgba(133, 236, 206, 0.4), transparent 70%)",
-            filter: "blur(60px)",
-          }}
-        />
-      </div>
-
       <div className="relative z-10">
         {/* =========================================================
              HERO
@@ -206,7 +261,7 @@ export function FrameworkOverview({
           {/* Framework identity: icon + name in a horizontal lockup. */}
           <div className="flex items-center gap-3 mb-5">
             {hasIcon && (
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]">
+              <div className="shell-docs-radius-icon flex h-10 w-10 items-center justify-center border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]">
                 {iconOverride ??
                   (IconComponent ? (
                     <IconComponent className="h-6 w-6" />
@@ -227,40 +282,58 @@ export function FrameworkOverview({
             {subheader}
           </p>
 
-          {/* Action cluster: docs-style CTA + copy-command chip. The Live
-              feature viewer link was dropped — the demo iframe below
-              already covers "see it running" intent. */}
-          <div className="mt-7 flex flex-col sm:flex-row sm:items-center gap-3">
-            <Link
-              href={guideLink}
-              className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] px-4 text-[13.5px] font-semibold text-[var(--accent)] no-underline transition-colors hover:bg-[var(--accent-light)] sm:w-auto"
-            >
-              Start the quickstart
-              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-
-            <button
-              type="button"
-              onClick={handleCopyCommand}
-              className="inline-flex w-full sm:w-auto items-center justify-between sm:justify-start gap-3 h-11 px-4 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:bg-[var(--bg-elevated)] text-[var(--text)] transition-colors group"
-              aria-label="Copy install command"
-            >
-              <span className="flex items-center gap-2 text-[13.5px]">
-                <span className="text-[var(--accent)] opacity-70 font-mono">
-                  $
-                </span>
-                <span className="font-mono text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--text)]">
-                  {initCommand}
-                </span>
-              </span>
-              <span className="text-[var(--text-muted)] group-hover:text-[var(--text)]">
-                {copied ? (
-                  <Check className="h-4 w-4 text-[var(--accent)]" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </span>
-            </button>
+          {/* Action cluster — the same <HeroStartActions> block as the home
+              hero, with Quickstart primary and the agent CLI setup menu
+              secondary. The quickstart slot is a direct link here because a
+              framework is already selected. Frameworks with bespoke setup
+              (e.g. a2a's `git clone`, ms-agent-dotnet) keep their own
+              copy-command chip because those commands aren't interchangeable
+              with the CLI. */}
+          <div className="mt-7">
+            {isGenericInit ? (
+              <HeroStartActions
+                createFramework={createFramework}
+                quickstart={
+                  <QuickstartLinkButton
+                    href={link(rawGuideLink)}
+                    frontend={selectedFrontend}
+                    backend={currentFramework}
+                    fromPath={overviewPath}
+                  />
+                }
+              />
+            ) : (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <QuickstartLinkButton
+                  href={link(rawGuideLink)}
+                  frontend={selectedFrontend}
+                  backend={currentFramework}
+                  fromPath={overviewPath}
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyCommand}
+                  className="shell-docs-radius-control group inline-flex h-11 w-full cursor-pointer items-center justify-between gap-3 border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--bg-elevated)] sm:w-auto sm:justify-start"
+                  aria-label="Copy install command"
+                >
+                  <span className="flex items-center gap-2 text-[13.5px]">
+                    <span className="text-[var(--accent)] opacity-70 font-mono">
+                      $
+                    </span>
+                    <span className="font-mono text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--text)]">
+                      {initCommand}
+                    </span>
+                  </span>
+                  <span className="text-[var(--text-muted)] group-hover:text-[var(--text)]">
+                    {copied ? (
+                      <Check className="h-4 w-4 text-[var(--accent)]" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
@@ -309,6 +382,12 @@ export function FrameworkOverview({
                         {feature.demoLink && (
                           <Link
                             href={link(feature.demoLink)}
+                            onClick={() =>
+                              captureJourneyContinuation(
+                                "demo",
+                                link(feature.demoLink!),
+                              )
+                            }
                             className="inline-flex items-center gap-1.5 text-[14px] text-[var(--text-muted)] hover:text-[var(--text)] no-underline transition-colors"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
@@ -323,7 +402,7 @@ export function FrameworkOverview({
                         fallback for sparse data records). */}
                     {hasMedia && (
                       <div className="lg:col-span-7">
-                        <div className="relative rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_18px_44px_-22px_rgba(0,0,0,0.4)]">
+                        <div className="shell-docs-radius-surface relative overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
                           <video
                             src={feature.videoUrl}
                             className="w-full block"
@@ -334,7 +413,7 @@ export function FrameworkOverview({
                           />
                           <div
                             aria-hidden
-                            className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5 rounded-xl"
+                            className="shell-docs-radius-surface pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5"
                           />
                         </div>
                       </div>
@@ -368,7 +447,7 @@ export function FrameworkOverview({
                 your UI down to the agent runtime.
               </p>
             </div>
-            <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_18px_44px_-22px_rgba(0,0,0,0.4)]">
+            <div className="shell-docs-radius-surface overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
               {architectureImage && (
                 <Image
                   src={architectureImage}
@@ -412,17 +491,20 @@ export function FrameworkOverview({
                 underline. Mirrors the dojo's "view toggle" treatment but
                 in a flatter style that suits a landing page. */}
             {liveDemos.length > 1 && (
-              <div className="mb-6 inline-flex items-center gap-1 p-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
+              <div className="shell-docs-radius-control mb-6 inline-flex items-center gap-1 border border-[var(--border)] bg-[var(--bg-surface)] p-1 shadow-[var(--shadow-control)]">
                 {liveDemos.map((demo) => {
                   const active = activeDemo === demo.type;
                   return (
                     <button
                       key={demo.type}
                       type="button"
-                      onClick={() => setActiveDemo(demo.type)}
-                      className={`h-8 px-4 rounded-md text-[13px] font-medium transition-all ${
+                      onClick={() => {
+                        setActiveDemo(demo.type);
+                        captureJourneyContinuation("demo", demo.iframeUrl);
+                      }}
+                      className={`shell-docs-radius-control h-8 px-4 text-[13px] font-medium transition-colors ${
                         active
-                          ? "bg-[var(--bg-elevated)] text-[var(--text)] shadow-sm"
+                          ? "bg-[var(--bg-elevated)] text-[var(--text)] shadow-[var(--shadow-control)]"
                           : "bg-transparent text-[var(--text-muted)] hover:text-[var(--text)]"
                       }`}
                     >
@@ -439,7 +521,7 @@ export function FrameworkOverview({
               </p>
             )}
 
-            <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.4)]">
+            <div className="shell-docs-radius-surface relative overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
               {activeDemoData && (
                 <iframe
                   src={activeDemoData.iframeUrl}
@@ -449,7 +531,7 @@ export function FrameworkOverview({
               )}
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5 rounded-2xl"
+                className="shell-docs-radius-surface pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5"
               />
             </div>
           </section>

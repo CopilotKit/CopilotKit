@@ -41,7 +41,7 @@ import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defaultScriptLoader as defaultD5ScriptLoader } from "./d5-single-pill.js";
+import { defaultScriptLoader as defaultD5ScriptLoader } from "./d6-all-pills.js";
 import type { Page as PlaywrightPage } from "playwright";
 import type { BrowserPool } from "../helpers/browser-pool.js";
 
@@ -239,14 +239,14 @@ export type E2eParityRunConversation = (
 /**
  * Script loader — invoked once per driver invocation. Production
  * default scans `src/probes/scripts/d5-*.{js,ts}` (sharing the matcher
- * with `e2e-deep.ts::defaultScriptLoader`) and dynamically imports each
+ * with `d6-all-pills.ts::defaultScriptLoader`) and dynamically imports each
  * file. Tests inject a no-op (or a registry-priming stub) to avoid
  * hitting disk.
  *
  * Without this dep injection the driver's `D5_REGISTRY.has(ft)` check
  * would always be false in standalone invocations (the registry is
  * populated by side-effect imports — those imports never happen unless
- * the e2e-deep driver runs in the same process first), and every
+ * the d6-all-pills driver's loader runs in the same process first), and every
  * featureType would be classified as `skippedScript`. The loader makes
  * D6 work standalone.
  */
@@ -267,7 +267,7 @@ export interface E2eParityDriverDeps {
   runConversation?: E2eParityRunConversation;
   fleetResolver?: E2eParityFleetResolver;
   /**
-   * Optional D5 script loader. Mirrors `e2e-deep.ts`'s injection point.
+   * Optional D5 script loader. Mirrors `d6-all-pills.ts`'s injection point.
    * Production default scans the scripts directory and imports each
    * `d5-*.{js,ts}` file (registering scripts via side effect). Tests
    * inject a no-op or a stub that primes the registry directly.

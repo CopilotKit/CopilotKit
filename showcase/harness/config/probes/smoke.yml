@@ -73,9 +73,6 @@ discovery:
       - "showcase-shell-dashboard"
       - "showcase-shell-docs"
       - "showcase-shell-dojo"
-      # Harness service for .NET integration testing — not a demo service,
-      # deployed: false in manifest, no aimock wiring yet.
-      - "showcase-ms-agent-harness-dotnet"
       # Decommissioned starters — Railway services stopped, deployments
       # halted (PR #4390). Excluded so probes don't scan dead endpoints.
       - "showcase-starter-ag2"

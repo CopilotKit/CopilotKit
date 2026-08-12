@@ -16,6 +16,7 @@ import type {
   FrontendTool,
 } from "@copilotkit/core";
 import { schemaToJsonSchema } from "@copilotkit/shared";
+import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
@@ -37,8 +38,8 @@ import { CopilotKitKey, SandboxFunctionsKey } from "./keys";
 import {
   LicenseContextKey,
   createLicenseContextValue,
-  type LicenseContextValue,
 } from "./license-context";
+import type { LicenseContextValue } from "./license-context";
 import CopilotKitInspector from "../components/CopilotKitInspector.vue";
 import LicenseWarningBanner from "../components/LicenseWarningBanner.vue";
 import type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
@@ -290,9 +291,24 @@ const allRenderCustomMessages = computed(
 );
 const runtimeA2UIEnabled = ref(false);
 const runtimeOpenGenerativeUIEnabled = ref(false);
-const runtimeLicenseStatus = ref<string | undefined>(undefined);
+const runtimeLicenseStatus = ref<RuntimeLicenseStatus | undefined>(undefined);
 const openGenerativeUIActive = computed(
   () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
+);
+// A catalog passed to the provider is enough to turn A2UI on: render the
+// surfaces locally and forward the catalog signal so the runtime injects the
+// render tool — no runtime-side `a2ui` config required.
+const a2uiCatalogProvided = computed(() => !!props.a2ui?.catalog);
+const a2uiActive = computed(
+  () => runtimeA2UIEnabled.value || a2uiCatalogProvided.value,
+);
+// Forward a per-run signal when the provider has an A2UI catalog so the
+// runtime can turn A2UI on (and inject the render tool) without a separate
+// `a2ui.injectA2UITool` flag on the runtime.
+const resolvedProperties = computed(() =>
+  a2uiCatalogProvided.value
+    ? { ...props.properties, a2uiCatalogAvailable: true }
+    : props.properties,
 );
 const sandboxFunctions = computed<readonly SandboxFunction[]>(
   () => props.openGenerativeUI?.sandboxFunctions ?? [],
@@ -342,7 +358,7 @@ const builtInActivityRenderers = computed<
     });
   }
 
-  if (runtimeA2UIEnabled.value) {
+  if (a2uiActive.value) {
     renderers.unshift(
       createA2UIMessageRenderer({
         theme: props.a2ui?.theme ?? viewerTheme,
@@ -383,7 +399,7 @@ const createCopilotKit = () => {
           : "auto",
     headers: mergedHeaders.value,
     credentials: props.credentials,
-    properties: props.properties,
+    properties: resolvedProperties.value,
     agents__unsafe_dev_only: mergedAgents.value,
     tools: allTools.value,
     renderToolCalls: allRenderToolCalls.value,
@@ -502,7 +518,7 @@ function syncRuntimeConfig() {
   );
   copilotkit.value.setHeaders(mergedHeaders.value);
   copilotkit.value.setCredentials(props.credentials);
-  copilotkit.value.setProperties(props.properties);
+  copilotkit.value.setProperties(resolvedProperties.value);
   copilotkit.value.setAgents__unsafe_dev_only(mergedAgents.value);
   copilotkit.value.setDebug(props.debug);
   applyDefaultThrottleMs(copilotkit.value);
@@ -513,7 +529,7 @@ watch(
     () => chatApiEndpoint.value,
     () => mergedHeaders.value,
     () => props.credentials,
-    () => props.properties,
+    () => resolvedProperties.value,
     () => mergedAgents.value,
     () => props.useSingleEndpoint,
     () => props.debug,
@@ -548,11 +564,11 @@ const a2uiLoadingComponent = computed(() => props.a2ui?.loadingComponent);
 const a2uiIncludeSchema = computed(() => props.a2ui?.includeSchema ?? true);
 
 // A2UI tool call renderer (progress indicator) — auto-registered when A2UI enabled
-registerA2UIBuiltInToolCallRenderer(copilotkit, () => runtimeA2UIEnabled.value);
+registerA2UIBuiltInToolCallRenderer(copilotkit, () => a2uiActive.value);
 
 // A2UI catalog context, schema, and generation/design guidelines
 registerA2UICatalogContext(copilotkit, {
-  enabled: () => runtimeA2UIEnabled.value,
+  enabled: () => a2uiActive.value,
   catalog: () => props.a2ui?.catalog,
   includeSchema: () => props.a2ui?.includeSchema ?? true,
 });
@@ -616,11 +632,8 @@ provide(CopilotKitKey, {
 provide(SandboxFunctionsKey, sandboxFunctions);
 
 // License context — driven by server-reported `/info` license status.
-// Stays at the permissive default (`createLicenseContextValue(null)`)
-// to mirror React's current provider behavior; banner rendering below
-// is the sole consumer of `runtimeLicenseStatus`.
 const licenseContextValue = computed<LicenseContextValue>(() =>
-  createLicenseContextValue(null),
+  createLicenseContextValue(runtimeLicenseStatus.value),
 );
 provide(LicenseContextKey, licenseContextValue);
 

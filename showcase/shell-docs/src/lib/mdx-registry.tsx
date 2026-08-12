@@ -22,13 +22,20 @@ import { NewLookAndFeelPreview } from "@/components/react/component-previews/new
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import { SignupLink } from "@/components/react/signup-link";
+import {
+  DocsTrackedCopy,
+  DocsTrackedLink,
+} from "@/components/react/docs-conversion";
 import { IframeSwitcher as RealIframeSwitcher } from "@/components/content";
 import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
+import { WhenAngularBackend } from "@/components/when-angular-backend";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
+import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
+import { AngularSnippet } from "@/components/angular-snippet";
 import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
@@ -106,9 +113,6 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   A2UI: "shared/generative-ui/a2ui.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
   Overview: "shared/premium/overview.mdx",
-  Observability: "shared/premium/observability.mdx",
-  ObservabilityConnectors:
-    "shared/troubleshooting/observability-connectors.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   ErrorDebugging: "shared/troubleshooting/error-debugging.mdx",
   DebugMode: "shared/troubleshooting/debug-mode.mdx",
@@ -150,7 +154,9 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
     "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
   ReasoningMessages:
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
-  Threads: "shared/threads/threads.mdx",
+  HeadlessThreads: "shared/threads/headless-threads.mdx",
+  Threads: "shared/threads/headless-threads.mdx",
+  ThreadsOverview: "shared/threads/overview.mdx",
 };
 
 // Dev-only warning helper for stub components that discard their props.
@@ -262,6 +268,8 @@ export const docsComponents = {
   PropertyReference,
   OpsPlatformCTA,
   SignupLink,
+  DocsTrackedCopy,
+  DocsTrackedLink,
   FeatureIntegrations: ({ feature }: { feature?: string }) => {
     if (!feature) {
       warnSilentNull("FeatureIntegrations", "no `feature` prop provided");
@@ -278,7 +286,7 @@ export const docsComponents = {
       );
       if (process.env.NODE_ENV !== "production") {
         return (
-          <div className="my-6 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+          <div className="shell-docs-radius-surface my-6 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
             [mdx-registry] No deployed integrations support feature &quot;
             {feature}&quot;.
           </div>
@@ -296,7 +304,7 @@ export const docsComponents = {
             <Link
               key={i.slug}
               href={`/integrations/${i.slug}?demo=${feature}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+              className="shell-docs-radius-control inline-flex items-center gap-1.5 border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
             >
               {i.name}
             </Link>
@@ -397,16 +405,6 @@ export const docsComponents = {
   Tip: ({ children }: { children: React.ReactNode }) => (
     <Callout type="info">{children}</Callout>
   ),
-  ThreadsEarlyAccess: ({ children }: { children: React.ReactNode }) => (
-    <>
-      <Callout type="info">
-        <strong>Early access:</strong> Threads and the Enterprise Intelligence
-        Platform are in early access. APIs may change before general
-        availability.
-      </Callout>
-      {children}
-    </>
-  ),
   Steps: DocsSteps,
   Step: DocsStep,
   CardGroup: Cards,
@@ -417,7 +415,7 @@ export const docsComponents = {
     <div
       style={{
         border: "1px solid var(--border)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         padding: "1rem",
         marginBottom: "1rem",
       }}
@@ -432,7 +430,10 @@ export const docsComponents = {
   // overrides this to inject `defaultFramework` from the URL — same
   // pattern as <Snippet>.
   WhenFrameworkHas,
+  WhenAngularBackend,
   AgentCoreCommandTabs,
+  AngularFeatureCatalog,
+  AngularSnippet,
   FeatureGrid: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{
@@ -454,7 +455,7 @@ export const docsComponents = {
     <div
       style={{
         border: "1px solid var(--border)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         padding: "1rem",
       }}
     >
@@ -469,7 +470,11 @@ export const docsComponents = {
     // immediately overrode it to `undefined`, silently dropping it.
     <video
       {...props}
-      style={{ borderRadius: "0.5rem", width: "100%", marginBottom: "1rem" }}
+      style={{
+        borderRadius: "var(--shell-docs-radius-surface)",
+        width: "100%",
+        marginBottom: "1rem",
+      }}
     />
   ),
   img: (props: Record<string, unknown>) => (
@@ -477,7 +482,11 @@ export const docsComponents = {
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
     <img
       {...props}
-      style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
+      style={{
+        borderRadius: "var(--shell-docs-radius-surface)",
+        maxWidth: "100%",
+        marginBottom: "1rem",
+      }}
     />
   ),
   CodeGroup: ({ children }: { children: React.ReactNode }) => (
@@ -490,7 +499,7 @@ export const docsComponents = {
     if (process.env.NODE_ENV !== "production") {
       warnSilentNull("Snippet", "runtime override required (base stub)");
       return (
-        <div className="my-4 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+        <div className="shell-docs-radius-surface my-4 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
           [Snippet] runtime override required
           {children ? <div className="mt-1">{children}</div> : null}
         </div>
@@ -507,12 +516,28 @@ export const docsComponents = {
   SharedContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  // <Content framework="..." /> is used by orphaned `deploy-agentcore`
-  // pages (langgraph/* + aws-strands) as a placeholder for content
-  // that was never authored. Without a registered shim, MDX rendering
-  // throws and ships a 500 in the public sitemap.
-  Content: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
+  // <Content framework="..." /> on the `deploy-agentcore` pages
+  // (langgraph/* + aws-strands) renders the shared AgentCore deploy
+  // partial at src/content/snippets/integrations/agentcore/index.mdx.
+  // Unlike the generic `stubWithPartial` stubs, this one threads the
+  // page's `framework` into the partial's MDX scope so the embedded
+  // `<AgentCoreCommandTabs framework={framework} />` collapses to the
+  // single relevant framework (Strands-only / LangGraph-only) instead
+  // of showing both. `stubWithPartial` can't do this — it discards
+  // props by design — so Content is a dedicated loader call. `scope`
+  // keys surface as bare identifiers in the partial (NOT `props.*`);
+  // see PartialLoader.
+  Content: ({ framework }: { framework?: string }) => (
+    <PartialLoader
+      relativePath="integrations/agentcore/index.mdx"
+      scope={{ framework }}
+      components={
+        docsComponents as unknown as Record<
+          string,
+          React.ComponentType<Record<string, unknown>>
+        >
+      }
+    />
   ),
   IframeSwitcher: RealIframeSwitcher,
   IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => (
@@ -534,7 +559,7 @@ export const docsComponents = {
       src={src}
       alt={alt || ""}
       style={{
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         maxWidth: "100%",
         marginBottom: "1rem",
         cursor: "zoom-in",
@@ -580,8 +605,6 @@ export const docsComponents = {
   StrandsIcon,
   CommonIssues: stubWithPartial("CommonIssues"),
   ErrorDebugging: stubWithPartial("ErrorDebugging"),
-  Observability: stubWithPartial("Observability"),
-  ObservabilityConnectors: stubWithPartial("ObservabilityConnectors"),
   Inspector: stubWithPartial("Inspector"),
   DefaultToolRendering: stubWithPartial("DefaultToolRendering"),
   DisplayOnly: stubWithPartial("DisplayOnly"),
@@ -619,7 +642,7 @@ export const docsComponents = {
             width: "100%",
             height: "100%",
             border: "none",
-            borderRadius: "0.5rem",
+            borderRadius: "var(--shell-docs-radius-surface)",
           }}
           sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
           loading="lazy"
@@ -661,7 +684,7 @@ export const docsComponents = {
     <div
       style={{
         border: "1px solid var(--border)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         padding: "1rem",
         marginBottom: "0.75rem",
       }}
@@ -708,7 +731,7 @@ export const docsComponents = {
       return <div>{children}</div>;
     }
     return (
-      <div className="overflow-x-auto my-6 rounded-lg border border-[var(--border)]">
+      <div className="shell-docs-radius-surface my-6 overflow-x-auto border border-[var(--border)] shadow-[var(--shadow-control)]">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
@@ -775,7 +798,7 @@ export const docsComponents = {
     ];
 
     return (
-      <div className="overflow-x-auto my-6 rounded-lg border border-[var(--border)]">
+      <div className="shell-docs-radius-surface my-6 overflow-x-auto border border-[var(--border)] shadow-[var(--shadow-control)]">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
@@ -867,17 +890,23 @@ export const docsComponents = {
       style={{
         padding: "1rem",
         background: "var(--bg-elevated)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         marginBottom: "1rem",
       }}
     >
-      <a href="https://cloud.copilotkit.ai" style={{ color: "var(--accent)" }}>
+      <a
+        href="https://dashboard.operations.copilotkit.ai"
+        style={{ color: "var(--accent)" }}
+      >
         Sign up for CopilotKit Cloud →
       </a>
     </div>
   ),
   LinkToCopilotCloud: () => (
-    <a href="https://cloud.copilotkit.ai" style={{ color: "var(--accent)" }}>
+    <a
+      href="https://dashboard.operations.copilotkit.ai"
+      style={{ color: "var(--accent)" }}
+    >
       CopilotKit Cloud
     </a>
   ),
@@ -943,7 +972,11 @@ export const docsComponents = {
       width={width}
       height={height}
       className={className}
-      style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
+      style={{
+        borderRadius: "var(--shell-docs-radius-surface)",
+        maxWidth: "100%",
+        marginBottom: "1rem",
+      }}
     />
   ),
   A: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
@@ -980,7 +1013,7 @@ export const docsComponents = {
         aria-label={ariaLabel}
         style={{
           padding: "0.5rem 1rem",
-          borderRadius: "0.375rem",
+          borderRadius: "var(--shell-docs-radius-control)",
           border: "1px solid var(--border)",
           background: "var(--bg-surface)",
           cursor: "pointer",

@@ -37,6 +37,11 @@ describe("CopilotChatUserMessage", () => {
     expect(editSpy).toHaveBeenCalledWith({ message: sampleMessage });
   });
 
+  it("exposes stable cross-frontend message classes", () => {
+    expect(component.computedClass()).toContain("copilotKitMessage");
+    expect(component.computedClass()).toContain("copilotKitUserMessage");
+  });
+
   it("indicates when branch navigation should be shown", () => {
     (component as any).numberOfBranches = () => 3;
     component.showBranchNavigation = computed(
@@ -62,5 +67,38 @@ describe("CopilotChatUserMessage", () => {
     };
     component.handleSwitchToBranch(payload);
     expect(switchSpy).toHaveBeenCalledWith(payload);
+  });
+
+  it("splits multimodal user content into text and attachment previews", () => {
+    (component as any).message = () => ({
+      id: "msg-2",
+      role: "user",
+      content: [
+        { type: "text", text: "Please inspect this" },
+        {
+          type: "image",
+          source: {
+            type: "data",
+            value: "data:image/png;base64,AAAA",
+            mimeType: "image/png",
+          },
+          metadata: { filename: "chart.png" },
+        },
+        {
+          type: "document",
+          source: {
+            type: "data",
+            value: "data:application/pdf;base64,AAAA",
+            mimeType: "application/pdf",
+          },
+          metadata: { filename: "report.pdf" },
+        },
+      ],
+    });
+
+    expect(component.flattenedContent()).toBe("Please inspect this");
+    expect(component.mediaParts()).toHaveLength(2);
+    expect(component.filenameFor(component.mediaParts()[0])).toBe("chart.png");
+    expect(component.filenameFor(component.mediaParts()[1])).toBe("report.pdf");
   });
 });

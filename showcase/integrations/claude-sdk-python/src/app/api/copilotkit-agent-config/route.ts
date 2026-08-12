@@ -7,21 +7,21 @@
 //
 // This route subclasses the `HttpAgent` so it can intercept each run and
 // repack the non-structural forwardedProps keys into
-// `forwardedProps.config.configurable.properties` — the same shape the
-// langgraph-python reference uses (and the agent-config Python backend
-// accepts both shapes defensively; see
-// src/agents/agent_config_agent.py :: `read_properties`). Repacking
-// keeps the wire format consistent across frameworks so the Python
-// backend can be compared directly against the LangGraph reference.
+// `forwardedProps.config.configurable.properties` — the compatibility shape
+// accepted by the agent-config Python backend (see
+// src/agents/agent_config_agent.py :: `read_properties`). Repacking keeps the
+// wire format consistent across framework implementations.
 
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+import { claudeHttpAgentConfig } from "@/app/api/_shared/claude-http-agent";
+import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -136,9 +136,9 @@ function createAgent(): AbstractAgent {
   // the other routes in this package silence the same symptom with
   // `@ts-ignore` on the CopilotRuntime `agents` property (see
   // src/app/api/copilotkit/route.ts).
-  return new AgentConfigHttpAgent({
-    url: `${AGENT_URL}/agent-config`,
-  });
+  return new AgentConfigHttpAgent(
+    claudeHttpAgentConfig(`${AGENT_URL}/agent-config`),
+  );
 }
 
 const agents: Record<string, AbstractAgent> = {
@@ -158,10 +158,6 @@ export const POST = async (req: NextRequest) => {
     });
     return await handleRequest(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
-    );
+    return internalRuntimeErrorResponse("/api/copilotkit-agent-config", error);
   }
 };

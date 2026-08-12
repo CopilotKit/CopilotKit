@@ -3,11 +3,10 @@ import { imageDriftDriver } from "./image-drift.js";
 import { logger } from "../../logger.js";
 import type { Logger, ProbeContext } from "../../types/index.js";
 
-// Driver-level tests — the per-service digest comparison matrix lives on
-// the legacy `imageDriftProbe` in ../image-drift.test.ts. This file covers
-// the driver adapter: single-service invocation, GHCR manifest fetch, and
-// the {stale, fresh, 404, auth-fail, transport-fail} matrix each as its
-// own ProbeResult.
+// Driver-level tests for `imageDriftDriver`. This file covers the driver
+// adapter: single-service invocation, GHCR manifest fetch, and the
+// {stale, fresh, 404, auth-fail, transport-fail} matrix each as its own
+// ProbeResult.
 
 function captureLogger(): {
   logger: Logger;
@@ -447,6 +446,145 @@ describe("imageDriftDriver", () => {
     expect(urls[0]).toContain("/showcase-a/manifests/stable");
   });
 
+  // -- Pinned-prod neutrality (fix B2) --------------------------------------
+  //
+  // Prod is INTENTIONALLY pinned behind `:latest` under the pinned-prod /
+  // floating-staging contract. The image-drift probe compares each deployed
+  // digest vs current GHCR `:latest`, so on the production-deployed harness
+  // every service shows "behind :latest" — which is expected, not a defect.
+  // When the deploy environment resolves to production, a digest mismatch
+  // against `:latest` must render GREEN with a `pinnedExpected: true` flag
+  // rather than flipping the service red. Staging behaviour is unchanged.
+  describe("pinned-prod neutrality (fix B2)", () => {
+    function makeCtxEnv(
+      fetchImpl: typeof fetch,
+      env: Record<string, string | undefined>,
+    ): ProbeContext & { fetchImpl: typeof fetch } {
+      return {
+        now: () => new Date("2026-04-20T00:00:00Z"),
+        logger,
+        env,
+        fetchImpl,
+      } as ProbeContext & { fetchImpl: typeof fetch };
+    }
+
+    function staleFetch(): typeof fetch {
+      return scriptedFetch([
+        {
+          status: 200,
+          body: {},
+          headers: { "docker-content-digest": LATEST_DIGEST },
+        },
+      ]).fetchImpl;
+    }
+
+    it("renders green+pinnedExpected when prod (RAILWAY_ENVIRONMENT_NAME) is behind :latest", async () => {
+      const ctx = makeCtxEnv(staleFetch(), {
+        RAILWAY_ENVIRONMENT_NAME: "production",
+      });
+      const r = await imageDriftDriver.run(ctx, {
+        key: "image_drift:showcase-a",
+        name: "showcase-a",
+        imageRef: "ghcr.io/copilotkit/showcase-a:latest",
+        deployedDigest: CURRENT_DIGEST,
+      });
+      // Drift IS detected (currentImage != expectedImage) but prod is
+      // pinned by design, so this is neutral-green, not red.
+      expect(r.state).toBe("green");
+      if ("errorDesc" in r.signal) {
+        throw new Error("expected success-variant signal");
+      }
+      expect(r.signal.isStale).toBe(true);
+      expect(r.signal.pinnedExpected).toBe(true);
+      expect(r.signal.currentImage).toBe(CURRENT_DIGEST);
+      expect(r.signal.expectedImage).toBe(LATEST_DIGEST);
+    });
+
+    it("honours SHOWCASE_ENV=production override", async () => {
+      const ctx = makeCtxEnv(staleFetch(), { SHOWCASE_ENV: "production" });
+      const r = await imageDriftDriver.run(ctx, {
+        key: "image_drift:showcase-a",
+        name: "showcase-a",
+        imageRef: "ghcr.io/copilotkit/showcase-a:latest",
+        deployedDigest: CURRENT_DIGEST,
+      });
+      expect(r.state).toBe("green");
+      if ("errorDesc" in r.signal) {
+        throw new Error("expected success-variant signal");
+      }
+      expect(r.signal.pinnedExpected).toBe(true);
+    });
+
+    it("still flips red on staging drift (env behaviour unchanged)", async () => {
+      const ctx = makeCtxEnv(staleFetch(), {
+        RAILWAY_ENVIRONMENT_NAME: "staging",
+      });
+      const r = await imageDriftDriver.run(ctx, {
+        key: "image_drift:showcase-a",
+        name: "showcase-a",
+        imageRef: "ghcr.io/copilotkit/showcase-a:latest",
+        deployedDigest: CURRENT_DIGEST,
+      });
+      expect(r.state).toBe("red");
+      if ("errorDesc" in r.signal) {
+        throw new Error("expected success-variant signal");
+      }
+      expect(r.signal.isStale).toBe(true);
+      expect(r.signal.pinnedExpected).toBeUndefined();
+    });
+
+    it("still flips red on drift when env is unset (no env name → not prod)", async () => {
+      const ctx = makeCtxEnv(staleFetch(), {});
+      const r = await imageDriftDriver.run(ctx, {
+        key: "image_drift:showcase-a",
+        name: "showcase-a",
+        imageRef: "ghcr.io/copilotkit/showcase-a:latest",
+        deployedDigest: CURRENT_DIGEST,
+      });
+      expect(r.state).toBe("red");
+    });
+
+    it("does NOT neutralize a genuine missing-digest fault in prod", async () => {
+      // currentImage="" is a deploy fault (no digest pinned), NOT
+      // "pinned behind :latest" — keep it red even in prod so a broken
+      // deploy still surfaces.
+      const ctx = makeCtxEnv(staleFetch(), {
+        RAILWAY_ENVIRONMENT_NAME: "production",
+      });
+      const r = await imageDriftDriver.run(ctx, {
+        key: "image_drift:showcase-a",
+        name: "showcase-a",
+        imageRef: "ghcr.io/copilotkit/showcase-a:latest",
+        // no deployedDigest → currentImage stays ""
+      });
+      expect(r.state).toBe("red");
+      if ("errorDesc" in r.signal) {
+        throw new Error("expected success-variant signal");
+      }
+      expect(r.signal.pinnedExpected).toBeUndefined();
+    });
+
+    it("stays green (no pinnedExpected) in prod when prod IS serving :latest", async () => {
+      // Prod happens to match :latest → ordinary green, and we don't
+      // stamp pinnedExpected because there's no drift to excuse.
+      const ctx = makeCtxEnv(staleFetch(), {
+        RAILWAY_ENVIRONMENT_NAME: "production",
+      });
+      const r = await imageDriftDriver.run(ctx, {
+        key: "image_drift:showcase-a",
+        name: "showcase-a",
+        imageRef: "ghcr.io/copilotkit/showcase-a:latest",
+        deployedDigest: LATEST_DIGEST,
+      });
+      expect(r.state).toBe("green");
+      if ("errorDesc" in r.signal) {
+        throw new Error("expected success-variant signal");
+      }
+      expect(r.signal.isStale).toBe(false);
+      expect(r.signal.pinnedExpected).toBeUndefined();
+    });
+  });
+
   it("threads ctx.abortSignal into the GHCR fetch so invoker timeout aborts in-flight", async () => {
     // Regression guard for CR A1: previously the driver called fetchImpl
     // without forwarding the invoker's AbortController signal, so a hung
@@ -479,7 +617,7 @@ describe("imageDriftDriver", () => {
     await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
       name: "showcase-a",
-      imageRef: `ghcr.io/copilotkit/showcase-a:latest@${CURRENT_DIGEST}`,
+      imageRef: `ghcr.io/copilotkit/showcase-a@${CURRENT_DIGEST}`,
     });
     expect(capturedSignal).toBe(controller.signal);
     expect(capturedSignal?.aborted).toBe(false);
@@ -490,7 +628,7 @@ describe("imageDriftDriver", () => {
     const result = await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
       name: "showcase-a",
-      imageRef: `ghcr.io/copilotkit/showcase-a:latest@${CURRENT_DIGEST}`,
+      imageRef: `ghcr.io/copilotkit/showcase-a@${CURRENT_DIGEST}`,
     });
     expect(result.state).toBe("error");
     expect((result.signal as { errorDesc: string }).errorDesc).toMatch(

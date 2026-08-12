@@ -5,8 +5,13 @@ from textwrap import dedent
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
+from pydantic_ai.ui.ag_ui import AGUIAdapter
 from ag_ui.core import EventType, StateSnapshotEvent
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.routing import Route
 
 load_dotenv()
 
@@ -185,7 +190,16 @@ async def canvas_instructions(ctx: RunContext[deps]) -> str:
     )
 
 
-app = agent.to_ag_ui(deps=StateDeps(CanvasState()))
+async def run_agent(request: Request) -> Response:
+    # Build the deps fresh on every request: `dispatch_request` writes the state the
+    # client sent into `deps.state`, so a shared instance leaks canvas state between
+    # concurrent requests and users.
+    return await AGUIAdapter.dispatch_request(
+        request, agent=agent, deps=StateDeps(CanvasState())
+    )
+
+
+app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
 
 if __name__ == "__main__":
     import uvicorn

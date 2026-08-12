@@ -16,10 +16,14 @@ Pattern:
   tool).
 
 PydanticAI notes:
-- `agent.to_ag_ui()` exposes StateDeps to tools via `ctx.deps`. The
-  AG-UI adapter populates a `copilotkit` attribute on StateDeps with the
-  forwarded context/messages from the frontend, which we use to feed the
-  secondary LLM's system prompt.
+- `agent.to_ag_ui()` exposes StateDeps to tools via `ctx.deps`, but
+  `StateDeps` carries ONLY a `state` field — it has no `copilotkit`
+  attribute. The real forwarded conversation lives on the pydantic-ai
+  `RunContext` itself, as `ctx.messages` (the `ModelMessage` history the
+  AG-UI adapter built from the frontend run input). We extract the real
+  user/assistant turns from `ctx.messages` and feed the secondary gen-ui
+  LLM a `[system, *real_messages]` prompt — mirroring the langgraph-python
+  north-star (`[SystemMessage(prompt), *real_messages]`).
 """
 
 from __future__ import annotations
@@ -30,6 +34,7 @@ from textwrap import dedent
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.messages import ModelRequest, ModelResponse
 from pydantic_ai.models.openai import OpenAIResponsesModel
 
 from tools import build_a2ui_operations_from_tool_call
@@ -64,6 +69,75 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+# System prompt for the SECONDARY (gen-ui) LLM call. The primary agent
+# decided UI is warranted and called `generate_a2ui`; this prompt instructs
+# the secondary LLM to design the A2UI surface from the real conversation
+# (appended after this message) via the forced `render_a2ui` tool call.
+GEN_UI_SYSTEM_PROMPT = dedent(
+    """
+    You are a UI designer for Declarative Generative UI (A2UI — Dynamic
+    Schema). Given the conversation so far, design a rich, well-structured
+    A2UI v0.9 surface that best presents the answer — a dashboard, status
+    report, KPI summary, card layout, info grid, pie/donut chart for
+    part-of-whole breakdowns, or bar chart for comparisons across
+    categories. Use the registered catalog components (Card, StatusBadge,
+    Metric, InfoRow, PrimaryButton, PieChart, BarChart) plus the basic A2UI
+    primitives. Always emit the surface by calling the `render_a2ui` tool.
+    """
+).strip()
+
+
+def _extract_conversation(ctx: RunContext[StateDeps[EmptyState]]) -> list[dict]:
+    """Extract the real user/assistant turns from the pydantic-ai RunContext.
+
+    The forwarded conversation lives on ``ctx.messages`` (a list of
+    ``ModelRequest`` / ``ModelResponse``), NOT on ``ctx.deps`` — ``StateDeps``
+    has only a ``state`` field. ``ModelRequest`` carries the user input as a
+    ``UserPromptPart`` (``part_kind == "user-prompt"``) and ``ModelResponse``
+    carries the assistant text as ``TextPart`` (``part_kind == "text"``). We
+    flatten those into the OpenAI ``{role, content}`` shape the secondary
+    gen-ui call expects, skipping system/tool/internal parts so the secondary
+    LLM sees only the human-facing conversation.
+    """
+    conversation: list[dict] = []
+    for msg in ctx.messages or []:
+        if isinstance(msg, ModelRequest):
+            role = "user"
+            wanted_kind = "user-prompt"
+        elif isinstance(msg, ModelResponse):
+            role = "assistant"
+            wanted_kind = "text"
+        else:  # pragma: no cover - defensive; only Request/Response exist today
+            continue
+
+        for part in msg.parts:
+            if getattr(part, "part_kind", None) != wanted_kind:
+                continue
+            content = _part_content_to_text(getattr(part, "content", None))
+            if content:
+                conversation.append({"role": role, "content": content})
+    return conversation
+
+
+def _part_content_to_text(content: object) -> str:
+    """Normalize a part's ``content`` (str or multimodal list) to plain text."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            if isinstance(part, str):
+                parts.append(part)
+            elif hasattr(part, "text"):
+                text = getattr(part, "text", None)
+                if isinstance(text, str):
+                    parts.append(text)
+            elif isinstance(part, dict) and isinstance(part.get("text"), str):
+                parts.append(part["text"])
+        return "".join(parts)
+    return ""
+
+
 agent = Agent(
     model=OpenAIResponsesModel("gpt-4.1"),
     deps_type=StateDeps[EmptyState],
@@ -81,37 +155,12 @@ def generate_a2ui(ctx: RunContext[StateDeps[EmptyState]]) -> str:
     """
     from openai import OpenAI
 
-    # Extract conversation context + catalog schema from the AG-UI payload.
-    copilotkit_state = getattr(ctx.deps, "copilotkit", None)
-    conversation_messages: list[dict] = []
-    context_entries: list[dict] = []
-    if copilotkit_state:
-        if hasattr(copilotkit_state, "messages"):
-            for msg in copilotkit_state.messages or []:
-                role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-                if role in ("user", "assistant"):
-                    content = ""
-                    if hasattr(msg, "content"):
-                        if isinstance(msg.content, str):
-                            content = msg.content
-                        elif isinstance(msg.content, list):
-                            parts = []
-                            for part in msg.content:
-                                if hasattr(part, "text"):
-                                    parts.append(part.text)
-                                elif isinstance(part, dict) and "text" in part:
-                                    parts.append(part["text"])
-                            content = "".join(parts)
-                    if content:
-                        conversation_messages.append({"role": role, "content": content})
-        if hasattr(copilotkit_state, "context"):
-            context_entries = copilotkit_state.context or []
-
-    context_text = "\n\n".join(
-        entry.get("value", "")
-        for entry in context_entries
-        if isinstance(entry, dict) and entry.get("value")
-    )
+    # The real forwarded conversation lives on ``ctx.messages`` — NOT on
+    # ``ctx.deps`` (StateDeps has only ``state``, no ``copilotkit``). Mirror
+    # the langgraph-python north-star: build the secondary prompt as
+    # ``[system, *real_messages]`` so the gen-ui LLM designs UI from the
+    # actual conversation rather than an empty/system-only context.
+    conversation_messages = _extract_conversation(ctx)
 
     client = OpenAI()
     tool_schema = {
@@ -132,14 +181,22 @@ def generate_a2ui(ctx: RunContext[StateDeps[EmptyState]]) -> str:
         },
     }
 
+    # North-star shape: [system prompt, *real conversation]. The real
+    # user/assistant turns from ``ctx.messages`` give the secondary LLM the
+    # actual request to design UI for, instead of an empty/system-only prompt.
     llm_messages: list[dict] = [
-        {
-            "role": "system",
-            "content": context_text
-            or "Generate a useful dashboard UI from the conversation so far.",
-        },
+        {"role": "system", "content": GEN_UI_SYSTEM_PROMPT},
     ]
     llm_messages.extend(conversation_messages)
+    if not conversation_messages:
+        # Defensive fallback: never send a bare system-only prompt if the
+        # conversation somehow could not be extracted.
+        llm_messages.append(
+            {
+                "role": "user",
+                "content": "Generate a useful dashboard UI from the conversation so far.",
+            }
+        )
 
     response = client.chat.completions.create(
         model="gpt-4.1",
@@ -152,8 +209,17 @@ def generate_a2ui(ctx: RunContext[StateDeps[EmptyState]]) -> str:
         return json.dumps({"error": "LLM did not call render_a2ui"})
 
     tool_call = response.choices[0].message.tool_calls[0]
-    args = json.loads(tool_call.function.arguments)
+    try:
+        args = json.loads(tool_call.function.arguments)
+    except (json.JSONDecodeError, TypeError):
+        return json.dumps({"error": "render_a2ui returned malformed arguments"})
+    if not isinstance(args, dict):
+        return json.dumps({"error": "render_a2ui returned malformed arguments"})
     # Override catalog id to match the frontend's declarative-gen-ui catalog.
     args.setdefault("catalogId", CUSTOM_CATALOG_ID)
+    # Guard against missing/empty components so the downstream helper never
+    # raises out of the tool; surface a structured error instead.
+    if not args.get("components"):
+        return json.dumps({"error": "render_a2ui returned no components"})
     result = build_a2ui_operations_from_tool_call(args)
     return json.dumps(result)

@@ -26,17 +26,14 @@ interface ManifestEntry {
   source: string;
 }
 
-interface DoctestConfig {
-  python?: { deps: string[] };
-  typescript?: { deps: string[] };
-  node?: { deps: string[] };
-}
-
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
-const DOCS_DIR = path.resolve(__dirname, "../../docs");
+const DOCS_DIR = path.resolve(
+  __dirname,
+  "../../showcase/shell-docs/src/content",
+);
 const OUTPUT_DIR = path.resolve(__dirname, "../../.doctest-output");
 
 // ---------------------------------------------------------------------------

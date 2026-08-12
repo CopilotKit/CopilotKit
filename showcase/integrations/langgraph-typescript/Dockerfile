@@ -44,6 +44,12 @@ COPY --chown=app:app --from=agent-deps /agent/node_modules ./src/agent/node_modu
 COPY --chown=app:app src/agent ./src/agent
 COPY --chown=app:app shared-tools/ ./shared-tools/
 
+# Demo pages read manifest.yaml at request time (layout.tsx generateMetadata ->
+# loadDemoIndex -> readFileSync(cwd/manifest.yaml)); without it, once
+# middleware.ts sets x-pathname, every /demos page 500s (ENOENT). Mirrors
+# langgraph-python.
+COPY --chown=app:app manifest.yaml ./
+
 # Entrypoint
 COPY --chown=app:app entrypoint.sh ./
 RUN chmod +x entrypoint.sh

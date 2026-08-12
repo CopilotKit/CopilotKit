@@ -106,14 +106,18 @@ describe("getChatCompletionsForStreaming", () => {
 
   it("stream() on v4 calls beta.chat.completions.stream", () => {
     const { client, streamFn } = createMockV4Client();
-    const completions = getChatCompletionsForStreaming(client);
+    const completions = getChatCompletionsForStreaming(client) as {
+      stream: (params: Record<string, unknown>) => unknown;
+    };
     completions.stream({ model: "gpt-4o", messages: [] });
     expect(streamFn).toHaveBeenCalledWith({ model: "gpt-4o", messages: [] });
   });
 
   it("stream() on v5 calls chat.completions.stream", () => {
     const { client, streamFn } = createMockV5Client();
-    const completions = getChatCompletionsForStreaming(client);
+    const completions = getChatCompletionsForStreaming(client) as {
+      stream: (params: Record<string, unknown>) => unknown;
+    };
     completions.stream({ model: "gpt-4o", messages: [] });
     expect(streamFn).toHaveBeenCalledWith({ model: "gpt-4o", messages: [] });
   });

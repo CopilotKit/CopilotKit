@@ -7,7 +7,8 @@
     {
       "match": {
         "userMessage": "invoke testFrontendToolCalling with label X",
-        "toolCallId": "call_ent_658_test_frontend_tool_x"
+        "toolCallId": "call_ent_658_test_frontend_tool_x",
+        "context": "langgraph-python"
       },
       "response": {
         "content": "Frontend tool finished for X."
@@ -15,7 +16,8 @@
     },
     {
       "match": {
-        "userMessage": "invoke testFrontendToolCalling with label X"
+        "userMessage": "invoke testFrontendToolCalling with label X",
+        "context": "langgraph-python"
       },
       "response": {
         "content": "Calling frontend tool.",

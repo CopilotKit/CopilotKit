@@ -54,7 +54,7 @@ export function HeroQuickstartDropdown({
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
-        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-light)] px-4 text-sm font-semibold text-[var(--accent)] transition-colors duration-150 hover:bg-[var(--accent-dim)] sm:w-fit"
+        className="shell-docs-radius-control inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors duration-150 hover:bg-[var(--accent-strong)] sm:w-fit"
         onClick={() => setOpen((value) => !value)}
       >
         Quickstart
@@ -64,7 +64,7 @@ export function HeroQuickstartDropdown({
       </button>
       {open ? (
         <div
-          className="absolute left-0 top-[calc(100%+8px)] z-30 w-full min-w-[280px] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-xl shadow-black/10 sm:w-[320px]"
+          className="shell-docs-radius-surface absolute left-0 top-[calc(100%+8px)] z-30 w-full min-w-[280px] overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-[var(--shadow-panel)] sm:w-[320px]"
           role="menu"
         >
           <div className="max-h-[360px] overflow-y-auto">
@@ -73,7 +73,7 @@ export function HeroQuickstartDropdown({
                 key={option.slug}
                 href={option.href}
                 role="menuitem"
-                className="group flex items-center gap-3 rounded-lg px-2.5 py-2.5 no-underline transition-colors hover:bg-[var(--accent-dim)]"
+                className="shell-docs-radius-control group flex items-center gap-3 px-2.5 py-2.5 no-underline transition-colors hover:bg-[var(--accent-dim)]"
                 onClick={() => {
                   setStoredFramework(option.slug);
                   setOpen(false);
@@ -81,7 +81,7 @@ export function HeroQuickstartDropdown({
               >
                 <span
                   aria-hidden="true"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--accent-dim)] text-[var(--accent)] transition-colors group-hover:bg-[var(--accent-light)]"
+                  className="shell-docs-radius-icon flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--accent-dim)] text-[var(--accent)] transition-colors group-hover:bg-[var(--accent-light)]"
                 >
                   <FrameworkLogo
                     slug={option.slug}

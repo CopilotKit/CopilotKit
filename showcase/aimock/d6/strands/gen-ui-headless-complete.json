@@ -3,53 +3,14 @@
     "description": "D6 fixtures for strands / gen-ui-headless-complete",
     "sourceFile": "headless-complete.json",
     "copiedFrom": "langgraph-python",
-    "_note": "Alias of the headless-complete demo's 4 gen-UI pills (weather/stock/highlight/revenue) for the gen-ui-headless-complete probe (showcase/harness/src/probes/scripts/d5-gen-ui-headless-complete.ts -> fixtureFile 'gen-ui-headless-complete.json'), which had no matching fixture in any slug so its first leg 503'd under strict. Narration (toolCallId) fixtures FIRST so they win when the last message is a matching tool result; toolcall (userMessage+context) fixtures AFTER with NO turnIndex gate so each of the 4 sequential pill turns in one chat thread matches regardless of prior assistant/tool history (the turnIndex multi-turn match-gate bug). Modeled on the green langgraph-python pattern. Interrupt fixtures intentionally omitted (interrupt-headless is a separate cluster item)."
+    "_note": "The 4 gen-UI pills (weather/stock/highlight/revenue) run as 4 sequential turns in ONE headless chat thread. Strands mints UUID tool_call_ids, so the langgraph-python toolCallId-keyed narration follow-ups never match here and the tool legs loop (turn 3+ went text-unstable). Each pill is sequenced with a per-userMessage sequenceIndex counter: seq0 -> tool call, bare userMessage -> narration. Invariant to UUID rewrite and to the thread-global hasToolResult flag."
   },
   "fixtures": [
     {
-      "_comment": "headless-complete weather pill narration — matches when the get_weather tool result with id call_d5_headless_weather_001 is the last message. The 'tokyo' textToken assertion is satisfied by the city name. Narration verbatim matches the headless-complete.spec.ts assertion `toContainText('Tokyo is 22°C and partly cloudy.')`.",
-      "match": {
-        "toolCallId": "call_d5_headless_weather_001",
-        "context": "strands"
-      },
-      "response": {
-        "content": "Tokyo is 22°C and partly cloudy. The headless WeatherCard above shows the sunny snapshot from the tool."
-      }
-    },
-    {
-      "_comment": "headless-complete stock pill narration — matches when the get_stock_price tool result with id call_d5_headless_stock_001 is the last message. textToken 'aapl' satisfied by ticker mention.",
-      "match": {
-        "toolCallId": "call_d5_headless_stock_001",
-        "context": "strands"
-      },
-      "response": {
-        "content": "AAPL is at $189.42, up 1.27% on the day."
-      }
-    },
-    {
-      "_comment": "headless-complete highlight pill narration — matches when the highlight_note tool result with id call_d5_headless_highlight_001 is the last message.",
-      "match": {
-        "toolCallId": "call_d5_headless_highlight_001",
-        "context": "strands"
-      },
-      "response": {
-        "content": "Highlighted 'ship the demo on Friday' for you above."
-      }
-    },
-    {
-      "_comment": "headless-complete revenue chart narration — matches when the get_revenue_chart tool result with id call_d5_headless_revenue_chart_001 is the last message.",
-      "match": {
-        "toolCallId": "call_d5_headless_revenue_chart_001",
-        "context": "strands"
-      },
-      "response": {
-        "content": "Here is the chart of revenue over the last six months — quarterly revenue grew steadily, peaking in June."
-      }
-    },
-    {
-      "_comment": "headless-complete weather pill toolcall — emit get_weather for Tokyo. Probe sends \"What's the weather in Tokyo?\". Narrowed to the full phrase 'What's the weather in Tokyo' so this no longer shadows the D6 tool-rendering 'Chain tools' pill (whose prompt contains 'weather in Tokyo' as a substring) — that pill needs to hit its own 3-tool emission fixture in tool-rendering.json. Only userMessage+context discriminators because narration fixtures above (toolCallId) already win once the tool result lands.",
+      "_comment": "weather pill — leg 1 (seq 0): emit get_weather(Tokyo).",
       "match": {
         "userMessage": "What's the weather in Tokyo",
+        "sequenceIndex": 0,
         "context": "strands"
       },
       "response": {
@@ -63,9 +24,20 @@
       }
     },
     {
-      "_comment": "headless-complete stock pill toolcall — emit get_stock_price for AAPL. Probe sends \"What's the price of AAPL right now?\". Narrowed to 'price of AAPL right now' so this no longer shadows the D6 tool-rendering 'Stock price' pill which sends \"What's the current price of AAPL?\" (also containing 'price of AAPL' as a substring) — that pill needs its own deterministic-price fixture in tool-rendering.json.",
+      "_comment": "weather pill — leg 2 (narration). textToken 'tokyo' satisfied by the city name.",
+      "match": {
+        "userMessage": "What's the weather in Tokyo",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy. The headless WeatherCard above shows the sunny snapshot from the tool."
+      }
+    },
+    {
+      "_comment": "stock pill — leg 1 (seq 0): emit get_stock_price(AAPL).",
       "match": {
         "userMessage": "price of AAPL right now",
+        "sequenceIndex": 0,
         "context": "strands"
       },
       "response": {
@@ -79,9 +51,20 @@
       }
     },
     {
-      "_comment": "headless-complete highlight pill toolcall — emit highlight_note. Probe sends \"Highlight this note for me: 'ship the demo on Friday'.\" so userMessage substring 'ship the demo on Friday' catches it.",
+      "_comment": "stock pill — leg 2 (narration). textToken 'aapl' satisfied by ticker mention.",
+      "match": {
+        "userMessage": "price of AAPL right now",
+        "context": "strands"
+      },
+      "response": {
+        "content": "AAPL is at $189.42, up 1.27% on the day."
+      }
+    },
+    {
+      "_comment": "highlight pill — leg 1 (seq 0): emit highlight_note.",
       "match": {
         "userMessage": "ship the demo on Friday",
+        "sequenceIndex": 0,
         "context": "strands"
       },
       "response": {
@@ -95,9 +78,20 @@
       }
     },
     {
-      "_comment": "headless-complete revenue chart toolcall — emit get_revenue_chart (no args). Probe sends 'Show me a chart of revenue over the last six months.'. Includes a short leading `content` snippet so the word 'revenue' lands in the assistant bubble synchronously with the tool-call emission. Without this, the chart card's title falls back to 'Chart' during the `executing` render phase (result still undefined), and the conversation-runner's count-based settle can fire its 1500ms quiet window before the narration follow-up message arrives — leaving the assistant text without 'revenue' on the probe's first attempt.",
+      "_comment": "highlight pill — leg 2 (narration).",
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' for you above."
+      }
+    },
+    {
+      "_comment": "revenue chart pill — leg 1 (seq 0): emit get_revenue_chart. Leading content lands 'revenue' in the bubble synchronously with the tool-call emission (see prior note on the executing-render-phase title fallback).",
       "match": {
         "userMessage": "chart of revenue over the last six months",
+        "sequenceIndex": 0,
         "context": "strands"
       },
       "response": {
@@ -109,6 +103,16 @@
             "arguments": "{}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "revenue chart pill — leg 2 (narration).",
+      "match": {
+        "userMessage": "chart of revenue over the last six months",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Here is the chart of revenue over the last six months — quarterly revenue grew steadily, peaking in June."
       }
     }
   ]

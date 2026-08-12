@@ -1,16 +1,26 @@
 """Agent backing the Declarative Generative UI (A2UI dynamic) demo.
 
-Re-exports the `generate_a2ui` tool defined in agents/main.py; this
-secondary-LLM A2UI planner is already wired up there. The agent calls
-`generate_a2ui` whenever the user's request can be served by a dashboard
-component (cards, charts, lists, forms, etc.) and the runtime middleware
-detects the a2ui_operations container in the tool result.
+Runtime-driven auto-injection, mirroring the langgraph-python and AWS Strands
+gold-standard declarative-gen-ui demos: this is a PLAIN agent with no
+`generate_a2ui` tool wired. The route sets `a2ui.injectA2UITool: true`, and the
+ag-ui-adk >= 0.7.0 adapter sees that forwarded flag and auto-injects the no-arg
+`generate_a2ui` tool (via `plan_a2ui_injection`), then drives a forced
+`render_a2ui` sub-agent through the toolkit's validate->retry recovery loop and
+wraps the result as `a2ui_operations`, which the A2UI middleware detects and
+renders. The sub-agent model is inferred from this agent's `canonical_model`,
+so it routes through the same aimock proxy as the primary agent.
 
-The instruction mirrors LP's `a2ui_dynamic.py` SYSTEM_PROMPT verbatim so
-both showcases steer the LLM toward the same catalog usage patterns and
-chart-vs-card heuristics. See
-`showcase/integrations/langgraph-python/src/agents/a2ui_dynamic.py` for
-the canonical source.
+(The previous hand-rolled `google.genai` secondary planner is gone; the
+ADK-only a2ui-recovery demo keeps the backend-owned `get_a2ui_tool` wiring
+instead, since only that path surfaces the recovery loop explicitly.)
+
+The instruction mirrors LP's `a2ui_dynamic.py` SYSTEM_PROMPT so both
+showcases steer the LLM toward the same sales-analyst persona and
+composition heuristics. The fictional sales dataset and the per-question
+composition rules arrive via frontend context entries (registered in
+declarative-gen-ui/sales-context.ts); the middleware routes that copilotkit
+context — and the frontend catalog schema — into the sub-agent prompt
+automatically (see ag-ui-adk CONTEXT_STATE_KEY routing).
 """
 
 from __future__ import annotations
@@ -19,35 +29,33 @@ from google.adk.agents import LlmAgent
 
 from agents.shared_chat import get_model, stop_on_terminal_text
 
-# `agents.main` defines `generate_a2ui` — reuse it here instead of cloning.
-from agents.main import generate_a2ui
-
-# Ported verbatim from LP's a2ui_dynamic.SYSTEM_PROMPT so the catalog usage
-# heuristics, chart-type preferences, and "one short sentence" reply rule
-# are identical across showcases. The catalog ("declarative-gen-ui-catalog")
-# is registered by the frontend via <CopilotKit a2ui={{ catalog: myCatalog }}>
-# and is serialised into the secondary LLM's context inside `generate_a2ui`.
 _INSTRUCTION = (
-    "You are a demo assistant for Declarative Generative UI (A2UI — Dynamic "
-    "Schema). Whenever a response would benefit from a rich visual — a "
-    "dashboard, status report, KPI summary, card layout, info grid, a "
-    "pie/donut chart of part-of-whole breakdowns, a bar chart comparing "
-    "values across categories, or anything more structured than plain text — "
-    "call `generate_a2ui` to draw it. The registered catalog includes "
-    "`Card`, `StatusBadge`, `Metric`, `InfoRow`, `PrimaryButton`, `PieChart`, "
-    "and `BarChart` (in addition to the basic A2UI primitives). Prefer "
-    "`PieChart` for part-of-whole breakdowns (sales by region, traffic "
-    "sources, portfolio allocation) and `BarChart` for comparisons across "
-    "categories (quarterly revenue, headcount by team, signups per month). "
-    "`generate_a2ui` takes no arguments and handles the rendering "
-    "automatically. Keep chat replies to one short sentence; let the UI do "
-    "the talking."
+    "You are the embedded sales analyst for Vantage Threads, the fictional "
+    "B2B apparel company described in your context. Answer every business "
+    "question by calling `generate_a2ui` to draw a rich visual surface, and "
+    "keep the chat reply to one short sentence.\n"
+    "\n"
+    "Ground every number in the sales dataset from your context — never "
+    "invent figures that contradict it. Follow the dashboard composition "
+    "rules from your context when choosing components: pick the component "
+    "by the shape of the question (snapshot → composed KPI dashboard with "
+    "charts; team performance → DataTable; risk → StatusBadge cards; "
+    "single account → InfoRow facts; part-of-whole → PieChart; "
+    "trend/comparison → BarChart). Never ask the user which chart they "
+    "want. `generate_a2ui` takes no arguments and handles the rendering "
+    "automatically. Compose generously — a dashboard should feel like a "
+    "real analytics product, not a single widget."
 )
 
+# Plain agent — no A2UI tool wired. The route's `injectA2UITool: true` makes the
+# ag-ui-adk adapter auto-inject the no-arg `generate_a2ui` tool before the run
+# (USER-PREVAILS: because this agent declares none, the adapter injects its own).
+# `defaultCatalogId` is pinned on the route; the catalog schema arrives from the
+# client via context.
 declarative_gen_ui_agent = LlmAgent(
     name="DeclarativeGenUiAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[generate_a2ui],
+    tools=[],
     after_model_callback=stop_on_terminal_text,
 )

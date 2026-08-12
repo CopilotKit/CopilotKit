@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 47 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 50 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -14,7 +14,7 @@ cd examples/<category>/<name>
 
 ---
 
-## Integrations (17)
+## Integrations (19)
 
 Framework integration starters demonstrating CopilotKit with various agent frameworks.
 
@@ -37,6 +37,8 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [agno](./integrations/agno/)                                           | Starter template using Agno with an investment analyst agent                         |
 | [crewai-crews](./integrations/crewai-crews/)                           | Starter template for building AI agents using CrewAI Crews                           |
 | [a2a-middleware](./integrations/a2a-middleware/)                       | Multi-agent starter with A2A Protocol and AG-UI Protocol (LangGraph + ADK)           |
+| [claude-sdk-python](./integrations/claude-sdk-python/)                 | Starter template using the Claude Agent SDK (Python) and CopilotKit                  |
+| [claude-sdk-typescript](./integrations/claude-sdk-typescript/)         | Starter template using the Claude Agent SDK (TypeScript) and CopilotKit              |
 
 ## Canvas (7)
 
@@ -52,32 +54,33 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
 | [mastra-pm](./canvas/mastra-pm/)                     | AG-UI + Mastra workshop — shared state, multiple clients, generative UI                 |
 
-## Showcases (23)
+## Showcases (24)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
-| Example                                                                 | Description                                                                            |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| [banking](./showcases/banking/)                                         | Banking app demo with authorization, multiple operations, and generative UI            |
-| [presentation](./showcases/presentation/)                               | PowerPoint-like web app built with CopilotKit                                          |
-| [deep-agents](./showcases/deep-agents/)                                 | Deep research assistant with planning, memory/files, and generative UI (Tavily)        |
-| [deep-agents-job-search](./showcases/deep-agents-job-search/)           | Job application assistant — resume parsing, skill extraction, DeepAgents orchestration |
-| [generative-ui](./showcases/generative-ui/)                             | Generative UI for agentic apps — AG-UI protocol showcase                               |
-| [generative-ui-playground](./showcases/generative-ui-playground/)       | Playground for static GenUI, MCP Apps, and A2UI generative UI types                    |
-| [mcp-apps](./showcases/mcp-apps/)                                       | MCP Apps demo — airline booking, hotel booking, investment simulator, kanban board     |
-| [research-canvas](./showcases/research-canvas/)                         | ANA (Agent Native Application) — research canvas with Tavily search and LangGraph      |
-| [mcp-demo](./showcases/mcp-demo/)                                       | Working Memory — MCP server-client integration for project management (Linear)         |
-| [strands-file-analyzer](./showcases/strands-file-analyzer/)             | AI-powered document analysis with Strands Agents and Amazon Bedrock                    |
-| [microsoft-kanban](./showcases/microsoft-kanban/)                       | Kanban board demo with CopilotKit + Microsoft Agent Framework (.NET, AG-UI)            |
-| [multi-page](./showcases/multi-page/)                                   | Multi-page Remix app with CopilotKit                                                   |
-| [orca](./showcases/orca/)                                               | Cisco CopilotKit demo — PR and repository analytics dashboard                          |
-| [pydantic-ai-todos](./showcases/pydantic-ai-todos/)                     | AI-powered todo board with PydanticAI (Todo, In-Progress, Done columns)                |
-| [scene-creator](./showcases/scene-creator/)                             | Scene creator with LangGraph + Gemini 3 — AI-generated characters and backgrounds      |
-| [adk-dashboard](./showcases/adk-dashboard/)                             | Generative canvas with Google ADK — metrics, charts, and real-time data                |
-| [langgraph-js-support-agents](./showcases/langgraph-js-support-agents/) | Multi-agent telecom support system with intent, lookup, reply, and escalation agents   |
-| [multi-agent-canvas](./showcases/multi-agent-canvas/)                   | Open Multi-Agent Canvas — manage multiple agents (travel, research, MCP) in one chat   |
-| [chatkit-studio](./showcases/chatkit-studio/)                           | Open ChatKit Studio — explore and build embeddable chat experiences                    |
-| [enterprise-brex](./showcases/enterprise-brex/)                         | Enterprise banking demo with authorization, operations, and generative UI              |
-| [a2a-travel](./showcases/a2a-travel/)                                   | A2A + AG-UI multi-agent travel demo (LangGraph + Google ADK)                           |
-| [spreadsheet](./showcases/spreadsheet/)                                 | AI-powered Excel-like spreadsheet web app                                              |
-| [todo](./showcases/todo/)                                               | Simple todo app built with CopilotKit                                                  |
+| Example                                                                 | Description                                                                                                         |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [banking](./showcases/banking/)                                         | Banking app demo with authorization, multiple operations, and generative UI                                         |
+| [presentation](./showcases/presentation/)                               | PowerPoint-like web app built with CopilotKit                                                                       |
+| [deep-agents](./showcases/deep-agents/)                                 | Deep research assistant with planning, memory/files, and generative UI (Tavily)                                     |
+| [deep-agents-job-search](./showcases/deep-agents-job-search/)           | Job application assistant — resume parsing, skill extraction, DeepAgents orchestration                              |
+| [generative-ui](./showcases/generative-ui/)                             | Generative UI for agentic apps — AG-UI protocol showcase                                                            |
+| [generative-ui-playground](./showcases/generative-ui-playground/)       | Playground for static GenUI, MCP Apps, and A2UI generative UI types                                                 |
+| [mcp-apps](./showcases/mcp-apps/)                                       | MCP Apps demo — airline booking, hotel booking, investment simulator, kanban board                                  |
+| [research-canvas](./showcases/research-canvas/)                         | ANA (Agent Native Application) — research canvas with Tavily search and LangGraph                                   |
+| [mcp-demo](./showcases/mcp-demo/)                                       | Working Memory — MCP server-client integration for project management (Linear)                                      |
+| [strands-file-analyzer](./showcases/strands-file-analyzer/)             | AI-powered document analysis with Strands Agents and Amazon Bedrock                                                 |
+| [microsoft-kanban](./showcases/microsoft-kanban/)                       | Kanban board demo with CopilotKit + Microsoft Agent Framework (.NET, AG-UI)                                         |
+| [multi-page](./showcases/multi-page/)                                   | Multi-page Remix app with CopilotKit                                                                                |
+| [orca](./showcases/orca/)                                               | Cisco CopilotKit demo — PR and repository analytics dashboard                                                       |
+| [pydantic-ai-todos](./showcases/pydantic-ai-todos/)                     | AI-powered todo board with PydanticAI (Todo, In-Progress, Done columns)                                             |
+| [scene-creator](./showcases/scene-creator/)                             | Scene creator with LangGraph + Gemini 3 — AI-generated characters and backgrounds                                   |
+| [adk-dashboard](./showcases/adk-dashboard/)                             | Generative canvas with Google ADK — metrics, charts, and real-time data                                             |
+| [langgraph-js-support-agents](./showcases/langgraph-js-support-agents/) | Multi-agent telecom support system with intent, lookup, reply, and escalation agents                                |
+| [multi-agent-canvas](./showcases/multi-agent-canvas/)                   | Open Multi-Agent Canvas — manage multiple agents (travel, research, MCP) in one chat                                |
+| [chatkit-studio](./showcases/chatkit-studio/)                           | Open ChatKit Studio — explore and build embeddable chat experiences                                                 |
+| [enterprise-brex](./showcases/enterprise-brex/)                         | Enterprise banking demo with authorization, operations, and generative UI                                           |
+| [a2a-travel](./showcases/a2a-travel/)                                   | A2A + AG-UI multi-agent travel demo (LangGraph + Google ADK)                                                        |
+| [spreadsheet](./showcases/spreadsheet/)                                 | AI-powered Excel-like spreadsheet web app                                                                           |
+| [todo](./showcases/todo/)                                               | Simple todo app built with CopilotKit                                                                               |
+| [strands-crm](./showcases/strands-crm/)                                 | Enterprise sales CRM — dashboard, pipeline, products, quotes, reports & agentic canvas (TypeScript Strands + AG-UI) |

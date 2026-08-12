@@ -34,6 +34,27 @@ import { MessageList } from "./message-list";
 import { SuggestionBar } from "./suggestion-bar";
 import { TypingIndicator } from "./typing-indicator";
 
+/**
+ * Browser-friendly UUID. `crypto.randomUUID` only exists in secure
+ * contexts — the local harness drives this page over plain http
+ * (http://spring-ai:10000), where it is undefined and the page throws
+ * before the message ever sends. Fall back to a math-based UUIDv4
+ * (same pattern as the multimodal demo's generateMessageId).
+ */
+function generateMessageId(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export function Chat({ agentId }: { agentId: string }) {
   // @region[page-send-message]
   const { agent } = useAgent({ agentId });
@@ -53,6 +74,7 @@ export function Chat({ agentId }: { agentId: string }) {
   } = useAttachmentsConfig();
 
   const [input, setInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const messages = agent.messages;
   const { listRef, bottomRef, stickRef } = useAutoScroll(
     messages,
@@ -71,20 +93,20 @@ export function Chat({ agentId }: { agentId: string }) {
       if (agent.isRunning) return;
 
       stickRef.current = true;
+      setError(null);
 
       const content = buildContent(trimmed, ready);
       agent.addMessage({
-        id: crypto.randomUUID(),
+        id: generateMessageId(),
         role: "user",
         content,
       });
-      void copilotkit
-        .runAgent({ agent })
-        .catch((err) =>
-          console.error("[headless-complete] runAgent failed", err),
-        );
+      void copilotkit.runAgent({ agent }).catch((err) => {
+        console.error("[headless-complete] runAgent failed", err);
+        setError(err instanceof Error ? err.message : String(err));
+      });
     },
-    [agent, copilotkit, consumeAttachments],
+    [agent, copilotkit, consumeAttachments, stickRef],
   );
 
   const handleSend = useCallback(() => {
@@ -109,8 +131,9 @@ export function Chat({ agentId }: { agentId: string }) {
     }
     agent.setMessages([]);
     setInput("");
+    setError(null);
     stickRef.current = true;
-  }, [agent]);
+  }, [agent, stickRef]);
   // @endregion[page-send-message]
 
   const showTypingIndicator = useTypingIndicator(messages, agent.isRunning);
@@ -160,6 +183,16 @@ export function Chat({ agentId }: { agentId: string }) {
               isRunning={agent.isRunning}
               onPick={handleSuggestion}
             />
+          )}
+
+          {error && (
+            <div
+              data-testid="headless-complete-error"
+              role="alert"
+              className="border-t border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+            >
+              {error}
+            </div>
           )}
 
           <Separator className="bg-border/60" />

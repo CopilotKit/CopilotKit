@@ -1,0 +1,7 @@
+# Keep the local virtualenv, caches, and secrets out of the build context.
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.env
+.env.*

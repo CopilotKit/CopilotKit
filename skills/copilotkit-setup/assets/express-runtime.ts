@@ -1,13 +1,20 @@
 // File: src/index.ts
 // Standalone Express server with CopilotKit runtime (single-route)
 //
+// Frontend pairing: because this server is single-route AND cross-origin,
+// the provider must use useSingleEndpoint (true) and an absolute runtimeUrl,
+// e.g. <CopilotKit runtimeUrl="http://localhost:4000/api/copilotkit"
+// useSingleEndpoint>. The nextjs-app-router-page.tsx asset is for the
+// same-origin multi-route Hono route (useSingleEndpoint={false}) and does
+// NOT pair with this server.
+//
 // Prerequisites:
-//   npm install @copilotkit/runtime @copilotkit/agent express dotenv zod
+//   npm install @copilotkit/runtime express dotenv zod
 //   npm install -D @types/express tsx typescript
 //
-// Environment variables:
-//   OPENAI_API_KEY=sk-...  (or ANTHROPIC_API_KEY / GOOGLE_API_KEY)
-//   PORT=4000              (optional, defaults to 4000)
+// Environment variables (store secrets in env, never hardcode them):
+//   OPENAI_API_KEY=<your-api-key>  (or ANTHROPIC_API_KEY / GOOGLE_API_KEY)
+//   PORT=4000                      (optional, defaults to 4000)
 //
 // Run:
 //   npx tsx watch src/index.ts
@@ -15,10 +22,12 @@
 import express from "express";
 import dotenv from "dotenv";
 import { z } from "zod";
-import { CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/express";
-import { BuiltInAgent, defineTool } from "@copilotkit/agent";
-import type { ToolDefinition } from "@copilotkit/agent";
+import {
+  CopilotRuntime,
+  BuiltInAgent,
+  defineTool,
+} from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 
 dotenv.config();
 
@@ -33,12 +42,17 @@ const weatherTool = defineTool({
     // Replace with real weather API call
     return { city, temperature: 72, condition: "sunny" };
   },
-}) as unknown as ToolDefinition;
+});
 
 const agent = new BuiltInAgent({
   model: "openai/gpt-4o",
   prompt: "You are a helpful AI assistant.",
   tools: [weatherTool],
+  // Allow multiple steps so the agent can call the tool and then use the
+  // result to answer. Without maxSteps the agent stops after a single step
+  // (the underlying AI SDK default), emitting the tool call but never
+  // producing a final reply.
+  maxSteps: 5,
 });
 
 const runtime = new CopilotRuntime({
@@ -51,9 +65,10 @@ const app = express();
 
 app.use(
   "/api/copilotkit",
-  createCopilotEndpointSingleRouteExpress({
+  createCopilotExpressHandler({
     runtime,
     basePath: "/",
+    mode: "single-route",
   }),
 );
 
