@@ -4,7 +4,7 @@
 
 **Goal:** Negotiate compact full restore by default while giving apps with mutating subscribers one stable opt-out.
 
-**Architecture:** Core owns a `compactRestore` preference, captures it per connection attempt, and includes the supported reducer/version tuple in the phase-1 restore capability. Clones and proxied agents inherit the setting. Development warns when a mutation-capable subscriber is added while compact restore remains enabled.
+**Architecture:** Core owns a normalized `compactRestore` preference, captures it per connection attempt, and includes the supported projection tuple as an optional extension of the phase-1 restore capability only for null-cursor connect restores. The shared gateway contract pins the tuple fields before either repository implements them; `restore.version` remains `1`. Core, discovered/provisional proxies, clones, and Intelligence delegates all inherit the setting. Development warns once at the public-agent subscription boundary when a subscriber can mutate events while compact restore remains enabled.
 
 **Tech Stack:** TypeScript, Vitest, RxJS, Nx, MDX.
 
@@ -16,23 +16,33 @@
 
 - Modify: `packages/core/src/agent.ts`
 - Modify: `packages/core/src/intelligence-agent.ts`
+- Modify: `packages/core/src/core/core.ts`
+- Modify: `packages/core/src/core/agent-registry.ts`
 - Modify: `packages/core/src/__tests__/intelligence-agent.test.ts`
+- Modify: `packages/react-core/src/v2/hooks/use-agent.tsx`
+- Modify: `packages/angular/src/lib/agent.ts`
+- Modify: `packages/vue/src/v2/hooks/use-agent.ts`
 
-- [ ] Test default enabled, explicit opt-out, attempt capture, clone propagation, proxied-agent propagation, old-gateway fallback, and valid-cursor legacy behavior.
+- [ ] Pin one additive shared contract with `schemaVersion`, `reducerVersion`, `sanitizerVersion`, and `compactorVersion`; preserve `restore: { version: 1, sdkVersion }` for old gateways.
+- [ ] Test Core default enabled and explicit opt-out across registered, discovered, and provisional React/Angular/Vue proxies, both clone paths, and Intelligence delegate creation.
+- [ ] Test attempt capture through delayed credentials, invalid-cursor retry, and socket credential refresh.
+- [ ] Test that compact support is advertised only for connect mode with a null cursor; run mode, valid-cursor reconnect, and explicit opt-out retain legacy behavior.
+- [ ] Assert old acknowledgement, unknown acknowledgement, and a new gateway selecting legacy all complete without client failure.
 - [ ] Confirm the negotiation assertions fail before implementation.
-- [ ] Add the smallest public configuration surface and join capability tuple.
+- [ ] Add `compactRestore?: boolean` to Core, Intelligence agent, and proxied-agent configuration, normalized to `true`, and thread the captured attempt value explicitly to channel parameter creation.
 - [ ] Run core tests, typecheck, lint, and build.
 
 ### Task 2: Mutation warning
 
 **Files:**
 
-- Modify: `packages/core/src/intelligence-agent.ts`
-- Modify: `packages/core/src/__tests__/intelligence-agent.test.ts`
+- Modify: `packages/core/src/agent.ts`
+- Modify: `packages/core/src/__tests__/agent.test.ts`
 
-- [ ] Test one development warning for mutation-capable subscribers with compact restore enabled, no claim that mutation is certain, no production warning, and no warning when opted out.
+- [ ] Test one development warning per public agent for subscribers whose event callbacks can return an `AgentStateMutation`; exclude notification-only callbacks.
+- [ ] Test no production warning, no opt-out warning, no duplicate during proxy-to-delegate forwarding, and no behavior change to `super.subscribe()`.
 - [ ] Confirm warning tests fail before implementation.
-- [ ] Implement warning dedupe at subscriber registration without changing subscriber behavior.
+- [ ] Implement advisory wording at public subscriber registration without claiming mutation is certain.
 - [ ] Run focused and full core tests.
 
 ### Task 3: Public docs and release note
@@ -41,7 +51,8 @@
 
 - Modify: `showcase/shell-docs/src/content/docs/premium/intelligence-platform.mdx`
 - Modify: `showcase/shell-docs/src/content/docs/premium/self-hosting.mdx`
-- Modify: `packages/core/CHANGELOG.md`
 
-- [ ] Document default compact full restore, opt-out, clone/proxy propagation, callback-count and `RAW` differences, version fallback, valid-cursor legacy behavior, and the development warning.
+- [ ] Document default compact full restore, public Core/provider opt-out, clone/proxy propagation, callback-count and `RAW` differences, version fallback, valid-cursor legacy behavior, and the development warning.
+- [ ] Keep browser callback semantics with the Core/provider docs; use self-hosting docs only for gateway compatibility and deployment configuration.
+- [ ] Use the conventional commit subject for release tooling; do not edit generated package changelogs.
 - [ ] Run docs checks and package verification.
