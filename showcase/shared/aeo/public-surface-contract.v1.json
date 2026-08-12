@@ -16,9 +16,7 @@
       "sourceUrls": [
         "https://www.rfc-editor.org/rfc/rfc9309",
         "https://www.sitemaps.org/protocol.html",
-        "https://html.spec.whatwg.org/multipage/links.html#link-type-canonical",
-        "https://ogp.me/",
-        "https://schema.org/"
+        "https://html.spec.whatwg.org/multipage/links.html#link-type-canonical"
       ]
     },
     {
@@ -73,31 +71,35 @@
     {
       "id": "docs-policy",
       "host": "docs",
-      "path": "/aeo",
+      "endpoints": [{ "path": "/aeo", "contentTypes": ["text/html"] }],
       "classification": "copilotkit-contract",
-      "contentTypes": ["text/html"],
       "owner": "copilotkit-docs",
-      "guarantee": "Human-readable rendering of this shared contract, including ownership and review requirements.",
+      "guarantee": "Human-readable policy for ownership, compatibility, and review requirements.",
       "enforcement": {
         "mode": "automated",
-        "command": "pnpm nx run @copilotkit/showcase-scripts:validate-aeo-contract",
+        "command": "npm --prefix showcase/shell-docs test -- src/app/sitemap.test.ts src/app/llms.txt/route.test.ts src/app/llms-full.txt/route.test.ts 'src/app/llms-mdx/[[...slug]]/route.test.ts' src/app/well-known/copilotkit-capabilities/v1.json/route.test.ts src/lib/runtime-config.test.ts src/lib/__tests__/next-config-redirects.test.ts",
         "paths": [
-          "showcase/shell-docs/src/app/aeo/page.tsx",
-          "showcase/shell-docs/src/app/aeo/page.test.tsx"
+          "showcase/shell-docs/src/content/docs/aeo.mdx",
+          "showcase/shell-docs/src/content/docs/meta.json",
+          "showcase/shell-docs/src/app/sitemap.test.ts"
         ]
       }
     },
     {
       "id": "docs-capabilities-v1",
       "host": "docs",
-      "path": "/.well-known/copilotkit-capabilities/v1.json",
+      "endpoints": [
+        {
+          "path": "/.well-known/copilotkit-capabilities/v1.json",
+          "contentTypes": ["application/json"]
+        }
+      ],
       "classification": "copilotkit-contract",
-      "contentTypes": ["application/json"],
       "owner": "copilotkit-docs",
       "guarantee": "Versioned machine-readable representation of this contract; HTML fallbacks are failures.",
       "enforcement": {
         "mode": "automated",
-        "command": "pnpm nx run @copilotkit/showcase-scripts:validate-aeo-contract",
+        "command": "npm --prefix showcase/shell-docs test -- src/app/sitemap.test.ts src/app/llms.txt/route.test.ts src/app/llms-full.txt/route.test.ts 'src/app/llms-mdx/[[...slug]]/route.test.ts' src/app/well-known/copilotkit-capabilities/v1.json/route.test.ts src/lib/runtime-config.test.ts src/lib/__tests__/next-config-redirects.test.ts",
         "paths": [
           "showcase/shell-docs/src/app/well-known/copilotkit-capabilities/v1.json/route.ts",
           "showcase/shell-docs/src/app/well-known/copilotkit-capabilities/v1.json/route.test.ts",
@@ -109,14 +111,13 @@
     {
       "id": "docs-robots",
       "host": "docs",
-      "path": "/robots.txt",
+      "endpoints": [{ "path": "/robots.txt", "contentTypes": ["text/plain"] }],
       "classification": "standard",
-      "contentTypes": ["text/plain"],
       "owner": "copilotkit-docs",
       "guarantee": "References the canonical docs sitemap and contains only production hosts in production.",
       "enforcement": {
         "mode": "automated",
-        "command": "pnpm nx run @copilotkit/showcase-scripts:test",
+        "command": "npm --prefix showcase/shell-docs test -- src/app/sitemap.test.ts src/app/llms.txt/route.test.ts src/app/llms-full.txt/route.test.ts 'src/app/llms-mdx/[[...slug]]/route.test.ts' src/app/well-known/copilotkit-capabilities/v1.json/route.test.ts src/lib/runtime-config.test.ts src/lib/__tests__/next-config-redirects.test.ts",
         "paths": [
           "showcase/shell-docs/src/app/robots.ts",
           "showcase/shell-docs/src/lib/runtime-config.test.ts"
@@ -126,14 +127,18 @@
     {
       "id": "docs-sitemap",
       "host": "docs",
-      "path": "/sitemap.xml",
+      "endpoints": [
+        {
+          "path": "/sitemap.xml",
+          "contentTypes": ["application/xml", "text/xml"]
+        }
+      ],
       "classification": "standard",
-      "contentTypes": ["application/xml", "text/xml"],
       "owner": "copilotkit-docs",
       "guarantee": "Lists canonical production documentation URLs.",
       "enforcement": {
         "mode": "automated",
-        "command": "pnpm nx run @copilotkit/showcase-scripts:test",
+        "command": "npm --prefix showcase/shell-docs test -- src/app/sitemap.test.ts src/app/llms.txt/route.test.ts src/app/llms-full.txt/route.test.ts 'src/app/llms-mdx/[[...slug]]/route.test.ts' src/app/well-known/copilotkit-capabilities/v1.json/route.test.ts src/lib/runtime-config.test.ts src/lib/__tests__/next-config-redirects.test.ts",
         "paths": [
           "showcase/shell-docs/src/app/sitemap.ts",
           "showcase/shell-docs/src/app/sitemap.test.ts"
@@ -143,33 +148,43 @@
     {
       "id": "docs-llms-indexes",
       "host": "docs",
-      "path": "/llms.txt and /llms-full.txt",
+      "endpoints": [
+        { "path": "/llms.txt", "contentTypes": ["text/plain"] },
+        { "path": "/llms-full.txt", "contentTypes": ["text/plain"] }
+      ],
       "classification": "community-convention",
-      "contentTypes": ["text/plain"],
       "owner": "copilotkit-docs",
       "guarantee": "Both indexes return plain text, use canonical docs URLs, and do not return an HTML fallback.",
       "enforcement": {
         "mode": "automated",
-        "command": "pnpm nx run @copilotkit/showcase-scripts:test",
+        "command": "npm --prefix showcase/shell-docs test -- src/app/sitemap.test.ts src/app/llms.txt/route.test.ts src/app/llms-full.txt/route.test.ts 'src/app/llms-mdx/[[...slug]]/route.test.ts' src/app/well-known/copilotkit-capabilities/v1.json/route.test.ts src/lib/runtime-config.test.ts src/lib/__tests__/next-config-redirects.test.ts",
         "paths": [
           "showcase/shell-docs/src/app/llms.txt/route.ts",
+          "showcase/shell-docs/src/app/llms.txt/route.test.ts",
           "showcase/shell-docs/src/app/llms-full.txt/route.ts",
-          "showcase/scripts/verify-deploy.drivers.docs.ts",
-          "showcase/scripts/__tests__/verify-deploy.drivers.test.ts"
+          "showcase/shell-docs/src/app/llms-full.txt/route.test.ts"
         ]
       }
     },
     {
       "id": "docs-raw-markdown",
       "host": "docs",
-      "path": "/<document-path>.md and /<document-path>.mdx",
+      "endpoints": [
+        {
+          "path": "/<document-path>.md",
+          "contentTypes": ["text/markdown"]
+        },
+        {
+          "path": "/<document-path>.mdx",
+          "contentTypes": ["text/markdown"]
+        }
+      ],
       "classification": "copilotkit-contract",
-      "contentTypes": ["text/markdown"],
       "owner": "copilotkit-docs",
       "guarantee": "Published docs pages expose raw Markdown at stable suffix routes; missing documents return a real 404.",
       "enforcement": {
         "mode": "automated",
-        "command": "pnpm nx run @copilotkit/showcase-scripts:test",
+        "command": "npm --prefix showcase/shell-docs test -- src/app/sitemap.test.ts src/app/llms.txt/route.test.ts src/app/llms-full.txt/route.test.ts 'src/app/llms-mdx/[[...slug]]/route.test.ts' src/app/well-known/copilotkit-capabilities/v1.json/route.test.ts src/lib/runtime-config.test.ts src/lib/__tests__/next-config-redirects.test.ts",
         "paths": [
           "showcase/shell-docs/src/app/llms-mdx/[[...slug]]/route.ts",
           "showcase/shell-docs/src/app/llms-mdx/[[...slug]]/route.test.ts",
@@ -180,14 +195,13 @@
     {
       "id": "docs-page-metadata",
       "host": "docs",
-      "path": "all indexable HTML pages",
+      "endpoints": [{ "path": "/**", "contentTypes": ["text/html"] }],
       "classification": "standard",
-      "contentTypes": ["text/html"],
       "owner": "copilotkit-docs",
-      "guarantee": "Canonical and Open Graph URLs use the canonical docs host; applicable pages emit valid schema.org JSON-LD.",
+      "guarantee": "Indexable pages emit canonical URLs on the canonical docs host.",
       "enforcement": {
         "mode": "automated",
-        "command": "pnpm nx run @copilotkit/showcase-scripts:test",
+        "command": "pnpm nx run @copilotkit/showcase-scripts:test -- __tests__/verify-deploy.drivers.test.ts",
         "paths": [
           "showcase/shell-docs/src/app/layout.tsx",
           "showcase/scripts/verify-deploy.drivers.docs.ts",
@@ -198,62 +212,50 @@
     {
       "id": "website-discovery",
       "host": "website",
-      "path": "/robots.txt, /sitemap.xml, canonical/OG and structured data",
-      "classification": "standard",
-      "contentTypes": [
-        "text/plain",
-        "application/xml",
-        "text/html",
-        "application/ld+json"
+      "endpoints": [
+        { "path": "/", "contentTypes": ["text/html"] },
+        { "path": "/robots.txt", "contentTypes": ["text/plain"] },
+        {
+          "path": "/sitemap.xml",
+          "contentTypes": ["application/xml", "text/xml"]
+        }
       ],
+      "classification": "standard",
       "owner": "copilotkit-website",
       "guarantee": "Website-owned discovery surfaces use the canonical website host and their declared media types.",
       "enforcement": {
         "mode": "manual-external",
         "manualOwner": "CopilotKit website maintainers",
-        "followUp": "In CopilotKit/website, link this policy and test robots, sitemap, canonical/OG, and JSON-LD output against https://www.copilotkit.ai."
+        "followUp": "In CopilotKit/website, test robots, sitemap, and canonical output against https://www.copilotkit.ai."
       }
     },
     {
       "id": "website-llms-indexes",
       "host": "website",
-      "path": "/llms.txt and /llms-full.txt",
+      "endpoints": [
+        { "path": "/llms.txt", "contentTypes": ["text/plain"] },
+        { "path": "/llms-full.txt", "contentTypes": ["text/plain"] }
+      ],
       "classification": "community-convention",
-      "contentTypes": ["text/plain"],
       "owner": "copilotkit-website",
-      "guarantee": "If advertised, both indexes return plain text and a non-success status when absent; an HTML 404 body with status 200 is invalid.",
+      "guarantee": "Advertised indexes return plain text; an HTML not-found body with status 200 is invalid.",
       "enforcement": {
         "mode": "manual-external",
         "manualOwner": "CopilotKit website maintainers",
-        "followUp": "Fix the 2026-08-11 production soft-404: both https://www.copilotkit.ai/llms.txt and /llms-full.txt returned status 200 text/html with the Next.js not-found page. Add external-repo tests."
+        "followUp": "Fix and test the production soft-404 behavior in CopilotKit/website."
       }
     },
     {
-      "id": "website-policy-link",
-      "host": "website",
-      "path": "repository contributor policy",
-      "classification": "copilotkit-contract",
-      "contentTypes": ["text/markdown"],
-      "owner": "copilotkit-website",
-      "guarantee": "Website maintainers link to the same normative docs policy rather than maintaining a divergent copy.",
-      "enforcement": {
-        "mode": "manual-external",
-        "manualOwner": "CopilotKit website maintainers",
-        "followUp": "Add https://docs.copilotkit.ai/aeo to the CopilotKit/website contributor guidance and AEO review checklist."
-      }
-    },
-    {
-      "id": "docs-mcp-discovery",
+      "id": "docs-mcp-transport",
       "host": "docsMcp",
-      "path": "service discovery and MCP transport endpoints",
+      "endpoints": [{ "path": "/sse", "contentTypes": ["text/event-stream"] }],
       "classification": "copilotkit-contract",
-      "contentTypes": ["application/json", "text/event-stream"],
       "owner": "docs-mcp",
-      "guarantee": "The MCP service publishes machine-readable discovery for its supported transports and capabilities without HTML fallbacks.",
+      "guarantee": "The currently published SSE transport does not return an HTML fallback.",
       "enforcement": {
         "mode": "manual-external",
         "manualOwner": "Pathfinder/docs MCP service maintainers",
-        "followUp": "Define and publish the docs MCP discovery/capability surface in the Pathfinder-owned deployment. On 2026-08-11 the service root returned 404 HTML while /sse served text/event-stream; this repository does not own that deployment."
+        "followUp": "Define a separate machine-readable discovery surface in the Pathfinder-owned deployment; this repository does not own that service."
       }
     }
   ],

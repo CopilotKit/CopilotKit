@@ -104,6 +104,12 @@ test("publishes every sitemap URL at most once", () => {
 });
 
 test("publishes the public AEO policy at its canonical URL", () => {
+  const policy = loadDoc("aeo");
+
+  expect(policy?.fm).toMatchObject({
+    title: "Public AEO surface contract",
+    description: expect.any(String),
+  });
   expect(sitemapPaths()).toContain("/aeo");
 });
 
