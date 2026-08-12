@@ -28,8 +28,8 @@ import { commerceIdentifyUser } from "@/skins/commerce/intelligence/user-id";
  * Resolve a stable end-user identity from the client-forwarded run `properties`
  * (`{ userRole, userId }`) for Intelligence thread + durable-memory scoping. A
  * skin supplies this whenever it wants its own scoping scheme — that need not
- * imply per-user memory (logistics and keel scope threads only); skins without
- * it (e.g. airline) let the runtime fall back to a generic identity.
+ * imply per-user memory (logistics scopes threads only); skins without it
+ * (e.g. airline) let the runtime fall back to a generic identity.
  */
 export type IdentifyRunUser = (
   properties: { userRole?: string; userId?: string } | undefined,
@@ -59,7 +59,17 @@ export const agentRegistry: Record<string, AgentRegistration> = {
     identifyUser: logisticsIdentifyUser,
   },
   // Keel scopes Intelligence per persona (privacy/clinical staff), so it
-  // contributes its own resolver alongside the agent factory.
+  // contributes its own resolver alongside the agent factory. Unlike logistics
+  // it now USES that scope for durable memory: `intelligence/seed-memories.ts`
+  // arms beats 4 and 5, and `intelligence/forget-memories.ts` + the gated
+  // `POST /api/keel/v1/dev/reset` clear whatever beat 6 taught.
+  //
+  // ⚠ Same caveat as Rowan and Bellwether: do NOT present this as per-persona
+  // memory ISOLATION on stage. The client's `properties` frequently do not reach
+  // `identifyUser` on a run, so switching persona in the header often re-scopes
+  // nothing — which is exactly why `memorySeedTargetUserIds()` seeds the default
+  // bucket AND every persona's. Read `intelligence/user-id.ts` before claiming
+  // otherwise.
   keel: { createAgent: keelAgent, identifyUser: keelIdentifyUser },
   // Rowan resolves a per-operator identity — `OPERATOR_IDENTITY` maps each
   // operator 1:1 — and its seeded beat-4 preference and beat-5 procedure are
