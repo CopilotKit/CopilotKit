@@ -1,0 +1,170 @@
+---
+title: "Subagents"
+icon: "lucide/Network"
+description: "Delegate work from one AG2 agent to another and render each delegation in the chat."
+---
+
+## Introduction
+
+AG2 (1.0+) delegates by turning an agent into a tool. `Agent.as_tool()` returns a regular
+tool that, when the coordinator's model calls it, runs the other agent on its own isolated
+stream with its own history. The coordinator's context stays small, and the decision to
+delegate stays with the model.
+
+CopilotKit sees each delegation as a tool call plus an AG-UI **step**, so you can render
+"researching…" / "writing…" progress without any extra wiring on the backend.
+
+<Callout type="info">
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a> and the upstream <a href="https://docs.ag2.ai/docs/user-guide/subagents/" target="_blank">AG2 subagents guide</a>.
+</Callout>
+
+## Backend
+
+Install AG2 with the AG-UI and OpenAI extras:
+
+```bash
+pip install "ag2[ag-ui,openai]"
+```
+
+Build each specialist as a plain `Agent`, then hand them to the coordinator as tools. Only
+the coordinator is wrapped in `AGUIStream` — the specialists are reached through it:
+
+```python title="agent.py"
+from typing import Annotated
+
+from fastapi import FastAPI, Header
+from fastapi.responses import StreamingResponse
+from pydantic import Field
+
+from ag2 import Agent, tool
+from ag2.ag_ui import AGUIStream, RunAgentInput
+from ag2.config import OpenAIConfig
+
+@tool
+def search_docs(
+    query: Annotated[str, Field(description="What to look up")],
+) -> str:
+    """Look a topic up in the product documentation."""
+    return f"Docs say: {query} is supported since v1.0."
+
+researcher = Agent(
+    name="researcher",
+    prompt="You research topics using the documentation tool and report findings plainly.",
+    config=OpenAIConfig(model="gpt-5.4-mini"),
+    tools=[search_docs],
+)
+
+writer = Agent(
+    name="writer",
+    prompt="You turn research notes into a single tight paragraph.",
+    config=OpenAIConfig(model="gpt-5.4-mini"),
+)
+
+coordinator = Agent(
+    name="coordinator",
+    prompt=(
+        "You coordinate specialists. Delegate research to `task_researcher`, "
+        "then hand the findings to `task_writer`. Do not answer from memory."
+    ),
+    config=OpenAIConfig(model="gpt-5.4-mini"),
+    tools=[
+        researcher.as_tool(description="Research a topic in the product docs."),
+        writer.as_tool(description="Turn research notes into one paragraph."),
+    ],
+)
+
+stream = AGUIStream(coordinator)
+app = FastAPI()
+
+@app.post("/chat")
+async def run_agent(
+    message: RunAgentInput,
+    accept: str | None = Header(None),
+) -> StreamingResponse:
+    return StreamingResponse(
+        stream.dispatch(message, accept=accept),
+        media_type=accept or "text/event-stream",
+    )
+```
+
+`as_tool()` names the tool `task_<agent name>` by default — `task_researcher` and
+`task_writer` above. Pass `name=` to override it, and `description=` is required: it is the
+only thing the coordinator's model reads when deciding whether to delegate.
+
+## What reaches the frontend
+
+A single delegation turn produces this AG-UI sequence — one tool call per delegation, each
+bracketed by a step named `task:<agent name>`:
+
+```text
+RUN_STARTED
+TOOL_CALL_START   toolCallName: "task_researcher"
+TOOL_CALL_ARGS
+STEP_STARTED      stepName: "task:researcher"
+STEP_FINISHED     stepName: "task:researcher"
+TOOL_CALL_RESULT
+TOOL_CALL_END
+TOOL_CALL_START   toolCallName: "task_writer"
+TOOL_CALL_ARGS
+STEP_STARTED      stepName: "task:writer"
+STEP_FINISHED     stepName: "task:writer"
+TOOL_CALL_RESULT
+TOOL_CALL_END
+TEXT_MESSAGE_CHUNK
+RUN_FINISHED
+```
+
+Two consequences worth knowing before you build UI on top of it:
+
+- **Delegations are ordinary tool calls.** Anything you can do for a tool call you can do
+  for a subagent — render it with `useRenderTool`, or let the default tool renderer show it.
+  See [Tool rendering](/ag2/generative-ui/tool-rendering).
+- **The specialist's own tool calls stay inside its stream.** `search_docs` above runs in the
+  researcher's isolated stream, so it does not appear as a separate `TOOL_CALL_*` pair in the
+  coordinator's AG-UI output. If you need that visibility, give the specialist its own
+  endpoint instead of delegating to it.
+
+## Render the delegation in the chat
+
+Because a delegation is a tool call, rendering it is the ordinary tool-rendering path:
+
+```tsx title="app/page.tsx"
+import { useRenderTool } from "@copilotkit/react-core/v2";
+// ...
+
+const YourMainContent = () => {
+  // ...
+  useRenderTool({
+    name: "task_researcher",
+    render: ({ status }) => (
+      <p className="text-gray-500 mt-2">
+        {status !== "complete" && "Researching..."}
+        {status === "complete" && "Research done."}
+      </p>
+    ),
+  });
+  // ...
+};
+```
+
+## Choosing between delegation and one agent
+
+Reach for `as_tool()` when a step needs its own instructions, its own tools, or its own
+history — a researcher that may make a dozen tool calls should not pollute the coordinator's
+context. Keep one agent when the work is a single prompt with a couple of tools: delegation
+costs an extra model round trip per hand-off.
+
+## What's next?
+
+<Cards>
+  <Card
+    title="Tool rendering"
+    description="Render each delegation as it happens in the chat."
+    href="/ag2/generative-ui/tool-rendering"
+  />
+  <Card
+    title="Shared state"
+    description="Let the coordinator and your UI read and write the same state."
+    href="/ag2/shared-state"
+  />
+</Cards>

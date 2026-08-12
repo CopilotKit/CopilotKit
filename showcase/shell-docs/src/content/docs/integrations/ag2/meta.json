@@ -16,8 +16,7 @@
         "threads",
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
-        "threads-lifecycle",
-        "threads-import"
+        "threads-lifecycle"
       ]
     },
     "custom-look-and-feel",
@@ -30,6 +29,7 @@
     "shared-state",
     "readables",
     "---AG2---",
+    "multi-agent/subagents",
     "auth",
     "---Backend---",
     "copilot-runtime",
