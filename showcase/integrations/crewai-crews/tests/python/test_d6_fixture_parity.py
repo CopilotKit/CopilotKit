@@ -153,3 +153,5 @@ def test_crewai_legacy_chat_fixtures_do_not_shadow_d6_specific_prompts():
     assert "Roll a 20-sided die for me." in matchers
     assert "_d4_unused_flights_probe_sfo_jfk" in matchers
     assert "_d4_unused_weather_probe_sf" in matchers
+    assert "can you tell me what is in this demo image I just attached" not in matchers
+    assert "can you tell me what is in this demo pdf I just attached" not in matchers

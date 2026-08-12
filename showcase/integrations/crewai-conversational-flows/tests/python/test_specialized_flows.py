@@ -1,8 +1,11 @@
 """Contracts for CrewAI Flows backing state and multimodal D6 cells."""
 
 import ast
+import asyncio
 import json
 import re
+import threading
+import time
 
 from pathlib import Path
 from types import SimpleNamespace
@@ -1041,6 +1044,127 @@ async def test_beautiful_chat_flow_emits_search_flights_a2ui_result(monkeypatch)
     assert emitted[0][0] == "call_search_flights"
     assert emitted[0][1]["a2ui_operations"]
     assert flow.state.messages[-1]["content"] == "One flight shown."
+
+
+@pytest.mark.asyncio
+async def test_beautiful_chat_flow_keeps_event_loop_responsive_during_backend_tool(
+    monkeypatch,
+):
+    from agents import beautiful_chat_flow as module
+
+    flow = module.BeautifulChatFlow()
+    flow.state.messages = [{"role": "user", "content": "Find flights."}]
+    streamed = [
+        _response(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_blocking_tool",
+                        "type": "function",
+                        "function": {
+                            "name": "search_flights",
+                            "arguments": "{}",
+                        },
+                    }
+                ],
+            }
+        ),
+        _response({"role": "assistant", "content": "Done."}),
+    ]
+
+    async def fake_completion(**_kwargs):
+        return object()
+
+    async def fake_stream(_value):
+        return streamed.pop(0)
+
+    async def fake_emit(_tool_call_id, _content, **_kwargs):
+        return True
+
+    def delayed_tool(**_kwargs):
+        time.sleep(0.1)
+        return "{}"
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
+    monkeypatch.setitem(
+        module.BACKEND_TOOLS_BY_NAME,
+        "search_flights",
+        SimpleNamespace(_run=delayed_tool),
+    )
+
+    heartbeat = asyncio.create_task(asyncio.sleep(0.01))
+    await flow.chat()
+    heartbeat_ran_during_tool = heartbeat.done()
+    await heartbeat
+
+    assert heartbeat_ran_during_tool
+
+
+@pytest.mark.asyncio
+async def test_beautiful_chat_flow_can_be_cancelled_while_backend_tool_runs(
+    monkeypatch,
+):
+    from agents import beautiful_chat_flow as module
+
+    flow = module.BeautifulChatFlow()
+    flow.state.messages = [{"role": "user", "content": "Find flights."}]
+    started = threading.Event()
+    release = threading.Event()
+    finished = threading.Event()
+
+    async def fake_completion(**_kwargs):
+        return object()
+
+    async def fake_stream(_value):
+        return _response(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_cancellable_tool",
+                        "type": "function",
+                        "function": {
+                            "name": "search_flights",
+                            "arguments": "{}",
+                        },
+                    }
+                ],
+            }
+        )
+
+    def delayed_tool(**_kwargs):
+        started.set()
+        release.wait(timeout=0.2)
+        finished.set()
+        return "{}"
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    monkeypatch.setitem(
+        module.BACKEND_TOOLS_BY_NAME,
+        "search_flights",
+        SimpleNamespace(_run=delayed_tool),
+    )
+
+    task = asyncio.create_task(flow.chat())
+    try:
+        for _ in range(20):
+            if started.is_set():
+                break
+            await asyncio.sleep(0.01)
+        assert started.is_set()
+        assert not finished.is_set()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert not finished.is_set()
+    finally:
+        release.set()
 
 
 @pytest.mark.asyncio

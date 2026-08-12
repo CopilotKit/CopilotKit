@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 from crewai.flow.flow import Flow, start
@@ -82,7 +83,7 @@ class BeautifulChatFlow(Flow[CopilotKitState]):
                     arguments = json.loads(function.get("arguments") or "{}")
                 except (TypeError, json.JSONDecodeError):
                     arguments = {}
-                content = backend_tool._run(**arguments)
+                content = await asyncio.to_thread(backend_tool._run, **arguments)
                 if not isinstance(content, str):
                     content = json.dumps(content)
                 tool_call_id = call.get("id")

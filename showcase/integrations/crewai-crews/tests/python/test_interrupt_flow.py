@@ -63,7 +63,10 @@ async def test_interrupt_flow_calls_llm_before_and_after_feedback(monkeypatch):
         _response(final_message),
     ]
 
-    async def fake_completion(**_kwargs):
+    completion_calls = []
+
+    async def fake_completion(**kwargs):
+        completion_calls.append(kwargs)
         return object()
 
     async def fake_stream(_response_value):
@@ -82,6 +85,10 @@ async def test_interrupt_flow_calls_llm_before_and_after_feedback(monkeypatch):
     payload = await flow.request_schedule()
     assert payload["topic"] == "Sales intro"
     assert flow.state.pending_tool_call_id == "call_schedule_1"
+    assert completion_calls[0]["tool_choice"] == {
+        "type": "function",
+        "function": {"name": "schedule_meeting"},
+    }
 
     await flow.confirm_schedule(
         HumanFeedbackResult(
@@ -101,6 +108,94 @@ async def test_interrupt_flow_calls_llm_before_and_after_feedback(monkeypatch):
     assert flow.state.messages[-1] == final_message
     assert emitted[0][0] == "call_schedule_1"
     assert emitted[0][1]["label"] == "Monday 2 PM"
+
+
+@pytest.mark.asyncio
+async def test_interrupt_flow_text_fallback_carries_selection_to_followup(
+    monkeypatch,
+):
+    from agents import interrupt_flow as module
+
+    flow = module.InterruptFlow()
+    flow.state.messages = [{"role": "user", "content": "Book a meeting."}]
+    streamed = [
+        _response({"role": "assistant", "content": "Pick a time."}),
+        _response({"role": "assistant", "content": "Booked Monday 2 PM."}),
+    ]
+    completion_calls = []
+
+    async def fake_completion(**kwargs):
+        completion_calls.append(kwargs)
+        return object()
+
+    async def fake_stream(_response_value):
+        return streamed.pop(0)
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+
+    payload = await flow.request_schedule()
+    assert flow.state.pending_tool_call_id is None
+
+    await flow.confirm_schedule(
+        HumanFeedbackResult(
+            output=payload,
+            feedback='{"chosen_time":"2026-08-06T14:00:00Z","chosen_label":"Monday 2 PM"}',
+            method_name="request_schedule",
+        )
+    )
+
+    followup_messages = completion_calls[1]["messages"]
+    assert any(
+        "Monday 2 PM" in str(message.get("content")) for message in followup_messages
+    )
+
+
+@pytest.mark.asyncio
+async def test_interrupt_flow_empty_protocol_feedback_means_cancelled(monkeypatch):
+    from agents import interrupt_flow as module
+
+    flow = module.InterruptFlow()
+    flow.state.messages = [{"role": "user", "content": "Book a meeting."}]
+    flow.state.pending_tool_call_id = "call_cancelled_schedule"
+    emitted = []
+
+    async def fake_completion(**_kwargs):
+        return object()
+
+    async def fake_stream(_response_value):
+        return _response({"role": "assistant", "content": "Cancelled."})
+
+    async def fake_emit(tool_call_id, content, **_kwargs):
+        emitted.append((tool_call_id, json.loads(content)))
+        return True
+
+    monkeypatch.setattr(module, "acompletion", fake_completion)
+    monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
+    monkeypatch.setattr(module, "copilotkit_emit_tool_result", fake_emit)
+
+    await flow.confirm_schedule(
+        HumanFeedbackResult(
+            output={"topic": "Meeting", "attendee": None},
+            feedback="",
+            method_name="request_schedule",
+        )
+    )
+
+    assert flow.state.meeting["cancelled"] is True
+    assert flow.state.meeting["time"] is None
+    assert emitted == [
+        (
+            "call_cancelled_schedule",
+            {
+                "topic": "Meeting",
+                "attendee": None,
+                "time": None,
+                "label": None,
+                "cancelled": True,
+            },
+        )
+    ]
 
 
 @pytest.mark.asyncio

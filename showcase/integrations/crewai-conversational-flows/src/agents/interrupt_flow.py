@@ -87,6 +87,10 @@ class InterruptFlow(Flow[InterruptState]):
                     *self.state.messages,
                 ],
                 tools=[SCHEDULE_MEETING_TOOL],
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "schedule_meeting"},
+                },
                 parallel_tool_calls=False,
                 stream=True,
             )
@@ -125,14 +129,18 @@ class InterruptFlow(Flow[InterruptState]):
 
     @listen("request_schedule")
     async def confirm_schedule(self, result: HumanFeedbackResult) -> None:
+        feedback_text = result.feedback or ""
         try:
-            feedback = json.loads(result.feedback or "{}")
+            feedback = json.loads(feedback_text or "{}")
         except (TypeError, json.JSONDecodeError):
             feedback = {}
         if not isinstance(feedback, dict):
             feedback = {}
         output = result.output if isinstance(result.output, dict) else {}
-        cancelled = bool(feedback.get("cancelled"))
+        # The AG-UI CrewAI provider resumes a cancelled protocol interrupt
+        # with an empty feedback string. Submitted choices are JSON objects,
+        # so an empty payload is the package's authoritative cancel signal.
+        cancelled = not feedback_text.strip() or bool(feedback.get("cancelled"))
         self.state.meeting = {
             "topic": output.get("topic") or "Meeting",
             "attendee": output.get("attendee"),
@@ -157,7 +165,13 @@ class InterruptFlow(Flow[InterruptState]):
             await acompletion(
                 model="openai/gpt-5.4",
                 messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {
+                        "role": "system",
+                        "content": (
+                            f"{SYSTEM_PROMPT}\nScheduling outcome: "
+                            f"{json.dumps(self.state.meeting)}"
+                        ),
+                    },
                     *self.state.messages,
                 ],
                 tools=[SCHEDULE_MEETING_TOOL],

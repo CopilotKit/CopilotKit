@@ -10,7 +10,6 @@
       "_comment": "Image attachment turn \u2014 probe clicks sample-image-button, attaches sample.png, sends 'can you tell me what is in this demo image I just attached'.",
       "match": {
         "userMessage": "can you tell me what is in this demo image I just attached",
-        "turnIndex": 0,
         "context": "crewai-conversational-flows"
       },
       "response": {
@@ -21,7 +20,6 @@
       "_comment": "PDF attachment turn \u2014 probe clicks sample-pdf-button, attaches sample.pdf, sends 'can you tell me what is in this demo pdf I just attached'.",
       "match": {
         "userMessage": "can you tell me what is in this demo pdf I just attached",
-        "turnIndex": 0,
         "context": "crewai-conversational-flows"
       },
       "response": {
