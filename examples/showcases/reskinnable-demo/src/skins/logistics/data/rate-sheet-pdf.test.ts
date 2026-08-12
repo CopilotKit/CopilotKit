@@ -4,10 +4,9 @@ import {
   costMovementLines,
   newServiceLines,
   RATE_SHEET_METRICS,
-  wrapProse,
 } from "./rate-sheet-pdf";
 import type { RateSheetLane } from "./rate-sheet-pdf";
-import { PDF_METRICS } from "@/shell/documents";
+import { charBudget } from "@/shell/documents";
 
 const LANES: RateSheetLane[] = [
   {
@@ -106,18 +105,17 @@ describe("buildRateSheetPdf", () => {
       (sum, width) => sum + width,
       0,
     );
-    const budget = Math.floor(
-      PDF_METRICS.drawableWidth /
-        (RATE_SHEET_METRICS.bodySize * PDF_METRICS.monoAdvance),
-    );
-    expect(widest).toBeLessThanOrEqual(budget);
+    expect(widest).toBeLessThanOrEqual(charBudget(RATE_SHEET_METRICS.bodySize));
   });
 
   it("draws no line past the right margin", () => {
-    // The shell's writer draws at a fixed x and never wraps, so a line that does
-    // not fit is CLIPPED by the reader — silently, on a page that is otherwise
+    // The end-to-end check on THIS document, over the emitted bytes: prose is
+    // wrapped by the shell (`buildPdf`) and columns are bounded by the test
+    // above, and this is what proves the two together actually fit. A line that
+    // does not is CLIPPED by the reader — silently, on a page that is otherwise
     // perfectly valid. This file shipped a 111-character "New service" sentence
-    // that ran a third of the way off the page before this assertion existed.
+    // that ran a third of the way off the page before any of this existed, and
+    // the hand-typed literals below are covered only here.
     const drawn = [
       ...text.matchAll(
         /\/F\d ([\d.]+) Tf\n1 0 0 1 \d+ [\d.-]+ Tm\n\((.*)\) Tj/g,
@@ -125,30 +123,46 @@ describe("buildRateSheetPdf", () => {
     ];
     expect(drawn.length).toBeGreaterThan(10);
     for (const [, size, body] of drawn) {
-      const budget = Math.floor(
-        PDF_METRICS.drawableWidth /
-          (Number(size) * RATE_SHEET_METRICS.monoAdvance),
-      );
+      // `body` is the ESCAPED text as the stream carries it, which is exactly
+      // what `charBudget` measures — the shell wraps on the drawn form, not the
+      // raw one.
       expect(body.length, `overruns the margin: ${body}`).toBeLessThanOrEqual(
-        budget,
+        charBudget(Number(size)),
       );
     }
   });
 
-  it("wraps a long derived sentence on word boundaries rather than clipping it", () => {
-    const wrapped = wrapProse(
-      "SHA-OAK (ocean) is new service at $0.49 per kg, 21 days transit — no prior rate on file with Meridian.",
-      RATE_SHEET_METRICS.bodySize,
+  it("prints no movement section at all when nothing moved", () => {
+    // The suppression lives in `section()`, one level ABOVE
+    // `costMovementLines(flat) === []`, so asserting the helper leaves the
+    // heading itself unpinned: a `section()` that stopped checking would emit
+    // "Rate movement" over nothing and every existing test would still pass.
+    // An all-flat sheet must say NOTHING rather than reassure.
+    const flat = new TextDecoder().decode(
+      buildRateSheetPdf({
+        carrier: "Ardent Freight",
+        asOf: "26 August 2026",
+        lanes: [
+          {
+            lane: "SHA-LGB",
+            mode: "ocean",
+            oldRateUsdPerKg: 1.1,
+            newRateUsdPerKg: 1.1,
+          },
+          {
+            lane: "FRA-JFK",
+            mode: "air",
+            oldRateUsdPerKg: 6.2,
+            newRateUsdPerKg: 6.2,
+          },
+        ],
+      }),
     );
-    expect(wrapped.length).toBeGreaterThan(1);
-    // No word is ever split: hyphenating a lane code would invent a code that
-    // does not exist, and the agent reads these lines aloud.
-    expect(wrapped.join(" ")).toContain("SHA-OAK");
-    expect(wrapped.join(" ").split(/\s+/)).toEqual(
-      "SHA-OAK (ocean) is new service at $0.49 per kg, 21 days transit — no prior rate on file with Meridian."
-        .split(" ")
-        .filter(Boolean),
-    );
+    expect(flat).not.toContain("Rate movement");
+    expect(flat).not.toContain("New service");
+    // …and the sheet is still a sheet: the rows it was given are all there.
+    expect(flat).toContain("SHA-LGB");
+    expect(flat).toContain("FRA-JFK");
   });
 
   it("says a lane has no prior rate rather than quoting one it does not have", () => {

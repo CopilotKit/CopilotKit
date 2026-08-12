@@ -1,6 +1,6 @@
 import * as store from "@/skins/logistics/data/store";
 import { laneCode } from "@/skins/logistics/data/rate-sheet-lanes";
-import type { RateBriefLane } from "@/skins/logistics/data/types";
+import type { Lane, RateBriefLane } from "@/skins/logistics/data/types";
 
 /**
  * BEAT 3d — the durable artifact.
@@ -94,16 +94,23 @@ function requireRate(value: unknown, field: string): number {
 }
 
 /**
- * A lane with no rate on file stays ABSENT, and only absent.
+ * A lane with no rate on file stays ABSENT, and only absent — and `0` IS absent.
  *
  * The fresh lane on the sheet is the row that proves the document was read, and
- * it has no prior rate. Coercing that to `0` would store the brief's most
- * load-bearing row as a fall from zero — a movement the document explicitly
- * denies.
+ * it has no prior rate. Storing that as `0` would put the brief's most
+ * load-bearing row in a state three consumers read three different ways: the card
+ * (`movementOf`) treats `<= 0` as "new lane", the readable emits
+ * `old_rate_usd_per_kg: 0`, and the agent then says "$0.00 → $0.49" about a row
+ * labelled "new lane". Folding it to absent at the door leaves ONE meaning.
+ *
+ * Unlike `newRateUsdPerKg`, no freight lane is genuinely free, so there is no
+ * real `0` being lost — which is exactly why `requireRate` still accepts `0` for
+ * the quoted rate and only this optional field folds it away.
  */
 function optionalRate(value: unknown, field: string): number | undefined {
   if (value === undefined || value === null) return undefined;
-  return requireRate(value, field);
+  const rate = requireRate(value, field);
+  return rate === 0 ? undefined : rate;
 }
 
 function requireList(value: unknown, field: string, max: number): unknown[] {
@@ -142,48 +149,83 @@ const laneKey = (lane: string, mode: string) =>
 /**
  * A prior rate is a LEDGER fact, so the ledger settles it — not the model.
  *
- * A lane the network does not carry HAS no rate on file: that is not a judgement
- * call, it is the absence of a row. Yet an optional `oldRateUsdPerKg` is exactly
- * the shape a model fills anyway, and it did: on the first live run of this beat
- * the agent copied the quoted $0.49 into the prior-rate slot for SHA-OAK — the
- * one lane the sheet prints as "new" — and the artifact rendered "$0.49 → $0.49,
- * flat" under a document that says there is no prior rate. The record then
- * contradicted the very document it was filed from, which is the failure this
- * whole beat exists to disprove.
+ * THE NEW rate is the document's own figure and only a reader of the attachment
+ * knows it, so it stays model-authored: that is beat 3d's entire proof. THE PRIOR
+ * rate is what Meridian already pays this carrier on that lane, which the app
+ * knows authoritatively — so leaving it to the model is leaving a fact we hold to
+ * a party that has to retype it out of a PDF. It goes wrong in three directions,
+ * and all three put a claim in the durable artifact that the document contradicts:
  *
- * So the claim is STRIPPED rather than stored. Dropping model input is normally
- * the wrong call in this codebase (`POST /plans` in commerce refuses instead of
- * trimming), and the distinction is that this drop REMOVES an unsupported claim
- * rather than quietly reshaping one: the row then reads "new lane, no prior rate
- * on file", which is what the network says. A refusal was the alternative and
- * costs a live round trip on a lane the model is demonstrably prone to filling —
- * and the `dropped` list below is returned to the caller, so the agent can say
- * so out loud rather than being silently corrected.
+ *   - OVER-FILLED. Observed live: the agent copied the quoted $0.49 into the
+ *     prior-rate slot for SHA-OAK — the one lane the sheet prints as "new" — and
+ *     the card rendered "$0.49 → $0.49, flat" under a document that says there is
+ *     no prior rate on file.
+ *   - UNDER-FILLED. The mirror, and the same lie on the same row: omit the field
+ *     for a lane the carrier DOES serve and `movementOf` in `rate-brief-log.tsx`
+ *     labels it "new lane", telling the room the network has never carried a lane
+ *     it carries.
+ *   - WRONG. `{ lane: "SHA-LAX", oldRateUsdPerKg: 9.99 }` stored verbatim renders
+ *     "down 94.8%" beside a document printing "$0.45 to $0.52, up 15.6%".
  *
- * Only NO-MATCH strips. A lane the network does carry keeps whatever the model
- * read off the sheet, because a code+mode can match more than one lane here
- * (SHA-LAX runs as two separate ocean strings) and the app cannot say which of
- * them the sheet meant.
+ * So every row is SETTLED against the carrier's own lanes rather than merely
+ * screened. This is the rule `POST /decisions` already applies to `decidedBy` and
+ * the mitigate route applies to cost, extended to the one field a document
+ * ingestion adds.
+ *
+ * WHY CARRIER-SCOPED, and why that also removes the ambiguity. A rate sheet is a
+ * quote from ONE carrier, so "the rate on file" means what we pay THAT carrier on
+ * that lane — a lane another carrier moves is not a rate we hold with this one.
+ * Scoping there is also what makes the match unique: network-wide, `SHA-LAX` +
+ * `ocean` matches both `ln-sha-lax-ocean` ($0.45) and `ln-sha-lax-ocean-exp`
+ * ($0.68), and that ambiguity was the stated reason an earlier version settled
+ * one direction only. Per carrier it does not arise on any seeded pair.
+ *
+ * `??` was considered and rejected: it repairs the under-filled case only and
+ * leaves the wrong-value case stored verbatim. An overwrite cannot lose anything
+ * real, because the sheet's WAS column is generated FROM `lane.costPerKg`.
+ *
+ * The three outcomes:
+ *   - unique match  → settled from the ledger, whatever was claimed;
+ *   - no match      → no rate exists, so the claim is dropped (the row then reads
+ *     "new lane", which is what the ledger says);
+ *   - many matches  → the app genuinely cannot say which lane the sheet meant, so
+ *     the model's reading stands and the caller is TOLD, rather than the route
+ *     picking one and being confidently wrong.
+ *
+ * Both lists ride back to the caller so the agent narrates the correction instead
+ * of being silently overruled.
  */
-function withoutUnsupportedPriorRates(rows: RateBriefLane[]): {
+function settlePriorRates(
+  rows: RateBriefLane[],
+  carrier: string,
+): {
   laneRates: RateBriefLane[];
-  dropped: string[];
+  noPriorRateOnFile: string[];
+  ambiguous: string[];
 } {
-  const onFile = new Set(
-    store.lanes().map((lane) => laneKey(laneCode(lane), lane.mode)),
-  );
-  const dropped: string[] = [];
+  const served = new Map<string, Lane[]>();
+  for (const lane of store.lanesServedBy(carrier)) {
+    const key = laneKey(laneCode(lane), lane.mode);
+    served.set(key, [...(served.get(key) ?? []), lane]);
+  }
+
+  const noPriorRateOnFile: string[] = [];
+  const ambiguous: string[] = [];
   const laneRates = rows.map((row) => {
-    if (
-      row.oldRateUsdPerKg === undefined ||
-      onFile.has(laneKey(row.lane, row.mode))
-    ) {
-      return row;
+    const matches = served.get(laneKey(row.lane, row.mode)) ?? [];
+    if (matches.length === 1) {
+      return { ...row, oldRateUsdPerKg: matches[0].costPerKg };
     }
-    dropped.push(row.lane);
-    return { ...row, oldRateUsdPerKg: undefined };
+    if (matches.length === 0) {
+      // Only report a claim we actually removed. A row that already said
+      // nothing needs no correction narrated about it.
+      if (row.oldRateUsdPerKg !== undefined) noPriorRateOnFile.push(row.lane);
+      return { ...row, oldRateUsdPerKg: undefined };
+    }
+    ambiguous.push(row.lane);
+    return row;
   });
-  return { laneRates, dropped };
+  return { laneRates, noPriorRateOnFile, ambiguous };
 }
 
 export const POST = async (req: Request) => {
@@ -244,7 +286,10 @@ export const POST = async (req: Request) => {
       claimed.map((r) => `${r.lane} ${r.mode}`),
       "laneRates[].lane",
     );
-    const { laneRates, dropped } = withoutUnsupportedPriorRates(claimed);
+    const { laneRates, noPriorRateOnFile, ambiguous } = settlePriorRates(
+      claimed,
+      carrier,
+    );
 
     const impacts = requireList(input.impacts, "impacts", MAX_IMPACTS).map(
       (impact, i) => requireText(impact, `impacts[${i}]`),
@@ -266,12 +311,12 @@ export const POST = async (req: Request) => {
       filedBy: planner.name,
       role: planner.role,
     });
-    // `noPriorRateOnFile` rides alongside the record rather than inside it: it
-    // describes what this REQUEST claimed, not what the artifact holds, and the
-    // artifact is what the page renders. The tool handler reads it so the agent
-    // can narrate the correction instead of being silently overruled.
+    // These two ride alongside the record rather than inside it: they describe
+    // what this REQUEST claimed, not what the artifact holds, and the artifact is
+    // what the page renders. The tool handler reads them so the agent can narrate
+    // the correction instead of being silently overruled.
     return Response.json(
-      { ...filed, noPriorRateOnFile: dropped },
+      { ...filed, noPriorRateOnFile, ambiguousLanes: ambiguous },
       { status: 201 },
     );
   } catch (error) {

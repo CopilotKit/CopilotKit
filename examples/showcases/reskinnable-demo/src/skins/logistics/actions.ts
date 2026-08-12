@@ -231,12 +231,18 @@ export function useLogistics() {
         return {
           ok: true as const,
           brief: body as RateBrief,
-          // Lanes whose claimed prior rate the server REFUSED to store, because
-          // the network carries no such lane and therefore no rate on file.
-          // Surfaced so the agent can say so rather than narrate a comparison
-          // the filed record does not contain. See POST /briefs.
+          // The two ways the filed record can differ from what was sent, both
+          // surfaced so the agent narrates the correction rather than a
+          // comparison the record does not contain. See POST /briefs, which
+          // SETTLES every prior rate against the carrier's own lanes:
+          // `noPriorRateOnFile` is what it dropped (no such lane, so no rate on
+          // file), `ambiguousLanes` is where it could not tell which lane the
+          // sheet meant and left the model's reading standing.
           noPriorRateOnFile: Array.isArray(body?.noPriorRateOnFile)
             ? (body.noPriorRateOnFile as string[])
+            : [],
+          ambiguousLanes: Array.isArray(body?.ambiguousLanes)
+            ? (body.ambiguousLanes as string[])
             : [],
         };
       } catch (error) {

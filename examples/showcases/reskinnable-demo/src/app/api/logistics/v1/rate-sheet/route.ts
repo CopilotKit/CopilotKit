@@ -50,24 +50,6 @@ const requestedCarrier = (url: string): string =>
   new URL(url).searchParams.get("carrier")?.trim() || DEFAULT_CARRIER;
 
 /**
- * The lanes a carrier actually moves freight on, deduped and in network order.
- *
- * Derived from the shipments rather than stored on the lane, because the seed
- * models carriers as a property of a shipment — a lane can be served by more
- * than one carrier (SHA-LAX ocean is moved by both Pacific Star Line and Blue
- * Meridian), which is exactly the shape a rate sheet is asking about.
- */
-const lanesServedBy = (carrier: string): Lane[] => {
-  const laneIds = new Set(
-    store
-      .shipments()
-      .filter((s) => s.carrier === carrier)
-      .map((s) => s.laneId),
-  );
-  return store.lanes().filter((lane) => laneIds.has(lane.id));
-};
-
-/**
  * What the carrier quotes forward on a lane it already moves.
  *
  * Derived from the lane's own health so the sheet reads like a real quote rather
@@ -113,7 +95,7 @@ export const GET = async (req: Request) => {
   let carrier = DEFAULT_CARRIER;
   try {
     carrier = requestedCarrier(req.url);
-    const served = lanesServedBy(carrier);
+    const served = store.lanesServedBy(carrier);
 
     if (served.length === 0) {
       // A carrier rename in the seed is otherwise an INVISIBLE way to disable

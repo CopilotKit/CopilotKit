@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PDF_METRICS, buildPdf, toAscii } from "@/shell/documents";
+import { PDF_METRICS, buildPdf, charBudget, toAscii } from "@/shell/documents";
 import type { Line } from "@/shell/documents";
 
 /**
@@ -21,6 +21,17 @@ const DOC: Line[] = [
 
 /** latin1: one byte, one character — correct for byte-offset assertions. */
 const decode = (bytes: Uint8Array) => new TextDecoder("latin1").decode(bytes);
+
+/**
+ * Every string the page actually DRAWS, in order, as the stream carries it —
+ * i.e. escaped and folded. Wrapping assertions have to read this rather than the
+ * `Line[]` handed in, because the whole failure mode is a line that was drawn
+ * differently from how it was written.
+ */
+const drawnLines = (bytes: Uint8Array): string[] =>
+  [...contentStreamOf(decode(bytes)).matchAll(/^\((.*)\) Tj$/gm)].map(
+    (m) => m[1],
+  );
 
 /** The face each resource name must resolve to, per the builder's FONTS table. */
 const EXPECTED_FACES: Record<string, string> = {
@@ -216,6 +227,70 @@ describe("buildPdf", () => {
         line.mono ? (line.bold ? "F4" : "F3") : line.bold ? "F2" : "F1",
       );
     });
+  });
+
+  it("wraps a prose line that would run off the page, on word boundaries", () => {
+    // THE PROPERTY, and it fails the way every other one here does: nothing
+    // measures as it draws, so before this an over-long line ran past the right
+    // margin and the reader clipped it — a valid PDF that is wrong on screen, in
+    // the paragraph a caller is most likely to have DERIVED and least likely to
+    // have eyeballed. Logistics shipped a 111-character sentence that ran a
+    // third of the way off the page.
+    const sentence =
+      "SHA-OAK ocean is new service at $0.49 per kg, 21 days transit, " +
+      "and there is no prior rate on file with Meridian for this lane at all.";
+    const drawn = drawnLines(buildPdf([{ text: sentence }]));
+    expect(drawn.length).toBeGreaterThan(1);
+    for (const line of drawn) {
+      expect(line.length, line).toBeLessThanOrEqual(charBudget());
+    }
+    // Every word survives, in order, and none was split: hyphenating an
+    // identifier would invent one that does not exist, and these are read aloud.
+    expect(drawn.join(" ")).toBe(sentence);
+  });
+
+  it("measures the ESCAPED text, not the string the caller passed", () => {
+    // `pdfEscape` turns one "(" into two characters and `toAscii` turns one "…"
+    // into three, so a budget checked against the RAW string is wrong by exactly
+    // the amount a punctuation-heavy sentence needs it to be right. This is what
+    // a skin-side wrap could not do — the escape is private to the writer — and
+    // it is why that copy came back here.
+    //
+    // Built to sit just inside the budget raw and just outside it escaped: a
+    // wrap measuring the raw string leaves this on ONE line, over the margin.
+    const budget = charBudget();
+    const parens = "(a)".repeat(8); // 24 raw, 40 escaped
+    const filler = "w".repeat(budget - parens.length - 1);
+    const drawn = drawnLines(buildPdf([{ text: `${filler} ${parens}` }]));
+    expect(drawn.length).toBe(2);
+    for (const line of drawn) {
+      expect(line.length, line).toBeLessThanOrEqual(budget);
+    }
+  });
+
+  it("never wraps a mono line, whose spacing is the point", () => {
+    // Wrapping a columnar line would break the alignment it exists to keep, so
+    // a `mono` line that does not fit stays the CALLER's bug to assert against
+    // PDF_METRICS. It must arrive intact, however long.
+    const row = "SKU-1234567890".padEnd(200, " ") + "$12.50";
+    const drawn = drawnLines(buildPdf([{ text: row, mono: true }]));
+    expect(drawn).toEqual([row]);
+  });
+
+  it("opens a section once, not once per wrapped line", () => {
+    // A continuation inheriting its parent's `gap` would space a paragraph like
+    // a list — the sentence's second half pushed down as if it began a section.
+    const long = "gap ".repeat(40).trim();
+    const text = decode(buildPdf([{ text: long, gap: 40 }]));
+    const ys = [...text.matchAll(/1 0 0 1 \d+ ([\d.]+) Tm/g)].map((m) =>
+      Number(m[1]),
+    );
+    expect(ys.length).toBeGreaterThan(1);
+    const drops = ys.slice(1).map((y, i) => ys[i] - y);
+    // Every continuation drops by the same plain leading; only the first line
+    // paid the gap, and it is not in this list.
+    expect(new Set(drops).size).toBe(1);
+    expect(drops[0]).toBeLessThan(40);
   });
 
   it("publishes metrics a caller can bound its columns against", () => {

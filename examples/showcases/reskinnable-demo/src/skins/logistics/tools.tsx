@@ -39,6 +39,18 @@ import {
 // `*_CODES` / `*_CODE_LABELS` identifier reappears in this file.
 
 /**
+ * One trailing note about a list of lanes, or nothing at all when the list is
+ * empty. Agrees the verb with the count, because the agent reads these sentences
+ * to the room and "SHA-OAK, MTY-HOU is not a lane" is not a sentence anyone
+ * should have to say on stage.
+ */
+const listNote = (
+  lanes: string[],
+  sentence: (joined: string, plural: boolean) => string,
+): string =>
+  lanes.length === 0 ? "" : ` ${sentence(lanes.join(", "), lanes.length > 1)}`;
+
+/**
  * Registers everything Meridian Control can do on the client: gen-UI rendered
  * inline in chat, human-in-the-loop confirmations for anything that writes, and
  * agent-context readables so the model always knows the live network state.
@@ -732,14 +744,29 @@ export function LogisticsTools() {
           impacts: impacts ?? [],
         });
         if (outcome.ok) {
-          // The server strips a prior rate it can prove does not exist (a lane
-          // the network does not carry). Say so, so the transcript and the
-          // artifact agree — the alternative is the agent narrating a movement
-          // the filed record does not hold.
-          const corrected = outcome.noPriorRateOnFile.length
-            ? ` ${outcome.noPriorRateOnFile.join(", ")} is not a lane on this network, so it was filed with no prior rate — report it as new service, not as a change.`
-            : "";
-          return `Filed the ${carrier} rate brief. It is on the Decision Log under "Rate briefs on file", and it stays there whatever happens to this thread.${corrected}`;
+          // The server SETTLES every prior rate against the carrier's own lanes,
+          // so the two notes below are the only ways the filed record can differ
+          // from what was sent. Say them, so the transcript and the artifact
+          // agree — the alternative is the agent narrating a movement the record
+          // does not hold. Both are written for one OR many lanes: these
+          // sentences are read aloud, and "SHA-OAK, MTY-HOU is not a lane" is a
+          // sentence nobody should have to say on stage.
+          return (
+            `Filed the ${carrier} rate brief. It is on the Decision Log under ` +
+            `"Rate briefs on file", and it stays there whatever happens to this thread.` +
+            listNote(
+              outcome.noPriorRateOnFile,
+              (lanes, plural) =>
+                `${lanes} ${plural ? "are" : "is"} not a lane this carrier serves, so ${
+                  plural ? "they were" : "it was"
+                } filed with no prior rate — report as new service, not as a change.`,
+            ) +
+            listNote(
+              outcome.ambiguousLanes,
+              (lanes, plural) =>
+                `${lanes} ${plural ? "match" : "matches"} more than one lane at that mode, so the prior ${plural ? "rates" : "rate"} you read could not be checked — say the comparison is unverified.`,
+            )
+          );
         }
         // Surface the route's own message: it refuses a brief that would not fit
         // the card or whose rows it cannot read, and names the offending field —

@@ -10,8 +10,8 @@
  * more elaborate — images, multiple pages, non-Latin text — should reach for a
  * real library rather than growing this.
  *
- * It was extracted from commerce's price-sheet builder, which is where all three
- * of the properties below were first learned. Each of them fails by emitting a
+ * It was extracted from commerce's price-sheet builder, which is where the first
+ * of the properties below was learned. Each of them fails by emitting a
  * PERFECTLY VALID PDF that is wrong on screen, and nothing type-checks any of
  * them, which is exactly why they live in one place now instead of being
  * rediscovered per skin.
@@ -26,6 +26,13 @@
  * exactly 600/1000 em, so both the alignment AND the overflow bound reduce to
  * arithmetic on character counts (see `PDF_METRICS`). Set `mono` on any line
  * whose spacing carries meaning; leave it off for prose.
+ *
+ * AND WHY PROSE IS WRAPPED FOR YOU. Nothing here measures as it draws, so a line
+ * that does not fit used to run off the right margin and be clipped by the
+ * reader. That is survivable for literals an author eyeballs once and a live trap
+ * for sentences DERIVED from data, whose length is not knowable when they are
+ * written. `wrapForPage` breaks non-`mono` lines on word boundaries before
+ * anything is drawn; `mono` lines are exempt, because their spacing is the point.
  *
  * Server-safe: plain TS, no React, no "use client".
  */
@@ -116,13 +123,21 @@ const FONTS = [
 /** Every Courier glyph advances 600/1000 em. This is what makes columns true. */
 const MONO_ADVANCE = 0.6;
 
+/** Point size a `Line` is drawn at when it does not name one. */
+const DEFAULT_SIZE = 10.5;
+
 /**
  * The alignment contract, exported so a caller can ASSERT its columns rather
  * than eyeball them on a rendered page: the monospaced advance that makes
  * character padding true, and the width a drawn line has to fit inside. A skin
  * bounds its own column widths against these — `chars = floor(drawableWidth /
- * (size * monoAdvance))` — and keeps any content-specific widths in its own
- * metrics object.
+ * (size * monoAdvance))`, which `charBudget` computes — and keeps any
+ * content-specific widths in its own metrics object.
+ *
+ * COLUMNAR lines only. Prose is wrapped by `wrapForPage` below, so a caller does
+ * not bound its sentences at all; `mono` lines are exempt from that wrap
+ * precisely because their spacing is meaningful, which is what leaves their fit
+ * the caller's own to assert.
  */
 export const PDF_METRICS = {
   monoAdvance: MONO_ADVANCE,
@@ -143,14 +158,94 @@ function fontFor(line: Line): string {
   return line.bold ? "F2" : "F1";
 }
 
-function contentStream(lines: Line[]): string {
+/**
+ * How many characters fit on one drawn line at `size`.
+ *
+ * Exported so a caller can bound its own content against the same number this
+ * module wraps at, rather than rediscovering the arithmetic. Measured in the
+ * ESCAPED, FOLDED form — see `wrapText` — so a caller comparing a raw string
+ * against it is being slightly conservative, never optimistic.
+ *
+ * The advance is Courier's 600/1000 even for prose, which is Helvetica. An exact
+ * bound would need the base-14 width table; Helvetica's lowercase and digits are
+ * 556/1000 and its space is 278/1000, so 600 is comfortably conservative for
+ * mixed-case text. It is NOT a bound for ALL-CAPS strings (Helvetica "W" is
+ * 944/1000), so a shouted line long enough to matter can still overrun.
+ */
+export const charBudget = (size: number = DEFAULT_SIZE): number =>
+  Math.floor((PAGE_WIDTH - 2 * MARGIN) / (size * MONO_ADVANCE));
+
+/**
+ * Break one string onto as many lines as it needs, on word boundaries.
+ *
+ * MEASURED ON THE ESCAPED, FOLDED STRING, because that is what is actually
+ * drawn: `pdfEscape` turns one "(" into two characters and `toAscii` turns one
+ * "…" into three, so a budget checked against the raw text is wrong by exactly
+ * the amount a punctuation-heavy sentence needs it to be right. A skin-side
+ * helper cannot do this — `pdfEscape` is private to this file — which is half of
+ * why the wrap lives here.
+ *
+ * A word longer than the whole budget is left on its own line rather than being
+ * split: hyphenating an identifier would invent one that does not exist, and
+ * these documents are read aloud.
+ */
+function wrapText(text: string, budget: number): string[] {
+  const out: string[] = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    const candidate = line === "" ? word : `${line} ${word}`;
+    if (line !== "" && pdfEscape(candidate).length > budget) {
+      out.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line !== "") out.push(line);
+  // An intentionally blank line stays one blank line rather than vanishing.
+  return out.length > 0 ? out : [text];
+}
+
+/**
+ * Wrap every PROSE line to the page, leaving `mono` lines exactly as given.
+ *
+ * WHY THIS IS THE WRITER'S JOB. Everything below draws at a fixed x and never
+ * measures, so before this existed a line that did not fit simply ran off the
+ * right margin and the reader clipped it — a perfectly valid PDF that is wrong
+ * on screen, in the paragraph a caller is most likely to have DERIVED from data
+ * and least likely to have eyeballed. Logistics shipped a 111-character sentence
+ * that ran a third of the way off the page; commerce and people both emit
+ * derived prose and carried the identical latent bug. One wrap here removes it
+ * for every skin instead of being rediscovered, re-fixed and re-tested per skin.
+ *
+ * `mono` lines are deliberately EXEMPT. Their alignment is character-count
+ * arithmetic (`padEnd` against a caller's column widths), so wrapping one would
+ * break the columns it exists to keep — a columnar line that does not fit is the
+ * caller's bug, and `PDF_METRICS` is published so it can be asserted.
+ *
+ * A wrapped continuation inherits its parent's size, face and `mono` flag but
+ * NEVER its `gap`: the gap opens a section, and re-opening it mid-sentence would
+ * space a paragraph like a list.
+ */
+function wrapForPage(lines: Line[]): Line[] {
+  return lines.flatMap((line) => {
+    if (line.mono) return [line];
+    const pieces = wrapText(line.text, charBudget(line.size ?? DEFAULT_SIZE));
+    if (pieces.length === 1) return [line];
+    return pieces.map((text, index) =>
+      index === 0 ? { ...line, text } : { ...line, text, gap: 0 },
+    );
+  });
+}
+
+function contentStream(rawLines: Line[]): string {
   let y = PAGE_HEIGHT - MARGIN;
   const parts: string[] = ["BT"];
-  for (const line of lines) {
-    y -= (line.gap ?? 0) + (line.size ?? 10.5) + 3.5;
+  for (const line of wrapForPage(rawLines)) {
+    y -= (line.gap ?? 0) + (line.size ?? DEFAULT_SIZE) + 3.5;
     const font = pdfName(fontFor(line));
     parts.push(
-      `${font} ${line.size ?? 10.5} Tf`,
+      `${font} ${line.size ?? DEFAULT_SIZE} Tf`,
       `1 0 0 1 ${MARGIN} ${y} Tm`,
       `(${pdfEscape(line.text)}) Tj`,
     );

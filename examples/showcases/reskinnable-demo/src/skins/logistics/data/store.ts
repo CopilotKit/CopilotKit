@@ -75,6 +75,27 @@ export const findEscalation = (id: string): Escalation | undefined =>
   db.escalations.find((e) => e.id === id);
 
 /**
+ * The lanes one carrier actually moves freight on, deduped, in network order.
+ *
+ * DERIVED, because the seed models the carrier as a property of a SHIPMENT: a
+ * lane can be served by more than one carrier (SHA-LAX ocean is moved by both
+ * Pacific Star Line and Blue Meridian), which is exactly the shape a per-carrier
+ * rate sheet asks about.
+ *
+ * Lives here rather than in either route because BOTH beat-3d routes need the
+ * same answer and must not drift: `GET /rate-sheet` builds the document from it,
+ * and `POST /briefs` settles the prior rates in the filed brief against it. Two
+ * copies of this filter would be two different opinions about what a carrier
+ * serves, and the document and the artifact would disagree.
+ */
+export const lanesServedBy = (carrier: string): Lane[] => {
+  const laneIds = new Set(
+    db.shipments.filter((s) => s.carrier === carrier).map((s) => s.laneId),
+  );
+  return db.lanes.filter((lane) => laneIds.has(lane.id));
+};
+
+/**
  * Days of cover is DERIVED, never stored: on-hand divided by daily demand.
  * A SKU is at risk when its cover is below its safety-stock floor.
  */

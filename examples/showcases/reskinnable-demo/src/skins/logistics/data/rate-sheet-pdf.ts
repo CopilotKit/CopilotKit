@@ -147,6 +147,11 @@ const BODY_SIZE = 10.5;
  * are drawn at, and the shell's page metrics re-exported alongside them so a
  * caller reads ONE object. `rate-sheet-pdf.test.ts` checks the row width against
  * the drawable width; nothing in the app reads these.
+ *
+ * COLUMNS ONLY. The prose sentences below are not bounded here at all — the
+ * shell wraps them (`buildPdf`), and `mono` lines are exempt from that wrap
+ * precisely because their spacing is meaningful, which is what leaves THEIR fit
+ * this file's to assert.
  */
 export const RATE_SHEET_METRICS = {
   columns: COLUMNS,
@@ -180,65 +185,26 @@ const tableRow = (
 });
 
 /**
- * The character budget for one line of prose, and why it is not exact.
+ * A prose section, emitted ONLY when it has something derived to say.
  *
- * The shell's writer draws a `Line` at a fixed x and never wraps — a line that
- * does not fit simply runs off the right margin, where a reader CLIPS it. The
- * table rows are safe by construction (Courier, bounded by `COLUMNS` above), but
- * the derived sentences below are not: their length depends on the lane codes and
- * rates the route hands in, and the first version of this file shipped a
- * 111-character "New service" line that ran a third of the way off the page.
- *
- * Prose is drawn in Helvetica, whose advances vary per glyph, so an exact bound
- * would need the base-14 width table. Courier's 600/1000 is used as a stand-in
- * instead: Helvetica's lowercase and digits are 556/1000 and its space is
- * 278/1000, so 600 is comfortably conservative for the mixed-case sentences
- * here. It is NOT an absolute bound for ALL-CAPS text (Helvetica "W" is
- * 944/1000), which is why the headings and the shouted words in these sentences
- * are kept short.
+ * The sentences are handed over whole. `buildPdf` wraps every non-`mono` line to
+ * the page itself, measuring the escaped-and-folded string it actually draws —
+ * which a skin cannot do, since the escape is private to the writer. This file
+ * previously carried its own `wrapProse` and measured the RAW string, so a
+ * sentence within two characters of the budget wrapped wrong.
  */
-const proseCharBudget = (size: number) =>
-  Math.floor(PDF_METRICS.drawableWidth / (size * PDF_METRICS.monoAdvance));
-
-/**
- * Break one sentence onto as many lines as it needs, on word boundaries.
- *
- * A word longer than the whole budget is left on its own line rather than being
- * split: hyphenating a lane code would invent a code that does not exist, and
- * the agent reads these lines aloud.
- */
-export function wrapProse(text: string, size: number): string[] {
-  const budget = proseCharBudget(size);
-  const out: string[] = [];
-  let line = "";
-  for (const word of text.split(" ")) {
-    if (line === "") {
-      line = word;
-    } else if (`${line} ${word}`.length <= budget) {
-      line += ` ${word}`;
-    } else {
-      out.push(line);
-      line = word;
-    }
-  }
-  if (line !== "") out.push(line);
-  return out;
-}
-
-/** A prose section, emitted ONLY when it has something derived to say. */
-const section = (heading: string, sentences: string[]): Line[] => {
-  if (sentences.length === 0) return [];
-  const body = sentences.flatMap((sentence, index) =>
-    wrapProse(sentence, BODY_SIZE).map((text, wrapped) => ({
-      text,
-      size: BODY_SIZE,
-      // The gap opens the section, so it belongs to the first DRAWN line, not
-      // to the first sentence — a wrapped continuation must not re-open it.
-      gap: index === 0 && wrapped === 0 ? 6 : 0,
-    })),
-  );
-  return [{ text: heading, size: 12, bold: true, gap: 16 }, ...body];
-};
+const section = (heading: string, sentences: string[]): Line[] =>
+  sentences.length === 0
+    ? []
+    : [
+        { text: heading, size: 12, bold: true, gap: 16 },
+        ...sentences.map((text, index) => ({
+          text,
+          size: BODY_SIZE,
+          // The gap opens the section, so it belongs to its first sentence only.
+          gap: index === 0 ? 6 : 0,
+        })),
+      ];
 
 /**
  * The rate sheet the agent reads. Its contents are deliberately RICHER than the

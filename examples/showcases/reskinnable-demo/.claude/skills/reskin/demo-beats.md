@@ -695,11 +695,11 @@ tools or pages, alongside this file.
 > `logistics/data/rate-sheet-pdf.ts`) are now nothing but content, and they are
 > the shape to copy.
 >
-> The first two traps below are FIXED IN THE PRIMITIVE, so you inherit both; the
-> third is entirely yours. They are
-> still written down, because each produces a VALID PDF that is wrong on screen —
-> nothing type-checks a rendered page, this document is projected at exactly the
-> moment the room is looking, and the second one is only half solvable centrally.
+> The three traps below are FIXED IN THE PRIMITIVE, so you inherit all three. They
+> are still written down, because each produces a VALID PDF that is wrong on screen
+> — nothing type-checks a rendered page, this document is projected at exactly the
+> moment the room is looking, and the second is only half solvable centrally (the
+> half that is yours is named there, and the same split applies to the third).
 >
 > 1. **Encoding — handled for you.** The page declares base-14 fonts (WinAnsi, one
 >    byte per glyph) while the content stream is written with `TextEncoder`
@@ -748,20 +748,32 @@ tools or pages, alongside this file.
 >    green while the table renders ragged or runs off the page. Commerce keeps a
 >    test for each (`price-sheet-pdf.layout.test.ts`); copy both.
 >
-> 3. **Wrapping — entirely yours, and there is none.** `buildPdf` draws every
->    `Line` at a fixed x and NEVER wraps: a line that does not fit simply runs off
->    the right margin, where the reader clips it. That is fine for the literals you
->    type and eyeball, and it is a live trap for the sentences you DERIVE, whose
->    length depends on data — logistics shipped a 111-character "New service"
->    sentence that ran a third of the way off the page, in the one paragraph the
->    agent reads aloud. Wrap derived prose on word boundaries against a character
->    budget computed from `PDF_METRICS` (`wrapProse` in
->    `logistics/data/rate-sheet-pdf.ts`), and assert it on the EMITTED bytes rather
->    than on the helper — parse the content stream's `Tf`/`Tj` pairs and check
->    every drawn line against its own size's budget, which catches the hand-typed
->    literals too. Note the budget is approximate: prose is Helvetica, whose
->    advances vary per glyph, so Courier's 600/1000 is used as a conservative
->    stand-in (it is NOT a bound for ALL-CAPS text — keep shouted words short).
+> 3. **Wrapping — handled for you, for PROSE only.** Nothing in the writer
+>    measured as it drew, so a line that did not fit ran off the right margin and
+>    the reader clipped it. Survivable for literals an author eyeballs once; a live
+>    trap for sentences you DERIVE, whose length is not knowable when they are
+>    written — logistics shipped a 111-character "New service" sentence that ran a
+>    third of the way off the page, in the one paragraph the agent reads aloud.
+>    `buildPdf` now wraps every non-`mono` line on word boundaries before drawing,
+>    so hand your sentences over whole and do not bound them yourself.
+>
+>    Two things to keep in mind. **It measures the ESCAPED, FOLDED string**, which
+>    is why the wrap cannot live in your skin: `pdfEscape` turns one `(` into two
+>    characters and `toAscii` turns one `…` into three, so a budget checked against
+>    the raw text is wrong by exactly the amount a punctuation-heavy sentence needs
+>    it to be right — and `pdfEscape` is private to the writer. Logistics carried a
+>    skin-side copy with that bug for one commit. **`mono` lines are exempt**, and
+>    must be: wrapping a columnar line would break the character-count alignment it
+>    exists to keep, so a `mono` line that does not fit is still yours to bound
+>    against `PDF_METRICS` / `charBudget`.
+>
+>    The budget is approximate in one direction: prose is Helvetica, whose advances
+>    vary per glyph, so Courier's 600/1000 is a conservative stand-in — NOT a bound
+>    for ALL-CAPS text, so keep shouted words short. If you want the belt-and-braces
+>    check, assert on the EMITTED bytes: parse the content stream's `Tf`/`Tj` pairs
+>    and check every drawn line against `charBudget(size)`
+>    (`logistics/data/rate-sheet-pdf.test.ts`), which catches your hand-typed
+>    literals too.
 
 > **Generating a document? Every sentence in it must be DERIVED from its own
 > rows.** The agent lifts facts out of this file and narrates them, so a claim the
@@ -797,16 +809,35 @@ tools or pages, alongside this file.
 > contradicted the document it was filed from, on exactly the row that proves the
 > document was read.
 >
-> Prompt wording does not close this. Split the fields by WHO OWNS THE FACT and
-> let the server settle its own: the NEW figure comes from the document and only
-> the reader knows it, so it stays model-authored (that is the beat's proof); the
-> PRIOR figure is a ledger fact, so the route settles it — `POST /briefs`
-> (`app/api/logistics/v1/briefs/route.ts`) strips a prior rate on any lane the
-> network does not carry, since the absence of the row IS the answer, and returns
-> the stripped lanes so the tool can tell the agent rather than silently overrule
-> it. This is the same rule `POST /decisions` already applies to `decidedBy` and
-> the mitigate route applies to cost, extended to the one field a document
-> ingestion adds.
+> **Screening the direction you observed is not enough** — the field goes wrong in
+> three, and all three put the same lie on the same row. OVER-FILLED is the one
+> above. UNDER-FILLED is its mirror: omit the field for a lane the ledger DOES
+> carry and the card labels the row "new lane", telling the room the app has never
+> carried a lane it carries. WRONG is the third: `oldRateUsdPerKg: 9.99` stored
+> verbatim renders "down 94.8%" beside a document printing "up 15.6%".
+>
+> Prompt wording does not close any of them. Split the fields by WHO OWNS THE FACT
+> and let the server SETTLE its own, in every direction: the NEW figure comes from
+> the document and only a reader of the attachment knows it, so it stays
+> model-authored (that is the beat's proof); the PRIOR figure is a ledger fact, so
+> the route overwrites it from the ledger on a unique match, drops it when there is
+> no match (absence of the row IS the answer), and — only where the app genuinely
+> cannot tell which record the document meant — leaves the model's reading standing
+> and SAYS SO. `POST /briefs` (`app/api/logistics/v1/briefs/route.ts`) returns both
+> lists so the tool can tell the agent rather than silently overrule it. Note `??`
+> is not settlement: it repairs the under-filled case and stores the wrong one.
+>
+> **Scope the match by whatever the document is a statement ABOUT**, which is
+> usually also what removes the ambiguity that tempts you to settle one direction
+> only. Logistics matched network-wide at first, where `SHA-LAX` + `ocean` hits two
+> different lanes at two different rates — so it looked unsettleable. A rate sheet
+> is one CARRIER's quote, and per carrier the match is unique on every seeded pair.
+> The scoping is not a trick to dodge the ambiguity, it is the more honest reading:
+> a rate another carrier gets is not a rate you hold with this one.
+>
+> This is the same rule `POST /decisions` already applies to `decidedBy` and the
+> mitigate route applies to cost, extended to the one field a document ingestion
+> adds.
 
 **Do not use airline, logistics or keel as demo-completeness references.** They
 predate this bar: each hits roughly one beat of nine. Logistics and keel are
