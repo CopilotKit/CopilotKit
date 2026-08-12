@@ -9,11 +9,13 @@ import {
   AlertTriangle,
   UserRound,
   PlaneTakeoff,
+  RotateCcw,
 } from "lucide-react";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
+import { usePresenterReset } from "@/shell/presenter-reset-context";
 import { useConciergeView } from "./components/concierge-view";
 import { PassengerHeader } from "./components/passenger-header";
 
@@ -42,6 +44,7 @@ export function AirlineLayout({ children }: { children: ReactNode }) {
   const data = useConciergeView();
   const skinHref = useSkinHref(skin.id);
   const restHead = useSkinSegments(skin.id)[0] ?? "";
+  const resetEnabled = usePresenterReset();
   const Logo = skin.identity.logo;
 
   // ── BEAT 3b, part 1 — the agent's view of WHICH page is open ─────────────
@@ -61,6 +64,40 @@ export function AirlineLayout({ children }: { children: ReactNode }) {
       "An empty segment is the Trip page (the index).",
     value: restHead,
   });
+
+  /**
+   * PRESENTER RESET — restore the seeded trip record AND re-arm the memory beats.
+   *
+   * A HARD navigate to the skin root, not `router.refresh()`: the point is a
+   * pristine client slate (fresh ledger read, cleared canvas, a new thread on the
+   * next message) plus the clean starting URL the demo should always open on —
+   * which is `/` itself on a locked single-tenant deploy, hence `skinHref()`
+   * rather than a literal `/airline`.
+   *
+   * ⚠️ A NON-OK RESPONSE MUST NOT BE SWALLOWED. The route answers 502 when the
+   * memory wipe could not prove it finished or the re-seed fell short, and BOTH
+   * states break a beat silently: a surviving memory can leave beat 6 already
+   * taught, and a short seed leaves beats 4/5 recalling nothing. So the alert
+   * fires and the page is NOT reloaded — a presenter who sees a clean-looking app
+   * assumes the reset worked.
+   */
+  const handleReset = async () => {
+    if (
+      !window.confirm("Reset demo state? This restores the seeded trip record.")
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/airline/v1/dev/reset", { method: "POST" });
+      if (res.ok) {
+        window.location.assign(skinHref());
+      } else {
+        window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
+      }
+    } catch (err) {
+      window.alert(`Reset failed: ${err instanceof Error ? err.message : err}`);
+    }
+  };
 
   return (
     // `h-full`, not `min-h-screen`: this chrome now fills the shell's app card,
@@ -105,8 +142,24 @@ export function AirlineLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="mt-auto rounded-xl bg-surface-muted p-3 text-xs leading-relaxed text-ink-muted">
-          Ask the concierge to check you in, pick a seat, or handle a delay.
+        <div className="mt-auto flex flex-col gap-2">
+          {/* Booth/presenter only — `PRESENTER_RESET_ENABLED`, read server-side in
+              the root layout and threaded down as a boolean. Gated the same way
+              the route is, so a production booth never shows a control that
+              403s. */}
+          {resetEnabled && (
+            <button
+              type="button"
+              onClick={() => void handleReset()}
+              className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset demo
+            </button>
+          )}
+          <div className="rounded-xl bg-surface-muted p-3 text-xs leading-relaxed text-ink-muted">
+            Ask the concierge to check you in, pick a seat, or handle a delay.
+          </div>
         </div>
       </aside>
 
