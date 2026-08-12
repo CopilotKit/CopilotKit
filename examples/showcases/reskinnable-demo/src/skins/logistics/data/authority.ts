@@ -1,5 +1,12 @@
 import { isJustifying } from "./escalation-codes";
-import type { Escalation, Planner, Shipment } from "./types";
+import { computeMitigationOptions } from "./mitigation-options";
+import type {
+  Escalation,
+  Lane,
+  MitigationOption,
+  Planner,
+  Shipment,
+} from "./types";
 
 export type AuthorityCheck =
   | { allowed: true }
@@ -48,4 +55,48 @@ export function checkAuthority(input: {
       `${formatUsd(planner.authorityUsd)} approval authority. ` +
       `File an escalation or ask a Director to approve it.`,
   };
+}
+
+/** One shipment the acting planner cannot release on their own authority. */
+export interface BlockedCase {
+  shipment: Shipment;
+  /**
+   * The CHEAPEST option that is still over the cap. Cheapest rather than
+   * costliest on purpose: it is the option a planner would actually reach for,
+   * and it is the one the gate refuses first — picking the most expensive would
+   * put a number on the filing form that nobody in the demo ever tried to
+   * commit.
+   */
+  option: MitigationOption;
+}
+
+/**
+ * BEAT 6 — every case the planner-facing escalation form may legitimately offer.
+ *
+ * Derived, never stored: costs come from `computeMitigationOptions`, the same
+ * pure function the SERVER recomputes with on every mitigate request, so the
+ * form can never advertise a figure the gate would not actually check. A
+ * Director (`authorityUsd === null`) is blocked by nothing and therefore has no
+ * cases at all — which is why the form renders its empty state for them rather
+ * than a filing UI that could never lift anything.
+ *
+ * Shipments with a mitigation already applied are dropped: the demonstration
+ * that taught the procedure released one of these, and leaving it on the list
+ * afterwards invites the presenter to demonstrate twice on the same case.
+ */
+export function blockedByAuthority(
+  shipments: Shipment[],
+  lanes: Lane[],
+  authorityUsd: number | null,
+): BlockedCase[] {
+  if (authorityUsd === null) return [];
+  const cases: BlockedCase[] = [];
+  for (const shipment of shipments) {
+    if (shipment.appliedMitigation) continue;
+    const option = computeMitigationOptions(shipment, lanes)
+      .filter((o) => o.costUsd > authorityUsd)
+      .sort((a, b) => a.costUsd - b.costUsd)[0];
+    if (option) cases.push({ shipment, option });
+  }
+  return cases;
 }

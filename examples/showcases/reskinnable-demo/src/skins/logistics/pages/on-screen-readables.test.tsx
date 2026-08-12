@@ -72,6 +72,28 @@ vi.mock("@copilotkit/react-core/v2", () => ({
 // and needs the planner-auth context. Mocking the hook itself keeps the test on
 // the thing under examination — the page's readable-versus-panel identity — and
 // off the transport.
+// The Control Tower now hosts beat 6's planner filing form, which reads the
+// acting planner's approval authority. `usePlannerAuth` THROWS outside its
+// provider by design (an unknown planner must never silently scope a run), and
+// these pages render bare, so the identity is stubbed rather than the throw
+// tolerated. Rosa's real seeded authority, so the form derives the same blocked
+// set here as it does in the app.
+vi.mock("../components/planner-auth-context", () => ({
+  usePlannerAuth: () => ({
+    currentPlanner: {
+      id: "pl-rosa",
+      name: "Rosa Delgado",
+      role: "Planner",
+      region: "Trans-Pacific",
+      authorityUsd: 5000,
+    },
+    plannerId: "pl-rosa",
+    setPlannerId: () => {},
+    planners: [],
+    ready: true,
+  }),
+}));
+
 const ledger = {
   shipments: [] as Shipment[],
   lanes: [] as Lane[],

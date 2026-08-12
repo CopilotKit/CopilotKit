@@ -9,6 +9,7 @@ import { useSkinHref } from "@/shell/skin-path";
 import { useLogistics } from "../actions";
 import {
   KpiStrip,
+  EscalationFilingForm,
   ExceptionBoard,
   deriveKpiTiles,
   orderExceptionRows,
@@ -321,6 +322,24 @@ export function ControlTowerPage() {
           lanes={lanes}
           showRank={sort !== null}
         />
+      </section>
+
+      {/* BEAT 6 — the planner's own filing surface, and the ONLY place in this
+          skin the escalation-code vocabulary is on screen.
+
+          IT IS DELIBERATELY ABSENT FROM THE READABLE ABOVE. That readable is the
+          agent's view of this page, and the whole beat rests on the agent NOT
+          holding these codes: describing the menu to it here would leak the
+          catalogue through the one channel the `withheldGateVocabulary` lint
+          rule cannot see, and the demo would still run perfectly while proving
+          nothing (failure-modes.md § 10). So the agent knows the board, the KPIs
+          and the levers on this page, and learns the vocabulary the way the beat
+          requires — by watching the planner use this form. */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
+          Authority escalations
+        </h2>
+        <EscalationFilingForm />
       </section>
     </div>
   );

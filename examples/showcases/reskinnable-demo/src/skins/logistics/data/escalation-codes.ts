@@ -10,17 +10,24 @@
  *
  * ⚠️ This vocabulary is WITHHELD FROM THE AGENT (beat 6). It must never appear
  * in a useAgentContext readable, a tool-schema z.enum, a prompt, or a 422 body.
- * `ESCALATION_CODE_LABELS` is reserved for HUMAN-facing UI — a planner's filing
- * form. NOTE that no such form exists yet: today the only consumer is
- * `escalation-codes.test.ts`. It stays exported for that future form, and the
- * point is that the operator may see this vocabulary while the agent may not.
- * The agent learns which code works by watching the planner file one; that is
- * the entire beat. `eslint.config.mjs`'s `withheldGateVocabulary` rule fails the
+ * `ESCALATION_CODE_LABELS` is reserved for HUMAN-facing UI, and that form now
+ * EXISTS: `components/escalation-form.tsx`, rendered on the Control Tower under
+ * "Authority escalations". It and `escalation-codes.test.ts` are the only
+ * consumers, and they are the only two there should ever be — the point is that
+ * the planner may see this vocabulary while the agent may not. The agent learns
+ * which code works by watching the planner pick one in that form; that is the
+ * entire beat. `eslint.config.mjs`'s `withheldGateVocabulary` rule fails the
  * build if a `*_CODES` / `*_CODE_LABELS` identifier reappears in this skin's
- * `tools.tsx` or `agent.ts`; it CANNOT see prose, so a tool `description` or a
- * prompt sentence naming the codes is a hand-review item
+ * `tools.tsx` or `agent.ts` (the form is a component, so it is correctly outside
+ * that rule's glob); it CANNOT see prose, so a tool `description` or a prompt
+ * sentence naming the codes is a hand-review item
  * (`.claude/skills/reskin/failure-modes.md` § 10). `escalation-codes.test.ts`
  * guards the justifying/decoy split itself.
+ *
+ * The form lists justifying codes and decoys TOGETHER, unmarked and in this
+ * array's order. Do not reorder this array to group them, and do not add a
+ * `justifies` flag to the labels: the planner is supposed to know which is
+ * which, and an app that tells them turns the demonstration into a guided tour.
  */
 export const ESCALATION_CODES = [
   "CUSTOMER_COMMITMENT",
