@@ -39,9 +39,11 @@ tell a deliberate choice from an oversight.
 
 **If the user named which beats to hit** — fewer, more, or different ones — theirs
 win outright. Record what they asked for in the map (`"user: BI dashboards only,
-no teach mode"`) and build that. Absent instructions, build all nine rows: that
-is what makes a skin demo-complete, and three of the six shipped skins are
-missing most of them (see "Which skin to copy" at the end).
+no teach mode"`) and build that — `bookstore` is the worked example of a
+deliberately partial map, with three rows marked `SKIPPED` and a reason on each.
+Absent instructions, build all nine rows: that is what makes a skin
+demo-complete, and three of the shipped skins are missing most of them (see
+"Which skin to copy" at the end).
 
 ---
 
@@ -328,6 +330,14 @@ dollars.
 Intelligence mode. Without those env vars this beat silently degrades to a
 generic answer.
 
+**⚠️ This beat is the RECALL, never a per-person contrast.** Do not build it as
+"same pill, two people on the switcher, two answers": the client's `properties`
+frequently do not reach `identifyUser` on a run, so the on-screen people collapse
+into one default memory bucket and switching re-scopes NOTHING. Every skin that
+tried the contrast framing had to retract it. The authorities are the `CAVEAT`
+block in `.env.example` and the flagged comments in
+`src/shell/agent-registry.ts`; the seeding consequence is the fourth rule below.
+
 ---
 
 ## Beat 5 — Stored procedure: "handle it"
@@ -349,6 +359,20 @@ several steps, in order, no hand-holding.
    easiest thing in the whole demo for the agent to confuse. Say plainly that
    this is a _different_ procedure and it must not offer to record anything.
 5. **A prompt clause** that finding the record is not handling it.
+6. **An explicit empty-recall branch.** The list above only covers the recall
+   landing something — say what the agent must do when it doesn't. If the
+   recall comes back empty, the prompt must have the agent say plainly that no
+   saved procedure was found and stop there: not run the procedure's tools on
+   a guess, not reconstruct the missing values from the catalog, the cart, or
+   anything else on screen (an invented answer that looks right is worse than
+   an honest "not found," because on stage the two are indistinguishable), and
+   — this is the one that actually gets missed — not offer to learn, record,
+   or be told the procedure. That offer belongs to beat 6; an empty recall
+   here is a failure to report, not a cue to teach, and the two beats blurring
+   together is exactly the confusion item 4 above already warns about.
+   `src/skins/bookstore/agent.ts`'s clause-7 empty-recall branch is the worked
+   example, added only after a live run improvised the forbidden teach-offer
+   the moment recall came back empty.
 
 **Banking:** pill `"I don't recognize the Delta charge"` → seeded operational
 memory (`seed-memories.ts:61-76`) → `flagForReview` (`tools.tsx:323`) +
@@ -408,7 +432,7 @@ via aimock.
 
 Beats 4 and 5 are **seeded, not emergent** — "it already knows me" is a file. Add
 `src/skins/<id>/intelligence/seed-memories.ts` alongside your `user-id.ts` and
-mirror `src/skins/banking/intelligence/seed-memories.ts`. Three rules:
+mirror `src/skins/banking/intelligence/seed-memories.ts`. Four rules:
 
 - **Seed the topical preference** (beat 4) and the **operational procedure**
   (beat 5).
@@ -418,6 +442,16 @@ mirror `src/skins/banking/intelligence/seed-memories.ts`. Three rules:
 - **Scope them** so beat 5's procedure and beat 6's learned procedure can never
   be mistaken for each other. Banking scopes the learned one `project` /
   `operational` and words both prompts to force the distinction.
+- **Seed the DEFAULT bucket, not only the mapped person's.** A run usually
+  resolves to your `DEMO_DEFAULT_USER_ID`, so seeding only the mapped id leaves
+  `recall_memory` reading an EMPTY bucket — and that is worse than a degraded
+  beat: the agent gives no answer rather than a generic one, while the memory sits
+  perfectly well stored one id over. Banking seeds only its default bucket;
+  `people` (`SEED_TARGET_USER_IDS`), `commerce` (`memorySeedTargetUserIds`) and
+  `bookstore` (`bookstoreMemorySeedTargetUserIds`) seed it alongside the mapped
+  one, deduped through a `Set` so a pinned `INTELLIGENCE_USER_ID` is not
+  double-written. Derive that list in `user-id.ts`, never in the reset route —
+  templates.md § "Do NOT hardcode the bucket list" explains why.
 
 Reset must re-seed. See the Reset requirement below.
 
@@ -472,11 +506,14 @@ leaving beat 6 unlearned. Banking's `dev/reset` route does exactly that.
 **The route and the button are one feature — ship both or neither counts.** Every
 skin that has one has the other: `ls -d src/app/api/*/v1/dev/reset` and
 `grep -rln usePresenterReset src/skins/` return the same set, which today is
-`banking`, `commerce`, `logistics` and `people`. Run both commands rather than
-trusting this list — a new skin is expected to appear in both. Of those four,
-banking, people and commerce also do the **memory** half (they are the only three
-with `intelligence/seed-memories.ts` + `intelligence/forget-memories.ts`);
-logistics restores its data store only, so it cannot reset beats 4–6. Treat the
+`banking`, `bookstore`, `commerce`, `logistics` and `people`. Run both commands
+rather than trusting this list — a new skin is expected to appear in both. Of
+those, banking, people, commerce and bookstore also do the **memory** half (they
+are the ones with `intelligence/seed-memories.ts` +
+`intelligence/forget-memories.ts`); logistics restores its data store only, so it
+cannot reset beats 4–6. Bookstore is the inverse case — it has no server store to
+restore, so its route resets memory only and its button clears the
+`localStorage` cart client-side before reloading. Treat the
 route, the button and the re-seed as required: without them you cannot re-run the
 demo for the second room in the day.
 
@@ -527,22 +564,24 @@ tools or pages, alongside this file.
 
 ## Which skin to copy for what
 
-| Need                                  | Copy from                                                                  |
-| ------------------------------------- | -------------------------------------------------------------------------- |
-| Every beat, end to end                | `banking`, `people` or `commerce` — the only three at 9/9 beats            |
-| A written-out beat map                | `people` or `commerce` — the table at the top of their `suggestions.ts`    |
-| Route + on-screen readables (beat 3b) | `banking`, `people`, `commerce`                                            |
-| Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`; `people`/`commerce` for 2nd takes |
-| A four-lever navigation (beat 3c)     | `commerce` — status + exception + sort + top-N, all four tinted            |
-| Attachment staging (beat 3d)          | `banking` (`attach-invoice.ts`), `people`, `commerce`                      |
-| A GENERATED uploaded document         | `people` (`offer-letter-pdf.ts`), `commerce` (`price-sheet-pdf.ts`)        |
-| Seeded memories (beats 4, 5)          | `banking`, `people`, `commerce` — the only three with a seed file          |
-| Debugged layout + meta-utility strip  | `logistics`, `people`, `commerce`                                          |
-| Server-emitted a2ui canvas            | `logistics` (`renderBrief`), `banking` (`render_report`)                   |
-| Per-user identity plumbing            | `banking`, `logistics`, `keel`, `people`, `commerce`                       |
-| Parameterized routes in `resolvePage` | `keel` (`knowledge/<docId>`, `runs/<runId>`)                               |
-| In-memory `useData` substrate         | `airline`, `keel`                                                          |
-| Minimal contract surface              | `airline`                                                                  |
+| Need                                  | Copy from                                                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Every beat, end to end                | `banking`, `people` or `commerce` — the only three at 9/9 beats                                               |
+| A written-out beat map                | `people`, `commerce` or `bookstore` — the table atop their `suggestions.ts`                                   |
+| A map with DELIBERATE gaps            | `bookstore` — three rows marked `SKIPPED`, each with its reason                                               |
+| A customer-facing (not console) skin  | `bookstore` — a shopper's storefront with the beats wired (`airline` is customer-facing but predates the bar) |
+| Route + on-screen readables (beat 3b) | `banking`, `people`, `commerce`, `bookstore`                                                                  |
+| Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`; `people`/`commerce` for 2nd takes                                    |
+| A four-lever navigation (beat 3c)     | `commerce` — status + exception + sort + top-N, all four tinted                                               |
+| Attachment staging (beat 3d)          | `banking` (`attach-invoice.ts`), `people`, `commerce`                                                         |
+| A GENERATED uploaded document         | `people` (`offer-letter-pdf.ts`), `commerce` (`price-sheet-pdf.ts`)                                           |
+| Seeded memories (beats 4, 5)          | `banking`, `people`, `commerce`; `bookstore` seeds beat 4 only                                                |
+| Debugged layout + meta-utility strip  | `logistics`, `people`, `commerce`                                                                             |
+| Server-emitted a2ui canvas            | `logistics` (`renderBrief`), `banking` (`render_report`)                                                      |
+| Per-user identity plumbing            | `banking`, `logistics`, `keel`, `people`, `commerce`, `bookstore`                                             |
+| Parameterized routes in `resolvePage` | `keel` (`knowledge/<docId>`, `runs/<runId>`), `bookstore` (`book/<slug>`)                                     |
+| In-memory `useData` substrate         | `airline`, `keel`; `bookstore` adds a `localStorage` mirror                                                   |
+| Minimal contract surface              | `airline`                                                                                                     |
 
 > **Writing a PDF by hand?** Two traps, both of which produce a VALID PDF that is
 > wrong on screen — nothing type-checks a rendered page, and this document is
