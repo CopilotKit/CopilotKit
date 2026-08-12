@@ -964,17 +964,26 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = (
     ...innerProps
   } = props;
   const { headers, error } = useHeaderSource(source);
-  const reportedError = useRef<Error | null>(null);
+  const reportedError = useRef<{
+    source: typeof source;
+    error: Error;
+  } | null>(null);
 
   useEffect(() => {
-    if (!error || reportedError.current === error) return;
-    reportedError.current = error;
+    if (
+      !error ||
+      (reportedError.current?.source === source &&
+        reportedError.current.error === error)
+    ) {
+      return;
+    }
+    reportedError.current = { source, error };
     onError?.({
       error,
       code: CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED,
       context: { source: "headers", runtimeUrl },
     });
-  }, [error, onError, runtimeUrl]);
+  }, [error, onError, runtimeUrl, source]);
 
   if (!headers) return null;
   return (

@@ -94,6 +94,38 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // error events to the v1 shape — so it must not be spread into the v2
   // provider directly.
   const { onError: _onError, ...v2Props } = props;
+  const handleV2HeaderError = useCallback(
+    async (event: {
+      error: Error;
+      code: string;
+      context: Record<string, any>;
+    }) => {
+      if (!_onError || event.context?.source !== "headers") return;
+      await _onError({
+        type: "error",
+        timestamp: Date.now(),
+        context: {
+          source: "agent",
+          request: {
+            operation: event.code,
+            url: props.runtimeUrl,
+            startTime: Date.now(),
+          },
+          technical: {
+            environment: "browser",
+            userAgent:
+              typeof navigator !== "undefined"
+                ? navigator.userAgent
+                : undefined,
+            stackTrace: event.error.stack,
+          },
+          ...event.context,
+        },
+        error: event.error,
+      });
+    },
+    [_onError, props.runtimeUrl],
+  );
 
   return (
     <ToastProvider enabled={enabled}>
@@ -107,6 +139,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
             showDevConsole={showInspector}
             renderCustomMessages={renderArr}
             useSingleEndpoint={props.useSingleEndpoint ?? true}
+            onError={_onError ? handleV2HeaderError : undefined}
           >
             <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
           </CopilotKitV2Provider>

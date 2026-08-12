@@ -36,4 +36,27 @@ describe("v1 async headers", () => {
     expect(headers.get("Authorization")).toBe("Bearer settled");
     fetchMock.mockRestore();
   });
+
+  it("forwards an initial header failure through the v1 error shape", async () => {
+    const onError = vi.fn();
+    const original = new Error("token unavailable");
+    render(
+      <CopilotKit
+        runtimeUrl="https://runtime.example"
+        headers={() => Promise.reject(original)}
+        onError={onError}
+      >
+        <div>v1-child</div>
+      </CopilotKit>,
+    );
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(onError.mock.calls[0]?.[0]).toMatchObject({
+      type: "error",
+      error: original,
+      context: {
+        source: "headers",
+        request: { operation: "header_resolution_failed" },
+      },
+    });
+  });
 });

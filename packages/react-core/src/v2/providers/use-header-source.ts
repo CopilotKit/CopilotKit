@@ -59,13 +59,15 @@ export function useHeaderSource(source: HeaderSource): {
   } | null>(null);
   const previous = evaluationRef.current;
   const evaluation =
-    previous && previous.source === source && previous.value.kind === "async"
+    previous &&
+    previous.source === source &&
+    (previous.value.kind === "async" || previous.value.kind === "error")
       ? previous.value
       : evaluate(source);
   if (
     !previous ||
     previous.source !== source ||
-    previous.value.kind !== "async"
+    (previous.value.kind !== "async" && previous.value.kind !== "error")
   ) {
     evaluationRef.current = { source, value: evaluation };
   }
@@ -83,26 +85,27 @@ export function useHeaderSource(source: HeaderSource): {
 
   useEffect(() => {
     const current = ++generation.current;
+    let active = true;
     if (evaluation.kind === "sync") {
       lastGood.current = evaluation.value;
-      setState({ headers: evaluation.value, error: null });
-      return;
+      return () => {
+        active = false;
+      };
     }
     if (evaluation.kind === "error") {
-      setState({
-        headers: lastGood.current === EMPTY ? null : lastGood.current,
-        error: evaluation.error,
-      });
-      return;
+      return () => {
+        active = false;
+      };
     }
-    setState((previousState) => ({
-      headers: previousState.headers,
-      error: null,
-    }));
+    setState((previousState) =>
+      previousState.error === null
+        ? previousState
+        : { headers: previousState.headers, error: null },
+    );
     Promise.resolve(evaluation.value).then(
       (headers) => {
-        if (current !== generation.current || !isRecord(headers)) {
-          if (current === generation.current && !isRecord(headers)) {
+        if (!active || current !== generation.current || !isRecord(headers)) {
+          if (active && current === generation.current && !isRecord(headers)) {
             setState({
               headers: lastGood.current === EMPTY ? null : lastGood.current,
               error: new Error(
@@ -113,16 +116,20 @@ export function useHeaderSource(source: HeaderSource): {
           return;
         }
         lastGood.current = headers;
+        if (!active || current !== generation.current) return;
         setState({ headers, error: null });
       },
       (error) => {
-        if (current !== generation.current) return;
+        if (!active || current !== generation.current) return;
         setState({
           headers: lastGood.current === EMPTY ? null : lastGood.current,
           error: errorFrom(error),
         });
       },
     );
+    return () => {
+      active = false;
+    };
   }, [evaluation]);
 
   return {
