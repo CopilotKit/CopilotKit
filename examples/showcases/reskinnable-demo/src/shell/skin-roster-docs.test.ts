@@ -21,9 +21,11 @@ import { skinIds } from "./skins-config";
  * stale template still compiles, lints and renders." Prose discipline cannot see
  * a sentence that is merely out of date. This file is the mechanical replacement.
  *
- * The expected values are DERIVED from `skinIds`; the digit 6 and the word "six"
- * appear nowhere below, or this test would itself become an instance of the bug
- * it exists to prevent.
+ * The expected values are DERIVED from `skinIds`; no assertion hardcodes the
+ * registered count, or this test would itself become an instance of the bug it
+ * exists to prevent. The FIXTURE strings in the self-tests below do carry literal
+ * numerals — those pin a phrase SHAPE, not the roster, and each must stay TRUE as
+ * written.
  *
  * ── Coverage, stated honestly ────────────────────────────────────────────────
  *
@@ -49,20 +51,20 @@ import { skinIds } from "./skins-config";
  *     incomplete roster if the brace-glob rule demands exhaustiveness with no
  *     totality framing, while the id-list rule (correctly) requires one. Globs
  *     need the same framing, from a cue window on EITHER side: the two real globs
- *     are framed by "the six shipped skins" BEFORE (templates.md) and "six
- *     implementations" AFTER (CLAUDE.md). Keep that framing when editing either
- *     doc — it is what arms the rule.
+ *     are framed by "mirror every shipped skin" BEFORE (templates.md) and a
+ *     counted "<N> implementations" AFTER (CLAUDE.md). Keep that framing when
+ *     editing either doc — it is what arms the rule.
  *
  * Both discriminators are pinned below by must-flag AND must-not-flag fixtures,
  * so neither can be quietly widened back.
  *
  * NOT COVERED, deliberately:
  *
- *  - **Subset counts** ("the four REST-backed skins", "the three demo-complete
+ *  - **Subset counts** ("the six REST-backed skins", "the two customer-facing
  *    skins", "all three skins have one"). These are true statements about a
  *    subset, and a subset size is not derivable from the registry, so asserting
- *    on them would only produce false alarms. `COUNT_EXEMPTIONS` below carries
- *    the one subset phrase whose grammar is indistinguishable from a total claim.
+ *    on them would only produce false alarms. `COUNT_EXEMPTIONS` below is where a
+ *    subset phrase whose grammar is indistinguishable from a total claim would go.
  *  - **Per-skin counts** — gen-UI registration counts, suggestion-pill counts,
  *    beat counts ("nine beats", "the three skins at 9/9"). Not skin-roster
  *    claims; verifying them would mean parsing each skin's source.
@@ -137,7 +139,7 @@ const MENTIONS_SKIN = /\bskins?\b/i;
 /**
  * Each rule matches a phrase shape that asserts the SIZE OF THE SHIPPED SET, and
  * only that shape — the discriminator is that a subset claim is virtually always
- * qualified ("four REST-backed skins", "five of the six skins"), so a bare number
+ * qualified ("six REST-backed skins", "six of the seven skins"), so a bare number
  * fused to a totality cue is the total. Each rule carries the stale phrasings it
  * catches; `catches` doubles as the synthetic red fixture in the self-test at the
  * bottom, so a refactor that keeps the list but breaks a regex fails too.
@@ -298,10 +300,10 @@ const CUE_LOOKBEHIND = 140;
 
 /**
  * Totality framing for a brace GLOB, which needs its own cue vocabulary: a path
- * glob is framed by prose about the skins it points at ("mirror the six shipped
- * skins", "— six implementations"), not by the "valid ids" wording that frames an
- * inline id list. Without this, every partial glob is demanded to be exhaustive
- * — a false positive on a deliberate two-member glob.
+ * glob is framed by prose about the skins it points at ("mirror every shipped
+ * skin", or a counted "<N> implementations"), not by the "valid ids" wording that
+ * frames an inline id list. Without this, every partial glob is demanded to be
+ * exhaustive — a false positive on a deliberate two-member glob.
  *
  * The window spans BOTH sides because the two real globs are framed on opposite
  * sides: templates.md's cue precedes it, CLAUDE.md's follows it.
@@ -514,8 +516,8 @@ describe("the documented skin roster", () => {
     // glob is covered. The brace-glob rule needs totality framing near the glob
     // (deliberately, so a partial glob is not demanded to be exhaustive), so a
     // single doc rephrased away from that framing drops out of coverage while the
-    // other doc's glob keeps this assertion green — dropping templates.md's "the
-    // six shipped skins" framing leaves the suite passing.
+    // other doc's glob keeps this assertion green — dropping templates.md's
+    // "mirror every shipped skin" framing leaves the suite passing.
     expect(rosters.length).toBeGreaterThan(2);
     expect([...new Set(rosters.map((h) => h.rule))].sort()).toEqual([
       "brace-glob",
@@ -626,21 +628,25 @@ describe("the roster checks themselves", () => {
     // qualified by an adjective, and numbers about things that are not skins.
     //
     // ⚠️ SEVERAL ENTRIES ARE DELIBERATELY NOT IN THE DOCS. "the two in-memory
-    // skins", "the four REST-backed skins" and "five of the six skins" are false
-    // as PRESENT-TENSE claims about this tree, so they appear here only in the
-    // past tense. They stay because they pin the discriminator: an adjective
-    // between the numeral and "skins" is what makes a subset claim distinguishable
-    // from a total claim, and nothing else asserts that. Keep this list a set of
-    // SHAPES; do not prune it back to whatever the docs happen to say this month,
-    // and do not add a shape that is false.
+    // skins" is false as a PRESENT-TENSE claim about this tree, so it appears
+    // here in the past tense. They stay
+    // because they pin the discriminator: an adjective between the numeral and
+    // "skins" is what makes a subset claim distinguishable from a total claim, and
+    // nothing else asserts that. A subset count whose DENOMINATOR is the
+    // registered count ("six of the seven skins") is the other pinned shape, and
+    // it has to be re-derived when the roster grows or the rule flags it. Keep
+    // this list a set of SHAPES; do not prune it back to whatever the docs happen
+    // to say this month, and do not add a shape that is false.
     const legitimate = [
       "naming four skins for two releases after `people` and `commerce` shipped",
       "it named four skins for two releases after `people` and `commerce` shipped",
       "Absent instructions, build all nine rows",
       "the beat-first pair, `people` and `commerce`",
-      "Set by the four REST-backed skins — banking, people and commerce",
+      "Set by the six REST-backed skins — banking, people and commerce",
       "It was the mechanism the two in-memory skins used",
-      "That was five of the six skins; **airline** was the only one that omitted it",
+      // A subset count whose DENOMINATOR is the registered count: truthful, and
+      // therefore never flagged. Re-derive it when the roster grows.
+      "That is six of the seven skins; **bookstore** is the only one without one",
       "The gated `dev/reset` route was the wider set: four skins had one",
       "The ask is 8–12 skins spanning that space",
       "banking, logistics, keel, people and commerce all five shipped them",
@@ -653,8 +659,8 @@ describe("the roster checks themselves", () => {
       // leave alone — the numeral-free forms this test's own failure message
       // recommends, plus a truthful total.
       "Every registered skin hits every row.",
-      "all six skins are REST-backed",
-      "`useData` now has zero implementors",
+      "all seven skins run behind the same `Skin` contract",
+      "`useData` has exactly one implementor",
     ];
     expect(
       legitimate.flatMap((text) =>
@@ -673,20 +679,21 @@ describe("the roster checks themselves", () => {
       "the deploy becomes single-tenant.";
     const hits = findIncompleteRosters(stale, skinIds);
     expect(hits).toHaveLength(1);
-    expect(hits[0].missing).toEqual(["people", "commerce"]);
+    expect(hits[0].missing).toEqual(["people", "commerce", "bookstore"]);
 
     const envStyle =
       "# Valid ids: banking, airline, logistics, keel. An unrecognised value THROWS.";
     expect(findIncompleteRosters(envStyle, skinIds)[0]?.missing).toEqual([
       "people",
       "commerce",
+      "bookstore",
     ]);
   });
 
   it("leaves a deliberate subset list alone", () => {
     // No "valid/registered set" framing → not a roster claim.
     const subset =
-      "Three of the six skins — **`banking`**, **`people`** and **`commerce`** — are " +
+      "Three skins — **`banking`**, **`people`** and **`commerce`** — are " +
       "demo-complete against the full beat list.";
     expect(findIncompleteRosters(subset, skinIds)).toEqual([]);
   });
@@ -706,13 +713,13 @@ describe("the roster checks themselves", () => {
     const before =
       "mirror the four shipped skins (`src/skins/{banking,airline,logistics,keel}/`)";
     expect(findIncompleteRosters(before, skinIds)).toMatchObject([
-      { rule: "brace-glob", missing: ["people", "commerce"] },
+      { rule: "brace-glob", missing: ["people", "commerce", "bookstore"] },
     ]);
 
     const after =
       "- `src/skins/{banking,airline,logistics,keel}/skin.tsx` — four implementations.";
     expect(findIncompleteRosters(after, skinIds)).toMatchObject([
-      { rule: "brace-glob", missing: ["people", "commerce"] },
+      { rule: "brace-glob", missing: ["people", "commerce", "bookstore"] },
     ]);
   });
 });

@@ -39,10 +39,12 @@ tell a deliberate choice from an oversight.
 
 **If the user named which beats to hit** — fewer, more, or different ones — theirs
 win outright. Record what they asked for in the map (`"user: BI dashboards only,
-no teach mode"`) and build that. Absent instructions, build all nine rows: that
-is what makes a skin demo-complete, and every registered skin hits all nine, so
-there is no partial precedent to hide behind (see "Which skin to copy" at the
-end).
+no teach mode"`) and build that — `bookstore` is the worked example of a
+deliberately partial map, marking `3d multimodal` and `6 teach a skill` `SKIPPED`
+with a reason on each rather than deleting the rows. Absent instructions, build all
+nine rows: that is what makes a skin demo-complete, and every registered skin but
+bookstore hits all nine, so a partial map has to be a stated decision rather than a
+precedent to hide behind (see "Which skin to copy" at the end).
 
 ---
 
@@ -445,6 +447,14 @@ dollars.
 Intelligence mode. Without those env vars this beat silently degrades to a
 generic answer.
 
+**⚠️ This beat is the RECALL, never a per-person contrast.** Do not build it as
+"same pill, two people on the switcher, two answers": the client's `properties`
+frequently do not reach `identifyUser` on a run, so the on-screen people collapse
+into one default memory bucket and switching re-scopes NOTHING. Every skin that
+tried the contrast framing had to retract it. The authorities are the `CAVEAT`
+block in `.env.example` and the flagged comments in
+`src/shell/agent-registry.ts`; the seeding consequence is the fourth rule below.
+
 ---
 
 ## Beat 5 — Stored procedure: "handle it"
@@ -466,6 +476,20 @@ several steps, in order, no hand-holding.
    easiest thing in the whole demo for the agent to confuse. Say plainly that
    this is a _different_ procedure and it must not offer to record anything.
 5. **A prompt clause** that finding the record is not handling it.
+6. **An explicit empty-recall branch.** The list above only covers the recall
+   landing something — say what the agent must do when it doesn't. If the
+   recall comes back empty, the prompt must have the agent say plainly that no
+   saved procedure was found and stop there: not run the procedure's tools on
+   a guess, not reconstruct the missing values from the catalog, the cart, or
+   anything else on screen (an invented answer that looks right is worse than
+   an honest "not found," because on stage the two are indistinguishable), and
+   — this is the one that actually gets missed — not offer to learn, record,
+   or be told the procedure. That offer belongs to beat 6; an empty recall
+   here is a failure to report, not a cue to teach, and the two beats blurring
+   together is exactly the confusion item 4 above already warns about.
+   `src/skins/bookstore/agent.ts`'s clause-7 empty-recall branch is the worked
+   example, added only after a live run improvised the forbidden teach-offer
+   the moment recall came back empty.
 
 **Banking:** pill `"I don't recognize the Delta charge"` → seeded operational
 memory (`seed-memories.ts:61-76`) → `flagForReview` (`tools.tsx:323`) +
@@ -561,7 +585,7 @@ via aimock.
 
 Beats 4 and 5 are **seeded, not emergent** — "it already knows me" is a file. Add
 `src/skins/<id>/intelligence/seed-memories.ts` alongside your `user-id.ts` and
-mirror `src/skins/banking/intelligence/seed-memories.ts`. Three rules:
+mirror `src/skins/banking/intelligence/seed-memories.ts`. Four rules:
 
 - **Seed the topical preference** (beat 4) and the **operational procedure**
   (beat 5).
@@ -571,6 +595,16 @@ mirror `src/skins/banking/intelligence/seed-memories.ts`. Three rules:
 - **Word beat 5's procedure and beat 6's so they can never be mistaken for each
   other**, and force the distinction in both prompt clauses too. This is the single
   easiest thing in the demo for the agent to confuse.
+- **Seed the DEFAULT bucket, not only the mapped person's.** A run usually
+  resolves to your `DEMO_DEFAULT_USER_ID`, so seeding only the mapped id leaves
+  `recall_memory` reading an EMPTY bucket — worse than a degraded beat, because
+  the agent gives no answer rather than a generic one while the memory sits
+  perfectly well stored one id over. Banking seeds only its default bucket; the
+  rest seed it alongside the mapped one, deduped through a `Set` so a pinned
+  `INTELLIGENCE_USER_ID` is not double-written
+  (`grep -rn 'SeedTargetUserIds\|SEED_TARGET_USER_IDS' src/skins/*/intelligence/user-id.ts`).
+  Derive that list in `user-id.ts`, never in the reset route — templates.md
+  § "Do NOT hardcode the bucket list" explains why.
 
 ### 🚨 Scope BOTH procedures `user`. Not `project`.
 
@@ -633,8 +667,8 @@ rides along instead of asking twice.
 Read the beat-map header at the top of `people`'s or `commerce`'s `suggestions.ts`
 to see the mapping written out, and count what any skin actually ships with
 `grep -c 'title:' src/skins/*/suggestions.ts` rather than trusting a number in
-prose. **Every shipped skin is demo-complete and the counts still disagree with
-each other** — that is the whole point: a count says nothing about coverage in
+prose. **Nearly every shipped skin is demo-complete and the counts still disagree
+with each other** — that is the whole point: a count says nothing about coverage in
 either direction. The highest count in the tree belongs to a skin whose extra
 pills map to no beat at all (the arithmetic is written out at the top of its
 `suggestions.ts`). Derive coverage from the matrix commands in `CLAUDE.md`, never
@@ -671,7 +705,12 @@ The **memory** half is a second, narrower question, and it is derivable too:
 `ls src/skins/*/intelligence/seed-memories.ts` names every skin whose reset can
 re-arm beats 4–6, each alongside a sibling `forget-memories.ts`. A skin with a
 reset route but no seed file restores its data store only and CANNOT reset those
-beats — which is a silent trap, because its Reset button looks identical.
+beats — a silent trap, because its Reset button looks identical.
+
+A `useData` skin inverts the data half: with no server-side store there is nothing
+to restore, so its route touches memory only and the button clears the browser
+state itself before reloading (`bookstore`'s `localStorage` cart is the worked
+example). It still owes you the memory half.
 
 Treat the route, the button and the re-seed as required: without all three you
 cannot re-run the demo for the second room in the day.
@@ -723,15 +762,17 @@ tools or pages, alongside this file.
 
 ## Which skin to copy for what
 
-**Every registered skin is demo-complete**, so the question is not "which ones
-are finished" but "which one is the cleanest read for the thing I am stuck on".
-Rows naming a set rather than a skin give you the derivation instead, because
-a set rots and a command does not.
+**Every registered skin but `bookstore` is demo-complete**, so the question is
+usually not "which ones are finished" but "which one is the cleanest read for the
+thing I am stuck on". Rows naming a set rather than a skin give you the derivation
+instead, because a set rots and a command does not.
 
 | Need                                      | Copy from                                                                             |
 | ----------------------------------------- | ------------------------------------------------------------------------------------- |
-| Every beat, end to end                    | any registered skin — pick the domain nearest yours                                   |
-| A written-out beat map                    | `people` or `commerce` — the table at the top of their `suggestions.ts`               |
+| Every beat, end to end                    | any registered skin but `bookstore` — pick the domain nearest yours                   |
+| A written-out beat map                    | `people`, `commerce` or `bookstore` — the table atop their `suggestions.ts`           |
+| A map with DELIBERATE gaps                | `bookstore` — two rows marked `SKIPPED`, each with its reason                         |
+| A customer-facing (not console) skin      | `bookstore` (a shopper's storefront) or `airline` (a traveller's concierge)           |
 | Route + on-screen readables (beat 3b)     | `grep -rln useAgentContext src/skins/*/layout.tsx` — all of them; `banking` richest   |
 | Teach mode (beat 6)                       | `docs/teach-mode/README.md` first; then any skin shipping `teach-mode-directives.ts`  |
 | A four-lever navigation (beat 3c)         | `commerce` — status + exception + sort + top-N, all four tinted                       |
@@ -742,11 +783,11 @@ a set rots and a command does not.
 | Server-emitted a2ui canvas                | `logistics` (`renderBrief`), `banking` (`render_report`)                              |
 | Per-user identity plumbing                | `ls src/skins/*/intelligence/user-id.ts` — all of them; `commerce`'s is the `Map` one |
 | Runtime identity with NO context to read  | `airline` — `useRuntimeProperties` + `identifyUser`, no `RuntimeProviders`            |
-| Parameterized routes in `resolvePage`     | `keel` (`knowledge/<docId>`, `runs/<runId>`)                                          |
+| Parameterized routes in `resolvePage`     | `keel` (`knowledge/<docId>`, `runs/<runId>`), `bookstore` (`book/<slug>`)             |
 | A server-settled clock (no client tick)   | `keel` — `src/app/api/keel/v1/settle-runs.ts`, settled on every read                  |
 | Raising an EXISTING skin to the beats     | `logistics`, `airline`, `keel` — their git history walks that path commit by commit   |
 | A gate that is ENTITLEMENT, not authority | `airline` — the fare's own conditions refuse; the exception must MATCH the record     |
-| An in-memory `useData` substrate          | nothing — no skin sets `useData`; templates.md § `data/use-data.ts` only              |
+| An in-memory `useData` substrate          | `bookstore` — the only implementor; seed catalog + a `localStorage` cart mirror       |
 
 > **Generating a PDF? Do NOT write the bytes — call `@/shell/documents`.**
 > `buildPdf(lines: Line[])` emits a single page of base-14 text with a correct

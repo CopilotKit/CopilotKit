@@ -86,8 +86,8 @@ const RecordingContext = createContext<RecordingValue | null>(null);
  * render. A fresh object literal each render would hand every consumer outside
  * a provider new `logStep` / `beginRecording` identities on every pass, so any
  * call site listing them in a `useEffect` or `useMemo` dep array would re-run
- * forever. No current call site is exposed, but this module now ships to all
- * six skins, and an infinite render loop is a far more expensive bug than the
+ * forever. No current call site is exposed, but this module ships to every
+ * registered skin, and an infinite render loop is a far more expensive bug than the
  * missing feed line the fallback exists to tolerate. Frozen so a consumer
  * cannot mutate the shared instance out from under every other consumer.
  */

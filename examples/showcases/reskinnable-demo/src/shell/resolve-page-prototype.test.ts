@@ -32,6 +32,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { SkinRegistry } from "./registry";
+import { skinIds } from "./skins-config";
 
 /**
  * Every enumerable and non-enumerable own key of Object.prototype, taken from
@@ -68,10 +69,11 @@ const leaksPrototype = (value: unknown) =>
 const skins = Object.entries(SkinRegistry);
 
 describe("resolvePage is not fooled by Object.prototype keys", () => {
-  it("registers at least the six shipped skins, so the loop below is not vacuous", () => {
+  it("registers the whole shipped roster, so the loop below is not vacuous", () => {
     // Without this, deleting the registry's contents would turn every
-    // assertion below into a no-op and the suite would still be green.
-    expect(skins.length).toBeGreaterThanOrEqual(6);
+    // assertion below into a no-op and the suite would still be green. Derived
+    // from `skinIds`, never a literal, so adding a skin cannot make it stale.
+    expect(skins.length).toBe(skinIds.length);
     expect(PROTOTYPE_KEYS).toContain("constructor");
     expect(PROTOTYPE_KEYS).toContain("toString");
   });

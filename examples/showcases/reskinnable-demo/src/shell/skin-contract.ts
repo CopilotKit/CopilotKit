@@ -29,8 +29,8 @@ import type { SandboxFunction } from "@copilotkit/react-core/v2";
  *      every skin's Intelligence runs. Identity now flows through
  *      `CopilotKitProvider`'s `properties` prop (provider-owned), not a child
  *      racing `setProperties`.
- *   6. `useData` made OPTIONAL — banking has no shell-managed data, so it need
- *      not stub the hook; `useSkinData<T>()` returns `undefined` for such skins.
+ *   6. `useData` is OPTIONAL — a REST-backed skin has no shell-managed data, so
+ *      it need not stub the hook; `useSkinData<T>()` returns `undefined` there.
  */
 
 /** A nav entry that drives the skin's layout navigation and route resolution. */
@@ -169,19 +169,21 @@ export interface Skin {
   useRuntimeProperties?: () => Record<string, unknown> | undefined;
   /**
    * OPTIONAL seed-backed data hook consumed by the skin's own components via
-   * `useSkinData<T>()`. Omit when a skin has no shell-managed client state — which
-   * is every skin in the tree today: all of them are REST-backed and read their own
-   * ledger through their own context (banking `useCreditCards` + `useAuthContext`,
-   * the rest a `use<Id>Ledger()`), so `useSkinData<T>()` returns `undefined`
-   * everywhere. Derive that rather than trusting this comment:
-   * `grep -rn "useData" src/skins/-/skin.tsx` (with `-` as the glob star) returns
-   * only comments recording the omission.
+   * `useSkinData<T>()`. This is the IN-MEMORY substrate, and it is the minority
+   * path: most skins omit it, being REST-backed and reading their own ledger
+   * through their own context (banking `useCreditCards` + `useAuthContext`, the
+   * rest a `use<Id>Ledger()`), so `useSkinData<T>()` returns `undefined` there.
+   * Derive who takes it rather than trusting this comment — from the app root:
    *
-   * The field is kept, and the shell still runs the hook when a skin supplies one,
-   * because "shell-managed client state" is a legitimate shape — `airline` and
-   * `keel` both used it before migrating to REST ledgers. It just has no worked
-   * example left; `.claude/skills/reskin/templates.md` § `data/use-data.ts` is the
-   * reference, and it explains why you probably want REST instead.
+   *     grep -l 'useData:' src/skins/-/skin.tsx   # with - as the glob star
+   *
+   * (Written with `-` on purpose: a literal glob star followed by a slash closes
+   * this block comment and the rest of the file becomes a syntax error.)
+   *
+   * The shell runs the hook whenever a skin supplies one, so the field is live
+   * rather than vestigial, and it has a worked example: read that implementor
+   * first, then `.claude/skills/reskin/templates.md` § `data/use-data.ts`, which
+   * explains when you probably want REST instead.
    */
   useData?: () => unknown;
 }

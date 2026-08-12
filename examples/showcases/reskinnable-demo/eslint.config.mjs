@@ -45,6 +45,7 @@ export const LINTED_SKIN_IDS = [
   "keel",
   "people",
   "commerce",
+  "bookstore",
 ];
 
 const SKIN_IDS = LINTED_SKIN_IDS.join("|");
