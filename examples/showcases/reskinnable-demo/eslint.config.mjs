@@ -285,18 +285,28 @@ const eslintConfig = [
       ],
     },
   },
-  // BEAT 2 — see statusKeyedTerminalRender. Scoped to the skins already re-keyed;
-  // keel (4 occurrences) and airline (3) still carry the defect and are added by
-  // their own phases. A glob covering an unfixed skin turns the tree red for the
-  // whole phase, and a phase that cannot end green is a phase nobody can bisect.
+  // BEAT 2 — see statusKeyedTerminalRender. Scoped to the skins already re-keyed.
+  // That was logistics alone; airline and keel were re-keyed by the beat-parity
+  // work and are added here. Both were verified clean BEFORE widening the glob:
+  // every remaining `ToolCallStatus` reference in either skin is either a comment
+  // or a `=== ToolCallStatus.Executing && respond` HITL branch (the interactive
+  // affordance drawn while a response is awaited), never a `.Complete` terminal
+  // render — which is the shape this selector exists to catch. Widen this glob
+  // only after checking the same, because a glob covering an unfixed skin turns
+  // the tree red for a whole phase, and a phase that cannot end green is a phase
+  // nobody can bisect.
   //
   // ⚠️ RESTATES THE LOCK_SKIN SELECTORS, and must keep doing so — flat-config
   // `rules` are REPLACED, not merged (see NAMED_SELECTORS). This block must also
   // stay ABOVE the beat-6 block below: that one is narrower by FILE but ESLint
-  // resolves by ORDER, not specificity, so a logistics-wide block placed after it
+  // resolves by ORDER, not specificity, so a skin-wide block placed after it
   // would silently strip `withheldGateVocabulary` from `tools.tsx`/`agent.ts`.
   {
-    files: ["src/skins/logistics/**/*.tsx"],
+    files: [
+      "src/skins/logistics/**/*.tsx",
+      "src/skins/airline/**/*.tsx",
+      "src/skins/keel/**/*.tsx",
+    ],
     ignores: SKIN_TEST_FILES,
     rules: {
       "no-restricted-syntax": [
@@ -329,7 +339,20 @@ const eslintConfig = [
   // by name, per file, through `ESLint#calculateConfigForFile`. Add every file
   // whose selector set you change to its table.
   {
-    files: ["src/skins/logistics/tools.tsx", "src/skins/logistics/agent.ts"],
+    // Three skins ship a withheld gate vocabulary: logistics (escalation codes),
+    // airline (fare-waiver categories) and keel (publication-variance codes).
+    // Each contributes exactly its two AGENT-FACING files. The human filing FORMS
+    // — logistics' escalation-form, airline's fare-exception-form, keel's
+    // variance-form — legitimately import the labels and are deliberately NOT
+    // listed: a withheld catalogue with no form is an unlearnable gate.
+    files: [
+      "src/skins/logistics/tools.tsx",
+      "src/skins/logistics/agent.ts",
+      "src/skins/airline/tools.tsx",
+      "src/skins/airline/agent.ts",
+      "src/skins/keel/tools.tsx",
+      "src/skins/keel/agent.ts",
+    ],
     rules: {
       "no-restricted-syntax": [
         "error",

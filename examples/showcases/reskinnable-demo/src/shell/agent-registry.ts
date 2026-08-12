@@ -34,8 +34,17 @@ import { commerceIdentifyUser } from "@/skins/commerce/intelligence/user-id";
  * `INTELLIGENCE_USER_ID` / `INTELLIGENCE_USER_NAME`.
  *
  * As of the beat-parity work, ALL SIX skins supply one AND use it for durable
- * memory: `ls src/skins/*/intelligence/{user-id,seed-memories,forget-memories}.ts`
- * returns all six for each. Derive that rather than trusting this sentence —
+ * memory. Derive that, do not trust this sentence — run, from the app root:
+ *
+ *     ls src/skins/-/intelligence/user-id.ts        # with - as the glob star
+ *     ls src/skins/-/intelligence/seed-memories.ts
+ *     ls src/skins/-/intelligence/forget-memories.ts
+ *
+ * (Written with `-` on purpose: a literal glob star followed by a slash closes
+ * this block comment and the rest of the file becomes a syntax error. That is
+ * not a hypothetical either — this very paragraph did it once.)
+ *
+ * Each returns all six. Derive rather than trusting the prose because —
  * two parallel agents each hand-edited this paragraph in the same hour and BOTH
  * versions were wrong (one said keel scoped threads only, the other said
  * airline had no resolver; each had just been made false by the other's slot).

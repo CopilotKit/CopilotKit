@@ -132,12 +132,74 @@ describe("the resolved no-restricted-syntax selectors", () => {
         "statusKeyedTerminalRender",
       ],
     ],
-    // A skin beat 2 has NOT reached yet: it must not gain the selector early, or
-    // the tree goes red for a phase that has not run.
+    // The other two skins that now ship a withheld gate vocabulary. Both gained
+    // beat 2 AND beat 6 in the beat-parity work, so both agent-facing files
+    // resolve to the full five, exactly as logistics does.
+    [
+      "src/skins/airline/tools.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    [
+      "src/skins/airline/agent.ts",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
     [
       "src/skins/keel/tools.tsx",
-      ["literalSkinPrefix", "templateLeadingPrefix", "interpolationThenSlash"],
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
     ],
+    [
+      "src/skins/keel/agent.ts",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    // The human filing FORMS are deliberately OUTSIDE the beat-6 block: each one
+    // legitimately imports its skin's label map, because the operator reads it and
+    // the agent learns the code by WATCHING them choose one. A withheld catalogue
+    // with no form is an unlearnable gate. They still carry beat 2.
+    [
+      "src/skins/airline/components/fare-exception-form.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    [
+      "src/skins/keel/components/variance-form.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    // A skin beat 2 has NOT reached: it must not gain the selector early, or the
+    // tree goes red for a phase that has not run. Banking and people are the
+    // remaining two.
     [
       "src/skins/banking/tools.tsx",
       ["literalSkinPrefix", "templateLeadingPrefix", "interpolationThenSlash"],
