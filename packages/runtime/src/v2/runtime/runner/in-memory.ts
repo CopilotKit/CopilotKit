@@ -10,7 +10,6 @@ import { ReplaySubject } from "rxjs";
 import type {
   AbstractAgent,
   BaseEvent,
-  EventType,
   MessagesSnapshotEvent,
   RunAgentInput,
   Message,
