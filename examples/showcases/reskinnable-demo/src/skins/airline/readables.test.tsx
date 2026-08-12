@@ -15,14 +15,10 @@
  * one), and a source grep cannot notice a readable whose list has quietly
  * diverged from the panel's by one row.
  *
- * ⚠️ THE THIRD LEG IS NOT GUARDED HERE, AND IS NOT YET WRITTEN. Logistics'
- * equivalent file asserts a "SCREEN AWARENESS" clause in its `agent.ts`. This
- * slot does not own `src/skins/airline/agent.ts`, so no such assertion exists
- * below — and airline's prompt carries no screen-awareness clause today. THE
- * BEAT IS INCOMPLETE WITHOUT IT: readables the agent is never told to treat as
- * its view of the screen produce an assistant that says it cannot see the page.
- * The slot that lands airline's prompt must add the clause AND the assertion
- * here, mirroring `skins/logistics/readables.test.tsx`.
+ * THE THIRD LEG IS GUARDED BELOW — § "airline beat 3b, part 3". Readables the
+ * agent is never told to treat as its view of the screen produce an assistant
+ * that says it cannot see the page, so the prompt clause is not decoration: it is
+ * the leg with no other symptom. Mirrors `skins/logistics/readables.test.tsx`.
  *
  * EVERY ASSERTION HERE MUST FAIL WHEN ITS SUBJECT IS DELETED. That sounds
  * obvious and it is where logistics' first version went wrong three times:
@@ -117,6 +113,47 @@ describe("airline beat 3b", () => {
       },
     );
     expect(new Set(names).size).toBe(names.length);
+  });
+});
+
+describe("airline beat 3b, part 3 — the prompt clause", () => {
+  it("tells the agent its context is its view of the screen", () => {
+    // The leg with NO other symptom. Route readable plus per-page readables plus
+    // a model that has not been told what they are produces an assistant that
+    // answers "I can't see your screen" while holding a complete description of
+    // it — and nothing in the tree notices. Anchored on the section heading AND
+    // on the one sentence that does the work, so deleting either fails.
+    const agent = read("agent.ts");
+    expect(agent).toContain("SCREEN AWARENESS");
+    expect(agent).toMatch(/NEVER say you cannot see the screen/i);
+    expect(agent).toMatch(/That context IS your view of the screen/i);
+    // The truncation half: the rebooking board shows `visible` of `matching`,
+    // and reporting the visible rows as the whole result is wrong about the
+    // screen in a way the room cannot catch.
+    expect(agent).toMatch(
+      /row count shown is smaller than the matching count/i,
+    );
+  });
+
+  it("names the loading state, so a spinning screen is not reported as empty", () => {
+    // Every readable this skin registers carries a `loading` flag, because the
+    // ledger is legitimately empty before the first read lands. A prompt that
+    // does not mention it makes the agent narrate an empty account to a room
+    // looking at a populated one — confidently, which is the failure mode beat
+    // 3b cannot survive.
+    expect(read("agent.ts")).toMatch(/"loading" flag/i);
+    for (const file of [
+      "trips",
+      "loyalty",
+      "disruptions",
+      "account",
+      "rebook",
+    ]) {
+      expect(
+        read(path.join("pages", `${file}.tsx`)),
+        `${file}.tsx registers no loading flag in its readable`,
+      ).toMatch(readableContaining("loading:"));
+    }
   });
 });
 

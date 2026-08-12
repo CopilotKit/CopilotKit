@@ -29,8 +29,8 @@
  * If a future edit flattens these three sections into one table with a traveller
  * column, the skin has quietly become an agency console again.
  *
- * NOT REACHABLE YET: `skin.tsx` still routes only the three in-memory pages, and
- * nothing mounts `AirlineLedgerProvider`. See `ledger-context.tsx`'s header.
+ * REACHABLE: `skin.tsx` routes this page through `resolveAirlinePage` and mounts
+ * the ledger through `providers.tsx`.
  */
 
 import { useMemo } from "react";

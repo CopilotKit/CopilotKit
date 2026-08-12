@@ -8,8 +8,17 @@ export { RebookingOptions } from "./rebooking-options";
 export { BaggageTracker } from "./baggage-tracker";
 export { PassengerHeader } from "./passenger-header";
 
-// REST-ledger surfaces (beats 3b and 3c). Unmounted until `skin.tsx` routes
-// `pages/account.tsx` and `pages/rebook.tsx` — see `../ledger-context.tsx`.
+// BEAT 3a — the card whose digits never enter the transcript.
+export { CardConfirmationCard } from "./card-confirmation-card";
+
+// The REST ledger projected onto the check-in shapes. It REPLACED
+// `data/use-data.ts`, the second in-memory seed of AV1423.
+export { useConciergeView, CHECKIN_BOOKING_ID } from "./concierge-view";
+export type { ConciergeView } from "./concierge-view";
+export { offerableOptions, permissionFor } from "./authorizable";
+
+// REST-ledger surfaces (beats 3b and 3c), rendered by `pages/account.tsx`,
+// `pages/rebook.tsx` and the `showTrips` / `showRebookingOptions` gen-UI.
 export { TripList, buildAccountTrips } from "./trip-list";
 export type { AccountTrip, TripTone } from "./trip-list";
 export {

@@ -3,24 +3,18 @@
 /**
  * Aeronova's REST ledger, read once and shared.
  *
- * ⚠️ SHIPPED UNMOUNTED, ON PURPOSE. Nothing renders `AirlineLedgerProvider`
- * today: `skin.tsx` belongs to a later slot, and this slot must not touch it.
- * The in-memory `useAirlineData` store is still the live substrate for the
- * Trip / Loyalty / Disruptions pages, exactly as `data/beat-map.md` §
- * "It is ADDITIVE" requires. The two REST-backed pages this slot adds
- * (`pages/account.tsx`, `pages/rebook.tsx`) read THIS hook and are likewise
- * unreachable until that slot wires them.
+ * MOUNTED, through `providers.tsx` → `skin.Providers`, BELOW
+ * `CopilotKitProvider`. It contributes no runtime identity, so it does not need
+ * `RuntimeProviders`. Everything the skin renders sits inside it: `AirlineTools`,
+ * the layout chrome, and all five pages — the two REST-native ones
+ * (`pages/account.tsx`, `pages/rebook.tsx`) directly, and the three check-in
+ * pages through `components/concierge-view.ts`, which projects this snapshot onto
+ * the shapes those components were written against. There is no longer a second
+ * in-memory substrate: `data/use-data.ts` is gone and this is the only authority.
  *
- * TO MOUNT IT — three edits, all in files this slot does not own:
- *
- *   1. `skin.tsx` → `Providers: AirlineLedgerProvider` (or compose it into an
- *      existing stack). It belongs BELOW `CopilotKitProvider`; it contributes
- *      no runtime identity, so it does not need `RuntimeProviders`.
- *   2. `skin.tsx` → `nav: airlineNav` (from `./nav`) and `resolvePage:
- *      resolveAirlinePage` (from `./pages`) — that is what makes the two new
- *      pages reachable at all.
- *   3. Any tool that WRITES through `/api/airline/v1/*` must call
- *      `notifyAirlineDataChanged()` afterwards (see below).
+ * ⚠️ ANY TOOL THAT WRITES through `/api/airline/v1/*` must call
+ * `notifyAirlineDataChanged()` afterwards (see below), or the screen keeps
+ * showing the pre-write itinerary.
  *
  * WHY A CONTEXT RATHER THAN LOGISTICS' PER-INSTANCE HOOK. `useLogistics()`
  * refetches per call site; that is affordable there because it pulls five small
@@ -156,7 +150,7 @@ export function AirlineLedgerProvider({ children }: { children: ReactNode }) {
  * empty ledger — renders a blank account and an empty rebooking board, which on
  * stage is indistinguishable from a seed that failed to load and sends the
  * presenter hunting through the API instead of the one missing `Providers`
- * line. See this file's header for the three edits that mount it.
+ * line. `skin.Providers` is `AirlineProviders` in `providers.tsx`.
  */
 export function useAirlineLedger(): AirlineLedgerValue {
   const value = useContext(LedgerContext);

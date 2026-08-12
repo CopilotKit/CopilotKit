@@ -1,11 +1,12 @@
 /**
  * BEAT 3d — the a2ui operations that OPEN the Trip Brief canvas.
  *
- * ⚠️ SHIPPED UNMOUNTED. No tool emits these yet. A later slot's server tool
- * (`agent.ts` / `tools.tsx`, which this slot does not own) returns them under
- * `A2UI_OPERATIONS_KEY` in its tool result; the a2ui middleware turns that into
- * the `a2ui-surface` activity the shell's `CanvasProvider` keys off, and
- * `AirlineCanvasSurface` takes the region.
+ * EMITTED by the `render_trip_brief` SERVER tool in `agent.ts`, which returns
+ * them under `A2UI_OPERATIONS_KEY` in its tool result; the a2ui middleware turns
+ * that into the `a2ui-surface` activity the shell's `CanvasProvider` keys off, and
+ * `AirlineCanvasSurface` takes the region. It has to be a server tool — a client
+ * frontend-tool result never produces that activity — which is why the brief id
+ * travels back through `fileTripBrief`'s sentence for the agent to pass along.
  *
  * WHY THIS IS SO MUCH SMALLER THAN THE OTHER FOUR SKINS' OPS BUILDERS.
  * Logistics, banking, people and commerce all render a brief the agent COMPOSES

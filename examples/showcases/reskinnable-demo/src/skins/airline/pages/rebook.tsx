@@ -25,8 +25,8 @@
  * pulled a control it did not touch, which is the same lie as a chip for a lever
  * nobody set (demo-beats.md § 3c). It is styled as idle, always.
  *
- * NOT REACHABLE YET: `skin.tsx` still routes only the three in-memory pages, and
- * nothing mounts `AirlineLedgerProvider`. See `ledger-context.tsx`'s header.
+ * REACHABLE: `skin.tsx` routes this page through `resolveAirlinePage` and mounts
+ * the ledger through `providers.tsx`.
  */
 
 import { useMemo } from "react";

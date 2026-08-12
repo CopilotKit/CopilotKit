@@ -1,13 +1,17 @@
 /**
  * BEAT 3d for airline — Camila's Casa Miraflores hotel confirmation.
  *
- * ⚠️ SHIPPED UNMOUNTED. `skin.tsx`, `suggestions.ts` and `tools.tsx` belong to a
- * later slot; nothing imports this file yet. What that slot has to wire:
+ * WIRED, in `skin.tsx`:
  *
- *   - `HOTEL_CONFIRMATION_MESSAGE` → the beat-3d pill's `message`
  *   - `sendHotelConfirmationMessage` → `skin.onSuggestionSelect`, on the pill
- *     whose message is that constant
- *   - `attachHotelConfirmationByHand` → a `skin.chatHeaderActions` paperclip
+ *     whose message is `HOTEL_CONFIRMATION_MESSAGE`
+ *   - `attachHotelConfirmationByHand` → the `skin.chatHeaderActions` paperclip
+ *
+ * ⚠️ STILL ONE LOOSE END, in `suggestions.ts` (a different slot's file): no pill
+ * carries `HOTEL_CONFIRMATION_MESSAGE` yet, so `onSuggestionSelect` never fires
+ * and only the paperclip stages the file. The pill's `message` must be that
+ * constant EXACTLY — a drifted string silently takes the default send path, which
+ * DROPS attachments, and the model then invents the document's contents.
  *
  * Everything that makes this beat honest lives in `@/shell/attach`: locating the
  * composer before staging, checking the fetched bytes really are a PDF, waiting

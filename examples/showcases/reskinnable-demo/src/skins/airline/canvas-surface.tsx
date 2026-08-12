@@ -11,19 +11,16 @@ import type { A2UIOp } from "./canvas/trip-brief-ops";
 import { selectBrief, useTripBriefs } from "./canvas/use-trip-briefs";
 
 /**
- * Aeronova's Trip Brief canvas — the component a later slot assigns to
- * `skin.CanvasSurface`.
+ * Aeronova's Trip Brief canvas — `skin.CanvasSurface`.
  *
- * ⚠️ SHIPPED UNMOUNTED. `skin.tsx` belongs to a later slot and still says
- * "it has no a2ui report surface of its own". What that slot has to wire:
- *
- *   `CanvasSurface: AirlineCanvasSurface`   (the named export below)
- *
- * …and its `agent.ts` has to emit `buildTripBriefOps(brief.id)` from
- * `./canvas/trip-brief-ops` under `A2UI_OPERATIONS_KEY`, or nothing ever opens
- * the canvas. The shell owns the region, the "← Back" affordance, OGUI and the
- * surface-kind detection (`src/shell/canvas/`); this component owns only what
- * goes inside for a "report" surface.
+ * MOUNTED. `skin.tsx` sets `CanvasSurface: AirlineCanvasSurface`, and the
+ * `render_trip_brief` server tool in `agent.ts` emits `buildTripBriefOps(briefId)`
+ * from `./canvas/trip-brief-ops` under `A2UI_OPERATIONS_KEY` — without that
+ * emission nothing ever opens this region, because the a2ui middleware only
+ * produces an `a2ui-surface` activity from an in-stream TOOL_CALL_RESULT. The
+ * shell owns the region, the "← Back" affordance, OGUI and the surface-kind
+ * detection (`src/shell/canvas/`); this component owns only what goes inside for
+ * a "report" surface.
  *
  * WHY THERE IS NO `A2UIProvider` / `A2UIRenderer` HERE, unlike the other four
  * skins. Their briefs are compositions the agent selects, so the ops carry a
