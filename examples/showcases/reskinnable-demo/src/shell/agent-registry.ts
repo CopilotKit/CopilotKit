@@ -2,6 +2,7 @@ import type { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { bankingAgent } from "@/skins/banking/agent";
 import { airlineAgent } from "@/skins/airline/agent";
 import { keelAgent } from "@/skins/keel/agent";
+import { airlineIdentifyUser } from "@/skins/airline/intelligence/user-id";
 import { bankingIdentifyUser } from "@/skins/banking/intelligence/user-id";
 import { keelIdentifyUser } from "@/skins/keel/intelligence/user-id";
 import { logisticsAgent } from "@/skins/logistics/agent";
@@ -28,8 +29,9 @@ import { commerceIdentifyUser } from "@/skins/commerce/intelligence/user-id";
  * Resolve a stable end-user identity from the client-forwarded run `properties`
  * (`{ userRole, userId }`) for Intelligence thread + durable-memory scoping. A
  * skin supplies this whenever it wants its own scoping scheme — that need not
- * imply per-user memory (logistics and keel scope threads only); skins without
- * it (e.g. airline) let the runtime fall back to a generic identity.
+ * imply per-user memory (logistics and keel scope threads only). A skin without
+ * one lets the runtime fall back to a generic identity; every skin registered
+ * below now supplies one.
  */
 export type IdentifyRunUser = (
   properties: { userRole?: string; userId?: string } | undefined,
@@ -46,8 +48,19 @@ export const agentRegistry: Record<string, AgentRegistration> = {
   // Banking scopes Intelligence per member/role (durable memory demo), so it
   // contributes its own resolver — the route no longer knows banking's scheme.
   banking: { createAgent: bankingAgent, identifyUser: bankingIdentifyUser },
-  // Airline has no auth and no memory, so it contributes no identity resolver.
-  airline: { createAgent: airlineAgent },
+  // Aeronova scopes Intelligence per traveller on the account, and unlike
+  // logistics and keel it actually USES that scope for durable memory: it ships
+  // `intelligence/seed-memories.ts` (beat 4's standing preference, beat 5's
+  // cancellation procedure) and `intelligence/forget-memories.ts`, and its
+  // `dev/reset` sweeps and re-seeds through them.
+  //
+  // ⚠ There is one account holder and no switcher — `useAirlineRuntimeProperties`
+  // forwards Camila's traveller id unconditionally — so this resolver is not a
+  // "switch user and watch memory change" story and must not be presented as one.
+  // `src/skins/airline/intelligence/user-id.ts` is the authority on which inputs
+  // land in which bucket; read its `memorySeedTargetUserIds` note (and the
+  // pinned-`INTELLIGENCE_USER_ID` short-circuit) before changing this.
+  airline: { createAgent: airlineAgent, identifyUser: airlineIdentifyUser },
   // Logistics resolves a per-planner identity — `PLANNER_IDENTITY` maps each
   // planner 1:1 — so its Intelligence THREADS are scoped per planner. That is
   // all this resolver buys: logistics ships neither

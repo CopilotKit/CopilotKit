@@ -38,6 +38,7 @@ import { useAgentContext } from "@copilotkit/react-core/v2";
 import { useAirlineLedger } from "../ledger-context";
 import { buildAccountTrips, TripList } from "../components/trip-list";
 import type { AccountTrip } from "../components/trip-list";
+import { FareExceptionForm } from "../components/fare-exception-form";
 
 const TIER_LABEL: Record<string, string> = {
   bronze: "Bronze",
@@ -250,6 +251,29 @@ export function AccountPage() {
           ))}
         </section>
       )}
+
+      {/* BEAT 6 — the filing form. It sits on THIS page because this is the page
+          that already shows every ticket's fare condition, so a refused reissue
+          and the way to have it reconsidered are read in one place.
+
+          ⚠️ IT IS THE ONE PLACE THE WAIVER VOCABULARY MAY APPEAR, and it is not
+          leaked to the agent by being here: the readable above reports each
+          booking's `notes` (the passenger-facing `fareNotes` prose) and never a
+          category. The form's <select> is DOM, not context. See
+          `../components/fare-exception-form.tsx` and
+          `../data/fare-waiver-codes.ts`. */}
+      <section className="flex flex-col gap-3">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
+            Fare exceptions
+          </h2>
+          <p className="mt-1 text-xs text-ink-muted">
+            When a ticket&rsquo;s fare will not permit a change, file an
+            exception with the documentation behind it and try the change again.
+          </p>
+        </div>
+        <FareExceptionForm />
+      </section>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { airlineNav } from "./nav";
 import { resolveAirlinePage } from "./pages";
 import { AirlineProviders } from "./providers";
 import { AirlineCanvasSurface } from "./canvas-surface";
+import { useAirlineRuntimeProperties } from "./runtime-properties";
 import {
   HOTEL_CONFIRMATION_MESSAGE,
   attachHotelConfirmationByHand,
@@ -42,6 +43,12 @@ const TOOL_LABELS: Record<string, string> = {
   fileFareException: "Filing a fare exception",
   fileTripBrief: "Filing the trip brief",
   render_trip_brief: "Opening the trip brief",
+  // BEAT 6's teach chain. Labelled in the passenger's language, not the demo's:
+  // "offerWorkflowRecording" on a projector announces that the room is watching a
+  // scripted mechanism rather than an assistant admitting it does not know something.
+  offerWorkflowRecording: "Asking to be shown",
+  awaitDemonstration: "Watching you do it",
+  saveLearnedProcedure: "Writing down what I saw",
 };
 
 // ── BEAT 3d: driving the real composer ──────────────────────────────────────
@@ -81,6 +88,13 @@ const airline: Skin = {
   CanvasSurface: AirlineCanvasSurface,
 
   toolLabels: TOOL_LABELS,
+
+  // BEATS 4, 5 and 6 — the client half of per-passenger Intelligence scoping.
+  // Forwarded to the runtime as `forwardedProps` and mapped onto a stable memory
+  // bucket by the server-safe `airlineIdentifyUser` in `agent-registry.ts`. No
+  // `RuntimeProviders`: the hook reads no context, because Aeronova has one
+  // account holder and no switcher — see `runtime-properties.ts`.
+  useRuntimeProperties: useAirlineRuntimeProperties,
 
   // REST-backed like banking, logistics, people and commerce: every component
   // reads the ledger through `useAirlineLedger()` (projected onto the check-in

@@ -19,15 +19,19 @@ import { AirlineLedgerProvider } from "./ledger-context";
  *    failure this must not have. See `ledger-context.tsx`.
  *  - `RecordingProvider` + `RecordingVignette` — the shell's ONE teach-mode
  *    recorder (`@/shell/teach`), the same implementation banking, people and
- *    commerce mount. It is inert until something calls `useRecording()`, so
- *    mounting it now costs nothing and means the slot that lands Aeronova's
- *    teach loop touches `tools.tsx` only.
+ *    commerce mount. Beat 6's chat card (`tools.tsx`'s `DemonstrationCard`) holds
+ *    the outer bracket open while `components/fare-exception-form.tsx` nests its
+ *    own inside it, and the vignette is the room's signal that recording is live.
  *
- * NOT `RuntimeProviders`. Airline contributes no runtime `properties` today —
- * there is no `useRuntimeProperties` and no server `identifyUser` for this skin
- * — so nothing here has to exist above `CopilotKitProvider`. If per-passenger
- * memory scoping is added later, the ledger provider is what moves up, because
- * that is where the traveller identity would be read from.
+ * STILL NOT `RuntimeProviders`, even though Aeronova now DOES contribute runtime
+ * `properties` and a server `identifyUser`. The other four scoped skins hoist a
+ * context above `CopilotKitProvider` because their identity is a CHOICE an operator
+ * makes in the sidebar, so their hook has to read state. Aeronova has one account
+ * holder and no switcher — `useAirlineRuntimeProperties` returns a frozen module
+ * constant and reads no context at all (see `runtime-properties.ts`), so there is
+ * nothing for a provider above the runtime to establish. If a "book for someone
+ * else" mode ever lands, the ledger provider is what moves up, because that is
+ * where the chosen traveller would be read from.
  */
 export function AirlineProviders({ children }: { children: ReactNode }) {
   return (

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import {
@@ -11,6 +12,21 @@ import {
 } from "@copilotkit/react-core/v2";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref } from "@/shell/skin-path";
+import { useRecording } from "@/shell/teach";
+// BEAT 6's directive strings, each a builder beside its reader so a card can only
+// state what its producer reported. NOTHING in that module names a fare-exception
+// category — the one the agent is told about is whatever the passenger actually
+// filed, passed through at runtime.
+import {
+  OFFER_ACCEPTED,
+  OFFER_DECLINED,
+  SAVE_PROCEDURE_CONFIRMED,
+  SAVE_PROCEDURE_DECLINED,
+  buildDemonstrationDirective,
+  classifySaveProcedureResult,
+  readDemonstratedStepCount,
+  readOfferAccepted,
+} from "./teach-mode-directives";
 import { useAirlineLedger, notifyAirlineDataChanged } from "./ledger-context";
 import { useConciergeView } from "./components/concierge-view";
 import { offerableOptions } from "./components/authorizable";
@@ -114,6 +130,33 @@ function ToolNote({ result, pending }: { result: unknown; pending: string }) {
   return (
     <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
       {result === undefined || result === null ? pending : String(result)}
+    </div>
+  );
+}
+
+/**
+ * BEAT 4 — the band that makes recall VISIBLE.
+ *
+ * Rendered above the trip wall, tinted with the brand's soft surface so it reads
+ * as the assistant speaking rather than as another data row. It carries the
+ * agent's OWN sentence naming the preference it applied.
+ *
+ * Renders nothing for an absent or blank note, which is the honest state when
+ * nothing was recalled — and it is why the band is not decoration: on the OSS path
+ * there is no `recall_memory`, the note comes back empty, and the room correctly
+ * sees no claim of memory rather than an empty violet stripe. `note` streams, so
+ * `undefined` mid-render must not print a band either.
+ */
+function PreferenceNote({ note }: { note?: string }) {
+  const text = (note ?? "").trim();
+  if (text === "") return null;
+  return (
+    <div className="rounded-lg border border-brand/30 bg-brand-soft px-3.5 py-2.5 text-xs leading-relaxed text-brand-indigo dark:text-brand-violet">
+      <span className="font-semibold uppercase tracking-wide">Remembered</span>
+      <span className="mx-1.5" aria-hidden>
+        ·
+      </span>
+      {text}
     </div>
   );
 }
@@ -275,6 +318,19 @@ export function AirlineTools() {
   // ══ BEAT 1 — GEN-UI IN THE TRANSCRIPT ════════════════════════════════════
   // The lead card. Every booking on the account, its fare condition, and what is
   // disrupted right now — the trip wall the beat opens on.
+  //
+  // ══ …AND BEAT 4 — THE VISIBLE "WHY" ══════════════════════════════════════
+  // The same card carries the `note` slot, which is where the agent NAMES the
+  // standing preference it recalled and applied. That band IS beat 4: without it
+  // the room watches a competent trip summary and has no way to know anything was
+  // remembered, so the beat is invisible and does not count
+  // (`data/beat-map.md` § "Beat 4 — the preferences"; banking's
+  // `showSpendSummary` `note` parameter is the pattern).
+  //
+  // REQUIRED rather than optional, deliberately: an optional slot is the one a
+  // model omits, and the omission is silent. Empty text still renders no band —
+  // the honest state when nothing was recalled — but the model has to decide
+  // rather than skip.
   useComponent(
     {
       name: "showTrips",
@@ -282,8 +338,20 @@ export function AirlineTools() {
         "Display the whole account as a trip wall — the holder's own bookings " +
         "first, then each saved traveller's, with fare condition and flight " +
         "status on every row. Lead with this whenever the passenger asks how " +
-        "their trips look, what is coming up, or what is disrupted.",
-      render: () => {
+        "their trips look, what is coming up, or what is disrupted. Recall the " +
+        "passenger's saved preferences FIRST and put the one you applied in " +
+        "`note`, so they can see it was remembered.",
+      parameters: z.object({
+        note: z
+          .string()
+          .describe(
+            "One short footnote naming the remembered preference you applied " +
+              "to this summary — the seat kind, the fare you skipped, the clock " +
+              "you quoted times in, or what you led with. Leave it empty ONLY " +
+              "if you genuinely recalled nothing.",
+          ),
+      }),
+      render: ({ note }) => {
         const holder = travelers.find((t) => t.accountHolder) ?? null;
         if (!holder) {
           return (
@@ -295,6 +363,7 @@ export function AirlineTools() {
         const companions = travelers.filter((t) => !t.accountHolder);
         return (
           <div className="flex flex-col gap-4">
+            <PreferenceNote note={note} />
             <TripList
               label="Your trips"
               trips={buildAccountTrips(bookings, flights, holder)}
@@ -1032,7 +1101,320 @@ export function AirlineTools() {
     [],
   );
 
+  // ══ BEAT 6 — TEACH IT A PROCEDURE IT DOES NOT HAVE ═══════════════════════
+  //
+  // The chain, in order: offerWorkflowRecording → awaitDemonstration →
+  // saveLearnedProcedure. All three are `followUp: true`, so the agent advances to
+  // the next card as soon as one settles rather than stopping to narrate.
+  //
+  // The REPLAY chain is not new: once the procedure is saved, a later request on a
+  // DIFFERENT gated booking goes through the tools that already exist above —
+  // `fileFareException` (files + approves in one pair of REST calls) then
+  // `rebookOntoOption`, the very write that was refused. Nothing here is
+  // special-cased for the replay, which is the point: the agent applies ordinary
+  // tools in an order it was never told.
+  //
+  // ⚠️ THE PROCEDURE IS A PROCEDURE, NOT A STRING. `exceptionLifts` requires the
+  // category to match what the booking's own record documents, so replaying the
+  // demonstrated category verbatim on the OTHER gated booking is refused —
+  // AV3PL9 releases on a schedule-change ground, AV8RT4 on a medical one, and
+  // AV5KD1 on nothing at all. What has to transfer is "read what the booking
+  // documents, file the category that matches it, approve it, then retry".
+  //
+  // ⚠️ WHAT IS DELIBERATELY ABSENT. There is no fare-waiver-category readable, no
+  // z.enum on any code parameter, no category named in any description here and
+  // none in the prompt or the 422 body. Those are five of the six channels the
+  // vocabulary leaks through, and closing five of six is closing none
+  // (`.claude/skills/reskin/failure-modes.md` § 10). The sixth is Aeronova's own:
+  // `Booking.waiverGround` is a code-shaped token that maps 1:1 onto a justifying
+  // category, and `store.snapshot()` strips it — the readables above carry
+  // `fare_notes`, the human prose, instead. Do not undo that.
+  //
+  // ⚠️ RUNTIME-CONDITIONAL, IN ONE HALF ONLY. Gate → decline → demonstrate →
+  // summarize works on the plain OSS SSE path: every tool here is an ordinary
+  // client tool and the REST gate is real. What needs Intelligence is the DURABLE
+  // half — `recall_memory` and `save_memory` attach only when the Intelligence
+  // runtime is configured. Without it the save card still renders and still
+  // settles; the agent simply has no `save_memory` to call, so it reports that it
+  // has the procedure for this conversation and nothing crosses to a fresh thread.
+  // That degrades to "learned for now", not to an error.
+
+  useHumanInTheLoop(
+    {
+      followUp: true,
+      name: "offerWorkflowRecording",
+      description:
+        "Offer to WATCH the passenger do something you have no saved procedure " +
+        "for. Call this immediately after a reissue is refused because the fare " +
+        "does not permit changes and recall_memory turned up nothing — say " +
+        "plainly that you do not know this one. Never guess a workaround, " +
+        "substitute a cheaper flight, offer the card confirmation, or call " +
+        "another tool instead of this.",
+      parameters: z.object({
+        situation: z
+          .string()
+          .describe("What you were blocked on, in one short line."),
+      }),
+      render: ({ args, status: toolStatus, respond, result }) => {
+        if (toolStatus === ToolCallStatus.Executing && respond) {
+          return (
+            <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+              <div className="text-sm text-ink">
+                I don&rsquo;t have a saved way through this one
+                {args?.situation
+                  ? ` — ${args.situation.replace(/\.+$/, "")}`
+                  : ""}
+                . Show me once and I&rsquo;ll remember it?
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
+                  onClick={() => void respond(OFFER_ACCEPTED)}
+                >
+                  Show me
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
+                  onClick={() => void respond(OFFER_DECLINED)}
+                >
+                  Not now
+                </button>
+              </div>
+            </div>
+          );
+        }
+        // Replay-safe, and a HUMAN line rather than `result`: that string is an
+        // internal directive addressed to the agent ("Call awaitDemonstration
+        // now…"), and printing it verbatim puts the demo's own wiring on screen in
+        // front of the room.
+        return (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {result === undefined || result === null
+              ? "Checking whether I know this one…"
+              : readOfferAccepted(result)
+                ? "Watching you do it once."
+                : "Left it for now — nothing was recorded."}
+          </div>
+        );
+      },
+    },
+    [],
+  );
+
+  useHumanInTheLoop(
+    {
+      followUp: true,
+      name: "awaitDemonstration",
+      description:
+        "Hold the conversation while the passenger demonstrates. Call this after " +
+        "they agree to show you. Do NOT list steps, name a category, or tell them " +
+        "where to click — you do not know the procedure, which is the entire " +
+        "reason you are watching. Say only something brief like 'go ahead, I'm " +
+        "watching'. When they finish you receive the steps they took and the exact " +
+        "category they filed.",
+      parameters: z.object({}),
+      render: ({ status: toolStatus, respond, result }) => {
+        if (toolStatus === ToolCallStatus.Executing && respond) {
+          // Its own component, so it subscribes to the recorder directly and
+          // re-renders on every logged step. Inlining the feed into this closure
+          // would freeze it on the `steps` snapshot taken when the card first
+          // rendered — which is before the passenger has done anything at all.
+          return (
+            <DemonstrationCard onDone={(summary) => void respond(summary)} />
+          );
+        }
+        // Replay-safe, and the count is the one the RECORDER reported — never one
+        // re-counted out of this prose. See ./teach-mode-directives.
+        if (result === undefined || result === null) {
+          return (
+            <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+              Getting ready to watch…
+            </div>
+          );
+        }
+        const count = readDemonstratedStepCount(result);
+        return (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            Recorded{" "}
+            {count === null
+              ? "the demonstration"
+              : `${count} ${count === 1 ? "step" : "steps"}`}
+            .
+          </div>
+        );
+      },
+    },
+    [],
+  );
+
+  useHumanInTheLoop(
+    {
+      followUp: true,
+      name: "saveLearnedProcedure",
+      description:
+        "Summarize what you just watched as a numbered procedure and show it to " +
+        "the passenger for confirmation. Call this after awaitDemonstration " +
+        "reports what it saw, quoting the exact category it reports. Write the " +
+        "procedure so it works on a DIFFERENT booking: say to read what that " +
+        "booking's own notes document and file the category that matches it, " +
+        "rather than always filing the one you just saw. After they confirm, " +
+        "persist it with save_memory exactly as the card's result instructs. Save " +
+        "it AT MOST ONCE.",
+      parameters: z.object({
+        procedure: z
+          .string()
+          .describe(
+            "The numbered procedure, naming verbatim the category awaitDemonstration reported. Do not paraphrase it.",
+          ),
+      }),
+      render: ({ args, status: toolStatus, respond, result }) => {
+        if (toolStatus === ToolCallStatus.Executing && respond) {
+          return (
+            <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+              <div className="text-sm font-medium text-ink">
+                Here&rsquo;s what I picked up — shall I remember it?
+              </div>
+              <pre className="whitespace-pre-wrap rounded-md bg-surface-muted p-2.5 text-xs leading-relaxed text-ink">
+                {args?.procedure}
+              </pre>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90"
+                  onClick={() => void respond(SAVE_PROCEDURE_CONFIRMED)}
+                >
+                  Remember it
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-hairline px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-muted"
+                  onClick={() => void respond(SAVE_PROCEDURE_DECLINED)}
+                >
+                  Don&rsquo;t save
+                </button>
+              </div>
+            </div>
+          );
+        }
+        // CLASSIFIED, never merely detected. Both buttons settle this card with a
+        // string, so "is there a result at all" would print the saved receipt over
+        // a decline — asserting a durable write that never happened, live and
+        // identically on every replay.
+        const outcome = classifySaveProcedureResult(result);
+        return (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {outcome === "saved"
+              ? "Saved — I'll use this next time without being asked."
+              : outcome === "declined"
+                ? "Left it unsaved — nothing was written to memory."
+                : outcome === "unknown"
+                  ? "This card was already answered."
+                  : "Writing up what I saw…"}
+          </div>
+        );
+      },
+    },
+    [],
+  );
+
   return null;
+}
+
+/**
+ * BEAT 6 — the live "I'm watching" card.
+ *
+ * A component rather than an inline render for two reasons, both of which have
+ * bitten this app before:
+ *
+ *  1. It subscribes to the recorder ITSELF, so each `logStep` re-renders the feed.
+ *     A feed read from the host card's closure freezes on the snapshot taken
+ *     before the passenger touched anything.
+ *  2. It OWNS THE OUTER RECORDING BRACKET — `beginRecording()` on mount,
+ *     `endRecording()` on unmount. That bracket must stay open across the
+ *     passenger's whole demonstration (file the exception, then retry the reissue:
+ *     two separate clicks, each with its own NESTED bracket in
+ *     `components/fare-exception-form.tsx`). If the ref count reaches zero between
+ *     them the shell clears the feed and STRANDS the demonstrated category, and
+ *     `getDemonstratedCode()` then reports null on a demonstration that plainly
+ *     happened. Holding it here is what makes the two clicks read as one recording.
+ *
+ * No feed reset on mount: the shell's `beginRecording` clears it when it opens a
+ * FRESH window and deliberately inherits an already-open one.
+ */
+export function DemonstrationCard({
+  onDone,
+}: {
+  onDone: (summary: string) => void;
+}) {
+  const { beginRecording, endRecording, steps, getDemonstratedCode } =
+    useRecording();
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    beginRecording();
+    return () => endRecording();
+  }, [beginRecording, endRecording]);
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4">
+      <div className="flex items-center gap-2">
+        <span className="relative flex h-2.5 w-2.5" aria-hidden>
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-negative opacity-75" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-negative" />
+        </span>
+        <span className="text-sm text-ink">
+          Watching — go ahead and show me.
+        </span>
+        <span className="ml-auto text-[0.65rem] font-semibold uppercase tracking-wide text-negative">
+          Rec
+        </span>
+      </div>
+
+      {steps.length > 0 ? (
+        <ol className="space-y-1 border-l-2 border-brand/30 pl-3">
+          {steps.map((step, index) => (
+            <li key={step.id} className="text-xs text-ink">
+              <span className="mr-1.5 tabular-nums text-ink-muted">
+                {index + 1}.
+              </span>
+              {step.label}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="text-xs italic text-ink-muted">Nothing captured yet.</p>
+      )}
+
+      <button
+        type="button"
+        disabled={sending}
+        className="self-start rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:opacity-90 disabled:opacity-50"
+        onClick={() => {
+          // The recorder is the only thing that KNOWS what it caught, so the
+          // directive it hands over REPORTS the count and the category; the card
+          // that renders the settled result reads them back rather than
+          // re-deriving them from the prose. Both halves live in
+          // ./teach-mode-directives, held together by a round-trip test.
+          //
+          // Read BEFORE settling, while this component is still mounted and the
+          // bracket is therefore still open — unmounting ends the recording and
+          // the shell's minimum-visible hold is the only thing that would keep the
+          // feed alive afterwards.
+          setSending(true);
+          onDone(
+            buildDemonstrationDirective({
+              steps: steps.map((s) => s.label),
+              code: getDemonstratedCode(),
+            }),
+          );
+        }}
+      >
+        {sending ? "Wrapping up…" : "I'm done"}
+      </button>
+    </div>
+  );
 }
 
 export default AirlineTools;

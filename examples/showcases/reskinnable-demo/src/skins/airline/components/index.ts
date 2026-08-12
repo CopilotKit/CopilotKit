@@ -15,7 +15,12 @@ export { CardConfirmationCard } from "./card-confirmation-card";
 // `data/use-data.ts`, the second in-memory seed of AV1423.
 export { useConciergeView, CHECKIN_BOOKING_ID } from "./concierge-view";
 export type { ConciergeView } from "./concierge-view";
-export { offerableOptions, permissionFor } from "./authorizable";
+export { offerableOptions, permissionFor, blockedByFare } from "./authorizable";
+
+// BEAT 6 — the PASSENGER-facing filing form, and the one sanctioned place the
+// fare-waiver vocabulary appears. Mounted by `pages/account.tsx`, never by
+// `tools.tsx`: the agent must learn the category by watching, not by reading.
+export { FareExceptionForm } from "./fare-exception-form";
 
 // REST-ledger surfaces (beats 3b and 3c), rendered by `pages/account.tsx`,
 // `pages/rebook.tsx` and the `showTrips` / `showRebookingOptions` gen-UI.
