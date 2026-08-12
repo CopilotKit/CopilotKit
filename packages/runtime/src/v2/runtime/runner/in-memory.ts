@@ -864,9 +864,12 @@ export class InMemoryAgentRunner extends AgentRunner {
       // Fall back to the agent's public connect entry point when available.
       if (request.agent) {
         void request.agent
-          .connectAgent({}, {
-            onEvent: ({ event }) => connectionSubject.next(event),
-          })
+          .connectAgent(
+            {},
+            {
+              onEvent: ({ event }) => connectionSubject.next(event),
+            },
+          )
           .then(
             () => connectionSubject.complete(),
             (error) => connectionSubject.error(error),
