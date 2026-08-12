@@ -1,0 +1,84 @@
+name: "AEO: Production Synthetics"
+
+on:
+  schedule:
+    # Keep this in sync with syntheticMonitoring.cadence in the public
+    # contract. The checker validates targets and user agents from that
+    # contract; this workflow intentionally contains no host/route copy.
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aeo-production-synthetics
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check public crawler surfaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          lfs: false
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Run contract-driven production checks
+        run: |
+          set -o pipefail
+          pnpm nx run @copilotkit/showcase-scripts:check-aeo-synthetics 2>&1 | tee aeo-synthetic-output.txt
+
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aeo-synthetic-output-${{ github.run_id }}
+          path: aeo-synthetic-output.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Prepare owned alert
+        if: failure() && env.SLACK_WEBHOOK != ''
+        run: |
+          if [ -f aeo-synthetic-output.txt ]; then
+            SUMMARY=$(tail -n 24 aeo-synthetic-output.txt | head -c 2500 | iconv -f UTF-8 -t UTF-8//IGNORE)
+          else
+            SUMMARY="Synthetic runner crashed before producing output. See the job log."
+          fi
+          {
+            echo "summary<<AEO_SYNTHETIC_EOF"
+            printf '%s\n' "$SUMMARY"
+            echo "AEO_SYNTHETIC_EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: "Alert #oss-alerts on failure"
+        if: failure() && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ${{ toJSON(format(':x: *AEO production synthetic failure*{0}<{1}/{2}/actions/runs/{3}|View run>{0}```{0}{4}{0}```', fromJSON('"\n"'), github.server_url, github.repository, github.run_id, env.summary)) }} }
+
+      - name: Warn when alerting is not configured
+        if: failure() && env.SLACK_WEBHOOK == ''
+        run: |
+          echo "::warning::AEO synthetics failed but SLACK_WEBHOOK_OSS_ALERTS is unset; #oss-alerts was not notified."
