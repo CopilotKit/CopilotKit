@@ -30,6 +30,7 @@ describe("useAgent stability during runtime connection", () => {
     runtimeUrl: string | undefined;
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
     runtimeTransport: string;
+    compactRestore: boolean;
     credentials: RequestCredentials | undefined;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
@@ -47,6 +48,7 @@ describe("useAgent stability during runtime connection", () => {
       runtimeConnectionStatus:
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       runtimeTransport: "rest",
+      compactRestore: false,
       credentials: undefined,
       headers: {},
       agents: {},
@@ -72,6 +74,20 @@ describe("useAgent stability during runtime connection", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("propagates the core compact restore opt-out to a provisional agent", () => {
+    let provisional: ProxiedCopilotRuntimeAgent | undefined;
+
+    function AgentTracker() {
+      const { agent } = useAgent({ agentId: "test-agent" });
+      provisional = agent as ProxiedCopilotRuntimeAgent;
+      return null;
+    }
+
+    render(<AgentTracker />);
+
+    expect(provisional?.compactRestore).toBe(false);
   });
 
   it("should reuse the same provisional agent across re-renders during Disconnected→Connecting", () => {

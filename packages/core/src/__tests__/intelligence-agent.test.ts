@@ -107,13 +107,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function createAgent() {
+function createAgent(
+  overrides: Partial<ConstructorParameters<typeof IntelligenceAgent>[0]> = {},
+) {
   return new IntelligenceAgent({
     url: "ws://localhost:4000/client",
     runtimeUrl: "http://localhost:4000",
     agentId: "my-agent",
     socketParams: { token: "test-token" },
     headers: { Authorization: "Bearer abc" },
+    ...overrides,
   });
 }
 
@@ -127,10 +130,19 @@ const defaultInput: RunAgentInput = {
   forwardedProps: {},
 };
 
+const COMPACT_RESTORE_CAPABILITY = {
+  schemaVersion: 1,
+  reducerVersion: 1,
+  sanitizerVersion: 1,
+  compactorVersion: 1,
+} as const;
+
 interface IntelligenceAgentTestAccess {
   activeChannel: MockChannel | null;
   canonicalRunId: string | null;
-  config: unknown;
+  config: ConstructorParameters<typeof IntelligenceAgent>[0] & {
+    compactRestore: boolean;
+  };
   connect(input: RunAgentInput): Observable<BaseEvent>;
   messages: RunAgentInput["messages"];
   socket: MockSocket | null;
@@ -213,7 +225,9 @@ function getCanonicalRunIdForTest(
   return getAgentTestAccess(agent).canonicalRunId;
 }
 
-function getConfigForTest(agent: IntelligenceAgentInstance): unknown {
+function getConfigForTest(
+  agent: IntelligenceAgentInstance,
+): IntelligenceAgentTestAccess["config"] {
   return getAgentTestAccess(agent).config;
 }
 
@@ -342,6 +356,18 @@ describe("IntelligenceAgent", () => {
         stream_mode: "run",
         run_id: "run-1",
       });
+      expect(channel.params).toMatchObject({
+        capabilities: {
+          restore: {
+            version: 1,
+            sdkVersion: expect.any(String),
+          },
+        },
+      });
+      expect(
+        (channel.params.capabilities as { restore: Record<string, unknown> })
+          .restore,
+      ).not.toHaveProperty("compact");
     });
   });
 
@@ -548,7 +574,7 @@ describe("IntelligenceAgent", () => {
       expect(error).toBeNull();
     });
 
-    it("reacquires connect credentials after MAX_CONSECUTIVE_ERRORS socket errors", async () => {
+    it("never advertises compact restore when a run refreshes socket credentials", async () => {
       mockFetch
         .mockResolvedValueOnce(
           await jsonResponse(runtimeCredentials({ joinToken: "jt-1" })),
@@ -586,6 +612,13 @@ describe("IntelligenceAgent", () => {
         stream_mode: "connect",
         last_seen_event_id: "event-2",
       });
+      expect(
+        (
+          getChannel(agent)!.params.capabilities as {
+            restore: Record<string, unknown>;
+          }
+        ).restore,
+      ).not.toHaveProperty("compact");
     });
 
     it("cleans up stale socket and channel before joining with refreshed credentials", async () => {
@@ -903,7 +936,11 @@ describe("IntelligenceAgent", () => {
       const channel = getChannel(agent)!;
       expect(channel.params).toMatchObject({
         capabilities: {
-          restore: { version: 1, sdkVersion: expect.any(String) },
+          restore: {
+            version: 1,
+            sdkVersion: expect.any(String),
+            compact: COMPACT_RESTORE_CAPABILITY,
+          },
         },
       });
       channel.triggerJoin("ok", {
@@ -950,6 +987,10 @@ describe("IntelligenceAgent", () => {
     it.each([
       ["an old gateway acknowledgement", {}],
       ["an unrecognized acknowledgement", { restore: { mode: "future" } }],
+      [
+        "a compact-aware gateway selecting legacy replay",
+        { restore: { mode: "legacy", reason: "projection_miss" } },
+      ],
     ])(
       "preserves legacy completion for %s",
       async (_label, acknowledgement) => {
@@ -970,6 +1011,51 @@ describe("IntelligenceAgent", () => {
         });
       },
     );
+
+    it("does not advertise compact restore when explicitly disabled", async () => {
+      const agent = createAgent({ compactRestore: false });
+      setThreadIdForTest(agent, "thread-1");
+
+      const promise = agent.connectAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+      const channel = getChannel(agent)!;
+
+      expect(
+        (channel.params.capabilities as { restore: Record<string, unknown> })
+          .restore,
+      ).not.toHaveProperty("compact");
+      channel.triggerJoin("ok", {});
+      channel.serverPush("replay_complete", { latestEventId: "event-1" });
+      channel.serverPush("stream_idle", { latestEventId: "event-1" });
+      await expect(promise).resolves.toBeDefined();
+    });
+
+    it("captures compact preference before delayed connect credentials resolve", async () => {
+      let resolveCredentials!: (response: Response) => void;
+      mockFetch.mockReturnValueOnce(
+        new Promise<Response>((resolve) => {
+          resolveCredentials = resolve;
+        }),
+      );
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      const promise = agent.connectAgent({ runId: "run-1" });
+      getConfigForTest(agent).compactRestore = false;
+      resolveCredentials(await jsonResponse(runtimeCredentials()));
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      expect(channel.params).toMatchObject({
+        capabilities: {
+          restore: { compact: COMPACT_RESTORE_CAPABILITY },
+        },
+      });
+      channel.triggerJoin("ok", {});
+      channel.serverPush("replay_complete", { latestEventId: "event-1" });
+      channel.serverPush("stream_idle", { latestEventId: "event-1" });
+      await expect(promise).resolves.toBeDefined();
+    });
 
     it("automatically retries an invalid cursor once with a full restore", async () => {
       mockFetch
@@ -995,6 +1081,7 @@ describe("IntelligenceAgent", () => {
           restoreAttemptId: "ra_invalid",
         },
       });
+      getConfigForTest(agent).compactRestore = false;
       firstChannel.serverPush("restore_failed", {
         restoreAttemptId: "ra_invalid",
         code: "invalid_cursor",
@@ -1011,6 +1098,9 @@ describe("IntelligenceAgent", () => {
       });
       expect(secondChannel.params).toMatchObject({
         last_seen_event_id: null,
+        capabilities: {
+          restore: { compact: COMPACT_RESTORE_CAPABILITY },
+        },
       });
 
       secondChannel.triggerJoin("ok", {
@@ -1286,6 +1376,13 @@ describe("IntelligenceAgent", () => {
         stream_mode: "connect",
         last_seen_event_id: "event-1",
       });
+      expect(
+        (
+          connectChannel.params.capabilities as {
+            restore: Record<string, unknown>;
+          }
+        ).restore,
+      ).not.toHaveProperty("compact");
     });
 
     it("clearReconnectCursor() empties the cursor for the next connect", async () => {
@@ -2084,7 +2181,7 @@ describe("IntelligenceAgent", () => {
       expect(error).toBeNull();
     });
 
-    it("reacquires connect credentials after MAX_CONSECUTIVE_ERRORS socket errors", async () => {
+    it("reacquires credentials with the attempt's compact preference after socket exhaustion", async () => {
       mockFetch.mockResolvedValueOnce(
         await jsonResponse(runtimeCredentials({ joinToken: "jt-1" })),
       );
@@ -2100,6 +2197,7 @@ describe("IntelligenceAgent", () => {
       await waitForConnection(agent);
 
       getChannel(agent)!.triggerJoin("ok");
+      getConfigForTest(agent).compactRestore = false;
 
       for (let i = 0; i < 5; i++) {
         getSocket(agent)!.triggerError(new Error("network failure"));
@@ -2110,6 +2208,12 @@ describe("IntelligenceAgent", () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(getSocket(agent)!.opts.params).toMatchObject({
         join_token: "jt-2",
+      });
+      expect(getChannel(agent)!.params).toMatchObject({
+        last_seen_event_id: null,
+        capabilities: {
+          restore: { compact: COMPACT_RESTORE_CAPABILITY },
+        },
       });
     });
 
@@ -2165,6 +2269,13 @@ describe("IntelligenceAgent", () => {
         stream_mode: "connect",
         last_seen_event_id: "event-before-refresh",
       });
+      expect(
+        (
+          getChannel(agent)!.params.capabilities as {
+            restore: Record<string, unknown>;
+          }
+        ).restore,
+      ).not.toHaveProperty("compact");
     });
 
     it("does not treat a synthetic connect run id as abortable run identity", async () => {
@@ -2195,13 +2306,20 @@ describe("IntelligenceAgent", () => {
   });
 
   describe("clone", () => {
-    it("returns a new IntelligenceAgent with the same config", () => {
+    it("returns a new IntelligenceAgent with the normalized compact config", () => {
       const agent = createAgent();
       const cloned = agent.clone();
 
       expect(cloned).toBeInstanceOf(IntelligenceAgent);
       expect(cloned).not.toBe(agent);
       expect(getConfigForTest(cloned)).toEqual(getConfigForTest(agent));
+      expect(getConfigForTest(cloned).compactRestore).toBe(true);
+    });
+
+    it("preserves a compact restore opt-out across clones", () => {
+      const agent = createAgent({ compactRestore: false });
+
+      expect(getConfigForTest(agent.clone()).compactRestore).toBe(false);
     });
 
     it("shares the replay cursor across clones (clearing on one clears for both)", async () => {
@@ -2289,6 +2407,42 @@ describe("IntelligenceAgent", () => {
 });
 
 describe("ProxiedCopilotRuntimeAgent (intelligence mode)", () => {
+  it("defaults compact restore on and preserves an opt-out through proxy clones and delegates", async () => {
+    const defaultAgent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost:4000/api/copilotkit",
+      agentId: "default",
+    });
+    expect(defaultAgent.compactRestore).toBe(true);
+
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost:4000/api/copilotkit",
+      agentId: "default",
+      runtimeMode: RUNTIME_MODE_INTELLIGENCE,
+      intelligence: { wsUrl: "ws://localhost:4401/client" },
+      compactRestore: false,
+    });
+    expect(agent.clone().compactRestore).toBe(false);
+
+    agent.threadId = "thread-1";
+    const promise = agent.connectAgent({ runId: "run-1" });
+    await flushAsyncWork();
+    const delegate = (
+      agent as unknown as { delegate: IntelligenceAgentInstance }
+    ).delegate;
+    expect(getConfigForTest(delegate).compactRestore).toBe(false);
+
+    await waitForConnection(delegate);
+    const channel = getChannel(delegate)!;
+    expect(
+      (channel.params.capabilities as { restore: Record<string, unknown> })
+        .restore,
+    ).not.toHaveProperty("compact");
+    channel.triggerJoin("ok", {});
+    channel.serverPush("replay_complete", { latestEventId: "event-1" });
+    channel.serverPush("stream_idle", { latestEventId: "event-1" });
+    await promise;
+  });
+
   it("forwards the thread restore store and force-full action to its delegate", async () => {
     mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
     const agent = new ProxiedCopilotRuntimeAgent({

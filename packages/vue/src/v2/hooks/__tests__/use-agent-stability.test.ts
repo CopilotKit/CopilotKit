@@ -6,7 +6,10 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
 import { useAgent } from "../use-agent";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  CopilotKitCoreRuntimeConnectionStatus,
+  ProxiedCopilotRuntimeAgent,
+} from "@copilotkit/core";
 
 // Mock the CopilotKitProvider to control copilotkit state directly
 vi.mock("../../providers/useCopilotKit", () => ({
@@ -28,6 +31,7 @@ describe("useAgent stability during runtime connection", () => {
     runtimeUrl: string | undefined;
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
     runtimeTransport: string;
+    compactRestore: boolean;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
     // Added after the hook moved to consume the shared core API. Mocks only
@@ -46,6 +50,7 @@ describe("useAgent stability during runtime connection", () => {
       runtimeConnectionStatus:
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       runtimeTransport: "rest",
+      compactRestore: false,
       headers: {},
       agents: {},
       subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe: vi.fn() })),
@@ -61,6 +66,27 @@ describe("useAgent stability during runtime connection", () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+  });
+
+  it("propagates the core compact restore opt-out to a provisional agent", async () => {
+    let provisional: AbstractAgent | null = null;
+    const AgentTracker = defineComponent({
+      setup() {
+        const { agent } = useAgent({ agentId: "test-agent" });
+        watchEffect(() => {
+          provisional = agent.value;
+        });
+        return () => null;
+      },
+    });
+
+    render(AgentTracker);
+    await nextTick();
+
+    expect(provisional).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
+    expect((provisional as ProxiedCopilotRuntimeAgent).compactRestore).toBe(
+      false,
+    );
   });
 
   it("should reuse the same provisional agent across re-renders during Disconnected→Connecting", async () => {
