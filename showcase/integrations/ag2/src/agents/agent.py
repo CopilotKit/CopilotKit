@@ -14,10 +14,15 @@ from typing import Annotated, Any
 
 import openai
 from ag2 import Agent
+from ag2.annotations import Inject
 from ag2.config import OpenAIConfig
 from ag2.ag_ui import AGUIStream
+from ag_ui.core import RunAgentInput
 from dotenv import load_dotenv
 from pydantic import Field, ValidationError
+from starlette.endpoints import HTTPEndpoint
+from starlette.requests import Request
+from starlette.responses import StreamingResponse
 
 load_dotenv()
 
@@ -34,8 +39,7 @@ from tools import (
 )
 from tools.types import Flight
 
-from ._header_forwarding import get_forwarded_headers
-from ._request_context import get_latest_user_message
+from _shared.harness.header_forwarding import get_forwarded_headers
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +144,7 @@ async def search_flights(
 
 async def generate_a2ui(
     context: Annotated[str, Field(description="Conversation context to generate UI for")],
+    user_prompt: Annotated[str, Inject()] = "",
 ) -> str:
     """Generate dynamic A2UI components based on the conversation.
 
@@ -151,16 +156,19 @@ async def generate_a2ui(
     # to the global httpx hook so aimock context routing is explicit at the
     # call site.
     #
-    # R2-A1 / A4: thread the latest user prompt from the inbound
-    # RunAgentInput.messages payload (captured into a per-request ContextVar
-    # by RequestUserMessageMiddleware — see agents/_request_context.py) into
-    # the inner LLM call so each pill's request body is byte-distinct.
-    # Without this, every pill landing on the omnibus agent (agentic-chat /
-    # tool-rendering / chat-customization-css / hitl) produces an IDENTICAL
-    # inner-LLM body and the aimock fixture cannot disambiguate. Falls back
-    # to the original hardcoded prompt when the middleware captured nothing
-    # (parse failure already logged at WARNING).
-    user_prompt = get_latest_user_message() or (
+    # ``user_prompt`` arrives via ag2 dependency injection: ``Inject()`` resolves
+    # it from the per-request ``dependencies`` dict that ``_AgentEndpoint`` below
+    # hands to ``AGUIStream.dispatch``. It is NOT model-supplied — ag2 excludes
+    # injected parameters from the LLM-facing tool schema, so the recorded
+    # tool-call arguments stay unchanged.
+    #
+    # Threading the real prompt into the inner LLM call is what makes each
+    # pill's request body byte-distinct. Without it, every pill landing on the
+    # omnibus agent (agentic-chat / tool-rendering / chat-customization-css /
+    # hitl) produces an IDENTICAL inner-LLM body and the aimock fixture cannot
+    # disambiguate. Falls back to the original hardcoded prompt when the request
+    # carried no user text.
+    user_prompt = user_prompt or (
         "Generate a dynamic A2UI dashboard based on the conversation."
     )
     forwarded = get_forwarded_headers()
@@ -236,11 +244,6 @@ agent = Agent(
         "Be concise and friendly in your responses."
     ),
     config=OpenAIConfig(model="gpt-4o-mini", streaming=True),
-    # Guard-rationale note: the 0.x port capped tool-call loops with
-    # max_consecutive_auto_reply=15 because a runaway loop floods Railway's
-    # log stream (500 logs/sec rate-limit), makes the agent unresponsive to
-    # health probes, and gets it killed by the watchdog. ag2 1.0 has no
-    # direct per-turn auto-reply cap, so no equivalent parameter is set here.
     tools=[
         get_weather,
         query_data,
@@ -254,3 +257,63 @@ agent = Agent(
 
 # AG-UI stream wrapper
 stream = AGUIStream(agent)
+
+
+# ==============
+# ASGI endpoint
+# ==============
+def _part_text(part: Any) -> str:
+    """Text of one multimodal content part, or "" for non-text parts.
+
+    ``RunAgentInput`` is parsed by pydantic, so parts arrive as
+    ``TextInputContent``-style objects; a raw dict is accepted too so the
+    helper stays usable against hand-built payloads in tests.
+    """
+    if isinstance(part, dict):
+        text = part.get("text")
+    else:
+        text = getattr(part, "text", None)
+    return text if isinstance(text, str) else ""
+
+
+def _latest_user_message(incoming: RunAgentInput) -> str:
+    """Last user-authored text in this request's history.
+
+    Read off the per-request ``RunAgentInput`` rather than shared agent state:
+    the module-level ``Agent`` is reused across concurrent requests, so reading
+    "the latest message" from agent-held state would be a cross-request race.
+
+    Multimodal content is joined WITHOUT a separator, matching the coercion the
+    previous middleware applied — the inner-LLM request body must stay
+    byte-identical to what the aimock fixtures recorded.
+    """
+    for message in reversed(incoming.messages or []):
+        if getattr(message, "role", None) != "user":
+            continue
+        content = getattr(message, "content", "") or ""
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return "".join(_part_text(part) for part in content)
+    return ""
+
+
+class _AgentEndpoint(HTTPEndpoint):
+    """Stock ``AGUIStream`` endpoint plus one per-request dependency.
+
+    Mirrors ``stream.build_asgi()`` (``ag2/ag_ui/asgi.py``) exactly, with the
+    single addition of ``dependencies=...`` — which ``build_asgi`` does not
+    expose. That dict is what ag2 resolves into ``generate_a2ui``'s
+    ``Inject()`` parameter, replacing the bespoke ContextVar middleware.
+    """
+
+    async def post(self, request: Request) -> StreamingResponse:
+        incoming = RunAgentInput.model_validate_json(await request.body())
+        return StreamingResponse(
+            stream.dispatch(
+                incoming,
+                # ag2 resolves this into the tool's Inject() parameter.
+                dependencies={"user_prompt": _latest_user_message(incoming)},
+                accept=request.headers.get("accept"),
+            )
+        )

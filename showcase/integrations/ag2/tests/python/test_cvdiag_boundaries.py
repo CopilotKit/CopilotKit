@@ -16,7 +16,7 @@ What's covered (spec §3 / §5 / §6):
   * Heartbeat fires within ~12s of a slow-LLM simulation.
   * Default-OFF: with the flag unset, NO CVDIAG backend line is emitted.
 
-RED before instrumentation: ``agents._cvdiag_backend`` does not exist →
+RED before instrumentation: ``_shared.harness.cvdiag_backend`` does not exist →
 ImportError; the 11-boundary / heartbeat / scrub assertions cannot pass.
 GREEN after: every boundary, the scrub, and the heartbeat assert true.
 """
@@ -33,7 +33,7 @@ from starlette.responses import StreamingResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from agents._cvdiag_backend import (
+from _shared.harness.cvdiag_backend import (
     CvdiagBackendMiddleware,
     LlmCallScope,
     _RequestCtx,

@@ -21,11 +21,13 @@ conversation-variables state slot.
 # inside each agent module is harmless — but the FIRST call must happen
 # here, before the agent imports below.
 # CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
-# dropped L1-H slot). Importing this module configures the root logger via
-# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
-# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
-# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
-# and has no dependency on ``.env``, so it is safe to run before ``load_dotenv``.
+# dropped L1-H slot). Importing this module attaches a SCOPED stream handler to
+# the ``_shared.harness.*`` and ``agents.*`` logger subtrees (never the root
+# logger — the host's own logging config is left untouched) so those CVDIAG
+# loggers actually EMIT, fixing the silent-drop bug; both subtrees are needed
+# since the harness plumbing moved out of ``agents/``. It also resolves the
+# verbosity tier + PB writer. It imports pydantic/starlette only and has no
+# dependency on ``.env``, so it is safe to run before ``load_dotenv``.
 import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
 
 from dotenv import load_dotenv
@@ -44,13 +46,12 @@ from starlette.responses import JSONResponse
 # per-call, but other integrations construct at module-import time;
 # keeping the patch at the top of agent_server.py is the consistent
 # placement across all Python showcase integrations and is harmless here.
-from agents._cvdiag_backend import CvdiagBackendMiddleware
-from agents._header_forwarding import (
+from _shared.harness.cvdiag_backend import CvdiagBackendMiddleware
+from _shared.harness.header_forwarding import (
     HeaderForwardingHTTPMiddleware,
     install_executor_contextvar_propagation,
     install_global_httpx_hook,
 )
-from agents._request_context import RequestUserMessageMiddleware
 
 install_global_httpx_hook()
 # ag2 1.0's LLM calls are natively async (AsyncOpenAI), so the old autogen
@@ -62,7 +63,7 @@ install_global_httpx_hook()
 # match the right fixture for the request.
 install_executor_contextvar_propagation()
 
-from agents.agent import stream as default_stream
+from agents.agent import _AgentEndpoint as default_endpoint
 from agents.a2ui_dynamic import a2ui_dynamic_app
 from agents.a2ui_fixed import a2ui_fixed_app
 from agents.agent_config_agent import agent_config_app
@@ -102,19 +103,12 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 # ORDER-CRITICAL: Starlette's ``add_middleware`` is LIFO — the LAST call
-# becomes the OUTERMOST layer in the request pipeline. This ordering
-# matters because ``BaseHTTPMiddleware`` (HealthMiddleware,
-# HeaderForwardingHTTPMiddleware) internally uses anyio TaskGroups that
-# can sever ``contextvars.ContextVar`` propagation from outer layers to
-# the inner ASGI app. The raw-ASGI ``RequestUserMessageMiddleware`` sets
-# a ContextVar that downstream tool handlers must observe, so it MUST
-# sit OUTSIDE the BaseHTTPMiddleware layers — i.e. be added LAST so it
-# wraps them. CORSMiddleware (also raw ASGI) is added last of all so it
-# remains the absolute outermost layer (handles preflight + headers
-# before anything else runs).
+# becomes the OUTERMOST layer in the request pipeline. CORSMiddleware (raw
+# ASGI) is added last so it remains the absolute outermost layer (handles
+# preflight + headers before anything else runs).
 #
 # Resulting outer→inner execution order:
-#   CORS → RequestUserMessage → HeaderForwarding → Health → routes/mounts
+#   CORS → CvdiagBackend → HeaderForwarding → Health → routes/mounts
 
 # Innermost: serve /health via middleware so it short-circuits BEFORE
 # route resolution. (Already declared above as HealthMiddleware.)
@@ -131,20 +125,11 @@ app.add_middleware(HeaderForwardingHTTPMiddleware)
 # boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
 # response.complete, error.caught) as structured CVDIAG envelopes. Added here so
 # it wraps the Health + HeaderForwarding BaseHTTPMiddleware layers but stays
-# INSIDE the outer raw-ASGI RequestUserMessage + CORS layers (CORS remains the
-# absolute outermost so preflight is handled first). Gated behind
+# INSIDE the outer raw-ASGI CORS layer (CORS remains the absolute outermost so
+# preflight is handled first). Gated behind
 # ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the middleware
 # fast-paths to a bare pass-through when the flag is unset.
 app.add_middleware(CvdiagBackendMiddleware)
-
-# R2-A3: Capture the latest user message from each inbound RunAgentInput POST
-# into a per-request ContextVar so tool handlers (e.g. generate_a2ui) can read
-# the per-request prompt without consulting any shared, race-prone
-# agent-held conversation state. See agents/_request_context.py.
-# Added AFTER the BaseHTTPMiddlewares above so it wraps them (raw ASGI on
-# the outside preserves ContextVar propagation across the anyio
-# TaskGroups they spawn internally).
-app.add_middleware(RequestUserMessageMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -174,10 +159,10 @@ app.mount(
     "/tool-rendering-reasoning-chain",
     tool_rendering_reasoning_chain_app,
 )
-# Reasoning-aware route. ag2 1.0's AGUIStream maps model reasoning deltas
-# to REASONING_MESSAGE_* events natively, but the reasoning-custom /
-# reasoning-default cells keep using this custom sub-app until QA
-# re-verifies the native path. Mirrors agno's /reasoning/agui mount.
+# Reasoning-aware route, shared by the reasoning-custom / reasoning-default
+# cells. Now a plain stock-AGUIStream sub-app: ag2 1.0 maps the provider
+# reasoning side-channel to REASONING_MESSAGE_* events natively, so the former
+# custom SSE route is gone (see agents/reasoning_agent.py).
 app.mount("/reasoning", reasoning_app)
 app.mount("/agent-config", agent_config_app)
 app.mount("/multimodal", multimodal_app)
@@ -194,7 +179,12 @@ app.mount("/interrupt-adapted", interrupt_app)
 # `app.mount("/", ...)` is a catch-all Mount that shadows any later route
 # decorators, which is why /health is served by HealthMiddleware above
 # rather than a `@app.get("/health")` handler registered here.
-app.mount("/", default_stream.build_asgi())
+#
+# This is the stock ``AGUIStream`` endpoint plus one per-request dependency
+# (the latest user message) that ag2 injects into the ``generate_a2ui`` tool —
+# see ``agents/agent.py``. ``build_asgi()`` does not expose ``dependencies``,
+# which is the only reason the endpoint is spelled out there.
+app.mount("/", default_endpoint)
 
 
 def main():
