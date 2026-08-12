@@ -92,7 +92,9 @@ describe("ProxiedCopilotRuntimeAgent compact restore mutation warning", () => {
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0]?.[0]).toMatch(/compact restore/i);
     expect(warn.mock.calls[0]?.[0]).toMatch(/immutable/i);
-    expect(warn.mock.calls[0]?.[0]).toMatch(/returned messages.*state mutations/i);
+    expect(warn.mock.calls[0]?.[0]).toMatch(
+      /returned messages.*state mutations/i,
+    );
     expect(warn.mock.calls[0]?.[0]).toContain("compactRestore: false");
   });
 
@@ -226,10 +228,7 @@ describe("ProxiedCopilotRuntimeAgent compact restore mutation warning", () => {
         agent.run = () => EMPTY;
       }
 
-      await agent.runAgent(
-        { runId: "run-1" },
-        { onRunInitialized },
-      );
+      await agent.runAgent({ runId: "run-1" }, { onRunInitialized });
 
       expect(onRunInitialized).toHaveBeenCalledOnce();
       expect(warn).toHaveBeenCalledOnce();
@@ -243,10 +242,7 @@ describe("ProxiedCopilotRuntimeAgent compact restore mutation warning", () => {
     agent.threadId = "thread-1";
     agent.connect = () => EMPTY;
 
-    await agent.connectAgent(
-      { runId: "connect-1" },
-      { onRunInitialized },
-    );
+    await agent.connectAgent({ runId: "connect-1" }, { onRunInitialized });
 
     expect(onRunInitialized).toHaveBeenCalledOnce();
     expect(warn).toHaveBeenCalledOnce();
