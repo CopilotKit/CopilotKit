@@ -14,6 +14,10 @@ on:
       - "skills/**"
       - "scripts/sync-plugin-skills.ts"
       - "scripts/__tests__/sync-plugin-skills.test.ts"
+      - "scripts/public-skill-evals/**"
+      - "scripts/release/public-api/manifest.v1.json"
+      - "packages/runtime/src/**"
+      - "packages/react-core/src/**"
       - ".claude-plugin/**"
       - ".github/workflows/plugin-skills-check.yml"
       # The plugin version pins to packages/runtime/package.json, so a release
@@ -25,6 +29,10 @@ on:
       - "skills/**"
       - "scripts/sync-plugin-skills.ts"
       - "scripts/__tests__/sync-plugin-skills.test.ts"
+      - "scripts/public-skill-evals/**"
+      - "scripts/release/public-api/manifest.v1.json"
+      - "packages/runtime/src/**"
+      - "packages/react-core/src/**"
       - ".claude-plugin/**"
       - ".github/workflows/plugin-skills-check.yml"
       - "packages/runtime/package.json"
@@ -59,3 +67,9 @@ jobs:
 
       - name: Check plugin skill mirror is in sync
         run: pnpm check:plugin-skills
+
+      - name: Test public skill evaluator
+        run: pnpm nx run public-skill-evals:test
+
+      - name: Evaluate public skills against current packages
+        run: pnpm nx run public-skill-evals:check
