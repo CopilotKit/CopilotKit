@@ -23,7 +23,7 @@ export function createDefaultAgent(): BuiltInAgent {
   ];
 
   const agent = new BuiltInAgent({
-    model: "openai/gpt-4o",
+    model: "openai/" + (process.env.OPENAI_MODEL ?? "gpt-4o"),
     prompt: "You are a helpful assistant.",
   });
 

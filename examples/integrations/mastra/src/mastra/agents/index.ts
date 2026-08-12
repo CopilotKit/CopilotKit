@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
 import { weatherTool } from "@/mastra/tools";
 import { LibSQLStore } from "@mastra/libsql";
@@ -9,11 +9,16 @@ export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
 });
 
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: process.env.OPENAI_BASE_URL,
+});
+
 export const weatherAgent = new Agent({
   id: "weather-agent",
   name: "Weather Agent",
   tools: { weatherTool },
-  model: openai("gpt-4o"),
+  model: openai(process.env.OPENAI_MODEL ?? "gpt-4o"),
   instructions: "You are a helpful assistant.",
   memory: new Memory({
     storage: new LibSQLStore({

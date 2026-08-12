@@ -24,7 +24,7 @@ const AgentStateSchema = new StateSchema({
 });
 
 const model = new ChatOpenAI({
-  model: "gpt-5.4",
+  model: process.env.OPENAI_MODEL ?? "gpt-5.4",
   modelKwargs: { parallel_tool_calls: false },
 });
 
