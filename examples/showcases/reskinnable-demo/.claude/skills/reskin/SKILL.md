@@ -131,8 +131,8 @@ it is a **dead control** until this flag and the dark block both exist.
 
 **OGUI renders full-region on the shared canvas.** A `generateSandboxedUi` call
 becomes an `open-generative-ui` activity that the shell renders full-region on
-the canvas via the workspace `OpenGenerativeUIActivityRenderer` (this build ships
-it). A skin does **not** supply an OGUI renderer — it only contributes
+the canvas via the workspace `OpenGenerativeUIActivityRenderer`. A skin does
+**not** supply an OGUI renderer — it only contributes
 `sandboxFunctions?` + `designSkill`, which the shell wires onto the provider. (An
 a2ui _report_ surface is different: a skin renders its own via the optional
 `CanvasSurface`.)

@@ -9,12 +9,11 @@ import { skinIds } from "./skins-config";
  *
  * `skins-config.test.ts` (its neighbour) stops the three CODE copies of the skin
  * id list from rotting. This file stops the PROSE copies from rotting, which is
- * the same defect class and the one that actually keeps shipping: a doc hardcodes
- * a skin count or a skin roster, the registered set grows, and the sentence turns
- * false with nothing to catch it. The shapes it takes: "ships four of them",
- * "these four", a four-value `LOCK_SKIN` list, "all four stay reachable", "a
- * four-tenant demo harness", "the unlocked four-skin demo" — one CR pass over the
- * doc set found FOURTEEN live at once.
+ * the same defect class: a doc hardcodes a skin count or a skin roster, the
+ * registered set grows, and the sentence turns false with nothing to catch it.
+ * The shapes it takes: "ships four of them", "these four", a four-value
+ * `LOCK_SKIN` list, "all four stay reachable", "a four-tenant demo harness",
+ * "the unlocked four-skin demo".
  *
  * CLAUDE.md's standing rule to re-read the reskin skill after every change is not
  * enough on its own, and it says why the rot is invisible: "it goes stale
@@ -23,8 +22,8 @@ import { skinIds } from "./skins-config";
  * a sentence that is merely out of date. This file is the mechanical replacement.
  *
  * The expected values are DERIVED from `skinIds`; the digit 6 and the word "six"
- * appear nowhere below, or this test would become the fifteenth instance of the
- * bug it exists to prevent.
+ * appear nowhere below, or this test would itself become an instance of the bug
+ * it exists to prevent.
  *
  * ── Coverage, stated honestly ────────────────────────────────────────────────
  *
@@ -51,7 +50,8 @@ import { skinIds } from "./skins-config";
  *     totality framing, while the id-list rule (correctly) requires one. Globs
  *     need the same framing, from a cue window on EITHER side: the two real globs
  *     are framed by "the six shipped skins" BEFORE (templates.md) and "six
- *     implementations" AFTER (CLAUDE.md).
+ *     implementations" AFTER (CLAUDE.md). Keep that framing when editing either
+ *     doc — it is what arms the rule.
  *
  * Both discriminators are pinned below by must-flag AND must-not-flag fixtures,
  * so neither can be quietly widened back.
@@ -72,9 +72,8 @@ import { skinIds } from "./skins-config";
  *        `commerce`. Left alone because fixing it is a COVERAGE change (new
  *        assertions against skins the spec has never visited), not a prose fix.
  *    It is named rather than checked because adding a source-comment sweep would
- *    turn this test red outside its stated scope. Whoever
- *    fixes the remaining one should consider widening `DOC_SET` or adding that
- *    sweep here.
+ *    turn this test red outside its stated scope. Whoever fixes it should consider
+ *    widening `DOC_SET` or adding that sweep here.
  */
 
 /** Walks up from this file to the app root (the dir holding package.json + the skill). */
@@ -139,10 +138,9 @@ const MENTIONS_SKIN = /\bskins?\b/i;
  * Each rule matches a phrase shape that asserts the SIZE OF THE SHIPPED SET, and
  * only that shape — the discriminator is that a subset claim is virtually always
  * qualified ("four REST-backed skins", "five of the six skins"), so a bare number
- * fused to a totality cue is the total. Every historical instance is listed with
- * the rule that catches it; `catches` doubles as the synthetic red fixture in the
- * self-test at the bottom, so a refactor that keeps the list but breaks a regex
- * fails too.
+ * fused to a totality cue is the total. Each rule carries the stale phrasings it
+ * catches; `catches` doubles as the synthetic red fixture in the self-test at the
+ * bottom, so a refactor that keeps the list but breaks a regex fails too.
  */
 type CountRule = {
   id: string;
@@ -154,8 +152,8 @@ type CountRule = {
   /**
    * Is `claimed` a TRUE statement given `registered`? Defaults to "exactly the
    * registered count". A rule overrides this only when its phrase shape admits
-   * more than one true reading — see `ordinal-skin`, whose original single
-   * reading flagged the truthful "the sixth skin".
+   * more than one true reading — see `ordinal-skin`, where a single reading
+   * flags the truthful "the sixth skin".
    */
   accepts?: (
     claimed: number,
@@ -242,8 +240,8 @@ const COUNT_RULES: CountRule[] = [
   {
     id: "ordinal-skin",
     re: new RegExp(`\\b(?<art>an?|the)\\s+${ORD}\\s+skin\\b`, "gi"),
-    // THE ARTICLE CARRIES THE CLAIM, and conflating the two readings is what made
-    // this rule flag a truthful sentence:
+    // THE ARTICLE CARRIES THE CLAIM, and conflating the two readings makes this
+    // rule flag a truthful sentence:
     //  - "A fifth skin added to the registry…" — INDEFINITE, so it is the
     //    hypothetical NEXT skin and must name `registered + 1`. (`registered`
     //    itself is also accepted: a numeral that equals the shipped count is not
@@ -273,14 +271,12 @@ const COUNT_RULES: CountRule[] = [
  * suppression.
  */
 const COUNT_EXEMPTIONS: { file: string; phrase: string; why: string }[] = [
-  // Deliberately EMPTY. It held one entry — templates.md's "All three skins have
-  // one", about the skins shipping `intelligence/forget-memories.ts` — and that
-  // sentence stopped being true the moment a fourth skin shipped one. The
-  // replacement phrases the same fact as its derivation
-  // (`ls src/skins/*/intelligence/forget-memories.ts`), which cannot rot, so the
-  // exemption was deleted rather than re-counted. Prefer that fix to a new entry
-  // here: an exemption is a promise to hand-recount a subset every time the
-  // roster changes, and this file exists because that promise is not kept.
+  // Deliberately EMPTY. Before adding an entry, try phrasing the fact as its
+  // derivation instead — "every skin shipping one, `ls
+  // src/skins/*/intelligence/forget-memories.ts`" cannot rot, where "all three
+  // skins have one" stops being true the moment a fourth ships one. Prefer that
+  // fix: an exemption is a promise to hand-recount a subset every time the roster
+  // changes, and this file exists because that promise is not kept.
 ];
 
 /** A backticked/bolded skin id, as the docs write them. */
@@ -294,8 +290,8 @@ const ID_BRACE_GLOB = /\{([a-z][a-z,\s]*)\}/gi;
  * An id list is only required to be COMPLETE when the doc frames it as the valid
  * or registered set. Every other list in these docs is a deliberate subset
  * ("banking, people and commerce are demo-complete"), which is why the cue is
- * this narrow: broadening it to a bare "registered" immediately false-positives
- * on CLAUDE.md's TRUE history sentence about `people` and `commerce` shipping.
+ * this narrow: broadening it to a bare "registered" false-positives on any true
+ * sentence that merely mentions two skins near that word.
  */
 const EXHAUSTIVE_CUE = /valid ids?|registered set|are registered|LOCK_SKIN/i;
 const CUE_LOOKBEHIND = 140;
@@ -304,8 +300,8 @@ const CUE_LOOKBEHIND = 140;
  * Totality framing for a brace GLOB, which needs its own cue vocabulary: a path
  * glob is framed by prose about the skins it points at ("mirror the six shipped
  * skins", "— six implementations"), not by the "valid ids" wording that frames an
- * inline id list. Without this, every partial glob was demanded to be exhaustive
- * — a verified false positive on a deliberate two-member glob.
+ * inline id list. Without this, every partial glob is demanded to be exhaustive
+ * — a false positive on a deliberate two-member glob.
  *
  * The window spans BOTH sides because the two real globs are framed on opposite
  * sides: templates.md's cue precedes it, CLAUDE.md's follows it.
@@ -518,8 +514,8 @@ describe("the documented skin roster", () => {
     // glob is covered. The brace-glob rule needs totality framing near the glob
     // (deliberately, so a partial glob is not demanded to be exhaustive), so a
     // single doc rephrased away from that framing drops out of coverage while the
-    // other doc's glob keeps this assertion green. Verified: removing
-    // templates.md's "the six shipped skins" leaves the suite passing.
+    // other doc's glob keeps this assertion green — dropping templates.md's "the
+    // six shipped skins" framing leaves the suite passing.
     expect(rosters.length).toBeGreaterThan(2);
     expect([...new Set(rosters.map((h) => h.rule))].sort()).toEqual([
       "brace-glob",
@@ -548,10 +544,9 @@ describe("the documented skin roster", () => {
 });
 
 describe("the roster checks themselves", () => {
-  // The red half of red-green, kept permanently. Every string below is real stale
-  // wording drawn from these six documents (two of them from src/lib/locked-skin.ts
-  // and skins-config.test.ts). If a regex is loosened or broken, the instance it
-  // catches fails here.
+  // The red half of red-green, kept permanently. Every string below is stale
+  // wording of the shape these six documents produce. If a regex is loosened or
+  // broken, the instance it catches fails here.
   it.each(COUNT_RULES.flatMap((r) => r.catches.map((c) => [r.id, c] as const)))(
     "still catches the %s instance: %s",
     (ruleId, phrase) => {
@@ -573,9 +568,9 @@ describe("the roster checks themselves", () => {
   });
 
   it("passes a TRUTHFUL count in every phrasing a rule matches", () => {
-    // The test the original should have carried. Validating only against today's
-    // tree proves that no CURRENT sentence trips a rule — not that no CORRECT
-    // sentence does. These are the shapes of all nine rules, written truthfully
+    // Validating only against today's tree proves that no CURRENT sentence trips
+    // a rule — not that no CORRECT sentence does. These are the shapes of all
+    // nine rules, written truthfully
     // and DERIVED from the registry, so they stay truthful as skins are added.
     const n = REGISTERED;
     const word = Object.keys(NUMBER_WORDS).find((w) => NUMBER_WORDS[w] === n);
@@ -615,7 +610,7 @@ describe("the roster checks themselves", () => {
   it("still flags an ordinal past the end of the roster", () => {
     // The other half of the article discriminator: "the sixth skin" is true on a
     // six-skin registry, "the seventh" claims a skin that does not exist. Without
-    // this, relaxing the definite reading would have opened a hole.
+    // this, relaxing the definite reading opens a hole.
     const past = Object.keys(ORDINAL_WORDS).find(
       (w) => ORDINAL_WORDS[w] === REGISTERED + 1,
     );
@@ -671,8 +666,8 @@ describe("the roster checks themselves", () => {
   });
 
   it("catches an id enumeration that omits a registered skin", () => {
-    // The README's worst instance: a four-value LOCK_SKIN list, which a count
-    // check alone would have missed entirely.
+    // A stale `LOCK_SKIN` id list — the shape a count check alone misses
+    // entirely.
     const stale =
       "Set `LOCK_SKIN` to a skin id (`banking`, `airline`, `logistics`, `keel`) and " +
       "the deploy becomes single-tenant.";
@@ -697,9 +692,9 @@ describe("the roster checks themselves", () => {
   });
 
   it("leaves a deliberate PARTIAL glob alone", () => {
-    // The second verified false positive. A glob that points at two worked
-    // examples is not a claim about the valid set, and demanding exhaustiveness
-    // here is what pushes a correct doc towards an exemption.
+    // A glob that points at two worked examples is not a claim about the valid
+    // set, and demanding exhaustiveness here is what pushes a correct doc towards
+    // an exemption.
     const partial =
       "Open `src/skins/{banking,people}/suggestions.ts` for a written-out beat map.";
     expect(findIncompleteRosters(partial, skinIds)).toEqual([]);

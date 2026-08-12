@@ -256,12 +256,12 @@ out of one module (`skins/logistics/data/exception-levers.ts`).
   all.
 - **A lever the model set only because the schema let it.** DO NOT make your
   lever parameters `.optional()`. A model facing an optional enum fills it
-  anyway, because omission is not a choice it can state. Measured in logistics:
-  told in as many words "take me to the Control Tower, do not filter anything,
-  just limit it to the top 3 rows", gpt-5.4 returned
-  `exception=PORT_CONGESTION` **and** `status=on_track` — a pair no shipment
-  satisfies — so the maneuver landed on an EMPTY board with four confidently
-  tinted controls. No prompt sentence fixed it. Make each lever REQUIRED and put
+  anyway, because omission is not a choice it can state. Told in as many words
+  "take me to the Control Tower, do not filter anything, just limit it to the top
+  3 rows", it still returns `exception=PORT_CONGESTION` **and** `status=on_track`
+  — a pair no shipment satisfies — so the maneuver lands on an EMPTY board with
+  four confidently tinted controls, and no prompt sentence closes it.
+  Make each lever REQUIRED and put
   an explicit "not pulled" value INSIDE the enum (`"all"`, and `0` for a numeric
   limit) so the model can say it: `skins/logistics/data/exception-levers.ts`'s
   `ANY_LEVER`, and commerce's `"all"` in `ORDER_STATUS_FILTERS`. The sentinel is
@@ -292,8 +292,8 @@ still there, because it is part of your product.
 your skin's **store**, plus a surface in the app that lists those artifacts.
 Deleting the thread must not remove it. A client-state store can only fake half of
 this — the artifact dies with the tab, and the beat's claim is precisely that it
-does not — which is one of the reasons no skin holds its data in client state any
-more. Write the artifact through a REST route into a server store.
+does not — which is one of the reasons no skin holds its data in client state.
+Write the artifact through a REST route into a server store.
 
 Three mechanics worth copying verbatim:
 
@@ -592,9 +592,9 @@ grep -ln 'scope !== "project"' src/skins/*/intelligence/forget-memories.ts
 saved it at project scope. Copy that sweep (you should) and then save at project
 scope, and you have built the failure.
 
-Verified against a running stack: a project-scoped memory is returned for EVERY
-user id, so it also leaks across products — one skin's procedure recalled inside
-another reads to the room like the memory system confused two applications.
+A project-scoped memory is returned for EVERY user id, so it also leaks across
+products — one skin's procedure recalled inside another reads to the room like
+the memory system confused two applications.
 
 **`banking` scopes its learned procedure `project`. It is the one exception, not
 the pattern**, and it gets away with it only because its own sweep deletes every
@@ -723,9 +723,9 @@ tools or pages, alongside this file.
 
 ## Which skin to copy for what
 
-**Every registered skin is demo-complete**, so the question is no longer "which
-ones are finished" but "which one is the cleanest read for the thing I am stuck
-on". Rows naming a set rather than a skin give you the derivation instead, because
+**Every registered skin is demo-complete**, so the question is not "which ones
+are finished" but "which one is the cleanest read for the thing I am stuck on".
+Rows naming a set rather than a skin give you the derivation instead, because
 a set rots and a command does not.
 
 | Need                                      | Copy from                                                                             |
@@ -744,9 +744,9 @@ a set rots and a command does not.
 | Runtime identity with NO context to read  | `airline` — `useRuntimeProperties` + `identifyUser`, no `RuntimeProviders`            |
 | Parameterized routes in `resolvePage`     | `keel` (`knowledge/<docId>`, `runs/<runId>`)                                          |
 | A server-settled clock (no client tick)   | `keel` — `src/app/api/keel/v1/settle-runs.ts`, settled on every read                  |
-| Raising an EXISTING skin to the beats     | `logistics`, `airline` and `keel` — each raised after the fact, commit by commit      |
+| Raising an EXISTING skin to the beats     | `logistics`, `airline`, `keel` — their git history walks that path commit by commit   |
 | A gate that is ENTITLEMENT, not authority | `airline` — the fare's own conditions refuse; the exception must MATCH the record     |
-| An in-memory `useData` substrate          | nothing — no skin sets `useData` any more; templates.md § `data/use-data.ts` only     |
+| An in-memory `useData` substrate          | nothing — no skin sets `useData`; templates.md § `data/use-data.ts` only              |
 
 > **Generating a PDF? Do NOT write the bytes — call `@/shell/documents`.**
 > `buildPdf(lines: Line[])` emits a single page of base-14 text with a correct
@@ -859,13 +859,12 @@ a set rots and a command does not.
 
 > **And the artifact must not contradict the document it was filed from.** The
 > tool that files the record is the last place this beat can go wrong, and it goes
-> wrong through an OPTIONAL parameter: a model fills one anyway. Measured in
-> logistics — `fileRateBrief`'s optional `oldRateUsdPerKg`, documented as "omit for
-> a lane the sheet prints as new", got the QUOTED rate copied into it on the first
-> live run, so the artifact rendered "$0.49 → $0.49, flat" for the one lane the
-> attached sheet prints as new service with no prior rate on file. The record
-> contradicts the document it was filed from, on exactly the row that proves the
-> document was read.
+> wrong through an OPTIONAL parameter: a model fills one anyway. Logistics'
+> `fileRateBrief` has an optional `oldRateUsdPerKg` documented as "omit for a lane
+> the sheet prints as new", and a run that copies the QUOTED rate into it renders
+> "$0.49 → $0.49, flat" for the one lane the attached sheet prints as new service
+> with no prior rate on file. The record contradicts the document it was filed
+> from, on exactly the row that proves the document was read.
 >
 > **Screening the direction you observed is not enough** — the field goes wrong in
 > three, and all three put the same lie on the same row. OVER-FILLED is the one
@@ -907,9 +906,6 @@ impressive and demo-worthless, and it is invisible in a diff: everything compile
 everything renders, and the beat simply is not there. If you find yourself building
 identity plumbing, build the seed file in the same phase.
 
-`logistics`, `airline` and `keel` were each raised to the beat list after they
-already existed, so their history is a commit-by-commit record of exactly what
-correct wiring still leaves missing — read it if you have to do the same. And
-check every claim on this page against the tree
+Check every claim on this page against the tree
 (`ls src/skins/*/intelligence/seed-memories.ts`,
 `grep -c 'title:' src/skins/*/suggestions.ts`) rather than against the prose.

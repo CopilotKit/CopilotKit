@@ -3,9 +3,8 @@ import nextTypescript from "eslint-config-next/typescript";
 
 /**
  * The LOCK_SKIN URL contract, enforced against the AST — NOT by scanning source
- * as text (see the deleted `src/shell/skin-path.drift.test.ts`; a regex over raw
- * source is a re-implementation of a fragment of a JS parser, and drifted out of
- * true three review rounds running). ESLint already has the parser; these are
+ * as text: a regex over raw source is a re-implementation of a fragment of a JS
+ * parser, and drifts out of true. ESLint already has the parser; these are
  * `no-restricted-syntax` selectors over the real tree.
  *
  * THE INVARIANT. Under a `LOCK_SKIN` deploy the app is served AT `/`, so no
@@ -17,8 +16,8 @@ import nextTypescript from "eslint-config-next/typescript";
  * WHY AST, NOT USE-SITE. An AST rule fires on the LITERAL SHAPE wherever it
  * appears — `router.push(...)`, `href={...}`, `location.assign(...)`, or anywhere
  * else — so it needs no list of call sites, and it never trips on a path that only
- * appears inside a comment or string of prose (the two false positives the text
- * scanner kept producing). It also cannot be fooled by a `$` in a variable name.
+ * appears inside a comment or string of prose. It also cannot be fooled by a `$`
+ * in a variable name.
  */
 
 /**
@@ -32,10 +31,9 @@ import nextTypescript from "eslint-config-next/typescript";
  * cost `skinIds` its `as const` tuple type — which `skinIdentities` relies on to
  * stay exhaustive — so the copy is the cheapest correct option.
  *
- * WHY IT IS EXPORTED. A hand-copied list rots SILENTLY: this literal read
- * `banking|airline|logistics|keel` for two skins after `people` and `commerce`
- * shipped, so a hardcoded `"/commerce/orders"` href passed `pnpm lint` cleanly
- * while breaking the address bar on a locked deploy. Nothing failed. The export
+ * WHY IT IS EXPORTED. A hand-copied list rots silently — a stale entry lets a
+ * hardcoded `"/<skin>/…"` href pass `pnpm lint` cleanly while breaking the
+ * address bar on a locked deploy, and nothing fails. The export
  * exists so `src/shell/skins-config.test.ts` can lint a synthetic prefixed link
  * for EVERY registered skin through these very selectors and fail when one is
  * unguarded. ESLint reads only the default export; this named one is inert to it.
@@ -135,8 +133,8 @@ const interpolationThenSlash = {
  *
  * Beat 6's claim is "when it doesn't know, it learns by watching me once". An
  * agent holding the catalogue of codes that lift a gate already knows: it clears
- * the gate unaided and there is nothing left to teach. Logistics published its
- * catalogue FOUR ways — a `useAgentContext` readable, a `z.enum(ESCALATION_CODES)`
+ * the gate unaided and there is nothing left to teach. A catalogue reaches the
+ * agent four ways — a `useAgentContext` readable, a `z.enum(ESCALATION_CODES)`
  * on the filing tool's schema, the tool's own description pointing the agent at
  * "the catalogue in your context", and an `agent.ts` prompt line listing "valid
  * escalation codes" among what is "provided".
@@ -154,10 +152,10 @@ const interpolationThenSlash = {
  * anything. It belongs beside the LOCK_SKIN selectors, which exist for the same
  * reason — a failure with no runtime symptom.
  *
- * WHY AST AND NOT A SOURCE-STRING SCAN. The schema leak was line-WRAPPED
- * (`.enum(ESCALATION_CODES)` sat on its own line), so a guard for the text
- * "z.enum(ESCALATION_CODES)" would have silently never matched. This selector
- * matches the IDENTIFIER and is immune to formatting.
+ * WHY AST AND NOT A SOURCE-STRING SCAN. A schema leak is routinely line-WRAPPED
+ * (`.enum(ESCALATION_CODES)` on its own line), so a guard for the text
+ * "z.enum(ESCALATION_CODES)" silently never matches. This selector matches the
+ * IDENTIFIER and is immune to formatting.
  *
  * The `files` glob below is the SKINS ALREADY FIXED — both agent-facing files of
  * each, `tools.tsx` AND `agent.ts`. Widen it as each remaining skin's gate lands;
@@ -216,11 +214,10 @@ const statusKeyedTerminalRender = {
  * OUTSIDE the option object; the test reverses this map on the `selector` string.
  *
  * WHY IT EXISTS AT ALL. Flat-config `rules` options are REPLACED, not merged — a
- * later matching block silently drops every selector it does not restate. That
- * shipped once (the beat-6 block below cost `logistics/tools.tsx` all three
- * LOCK_SKIN selectors), and was invisible to `pnpm lint`, to the whole unit
- * suite, and to this config's own synthetic-link test. ESLint reads only the
- * default export; this named one is inert to it.
+ * later matching block silently drops every selector it does not restate, and
+ * that drop is invisible to `pnpm lint`, to the whole unit suite, and to this
+ * config's own synthetic-link test. ESLint reads only the default export; this
+ * named one is inert to it.
  */
 export const NAMED_SELECTORS = {
   literalSkinPrefix,
@@ -328,11 +325,11 @@ const eslintConfig = [
   // silently DISABLES the three URL-contract selectors from the `src/skins/**`
   // block above for exactly these files. That is invisible — `logistics/tools.tsx`
   // has no nav shape today, so nothing fails; a hardcoded `/logistics/...` href
-  // added to it later would just pass. It shipped that way once.
+  // added to it later would just pass.
   //
-  // A passing `pnpm lint` proves nothing here, and neither does a COUNT — the
-  // count this comment used to prescribe had already rotted by the time it was
-  // read (it said "any other in-skin file: three"; `actions.ts` resolves to two).
+  // A passing `pnpm lint` proves nothing here, and neither does a COUNT — a count
+  // rots the moment a block changes, and different files legitimately resolve to
+  // different totals (`actions.ts` resolves to two).
   // The mechanical check is `src/shell/skins-config.test.ts` § "the resolved
   // no-restricted-syntax selectors", which asserts the resolved selector LIST,
   // by name, per file, through `ESLint#calculateConfigForFile`. Add every file

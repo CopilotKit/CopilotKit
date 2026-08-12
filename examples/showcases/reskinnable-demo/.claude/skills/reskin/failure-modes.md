@@ -16,10 +16,10 @@ individual instances behind them do not.
 > falsehood. A crash is visible on stage and gets fixed. A convincing lie reads
 > as success and proves nothing.**
 
-CLAUDE.md already says this about beat 3d ("the demo appears to work and proves
-nothing"). It is not a property of beat 3d. It is the shape of nearly every defect
-worth catching in a skin, and it is why the ordinary quality bar is not enough
-here.
+Beat 3d is where it is easiest to see — a staged attachment that never arrives
+leaves the demo looking perfect and proving nothing — but it is not a property of
+beat 3d. It is the shape of nearly every defect worth catching in a skin, and it
+is why the ordinary quality bar is not enough here.
 
 Ordinary software fails toward noise: an exception, a red box, a 500. This app
 fails toward **plausibility**, because almost everything it does is _describe
@@ -93,19 +93,19 @@ Every one of those routes to "I have no fact here" while your types still say
   explicit, or two surfaces will each invent a different place for it.
 
 `src/skins/commerce/sandbox-functions.ts` shows the third-audience decision
-worked out in a comment worth reading: its range filter was renamed
-`belowFloorOnly` → `notClearingFloorOnly` and **includes** the unmeasurable rows
-(already `belowFloor: null`) rather than dropping them, because "a complete list
-whose rows describe themselves is the only shape the model can report truthfully".
-Note the second half of that fix: the schema is `.strict()`, so a call still
-carrying the OLD key is REFUSED rather than silently losing its filter — a rename
+worked out in a comment worth reading: its range filter is named
+`notClearingFloorOnly` (not `belowFloorOnly`) and **includes** the unmeasurable
+rows (already `belowFloor: null`) rather than dropping them, because "a complete
+list whose rows describe themselves is the only shape the model can report
+truthfully". Note the second half: the schema is `.strict()`, so a call still
+carrying an OLD key is REFUSED rather than silently losing its filter — a rename
 without `.strict()` is the same defect one layer down.
 
 ⚠ **The reach of the fix is the whole lesson.** Introducing the tri-state and
-updating the obvious consumers is not enough: of commerce's **33** floor-fact
-consumers, 16 were caught that way, **9 more** — a card sort order, a missing
-on-screen caveat, a book-scope confusion, a third private rank table — needed the
-full enumeration, and 20 were already honest. The vocabulary is the easy half; its
+updating the obvious consumers is not enough: commerce has **33** floor-fact
+consumers, and the ones the obvious pass misses are a card sort order, a missing
+on-screen caveat, a book-scope confusion, a third private rank table — each
+reachable only by enumerating all 33. The vocabulary is the easy half; its
 REACH is the half that gets missed. If you introduce a tri-state, grep for every
 consumer of the old boolean and write the list down. See § 11.
 
@@ -157,8 +157,8 @@ example, including the third state that a streaming argument forces: a value tha
 is still a PREFIX of a real member is "not arrived yet", not a refusal.
 
 ⚠ Walk EVERY render field by field, not the ones a finding names: in commerce, 4
-reported sites became **9** across all **19** renders, three of them confident
-receipt LINES — `goes live at % off`, `Waiver id undefined`, and
+reported sites are **9** once all **19** renders are walked, three of them
+confident receipt LINES — `goes live at % off`, `Waiver id undefined`, and
 `Finalized the  margin waiver.` (note the double space). Handler strings stream too.
 
 ---
@@ -211,9 +211,9 @@ pull in opposite directions and both have to hold:
 - But coarser is **not** automatically safer. A page-wide mutex would be correct
   and would stop a presenter holding two orders in quick succession — turning a
   correctness fix into a demo regression. **Split the message slot per record
-  first, then mount the guard to match it.** Commerce ended up with one guard per
-  promotion CARD, one per orders ROW, and one per returns PAGE, each because of
-  its slot; `use-in-flight.ts`'s header explains all three.
+  first, then mount the guard to match it.** Commerce has one guard per promotion
+  CARD, one per orders ROW, and one per returns PAGE, each because of its slot;
+  `use-in-flight.ts`'s header explains all three.
 
 ---
 
@@ -254,8 +254,8 @@ it could not observe. Everything else it does verify: `%PDF` magic bytes rather
 than a 2xx, acceptance by a chip appearing in the queue, and the send by the
 attachment LEAVING the queue. It classifies fifteen distinct causes, because "a
 presenter needs to know whether to retry, press send by hand, or restart the dev
-server", and unlike the per-skin copy it was extracted from, **all fifteen are now
-actually emitted by the code and driven by a test** —
+server", and **all fifteen are actually emitted by the code and driven by a
+test** —
 `src/shell/attach/stage-attachment.test.ts` reads its expected count off a
 `Record<AttachmentFailureCause, true>`, so a member added to the union and never
 driven fails `tsc` and then fails the count. The full failure table is in
@@ -293,8 +293,8 @@ derives the needle set from the environment (including the easily-missed portles
   someone echoing the raw text again.
 - **An explicit DELIBERATELY-ABSENT list, with reasons**, in the module header —
   a public signing key, and two values that are not secrets. That is the whole
-  difference between a justified subset and a silent one, and a silent subset is
-  exactly what the one-argument version was.
+  difference between a justified subset and a silent one, and the one-argument
+  shape can only ever produce a silent one.
 
 ⚠ Also: route every NEW echo path through it — an unrelated field like
 `failed[].reason` reintroduces the class through a new path. And `banking` and
@@ -338,8 +338,8 @@ out of the artifact under test, the check agrees with the bug. Three shapes:
   (`price-sheet-pdf.layout.test.ts` § "ASCII invariant", `offer-letter-pdf.test.ts`).
 
   Two corollaries. Pinning a premise is what makes it safe to CHANGE it: a pinned
-  fold that turned every accented letter into `?` (`In?s Vidal`, `?MILE & FILS`)
-  could be widened to transliterate as a two-line change with the blast radius
+  fold that turns every accented letter into `?` (`In?s Vidal`, `?MILE & FILS`)
+  can be widened to transliterate as a two-line change, with the blast radius
   visible in the diff. **A test that pins the wrong behaviour is still worth more
   than no test; just do not mistake "asserted" for "correct" when you read one.**
   And arguing about whether a passing check is "really" wrong is the wrong
@@ -357,8 +357,8 @@ out of the artifact under test, the check agrees with the bug. Three shapes:
 ## 7. Test traps that produce green for the wrong reason
 
 A large green suite is what every gate here relies on for confidence, and it is
-routinely weaker than it looks: one review of `commerce` found roughly twenty-two
-tests passing while the behaviour they name was wrong or never exercised.
+routinely weaker than it looks: a single review of one skin can turn up dozens of
+tests passing while the behaviour they name is wrong or never exercised.
 
 **The general rule: for every assertion, ask what would have to break for this to
 go red. If you cannot answer, the test is decoration.** The same question applied
@@ -367,8 +367,8 @@ transferable traps:
 
 - **Vitest `it.each` SPREADS array rows.** An `[]` case therefore runs with NO
   argument — the title prints a literal `%o` — and silently duplicates the
-  `undefined` case. The coercion the docstring specifically called out was never
-  tested.
+  `undefined` case — so the coercion a docstring specifically calls out goes
+  untested.
 - **`expect(...).toBeTruthy()` passes for `[]`**, which is very often the exact
   failure being guarded (here: the blank generated panel).
 - **Mocking a `Promise<boolean>` contract as `Promise<void>`** resolves
@@ -431,12 +431,12 @@ Two transferable habits:
 The most common documentation defect in this app is one shape: prose hard-codes a
 count or a roster, the set grows, and nothing checks it. "ships four of them",
 "these four", a four-value `LOCK_SKIN` list, "all four stay reachable", "the
-unlocked four-skin demo" — every one true when written, and one CR pass over
-`commerce` found sixteen of them live.
+unlocked four-skin demo" — every one of those is true when written, and they
+accumulate a dozen at a time.
 
-Prose discipline alone does not hold it: CLAUDE.md's standing rule to re-read this
-skill after every change predates those sixteen instances and did not prevent them.
-So the durable fix is **to replace the fact with its derivation**:
+Prose discipline alone does not hold it: a standing rule to re-read this skill
+after every change cannot see a sentence that is merely out of date. So the
+durable fix is **to replace the fact with its derivation**:
 
 - ❌ "Three skins ship a seed file."
 - ✅ "Every demo-complete skin ships one — `ls src/skins/*/intelligence/seed-memories.ts`
@@ -449,14 +449,14 @@ already does this in several places (counting pills with
 `ls -d src/app/api/*/v1/dev/reset` with `grep -rln usePresenterReset src/skins/`);
 copy that habit into whatever you write.
 
-**There is now a mechanical guard**, `src/shell/skin-roster-docs.test.ts`, which
+**There is a mechanical guard**, `src/shell/skin-roster-docs.test.ts`, which
 derives its expectations from `skinIds` and fails on a stale count or a stale
 roster in the documents it names. Its boundary, honestly:
 
 - It checks a fixed `DOC_SET`. **This file is not in it** — nor is any other new
   file you add to the skill — so the discipline above is still yours to keep here.
 - It deliberately does not check subset counts, per-skin counts (gen-UI
-  registrations, pills, beats) or source comments; its header lists two known
+  registrations, pills, beats) or source comments; its header names the known
   stale instances outside the set. Read that header before assuming a claim is
   covered.
 
@@ -472,10 +472,10 @@ procedure, clears it unaided, and there is nothing left to teach. The demo still
 runs, beautifully, and proves nothing.
 
 **The whole mechanism can be right and the answer still given away, four ways
-over.** Logistics has the gate (`data/authority.ts`, refusing with the symptom
-only), the justifying/decoy split (`data/escalation-codes.ts`) and a 422 that
-refuses an uncatalogued code without enumerating the valid set. All four of these
-publish the catalogue anyway:
+over.** A skin can have the gate (logistics' `data/authority.ts`, refusing with
+the symptom only), the justifying/decoy split (`data/escalation-codes.ts`) and a
+422 that refuses an uncatalogued code without enumerating the valid set — and
+still publish the catalogue through any of these:
 
 1. a `useAgentContext` readable described as _"Valid escalation codes. Only these
    are accepted"_;
@@ -493,10 +493,10 @@ verdict for each (§ 11).
 
 🚨 **AND THE LIST OF FIVE IS NOT EXHAUSTIVE — enumerate YOUR skin's channels, not
 this file's.** The five above are the ones every skin has. A skin can invent a
-sixth, and one did: `airline`'s gate is grounded, so `Booking.waiverGround` holds a
+sixth: `airline`'s gate is grounded, so `Booking.waiverGround` holds a
 CODE-SHAPED token (`"schedule_change"`, `"medical"`) that maps 1:1 onto a justifying
-category. It lives on a record the ledger publishes, so the ledger readable would
-have handed the agent half the catalogue sideways — through no readable, schema,
+category. It lives on a record the ledger publishes, so an unstripped ledger
+readable hands the agent half the catalogue sideways — through no readable, schema,
 description, prompt or error body. `store.snapshot()` strips the field
 (`data/store.ts`'s `toDto`), and three tests pin the strip: `data/store.test.ts`,
 `/ledger`'s and `/bookings/[id]`'s route tests, plus a client-side
@@ -537,9 +537,9 @@ compiles, type-checks, lints and demos with the readable restored. So the guard 
 an AST `no-restricted-syntax` selector, `withheldGateVocabulary` in
 `eslint.config.mjs`, beside the LOCK_SKIN ones and for the same reason — a failure
 with no runtime symptom. It matches an `Identifier` named `*_CODES` /
-`*_CODE_LABELS`, deliberately not source text: the schema leak was LINE-WRAPPED
-(`.enum(ESCALATION_CODES)` sat on its own line), so a guard for the string
-`"z.enum(ESCALATION_CODES)"` would have silently never matched.
+`*_CODE_LABELS`, deliberately not source text: a schema leak is routinely
+LINE-WRAPPED (`.enum(ESCALATION_CODES)` on its own line), so a guard for the
+string `"z.enum(ESCALATION_CODES)"` silently never matches.
 
 🚨 **THE RULE COVERS TWO CHANNELS. Do not read a green lint as a withheld
 vocabulary.** It matches an IDENTIFIER, so it catches the readable and the schema
@@ -606,17 +606,16 @@ that quietly authorizes past it. See § 12.**
 ## 11. If you are REVIEWING or FIXING a skin: fix classes, not instances
 
 > **A class sweep always finds more instances than the finding that triggered
-> it.** Across ten sweeps on `commerce`: a 2-secret finding was 5 secrets, a 4-site
-> finding was 9 sites, a 5-site finding was 9 sites out of 33 consumers that had to
-> be enumerated to find them, and a finding naming 4 write controls included two
-> more in a file nobody had scoped.
+> it.** A 2-secret finding is 5 secrets; a 4-site finding is 9 sites; a 5-site
+> finding is 9 sites that only an enumeration of all 33 consumers reaches; a
+> finding naming 4 write controls leaves two more in a file nobody scoped.
 
-Fixing the named line and moving on is what leaves ~233 findings in a tree that has
-already had ~95 fixes applied to it. There is nothing special about that skin; the
-shape is that a skin is written surface by surface, so a mistaken idea about how to
-describe something gets applied everywhere that idea appears.
+Fixing the named line and moving on is what leaves hundreds of findings in a tree
+that has already had scores of fixes applied to it. The shape is that a skin is
+written surface by surface, so a mistaken idea about how to describe something
+gets applied everywhere that idea appears.
 
-**The technique that made the sweeps work: require an ENUMERATION with negatives
+**The technique that makes a sweep work: require an ENUMERATION with negatives
 recorded.** Not "I checked the rest" — that is unfalsifiable — but a list of every
 consumer, call site, render or write path in the class, each with a verdict.
 Concretely:
@@ -669,7 +668,7 @@ const option = computeMitigationOptions(shipment, lanes)
 if (!option) return <>…this one needs an escalation, not a PIN.</>;
 ```
 
-Two traps inside those two lines, both of which bit this app:
+Two traps inside those two lines:
 
 - **`costUsd > 0` is load-bearing.** logistics' `absorb` always costs `$0`, so
   without it the card asks for a PIN to release nothing — a formality dressed as
@@ -719,8 +718,8 @@ Why each one misses it:
   build type-checks" is the natural conclusion.
 - **Vitest** transpiles. It does not type-check, at all, ever.
 - **ESLint** is not a type checker.
-- **`tsconfig.json` DOES include `**/*.tsx`\*\* — so the tests were always *in\* the
-  project. Nothing was looking.
+- **`tsconfig.json` DOES include `**/*.tsx`\*\* — so the tests are *in\* the
+  project. Nothing is looking at them.
 
 ```bash
 pnpm exec tsc --noEmit   # the ONLY full type-check in this tree. Run it.
@@ -737,7 +736,7 @@ vocabulary. Every one of those is _decoration_ until `tsc` runs. § 7's rule app
 one level up: for every GATE, ask what would have to break for it to go red.
 
 Add it to your verification list beside lint and tests (SKILL.md § Verification
-step 1 now names all four, cheapest first), and run it after any change to a type
+step 1 names all four, cheapest first), and run it after any change to a type
 surface a test asserts against — which is most of them.
 
 ---

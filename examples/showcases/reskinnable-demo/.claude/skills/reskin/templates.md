@@ -212,11 +212,10 @@ import { cn } from "@/lib/utils";
 
 // Sidebar width is yours alone — NOTHING in the shell reads it, so pick whatever
 // your chrome needs. The skin switcher is a dropdown in its own card at the top of
-// the assistant column, so it occupies a slot and can never overlap your nav; the
-// `--nw-nav-inset-left` / `--nw-nav-inset-right` variables older skins published
-// for the retired floating selector are gone. Do not add those publishers, and do
-// not couple this constant to anything outside your own layout. (SKILL.md § "The
-// layout contract".)
+// the assistant column, so it occupies a slot and can never overlap your nav.
+// Nothing reads `--nw-nav-inset-left` / `--nw-nav-inset-right`: do not publish
+// them, and do not couple this constant to anything outside your own layout.
+// (SKILL.md § "The layout contract".)
 const SIDEBAR_WIDTH_PX = 240;
 
 export function <Id>Layout({ children }: { children: ReactNode }) {
@@ -377,16 +376,16 @@ shows a Reset button that 403s.
 ⚠️ **No shipped skin sets `useData`, so this template is the only reference for it
 and there is no worked example to open.** `ls src/skins/*/data/use-data.ts` returns
 nothing. The field is still live in the contract and the shell still runs it, but
-choosing it today means choosing the shape every skin is off.
+choosing it means choosing a shape no skin in the tree uses.
 
 **Two reasons, both of which will bite a new skin the same way.**
 (1) Beat 3d's whole claim is that the artifact belongs to the application and
 survives deleting the thread — client state cannot make that true. (2) Anything
-TIME-DEPENDENT held in client state becomes a second clock: tick runs on a
-900 ms `setInterval` while the server holds them as state only and the client paints
-progress the server never heard of, which the next re-read after any write silently
-rewinds. Settle time server-side on every read instead
-(`src/app/api/keel/v1/settle-runs.ts`) and let the interval only re-fetch.
+TIME-DEPENDENT held in client state becomes a second clock: a 900 ms
+`setInterval` ticking in the browser paints progress the server never heard of,
+which the next re-read after any write silently rewinds. Settle time server-side
+on every read instead (`src/app/api/keel/v1/settle-runs.ts`) and let the interval
+only re-fetch.
 
 So: put your seed, types and pure derivations in `data/`, put the store behind
 `src/app/api/<id>/v1/*`, and read it through one snapshot context
