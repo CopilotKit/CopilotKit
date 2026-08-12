@@ -102,6 +102,38 @@ const fast = (over: Partial<Beat3dTimings> = {}): Beat3dTimings => ({
   ...over,
 });
 
+/**
+ * Budgets for the paths that SUCCEED — and the reason this file has two sets.
+ *
+ * `FAST`'s 40ms is a CEILING, not a duration, and the two kinds of test want
+ * opposite things from it:
+ *
+ *   - An EXPIRY test wants it spent, so it must be small. Those tests drive the
+ *     branch they mean to (`readyMs: 0`, `sendableMs: 0`, `consumedMs: 0`) or
+ *     lean on a small `acceptMs` for the "rejected" paths.
+ *   - A SUCCESS test never reaches the ceiling at all: `waitUntil` returns the
+ *     moment its predicate holds. So a generous ceiling costs ZERO wall clock
+ *     here — it buys nothing but headroom.
+ *
+ * Sharing `FAST` with the success paths made them race. `waitUntil` measures its
+ * budget with `Date.now()`, so a vitest worker descheduled under load spends the
+ * budget without the event loop ever running the timer it is waiting for: a 40ms
+ * ceiling around a real 10ms encode is a ~4x margin, which a loaded box loses.
+ * That is a property of the TEST HARNESS, never of the code under test, so it is
+ * fixed here rather than by loosening any assertion.
+ */
+const PATIENT: Beat3dTimings = {
+  acceptMs: 5_000,
+  readyMs: 5_000,
+  sendableMs: 5_000,
+  consumedMs: 5_000,
+  pollMs: 5,
+};
+const patient = (over: Partial<Beat3dTimings> = {}): Beat3dTimings => ({
+  ...PATIENT,
+  ...over,
+});
+
 // ── the composer, as CopilotChat actually behaves ───────────────────────────
 
 interface ComposerOptions {
@@ -119,8 +151,14 @@ interface ComposerOptions {
    * and the queue starts printing the filename. `"never"` is a stuck encode:
    * `consumeAttachments` would hand over nothing and `onSubmitInput` would refuse
    * to send at all.
+   *
+   * `"manual"` hands the transition to the test via the returned
+   * `finishEncoding()`, so the chip sits `uploading` for exactly as long as the
+   * test wants and flips on demand. That is what lets the ordering assertion —
+   * queued is NOT enough, encoded is what unblocks staging — be driven rather
+   * than TIMED. A number races the budget; a latch cannot.
    */
-  encodeMs?: number | "never";
+  encodeMs?: number | "never" | "manual";
   /**
    * Which role the ONE send/stop button is playing. `"stop"` mirrors a run in
    * flight: enabled, carrying the square mark, and a click cancels the run.
@@ -194,6 +232,31 @@ function mountComposer({
     }
   };
 
+  // `"manual"` encode state: the chip waiting to be flipped, the file whose name
+  // it will print, and whether the test asked for the flip before the chip had
+  // even been created (the change handler runs a tick later, so the latch has to
+  // survive that gap).
+  let pendingChip: HTMLElement | null = null;
+  let pendingName: string | null = null;
+  let encodeRequested = false;
+
+  /** The `uploading` → `ready` transition: DocumentPreview starts printing the name. */
+  const markReady = (chip: HTMLElement, name: string) => {
+    const label = document.createElement("span");
+    label.textContent = name;
+    chip.insertBefore(label, chip.querySelector(ATTACHMENT_CHIP_SELECTOR));
+    chip.dataset.ready = "true";
+  };
+
+  const finishEncoding = () => {
+    encodeRequested = true;
+    if (pendingChip && pendingName !== null) {
+      markReady(pendingChip, pendingName);
+      pendingChip = null;
+      pendingName = null;
+    }
+  };
+
   if (fileInput) {
     const input = document.createElement("input");
     input.type = "file";
@@ -226,13 +289,19 @@ function mountComposer({
         ensureQueue().appendChild(chip);
 
         if (encodeMs === "never") return;
+        if (encodeMs === "manual") {
+          // Hand the chip to `finishEncoding()`. If the test already asked for
+          // the flip, honour it now — but a test asserting the ORDERING calls it
+          // only after observing the chip queued, so that path stays unused there.
+          pendingChip = chip;
+          pendingName = picked.name;
+          if (encodeRequested) finishEncoding();
+          return;
+        }
         setTimeout(() => {
           // `ready`: DocumentPreview prints the filename
           // (CopilotChatAttachmentQueue.tsx:357-359).
-          const name = document.createElement("span");
-          name.textContent = picked.name;
-          chip.insertBefore(name, remove);
-          chip.dataset.ready = "true";
+          markReady(chip, picked.name);
         }, encodeMs);
       }, 0);
     });
@@ -283,7 +352,37 @@ function mountComposer({
     });
     document.body.appendChild(el);
   }
+
+  // Only meaningful under `encodeMs: "manual"`; harmless everywhere else, which
+  // is why every other call site can keep ignoring the return.
+  return { finishEncoding };
 }
+
+/**
+ * Await a DOM condition the FIXTURE will bring about, with a ceiling far larger
+ * than the thing being waited for. Deliberately not a fixed sleep: the point is
+ * to resume the instant the condition holds, so a loaded worker changes how long
+ * this takes and never whether it succeeds.
+ */
+async function waitForDom(
+  predicate: () => boolean,
+  what: string,
+): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${what}`);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
+/**
+ * Long enough for the production poll loop (`pollMs` 5) to run many times over,
+ * so "it still has not resolved" is a finding rather than an artefact of looking
+ * too early. Sized against the loop's cadence, not against an encode.
+ */
+const SETTLE_WINDOW_MS = 100;
+const settleWindow = () =>
+  new Promise((resolve) => setTimeout(resolve, SETTLE_WINDOW_MS));
 
 function queuedChipCount() {
   return document.querySelectorAll(
@@ -512,19 +611,54 @@ describe("stageAttachment: every failure names itself, and none of them send", (
   });
 
   it("stages only once the chip is queued AND finished encoding", async () => {
-    mountComposer({ encodeMs: 10 });
+    // The two halves of the property are asserted SEPARATELY, in order, against
+    // an encode the test itself releases. The previous shape ran a real 10ms
+    // encode against a 40ms budget and read only the END state, so it inferred
+    // "waited for ready" from "ready by the time it finished" — which a slow
+    // worker turns into a false failure and a fast one could turn into a false
+    // pass. Latching the encode makes the ordering observable instead.
+    const composer = mountComposer({ encodeMs: "manual" });
     vi.stubGlobal("fetch", vi.fn(okResponse));
     const changes = vi.fn();
     document.body.addEventListener("change", changes);
 
-    const result = await stageAttachment(DOC, fast());
+    let settled = false;
+    const staging = stageAttachment(DOC, patient()).then((value) => {
+      settled = true;
+      return value;
+    });
 
-    expect(result.staged).toBe(true);
+    // HALF ONE: queued is NOT enough. The chip is in the queue and the file is
+    // on the input, and staging is still outstanding because nothing has
+    // finished encoding.
+    await waitForDom(() => queuedChipCount() === 1, "the chip to be queued");
+    expect(changes).toHaveBeenCalled();
     const input = document.querySelector<HTMLInputElement>(
       ATTACHMENT_FILE_INPUT_SELECTOR,
     );
     expect(input?.files?.[0]?.name).toBe(DOC.filename);
-    expect(changes).toHaveBeenCalled();
+    // The queue prints nothing while `uploading` — that absence IS the state.
+    expect(
+      document.querySelector(ATTACHMENT_QUEUE_SELECTOR)?.textContent,
+    ).not.toContain(DOC.filename);
+    // Give the production poll loop a genuine chance to resolve before claiming
+    // it did not. Sampling `settled` the instant the chip appears proves nothing
+    // — the accept wait has not even re-run its predicate yet, so the flag reads
+    // `false` whether or not the ready wait exists at all (verified by deleting
+    // that wait: this test passed regardless until the window was added).
+    //
+    // The window is the ONE unavoidable wait-and-see in the file, and its
+    // fragility points the safe way: a starved worker makes staging LESS likely
+    // to resolve, so load can only make this pass. It cannot manufacture the
+    // false failure this rewrite exists to remove.
+    await settleWindow();
+    expect(settled).toBe(false);
+
+    // HALF TWO: encoding finishes, and only now may staging report success.
+    composer.finishEncoding();
+    const result = await staging;
+
+    expect(result.staged).toBe(true);
     expect(
       document.querySelector(ATTACHMENT_QUEUE_SELECTOR)?.textContent,
     ).toContain(DOC.filename);
@@ -778,10 +912,13 @@ describe("sendMessageWithAttachment: never sends an unattached prompt", () => {
   });
 
   it("sends the prompt with the document on the happy path", async () => {
+    // A real (short) encode here on purpose: this test is the end-to-end one, so
+    // it should exercise the ordinary asynchronous transition rather than a
+    // latch. `patient()` is what keeps that from racing — see PATIENT.
     mountComposer({ encodeMs: 10 });
     vi.stubGlobal("fetch", vi.fn(okResponse));
 
-    const sent = await sendMessageWithAttachment(DOC, MESSAGE, fast());
+    const sent = await sendMessageWithAttachment(DOC, MESSAGE, patient());
 
     expect(sent).toBe(true);
     expect(sendClicks).toHaveBeenCalledTimes(1);
@@ -859,7 +996,7 @@ describe("attachByHand: the paperclip fallback is the loudest link", () => {
     mountComposer({ encodeMs: 10 });
     vi.stubGlobal("fetch", vi.fn(okResponse));
 
-    await expect(attachByHand(DOC, fast())).resolves.toBe(true);
+    await expect(attachByHand(DOC, patient())).resolves.toBe(true);
     expect(alertSpy).not.toHaveBeenCalled();
     expect(sendClicks).not.toHaveBeenCalled();
   });
