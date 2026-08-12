@@ -21,8 +21,9 @@ import { formatUsd } from "@/skins/airline/data/fare-rules";
  * `422 FARE_NOT_CHANGEABLE` — and this card renders that refusal rather than
  * swallowing it. Nothing here is allowed to become a second door around beat 6's
  * gate: the caller (`tools.tsx`) offers this card ONLY on options
- * `authorizableOptions()` returned, and even if it did not, the server would
- * still refuse. `src/app/api/airline/v1/authorizations/route.test.ts` walks every
+ * `offerableOptions()` returned — the client mirror of the server's own
+ * `authorizableOptions()` — and even if it did not, the server would still
+ * refuse. `src/app/api/airline/v1/authorizations/route.test.ts` walks every
  * option on all three gated bookings and pins that separation.
  *
  * Both the printed guidance and the submit predicate come from
