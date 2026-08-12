@@ -978,11 +978,20 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = (
       return;
     }
     reportedError.current = { source, error };
-    onError?.({
+    const event = {
       error,
       code: CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED,
       context: { source: "headers", runtimeUrl },
-    });
+    };
+    if (onError) {
+      onError(event);
+    } else {
+      console.error(
+        `[CopilotKit] Error (${event.code}):`,
+        event.error,
+        event.context,
+      );
+    }
   }, [error, onError, runtimeUrl, source]);
 
   if (!headers) return null;

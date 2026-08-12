@@ -3,15 +3,16 @@ import type { MaybePromise } from "@copilotkit/shared";
 
 export type HeaderRecord = Record<string, string>;
 export type HeaderSource = HeaderRecord | (() => MaybePromise<HeaderRecord>);
+type HeaderInput = Record<string, string | null | undefined>;
 
 type Evaluation =
   | { kind: "sync"; value: HeaderRecord }
-  | { kind: "async"; value: PromiseLike<HeaderRecord> }
+  | { kind: "async"; value: PromiseLike<unknown> }
   | { kind: "error"; error: Error };
 
 const EMPTY: HeaderRecord = Object.freeze({}) as HeaderRecord;
 
-function isRecord(value: unknown): value is HeaderRecord {
+function isRecord(value: unknown): value is HeaderInput {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -19,6 +20,14 @@ function isRecord(value: unknown): value is HeaderRecord {
     Object.values(value).every(
       (entry) => entry == null || typeof entry === "string",
     )
+  );
+}
+
+function normalizeHeaders(value: HeaderInput): HeaderRecord {
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string] => entry[1] != null,
+    ),
   );
 }
 
@@ -48,7 +57,7 @@ function evaluate(source: HeaderSource): Evaluation {
       }
     }
     return isRecord(value)
-      ? { kind: "sync", value }
+      ? { kind: "sync", value: normalizeHeaders(value) }
       : {
           kind: "error",
           error: new Error(
@@ -92,6 +101,13 @@ export function useHeaderSource(source: HeaderSource): {
     }
   }
 
+  const generation = useRef(0);
+  const sourceIdentity = useRef(source);
+  if (sourceIdentity.current !== source) {
+    sourceIdentity.current = source;
+    generation.current += 1;
+  }
+
   const initial = evaluation.kind === "sync" ? evaluation.value : null;
   const [state, setState] = useState<{
     headers: HeaderRecord | null;
@@ -101,10 +117,9 @@ export function useHeaderSource(source: HeaderSource): {
     error: evaluation.kind === "error" ? evaluation.error : null,
   }));
   const lastGood = useRef(initial ?? EMPTY);
-  const generation = useRef(0);
 
   useEffect(() => {
-    const current = ++generation.current;
+    const current = generation.current;
     let active = true;
     if (evaluation.kind === "sync") {
       lastGood.current = evaluation.value;
@@ -135,9 +150,10 @@ export function useHeaderSource(source: HeaderSource): {
           }
           return;
         }
-        lastGood.current = headers;
+        const normalized = normalizeHeaders(headers);
+        lastGood.current = normalized;
         if (!active || current !== generation.current) return;
-        setState({ headers, error: null });
+        setState({ headers: normalized, error: null });
       },
       (error) => {
         if (!active || current !== generation.current) return;
@@ -164,6 +180,8 @@ export function useHeaderSource(source: HeaderSource): {
         ? evaluation.error
         : evaluation.kind === "sync"
           ? null
-          : state.error,
+          : previous?.source === source
+            ? state.error
+            : null,
   };
 }

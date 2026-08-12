@@ -82,11 +82,24 @@ describe("useHeaderSource", () => {
 
   it("does not publish a pending result after unmount", async () => {
     const pending = deferred<Record<string, string>>();
-    const { unmount } = renderHook(() =>
+    const { result, unmount } = renderHook(() =>
       useHeaderSource(() => pending.promise),
     );
     unmount();
     await act(async () => pending.resolve({ Authorization: "Bearer late" }));
+    expect(result.current.headers).toBeNull();
+    expect(result.current.error).toBeNull();
+  });
+
+  it("normalizes nullish values before publishing a settled record", async () => {
+    const { result } = renderHook(() =>
+      useHeaderSource((() =>
+        Promise.resolve({
+          Authorization: undefined,
+        })) as unknown as () => Promise<Record<string, string>>),
+    );
+    await act(async () => undefined);
+    expect(result.current.headers).toEqual({});
   });
 
   it("keeps synchronous sources on the synchronous path", () => {
