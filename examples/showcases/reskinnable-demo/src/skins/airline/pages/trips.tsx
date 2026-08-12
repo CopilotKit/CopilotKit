@@ -2,13 +2,15 @@
 
 import { useMemo } from "react";
 import { useAgentContext } from "@copilotkit/react-core/v2";
-import { useSkinData } from "@/shell/skin-provider";
-import type { AirlineData } from "../data/types";
+import { useConciergeView } from "../components/concierge-view";
 import { FlightCard, SeatMap, BoardingPass } from "../components";
 import { isSelectableSeat, orderedSeats } from "../components/seat-map";
 
 export function TripsPage() {
-  const data = useSkinData<AirlineData>();
+  // The REST ledger, projected onto the check-in shapes. It used to be
+  // `useSkinData<AirlineData>()` over a second in-memory seed of AV1423 — see
+  // `../components/concierge-view.ts` for why that seed is gone.
+  const data = useConciergeView();
 
   // The seats a passenger can actually pick, in the order the map paints them.
   // `orderedSeats` and `isSelectableSeat` are the SEAT MAP's own ordering and
@@ -31,18 +33,22 @@ export function TripsPage() {
       "What is on the Trip screen right now — the passenger's flight, the seat " +
       "map with the seats still selectable in the order they are drawn, and " +
       "the boarding pass if one has been issued. `boarding_pass` is null until " +
-      "the passenger asks for one.",
+      "the passenger asks for one. `loading` is true while the first ledger " +
+      "read is still in flight — say so rather than reporting an empty trip.",
     value: JSON.stringify({
       page: "Your trip",
-      flight: {
-        number: data.flight.flight_number,
-        origin: data.flight.origin,
-        destination: data.flight.destination,
-        departure: data.flight.departure_time,
-        arrival: data.flight.arrival_time,
-        status: data.flight.status,
-        gate: data.flight.gate,
-      },
+      loading: !data.ready,
+      flight: data.flight
+        ? {
+            number: data.flight.flight_number,
+            origin: data.flight.origin,
+            destination: data.flight.destination,
+            departure: data.flight.departure_time,
+            arrival: data.flight.arrival_time,
+            status: data.flight.status,
+            gate: data.flight.gate,
+          }
+        : null,
       seat_map: {
         flight: data.seatMap.flight_number,
         selected_seat: data.seatMap.selected_seat_id,
@@ -69,7 +75,15 @@ export function TripsPage() {
         </p>
       </div>
 
-      <FlightCard flight={data.flight} />
+      {data.flight ? (
+        <FlightCard flight={data.flight} />
+      ) : (
+        <div className="rounded-2xl border border-dashed border-hairline p-6 text-center text-sm text-ink-muted">
+          {data.ready
+            ? "No upcoming flight on this booking."
+            : "Loading your trip…"}
+        </div>
+      )}
       <SeatMap seatMap={data.seatMap} onSelectSeat={data.selectSeat} />
 
       {data.boardingPass ? (

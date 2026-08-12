@@ -1,8 +1,7 @@
 "use client";
 
 import { useAgentContext } from "@copilotkit/react-core/v2";
-import { useSkinData } from "@/shell/skin-provider";
-import type { AirlineData } from "../data/types";
+import { useConciergeView } from "../components/concierge-view";
 import {
   DisruptionAlert,
   RebookingOptions,
@@ -10,7 +9,11 @@ import {
 } from "../components";
 
 export function DisruptionsPage() {
-  const data = useSkinData<AirlineData>();
+  // The alert is DERIVED from the ledger flight's own status and delay rather
+  // than seeded, so it cannot outlive the condition it describes — beat 5
+  // resolves the cancellation and the banner follows. See
+  // `../components/concierge-view.ts`.
+  const data = useConciergeView();
 
   // ── BEAT 3b, part 2 — what is VISIBLY on this screen ─────────────────────
   // `rows` and `baggage` map the SAME arrays handed to <RebookingOptions> and
@@ -32,9 +35,11 @@ export function DisruptionsPage() {
       "disruption if there is one, the rebooking options offered for it, and " +
       "where the passenger's bags are. `visible` is how many rebooking `rows` " +
       "are on screen, in the order shown. A null `disruption` means the screen " +
-      "says the flight is on schedule.",
+      "says the flight is on schedule. `loading` is true while the first " +
+      "ledger read is still in flight.",
     value: JSON.stringify({
       page: "Disruptions & service",
+      loading: !data.ready,
       disruption: data.disruption
         ? {
             flight: data.disruption.flight_number,
@@ -79,7 +84,9 @@ export function DisruptionsPage() {
         <DisruptionAlert disruption={data.disruption} />
       ) : (
         <div className="rounded-2xl border border-dashed border-hairline p-6 text-center text-sm text-ink-muted">
-          No active disruptions — your flight is on schedule.
+          {data.ready
+            ? "No active disruptions — your flight is on schedule."
+            : "Loading your trip…"}
         </div>
       )}
       <RebookingOptions

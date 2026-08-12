@@ -12,13 +12,16 @@ import type { TripBrief } from "../data/trip-types";
  * /api/airline/v1/briefs`: reload the page, clear the conversation, and the same
  * bytes come back.
  *
- * WHY THIS FETCHES rather than reading a ledger context, which is how logistics,
- * banking, people and commerce feed their canvases. Airline's pages still run on
- * the in-memory `useAirlineData` store; migrating them onto `/ledger` is an
- * explicitly deferred slot (`data/beat-map.md` § "What this slot did NOT
- * build"). When that lands, swap this hook's body for the ledger context's
- * `briefs` and delete the fetch — the surface below reads `TripBrief[]` either
- * way.
+ * WHY THIS STILL FETCHES rather than reading `useAirlineLedger().briefs`, which
+ * is how logistics, banking, people and commerce feed their canvases — the pages
+ * ARE on the ledger now, so the original reason is gone and a better one took its
+ * place. The canvas mounts inside the shell's canvas region, and a brief filed
+ * during THIS run has to be read AFTER it was written: this hook re-fetches on
+ * the surface activity's id (see `activityId` in `../canvas-surface.tsx`), which
+ * is a narrower trigger than the ledger's whole-snapshot revalidation and cannot
+ * miss a second brief filed while the canvas is already open on the first. The
+ * surface reads `TripBrief[]` either way, so swapping to the context stays a
+ * one-line change if that trade ever stops being worth it.
  */
 
 export type TripBriefsStatus = "loading" | "ready" | "error";

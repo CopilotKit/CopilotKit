@@ -1,12 +1,14 @@
 "use client";
 
 import { useAgentContext } from "@copilotkit/react-core/v2";
-import { useSkinData } from "@/shell/skin-provider";
-import type { AirlineData } from "../data/types";
+import { useConciergeView } from "../components/concierge-view";
 import { LoyaltyCard, RedemptionList } from "../components";
 
 export function LoyaltyPage() {
-  const data = useSkinData<AirlineData>();
+  // The member's identity comes from the REST ledger's traveller, the mileage
+  // and benefits from the seed the ledger has no counterpart for. See
+  // `../components/concierge-view.ts`.
+  const data = useConciergeView();
 
   // ── BEAT 3b, part 2 — what is VISIBLY on this screen ─────────────────────
   // `rows` maps `data.redemptions` — the SAME array handed to <RedemptionList>
@@ -23,19 +25,23 @@ export function LoyaltyPage() {
     description:
       "What is on the Aeronova Club screen right now — the passenger's tier " +
       "and mileage balance, and the redemption options on offer. `visible` is " +
-      "how many `rows` are on screen, in the order shown.",
+      "how many `rows` are on screen, in the order shown. `loading` is true " +
+      "while the first ledger read is still in flight.",
     value: JSON.stringify({
       page: "Aeronova Club",
-      loyalty: {
-        member: data.loyalty.member_name,
-        member_id: data.loyalty.member_id,
-        tier: data.loyalty.tier,
-        miles: data.loyalty.miles,
-        miles_to_next_tier: data.loyalty.miles_to_next_tier,
-        next_tier: data.loyalty.next_tier,
-        segments_this_year: data.loyalty.segments_this_year,
-        benefits: data.loyalty.benefits,
-      },
+      loading: !data.ready,
+      loyalty: data.loyalty
+        ? {
+            member: data.loyalty.member_name,
+            member_id: data.loyalty.member_id,
+            tier: data.loyalty.tier,
+            miles: data.loyalty.miles,
+            miles_to_next_tier: data.loyalty.miles_to_next_tier,
+            next_tier: data.loyalty.next_tier,
+            segments_this_year: data.loyalty.segments_this_year,
+            benefits: data.loyalty.benefits,
+          }
+        : null,
       visible: data.redemptions.length,
       rows: data.redemptions.map((r) => ({
         title: r.title,
@@ -54,7 +60,15 @@ export function LoyaltyPage() {
         </p>
       </div>
 
-      <LoyaltyCard loyalty={data.loyalty} />
+      {data.loyalty ? (
+        <LoyaltyCard loyalty={data.loyalty} />
+      ) : (
+        <div className="rounded-2xl border border-dashed border-hairline p-6 text-center text-sm text-ink-muted">
+          {data.ready
+            ? "No Aeronova Club membership on this account."
+            : "Loading your membership…"}
+        </div>
+      )}
       <RedemptionList redemptions={data.redemptions} />
     </div>
   );

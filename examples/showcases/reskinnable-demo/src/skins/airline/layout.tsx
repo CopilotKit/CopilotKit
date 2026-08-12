@@ -12,9 +12,9 @@ import {
 } from "lucide-react";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { cn } from "@/lib/utils";
-import { useSkin, useSkinData } from "@/shell/skin-provider";
+import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
-import type { AirlineData } from "./data/types";
+import { useConciergeView } from "./components/concierge-view";
 import { PassengerHeader } from "./components/passenger-header";
 
 // Side-effect import: loads the .theme-airline token block whenever the airline
@@ -36,7 +36,10 @@ const NAV_ICONS: Record<string, typeof Plane> = {
  */
 export function AirlineLayout({ children }: { children: ReactNode }) {
   const skin = useSkin();
-  const data = useSkinData<AirlineData>();
+  // The REST ledger, projected. `PassengerHeader` already tolerates a null
+  // passenger and prints "waiting for context", which is what the first paint
+  // shows before `GET /ledger` settles.
+  const data = useConciergeView();
   const skinHref = useSkinHref(skin.id);
   const restHead = useSkinSegments(skin.id)[0] ?? "";
   const Logo = skin.identity.logo;

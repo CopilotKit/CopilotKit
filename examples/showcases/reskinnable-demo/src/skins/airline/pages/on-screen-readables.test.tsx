@@ -31,7 +31,7 @@ import type {
   RebookingOption,
   Traveler,
 } from "../data/trip-types";
-import type { AirlineData } from "../data/types";
+import type { ConciergeView } from "../components/concierge-view";
 
 /** What the page most recently handed `useAgentContext`, raw. */
 const readable = { value: "" };
@@ -45,12 +45,20 @@ vi.mock("next/navigation", () => ({
 }));
 
 // `useSkinHref(skin.id)` is the real thing (unlocked → "/airline"); only the
-// identity and the in-memory store it needs are stubbed, since no SkinProvider
-// is mounted here.
-const skinData = { value: null as AirlineData | null };
+// skin identity is stubbed, since no SkinProvider is mounted here.
 vi.mock("@/shell/skin-provider", () => ({
   useSkin: () => ({ id: "airline" }),
-  useSkinData: () => skinData.value,
+}));
+
+// The three check-in pages read the REST ledger through `useConciergeView`,
+// which projects it onto the concierge shapes. It used to be
+// `useSkinData<AirlineData>()` over a second in-memory seed of AV1423; that
+// store is gone (see ../components/concierge-view.ts). Mocking the projection
+// rather than the transport keeps the test on the thing under examination — the
+// page's readable-versus-panel identity.
+const conciergeView = { value: null as ConciergeView | null };
+vi.mock("../components/concierge-view", () => ({
+  useConciergeView: () => conciergeView.value,
 }));
 
 // The pages register readables. No shell provider is mounted in this tree, so
@@ -101,7 +109,7 @@ afterEach(() => {
   ledger.flights = [];
   ledger.bookings = [];
   ledger.options = [];
-  skinData.value = null;
+  conciergeView.value = null;
 });
 
 /**
@@ -345,7 +353,10 @@ function seedRebooking() {
   ledger.options = options;
 }
 
-const airlineData = (): AirlineData => ({
+const airlineData = (): ConciergeView => ({
+  ready: true,
+  bookingId: "bkg-av1423",
+  booking: null,
   passenger: {
     name: "Camila Rojas",
     pnr: "AV7QK2",
@@ -434,7 +445,7 @@ const airlineData = (): AirlineData => ({
 
 describe("airline beat 3b — the in-memory pages describe their own screen", () => {
   it("Trip sends the selectable seats the map painted, in paint order", () => {
-    skinData.value = airlineData();
+    conciergeView.value = airlineData();
     render(<TripsPage />);
 
     // The map's own buttons: enabled means selectable, and the label carries the
@@ -458,7 +469,7 @@ describe("airline beat 3b — the in-memory pages describe their own screen", ()
   });
 
   it("Aeronova Club sends the redemptions it renders, in the order shown", () => {
-    skinData.value = airlineData();
+    conciergeView.value = airlineData();
     render(<LoyaltyPage />);
 
     const onScreen = Array.from(
@@ -477,7 +488,7 @@ describe("airline beat 3b — the in-memory pages describe their own screen", ()
   });
 
   it("Disruptions sends the rebooking options and bags it renders, in order", () => {
-    skinData.value = airlineData();
+    conciergeView.value = airlineData();
     render(<DisruptionsPage />);
 
     const flights = Array.from(document.querySelectorAll("div.w-16")).map(
@@ -512,7 +523,7 @@ describe("airline beat 3b — the in-memory pages describe their own screen", ()
     // correct answers. Airline shipped only global readables before this slot,
     // so every page answered the same — which reads as working right up until
     // the presenter navigates.
-    skinData.value = airlineData();
+    conciergeView.value = airlineData();
     render(<TripsPage />);
     const trip = readable.value;
     cleanup();

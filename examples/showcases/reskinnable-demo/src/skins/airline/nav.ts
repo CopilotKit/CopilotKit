@@ -8,28 +8,18 @@ import {
 import type { NavRoute } from "@/shell/skin-contract";
 
 /**
- * Aeronova's nav, lifted out of `skin.tsx` so this slot can add the two
- * REST-backed pages without editing a file it does not own.
- *
- * ⚠️ NOT WIRED YET. `skin.tsx` still declares its nav inline, so the two new
- * entries below are invisible until a later slot swaps that literal for
- * `nav: airlineNav` (and `resolvePage: resolveAirlinePage`, from `./pages`).
- * See `ledger-context.tsx`'s header for the full three-edit wiring note.
- *
- * The first three entries are field-for-field what `skin.tsx` declares today —
- * same segments, same labels — so the swap is additive and cannot silently
- * rename a route someone has bookmarked. Icons are new: `skin.tsx`'s literal
- * carries none and `layout.tsx` falls back to its own `NAV_ICONS` map, which
- * has no entry for the two new segments.
+ * Aeronova's nav. `skin.tsx` sets `nav: airlineNav` and
+ * `resolvePage: resolveAirlinePage` (from `./pages`), so the two lists are
+ * declared once each and cannot describe two different apps.
  *
  * WHY BOTH A "Trip" AND A "Your account" ENTRY, which reads redundant at a
- * glance: they sit on the two different substrates the app is deliberately
- * proving (`CLAUDE.md` § "The six skins"). "Trip" is today's in-memory
- * check-in flow for AV1423 (`useAirlineData`); "Your account" is the REST
- * ledger — Camila's whole profile, every booking on it, and the saved
- * travellers. `data/beat-map.md` § "It is ADDITIVE" keeps both live until a
- * later slot migrates the in-memory pages, and this is what that transitional
- * state looks like in the sidebar.
+ * glance: they are two different views of ONE ledger, and both are demo
+ * surfaces. "Trip" is the check-in flow for the account holder's next flight —
+ * flight card, cabin map, boarding pass. "Your account" is the whole profile:
+ * every booking on it, the saved travellers, and the fare condition on each
+ * ticket, which is what beats 3b and 6 read. Both now come from
+ * `GET /api/airline/v1/ledger`; the second in-memory seed the check-in pages
+ * used to run on is gone (see `components/concierge-view.ts`).
  */
 export const airlineNav: NavRoute[] = [
   { segment: "", label: "Trip", icon: Ticket },

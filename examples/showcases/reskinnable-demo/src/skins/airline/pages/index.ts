@@ -6,31 +6,27 @@ import { LoyaltyPage } from "./loyalty";
 import { DisruptionsPage } from "./disruptions";
 
 /**
- * Aeronova's route table, lifted out of `skin.tsx` so this slot can add the two
- * REST-backed pages without editing a file it does not own.
+ * Aeronova's route table. `skin.tsx` sets `resolvePage: resolveAirlinePage`, so
+ * this — not `nav` — is the source of truth for which segments are valid.
  *
- * ⚠️ NOT WIRED YET. `skin.tsx` still declares its own `PAGES` literal covering
- * only the three in-memory pages, so `/airline/account` and `/airline/rebook`
- * 404 until a later slot swaps that literal for `resolvePage:
- * resolveAirlinePage` (and `nav: airlineNav`, from `../nav`). See
- * `ledger-context.tsx`'s header for the full three-edit wiring note — the
- * provider mount is part of the same change, because both new pages call
- * `useAirlineLedger()` and it throws outside its provider.
- *
- * The first three entries are field-for-field what `skin.tsx` resolves today,
- * so the swap is additive and cannot silently retarget an existing route.
+ * ⚠️ A `Map`, NOT a plain object. `resolvePage` receives untrusted URL segments,
+ * and an object literal indexed by them walks the prototype chain: `/airline/
+ * constructor` returns `Object.prototype.constructor`, which is a truthy
+ * `Function` and slips straight past the shell's `if (!Page) notFound()` guard
+ * in `src/app/[skin]/[[...rest]]/page.tsx` — a 500 where a 404 belongs. Keel and
+ * commerce were re-keyed for this; `../skin.test.tsx` pins it here.
  */
-const PAGES: Record<string, ComponentType> = {
-  "": TripsPage,
-  account: AccountPage,
-  rebook: RebookPage,
-  loyalty: LoyaltyPage,
-  disruptions: DisruptionsPage,
-};
+const PAGES = new Map<string, ComponentType>([
+  ["", TripsPage],
+  ["account", AccountPage],
+  ["rebook", RebookPage],
+  ["loyalty", LoyaltyPage],
+  ["disruptions", DisruptionsPage],
+]);
 
 export function resolveAirlinePage(segments: string[]): ComponentType | null {
   const key = segments.length === 0 ? "" : segments.join("/");
-  return PAGES[key] ?? null;
+  return PAGES.get(key) ?? null;
 }
 
 export { TripsPage, AccountPage, RebookPage, LoyaltyPage, DisruptionsPage };
