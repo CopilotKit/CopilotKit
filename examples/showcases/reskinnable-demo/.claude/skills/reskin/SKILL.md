@@ -29,13 +29,14 @@ the identical `id`.
 > truth) and read the shipped skins as worked references. Six are registered —
 > `banking`, `airline`, `logistics`, `keel`, `people`, `commerce` — and they are
 > good at different things; **[demo-beats.md](./demo-beats.md) § "Which skin to
-> copy for what"** is the routing table. The short version: `banking`, `people`
-> and `commerce` are the three demo-complete skins (`banking` is the original
-> reference; `people` and `commerce` are the newer ones, and the only two whose
-> beat maps are written out in their `suggestions.ts`), `logistics` is the
-> debugged layout reference, `airline` is the minimal contract surface, `keel` is
-> the only one with parameterized routes. Those files win on any conflict with
-> this skill.
+> copy for what"** is the routing table. The short version: `banking`, `people`,
+> `commerce` and `logistics` are the four demo-complete skins (`banking` is the
+> original reference; `people` and `commerce` are the newer ones, and the only two
+> whose beat maps are written out in their `suggestions.ts`; `logistics` is both
+> the debugged layout reference AND the worked example of retrofitting the beats
+> onto a skin that already existed), `airline` is the minimal contract surface,
+> `keel` is the only one with parameterized routes. Those files win on any
+> conflict with this skill.
 
 ---
 

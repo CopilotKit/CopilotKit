@@ -592,10 +592,10 @@ to see the mapping written out, and count what any skin actually ships with
 prose — which is not a stylistic preference: this paragraph said "`airline`,
 `logistics`, `keel` ship four or five" and was wrong about `logistics` within one
 release of being written. `airline` (5) and `keel` (4) predate this bar and cover
-the beats only partially; do not calibrate against them. `logistics` is being
-filled in beat by beat and now ships more pills than any demo-complete skin, so
-its count says nothing about its coverage either — derive that from the matrix
-commands in `CLAUDE.md`.
+the beats only partially; do not calibrate against them. `logistics` is now
+demo-complete and ships more pills than any other skin, which is the same lesson
+from the other side: a count says nothing about coverage in either direction —
+derive coverage from the matrix commands in `CLAUDE.md`.
 
 **Every mutation gets a visible affordance.** "Make sure that you use like a
 light or a bell or whatever so people can see that it changed." If the audience
@@ -682,7 +682,7 @@ tools or pages, alongside this file.
 
 | Need                                  | Copy from                                                                          |
 | ------------------------------------- | ---------------------------------------------------------------------------------- |
-| Every beat, end to end                | `banking`, `people` or `commerce` — the only three at 9/9 beats                    |
+| Every beat, end to end                | `banking`, `people`, `commerce` or `logistics` — the four at 9/9 beats             |
 | A written-out beat map                | `people` or `commerce` — the table at the top of their `suggestions.ts`            |
 | Route + on-screen readables (beat 3b) | `banking`, `people`, `commerce`                                                    |
 | Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`; `people`/`commerce` for 2nd takes         |
@@ -848,14 +848,15 @@ tools or pages, alongside this file.
 > mitigate route applies to cost, extended to the one field a document ingestion
 > adds.
 
-**Do not use airline, logistics or keel as demo-completeness references.** They
-predate this bar and none of them hits all nine beats. Keel is especially
-misleading — it ships the full per-user identity plumbing (`RuntimeProviders`,
-`useRuntimeProperties`, server `identifyUser`) and then no memory prompts, no
-memory tools and no seed file, so it gets zero demo value from the hardest part
-of what it built. Logistics was the same until beats 4 and 5 were retrofitted
-onto it, and that retrofit is worth reading for exactly this reason: it shows
-what the plumbing was missing. Check any claim here against the tree —
+**Do not use airline or keel as demo-completeness references.** They predate this
+bar and neither hits all nine beats. Keel is especially misleading — it ships the
+full per-user identity plumbing (`RuntimeProviders`, `useRuntimeProperties`,
+server `identifyUser`) and then no memory prompts, no memory tools and no seed
+file, so it gets zero demo value from the hardest part of what it built.
+Logistics was the same until beats 2 through 6 were retrofitted onto it, and that
+retrofit is the single most useful thing here to read for this reason: it is the
+worked example of what the plumbing was missing, commit by commit. Check any
+claim here against the tree —
 `ls src/skins/*/intelligence/seed-memories.ts` and `grep -c 'title:'
 src/skins/<id>/suggestions.ts` — rather than against this paragraph. Every skin
 named here remains an excellent _wiring_ reference and, apart from the rows it

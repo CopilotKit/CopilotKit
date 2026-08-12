@@ -109,13 +109,14 @@ contract, and the shared canvas / OGUI model.
 
 ## Demo capabilities
 
-Three of the six skins — **`banking`**, **`people`** and **`commerce`** — are
-demo-complete against the full beat list in
+Four of the six skins — **`banking`**, **`people`**, **`commerce`** and
+**`logistics`** — are demo-complete against the full beat list in
 [`.claude/skills/reskin/demo-beats.md`](./.claude/skills/reskin/demo-beats.md).
-`airline`, `logistics` and `keel` predate that bar: treat them as wiring
-references (contract surface, layout chrome, parameterized routes) rather than as
-demo references. The per-beat coverage matrix is in
-[CLAUDE.md](./CLAUDE.md).
+`airline` and `keel` predate that bar: treat them as wiring references (contract
+surface, layout chrome, parameterized routes) rather than as demo references.
+`logistics` was in that group until beats 2 through 6 were retrofitted onto it,
+so it doubles as the worked example of bringing an existing skin up to the bar.
+The per-beat coverage matrix is in [CLAUDE.md](./CLAUDE.md).
 
 ### `banking` — the original reference demo
 

@@ -498,25 +498,27 @@ matrix at the end of this section.
 
 ### Demo-beat coverage (the other axis)
 
-| Beat                             | banking                   | people                    | commerce                  | airline | logistics | keel          |
-| -------------------------------- | ------------------------- | ------------------------- | ------------------------- | ------- | --------- | ------------- |
-| Gen-UI in transcript             | ✅ 9                      | ✅ 4                      | ✅ 4                      | ✅ 6    | ✅ 5      | ✅ 4          |
-| Rich thread survives reload      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ replay-safe tools      | ❌      | ❌        | ❌            |
-| Drive the app, secret withheld   | ✅                        | ✅                        | ✅                        | ❌      | ❌        | ❌            |
-| "What's on my screen?"           | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables | ❌      | ❌        | ❌            |
-| Navigate via levers + filters    | ✅                        | ✅                        | ✅ four levers            | ❌      | ❌        | nav only      |
-| Multimodal → durable artifact    | ✅                        | ✅                        | ✅                        | ❌      | ❌        | ❌            |
-| Long-term memory recall          | ✅                        | ✅                        | ✅                        | ❌      | ✅        | plumbing only |
-| Stored-procedure replay          | ✅                        | ✅                        | ✅                        | ❌      | ✅        | ❌            |
-| Teach a new procedure            | ✅                        | ✅                        | ✅                        | ❌      | ✅        | ❌            |
-| Presenter reset (route + button) | ✅                        | ✅                        | ✅                        | ❌      | ✅        | ❌            |
+| Beat                             | banking                   | people                    | commerce                  | airline | logistics                 | keel          |
+| -------------------------------- | ------------------------- | ------------------------- | ------------------------- | ------- | ------------------------- | ------------- |
+| Gen-UI in transcript             | ✅ 9                      | ✅ 4                      | ✅ 4                      | ✅ 6    | ✅ 6                      | ✅ 4          |
+| Rich thread survives reload      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ replay-safe tools      | ❌      | ✅ replay-safe tools      | ❌            |
+| Drive the app, secret withheld   | ✅                        | ✅                        | ✅                        | ❌      | ✅ planner PIN            | ❌            |
+| "What's on my screen?"           | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables | ❌      | ✅ route + page readables | ❌            |
+| Navigate via levers + filters    | ✅                        | ✅                        | ✅ four levers            | ❌      | ✅ four levers            | nav only      |
+| Multimodal → durable artifact    | ✅                        | ✅                        | ✅                        | ❌      | ✅                        | ❌            |
+| Long-term memory recall          | ✅                        | ✅                        | ✅                        | ❌      | ✅                        | plumbing only |
+| Stored-procedure replay          | ✅                        | ✅                        | ✅                        | ❌      | ✅                        | ❌            |
+| Teach a new procedure            | ✅                        | ✅                        | ✅                        | ❌      | ✅                        | ❌            |
+| Presenter reset (route + button) | ✅                        | ✅                        | ✅                        | ❌      | ✅                        | ❌            |
 
-`banking`, `people` and `commerce` hit every row. `airline` and `keel` predate
-this bar and hit about one each; `logistics` predates it too and is being filled
-in beat by beat, so **derive its column rather than trusting it** — the checks
-are in the `banking` bullet above (`grep -rln useAgentContext
+`banking`, `people`, `commerce` and `logistics` hit every row. `airline` and
+`keel` predate this bar and hit about one each. **Derive any column rather than
+trusting it** — this table is prose and rots silently, which is exactly how
+logistics spent two releases showing ❌ on beats it had already shipped. The
+checks are in the `banking` bullet above (`grep -rln useAgentContext
 src/skins/*/layout.tsx`, `ls src/skins/*/intelligence/seed-memories.ts`,
-`grep -l offerWorkflowRecording src/skins/*/tools.tsx`).
+`grep -l offerWorkflowRecording src/skins/*/tools.tsx`), and the gen-UI count is
+`grep -A3 'useComponent(' src/skins/<id>/tools.tsx | grep -c 'name:'`.
 
 Note that `keel` ships the **full per-user identity plumbing** —
 `RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — and then no

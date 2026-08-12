@@ -800,8 +800,10 @@ is in [demo-beats.md](./demo-beats.md) § "Presentation requirements" — that i
 one authority; do not re-derive it here. It lands on eight in `banking` and nine in
 `people` and `commerce`, whose `suggestions.ts` headers write the mapping out —
 read one of those two before writing yours, and check any skin's real count with
-`grep -c 'title:' src/skins/<id>/suggestions.ts`. Airline, logistics and keel ship
-four or five and cover the beats partially: copy the coverage, never the count.
+`grep -c 'title:' src/skins/<id>/suggestions.ts`. Airline and keel ship four or
+five and cover the beats only partially; logistics is demo-complete and ships ten.
+Copy the coverage, never the count — the spread runs 4 to 10 and neither end of it
+predicts whether a skin hits its beats.
 
 ```ts
 import type { Suggestion } from "@/shell/skin-contract";
