@@ -9,7 +9,7 @@
  * The bytes come from the shell's document primitive (`@/shell/documents`):
  * every byte-level concern — the ASCII fold, the Helvetica + Courier font
  * dictionary, the `/Length` and xref arithmetic, and the prose wrap — lives
- * there and is pinned once for all six skins in `src/shell/documents/pdf.test.ts`.
+ * there and is pinned once for every skin in `src/shell/documents/pdf.test.ts`.
  * This file is only the reservation's CONTENT: a flat `Line[]` handed to
  * `buildPdf`.
  *

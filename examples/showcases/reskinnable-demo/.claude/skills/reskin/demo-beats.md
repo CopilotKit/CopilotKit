@@ -937,8 +937,9 @@ instead, because a set rots and a command does not.
 > mitigate route applies to cost, extended to the one field a document ingestion
 > adds.
 
-**Every registered skin is demo-complete, so there is no partial precedent to
-copy.** The failure to guard against instead is this one: **full per-user identity
+**Every registered skin but `bookstore` is demo-complete, and bookstore's two
+blanks are a STATED scope decision rather than a precedent to copy.** The failure
+to guard against instead is this one: **full per-user identity
 plumbing — `RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — with
 no memory prompts, no memory tools and no seed file, so the skin gets ZERO demo
 value from the hardest part of what it already built.** Wiring the expensive half

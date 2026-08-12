@@ -11,7 +11,7 @@
  * The bytes come from the shell's document primitive (`@/shell/documents`):
  * every byte-level concern — the ASCII fold, the Helvetica + Courier font
  * dictionary, the `/Length` and xref arithmetic — lives there and is pinned once
- * for all six skins in `src/shell/documents/pdf.test.ts`. This file is only the
+ * for every skin in `src/shell/documents/pdf.test.ts`. This file is only the
  * sheet's CONTENT: a flat `Line[]` handed to `buildPdf`.
  *
  * WHY COURIER FOR THE TABLE (the one property this file has to keep in mind).

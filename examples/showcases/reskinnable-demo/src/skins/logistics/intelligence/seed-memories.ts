@@ -83,8 +83,8 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
     // `user`, NOT `project`. Banking scopes its equivalent procedure to
     // `project`, and that is the wrong model here: verified against the running
     // Intelligence stack, a project-scoped memory is returned for EVERY user id
-    // in the instance rather than for some project. All six skins in this app
-    // point at one instance, so a project-scoped procedure is effectively
+    // in the instance rather than for some project. EVERY skin in this app
+    // points at one instance, so a project-scoped procedure is effectively
     // global — Meridian's carrier procedure would surface inside banking's demo
     // and vice versa, each looking like the memory system had confused two
     // products. It is also what keeps this memory DISTINGUISHABLE from beat 6's

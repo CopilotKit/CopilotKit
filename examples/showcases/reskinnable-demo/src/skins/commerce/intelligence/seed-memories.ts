@@ -78,7 +78,7 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
     // `project`, and that turned out to be the wrong model here. Verified
     // against the running Intelligence stack: a project-scoped memory is
     // returned for EVERY user id in the instance, not just the ones in some
-    // project. Since all six skins in this app point at one instance, a
+    // project. Since EVERY skin in this app points at one instance, a
     // project-scoped procedure is effectively global — Bellwether's fraud
     // procedure would surface inside banking's demo and vice versa, each looking
     // like the memory system had confused two products. User scope is

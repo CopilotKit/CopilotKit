@@ -472,8 +472,9 @@ check.
   `data/blocked-by-authority.test.ts` fails if that ever drops to one. The one place its
   withheld code vocabulary legitimately appears is the planner filing form,
   `components/escalation-form.tsx`.
-- **`airline`** ("Aeronova") — **REST-backed**, and deliberately the one
-  PASSENGER-FACING skin: a traveller's own concierge, not an agent console. Pages
+- **`airline`** ("Aeronova") — **REST-backed**, and deliberately PASSENGER-FACING:
+  a traveller's own concierge, not an agent console (`bookstore` is the other
+  consumer-facing skin). Pages
   `""` (Trip), `account`, `rebook`, `loyalty`, `disruptions`, over
   `/api/airline/v1/*` (one `ledger` snapshot read plus the write paths, a bundled
   hotel confirmation, and a gated `dev/reset`). Like the others it **omits

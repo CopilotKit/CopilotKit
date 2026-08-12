@@ -26,7 +26,7 @@ const LANES: RateSheetLane[] = [
 
 // The byte-level invariants — the ASCII fold, /Length vs the real byte count,
 // every referenced /Fn declared, the xref offset — are NOT retested here. They
-// belong to `@/shell/documents` and are covered once, for all six skins, in
+// belong to `@/shell/documents` and are covered once, for every skin, in
 // `src/shell/documents/pdf.test.ts`. Duplicating them here would be the kind of
 // decorative assertion that passes for the same reason the code is correct.
 // What IS this skin's own is the content: the sentences and the row set.
