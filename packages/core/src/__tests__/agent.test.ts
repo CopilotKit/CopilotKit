@@ -2,7 +2,7 @@ import type {
   AbstractAgent as AbstractAgentType,
   AgentSubscriber,
 } from "@ag-ui/client";
-import { EMPTY } from "rxjs";
+import { EMPTY as emptyObservable } from "rxjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 
@@ -225,7 +225,7 @@ describe("ProxiedCopilotRuntimeAgent compact restore mutation warning", () => {
           : createAgent();
       agent.threadId = "thread-1";
       if (runtimeMode === "sse") {
-        agent.run = () => EMPTY;
+        agent.run = () => emptyObservable;
       }
 
       await agent.runAgent({ runId: "run-1" }, { onRunInitialized });
@@ -240,7 +240,7 @@ describe("ProxiedCopilotRuntimeAgent compact restore mutation warning", () => {
     const onRunInitialized = vi.fn(() => ({ state: { direct: true } }));
     const agent = createAgent();
     agent.threadId = "thread-1";
-    agent.connect = () => EMPTY;
+    agent.connect = () => emptyObservable;
 
     await agent.connectAgent({ runId: "connect-1" }, { onRunInitialized });
 

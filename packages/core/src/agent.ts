@@ -33,18 +33,51 @@ import type { CopilotRuntimeTransport } from "./types";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
-const MUTATION_CAPABLE_LIFECYCLE_CALLBACKS: ReadonlySet<keyof AgentSubscriber> =
-  new Set(["onRunInitialized", "onRunFailed", "onRunFinalized"]);
+const MUTATION_CAPABLE_SUBSCRIBER_CALLBACKS = [
+  "onRunInitialized",
+  "onRunFailed",
+  "onRunFinalized",
+  "onEvent",
+  "onRunStartedEvent",
+  "onRunFinishedEvent",
+  "onRunErrorEvent",
+  "onStepStartedEvent",
+  "onStepFinishedEvent",
+  "onTextMessageStartEvent",
+  "onTextMessageContentEvent",
+  "onTextMessageEndEvent",
+  "onToolCallStartEvent",
+  "onToolCallArgsEvent",
+  "onToolCallEndEvent",
+  "onToolCallResultEvent",
+  "onStateSnapshotEvent",
+  "onStateDeltaEvent",
+  "onMessagesSnapshotEvent",
+  "onActivitySnapshotEvent",
+  "onActivityDeltaEvent",
+  "onRawEvent",
+  "onCustomEvent",
+  "onReasoningStartEvent",
+  "onReasoningMessageStartEvent",
+  "onReasoningMessageContentEvent",
+  "onReasoningMessageEndEvent",
+  "onReasoningEndEvent",
+  "onReasoningEncryptedValueEvent",
+] as const satisfies ReadonlyArray<keyof AgentSubscriber>;
 
 function canSubscriberMutateAgentState(subscriber: AgentSubscriber): boolean {
-  return Object.entries(subscriber).some(
-    ([callbackName, callback]) =>
-      typeof callback === "function" &&
-      (callbackName === "onEvent" ||
-        callbackName.endsWith("Event") ||
-        MUTATION_CAPABLE_LIFECYCLE_CALLBACKS.has(
-          callbackName as keyof AgentSubscriber,
-        )),
+  return MUTATION_CAPABLE_SUBSCRIBER_CALLBACKS.some(
+    (callbackName) => typeof subscriber[callbackName] === "function",
+  );
+}
+
+function isDevelopmentEnvironment(): boolean {
+  return (
+    (
+      globalThis as typeof globalThis & {
+        process?: { env?: { NODE_ENV?: string } };
+      }
+    ).process?.env?.NODE_ENV === "development"
   );
 }
 
@@ -202,19 +235,32 @@ export class ProxiedCopilotRuntimeAgent
   override subscribe(subscriber: AgentSubscriber): {
     unsubscribe: () => void;
   } {
+    this.warnAboutCompactRestoreMutation(subscriber);
+
+    return super.subscribe(subscriber);
+  }
+
+  private warnAboutCompactRestoreMutation(subscriber?: AgentSubscriber): void {
     if (
-      process.env.NODE_ENV === "development" &&
+      subscriber &&
+      isDevelopmentEnvironment() &&
       this.compactRestore &&
       !this.didWarnAboutCompactRestoreMutation &&
       canSubscriberMutateAgentState(subscriber)
     ) {
       this.didWarnAboutCompactRestoreMutation = true;
       console.warn(
-        "CopilotKit: compact restore is enabled for an agent with a mutation-capable event subscriber. Treat event payloads as immutable under compact restore. If the subscriber intentionally transforms replayed events, configure { compactRestore: false } for this agent.",
+        "CopilotKit: compact restore is enabled for an agent with a mutation-capable event subscriber. Returned messages or state mutations may produce different restore results because compact projections reduce the event stream; treat event payloads as immutable. If the subscriber intentionally transforms replayed events, configure { compactRestore: false } for this agent.",
       );
     }
+  }
 
-    return super.subscribe(subscriber);
+  override runAgent(
+    parameters?: Parameters<HttpAgent["runAgent"]>[0],
+    subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    this.warnAboutCompactRestoreMutation(subscriber);
+    return super.runAgent(parameters, subscriber);
   }
 
   override requestInit(input: RunAgentInput): RequestInit {
@@ -343,6 +389,8 @@ export class ProxiedCopilotRuntimeAgent
     parameters?: RunAgentParameters,
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
+    this.warnAboutCompactRestoreMutation(subscriber);
+
     if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
       return super.connectAgent(parameters, subscriber);
     }
