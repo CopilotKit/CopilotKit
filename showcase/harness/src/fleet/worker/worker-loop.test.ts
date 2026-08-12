@@ -2950,3 +2950,121 @@ describe("driver registry (driverKind → driver)", () => {
     expect(queue.reports[0]!.aggregateKey).toBe("e2e_demos:routed");
   });
 });
+
+// ── startWorkerLoop: claim-time PID headroom gate ──────────────────────────
+
+/**
+ * Pins the dispatch defect the 2026-08-10 worker-starvation incident exposed:
+ * `budget.available` counts free browser CONTEXT slots and is blind to the
+ * container's cgroup PID ceiling, so a worker at `pids=1000/1000` kept winning
+ * claims it could not run and burned each one to a 600000ms abort. The gate must
+ * decline the claim WITHOUT dropping or requeueing the job, and must stay inert
+ * whenever the gauges are unmeasurable (every non-Linux dev box).
+ */
+describe("startWorkerLoop PID headroom gate", () => {
+  /** Runs a loop for a few poll turns and reports whether it claimed. */
+  async function runGate(budget: Partial<BrowserPoolBudget>): Promise<{
+    claimNextCalls: number;
+    reports: number;
+  }> {
+    let claimNextCalls = 0;
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const innerClaimNext = queue.claimNext.bind(queue);
+    queue.claimNext = async (...args: Parameters<typeof innerClaimNext>) => {
+      claimNextCalls++;
+      return innerClaimNext(...args);
+    };
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      // Full context budget on purpose: the ONLY thing that may stop this
+      // worker in the saturated cases is the PID gate.
+      pool: budgetWith(24, budget),
+      driver: makeDriver({
+        slug: "langgraph-python",
+        cells: [{ featureId: "tools", state: "green" }],
+        aggregateState: "green",
+      }),
+      payloadToInput: passInput,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+    // Give the loop room to make several claim decisions.
+    await new Promise((r) => setTimeout(r, 40));
+    await handle.stop();
+    return { claimNextCalls, reports: queue.reports.length };
+  }
+
+  it("declines to claim at the PID ceiling — the job is never claimed, so it stays pending", async () => {
+    // The measured prod condition: 1000/1000 PIDs, full context budget.
+    const out = await runGate({ pidsCurrent: 1000, pidsMax: 1000 });
+    expect(out.claimNextCalls).toBe(0);
+    expect(out.reports).toBe(0);
+  });
+
+  it("declines at the gate ratio boundary (0.90)", async () => {
+    const out = await runGate({ pidsCurrent: 900, pidsMax: 1000 });
+    expect(out.claimNextCalls).toBe(0);
+  });
+
+  it("still claims just BELOW the gate — the alarm's 0.75 must not withhold capacity", async () => {
+    // 0.89 is above the control-plane's 0.75 saturation ALARM but below this
+    // gate: the operator has been paged, and the worker keeps working. If these
+    // two thresholds were equal, alarming would cost ~36h of fleet capacity.
+    const out = await runGate({ pidsCurrent: 890, pidsMax: 1000 });
+    expect(out.claimNextCalls).toBeGreaterThan(0);
+    expect(out.reports).toBeGreaterThan(0);
+  });
+
+  it("claims normally on a healthy worker", async () => {
+    const out = await runGate({ pidsCurrent: 100, pidsMax: 1000 });
+    expect(out.claimNextCalls).toBeGreaterThan(0);
+    expect(out.reports).toBe(1);
+  });
+
+  it("stays INERT when the cgroup gauges are unreadable (-1 sentinel, off-Linux)", async () => {
+    // Every macOS dev box and any container without the PID controller reports
+    // -1/-1. A gate that engaged there would stop the local fleet dead.
+    const out = await runGate({ pidsCurrent: -1, pidsMax: -1 });
+    expect(out.claimNextCalls).toBeGreaterThan(0);
+    expect(out.reports).toBe(1);
+  });
+
+  it("honours an injected gate ratio", async () => {
+    let claimNextCalls = 0;
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const inner = queue.claimNext.bind(queue);
+    queue.claimNext = async (...args: Parameters<typeof inner>) => {
+      claimNextCalls++;
+      return inner(...args);
+    };
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(24, { pidsCurrent: 500, pidsMax: 1000 }),
+      driver: makeDriver({
+        slug: "langgraph-python",
+        cells: [{ featureId: "tools", state: "green" }],
+        aggregateState: "green",
+      }),
+      payloadToInput: passInput,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+      // 0.50 would pass the default 0.90 gate; an explicit 0.40 must decline.
+      pidClaimGateRatio: 0.4,
+    });
+    await new Promise((r) => setTimeout(r, 40));
+    await handle.stop();
+    expect(claimNextCalls).toBe(0);
+  });
+});

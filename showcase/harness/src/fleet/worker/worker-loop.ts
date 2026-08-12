@@ -42,6 +42,7 @@
 
 import type { ProbeState, ProbeResult, Logger } from "../../types/index.js";
 import type { BrowserPoolBudget } from "../../probes/helpers/browser-pool.js";
+import { pidUsageRatio } from "../contracts.js";
 import type {
   FleetQueueClient,
   JobLease,
@@ -193,6 +194,13 @@ export interface WorkerLoopDeps {
   /** Idle poll interval when there's no work / no budget. */
   pollIntervalMs?: number;
   /**
+   * Claim-time PID headroom gate ratio. Defaults to the
+   * WORKER_PID_CLAIM_GATE_RATIO env override, else
+   * `DEFAULT_PID_CLAIM_GATE_RATIO`. Injectable so a test can drive the gate
+   * without touching process.env.
+   */
+  pidClaimGateRatio?: number;
+  /**
    * Optional hook fired when the worker's current job changes: the claimed
    * `jobId` when a job is won, then `null` when it settles (reported/failed).
    * The entrypoint wires this to the registration heartbeat so the worker's
@@ -238,6 +246,58 @@ export const DEFAULT_LEASE_SECONDS = 300;
 export const DEFAULT_HEARTBEAT_MS = 60_000;
 /** Default idle poll interval when there's no work / no budget. */
 export const DEFAULT_POLL_INTERVAL_MS = 5_000;
+
+/**
+ * Claim-time PID HEADROOM gate: a worker declines to claim while
+ * `pids.current / pids.max` is at or above this fraction of its cgroup ceiling.
+ *
+ * WHY THIS EXISTS: `budget.available` counts free Playwright CONTEXT slots
+ * (`browser-pool.ts` — `maxContexts - liveContextCount`) and nothing else. A
+ * worker whose container has leaked PIDs to the 1000-PID ceiling still reports
+ * full context budget, so it kept winning claims it could not possibly run: the
+ * driver cannot fork, and the job burns its whole 600000ms lease before aborting.
+ * Measured at the 2026-08-10 incident: workers at `pids=1000/1000` with 758-761
+ * zombies, and 320 `timeout after 600000ms` abort rows. Declining the claim
+ * leaves the job PENDING for a healthy worker instead of converting it into a
+ * ten-minute abort.
+ *
+ * WHY 0.90 (and why it is much higher than the control-plane's 0.75 alarm):
+ * these two thresholds do DIFFERENT jobs and must not be equal. 0.75 alarms an
+ * operator early (~36h of lead time at the observed leak rate) while the worker
+ * is still perfectly capable of running jobs — gating dispatch that early would
+ * convert a warning into a day-and-a-half of lost fleet capacity. 0.90 is the
+ * point at which we stop trusting the worker to fork a browser tree at all; at
+ * the prod ceiling of `pids.max=1000` it leaves 100 free PIDs. The per-job PID
+ * cost of a chromium context tree is NOT MEASURED, so 100 is a chosen reserve,
+ * not a derived one — hence the env override. The ordering invariant that DOES
+ * matter is that the alarm fires strictly before the gate engages, so an
+ * operator is always told before capacity is withdrawn.
+ *
+ * Env-overridable via WORKER_PID_CLAIM_GATE_RATIO. Note the gate is INERT when
+ * the cgroup gauges are unreadable (`pidUsageRatio` → null: off-Linux, every
+ * macOS dev box) — an unmeasurable worker keeps claiming exactly as before.
+ */
+export const DEFAULT_PID_CLAIM_GATE_RATIO = 0.9;
+
+/**
+ * Resolve the claim-time PID headroom gate ratio from the environment. An
+ * unparseable or out-of-(0,1] override falls back to the default rather than
+ * either wedging the fleet (a 0 gate declines every claim forever) or silently
+ * disabling the gate.
+ */
+function resolvePidClaimGateRatio(logger: Logger): number {
+  const raw = process.env.WORKER_PID_CLAIM_GATE_RATIO;
+  if (raw === undefined || raw.trim() === "") {
+    return DEFAULT_PID_CLAIM_GATE_RATIO;
+  }
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed) && parsed > 0 && parsed <= 1) return parsed;
+  safeLog(logger, "warn", "fleet.worker.pid-claim-gate-ratio-invalid", {
+    raw,
+    fallback: DEFAULT_PID_CLAIM_GATE_RATIO,
+  });
+  return DEFAULT_PID_CLAIM_GATE_RATIO;
+}
 /**
  * Bound on the roster-row deregister await inside the orchestrator's
  * `drainFleetWorker` (which re-exports this constant).
@@ -1088,6 +1148,12 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
   const heartbeatMs = deps.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
   const pollIntervalMs = deps.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const { workerId, queue, pool, logger } = deps;
+  // Claim-time PID headroom gate (see DEFAULT_PID_CLAIM_GATE_RATIO). Resolved
+  // ONCE at construction alongside the other knobs; `pidGateLatched` makes the
+  // decline log edge-triggered so a long saturation warns once, not every poll.
+  const pidClaimGateRatio =
+    deps.pidClaimGateRatio ?? resolvePidClaimGateRatio(logger);
+  let pidGateLatched = false;
 
   // Fail-loud at construction: the heartbeat must fire (and renew) BEFORE the
   // lease expires, or the sweeper reclaims a live worker's job and synthesizes a
@@ -1255,6 +1321,63 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
         });
         await safeSleep(pollIntervalMs);
         continue;
+      }
+
+      // 1b. PID HEADROOM gate. `budget.available` above counts free browser
+      //     CONTEXT slots and is blind to the container's PID ceiling, so a
+      //     worker whose cgroup is exhausted reports full capacity and keeps
+      //     winning claims it cannot run — the job then burns its entire lease
+      //     and lands as a `timeout after 600000ms` abort. Decline instead.
+      //
+      //     BLAST RADIUS — deliberately the SAME decline-and-idle path as the
+      //     no-budget branch above, which is what makes this safe when EVERY
+      //     worker is saturated:
+      //       - the job is never claimed, so it is never dropped and never
+      //         requeued — it simply stays `pending` for a healthy worker (or
+      //         for this one, post-redeploy);
+      //       - the loop sleeps a full `pollIntervalMs` before re-checking, so a
+      //         fully-saturated fleet idles at the poll cadence rather than
+      //         spinning;
+      //       - the queue therefore STALLS VISIBLY: `probe_jobs` rows pile up
+      //         pending, and the reason is stated by the rising-edge warn below
+      //         plus the control-plane's `system:worker-pid-saturation` alarm,
+      //         which by construction fired at 0.75 before this gate engaged at
+      //         0.90.
+      //     A stalled, alarmed queue is recoverable by redeploy; the pre-fix
+      //     behaviour (claim, fail, repeat) silently burned the whole cadence.
+      //
+      //     `pidUsageRatio` returns null when the cgroup gauges are unreadable
+      //     (off-Linux/dev), and a null ratio leaves the gate OPEN.
+      const pidRatio = pidUsageRatio(budget.pidsCurrent, budget.pidsMax);
+      if (pidRatio !== null && pidRatio >= pidClaimGateRatio) {
+        // Rising edge at WARN (stderr → Sentry) so a fleet that has stopped
+        // claiming says why exactly once; steady state drops to debug so a
+        // multi-hour saturation doesn't emit a warn every `pollIntervalMs`.
+        safeLog(
+          logger,
+          pidGateLatched ? "debug" : "warn",
+          "fleet.worker.pid-headroom-exhausted",
+          {
+            workerId,
+            pidsCurrent: budget.pidsCurrent,
+            pidsMax: budget.pidsMax,
+            ratio: Number(pidRatio.toFixed(4)),
+            gateRatio: pidClaimGateRatio,
+            msg: "declining to claim — cgroup PID headroom exhausted; jobs stay pending for a healthy worker",
+          },
+        );
+        pidGateLatched = true;
+        await safeSleep(pollIntervalMs);
+        continue;
+      }
+      if (pidGateLatched) {
+        safeLog(logger, "info", "fleet.worker.pid-headroom-recovered", {
+          workerId,
+          pidsCurrent: budget.pidsCurrent,
+          pidsMax: budget.pidsMax,
+          gateRatio: pidClaimGateRatio,
+        });
+        pidGateLatched = false;
       }
 
       // 2. Attempt a claim.
