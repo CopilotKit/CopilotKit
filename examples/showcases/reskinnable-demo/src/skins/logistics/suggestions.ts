@@ -49,6 +49,61 @@ export const logisticsSuggestions: Suggestion[] = [
   // sheet quotes a lane the network does NOT carry, so a brief that cites it
   // could not have been assembled from the ledger the agent can already see.
   { title: "Ingest this rate sheet", message: RATE_SHEET_MESSAGE },
+  // BEAT 4 — long-term memory recall. Placed AFTER the 3x pills so the room has
+  // already watched the agent read, drive and ingest before it is asked to
+  // remember: "it remembers me" lands harder once the assistant is established
+  // as something that acts.
+  //
+  // WHAT THIS ACTUALLY PRODUCES, measured against the seeded network rather
+  // than hoped:
+  //   - the phrasing is deliberately about the SHAPE of the queue, not the rows,
+  //     which is what routes it to `showExceptionSummary` rather than
+  //     `showExceptions`. "What needs my attention" (pill 1) routes to the board
+  //     — the two pills are asking different questions on purpose;
+  //   - with the seeded preference recalled the answer is FOUR lane groups
+  //     (SHA→LAX ocean, RTM→NYC ocean, MTY→DFW truck each carry the four
+  //     exceptions between them), exposure printed as "$240k" not "$240,000",
+  //     and MTY→DFW lifted above lanes worth eight times more because it is
+  //     already past its promised date;
+  //   - and the violet band at the top of the component carries the agent's own
+  //     sentence naming the preference. THAT BAND IS THE BEAT. Without it the
+  //     room sees a competent summary and has no way to know anything was
+  //     recalled.
+  //
+  // ⚠️ RUNTIME-CONDITIONAL. Without Intelligence there is no `recall_memory`:
+  // the component still renders, the band is usually empty, and the grouping is
+  // whatever the model chose. That degrades to "a good answer", not to an error
+  // — and it is NOT this beat. Verify against a configured stack.
+  {
+    title: "How do the exceptions stand?",
+    message: "Give me a summary of where the exceptions stand right now.",
+  },
+  // BEAT 5 — the stored procedure. "Handle it" is deliberately vague and names
+  // no action, because the claim is that the agent already knows the procedure
+  // and the presenter does not have to recite it.
+  //
+  // WHAT THIS ACTUALLY PRODUCES, measured:
+  //   - PO-88251 is the target on purpose. It is NOT beat 3a's shipment
+  //     (PO-88213, where the PIN card releases the reroute) and NOT beat 6's
+  //     (PO-88213's $8,400 expedite, the one over Rosa's $5,000 authority). One
+  //     shipment carrying three beats is how a presenter ends up demonstrating
+  //     the wrong one;
+  //   - three tool-activity chips in a row — "Flagging it on the board",
+  //     "Messaging the carrier", "Noting it on the shipment" — and then a single
+  //     confirming sentence;
+  //   - on the Control Tower board, the PO-88251 row grows a red WATCH chip, a
+  //     "Carrier notified" chip and a 🚨 count. The seven other registered write
+  //     tools (proof of delivery, drayage, capacity forecast, cargo claim, and
+  //     the three real ones) are what make "it picked the right three" a claim
+  //     rather than a tautology.
+  //
+  // ⚠️ RUNTIME-CONDITIONAL, as beat 4: with no `recall_memory` the agent finds
+  // no procedure and asks what the planner would like done. Not an error, not
+  // the beat.
+  {
+    title: "Norte's gone quiet",
+    message: "Norte Freight has gone dark on PO-88251 — handle it.",
+  },
   {
     title: "Inventory at risk",
     message: "Which SKUs run out before their inbound arrives?",

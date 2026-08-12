@@ -40,6 +40,7 @@ const PAGES: Record<string, ComponentType> = {
 // a prettified raw name.
 const TOOL_LABELS: Record<string, string> = {
   showExceptions: "Scanning the exception queue",
+  showExceptionSummary: "Summarizing the queue your way",
   showExceptionQueue: "Setting up the exception view",
   showShipment: "Pulling up the shipment",
   showLane: "Checking lane health",
@@ -50,6 +51,17 @@ const TOOL_LABELS: Record<string, string> = {
   fileEscalation: "Filing an escalation",
   createDecisionRecord: "Filing to the decision log",
   fileRateBrief: "Filing the rate brief",
+  // BEAT 5 — the stored procedure's three writes, then its distractors. The
+  // distractors get labels too: an unlabelled chip falls back to a prettified
+  // raw name, which is exactly the tell that would let the room spot which
+  // tools were "the real ones" before the agent chose.
+  raiseShipmentWatch: "Flagging it on the board",
+  notifyCarrier: "Messaging the carrier",
+  postShipmentNote: "Noting it on the shipment",
+  requestProofOfDelivery: "Requesting proof of delivery",
+  bookDrayageSlot: "Booking a drayage slot",
+  requestLaneCapacityForecast: "Requesting a capacity forecast",
+  openCargoClaim: "Opening a cargo claim",
   renderBrief: "Building the decision brief",
   generateSandboxedUi: "Generating an interactive view",
   recall_memory: "Recalling from long-term memory",

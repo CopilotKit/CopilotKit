@@ -15,6 +15,7 @@ import { useLogistics, notifyDataChanged } from "./actions";
 import { usePlannerAuth } from "./components/planner-auth-context";
 import {
   ExceptionBoard,
+  ExceptionSummaryList,
   ShipmentCard,
   LaneTable,
   TradeoffTable,
@@ -24,6 +25,10 @@ import {
   orderExceptionRows,
 } from "./components";
 import { computeMitigationOptions } from "./data/mitigation-options";
+// BEAT 5's vocabulary, and the one closed set in this skin the agent is
+// deliberately GIVEN — see data/handling.ts for why that is the opposite of the
+// escalation catalogue below and why the identifiers are named as they are.
+import { CARRIER_MESSAGES, WATCH_REASONS } from "./data/handling";
 import {
   EXCEPTION_ARGUMENTS,
   SORT_ARGUMENTS,
@@ -66,6 +71,9 @@ export function LogisticsTools() {
     fileEscalation,
     fileDecision,
     fileRateBrief,
+    raiseWatch,
+    notifyCarrier,
+    postShipmentNote,
   } = useLogistics();
   const { currentPlanner } = usePlannerAuth();
   const skin = useSkin();
@@ -185,6 +193,61 @@ export function LogisticsTools() {
       render: () => <InventoryRiskList items={inventory} />,
     },
     [inventory],
+  );
+
+  // ══ BEAT 4 — LONG-TERM MEMORY: IT REMEMBERS HOW I READ THE QUEUE ═════════
+  // The three flags are what the recalled preference CHANGES, and `note` is
+  // where the agent says which preference it applied. Without that last one the
+  // beat is invisible: a silently-obeyed memory produces an answer the room
+  // cannot tell apart from a normal one. See components/exception-summary.tsx.
+  //
+  // ⚠️ RUNTIME-CONDITIONAL. `recall_memory` attaches only in Intelligence mode
+  // (INTELLIGENCE_API_URL + _GATEWAY_WS_URL + _API_KEY all set). On the OSS SSE
+  // path this tool still exists and still renders — the agent simply has nothing
+  // to recall, so it fills the flags from its own judgement and either leaves
+  // `note` empty (no band) or writes a note it did not recall. That degrades to
+  // "a reasonable exception summary" rather than to an error, which is the
+  // intended failure shape, but it is NOT the beat.
+  useComponent(
+    {
+      name: "showExceptionSummary",
+      description:
+        "Summarize the exception queue as a grouped roll-up — one block per lane (or per carrier), with each " +
+        "block's exposure and how many shipments are already past their promised date. Use this for 'summarize', " +
+        "'where do the exceptions stand', 'how is the queue looking' — anything asking for the SHAPE of the queue " +
+        "rather than the rows. Before calling it, recall the planner's saved reading preference and pass it " +
+        "through the three flags. ALWAYS fill `note` with the preference you applied, in your own words — that " +
+        "is how the planner knows you remembered.",
+      parameters: z.object({
+        byLane: z.boolean().describe("Group by lane rather than by carrier."),
+        breachFirst: z
+          .boolean()
+          .describe(
+            "Put shipments already past their promised date at the top, both within and between groups.",
+          ),
+        roundThousands: z
+          .boolean()
+          .describe(
+            "Show exposure rounded to whole thousands ($240k) instead of to the dollar ($240,000).",
+          ),
+        note: z
+          .string()
+          .describe(
+            "Name the saved preference you applied, e.g. 'You read these by lane, anything past its promised date first.'",
+          ),
+      }),
+      render: ({ byLane, breachFirst, roundThousands, note }) => (
+        <ExceptionSummaryList
+          shipments={shipments}
+          lanes={lanes}
+          byLane={byLane}
+          breachFirst={breachFirst}
+          roundThousands={roundThousands}
+          note={note}
+        />
+      ),
+    },
+    [shipments, lanes],
   );
 
   useComponent(
@@ -678,6 +741,209 @@ export function LogisticsTools() {
       ),
     },
     [shipments, fileDecision],
+  );
+
+  // ══ BEAT 5 — THE STORED PROCEDURE'S THREE WRITES ═════════════════════════
+  //
+  // Registered GLOBALLY (this whole component mounts under the shell, not under
+  // a page), so "handle it" works from the Control Tower, the Lanes page or
+  // anywhere else — the presenter must never have to navigate first for a beat
+  // whose claim is that one vague sentence was enough.
+  //
+  // All three are `useFrontendTool`, NOT `useHumanInTheLoop`, and that is
+  // load-bearing rather than a style choice. The seeded procedure says "run all
+  // three immediately, without asking for confirmation"; a HITL card mid-
+  // procedure opens an interrupt that a presenter moving on leaves unresolved,
+  // and the NEXT message then fails the whole thread with "Tool result is
+  // missing for tool call …". Banking hit exactly that. Confirmation belongs on
+  // `commitMitigation`, which spends money; these three do not.
+  //
+  // Each produces a change visible on the Control Tower board AND on the
+  // shipment card — see components/handling-strip.tsx.
+  //
+  // ⚠️ RUNTIME-CONDITIONAL, like beat 4: without Intelligence there is no
+  // `recall_memory`, so the agent never finds the procedure. It degrades to
+  // asking what the planner would like done rather than to an error — the three
+  // tools below are ordinary tools it can still be told to call one at a time.
+
+  useFrontendTool(
+    {
+      name: "raiseShipmentWatch",
+      description:
+        "Put a shipment on the tower's watch list so it is flagged on the Control Tower board, and record what " +
+        "prompted it.",
+      parameters: z.object({
+        shipment: z
+          .string()
+          .describe("Shipment reference or id, e.g. 'PO-88251'."),
+        // Enumerated FROM the store's own closed set, never hand-copied: the
+        // route validates against the same list, so a reason this tool offers
+        // and the wire refuses (or the reverse) is unrepresentable.
+        reason: z
+          .enum(WATCH_REASONS)
+          .describe("What put the shipment on watch."),
+      }),
+      handler: async ({ shipment: ref, reason }) => {
+        const shipment = findShipment(ref ?? "");
+        if (!shipment)
+          return "No shipment matches that reference; nothing was flagged.";
+        const outcome = await raiseWatch(
+          shipment.id,
+          reason ?? "carrier-silent",
+        );
+        return outcome.ok
+          ? `${shipment.reference} is on watch — the board shows the flag.`
+          : `REJECTED: ${outcome.error}`;
+      },
+      // Replay-safe — see commitMitigation's render above. No `respond` here, so
+      // `result` is the handler's own sentence.
+      render: ({ result }) => (
+        <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+          {result ? String(result) : "Raising the watch flag…"}
+        </div>
+      ),
+    },
+    [shipments, raiseWatch],
+  );
+
+  useFrontendTool(
+    {
+      name: "notifyCarrier",
+      description:
+        "Send the shipment's carrier a templated message. Use 'recovery-plan' when a carrier has gone quiet and " +
+        "you need a written plan back.",
+      parameters: z.object({
+        shipment: z.string().describe("Shipment reference or id."),
+        template: z
+          .enum(CARRIER_MESSAGES)
+          .describe("Which templated message to send."),
+      }),
+      handler: async ({ shipment: ref, template }) => {
+        const shipment = findShipment(ref ?? "");
+        if (!shipment)
+          return "No shipment matches that reference; nothing was sent.";
+        const outcome = await notifyCarrier(
+          shipment.id,
+          template ?? "status-request",
+        );
+        return outcome.ok
+          ? // The CARRIER is read off the shipment, not off the model: the
+            // sentence read aloud has to name the carrier the freight is with.
+            `Sent ${shipment.carrier} the ${(template ?? "status-request").replace(/-/g, " ")} message on ${shipment.reference}.`
+          : `REJECTED: ${outcome.error}`;
+      },
+      render: ({ result }) => (
+        <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+          {result ? String(result) : "Messaging the carrier…"}
+        </div>
+      ),
+    },
+    [shipments, notifyCarrier],
+  );
+
+  useFrontendTool(
+    {
+      name: "postShipmentNote",
+      description:
+        "Post a short note on a shipment's record saying what was done and why. One sentence.",
+      parameters: z.object({
+        shipment: z.string().describe("Shipment reference or id."),
+        text: z.string().describe("The note, one sentence."),
+      }),
+      handler: async ({ shipment: ref, text }) => {
+        const shipment = findShipment(ref ?? "");
+        if (!shipment)
+          return "No shipment matches that reference; nothing was noted.";
+        // The 🚨 marker is NOT applied here — the store forces it (`markNote`),
+        // so a note filed through REST by any other path carries it too.
+        const outcome = await postShipmentNote(shipment.id, text ?? "");
+        return outcome.ok
+          ? `Noted it on ${shipment.reference}.`
+          : `REJECTED: ${outcome.error}`;
+      },
+      render: ({ result }) => (
+        <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+          {result ? String(result) : "Posting the note…"}
+        </div>
+      ),
+    },
+    [shipments, postShipmentNote],
+  );
+
+  // ── Distractors ──────────────────────────────────────────────────────────
+  // Plausible, real-sounding freight actions that are useless for the stored
+  // procedure. They are what make "it picked the right three" mean something
+  // instead of being the only three things it could have done. None of them
+  // touch the authority gate either, so they are decoys for beat 6 as well.
+  useFrontendTool(
+    {
+      name: "requestProofOfDelivery",
+      description:
+        "Ask the carrier for the signed proof-of-delivery documents on a shipment that has already arrived.",
+      parameters: z.object({ shipment: z.string() }),
+      handler: async ({ shipment: ref }) =>
+        `Proof of delivery requested for ${findShipment(ref ?? "")?.reference ?? ref}.`,
+      render: ({ result }) =>
+        result ? (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {String(result)}
+          </div>
+        ) : null,
+    },
+    [shipments],
+  );
+
+  useFrontendTool(
+    {
+      name: "bookDrayageSlot",
+      description:
+        "Book a drayage slot at the destination port for a container that is ready to move off the terminal.",
+      parameters: z.object({ shipment: z.string() }),
+      handler: async ({ shipment: ref }) =>
+        `Drayage slot booked for ${findShipment(ref ?? "")?.reference ?? ref}.`,
+      render: ({ result }) =>
+        result ? (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {String(result)}
+          </div>
+        ) : null,
+    },
+    [shipments],
+  );
+
+  useFrontendTool(
+    {
+      name: "requestLaneCapacityForecast",
+      description:
+        "Ask the carrier desk for a forward capacity forecast on one lane.",
+      parameters: z.object({ lane: z.string() }),
+      handler: async ({ lane }) => `Capacity forecast requested for ${lane}.`,
+      render: ({ result }) =>
+        result ? (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {String(result)}
+          </div>
+        ) : null,
+    },
+    [],
+  );
+
+  useFrontendTool(
+    {
+      name: "openCargoClaim",
+      description:
+        "Open a cargo claim against a carrier for goods damaged or short-shipped in transit.",
+      parameters: z.object({ shipment: z.string(), detail: z.string() }),
+      handler: async ({ shipment: ref, detail }) =>
+        `Cargo claim opened on ${findShipment(ref ?? "")?.reference ?? ref}: ${detail}`,
+      render: ({ result }) =>
+        result ? (
+          <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
+            {String(result)}
+          </div>
+        ) : null,
+    },
+    [shipments],
   );
 
   // ══ BEAT 3d — MULTIMODAL IN, DURABLE ARTIFACT OUT ════════════════════════
