@@ -253,6 +253,60 @@ export function useLogistics() {
     [currentPlanner.id],
   );
 
+  /**
+   * BEAT 5 — the three writes the stored procedure fires.
+   *
+   * One helper rather than three near-identical ones: all three POST a small
+   * JSON body to a shipment-scoped path, all three send `plannerId` and let the
+   * SERVER derive the actor, and all three must resolve with a narratable
+   * sentence rather than throw — a rejected promise inside a frontend-tool
+   * handler leaves the tool call unsettled and wedges the run, which is worse
+   * than any write failing.
+   */
+  const postToShipment = useCallback(
+    async (path: string, body: Record<string, unknown>) => {
+      try {
+        const res = await fetch(`${BASE}${path}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...body, plannerId: currentPlanner.id }),
+        });
+        const payload = await res.json().catch(() => null);
+        // Refresh either way: on a refusal the UI must show real state rather
+        // than an optimistic guess, exactly as commitMitigation does.
+        notifyDataChanged();
+        if (!res.ok)
+          return {
+            ok: false as const,
+            error: payload?.message ?? `HTTP ${res.status}`,
+          };
+        return { ok: true as const };
+      } catch (error) {
+        console.error(`[logistics] POST ${path} failed:`, error);
+        return { ok: false as const, error: "Network error." };
+      }
+    },
+    [currentPlanner.id],
+  );
+
+  const raiseWatch = useCallback(
+    (shipmentId: string, reason: string) =>
+      postToShipment(`/shipments/${shipmentId}/watch`, { reason }),
+    [postToShipment],
+  );
+
+  const notifyCarrier = useCallback(
+    (shipmentId: string, template: string) =>
+      postToShipment(`/shipments/${shipmentId}/notify`, { template }),
+    [postToShipment],
+  );
+
+  const postShipmentNote = useCallback(
+    (shipmentId: string, text: string) =>
+      postToShipment(`/shipments/${shipmentId}/notes`, { text }),
+    [postToShipment],
+  );
+
   return {
     shipments,
     lanes,
@@ -265,6 +319,9 @@ export function useLogistics() {
     fileEscalation,
     fileDecision,
     fileRateBrief,
+    raiseWatch,
+    notifyCarrier,
+    postShipmentNote,
   };
 }
 

@@ -46,6 +46,44 @@ export interface Shipment {
   };
   /** Set by approveEscalation. This is what lifts the authority gate. */
   activeEscalationId?: string;
+  /**
+   * BEAT 5, step 1 — the tower's watch flag. Absent until the stored procedure
+   * (or a planner) raises one, which is why every one of the three fields below
+   * is on the SHIPMENT rather than in a side collection: all three of beat 5's
+   * writes then land on one record, `GET /shipments` already returns them, and
+   * the Control Tower board and the shipment card can paint them with no new
+   * read path to keep in sync.
+   */
+  watch?: ShipmentWatch;
+  /** BEAT 5, step 2 — templated messages sent to the carrier, newest first. */
+  carrierNotices?: CarrierNotice[];
+  /** BEAT 5, step 3 — short notes on the record, newest first. */
+  notes?: ShipmentNote[];
+}
+
+export interface ShipmentWatch {
+  /** A `WatchReason` from `data/handling.ts`; stored as a string on the record. */
+  reason: string;
+  since: string;
+  raisedBy: string;
+}
+
+export interface CarrierNotice {
+  id: string;
+  /** A `CarrierMessage` from `data/handling.ts`. */
+  template: string;
+  /** The carrier as the network spells it, copied off the shipment. */
+  carrier: string;
+  sentBy: string;
+  createdAt: string;
+}
+
+export interface ShipmentNote {
+  id: string;
+  /** Always carries `NOTE_MARKER` — the store forces it. */
+  text: string;
+  author: string;
+  createdAt: string;
 }
 
 export interface InventoryItem {

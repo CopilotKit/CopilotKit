@@ -1,6 +1,7 @@
 "use client";
 
 import type { Lane, Shipment } from "../data/types";
+import { HandlingMarkers } from "./handling-strip";
 import { cn } from "@/lib/utils";
 
 const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
@@ -97,6 +98,12 @@ export function ExceptionBoard({
                 ) : null}
                 <td className="px-3 py-2.5 font-medium text-ink">
                   {s.reference}
+                  {/* BEAT 5 — the stored procedure's writes, visible on the
+                      board the presenter is already looking at. Under the
+                      reference rather than in a column of their own: an extra
+                      column would be empty on every row until the procedure
+                      runs, which reads as a broken table. */}
+                  <HandlingMarkers shipment={s} />
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
                   {lane ? `${lane.origin} → ${lane.destination}` : s.laneId}

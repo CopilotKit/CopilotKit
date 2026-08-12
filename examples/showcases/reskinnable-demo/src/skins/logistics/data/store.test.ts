@@ -105,3 +105,76 @@ describe("store", () => {
     expect(store.decisions()[0].rationale).toBe("second");
   });
 });
+
+/**
+ * BEAT 5 — the three writes the stored procedure fires.
+ *
+ * The interesting assertions here are not "the write happened": they are that
+ * the actor and the carrier come from the SERVER's own record rather than from
+ * the caller, that the 🚨 marker is forced rather than requested, and that a
+ * reset drops all three. That last one is the demo-destroying failure — a board
+ * that opens with last run's watch flag already on PO-88251 makes the stored
+ * procedure look like it ran before anyone asked.
+ */
+describe("store — beat 5 handling writes", () => {
+  it("raises a watch flag, and refuses a reason outside the closed set", () => {
+    const shipment = store.raiseWatch(
+      "shp-4823",
+      "carrier-silent",
+      "Rosa Delgado",
+    );
+    expect(shipment.watch).toMatchObject({
+      reason: "carrier-silent",
+      raisedBy: "Rosa Delgado",
+    });
+    expect(() => store.raiseWatch("shp-4823", "vibes", "Rosa")).toThrow(
+      "INVALID_WATCH_REASON",
+    );
+    expect(() => store.raiseWatch("nope", "carrier-silent", "Rosa")).toThrow(
+      "NOT_FOUND",
+    );
+  });
+
+  it("copies the carrier off the shipment rather than trusting the caller", () => {
+    const notice = store.sendCarrierNotice(
+      "shp-4823",
+      "recovery-plan",
+      "Rosa Delgado",
+    );
+    // shp-4823 is carried by Norte Freight in the seed. Nothing in the call
+    // above named a carrier, and that is the point: the sentence read aloud on
+    // stage has to name the carrier the freight is actually with.
+    expect(notice.carrier).toBe("Norte Freight");
+    expect(store.findShipment("shp-4823")?.carrierNotices?.[0].id).toBe(
+      notice.id,
+    );
+    expect(() =>
+      store.sendCarrierNotice("shp-4823", "strongly-worded-letter", "Rosa"),
+    ).toThrow("INVALID_CARRIER_MESSAGE");
+  });
+
+  it("forces the note marker, idempotently, and refuses an empty note", () => {
+    store.addShipmentNote("shp-4823", "Carrier silent since Friday.", "Rosa");
+    store.addShipmentNote("shp-4823", "🚨 Already marked.", "Rosa");
+    const notes = store.findShipment("shp-4823")?.notes ?? [];
+    // Newest first, like every other log in this store.
+    expect(notes[0].text).toBe("🚨 Already marked.");
+    expect(notes[1].text).toBe("🚨 Carrier silent since Friday.");
+    expect(() => store.addShipmentNote("shp-4823", "   ", "Rosa")).toThrow(
+      "EMPTY_NOTE",
+    );
+  });
+
+  it("drops every handling write on reset", () => {
+    store.raiseWatch("shp-4823", "carrier-silent", "Rosa");
+    store.sendCarrierNotice("shp-4823", "recovery-plan", "Rosa");
+    store.addShipmentNote("shp-4823", "Flagged it.", "Rosa");
+
+    store.reset();
+
+    const shipment = store.findShipment("shp-4823");
+    expect(shipment?.watch).toBeUndefined();
+    expect(shipment?.carrierNotices).toBeUndefined();
+    expect(shipment?.notes).toBeUndefined();
+  });
+});

@@ -1,5 +1,6 @@
 import seed from "./seed.json";
 import type {
+  CarrierNotice,
   Decision,
   Escalation,
   InventoryItem,
@@ -8,8 +9,10 @@ import type {
   Planner,
   RateBrief,
   Shipment,
+  ShipmentNote,
 } from "./types";
 import { isValidEscalationCode } from "./escalation-codes";
+import { isCarrierMessage, isWatchReason, markNote } from "./handling";
 
 /**
  * In-memory, file-seeded store for the Meridian control tower.
@@ -53,6 +56,12 @@ export const reset = (): void => {
   // brief on the Decision Log would open the demo with an artifact whose
   // document was never ingested in front of this audience.
   db.rateBriefs = [];
+  // Beat 5's three writes need no line of their own: `watch`, `carrierNotices`
+  // and `notes` all live ON the shipment and `seed.json` carries none of them,
+  // so re-cloning the seed above already drops every one. Said out loud because
+  // the opposite is the demo-destroying half — a board that opens with last
+  // run's 🚨 note already on PO-88251 makes the stored procedure look like it
+  // ran before anyone asked.
   idCounter = 0;
 };
 
@@ -148,6 +157,80 @@ export const updateShipment = (
   if (idx === -1) return undefined;
   db.shipments[idx] = { ...db.shipments[idx], ...patch };
   return db.shipments[idx];
+};
+
+/**
+ * BEAT 5, step 1 — raise the tower's watch flag on a shipment.
+ *
+ * Throws code-like Errors the calling route maps to HTTP status, in the same
+ * shape as `openEscalation`. `INVALID_WATCH_REASON` is a CLOSED set on purpose,
+ * and it is closed for the opposite reason to the escalation catalogue: the
+ * agent is GIVEN this vocabulary (see `handling.ts`), so a value outside it is a
+ * model error worth surfacing rather than a discovery to be protected.
+ */
+export const raiseWatch = (
+  shipmentId: string,
+  reason: string,
+  raisedBy: string,
+): Shipment => {
+  const shipment = findShipment(shipmentId);
+  if (!shipment) throw new Error("NOT_FOUND");
+  if (!isWatchReason(reason)) throw new Error("INVALID_WATCH_REASON");
+  shipment.watch = {
+    reason,
+    since: new Date().toISOString(),
+    raisedBy,
+  };
+  return shipment;
+};
+
+/** BEAT 5, step 2 — record a templated message sent to the shipment's carrier. */
+export const sendCarrierNotice = (
+  shipmentId: string,
+  template: string,
+  sentBy: string,
+): CarrierNotice => {
+  const shipment = findShipment(shipmentId);
+  if (!shipment) throw new Error("NOT_FOUND");
+  if (!isCarrierMessage(template)) throw new Error("INVALID_CARRIER_MESSAGE");
+  const notice: CarrierNotice = {
+    id: nextId("cn"),
+    template,
+    // Copied off the SHIPMENT, never taken from the caller: the carrier on the
+    // notice has to be the carrier the freight is actually with, and a
+    // client-supplied name is a name the model spelled.
+    carrier: shipment.carrier,
+    sentBy,
+    createdAt: new Date().toISOString(),
+  };
+  shipment.carrierNotices = [notice, ...(shipment.carrierNotices ?? [])];
+  return notice;
+};
+
+/**
+ * BEAT 5, step 3 — post a short note on the shipment record.
+ *
+ * The marker is forced by `markNote`, not requested from the caller: the point
+ * of the note is that the room can SEE the record changed from the back of the
+ * room, and a model that phrases it plainly would silently cost the beat its
+ * only visible artifact on the board.
+ */
+export const addShipmentNote = (
+  shipmentId: string,
+  text: string,
+  author: string,
+): ShipmentNote => {
+  const shipment = findShipment(shipmentId);
+  if (!shipment) throw new Error("NOT_FOUND");
+  if (!text.trim()) throw new Error("EMPTY_NOTE");
+  const note: ShipmentNote = {
+    id: nextId("nt"),
+    text: markNote(text),
+    author,
+    createdAt: new Date().toISOString(),
+  };
+  shipment.notes = [note, ...(shipment.notes ?? [])];
+  return note;
 };
 
 /** File a decision; newest first so the Decision Log leads with it. */
