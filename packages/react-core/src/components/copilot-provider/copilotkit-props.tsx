@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { AuthState } from "../../context/copilot-context";
 import type { CopilotErrorHandler, DebugConfig } from "@copilotkit/shared";
 import type { CopilotKitProviderProps } from "../../v2";
+import type { MaybePromise } from "@copilotkit/shared";
 /**
  * Props for CopilotKit.
  */
@@ -55,19 +56,22 @@ export interface CopilotKitProps extends Omit<
 
   /**
    * Additional headers to be sent with the request.
-   * Can be a static object or a function that returns headers dynamically
-   * (useful for refreshing auth tokens).
+   * Can be a static object or a stable function that returns headers, including
+   * an async result. Change the function reference to refresh declaratively;
+   * call `copilotkit.setHeaders()` for an imperative refresh.
    *
    * For example:
    * ```tsx
    * // Static headers
    * headers={{ "Authorization": "Bearer X" }}
    *
-   * // Dynamic headers (re-evaluated on each render)
-   * headers={() => ({ "Authorization": `Bearer ${getToken()}` })}
+   * // Dynamic headers (memoize the builder)
+   * headers={useCallback(async () => ({ "Authorization": `Bearer ${await getToken()}` }), [])}
    * ```
    */
-  headers?: Record<string, string> | (() => Record<string, string>);
+  headers?:
+    | Record<string, string>
+    | (() => MaybePromise<Record<string, string>>);
 
   /**
    * The children to be rendered within the CopilotKit.

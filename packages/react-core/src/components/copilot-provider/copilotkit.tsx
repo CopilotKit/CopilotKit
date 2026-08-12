@@ -28,6 +28,7 @@ import {
   CopilotKitProvider as CopilotKitV2Provider,
   useCopilotKit,
 } from "../../v2";
+import { useResolvedHeaderRecord } from "../../v2/providers/ResolvedHeadersContext";
 import type {
   CopilotApiConfig,
   ChatComponentsCache,
@@ -173,6 +174,7 @@ function CopilotKitErrorBridge() {
 
 export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const { children, ...props } = cpkProps;
+  const resolvedHeaderRecord = useResolvedHeaderRecord();
 
   /**
    * This will throw an error if the props are invalid.
@@ -323,9 +325,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       ...(cloud ? { cloud } : {}),
       chatApiEndpoint: chatApiEndpoint,
       headers:
-        typeof props.headers === "function"
-          ? props.headers()
-          : props.headers || {},
+        resolvedHeaderRecord ??
+        (typeof props.headers === "function" ? {} : props.headers || {}),
       properties: props.properties || {},
       transcribeAudioUrl: props.transcribeAudioUrl,
       textToSpeechUrl: props.textToSpeechUrl,
@@ -333,6 +334,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     };
   }, [
     publicApiKey,
+    resolvedHeaderRecord,
     props.headers,
     props.properties,
     props.transcribeAudioUrl,

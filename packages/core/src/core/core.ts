@@ -97,6 +97,7 @@ export type CopilotKitCoreGetSuggestionsResult = {
 };
 
 export enum CopilotKitCoreErrorCode {
+  HEADER_RESOLUTION_FAILED = "header_resolution_failed",
   RUNTIME_INFO_FETCH_FAILED = "runtime_info_fetch_failed",
   AGENT_CONNECT_FAILED = "agent_connect_failed",
   AGENT_RUN_FAILED = "agent_run_failed",

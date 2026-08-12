@@ -335,3 +335,11 @@ any other CopilotKit hook must be a descendant of the `CopilotKit`
 provider. Placing the provider beside or below a consumer throws at mount.
 
 Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx` (context)
+
+## Async headers
+
+Pass a stable header builder when credentials are resolved asynchronously. The
+provider invokes it once per function identity, withholds its concrete
+descendants until the first valid record settles, and keeps the last-good record
+active if a refresh fails. Change the builder reference to request a declarative
+refresh; use `copilotkit.setHeaders()` for an imperative refresh.

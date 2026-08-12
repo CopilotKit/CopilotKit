@@ -27,7 +27,7 @@ import type {
   DebugConfig,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
@@ -58,6 +58,9 @@ import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import type { MaybePromise } from "@copilotkit/shared";
+import { useHeaderSource } from "./use-header-source";
+import { ResolvedHeadersProvider } from "./ResolvedHeadersContext";
 
 // Adapts zod-to-json-schema's zod-specific signature to the injectable
 // `zodToJsonSchema` contract of `schemaToJsonSchema`, which only invokes it
@@ -114,7 +117,9 @@ const GENERATE_SANDBOXED_UI_DESCRIPTION =
 export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  headers?:
+    | Record<string, string>
+    | (() => MaybePromise<Record<string, string>>);
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
@@ -268,7 +273,11 @@ function useStableArrayProp<T>(
 }
 
 // Provider component
-export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
+const CopilotKitProviderInner: React.FC<
+  Omit<CopilotKitProviderProps, "headers"> & {
+    headers?: Record<string, string>;
+  }
+> = ({
   children,
   runtimeUrl,
   headers: headersProp = EMPTY_HEADERS,
@@ -456,8 +465,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
   // Resolve headers from function or static object
-  const headers =
-    typeof headersProp === "function" ? headersProp() : headersProp;
+  const headers = headersProp;
 
   // Merge a provided publicApiKey into headers (without overwriting an explicit header).
   const mergedHeaders = useMemo(() => {
@@ -942,6 +950,44 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         </LicenseContext.Provider>
       </CopilotKitContext.Provider>
     </SandboxFunctionsContext.Provider>
+  );
+};
+
+export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = (
+  props,
+) => {
+  const {
+    headers: source = EMPTY_HEADERS,
+    onError,
+    runtimeUrl,
+    children,
+    ...innerProps
+  } = props;
+  const { headers, error } = useHeaderSource(source);
+  const reportedError = useRef<Error | null>(null);
+
+  useEffect(() => {
+    if (!error || reportedError.current === error) return;
+    reportedError.current = error;
+    onError?.({
+      error,
+      code: CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED,
+      context: { source: "headers", runtimeUrl },
+    });
+  }, [error, onError, runtimeUrl]);
+
+  if (!headers) return null;
+  return (
+    <ResolvedHeadersProvider value={headers}>
+      <CopilotKitProviderInner
+        {...innerProps}
+        runtimeUrl={runtimeUrl}
+        onError={onError}
+        headers={headers}
+      >
+        {children}
+      </CopilotKitProviderInner>
+    </ResolvedHeadersProvider>
   );
 };
 
