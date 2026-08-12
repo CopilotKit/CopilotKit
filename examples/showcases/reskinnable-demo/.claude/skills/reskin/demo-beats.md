@@ -40,9 +40,9 @@ tell a deliberate choice from an oversight.
 **If the user named which beats to hit** — fewer, more, or different ones — theirs
 win outright. Record what they asked for in the map (`"user: BI dashboards only,
 no teach mode"`) and build that. Absent instructions, build all nine rows: that
-is what makes a skin demo-complete, and every shipped skin now hits all nine, so
-there is no partial precedent left to hide behind (see "Which skin to copy" at
-the end).
+is what makes a skin demo-complete, and every registered skin hits all nine, so
+there is no partial precedent to hide behind (see "Which skin to copy" at the
+end).
 
 ---
 
@@ -122,19 +122,19 @@ beat 1 must **stay** in the transcript — the conversation must not collapse in
 
 **The card's own guidance must be a figure the card ACCEPTS.** Any ceiling, floor
 or format the component PRINTS has to come out of the same expression its submit
-predicate compares against. Commerce printed `up to ${formatMoney(itemValue)}` —
-rounded to whole dollars — beside a button comparing the typed amount EXACTLY
-against `itemValue`, so a $152.50 return invited "up to $153" and then sat
-disabled with nothing on screen saying why. That is worse than a wrong number:
-the presenter follows the app's own instruction on stage and the app refuses. Have
-one helper return the guidance AND the predicate (`refundGuidance` in
+predicate compares against. Print `up to ${formatMoney(itemValue)}` — rounded to
+whole dollars — beside a button comparing the typed amount EXACTLY against
+`itemValue`, and a $152.50 return invites "up to $153" and then sits disabled with
+nothing on screen saying why. That is worse than a wrong number: the presenter
+follows the app's own instruction on stage and the app refuses. Have one helper
+return the guidance AND the predicate (`refundGuidance` in
 `skins/commerce/data/derive.ts`), and print each figure from one place.
 
-**And that helper must REFUSE a figure it cannot read, never rewrite it.** The
-same helper parsed the typed string with `Number(typed.replace(/[^0-9.]/g, ""))`,
-which deletes whatever it does not recognise: `-50` became a real $50 refund and
-`1e5` became $15 — finite, positive, under the ceiling, so nothing downstream
-could catch either. On a beat-3a control the typed value IS the write, so validate
+**And that helper must REFUSE a figure it cannot read, never rewrite it.** Parsing
+the typed string with `Number(typed.replace(/[^0-9.]/g, ""))` deletes whatever it
+does not recognise: `-50` becomes a real $50 refund and `1e5` becomes $15 —
+finite, positive, under the ceiling, so nothing downstream can catch
+either. On a beat-3a control the typed value IS the write, so validate
 the whole string against one shape (tolerate a leading `$`, spaces, a thousands
 comma; refuse a sign, an exponent, a second dot) and hand the caller a refusal it
 can SAY out loud, plus a separate "nothing typed yet" flag so an untouched field
@@ -162,16 +162,15 @@ value: <current segment> })` in your layout. Without it the agent has no idea
    filters, the rows actually rendered, the figures shown. Register these in the
    _page components_, not only globally. Each list in the readable must be the
    SAME expression the panel renders (one `useMemo`, mapped twice), never a second
-   slice of the same source: commerce shipped a readable slicing 5 notifications
-   against a panel showing 6, so the agent described the screen wrongly by one row
-   — silently, which is the only failure mode this beat cannot survive.
+   slice of the same source: a readable slicing 5 notifications against a panel
+   showing 6 makes the agent describe the screen wrongly by one row — silently,
+   which is the only failure mode this beat cannot survive.
 3. **A prompt clause** telling the agent that its context **is** its view of the
    screen: name the page, summarize the key elements, cite the actual figures,
    and **never** say it cannot see the screen.
 
-**Every shipped skin now registers both**, so every one is a fair reference — and
-that is worth deriving rather than believing, because this paragraph named four
-skins for a release after the other two shipped theirs:
+**Every shipped skin registers both**, so every one is a fair reference — and that
+is worth deriving rather than believing:
 `grep -rln useAgentContext src/skins/*/layout.tsx` is the route readable,
 `grep -rln useAgentContext src/skins/*/pages/` the page ones. Both return every
 registered skin, so a MISSING entry is the signal. The failure this beat dies of
@@ -236,15 +235,14 @@ pushes `?status=delayed&sort=value_desc&top=10`; the Control Tower reads all fou
 rank column under a sort. Its lever vocabulary, chips, URL and tool enums all come
 out of one module (`skins/logistics/data/exception-levers.ts`).
 
-**Three ways the confirm card lies. Two shipped in `commerce`, the third in
-`logistics`:**
+**Three ways the confirm card lies:**
 
 - **A lever value the view will not honour.** Every value your schema advertises
   must have a control on the page, must filter, and must leave a view the agent
   can still DESCRIBE — check your global readable too, not just the page one.
-  Commerce advertised `status: "cancelled"` while its ledger readable filtered
-  cancelled orders out, so the one status only the agent could reach was the one
-  it could not talk about. Derive the schema's enums FROM the page's control
+  Advertise `status: "cancelled"` while the ledger readable filters cancelled
+  orders out, and the one status only the agent can reach is the one it cannot
+  talk about. Derive the schema's enums FROM the page's control
   vocabularies (`ORDER_STATUS_FILTERS`, `EXCEPTION_FILTERS`, `ORDER_SORTS` in
   `skins/commerce/data/derive.ts`) instead of hand-copying them, and the mismatch
   stops being possible. Same rule for a numeric lever: run it through the page's
@@ -273,10 +271,10 @@ out of one module (`skins/logistics/data/exception-levers.ts`).
 **And one way the PAGE lies: a count that ignores the levers it sits under.** If
 your view prints a "Top 10 of 22"-style caption, the denominator must be the
 FILTERED, pre-truncation count — derived from the same pipeline the rows are, not
-from `data.<collection>.length`. Commerce shipped the unfiltered version, so the
-beat's own lever set read "Top 10 of 22" against 13 matching rows: the single
-number the room is asked to read as proof of the maneuver instead said the filters
-did nothing. Publish two lengths from ONE `useMemo` — `matching` (levers applied)
+from `data.<collection>.length`. Take the unfiltered version and a lever set that
+matches 13 rows reads "Top 10 of 22": the single number the room is asked to read
+as proof of the maneuver instead says the filters did nothing. Publish two lengths
+from ONE `useMemo` — `matching` (levers applied)
 and `visible` (`matching` truncated) — and let the caption, the rows and the
 readable all read those (`skins/commerce/pages/orders.tsx`). Any book-wide KPI you
 show on the same page then needs to SAY it is book-wide, on screen and in the
@@ -341,10 +339,9 @@ Three mechanics worth copying verbatim:
   **You do not implement any of the below — the shell module already does.** It is
   written out because a skin author who does not know WHY the chain is shaped like
   this will eventually "simplify" it, reintroduce a fixed sleep, or bypass it with
-  a hand-rolled sender. Banking and people did exactly that: both had a
-  `sendXWith…` in their own `skin.tsx` whose staging result gated a 500 ms sleep
-  and NOTHING ELSE, so a failed stage still sent the prompt. Nobody noticed,
-  because the demo still looked perfect.
+  a hand-rolled sender. A sender whose staging result gates a 500 ms sleep and
+  NOTHING ELSE still sends the prompt on a failed stage, and the demo still looks
+  perfect.
 
   **Reporting a failure is the easy half. DETECTING it is the half that gets
   skipped.** Every step of this chain is a REQUEST made of framework code you do
@@ -403,11 +400,10 @@ Three mechanics worth copying verbatim:
     may be in flight, and telling a presenter otherwise invites a DOUBLE SEND).
     Do not collapse those back to one lede.
 
-  Neither `void`ing the promise nor wrapping it in a catching launcher is needed
-  any more: both entry points are wholly inside their own `try` and report cause
-  `"unexpected"` before resolving `false`, so neither can reject. Commerce used to
-  ship a `launchBeat3d` wrapper for that and it was deleted as redundant — a
-  per-skin catch is now a third copy of a rule the shell owns.
+  Neither `void`ing the promise nor wrapping it in a catching launcher is needed:
+  both entry points are wholly inside their own `try` and report cause
+  `"unexpected"` before resolving `false`, so neither can reject. A per-skin catch
+  is just a third copy of a rule the shell owns — do not add one.
 
 **Banking:** pill `"Prep the Q2 spend report"` → `onSuggestionSelect` matches the
 shared `Q2_REPORT_MESSAGE` constant and calls `sendQ2WithInvoice()`
@@ -507,8 +503,8 @@ and then does it alone, on a different case.
    ⚠️ **The vocabulary leaks through FIVE GENERIC channels and closing four is
    closing none:** a `useAgentContext` readable, a `z.enum(YOUR_CODES)` on the filing
    tool's schema, the tool's own `description`, the prompt, and the refusal body.
-   Logistics shipped parts 1 and 2 correctly and still handed the agent the answer
-   through the first four of those. **Then enumerate YOUR skin's own channels, because
+   Parts 1 and 2 can be perfectly built and the answer still handed over through
+   the first four of those. **Then enumerate YOUR skin's own channels, because
    the list of five is not exhaustive** — if any code-shaped value is stored on a
    record your ledger publishes, the ledger readable is a sixth: airline's
    `Booking.waiverGround` maps 1:1 onto a justifying category, so `store.snapshot()`
@@ -532,10 +528,10 @@ and then does it alone, on a different case.
    audience can see recording is live. Mount the provider and the vignette in your
    skin's `Providers` (banking's `providers.tsx` is the worked example) and pass
    your OWN domain vocabulary as the `logStep` labels — the shell owns the state
-   machine and the chrome, never the wording. Three skins each shipped a private
-   copy of this and they DIVERGED; every failure mode is silent (`useRecording`
-   returns inert no-ops outside a provider, `logStep` early-returns while idle), so
-   a broken copy still compiles and renders and is discovered on stage.
+   machine and the chrome, never the wording. Do not fork it: every failure mode
+   here is silent (`useRecording` returns inert no-ops outside a provider,
+   `logStep` early-returns while idle), so a broken private copy still compiles and
+   renders and is discovered on stage.
    `getDemonstratedCode()` derives from the last **coded** step, so the call that
    narrates the filing is also the call that surfaces the code:
    `logStep("Filed the policy exception", code)`. That derivation only survives if
@@ -548,8 +544,8 @@ and then does it alone, on a different case.
 
 **Banking's HITL chain:** `offerWorkflowRecording` (`tools.tsx:1101`) →
 `awaitDashboardDemonstration` (`1176`, live pulsing "Rec" badge + step feed) →
-`saveLearnedWorkflow` (`1258`, then `save_memory` with scope `project` — the
-historical exception, do NOT copy it; see the scope box under "Seeding memories" —
+`saveLearnedWorkflow` (`1258`, then `save_memory` with scope `project` — the one
+exception, do NOT copy it; see the scope box under "Seeding memories" —
 kind `operational`) → replay via `openPolicyException` (`907`) →
 `finalizePolicyException` (`975`) → `approveTransaction` (`1035`). Line numbers
 drift with every edit to that file — grep the tool NAME, which is stable.
@@ -600,11 +596,11 @@ Verified against a running stack: a project-scoped memory is returned for EVERY
 user id, so it also leaks across products — one skin's procedure recalled inside
 another reads to the room like the memory system confused two applications.
 
-**`banking` scopes its learned procedure `project`. It is the historical exception,
-not the pattern**, and it gets away with it only because its own sweep deletes
-every row including project ones — self-consistent, and the reason it is safe there
-is exactly the reason it is not safe anywhere else. Every skin written since scopes
-`user`, and each seed file records why in a comment beside the field:
+**`banking` scopes its learned procedure `project`. It is the one exception, not
+the pattern**, and it gets away with it only because its own sweep deletes every
+row including project ones — self-consistent, and the reason it is safe there is
+exactly the reason it is not safe anywhere else. Every other skin scopes `user`,
+and each seed file records why in a comment beside the field:
 `grep -n 'scope:' src/skins/*/intelligence/seed-memories.ts`.
 
 Keeping beat 5's seeded procedure and beat 6's learned one distinguishable is then
@@ -637,15 +633,12 @@ rides along instead of asking twice.
 Read the beat-map header at the top of `people`'s or `commerce`'s `suggestions.ts`
 to see the mapping written out, and count what any skin actually ships with
 `grep -c 'title:' src/skins/*/suggestions.ts` rather than trusting a number in
-prose. That is not a stylistic preference. This paragraph has now been wrong
-twice: it said "`airline`, `logistics`, `keel` ship four or five" and was wrong
-about `logistics` within one release, then wrong about the other two the moment
-they were brought up to the bar. **Every shipped skin is demo-complete and the
-counts still disagree with each other** — that is the whole point: a count says
-nothing about coverage in either direction. The highest count in the tree belongs
-to a skin whose extra pills are identity pills predating the beat list, kept
-verbatim (the arithmetic is written out at the top of its `suggestions.ts`).
-Derive coverage from the matrix commands in `CLAUDE.md`, never from a pill count.
+prose. **Every shipped skin is demo-complete and the counts still disagree with
+each other** — that is the whole point: a count says nothing about coverage in
+either direction. The highest count in the tree belongs to a skin whose extra
+pills map to no beat at all (the arithmetic is written out at the top of its
+`suggestions.ts`). Derive coverage from the matrix commands in `CLAUDE.md`, never
+from a pill count.
 
 **Every mutation gets a visible affordance.** "Make sure that you use like a
 light or a bell or whatever so people can see that it changed." If the audience
@@ -751,7 +744,7 @@ a set rots and a command does not.
 | Runtime identity with NO context to read  | `airline` — `useRuntimeProperties` + `identifyUser`, no `RuntimeProviders`            |
 | Parameterized routes in `resolvePage`     | `keel` (`knowledge/<docId>`, `runs/<runId>`)                                          |
 | A server-settled clock (no client tick)   | `keel` — `src/app/api/keel/v1/settle-runs.ts`, settled on every read                  |
-| Raising an EXISTING skin to the beats     | `logistics`, then `airline` and `keel` — the three retrofits, commit by commit        |
+| Raising an EXISTING skin to the beats     | `logistics`, `airline` and `keel` — each raised after the fact, commit by commit      |
 | A gate that is ENTITLEMENT, not authority | `airline` — the fare's own conditions refuse; the exception must MATCH the record     |
 | An in-memory `useData` substrate          | nothing — no skin sets `useData` any more; templates.md § `data/use-data.ts` only     |
 
@@ -759,7 +752,7 @@ a set rots and a command does not.
 > `buildPdf(lines: Line[])` emits a single page of base-14 text with a correct
 > xref, and your file supplies CONTENT only. Both shipped builders
 > (`commerce/data/price-sheet-pdf.ts`, `people/data/offer-letter-pdf.ts`,
-> `logistics/data/rate-sheet-pdf.ts`) are now nothing but content, and they are
+> `logistics/data/rate-sheet-pdf.ts`) are nothing but content, and they are
 > the shape to copy.
 >
 > The three traps below are FIXED IN THE PRIMITIVE, so you inherit all three. They
@@ -779,13 +772,11 @@ a set rots and a command does not.
 >    (CJK, a currency symbol) — a dropped character is a silent corruption, a `?`
 >    is a legible one.
 >
->    This is centralized because it was a LIVE defect, twice over. People's builder
->    carried its own copy of the byte layout with NO fold, while the seed carries
->    `Inés Vidal`, `Sasha Bergström` and `Montréal` and
->    `GET /api/people/v1/offer-letter?employeeId=…` reaches all three — mojibake
->    plus a `/Length` that disagreed with the bytes. Commerce had the fold but only
->    for punctuation, so it printed `?MILE & FILS`. **The third skin to want a PDF
->    does not get to rediscover either one.**
+>    It is centralized because a per-skin copy of the byte layout gets it wrong in
+>    two independent ways — no fold at all (mojibake plus a `/Length` that
+>    disagrees with the bytes, on any seed carrying `Inés Vidal` or `Montréal`),
+>    and a fold that covers punctuation only (`?MILE & FILS`). **Do not
+>    rediscover either.**
 >
 >    **If you ever do write bytes yourself, PIN the fold with a test or your
 >    byte-layout assertions are decorative.** Once the document is ASCII,
@@ -815,21 +806,21 @@ a set rots and a command does not.
 >    green while the table renders ragged or runs off the page. Commerce keeps a
 >    test for each (`price-sheet-pdf.layout.test.ts`); copy both.
 >
-> 3. **Wrapping — handled for you, for PROSE only.** Nothing in the writer
->    measured as it drew, so a line that did not fit ran off the right margin and
->    the reader clipped it. Survivable for literals an author eyeballs once; a live
->    trap for sentences you DERIVE, whose length is not knowable when they are
->    written — logistics shipped a 111-character "New service" sentence that ran a
->    third of the way off the page, in the one paragraph the agent reads aloud.
->    `buildPdf` now wraps every non-`mono` line on word boundaries before drawing,
+> 3. **Wrapping — handled for you, for PROSE only.** A writer that does not
+>    measure as it draws lets a line that does not fit run off the right margin,
+>    and the reader clips it. Survivable for literals an author eyeballs once; a
+>    live trap for sentences you DERIVE, whose length is not knowable when they are
+>    written — a 111-character sentence runs a third of the way off the page, in the
+>    one paragraph the agent reads aloud.
+>    `buildPdf` wraps every non-`mono` line on word boundaries before drawing,
 >    so hand your sentences over whole and do not bound them yourself.
 >
 >    Two things to keep in mind. **It measures the ESCAPED, FOLDED string**, which
 >    is why the wrap cannot live in your skin: `pdfEscape` turns one `(` into two
 >    characters and `toAscii` turns one `…` into three, so a budget checked against
 >    the raw text is wrong by exactly the amount a punctuation-heavy sentence needs
->    it to be right — and `pdfEscape` is private to the writer. Logistics carried a
->    skin-side copy with that bug for one commit. **`mono` lines are exempt**, and
+>    it to be right — and `pdfEscape` is private to the writer. **`mono` lines are
+>    exempt**, and
 >    must be: wrapping a columnar line would break the character-count alignment it
 >    exists to keep, so a `mono` line that does not fit is still yours to bound
 >    against `PDF_METRICS` / `charBudget`.
@@ -845,8 +836,8 @@ a set rots and a command does not.
 > **Generating a document? Every sentence in it must be DERIVED from its own
 > rows.** The agent lifts facts out of this file and narrates them, so a claim the
 > document's own numbers contradict comes back as something the assistant asserts
-> to the room. Commerce shipped a hardcoded "Driven by merino price" under a rise
-> the route put on two non-merino styles while quoting its only merino SKU flat.
+> to the room. A hardcoded "Driven by merino price" sits under a rise the route put
+> on two non-merino styles while quoting the only merino SKU flat.
 > Do not name a material, a cause, or a direction of change that you did not
 > compute from the rows — the row set is usually parameterized (commerce's vendor
 > is a query parameter), so today's shape is not tomorrow's. See
@@ -856,10 +847,10 @@ a set rots and a command does not.
 > same defect one level down from the sentence above, and easier to ship: beat 3d
 > wants one row the app's own data cannot supply (that is what proves the file was
 > read rather than politely acknowledged), and the cheap way to get it is to append
-> a fixed row. Commerce appended one hard-coded "Alder Crewneck" to EVERY vendor's
-> price sheet, so `?vendor=Ardent%20Leather` handed the model a leather-goods
-> supplier quoting a knit crewneck — a supplier relationship that does not exist,
-> asserted by us and narrated by the assistant. Key the invented row by whatever
+> a fixed row. One hard-coded "Alder Crewneck" on EVERY vendor's price sheet means
+> `?vendor=Ardent%20Leather` hands the model a leather-goods supplier quoting a
+> knit crewneck — a supplier relationship that does not exist, asserted by us and
+> narrated by the assistant. Key the invented row by whatever
 > parameterizes the document and check it against the LIVE data before emitting it
 > (`commerce/data/price-sheet-styles.ts`: one entry per vendor, each in a category
 > that vendor actually supplies, re-checked against the vendor's own rows, and
@@ -868,12 +859,12 @@ a set rots and a command does not.
 
 > **And the artifact must not contradict the document it was filed from.** The
 > tool that files the record is the last place this beat can go wrong, and it goes
-> wrong through an OPTIONAL parameter: a model fills one anyway. Logistics gave
-> `fileRateBrief` an optional `oldRateUsdPerKg` documented as "omit for a lane the
-> sheet prints as new", and on the first live run the agent copied the QUOTED rate
-> into it — so the artifact rendered "$0.49 → $0.49, flat" for the one lane the
+> wrong through an OPTIONAL parameter: a model fills one anyway. Measured in
+> logistics — `fileRateBrief`'s optional `oldRateUsdPerKg`, documented as "omit for
+> a lane the sheet prints as new", got the QUOTED rate copied into it on the first
+> live run, so the artifact rendered "$0.49 → $0.49, flat" for the one lane the
 > attached sheet prints as new service with no prior rate on file. The record
-> contradicted the document it was filed from, on exactly the row that proves the
+> contradicts the document it was filed from, on exactly the row that proves the
 > document was read.
 >
 > **Screening the direction you observed is not enough** — the field goes wrong in
@@ -896,8 +887,8 @@ a set rots and a command does not.
 >
 > **Scope the match by whatever the document is a statement ABOUT**, which is
 > usually also what removes the ambiguity that tempts you to settle one direction
-> only. Logistics matched network-wide at first, where `SHA-LAX` + `ocean` hits two
-> different lanes at two different rates — so it looked unsettleable. A rate sheet
+> only. Matched network-wide, `SHA-LAX` + `ocean` hits two different lanes at two
+> different rates and looks unsettleable. A rate sheet
 > is one CARRIER's quote, and per carrier the match is unique on every seeded pair.
 > The scoping is not a trick to dodge the ambiguity, it is the more honest reading:
 > a rate another carrier gets is not a rate you hold with this one.
@@ -906,24 +897,19 @@ a set rots and a command does not.
 > mitigate route applies to cost, extended to the one field a document ingestion
 > adds.
 
-**There is no longer a partial skin to warn you off.** This paragraph used to say
-"do not use airline or keel as demo-completeness references"; both have since been
-retrofitted and hit every beat, so the warning is gone and with it the excuse.
+**Every registered skin is demo-complete, so there is no partial precedent to
+copy.** The failure to guard against instead is this one: **full per-user identity
+plumbing — `RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — with
+no memory prompts, no memory tools and no seed file, so the skin gets ZERO demo
+value from the hardest part of what it already built.** Wiring the expensive half
+and skipping the cheap half is the characteristic way a skin ends up technically
+impressive and demo-worthless, and it is invisible in a diff: everything compiles,
+everything renders, and the beat simply is not there. If you find yourself building
+identity plumbing, build the seed file in the same phase.
 
-What replaces it is the lesson the retrofits taught, which generalises better than
-the roster ever did: **`keel` shipped the full per-user identity plumbing —
-`RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — and then no
-memory prompts, no memory tools and no seed file, so it got ZERO demo value from
-the hardest part of what it had already built.** `logistics` was in exactly that
-state before it. Wiring the expensive half and skipping the cheap half is the
-characteristic way a skin ends up technically impressive and demo-worthless, and it
-is invisible in a diff: everything compiles, everything renders, and the beat
-simply is not there. If you find yourself building identity plumbing, build the
-seed file in the same phase.
-
-The three retrofits (`logistics`, then `airline` and `keel`) are consequently the
-most useful history here to read: each is a commit-by-commit record of exactly what
-correct wiring was still missing. And check every claim on this page against the
-tree — `ls src/skins/*/intelligence/seed-memories.ts`,
-`grep -c 'title:' src/skins/*/suggestions.ts` — rather than against the prose,
-because this paragraph has now been rewritten twice for the same reason.
+`logistics`, `airline` and `keel` were each raised to the beat list after they
+already existed, so their history is a commit-by-commit record of exactly what
+correct wiring still leaves missing — read it if you have to do the same. And
+check every claim on this page against the tree
+(`ls src/skins/*/intelligence/seed-memories.ts`,
+`grep -c 'title:' src/skins/*/suggestions.ts`) rather than against the prose.
