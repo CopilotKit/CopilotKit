@@ -73,6 +73,24 @@ class LangGraphAGUIAgent(LangGraphAgent):
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
         self._copilotkit_runtime_payload: dict[str, Any] | None = None
 
+    def get_schema_keys(self, config) -> SchemaKeys:
+        schema_keys = super().get_schema_keys(config)
+        custom_schema_keys = (
+            self.config.get("schema_keys") if isinstance(self.config, dict) else None
+        )
+        if not isinstance(custom_schema_keys, dict):
+            return schema_keys
+
+        for category in ("input", "output", "config", "context"):
+            extra_keys = custom_schema_keys.get(category)
+            if isinstance(extra_keys, (list, tuple)):
+                merged_keys = [
+                    *schema_keys.get(category, []),
+                    *(key for key in extra_keys if isinstance(key, str)),
+                ]
+                schema_keys[category] = list(dict.fromkeys(merged_keys))
+        return schema_keys
+
     def _dispatch_event(self, event) -> str:
         """Override the dispatch event method to handle custom CopilotKit events and filtering.
 
