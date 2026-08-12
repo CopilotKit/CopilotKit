@@ -1,4 +1,7 @@
-import type { AgentSubscriber } from "@ag-ui/client";
+import type {
+  AbstractAgent as AbstractAgentType,
+  AgentSubscriber,
+} from "@ag-ui/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 
@@ -12,7 +15,7 @@ vi.mock("../intelligence-agent", async () => {
     }
 
     override async connectAgent(
-      _parameters?: Parameters<AbstractAgent["connectAgent"]>[0],
+      _parameters?: Parameters<AbstractAgentType["connectAgent"]>[0],
       subscriber?: AgentSubscriber,
     ) {
       const input = {

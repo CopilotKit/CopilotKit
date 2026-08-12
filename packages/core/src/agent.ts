@@ -33,6 +33,21 @@ import type { CopilotRuntimeTransport } from "./types";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
+const MUTATION_CAPABLE_LIFECYCLE_CALLBACKS: ReadonlySet<keyof AgentSubscriber> =
+  new Set(["onRunInitialized", "onRunFailed", "onRunFinalized"]);
+
+function canSubscriberMutateAgentState(subscriber: AgentSubscriber): boolean {
+  return Object.entries(subscriber).some(
+    ([callbackName, callback]) =>
+      typeof callback === "function" &&
+      (callbackName === "onEvent" ||
+        callbackName.endsWith("Event") ||
+        MUTATION_CAPABLE_LIFECYCLE_CALLBACKS.has(
+          callbackName as keyof AgentSubscriber,
+        )),
+  );
+}
+
 interface RunnableAgent {
   connect(input: RunAgentInput): Observable<BaseEvent>;
   run(input: RunAgentInput): Observable<BaseEvent>;
@@ -121,6 +136,7 @@ export class ProxiedCopilotRuntimeAgent
   private delegate?: AbstractAgent;
   private runtimeInfoPromise?: Promise<void>;
   private restoreListeners = new Map<() => void, () => void>();
+  private didWarnAboutCompactRestoreMutation = false;
 
   constructor(config: ProxiedCopilotRuntimeAgentConfig) {
     const normalizedRuntimeUrl = config.runtimeUrl
@@ -181,6 +197,24 @@ export class ProxiedCopilotRuntimeAgent
 
   get capabilities(): AgentCapabilities | undefined {
     return this._capabilities;
+  }
+
+  override subscribe(subscriber: AgentSubscriber): {
+    unsubscribe: () => void;
+  } {
+    if (
+      process.env.NODE_ENV === "development" &&
+      this.compactRestore &&
+      !this.didWarnAboutCompactRestoreMutation &&
+      canSubscriberMutateAgentState(subscriber)
+    ) {
+      this.didWarnAboutCompactRestoreMutation = true;
+      console.warn(
+        "CopilotKit: compact restore is enabled for an agent with a mutation-capable event subscriber. Treat event payloads as immutable under compact restore. If the subscriber intentionally transforms replayed events, configure { compactRestore: false } for this agent.",
+      );
+    }
+
+    return super.subscribe(subscriber);
   }
 
   override requestInit(input: RunAgentInput): RequestInit {
