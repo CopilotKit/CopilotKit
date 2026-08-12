@@ -7,6 +7,7 @@ import "./theme.css";
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 import {
   LayoutDashboard,
   BookOpen,
@@ -91,11 +92,50 @@ export function KeelLayout({ children }: { children: ReactNode }) {
   const Logo = keelIdentity.logo;
 
   // The active segment is whatever follows the skin base ("" for the Desk).
-  const restHead = useKeelSegments()[0] ?? "";
+  // `useKeelSegments` strips a LEADING skin id rather than slicing a fixed
+  // offset, so it is correct whether or not the pathname carries the prefix —
+  // which is what makes this work unchanged on a LOCK_SKIN deploy.
+  const segments = useKeelSegments();
+  const restHead = segments[0] ?? "";
   // Highlight the parent nav entry for parameterized routes too:
-  // knowledge/<docId> keeps "Knowledge" active.
+  // knowledge/<docId> keeps "Register" active.
   const isActive = (segment: string) =>
     segment === "" ? restHead === "" : restHead === segment;
+
+  // ── BEAT 3b, part 1 — the ROUTE readable ──────────────────────────────────
+  // Without this the agent has no idea which page is open, so "what's on my
+  // screen?" answers identically everywhere no matter how good the per-page
+  // readables are. It lives in the layout because the layout is the one
+  // component mounted on every route, including both parameterized ones — and
+  // `detail_id` is what lets the agent say WHICH document or run is open rather
+  // than only that a detail page is.
+  //
+  // Deliberately narrow: it names the route and nothing about the contents. Each
+  // page describes its own contents (`pages/knowledge.tsx`,
+  // `pages/document.tsx`), and a layout that also summarized them would be a
+  // second, staler opinion about the same screen.
+  //
+  // No semicolons in the description — the repo's readable omission guards
+  // anchor on a `useAgentContext(` window terminated by the statement's own
+  // semicolon.
+  const navLabel = keelNav.find((route) => isActive(route.segment))?.label;
+  useAgentContext({
+    description:
+      "The page the operator is looking at right now in Keel — the route below " +
+      "the app root, the nav entry that is highlighted, and the id of the " +
+      "record open on a detail route. Treat this as your knowledge of WHERE " +
+      "the operator is, and never say you cannot see the screen.",
+    value: JSON.stringify({
+      path: segments.join("/"),
+      section: navLabel ?? restHead ?? "",
+      // "knowledge/<docId>" and "runs/<runId>" are the two parameterized routes
+      // — keel is the only skin with any, and this is the field that makes them
+      // legible to the agent.
+      detail_id: segments[1] ?? null,
+      persona: data.persona.name,
+      persona_role: data.persona.role,
+    }),
+  });
 
   const awaiting = data.approvalsForMe.length;
 
