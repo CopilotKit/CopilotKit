@@ -10,6 +10,27 @@ describe("store", () => {
     expect(store.findPlanner("pl-ibrahim")?.authorityUsd).toBeNull();
   });
 
+  it("resolves a carrier by identity rather than by spelling", () => {
+    // Both beat-3d routes look a carrier up from a name a MODEL read off a PDF
+    // whose masthead is `carrier.toUpperCase()`, so an exact match would call a
+    // correct read a stranger — and `POST /briefs` settles every prior rate
+    // against this lookup, so a miss strips them all.
+    expect(store.findCarrier("  PACIFIC   star Line ")).toBe(
+      "Pacific Star Line",
+    );
+    expect(store.findCarrier("Nobody Shipping Co")).toBeUndefined();
+    expect(store.carriersOnFile()).toContain("Pacific Star Line");
+  });
+
+  it("derives the lanes a carrier serves, however its name was cased", () => {
+    const exact = store.lanesServedBy("Pacific Star Line").map((l) => l.id);
+    expect(exact).toEqual(["ln-sha-lax-ocean", "ln-sha-sea-ocean"]);
+    expect(store.lanesServedBy("pacific star line").map((l) => l.id)).toEqual(
+      exact,
+    );
+    expect(store.lanesServedBy("Nobody Shipping Co")).toEqual([]);
+  });
+
   it("derives daysOfCover and flags at-risk SKUs without storing it", () => {
     const risks = store.inventoryRisk();
     const c31 = risks.find((r) => r.skuId === "sku-c31");

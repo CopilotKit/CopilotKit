@@ -33,7 +33,11 @@ const MAX_IMPACTS = 3;
 /** Dollars per kilogram. A freight rate, not a bond issue. */
 const MAX_RATE_USD_PER_KG = 1_000;
 
-type BriefRejection = "BAD_REQUEST" | "INVALID_BRIEF_FIELD" | "BRIEF_TOO_LARGE";
+type BriefRejection =
+  | "BAD_REQUEST"
+  | "INVALID_BRIEF_FIELD"
+  | "BRIEF_TOO_LARGE"
+  | "UNKNOWN_CARRIER";
 
 class BriefInputError extends Error {
   constructor(
@@ -197,14 +201,14 @@ const laneKey = (lane: string, mode: string) =>
  */
 function settlePriorRates(
   rows: RateBriefLane[],
-  carrier: string,
+  servedLanes: readonly Lane[],
 ): {
   laneRates: RateBriefLane[];
   noPriorRateOnFile: string[];
   ambiguous: string[];
 } {
   const served = new Map<string, Lane[]>();
-  for (const lane of store.lanesServedBy(carrier)) {
+  for (const lane of servedLanes) {
     const key = laneKey(laneCode(lane), lane.mode);
     served.set(key, [...(served.get(key) ?? []), lane]);
   }
@@ -286,9 +290,36 @@ export const POST = async (req: Request) => {
       claimed.map((r) => `${r.lane} ${r.mode}`),
       "laneRates[].lane",
     );
+    // REFUSE an unknown carrier rather than settling against nothing.
+    //
+    // Every prior rate below is settled against THIS carrier's lanes, so a
+    // carrier that resolves to none is not a mild degradation: every row falls
+    // into the no-match branch, every prior rate is stripped, the card labels
+    // the whole sheet "new lane", and the agent announces that lanes the network
+    // has carried for years are new service. Silently filing that is the worst
+    // available behaviour, and it is only reachable when the carrier is wrong —
+    // so it is refused, naming the carriers on file the way `GET /rate-sheet`
+    // names them in its log. The agent can retry with a name that resolves;
+    // carriers are not withheld vocabulary (unlike escalation codes), they are
+    // already in its shipment context.
+    //
+    // The name is CANONICALIZED first: it arrives from a model that read it off
+    // a PDF whose masthead is `carrier.toUpperCase()`, so "PACIFIC STAR LINE" is
+    // a plausible and correct read that must not be treated as a stranger. The
+    // network's own spelling is what gets stored, so the artifact is titled the
+    // way the rest of the app spells it.
+    const onFileAs = store.findCarrier(carrier);
+    if (onFileAs === undefined) {
+      return reject(
+        "UNKNOWN_CARRIER",
+        `Meridian moves nothing with "${carrier}". Carriers on file: ` +
+          `${store.carriersOnFile().join(", ") || "(none)"}.`,
+        422,
+      );
+    }
     const { laneRates, noPriorRateOnFile, ambiguous } = settlePriorRates(
       claimed,
-      carrier,
+      store.lanesServedBy(onFileAs),
     );
 
     const impacts = requireList(input.impacts, "impacts", MAX_IMPACTS).map(
@@ -297,7 +328,10 @@ export const POST = async (req: Request) => {
     requireDistinct(impacts, "impacts");
 
     const filed = store.fileRateBrief({
-      carrier,
+      // The NETWORK's spelling, not the model's: it read the name off a
+      // masthead this app prints in capitals, and the artifact should not be
+      // titled "PACIFIC STAR LINE" because of a rendering choice in the PDF.
+      carrier: onFileAs,
       // The document's own effective date, carried across. Absent is a legible
       // "the sheet did not say" rather than a date this route invented — a
       // guessed effective date is the kind of figure the agent then reads aloud.

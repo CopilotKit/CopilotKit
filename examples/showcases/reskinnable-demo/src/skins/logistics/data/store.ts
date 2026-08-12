@@ -75,6 +75,34 @@ export const findEscalation = (id: string): Escalation | undefined =>
   db.escalations.find((e) => e.id === id);
 
 /**
+ * A carrier name reduced to what actually identifies it.
+ *
+ * Every caller of the three functions below receives this name from a MODEL that
+ * read it off a PDF whose masthead is `carrier.toUpperCase()` — so
+ * "PACIFIC STAR LINE" and "Pacific  Star Line" are the same carrier, and an
+ * exact `===` would call both of them strangers. That is not a cosmetic miss:
+ * `POST /briefs` settles every prior rate against this lookup, so a carrier that
+ * fails to match silently turns EVERY lane into "no rate on file" and has the
+ * agent announce that lanes the network has carried for years are new service.
+ */
+const canonicalCarrier = (name: string) =>
+  name.trim().replace(/\s+/g, " ").toLowerCase();
+
+/** Every carrier the network actually moves freight with, sorted. */
+export const carriersOnFile = (): string[] =>
+  [...new Set(db.shipments.map((s) => s.carrier))].sort();
+
+/**
+ * The network's OWN spelling of a carrier, or `undefined` when it moves nothing
+ * here. Callers store this rather than what they were handed, so an artifact
+ * filed from a shouting PDF masthead is still titled "Pacific Star Line".
+ */
+export const findCarrier = (name: string): string | undefined => {
+  const key = canonicalCarrier(name);
+  return db.shipments.find((s) => canonicalCarrier(s.carrier) === key)?.carrier;
+};
+
+/**
  * The lanes one carrier actually moves freight on, deduped, in network order.
  *
  * DERIVED, because the seed models the carrier as a property of a SHIPMENT: a
@@ -89,8 +117,11 @@ export const findEscalation = (id: string): Escalation | undefined =>
  * serves, and the document and the artifact would disagree.
  */
 export const lanesServedBy = (carrier: string): Lane[] => {
+  const key = canonicalCarrier(carrier);
   const laneIds = new Set(
-    db.shipments.filter((s) => s.carrier === carrier).map((s) => s.laneId),
+    db.shipments
+      .filter((s) => canonicalCarrier(s.carrier) === key)
+      .map((s) => s.laneId),
   );
   return db.lanes.filter((lane) => laneIds.has(lane.id));
 };

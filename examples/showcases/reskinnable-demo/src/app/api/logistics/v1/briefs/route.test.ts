@@ -31,6 +31,34 @@ beforeEach(() => {
   store.reset();
 });
 
+/**
+ * Give Pacific Star Line a SECOND SHA-LAX ocean lane, at a different rate.
+ *
+ * The seed has no carrier serving two lanes with the same code and mode, so the
+ * settlement's ambiguous branch is otherwise unreachable — written, never
+ * executed, and free to rot. Both pushed rows are restored by `store.reset()`
+ * above.
+ */
+function ambiguousSecondLane(): void {
+  store.lanes().push({
+    id: "ln-sha-lax-ocean-2nd",
+    origin: "Shanghai (SHA)",
+    destination: "Los Angeles (LAX)",
+    mode: "ocean",
+    transitDays: 26,
+    reliability: 0.7,
+    costPerKg: 0.99,
+    status: "healthy",
+  });
+  store.shipments().push({
+    ...store.shipments()[0],
+    id: "shp-amb",
+    reference: "PO-AMB",
+    laneId: "ln-sha-lax-ocean-2nd",
+    carrier: "Pacific Star Line",
+  });
+}
+
 describe("POST /briefs", () => {
   it("files a brief attributed to the resolved planner, not to the body", async () => {
     const res = await post({
@@ -102,41 +130,49 @@ describe("POST /briefs", () => {
   });
 
   it("leaves a genuinely ambiguous lane to the model, and says so", async () => {
-    // Two lanes with the same code AND mode under ONE carrier: the app cannot
-    // say which the sheet meant, so it must not pick. The seed has no such pair,
-    // which is why this builds one — the branch is otherwise unreachable and
-    // would rot silently. `store.reset()` in `beforeEach` restores both arrays.
-    store.lanes().push({
-      id: "ln-sha-lax-ocean-2nd",
-      origin: "Shanghai (SHA)",
-      destination: "Los Angeles (LAX)",
-      mode: "ocean",
-      transitDays: 26,
-      reliability: 0.7,
-      costPerKg: 0.99,
-      status: "healthy",
-    });
-    store.shipments().push({
-      ...store.shipments()[0],
-      id: "shp-amb",
-      reference: "PO-AMB",
-      laneId: "ln-sha-lax-ocean-2nd",
-      carrier: "Pacific Star Line",
-    });
-
+    ambiguousSecondLane();
     const res = await post(valid);
     // Untouched — neither settled to one of the two nor stripped.
     expect(store.rateBriefs()[0].laneRates[0].oldRateUsdPerKg).toBe(0.45);
     expect((await res.json()).ambiguousLanes).toEqual(["SHA-LAX"]);
   });
 
-  it("treats a prior rate of 0 as no prior rate", async () => {
+  it("treats a prior rate of 0 as no prior rate, where nothing else would", async () => {
+    // Pointed at the AMBIGUOUS branch on purpose. It is the only branch that
+    // preserves the model's own value, so it is the only place the fold decides
+    // the outcome: everywhere else the settlement overwrites or strips, and a
+    // test sitting there passes just as well with `optionalRate` reverted to a
+    // bare `requireRate` — which is exactly what the first version of this test
+    // did.
+    //
     // A stored 0 reads three ways: the card treats `<= 0` as "new lane", the
     // readable emits `old_rate_usd_per_kg: 0`, and the agent then says
-    // "$0.00 → $0.49" about a row labelled "new lane". One meaning, at the door.
-    await post({
+    // "$0.00 → $0.52" about a row labelled "new lane". One meaning, at the door.
+    ambiguousSecondLane();
+    const res = await post({
       ...valid,
-      carrier: "Northline",
+      laneRates: [
+        {
+          lane: "SHA-LAX",
+          mode: "ocean",
+          oldRateUsdPerKg: 0,
+          newRateUsdPerKg: 0.52,
+        },
+      ],
+    });
+    expect((await res.json()).ambiguousLanes).toEqual(["SHA-LAX"]);
+    expect(store.rateBriefs()[0].laneRates[0].oldRateUsdPerKg).toBeUndefined();
+  });
+
+  it("reports no correction for a prior rate the model never really made", async () => {
+    // The fold's second observable effect, and the other place it is the only
+    // thing deciding: `settlePriorRates` reports a lane in `noPriorRateOnFile`
+    // only when it REMOVED a claim. An unfolded 0 is a claim, so the agent would
+    // be told to announce a correction to something nobody asserted — "SHA-OAK
+    // is not a lane this carrier serves, so it was filed with no prior rate",
+    // about a row that already said exactly that.
+    const res = await post({
+      ...valid,
       laneRates: [
         {
           lane: "SHA-OAK",
@@ -146,7 +182,52 @@ describe("POST /briefs", () => {
         },
       ],
     });
+    expect((await res.json()).noPriorRateOnFile).toEqual([]);
     expect(store.rateBriefs()[0].laneRates[0].oldRateUsdPerKg).toBeUndefined();
+  });
+
+  it("resolves the carrier however the model cased it", async () => {
+    // THE REGRESSION THIS EXISTS TO CATCH. The settlement is carrier-scoped, and
+    // the carrier arrives from a model that read it off a PDF whose masthead is
+    // `carrier.toUpperCase()` — so "PACIFIC STAR LINE" is a plausible and
+    // CORRECT read. Matched exactly, it resolves to no lanes, every row falls
+    // into the no-match branch, the card labels the whole sheet "new lane", and
+    // the agent announces that lanes the network has carried for years are new
+    // service. A false statement, on stage, on the rows the settlement was
+    // written to protect.
+    const res = await post({
+      ...valid,
+      carrier: "  PACIFIC   STAR line ",
+      laneRates: [
+        {
+          lane: "SHA-LAX",
+          mode: "ocean",
+          oldRateUsdPerKg: 9.99,
+          newRateUsdPerKg: 0.52,
+        },
+      ],
+    });
+    expect(res.status).toBe(201);
+    // Settled, not stripped: the carrier resolved, so the ledger answered.
+    expect(store.rateBriefs()[0].laneRates[0].oldRateUsdPerKg).toBe(0.45);
+    expect((await res.json()).noPriorRateOnFile).toEqual([]);
+    // And the artifact is titled the way the rest of the app spells it, rather
+    // than shouting because of a rendering choice in the PDF.
+    expect(store.rateBriefs()[0].carrier).toBe("Pacific Star Line");
+  });
+
+  it("refuses a carrier the network does not know, rather than stripping every rate", async () => {
+    // Silent total-strip is the worst available behaviour here: it files an
+    // artifact that contradicts the document on EVERY row. The refusal names the
+    // carriers on file so the retry is informed — carriers are not withheld
+    // vocabulary (unlike escalation codes); every one is already in the agent's
+    // shipment context.
+    const res = await post({ ...valid, carrier: "Nobody Shipping Co" });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toBe("UNKNOWN_CARRIER");
+    expect(body.message).toContain("Pacific Star Line");
+    expect(store.rateBriefs()).toHaveLength(0);
   });
 
   it("refuses to store a prior rate for a lane the network does not carry", async () => {

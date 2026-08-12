@@ -95,22 +95,25 @@ export const GET = async (req: Request) => {
   let carrier = DEFAULT_CARRIER;
   try {
     carrier = requestedCarrier(req.url);
-    const served = store.lanesServedBy(carrier);
+    // Resolved to the NETWORK's own spelling, so `?carrier=pacific star line`
+    // builds the same sheet as `?carrier=Pacific%20Star%20Line` and the document
+    // (and its filename, and `freshLaneFor`'s per-carrier lookup) all key off one
+    // canonical name. `POST /briefs` resolves the same way, so the route that
+    // BUILDS the document and the route that files the brief agree on who the
+    // carrier is as well as on what it serves.
+    const onFileAs = store.findCarrier(carrier);
 
-    if (served.length === 0) {
+    if (onFileAs === undefined) {
       // A carrier rename in the seed is otherwise an INVISIBLE way to disable
       // beat 3d: the pill fetches this route with no `carrier` at all, so
       // `DEFAULT_CARRIER` stops matching and the abort chain above fires with
       // only "HTTP 404" to show for it. `console.warn`, not `console.error`:
       // this is a deliberate domain answer, not a fault. The carriers on file
       // ride along because "who IS on file?" is the very next question.
-      const onFile = [
-        ...new Set(store.shipments().map((s) => s.carrier)),
-      ].sort();
       console.warn(
         `[logistics/api] GET rate-sheet?carrier=${carrier} — that carrier ` +
           `moves nothing on this network; carriers on file: ` +
-          `${onFile.join(", ") || "(none)"}`,
+          `${store.carriersOnFile().join(", ") || "(none)"}`,
       );
       return Response.json(
         {
@@ -120,6 +123,8 @@ export const GET = async (req: Request) => {
         { status: 404 },
       );
     }
+    carrier = onFileAs;
+    const served = store.lanesServedBy(carrier);
 
     const carried: RateSheetLane[] = served.map((lane) => ({
       lane: laneCode(lane),
