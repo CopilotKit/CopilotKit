@@ -40,6 +40,23 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Chat surface overrides. These default to the colors the chat has always
+     shipped, so the default appearance is unchanged. Override any of them
+     (scoped or globally) to theme the chat without replacing components. */
+  --cpk-input-background: #ffffff;
+  --cpk-send-button-background: #000000;
+  --cpk-send-button-foreground: #ffffff;
+  --cpk-send-button-disabled-background: #00000014;
+  --cpk-send-button-disabled-foreground: rgb(13, 13, 13);
+  --cpk-toolbar-button-foreground: #444444;
+  --cpk-toolbar-button-hover-background: #f8f8f8;
+  --cpk-toolbar-button-hover-foreground: #333333;
+  --cpk-message-toolbar-button-foreground: rgb(93, 93, 93);
+  --cpk-message-toolbar-button-hover-background: #e8e8e8;
+  --cpk-menu-background: #ffffff;
+  --cpk-menu-border: var(--border);
+  --cpk-menu-item-active-background: var(--muted);
 }
 
 .dark [data-copilotkit],
@@ -76,6 +93,21 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+
+  /* Dark-mode defaults for the chat surface overrides (unchanged appearance). */
+  --cpk-input-background: #303030;
+  --cpk-send-button-background: #ffffff;
+  --cpk-send-button-foreground: #000000;
+  --cpk-send-button-disabled-background: #454545;
+  --cpk-send-button-disabled-foreground: #ffffff;
+  --cpk-toolbar-button-foreground: #ffffff;
+  --cpk-toolbar-button-hover-background: #404040;
+  --cpk-toolbar-button-hover-foreground: #ffffff;
+  --cpk-message-toolbar-button-foreground: rgb(243, 243, 243);
+  --cpk-message-toolbar-button-hover-background: #303030;
+  --cpk-menu-background: #1f1f1f;
+  --cpk-menu-border: #3a3a3a;
+  --cpk-menu-item-active-background: #2f2f2f;
 }
 
 @theme inline {
