@@ -6,7 +6,7 @@ description: Post a bar, line, pie, scatter, or sparkline chart to a thread as a
 
 You want a chart in the thread: signups this week, MRR over time, traffic by source. The usual libraries do not help here. Recharts, Chart.js, and friends paint the live DOM, and a channel process has no browser to paint into.
 
-`@copilotkit/channels/charts` ships a set of presentational chart components that render straight to an image through the same [Takumi image path](/channels/posting-jsx-as-images) your own cards use. You pass data, you `post` it, you get a PNG.
+`@copilotkit/channels/charts` ships a set of presentational chart components that render straight to an image through the same [Takumi image path](/channels/posting-jsx-as-images) your own cards use. You pass data, you `post` it, you get a PNG. A static chart can sit inside `<Render>` next to native text. See [Render and carousel](/channels/render-and-carousel).
 
 <Callout type="warn" title="Install react first">
   The chart components render through React, an **optional peer dependency** of `@copilotkit/channels` (your app owns its React version). Takumi, the rasterizer, ships with the package, so you do not install it. Add React before importing `@copilotkit/channels/charts`:
