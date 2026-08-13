@@ -10,6 +10,8 @@ import { peopleAgent } from "@/skins/people/agent";
 import { peopleIdentifyUser } from "@/skins/people/intelligence/user-id";
 import { commerceAgent } from "@/skins/commerce/agent";
 import { commerceIdentifyUser } from "@/skins/commerce/intelligence/user-id";
+import { bookstoreAgent } from "@/skins/bookstore/agent";
+import { bookstoreIdentifyUser } from "@/skins/bookstore/intelligence/user-id";
 
 /**
  * Server-safe map of skin id → its server-side registration (agent factory +
@@ -88,6 +90,23 @@ export const agentRegistry: Record<string, AgentRegistration> = {
   // inputs land in which bucket; read its `memorySeedTargetUserIds` note (and
   // the pinned-`INTELLIGENCE_USER_ID` short-circuit) before changing this.
   commerce: { createAgent: commerceAgent, identifyUser: commerceIdentifyUser },
+  // Bookstore resolves a per-shopper identity — a known shopper id maps 1:1 onto
+  // `bookstore-<id>` — and its seeded beat-4 taste preference is Maya's.
+  //
+  // ⚠ Same caveat as Rowan and Bellwether above: do NOT present this as
+  // per-shopper memory isolation. The client's `properties` frequently do not
+  // reach `identifyUser` on a run, so Maya AND Guest both resolve to the same
+  // `bookstore-demo-shopper` bucket and the sidebar shopper switcher re-scopes
+  // NOTHING — shopping as Guest can recall Maya's preference. What IS demoable is
+  // the recall itself: the agent names the remembered taste in `recommendBooks`'
+  // `note` slot. That is why `dev/reset` seeds BOTH the default bucket and Maya's
+  // mapped id; see `bookstoreMemorySeedTargetUserIds` in
+  // `src/skins/bookstore/intelligence/user-id.ts`, the authority on which inputs
+  // land in which bucket.
+  bookstore: {
+    createAgent: bookstoreAgent,
+    identifyUser: bookstoreIdentifyUser,
+  },
 };
 
 export const agentIds = Object.keys(agentRegistry);
