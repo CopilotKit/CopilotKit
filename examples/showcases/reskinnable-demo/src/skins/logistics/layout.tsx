@@ -3,6 +3,7 @@ import "./theme.css"; // side-effect import registers the .theme-logistics block
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { HelpCircle, RotateCcw } from "lucide-react";
 import { useSkin } from "@/shell/skin-provider";
@@ -28,6 +29,20 @@ export function LogisticsLayout({ children }: { children: ReactNode }) {
   const resetEnabled = usePresenterReset();
   const askCopilot = useAskCopilot();
   const Logo = skin.identity.logo;
+
+  // ── BEAT 3b, part 1 — the agent's view of WHICH page is open ─────────────
+  // Without this the skin has only GLOBAL readables and answers "what's on my
+  // screen?" identically everywhere, which reads as working right up until the
+  // presenter navigates and asks twice. `restHead` comes from useSkinSegments,
+  // which strips a LEADING skin id rather than slicing a fixed offset, so it is
+  // correct whether or not the pathname carries the prefix (LOCK_SKIN serves the
+  // locked skin at `/`, with no segment to slice off).
+  useAgentContext({
+    description:
+      "The page the planner is looking at right now, as a route segment. " +
+      "An empty segment is the Control Tower (the index).",
+    value: restHead,
+  });
 
   const handleReset = async () => {
     if (
