@@ -233,6 +233,24 @@ describe("TeamsAdapter.postFile", () => {
   });
 });
 
+describe("TeamsAdapter.stageFile", () => {
+  it("returns a PNG data URL without posting a message", async () => {
+    const adapter = new TeamsAdapter({});
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const res = await adapter.stageFile(
+      { conversationKey: "conv-1", reference: {} },
+      {
+        bytes,
+        filename: "render-hat.png",
+        altText: "Hat",
+      },
+    );
+    expect(res).toEqual({
+      dataUrl: `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`,
+    });
+  });
+});
+
 describe("TeamsAdapter typing heartbeat", () => {
   it("sends typing immediately, repeats on a timer, and stops when cleared", () => {
     vi.useFakeTimers();
