@@ -368,6 +368,39 @@ while in progress. `result` is narrowed the other way: it was `string |
 undefined` in every state, and is now `undefined` unless `status` is
 `ToolCallStatus.Complete`.
 
+The `args` half is the one most existing renderers actually trip over, and it
+fails at **compile** time rather than on screen. On the un-narrowed union `args`
+is `Partial<T> | T`, so `args.foo` reads as `T["foo"] | undefined` and a `strict`
+type check (`tsc --noEmit` — what `check-types` runs) rejects every use that needs
+the field to be present: dereferencing or calling it is **TS18048**
+(`'args.foo' is possibly 'undefined'`), and passing it into a prop or argument
+typed without `undefined` is TS2322 / TS2345. Interpolating it bare into JSX —
+`<Text>{args.city}</Text>` — still compiles, because an element accepts
+`undefined` children. That is why this break surfaces as a type error rather than
+as something visibly wrong in the chat.
+
+Narrowing on `status` clears it, and the later arms hand back the full `T`:
+
+```diff
+- render: ({ args }) => <WeatherCard city={args.city} temp={args.temp} />,
++ render: ({ args, status }) => {
++   if (status === ToolCallStatus.InProgress) return <WeatherSkeleton />;
++   return <WeatherCard city={args.city} temp={args.temp} />;
++ },
+```
+
+An early return on the in-progress arm is usually the smallest change. Per-field
+defaults (`args.city ?? ""`) also satisfy the checker, at the cost of painting a
+half-written call as though it had finished.
+
+Two behavior changes ride along with the props change, both documented under
+[Behavior](#behavior). `render` is now **captured at registration** and refreshed
+only when `deps` compare as changed, so a `render` that closes over changing state
+or props needs those values in `deps` — or a ref — or the chat keeps painting the
+stale closure. And unmounting no longer unregisters the render function: the tool
+itself is still removed, but tool calls already in the chat history keep rendering
+after you navigate away.
+
 ## Related
 
 - [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): register a tool without inline rendering
