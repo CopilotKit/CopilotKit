@@ -17,6 +17,7 @@ import type {
   EphemeralResult,
   ReactElementLike,
   PostFileResult,
+  ChannelNode,
 } from "@copilotkit/channels-ui";
 import { runAgentLoop } from "./run-loop.js";
 import type { RunLoopArgs } from "./run-loop.js";
@@ -36,6 +37,8 @@ import type { StandardSchemaV1 } from "./standard-schema.js";
 import type { RenderConfig, ResolvedRenderConfig } from "./render/config.js";
 import type { PostImageOptions } from "@copilotkit/channels-ui";
 import { resolveArbitraryElement } from "./render/detect.js";
+import { resolveRenders } from "./render/resolve-renders.js";
+import { validateRenderTree } from "./render/validate-render.js";
 import { defaultAllowImageUrl } from "./render/url-policy.js";
 import { hasMemoryAccess, resolveMemoryGrant } from "./memory.js";
 import type { MemoryGrant, ResolvedChannelMemory } from "./memory.js";
@@ -217,6 +220,34 @@ export class Thread implements ThreadInterface {
     );
   }
 
+  /**
+   * Validate bound IR and rewrite every `<Render>` to a staged `image` node.
+   * `bound.root` may be one node or an array; the return matches `adapter.post`.
+   */
+  private async prepareNative(
+    root: ChannelNode | readonly ChannelNode[],
+  ): Promise<ChannelNode[]> {
+    const roots = Array.isArray(root) ? root : [root];
+    validateRenderTree(roots);
+    if (!containsType(roots, "render")) return roots;
+    if (!this.deps.adapter.stageFile) {
+      throw new Error(
+        `channels.render: ${this.platform} does not support stageFile`,
+      );
+    }
+    const g = this.deps.render ?? {};
+    return resolveRenders(roots, {
+      renderJsxToPng: this.deps.renderImage ?? defaultRenderImage,
+      stageFile: (args) =>
+        this.deps.adapter.stageFile!(this.deps.replyTarget, args),
+      defaultWidth: 800,
+      defaultHeight: g.height ?? 480,
+      fonts: g.fonts,
+      stylesheets: g.stylesheets,
+      allowImageUrl: g.allowImageUrl,
+    });
+  }
+
   private trackOperation<T>(operation: () => Promise<T>): Promise<T> {
     if (!this.deps.adapter.trackThreadOperation) {
       try {
@@ -269,10 +300,8 @@ export class Thread implements ThreadInterface {
       const el = resolveArbitraryElement(ui);
       if (el) return this.postImage(el, opts);
       const bound = await this.bindForPost(ui as Renderable);
-      const ref = await this.deps.adapter.post(
-        this.deps.replyTarget,
-        bound.root,
-      );
+      const ir = await this.prepareNative(bound.root);
+      const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
       await this.bindReaction(ref.id, bound);
       return ref;
     });
@@ -341,10 +370,8 @@ export class Thread implements ThreadInterface {
         this.activeContinuation,
         renderContext,
       );
-      const ref = await this.deps.adapter.post(
-        this.deps.replyTarget,
-        bound.root,
-      );
+      const ir = await this.prepareNative(bound.root);
+      const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
       await this.bindReaction(ref.id, bound);
       return ref;
     });
@@ -358,7 +385,8 @@ export class Thread implements ThreadInterface {
         );
       }
       const bound = await this.bindForPost(ui);
-      await this.deps.adapter.update(ref, bound.root);
+      const ir = await this.prepareNative(bound.root);
+      await this.deps.adapter.update(ref, ir);
       await this.bindReaction(ref.id, bound);
       return ref;
     });
@@ -983,6 +1011,22 @@ function promptMatchesInbound(
     message.contentParts !== undefined &&
     JSON.stringify(prompt) === JSON.stringify(message.contentParts)
   );
+}
+
+function containsType(nodes: readonly ChannelNode[], type: string): boolean {
+  for (const node of nodes) {
+    if (node.type === type) return true;
+    const raw = node.props.children;
+    const kids = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
+    const next: ChannelNode[] = [];
+    for (const k of kids) {
+      if (typeof k === "object" && k !== null && "type" in k) {
+        next.push(k as ChannelNode);
+      }
+    }
+    if (containsType(next, type)) return true;
+  }
+  return false;
 }
 
 let transcriptWarned = false;
