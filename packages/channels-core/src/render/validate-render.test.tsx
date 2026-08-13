@@ -19,6 +19,14 @@ function check(ui: unknown): void {
   validateRenderTree(renderToIR(ui as never));
 }
 
+function ProductCardWithButton() {
+  return (
+    <div>
+      <Button value="buy">Buy</Button>
+    </div>
+  );
+}
+
 describe("validateRenderTree", () => {
   it("accepts a carousel of Render and CarouselCard", () => {
     expect(() =>
@@ -59,6 +67,42 @@ describe("validateRenderTree", () => {
         </Render>,
       ),
     ).toThrow("cannot contain <Button>");
+  });
+
+  it("accepts a host button and div inside Render", () => {
+    expect(() =>
+      check(
+        <Render alt="x">
+          <div>
+            <button>Buy</button>
+          </div>
+        </Render>,
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects empty Render children (null, false, or none)", () => {
+    expect(() => check(<Render alt="x">{null}</Render>)).toThrow(
+      "channels.render: <Render> requires children",
+    );
+    expect(() => check(<Render alt="x">{false}</Render>)).toThrow(
+      "channels.render: <Render> requires children",
+    );
+    expect(() => check(<Render alt="x" />)).toThrow(
+      "channels.render: <Render> requires children",
+    );
+  });
+
+  it("rejects an unbranded card that wraps a Channels Button inside Render", () => {
+    expect(() =>
+      check(
+        <Render alt="x">
+          <ProductCardWithButton />
+        </Render>,
+      ),
+    ).toThrow(
+      "channels.render: <Render> cannot contain <Button>, <Select>, <Input>, or <Actions>",
+    );
   });
 
   it("rejects CarouselCard outside Carousel", () => {

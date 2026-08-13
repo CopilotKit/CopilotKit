@@ -1,4 +1,6 @@
 import type { ChannelNode } from "@copilotkit/channels-ui";
+import { isChannelComponent } from "@copilotkit/channels-ui";
+import { isReactElement } from "./detect.js";
 
 const INTERACTIVE = new Set(["button", "select", "input", "actions"]);
 const NESTED_SNAPSHOT = new Set(["render", "carousel", "carouselCard"]);
@@ -16,25 +18,106 @@ function childrenOf(node: ChannelNode): ChannelNode[] {
   );
 }
 
+function leftoverNonNodeChildren(node: ChannelNode): unknown[] {
+  const raw = node.props.children;
+  if (raw == null || raw === false || raw === true) return [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  return list.filter((c) => {
+    if (c == null || c === false || c === true) return false;
+    const isNode =
+      typeof c === "object" && c !== null && "type" in c && "props" in c;
+    return !isNode;
+  });
+}
+
 function typeOf(node: ChannelNode): string {
   return typeof node.type === "string" ? node.type : "";
 }
 
-function walkRenderBanned(node: ChannelNode): void {
-  for (const child of childrenOf(node)) {
-    const t = typeOf(child);
-    if (INTERACTIVE.has(t)) {
-      throw new Error(
-        "channels.render: <Render> cannot contain <Button>, <Select>, <Input>, or <Actions>",
-      );
-    }
-    if (NESTED_SNAPSHOT.has(t)) {
-      throw new Error(
-        "channels.render: <Render> cannot contain <Render>, <Carousel>, or <CarouselCard>",
-      );
-    }
-    walkRenderBanned(child);
+function stringTypeOf(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    typeof (value as { type: unknown }).type === "string"
+  ) {
+    return (value as { type: string }).type;
   }
+  return "";
+}
+
+function throwIfBannedType(t: string): void {
+  if (INTERACTIVE.has(t)) {
+    throw new Error(
+      "channels.render: <Render> cannot contain <Button>, <Select>, <Input>, or <Actions>",
+    );
+  }
+  if (NESTED_SNAPSHOT.has(t)) {
+    throw new Error(
+      "channels.render: <Render> cannot contain <Render>, <Carousel>, or <CarouselCard>",
+    );
+  }
+}
+
+function invokeChild(
+  type: (p: Record<string, unknown>) => unknown,
+  props: Record<string, unknown>,
+): unknown {
+  try {
+    return type(props ?? {});
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("channels.render:")) {
+      throw err;
+    }
+    const name =
+      typeof type.name === "string" && type.name ? type.name : "component";
+    throw new Error(
+      `channels.render: failed to inspect <${name}> inside <Render>`,
+      { cause: err },
+    );
+  }
+}
+
+function walkBannedValue(value: unknown): void {
+  if (value == null || value === false || value === true) return;
+  if (typeof value === "string" || typeof value === "number") return;
+  if (Array.isArray(value)) {
+    for (const item of value) walkBannedValue(item);
+    return;
+  }
+  if (typeof value !== "object" || !("type" in value)) return;
+
+  const typed = value as { type: unknown; props?: Record<string, unknown> };
+  const t = typed.type;
+  const props = typed.props ?? {};
+
+  // Host tag on a React element: "button" is HTML, not Channels <Button>.
+  if (isReactElement(value) && typeof t === "string") {
+    walkBannedValue(props.children);
+    return;
+  }
+
+  if (typeof t === "function") {
+    const out = invokeChild(
+      t as (p: Record<string, unknown>) => unknown,
+      props,
+    );
+    if (isChannelComponent(t)) {
+      throwIfBannedType(stringTypeOf(out));
+    }
+    walkBannedValue(out);
+    return;
+  }
+
+  if (typeof t === "string") {
+    throwIfBannedType(t);
+  }
+  walkBannedValue(props.children);
+}
+
+function walkRenderBanned(node: ChannelNode): void {
+  walkBannedValue(node.props.children);
 }
 
 function validateCarouselCard(node: ChannelNode): void {
@@ -80,7 +163,10 @@ function validateRender(node: ChannelNode): void {
   if (typeof alt !== "string" || alt.length === 0) {
     throw new Error("channels.render: <Render> requires alt");
   }
-  if (childrenOf(node).length === 0 && node.props.children == null) {
+  if (
+    childrenOf(node).length === 0 &&
+    leftoverNonNodeChildren(node).length === 0
+  ) {
     throw new Error("channels.render: <Render> requires children");
   }
   walkRenderBanned(node);
