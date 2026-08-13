@@ -2,16 +2,16 @@
 
 One Next.js app whose **entire** experience — brand, theme, layout, pages,
 tools, and agent — is reskinnable at runtime. A skin-agnostic **shell** hosts
-one **skin** per route segment `/[skin]/...`. It ships six skins — `banking`,
-`airline`, `logistics`, `keel`, `people` and `commerce` — switchable from a
-dropdown at the top of the assistant column, plus a repo-local **reskin skill**
-(`.claude/skills/reskin/`) for authoring new ones.
+one **skin** per route segment `/[skin]/...`. The registered roster is `banking`,
+`airline`, `logistics`, `keel`, `people`, `commerce` and `bookstore` — switchable
+from a dropdown at the top of the assistant column, plus a repo-local **reskin
+skill** (`.claude/skills/reskin/`) for authoring new ones.
 
 The point of the app is the `Skin` contract: a single interface that swaps a
 whole product without the shell knowing anything domain-specific. The skins
 deliberately sit on **two different data substrates** — banking, logistics,
-people and commerce are REST-backed, airline and keel are in-memory — to prove
-the contract is substrate-agnostic.
+people and commerce are REST-backed, airline, keel and bookstore are in-memory —
+to prove the contract is substrate-agnostic.
 
 **Each skin is also a live sales demo.** It exists to prove CopilotKit and
 Intelligence top to bottom to an enterprise buyer, through a fixed set of demo
@@ -20,7 +20,9 @@ than text, manipulate the app four ways (drive it, read the screen, navigate via
 real levers, ingest a document into a durable artifact), recall long-term memory,
 replay a stored procedure, and learn a new one on stage. `banking` is the original
 reference implementation; `people` and `commerce` are the later skins built to hit
-every beat. The
+every beat; `bookstore` is the one skin whose skipped beats are a DIRECTION rather
+than an oversight — its beat map marks multimodal ingest and teach-a-procedure
+`SKIPPED` instead of deleting the rows. The
 beats, and what each one must prove, are specified in
 [`.claude/skills/reskin/demo-beats.md`](.claude/skills/reskin/demo-beats.md) —
 read it before adding or changing a skin's tools, prompt or suggestion pills,
@@ -203,20 +205,36 @@ export type IdentifyRunUser = (
   `intelligence/seed-memories.ts` seeds the mapped operator's bucket AND the
   default one, because runs frequently resolve to the default (read
   `src/skins/commerce/intelligence/user-id.ts` before writing anything about
-  per-operator scoping there). **Logistics** and **keel** contribute one too
-  (`logisticsIdentifyUser`, `keelIdentifyUser`) for thread scoping — though
-  neither yet uses it for durable memory. That is five of the six skins;
-  **airline** is the only one that omits it (no auth, no memory).
+  per-operator scoping there). **Bookstore** contributes `bookstoreIdentifyUser`
+  and uses it for durable memory: its sidebar shopper switcher forwards
+  `{ userId, userRole }`, and a known shopper id maps 1:1 onto `bookstore-<id>`
+  (a pinned `INTELLIGENCE_USER_ID` still wins, and an unknown id falls back to one
+  demo scope rather than minting a new one). Like people and commerce, its
+  `bookstoreMemorySeedTargetUserIds()` seeds the mapped shopper's bucket AND the
+  default one, because runs frequently resolve to the default: the client's
+  `properties` often do not reach `identifyUser`, so Maya and Guest both land in
+  `bookstore-demo-shopper` and switching shopper re-scopes nothing — the switcher
+  is identity plumbing, not a memory-isolation demo (read
+  `src/skins/bookstore/intelligence/user-id.ts` before writing anything about
+  per-shopper scoping there). **Logistics** and **keel**
+  contribute one too (`logisticsIdentifyUser`, `keelIdentifyUser`) for thread
+  scoping — though neither yet uses it for durable memory. That is six of the
+  seven skins; **airline** is the only one that omits it (no auth, no memory).
 - Every skin that claims the memory beats additionally ships
   `intelligence/seed-memories.ts` and `intelligence/forget-memories.ts`, which its
   `dev/reset` route uses to wipe learned memories and re-seed the ones the demo
   must start out already knowing. Today that is the three demo-complete skins —
-  **banking**, **commerce** and **people**. That pair is what makes the
-  long-term-memory, stored-procedure-replay and teach-a-procedure beats work; it
-  is not emergent behaviour. The gated `dev/reset` route is the wider set: four
-  skins have one, those three plus **logistics** — which ships neither memory
-  file, so its reset restores its data store only and cannot restore the memory
-  beats.
+  **banking**, **commerce** and **people** — plus **bookstore**, which claims the
+  long-term-memory and stored-procedure-replay beats (but skips
+  teach-a-procedure), so it seeds a taste preference AND a `kind: "operational"`
+  book-club procedure, each into the default bucket as well as the mapped
+  shopper's. Seeding memory this way is what makes the long-term-memory,
+  stored-procedure-replay and teach-a-procedure beats work; it
+  is not emergent behaviour. The gated `dev/reset` route is the wider set: those
+  four plus **logistics** — which ships neither memory file, so its reset restores
+  its data store only and cannot restore the memory beats. Bookstore's route is
+  the mirror image: it has no server-side store to restore, so it touches memory
+  only and the sidebar button clears the `localStorage` cart itself.
 - `identifyUser` is reached through the **server-only** registry, so it MUST be
   server-safe: **no `"use client"`, no JSX, no `.tsx` imports.** Keep it in a
   plain `.ts` module.
@@ -305,7 +323,9 @@ agentId={skin.id}` → `SkinProvider` (runs `skin.useData?.()`) → chat-inbox +
 - `src/app/[skin]/[[...rest]]/page.tsx` — renders `skin.resolvePage(rest)`, or a
   404 when it returns `null`. `resolvePage` receives **all** remaining segments, so
   a skin can resolve parameterized routes — `keel` is the worked example
-  (`knowledge/<docId>`, `runs/<runId>`).
+  (`knowledge/<docId>`, `runs/<runId>`), and `bookstore` the smaller one
+  (`book/<slug>`, which resolves for ANY slug so a stale deep link renders a
+  "not found" body rather than a 404).
 - `src/app/api/copilotkit/[[...slug]]/route.ts` — the Hono runtime handler. It
   builds one `BuiltInAgent` per registered skin from `agentRegistry` (calling
   each registration's `createAgent`), keyed by id, so `agentId={skin.id}`
@@ -394,7 +414,7 @@ Gen-UI components registered via `useComponent` (airline's flight card, banking'
 charts and queues) render in the chat transcript, not on the canvas — that is a
 separate path from the full-region canvas surfaces above.
 
-## The six skins (why they differ)
+## The skins (why they differ)
 
 Two substrates behind one contract is the architectural demonstration. Demo
 completeness is a **separate axis**, and the two do not correlate — see the beat
@@ -442,9 +462,10 @@ matrix at the end of this section.
   `seedKeelRuns`), plus `CanvasSurface` (server tool `render_ops_report`),
   `sandboxFunctions`, `toolLabels`, `RuntimeProviders`, `useRuntimeProperties`
   and a server `identifyUser`; omits `Providers`, `chatHeaderActions`,
-  `onSuggestionSelect`. **The only skin with parameterized routes** —
-  `resolvePage` is Map-based and resolves `knowledge/<docId>` → `DocumentPage` and
-  `runs/<runId>` → `RunDetailPage` alongside its static segments.
+  `onSuggestionSelect`. **The fullest parameterized routing** — `resolvePage` is
+  Map-based and resolves `knowledge/<docId>` → `DocumentPage` and `runs/<runId>` →
+  `RunDetailPage` alongside its static segments; `bookstore` later took the same
+  shape for its single `book/<slug>`.
 
 - **`people`** ("Rowan") — **REST-backed**, a People Ops command center, and the
   second skin built demo-complete against the full beat list. Pages `roster`
@@ -484,28 +505,72 @@ matrix at the end of this section.
   controls tint. Its beat map is written out at the top of
   `src/skins/commerce/suggestions.ts`.
 
+- **`bookstore`** ("Bookstore") — **in-memory**, an online bookshop, and the only
+  skin that faces the END CUSTOMER while being built against the beat list: the
+  others are internal consoles where an employee operates a system of record,
+  except `airline`, which is consumer-facing and predates the bar. It is NOT a
+  second `commerce`: commerce is the merchant's operations console (orders,
+  catalog, promotions, returns), bookstore is the shopper's own storefront. Its
+  routes are the index shelf (also reachable as `browse`), the parameterized
+  `book/<slug>`, and `cart`. Sets `useData: useBookstoreData` — a frozen 25-book
+  seed catalog (the 25th is the club pick's paperback edition, sharing a
+  `workId` with its hardcover — that shared id is what makes the edition swap
+  demonstrable) plus a cart/orders store mirrored to `localStorage` **per
+  shopper**, which is what lets the basket survive the hard reload beat 2 turns
+  on — plus
+  `RuntimeProviders` + `useRuntimeProperties` (a Maya/Guest shopper switcher in the
+  sidebar, forwarding `{ userId, userRole }`), `toolLabels` and a server
+  `identifyUser`; omits `Providers`, `CanvasSurface`, `sandboxFunctions`,
+  `chatHeaderActions` and `onSuggestionSelect` — no canvas, no OGUI, no attachment
+  path. Its agent registers NO backend tools (`tools: []`): the catalog reaches it
+  as context, `showBooks` and `recommendBooks` are `useComponent` cover-card renders,
+  and `browseWithFilters` / `openCheckout` are HITL (the shopper types the card
+  number into the checkout card and only the last four digits ever leave it). Its
+  beat map — including the two rows marked `SKIPPED` — is written out at the top
+  of `src/skins/bookstore/suggestions.ts`. **Read the runtime warning there before
+  demoing it:** beats 2, 4 and 5 are three of its four headline claims and all
+  three exist only in Intelligence mode — the OSS path leaves a pretty
+  storefront with a chatbot. Beat 4 is the RECALL — the agent applies a seeded taste
+  nobody typed and names it in `recommendBooks`' `note` slot — and NOT a
+  Maya-vs-Guest contrast: switching shopper does not re-scope memory (see the
+  `identifyUser` bullet above and the CAVEAT in `.env.example`).
+
 ### Demo-beat coverage (the other axis)
 
-| Beat                             | banking                   | people                    | commerce                  | airline | logistics     | keel          |
-| -------------------------------- | ------------------------- | ------------------------- | ------------------------- | ------- | ------------- | ------------- |
-| Gen-UI in transcript             | ✅ 9                      | ✅ 4                      | ✅ 4                      | ✅ 6    | ✅ 5          | ✅ 4          |
-| Rich thread survives reload      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ replay-safe tools      | ❌      | ❌            | ❌            |
-| Drive the app, secret withheld   | ✅                        | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| "What's on my screen?"           | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables | ❌      | ❌            | ❌            |
-| Navigate via levers + filters    | ✅                        | ✅                        | ✅ four levers            | ❌      | ❌            | nav only      |
-| Multimodal → durable artifact    | ✅                        | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| Long-term memory recall          | ✅                        | ✅                        | ✅                        | ❌      | plumbing only | plumbing only |
-| Stored-procedure replay          | ✅                        | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| Teach a new procedure            | ✅                        | ✅                        | ✅                        | ❌      | ❌            | ❌            |
-| Presenter reset (route + button) | ✅                        | ✅                        | ✅                        | ❌      | ✅            | ❌            |
+| Beat                             | banking                   | people                    | commerce                  | bookstore                  | airline | logistics     | keel          |
+| -------------------------------- | ------------------------- | ------------------------- | ------------------------- | -------------------------- | ------- | ------------- | ------------- |
+| Gen-UI in transcript             | ✅ 9                      | ✅ 4                      | ✅ 4                      | ✅ 2                       | ✅ 6    | ✅ 5          | ✅ 4          |
+| Rich thread survives reload      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ replay-safe tools      | ✅ replay-safe tools       | ❌      | ❌            | ❌            |
+| Drive the app, secret withheld   | ✅                        | ✅                        | ✅                        | ✅                         | ❌      | ❌            | ❌            |
+| "What's on my screen?"           | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables | ✅ route + page readables  | ❌      | ❌            | ❌            |
+| Navigate via levers + filters    | ✅                        | ✅                        | ✅ four levers            | ✅ four levers             | ❌      | ❌            | nav only      |
+| Multimodal → durable artifact    | ✅                        | ✅                        | ✅                        | ❌ skipped by direction    | ❌      | ❌            | ❌            |
+| Long-term memory recall          | ✅                        | ✅                        | ✅                        | ✅                         | ❌      | plumbing only | plumbing only |
+| Stored-procedure replay          | ✅                        | ✅                        | ✅                        | ✅ seeded op-memory replay | ❌      | ❌            | ❌            |
+| Teach a new procedure            | ✅                        | ✅                        | ✅                        | ❌ skipped by direction    | ❌      | ❌            | ❌            |
+| Presenter reset (route + button) | ✅                        | ✅                        | ✅                        | ✅                         | ❌      | ✅            | ❌            |
 
-`banking`, `people` and `commerce` hit every row; airline, logistics and keel
-predate this bar and hit about one each (nine beats plus the presenter-reset
-requirement are listed above). Note that logistics and keel ship the **full
-per-user identity plumbing** — `RuntimeProviders`, `useRuntimeProperties`, server
-`identifyUser` — and then no memory prompts, no memory tools and no seed file, so
-they get no demo value from the hardest part of it. Treat all three as excellent
-**wiring** references and incomplete **demo** references.
+`banking`, `people` and `commerce` hit every row. `bookstore` hits every row it
+claims and marks the other two `SKIPPED` in its own beat map, so read its blanks
+as a scope decision and the rest as a beat list it does meet — including the two
+that only exist in Intelligence mode. airline, logistics and keel predate this bar
+and hit about one each (nine beats plus the presenter-reset requirement are listed
+above). Note that logistics and keel ship the **full per-user identity plumbing** —
+`RuntimeProviders`, `useRuntimeProperties`, server `identifyUser` — and then no
+memory prompts, no memory tools and no seed file, so they get no demo value from
+the hardest part of it. Treat all three as excellent **wiring** references and
+incomplete **demo** references.
+
+**The long-term-memory row means RECALL, in every column that claims it** — the
+agent applying and naming a preference nobody typed on this thread. It does NOT
+mean per-user isolation, and no skin can demo that today: the client's
+`properties` frequently do not reach `identifyUser` on a run, so the on-screen
+people collapse into one default bucket and a user/operator/shopper switcher
+re-scopes nothing. That is why every skin with this beat seeds its DEFAULT bucket —
+banking seeds only that one; `people`, `commerce` and `bookstore` seed it alongside
+the mapped person's. Authorities: the CAVEAT block in `.env.example`, the flagged
+comments in `src/shell/agent-registry.ts`, and each skin's
+`intelligence/user-id.ts`.
 
 ## How to add a skin
 
@@ -561,7 +626,16 @@ type-checks as part of `next build`):
 - `pnpm build` — production build (also the type-check gate).
 - `pnpm start` — serve the production build.
 - `pnpm lint` — ESLint. Also carries the LOCK_SKIN URL-contract guard (the
-  `no-restricted-syntax` skin-prefix selectors in `eslint.config.mjs`).
+  `no-restricted-syntax` skin-prefix selectors in `eslint.config.mjs`). It is
+  **not** the whole gate: the repo root's `lefthook.yml` `pre-commit` hook
+  additionally runs `oxlint --fix` and `oxfmt --write` over staged files and
+  re-stages the result (`stage_fixed: true`), enforcing rules ESLint does not —
+  e.g. the repo root's `.oxlintrc.json` sets
+  `import/consistent-type-specifier-style: "prefer-top-level"`, which splits a
+  merged `import { x, type Y }` into two statements. Practically: a change can
+  satisfy `pnpm lint` and still be silently rewritten at commit time. Run
+  `pnpm exec oxlint --fix` + `oxfmt --write` on your changed files before
+  committing to see that rewrite up front instead of after.
 - `pnpm test:unit` — Vitest unit tests.
 - `pnpm test:e2e` / `pnpm test:e2e:ogui` / `pnpm test:self-learning` — Playwright
   suites. `test:e2e` has TWO projects, each with its own dev server, because the
@@ -579,10 +653,11 @@ Run tasks through Nx per the repo convention where applicable.
 ## Reference
 
 - `src/shell/skin-contract.ts` — the contract (source of truth).
-- `src/skins/{banking,logistics,airline,keel,people,commerce}/skin.tsx` — six
-  implementations. Open `banking`, `people` or `commerce` for demo completeness,
-  `logistics` for layout chrome and the server-emitted a2ui canvas, `airline` for
-  the minimal contract surface, `keel` for parameterized routes.
+- `src/skins/{banking,logistics,airline,keel,people,commerce,bookstore}/skin.tsx`
+  — every shipped skin. Open `banking`, `people` or `commerce` for demo
+  completeness, `logistics` for layout chrome and the server-emitted a2ui canvas,
+  `airline` for the minimal contract surface, `keel` for parameterized routes,
+  `bookstore` for a customer-facing storefront on an in-memory substrate.
 - `.claude/skills/reskin/` — the authoring skill: `SKILL.md` (contract + wiring
   traps), `demo-beats.md` (what the demo must prove, and the quality bar),
   `templates.md` (per-file starting points).
