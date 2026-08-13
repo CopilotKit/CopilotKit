@@ -82,14 +82,15 @@ Select the suggested prompt or ask:
 If I invest $500/month at a 7% annual return, what will I have in 20 years?
 ```
 
-Claude calculates the projection, calls `show_growth_projection`, and keeps its prose short while the chart
+Claude passes the assumptions to `show_growth_projection` and keeps its prose short while the chart
 carries the result. Move either slider to explore the assumptions without starting another agent run. A
 follow-up in the same CopilotKit thread resumes the same managed session and workspace.
 
 ## The key pieces, in code
 
 The setup script creates long-lived managed resources. The environment blocks outbound hosts, package managers,
-and MCP servers; the agent disables `web_fetch` while retaining its built-in workspace tools and `web_search`:
+and MCP servers, while the agent disables its complete built-in toolset. The runtime adds only the focused
+financial visualization tool when it creates a session:
 
 ```ts title="server/src/setup.ts"
 const environment = await client.beta.environments.create({
@@ -111,7 +112,7 @@ const agent = await client.beta.agents.create({
   system: ASSISTANT_SYSTEM,
   tools: [{
     type: "agent_toolset_20260401",
-    configs: [{ name: "web_fetch", enabled: false }],
+    default_config: { enabled: false },
   }],
 });
 ```

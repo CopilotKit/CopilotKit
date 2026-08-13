@@ -78,10 +78,9 @@ ANTHROPIC_AGENT_ID=agent_...
 This is a demo, not a production deployment. The runtime endpoint has no authentication and
 every message spends your Anthropic API credits.
 
-The setup script follows the upstream quickstart's restricted posture: the hosted container
-has no outbound network or package-manager access, and `web_fetch` is disabled. Bash and files
-remain available for calculations, while `web_search` remains available for current rates and
-limits.
+The setup script gives the hosted environment no outbound network or package-manager access and
+disables the complete built-in agent toolset. Each session receives only the narrowly scoped
+`show_growth_projection` backend tool from the CopilotKit runtime.
 
 For a single-process deployment such as Railway:
 

@@ -1,7 +1,54 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { AgentCreateParams } from "@anthropic-ai/sdk/resources/beta/agents/agents";
 
 import { provisionAgentResources } from "./setup.ts";
+
+function createCapturingClient() {
+  let agentParams: AgentCreateParams | undefined;
+  const client = {
+    beta: {
+      environments: {
+        create: async () => ({ id: "env_test" }),
+        delete: async () => ({
+          id: "env_test",
+          type: "environment_deleted" as const,
+        }),
+      },
+      agents: {
+        create: async (params: AgentCreateParams) => {
+          agentParams = params;
+          return { id: "agent_test", version: 1 };
+        },
+      },
+    },
+  };
+  return { client, getAgentParams: () => agentParams };
+}
+
+test("disables the complete built-in agent toolset", async () => {
+  const { client, getAgentParams } = createCapturingClient();
+
+  await provisionAgentResources(client, { log() {}, error() {} });
+
+  assert.deepEqual(getAgentParams()?.tools, [
+    {
+      type: "agent_toolset_20260401",
+      default_config: { enabled: false },
+    },
+  ]);
+});
+
+test("does not instruct the agent to use disabled built-in tools", async () => {
+  const { client, getAgentParams } = createCapturingClient();
+
+  await provisionAgentResources(client, { log() {}, error() {} });
+
+  assert.doesNotMatch(
+    String(getAgentParams()?.system),
+    /\b(?:bash|files?|web_search|web_fetch)\b/i,
+  );
+});
 
 test("deletes the environment when agent creation fails", async () => {
   const failure = new Error("agent creation failed");

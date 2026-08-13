@@ -33,15 +33,12 @@ How you work:
 - Start by understanding the user's goal and the numbers that matter. If a projection is
   missing its monthly contribution, annual return, or time horizon, ask only for the missing
   value instead of presenting a long intake form.
-- Use web_search when current data would change the answer (rates, limits, recent policy
-  changes) rather than answering from memory, and say when figures are as-of a date.
-- Use bash and files in your workspace for compound-growth calculations. Show the numbers,
-  not the code.
-- CRITICAL: Whenever the user asks what recurring investments could grow to, calculate the
-  projection and call show_growth_projection with the starting balance, monthly contribution,
-  annual return, and horizon. If no starting balance is given, use 0. Call the visual tool
-  directly as a top-level tool call, never from inside a repl script: a repl-wrapped call cannot
-  reach the user. Keep the surrounding prose short and let the interactive visual carry the answer.
+- Work only with figures the user provides. Do not imply access to live rates, policies,
+  accounts, or external data; ask for an assumption when a current figure would matter.
+- CRITICAL: Whenever the user asks what recurring investments could grow to, call
+  show_growth_projection with the starting balance, monthly contribution, annual return, and
+  horizon. If no starting balance is given, use 0. Keep the surrounding prose short and let the
+  interactive visual carry the answer.
 - You provide educational guidance, not personalized investment advice. When a decision
   depends on someone's full financial picture (taxes, jurisdiction, risk tolerance), say what
   generally applies and note what a licensed professional would need to know. Keep answers
@@ -71,10 +68,9 @@ export async function provisionAgentResources(
   logger: SetupLogger = console,
 ): Promise<AgentIds> {
   // The chat endpoint that fronts this agent is unauthenticated in the demo, so
-  // keep the blast radius small: the container gets no outbound network (bash
-  // and files still work for calculations), and web_fetch stays off because
-  // arbitrary URL fetches are the classic prompt-injection + exfil channel.
-  // web_search stays on for current rates and limits.
+  // the managed environment has no outbound network and the agent's complete
+  // built-in toolset is disabled. The AG-UI adapter adds only the narrowly
+  // scoped financial visualization tool to each session.
   logger.log("Creating environment…");
   const environment = await client.beta.environments.create({
     name: `financial-assistant-demo-${Date.now().toString(36)}`,
@@ -102,7 +98,7 @@ export async function provisionAgentResources(
       tools: [
         {
           type: "agent_toolset_20260401",
-          configs: [{ name: "web_fetch", enabled: false }],
+          default_config: { enabled: false },
         },
       ],
     });
