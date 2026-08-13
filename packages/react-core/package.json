@@ -127,8 +127,8 @@
     "react-dom": "^19.2.0",
     "tailwindcss": "^4.0.8",
     "tsconfig": "workspace:*",
-    "tsdown": "^0.20.3",
-    "typescript": "^5.2.3",
+    "tsdown": "^0.22.14",
+    "typescript": "7.0.2",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
     "zod": ">=3.0.0"
