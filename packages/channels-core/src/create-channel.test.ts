@@ -2128,6 +2128,7 @@ describe("createChannel render config", () => {
   it("accepts a render config without throwing and starts", async () => {
     const adapter = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [adapter],
       render: { stylesheets: [".card{color:red}"], width: 800 },
     });

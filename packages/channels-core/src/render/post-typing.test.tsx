@@ -36,6 +36,10 @@ function makeThread(adapter: FakeAdapter) {
     registerWaiter: () => {},
     interruptHandlers: new Map(),
     state: store,
+    user: null,
+    actor: { id: "actor", kind: "unknown" },
+    channelName: "test",
+    threadId: "c",
     render: {},
     renderImage: vi.fn(async () => new Uint8Array([1])),
   };

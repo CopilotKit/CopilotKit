@@ -33,6 +33,10 @@ function makeThread(
     registerWaiter: () => {},
     interruptHandlers: new Map(),
     state: store,
+    user: null,
+    actor: { id: "actor", kind: "unknown" },
+    channelName: "test",
+    threadId: "c",
     render,
     renderImage,
   };
