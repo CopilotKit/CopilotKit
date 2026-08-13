@@ -19,7 +19,7 @@ Generative UI, shared state, and human-in-the-loop workflows for React, Angular,
 
 </div>
 
-[![CopilotKit](https://github.com/user-attachments/assets/aeb56c28-c766-44a5-810c-5d999bb6a32a)](https://go.copilotkit.ai/copilotkit-docs)
+[![Bring Your Own Agent. Any Channel. — CopilotKit and AG-UI connect any agent framework to Slack, Microsoft Teams, Discord, WhatsApp, Telegram, Google Chat, iMessage, and SMS.](assets/bring-your-own-agent-any-channel.png)](https://go.copilotkit.ai/copilotkit-docs)
 
 <div align="center" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
