@@ -28,6 +28,8 @@ import {
   readOfferAccepted,
 } from "./teach-mode-directives";
 import { useAirlineLedger, notifyAirlineDataChanged } from "./ledger-context";
+import { buildFlightCadence } from "./data/flight-cadence";
+import { FlightCadenceChart } from "./components/flight-cadence-chart";
 import { useConciergeView } from "./components/concierge-view";
 import { offerableOptions } from "./components/authorizable";
 import {
@@ -179,8 +181,16 @@ function EmptyNote({ children }: { children: React.ReactNode }) {
  */
 export function AirlineTools() {
   const ledger = useAirlineLedger();
-  const { ready, profile, travelers, bookings, flights, options, exceptions } =
-    ledger;
+  const {
+    ready,
+    now,
+    profile,
+    travelers,
+    bookings,
+    flights,
+    options,
+    exceptions,
+  } = ledger;
   const view = useConciergeView();
   const skin = useSkin();
   const skinHref = useSkinHref(skin.id);
@@ -331,6 +341,56 @@ export function AirlineTools() {
   // model omits, and the omission is silent. Empty text still renders no band —
   // the honest state when nothing was recalled — but the model has to decide
   // rather than skip.
+  // BEAT 1 — the demo's opening move. "How often do I fly?" answers with a
+  // picture, not a paragraph.
+  //
+  // `useComponent`, NOT `useFrontendTool`: only a component replays out of
+  // thread history, which is what beat 2 asks the audience to reload and see.
+  // It also renders straight from its recorded PARAMS (no `status`, no
+  // `result`), so replay-safety here is structural rather than something the
+  // render has to remember.
+  //
+  // The chart takes `now` from the LEDGER, never from the browser. This app
+  // runs on a fixed demo clock (`SEED_NOW`), so a component reading the real
+  // date would draw a divider the server never rendered.
+  useComponent(
+    {
+      name: "showFlightCadence",
+      description:
+        "Show how often the passenger flies, as a cadence strip: every trip on " +
+        "the account laid out on a day scale with a today divider, the " +
+        "disrupted ones called out, and the average gap between trips. Lead " +
+        "with this for 'how often do I fly', 'how much am I travelling', 'what " +
+        "does my travel look like' and any question about frequency or " +
+        "cadence. Render it AND answer in one or two sentences quoting the " +
+        "real figures from it — the number of trips, the average gap, and " +
+        "anything disrupted. A chart with no words reads as a glitch. Recall " +
+        "the passenger's saved preferences FIRST and put the one you applied " +
+        "in `note`.",
+      parameters: z.object({
+        note: z
+          .string()
+          .describe(
+            "One short footnote naming the remembered preference you applied " +
+              "— the clock you quoted times in, or what you led with. Leave it " +
+              "empty ONLY if you genuinely recalled nothing.",
+          ),
+      }),
+      render: ({ note }) => {
+        if (!ready) {
+          return <EmptyNote>Pulling up your trips…</EmptyNote>;
+        }
+        return (
+          <FlightCadenceChart
+            cadence={buildFlightCadence(flights, bookings, now)}
+            note={note}
+          />
+        );
+      },
+    },
+    [flights, bookings, now, ready],
+  );
+
   useComponent(
     {
       name: "showTrips",

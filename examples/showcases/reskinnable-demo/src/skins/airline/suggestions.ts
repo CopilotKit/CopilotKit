@@ -33,20 +33,30 @@ import { HOTEL_CONFIRMATION_MESSAGE } from "./attach-hotel-confirmation";
  */
 export const airlineSuggestions: Suggestion[] = [
   // ── BEAT 1 — gen-UI in the transcript ────────────────────────────────────
-  // VERIFIED against the seed: routes to `showTrips`, which paints Camila's own
-  // three bookings (AV1423 delayed 55m, the AV7QK2 return on the cancelled AV1466,
-  // AV1188 on Basic Economy) plus a named card each for Tomás (AV3PL9) and Inés
-  // (AV8RT4) — five rows over three travellers, every one carrying its fare
-  // condition and flight status. `data/trip-seed.ts` is the source of those rows;
-  // `components/trip-list.tsx` renders them.
+  // A CHART, because beat 1 is the demo's opening move and a picture is the
+  // whole claim. Routes to `showFlightCadence`, which paints the cadence strip
+  // from `data/flight-cadence.ts`.
   //
-  // It is phrased as "how do they look", not "summarize", so it is distinguishable
-  // from the beat-4 pill below: this one is the trip WALL, that one is the
-  // preference-shaped summary. Both route to `showTrips` — the note band is what
-  // differs, and it is empty here unless something was recalled.
+  // MEASURED against the shipped seed and the app's own clock (`SEED_NOW`, i.e.
+  // 2026-07-14 — this app does NOT run on the wall clock), asserted in
+  // `data/flight-cadence.test.ts`:
+  //   7 markers · 0 flown · 7 ahead · 2 disrupted · average gap 11 days
+  //   07-14 AV1423 LIM delayed · 07-21 AV1466 SCL cancelled · 08-05 AV7702 BOG
+  //   08-13 AV2214 MIA · 08-27 AV1188 GRU · 09-02 AV0918 MAD · 09-19 AV0431 BOG
+  //
+  // So "about every 11 days" is the sentence the prose should quote, and it is
+  // the honest answer to the question: every seeded trip is AHEAD of the demo
+  // clock, so the strip is forward-looking and the GAPS carry the answer rather
+  // than any count of flights behind us. Seven markers over 67 days is also why
+  // this is a strip and not monthly bars — bars collapse it to three columns and
+  // hide the two disrupted trips the later beats need on screen.
+  //
+  // It is phrased as frequency, not "summarize", so it is distinguishable from
+  // the beat-4 pill below: this one is the cadence CHART, that one is the
+  // preference-shaped trip summary through `showTrips`.
   {
-    title: "How do my trips look?",
-    message: "How do my trips look right now?",
+    title: "How often do I fly?",
+    message: "How often do I fly these days?",
   },
 
   // ── BEAT 3b — "what's on my screen?" ─────────────────────────────────────
