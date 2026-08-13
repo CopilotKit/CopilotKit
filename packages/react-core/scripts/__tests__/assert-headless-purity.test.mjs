@@ -27,8 +27,9 @@ import {
   forbiddenHits,
   isEntrypoint,
   isForbiddenPackage,
+  maskNonCode,
   packageNameFor,
-  stripComments,
+  scanSource,
   unanalyzableLoaderCalls,
 } from "../assert-headless-purity.mjs";
 
@@ -115,30 +116,226 @@ describe("forbiddenHits", () => {
   });
 });
 
-describe("stripComments / unanalyzableLoaderCalls", () => {
-  it("blanks comments without disturbing string literals or line numbers", () => {
+describe("maskNonCode / scanSource", () => {
+  it("blanks comments, strings, templates and regexes without moving an offset", () => {
     const code = [
       'const a = "// not a comment";',
       "// a comment",
-      "const b = 1;",
+      "const b = /re\\/gex/;",
+      "const c = 1;",
     ].join("\n");
-    const stripped = stripComments(code);
-    assert.ok(stripped.includes('"// not a comment"'));
-    assert.ok(!stripped.includes("a comment\n"));
-    assert.equal(stripped.split("\n").length, code.split("\n").length);
+    const masked = maskNonCode(code);
+    assert.equal(masked.length, code.length, "offsets must still line up");
+    assert.equal(masked.split("\n").length, code.split("\n").length);
+    // Code survives; every literal and comment is blanked.
+    assert.ok(masked.includes("const a = "));
+    assert.ok(masked.includes("const c = 1;"));
+    assert.ok(!masked.includes("not a comment"));
+    assert.ok(!masked.includes("a comment"));
+    assert.ok(!masked.includes("gex"));
   });
 
-  it("reports a loader call whose argument is not a string literal", () => {
-    const calls = unanalyzableLoaderCalls("export const f = (n) => import(n);");
-    assert.equal(calls.length, 1);
+  it("consumes a `//` inside a string as part of the string, not as a comment", () => {
+    // If the comment branch won, `const b` would be blanked too.
+    const masked = maskNonCode('const a = "// x";\nconst b = 2;');
+    assert.ok(masked.includes("const b = 2;"));
   });
 
-  it("ignores literal loader calls and commented-out ones", () => {
+  it("consumes a `/*` inside a string, so no block comment is opened", () => {
+    // The Round-2 defeat of a sibling guard: a `/*` hidden in a literal made the
+    // stripper swallow everything to the next `*/`.
+    const masked = maskNonCode(
+      'const a = "/* not a comment";\nconst b = 2;\nconst c = 3;',
+    );
+    assert.ok(masked.includes("const b = 2;"));
+    assert.ok(masked.includes("const c = 3;"));
+  });
+
+  it("does not let a regex literal containing // blank the rest of its line", () => {
+    // The exact false NEGATIVE this detector shipped with: the `//` at the end of
+    // `/https:\/\//` read as a comment start and hid the real call after it.
+    const masked = maskNonCode(
+      "const re = /https:\\/\\//; const load = (n) => import(n);",
+    );
+    assert.ok(masked.includes("import("));
+    assert.ok(!masked.includes("https"));
+  });
+
+  it("keeps a template's ${…} interpolation as CODE while blanking its text", () => {
+    const { masked, literals } = scanSource("const t = `a ${import(n)} b`;");
+    assert.ok(masked.includes("import(n)"), "the interpolation is real code");
+    assert.ok(!masked.includes("a "), "the literal chunks are blanked");
+    assert.equal(literals.length, 1);
+    assert.equal(literals[0].interpolated, true);
+    assert.equal(literals[0].terminated, true);
+  });
+
+  it("cannot be swallowed by an apostrophe in prose", () => {
+    const masked = maskNonCode(
+      "// it doesn't matter\nconst load = (n) => import(n);",
+    );
+    assert.ok(masked.includes("import(n)"));
+  });
+
+  it("marks a literal the file never closes as unterminated", () => {
+    const { literals } = scanSource('const a = "never closed');
+    assert.equal(literals.length, 1);
+    assert.equal(literals[0].terminated, false);
+  });
+});
+
+// Both directions of the loader-call detector. Every case in the two blocks below
+// was a WRONG VERDICT the pre-tokenizer version actually gave, reproduced against
+// the real gate: it blanked comments but left string, template and regex literals
+// intact (so import-shaped TEXT hard-failed CI), matched a bare `\brequire` /
+// `\bimport` (so member calls hard-failed and rolldown's `__require` escaped), and
+// classified an argument as static from its FIRST CHARACTER alone (so anything
+// merely starting with a quote read as clean while hiding its target).
+describe("unanalyzableLoaderCalls — must NOT report (false-positive direction)", () => {
+  it("import-shaped text inside a string literal", () => {
     assert.deepEqual(
       unanalyzableLoaderCalls(
-        ['import "streamdown";', "// const x = await import(name);"].join("\n"),
+        'export function f() {\n  throw new Error("use require(path) instead");\n}',
       ),
       [],
+    );
+  });
+
+  it("import-shaped text inside a template literal", () => {
+    assert.deepEqual(
+      unanalyzableLoaderCalls("export const doc = (x) => `import(${x})`;"),
+      [],
+    );
+  });
+
+  it("import-shaped text inside a regex literal", () => {
+    assert.deepEqual(
+      unanalyzableLoaderCalls("export const e = /import\\(x\\)/;"),
+      [],
+    );
+  });
+
+  it("member calls, including one split across lines", () => {
+    assert.deepEqual(
+      unanalyzableLoaderCalls(
+        [
+          "export const a = (o, y) => o.import(y);",
+          "export const b = (m, x) => m.require(x);",
+          "export const c = (m, x) => m?.require(x);",
+          "export const d = (m, x) => m",
+          "  .import(x);",
+        ].join("\n"),
+      ),
+      [],
+    );
+  });
+
+  it("an identifier that merely ends with a loader word", () => {
+    assert.deepEqual(
+      unanalyzableLoaderCalls("export const h = (x) => myrequire(x);"),
+      [],
+    );
+  });
+
+  it("complete static literals, including a non-interpolated template and import attributes", () => {
+    assert.deepEqual(
+      unanalyzableLoaderCalls(
+        [
+          'import "streamdown";',
+          'export const a = () => import("./m.mjs");',
+          "export const b = () => import(`./m.mjs`);",
+          'export const c = () => require.resolve("./m.mjs");',
+          'export const d = () => import( "./m.mjs" );',
+          'export const e = () => import("./m.json", { with: { type: "json" } });',
+          "// const z = await import(name);",
+          "/* import(other) */",
+        ].join("\n"),
+      ),
+      [],
+    );
+  });
+});
+
+describe("unanalyzableLoaderCalls — MUST report (false-negative direction)", () => {
+  /** @param {string} code @param {RegExp} pattern */
+  const reportsOne = (code, pattern) => {
+    const calls = unanalyzableLoaderCalls(code);
+    assert.equal(
+      calls.length,
+      1,
+      `expected exactly one report, got ${calls.length}: ${JSON.stringify(calls)}`,
+    );
+    assert.match(calls[0], pattern);
+  };
+
+  it("a plain variable argument", () => {
+    reportsOne("export const f = (n) => import(n);", /import\(n\)/);
+  });
+
+  it("an INTERPOLATED template argument (starts with a quote, hides its target)", () => {
+    reportsOne(
+      "export const load = (n) => import(`stream${n}`);",
+      /import\(`stream\$\{n\}`\)/,
+    );
+  });
+
+  it("an interpolated path to the fat entry", () => {
+    reportsOne(
+      'const base = ".";\nexport const load = () => import(`${base}/v2/index.mjs`);',
+      /v2\/index\.mjs/,
+    );
+  });
+
+  it("a CONCATENATED argument (starts with a quote, hides its target)", () => {
+    reportsOne(
+      'export const load = (n) => import("zo" + n);',
+      /import\("zo" \+ n\)/,
+    );
+  });
+
+  it("rolldown's __require, which a \\brequire pattern cannot match", () => {
+    reportsOne(
+      "export const load = (name) => __require(name);",
+      /__require\(name\)/,
+    );
+  });
+
+  it("require.resolve with a variable", () => {
+    reportsOne(
+      "export const load = (n) => require.resolve(n);",
+      /require\.resolve\(n\)/,
+    );
+  });
+
+  it("a real dynamic call on the same line as a regex containing //", () => {
+    reportsOne(
+      "export const re = /https:\\/\\//; export const load = (n) => import(n);",
+      /import\(n\)/,
+    );
+  });
+
+  it("a call whose parenthesis is never closed", () => {
+    reportsOne("export const load = (n) => import(n", /import\(n/);
+  });
+
+  it("a call whose argument sits inside an unterminated string", () => {
+    reportsOne(
+      'export const load = () => import("./m.mjs',
+      /import\("\.\/m\.mjs/,
+    );
+  });
+
+  it("reports each of several calls in one file", () => {
+    assert.equal(
+      unanalyzableLoaderCalls(
+        [
+          "export const a = (n) => import(n);",
+          "export const b = (n) => __require(n);",
+          'export const c = (n) => require("zo" + n);',
+          'export const ok = () => import("./m.mjs");',
+        ].join("\n"),
+      ).length,
+      3,
     );
   });
 });
@@ -160,6 +357,27 @@ describe("collectModuleGraph", () => {
     assert.ok(
       graph.inputs.some((input) => /node_modules\/zod\//.test(input)),
       "the dep behind the chunk must be in the graph",
+    );
+  });
+
+  // Two of the four real targets are `.cjs`, which takes the script's
+  // `format: "cjs"` branch and carries the `require()` loader shape — and until
+  // these fixtures landed every fixture was `.mjs`, so that branch and that shape
+  // were asserted by nothing at all.
+  it('walks a CommonJS entry through the format:"cjs" branch', async () => {
+    const graph = await collectModuleGraph({
+      entryFile: fixture("purity-entry.cjs"),
+      pkgRoot,
+    });
+    const entryText = fs.readFileSync(fixture("purity-entry.cjs"), "utf8");
+    assert.ok(!entryText.includes("zod"));
+    assert.ok(
+      graph.inputs.some((input) => input.endsWith("purity-chunk.cjs")),
+      "the relative require() edge must be in the graph",
+    );
+    assert.ok(
+      graph.inputs.some((input) => /node_modules\/zod\//.test(input)),
+      "the dep behind that require() must be in the graph",
     );
   });
 
@@ -223,6 +441,36 @@ describe("assertEntryPurity", () => {
     assert.deepEqual(report.hits, []);
     assert.equal(report.unanalyzable.length, 1);
     assert.match(report.unanalyzable[0], /purity-unanalyzable-entry\.mjs/);
+  });
+
+  it("catches a forbidden dep behind a relative require() edge (cjs entry)", async () => {
+    const report = await assertEntryPurity({
+      entryFile: fixture("purity-entry.cjs"),
+      pkgRoot,
+      forbidden: STAND_IN,
+    });
+    assert.deepEqual(report.hits, [{ dep: "zod", via: ["zod"] }]);
+    assert.deepEqual(report.unanalyzable, []);
+  });
+
+  it("reports BOTH __require and a concatenated require() in a cjs entry, and neither counter-example", async () => {
+    const report = await assertEntryPurity({
+      entryFile: fixture("purity-cjs-unanalyzable-entry.cjs"),
+      pkgRoot,
+      forbidden: REAL_FORBIDDEN,
+    });
+    assert.deepEqual(report.hits, []);
+    // The static `require("./purity-chunk.cjs")` and the import-shaped text in
+    // `message` must contribute nothing; the two hidden loaders must both appear.
+    assert.equal(
+      report.unanalyzable.length,
+      2,
+      `expected two reports, got ${JSON.stringify(report.unanalyzable)}`,
+    );
+    assert.ok(report.unanalyzable.some((r) => /__require\(name\)/.test(r)));
+    assert.ok(
+      report.unanalyzable.some((r) => /require\("zo" \+ name\)/.test(r)),
+    );
   });
 });
 

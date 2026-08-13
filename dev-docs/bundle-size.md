@@ -91,7 +91,6 @@ baseline to maintain, and no conflict with the Phase 2 freeze on `limit` fields:
    Both entries are guarded because `@copilotkit/react-native` imports both. Runs
    in `static_bundle_size.yml` — the step there is named after `/v2/headless`
    only, but the script asserts `/v2/context` as well. Mechanically:
-
    - It bundles each entry with **esbuild** (`bundle: true`, `write: false`,
      `metafile: true`; `react` / `react-dom` and the JSX runtimes external;
      CSS and font assets on the `empty` loader, which still records them as graph
@@ -117,18 +116,25 @@ baseline to maintain, and no conflict with the Phase 2 freeze on `limit` fields:
      warnings print but are non-fatal — third-party code warns for reasons that
      say nothing about #4893.
    - The one place it still reads **text** is to find `import(…)` / `require(…)` /
-     `require.resolve(…)` calls whose argument is not a string literal — the one
-     edge shape a bundler genuinely cannot see through — and only in the graph's
-     first-party files. Comments are stripped first (a single
-     comment/string/template alternation, so a `//` inside a string and a quote
-     inside a comment are each consumed by the other branch), which is why a
-     documented counter-example naming a banned dep no longer trips it.
+     `require.resolve(…)` / `__require(…)` calls whose argument is not a **complete**
+     string literal — the one edge shape a bundler genuinely cannot see through —
+     and only in the graph's first-party files. That scan runs over the output of
+     `scanSource`, a small single-pass **tokenizer** that blanks comments, strings,
+     templates _and_ regex literals while preserving offsets, so the one surviving
+     regex only ever sees code. A documented counter-example naming a banned dep
+     cannot trip it, a `//` inside a regex cannot hide a real call, and an argument
+     counts as static only when it is one whole literal with no concatenation or
+     interpolation.
    - Negative tests: `packages/react-core/scripts/__tests__/assert-headless-purity.test.mjs`,
      run by `pnpm --filter @copilotkit/react-core test:scripts` (chained from that
      package's `test`). They cover both directions — a forbidden dep reached only
-     through a relative chunk edge, a forbidden dep left external, an unresolvable
-     edge, an unanalyzable loader call, and banned tokens present only in comments
-     and strings, which must **pass**.
+     through a relative chunk edge (in both an `.mjs` and a `.cjs` entry, so the
+     `format: "cjs"` branch and the `require()` shape are exercised too), a
+     forbidden dep left external, an unresolvable edge, an unanalyzable loader call,
+     and banned tokens present only in comments and strings, which must **pass**.
+     Each detector shape fixed in the tokenizer rewrite has a **pair**: the innocent
+     form must pass and the matching real violation must fail.
+
 2. `packages/react-native/src/__tests__/headless-entry-surface.test.ts` — walks
    the relative-import graph of this package's own `src/`, from both
    `src/headless.ts` and `src/index.ts`, and fails if a reached module imports a
@@ -136,8 +142,9 @@ baseline to maintain, and no conflict with the Phase 2 freeze on `limit` fields:
    render stack directly, or (headless entry only) pulls the optional native
    chat/attachment peer deps. It extracts static `import`/`export … from`, bare
    side-effect `import "x"`, `import()` and `require()`/`require.resolve()` —
-   Metro follows the lazy forms too — strips comments with the same
-   comment/string/template alternation the purity gate uses, reports a
+   Metro follows the lazy forms too — strips comments with its own
+   comment/string/template alternation (the purity gate has since moved to the
+   tokenizer described above), reports a
    non-literal loader argument as unanalyzable rather than ignoring it, and fails
    loudly on a local edge it cannot resolve. Runs in the normal test job.
 
@@ -155,18 +162,18 @@ is closed: react-core's own build leaves `@copilotkit/core`,
 assertion, not a complete one. Documented rather than glossed, because a doc that
 claims a gate is airtight is how the last round of this went wrong:
 
-- **A non-literal loader argument is only partly detected.** The detector matches
-  `import(` / `require(` / `require.resolve(` and then inspects only the **first
-  character** after the paren; anything beginning with `"`, `'` or a backtick is
-  treated as a static literal and skipped. So `` import(`stream${n}`) `` and
-  `import("zo" + n)` — a template literal or a concatenation that merely _starts_
-  with a quote — read as analyzable while hiding their target.
-- **`__require(…)` is not matched.** The pattern is anchored with `\b` before
-  `require`, and there is no word boundary inside `__require`, so rolldown's
-  emitted CJS-interop form escapes the unanalyzable-call check entirely.
-- **String literals are not stripped before that text scan** (only comments are),
-  so import-shaped text inside a string — `const doc = "require(x)"` — can
-  false-positive and fail the gate on code that links nothing.
+- **The loader-call scan is a tokenizer, not a parser.** `scanSource` classifies
+  every character as code / comment / string / template / regex, which closes the
+  wrong-verdict holes listed in the previous round (a first-character-only literal
+  test, unmatched `__require`, unstripped string and regex literals, and member
+  calls read as bare loaders — all now covered by paired tests). What remains:
+  regex-vs-division is decided from the previous significant token plus a keyword
+  list, so a regex directly after `)` — `if (x) /re/.test(s)` — is read as
+  division; a misread recovers at the next newline, so its blast radius is one
+  line. No JSX or TypeScript syntax is handled (the targets are built `.mjs` /
+  `.cjs`). And **indirect** loaders are beyond any text scan — aliasing `require`
+  to another name and calling that, `createRequire(…)`,
+  `Function("return import('x')")`, or `globalThis["im" + "port"]`.
 - **Workspace-sibling `dist` counts as first-party.** esbuild resolves pnpm
   symlinks to real paths, so `@copilotkit/core` enters the graph as
   `../core/dist/index.mjs`, with no `node_modules/` segment. Two consequences:

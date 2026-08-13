@@ -53,8 +53,12 @@
 // entry hid behind a variable. The one place this script therefore reads text is
 // to find those calls in the graph's FIRST-PARTY files (our own and our workspace
 // siblings' built output — third-party dynamic requires are endemic and say
-// nothing about #4893), and it strips comments before looking, so a documented
-// counter-example cannot trip it.
+// nothing about #4893). That scan runs over a TOKENIZED view of the file in which
+// comments, strings, templates and regexes are blanked (see `scanSource` below), so
+// a documented counter-example — or any other import-shaped text — cannot trip it,
+// and a `//` inside a regex cannot hide a real call. See the block comment above
+// `scanSource` for the wrong verdicts the earlier regex pair produced in BOTH
+// directions, and for what the tokenizer still does not cover.
 //
 // esbuild is already this package's devDependency and already runs in the same CI
 // job (scripts/measure-copilotchat.mjs), and react/react-dom stay external there
@@ -111,54 +115,427 @@ const GRAPH_BLINDING_WARNINGS = [
   /could not be resolved/i,
 ];
 
+// ─── Why the text scan is a tokenizer and not an alternation of regexes ──────
+// The previous version layered two regexes: one comment/string/template
+// alternation to blank comments, and one `\b(?:import|require)\s*\(` to find
+// loader calls. It gave WRONG VERDICTS IN BOTH DIRECTIONS, and every case below
+// was reproduced against the real gate before this rewrite:
+//
+//   false FAIL  throw new Error("use require(path) instead")  ← import-shaped TEXT
+//   false FAIL  `import(${x})`                                ← inside a template
+//   false FAIL  o.import(y) / mod.require(x)                  ← member calls, not loaders
+//   false PASS  const re = /https:\/\//; …import(n)           ← the regex's `//` blanked
+//                                                               the rest of the line,
+//                                                               hiding a real call
+//   false PASS  import(`stream${n}`)                          ← "starts with a quote"
+//   false PASS  import("zo" + n)                              ← "starts with a quote"
+//   false PASS  __require(name)                               ← no \b inside `__require`
+//
+// The first four are one root cause: a regex cannot know whether the text it
+// matched is CODE. So the scan now runs a real (small) tokenizer, `scanSource`,
+// which walks the file once and classifies every character as code, comment,
+// string, template or regex. Only ONE regex survives, and it is applied
+// exclusively to the tokenizer's code-only output, so it can no longer see into a
+// literal or a comment at all.
+//
+// What the tokenizer does NOT do, stated plainly so the next reader does not
+// over-trust it (it is a masker, not a parser):
+//   • Regex-vs-division is a heuristic on the previous significant token
+//     (see REGEX_AFTER_KEYWORD): a regex directly after `)` — `if (x) /re/.test(s)`
+//     — is read as division. Regex mode bails at a newline, so the blast radius of
+//     a misread is the rest of that ONE line, never the file.
+//   • No JSX and no TypeScript syntax. The targets are built `.mjs` / `.cjs`.
+//   • Indirect loaders stay invisible to any text scan: `const r = require; r(x)`,
+//     `createRequire(...)`, `Function("return import('x')")`, `globalThis["im"+"port"]`.
+//     Those are out of reach without evaluating the module.
+
+/** Identifier characters, used for both boundary and keyword lookback. */
+const IDENT_CHAR = /[A-Za-z0-9_$]/;
+
 /**
- * Comment / string / template alternation, scanned left-to-right in ONE pass.
- *
- * Ported verbatim from the sibling guard in
- * packages/react-native/src/__tests__/headless-entry-surface.test.ts, which hit
- * the same class of bug. Matching strings with the SAME alternation is what makes
- * comment stripping correct: a `//` inside a string literal is consumed as part of
- * the string before the comment branch can see it, and a quote inside a comment is
- * consumed as part of the comment. `'` and `"` deliberately do not cross a
- * newline, so an unbalanced apostrophe in prose ("doesn't") cannot swallow the
- * rest of a file.
+ * A `/` directly after one of these follows a VALUE, so it is division, not the
+ * start of a regex literal. (`)` is the deliberate over-approximation noted above.)
  */
-const COMMENT_OR_LITERAL =
-  /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`|\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
-
-/** Every way a module can pull another one in at runtime. */
-const LOADER_CALL = /\b(?:import|require(?:\.resolve)?)\s*\(\s*/g;
+const VALUE_BEFORE_SLASH = new Set([")", "]", '"', "'", "`"]);
 
 /**
- * Blanks out comments, preserving newlines (and therefore line numbers) and
- * leaving real string/template literals untouched.
+ * Keywords a regex literal may legally follow. Needed because the character
+ * before the `/` in `return /re/.test(s)` is an identifier character, which would
+ * otherwise read as division.
+ */
+const REGEX_AFTER_KEYWORD = new Set([
+  "return",
+  "typeof",
+  "instanceof",
+  "in",
+  "of",
+  "new",
+  "delete",
+  "void",
+  "throw",
+  "case",
+  "do",
+  "else",
+  "yield",
+  "await",
+]);
+
+/**
+ * Whether the `/` whose previous significant code character sits at `lastIndex`
+ * starts a regex literal rather than being a division operator.
+ *
+ * @param {string} code
+ * @param {number} lastIndex - Offset of the last significant code character, or -1.
+ * @returns {boolean}
+ */
+function regexAllowedAfter(code, lastIndex) {
+  if (lastIndex < 0) return true; // start of file
+  const char = code[lastIndex];
+  if (VALUE_BEFORE_SLASH.has(char)) return false;
+  // Operators, `(`, `,`, `;`, `{`, `}`, `:` — all positions where a value starts.
+  if (!IDENT_CHAR.test(char)) return true;
+  let start = lastIndex;
+  while (start >= 0 && IDENT_CHAR.test(code[start])) start -= 1;
+  return REGEX_AFTER_KEYWORD.has(code.slice(start + 1, lastIndex + 1));
+}
+
+/**
+ * Single-pass scanner that classifies every character of a JS source file.
+ *
+ * @param {string} code
+ * @returns {{ masked: string, literals: { start: number, end: number, interpolated: boolean, terminated: boolean }[] }}
+ *   `masked` has the SAME LENGTH as `code`, with every comment, string, template
+ *   and regex character replaced by a space and every newline preserved — so
+ *   offsets and line numbers still line up with the original. `literals` holds one
+ *   span per string/template literal in source order, `end` exclusive and
+ *   including the closing quote; `interpolated` is true for a template containing
+ *   `${…}`, and `terminated` is false for a literal the file never closes.
+ */
+export function scanSource(code) {
+  /** @type {[number, number][]} Sorted, non-overlapping ranges to blank. */
+  const blanks = [];
+  const blank = (from, to) => {
+    const start = Math.max(0, from);
+    const end = Math.min(code.length, to);
+    if (end <= start) return;
+    const last = blanks[blanks.length - 1];
+    if (last && last[1] === start) last[1] = end;
+    else blanks.push([start, end]);
+  };
+
+  /** @type {{ start: number, end: number, interpolated: boolean, terminated: boolean }[]} */
+  const literals = [];
+  /** Enclosing templates we are inside via `${…}`, innermost last. */
+  const templates = [];
+
+  let mode = "code";
+  let braceDepth = 0;
+  let literalStart = -1;
+  let interpolated = false;
+  // Offset of the last significant CODE character; drives regex-vs-division.
+  let lastCode = -1;
+  let i = 0;
+
+  while (i < code.length) {
+    const char = code[i];
+
+    if (mode === "code") {
+      if (char === "/" && code[i + 1] === "/") {
+        blank(i, i + 2);
+        mode = "line-comment";
+        i += 2;
+      } else if (char === "/" && code[i + 1] === "*") {
+        blank(i, i + 2);
+        mode = "block-comment";
+        i += 2;
+      } else if (char === '"' || char === "'") {
+        mode = char === '"' ? "double" : "single";
+        literalStart = i;
+        interpolated = false;
+        blank(i, i + 1);
+        i += 1;
+      } else if (char === "`") {
+        mode = "template";
+        literalStart = i;
+        interpolated = false;
+        blank(i, i + 1);
+        i += 1;
+      } else if (char === "/" && regexAllowedAfter(code, lastCode)) {
+        mode = "regex";
+        blank(i, i + 1);
+        i += 1;
+      } else if (char === "}" && braceDepth === 0 && templates.length) {
+        // The `}` closing a `${…}` interpolation: back into the template.
+        blank(i, i + 1);
+        const frame = templates.pop();
+        braceDepth = frame.braceDepth;
+        literalStart = frame.literalStart;
+        interpolated = true;
+        mode = "template";
+        i += 1;
+      } else {
+        if (char === "{") braceDepth += 1;
+        else if (char === "}") braceDepth = Math.max(0, braceDepth - 1);
+        if (!/\s/.test(char)) lastCode = i;
+        i += 1;
+      }
+      continue;
+    }
+
+    if (mode === "line-comment") {
+      if (char === "\n") mode = "code";
+      else blank(i, i + 1);
+      i += 1;
+      continue;
+    }
+
+    if (mode === "block-comment") {
+      if (char === "*" && code[i + 1] === "/") {
+        blank(i, i + 2);
+        mode = "code";
+        i += 2;
+      } else {
+        if (char !== "\n") blank(i, i + 1);
+        i += 1;
+      }
+      continue;
+    }
+
+    if (mode === "single" || mode === "double") {
+      const quote = mode === "single" ? "'" : '"';
+      if (char === "\\") {
+        blank(i, i + 2);
+        i += 2;
+      } else if (char === quote) {
+        blank(i, i + 1);
+        literals.push({
+          start: literalStart,
+          end: i + 1,
+          interpolated: false,
+          terminated: true,
+        });
+        lastCode = i;
+        mode = "code";
+        i += 1;
+      } else if (char === "\n") {
+        // A quoted string cannot span a raw newline, so either the source is
+        // invalid or we mis-entered: end the span here rather than let one stray
+        // apostrophe swallow the rest of the file.
+        literals.push({
+          start: literalStart,
+          end: i,
+          interpolated: false,
+          terminated: false,
+        });
+        mode = "code";
+        i += 1;
+      } else {
+        blank(i, i + 1);
+        i += 1;
+      }
+      continue;
+    }
+
+    if (mode === "template") {
+      if (char === "\\") {
+        blank(i, i + 2);
+        i += 2;
+      } else if (char === "$" && code[i + 1] === "{") {
+        blank(i, i + 2);
+        templates.push({ literalStart, braceDepth });
+        braceDepth = 0;
+        mode = "code";
+        i += 2;
+      } else if (char === "`") {
+        blank(i, i + 1);
+        literals.push({
+          start: literalStart,
+          end: i + 1,
+          interpolated,
+          terminated: true,
+        });
+        lastCode = i;
+        mode = "code";
+        i += 1;
+      } else {
+        if (char !== "\n") blank(i, i + 1);
+        i += 1;
+      }
+      continue;
+    }
+
+    if (mode === "regex" || mode === "regex-class") {
+      if (char === "\\") {
+        blank(i, i + 2);
+        i += 2;
+      } else if (char === "\n") {
+        // A regex literal cannot span a newline, so we mis-read a division `/`.
+        // Recover at the line break: a misread can never reach past one line.
+        mode = "code";
+        i += 1;
+      } else if (mode === "regex" && char === "[") {
+        blank(i, i + 1);
+        mode = "regex-class";
+        i += 1;
+      } else if (mode === "regex-class" && char === "]") {
+        blank(i, i + 1);
+        mode = "regex";
+        i += 1;
+      } else if (mode === "regex" && char === "/") {
+        blank(i, i + 1);
+        lastCode = i;
+        mode = "code";
+        i += 1;
+      } else {
+        blank(i, i + 1);
+        i += 1;
+      }
+      continue;
+    }
+
+    /* c8 ignore next -- unreachable: every mode above continues the loop. */
+    i += 1;
+  }
+
+  // An unterminated literal at EOF: record it so a loader argument inside it is
+  // classified as NOT a complete literal, i.e. reported rather than skipped.
+  if (mode === "single" || mode === "double" || mode === "template") {
+    literals.push({
+      start: literalStart,
+      end: code.length,
+      interpolated,
+      terminated: false,
+    });
+  }
+
+  const parts = [];
+  let cursor = 0;
+  for (const [start, end] of blanks) {
+    parts.push(code.slice(cursor, start));
+    parts.push(code.slice(start, end).replace(/[^\n]/g, " "));
+    cursor = end;
+  }
+  parts.push(code.slice(cursor));
+  return { masked: parts.join(""), literals };
+}
+
+/**
+ * Blanks comments, string/template literals AND regex literals, preserving both
+ * length and newlines (and therefore offsets and line numbers).
+ *
+ * Named for what it does: the previous `stripComments` blanked comments only and
+ * left literals intact, which is precisely how import-shaped TEXT reached the
+ * loader-call matcher and hard-failed CI on code that links nothing.
  *
  * @param {string} code
  * @returns {string}
  */
-export function stripComments(code) {
-  return code.replace(COMMENT_OR_LITERAL, (match) =>
-    match.startsWith("//") || match.startsWith("/*")
-      ? match.replace(/[^\n]/g, " ")
-      : match,
+export function maskNonCode(code) {
+  return scanSource(code).masked;
+}
+
+/**
+ * Every way a module can pull another one in at runtime, including rolldown's
+ * `__require` CJS-interop shim (which `\brequire` misses: there is no word
+ * boundary inside `__require`).
+ *
+ * The lookbehind rejects an identifier that merely ENDS with one of these words
+ * (`myrequire(x)`) and the common `o.import(` member form; `precededByMemberDot`
+ * then covers the same member call split across lines, which a single-character
+ * lookbehind cannot see.
+ *
+ * Only ever applied to `scanSource`'s masked output, never to raw source.
+ */
+const LOADER_CALL =
+  /(?<![.\w$])(?:__require|require(?:\.resolve)?|import)\s*\(/g;
+
+/**
+ * True when the loader word starting at `index` is a property access — `o.import(x)`,
+ * `mod?.require(x)`, or the same split over a line break — which loads nothing.
+ * `...import(x)` is a spread, not a member access.
+ *
+ * @param {string} masked
+ * @param {number} index
+ * @returns {boolean}
+ */
+function precededByMemberDot(masked, index) {
+  let i = index - 1;
+  while (i >= 0 && /\s/.test(masked[i])) i -= 1;
+  return i >= 0 && masked[i] === "." && masked[i - 1] !== ".";
+}
+
+/**
+ * Offsets of a loader call's FIRST argument, given the offset of its `(`, or null
+ * when the call is never closed. Depth-aware over the MASKED source, so a paren or
+ * comma inside a string cannot end it. Stopping at the first top-level comma keeps
+ * `import("./m", { with: { type: "json" } })` a one-literal argument.
+ *
+ * @param {string} masked
+ * @param {number} openIndex
+ * @returns {{ start: number, end: number } | null}
+ */
+function firstArgumentRange(masked, openIndex) {
+  let depth = 0;
+  for (let i = openIndex; i < masked.length; i += 1) {
+    const char = masked[i];
+    if (char === "(" || char === "[" || char === "{") depth += 1;
+    else if (char === ")" || char === "]" || char === "}") {
+      depth -= 1;
+      if (depth === 0) return { start: openIndex + 1, end: i };
+    } else if (char === "," && depth === 1) {
+      return { start: openIndex + 1, end: i };
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether a loader argument is a COMPLETE single literal — the only shape a
+ * bundler can resolve. "Starts with a quote" is not enough, and that was the whole
+ * false-negative class: `import("zo" + n)` and `` import(`stream${n}`) `` both
+ * start with one and both hide their target.
+ *
+ * @param {object} options
+ * @param {string} options.code - The original source (for the whitespace check).
+ * @param {{ start: number, end: number, interpolated: boolean, terminated: boolean }[]} options.literals
+ * @param {{ start: number, end: number } | null} options.range
+ * @returns {boolean}
+ */
+function isCompleteLiteralArgument({ code, literals, range }) {
+  if (!range) return false;
+  const inside = literals.filter(
+    (literal) => literal.start >= range.start && literal.end <= range.end,
+  );
+  if (inside.length !== 1) return false;
+  const [literal] = inside;
+  if (!literal.terminated || literal.interpolated) return false;
+  // Nothing but whitespace may surround it: that is what rejects a concatenation.
+  return (
+    code.slice(range.start, literal.start).trim() === "" &&
+    code.slice(literal.end, range.end).trim() === ""
   );
 }
 
 /**
- * Loader calls whose argument is not a string literal, and which therefore hide
- * whatever they load from any static analysis — including a bundler's.
+ * Loader calls whose argument is not a complete string literal, and which
+ * therefore hide whatever they load from any static analysis — including a
+ * bundler's.
  *
  * @param {string} code
  * @returns {string[]} A short excerpt per unanalyzable call.
  */
 export function unanalyzableLoaderCalls(code) {
-  const stripped = stripComments(code);
+  const { masked, literals } = scanSource(code);
   const found = [];
-  for (const match of stripped.matchAll(LOADER_CALL)) {
-    const after = stripped.slice(match.index + match[0].length);
-    if (/^["'`]/.test(after)) continue;
+  for (const match of masked.matchAll(LOADER_CALL)) {
+    if (precededByMemberDot(masked, match.index)) continue;
+    const openIndex = match.index + match[0].length - 1;
+    const range = firstArgumentRange(masked, openIndex);
+    if (isCompleteLiteralArgument({ code, literals, range })) continue;
     found.push(
-      stripped
+      // Excerpt from the ORIGINAL source: the masked form would print the
+      // argument as blanks, which tells a reader nothing.
+      code
         .slice(match.index, match.index + match[0].length + 48)
         .replace(/\s+/g, " ")
         .trim(),
