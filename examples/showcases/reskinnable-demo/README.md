@@ -251,7 +251,7 @@ as banking-skin illustrations rather than a picture of the app today.
 
 ```bash
 pnpm lint                # eslint (also the LOCK_SKIN URL-contract guard)
-pnpm exec tsc --noEmit   # the ONLY full type-check — see below
+pnpm typecheck   # the ONLY full type-check — see below
 pnpm test:unit           # vitest
 pnpm build               # production build
 pnpm test:e2e            # playwright
@@ -260,7 +260,7 @@ pnpm test:self-learning  # the memory CI gate
 ```
 
 There is no `typecheck` script, and **`pnpm build` is not a substitute for
-`pnpm exec tsc --noEmit`**: `next build` type-checks only what the app's module
+`pnpm typecheck`**: `next build` type-checks only what the app's module
 graph reaches, so it never visits the test files, and Vitest transpiles without
 type-checking at all. `tsconfig.json` includes them; only `tsc --noEmit` looks.
 

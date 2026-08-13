@@ -638,7 +638,7 @@ Then build in dependency order so each slot compiles before the next depends on 
 10. **suggestions** (`suggestions.ts`) — one pill per beat, in demo order — plus **design-skill** (`design-skill.ts`).
 11. **register** — `skin.tsx` assembles the object; then wire both registries.
 
-After wiring things up run **`pnpm exec tsc --noEmit`** and `pnpm build`, not one
+After wiring things up run **`pnpm typecheck`** and `pnpm build`, not one
 or the other. There is no `typecheck` script, and `pnpm build` is NOT a full
 type-check: `next build` only visits what the app's module graph reaches, so it
 never type-checks a test file, and Vitest transpiles without type-checking at all.
@@ -777,14 +777,14 @@ Do NOT touch anything else in the shell.
 ## Verification
 
 1. **Four gates, cheapest first, all green:** `pnpm lint` ·
-   **`pnpm exec tsc --noEmit`** · `pnpm test:unit` · `pnpm build`.
+   **`pnpm typecheck`** · `pnpm test:unit` · `pnpm build`.
 
    ⚠️ **`pnpm build` is not the type-check gate.** There is no `typecheck`
    script, so it is easy to conclude `next build` covers it — it does not.
    `next build` type-checks only what the app's **module graph reaches**, so it
    never opens a single test file, and Vitest transpiles without type-checking at
    all. `tsconfig.json` DOES include `**/*.tsx`, so the tests are in the project
-   and nothing else looks at them. `pnpm exec tsc --noEmit` is the ONLY command in
+   and nothing else looks at them. `pnpm typecheck` is the ONLY command in
    this tree that type-checks a test, and several of the guards this skill tells
    you to write (exhaustiveness gates over a union, typed fixtures) are type-only —
    they are decoration until you run it.

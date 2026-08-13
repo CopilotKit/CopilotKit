@@ -699,13 +699,13 @@ authoring flow. In short:
 Real scripts from `package.json`, plus one command that is NOT a script and is
 still mandatory:
 
-- **`pnpm exec tsc --noEmit` — the only full type-check in the tree. Run it.**
+- **`pnpm typecheck` — the only full type-check in the tree. Run it.**
   There is no `typecheck` script, so it is easy to assume `pnpm build` covers it.
   It does not: `next build` type-checks only what the app's **module graph
   reaches**, so it never visits the test files (`find src e2e -name '*.test.ts*' |
 wc -l`), and Vitest transpiles without type-checking at all. `tsconfig.json` DOES
   include `**/*.tsx`, so those files are in the project and nothing else looks at
-  them. Treat the four gates as `pnpm lint` · `pnpm exec tsc --noEmit` ·
+  them. Treat the four gates as `pnpm lint` · `pnpm typecheck` ·
   `pnpm test:unit` · `pnpm build`, in that order (cheapest first).
 - `pnpm dev` — run the app (needs `OPENAI_API_KEY`; copy `.env` from
   `.env.example`). Visit `/`, which redirects to the default skin.

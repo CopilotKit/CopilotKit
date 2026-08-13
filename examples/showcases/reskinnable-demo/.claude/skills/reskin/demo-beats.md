@@ -409,7 +409,7 @@ Three mechanics worth copying verbatim:
     implementation AND driven by a test in
     `src/shell/attach/stage-attachment.test.ts`, and the exhaustiveness gate there
     is **type-only** on one half — Vitest transpiles without type-checking, so run
-    `pnpm exec tsc --noEmit` if you touch the union. (Not `pnpm build`: `next build`
+    `pnpm typecheck` if you touch the union. (Not `pnpm build`: `next build`
     type-checks only what the app's module graph reaches, so it never opens the
     test file that gate lives in. See SKILL.md § Verification step 1.)
   - **The `[attach:<cause>]` prefix on the `console.error` line is load-bearing,
