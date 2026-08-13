@@ -47,8 +47,9 @@ jobs:
       fail-fast: false
       matrix:
         # tsdown 0.22 requires Node ^22.18.0 || >=24.11.0. These jobs build
-        # packages before they test them, so Node 20 cannot stay in the matrix.
-        node-version: [22.x, 24.x]
+        # packages before they test them. Matrix is current even majors:
+        # 22 (Maintenance LTS), 24 (Active LTS), 26 (Current).
+        node-version: [22.x, 24.x, 26.x]
         # React 18 + 19 span the supported peer range
         # ("^18 || ^19") declared by @copilotkit/react-core, react-ui, and
         # a2ui-renderer. 19 is the repo default (frozen lockfile); 18 is
