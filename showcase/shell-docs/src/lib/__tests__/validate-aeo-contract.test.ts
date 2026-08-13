@@ -1,19 +1,36 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   loadAeoSurfaceContract,
   validateAeoSurfaceContract,
-} from "../validate-aeo-contract";
+} from "../../../scripts/validate-aeo-contract";
 
-const repositoryRoot = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../..",
-);
+const testDirectory = dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = resolve(testDirectory, "../../../../..");
 
 describe("public AEO surface contract", () => {
+  it("is validated by shell-docs rather than shared showcase tooling", () => {
+    expect(
+      existsSync(
+        resolve(testDirectory, "../../../scripts/validate-aeo-contract.ts"),
+      ),
+    ).toBe(true);
+    expect(
+      existsSync(
+        resolve(testDirectory, "../../../../scripts/validate-aeo-contract.ts"),
+      ),
+    ).toBe(false);
+  });
+
   it("accepts the committed contract and every repository-owned check target", () => {
     const contract = loadAeoSurfaceContract(repositoryRoot);
 
@@ -52,7 +69,7 @@ describe("public AEO surface contract", () => {
   it("wires every automated verification command into showcase CI", () => {
     const contract = loadAeoSurfaceContract(repositoryRoot);
     const workflow = readFileSync(
-      join(repositoryRoot, ".github/workflows/showcase_validate.yml"),
+      resolve(repositoryRoot, ".github/workflows/showcase_validate.yml"),
       "utf8",
     );
     const commands = contract.surfaces.flatMap((surface) =>
@@ -83,12 +100,12 @@ describe("public AEO surface contract", () => {
   });
 
   it("fails loudly when the contract JSON is malformed", () => {
-    const root = mkdtempSync(join(tmpdir(), "aeo-contract-"));
-    const contractPath = join(
+    const root = mkdtempSync(resolve(tmpdir(), "aeo-contract-"));
+    const contractPath = resolve(
       root,
       "showcase/shell-docs/aeo/public-surface-contract.v1.json",
     );
-    mkdirSync(join(root, "showcase/shell-docs/aeo"), { recursive: true });
+    mkdirSync(resolve(root, "showcase/shell-docs/aeo"), { recursive: true });
     writeFileSync(contractPath, "not-json");
 
     expect(() => loadAeoSurfaceContract(root)).toThrow(

@@ -390,15 +390,15 @@ jobs:
         # version on a registry cache miss.
         run: pnpm exec vitest run
 
-      - name: Validate public AEO surface contract
-        run: pnpm nx run @copilotkit/showcase-scripts:validate-aeo-contract
-
       - name: Check deployed docs canonical behavior
         run: pnpm nx run @copilotkit/showcase-scripts:test -- __tests__/verify-deploy.drivers.test.ts
 
       - name: Install shell-docs dependencies
         working-directory: showcase/shell-docs
         run: npm ci --ignore-scripts
+
+      - name: Validate public AEO surface contract
+        run: npm --prefix showcase/shell-docs run validate-aeo-contract
 
       - name: Check shell-docs public AEO behavior
         run: npm --prefix showcase/shell-docs test -- src/app/sitemap.test.ts src/app/llms.txt/route.test.ts src/app/llms-full.txt/route.test.ts 'src/app/llms-mdx/[[...slug]]/route.test.ts' src/app/well-known/copilotkit-capabilities/v1.json/route.test.ts src/lib/runtime-config.test.ts src/lib/__tests__/next-config-redirects.test.ts

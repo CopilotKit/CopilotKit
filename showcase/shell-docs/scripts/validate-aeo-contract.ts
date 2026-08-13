@@ -236,7 +236,7 @@ const invokedPath = process.argv[1] ? resolve(process.argv[1]) : undefined;
 if (invokedPath === fileURLToPath(import.meta.url)) {
   const repositoryRoot = resolve(
     dirname(fileURLToPath(import.meta.url)),
-    "../..",
+    "../../..",
   );
   try {
     validateCommittedAeoContract(repositoryRoot);

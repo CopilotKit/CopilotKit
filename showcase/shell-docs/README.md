@@ -40,6 +40,7 @@ Run these from `showcase/shell-docs`:
 npm run build
 npm run typecheck
 npm run test
+npm run validate-aeo-contract
 ```
 
 For repo-level CI parity, prefer Nx when a shell-docs target is available in the current
