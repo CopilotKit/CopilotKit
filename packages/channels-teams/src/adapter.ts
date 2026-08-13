@@ -17,6 +17,8 @@ import type {
   ProviderActor,
   UserQuery,
   IngressIdentityContext,
+  StageFileArgs,
+  StagedFile,
 } from "@copilotkit/channels-core";
 import type {
   ChannelNode,
@@ -530,6 +532,19 @@ export class TeamsAdapter implements PlatformAdapter {
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }
+  }
+
+  /**
+   * Host a PNG as a data URI without posting a channel message. Adaptive Card
+   * `Image.url` accepts `data:` URIs, so this is the Teams `stageFile` path
+   * for `<Render>`.
+   */
+  async stageFile(
+    _target: ReplyTarget,
+    { bytes }: StageFileArgs,
+  ): Promise<StagedFile> {
+    const b64 = Buffer.from(bytes).toString("base64");
+    return { dataUrl: `data:image/png;base64,${b64}` };
   }
 
   createRunRenderer(target: ReplyTarget): RunRenderer {
