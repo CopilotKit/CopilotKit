@@ -76,11 +76,27 @@ interface ChatListItem {
 /**
  * Lightweight content fingerprint for an agent's message list.
  *
- * `agent.messages` is mutated IN PLACE and its identity is NOT a change signal:
- * core inserts tool results with `agent.messages.splice(...)`, `addMessage()`
- * pushes, the AG-UI apply pipeline reuses one array for a whole run, and
- * `useAgent` re-renders with a bare `forceUpdate()`. So anything derived from
- * messages must depend on their CONTENT, not on the array reference.
+ * The identity of `agent.messages` is NOT a reliable change signal, and it fails
+ * in BOTH directions:
+ *
+ * - It changes on paths that have nothing to do with what is read below.
+ *   `@ag-ui/client`'s apply pipeline REASSIGNS the array
+ *   (`AbstractAgent.processApplyEvents` does `this.messages = applied.messages`),
+ *   so a streaming run hands down a fresh array — and fresh message, `toolCall`
+ *   and `function` objects — on every applied delta.
+ * - It does NOT change on the paths these memos exist to serve. Core inserts
+ *   tool results by mutating in place —
+ *   `agent.messages.splice(insertAt, 0, toolMessage)`
+ *   (packages/core/src/core/run-handler.ts:931, :1080) —
+ *   `AbstractAgent.addMessage` is a `this.messages.push(...)`, and `useAgent`
+ *   re-renders with a bare `forceUpdate()` rather than a new array.
+ *
+ * (Grepping `packages/core/src` for a `.messages` assignment finds test files
+ * only, but that proves nothing about identity: the reassignment lives in
+ * `@ag-ui/client`, outside that tree.)
+ *
+ * So anything derived from messages must depend on their CONTENT, not on the
+ * array reference.
  *
  * Captures exactly what the derivations below read — id, role, content size,
  * `toolCallId` (so an inserted tool result is visible), and each tool call's id
@@ -201,7 +217,7 @@ export function CopilotChat({
 
   // Recomputed every render — cheap, and the only honest dependency for the
   // message-derived memos below. See `messagesFingerprint` for why the array
-  // reference cannot be used.
+  // reference cannot be trusted as one.
   const messagesKey = messagesFingerprint(messages);
 
   // toolCallId -> tool result message. react-core's renderer reports
@@ -274,7 +290,9 @@ export function CopilotChat({
 
     return items;
     // Same reasoning as `toolMessages`: keyed on message CONTENT, because the
-    // array reference is stable across in-place mutation. Without this, an
+    // array reference does not track content in either direction — core's
+    // in-place `splice` and `addMessage`'s push leave it untouched, while the
+    // AG-UI apply pipeline replaces it on every delta. Without this, an
     // assistant message or tool call appended mid-run never reaches the list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messagesKey, isRunning]);
