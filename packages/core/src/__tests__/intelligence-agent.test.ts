@@ -2005,6 +2005,7 @@ describe("ProxiedCopilotRuntimeAgent (intelligence mode)", () => {
       agent.threadId = "thread-1";
 
       await completeConnect(agent, "run-1", "event-1");
+      expect(mockFetch.mock.calls[0]![1].credentials).toBeUndefined();
 
       agent.credentials = "include";
 
@@ -2046,8 +2047,10 @@ describe("ProxiedCopilotRuntimeAgent (intelligence mode)", () => {
 
       await completeConnect(agent, "run-1", "event-1");
 
-      // clone() copies the delegate; updating the clone must not retroactively
-      // rewrite the original's header source.
+      // End-to-end companion to the invariant test above: each proxy's joins
+      // carry its own tenant. This does NOT guard the copy-on-write setter —
+      // syncDelegate rewrites headers before every join, so it passes even with
+      // an in-place write. The test above is what pins that.
       const clone = agent.clone();
       clone.headers = { "X-Tenant": "tenant-b" };
       await completeConnect(clone, "run-2", "event-2");
