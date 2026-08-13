@@ -36,7 +36,7 @@
     },
     "./package.json": "./package.json",
     "./style.css": "./dist/style.css",
-    "./styles.css": "./dist/index.css"
+    "./styles.css": "./dist/style.css"
   },
   "publishConfig": {
     "access": "public"

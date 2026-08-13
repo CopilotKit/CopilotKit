@@ -12,7 +12,7 @@
     "isolatedModules": true,
     "module": "esnext",
     "moduleResolution": "bundler",
-    "types": ["*"],
+    "types": ["node"],
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "preserveWatchOutput": true,

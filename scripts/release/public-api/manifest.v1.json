@@ -1377,7 +1377,7 @@
           "importPath": "@copilotkit/react-textarea/styles.css",
           "exportKey": "./styles.css",
           "kind": "style",
-          "conditions": "./dist/index.css",
+          "conditions": "./dist/style.css",
           "provenance": {
             "kind": "package-json",
             "path": "packages/react-textarea/package.json",
@@ -1461,7 +1461,7 @@
           "importPath": "@copilotkit/react-ui/styles.css",
           "exportKey": "./styles.css",
           "kind": "style",
-          "conditions": "./dist/index.css",
+          "conditions": "./dist/style.css",
           "provenance": {
             "kind": "package-json",
             "path": "packages/react-ui/package.json",
