@@ -27,6 +27,7 @@ const ANGULAR_BROWSER_DIR = path.join(
   "showcase-angular",
   "browser",
 );
+const VUE_BROWSER_DIR = path.join(SHOWCASE_DIR, "vue", "dist");
 // Honor LOCAL_PORTS_FILE env var (set by isolation overlay) so the harness
 // reads offset ports from a temp file instead of the checked-in original.
 const PORTS_FILE =
@@ -142,12 +143,13 @@ function resolveHealthEndpoint(service: string): string {
 
 /**
  * For each integration package directory, replace `tools`, `shared-tools`,
- * `_shared`, and `public/angular` symlinks with real directory copies so
+ * `_shared`, `public/angular`, and `public/vue` symlinks with real directory copies so
  * Docker can access them inside the build context. This mirrors
  * `stage_shared()` in `scripts/cli/_common.sh`. `_shared` carries the
  * single-source CVDIAG bootstrap module (`showcase/integrations/_shared/`)
- * into each Python integration's context, while `public/angular` carries one
- * shared Angular browser build into every integration image.
+ * into each Python integration's context, while `public/angular` and
+ * `public/vue` carry the shared secondary frontend builds into every
+ * integration image.
  */
 export function stageSharedModules(): void {
   log.info("staging shared modules for Docker build contexts");
@@ -209,13 +211,52 @@ export function stageSharedModules(): void {
     } catch {
       // Missing Angular link means this package does not host the shared app.
     }
-    if (!angularIsSymlink) continue;
+    if (angularIsSymlink) {
+      if (!fs.existsSync(ANGULAR_BROWSER_DIR)) {
+        log.info("building shared Angular browser artifact");
+        execFileSync(
+          "pnpm",
+          ["nx", "run", "@copilotkit/showcase-angular-host:build"],
+          {
+            cwd: path.dirname(SHOWCASE_DIR),
+            encoding: "utf-8",
+            stdio: ["pipe", "pipe", "pipe"],
+          },
+        );
+      }
+      if (!fs.existsSync(ANGULAR_BROWSER_DIR)) {
+        throw new Error(
+          `Angular browser build did not produce ${ANGULAR_BROWSER_DIR}`,
+        );
+      }
 
-    if (!fs.existsSync(ANGULAR_BROWSER_DIR)) {
-      log.info("building shared Angular browser artifact");
+      fs.rmSync(angularLink);
+      fs.cpSync(ANGULAR_BROWSER_DIR, angularLink, { recursive: true });
+      fs.writeFileSync(
+        path.join(angularLink, "runtime-config.js"),
+        `globalThis.__COPILOTKIT_SHOWCASE__ = Object.freeze({"frontendId":"angular","integrationId":"${pkg.name}"});\n`,
+        "utf-8",
+      );
+      log.debug("staged Angular browser artifact", {
+        pkg: pkg.name,
+        from: ANGULAR_BROWSER_DIR,
+      });
+    }
+
+    const vueLink = path.join(pkgDir, "public", "vue");
+    let vueIsSymlink = false;
+    try {
+      vueIsSymlink = fs.lstatSync(vueLink).isSymbolicLink();
+    } catch {
+      // Missing Vue link means this package does not host the shared app.
+    }
+    if (!vueIsSymlink) continue;
+
+    if (!fs.existsSync(VUE_BROWSER_DIR)) {
+      log.info("building shared Vue browser artifact");
       execFileSync(
         "pnpm",
-        ["nx", "run", "@copilotkit/showcase-angular-host:build"],
+        ["nx", "run", "@copilotkit/showcase-vue-host:build"],
         {
           cwd: path.dirname(SHOWCASE_DIR),
           encoding: "utf-8",
@@ -223,22 +264,20 @@ export function stageSharedModules(): void {
         },
       );
     }
-    if (!fs.existsSync(ANGULAR_BROWSER_DIR)) {
-      throw new Error(
-        `Angular browser build did not produce ${ANGULAR_BROWSER_DIR}`,
-      );
+    if (!fs.existsSync(VUE_BROWSER_DIR)) {
+      throw new Error(`Vue browser build did not produce ${VUE_BROWSER_DIR}`);
     }
 
-    fs.rmSync(angularLink);
-    fs.cpSync(ANGULAR_BROWSER_DIR, angularLink, { recursive: true });
+    fs.rmSync(vueLink);
+    fs.cpSync(VUE_BROWSER_DIR, vueLink, { recursive: true });
     fs.writeFileSync(
-      path.join(angularLink, "runtime-config.js"),
-      `globalThis.__COPILOTKIT_SHOWCASE__ = Object.freeze({"frontendId":"angular","integrationId":"${pkg.name}"});\n`,
+      path.join(vueLink, "runtime-config.js"),
+      `globalThis.__COPILOTKIT_SHOWCASE__ = Object.freeze({"frontendId":"vue","integrationId":"${pkg.name}"});\n`,
       "utf-8",
     );
-    log.debug("staged Angular browser artifact", {
+    log.debug("staged Vue browser artifact", {
       pkg: pkg.name,
-      from: ANGULAR_BROWSER_DIR,
+      from: VUE_BROWSER_DIR,
     });
   }
 
@@ -253,11 +292,12 @@ export function restoreSymlinks(): void {
   log.debug("restoring symlinks via git checkout");
   try {
     // NOTE: the `integrations/*/_shared` glob restores the per-integration
-    // `_shared` symlinks that staging replaced with real copies. It also
+    // `_shared` symlinks and secondary frontend artifacts that staging replaced
+    // with real copies. It also
     // matches the canonical source dir `integrations/_shared` (a real tracked
     // dir, never a symlink) — a no-op restore there is harmless.
     execSync(
-      "git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared integrations/*/public/angular",
+      "git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared integrations/*/public/angular integrations/*/public/vue",
       {
         cwd: SHOWCASE_DIR,
         stdio: "pipe",
