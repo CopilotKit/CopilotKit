@@ -1,88 +1,15 @@
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  AEO_SYNTHETIC_CONFIG,
   formatSyntheticFailure,
-  loadAeoSyntheticContract,
   runAeoSyntheticChecks,
   validateAeoSyntheticConfig,
 } from "../check-aeo-synthetics";
-import type { AeoSyntheticContract } from "../check-aeo-synthetics";
+import type { AeoSyntheticConfig } from "../check-aeo-synthetics";
 
-const repositoryRoot = resolve(
-  fileURLToPath(new URL(".", import.meta.url)),
-  "../../..",
-);
-
-function fixtureContract(): AeoSyntheticContract {
+function fixtureConfig(): AeoSyntheticConfig {
   return {
-    canonicalHosts: {
-      website: "https://www.copilotkit.ai",
-      docs: "https://docs.copilotkit.ai",
-      docsMcp: "https://mcp.copilotkit.ai",
-    },
-    surfaces: [
-      {
-        id: "website-discovery",
-        host: "website",
-        classification: "standard",
-        endpoints: [
-          { path: "/", contentTypes: ["text/html"] },
-          { path: "/robots.txt", contentTypes: ["text/plain"] },
-          { path: "/sitemap.xml", contentTypes: ["application/xml"] },
-        ],
-      },
-      {
-        id: "website-llms-indexes",
-        host: "website",
-        classification: "community-convention",
-        endpoints: [
-          { path: "/llms.txt", contentTypes: ["text/plain"] },
-          { path: "/llms-full.txt", contentTypes: ["text/plain"] },
-        ],
-      },
-      {
-        id: "docs-page-metadata",
-        host: "docs",
-        classification: "standard",
-        endpoints: [{ path: "/**", contentTypes: ["text/html"] }],
-      },
-      {
-        id: "docs-discovery",
-        host: "docs",
-        classification: "standard",
-        endpoints: [
-          { path: "/robots.txt", contentTypes: ["text/plain"] },
-          { path: "/sitemap.xml", contentTypes: ["application/xml"] },
-        ],
-      },
-      {
-        id: "docs-llms-indexes",
-        host: "docs",
-        classification: "community-convention",
-        endpoints: [
-          { path: "/llms.txt", contentTypes: ["text/plain"] },
-          { path: "/llms-full.txt", contentTypes: ["text/plain"] },
-        ],
-      },
-      {
-        id: "docs-capabilities-v1",
-        host: "docs",
-        classification: "copilotkit-contract",
-        endpoints: [
-          {
-            path: "/.well-known/copilotkit-capabilities/v1.json",
-            contentTypes: ["application/json"],
-          },
-        ],
-      },
-      {
-        id: "docs-mcp-transport",
-        host: "docsMcp",
-        classification: "copilotkit-contract",
-        endpoints: [{ path: "/sse", contentTypes: ["text/event-stream"] }],
-      },
-    ],
+    canonicalHosts: { ...AEO_SYNTHETIC_CONFIG.canonicalHosts },
   };
 }
 
@@ -117,21 +44,18 @@ function successfulResponse(rawUrl: string): Response {
 }
 
 describe("AEO production synthetics", () => {
-  it("derives only the website and docs baseline from the public contract", () => {
-    const contract = loadAeoSyntheticContract(repositoryRoot);
-
-    expect(validateAeoSyntheticConfig(contract)).toEqual([]);
-    expect(contract).not.toHaveProperty("syntheticMonitoring");
+  it("defines a valid website and docs baseline", () => {
+    expect(validateAeoSyntheticConfig(AEO_SYNTHETIC_CONFIG)).toEqual([]);
   });
 
   it("checks the ten website/docs surfaces for four crawlers with bounded concurrency", async () => {
-    const contract = fixtureContract();
+    const config = fixtureConfig();
     let active = 0;
     let maximumActive = 0;
     let requestCount = 0;
 
     const failures = await runAeoSyntheticChecks(
-      contract,
+      config,
       async (input) => {
         requestCount += 1;
         active += 1;
@@ -150,11 +74,10 @@ describe("AEO production synthetics", () => {
   });
 
   it("reports status, content type, and soft-404 evidence with the URL", async () => {
-    const contract = fixtureContract();
-    contract.surfaces = [contract.surfaces[0]!];
+    const config = fixtureConfig();
 
     const failures = await runAeoSyntheticChecks(
-      contract,
+      config,
       async () =>
         new Response(
           '<html><head><meta name="robots" content="noindex"></head><body>Page not found</body></html>',
@@ -163,7 +86,7 @@ describe("AEO production synthetics", () => {
       { validateConfig: false },
     );
 
-    expect(failures).toHaveLength(12);
+    expect(failures).toHaveLength(40);
     expect(formatSyntheticFailure(failures[0]!)).toContain(
       "https://www.copilotkit.ai/",
     );
@@ -177,18 +100,10 @@ describe("AEO production synthetics", () => {
   });
 
   it("rejects a canonical URL on the wrong host", async () => {
-    const contract = fixtureContract();
-    contract.surfaces = [
-      {
-        id: "website-home",
-        host: "website",
-        classification: "standard",
-        endpoints: [{ path: "/", contentTypes: ["text/html"] }],
-      },
-    ];
+    const config = fixtureConfig();
 
     const failures = await runAeoSyntheticChecks(
-      contract,
+      config,
       async () =>
         new Response(
           '<link rel="canonical" href="https://preview.example.com/">Home',
@@ -202,14 +117,12 @@ describe("AEO production synthetics", () => {
     );
   });
 
-  it("fails configuration when the public contract loses an in-scope endpoint", () => {
-    const contract = fixtureContract();
-    contract.surfaces[0]!.endpoints = contract.surfaces[0]!.endpoints.filter(
-      ({ path }) => path !== "/robots.txt",
-    );
+  it("fails configuration when a canonical host is invalid", () => {
+    const config = fixtureConfig();
+    config.canonicalHosts.website = "http://www.copilotkit.ai/path";
 
-    expect(validateAeoSyntheticConfig(contract)).toContain(
-      "website baseline is missing /robots.txt",
+    expect(validateAeoSyntheticConfig(config)).toContain(
+      "website canonical host must be an HTTPS origin",
     );
   });
 });
