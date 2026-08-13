@@ -44,7 +44,8 @@ import type * as HeadlessEntry from "../headless";
  *     caller dropped it, so an unresolvable specifier read as "clean" while
  *     hiding a whole subgraph behind it (e.g. an ESM-style `"./foo.js"` pointing
  *     at `foo.ts`). Unresolvable edges are now resolved where possible and FAIL
- *     LOUDLY where not, and the resolved graph is asserted exactly.
+ *     LOUDLY where not, and the walk has a non-vacuity floor so a truncated
+ *     graph cannot make the deny-lists below pass for the wrong reason.
  *  4. The graph was walked in the `describe` body, so a missing entry file threw
  *     at COLLECTION time and every test in the file — including the one
  *     asserting the entry exists — silently never ran. The walk is lazy and
@@ -108,6 +109,74 @@ const FORBIDDEN_HEAVY = [
 ];
 
 const indexEntry = path.join(srcDir, "index.ts");
+const pkgJsonPath = path.resolve(srcDir, "..", "package.json");
+
+/**
+ * Modules the headless graph MUST reach. Purely a non-vacuity floor: every other
+ * graph assertion in this file is a deny-list, and a deny-list over an EMPTY set
+ * passes. If the walker ever silently stops walking (a resolver regression, a
+ * renamed entry), this is the test that says so instead of the whole file going
+ * green while checking nothing.
+ */
+const REQUIRED_HEADLESS_MODULES = [
+  "headless.ts",
+  "CopilotKitProvider.tsx",
+  "polyfills.ts",
+];
+const REQUIRED_HEADLESS_BARE = ["@copilotkit/react-core/v2/headless"];
+
+interface PkgManifest {
+  dependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  peerDependenciesMeta?: Record<string, { optional?: boolean }>;
+}
+
+/**
+ * The packages a headless consumer is GUARANTEED to be able to resolve: this
+ * package's own `dependencies` plus its NON-optional `peerDependencies`.
+ *
+ * That set is exactly the promise the headless entry sells — "install this and
+ * bundle, without stubbing anything in metro.config.js" — so it is the right
+ * allow-list, and it is READ from package.json rather than hand-copied so it
+ * cannot drift from the manifest it is meant to describe. Anything else in the
+ * graph is a package the consumer may not have: every optional peer
+ * (`@gorhom/bottom-sheet`, `expo-*`, `react-native-streamdown`, `zod`), any
+ * brand-new third-party edge, and any Node builtin (which RN has no business
+ * reaching). This package's OWN name is deliberately absent, which is what keeps
+ * this test doubling as the comment-stripping regression: the eight phantom
+ * `@copilotkit/react-native…` specifiers that JSDoc examples used to harvest are
+ * all self-references, so if `stripComments` regresses they fail here.
+ *
+ * What this set does NOT police is WHICH ENTRY of an allowed package is imported:
+ * `@copilotkit/react-core` is a legitimate dependency, so the fat
+ * `@copilotkit/react-core/v2` passes here and is caught by the dedicated
+ * ALLOWED_REACT_CORE_ENTRIES test (which is package-wide, i.e. stricter). Keep
+ * both — this one is the catch-all for UNENUMERATED packages, that one is the
+ * #4893 entry ban.
+ */
+function guaranteedPackages(): Set<string> {
+  const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8")) as PkgManifest;
+  const optional = pkg.peerDependenciesMeta ?? {};
+  const guaranteed = new Set([
+    ...Object.keys(pkg.dependencies ?? {}),
+    ...Object.keys(pkg.peerDependencies ?? {}).filter(
+      (name) => !optional[name]?.optional,
+    ),
+  ]);
+  // Fail loud rather than allow-list nothing (which would make the assertion
+  // below scream about every legitimate import) or everything.
+  expect(
+    guaranteed.size,
+    `read no dependencies from ${pkgJsonPath} — the allow-list would be meaningless`,
+  ).toBeGreaterThan(0);
+  return guaranteed;
+}
+
+/** `@scope/pkg/sub/path` -> `@scope/pkg`; `pkg/sub` -> `pkg`. */
+function packageNameOf(spec: string): string {
+  const parts = spec.split("/");
+  return spec.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0]!;
+}
 
 /**
  * Comment / string / template alternation, scanned left-to-right in ONE pass.
@@ -297,36 +366,53 @@ describe("@copilotkit/react-native/headless entry", () => {
     },
   );
 
-  // Exact, not a deny-list. The deny-lists below only catch names someone thought
-  // to enumerate; pinning the resolved graph means ANY new edge — including a new
-  // heavy dependency nobody has heard of yet — has to be looked at deliberately.
-  // It is also the regression test for comment stripping: before it, this set
-  // carried eight phantom entries harvested from JSDoc examples.
-  it("headless graph resolves to exactly the expected modules", () => {
+  // The non-vacuity floor for every deny-list in this file (see
+  // REQUIRED_HEADLESS_MODULES). A subset check, so adding a module is free.
+  it("headless graph walk reaches the modules it must reach", () => {
     const { seen, bareSpecs } = graphFor(headlessEntry);
-    expect(rel(seen)).toEqual([
-      "CopilotKitProvider.tsx",
-      "headless.ts",
-      "hooks/render-tool-types.ts",
-      "hooks/useRenderTool.ts",
-      "polyfills.ts",
-      "polyfills/crypto.ts",
-      "polyfills/dom.ts",
-      "polyfills/encoding.ts",
-      "polyfills/location.ts",
-      "polyfills/streams.ts",
-      "streaming-fetch.ts",
-    ]);
-    expect([...bareSpecs].sort()).toEqual([
-      "@ag-ui/client",
-      "@copilotkit/core",
-      "@copilotkit/react-core/v2/context",
-      "@copilotkit/react-core/v2/headless",
-      "@copilotkit/shared",
-      "react",
-      "text-encoding",
-      "web-streams-polyfill",
-    ]);
+    const modules = rel(seen);
+    const missing = REQUIRED_HEADLESS_MODULES.filter(
+      (m) => !modules.includes(m),
+    );
+    expect(
+      missing,
+      `the walk did not reach ${missing.join(", ")} — every deny-list below is ` +
+        `then reasoning about a truncated graph and passes for the wrong reason. ` +
+        `Reached: ${modules.join(", ")}`,
+    ).toEqual([]);
+    const missingBare = REQUIRED_HEADLESS_BARE.filter((s) => !bareSpecs.has(s));
+    expect(
+      missingBare,
+      `no edge to ${missingBare.join(", ")} was harvested — the specifier ` +
+        `extractor is not seeing imports it must see`,
+    ).toEqual([]);
+  });
+
+  // Replaces an EXACT pin of the resolved graph (module list + bare-specifier
+  // list, both `toEqual`). The pin's intent was a catch-all: any new edge,
+  // including a heavy dependency nobody has enumerated yet, had to be looked at
+  // deliberately. Its cost was that it also failed on innocent growth — a new
+  // first-party `src/` module, or a second import of an already-sanctioned
+  // package — putting a red check on unrelated PRs. A guard that fails on
+  // innocent changes gets deleted by the third person who hits it, and then it
+  // guards nothing, so the catch-all is expressed here as an allow-list over
+  // PACKAGES instead of a snapshot of MODULES: adding first-party modules is
+  // free, adding a third-party edge is not.
+  it("headless graph draws only on packages a consumer is guaranteed to have", () => {
+    const { seen, bareSpecs } = graphFor(headlessEntry);
+    const guaranteed = guaranteedPackages();
+    const unsanctioned = [...bareSpecs]
+      .filter((spec) => !guaranteed.has(packageNameOf(spec)))
+      .sort();
+    expect(
+      unsanctioned,
+      `the headless graph reaches package(s) a consumer is not guaranteed to ` +
+        `have installed: ${unsanctioned.join(", ")}. The headless entry's whole ` +
+        `promise is that it bundles with nothing stubbed, so an edge here must ` +
+        `be a dependency or a non-optional peer in package.json — add it there ` +
+        `deliberately (and mind #4893: heavy is still forbidden below), or drop ` +
+        `the import. Graph: ${rel(seen).join(", ")}`,
+    ).toEqual([]);
   });
 
   it("does not pull chat/attachment native peer deps into its import graph", () => {
