@@ -12,15 +12,19 @@ const hoisted = vi.hoisted(() => {
       addMessage: vi.fn(),
     },
     mockRunAgent: vi.fn().mockResolvedValue(undefined),
-    mockToolRegistry: vi.fn(() => new Map()),
     mockExecutingToolCallIds: new Set<string>(),
   };
 });
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+// react-core is mocked wholesale for these unit-level edge cases. Tool-call
+// rendering against a REAL useRenderToolCall lives in
+// CopilotChatToolCalls.test.tsx; here useRenderToolCall resolves no renderer so
+// tool calls fall through to the "Called: <name>" placeholder.
 vi.mock("@copilotkit/react-core/v2/headless", () => ({
   useAgent: vi.fn(() => ({ agent: hoisted.mockAgent })),
+  useRenderToolCall: vi.fn(() => () => null),
 }));
 
 vi.mock("@copilotkit/react-core/v2/context", () => ({
@@ -50,10 +54,6 @@ vi.mock("../messages/UserMessage", () => ({
       content,
     );
   },
-}));
-
-vi.mock("../../hooks/RenderToolContext", () => ({
-  useRenderToolRegistry: () => hoisted.mockToolRegistry(),
 }));
 
 // Mock react-native components with testable DOM elements
@@ -138,7 +138,6 @@ describe("CopilotChat edge cases", () => {
     hoisted.mockAgent.isRunning = false;
     hoisted.mockAgent.addMessage = vi.fn();
     hoisted.mockRunAgent.mockResolvedValue(undefined);
-    hoisted.mockToolRegistry.mockReturnValue(new Map());
     hoisted.mockExecutingToolCallIds.clear();
   });
 
@@ -176,126 +175,6 @@ describe("CopilotChat edge cases", () => {
       expect(getByTestId("custom-flatlist")).toBeTruthy();
       // The default FlatList should not be rendered
       expect(queryByTestId("flatlist")).toBeNull();
-    });
-  });
-
-  describe("malformed tool call arguments", () => {
-    it("handles invalid JSON in tool arguments gracefully", () => {
-      const mockRenderer = (props: any) => {
-        return React.createElement(
-          "div",
-          { "data-testid": "tool-render" },
-          `args: ${JSON.stringify(props.args)}`,
-        );
-      };
-
-      const toolMap = new Map([["brokenTool", mockRenderer]]);
-      hoisted.mockToolRegistry.mockReturnValue(toolMap);
-
-      hoisted.mockAgent.messages = [
-        {
-          id: "1",
-          role: "assistant",
-          content: "",
-          toolCalls: [
-            {
-              id: "tc-1",
-              type: "function" as const,
-              function: {
-                name: "brokenTool",
-                arguments: "this is not valid JSON{{{",
-              },
-            },
-          ],
-        },
-      ];
-
-      // Suppress the expected console.warn
-      const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-      const { getByTestId } = render(<CopilotChat />);
-
-      // Should render with empty args instead of crashing
-      expect(getByTestId("tool-render")).toBeTruthy();
-      expect(getByTestId("tool-render").textContent).toBe("args: {}");
-
-      spy.mockRestore();
-    });
-
-    it("handles empty string arguments in tool calls", () => {
-      const mockRenderer = (props: any) => {
-        return React.createElement(
-          "div",
-          { "data-testid": "tool-render" },
-          `args: ${JSON.stringify(props.args)}`,
-        );
-      };
-
-      const toolMap = new Map([["emptyArgsTool", mockRenderer]]);
-      hoisted.mockToolRegistry.mockReturnValue(toolMap);
-
-      hoisted.mockAgent.messages = [
-        {
-          id: "1",
-          role: "assistant",
-          content: "",
-          toolCalls: [
-            {
-              id: "tc-1",
-              type: "function" as const,
-              function: {
-                name: "emptyArgsTool",
-                arguments: "",
-              },
-            },
-          ],
-        },
-      ];
-
-      const { getByTestId } = render(<CopilotChat />);
-
-      expect(getByTestId("tool-render")).toBeTruthy();
-      expect(getByTestId("tool-render").textContent).toBe("args: {}");
-    });
-  });
-
-  describe("tool call status", () => {
-    it("passes 'executing' status when tool call is in executingToolCallIds", () => {
-      const receivedProps: any[] = [];
-      const mockRenderer = (props: any) => {
-        receivedProps.push(props);
-        return React.createElement(
-          "div",
-          { "data-testid": "tool-render" },
-          `status: ${props.status}`,
-        );
-      };
-
-      const toolMap = new Map([["myTool", mockRenderer]]);
-      hoisted.mockToolRegistry.mockReturnValue(toolMap);
-
-      // Add executing tool call ID to the shared set
-      hoisted.mockExecutingToolCallIds.add("tc-1");
-
-      hoisted.mockAgent.messages = [
-        {
-          id: "1",
-          role: "assistant",
-          content: "",
-          toolCalls: [
-            {
-              id: "tc-1",
-              type: "function" as const,
-              function: { name: "myTool", arguments: '{"key":"val"}' },
-            },
-          ],
-        },
-      ];
-
-      const { getByTestId } = render(<CopilotChat />);
-
-      expect(getByTestId("tool-render").textContent).toBe("status: executing");
-      expect(receivedProps[0].status).toBe("executing");
     });
   });
 
