@@ -186,7 +186,9 @@ export class CopilotRuntimeClient {
               handleGQLErrors(error);
             }
           } else {
-            controller.enqueue(data);
+            if (data !== undefined) {
+              controller.enqueue(data);
+            }
             if (!hasNext) {
               controller.close();
             }

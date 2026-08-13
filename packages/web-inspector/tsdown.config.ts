@@ -9,8 +9,16 @@ export default defineConfig([
     target: "es2022",
     outDir: "dist",
     unbundle: true,
+    // Keep the overlay CSS as a raw string, same as tsdown 0.20 `loader: text`.
+    // Do not lower or minify it. Lightning CSS would change vendor prefixes.
+    css: {
+      // postcss + no plugins leaves the file unchanged. The lightningcss
+      // transformer always rebundles overlay CSS and changes vendor prefixes.
+      transformer: "postcss",
+      target: false,
+      minify: false,
+    },
     loader: {
-      ".css": "text",
       ".svg": "dataurl",
     },
     exports: true,
@@ -23,8 +31,12 @@ export default defineConfig([
     target: "es2018",
     outDir: "dist",
     external: ["lit", "lit/decorators.js"],
+    css: {
+      transformer: "postcss",
+      target: false,
+      minify: false,
+    },
     loader: {
-      ".css": "text",
       ".svg": "dataurl",
     },
     codeSplitting: false,

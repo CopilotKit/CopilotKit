@@ -127,7 +127,7 @@ export class CopilotResponse {
   @Field(() => ResponseStatusUnion)
   status: typeof ResponseStatusUnion;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   runId?: string;
 
   @Field(() => [BaseMessageOutput])

@@ -12,7 +12,7 @@ export class StateResolver {
   @Query(() => LoadAgentStateResponse)
   async loadAgentState(
     @Ctx() ctx: GraphQLContext,
-    @Arg("data") data: LoadAgentStateInput,
+    @Arg("data", () => LoadAgentStateInput) data: LoadAgentStateInput,
   ) {
     const agents = [];
     const hasAgent = agents.some((agent) => agent.name === data.agentName);
