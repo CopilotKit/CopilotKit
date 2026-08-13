@@ -39,13 +39,13 @@
     "@copilotkit/typescript-config": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.3",
-    "better-sqlite3": "^12.2.0",
+    "better-sqlite3": "^12.11.1",
     "tsdown": "^0.22.14",
     "typescript": "7.0.2",
     "vitest": "^3.0.5"
   },
   "peerDependencies": {
-    "better-sqlite3": "^12.2.0"
+    "better-sqlite3": "^12.10.0"
   },
   "peerDependenciesMeta": {
     "better-sqlite3": {
