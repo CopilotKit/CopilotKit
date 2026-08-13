@@ -44,8 +44,8 @@ Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React compone
 
     The "call the component and inspect its output" check runs only for components referenced under the channels pragma. A plain element from an app (react-pragma) file is never called; it goes straight to the image path. An unbranded channels-pragma component that throws during this peek (say it calls a hook) is treated as native rather than crashing the classifier. Each element is peeked **at most once** (the verdict is memoized per element), so passing the same element through more than one call does not re-run your component; on the native path it is then called once more to bind. Components referenced under the channels pragma must therefore be pure and side-effect-free.
 
-    <Callout type="info" title="One post, one route">
-      A single `post()` call is either native IR or one image. You cannot mix native components and image output in the same message. Call `post()` twice if you need both.
+    <Callout type="info" title="Image is URL-only">
+      `<Image url>` is a public URL image. It does not take children. To put a React snapshot inside native text, buttons, or a carousel, wrap it in `<Render>`. See [Render and carousel](/channels/render-and-carousel).
     </Callout>
   </Step>
   <Step>

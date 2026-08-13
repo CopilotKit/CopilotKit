@@ -68,6 +68,12 @@ export const CHANNEL_GUIDE_ROUTES = [
     section: "build",
   },
   {
+    slug: "render-and-carousel",
+    sourceSlug: "channels/render-and-carousel",
+    navTitle: "Render and carousel",
+    section: "build",
+  },
+  {
     slug: "charts",
     sourceSlug: "channels/charts",
     navTitle: "Charts",
