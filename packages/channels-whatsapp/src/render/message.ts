@@ -15,7 +15,10 @@ export type WhatsAppOutbound =
         caption?: string;
       };
     }
-  | { type: "interactive"; interactive: InteractiveButton | InteractiveList };
+  | {
+      type: "interactive";
+      interactive: InteractiveButton | InteractiveList | InteractiveCarousel;
+    };
 
 interface InteractiveButton {
   type: "button";
@@ -34,6 +37,29 @@ interface InteractiveList {
       rows: Array<{ id: string; title: string; description?: string }>;
     }>;
   };
+}
+
+interface CarouselCard {
+  card_index: number;
+  type: "cta_url";
+  header: { type: "image"; image: { id?: string; link?: string } };
+  body?: { text: string };
+  action: CarouselCardAction;
+}
+
+type CarouselCardAction =
+  | { name: "cta_url"; parameters: { display_text: string; url: string } }
+  | {
+      buttons: Array<{
+        type: "quick_reply";
+        quick_reply: { id: string; title: string };
+      }>;
+    };
+
+interface InteractiveCarousel {
+  type: "carousel";
+  body: { text: string };
+  action: { cards: CarouselCard[] };
 }
 
 /** A flattened actionable control extracted from the IR. */
@@ -65,6 +91,7 @@ const VALUE_ONLY_ID = "wa:choice";
 export function renderWhatsAppMessage(ir: ChannelNode[]): WhatsAppOutbound[] {
   const out: WhatsAppOutbound[] = [];
   const prose: string[] = [];
+  const headers: string[] = [];
   const actions: Action[] = [];
   let selectButtonLabel = "Choose";
   let hasSelect = false;
@@ -104,15 +131,35 @@ export function renderWhatsAppMessage(ir: ChannelNode[]): WhatsAppOutbound[] {
         }
         return; // text leaves carry no children
       }
-      case "image": {
-        const url = n.props.url as string | undefined;
-        if (url) {
-          const alt = n.props.alt as string | undefined;
-          out.push({
-            type: "image",
-            image: { link: url, ...(alt ? { caption: alt } : {}) },
-          });
+      case "image":
+      case "render": {
+        const image = imageFromProps(n.props);
+        if (image) out.push(imagePayload(image));
+        return;
+      }
+      case "header": {
+        const headerText = textOf(n.props.children);
+        if (headerText) headers.push(headerText);
+        return;
+      }
+      case "carousel": {
+        const slides = childNodes(n).map(parseSlide);
+        const mode = nativeCarouselMode(slides);
+        if (mode) {
+          const body = headers.pop() ?? " ";
+          out.push(carouselPayload(body, slides, mode));
+        } else {
+          for (const slide of slides) {
+            if (!slide.image) continue;
+            out.push(imagePayload(slide.image, slideCaption(slide)));
+          }
         }
+        return;
+      }
+      case "carouselCard": {
+        const slide = parseSlide(n);
+        if (slide.image)
+          out.push(imagePayload(slide.image, slideCaption(slide)));
         return;
       }
       case "button": {
@@ -155,7 +202,7 @@ export function renderWhatsAppMessage(ir: ChannelNode[]): WhatsAppOutbound[] {
         prose.push("───");
         return;
       default:
-        // Containers (message/section/header/markdown/fields/table/context/actions/…)
+        // Containers (message/section/markdown/fields/table/context/actions/…)
         // and unknown nodes: recurse into children.
         visitChildren(n.props.children);
     }
@@ -163,7 +210,7 @@ export function renderWhatsAppMessage(ir: ChannelNode[]): WhatsAppOutbound[] {
 
   for (const n of ir) visitNode(n);
 
-  const bodyText = prose.filter(Boolean).join("\n");
+  const bodyText = [...headers, ...prose].filter(Boolean).join("\n");
 
   if (actions.length === 0) {
     if (bodyText) out.unshift(textPayload(bodyText));
@@ -241,6 +288,186 @@ function listPayload(
             })),
           },
         ],
+      },
+    },
+  };
+}
+
+interface SlideImage {
+  id?: string;
+  link?: string;
+  alt?: string;
+}
+
+interface SlideButton {
+  title: string;
+  url?: string;
+  id?: string;
+}
+
+interface ParsedSlide {
+  image?: SlideImage;
+  header?: string;
+  section?: string;
+  buttons: SlideButton[];
+}
+
+function childNodes(n: ChannelNode): ChannelNode[] {
+  const c = n.props?.children;
+  if (c == null || typeof c === "boolean") return [];
+  const list = Array.isArray(c) ? c : [c];
+  return list.filter(
+    (x): x is ChannelNode => typeof x === "object" && x !== null && "type" in x,
+  );
+}
+
+function imageFromProps(
+  props: Record<string, unknown> | undefined,
+): SlideImage | undefined {
+  if (!props) return undefined;
+  const alt = (props.alt as string | undefined) || undefined;
+  const mediaId = [props.fileId, props.slackFileId].find(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  );
+  if (mediaId) return { id: mediaId, alt };
+  const url = (props.url ?? props.image_url) as string | undefined;
+  if (url) return { link: url, alt };
+  return undefined;
+}
+
+function imagePayload(image: SlideImage, caption?: string): WhatsAppOutbound {
+  const cap = caption ?? image.alt;
+  return {
+    type: "image",
+    image: {
+      ...(image.id ? { id: image.id } : { link: image.link }),
+      ...(cap ? { caption: cap } : {}),
+    },
+  };
+}
+
+function parseButton(n: ChannelNode): SlideButton | undefined {
+  const title = textOf(n.props.children);
+  const url = n.props.url;
+  if (typeof url === "string" && url.length > 0) {
+    return { title, url };
+  }
+  const handlerId = idFromHandler(n.props.onClick);
+  if (handlerId) {
+    return { title, id: buildControlId(handlerId, n.props.value) };
+  }
+  if (n.props.value !== undefined) {
+    return { title, id: buildControlId(VALUE_ONLY_ID, n.props.value) };
+  }
+  return undefined;
+}
+
+function parseSlide(slide: ChannelNode): ParsedSlide {
+  if (slide.type === "image" || slide.type === "render") {
+    return { image: imageFromProps(slide.props), buttons: [] };
+  }
+  const parsed: ParsedSlide = { buttons: [] };
+  if (slide.type !== "carouselCard") return parsed;
+  for (const child of childNodes(slide)) {
+    if (child.type === "image" || child.type === "render") {
+      parsed.image = imageFromProps(child.props);
+    } else if (child.type === "header") {
+      const t = textOf(child.props.children);
+      if (t) parsed.header = t;
+    } else if (child.type === "section") {
+      const t = textOf(child.props.children);
+      if (t) parsed.section = t;
+    } else if (child.type === "button") {
+      const button = parseButton(child);
+      if (button) parsed.buttons.push(button);
+    }
+  }
+  return parsed;
+}
+
+function slideCaption(slide: ParsedSlide): string | undefined {
+  const parts = [slide.header, slide.section].filter(Boolean);
+  if (parts.length > 0) return parts.join("\n");
+  return slide.image?.alt;
+}
+
+/**
+ * Native carousel only when every slide has an image, 2–10 slides, the same
+ * button count (>= 1), and either all URL (exactly one per card) or all
+ * quick-reply. Mixed or unmatched slides fall back to sequential images.
+ */
+function nativeCarouselMode(
+  slides: ParsedSlide[],
+): "quick_reply" | "cta_url" | null {
+  if (slides.length < 2 || slides.length > WA_LIMITS.carouselSlides) {
+    return null;
+  }
+  if (!slides.every((s) => s.image && (s.image.id || s.image.link)))
+    return null;
+  const count = slides[0]!.buttons.length;
+  if (count < 1) return null;
+  if (!slides.every((s) => s.buttons.length === count)) return null;
+  const allUrl = slides.every((s) => s.buttons.every((b) => !!b.url));
+  const allQuickReply = slides.every((s) => s.buttons.every((b) => !b.url));
+  // Meta allows one URL button per card, or one or more matching quick-replies.
+  if (allUrl && count === 1) return "cta_url";
+  if (allQuickReply) return "quick_reply";
+  return null;
+}
+
+function carouselPayload(
+  body: string,
+  slides: ParsedSlide[],
+  mode: "quick_reply" | "cta_url",
+): WhatsAppOutbound {
+  return {
+    type: "interactive",
+    interactive: {
+      type: "carousel",
+      body: {
+        text: truncateText(markdownToWhatsApp(body), WA_LIMITS.interactiveBody),
+      },
+      action: {
+        cards: slides.map((slide, card_index) => {
+          const sectionText = slide.section
+            ? truncateText(
+                markdownToWhatsApp(slide.section),
+                WA_LIMITS.carouselCardBody,
+              )
+            : undefined;
+          const image = slide.image!;
+          const card: CarouselCard = {
+            card_index,
+            type: "cta_url",
+            header: {
+              type: "image",
+              image: image.id ? { id: image.id } : { link: image.link },
+            },
+            ...(sectionText ? { body: { text: sectionText } } : {}),
+            action:
+              mode === "cta_url"
+                ? {
+                    name: "cta_url",
+                    parameters: {
+                      display_text: truncateText(
+                        slide.buttons[0]!.title,
+                        WA_LIMITS.buttonTitle,
+                      ),
+                      url: slide.buttons[0]!.url!,
+                    },
+                  }
+                : {
+                    buttons: slide.buttons.map((b) => ({
+                      type: "quick_reply" as const,
+                      quick_reply: {
+                        id: b.id!,
+                        title: truncateText(b.title, WA_LIMITS.buttonTitle),
+                      },
+                    })),
+                  },
+          };
+          return card;
+        }),
       },
     },
   };

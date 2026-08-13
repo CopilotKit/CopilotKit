@@ -106,6 +106,27 @@ describe("whatsapp() adapter", () => {
     });
   });
 
+  it("stageFile uploads media and does not send a message", async () => {
+    const a = whatsapp(opts) as any;
+    a.client = {
+      uploadMedia: vi.fn(async () => "MEDIA99"),
+      sendMessage: vi.fn(),
+    };
+    const bytes = new Uint8Array([1, 2, 3]);
+    const res = await a.stageFile(
+      { to: "111", phoneNumberId: "PNID" },
+      { bytes, filename: "render-hat.png", altText: "Hat" },
+    );
+    expect(res).toEqual({ fileId: "MEDIA99" });
+    expect(a.client.uploadMedia).toHaveBeenCalledTimes(1);
+    expect(a.client.uploadMedia).toHaveBeenCalledWith(
+      bytes,
+      "image/png",
+      "render-hat.png",
+    );
+    expect(a.client.sendMessage).not.toHaveBeenCalled();
+  });
+
   it("postFile sends a document payload by id for non-image mimes", async () => {
     const a = whatsapp(opts) as any;
     const calls: any[] = [];

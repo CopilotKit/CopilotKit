@@ -6,6 +6,8 @@ import type {
   RunRenderer,
   ConversationStore,
   UserQuery,
+  StageFileArgs,
+  StagedFile,
 } from "@copilotkit/channels-core";
 import type {
   ChannelNode,
@@ -218,6 +220,19 @@ export class WhatsAppAdapter implements PlatformAdapter {
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
+  }
+
+  /**
+   * Upload media without posting a message. The Cloud API media id is what
+   * image / carousel payloads send later as `image.id`.
+   */
+  async stageFile(
+    _target: ReplyTarget,
+    { bytes, filename }: StageFileArgs,
+  ): Promise<StagedFile> {
+    const mime = guessMime(filename);
+    const mediaId = await this.client.uploadMedia(bytes, mime, filename);
+    return { fileId: mediaId };
   }
 
   /** Send agent/freeform text: convert markdown to WhatsApp formatting, split to ≤bodyText chunks. */
