@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import ts from "typescript";
+import { ts } from "../../lib/typescript-js-api";
 
 const SCHEMA_VERSION = 1;
 const MANIFEST_PATH = "scripts/release/public-api/manifest.v1.json";
@@ -288,7 +288,7 @@ function provenance(
   path: string,
   selector: string,
 ): Provenance {
-  return { kind, path, selector };
+  return { kind, path: path.replaceAll("\\", "/"), selector };
 }
 
 function declarationName(node: ts.Node): string | undefined {
@@ -347,7 +347,7 @@ function resolveModule(
   if (!match) {
     throw new Error(`Cannot resolve ${specifier} from ${fromPath}`);
   }
-  return relative(root, match);
+  return relative(root, match).replaceAll("\\", "/");
 }
 
 function findExportedDeclaration(

@@ -46,7 +46,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20.x, 22.x, 24.x]
+        # tsdown 0.22 requires Node ^22.18.0 || >=24.11.0. These jobs build
+        # packages before they test them, so Node 20 cannot stay in the matrix.
+        node-version: [22.x, 24.x]
         # React 18 + 19 span the supported peer range
         # ("^18 || ^19") declared by @copilotkit/react-core, react-ui, and
         # a2ui-renderer. 19 is the repo default (frozen lockfile); 18 is
@@ -241,7 +243,7 @@ jobs:
         run: npx vitest run --config scripts/release/vitest.config.mts
 
       - name: Verify packed Channels umbrella contract
-        if: matrix.node-version == '20.x'
+        if: matrix.node-version == '24.x'
         run: pnpm run verify:channels-umbrella
 
       - name: Install Chromium for packed Angular browser smoke
@@ -253,5 +255,5 @@ jobs:
         run: pnpm run verify:angular-package
 
       - name: Verify packed Runtime managed Channels contract
-        if: matrix.node-version == '20.x'
+        if: matrix.node-version == '24.x'
         run: pnpm run verify:runtime-package
