@@ -297,6 +297,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/channels/charts",
+          "exportKey": "./charts",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/charts.d.ts",
+            "import": "./dist/charts.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels/package.json",
+            "selector": "exports[\"./charts\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/channels/discord",
           "exportKey": "./discord",
           "kind": "code",
@@ -467,9 +481,11 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "react": ">=18",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
+          "react",
           "vitest"
         ],
         "provenance": [
@@ -523,6 +539,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/channels-core/charts",
+          "exportKey": "./charts",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/charts/index.d.ts",
+            "import": "./dist/charts/index.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels-core/package.json",
+            "selector": "exports[\"./charts\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/channels-core/jsx-dev-runtime",
           "exportKey": "./jsx-dev-runtime",
           "kind": "code",
@@ -567,9 +597,11 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "react": ">=18",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
+          "react",
           "vitest"
         ],
         "provenance": [
@@ -899,7 +931,24 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "peerDependencies": {
+          "react": "^18.0.0 || ^19.0.0"
+        },
+        "optionalPeerDependencies": [
+          "react"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-ui/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/channels-ui/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
       },
       "provenance": {
         "name": {
