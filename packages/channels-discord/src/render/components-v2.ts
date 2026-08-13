@@ -228,25 +228,16 @@ function addNode(
       return;
     }
     case "image": {
-      const url = (props.url ?? props.image_url) as string | undefined;
-      if (url) {
-        // Discord counts the MediaGallery PLUS every nested item toward the cap.
-        // One image node = the gallery (1) + a single item (1).
-        const cost = 1 + 1;
-        if (
-          budget.components + cost >
-          DISCORD_LIMITS.componentsPerMessage - 1
-        ) {
-          signalOverflow(budget, container);
-          return;
-        }
-        budget.components += cost;
-        container.addMediaGalleryComponents(
-          new MediaGalleryBuilder().addItems(
-            new MediaGalleryItemBuilder().setURL(url),
-          ),
-        );
-      }
+      const url = imageUrl(props);
+      if (url) addImageGallery([url], budget, container);
+      return;
+    }
+    case "carousel": {
+      addCarousel(childNodes(node), budget, container);
+      return;
+    }
+    case "carouselCard": {
+      addCarousel([node], budget, container);
       return;
     }
     case "actions": {
@@ -291,6 +282,122 @@ function addNode(
     }
     default:
       return; // unknown intrinsic — skip
+  }
+}
+
+/**
+ * Prefer a staged Discord attachment (`attachment://name`), then a public URL.
+ * `attachmentName` is what `stageFile` stamps onto the rewritten image node.
+ */
+function imageUrl(props: Record<string, unknown>): string | undefined {
+  const name = props.attachmentName;
+  if (typeof name === "string" && name.length > 0) {
+    return `attachment://${name}`;
+  }
+  const url = props.url ?? props.image_url;
+  return typeof url === "string" && url.length > 0 ? url : undefined;
+}
+
+/** One Media Gallery for the given URLs. Charges gallery + each item. */
+function addImageGallery(
+  urls: string[],
+  budget: RenderBudget,
+  container: ContainerBuilder,
+): void {
+  if (urls.length === 0) return;
+  const { items, overflow } = clampArray(
+    urls,
+    DISCORD_LIMITS.mediaGalleryItems,
+  );
+  if (overflow > 0) {
+    console.warn(
+      `[bot-discord] Media Gallery has more than ${DISCORD_LIMITS.mediaGalleryItems} items; dropping ${overflow}.`,
+    );
+  }
+  // Discord counts the MediaGallery PLUS every nested item toward the cap.
+  const cost = 1 + items.length;
+  if (budget.components + cost > DISCORD_LIMITS.componentsPerMessage - 1) {
+    signalOverflow(budget, container);
+    return;
+  }
+  budget.components += cost;
+  container.addMediaGalleryComponents(
+    new MediaGalleryBuilder().addItems(
+      ...items.map((url) => new MediaGalleryItemBuilder().setURL(url)),
+    ),
+  );
+}
+
+/**
+ * Discord has no swipe carousel. One Media Gallery holds every slide image.
+ * Card headers/sections become TextDisplays above the gallery. Buttons become
+ * Action Rows under it.
+ */
+function addCarousel(
+  slides: ChannelNode[],
+  budget: RenderBudget,
+  container: ContainerBuilder,
+): void {
+  const texts: Array<{ kind: "header" | "section"; node: ChannelNode }> = [];
+  const urls: string[] = [];
+  const buttons: ChannelNode[] = [];
+
+  for (const slide of slides) {
+    if (slide.type === "image" || slide.type === "render") {
+      const url = imageUrl(slide.props ?? {});
+      if (url) urls.push(url);
+      continue;
+    }
+    for (const child of childNodes(slide)) {
+      if (child.type === "header" || child.type === "section") {
+        texts.push({ kind: child.type, node: child });
+      } else if (child.type === "image" || child.type === "render") {
+        const url = imageUrl(child.props ?? {});
+        if (url) urls.push(url);
+      } else if (child.type === "button") {
+        buttons.push(child);
+      }
+    }
+  }
+
+  for (const { kind, node } of texts) {
+    if (budgetFull(budget)) {
+      signalOverflow(budget, container);
+      return;
+    }
+    if (kind === "header") {
+      addText(
+        "# " + truncateText(collectText(node), DISCORD_LIMITS.headerText),
+        budget,
+        container,
+      );
+    } else {
+      addText(
+        truncateFenced(
+          discordMarkdown(collectText(node)),
+          DISCORD_LIMITS.textDisplayChars,
+        ),
+        budget,
+        container,
+      );
+    }
+  }
+
+  if (budgetFull(budget) && urls.length > 0) {
+    signalOverflow(budget, container);
+    return;
+  }
+  addImageGallery(urls, budget, container);
+
+  if (buttons.length === 0) return;
+  for (const row of buildActionRows(buttons)) {
+    const cost = 1 + row.components.length;
+    if (budget.components + cost > DISCORD_LIMITS.componentsPerMessage - 1) {
+      signalOverflow(budget, container);
+      break;
+    }
+    budget.components += cost;
+    container.addActionRowComponents(row);
   }
 }
 

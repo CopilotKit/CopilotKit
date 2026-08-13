@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { MessageFlags } from "discord.js";
+import { ComponentType, MessageFlags } from "discord.js";
 import { DiscordAdapter, discord } from "./adapter.js";
 
 function fakeClient() {
@@ -430,5 +430,120 @@ describe("DiscordAdapter", () => {
     expect(body.body).toEqual([
       expect.objectContaining({ name: "agent", description: "x" }),
     ]);
+  });
+});
+
+function adapterWithSend() {
+  const send = vi.fn(async () => ({
+    id: "m1",
+    edit: vi.fn(async () => {}),
+    delete: vi.fn(async () => {}),
+  }));
+  const channel = {
+    id: "c1",
+    send,
+    messages: { fetch: vi.fn() },
+  };
+  const client = {
+    ...fakeClient(),
+    channels: { fetch: vi.fn(async () => channel) },
+  };
+  const adapter = new DiscordAdapter(
+    { botToken: "t", appId: "app" },
+    { client: client as never, rest: { put: vi.fn() } as never },
+  );
+  return { adapter, send };
+}
+
+describe("DiscordAdapter.stageFile", () => {
+  it("returns unique attachment names and does not send a message", async () => {
+    const { adapter, send } = adapterWithSend();
+    const first = await adapter.stageFile({ channelId: "c1" } as never, {
+      bytes: new Uint8Array([1, 2, 3]),
+      filename: "hat.png",
+      altText: "Hat",
+    });
+    const second = await adapter.stageFile({ channelId: "c1" } as never, {
+      bytes: new Uint8Array([4, 5, 6]),
+      filename: "shoes.png",
+      altText: "Shoes",
+    });
+    expect(first).toEqual({ attachmentName: "render-0.png" });
+    expect(second).toEqual({ attachmentName: "render-1.png" });
+    expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe("DiscordAdapter.post staged files", () => {
+  it("attaches staged PNGs on the same send as the Media Gallery", async () => {
+    const { adapter, send } = adapterWithSend();
+    const a = await adapter.stageFile({ channelId: "c1" } as never, {
+      bytes: new Uint8Array([1, 2, 3]),
+      filename: "a.png",
+      altText: "A",
+    });
+    const b = await adapter.stageFile({ channelId: "c1" } as never, {
+      bytes: new Uint8Array([4, 5, 6]),
+      filename: "b.png",
+      altText: "B",
+    });
+
+    await adapter.post({ channelId: "c1" } as never, [
+      {
+        type: "carousel",
+        props: {
+          children: [
+            {
+              type: "image",
+              props: { alt: "A", attachmentName: a.attachmentName },
+            },
+            {
+              type: "image",
+              props: { alt: "B", attachmentName: b.attachmentName },
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    const payload = send.mock.calls[0]![0] as {
+      files?: Array<{ name: string; attachment: Buffer }>;
+      components: Array<{ toJSON(): any }>;
+    };
+    expect(payload.files).toHaveLength(2);
+    expect(payload.files?.map((f) => f.name)).toEqual([
+      "render-0.png",
+      "render-1.png",
+    ]);
+    const json = payload.components[0]!.toJSON();
+    const gallery = json.components.find(
+      (c: any) => c.type === ComponentType.MediaGallery,
+    );
+    expect(gallery.items.map((i: any) => i.media.url)).toEqual([
+      "attachment://render-0.png",
+      "attachment://render-1.png",
+    ]);
+  });
+
+  it("posts a public URL image without attaching files", async () => {
+    const { adapter, send } = adapterWithSend();
+    await adapter.post({ channelId: "c1" } as never, [
+      {
+        type: "image",
+        props: { url: "https://cdn.example/x.png", alt: "x" },
+      },
+    ]);
+    expect(send).toHaveBeenCalledTimes(1);
+    const payload = send.mock.calls[0]![0] as {
+      files?: unknown;
+      components: Array<{ toJSON(): any }>;
+    };
+    expect(payload.files).toBeUndefined();
+    const json = payload.components[0]!.toJSON();
+    const gallery = json.components.find(
+      (c: any) => c.type === ComponentType.MediaGallery,
+    );
+    expect(gallery.items[0].media.url).toBe("https://cdn.example/x.png");
   });
 });
