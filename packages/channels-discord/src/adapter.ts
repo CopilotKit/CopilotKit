@@ -19,6 +19,8 @@ import type {
   CommandSpec,
   NativePayload,
   IngressIdentityContext,
+  StageFileArgs,
+  StagedFile,
 } from "@copilotkit/channels-core";
 import type {
   ChannelNode,
@@ -133,6 +135,13 @@ export class DiscordAdapter implements PlatformAdapter {
   private isReady = false;
   private pendingCommands: readonly CommandSpec[] = [];
   private readonly userCache = new Map<string, ProviderActor>();
+  /**
+   * Bytes staged by {@link stageFile}, keyed by `attachmentName`
+   * (`render-0.png`, …). `post` / `update` attach them on the same send as
+   * the Components V2 payload, then drop the used names.
+   */
+  private readonly stagedFiles = new Map<string, Uint8Array>();
+  private stagedFileSeq = 0;
   /**
    * Tracks live component interactions so a handler can open a modal (which
    * must be the interaction's INITIAL response, within ~3s) before the adapter
@@ -338,9 +347,13 @@ export class DiscordAdapter implements PlatformAdapter {
   async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const channel = await this.fetchSendable(t.channelId);
-    const { components, flags } = renderDiscordMessage(ir);
-    const msg = await channel.send({ components, flags });
-    return { id: msg.id, channelId: t.channelId };
+    const { payload, files } = this.messagePayload(ir);
+    try {
+      const msg = await channel.send(payload);
+      return { id: msg.id, channelId: t.channelId };
+    } finally {
+      this.releaseStaged(files);
+    }
   }
 
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
@@ -349,8 +362,14 @@ export class DiscordAdapter implements PlatformAdapter {
     if (!ref.id) return;
     const channel = await this.fetchSendable(this.channelIdOf(ref));
     const msg = await channel.messages.fetch(ref.id);
-    const { components, flags } = renderDiscordMessage(ir);
-    await msg.edit({ components, flags });
+    // discord.js Message.edit accepts `files`, so a full re-render can attach
+    // new PNGs in place. We do not delete + repost.
+    const { payload, files } = this.messagePayload(ir);
+    try {
+      await msg.edit(payload);
+    } finally {
+      this.releaseStaged(files);
+    }
   }
 
   async stream(
@@ -496,6 +515,20 @@ export class DiscordAdapter implements PlatformAdapter {
     }
   }
 
+  /**
+   * Host a PNG without posting a channel message. Bytes stay in
+   * {@link stagedFiles} until `post` / `update` attach them on the same
+   * Components V2 send as `attachment://render-N.png`.
+   */
+  async stageFile(
+    _target: BotReplyTarget,
+    { bytes }: StageFileArgs,
+  ): Promise<StagedFile> {
+    const attachmentName = `render-${this.stagedFileSeq++}.png`;
+    this.stagedFiles.set(attachmentName, bytes);
+    return { attachmentName };
+  }
+
   async postFile(
     target: BotReplyTarget,
     args: {
@@ -580,8 +613,12 @@ export class DiscordAdapter implements PlatformAdapter {
     try {
       const u = await this.client.users.fetch(userId);
       const dm = await u.createDM();
-      const { components, flags } = renderDiscordMessage(ir);
-      await dm.send({ components, flags });
+      const { payload, files } = this.messagePayload(ir);
+      try {
+        await dm.send(payload);
+      } finally {
+        this.releaseStaged(files);
+      }
       return {
         ok: true,
         usedFallback: true,
@@ -681,6 +718,54 @@ export class DiscordAdapter implements PlatformAdapter {
     return String((ref as { channelId?: unknown }).channelId ?? "");
   }
 
+  /**
+   * Components V2 payload plus any staged PNG attachments collected from the
+   * IR. `files` is empty when every image is a public URL.
+   */
+  private messagePayload(ir: ChannelNode[]): {
+    payload: {
+      components: ReturnType<typeof renderDiscordMessage>["components"];
+      flags: number;
+      files?: Array<{ attachment: Buffer; name: string }>;
+    };
+    files: Array<{ attachment: Buffer; name: string }>;
+  } {
+    const { components, flags } = renderDiscordMessage(ir);
+    const files = this.collectStagedFiles(ir);
+    return {
+      payload: {
+        components,
+        flags,
+        ...(files.length > 0 ? { files } : {}),
+      },
+      files,
+    };
+  }
+
+  private collectStagedFiles(
+    ir: ChannelNode[],
+  ): Array<{ attachment: Buffer; name: string }> {
+    const files: Array<{ attachment: Buffer; name: string }> = [];
+    const seen = new Set<string>();
+    const walk = (node: ChannelNode): void => {
+      const name = node.props?.attachmentName;
+      if (typeof name === "string" && name.length > 0 && !seen.has(name)) {
+        seen.add(name);
+        const bytes = this.stagedFiles.get(name);
+        if (bytes) {
+          files.push({ attachment: Buffer.from(bytes), name });
+        }
+      }
+      for (const child of irChildren(node)) walk(child);
+    };
+    for (const node of ir) walk(node);
+    return files;
+  }
+
+  private releaseStaged(files: Array<{ name: string }>): void {
+    for (const file of files) this.stagedFiles.delete(file.name);
+  }
+
   private async fetchSendable(channelId: string): Promise<SendableChannel> {
     const ch = await this.client.channels.fetch(channelId);
     if (!ch || !("send" in (ch as object))) {
@@ -748,4 +833,17 @@ export class DiscordAdapter implements PlatformAdapter {
 
 export function discord(opts: DiscordAdapterOptions): DiscordAdapter {
   return new DiscordAdapter(opts);
+}
+
+function irChildren(node: ChannelNode): ChannelNode[] {
+  const children = node.props?.children;
+  if (Array.isArray(children)) return children as ChannelNode[];
+  if (
+    children &&
+    typeof children === "object" &&
+    "type" in (children as object)
+  ) {
+    return [children as ChannelNode];
+  }
+  return [];
 }
