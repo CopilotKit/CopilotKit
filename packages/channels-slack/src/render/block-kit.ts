@@ -360,7 +360,7 @@ function renderNode(
       return;
     }
     case "image": {
-      out.push(slackImageElement(props) as KnownBlock);
+      out.push(slackImageElement(props) as unknown as KnownBlock);
       return;
     }
     case "carousel": {
@@ -371,11 +371,11 @@ function renderNode(
       out.push({
         type: "carousel",
         elements: items.map((slide) => renderSlackCard(slide)),
-      } as KnownBlock);
+      } as unknown as KnownBlock);
       return;
     }
     case "carouselCard": {
-      out.push(renderSlackCard(node) as KnownBlock);
+      out.push(renderSlackCard(node) as unknown as KnownBlock);
       return;
     }
     case "divider": {

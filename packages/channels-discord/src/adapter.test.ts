@@ -508,7 +508,7 @@ describe("DiscordAdapter.post staged files", () => {
     ]);
 
     expect(send).toHaveBeenCalledTimes(1);
-    const payload = send.mock.calls[0]![0] as {
+    const payload = send.mock.calls[0]?.[0] as unknown as {
       files?: Array<{ name: string; attachment: Buffer }>;
       components: Array<{ toJSON(): any }>;
     };
@@ -536,7 +536,7 @@ describe("DiscordAdapter.post staged files", () => {
       },
     ]);
     expect(send).toHaveBeenCalledTimes(1);
-    const payload = send.mock.calls[0]![0] as {
+    const payload = send.mock.calls[0]?.[0] as unknown as {
       files?: unknown;
       components: Array<{ toJSON(): any }>;
     };
@@ -582,7 +582,7 @@ describe("DiscordAdapter.update staged files", () => {
     ]);
 
     expect(edit).toHaveBeenCalledTimes(1);
-    const payload = edit.mock.calls[0]![0] as {
+    const payload = edit.mock.calls[0]?.[0] as unknown as {
       files?: Array<{ name: string; attachment: Buffer }>;
       components: Array<{ toJSON(): any }>;
     };
