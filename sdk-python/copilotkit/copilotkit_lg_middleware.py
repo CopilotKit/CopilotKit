@@ -447,6 +447,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     ) -> ModelResponse:
         _extract_forwarded_headers_from_config()
         _ensure_httpx_hook(request.model)
+        request = request.override(messages=list(request.messages))
         self._restore_intercepted_tool_call_history(
             request.messages,
             request.state.get("copilotkit", {}),
@@ -674,18 +675,15 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         cls,
         messages: list,
         copilotkit_state: dict[str, Any],
-        *,
-        synthesize_frontend_tool_results: bool = True,
     ) -> bool:
-        """Rehydrate intercepted FE tool calls before model history.
+        """Rehydrate intercepted FE tool calls with synthetic results.
 
         ``after_model`` strips FE calls so the backend ToolNode only executes
         backend calls. Once backend ToolMessages have been appended, the next
         LLM call still needs to see the full assistant turn, including the FE
         calls it already made. Synthetic ToolMessages make that restored
-        history valid for providers that require every tool call to be
-        answered. ``after_agent`` disables synthesis so the persisted FE call
-        remains orphaned for the real frontend result.
+        request history valid for providers that require every tool call to be
+        answered.
         """
         intercepted_tool_calls = copilotkit_state.get("intercepted_tool_calls")
         original_message_id = copilotkit_state.get("original_ai_message_id")
@@ -758,11 +756,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                     continue
 
                 tool_message = tool_messages_by_id.get(tool_call_id)
-                if (
-                    synthesize_frontend_tool_results
-                    and tool_message is None
-                    and tool_call_id in intercepted_by_id
-                ):
+                if tool_message is None and tool_call_id in intercepted_by_id:
                     tool_message = cls._frontend_tool_result_message(tool_call)
                     if tool_message is not None:
                         changed = True
@@ -793,6 +787,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     ) -> ModelResponse:
         _extract_forwarded_headers_from_config()
         _ensure_httpx_hook(request.model)
+        request = request.override(messages=list(request.messages))
         self._restore_intercepted_tool_call_history(
             request.messages,
             request.state.get("copilotkit", {}),
@@ -1064,22 +1059,22 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             return None
 
         messages = state.get("messages", [])
-        updated_messages = list(messages)
-        self._restore_intercepted_tool_call_history(
-            updated_messages,
-            copilotkit_state,
-            synthesize_frontend_tool_results=False,
-        )
-        synthetic_result_ids = {
-            f"copilotkit-fe-tool-result-{call.get('id')}"
-            for call in intercepted_tool_calls
-            if isinstance(call, dict) and call.get("id")
-        }
-        updated_messages = [
-            message
-            for message in updated_messages
-            if getattr(message, "id", None) not in synthetic_result_ids
-        ]
+        updated_messages = []
+
+        for message in messages:
+            if isinstance(message, AIMessage) and message.id == original_message_id:
+                restored_tool_calls = (
+                    copilotkit_state.get("original_tool_calls")
+                    or [*(message.tool_calls or []), *intercepted_tool_calls]
+                )
+                updated_messages.append(
+                    self._copy_ai_message_with_tool_calls(
+                        message,
+                        list(restored_tool_calls),
+                    )
+                )
+            else:
+                updated_messages.append(message)
 
         return {
             "messages": updated_messages,

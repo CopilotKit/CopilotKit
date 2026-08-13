@@ -615,7 +615,8 @@ def test_after_model_intercepts_frontend_tool_calls_and_leaves_backend_alone():
     ]
 
 
-def test_next_model_call_sees_intercepted_frontend_tool_call_history():
+@pytest.mark.parametrize("use_async", [False, True])
+def test_next_model_call_sees_request_scoped_frontend_tool_history(use_async):
     middleware = CopilotKitMiddleware()
     fe_tool = {"function": {"name": "navigate"}}
     backend_call = {"id": "1", "name": "backend_search", "args": {"q": "hi"}}
@@ -651,7 +652,17 @@ def test_next_model_call_sees_intercepted_frontend_tool_call_history():
     }
     request = _make_request(state=state, messages=messages)
 
-    seen, _ = _run_wrap(middleware, request)
+    if use_async:
+        received: dict[str, ModelRequest] = {}
+
+        async def handler(req: ModelRequest):
+            received["req"] = req
+            return "ok"
+
+        asyncio.run(middleware.awrap_model_call(request, handler))
+        seen = received["req"]
+    else:
+        seen, _ = _run_wrap(middleware, request)
 
     ai = next(m for m in seen.messages if isinstance(m, AIMessage) and m.id == "ai-1")
     assert [tc["id"] for tc in ai.tool_calls] == ["1", "2"]
@@ -663,6 +674,13 @@ def test_next_model_call_sees_intercepted_frontend_tool_call_history():
     assert [m.tool_call_id for m in tool_messages] == ["1", "2"]
     assert tool_messages[0].content == '{"hits": 1}'
     assert json.loads(tool_messages[1].content) == {"status": "forwarded_to_frontend"}
+
+    persisted_ai = next(
+        m for m in messages if isinstance(m, AIMessage) and m.id == "ai-1"
+    )
+    assert [tc["id"] for tc in persisted_ai.tool_calls] == ["1"]
+    persisted_tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+    assert [m.tool_call_id for m in persisted_tool_messages] == ["1"]
 
 
 def test_next_model_call_preserves_multiple_frontend_tool_calls_in_order():
@@ -782,52 +800,13 @@ def test_after_agent_no_intercepted_returns_no_update():
 
 def test_after_agent_restores_intercepted_tool_calls_on_original_message():
     middleware = CopilotKitMiddleware()
-    intercepted = [{"id": "2", "name": "navigate", "args": {"path": "/x"}}]
-    state = {
-        "messages": [
-            HumanMessage("hi"),
-            AIMessage(content="", id="ai-1"),
-        ],
-        "copilotkit": {
-            "intercepted_tool_calls": intercepted,
-            "original_ai_message_id": "ai-1",
-        },
-    }
-    runtime = MagicMock(name="runtime")
-
-    result = middleware.after_agent(state, runtime)
-
-    assert result is not None
-    restored_ai = next(
-        m for m in result["messages"] if isinstance(m, AIMessage) and m.id == "ai-1"
-    )
-    assert [tc["name"] for tc in restored_ai.tool_calls] == ["navigate"]
-
-    tool_messages = [m for m in result["messages"] if isinstance(m, ToolMessage)]
-    assert tool_messages == []
-    assert result["copilotkit"]["intercepted_tool_calls"] is None
-    assert result["copilotkit"]["original_ai_message_id"] is None
-    assert result["copilotkit"]["original_tool_calls"] is None
-
-
-def test_after_agent_removes_rehydrated_frontend_tool_result():
-    middleware = CopilotKitMiddleware()
     backend_call = {"id": "1", "name": "backend_search", "args": {"q": "hi"}}
     frontend_call = {"id": "2", "name": "navigate", "args": {"path": "/x"}}
     state = {
         "messages": [
             HumanMessage("hi"),
-            AIMessage(
-                content="",
-                tool_calls=[backend_call, frontend_call],
-                id="ai-1",
-            ),
+            AIMessage(content="", tool_calls=[backend_call], id="ai-1"),
             ToolMessage(content="ok", tool_call_id="1"),
-            ToolMessage(
-                content=json.dumps({"status": "forwarded_to_frontend"}),
-                tool_call_id="2",
-                id="copilotkit-fe-tool-result-2",
-            ),
         ],
         "copilotkit": {
             "intercepted_tool_calls": [frontend_call],
