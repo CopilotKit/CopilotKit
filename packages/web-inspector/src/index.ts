@@ -1,8 +1,10 @@
+/// <reference path="./types/css.d.ts" />
+/// <reference path="./types/svg.d.ts" />
 import { LitElement, css, html, nothing, unsafeCSS } from "lit";
 import type { TemplateResult } from "lit";
 import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
-import tailwindStyles from "./styles/generated.css";
+import tailwindStyles from "./styles/generated.css?inline";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
 import inspectorLogoIconUrl from "./assets/inspector-logo-icon.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";

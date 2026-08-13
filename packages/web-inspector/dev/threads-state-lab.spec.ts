@@ -1233,7 +1233,9 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
           runtimeTransport: "rest",
           deferInitialConnection: true,
         });
-        const inspector = document.createElement("cpk-web-inspector");
+        const inspector = document.createElement(
+          "cpk-web-inspector",
+        ) as WebInspectorElement;
         inspector.setAttribute("auto-attach-core", "false");
         inspector.core = core;
         document.body.append(inspector);

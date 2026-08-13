@@ -259,7 +259,10 @@ export function createThreadsStateLabRuntime(): ThreadsStateLabRuntime {
 
   const closeScenarioSockets = (scenarioKey: ScenarioKey): void => {
     for (const [socket, attached] of sockets) {
-      if (attached.scenarioKey === scenarioKey) socket.terminate();
+      if (attached.scenarioKey === scenarioKey) {
+        sockets.delete(socket);
+        socket.terminate();
+      }
     }
   };
 
@@ -370,7 +373,7 @@ export function createThreadsStateLabRuntime(): ThreadsStateLabRuntime {
       const webRequest = new Request(url, {
         method: request.method ?? "GET",
         headers: request.headers as HeadersInit,
-        ...(body && body.byteLength > 0 ? { body } : {}),
+        ...(body && body.byteLength > 0 ? { body: Buffer.from(body) } : {}),
       });
       await writeNodeResponse(response, await handleRequest(webRequest));
     } catch (error) {

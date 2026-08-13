@@ -393,13 +393,28 @@ export function deduplicateMessages(messages: Message[]): Message[] {
   return [...acc.values()];
 }
 
+// Declared standalone so `typeof Cursor` in the props type below does not trip
+// TypeScript 7's use-before-assignment check on the static property.
+function Cursor({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-testid="copilot-loading-cursor"
+      className={twMerge(
+        "cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse-cursor cpk:ml-1",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 export type CopilotChatMessageViewProps = Omit<
   WithSlots<
     {
       assistantMessage: typeof CopilotChatAssistantMessage;
       userMessage: typeof CopilotChatUserMessage;
       reasoningMessage: typeof CopilotChatReasoningMessage;
-      cursor: typeof CopilotChatMessageView.Cursor;
+      cursor: typeof Cursor;
       intelligenceIndicator: typeof IntelligenceIndicatorView;
     },
     {
@@ -757,20 +772,6 @@ export function CopilotChatMessageView({
   );
 }
 
-CopilotChatMessageView.Cursor = function Cursor({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      data-testid="copilot-loading-cursor"
-      className={twMerge(
-        "cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse-cursor cpk:ml-1",
-        className,
-      )}
-      {...props}
-    />
-  );
-};
+CopilotChatMessageView.Cursor = Cursor;
 
 export default CopilotChatMessageView;
