@@ -3,6 +3,33 @@ import type { ChannelNode } from "@copilotkit/channels-ui";
 import { describe, expect, it } from "vitest";
 import { renderBlockKit, renderSlackMessage } from "./block-kit.js";
 
+const ISSUE_URL = "https://linear.app/copilotkit/issue/CPK-1234";
+
+/** One-row table IR with the given header + cell texts. */
+const table = (headers: string[], cells: string[]): ChannelNode[] => [
+  {
+    type: "table",
+    props: {
+      columns: headers.map((header) => ({ header })),
+      children: [
+        {
+          type: "row",
+          props: {
+            children: cells.map((value) => ({
+              type: "cell",
+              props: { children: [{ type: "text", props: { value } }] },
+            })),
+          },
+        },
+      ],
+    },
+  },
+];
+
+/** The rendered `rows` of the single table block produced by `ir`. */
+const cellsOf = (ir: ChannelNode[]): unknown[][] =>
+  (renderBlockKit(ir)[0] as unknown as { rows: unknown[][] }).rows;
+
 describe("renderBlockKit", () => {
   it("flattens a message into header + section blocks (markdown → mrkdwn)", () => {
     const ir = renderToIR(
@@ -161,6 +188,98 @@ describe("renderBlockKit", () => {
         column_settings: [{ align: "left" }, { align: "center" }],
       },
     ]);
+  });
+
+  describe("table cells", () => {
+    it("keeps plain content as raw_text, byte for byte", () => {
+      const [, body] = cellsOf(table(["Status"], ["🟡 In Progress"]));
+      expect(body).toEqual([{ type: "raw_text", text: "🟡 In Progress" }]);
+    });
+
+    it("promotes a markdown link with bold label to a rich_text cell", () => {
+      const [, body] = cellsOf(
+        table(["Issue"], [`[**CPK-1234**](${ISSUE_URL})`]),
+      );
+      expect(body).toEqual([
+        {
+          type: "rich_text",
+          elements: [
+            {
+              type: "rich_text_section",
+              elements: [
+                {
+                  type: "link",
+                  url: ISSUE_URL,
+                  text: "CPK-1234",
+                  style: { bold: true },
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+    });
+
+    it("renders mixed runs in one cell", () => {
+      const [, body] = cellsOf(
+        table(
+          ["Mixed"],
+          [`**bold** plain \`code\` — [unstyled link](${ISSUE_URL})`],
+        ),
+      );
+      expect(body).toEqual([
+        {
+          type: "rich_text",
+          elements: [
+            {
+              type: "rich_text_section",
+              elements: [
+                { type: "text", text: "bold", style: { bold: true } },
+                { type: "text", text: " plain " },
+                { type: "text", text: "code", style: { code: true } },
+                { type: "text", text: " — " },
+                { type: "link", url: ISSUE_URL, text: "unstyled link" },
+              ],
+            },
+          ],
+        },
+      ]);
+    });
+
+    it("never promotes a header cell, even with markdown in it", () => {
+      const [header] = cellsOf(table([`[**Issue**](${ISSUE_URL})`], ["plain"]));
+      expect(header).toEqual([
+        { type: "raw_text", text: `[**Issue**](${ISSUE_URL})` },
+      ]);
+    });
+
+    it("truncates a plain cell at 2000 chars", () => {
+      const [, body] = cellsOf(table(["Long"], ["a".repeat(2500)]));
+      expect(body).toEqual([
+        { type: "raw_text", text: "a".repeat(1999) + "…" },
+      ]);
+    });
+
+    it("truncates a rich cell on visible text, keeping the styling", () => {
+      const [, body] = cellsOf(table(["Long"], [`**${"a".repeat(2500)}**`]));
+      expect(body).toEqual([
+        {
+          type: "rich_text",
+          elements: [
+            {
+              type: "rich_text_section",
+              elements: [
+                {
+                  type: "text",
+                  text: "a".repeat(1999) + "…",
+                  style: { bold: true },
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+    });
   });
 
   it("passes raw native Block Kit through unchanged", () => {
