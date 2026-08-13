@@ -35,6 +35,7 @@ export {
 
 export { MessageStream } from "./message-stream.js";
 export type { MessageStreamConfig } from "./message-stream.js";
+export { SLACK_COMPONENT_EDIT_INTERVAL_MS } from "./component-delivery.js";
 
 export { ChunkedMessageStream } from "./chunked-message-stream.js";
 export type { ChunkedMessageStreamConfig } from "./chunked-message-stream.js";
@@ -89,6 +90,7 @@ export { decodeInteraction, conversationKeyOf } from "./interaction.js";
 
 export {
   renderBlockKit,
+  renderSlackComponentMessage,
   renderSlackMessage,
   buildFeedbackBlocks,
   FEEDBACK_ACTION_ID,

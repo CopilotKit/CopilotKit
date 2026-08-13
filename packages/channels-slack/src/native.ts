@@ -1,6 +1,7 @@
 import { createNativeNode } from "@copilotkit/channels-ui";
 import type {
   BotChildren,
+  ChannelCallbackBinding,
   ChannelNode,
   ClickHandler,
 } from "@copilotkit/channels-ui";
@@ -53,9 +54,9 @@ export interface SlackNativeProps<TValue = unknown> {
   indent?: number;
   offset?: number;
   border?: number;
-  onClick?: ClickHandler<TValue>;
-  onSelect?: ClickHandler<TValue>;
-  onSubmit?: ClickHandler<TValue>;
+  onClick?: ClickHandler<TValue> | ChannelCallbackBinding<TValue>;
+  onSelect?: ClickHandler<TValue> | ChannelCallbackBinding<TValue>;
+  onSubmit?: ClickHandler<TValue> | ChannelCallbackBinding<TValue>;
 }
 
 /** One positive slice in a Slack pie chart. */

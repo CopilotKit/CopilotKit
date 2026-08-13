@@ -48,9 +48,21 @@ export interface SurfaceCapabilities {
 }
 
 export interface CapturedToolCall {
+  /** AG-UI run identity, when the renderer receives one. */
+  runId?: string;
   toolCallId: string;
   toolCallName: string;
   toolCallArgs: Record<string, unknown>;
+}
+
+/** Provider-owned cadence and retry policy for component replacement. */
+export interface ChannelComponentDeliveryPolicy {
+  /** Minimum gap between provider calls. */
+  minIntervalMs: number;
+  /** Total attempts for one prepared revision. Defaults to one. */
+  maxAttempts?: number;
+  /** Delay before the next attempt, keyed by the failed attempt number. */
+  retryDelayMs?: (attempt: number) => number;
 }
 export interface CapturedInterrupt {
   eventName: string;
@@ -339,6 +351,18 @@ export interface PlatformAdapter {
   render(ir: ChannelNode[]): NativePayload;
   post(target: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef>;
   update(ref: MessageRef, ir: ChannelNode[]): Promise<void>;
+  /**
+   * Strict component-only create path. Adapters that implement this reject
+   * provider budget overflow instead of clamping or splitting the render.
+   */
+  postComponent?(target: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef>;
+  /**
+   * Strict component-only replace path. Progressive rendering is enabled only
+   * when the adapter implements both component delivery methods.
+   */
+  updateComponent?(ref: MessageRef, ir: ChannelNode[]): Promise<void>;
+  /** Resolve component delivery limits for the actual ingress platform. */
+  getComponentDeliveryPolicy?(platform: string): ChannelComponentDeliveryPolicy;
   stream(
     target: ReplyTarget,
     chunks: AsyncIterable<string>,

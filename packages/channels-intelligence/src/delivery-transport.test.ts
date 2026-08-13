@@ -898,6 +898,79 @@ test("claims same-Thread work for Redis coordination but executes it in order", 
   await transport.stop();
 });
 
+test("a component interaction waits behind an active same-Thread streaming delivery", async () => {
+  let releaseStream: (() => void) | undefined;
+  const activeStream = new Promise<void>((resolve) => {
+    releaseStream = resolve;
+  });
+  const deliveries = new Map([
+    [
+      "dlv_component_stream_01",
+      {
+        ...preparedDelivery(),
+        deliveryId: "dlv_component_stream_01",
+        canonicalThreadId: "thread_component_01",
+      },
+    ],
+    [
+      "dlv_component_click_01",
+      {
+        ...preparedDelivery(),
+        deliveryId: "dlv_component_click_01",
+        canonicalThreadId: "thread_component_01",
+        turn: {
+          ...preparedDelivery().turn,
+          input: {
+            kind: "interaction" as const,
+            actionId: "ck:component-action",
+            messageRef: { id: "pref_v1_component_message_123" },
+          },
+        },
+      },
+    ],
+  ]);
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockImplementation((_event, payload) => {
+      const { deliveryId } = payload as { deliveryId: string };
+      return Promise.resolve(claimResult(deliveryId));
+    }),
+    on: vi.fn(),
+    join: vi
+      .fn()
+      .mockImplementation((topic) =>
+        Promise.resolve(
+          channel(deliveries.get(topic.replace("delivery:", ""))!),
+        ),
+      ),
+  };
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_component_queue_01",
+    maxConcurrentDeliveries: 2,
+  });
+  const handled: string[] = [];
+  transport.start(async (_session, delivery) => {
+    handled.push(delivery.turn.input.kind);
+    if (delivery.turn.input.kind === "text") await activeStream;
+  });
+  const invite = vi.mocked(control.on).mock.calls[0]![1];
+
+  invite(invitation("dlv_component_stream_01", "thread_component_01"));
+  await vi.waitFor(() => expect(handled).toEqual(["text"]));
+  invite(invitation("dlv_component_click_01", "thread_component_01"));
+  await vi.waitFor(() =>
+    expect(control.push).toHaveBeenCalledWith(
+      "claim",
+      expect.objectContaining({ deliveryId: "dlv_component_click_01" }),
+    ),
+  );
+  expect(handled).toEqual(["text"]);
+
+  releaseStream?.();
+  await vi.waitFor(() => expect(handled).toEqual(["text", "interaction"]));
+  await transport.stop();
+});
+
 test("a newer same-Thread claim aborts the exact switchable delivery before output", async () => {
   const channels = new Map<string, RealtimeGatewayDeliveryChannel>();
   const supersessionHandlers = new Map<string, (value: unknown) => void>();

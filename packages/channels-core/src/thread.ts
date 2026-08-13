@@ -1,4 +1,5 @@
 import type { PlatformAdapter, ReplyTarget } from "./platform-adapter.js";
+import type { ChannelComponentDeliveryPolicy } from "./platform-adapter.js";
 import type { ActionRegistry } from "./action-registry.js";
 import type {
   ActionContinuationContext,
@@ -6,6 +7,7 @@ import type {
 } from "./action-store.js";
 import type {
   AgentContentPart,
+  ChannelNode,
   Renderable,
   MessageRef,
   ProviderActor,
@@ -33,7 +35,14 @@ import { validateSchema } from "./standard-schema.js";
 import type { StandardSchemaV1 } from "./standard-schema.js";
 import { hasMemoryAccess, resolveMemoryGrant } from "./memory.js";
 import type { MemoryGrant, ResolvedChannelMemory } from "./memory.js";
-import type { ChannelComponentRenderContext } from "./channel-component.js";
+import type {
+  ChannelComponentAdapterRenderContext,
+  ChannelComponentPlatform,
+} from "./channel-component.js";
+import type {
+  ChannelComponentCoordinator,
+  ChannelComponentDelivery,
+} from "./channel-component-runtime.js";
 
 /** A Channel run requested Memory without an attached Intelligence backend. */
 export class ChannelMemoryUnavailableError extends Error {
@@ -131,6 +140,8 @@ export interface ThreadDeps {
   telemetry?: {
     capture(event: string, properties: Record<string, unknown>): void;
   };
+  /** V2 component definitions and live callback coordinator. */
+  componentCoordinator?: ChannelComponentCoordinator;
 }
 
 /** Stable rejection for surfaces that cannot hold one run open for a choice. */
@@ -165,13 +176,43 @@ export class Thread implements ThreadInterface {
     this.store = deps.state;
   }
 
+  /** @internal Strict replacement path used only by durable V2 interactions. */
+  async ɵupdateChannelComponent(
+    ref: MessageRef,
+    ir: ChannelNode[],
+  ): Promise<void> {
+    if (this.platform === "slack" || this.platform === "teams") {
+      if (!this.deps.adapter.updateComponent) {
+        throw new Error(
+          `Channel components are not supported by the ${this.platform} adapter.`,
+        );
+      }
+      await this.deps.adapter.updateComponent(ref, ir);
+      return;
+    }
+    if (!this.deps.adapter.update) {
+      throw new Error(
+        `Channel components are not supported by the ${this.platform} adapter.`,
+      );
+    }
+    await this.deps.adapter.update(ref, ir);
+  }
+
+  /** @internal Provider-owned limits for interaction-triggered replacement. */
+  ɵchannelComponentDeliveryPolicy():
+    | ChannelComponentDeliveryPolicy
+    | undefined {
+    return this.deps.adapter.getComponentDeliveryPolicy?.(this.platform);
+  }
+
   private async bindForPost(ui: Renderable) {
     return this.deps.registry.bindRenderable(
       ui,
       this.deps.conversationKey,
       this.activeContinuation,
       {
-        platform: this.platform as ChannelComponentRenderContext["platform"],
+        platform: this
+          .platform as ChannelComponentAdapterRenderContext["platform"],
         signal: new AbortController().signal,
       },
     );
@@ -224,29 +265,6 @@ export class Thread implements ThreadInterface {
   post(ui: Renderable): Promise<MessageRef> {
     return this.trackOperation(async () => {
       const bound = await this.bindForPost(ui);
-      const ref = await this.deps.adapter.post(
-        this.deps.replyTarget,
-        bound.root,
-      );
-      await this.bindReaction(ref.id, bound);
-      return ref;
-    });
-  }
-
-  /** @internal Post a registered component through the normal bind and adapter path. */
-  postRegisteredComponent(
-    componentName: string,
-    props: Record<string, unknown>,
-    renderContext: ChannelComponentRenderContext,
-  ): Promise<MessageRef> {
-    return this.trackOperation(async () => {
-      const bound = await this.deps.registry.bindRegisteredRenderable(
-        componentName,
-        props,
-        this.deps.conversationKey,
-        this.activeContinuation,
-        renderContext,
-      );
       const ref = await this.deps.adapter.post(
         this.deps.replyTarget,
         bound.root,
@@ -694,6 +712,9 @@ export class Thread implements ThreadInterface {
       const renderer = this.deps.adapter.createRunRenderer(
         this.deps.replyTarget,
       );
+      const componentRun = this.deps.componentCoordinator?.createRun(
+        this.componentDelivery(),
+      );
 
       // Transcript auto-bridge (step 1 + 2): inject prior cross-platform history
       // as a context entry, then append the current user turn. This flag owns the
@@ -787,6 +808,7 @@ export class Thread implements ThreadInterface {
               });
           },
           initialResume,
+          componentRun,
         };
         loopResult = this.deps.adapter.runAgentLifecycle
           ? await this.deps.adapter.runAgentLifecycle({
@@ -835,6 +857,7 @@ export class Thread implements ThreadInterface {
         // for runs that were interrupted (the renderer guards that internally).
         await renderer.finish?.();
       } catch (err) {
+        await componentRun?.failAll(err);
         // Best-effort finalize on failure so native Slack streams still get
         // stopStream after mid-run delivery/append errors (deferred deliveryError
         // or run-loop throw). finish is idempotent; original error wins.
@@ -866,6 +889,38 @@ export class Thread implements ThreadInterface {
     } finally {
       await session.release?.();
     }
+  }
+
+  private componentDelivery(): ChannelComponentDelivery {
+    const adapter = this.deps.adapter;
+    const progressive = this.platform === "slack" || this.platform === "teams";
+    const policy = adapter.getComponentDeliveryPolicy?.(this.platform);
+    return {
+      platform: this.platform as ChannelComponentPlatform,
+      ...(policy ? { policy } : {}),
+      progressive,
+      post: async (ir) => {
+        if (!progressive) return adapter.post(this.deps.replyTarget, ir);
+        if (!adapter.postComponent || !adapter.updateComponent || !policy) {
+          throw new Error(
+            `Channel components require strict delivery methods and a delivery policy from the ${this.platform} adapter.`,
+          );
+        }
+        return adapter.postComponent(this.deps.replyTarget, ir);
+      },
+      update: async (ref, ir) => {
+        if (!progressive) {
+          await adapter.update(ref, ir);
+          return;
+        }
+        if (!adapter.postComponent || !adapter.updateComponent || !policy) {
+          throw new Error(
+            `Channel components require strict delivery methods and a delivery policy from the ${this.platform} adapter.`,
+          );
+        }
+        await adapter.updateComponent(ref, ir);
+      },
+    };
   }
 }
 

@@ -17,6 +17,7 @@ export { renderTeamsMarkdown } from "./render/markdown.js";
 export { autoCloseOpenMarkdown } from "./render/auto-close.js";
 export {
   renderAdaptiveCard,
+  renderTeamsComponentCard,
   isPlainText,
   collectPlainText,
   ADAPTIVE_CARD_CONTENT_TYPE,
@@ -25,6 +26,7 @@ export type { AdaptiveCard } from "./render/adaptive-card.js";
 export { TEAMS_LIMITS, truncateText, clampArray } from "./render/budget.js";
 export { TeamsMessageStream } from "./message-stream.js";
 export type { TeamsMessageStreamConfig } from "./message-stream.js";
+export { TEAMS_COMPONENT_EDIT_INTERVAL_MS } from "./component-delivery.js";
 
 export { createTeamsServer } from "./listener.js";
 export type { TeamsServer, TeamsServerConfig } from "./listener.js";
@@ -40,6 +42,7 @@ export type {
 export { buildChannelFileContentParts } from "./graph-files.js";
 export type { GraphCredentials, ChannelMessageRef } from "./graph-files.js";
 export { Teams } from "./native.js";
+export { renderTeamsComponentNativeCard } from "./native-codec.js";
 export type { TeamsNativeProps, TeamsRawProps } from "./native.js";
 export {
   TEAMS_NATIVE_MANIFEST,

@@ -32,12 +32,65 @@ export type {
   ChannelComponent,
   ChannelComponentRegistration,
 } from "./create-channel.js";
-export { defineChannelComponent } from "./channel-component.js";
-export type {
-  ChannelComponentDefinition,
-  ChannelComponentPlatform,
-  ChannelComponentRenderContext,
+export {
+  createChannelComponentCallbackBinders,
+  defineChannelComponent,
 } from "./channel-component.js";
+export type {
+  ChannelComponentAdapterRenderContext,
+  ChannelComponentCallbackBaseContext,
+  ChannelComponentCallbackBinders,
+  ChannelComponentDefinition,
+  ChannelComponentFailedRenderContext,
+  InferChannelComponentStream,
+  ChannelComponentNodeStatus,
+  ChannelComponentPath,
+  ChannelComponentPlatform,
+  ChannelComponentReadyRenderContext,
+  ChannelComponentRenderContext,
+  ChannelComponentSetState,
+  ChannelComponentStatus,
+  ChannelComponentStreamingRenderContext,
+  StatefulChannelComponentCallbackContext,
+  StatefulChannelComponentDefinition,
+  StatelessChannelComponentCallbackContext,
+  StatelessChannelComponentDefinition,
+} from "./channel-component.js";
+export {
+  componentBindingKey,
+  componentInstanceKey,
+  createChannelComponentStore,
+} from "./component-store.js";
+export type {
+  ChannelComponentBindingSnapshot,
+  ChannelComponentErrorSnapshot,
+  ChannelComponentInstanceSnapshot,
+  ChannelComponentInteractivePhase,
+  ChannelComponentStore,
+  PendingChannelComponentBinding,
+} from "./component-store.js";
+export {
+  ComponentRevisionQueueError,
+  createComponentRevisionQueue,
+} from "./component-revision-queue.js";
+export type {
+  ComponentRevision,
+  ComponentRevisionDelivery,
+  ComponentRevisionQueue,
+  ComponentRevisionQueueOptions,
+} from "./component-revision-queue.js";
+export {
+  COMPONENT_BINDINGS_MAX_BYTES,
+  COMPONENT_BINDING_MAX_BYTES,
+  COMPONENT_PROPS_MAX_BYTES,
+  COMPONENT_STATE_MAX_BYTES,
+  JsonValueError,
+  assertComponentProps,
+  assertComponentState,
+  assertJsonValue,
+  jsonByteLength,
+} from "./json-value.js";
+export type { JsonValue, JsonValueOptions } from "./json-value.js";
 export {
   ChannelIdentityResolutionError,
   ChannelIdentityResultError,
@@ -77,6 +130,7 @@ export type {
   ConversationStore,
   AgentSession,
   CapturedToolCall,
+  ChannelComponentDeliveryPolicy,
   CapturedInterrupt,
   ChannelAgentLifecycleArgs,
   ChannelAgentLoopResult,
@@ -113,6 +167,18 @@ export {
   ActionRegistry,
   ActionContinuationMismatchError,
   ActionExpiredError,
+} from "./action-registry.js";
+export { createChannelComponentCoordinator } from "./channel-component-runtime.js";
+export type {
+  ChannelComponentCoordinator,
+  ChannelComponentDelivery,
+  ChannelComponentRun,
+} from "./channel-component-runtime.js";
+export type {
+  ChannelComponentActionRuntime,
+  ComponentBindingRenderSnapshot,
+  RegisteredChannelComponentCallback,
+  RegisteredChannelComponentCallbackContext,
 } from "./action-registry.js";
 
 // State store

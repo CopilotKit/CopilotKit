@@ -52,9 +52,12 @@ import type {
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
 import { isChannelComponentDefinition } from "./channel-component.js";
 import type {
+  ChannelComponentAdapterRenderContext,
   ChannelComponentDefinition,
-  ChannelComponentRenderContext,
 } from "./channel-component.js";
+import { createChannelComponentCoordinator } from "./channel-component-runtime.js";
+import type { ChannelComponentCoordinator } from "./channel-component-runtime.js";
+import { createChannelComponentStore } from "./component-store.js";
 import { ChannelTelemetry } from "./telemetry/channel-telemetry.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import { createRequire } from "node:module";
@@ -664,6 +667,7 @@ export function createChannel<
   let backend: StateStore | undefined;
   let transcripts: Transcripts | undefined;
   let registry: ActionRegistry | undefined;
+  let componentCoordinator: ChannelComponentCoordinator | undefined;
   let telemetry: ChannelTelemetry | undefined;
 
   const agentFactory: (threadId: string) => AbstractAgent = (() => {
@@ -730,9 +734,10 @@ export function createChannel<
     requireKeys: boolean;
     render: (
       props: Record<string, unknown>,
-      context: ChannelComponentRenderContext,
+      context: ChannelComponentAdapterRenderContext,
     ) => Renderable | Promise<Renderable>;
   }> = [];
+  const componentDefinitions: ChannelComponentDefinition[] = [];
   const configuredComponents = Array.isArray(opts.components)
     ? opts.components.map((component) => ({
         name: component.name,
@@ -753,27 +758,15 @@ export function createChannel<
     }
     componentNames.add(name);
     if (isChannelComponentDefinition(component)) {
-      componentEntries.push({
-        name,
-        requireKeys: true,
-        render: (props, renderContext) =>
-          component.render(props, renderContext),
-      });
+      componentDefinitions.push(component);
       toolMap.set(name, {
         name,
         description: component.description,
         parameters: component.parameters,
-        async handler(args, toolContext) {
-          await (toolContext.thread as Thread).postRegisteredComponent(
-            name,
-            args,
-            {
-              platform:
-                toolContext.platform as ChannelComponentRenderContext["platform"],
-              signal: toolContext.signal ?? new AbortController().signal,
-            },
+        handler() {
+          throw new Error(
+            `Channel component "${name}" must execute through the component run controller.`,
           );
-          return `Rendered component "${name}".`;
         },
       });
       continue;
@@ -860,6 +853,7 @@ export function createChannel<
       interactionActionId: extras?.interactionActionId,
       intelligenceMemoryAvailable,
       telemetry,
+      componentCoordinator,
     };
     return new Thread(deps);
   }
@@ -1386,8 +1380,53 @@ export function createChannel<
               defaultTtlMs: cfg.actionRetentionMs ?? 7 * 24 * 60 * 60 * 1000,
             }),
           retentionMs: cfg.actionRetentionMs ?? 7 * 24 * 60 * 60 * 1000,
+          componentStore: createChannelComponentStore(backend),
+          componentRuntime: {
+            isLive: (id) => componentCoordinator?.isLive?.(id) ?? false,
+            setState: async (id, next, interactionContext) => {
+              if (!componentCoordinator?.setState) {
+                throw new Error("Channel component runtime is not available.");
+              }
+              await componentCoordinator.setState(id, next, interactionContext);
+            },
+            onInterrupted: async (id, snapshot, interactionContext) => {
+              await componentCoordinator?.onInterrupted?.(
+                id,
+                snapshot,
+                interactionContext,
+              );
+            },
+            onCallbackError: async (error, interactionContext) => {
+              await componentCoordinator?.onCallbackError?.(
+                error,
+                interactionContext,
+              );
+            },
+          },
         });
         registry = registryInstance;
+        componentCoordinator =
+          componentDefinitions.length > 0
+            ? createChannelComponentCoordinator({
+                components: componentDefinitions,
+                store: createChannelComponentStore(backend),
+                registry: registryInstance,
+              })
+            : undefined;
+        for (const component of componentDefinitions) {
+          registryInstance.registerComponentCallbacks(
+            component.name,
+            component.callbacks ?? {},
+          );
+        }
+        if (
+          componentDefinitions.length > 0 &&
+          storeKind(backend) === "memory"
+        ) {
+          console.warn(
+            "[channel] Channel components use MemoryStore; component state and callback recovery will be lost on restart. Configure store.adapter for durable components.",
+          );
+        }
         for (const component of componentEntries) {
           if (!component.name) {
             console.warn(
@@ -1404,8 +1443,10 @@ export function createChannel<
           platforms: adapters.map((a) => normalizePlatform(a.platform)),
           adapterCount: adapters.length,
           store: storeKind(backend),
-          hasComponents: componentEntries.length > 0,
-          componentsCount: componentEntries.length,
+          hasComponents:
+            componentEntries.length + componentDefinitions.length > 0,
+          componentsCount:
+            componentEntries.length + componentDefinitions.length,
           toolsCount: toolMap.size,
           commandsCount: commandHandlers.size,
           contextCount: context.length,

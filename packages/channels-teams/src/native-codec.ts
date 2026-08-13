@@ -1,5 +1,6 @@
 import { isNativeNode } from "@copilotkit/channels-ui";
 import type { ChannelNode, NativeChannelNode } from "@copilotkit/channels-ui";
+import { assertTeamsComponentCardBudget } from "./render/adaptive-card.js";
 import type { AdaptiveCard } from "./render/adaptive-card.js";
 import { TEAMS_NATIVE_MANIFEST } from "./native-manifest.js";
 
@@ -38,6 +39,15 @@ export function renderTeamsNativeCard(ir: ChannelNode[]): AdaptiveCard {
   card.$schema = SCHEMA;
   card.version = typeof explicit === "string" ? explicit : required;
   return card as unknown as AdaptiveCard;
+}
+
+/** Render one native Channel component revision as an Adaptive Card. */
+export function renderTeamsComponentNativeCard(
+  ir: ChannelNode[],
+): AdaptiveCard {
+  const card = renderTeamsNativeCard(ir);
+  assertTeamsComponentCardBudget(card);
+  return card;
 }
 
 /** Return true when an IR message contains provider-native Teams JSX. */

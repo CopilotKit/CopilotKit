@@ -1,0 +1,12 @@
+{
+  "extends": "@copilotkit/typescript-config/base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "target": "ES2022",
+    "noUncheckedIndexedAccess": false,
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

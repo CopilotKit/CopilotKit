@@ -35,6 +35,16 @@ describe("Channels release scope", () => {
   });
 });
 
+describe("Schema release scope", () => {
+  it("publishes @copilotkit/schema on its independent 0.1.x version line", () => {
+    expect(getScopeConfig("schema")).toEqual({
+      packages: ["@copilotkit/schema"],
+      versionSource: "@copilotkit/schema",
+      sharedVersion: false,
+    });
+  });
+});
+
 describe("resolveScopes", () => {
   it("resolves a single scope to itself", () => {
     expect(resolveScopes("channels")).toEqual(["channels"]);

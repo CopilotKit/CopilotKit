@@ -215,18 +215,20 @@ const WeatherCard = defineChannelComponent({
     tuesday: z.number(),
     wednesday: z.number(),
   }),
-  render: ({ city, monday, tuesday, wednesday }) => (
+  render: ({ phase, props }) => (
     <Slack.Block.DataVisualization
-      title={`${city} forecast`}
+      title={
+        phase === "failed" ? "Forecast unavailable" : `${props.city} forecast`
+      }
       chart={{
         type: "line",
         series: [
           {
             name: "Temperature",
             data: [
-              { label: "Mon", value: monday },
-              { label: "Tue", value: tuesday },
-              { label: "Wed", value: wednesday },
+              { label: "Mon", value: phase === "failed" ? 0 : props.monday },
+              { label: "Tue", value: phase === "failed" ? 0 : props.tuesday },
+              { label: "Wed", value: phase === "failed" ? 0 : props.wednesday },
             ],
           },
         ],

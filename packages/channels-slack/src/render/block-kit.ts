@@ -66,6 +66,14 @@ export function buildFeedbackBlocks(opts?: {
  * clamp and, at the top level, append an explicit overflow signal block.
  */
 export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
+  return renderBlockKitWithOverflow(ir, "clamp");
+}
+
+function renderBlockKitWithOverflow(
+  ir: ChannelNode[],
+  overflowMode: "clamp" | "error",
+): KnownBlock[] {
+  if (overflowMode === "error") assertSlackComponentProvider(ir);
   const blocks: KnownBlock[] = [];
   const native = containsNativeNode(ir);
   for (const node of ir) {
@@ -78,6 +86,15 @@ export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
   if (dataVisualizations > 2) {
     throw new Error(
       `Slack native JSX rendered ${dataVisualizations} data visualization blocks; the message limit is 2.`,
+    );
+  }
+
+  if (
+    overflowMode === "error" &&
+    blocks.length > SLACK_LIMITS.blocksPerMessage
+  ) {
+    throw new Error(
+      `Slack Channel component rendered ${blocks.length} blocks; the message limit is ${SLACK_LIMITS.blocksPerMessage}.`,
     );
   }
 
@@ -100,6 +117,215 @@ export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
   const dropped = overflow + 1;
   kept.push(overflowSignal(dropped));
   return kept;
+}
+
+function assertSlackComponentProvider(nodes: readonly ChannelNode[]): void {
+  for (const node of nodes) {
+    if (isNativeNode(node) && node.props.provider !== "slack") {
+      throw new Error("Slack delivery cannot render Teams native JSX.");
+    }
+    assertSlackPortableNodeBudget(node);
+    assertSlackComponentProvider(channelChildren(node.props.children));
+  }
+}
+
+function assertSlackPortableNodeBudget(node: ChannelNode): void {
+  if (typeof node.type !== "string" || isNativeNode(node)) return;
+  const children = childNodes(node);
+  const text = collectText(node);
+  if (node.type === "header" && text.length > SLACK_LIMITS.headerText) {
+    failSlackComponentText("header text", text.length, SLACK_LIMITS.headerText);
+  }
+  if (
+    (node.type === "section" || node.type === "markdown") &&
+    markdownToMrkdwn(text).length > SLACK_LIMITS.sectionText
+  ) {
+    failSlackComponentText(
+      "section text",
+      markdownToMrkdwn(text).length,
+      SLACK_LIMITS.sectionText,
+    );
+  }
+  if (
+    node.type === "text" &&
+    String(node.props.value ?? "").length > SLACK_LIMITS.sectionText
+  ) {
+    failSlackComponentText(
+      "section text",
+      String(node.props.value ?? "").length,
+      SLACK_LIMITS.sectionText,
+    );
+  }
+  if (node.type === "field") {
+    assertSlackTextBudget(
+      "field text",
+      fieldMrkdwn(node),
+      SLACK_LIMITS.fieldText,
+    );
+  }
+  assertSlackCollectionBudget(
+    node.type,
+    "fields",
+    children.filter((child) => child.type === "field").length,
+    SLACK_LIMITS.fieldsPerSection,
+  );
+  assertSlackCollectionBudget(
+    node.type,
+    "context elements",
+    children.length,
+    SLACK_LIMITS.contextElements,
+    "context",
+  );
+  assertSlackCollectionBudget(
+    node.type,
+    "action elements",
+    children.length,
+    SLACK_LIMITS.actionsElements,
+    "actions",
+  );
+  if (node.type === "table") {
+    const columns = Array.isArray(node.props.columns)
+      ? node.props.columns.length
+      : 0;
+    const rowNodes = children.filter((child) => child.type === "row");
+    const rows =
+      rowNodes.length +
+      (Array.isArray(node.props.columns) && node.props.columns.length > 0
+        ? 1
+        : 0);
+    const inferredColumns = rowNodes.reduce(
+      (widest, row) =>
+        Math.max(
+          widest,
+          childNodes(row).filter((child) => child.type === "cell").length,
+        ),
+      0,
+    );
+    if (Math.max(columns, inferredColumns) > SLACK_LIMITS.tableColumns) {
+      throw new Error(
+        `Slack Channel component table has ${Math.max(columns, inferredColumns)} columns; the limit is ${SLACK_LIMITS.tableColumns}.`,
+      );
+    }
+    if (rows > SLACK_LIMITS.tableRows) {
+      throw new Error(
+        `Slack Channel component table has ${rows} rows; the limit is ${SLACK_LIMITS.tableRows}.`,
+      );
+    }
+    for (const column of Array.isArray(node.props.columns)
+      ? (node.props.columns as Array<{ header?: unknown }>)
+      : []) {
+      assertSlackTextBudget(
+        "table cell text",
+        String(column.header ?? ""),
+        SLACK_LIMITS.cellText,
+      );
+    }
+    for (const row of rowNodes) {
+      for (const cell of childNodes(row).filter(
+        (child) => child.type === "cell",
+      )) {
+        assertSlackTextBudget(
+          "table cell text",
+          collectText(cell),
+          SLACK_LIMITS.cellText,
+        );
+      }
+    }
+  }
+  if (node.type === "select") {
+    assertSlackActionIdBudget(node.props.onSelect, "select");
+    assertSlackTextBudget(
+      "select placeholder",
+      String(node.props.placeholder ?? " "),
+      SLACK_LIMITS.selectPlaceholder,
+    );
+    const options = Array.isArray(node.props.options) ? node.props.options : [];
+    const count = options.length;
+    if (count > SLACK_LIMITS.selectOptions) {
+      throw new Error(
+        `Slack Channel component select has ${count} options; the limit is ${SLACK_LIMITS.selectOptions}.`,
+      );
+    }
+    for (const option of options as Array<{
+      label?: unknown;
+      value?: unknown;
+    }>) {
+      assertSlackTextBudget(
+        "select option label",
+        String(option.label ?? ""),
+        SLACK_LIMITS.selectOptionText,
+      );
+      assertSlackTextBudget(
+        "select option value",
+        String(option.value ?? ""),
+        SLACK_LIMITS.selectOptionValue,
+      );
+    }
+  }
+  if (node.type === "button") {
+    assertSlackTextBudget(
+      "button text",
+      collectText(node),
+      SLACK_LIMITS.buttonText,
+    );
+    const actionId = buttonActionId(node.props);
+    assertSlackTextBudget("action id", actionId, SLACK_LIMITS.actionId);
+    if (node.props.value !== undefined) {
+      assertSlackTextBudget(
+        "button value",
+        JSON.stringify(node.props.value),
+        SLACK_LIMITS.buttonValue,
+      );
+    }
+  }
+  if (node.type === "input") {
+    assertSlackActionIdBudget(node.props.onSubmit, "input");
+    assertSlackTextBudget(
+      "input label",
+      String(node.props.placeholder ?? " "),
+      SLACK_LIMITS.inputLabel,
+    );
+  }
+}
+
+function assertSlackActionIdBudget(value: unknown, fallback: string): void {
+  assertSlackTextBudget(
+    "action id",
+    idFromHandler(value) ?? fallback,
+    SLACK_LIMITS.actionId,
+  );
+}
+
+function assertSlackTextBudget(
+  kind: string,
+  text: string,
+  limit: number,
+): void {
+  if (text.length > limit) failSlackComponentText(kind, text.length, limit);
+}
+
+function failSlackComponentText(
+  kind: string,
+  length: number,
+  limit: number,
+): never {
+  throw new Error(
+    `Slack Channel component ${kind} has ${length} characters; the limit is ${limit}.`,
+  );
+}
+
+function assertSlackCollectionBudget(
+  nodeType: string,
+  label: string,
+  count: number,
+  limit: number,
+  expectedType = label,
+): void {
+  if (nodeType === expectedType && count > limit) {
+    throw new Error(
+      `Slack Channel component ${label} has ${count} items; the limit is ${limit}.`,
+    );
+  }
 }
 
 function containsNativeNode(nodes: readonly ChannelNode[]): boolean {
@@ -137,6 +363,213 @@ export function renderSlackMessage(ir: ChannelNode[]): {
       return { blocks, accent };
   }
   return { blocks };
+}
+
+/** Render one Channel component revision for Slack provider delivery. */
+export function renderSlackComponentMessage(ir: ChannelNode[]): {
+  blocks: KnownBlock[];
+  accent?: string;
+} {
+  const blocks = renderBlockKitWithOverflow(ir, "error");
+  assertSlackRenderedComponentBudget(blocks);
+  if (ir.length === 1 && ir[0] && ir[0].type === "message") {
+    const accent = (ir[0].props as { accent?: unknown }).accent;
+    if (typeof accent === "string" && accent.length > 0) {
+      return { blocks, accent };
+    }
+  }
+  return { blocks };
+}
+
+function assertSlackRenderedComponentBudget(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const child of value) assertSlackRenderedComponentBudget(child);
+    return;
+  }
+  if (typeof value !== "object" || value === null) return;
+  const record = value as Record<string, unknown>;
+  const text =
+    typeof record.text === "object" && record.text !== null
+      ? (record.text as { text?: unknown }).text
+      : undefined;
+  if (
+    record.type === "section" &&
+    typeof text === "string" &&
+    text.length > SLACK_LIMITS.sectionText
+  ) {
+    throw new Error(
+      `Slack Channel component section text has ${text.length} characters; the limit is ${SLACK_LIMITS.sectionText}.`,
+    );
+  }
+  if (record.type === "section" && Array.isArray(record.fields)) {
+    assertSlackCollectionBudget(
+      "fields",
+      "fields",
+      record.fields.length,
+      SLACK_LIMITS.fieldsPerSection,
+    );
+    for (const field of record.fields) {
+      if (typeof field !== "object" || field === null) continue;
+      assertSlackTextBudget(
+        "field text",
+        String((field as Record<string, unknown>).text ?? ""),
+        SLACK_LIMITS.fieldText,
+      );
+    }
+  }
+  if (record.type === "actions" && Array.isArray(record.elements)) {
+    assertSlackCollectionBudget(
+      "actions",
+      "action elements",
+      record.elements.length,
+      SLACK_LIMITS.actionsElements,
+      "actions",
+    );
+  }
+  if (
+    (record.type === "context" || record.type === "context_actions") &&
+    Array.isArray(record.elements)
+  ) {
+    if (record.elements.length > SLACK_LIMITS.contextElements) {
+      throw new Error(
+        `Slack Channel component context elements has ${record.elements.length} items; the limit is ${SLACK_LIMITS.contextElements}.`,
+      );
+    }
+  }
+  if (typeof record.action_id === "string") {
+    assertSlackTextBudget("action id", record.action_id, SLACK_LIMITS.actionId);
+  }
+  if (record.type === "button") {
+    const buttonText =
+      typeof record.text === "object" && record.text !== null
+        ? String((record.text as Record<string, unknown>).text ?? "")
+        : "";
+    assertSlackTextBudget("button text", buttonText, SLACK_LIMITS.buttonText);
+    if (typeof record.value === "string") {
+      assertSlackTextBudget(
+        "button value",
+        record.value,
+        SLACK_LIMITS.buttonValue,
+      );
+    }
+  }
+  if (record.type === "feedback_buttons") {
+    for (const key of ["positive_button", "negative_button"] as const) {
+      const button = record[key];
+      if (typeof button !== "object" || button === null) continue;
+      const nested = button as Record<string, unknown>;
+      const nestedText =
+        typeof nested.text === "object" && nested.text !== null
+          ? String((nested.text as Record<string, unknown>).text ?? "")
+          : "";
+      assertSlackTextBudget("button text", nestedText, SLACK_LIMITS.buttonText);
+      if (typeof nested.value === "string") {
+        assertSlackTextBudget(
+          "button value",
+          nested.value,
+          SLACK_LIMITS.buttonValue,
+        );
+      }
+    }
+  }
+  if (
+    (record.type === "static_select" ||
+      record.type === "multi_static_select") &&
+    Array.isArray(record.options)
+  ) {
+    if (record.options.length > SLACK_LIMITS.selectOptions) {
+      throw new Error(
+        `Slack Channel component select has ${record.options.length} options; the limit is ${SLACK_LIMITS.selectOptions}.`,
+      );
+    }
+  }
+  if (
+    "placeholder" in record &&
+    typeof record.placeholder === "object" &&
+    record.placeholder !== null
+  ) {
+    assertSlackTextBudget(
+      "select placeholder",
+      String((record.placeholder as Record<string, unknown>).text ?? ""),
+      SLACK_LIMITS.selectPlaceholder,
+    );
+  }
+  if (Array.isArray(record.options)) {
+    for (const option of record.options) assertSlackOptionBudget(option);
+  }
+  if (Array.isArray(record.option_groups)) {
+    for (const group of record.option_groups) {
+      if (typeof group !== "object" || group === null) continue;
+      const options = (group as Record<string, unknown>).options;
+      if (!Array.isArray(options)) continue;
+      for (const option of options) assertSlackOptionBudget(option);
+    }
+  }
+  if (
+    record.type === "input" &&
+    typeof record.label === "object" &&
+    record.label !== null
+  ) {
+    assertSlackTextBudget(
+      "input label",
+      String((record.label as Record<string, unknown>).text ?? ""),
+      SLACK_LIMITS.inputLabel,
+    );
+  }
+  if (record.type === "table" && Array.isArray(record.rows)) {
+    if (record.rows.length > SLACK_LIMITS.tableRows) {
+      throw new Error(
+        `Slack Channel component table has ${record.rows.length} rows; the limit is ${SLACK_LIMITS.tableRows}.`,
+      );
+    }
+    for (const row of record.rows) {
+      if (!Array.isArray(row)) continue;
+      if (row.length > SLACK_LIMITS.tableColumns) {
+        throw new Error(
+          `Slack Channel component table has ${row.length} columns; the limit is ${SLACK_LIMITS.tableColumns}.`,
+        );
+      }
+      for (const cell of row) {
+        if (typeof cell !== "object" || cell === null) continue;
+        assertSlackTextBudget(
+          "table cell text",
+          String((cell as Record<string, unknown>).text ?? ""),
+          SLACK_LIMITS.cellText,
+        );
+      }
+    }
+  }
+  if (
+    record.type === "header" &&
+    typeof text === "string" &&
+    text.length > SLACK_LIMITS.headerText
+  ) {
+    throw new Error(
+      `Slack Channel component header text has ${text.length} characters; the limit is ${SLACK_LIMITS.headerText}.`,
+    );
+  }
+  for (const child of Object.values(record)) {
+    assertSlackRenderedComponentBudget(child);
+  }
+}
+
+function assertSlackOptionBudget(value: unknown): void {
+  if (typeof value !== "object" || value === null) return;
+  const option = value as Record<string, unknown>;
+  const text =
+    typeof option.text === "object" && option.text !== null
+      ? String((option.text as Record<string, unknown>).text ?? "")
+      : "";
+  assertSlackTextBudget(
+    "select option label",
+    text,
+    SLACK_LIMITS.selectOptionText,
+  );
+  assertSlackTextBudget(
+    "select option value",
+    String(option.value ?? ""),
+    SLACK_LIMITS.selectOptionValue,
+  );
 }
 
 function overflowSignal(count: number): KnownBlock {
@@ -287,7 +720,10 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
         },
         label: {
           type: "plain_text",
-          text: truncateText(String(props.placeholder ?? " "), 150),
+          text: truncateText(
+            String(props.placeholder ?? " "),
+            SLACK_LIMITS.inputLabel,
+          ),
         },
       } as KnownBlock);
       return;
@@ -406,11 +842,17 @@ function renderActionElement(node: ChannelNode): object | null {
         action_id,
         placeholder: {
           type: "plain_text",
-          text: String(props.placeholder ?? " "),
+          text: truncateText(
+            String(props.placeholder ?? " "),
+            SLACK_LIMITS.selectPlaceholder,
+          ),
         },
         options: items.map((o) => ({
-          text: { type: "plain_text", text: truncateText(o.label, 75) },
-          value: truncateText(String(o.value), 150),
+          text: {
+            type: "plain_text",
+            text: truncateText(o.label, SLACK_LIMITS.selectOptionText),
+          },
+          value: truncateText(String(o.value), SLACK_LIMITS.selectOptionValue),
         })),
       };
       return el;
@@ -442,16 +884,25 @@ function multiSelectInput(node: ChannelNode): KnownBlock {
       action_id,
       placeholder: {
         type: "plain_text",
-        text: String(props.placeholder ?? " "),
+        text: truncateText(
+          String(props.placeholder ?? " "),
+          SLACK_LIMITS.selectPlaceholder,
+        ),
       },
       options: items.map((o) => ({
-        text: { type: "plain_text", text: truncateText(o.label, 75) },
-        value: truncateText(String(o.value), 150),
+        text: {
+          type: "plain_text",
+          text: truncateText(o.label, SLACK_LIMITS.selectOptionText),
+        },
+        value: truncateText(String(o.value), SLACK_LIMITS.selectOptionValue),
       })),
     },
     label: {
       type: "plain_text",
-      text: truncateText(String(props.placeholder ?? " "), 150),
+      text: truncateText(
+        String(props.placeholder ?? " "),
+        SLACK_LIMITS.inputLabel,
+      ),
     },
   } as KnownBlock;
 }

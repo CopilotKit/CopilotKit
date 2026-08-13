@@ -13,7 +13,7 @@ persistence, concurrency, locking, retries, and race-condition handling.
 ## Install
 
 ```sh
-pnpm add @copilotkit/channels
+pnpm add @copilotkit/channels @copilotkit/schema
 ```
 
 Configure TypeScript to use the Channels JSX runtime:
@@ -67,6 +67,22 @@ const listener = createCopilotNodeListener({ runtime });
 // Optional: await that activation so a broken config fails startup loudly.
 await listener.channels.ready(); // listener.channels.stop() tears it down
 ```
+
+## Streaming components
+
+`defineChannelComponent` registers typed JSX as an agent tool. Standard Schema
+parameters render after final validation. Parameters built with
+`@copilotkit/schema` can add pipeable `streaming()` checkpoints so Slack blocks
+and Teams Adaptive Cards update in place while AG-UI tool arguments arrive.
+
+Components may define JSON state and stable named callbacks. A callback binding
+stores its JSON arguments and clicked render revision; it does not serialize a
+closure. `setState` updates the same component message. Agent work starts only
+when the callback calls a thread API such as `thread.runAgent()`.
+
+Progressive replacement requires Slack or Teams and a durable `StateStore` for
+restart recovery. The default in-memory store is useful for local development,
+but its component state and callback bindings do not survive a restart.
 
 ## Adapter entry points
 

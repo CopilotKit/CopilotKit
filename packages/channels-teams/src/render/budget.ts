@@ -7,6 +7,8 @@
  * them rather than emitting an oversized card Teams would reject.
  */
 export const TEAMS_LIMITS = {
+  /** Maximum UTF-8 JSON size of one Adaptive Card attachment. */
+  cardBytes: 28 * 1024,
   /** Top-level body elements (TextBlocks, FactSets, Tables, etc.) per card. */
   bodyElements: 100,
   /** Top-level `Action.Submit`s. Teams shows ~6 before overflowing. */
@@ -28,6 +30,11 @@ export const TEAMS_LIMITS = {
   chartTitle: 200,
   chartLabel: 200,
 } as const;
+
+/** Return the UTF-8 JSON byte size of one provider payload. */
+export function jsonByteLength(value: unknown): number {
+  return new TextEncoder().encode(JSON.stringify(value)).byteLength;
+}
 
 /** Truncate to `max` chars, appending an ellipsis if the input was longer. Never returns >max. */
 export function truncateText(text: string, max: number): string {

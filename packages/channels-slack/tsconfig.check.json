@@ -2,9 +2,11 @@
   "extends": "@copilotkit/typescript-config/base.json",
   "compilerOptions": {
     "noEmit": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels-ui",
     "lib": ["es2022", "dom"],
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/native-data-visualization.test.tsx"],
   "exclude": ["dist", "node_modules"]
 }

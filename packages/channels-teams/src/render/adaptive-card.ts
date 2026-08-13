@@ -1,5 +1,10 @@
 import type { ChannelNode } from "@copilotkit/channels-ui";
-import { TEAMS_LIMITS, truncateText, clampArray } from "./budget.js";
+import {
+  TEAMS_LIMITS,
+  truncateText,
+  clampArray,
+  jsonByteLength,
+} from "./budget.js";
 
 /** Teams attachment content type for an Adaptive Card. */
 export const ADAPTIVE_CARD_CONTENT_TYPE =
@@ -44,6 +49,14 @@ const VERSION = "1.5";
  * ceiling.
  */
 export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
+  return renderAdaptiveCardWithOverflow(ir, "clamp");
+}
+
+function renderAdaptiveCardWithOverflow(
+  ir: ChannelNode[],
+  overflowMode: "clamp" | "error",
+): AdaptiveCard {
+  if (overflowMode === "error") assertTeamsPortableBudgets(ir);
   const body: CardElement[] = [];
   const actions: CardAction[] = [];
   const context: RenderContext = {
@@ -51,6 +64,17 @@ export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
     usedFieldIds: new Set(["ckActionId", "value"]),
   };
   for (const node of ir) renderNode(node, body, actions, context);
+
+  if (overflowMode === "error" && body.length > TEAMS_LIMITS.bodyElements) {
+    throw new Error(
+      `Teams Channel component rendered ${body.length} body elements; the card limit is ${TEAMS_LIMITS.bodyElements}.`,
+    );
+  }
+  if (overflowMode === "error" && actions.length > TEAMS_LIMITS.actions) {
+    throw new Error(
+      `Teams Channel component rendered ${actions.length} actions; the card limit is ${TEAMS_LIMITS.actions}.`,
+    );
+  }
 
   const card: AdaptiveCard = {
     type: "AdaptiveCard",
@@ -60,7 +84,319 @@ export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
   };
   const clampedActions = clampArray(actions, TEAMS_LIMITS.actions).items;
   if (clampedActions.length > 0) card.actions = clampedActions;
+  if (overflowMode === "error") assertTeamsComponentCardBudget(card);
   return card;
+}
+
+function assertTeamsPortableBudgets(nodes: readonly ChannelNode[]): void {
+  for (const node of nodes) {
+    if (typeof node.type === "string") {
+      const text =
+        node.type === "text"
+          ? String(node.props.value ?? "")
+          : collectText(node);
+      if (
+        ["header", "section", "markdown", "text", "context"].includes(
+          node.type,
+        ) &&
+        text.length > TEAMS_LIMITS.textBlock
+      ) {
+        throw new Error(
+          `Teams Channel component text has ${text.length} characters; the TextBlock limit is ${TEAMS_LIMITS.textBlock}.`,
+        );
+      }
+      const children = childNodes(node);
+      if (
+        node.type === "fields" &&
+        children.filter((child) => child.type === "field").length >
+          TEAMS_LIMITS.factsPerSet
+      ) {
+        throw new Error(
+          `Teams Channel component FactSet exceeds ${TEAMS_LIMITS.factsPerSet} facts.`,
+        );
+      }
+      if (node.type === "field") {
+        const fact = splitFactText(collectText(node));
+        assertTeamsTextBudget("fact title", fact.title, TEAMS_LIMITS.factTitle);
+        assertTeamsTextBudget("fact value", fact.value, TEAMS_LIMITS.factValue);
+      }
+      if (node.type === "button") {
+        assertTeamsTextBudget(
+          "button title",
+          collectText(node),
+          TEAMS_LIMITS.buttonText,
+        );
+      }
+      if (node.type === "select" && Array.isArray(node.props.options)) {
+        if (node.props.options.length > TEAMS_LIMITS.choices) {
+          throw new Error(
+            `Teams Channel component select exceeds ${TEAMS_LIMITS.choices} choices.`,
+          );
+        }
+        for (const option of node.props.options as Array<{ label?: unknown }>) {
+          assertTeamsTextBudget(
+            "choice label",
+            String(option.label ?? ""),
+            TEAMS_LIMITS.choiceLabel,
+          );
+        }
+      }
+      if (node.type === "table") {
+        const columns = Array.isArray(node.props.columns)
+          ? node.props.columns.length
+          : 0;
+        const rowNodes = children.filter((child) => child.type === "row");
+        const rows =
+          rowNodes.length +
+          (Array.isArray(node.props.columns) && node.props.columns.length > 0
+            ? 1
+            : 0);
+        const inferredColumns = rowNodes.reduce(
+          (widest, row) =>
+            Math.max(
+              widest,
+              childNodes(row).filter((child) => child.type === "cell").length,
+            ),
+          0,
+        );
+        if (Math.max(columns, inferredColumns) > TEAMS_LIMITS.tableColumns) {
+          throw new Error(
+            `Teams Channel component table exceeds ${TEAMS_LIMITS.tableColumns} columns.`,
+          );
+        }
+        if (rows > TEAMS_LIMITS.tableRows) {
+          throw new Error(
+            `Teams Channel component table exceeds ${TEAMS_LIMITS.tableRows} rows.`,
+          );
+        }
+        for (const column of Array.isArray(node.props.columns)
+          ? (node.props.columns as Array<{ header?: unknown }>)
+          : []) {
+          assertTeamsTextBudget(
+            "table cell",
+            String(column.header ?? ""),
+            TEAMS_LIMITS.cellText,
+          );
+        }
+        for (const row of rowNodes) {
+          for (const cell of childNodes(row).filter(
+            (child) => child.type === "cell",
+          )) {
+            assertTeamsTextBudget(
+              "table cell",
+              collectText(cell),
+              TEAMS_LIMITS.cellText,
+            );
+          }
+        }
+      }
+      if (node.type === "chart" && Array.isArray(node.props.data)) {
+        if (node.props.data.length > TEAMS_LIMITS.chartDataPoints) {
+          throw new Error(
+            `Teams Channel component chart exceeds ${TEAMS_LIMITS.chartDataPoints} data points.`,
+          );
+        }
+        assertTeamsTextBudget(
+          "chart title",
+          String(node.props.title ?? ""),
+          TEAMS_LIMITS.chartTitle,
+        );
+        for (const point of node.props.data as Array<{ label?: unknown }>) {
+          assertTeamsTextBudget(
+            "chart label",
+            String(point.label ?? ""),
+            TEAMS_LIMITS.chartLabel,
+          );
+        }
+      }
+      assertTeamsPortableBudgets(children);
+    }
+  }
+}
+
+/** Render one portable Channel component revision as an Adaptive Card. */
+export function renderTeamsComponentCard(ir: ChannelNode[]): AdaptiveCard {
+  return renderAdaptiveCardWithOverflow(ir, "error");
+}
+
+/** Reject an Adaptive Card that exceeds component-only provider budgets. */
+export function assertTeamsComponentCardBudget(card: AdaptiveCard): void {
+  if (card.body.length > TEAMS_LIMITS.bodyElements) {
+    throw new Error(
+      `Teams Channel component rendered ${card.body.length} body elements; the card limit is ${TEAMS_LIMITS.bodyElements}.`,
+    );
+  }
+  if ((card.actions?.length ?? 0) > TEAMS_LIMITS.actions) {
+    throw new Error(
+      `Teams Channel component rendered ${card.actions?.length ?? 0} actions; the card limit is ${TEAMS_LIMITS.actions}.`,
+    );
+  }
+  const bytes = jsonByteLength(card);
+  if (bytes > TEAMS_LIMITS.cardBytes) {
+    throw new Error(
+      `Teams Channel component rendered ${bytes} bytes; the Adaptive Card limit is ${TEAMS_LIMITS.cardBytes}.`,
+    );
+  }
+  assertTeamsRenderedComponentBudget(card);
+}
+
+function assertTeamsRenderedComponentBudget(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const child of value) assertTeamsRenderedComponentBudget(child);
+    return;
+  }
+  if (typeof value !== "object" || value === null) return;
+  const record = value as Record<string, unknown>;
+  if (
+    record.type === "TextBlock" &&
+    typeof record.text === "string" &&
+    record.text.length > TEAMS_LIMITS.textBlock
+  ) {
+    throw new Error(
+      `Teams Channel component text has ${record.text.length} characters; the TextBlock limit is ${TEAMS_LIMITS.textBlock}.`,
+    );
+  }
+  if (record.type === "FactSet" && Array.isArray(record.facts)) {
+    if (record.facts.length > TEAMS_LIMITS.factsPerSet) {
+      throw new Error(
+        `Teams Channel component FactSet exceeds ${TEAMS_LIMITS.factsPerSet} facts.`,
+      );
+    }
+    for (const fact of record.facts) {
+      if (typeof fact !== "object" || fact === null) continue;
+      const item = fact as Record<string, unknown>;
+      assertTeamsTextBudget(
+        "fact title",
+        String(item.title ?? ""),
+        TEAMS_LIMITS.factTitle,
+      );
+      assertTeamsTextBudget(
+        "fact value",
+        String(item.value ?? ""),
+        TEAMS_LIMITS.factValue,
+      );
+    }
+  }
+  if (typeof record.type === "string" && record.type.startsWith("Action.")) {
+    assertTeamsTextBudget(
+      "button title",
+      String(record.title ?? ""),
+      TEAMS_LIMITS.buttonText,
+    );
+  }
+  if (record.type === "ActionSet" && Array.isArray(record.actions)) {
+    assertTeamsCollectionBudget(
+      "actions",
+      record.actions.length,
+      TEAMS_LIMITS.actions,
+    );
+  }
+  if (record.type === "Input.ChoiceSet" && Array.isArray(record.choices)) {
+    assertTeamsCollectionBudget(
+      "choices",
+      record.choices.length,
+      TEAMS_LIMITS.choices,
+    );
+    for (const choice of record.choices) {
+      if (typeof choice !== "object" || choice === null) continue;
+      assertTeamsTextBudget(
+        "choice label",
+        String((choice as Record<string, unknown>).title ?? ""),
+        TEAMS_LIMITS.choiceLabel,
+      );
+    }
+  }
+  if (record.type === "Table") {
+    assertTeamsCollectionBudget(
+      "table columns",
+      Array.isArray(record.columns) ? record.columns.length : 0,
+      TEAMS_LIMITS.tableColumns,
+    );
+    assertTeamsCollectionBudget(
+      "table rows",
+      Array.isArray(record.rows) ? record.rows.length : 0,
+      TEAMS_LIMITS.tableRows,
+    );
+  }
+  if (record.type === "TableRow" && Array.isArray(record.cells)) {
+    assertTeamsCollectionBudget(
+      "table columns",
+      record.cells.length,
+      TEAMS_LIMITS.tableColumns,
+    );
+  }
+  if (record.type === "TableCell" && Array.isArray(record.items)) {
+    for (const item of record.items) {
+      if (typeof item !== "object" || item === null) continue;
+      const child = item as Record<string, unknown>;
+      if (child.type === "TextBlock") {
+        assertTeamsTextBudget(
+          "table cell",
+          String(child.text ?? ""),
+          TEAMS_LIMITS.cellText,
+        );
+      }
+    }
+  }
+  if (typeof record.type === "string" && record.type.startsWith("Chart.")) {
+    assertTeamsTextBudget(
+      "chart title",
+      String(record.title ?? ""),
+      TEAMS_LIMITS.chartTitle,
+    );
+    assertTeamsChartLabels(record.data);
+  }
+  for (const child of Object.values(record)) {
+    assertTeamsRenderedComponentBudget(child);
+  }
+}
+
+function assertTeamsTextBudget(
+  kind: string,
+  text: string,
+  limit: number,
+): void {
+  if (text.length > limit) {
+    throw new Error(
+      `Teams Channel component ${kind} has ${text.length} characters; the limit is ${limit}.`,
+    );
+  }
+}
+
+function assertTeamsCollectionBudget(
+  kind: string,
+  count: number,
+  limit: number,
+): void {
+  if (count > limit) {
+    throw new Error(
+      `Teams Channel component ${kind} has ${count} items; the limit is ${limit}.`,
+    );
+  }
+}
+
+function assertTeamsChartLabels(value: unknown): void {
+  if (Array.isArray(value)) {
+    if (value.length > TEAMS_LIMITS.chartDataPoints) {
+      throw new Error(
+        `Teams Channel component chart exceeds ${TEAMS_LIMITS.chartDataPoints} data points.`,
+      );
+    }
+    for (const child of value) assertTeamsChartLabels(child);
+    return;
+  }
+  if (typeof value !== "object" || value === null) return;
+  const record = value as Record<string, unknown>;
+  for (const key of ["label", "legend", "x"] as const) {
+    if (key in record) {
+      assertTeamsTextBudget(
+        "chart label",
+        String(record[key] ?? ""),
+        TEAMS_LIMITS.chartLabel,
+      );
+    }
+  }
+  for (const child of Object.values(record)) assertTeamsChartLabels(child);
 }
 
 /** Render a single IR node, pushing body elements and/or top-level actions. */
@@ -168,17 +504,20 @@ function textBlock(text: string): CardElement {
 function factSet(fieldNodes: ChannelNode[]): CardElement {
   const { items } = clampArray(fieldNodes, TEAMS_LIMITS.factsPerSet);
   const facts = items.map((f) => {
-    const text = collectText(f);
-    const idx = text.indexOf(":");
-    if (idx > 0 && idx <= 60) {
-      return {
-        title: truncateText(text.slice(0, idx).trim(), TEAMS_LIMITS.factTitle),
-        value: truncateText(text.slice(idx + 1).trim(), TEAMS_LIMITS.factValue),
-      };
-    }
-    return { title: "", value: truncateText(text, TEAMS_LIMITS.factValue) };
+    const fact = splitFactText(collectText(f));
+    return {
+      title: truncateText(fact.title, TEAMS_LIMITS.factTitle),
+      value: truncateText(fact.value, TEAMS_LIMITS.factValue),
+    };
   });
   return { type: "FactSet", facts };
+}
+
+function splitFactText(text: string): { title: string; value: string } {
+  const idx = text.indexOf(":");
+  return idx > 0 && idx <= 60
+    ? { title: text.slice(0, idx).trim(), value: text.slice(idx + 1).trim() }
+    : { title: "", value: text };
 }
 
 function renderButton(node: ChannelNode): CardAction {

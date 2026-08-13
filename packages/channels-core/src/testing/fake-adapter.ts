@@ -63,6 +63,7 @@ export function makeFakeRunRenderer(): RunRenderer {
   const subscriber: AgentSubscriber = {
     onToolCallEndEvent(p) {
       toolCalls.push({
+        ...(typeof p.event.runId === "string" ? { runId: p.event.runId } : {}),
         toolCallId: p.event.toolCallId,
         toolCallName: p.toolCallName,
         toolCallArgs: (p.toolCallArgs ?? {}) as Record<string, unknown>,
@@ -97,6 +98,18 @@ export class FakeAdapter implements PlatformAdapter {
   readonly ackDeadlineMs = 3000;
   supportsIntelligenceMemory?: boolean;
   runAgentLifecycle?: PlatformAdapter["runAgentLifecycle"];
+  getComponentDeliveryPolicy(
+    platform: string,
+  ): NonNullable<
+    ReturnType<NonNullable<PlatformAdapter["getComponentDeliveryPolicy"]>>
+  > {
+    return {
+      minIntervalMs:
+        platform === "teams" ? 700 : platform === "slack" ? 800 : 0,
+      maxAttempts: platform === "teams" || platform === "slack" ? 3 : 1,
+      retryDelayMs: (attempt) => 100 * 2 ** (attempt - 1),
+    };
+  }
 
   /** When true, `start()` rejects (set via constructor `failStart`). */
   readonly failStart: boolean;
@@ -317,6 +330,15 @@ export class FakeAdapter implements PlatformAdapter {
   }
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
     this.updated.push({ ref, ir });
+  }
+  async postComponent(
+    target: ReplyTarget,
+    ir: ChannelNode[],
+  ): Promise<MessageRef> {
+    return this.post(target, ir);
+  }
+  async updateComponent(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
+    await this.update(ref, ir);
   }
   async stream(
     _target: ReplyTarget,

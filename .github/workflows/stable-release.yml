@@ -9,6 +9,7 @@ on:
         type: choice
         options:
           - monorepo
+          - schema
           - angular
           - channels
       bump:

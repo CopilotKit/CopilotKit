@@ -1,5 +1,6 @@
 import type { ChannelNode } from "./ir.js";
 import type { ClickHandler, MessageReactionHandler } from "./types.js";
+import type { ChannelCallbackBinding } from "./channel-callback-binding.js";
 
 /**
  * Anything that can appear as a child in the component tree: nested elements,
@@ -72,7 +73,7 @@ export interface ButtonProps<TValue = unknown> extends WithChildren {
    * registry). Its `ctx.action.value` is typed as `TValue`, inferred from
    * `value`. Ignored when `url` is set (a link button doesn't dispatch).
    */
-  onClick?: ClickHandler<TValue>;
+  onClick?: ClickHandler<TValue> | ChannelCallbackBinding;
   /** Value echoed back to `onClick`/`awaitChoice` on click; drives `TValue`. */
   value?: TValue;
   /**
@@ -96,7 +97,7 @@ export interface SelectProps {
    * Handler run on selection. `ctx.action.value` is the chosen option's `value`
    * (a `string`), or a `string[]` of chosen values when `multi` is set.
    */
-  onSelect?: ClickHandler<string | string[]>;
+  onSelect?: ClickHandler<string | string[]> | ChannelCallbackBinding;
   placeholder?: string;
   options: SelectOption[];
   /**
@@ -111,7 +112,7 @@ export interface SelectProps {
 
 export interface InputProps {
   /** Handler run on submit; `ctx.action.value` is the entered text. */
-  onSubmit?: ClickHandler<string>;
+  onSubmit?: ClickHandler<string> | ChannelCallbackBinding;
   placeholder?: string;
   multiline?: boolean;
   /** Stable field key used when a provider submits this input with a form. */

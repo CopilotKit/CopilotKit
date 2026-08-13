@@ -100,6 +100,76 @@ test("Teams delivery forwards a Teams-native Adaptive Card without translation",
   });
 });
 
+test("managed component delivery rejects an oversized raw Teams card before an effect", async () => {
+  const effect = vi.fn();
+  const card = {
+    type: "AdaptiveCard",
+    version: "1.5",
+    body: Array.from({ length: 101 }, (_, index) => ({
+      type: "TextBlock",
+      text: `Row ${index}`,
+    })),
+  };
+
+  await expect(
+    makeAdapter().postComponent(target("teams", effect), [
+      { type: "raw", props: { provider: "teams", value: card } },
+    ]),
+  ).rejects.toThrow(
+    "Teams Channel component rendered 101 body elements; the card limit is 100.",
+  );
+  expect(effect).not.toHaveBeenCalled();
+});
+
+test("managed component delivery rejects Slack overflow before an effect", async () => {
+  const effect = vi.fn();
+  const ir: ChannelNode[] = Array.from({ length: 51 }, (_, index) => ({
+    type: "section",
+    props: { children: `Section ${index}` },
+  }));
+
+  await expect(
+    makeAdapter().postComponent(target("slack", effect), ir),
+  ).rejects.toThrow(
+    "Slack Channel component rendered 51 blocks; the message limit is 50.",
+  );
+  expect(effect).not.toHaveBeenCalled();
+});
+
+test.each(["slack", "teams"] as const)(
+  "managed %s component delivery creates once then replaces the same provider reference",
+  async (provider) => {
+    const providerReference = `pref_v1_${provider}_component_123`;
+    const effect = vi
+      .fn()
+      .mockResolvedValueOnce({
+        providerReference,
+        providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+      })
+      .mockResolvedValueOnce({});
+    const adapter = makeAdapter();
+    const deliveryTarget = target(provider, effect);
+    const first: ChannelNode[] = [
+      { type: "section", props: { children: "Loading" } },
+    ];
+    const second: ChannelNode[] = [
+      { type: "section", props: { children: "Ready" } },
+    ];
+
+    const ref = await adapter.postComponent(deliveryTarget, first);
+    await adapter.updateComponent(ref, second);
+
+    expect(effect).toHaveBeenCalledTimes(2);
+    expect(effect.mock.calls[0]![1]).toMatchObject({
+      kind: `${provider}.message.create`,
+    });
+    expect(effect.mock.calls[1]![1]).toMatchObject({
+      kind: `${provider}.message.replace`,
+      providerReference,
+    });
+  },
+);
+
 test("managed Slack delivery serializes native JSX with fallback text", async () => {
   const effect = vi.fn().mockResolvedValue({
     providerReference: "pref_v1_slack_native_jsx_123",

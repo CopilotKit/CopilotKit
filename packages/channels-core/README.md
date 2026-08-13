@@ -193,24 +193,48 @@ folded into the agent's system context on each `runAgent`.
 ## Agent-rendered components
 
 `defineChannelComponent` turns a server-rendered JSX function into an agent
-tool. Its Standard Schema validates tool args before `render` runs. The render
-context supplies the source `platform` and the run's `AbortSignal`.
+tool. A normal Standard Schema validates complete tool args and renders once.
+An `@copilotkit/schema` streaming checkpoint can also render partial props while
+AG-UI tool arguments arrive. Slack and Teams replace one message as those props
+change.
+
+Install the core, UI, and schema packages used by this selective example:
+
+```sh
+pnpm add @copilotkit/channels-core @copilotkit/channels-ui @copilotkit/schema
+```
 
 ```tsx
-import { createChannel, defineChannelComponent } from "@copilotkit/channels";
-import { z } from "zod";
+import {
+  createChannel,
+  defineChannelComponent,
+} from "@copilotkit/channels-core";
+import { Button, Card, Section } from "@copilotkit/channels-ui";
+import { object, schema, streaming, string } from "@copilotkit/schema";
 
 const Approval = defineChannelComponent({
   name: "show_approval",
   description: "Post an approval request.",
-  parameters: z.object({ title: z.string() }),
-  render: ({ title }, { platform, signal }) => (
-    <Card title={`${title} (${platform})`}>
-      <Button key="approve" value="approve" onClick={approve}>
-        Approve
-      </Button>
-    </Card>
+  parameters: schema(
+    object({ title: schema(string(), streaming()) }),
+    streaming(),
   ),
+  getInitialState: () => ({ approved: false }),
+  callbacks: {
+    async approve(_args: null, { setState }) {
+      await setState({ approved: true });
+    },
+  },
+  render({ phase, props, state, callbacks, platform }) {
+    if (phase === "failed") return <Section>Approval could not load.</Section>;
+    return (
+      <Card title={`${props.title ?? "Loading…"} (${platform})`}>
+        <Button onClick={callbacks.approve(null)}>
+          {state.approved ? "Approved" : "Approve"}
+        </Button>
+      </Card>
+    );
+  },
 });
 
 const channel = createChannel({
@@ -219,13 +243,13 @@ const channel = createChannel({
 });
 ```
 
-When the agent calls `show_approval`, Channels posts the rendered message as a
-separate provider message and returns a short tool acknowledgement. The agent
-run then continues. Interactive nodes in a component definition need stable,
-unique JSX keys. Channels stores those keys with the source platform and action
-value, so a click or reaction can recover the same handler after a restart.
-Legacy `components: { Name: Component }` registrations still use positional
-recovery for old snapshots.
+When the agent calls `show_approval`, Channels posts the first useful render,
+updates that message in place, and waits for the final `ready` update before it
+finishes the tool. Named callback bindings store JSON-safe arguments and the
+exact rendered props, state, phase, and revision. `setState` only updates the
+component; a callback must call `thread.runAgent()` or `thread.resume()` itself
+when it wants agent work. Configure a durable `StateStore` if component state
+and callbacks must survive a process restart.
 
 ## ActionStore
 
