@@ -79,6 +79,17 @@ export interface ImageProps {
   alt?: string;
 }
 
+export interface RenderProps extends WithChildren {
+  /** Plain-text summary of the snapshot. Required. */
+  alt: string;
+  /** Snapshot width in pixels. Default 800 at render time. */
+  width?: number;
+}
+
+export interface CarouselProps extends WithChildren {}
+
+export interface CarouselCardProps extends WithChildren {}
+
 /** `<Divider />` takes no props or children. */
 export type DividerProps = { children?: never };
 
@@ -193,6 +204,9 @@ export const Fields = intrinsic<FieldsProps>("fields");
 export const Context = intrinsic<ContextProps>("context");
 export const Actions = intrinsic<ActionsProps>("actions");
 export const Image = intrinsic<ImageProps>("image");
+export const Render = intrinsic<RenderProps>("render");
+export const Carousel = intrinsic<CarouselProps>("carousel");
+export const CarouselCard = intrinsic<CarouselCardProps>("carouselCard");
 export const Divider = intrinsic<DividerProps>("divider");
 export const Chart = intrinsic<ChartProps>("chart");
 export const Row = intrinsic<RowProps>("row");
