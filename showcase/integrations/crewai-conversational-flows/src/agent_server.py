@@ -21,12 +21,15 @@ from agents._header_forwarding import (
 install_global_httpx_hook()
 
 from ag_ui_crewai import add_crewai_flow_fastapi_endpoint  # noqa: E402
+from _shared.ag_ui_crewai_compat import install_resume_status_compat  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 from starlette.responses import JSONResponse  # noqa: E402
 
 from agents.conversational_flows import CONVERSATIONAL_FLOW_TYPES  # noqa: E402
+
+install_resume_status_compat()
 
 
 app = FastAPI(title="CrewAI Conversational Flows Agent Server")

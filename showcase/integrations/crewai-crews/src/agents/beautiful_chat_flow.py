@@ -83,7 +83,11 @@ class BeautifulChatFlow(Flow[CopilotKitState]):
                     arguments = json.loads(function.get("arguments") or "{}")
                 except (TypeError, json.JSONDecodeError):
                     arguments = {}
-                content = await asyncio.to_thread(backend_tool._run, **arguments)
+                async_runner = getattr(type(backend_tool), "_arun", BaseTool._arun)
+                if async_runner is BaseTool._arun:
+                    content = await asyncio.to_thread(backend_tool._run, **arguments)
+                else:
+                    content = await backend_tool._arun(**arguments)
                 if not isinstance(content, str):
                     content = json.dumps(content)
                 tool_call_id = call.get("id")

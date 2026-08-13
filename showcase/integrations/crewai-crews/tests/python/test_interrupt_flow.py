@@ -152,7 +152,13 @@ async def test_interrupt_flow_text_fallback_carries_selection_to_followup(
 
 
 @pytest.mark.asyncio
-async def test_interrupt_flow_empty_protocol_feedback_means_cancelled(monkeypatch):
+@pytest.mark.parametrize(
+    ("feedback_text", "expected_cancelled"),
+    [("", True), ("null", False)],
+)
+async def test_interrupt_flow_distinguishes_cancel_from_resolved_null(
+    monkeypatch, feedback_text, expected_cancelled
+):
     from agents import interrupt_flow as module
 
     flow = module.InterruptFlow()
@@ -177,12 +183,12 @@ async def test_interrupt_flow_empty_protocol_feedback_means_cancelled(monkeypatc
     await flow.confirm_schedule(
         HumanFeedbackResult(
             output={"topic": "Meeting", "attendee": None},
-            feedback="",
+            feedback=feedback_text,
             method_name="request_schedule",
         )
     )
 
-    assert flow.state.meeting["cancelled"] is True
+    assert flow.state.meeting["cancelled"] is expected_cancelled
     assert flow.state.meeting["time"] is None
     assert emitted == [
         (
@@ -192,7 +198,7 @@ async def test_interrupt_flow_empty_protocol_feedback_means_cancelled(monkeypatc
                 "attendee": None,
                 "time": None,
                 "label": None,
-                "cancelled": True,
+                "cancelled": expected_cancelled,
             },
         )
     ]

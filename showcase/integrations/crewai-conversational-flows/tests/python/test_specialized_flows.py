@@ -12,6 +12,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from agents.tools.custom_tool import _generate_a2ui_completion_params
+from tools import RENDER_A2UI_TOOL_SCHEMA
+
 
 INTEGRATION_ROOT = Path(__file__).resolve().parents[2]
 AGENT_SERVER = INTEGRATION_ROOT / "src" / "agent_server.py"
@@ -37,6 +40,15 @@ DOCKERFILE = INTEGRATION_ROOT / "Dockerfile"
 
 def _response(message):
     return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+def test_generate_a2ui_completion_params_reuses_canonical_schema():
+    params = _generate_a2ui_completion_params("Build a sales dashboard.")
+
+    assert params["tools"] == [
+        {"type": "function", "function": RENDER_A2UI_TOOL_SCHEMA}
+    ]
+    assert params["tools"][0]["function"] is RENDER_A2UI_TOOL_SCHEMA
 
 
 def test_every_crewai_agent_is_explicitly_pinned_to_gpt_5_4():
@@ -1105,16 +1117,19 @@ async def test_beautiful_chat_flow_keeps_event_loop_responsive_during_backend_to
 
 
 @pytest.mark.asyncio
-async def test_beautiful_chat_flow_can_be_cancelled_while_backend_tool_runs(
+async def test_beautiful_chat_cancels_generate_a2ui_network_request(
     monkeypatch,
 ):
     from agents import beautiful_chat_flow as module
+    import openai
 
     flow = module.BeautifulChatFlow()
-    flow.state.messages = [{"role": "user", "content": "Find flights."}]
-    started = threading.Event()
-    release = threading.Event()
-    finished = threading.Event()
+    flow.state.messages = [{"role": "user", "content": "Build a dashboard."}]
+    async_started = asyncio.Event()
+    async_cancelled = asyncio.Event()
+    async_closed = asyncio.Event()
+    sync_started = threading.Event()
+    sync_release = threading.Event()
 
     async def fake_completion(**_kwargs):
         return object()
@@ -1126,45 +1141,70 @@ async def test_beautiful_chat_flow_can_be_cancelled_while_backend_tool_runs(
                 "content": "",
                 "tool_calls": [
                     {
-                        "id": "call_cancellable_tool",
+                        "id": "call_generate_a2ui",
                         "type": "function",
                         "function": {
-                            "name": "search_flights",
-                            "arguments": "{}",
+                            "name": "generate_a2ui",
+                            "arguments": '{"context":"Show revenue"}',
                         },
                     }
                 ],
             }
         )
 
-    def delayed_tool(**_kwargs):
-        started.set()
-        release.wait(timeout=0.2)
-        finished.set()
-        return "{}"
+    class FakeSyncCompletions:
+        def create(self, **_kwargs):
+            sync_started.set()
+            sync_release.wait(timeout=1)
+            return _response(SimpleNamespace(tool_calls=[]))
+
+    class FakeSyncOpenAI:
+        def __init__(self):
+            self.chat = SimpleNamespace(completions=FakeSyncCompletions())
+
+    class FakeAsyncCompletions:
+        async def create(self, **_kwargs):
+            async_started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                async_cancelled.set()
+                raise
+
+    class FakeAsyncOpenAI:
+        def __init__(self):
+            self.chat = SimpleNamespace(completions=FakeAsyncCompletions())
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            async_closed.set()
 
     monkeypatch.setattr(module, "acompletion", fake_completion)
     monkeypatch.setattr(module, "copilotkit_stream", fake_stream)
-    monkeypatch.setitem(
-        module.BACKEND_TOOLS_BY_NAME,
-        "search_flights",
-        SimpleNamespace(_run=delayed_tool),
-    )
+    monkeypatch.setattr(openai, "OpenAI", FakeSyncOpenAI)
+    monkeypatch.setattr(openai, "AsyncOpenAI", FakeAsyncOpenAI)
 
     task = asyncio.create_task(flow.chat())
     try:
-        for _ in range(20):
-            if started.is_set():
+        for _ in range(100):
+            if async_started.is_set() or sync_started.is_set():
                 break
             await asyncio.sleep(0.01)
-        assert started.is_set()
-        assert not finished.is_set()
+
+        assert async_started.is_set()
+        assert not sync_started.is_set()
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
-        assert not finished.is_set()
+        assert async_cancelled.is_set()
+        assert async_closed.is_set()
     finally:
-        release.set()
+        sync_release.set()
+        if not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
 
 @pytest.mark.asyncio

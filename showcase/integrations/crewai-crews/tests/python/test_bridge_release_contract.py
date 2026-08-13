@@ -1,5 +1,12 @@
 from importlib.metadata import version
 from inspect import signature
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+
+AGENT_SERVER = Path(__file__).resolve().parents[2] / "src" / "agent_server.py"
 
 
 def test_release_stack_and_native_surface(monkeypatch, tmp_path):
@@ -51,3 +58,57 @@ def test_preseed_system_prompt_uses_crewai_1x_chat_inputs():
     assert chat_inputs.crew_name == crew_name
     assert chat_inputs.crew_description == description
     assert chat_inputs.inputs == []
+
+
+def test_resume_compat_keeps_cancel_distinct_from_resolved_null():
+    import ag_ui_crewai._hitl as bridge_hitl
+    import ag_ui_crewai.endpoint as bridge_endpoint
+
+    from _shared.ag_ui_crewai_compat import install_resume_status_compat
+
+    install_resume_status_compat()
+
+    cancelled = SimpleNamespace(
+        resume=[
+            SimpleNamespace(
+                interrupt_id="interrupt-cancelled",
+                status="cancelled",
+                payload=None,
+            )
+        ]
+    )
+    resolved_null = SimpleNamespace(
+        resume=[
+            SimpleNamespace(
+                interrupt_id="interrupt-resolved",
+                status="resolved",
+                payload=None,
+            )
+        ]
+    )
+
+    assert bridge_endpoint.feedback_from_resume(cancelled) == (
+        "",
+        "interrupt-cancelled",
+    )
+    assert bridge_hitl.feedback_from_resume(resolved_null) == (
+        "null",
+        "interrupt-resolved",
+    )
+
+
+def test_resume_compat_fails_loudly_for_unreviewed_bridge_version(monkeypatch):
+    from _shared import ag_ui_crewai_compat as compat
+
+    monkeypatch.setattr(compat, "package_version", lambda _package: "0.4.0")
+
+    with pytest.raises(RuntimeError, match="supports ag-ui-crewai 0.3.0"):
+        compat.install_resume_status_compat()
+
+
+def test_server_installs_resume_compat_before_registering_endpoints():
+    source = AGENT_SERVER.read_text()
+
+    assert source.index("install_resume_status_compat()") < source.index(
+        "add_crewai_flow_fastapi_endpoint("
+    )

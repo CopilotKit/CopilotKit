@@ -24,6 +24,7 @@ from ag_ui_crewai import (  # noqa: E402
     add_crewai_crew_fastapi_endpoint,
     add_crewai_flow_fastapi_endpoint,
 )
+from _shared.ag_ui_crewai_compat import install_resume_status_compat  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
@@ -49,6 +50,8 @@ from agents.subagents import subagents_flow  # noqa: E402
 from agents.tool_rendering_reasoning import (  # noqa: E402
     tool_rendering_reasoning_flow,
 )
+
+install_resume_status_compat()
 
 try:
     from agents.tool_rendering import tool_rendering_flow

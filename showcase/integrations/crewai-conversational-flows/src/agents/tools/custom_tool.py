@@ -12,6 +12,7 @@ from typing import Type
 from pydantic import BaseModel, Field
 
 from tools import (
+    RENDER_A2UI_TOOL_SCHEMA,
     get_weather_impl,
     query_data_impl,
     schedule_meeting_impl,
@@ -149,6 +150,34 @@ class GenerateA2uiInput(BaseModel):
     context: str = Field(..., description="Conversation context to generate UI for.")
 
 
+def _generate_a2ui_completion_params(context: str) -> dict[str, Any]:
+    return {
+        "model": "gpt-5.4",
+        "messages": [
+            {
+                "role": "system",
+                "content": context or "Generate a useful dashboard UI.",
+            },
+            {
+                "role": "user",
+                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+            },
+        ],
+        "tools": [{"type": "function", "function": RENDER_A2UI_TOOL_SCHEMA}],
+        "tool_choice": {"type": "function", "function": {"name": "render_a2ui"}},
+    }
+
+
+def _generate_a2ui_result(response: Any) -> str:
+    if not response.choices[0].message.tool_calls:
+        return json.dumps({"error": "LLM did not call render_a2ui"})
+
+    tool_call = response.choices[0].message.tool_calls[0]
+    args = json.loads(tool_call.function.arguments)
+    result = build_a2ui_operations_from_tool_call(args)
+    return json.dumps(result)
+
+
 class GenerateA2uiTool(BaseTool):
     name: str = "generate_a2ui"
     description: str = (
@@ -161,44 +190,16 @@ class GenerateA2uiTool(BaseTool):
         from openai import OpenAI
 
         client = OpenAI()
-        tool_schema = {
-            "type": "function",
-            "function": {
-                "name": "render_a2ui",
-                "description": "Render a dynamic A2UI v0.9 surface.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "surfaceId": {"type": "string"},
-                        "catalogId": {"type": "string"},
-                        "components": {"type": "array", "items": {"type": "object"}},
-                        "data": {"type": "object"},
-                    },
-                    "required": ["surfaceId", "catalogId", "components"],
-                },
-            },
-        }
-
         response = client.chat.completions.create(
-            model="gpt-5.4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": context or "Generate a useful dashboard UI.",
-                },
-                {
-                    "role": "user",
-                    "content": "Generate a dynamic A2UI dashboard based on the conversation.",
-                },
-            ],
-            tools=[tool_schema],
-            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+            **_generate_a2ui_completion_params(context)
         )
+        return _generate_a2ui_result(response)
 
-        if not response.choices[0].message.tool_calls:
-            return json.dumps({"error": "LLM did not call render_a2ui"})
+    async def _arun(self, context: str) -> str:
+        from openai import AsyncOpenAI
 
-        tool_call = response.choices[0].message.tool_calls[0]
-        args = json.loads(tool_call.function.arguments)
-        result = build_a2ui_operations_from_tool_call(args)
-        return json.dumps(result)
+        async with AsyncOpenAI() as client:
+            response = await client.chat.completions.create(
+                **_generate_a2ui_completion_params(context)
+            )
+        return _generate_a2ui_result(response)
