@@ -1125,11 +1125,14 @@ async def test_beautiful_chat_cancels_generate_a2ui_network_request(
 
     flow = module.BeautifulChatFlow()
     flow.state.messages = [{"role": "user", "content": "Build a dashboard."}]
+    dispatch_started = asyncio.Event()
     async_started = asyncio.Event()
     async_cancelled = asyncio.Event()
     async_closed = asyncio.Event()
     sync_started = threading.Event()
     sync_release = threading.Event()
+    sync_finished = threading.Event()
+    event_loop = asyncio.get_running_loop()
 
     async def fake_completion(**_kwargs):
         return object()
@@ -1155,8 +1158,12 @@ async def test_beautiful_chat_cancels_generate_a2ui_network_request(
     class FakeSyncCompletions:
         def create(self, **_kwargs):
             sync_started.set()
-            sync_release.wait(timeout=1)
-            return _response(SimpleNamespace(tool_calls=[]))
+            event_loop.call_soon_threadsafe(dispatch_started.set)
+            try:
+                sync_release.wait(timeout=1)
+                return _response(SimpleNamespace(tool_calls=[]))
+            finally:
+                sync_finished.set()
 
     class FakeSyncOpenAI:
         def __init__(self):
@@ -1165,6 +1172,7 @@ async def test_beautiful_chat_cancels_generate_a2ui_network_request(
     class FakeAsyncCompletions:
         async def create(self, **_kwargs):
             async_started.set()
+            dispatch_started.set()
             try:
                 await asyncio.Event().wait()
             except asyncio.CancelledError:
@@ -1188,23 +1196,29 @@ async def test_beautiful_chat_cancels_generate_a2ui_network_request(
 
     task = asyncio.create_task(flow.chat())
     try:
-        for _ in range(100):
-            if async_started.is_set() or sync_started.is_set():
-                break
-            await asyncio.sleep(0.01)
+        await asyncio.wait_for(dispatch_started.wait(), timeout=1)
 
         assert async_started.is_set()
         assert not sync_started.is_set()
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
-            await task
+            await asyncio.wait_for(task, timeout=1)
         assert async_cancelled.is_set()
         assert async_closed.is_set()
     finally:
         sync_release.set()
         if not task.done():
             task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
+            await asyncio.wait_for(
+                asyncio.gather(task, return_exceptions=True),
+                timeout=1,
+            )
+        if sync_started.is_set():
+            sync_finished_observed = await asyncio.wait_for(
+                asyncio.to_thread(sync_finished.wait, 1),
+                timeout=2,
+            )
+            assert sync_finished_observed
 
 
 @pytest.mark.asyncio
