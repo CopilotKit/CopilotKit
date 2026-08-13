@@ -126,18 +126,25 @@ interactive projection:
 ```ts title="server/src/index.ts"
 import { CopilotSseRuntime } from "@copilotkit/runtime/v2";
 import { ManagedAgentsAgent } from "@ag-ui/claude-managed-agents";
-import { financialAssistantTools } from "./financialAssistantTools";
+import {
+  createCopilotRequestBodyParser,
+  createFinancialAssistantAgentConfig,
+} from "./runtimeLimits";
 
 const runtime = new CopilotSseRuntime({
   agents: {
-    "financial-assistant": new ManagedAgentsAgent({
-      managedAgentId: ids.agentId,
-      environmentId: ids.environmentId,
-      backendTools: financialAssistantTools,
-    }),
+    "financial-assistant": new ManagedAgentsAgent(
+      createFinancialAssistantAgentConfig(ids),
+    ),
   },
 });
+
+app.use("/api/copilotkit", createCopilotRequestBodyParser());
 ```
+
+The helper keeps the public demo bounded: it sets `turnTimeoutMs` to 90 seconds and rejects request bodies over
+256 KB before they reach the runtime. The adapter already serializes runs per thread; this recipe does not add a
+global cross-thread limiter.
 
 The single [backend tool](/generative-ui/tool-rendering#the-backend-tool-definition) declares the exact data the
 UI needs. Its handler only acknowledges the render because the streamed tool call itself is the user-visible

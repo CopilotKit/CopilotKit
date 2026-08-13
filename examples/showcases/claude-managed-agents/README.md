@@ -82,6 +82,10 @@ The setup script gives the hosted environment no outbound network or package-man
 disables the complete built-in agent toolset. Each session receives only the narrowly scoped
 `show_growth_projection` backend tool from the CopilotKit runtime.
 
+The runtime accepts at most 256 KB per CopilotKit request and interrupts managed-agent turns
+after 90 seconds. The adapter also serializes runs per thread, so a double submission cannot
+drive the same managed session concurrently. This demo does not add a global cross-thread limiter.
+
 For a single-process deployment such as Railway:
 
 ```bash

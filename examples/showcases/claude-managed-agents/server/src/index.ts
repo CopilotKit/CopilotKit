@@ -13,7 +13,10 @@ import { fileURLToPath } from "node:url";
 import { CopilotSseRuntime } from "@copilotkit/runtime/v2";
 import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 import { ManagedAgentsAgent } from "@ag-ui/claude-managed-agents";
-import { financialAssistantTools } from "./financialAssistantTools.ts";
+import {
+  createCopilotRequestBodyParser,
+  createFinancialAssistantAgentConfig,
+} from "./runtimeLimits.ts";
 import { loadAgentIds } from "./setup.ts";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -23,11 +26,9 @@ const ids = loadAgentIds();
 
 const runtime = new CopilotSseRuntime({
   agents: {
-    "financial-assistant": new ManagedAgentsAgent({
-      managedAgentId: ids.agentId,
-      environmentId: ids.environmentId,
-      backendTools: financialAssistantTools,
-    }),
+    "financial-assistant": new ManagedAgentsAgent(
+      createFinancialAssistantAgentConfig(ids),
+    ),
   },
 });
 
@@ -39,6 +40,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",")
   .filter(Boolean);
 
 const app = express();
+app.use("/api/copilotkit", createCopilotRequestBodyParser());
 app.use(
   createCopilotExpressHandler({
     runtime,

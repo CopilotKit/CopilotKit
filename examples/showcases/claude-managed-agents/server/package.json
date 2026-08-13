@@ -7,7 +7,7 @@
     "setup": "tsx --env-file-if-exists=../.env src/setup.ts",
     "dev": "tsx watch --env-file-if-exists=../.env src/index.ts",
     "start": "tsx --env-file-if-exists=../.env src/index.ts",
-    "test": "tsx --test src/setup.test.ts",
+    "test": "tsx --test src/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
