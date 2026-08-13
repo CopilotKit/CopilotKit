@@ -109,6 +109,8 @@ import {
   createFleetHealthMonitor,
   DEFAULT_WORKER_STALE_AFTER_MS,
   DEFAULT_WORKER_GC_AFTER_MS,
+  DEFAULT_PID_SATURATION_RATIO,
+  DEFAULT_PID_SATURATION_CLEAR_RATIO,
 } from "./fleet/control-plane/fleet-health.js";
 import type { RestartWorkerHook } from "./fleet/control-plane/fleet-health.js";
 import {
@@ -1752,6 +1754,17 @@ export const BROWSER_POOL_UNRECOVERABLE_KEY =
 export const BROWSER_POOL_ALERT_WEBHOOK_ENV =
   "SLACK_WEBHOOK_BROWSER_POOL_UNRECOVERABLE";
 
+/**
+ * PB status key the control-plane's WORKER PID-SATURATION alarm is written
+ * under. Kept separate from the two browser-pool keys because it describes a
+ * different failure: the pool is fine (it launches, it serves contexts) while
+ * the CONTAINER is running out of PIDs underneath it. The browser-pool keys only
+ * go red once the pool itself can no longer function, which a PID-starved worker
+ * reaches long after its probes have started aborting on timeout — the ~36h of
+ * lead time this key exists to surface.
+ */
+export const WORKER_PID_SATURATION_KEY = "system:worker-pid-saturation";
+
 /** Breaker counters + resource gauges surfaced in the terminal alarm so an
  *  operator sees how hard the pool tried before giving up AND the PROVEN wedge
  *  signal (the cgroup PID/thread ceiling) that caused it. */
@@ -2764,6 +2777,24 @@ export async function runControlPlane(
   // §9 family-silence monitor below) must judge worker staleness against the
   // SAME window, never the DEFAULT_ constant.
   const workerStaleAfterMs = resolveWorkerStaleAfterMs();
+  // #oss-alerts plumbing, constructed HERE (ahead of its other two consumers,
+  // the §9 family-silence monitor and the D0-gone monitor further down) because
+  // fleet-health's PID-saturation hook is the first thing that needs it. Both
+  // are pure constructions over `pb` / `logger` with no ordering constraints of
+  // their own; the webhook URL resolves from SLACK_WEBHOOK_OSS_ALERTS at SEND
+  // time, so hoisting cannot change what the later consumers see.
+  const alertStateStore = createAlertStateStore(pb);
+  const ossAlertsTarget = createSlackWebhookTarget({ logger });
+  const postOssAlert = async (text: string): Promise<void> => {
+    await ossAlertsTarget.send(
+      { payload: { text }, contentType: "application/json" },
+      { kind: "slack_webhook", webhook: "oss_alerts" },
+    );
+  };
+  const pidSaturationRatio = resolveRatioEnv(
+    "WORKER_PID_SATURATION_RATIO",
+    DEFAULT_PID_SATURATION_RATIO,
+  );
   const fleetHealth = createFleetHealthMonitor({
     pb,
     claim,
@@ -2771,6 +2802,69 @@ export async function runControlPlane(
     staleAfterMs: workerStaleAfterMs,
     gcAfterMs: resolveWorkerGcAfterMs(),
     restartWorker: resolveWorkerRestartHook(logger),
+    pidSaturationRatio,
+    pidSaturationClearRatio: resolveRatioEnv(
+      "WORKER_PID_SATURATION_CLEAR_RATIO",
+      DEFAULT_PID_SATURATION_CLEAR_RATIO,
+    ),
+    // PID-SATURATION ALARM ROUTING. Mirrors the browser-pool terminal alarm's
+    // shape — a durable `system:` status row PLUS an operator ping — with one
+    // deliberate difference: the ping goes to #oss-alerts (the channel the
+    // family-silence and D0-gone monitors already post to, wired from the
+    // SLACK_WEBHOOK_OSS_ALERTS secret that exists), NOT to
+    // SLACK_WEBHOOK_BROWSER_POOL_UNRECOVERABLE, which is referenced nowhere in
+    // this repo outside its own definition and is therefore unset everywhere.
+    // An alarm nobody receives is the gap this PR closes; routing it to a
+    // known-unwired webhook would reproduce that gap exactly.
+    //
+    // Both legs are best-effort and INDEPENDENT: a failed Slack post must not
+    // cost us the durable row (the dashboard signal), and vice versa. The
+    // monitor wraps the whole hook anyway, so a throw here can never abort the
+    // health cycle — but each leg carries its own catch so one failure doesn't
+    // silently skip the other.
+    onPidSaturation: async (report) => {
+      const message =
+        `worker ${report.workerId} PID-SATURATED — ` +
+        `pids.current=${report.pidsCurrent}/pids.max=${report.pidsMax} ` +
+        `(${(report.ratio * 100).toFixed(1)}%, alarm at ${(report.threshold * 100).toFixed(0)}%). ` +
+        "This worker's probes will abort on timeout once it can no longer fork; " +
+        "redeploy harness-workers to clear it.";
+      try {
+        await statusWriter.write({
+          key: WORKER_PID_SATURATION_KEY,
+          state: "red",
+          signal: {
+            severity: "critical",
+            errorMessage: message,
+            workerId: report.workerId,
+            pidsCurrent: report.pidsCurrent,
+            pidsMax: report.pidsMax,
+            ratio: report.ratio,
+            threshold: report.threshold,
+            lastHeartbeatAt: report.lastHeartbeatAt,
+            saturatedSince: report.observedAt,
+          },
+          observedAt: report.observedAt,
+        });
+      } catch (err) {
+        logger.warn("fleet.control-plane.pid-saturation-status-write-failed", {
+          workerId: report.workerId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+      try {
+        await postOssAlert(`:rotating_light: ${message}`);
+      } catch (err) {
+        // `createSlackWebhookTarget` THROWS when SLACK_WEBHOOK_OSS_ALERTS is
+        // unset (it logs `slack-webhook.env-unset` first) — same posture the
+        // family-silence monitor swallows. Alerting ships disabled locally;
+        // the durable status row above still lands.
+        logger.warn("fleet.control-plane.pid-saturation-alert-failed", {
+          workerId: report.workerId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
   });
 
   // CATALOG-AWARE ENUMERATION: the per-service unit enumerator resolves the
@@ -2967,18 +3061,13 @@ export async function runControlPlane(
   // which the monitor swallows per its post-failure discipline — alerting
   // ships disabled, the monitor still evaluates (so /health's
   // fleetRuns.lastEvaluatedAt stays live).
-  const alertStateStore = createAlertStateStore(pb);
-  const ossAlertsTarget = createSlackWebhookTarget({ logger });
+  // `alertStateStore` + `ossAlertsTarget` are constructed above (hoisted so
+  // fleet-health's PID-saturation hook can share the SAME #oss-alerts target).
   const familySilence = createFamilySilenceMonitor({
     summary: familySummary,
     schedules,
     alertStore: alertStateStore,
-    postAlert: async (text: string): Promise<void> => {
-      await ossAlertsTarget.send(
-        { payload: { text }, contentType: "application/json" },
-        { kind: "slack_webhook", webhook: "oss_alerts" },
-      );
-    },
+    postAlert: postOssAlert,
     // Boot grace (1× resolved period per family) anchored at construction.
     bootAtMs: Date.now(),
     logger,
@@ -3005,12 +3094,7 @@ export async function runControlPlane(
       // Reuse the SAME #oss-alerts webhook target the family-silence monitor
       // posts through — throws on send failure so `last_alert_at` never advances
       // on a dropped Slack post (§7 dedupe discipline).
-      postAlert: async (text: string): Promise<void> => {
-        await ossAlertsTarget.send(
-          { payload: { text }, contentType: "application/json" },
-          { kind: "slack_webhook", webhook: "oss_alerts" },
-        );
-      },
+      postAlert: postOssAlert,
       // The SAME shared memoized family-summary the routes + silence monitor use
       // — the §2.5 producer-liveness source.
       summary: familySummary,
@@ -3585,6 +3669,21 @@ function resolveWorkerGcAfterMs(): number {
   const parsed = raw ? parseInt(raw, 10) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
   return DEFAULT_WORKER_GC_AFTER_MS;
+}
+
+/**
+ * Resolve a fleet-health PID-saturation RATIO knob (a fraction of a worker's
+ * cgroup `pids.max`). Shared by the alarm threshold and its hysteresis clear
+ * threshold since both parse identically. An unparseable or out-of-(0,1)
+ * override falls back to the default rather than handing
+ * `createFleetHealthMonitor` a value that trips its fail-loud guard and takes
+ * the whole control-plane down over a typo'd env var.
+ */
+function resolveRatioEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  const parsed = raw ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0 && parsed < 1) return parsed;
+  return fallback;
 }
 
 /**
