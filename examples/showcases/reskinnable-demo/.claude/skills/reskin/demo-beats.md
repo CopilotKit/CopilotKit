@@ -220,6 +220,34 @@ filter through the page's real query params, and (iv) leaves the applied levers
 **visibly highlighted** so the audience can see the agent set them. A plain
 `navigateTo` does not earn this beat.
 
+⚠️ **"Confirm the levers with them first" is read TWO ways, and one of them
+kills the beat.** You mean *the card confirms*; the model can just as well hear
+*ask them in chat*. Then it answers
+
+> Confirm the levers and I'll take you there: **pending** only, sorted by
+> **oldest first**, top **10**.
+
+and stops. No tool call, no card, no navigation — a correct, well-formatted
+answer that proves nothing, and looks like success to everyone but the presenter
+clicking a pill that does not move. Two things close it, and you need BOTH:
+
+- **In the tool's `description`, say where the confirmation happens** — "the
+  CARD this opens lists the levers and waits for their click, so calling this IS
+  how you confirm", plus "never describe the levers in chat and ask them to
+  confirm in words".
+- **In the PROMPT, name the tool and say what it is for**: "to put the user IN
+  FRONT OF a filtered queue rather than describe one, call `<tool>`". A skin with
+  no navigation clause at all gives the model nothing connecting the question to
+  the tool. Derive who has one: `grep -c '<yourNavTool>' src/skins/*/agent.ts`.
+
+Related, same cause: **do not make a lever `.optional()` unless omitting it is
+how your page says "no limit"** — an optional lever is one more reason to go and
+ask instead of act. Make every lever REQUIRED with a value that means "leave this
+alone" (`'all'`, and `0` for a limit), which is what `logistics` and `people` do.
+`commerce` deliberately does the opposite for `top` — `.int().positive().optional()`,
+because omitting it is precisely what its `parseTopLever` honours — so read the
+page's parser before copying either shape.
+
 **Banking:** pill `"Show me the 10 most expensive charges"` → `showCharges`
 (`useHumanInTheLoop`, `tools.tsx:513`) renders `NavigateConfirmCard` listing the
 sort + filters _before_ navigating, then pushes
