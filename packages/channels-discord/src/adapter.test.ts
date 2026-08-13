@@ -433,6 +433,13 @@ describe("DiscordAdapter", () => {
   });
 });
 
+function firstMockArg<T>(fn: { mock: { calls: unknown } }): T {
+  const calls = fn.mock.calls as unknown[][];
+  const first = calls[0];
+  if (!first) throw new Error("expected a mock call");
+  return first[0] as T;
+}
+
 function adapterWithSend() {
   const edit = vi.fn(async () => {});
   const send = vi.fn(async () => ({
@@ -508,10 +515,10 @@ describe("DiscordAdapter.post staged files", () => {
     ]);
 
     expect(send).toHaveBeenCalledTimes(1);
-    const payload = send.mock.calls[0]?.[0] as unknown as {
+    const payload = firstMockArg<{
       files?: Array<{ name: string; attachment: Buffer }>;
       components: Array<{ toJSON(): any }>;
-    };
+    }>(send);
     expect(payload.files).toHaveLength(2);
     expect(payload.files?.map((f) => f.name)).toEqual([
       "render-0.png",
@@ -536,10 +543,10 @@ describe("DiscordAdapter.post staged files", () => {
       },
     ]);
     expect(send).toHaveBeenCalledTimes(1);
-    const payload = send.mock.calls[0]?.[0] as unknown as {
+    const payload = firstMockArg<{
       files?: unknown;
       components: Array<{ toJSON(): any }>;
-    };
+    }>(send);
     expect(payload.files).toBeUndefined();
     const json = payload.components[0]!.toJSON();
     const gallery = json.components.find(
@@ -582,10 +589,10 @@ describe("DiscordAdapter.update staged files", () => {
     ]);
 
     expect(edit).toHaveBeenCalledTimes(1);
-    const payload = edit.mock.calls[0]?.[0] as unknown as {
+    const payload = firstMockArg<{
       files?: Array<{ name: string; attachment: Buffer }>;
       components: Array<{ toJSON(): any }>;
-    };
+    }>(edit);
     expect(payload.files).toHaveLength(2);
     expect(payload.files?.map((f) => f.name)).toEqual([
       "render-0.png",
