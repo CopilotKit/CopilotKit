@@ -8,7 +8,13 @@ function fakeApi() {
     editMessageText: vi.fn(async () => true),
     deleteMessage: vi.fn(async () => true),
     setMyCommands: vi.fn(async () => true),
-    sendPhoto: vi.fn(async () => ({ message_id: 12, chat: { id: 9 } })),
+    sendPhoto: vi.fn(
+      async (
+        _chatId: number,
+        _photo: InputFile | string,
+        _other?: { caption?: string },
+      ) => ({ message_id: 12, chat: { id: 9 } }),
+    ),
     sendMediaGroup: vi.fn(async () => [{ message_id: 13, chat: { id: 9 } }]),
     sendDocument: vi.fn(async () => ({
       message_id: 14,
