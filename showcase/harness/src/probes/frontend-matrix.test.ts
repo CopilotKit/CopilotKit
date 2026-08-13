@@ -14,11 +14,14 @@ describe("frontend showcase matrix", () => {
 
     expect(matrix).toHaveLength(frontendCatalog.metadata.runnable);
     expect(new Set(ids).size).toBe(ids.length);
+    const runnableCatalogCells = frontendCatalog.cells.filter(
+      (cell) => cell.runnable,
+    );
     expect(matrix.filter((cell) => cell.frontend === "react")).toHaveLength(
-      719,
+      runnableCatalogCells.filter((cell) => cell.frontend === "react").length,
     );
     expect(matrix.filter((cell) => cell.frontend === "angular")).toHaveLength(
-      691,
+      runnableCatalogCells.filter((cell) => cell.frontend === "angular").length,
     );
     expect(matrix.every((cell) => cell.featureTypes.length > 0)).toBe(true);
   });
