@@ -346,9 +346,9 @@ export class DiscordAdapter implements PlatformAdapter {
 
   async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as ReplyTarget;
-    const channel = await this.fetchSendable(t.channelId);
     const { payload, files } = this.messagePayload(ir);
     try {
+      const channel = await this.fetchSendable(t.channelId);
       const msg = await channel.send(payload);
       return { id: msg.id, channelId: t.channelId };
     } finally {
@@ -357,15 +357,16 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
-    // An empty stream returns a ref with id "" (no message was ever posted);
-    // a fetch on "" would throw, so treat update/delete on it as a no-op.
-    if (!ref.id) return;
-    const channel = await this.fetchSendable(this.channelIdOf(ref));
-    const msg = await channel.messages.fetch(ref.id);
-    // discord.js Message.edit accepts `files`, so a full re-render can attach
-    // new PNGs in place. We do not delete + repost.
+    // Collect first so a no-op or a failed fetch/edit still releases staged
+    // PNGs. An empty stream returns a ref with id "" (no message was ever
+    // posted); a fetch on "" would throw, so treat update on it as a no-op.
     const { payload, files } = this.messagePayload(ir);
     try {
+      if (!ref.id) return;
+      const channel = await this.fetchSendable(this.channelIdOf(ref));
+      const msg = await channel.messages.fetch(ref.id);
+      // discord.js Message.edit accepts `files`, so a full re-render can attach
+      // new PNGs in place. We do not delete + repost.
       await msg.edit(payload);
     } finally {
       this.releaseStaged(files);
@@ -610,15 +611,11 @@ export class DiscordAdapter implements PlatformAdapter {
     // this pass, so we use the DM fallback (or null).
     if (!opts.fallbackToDM) return null;
     const userId = typeof user === "string" ? user : user.id;
+    const { payload, files } = this.messagePayload(ir);
     try {
       const u = await this.client.users.fetch(userId);
       const dm = await u.createDM();
-      const { payload, files } = this.messagePayload(ir);
-      try {
-        await dm.send(payload);
-      } finally {
-        this.releaseStaged(files);
-      }
+      await dm.send(payload);
       return {
         ok: true,
         usedFallback: true,
@@ -626,6 +623,8 @@ export class DiscordAdapter implements PlatformAdapter {
       };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
+    } finally {
+      this.releaseStaged(files);
     }
   }
 
