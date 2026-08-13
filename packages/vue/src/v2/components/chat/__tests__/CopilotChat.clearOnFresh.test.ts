@@ -7,7 +7,6 @@ import { useCopilotChatConfiguration } from "../../../providers/useCopilotChatCo
 import { useCopilotKit } from "../../../providers/useCopilotKit";
 import { StateCapturingAgent } from "../../../__tests__/utils/agents";
 import CopilotChat from "../CopilotChat.vue";
-import { getThreadClone } from "../../../hooks/use-agent";
 
 // Proves the clear-on-fresh watch introduced in CopilotChat.vue:
 //   - does NOT clear messages on initial mount
@@ -17,6 +16,9 @@ import { getThreadClone } from "../../../hooks/use-agent";
 describe("CopilotChat clear-on-fresh", () => {
   it("does not clear messages on initial mount", async () => {
     const agent = new StateCapturingAgent();
+    // Spy before mount: attaching afterwards can never observe a mount-time
+    // clear, which is exactly what this test exists to rule out.
+    const setMessagesSpy = vi.spyOn(agent, "setMessages");
 
     let core:
       | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
@@ -49,15 +51,9 @@ describe("CopilotChat clear-on-fresh", () => {
     await flushPromises();
     await nextTick();
 
-    const registryAgent = core?.getAgent("default");
-    const resolvedAgent = getThreadClone(registryAgent, "seed");
+    const resolvedAgent = core?.getAgent("default");
     expect(resolvedAgent).toBeDefined();
-
-    // Attach the spy only after mount has settled so the clone's own
-    // construction-time `setMessages([])` reset (in `cloneForThread`,
-    // unrelated to the clear-on-fresh watch) isn't mistaken for a clear.
-    const setMessagesSpy = vi.spyOn(resolvedAgent!, "setMessages");
-    await nextTick();
+    expect(setMessagesSpy).not.toHaveBeenCalled();
 
     expect(setMessagesSpy).not.toHaveBeenCalled();
   });
@@ -110,7 +106,7 @@ describe("CopilotChat clear-on-fresh", () => {
     await nextTick();
 
     const registryAgent = core?.getAgent("default");
-    const seedAgent = getThreadClone(registryAgent, "seed");
+    const seedAgent = registryAgent;
     expect(seedAgent).toBeDefined();
     expect(currentThreadId).toBe("seed");
 
@@ -122,19 +118,15 @@ describe("CopilotChat clear-on-fresh", () => {
     expect(currentThreadId).toBeDefined();
     expect(currentThreadId).not.toBe("seed");
     const newAgentThreadId = currentThreadId!;
-    const newAgent = getThreadClone(registryAgent, newAgentThreadId);
+    const newAgent = registryAgent;
     expect(newAgent).toBeDefined();
-    expect(newAgent).not.toBe(seedAgent);
 
-    // Primary, behavioral assertion: the new agent ends with no messages
-    // after the fresh switch (this alone doesn't distinguish the watch from
-    // clone construction, since `cloneForThread` also resets to `[]`).
+    // The agent ends with no messages after the fresh switch. With one shared
+    // instance the clear-on-fresh watch is the only thing that can empty it.
     expect(newAgent!.messages).toEqual([]);
 
-    // Move to a third, unrelated non-explicit thread so `newAgent` is no
-    // longer the active agent, then dirty it directly (bypassing
-    // `cloneForThread`'s construction reset entirely, since the clone
-    // already exists in the cache).
+    // Move to a third, unrelated non-explicit thread, then dirty the agent
+    // directly so the next transition has something real to clear.
     expect(setActiveThreadId).toBeDefined();
     setActiveThreadId!("elsewhere", { explicit: false });
     await flushPromises();
@@ -144,12 +136,9 @@ describe("CopilotChat clear-on-fresh", () => {
     newAgent!.setMessages([{ id: "m1", role: "user", content: "hi" } as never]);
     expect(newAgent!.messages.length).toBe(1);
 
-    // Switch back to `newAgent`'s thread id, non-explicitly. Because the
-    // clone already exists in the cache, `getOrCreateThreadClone` returns it
-    // without reconstructing it — so any `setMessages([])` observed here
-    // must come from the clear-on-fresh watch, not from clone construction.
-    // This fails (messages stay dirty) if the watch's
-    // `currentAgent.setMessages([])` call is removed.
+    // Switch back non-explicitly. Any `setMessages([])` observed here must come
+    // from the clear-on-fresh watch; this fails (messages stay dirty) if the
+    // watch's `currentAgent.setMessages([])` call is removed.
     setActiveThreadId!(newAgentThreadId, { explicit: false });
     await flushPromises();
     await nextTick();
