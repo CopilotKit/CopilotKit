@@ -261,12 +261,22 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       return;
     }
     case "image": {
-      const url = (props.url ?? props.image_url) as string | undefined;
+      out.push(slackImageElement(props) as KnownBlock);
+      return;
+    }
+    case "carousel": {
+      const { items } = clampArray(
+        childNodes(node),
+        SLACK_LIMITS.carouselSlides,
+      );
       out.push({
-        type: "image",
-        image_url: url ?? "",
-        alt_text: (props.alt ?? props.altText ?? "") as string,
+        type: "carousel",
+        elements: items.map((slide) => renderSlackCard(slide)),
       } as KnownBlock);
+      return;
+    }
+    case "carouselCard": {
+      out.push(renderSlackCard(node) as KnownBlock);
       return;
     }
     case "divider": {
@@ -454,6 +464,62 @@ function multiSelectInput(node: ChannelNode): KnownBlock {
       text: truncateText(String(props.placeholder ?? " "), 150),
     },
   } as KnownBlock;
+}
+
+/** Image block / card hero: prefer a staged Slack file id, else a public URL. */
+function slackImageElement(
+  props: Record<string, unknown>,
+): Record<string, unknown> {
+  const alt = String(props.alt ?? props.altText ?? "");
+  const slackFileId = [props.slackFileId, props.fileId].find(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  );
+  if (slackFileId) {
+    return { type: "image", slack_file: { id: slackFileId }, alt_text: alt };
+  }
+  const url = (props.url ?? props.image_url) as string | undefined;
+  return { type: "image", image_url: url ?? "", alt_text: alt };
+}
+
+/**
+ * Map a carousel slide to a Slack card. A lone image becomes a hero-only
+ * card; a carouselCard maps Header/Section/image/Button onto card fields.
+ */
+function renderSlackCard(slide: ChannelNode): Record<string, unknown> {
+  if (slide.type === "image" || slide.type === "render") {
+    return { type: "card", hero_image: slackImageElement(slide.props ?? {}) };
+  }
+
+  const card: Record<string, unknown> = { type: "card" };
+  const actions: object[] = [];
+  for (const child of childNodes(slide)) {
+    if (child.type === "header") {
+      card.title = {
+        type: "mrkdwn",
+        text: truncateText(
+          markdownToMrkdwn(collectText(child)),
+          SLACK_LIMITS.cardTitle,
+        ),
+      };
+    } else if (child.type === "section") {
+      card.body = {
+        type: "mrkdwn",
+        text: truncateText(
+          markdownToMrkdwn(collectText(child)),
+          SLACK_LIMITS.cardBody,
+        ),
+      };
+    } else if (child.type === "image" || child.type === "render") {
+      card.hero_image = slackImageElement(child.props ?? {});
+    } else if (child.type === "button") {
+      const el = renderActionElement(child);
+      if (el !== null) actions.push(el);
+    }
+  }
+  if (actions.length > 0) {
+    card.actions = clampArray(actions, SLACK_LIMITS.cardActions).items;
+  }
+  return card;
 }
 
 /** Derive a button's `action_id`: prefer the registry-stamped id, else a stable fallback. */
