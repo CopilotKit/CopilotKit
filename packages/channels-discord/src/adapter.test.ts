@@ -434,15 +434,16 @@ describe("DiscordAdapter", () => {
 });
 
 function adapterWithSend() {
+  const edit = vi.fn(async () => {});
   const send = vi.fn(async () => ({
     id: "m1",
-    edit: vi.fn(async () => {}),
+    edit,
     delete: vi.fn(async () => {}),
   }));
   const channel = {
     id: "c1",
     send,
-    messages: { fetch: vi.fn() },
+    messages: { fetch: vi.fn(async () => ({ id: "m1", edit })) },
   };
   const client = {
     ...fakeClient(),
@@ -452,7 +453,7 @@ function adapterWithSend() {
     { botToken: "t", appId: "app" },
     { client: client as never, rest: { put: vi.fn() } as never },
   );
-  return { adapter, send };
+  return { adapter, send, edit };
 }
 
 describe("DiscordAdapter.stageFile", () => {
@@ -545,5 +546,58 @@ describe("DiscordAdapter.post staged files", () => {
       (c: any) => c.type === ComponentType.MediaGallery,
     );
     expect(gallery.items[0].media.url).toBe("https://cdn.example/x.png");
+  });
+});
+
+describe("DiscordAdapter.update staged files", () => {
+  it("attaches staged PNGs on the same edit as the Media Gallery", async () => {
+    const { adapter, edit } = adapterWithSend();
+    const a = await adapter.stageFile({ channelId: "c1" } as never, {
+      bytes: new Uint8Array([1, 2, 3]),
+      filename: "a.png",
+      altText: "A",
+    });
+    const b = await adapter.stageFile({ channelId: "c1" } as never, {
+      bytes: new Uint8Array([4, 5, 6]),
+      filename: "b.png",
+      altText: "B",
+    });
+
+    await adapter.update({ id: "m1", channelId: "c1" } as never, [
+      {
+        type: "carousel",
+        props: {
+          children: [
+            {
+              type: "image",
+              props: { alt: "A", attachmentName: a.attachmentName },
+            },
+            {
+              type: "image",
+              props: { alt: "B", attachmentName: b.attachmentName },
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(edit).toHaveBeenCalledTimes(1);
+    const payload = edit.mock.calls[0]![0] as {
+      files?: Array<{ name: string; attachment: Buffer }>;
+      components: Array<{ toJSON(): any }>;
+    };
+    expect(payload.files).toHaveLength(2);
+    expect(payload.files?.map((f) => f.name)).toEqual([
+      "render-0.png",
+      "render-1.png",
+    ]);
+    const json = payload.components[0]!.toJSON();
+    const gallery = json.components.find(
+      (c: any) => c.type === ComponentType.MediaGallery,
+    );
+    expect(gallery.items.map((i: any) => i.media.url)).toEqual([
+      "attachment://render-0.png",
+      "attachment://render-1.png",
+    ]);
   });
 });
