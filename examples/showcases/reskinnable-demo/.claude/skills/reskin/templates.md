@@ -2,8 +2,8 @@
 
 Copy each block into `src/skins/<id>/<file>` and replace `<id>` / `<Brand>` /
 domain specifics. These are written against this app's frozen `Skin` contract
-(`src/shell/skin-contract.ts`) and mirror the six shipped skins
-(`src/skins/{banking,airline,logistics,keel,people,commerce}/`) — see
+(`src/shell/skin-contract.ts`) and mirror every shipped skin
+(`src/skins/{banking,airline,logistics,keel,people,commerce,bookstore}/`) — see
 [demo-beats.md](./demo-beats.md) § "Which skin to copy for what" for which one to
 open for which problem.
 
@@ -532,6 +532,22 @@ test you would think to write:
    module, and a mock returning `Promise<void>` sends every write down the
    stale-view branch with the happy path still green.
 
+If your `useData` needs to mirror `localStorage` instead of living purely in
+memory, don't reach for `useState` plus a hydration `useEffect` — writing state
+from an effect trips `react-hooks/set-state-in-effect`, and reading storage in
+the `useState` initializer disagrees with the server-rendered markup anyway. Use
+`useSyncExternalStore` instead: the shell's `LayoutPreferencesProvider`
+(`src/shell/layout/layout-preferences.tsx`) is the sanctioned pattern — its
+header comment names the lint rule directly — and
+`src/skins/bookstore/data/use-data.ts` (`useBookstoreData`) is the worked
+skin-level example, mirroring cart/orders per shopper. Two traps to watch for:
+`getSnapshot` must return a cached, `Object.is`-stable value (reparsing storage
+on every call hands React a new reference and loops it), and `getServerSnapshot`
+must return that SAME reference every time too — bookstore freezes a
+module-level `EMPTY_STATE` for exactly this; a freshly built
+`{ cart: [], orders: [] }` per call fails `Object.is` and infinite-loops React
+during hydration.
+
 ## `pages/<page>.tsx`
 
 One component per nav segment. Read the skin's data via `useSkinData<T>()`.
@@ -612,6 +628,15 @@ component renders its "not found" branch over stale/empty data. Banking document
 the same trap in a code comment (search "closure captures empty arrays" in
 `src/skins/banking/tools.tsx`). Pass the data each closure reads.
 
+But the deps array only helps if it's JSON-serializable: `useFrontendTool`
+re-registers on `JSON.stringify(deps)` changing, and a `Map`, a `Set` or a
+function always stringifies to the same constant — `[byId, someCallback]` can
+never produce a new key, so the "registers once, forever" bug still happens even
+with a non-empty array. Route data like that through a ref instead
+(`src/skins/bookstore/tools.tsx`'s `openBook` is the non-write worked example;
+banking's `cardsRef` comment above `setCardPin`, `tools.tsx:130-136`, is the
+write-case original).
+
 **2. A parameterized `useComponent` render receives the schema output DIRECTLY.**
 `render: ({ myParam }) => …` — NOT `{ args }`. Per the installed types,
 `InferRenderProps<T> = T extends StandardSchemaV1 ? InferSchemaOutput<T> : any`
@@ -640,7 +665,7 @@ keep the confident branch for values that actually landed. See SKILL.md's
 Reopening a thread replays recorded tool calls: you get the stored `result` and no
 live status transition. A render keyed on `status` is perfect live and blank or
 wrong on revisit — precisely when "reload and it's still there" is being demoed.
-Banking, people and commerce are the only skins written this way — banking at
+Banking, people, commerce and bookstore are the skins written this way — banking at
 `tools.tsx:70-89`, `418-451`, `553-572`; people's `setBaseSalary` render at
 `tools.tsx` recovers from an `answeredSalaryChanges` module map that holds the
 person's NAME and nothing else, so a replayed card can rebuild itself without
@@ -914,8 +939,8 @@ export const <id>IdentifyUser: IdentifyRunUser = (properties) => {
 
 "It already knows me" is a **file**, not emergent behaviour. Mirror
 `src/skins/banking/intelligence/seed-memories.ts` or
-`src/skins/people/intelligence/seed-memories.ts` — two of the only three in the
-repo (`commerce` has the third), and
+`src/skins/people/intelligence/seed-memories.ts` (`commerce` ships one too, and
+`bookstore` one that seeds beat 4 only) — and
 both sets of comments are worth reading in full. Server-safe plain `.ts`.
 Called by your `dev/reset` route immediately after wiping memories, so the demo
 is re-armed before the presenter says a word.
@@ -1190,7 +1215,10 @@ export const <id>Agent = () =>
     model: "openai/gpt-5.4", // the alias used across this repo
     prompt: <ID>_PROMPT,
     // tools: [...]       // optional server-side agent tools (defineTool)
-    temperature: 0, // banking pins 0 — a demo has to behave the same every run
+    // NO `temperature`: gpt-5.4 is a reasoning model that REJECTS the
+    // parameter — the dev server logs 'The feature "temperature" is not
+    // supported' on every run and discards the value. Get determinism from
+    // the prompt's explicit routing rules instead, not from this option.
   });
 ```
 
@@ -1201,19 +1229,20 @@ just doesn't use them the way the demo needs. Banking's prompt is one long strin
 of named clauses (`src/skins/banking/agent.ts`) — copy the clause set, not the
 banking specifics. The clauses that carry beats:
 
-| Clause                        | Beat            | What it must say                                                                                                                                                                                                                                |
-| ----------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CHART / COMPONENT ANSWER RULE | 1               | Render the visual **and** answer in one or two sentences. Never one without the other.                                                                                                                                                          |
-| NEVER WRITE A MARKDOWN TABLE  | 1, presentation | If a gen-UI component exists for that data, route to it instead of emitting a table.                                                                                                                                                            |
-| SCREEN AWARENESS              | 3b              | "The context you are given IS your view of what the user is looking at." Name the current page, summarize the key elements, cite the actual figures, and **never** say you cannot see/inspect/read the screen.                                  |
-| SECRETS                       | 3a              | Never ask for the sensitive value, never repeat it, and don't ask which record first — fire the tool immediately.                                                                                                                               |
-| UPLOADED DOCUMENTS            | 3d              | Read the attachment, and merge its values into the artifact tool's payload (banking passes them through `createReport`'s `additions` array).                                                                                                    |
-| RECALL FIRST                  | 4               | Before answering this class of question, call `recall_memory`, then pass what you recalled into the component **and name the preference you applied**. Speak like a person who remembers.                                                       |
-| SAVED PROCEDURE               | 5               | Recall, then EXECUTE step by step without asking for confirmation. Resolve the named entity to its id from context. State plainly that this is a DIFFERENT procedure from beat 6's — "do not confuse the two, do not offer to record anything." |
-| FINDING IS NOT DOING          | 5               | Locating the record is not handling it. Carry the procedure through.                                                                                                                                                                            |
-| ACTION DISCIPLINE             | 6               | When there is no saved procedure, decline and offer to record — never improvise or bluff a fix.                                                                                                                                                 |
-| TEACH & RECALL                | 6               | The record → save → replay chain, and "save this procedure AT MOST ONCE".                                                                                                                                                                       |
-| PROSE STYLE                   | presentation    | Short answers, **bold** the key figures, no walls of text.                                                                                                                                                                                      |
+| Clause                        | Beat            | What it must say                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CHART / COMPONENT ANSWER RULE | 1               | Render the visual **and** answer in one or two sentences. Never one without the other.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| NEVER WRITE A MARKDOWN TABLE  | 1, presentation | If a gen-UI component exists for that data, route to it instead of emitting a table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| SCREEN AWARENESS              | 3b              | "The context you are given IS your view of what the user is looking at." Name the current page, summarize the key elements, cite the actual figures, and **never** say you cannot see/inspect/read the screen.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| SECRETS                       | 3a              | Never ask for the sensitive value, never repeat it, and don't ask which record first — fire the tool immediately.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| UPLOADED DOCUMENTS            | 3d              | Read the attachment, and merge its values into the artifact tool's payload (banking passes them through `createReport`'s `additions` array).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| RECALL FIRST                  | 4               | Before answering this class of question, call `recall_memory`, then pass what you recalled into the component **and name the preference you applied**. Speak like a person who remembers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| SAVED PROCEDURE               | 5               | Recall, then EXECUTE step by step without asking for confirmation. Resolve the named entity to its id from context. State plainly that this is a DIFFERENT procedure from beat 6's — "do not confuse the two, do not offer to record anything."                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| FINDING IS NOT DOING          | 5               | Locating the record is not handling it. Carry the procedure through.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| SAVED PROCEDURE, EMPTY RECALL | 5               | If recall comes back empty, say plainly that no saved procedure was found and stop there. Do not run the procedure's tools on a guess. Do not offer to learn, record or be told the procedure — that offer belongs to beat 6, and an empty recall in beat 5 is a failure to report, not a cue to teach. Do not reconstruct the missing values from the catalog, the cart or anything on screen; an invented answer that looks right is worse than an honest "not found." `src/skins/bookstore/agent.ts`'s clause-7 empty-recall branch is the worked example — added after a live run where, without it, the model ended its first sentence correctly and then improvised the forbidden teach-offer as its second. |
+| ACTION DISCIPLINE             | 6               | When there is no saved procedure, decline and offer to record — never improvise or bluff a fix.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| TEACH & RECALL                | 6               | The record → save → replay chain, and "save this procedure AT MOST ONCE".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| PROSE STYLE                   | presentation    | Short answers, **bold** the key figures, no walls of text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 Also keep the **tool descriptions** doing routing work: banking puts a shared
 `CHART_ANSWER_RULE` in each chart tool's description and states which question
