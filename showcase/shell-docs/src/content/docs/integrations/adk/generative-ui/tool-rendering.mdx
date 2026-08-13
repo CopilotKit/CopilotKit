@@ -2,6 +2,7 @@
 title: "Tool Rendering"
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
+snippet_cell: tool-rendering
 ---
 
 <IframeSwitcher
@@ -107,6 +108,19 @@ const YourMainContent = () => {
   // ...
 };
 ```
+
+The full demo imports the renderer components and result parser from the
+same source files used by the live example:
+
+<Snippet region="tool-rendering-imports" title="frontend/src/app/page.tsx — imports" />
+
+<Snippet region="tool-rendering-result-types" title="frontend/src/app/page.tsx — result types" />
+
+<Snippet region="weather-card-component" title="frontend/src/app/weather-card.tsx — WeatherCard" />
+
+<Snippet region="flight-list-card-component" title="frontend/src/app/flight-list-card.tsx — FlightListCard" />
+
+<Snippet region="parse-json-result-helper" title="frontend/src/app/parse-json-result.ts — parseJsonResult" />
 
 </Step>
 <Step>
