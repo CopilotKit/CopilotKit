@@ -60,13 +60,11 @@ def test_preseed_system_prompt_uses_crewai_1x_chat_inputs():
     assert chat_inputs.inputs == []
 
 
-def test_resume_compat_keeps_cancel_distinct_from_resolved_null():
+def test_resume_compat_keeps_cancel_distinct_from_resolved_null(monkeypatch):
     import ag_ui_crewai._hitl as bridge_hitl
     import ag_ui_crewai.endpoint as bridge_endpoint
 
-    from _shared.ag_ui_crewai_compat import install_resume_status_compat
-
-    install_resume_status_compat()
+    from _shared import ag_ui_crewai_compat as compat
 
     cancelled = SimpleNamespace(
         resume=[
@@ -87,23 +85,76 @@ def test_resume_compat_keeps_cancel_distinct_from_resolved_null():
         ]
     )
 
-    assert bridge_endpoint.feedback_from_resume(cancelled) == (
-        "",
-        "interrupt-cancelled",
-    )
-    assert bridge_hitl.feedback_from_resume(resolved_null) == (
-        "null",
-        "interrupt-resolved",
-    )
+    hitl_binding_before_test = bridge_hitl.feedback_from_resume
+    endpoint_binding_before_test = bridge_endpoint.feedback_from_resume
+    with monkeypatch.context() as bridge_bindings:
+        bridge_bindings.setattr(
+            bridge_hitl,
+            "feedback_from_resume",
+            compat._original_feedback_from_resume,
+        )
+        bridge_bindings.setattr(
+            bridge_endpoint,
+            "feedback_from_resume",
+            compat._original_feedback_from_resume,
+        )
+
+        compat.install_resume_status_compat()
+
+        assert bridge_hitl.feedback_from_resume is compat._feedback_from_resume
+        assert bridge_endpoint.feedback_from_resume is compat._feedback_from_resume
+        for feedback_from_resume in (
+            bridge_hitl.feedback_from_resume,
+            bridge_endpoint.feedback_from_resume,
+        ):
+            assert feedback_from_resume(resolved_null) == (
+                "null",
+                "interrupt-resolved",
+            )
+            assert feedback_from_resume(cancelled) == (
+                "",
+                "interrupt-cancelled",
+            )
+
+    assert bridge_hitl.feedback_from_resume is hitl_binding_before_test
+    assert bridge_endpoint.feedback_from_resume is endpoint_binding_before_test
 
 
 def test_resume_compat_fails_loudly_for_unreviewed_bridge_version(monkeypatch):
+    import ag_ui_crewai._hitl as bridge_hitl
+    import ag_ui_crewai.endpoint as bridge_endpoint
+
     from _shared import ag_ui_crewai_compat as compat
 
-    monkeypatch.setattr(compat, "package_version", lambda _package: "0.4.0")
+    hitl_binding_before_test = bridge_hitl.feedback_from_resume
+    endpoint_binding_before_test = bridge_endpoint.feedback_from_resume
+    hitl_sentinel = object()
+    endpoint_sentinel = object()
+    with monkeypatch.context() as bridge_bindings:
+        bridge_bindings.setattr(
+            bridge_hitl,
+            "feedback_from_resume",
+            hitl_sentinel,
+        )
+        bridge_bindings.setattr(
+            bridge_endpoint,
+            "feedback_from_resume",
+            endpoint_sentinel,
+        )
+        bridge_bindings.setattr(
+            compat,
+            "package_version",
+            lambda _package: "0.4.0",
+        )
 
-    with pytest.raises(RuntimeError, match="supports ag-ui-crewai 0.3.0"):
-        compat.install_resume_status_compat()
+        with pytest.raises(RuntimeError, match="supports ag-ui-crewai 0.3.0"):
+            compat.install_resume_status_compat()
+
+        assert bridge_hitl.feedback_from_resume is hitl_sentinel
+        assert bridge_endpoint.feedback_from_resume is endpoint_sentinel
+
+    assert bridge_hitl.feedback_from_resume is hitl_binding_before_test
+    assert bridge_endpoint.feedback_from_resume is endpoint_binding_before_test
 
 
 def test_server_installs_resume_compat_before_registering_endpoints():
