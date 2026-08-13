@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import CopilotChatView, {
+import type {
   CopilotChatViewProps,
   WelcomeScreenProps,
 } from "./CopilotChatView";
+import CopilotChatView from "./CopilotChatView";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { CopilotModalHeader } from "./CopilotModalHeader";
 import { cn } from "../../lib/utils";
-import { renderSlot, SlotValue } from "../../lib/slots";
+import type { SlotValue } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import {
   CopilotChatConfigurationProvider,
   CopilotChatDefaultLabels,
@@ -209,7 +211,7 @@ function CopilotPopupViewInternal({
     <div
       data-copilotkit
       className={cn(
-        "cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch",
+        "cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch cpk:bg-transparent",
         "cpk:md:inset-auto cpk:md:bottom-24 cpk:md:right-6 cpk:md:items-end cpk:md:gap-4",
       )}
     >
