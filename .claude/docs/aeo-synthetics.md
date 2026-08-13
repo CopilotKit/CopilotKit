@@ -1,6 +1,6 @@
 # AEO Production Synthetics Runbook
 
-The `AEO: Production Synthetics` workflow checks the production website and docs surfaces on demand. It remains manual until the production baseline is green and the Slack alert path has been deliberately exercised. The versioned public AEO contract is the source of truth for hosts, routes, and content types; the checker derives the in-scope discovery and LLM targets from it instead of copying hosts or routes into workflow YAML.
+The `AEO: Production Synthetics` workflow checks the production website and docs surfaces on demand. It remains manual until the production baseline is green and the Slack alert path has been deliberately exercised. The checker owns the canonical hosts, routes, and content types for the in-scope discovery and LLM targets instead of copying them into workflow YAML.
 
 Failures are owned by `#oss-alerts`. The alert includes the failing URL, crawler identity, observed status and content type, a bounded response excerpt, and the Actions run. Failed-run output is retained as an artifact for 14 days.
 
@@ -10,10 +10,10 @@ These checks send documented crawler `User-Agent` values to exercise CDN, firewa
 
 1. Open the failed run and locate each `[FAIL]` record. Confirm whether the failure affects one crawler user agent or every agent.
 2. Re-run the workflow once. Do not repeatedly retry: a second identical failure establishes the incident; a transient second pass still warrants checking the provider/CDN status.
-3. Fetch the reported URL with the same `User-Agent`. Compare status, `Content-Type`, redirect target, canonical host, and the response excerpt with the contract target.
+3. Fetch the reported URL with the same `User-Agent`. Compare status, `Content-Type`, redirect target, canonical host, and the response excerpt with the configured target.
 4. Check the owning deployment and its most recent release. Website failures belong to the website maintainers and docs failures to docs maintainers.
 5. For sitemap or LLM index failures, inspect a sampled link and confirm that generated absolute URLs use the canonical host. For a 200 HTML not-found page, treat it as an outage of the machine endpoint, not a successful response.
-6. If the public surface intentionally changed, update the versioned contract and tests in a reviewed pull request before accepting a new baseline. Breaking changes require a new capability version and migration guidance.
+6. If the public surface intentionally changed, update the synthetic configuration and tests in a reviewed pull request before accepting a new baseline.
 
 ## Rollback and recovery
 
