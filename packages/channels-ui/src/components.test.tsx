@@ -12,6 +12,9 @@ import {
   Row,
   Cell,
   Image,
+  Render,
+  Carousel,
+  CarouselCard,
   Select,
   Chart,
   Input,
@@ -38,6 +41,25 @@ const __typeGuards = () => {
   <Divider>x</Divider>;
   // @ts-expect-error Image.url is required
   <Image alt="x" />;
+  // @ts-expect-error Render.alt is required
+  <Render>
+    <div />
+  </Render>;
+  <Render alt="card">
+    <div />
+  </Render>;
+  <Render alt="card" width={400}>
+    <div />
+  </Render>;
+  <Carousel>
+    <CarouselCard>
+      <Header>Shoes</Header>
+      <Render alt="shoes">
+        <div />
+      </Render>
+    </CarouselCard>
+    <Image url="https://example.com/x.png" alt="x" />
+  </Carousel>;
   // @ts-expect-error Select.options is required
   <Select placeholder="p" />;
   // @ts-expect-error Chart.data is required
@@ -145,6 +167,31 @@ describe("component vocabulary", () => {
 });
 
 describe("component branding", () => {
+  it("Render is intrinsic type render and keeps alt and width", () => {
+    const [node] = renderToIR(
+      <Render alt="card" width={400}>
+        <div />
+      </Render>,
+    );
+    expect(node!.type).toBe("render");
+    expect(node!.props.alt).toBe("card");
+    expect(node!.props.width).toBe(400);
+    expect(isChannelComponent(Render)).toBe(true);
+  });
+
+  it("Carousel and CarouselCard are branded intrinsic types", () => {
+    const [card] = renderToIR(
+      <CarouselCard>
+        <Header>Shoes</Header>
+      </CarouselCard>,
+    );
+    const [carousel] = renderToIR(<Carousel>{card}</Carousel>);
+    expect(card!.type).toBe("carouselCard");
+    expect(carousel!.type).toBe("carousel");
+    expect(isChannelComponent(Carousel)).toBe(true);
+    expect(isChannelComponent(CarouselCard)).toBe(true);
+  });
+
   it("brands every channel component so it is recognizable", () => {
     for (const c of [
       Message,
