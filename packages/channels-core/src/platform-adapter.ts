@@ -329,6 +329,19 @@ export interface AdapterStartContext {
   channelName?: string;
 }
 
+export interface StagedFile {
+  fileId?: string;
+  dataUrl?: string;
+  attachmentName?: string;
+  bytes?: Uint8Array;
+}
+
+export interface StageFileArgs {
+  bytes: Uint8Array;
+  filename: string;
+  altText: string;
+}
+
 export interface PlatformAdapter {
   readonly platform: string;
   readonly capabilities: SurfaceCapabilities;
@@ -409,6 +422,12 @@ export interface PlatformAdapter {
       altText?: string;
     },
   ): Promise<PostFileResult>;
+  /**
+   * Optional file staging. Hosts that can upload a file without posting it
+   * (or that return a data URL / bytes for later attach) implement this.
+   * Adapters that omit it leave image-hosting to the caller.
+   */
+  stageFile?(target: ReplyTarget, args: StageFileArgs): Promise<StagedFile>;
   /**
    * Optional slash-command support. Called once on `start()` with the channel's
    * declared commands, so a surface that registers commands up front (e.g.

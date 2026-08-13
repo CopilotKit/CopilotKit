@@ -83,6 +83,8 @@ export type {
   CanonicalRunIdentity,
   UserQuery,
   NativePayload,
+  StagedFile,
+  StageFileArgs,
 } from "./platform-adapter.js";
 
 // Slash commands
