@@ -1931,7 +1931,7 @@
           "node": ">=18"
         },
         "peerDependencies": {
-          "better-sqlite3": "^12.2.0"
+          "better-sqlite3": "^12.10.0"
         },
         "optionalPeerDependencies": [
           "better-sqlite3"

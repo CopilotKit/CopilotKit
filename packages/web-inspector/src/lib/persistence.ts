@@ -16,12 +16,30 @@ export type PersistedState = {
   selectedContext?: string;
 };
 
-export function loadInspectorState(storageKey: string): PersistedState | null {
+function getBrowserLocalStorage(): Storage | null {
   if (typeof window === "undefined") {
     return null;
   }
 
-  const raw = window.localStorage.getItem(storageKey);
+  try {
+    const storage = window.localStorage;
+    if (!storage || typeof storage.getItem !== "function") {
+      return null;
+    }
+    return storage;
+  } catch {
+    // Accessing localStorage can throw (sandboxed iframe, Node 25+ stub).
+    return null;
+  }
+}
+
+export function loadInspectorState(storageKey: string): PersistedState | null {
+  const storage = getBrowserLocalStorage();
+  if (!storage) {
+    return null;
+  }
+
+  const raw = storage.getItem(storageKey);
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
@@ -59,12 +77,13 @@ export function saveInspectorState(
   storageKey: string,
   state: PersistedState,
 ): void {
-  if (typeof window === "undefined") {
+  const storage = getBrowserLocalStorage();
+  if (!storage) {
     return;
   }
 
   try {
-    window.localStorage.setItem(storageKey, JSON.stringify(state));
+    storage.setItem(storageKey, JSON.stringify(state));
   } catch (error) {
     console.warn("Failed to persist inspector state", error);
   }
