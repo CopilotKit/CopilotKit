@@ -105,7 +105,7 @@ One agent backend. Every frontend.
 | 💚 Vue                                                          | ✅ Supported   | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue) |
 | 📱 React Native                                                 | ✅ Supported   | [Quickstart](https://docs.copilotkit.ai/react-native)                                                   |
 | 💬 Slack / Microsoft Teams                                      | ✅ Supported   | [Channels](https://www.copilotkit.ai/channels) · [Quickstart](https://docs.copilotkit.ai/slack)         |
-| 🔜 Discord / WhatsApp / Telegram / Google Chat / iMessage / SMS | 🟡 Coming soon | [Channels SDK](#-channels-one-agent-every-chat-app)                                                     |
+| 🔜 Discord / WhatsApp / Telegram / Google Chat / iMessage / SMS | 🟡 Coming soon | [Channels](https://www.copilotkit.ai/channels)                                                          |
 
 Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework and channel.
 
@@ -117,17 +117,6 @@ The **Channels SDK** takes the agent you already built and drops it into the cha
 
 - **Slack** – Agents as first-class Slack apps: threads, tool calls, and human-in-the-loop approvals right in the channel.
 - **Microsoft Teams** – Bring agentic workflows to the enterprise, where your org already lives.
-
-| Channel         | Status         |
-| --------------- | -------------- |
-| Slack           | ✅ Supported   |
-| Microsoft Teams | ✅ Supported   |
-| WhatsApp        | 🟡 Coming soon |
-| Discord         | 🟡 Coming soon |
-| Telegram        | 🟡 Coming soon |
-| Google Chat     | 🟡 Coming soon |
-| iMessage        | 🟡 Coming soon |
-| SMS             | 🟡 Coming soon |
 
 👉 **[Explore Channels →](https://www.copilotkit.ai/channels)**
 
