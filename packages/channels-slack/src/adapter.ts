@@ -24,6 +24,8 @@ import type {
   NativePayload,
   ReplyContinuationOptions,
   IngressIdentityContext,
+  StageFileArgs,
+  StagedFile,
 } from "@copilotkit/channels-core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
@@ -1076,6 +1078,28 @@ export class SlackAdapter implements PlatformAdapter {
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }
+  }
+
+  /**
+   * Host a PNG without posting a channel message. Omitting `channel_id` and
+   * `thread_ts` is what keeps `files.uploadV2` from sharing.
+   */
+  async stageFile(
+    _target: BotReplyTarget,
+    { bytes, filename, altText }: StageFileArgs,
+  ): Promise<StagedFile> {
+    const result = (await this.client.files.uploadV2({
+      file: Buffer.from(bytes),
+      filename,
+      alt_text: altText,
+    } as unknown as Parameters<WebClient["files"]["uploadV2"]>[0])) as {
+      files?: Array<{ files?: Array<SlackUploadedFile> }>;
+    };
+    const file = result.files?.[0]?.files?.[0];
+    if (!file?.id) {
+      throw new Error("Slack stageFile: upload returned no file id");
+    }
+    return { fileId: file.id };
   }
 
   async addReaction(
