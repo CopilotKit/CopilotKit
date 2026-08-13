@@ -1,4 +1,4 @@
-// Dedicated runtime for the MCP Apps demo.
+// CopilotKit runtime for the MCP Apps cell (Strands).
 //
 // The runtime's `mcpApps` config auto-applies the MCP Apps middleware to the
 // agent: when the agent calls a tool backed by an MCP UI resource, the
@@ -6,16 +6,19 @@
 // built-in `MCPAppsActivityRenderer` (registered by CopilotKit internally)
 // renders in the chat as a sandboxed iframe.
 //
-// The Strands shared backend exposes a single Strands Agent. The MCP Apps
-// middleware works at the runtime layer: it injects MCP-server-discovered
-// tools into the request, so the agent does not need any bespoke tool
-// registrations to drive the demo. The agent simply calls whatever MCP tool
-// the runtime advertises.
+// Catch-all `[[...slug]]` mirrors langgraph-python / ms-agent-python so MCP
+// Apps resource proxy requests addressed below `/api/copilotkit-mcp-apps`
+// resolve (a plain parent `route.ts` only handles the chat POST).
 //
-// Reference (langgraph-python sibling):
-// showcase/integrations/langgraph-python/src/app/api/copilotkit-mcp-apps/route.ts
+// Agent paths prepare B6 wire-server mounts:
+//   - mcp-apps          → AGENT_URL/mcp-apps/
+//   - headless-complete → AGENT_URL/headless-complete/ (MCP sketch path)
+//
+// Reference (LGP sibling):
+// showcase/integrations/langgraph-python/src/app/api/copilotkit-mcp-apps/
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -25,20 +28,15 @@ import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
-}
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
 
-const mcpAppsAgent = createAgent();
-const agents = {
-  // headless-complete shares this runtime (its page wires
-  // runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the single
-  // shared Strands Agent at "/" — the same backend the main route
-  // registers it against.
-  "headless-complete": createAgent(),
-  "mcp-apps": mcpAppsAgent,
-  default: mcpAppsAgent,
-};
+const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/` });
+const headlessCompleteAgent = new HttpAgent({
+  url: `${AGENT_URL}/headless-complete/`,
+});
 
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime
@@ -50,7 +48,14 @@ const runtime = new CopilotRuntime({
   // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
   // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
   // plain Records. Fixed in source, pending release.
-  agents,
+  agents: {
+    "mcp-apps": mcpAppsAgent,
+    // headless-complete shares this runtime (its page wires
+    // runtimeUrl="/api/copilotkit-mcp-apps") because its cell also exercises
+    // MCP Apps rendering (via a hand-rolled `useRenderActivityMessage`).
+    "headless-complete": headlessCompleteAgent,
+    default: mcpAppsAgent,
+  },
   mcpApps: {
     servers: [
       {
@@ -58,7 +63,7 @@ const runtime = new CopilotRuntime({
         url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
         // Always pin a stable `serverId`. Without it CopilotKit hashes the
         // URL, and a URL change silently breaks restoration of persisted
-        // MCP Apps in prior conversation threads.
+        // MCP Apps in prior conversation threads. Match LGP / ms-agent.
         serverId: "excalidraw",
       },
     ],
@@ -67,13 +72,27 @@ const runtime = new CopilotRuntime({
 // @endregion[runtime-mcpapps-config]
 
 export const POST = async (req: NextRequest) => {
+  if (ROUTE_DEBUG) {
+    console.log(`[copilotkit-mcp-apps/route] POST ${req.url}`);
+  }
+
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
       endpoint: "/api/copilotkit-mcp-apps",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime,
     });
-    return await handleRequest(req);
+    const response = await handleRequest(req);
+    if (!response.ok) {
+      console.log(
+        `[copilotkit-mcp-apps/route] Response status: ${response.status}`,
+      );
+    } else if (ROUTE_DEBUG) {
+      console.log(
+        `[copilotkit-mcp-apps/route] Response status: ${response.status}`,
+      );
+    }
+    return response;
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(

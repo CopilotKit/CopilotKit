@@ -9,7 +9,7 @@
     {
       "_comment": "gen-ui-interrupt sales-call pill \u2014 first leg: schedule_meeting tool call triggers interrupt(...). toolName gate ensures this matches only when schedule_meeting is registered.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
         "context": "strands"
       },
@@ -40,7 +40,7 @@
     {
       "_comment": "gen-ui-interrupt sales-call pill \u2014 second leg: confirmation after user picks a slot and resolve fires.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolCallId": "call_d6_schedule_sales_001",
         "context": "strands"
       },
@@ -51,7 +51,7 @@
     {
       "_comment": "gen-ui-interrupt sales-call pill \u2014 fallback for integrations without schedule_meeting tool.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "hasToolResult": false,
         "context": "strands"
       },
@@ -82,7 +82,7 @@
     {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
         "context": "strands"
       },
@@ -113,7 +113,7 @@
     {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 second leg: confirmation after user picks a slot.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolCallId": "call_d6_schedule_alice_001",
         "context": "strands"
       },
@@ -124,7 +124,7 @@
     {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 fallback for integrations without schedule_meeting tool.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "hasToolResult": false,
         "context": "strands"
       },

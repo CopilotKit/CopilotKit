@@ -1,10 +1,9 @@
 // Dedicated runtime for the declarative-hashbrown demo (Strands).
 //
 // The declarative-hashbrown demo needs the LLM to emit a strict hashbrown
-// JSON envelope (see src/agents/byoc_hashbrown.py for the canonical prompt).
-// The shared Strands agent at "/" cannot produce that envelope, so the
-// backend mounts a dedicated, prompt-specialized agent at `/byoc-hashbrown/`
-// (see agent_server.py) and this route proxies to it.
+// JSON envelope (see src/agents/byoc_hashbrown.py). Backend mounts a
+// prompt-specialized agent at `/byoc-hashbrown/` (agent_server.py); this
+// route proxies to it.
 //
 // The demo folder + route + agent slug were renamed from `byoc-hashbrown` to
 // the canonical `declarative-hashbrown` surface; the page mounts
@@ -20,6 +19,11 @@ import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
+
 function createAgent() {
   return new HttpAgent({ url: `${AGENT_URL}/byoc-hashbrown/` });
 }
@@ -31,6 +35,10 @@ const agents = {
 };
 
 export const POST = async (req: NextRequest) => {
+  if (ROUTE_DEBUG) {
+    console.log(`[copilotkit-declarative-hashbrown/route] POST ${req.url}`);
+  }
+
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
       endpoint: "/api/copilotkit-declarative-hashbrown",
@@ -40,7 +48,17 @@ export const POST = async (req: NextRequest) => {
         agents,
       }),
     });
-    return await handleRequest(req);
+    const response = await handleRequest(req);
+    if (!response.ok) {
+      console.log(
+        `[copilotkit-declarative-hashbrown/route] Response status: ${response.status}`,
+      );
+    } else if (ROUTE_DEBUG) {
+      console.log(
+        `[copilotkit-declarative-hashbrown/route] Response status: ${response.status}`,
+      );
+    }
+    return response;
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     console.error(
@@ -48,7 +66,7 @@ export const POST = async (req: NextRequest) => {
       e.stack,
     );
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: e.message, stack: e.stack },
       { status: 500 },
     );
   }

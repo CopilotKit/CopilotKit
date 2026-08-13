@@ -133,6 +133,21 @@ from agents.voice_agent import build_voice_agent  # noqa: E402  (must follow ins
 from agents.a2ui_fixed import build_a2ui_fixed_schema_agent  # noqa: E402  (must follow instrumentor patch)
 from agents.a2ui_dynamic import build_a2ui_dynamic_agent  # noqa: E402  (must follow instrumentor patch)
 from agents.recovery_agent import build_a2ui_recovery_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.reasoning_agent import build_reasoning_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.tool_rendering_reasoning_chain_agent import (  # noqa: E402  (must follow instrumentor patch)
+    build_tool_rendering_reasoning_chain_agent,
+)
+from agents.shared_state_streaming import (  # noqa: E402  (must follow instrumentor patch)
+    build_shared_state_streaming_agent,
+)
+from agents.hitl_in_chat_agent import build_hitl_in_chat_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.open_gen_ui import build_open_gen_ui_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.open_gen_ui_advanced_agent import (  # noqa: E402  (must follow instrumentor patch)
+    build_open_gen_ui_advanced_agent,
+)
+from agents.headless_complete_agent import (  # noqa: E402  (must follow instrumentor patch)
+    build_headless_complete_agent,
+)
 
 load_dotenv()
 
@@ -185,6 +200,44 @@ a2ui_dynamic_app = create_strands_app(a2ui_dynamic_agui_agent, "/")
 a2ui_recovery_agui_agent = build_a2ui_recovery_agent()
 a2ui_recovery_app = create_strands_app(a2ui_recovery_agui_agent, "/")
 
+# Reasoning agent: backs reasoning-default + reasoning-custom (same backend;
+# frontend differs only in the messageView.reasoningMessage slot).
+reasoning_agui_agent = build_reasoning_agent()
+reasoning_app = create_strands_app(reasoning_agui_agent, "/")
+
+# Tool-rendering + reasoning chain: sequential tools interleaved with
+# reasoning tokens (dedicated model/prompt).
+tool_rendering_reasoning_chain_agui_agent = build_tool_rendering_reasoning_chain_agent()
+tool_rendering_reasoning_chain_app = create_strands_app(
+    tool_rendering_reasoning_chain_agui_agent, "/"
+)
+
+# Shared-state streaming: per-token state delta streaming from agent → UI.
+shared_state_streaming_agui_agent = build_shared_state_streaming_agent()
+shared_state_streaming_app = create_strands_app(shared_state_streaming_agui_agent, "/")
+
+# HITL in-chat: tools=[] + booking prompt; frontend owns useHumanInTheLoop.
+hitl_in_chat_agui_agent = build_hitl_in_chat_agent()
+hitl_in_chat_app = create_strands_app(hitl_in_chat_agui_agent, "/")
+
+# Open Generative UI (minimal + advanced): dedicated prompts so the runtime
+# openGenerativeUI middleware can drive generateSandboxedUi cleanly.
+open_gen_ui_agui_agent = build_open_gen_ui_agent()
+open_gen_ui_app = create_strands_app(open_gen_ui_agui_agent, "/")
+open_gen_ui_advanced_agui_agent = build_open_gen_ui_advanced_agent()
+open_gen_ui_advanced_app = create_strands_app(open_gen_ui_advanced_agui_agent, "/")
+
+# Alias mounts of the shared showcase agent for dedicated Next.js runtimes
+# that expect a specialized path (beautiful-chat / mcp-apps). Runtime flags
+# (a2ui / openGenerativeUI / mcpApps) live on the Next.js side.
+beautiful_chat_app = create_strands_app(agui_agent, "/")
+mcp_apps_app = create_strands_app(agui_agent, "/")
+# Headless-complete needs dedicated backend tools (get_weather /
+# get_stock_price / get_revenue_chart) so the headless renderers can paint
+# weather / stock / revenue cards from tool results — mirrors LGP.
+headless_complete_agui_agent = build_headless_complete_agent()
+headless_complete_app = create_strands_app(headless_complete_agui_agent, "/")
+
 # Create the FastAPI app from the AG-UI Strands integration
 agent_path = os.getenv("AGENT_PATH", "/")
 app = create_strands_app(agui_agent, agent_path)
@@ -209,6 +262,20 @@ app.mount("/declarative-gen-ui", a2ui_dynamic_app)
 # A2UI error-recovery: the Next.js route proxies to AGENT_URL/a2ui-recovery/
 # (trailing slash) so the sub-application's root route resolves.
 app.mount("/a2ui-recovery", a2ui_recovery_app)
+
+# D6 specialized mounts — main /api/copilotkit maps agent names onto these
+# paths; dedicated Next.js runtimes (ogui / beautiful-chat / mcp-apps) also
+# target them. Trailing slash on the client URL is required so the
+# sub-application root resolves.
+app.mount("/reasoning", reasoning_app)
+app.mount("/tool-rendering-reasoning-chain", tool_rendering_reasoning_chain_app)
+app.mount("/shared-state-streaming", shared_state_streaming_app)
+app.mount("/hitl-in-chat", hitl_in_chat_app)
+app.mount("/open-gen-ui", open_gen_ui_app)
+app.mount("/open-gen-ui-advanced", open_gen_ui_advanced_app)
+app.mount("/beautiful-chat", beautiful_chat_app)
+app.mount("/mcp-apps", mcp_apps_app)
+app.mount("/headless-complete", headless_complete_app)
 
 
 # Serve /health via middleware so it short-circuits BEFORE route resolution.

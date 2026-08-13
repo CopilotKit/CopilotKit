@@ -8,7 +8,7 @@
     {
       "_comment": "agent-config tone:professional pill — value-A. Response must differ from tone:casual below.",
       "match": {
-        "userMessage": "tone:professional",
+        "userMessage": "tone:professional — introduce yourself per your config",
         "context": "strands"
       },
       "response": {
@@ -18,7 +18,7 @@
     {
       "_comment": "agent-config tone:casual pill — value-B. Must differ from tone:professional above.",
       "match": {
-        "userMessage": "tone:casual",
+        "userMessage": "tone:casual — introduce yourself per your config",
         "context": "strands"
       },
       "response": {
@@ -28,7 +28,7 @@
     {
       "_comment": "agent-config expertise:beginner pill — value-A. Response must differ from expertise:expert below.",
       "match": {
-        "userMessage": "expertise:beginner",
+        "userMessage": "expertise:beginner — explain how copilotkit works per your config",
         "context": "strands"
       },
       "response": {
@@ -38,7 +38,7 @@
     {
       "_comment": "agent-config expertise:expert pill — value-B. Must differ from expertise:beginner above.",
       "match": {
-        "userMessage": "expertise:expert",
+        "userMessage": "expertise:expert — explain how copilotkit works per your config",
         "context": "strands"
       },
       "response": {
@@ -48,7 +48,7 @@
     {
       "_comment": "agent-config responseLength:concise pill — value-A. Response must be shorter than responseLength:detailed below by >= 80 chars.",
       "match": {
-        "userMessage": "responseLength:concise",
+        "userMessage": "responseLength:concise — describe agent context per your config",
         "context": "strands"
       },
       "response": {
@@ -58,7 +58,7 @@
     {
       "_comment": "agent-config responseLength:detailed pill — value-B. Must exceed concise response length by >= 80 chars.",
       "match": {
-        "userMessage": "responseLength:detailed",
+        "userMessage": "responseLength:detailed — describe agent context per your config",
         "context": "strands"
       },
       "response": {

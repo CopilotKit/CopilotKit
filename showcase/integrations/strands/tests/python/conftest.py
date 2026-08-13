@@ -15,11 +15,23 @@ import types
 
 _HERE = os.path.dirname(__file__)
 _PKG_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
+# Parent of integrations/* so ``import _shared.cvdiag_bootstrap`` resolves
+# when the git symlink ``strands/_shared -> ../_shared`` is a plain text
+# pointer (Windows without Developer Mode / core.symlinks).
+_INTEGRATIONS_ROOT = os.path.abspath(os.path.join(_PKG_ROOT, ".."))
+# Shared tool implementations live under showcase/shared/python/tools;
+# the package-root ``tools`` symlink may also be a text pointer on Windows.
+_SHARED_PYTHON = os.path.abspath(
+    os.path.join(_PKG_ROOT, "..", "..", "shared", "python")
+)
 
 # src/ holds agent_server.py and agents/
 sys.path.insert(0, os.path.join(_PKG_ROOT, "src"))
 # tools/ symlink at project root points to shared/python/tools
 sys.path.insert(0, _PKG_ROOT)
+sys.path.insert(0, _INTEGRATIONS_ROOT)
+if os.path.isdir(os.path.join(_SHARED_PYTHON, "tools")):
+    sys.path.insert(0, _SHARED_PYTHON)
 
 
 class _Permissive:
@@ -46,6 +58,7 @@ def _install_stub_modules() -> None:
         m.StrandsAgent = _Permissive  # type: ignore[attr-defined]
         m.StrandsAgentConfig = _Permissive  # type: ignore[attr-defined]
         m.ToolBehavior = _Permissive  # type: ignore[attr-defined]
+        m.PredictStateMapping = _Permissive  # type: ignore[attr-defined]
 
         class _FakeFastAPI:
             """Accepts the decorators agent_server applies (``@app.get`` etc.)."""

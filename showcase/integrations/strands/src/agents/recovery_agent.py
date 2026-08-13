@@ -13,6 +13,12 @@ ways:
     returns the `a2ui_recovery_exhausted` hard-fail envelope, which the renderer
     surfaces as a tasteful `failed` state (no broken surface).
 
+Strands-unique pill texts (frontend / aimock coordination — must NOT share
+wording with langgraph-python a2ui-recovery; inner render_a2ui has no
+x-aimock-context so userMessage alone disambiguates across frameworks):
+  - "Assemble a quarterly performance board and recover from a malformed first draft."
+  - "Assemble a board that always fails validation so I can see the fallback."
+
 Wiring: unlike the langgraph/ADK siblings (which own `generate_a2ui` explicitly
 via `get_a2ui_tools` + `injectA2UITool: false`), the Strands adapter runs the
 recovery loop on its AUTO-INJECT path — when the runtime forwards
@@ -34,7 +40,27 @@ from strands import Agent
 from ag_ui_strands import StrandsAgent, StrandsAgentConfig
 
 from agents.agent import _build_model
-from agents.a2ui_dynamic import CATALOG_ID, COMPOSITION_GUIDE, SYSTEM_PROMPT
+from agents.a2ui_dynamic import (
+    CATALOG_ID,
+    COMPOSITION_GUIDE,
+    SYSTEM_PROMPT as DYNAMIC_SYSTEM_PROMPT,
+)
+
+# Recovery composition: same sales-analyst base as declarative dynamic A2UI,
+# plus explicit guidance so the strands-unique pill wordings
+# ("malformed first draft", "always fails validation") still route through
+# `generate_a2ui` and the adapter's validate->retry / hard-fail path.
+SYSTEM_PROMPT = (
+    DYNAMIC_SYSTEM_PROMPT
+    + "\n\n"
+    + "Demo recovery intents: if the user asks to recover from a malformed "
+    + "first draft, recover from a bad render, or assemble a board that "
+    + "always fails validation so they can see the fallback, "
+    + "still call `generate_a2ui` exactly once and keep the chat reply to one "
+    + "short sentence. Do not refuse, do not invent another tool, and do not "
+    + "try to validate or repair the surface yourself — `generate_a2ui` runs "
+    + "the toolkit recovery loop (heal or exhaust) for you."
+)
 
 
 def build_a2ui_recovery_agent() -> StrandsAgent:
@@ -48,6 +74,7 @@ def build_a2ui_recovery_agent() -> StrandsAgent:
     strands_agent = Agent(
         model=_build_model(),
         system_prompt=SYSTEM_PROMPT,
+        tools=[],
     )
 
     return StrandsAgent(
@@ -61,3 +88,6 @@ def build_a2ui_recovery_agent() -> StrandsAgent:
             }
         ),
     )
+
+
+__all__ = ["SYSTEM_PROMPT", "build_a2ui_recovery_agent"]

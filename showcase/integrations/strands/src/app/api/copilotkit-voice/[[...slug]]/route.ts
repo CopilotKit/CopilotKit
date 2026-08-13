@@ -11,6 +11,8 @@
 // Wires the V2 `CopilotRuntime` directly because the V1 wrapper drops the
 // `transcriptionService` option. V2 URL-routes on `/info`, `/agent/:id/run`,
 // `/transcribe`, etc., so the route lives at `[[...slug]]/route.ts`.
+//
+// HttpAgent → AGENT_URL/voice/ (already mounted in agent_server.py).
 
 // @region[voice-runtime]
 // @region[transcription-service-guard]
@@ -26,6 +28,11 @@ import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
+
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
 
 // Point at the tool-free /voice endpoint so aimock returns a direct text
 // response instead of a tool call that the agent can't summarize.
@@ -76,8 +83,18 @@ function getHandler(): (req: Request) => Promise<Response> {
   return cachedHandler;
 }
 
-export const POST = (req: NextRequest) => getHandler()(req);
-export const GET = (req: NextRequest) => getHandler()(req);
+export const POST = (req: NextRequest) => {
+  if (ROUTE_DEBUG) {
+    console.log(`[copilotkit-voice/route] POST ${req.url}`);
+  }
+  return getHandler()(req);
+};
+export const GET = (req: NextRequest) => {
+  if (ROUTE_DEBUG) {
+    console.log(`[copilotkit-voice/route] GET ${req.url}`);
+  }
+  return getHandler()(req);
+};
 export const PUT = (req: NextRequest) => getHandler()(req);
 export const DELETE = (req: NextRequest) => getHandler()(req);
 // @endregion[voice-runtime]
