@@ -13,7 +13,13 @@ describe("resolveRenders", () => {
     const renderJsxToPng = vi.fn(
       async (_node: unknown, _cfg: ResolvedRenderConfig) => png,
     );
-    const stageFile = vi.fn(async () => ({ fileId: "F1" }));
+    const stageFile = vi.fn(
+      async (_args: {
+        bytes: Uint8Array;
+        filename: string;
+        altText: string;
+      }) => ({ fileId: "F1" }),
+    );
     const ir = renderToIR(
       <Message>
         <Header>Week</Header>
@@ -49,11 +55,35 @@ describe("resolveRenders", () => {
     expect(firstJsx.type).toBe("div");
     expect(firstJsx.$$typeof).toBeDefined();
     expect(stageFile).toHaveBeenCalledTimes(2);
+    expect(stageFile).toHaveBeenNthCalledWith(1, {
+      altText: "a",
+      filename: expect.stringMatching(/\.png$/),
+      bytes: png,
+    });
+    expect(stageFile).toHaveBeenNthCalledWith(2, {
+      altText: "b",
+      filename: expect.stringMatching(/\.png$/),
+      bytes: png,
+    });
     const images = collect(out, "image");
     expect(images).toHaveLength(2);
     expect(images[0]?.props.alt).toBe("a");
     expect(images[0]?.props.fileId).toBe("F1");
     expect(images[0]?.props.slackFileId).toBe("F1");
+    const carousels = collect(out, "carousel");
+    expect(carousels).toHaveLength(1);
+    const carouselKids = Array.isArray(carousels[0]?.props.children)
+      ? (carousels[0]!.props.children as ChannelNode[])
+      : [];
+    expect(carouselKids).toHaveLength(2);
+    expect(carouselKids[0]).toMatchObject({
+      type: "image",
+      props: { alt: "a" },
+    });
+    expect(carouselKids[1]).toMatchObject({
+      type: "image",
+      props: { alt: "b" },
+    });
     expect(collect(out, "render")).toHaveLength(0);
   });
 

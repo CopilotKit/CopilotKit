@@ -1,6 +1,7 @@
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { ResolvedRenderConfig } from "./config.js";
 import type { StagedFile } from "../platform-adapter.js";
+import { defaultAllowImageUrl } from "./url-policy.js";
 
 export interface ResolveRendersDeps {
   renderJsxToPng: (
@@ -13,6 +14,7 @@ export interface ResolveRendersDeps {
     altText: string;
   }) => Promise<StagedFile>;
   defaultWidth: number;
+  defaultHeight?: number;
   fonts?: ResolvedRenderConfig["fonts"];
   stylesheets?: ResolvedRenderConfig["stylesheets"];
   allowImageUrl?: ResolvedRenderConfig["allowImageUrl"];
@@ -69,8 +71,8 @@ export async function resolveRenders(
         fonts: deps.fonts ?? [],
         stylesheets: deps.stylesheets ?? [],
         width,
-        height: 480,
-        allowImageUrl: deps.allowImageUrl ?? (() => false),
+        height: deps.defaultHeight ?? 480,
+        allowImageUrl: deps.allowImageUrl ?? defaultAllowImageUrl,
       };
       const bytes = await deps.renderJsxToPng(node.props.children ?? node, cfg);
       if (bytes.byteLength === 0) {
