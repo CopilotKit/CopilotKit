@@ -98,9 +98,14 @@ two). Narrow on `status` before reading `args` fields or `result`.
 
 The discriminant is the **`ToolCallStatus` enum** — not a string-literal union.
 Each arm is typed `ToolCallStatus.InProgress`, `ToolCallStatus.Executing` or
-`ToolCallStatus.Complete`, so narrow with the enum members
-(`status === ToolCallStatus.Executing`) and not with the raw strings. Assigning a
-bare `"executing"` where a `status` is expected is a type error (TS2322).
+`ToolCallStatus.Complete`. Comparing a `status` against the string a member
+carries still type-checks and still narrows, so `status === "executing"` is
+valid TypeScript; the enum members are the **recommended** style rather than a
+compilation requirement, because they say which arm you mean and break loudly if
+a member's value ever changes. Two things are genuinely errors: comparing
+against a string that matches no member (TS2367, "no overlap"), and *assigning* a
+bare `"executing"` to a `status`-typed variable (TS2322 — a raw string is not
+assignable to the enum, even though the enum is comparable to it).
 
 <PropertyReference name="name" type="string">
   The tool name being rendered.
@@ -131,10 +136,13 @@ bare `"executing"` where a `status` is expected is a type error (TS2322).
   `ToolCallStatus.Executing` while the handler runs, and
   `ToolCallStatus.Complete` once the result is available.
 
-  Compare against the enum members, not the underlying strings. The members carry
-  those strings at runtime, but TypeScript does not accept a raw `"executing"`
-  where a `status` is expected (TS2322), so `status === ToolCallStatus.Executing`
-  is the form that type-checks.
+  Prefer the enum members over the raw strings they carry. `status === "executing"`
+  does compile and does narrow — TypeScript accepts an enum member compared
+  against its own value — but `status === ToolCallStatus.Executing` is
+  self-documenting and fails loudly if the enum's values ever change, so it is the
+  form this reference uses. Comparing against a string that is not a member value
+  is a TS2367 error, and *assigning* a raw `"executing"` to a `status`-typed
+  variable is a TS2322 error.
 </PropertyReference>
 
 <PropertyReference name="result" type="string | undefined">
@@ -279,11 +287,12 @@ function ToolCallStage({ agentId = "default" }: { agentId?: string }) {
 
   const messages = agent.messages ?? [];
 
-  // Pair each call with its result message. `renderToolCall` derives status from
-  // that pairing: pass `toolMessage` and the call resolves to
-  // `ToolCallStatus.Complete` with `result`; omit it and `status` stays
-  // `ToolCallStatus.InProgress` and `result` is `undefined` forever — the same
-  // correlation the prebuilt chat does.
+  // Pair each call with its result message — the same correlation the prebuilt
+  // chat does. `toolMessage` is what selects the complete arm: pass it and the
+  // call resolves to `ToolCallStatus.Complete` with `result`. Without one,
+  // `result` is `undefined` and the status comes from the provider instead —
+  // `ToolCallStatus.Executing` while this call id is one the provider is tracking
+  // as executing, and `ToolCallStatus.InProgress` otherwise.
   const toolMessages = new Map(
     messages.flatMap((message) =>
       message.role === "tool" ? [[message.toolCallId, message] as const] : [],
@@ -331,18 +340,25 @@ work on React Native and keeps chat history rendering after navigation.
 + return renderToolCall({ toolCall });
 ```
 
-Render props also change. They gain `name` and `toolCallId`, and `status` changes
-in two ways at once. It was the two-member string-literal union `"executing" |
-"complete"`; it is now the three-member **`ToolCallStatus` enum**
-(`ToolCallStatus.InProgress` was added, for the state where the agent is still
-streaming the call). Both halves of that are breaking: string comparisons no
-longer type-check, so `status === "complete"` becomes
-`status === ToolCallStatus.Complete`.
+Render props also change. They gain `name` and `toolCallId`, and `status` widens:
+it was the two-member string-literal union `"executing" | "complete"`, and is now
+the three-member **`ToolCallStatus` enum** (`ToolCallStatus.InProgress` was added,
+for the state where the agent is still streaming the call). **The added arm is the
+breaking part** — a renderer that handled only `"executing"` and `"complete"` now
+has a third state to account for. Your existing string comparisons keep working:
+`status === "complete"` still type-checks and still narrows against the enum. So
+moving them onto the members is a recommended cleanup, not a required migration
+step:
 
 ```diff
 - if (status === "complete") return <Result value={result} />;
 + if (status === ToolCallStatus.Complete) return <Result value={result} />;
 ```
+
+What does *not* survive the change is assigning a raw string into a
+`status`-typed variable (`const s: RenderToolProps<T>["status"] = "complete"` is
+TS2322), and comparing against a string that is not one of the three member
+values (TS2367).
 
 `args` used to be the fully-typed `T` in every state; it is now `Partial<T>` on
 the newly added `ToolCallStatus.InProgress` arm and stays the full `T` once
