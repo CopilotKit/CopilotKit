@@ -34,18 +34,6 @@ import { MessageList } from "./message-list";
 import { SuggestionBar } from "./suggestion-bar";
 import { TypingIndicator } from "./typing-indicator";
 
-function createMessageId() {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
-  }
-  return `msg-${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2)}`;
-}
-
 export function Chat({ agentId }: { agentId: string }) {
   // @region[page-send-message]
   const { agent } = useAgent({ agentId });
@@ -74,19 +62,19 @@ export function Chat({ agentId }: { agentId: string }) {
   // Send pipeline: consume any ready attachments at submit time, build
   // the multimodal `content` array if needed, then dispatch the run.
   const sendText = useCallback(
-    (text: string): boolean => {
+    (text: string) => {
       const trimmed = text.trim();
-      if (agent.isRunning) return false;
       // Consume queued uploads first so they get sent even if the user
       // didn't type any text alongside them.
       const ready = consumeAttachments();
-      if (!trimmed && ready.length === 0) return false;
+      if (!trimmed && ready.length === 0) return;
+      if (agent.isRunning) return;
 
       stickRef.current = true;
 
       const content = buildContent(trimmed, ready);
       agent.addMessage({
-        id: createMessageId(),
+        id: crypto.randomUUID(),
         role: "user",
         content,
       });
@@ -95,15 +83,13 @@ export function Chat({ agentId }: { agentId: string }) {
         .catch((err) =>
           console.error("[headless-complete] runAgent failed", err),
         );
-      return true;
     },
     [agent, copilotkit, consumeAttachments],
   );
 
   const handleSend = useCallback(() => {
-    if (sendText(input)) {
-      setInput("");
-    }
+    sendText(input);
+    setInput("");
   }, [input, sendText]);
 
   const handleSuggestion = useCallback(

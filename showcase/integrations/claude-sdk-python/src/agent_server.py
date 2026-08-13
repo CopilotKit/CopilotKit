@@ -70,11 +70,13 @@ from fastapi.responses import StreamingResponse
 
 from agents.a2ui_dynamic import run_a2ui_dynamic_agent
 from agents.a2ui_fixed import run_a2ui_fixed_agent
+from agents.recovery_agent import run_a2ui_recovery_agent
 from agents.agent import (
     BEAUTIFUL_CHAT_SYSTEM_PROMPT,
     BEAUTIFUL_CHAT_TOOLS,
     GEN_UI_AGENT_SYSTEM_PROMPT,
     GEN_UI_AGENT_TOOLS,
+    GEN_UI_TOOL_BASED_SYSTEM_PROMPT,
     HEADLESS_COMPLETE_SYSTEM_PROMPT,
     HEADLESS_COMPLETE_TOOLS,
     SHARED_STATE_STREAMING_SYSTEM_PROMPT,
@@ -87,6 +89,25 @@ from agents.agent import (
 from agents.agent_config_agent import build_system_prompt, read_properties
 from agents.byoc_hashbrown_agent import BYOC_HASHBROWN_SYSTEM_PROMPT
 from agents.byoc_json_render_agent import BYOC_JSON_RENDER_SYSTEM_PROMPT
+
+# Frontend Tools (Async) — the reference
+# (langgraph-python/src/agents/frontend_tools_async.py) mounts a DEDICATED
+# graph whose system prompt tells the agent to call the frontend
+# `query_notes` tool and summarize the result. Apply the matching prompt on
+# our dedicated `/frontend-tools-async` endpoint (parity, not generic
+# fallback). The sync `frontend_tools` sibling has only a neutral prompt in
+# the reference, so it correctly stays on the generic default agent.
+from agents.frontend_tools_async import (
+    SYSTEM_PROMPT_HINT as FRONTEND_TOOLS_ASYNC_SYSTEM_PROMPT,
+)
+
+# In-App HITL — the reference (langgraph-python/src/agents/hitl_in_app.py)
+# mounts a DEDICATED graph whose system prompt makes the agent always call
+# the frontend `request_user_approval` tool before customer-affecting
+# actions. Import the matching prompt hint so our dedicated `/hitl-in-app`
+# endpoint applies it via system_prompt_override (parity, not generic
+# fallback). See dedicatedAgentPaths in the copilotkit route.
+from agents.hitl_in_app import SYSTEM_PROMPT_HINT as HITL_IN_APP_SYSTEM_PROMPT
 from agents.hitl_in_chat_agent import run_hitl_in_chat_agent
 from agents.interrupt_agent import run_interrupt_agent
 from agents.mcp_apps_agent import run_mcp_apps_agent
@@ -272,6 +293,29 @@ async def gen_ui_agent_endpoint(request: Request) -> StreamingResponse:
     )
 
 
+@app.post("/gen-ui-tool-based")
+async def gen_ui_tool_based_endpoint(request: Request) -> StreamingResponse:
+    """Tool-Based Generative UI — chart-viz prompt, NO backend tools.
+
+    Mirrors langgraph-python's dedicated `gen_ui_tool_based` graph
+    (`tools=[]` + a data-visualization system prompt). The chart renderers
+    `render_bar_chart` / `render_pie_chart` are FRONTEND tools registered via
+    `useComponent` in the demo page; they arrive in `input_data.tools` and are
+    injected by `_build_frontend_tools`, so we do NOT set a
+    `frontend_tool_names_allowlist` here (that would strip them). Leaving this
+    demo on the generic root agent is the GOTCHAS #8 masking bug: the
+    sales-assistant SYSTEM_PROMPT steers the model to `query_data` and never
+    tells it to invent illustrative data + render on the first turn.
+    """
+    body = await request.json()
+    input_data = RunAgentInput(**body)
+    return _stream_agent_response(
+        input_data,
+        system_prompt_override=GEN_UI_TOOL_BASED_SYSTEM_PROMPT,
+        tools_override=[],
+    )
+
+
 @app.post("/shared-state-streaming")
 async def shared_state_streaming_endpoint(request: Request) -> StreamingResponse:
     """Shared State Streaming — writes the final document into shared state."""
@@ -443,6 +487,49 @@ async def hitl_in_chat_endpoint(request: Request) -> StreamingResponse:
     )
 
 
+@app.post("/frontend-tools-async")
+async def frontend_tools_async_endpoint(request: Request) -> StreamingResponse:
+    """Frontend Tools (Async) demo — frontend `query_notes` tool with an
+    async handler (simulated client-side notes DB).
+
+    Parity with langgraph-python: that integration mounts a dedicated graph
+    whose system prompt instructs the agent to call the frontend-provided
+    `query_notes` tool and summarize the result. We mirror that prompt via
+    ``system_prompt_override`` instead of falling through to the generic
+    default agent. The tool itself is frontend-defined, so the backend
+    registers no tools of its own and forwards AG-UI's frontend tool schemas
+    to Claude as usual.
+    """
+    body = await request.json()
+    input_data = RunAgentInput(**body)
+    return _stream_agent_response(
+        input_data,
+        system_prompt_override=FRONTEND_TOOLS_ASYNC_SYSTEM_PROMPT,
+    )
+
+
+@app.post("/hitl-in-app")
+async def hitl_in_app_endpoint(request: Request) -> StreamingResponse:
+    """In-App HITL demo — frontend `request_user_approval` tool + app-level
+    modal (outside the chat surface).
+
+    Parity with langgraph-python: that integration mounts a dedicated graph
+    with a tailored system prompt so the agent reliably calls the
+    frontend-provided approval tool before any customer-affecting action.
+    We mirror that here by applying the same prompt hint via
+    ``system_prompt_override`` instead of falling through to the generic
+    default agent (which carries no such instruction). The approval tool
+    itself is frontend-defined, so the backend registers no tools of its
+    own and forwards AG-UI's frontend tool schemas to Claude as usual.
+    """
+    body = await request.json()
+    input_data = RunAgentInput(**body)
+    return _stream_agent_response(
+        input_data,
+        system_prompt_override=HITL_IN_APP_SYSTEM_PROMPT,
+    )
+
+
 @app.post("/interrupt-adapted")
 async def interrupt_adapted_endpoint(request: Request) -> StreamingResponse:
     """Interrupt-adapted scheduling agent — shared by gen-ui-interrupt and
@@ -494,6 +581,31 @@ async def a2ui_fixed_schema_endpoint(request: Request) -> StreamingResponse:
 
     async def event_stream() -> AsyncIterator[str]:
         async for chunk in run_a2ui_fixed_agent(input_data):
+            yield chunk
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/a2ui-recovery")
+async def a2ui_recovery_endpoint(request: Request) -> StreamingResponse:
+    """A2UI Error Recovery demo — native validate->retry recovery loop.
+
+    Owns `generate_a2ui` itself (route sets injectA2UITool: false) and runs a
+    NATIVE recovery loop (see src/agents/recovery_agent.py) that heals a
+    malformed first render or returns an `a2ui_recovery_exhausted` envelope.
+    """
+    body = await request.json()
+    input_data = RunAgentInput(**body)
+
+    async def event_stream() -> AsyncIterator[str]:
+        async for chunk in run_a2ui_recovery_agent(input_data):
             yield chunk
 
     return StreamingResponse(

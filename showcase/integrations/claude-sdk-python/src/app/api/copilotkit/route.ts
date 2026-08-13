@@ -78,6 +78,11 @@ const agentNames = [
 // the agent name to that path keeps the runtime config flat.
 const dedicatedAgentPaths: Record<string, string> = {
   "gen-ui-agent": "/gen-ui-agent",
+  // Tool-Based Generative UI needs its own chart-viz prompt + a tools=[]
+  // backend (render_bar_chart/render_pie_chart are FRONTEND tools). Without
+  // this it fell through to the generic root agent's sales-assistant prompt —
+  // the GOTCHAS #8 masking bug (D6-green via fixture, "plotted zeros" live).
+  "gen-ui-tool-based": "/gen-ui-tool-based",
   "tool-rendering": "/tool-rendering",
   "tool-rendering-default-catchall": "/tool-rendering",
   "tool-rendering-custom-catchall": "/tool-rendering",
@@ -92,8 +97,21 @@ const dedicatedAgentPaths: Record<string, string> = {
   "reasoning-custom": "/reasoning",
   "tool-rendering-reasoning-chain": "/tool-rendering-reasoning-chain",
   "headless-complete": "/headless-complete",
+  // Frontend Tools (Async) uses a dedicated backend so the agent gets the
+  // tailored "call query_notes and summarize" prompt (mirrors
+  // langgraph-python's dedicated frontend_tools_async graph). The generic
+  // default agent lacks that instruction. The sync `frontend_tools` sibling
+  // stays generic because its reference graph carries only a neutral prompt.
+  "frontend-tools-async": "/frontend-tools-async",
   "hitl-in-chat": "/hitl-in-chat",
   "hitl-in-chat-booking": "/hitl-in-chat",
+  // In-App HITL uses a dedicated backend so the agent gets the tailored
+  // "always call request_user_approval" prompt (mirrors langgraph-python's
+  // dedicated hitl_in_app graph). Without this it fell through to the generic
+  // default agent, which lacks that instruction — a masked live-LLM
+  // divergence from the reference. Fixtures replay a canned tool call so D6
+  // is unaffected either way; this closes the honest behavior gap.
+  "hitl-in-app": "/hitl-in-app",
   "gen-ui-interrupt": "/interrupt-adapted",
   "interrupt-headless": "/interrupt-adapted",
 };
