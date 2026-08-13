@@ -69,7 +69,7 @@ import {
 import { MarginLadder } from "./components/margin-ladder";
 import { SkuTile } from "./components/sku-tile";
 import { Pill } from "./components/primitives";
-import { useRecording } from "./components/recording-context";
+import { useRecording } from "@/shell/teach";
 import {
   SAVE_PROCEDURE_CONFIRMED,
   SAVE_PROCEDURE_DECLINED,
@@ -1897,13 +1897,17 @@ export function DemonstrationCard({
 }: {
   onDone: (summary: string) => Promise<string | null>;
 }) {
-  const { beginRecording, endRecording, steps, getDemonstratedCode, reset } =
+  const { beginRecording, endRecording, steps, getDemonstratedCode } =
     useRecording();
   const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
+  // No explicit feed reset: the shell's `beginRecording` clears it when it opens
+  // a FRESH window, and deliberately inherits the feed when one is already open
+  // (the `filed → finalized → approve` chain arriving as brackets microseconds
+  // apart must read as one demonstration). An unconditional reset here would
+  // blank a live feed mid-demonstration.
   useEffect(() => {
-    reset();
     beginRecording();
     return () => endRecording();
     // eslint-disable-next-line react-hooks/exhaustive-deps

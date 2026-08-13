@@ -312,7 +312,7 @@ const TEXT_PAIRS: readonly Pair[] = [
  * - `--positive` on `--positive-soft`: 4.12:1 light, 5.47:1 dark.
  * - `--negative` on `--negative-soft`: 4.41:1 light, 4.33:1 dark.
  *   Both tone-chip pairs are short of 4.5:1 in LIGHT mode too, i.e. they are not
- *   a dark-mode regression, and the same treatment is short in all six skins.
+ *   a dark-mode regression, and the same treatment is short in every skin.
  *   Moving them is a palette decision across the set, not a fix to this file.
  * - `--brand-indigo` on `--brand-soft`: 11.10:1 light, 2.70:1 dark. Fails in
  *   dark in EVERY dark-capable skin (banking 2.75, keel 1.21, logistics 2.43,
