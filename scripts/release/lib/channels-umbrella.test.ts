@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   ADAPTERS,
@@ -8,6 +11,8 @@ import {
   validatePackedManifests,
 } from "./channels-umbrella.js";
 import type { PackedManifest } from "./channels-umbrella.js";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 function validManifests(): Map<string, PackedManifest> {
   const core: PackedManifest = {
@@ -161,5 +166,15 @@ describe("createConsumerWorkspaceYaml", () => {
     // blanket-wildcarded, so we don't extend immediate-install trust to the
     // whole scope.
     expect(RELEASE_AGE_EXCLUDE).not.toContain("@ag-ui/*");
+    expect(RELEASE_AGE_EXCLUDE).toContain("takumi-js");
+    expect(RELEASE_AGE_EXCLUDE).toContain("@takumi-rs/*");
+  });
+
+  it("matches the repo-root .npmrc age excludes", () => {
+    const npmrc = readFileSync(resolve(root, ".npmrc"), "utf8");
+    const fromNpmrc = [
+      ...npmrc.matchAll(/^minimum-release-age-exclude\[\]=(.+)$/gm),
+    ].map((match) => match[1]);
+    expect([...RELEASE_AGE_EXCLUDE]).toEqual(fromNpmrc);
   });
 });

@@ -41,8 +41,10 @@ export const FAMILY = [
  * `@copilotkit/*` is wildcarded: it's an org-owned scope on the same publish
  * pipeline, so no outsider can inject a package and enumerating each one drifts
  * every time an internal dependency is added. `@ag-ui/*` is a separate upstream
- * org, so its packages are enumerated rather than blanket-trusted — keep this
- * list in sync with the `@ag-ui` entries in the repo-root `.npmrc`.
+ * org, so its packages are enumerated rather than blanket-trusted.
+ * `takumi-js` and `@takumi-rs/*` are the JSX-to-PNG renderer and its native
+ * bindings; they ship often enough that a 24h gate breaks packed-consumer
+ * installs. Keep this list in sync with the repo-root `.npmrc`.
  */
 export const RELEASE_AGE_EXCLUDE = [
   "@copilotkit/*",
@@ -53,6 +55,8 @@ export const RELEASE_AGE_EXCLUDE = [
   "@ag-ui/langgraph",
   "@ag-ui/a2ui-middleware",
   "@ag-ui/a2ui-toolkit",
+  "takumi-js",
+  "@takumi-rs/*",
 ] as const;
 
 export function createConsumerWorkspaceYaml(): string {
