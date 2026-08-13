@@ -100,9 +100,22 @@ interface ChatListItem {
  *
  * Captures exactly what the derivations below read — id, role, content size,
  * `toolCallId` (so an inserted tool result is visible), and each tool call's id
- * plus argument length (so streaming args advance). Content LENGTH rather than
- * value, mirroring react-core's web `messagesMemoKey`, so large text or base64
- * attachment payloads are never re-serialized on every render.
+ * plus argument length (so streaming args advance).
+ *
+ * String and array content contribute their LENGTH rather than their value, so
+ * large text and base64 attachment payloads are never re-serialized on every
+ * render. Object content is the deliberate exception and IS serialized: a
+ * length-based key is a constant 0 for every object, so an in-place content
+ * replacement that keeps the same message id would otherwise be invisible to
+ * every memo below.
+ *
+ * That object branch is convergence, not a fix for a reachable stale render: the
+ * producer of same-id object content is an ACTIVITY_SNAPSHOT replace, and
+ * `role: "activity"` never reaches `listItems`, which builds rows for `user` and
+ * `assistant` only. It follows the SHAPE of react-core's `messagesMemoKey`
+ * (react-core #6325). The two are independent implementations of the same idea —
+ * a change to that key does not propagate here on its own, so treat this as a
+ * documented parallel rather than a mirror.
  */
 function messagesFingerprint(messages: readonly unknown[]): string {
   return messages
@@ -118,7 +131,9 @@ function messagesFingerprint(messages: readonly unknown[]): string {
       const contentKey =
         typeof content === "string" || Array.isArray(content)
           ? content.length
-          : 0;
+          : content && typeof content === "object"
+            ? objectContentKey(content)
+            : 0;
       const toolCallsKey = Array.isArray(m.toolCalls)
         ? m.toolCalls
             .map((tc) => `${tc.id}:${tc.function?.arguments?.length ?? 0}`)
@@ -127,6 +142,30 @@ function messagesFingerprint(messages: readonly unknown[]): string {
       return `${m.id}:${m.role}:${contentKey}:${m.toolCallId ?? ""}:${toolCallsKey}`;
     })
     .join(",");
+}
+
+/**
+ * Serializes object content for the fingerprint above.
+ *
+ * Guarded because `JSON.stringify` THROWS on a circular structure and
+ * `messagesFingerprint` runs on EVERY render, so a bare call would take the whole
+ * chat down on content this component is explicitly required to tolerate —
+ * `toolResultContent` below documents why non-string content reaches RN at all,
+ * and "does not throw on tool content that cannot be JSON-serialised" pins that a
+ * circular tool result must still render.
+ *
+ * The fallback is a constant, which means a circular object is invisible to the
+ * memo exactly as every object used to be. That is the correct trade: it confines
+ * the old always-equal behaviour to the pathological case instead of letting it
+ * decide the common one. NOTE: this guard is a deliberate divergence from
+ * react-core's `messagesMemoKey`, which stringifies unguarded.
+ */
+function objectContentKey(content: object): string {
+  try {
+    return JSON.stringify(content) ?? "";
+  } catch {
+    return "[unserializable]";
+  }
 }
 
 /**

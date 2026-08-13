@@ -269,6 +269,12 @@ describe("CopilotChat tool-call rendering", () => {
  * `addMessage` that core's own paths bottom out in.
  */
 describe("CopilotChat against in-place message mutation", () => {
+  // The object-content test below spies on console.warn; without this the spy
+  // would outlive it and swallow warnings from later tests in this file.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("reports complete and passes the result once a tool result is pushed in place", async () => {
     // A plain box, not React.createRef — TestCopilotKit only writes to it.
     const agentRef: React.MutableRefObject<AbstractAgent | null> = {
@@ -329,6 +335,61 @@ describe("CopilotChat against in-place message mutation", () => {
 
     // The flat-list items must see the pushed assistant message.
     expect(screen.getByTestId("places").textContent).toBe("inProgress:Rooftop");
+  });
+
+  /**
+   * Pins the OBJECT branch of `messagesFingerprint`'s content key.
+   *
+   * A length-based key is a constant 0 for every object, so before that branch
+   * existed any two objects fingerprinted identically: replacing a message's
+   * object content in place left `messagesKey` byte-identical, the
+   * `toolCallId -> ToolMessage` memo never recomputed, and the renderer kept the
+   * result serialized from the FIRST object it saw.
+   *
+   * This asserts through the renderer rather than calling the fingerprint
+   * directly, so it fails for the reason a user would notice (a stale `result`)
+   * instead of merely restating the implementation.
+   *
+   * Re-rendering the provider is safe here, unlike in the `agentRef` tests above:
+   * the mutation is to a message OBJECT inside the array this test owns, and the
+   * SAME array reference is passed again, so the provider's per-render re-seed is
+   * a no-op rather than a replacement. Nothing else in the fingerprint moves —
+   * same ids, roles, `toolCallId` and tool calls — so the object branch is the
+   * only thing that can invalidate the memo.
+   */
+  it("re-renders a tool result when object content is replaced in place", () => {
+    // Non-string tool content is warned about by design; silence it so this
+    // assertion is about the memo, not about the warning.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const messages: Array<Record<string, unknown>> = [
+      assistantEchoResult,
+      { id: "m2", role: "tool", toolCallId: "tc1", content: { step: "one" } },
+    ];
+    // A FACTORY, not a stored element: re-rendering the identical element
+    // reference lets React bail out of the subtree entirely, which would make
+    // this test pass for the wrong reason (nothing re-rendered at all).
+    const tree = () => (
+      <TestCopilotKit messages={messages}>
+        <ResultRegistrar />
+        <CopilotChat />
+      </TestCopilotKit>
+    );
+
+    const { rerender } = render(tree());
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|{"step":"one"}',
+    );
+
+    // Same id, same role, same toolCallId — only the object content differs, and
+    // it serializes to the same LENGTH as well, so a key that measured either the
+    // type or the size alone would still miss this.
+    messages[1].content = { step: "two" };
+    rerender(tree());
+
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|{"step":"two"}',
+    );
   });
 });
 
