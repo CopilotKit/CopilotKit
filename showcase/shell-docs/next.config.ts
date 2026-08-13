@@ -1,8 +1,4 @@
 import type { NextConfig } from "next";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const SHOWCASE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 interface PermanentRedirect {
   readonly source: string;
@@ -313,7 +309,6 @@ const nextConfig: NextConfig = {
   // though the config has no application imports. Keep the filter exact so
   // every other Turbopack issue remains visible.
   turbopack: {
-    root: SHOWCASE_ROOT,
     ignoreIssue: [
       {
         path: /showcase\/shell-docs\/next\.config\.ts$/,
@@ -346,13 +341,6 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
-        // Stable public machine endpoint. Keep the implementation in a
-        // non-hidden App Router segment because build tooling may ignore
-        // dot-prefixed source directories.
-        {
-          source: "/.well-known/copilotkit-capabilities/v1.json",
-          destination: "/well-known/copilotkit-capabilities/v1.json",
-        },
         // PostHog reverse proxy — routes analytics through this host so
         // requests bypass ad blockers / tracking-protection that target
         // the *.i.posthog.com hostname directly. Mirrors docs/.
