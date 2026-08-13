@@ -39,9 +39,11 @@ tell a deliberate choice from an oversight.
 
 **If the user named which beats to hit** — fewer, more, or different ones — theirs
 win outright. Record what they asked for in the map (`"user: BI dashboards only,
-no teach mode"`) and build that. Absent instructions, build all nine rows: that
-is what makes a skin demo-complete, and three of the four shipped skins are
-missing most of them (see "Which skin to copy" at the end).
+no teach mode"`) and build that — `bookstore` is the worked example of a
+deliberately partial map, with three rows marked `SKIPPED` and a reason on each.
+Absent instructions, build all nine rows: that is what makes a skin
+demo-complete, and three of the shipped skins are missing most of them (see
+"Which skin to copy" at the end).
 
 ---
 
@@ -115,6 +117,26 @@ which record first** (it should fire the tool immediately), and the gen-UI from
 beat 1 must **stay** in the transcript — the conversation must not collapse into
 "OK, PIN set."
 
+**The card's own guidance must be a figure the card ACCEPTS.** Any ceiling, floor
+or format the component PRINTS has to come out of the same expression its submit
+predicate compares against. Commerce printed `up to ${formatMoney(itemValue)}` —
+rounded to whole dollars — beside a button comparing the typed amount EXACTLY
+against `itemValue`, so a $152.50 return invited "up to $153" and then sat
+disabled with nothing on screen saying why. That is worse than a wrong number:
+the presenter follows the app's own instruction on stage and the app refuses. Have
+one helper return the guidance AND the predicate (`refundGuidance` in
+`skins/commerce/data/derive.ts`), and print each figure from one place.
+
+**And that helper must REFUSE a figure it cannot read, never rewrite it.** The
+same helper parsed the typed string with `Number(typed.replace(/[^0-9.]/g, ""))`,
+which deletes whatever it does not recognise: `-50` became a real $50 refund and
+`1e5` became $15 — finite, positive, under the ceiling, so nothing downstream
+could catch either. On a beat-3a control the typed value IS the write, so validate
+the whole string against one shape (tolerate a leading `$`, spaces, a thousands
+comma; refuse a sign, an exponent, a second dot) and hand the caller a refusal it
+can SAY out loud, plus a separate "nothing typed yet" flag so an untouched field
+is not scolded.
+
 **Banking:** pill `"Change my card PIN"` → `setCardPin` (`useHumanInTheLoop`,
 `tools.tsx:399`) opens `PinChangeCard` in the chat; the user picks the card and
 types the digits there. `changePin` goes straight to REST and the agent's
@@ -135,15 +157,19 @@ value: <current segment> })` in your layout. Without it the agent has no idea
    which page is open.
 2. **Per-page readables that describe what is visibly on screen** — active
    filters, the rows actually rendered, the figures shown. Register these in the
-   _page components_, not only globally.
+   _page components_, not only globally. Each list in the readable must be the
+   SAME expression the panel renders (one `useMemo`, mapped twice), never a second
+   slice of the same source: commerce shipped a readable slicing 5 notifications
+   against a panel showing 6, so the agent described the screen wrongly by one row
+   — silently, which is the only failure mode this beat cannot survive.
 3. **A prompt clause** telling the agent that its context **is** its view of the
    screen: name the page, summarize the key elements, cite the actual figures,
    and **never** say it cannot see the screen.
 
-Every shipped skin registers readables. Only banking registers a route readable
-and per-page on-screen readables — which is why this beat is impossible in
-airline, logistics and keel today: they answer identically no matter which page
-is open.
+Every shipped skin registers readables. Only banking, people and commerce
+register a route readable AND per-page on-screen readables — which is why this
+beat is impossible in airline, logistics and keel today: they answer identically
+no matter which page is open.
 
 **Banking:** route readable at `layout.tsx:141-143`; global page/operation
 readables at `tools.tsx:162-170`; page-scoped on-screen readables in
@@ -173,6 +199,40 @@ bg-brand-soft font-semibold text-brand-indigo` (`charges.tsx:67-68`) — plus a
 rank column when sorted by amount. Note it is the **controls** that light up, not
 the rows.
 
+**Two ways the confirm card lies, both of which shipped in `commerce`:**
+
+- **A lever value the view will not honour.** Every value your schema advertises
+  must have a control on the page, must filter, and must leave a view the agent
+  can still DESCRIBE — check your global readable too, not just the page one.
+  Commerce advertised `status: "cancelled"` while its ledger readable filtered
+  cancelled orders out, so the one status only the agent could reach was the one
+  it could not talk about. Derive the schema's enums FROM the page's control
+  vocabularies (`ORDER_STATUS_FILTERS`, `EXCEPTION_FILTERS`, `ORDER_SORTS` in
+  `skins/commerce/data/derive.ts`) instead of hand-copying them, and the mismatch
+  stops being possible. Same rule for a numeric lever: run it through the page's
+  own parser (`parseTopLever`), because a limit the page ignores must not be drawn
+  as a limit.
+- **A chip for a lever nobody set.** Arguments STREAM, so the card renders while
+  `args` is still half-empty. A `?? "all"` or a ternary ending in a bare default
+  therefore asserts a choice the agent never made — and it can then flip. Draw
+  the chips and build the URL from ONE normalized record
+  (`skins/commerce/order-queue-levers.ts`), and give an unset lever no chip at
+  all.
+
+**And one way the PAGE lies: a count that ignores the levers it sits under.** If
+your view prints a "Top 10 of 22"-style caption, the denominator must be the
+FILTERED, pre-truncation count — derived from the same pipeline the rows are, not
+from `data.<collection>.length`. Commerce shipped the unfiltered version, so the
+beat's own lever set read "Top 10 of 22" against 13 matching rows: the single
+number the room is asked to read as proof of the maneuver instead said the filters
+did nothing. Publish two lengths from ONE `useMemo` — `matching` (levers applied)
+and `visible` (`matching` truncated) — and let the caption, the rows and the
+readable all read those (`skins/commerce/pages/orders.tsx`). Any book-wide KPI you
+show on the same page then needs to SAY it is book-wide, on screen and in the
+readable (commerce captions its KPI row "The whole order book" and nests those
+figures under a `book` key), because a page-level total beside filtered rows is
+the same misread one step removed.
+
 ### 3d — Multimodal in, durable artifact out
 
 **Audience concludes:** it takes real documents, and what it produces belongs to
@@ -184,7 +244,7 @@ your skin's **store**, plus a surface in the app that lists those artifacts.
 Deleting the thread must not remove it. In-memory skins can fake half of this;
 a server-backed store makes it true.
 
-Two mechanics worth copying verbatim:
+Three mechanics worth copying verbatim:
 
 - **The framework's suggestion path drops attachments.** So a pill that must
   carry a file has to intercept via `onSuggestionSelect`, stage the file into the
@@ -193,6 +253,42 @@ Two mechanics worth copying verbatim:
   handler so the match cannot drift.
 - **Give the presenter a paperclip too** via `chatHeaderActions`, so the file can
   be staged manually if the pill path misbehaves on stage.
+- **The attachment chain must fail LOUD, and must never send without the file.**
+  This is not defensive polish; it is what makes the beat honest. If any failure
+  still lets the prompt go out, the model INVENTS the document's contents, your
+  tool files the artifact anyway, and it reads plausibly — so the beat proves the
+  opposite of its claim and the room cannot tell.
+
+  **Reporting a failure is the easy half. DETECTING it is the half that gets
+  skipped.** Every step of this chain is a REQUEST made of framework code you do
+  not own, so an unobserved step is an assumption. Nine ways it breaks, and what
+  each one needs:
+
+  | Failure                                                        | Detected by                                                                                                                                                                                  |
+  | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | The document route answers non-2xx                             | `!res.ok`                                                                                                                                                                                    |
+  | The fetch throws                                               | its OWN `try`, not one wrapping the whole chain                                                                                                                                              |
+  | A 2xx body that is empty, or an HTML error page served as 200  | check the BYTES (`%PDF` header), not the URL                                                                                                                                                 |
+  | The composer's hidden `input[type=file]` is gone (an upgrade)  | `querySelector` returns null                                                                                                                                                                 |
+  | Writing the file onto the input throws (`File`/`DataTransfer`) | a `try` around the DOM write, so it is not blamed on the fetch                                                                                                                               |
+  | **The composer silently REJECTS the file**                     | `processFiles` drops anything failing `accept`/`maxSize` and calls an `onUploadFailed` nobody wires — so wait for an attachment CHIP to appear in `[data-testid="copilot-attachment-queue"]` |
+  | **The file is still base64-ENCODING when you click send**      | `consumeAttachments` hands over only `ready` files and `onSubmitInput` refuses to send while anything is `uploading` — wait for the chip to print the filename                               |
+  | **The send button is currently a STOP button**                 | one button plays both roles; mid-run a click CANCELS the run. Require the enabled + send-mark state                                                                                          |
+  | The textarea's React value setter is gone, or the write missed | check `el.value` after writing — do NOT `setter?.call()` the only failure away                                                                                                               |
+
+  Rules: locate the composer before staging; return a machine-readable CAUSE, not
+  a bare boolean, and give each cause its own sentence (a presenter needs to know
+  whether to retry, press send by hand, or restart the dev server); abort the send
+  on any failure; **wait on a CONDITION with a bounded budget, never on a fixed
+  `setTimeout`** — a sleep that races an async encode is the defect, and an expired
+  budget is a failure, not a green light; confirm the CLICK too (the attachment
+  leaving the queue is the only proof `consumeAttachments` ran); report every
+  failure with `console.error` AND `window.alert` (a log nobody opens mid-demo is
+  not a report); never `void` the promise — route both entry points through one
+  launcher that catches. Commerce's `attach-price-sheet.ts` +
+  `attach-price-sheet.test.ts` is the worked reference; note that banking's
+  `attach-invoice.ts` and people's `attach-offer-letter.ts` predate the detection
+  half and still only cover the first rows of that table.
 
 **Banking:** pill `"Prep the Q2 spend report"` → `onSuggestionSelect`
 (`skin.tsx:143-149`) matches the shared `Q2_REPORT_MESSAGE` constant and calls
@@ -234,6 +330,14 @@ dollars.
 Intelligence mode. Without those env vars this beat silently degrades to a
 generic answer.
 
+**⚠️ This beat is the RECALL, never a per-person contrast.** Do not build it as
+"same pill, two people on the switcher, two answers": the client's `properties`
+frequently do not reach `identifyUser` on a run, so the on-screen people collapse
+into one default memory bucket and switching re-scopes NOTHING. Every skin that
+tried the contrast framing had to retract it. The authorities are the `CAVEAT`
+block in `.env.example` and the flagged comments in
+`src/shell/agent-registry.ts`; the seeding consequence is the fourth rule below.
+
 ---
 
 ## Beat 5 — Stored procedure: "handle it"
@@ -255,6 +359,20 @@ several steps, in order, no hand-holding.
    easiest thing in the whole demo for the agent to confuse. Say plainly that
    this is a _different_ procedure and it must not offer to record anything.
 5. **A prompt clause** that finding the record is not handling it.
+6. **An explicit empty-recall branch.** The list above only covers the recall
+   landing something — say what the agent must do when it doesn't. If the
+   recall comes back empty, the prompt must have the agent say plainly that no
+   saved procedure was found and stop there: not run the procedure's tools on
+   a guess, not reconstruct the missing values from the catalog, the cart, or
+   anything else on screen (an invented answer that looks right is worse than
+   an honest "not found," because on stage the two are indistinguishable), and
+   — this is the one that actually gets missed — not offer to learn, record,
+   or be told the procedure. That offer belongs to beat 6; an empty recall
+   here is a failure to report, not a cue to teach, and the two beats blurring
+   together is exactly the confusion item 4 above already warns about.
+   `src/skins/bookstore/agent.ts`'s clause-7 empty-recall branch is the worked
+   example, added only after a live run improvised the forbidden teach-offer
+   the moment recall came back empty.
 
 **Banking:** pill `"I don't recognize the Delta charge"` → seeded operational
 memory (`seed-memories.ts:61-76`) → `flagForReview` (`tools.tsx:323`) +
@@ -314,7 +432,7 @@ via aimock.
 
 Beats 4 and 5 are **seeded, not emergent** — "it already knows me" is a file. Add
 `src/skins/<id>/intelligence/seed-memories.ts` alongside your `user-id.ts` and
-mirror `src/skins/banking/intelligence/seed-memories.ts`. Three rules:
+mirror `src/skins/banking/intelligence/seed-memories.ts`. Four rules:
 
 - **Seed the topical preference** (beat 4) and the **operational procedure**
   (beat 5).
@@ -324,6 +442,16 @@ mirror `src/skins/banking/intelligence/seed-memories.ts`. Three rules:
 - **Scope them** so beat 5's procedure and beat 6's learned procedure can never
   be mistaken for each other. Banking scopes the learned one `project` /
   `operational` and words both prompts to force the distinction.
+- **Seed the DEFAULT bucket, not only the mapped person's.** A run usually
+  resolves to your `DEMO_DEFAULT_USER_ID`, so seeding only the mapped id leaves
+  `recall_memory` reading an EMPTY bucket — and that is worse than a degraded
+  beat: the agent gives no answer rather than a generic one, while the memory sits
+  perfectly well stored one id over. Banking seeds only its default bucket;
+  `people` (`SEED_TARGET_USER_IDS`), `commerce` (`memorySeedTargetUserIds`) and
+  `bookstore` (`bookstoreMemorySeedTargetUserIds`) seed it alongside the mapped
+  one, deduped through a `Set` so a pinned `INTELLIGENCE_USER_ID` is not
+  double-written. Derive that list in `user-id.ts`, never in the reset route —
+  templates.md § "Do NOT hardcode the bucket list" explains why.
 
 Reset must re-seed. See the Reset requirement below.
 
@@ -336,8 +464,23 @@ sure that the bubbles are in there so I never have to type, I could just click."
 This is also a correctness measure: free-typed phrasing routes wrong. Saying
 "show me the spending **report**" instead of "trend" sends banking to the canvas
 report tool rather than the in-chat chart. Pills remove that whole class of
-stage accident. Banking ships 8 pills covering its full flow; airline, logistics
-and keel ship 4–5 with partial coverage.
+stage accident. **Derive the count from your beat map, never from a target
+number:** one pill per beat, in demo order, skipping only beat 2 (which is
+demonstrated by reloading the browser). That is the base formula, and it lands on
+eight.
+
+Add a ninth pill only when your canvas brief needs an ask of its own — having a
+`CanvasSurface` is not by itself a ninth pill. `people` and `commerce` do give the
+brief its own pill (row `(canvas)` in their beat maps, pill 9). `banking` has a
+`CanvasSurface` too and still ships eight, because its beat-3d pill ("Prep the Q2
+spend report") both ingests the invoice AND files the canvas report, so the brief
+rides along instead of asking twice.
+
+Read the beat-map header at the top of `people`'s or `commerce`'s `suggestions.ts`
+to see the mapping written out, and count what any skin actually ships with
+`grep -c 'title:' src/skins/<id>/suggestions.ts` rather than trusting a number in
+prose. The pre-bar skins (`airline`, `logistics`, `keel`) ship four or five and
+cover the beats only partially; do not calibrate against them.
 
 **Every mutation gets a visible affordance.** "Make sure that you use like a
 light or a bell or whatever so people can see that it changed." If the audience
@@ -358,8 +501,21 @@ instead (`agent.ts:74-80`).
 **A Reset control.** Presenter-gated, in the layout's meta-utility strip; see
 SKILL.md § "The meta-utility strip". Reset must restore the data store, **wipe
 learned memories**, and **re-seed** the "already knows" ones — while still
-leaving beat 6 unlearned. Banking's `dev/reset` route does exactly that. Only
-banking and logistics ship both the route and the button today.
+leaving beat 6 unlearned. Banking's `dev/reset` route does exactly that.
+
+**The route and the button are one feature — ship both or neither counts.** Every
+skin that has one has the other: `ls -d src/app/api/*/v1/dev/reset` and
+`grep -rln usePresenterReset src/skins/` return the same set, which today is
+`banking`, `bookstore`, `commerce`, `logistics` and `people`. Run both commands
+rather than trusting this list — a new skin is expected to appear in both. Of
+those, banking, people, commerce and bookstore also do the **memory** half (they
+are the ones with `intelligence/seed-memories.ts` +
+`intelligence/forget-memories.ts`); logistics restores its data store only, so it
+cannot reset beats 4–6. Bookstore is the inverse case — it has no server store to
+restore, so its route resets memory only and its button clears the
+`localStorage` cart client-side before reloading. Treat the
+route, the button and the re-seed as required: without them you cannot re-run the
+demo for the second room in the day.
 
 **Open with the placement framing.** Say up front: this is your application, and
 the assistant can be a docked panel, a bubble, a standalone app, or its own
@@ -386,31 +542,113 @@ The ask is 8–12 skins spanning that space. Two are called out explicitly:
   yourself, which is exactly why showing it working closes people.
 
 Other domains that fit the same buyer: healthcare operations (shipped as `keel`),
-supply chain / logistics (shipped), insurance claims, field service, HR and
-recruiting, legal contract review, retail merchandising, energy and utilities
-operations, customer-support command centers, manufacturing quality.
+supply chain / logistics (shipped), HR and people operations (shipped as
+`people`), retail merchandising and commerce operations (shipped as `commerce`),
+insurance claims, field service, recruiting, legal contract review, energy and
+utilities operations, customer-support command centers, manufacturing quality.
 
 **The bar is "holy shit" pretty, not "renders correctly."** Arm sales with
 something beautiful and they close monster deals; ship template output and the
 beats land flat no matter how correct the wiring is. Budget real design effort,
 and use the workspace's frontend-design skill rather than eyeballing it.
 
+**And "renders correctly" is a weaker floor than it sounds.** A skin's failures
+are almost never crashes — they are **confident falsehoods**: a beat that renders
+beautifully, narrates fluently and proves nothing, which nobody in the room can
+distinguish from the beat working. Each beat above therefore has a lie-shaped
+failure mode as well as a broken one, and the ones this app has actually shipped
+are collected in [failure-modes.md](./failure-modes.md) — read it before writing
+tools or pages, alongside this file.
+
 ---
 
 ## Which skin to copy for what
 
-| Need                                  | Copy from                                                |
-| ------------------------------------- | -------------------------------------------------------- |
-| Every beat, end to end                | `banking` — the only skin at 6/6                         |
-| Route + on-screen readables (beat 3b) | `banking` — the only skin with them                      |
-| Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`                  |
-| Attachment staging (beat 3d)          | `banking` — `attach-invoice.ts`, `skin.tsx`              |
-| Debugged layout + meta-utility strip  | `logistics`                                              |
-| Server-emitted a2ui canvas            | `logistics` (`renderBrief`), `banking` (`render_report`) |
-| Per-user identity plumbing            | `banking`, `logistics`, `keel`                           |
-| Parameterized routes in `resolvePage` | `keel` (`knowledge/<docId>`, `runs/<runId>`)             |
-| In-memory `useData` substrate         | `airline`, `keel`                                        |
-| Minimal contract surface              | `airline`                                                |
+| Need                                  | Copy from                                                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Every beat, end to end                | `banking`, `people` or `commerce` — the only three at 9/9 beats                                               |
+| A written-out beat map                | `people`, `commerce` or `bookstore` — the table atop their `suggestions.ts`                                   |
+| A map with DELIBERATE gaps            | `bookstore` — three rows marked `SKIPPED`, each with its reason                                               |
+| A customer-facing (not console) skin  | `bookstore` — a shopper's storefront with the beats wired (`airline` is customer-facing but predates the bar) |
+| Route + on-screen readables (beat 3b) | `banking`, `people`, `commerce`, `bookstore`                                                                  |
+| Teach mode (beat 6)                   | `banking` + `docs/teach-mode/README.md`; `people`/`commerce` for 2nd takes                                    |
+| A four-lever navigation (beat 3c)     | `commerce` — status + exception + sort + top-N, all four tinted                                               |
+| Attachment staging (beat 3d)          | `banking` (`attach-invoice.ts`), `people`, `commerce`                                                         |
+| A GENERATED uploaded document         | `people` (`offer-letter-pdf.ts`), `commerce` (`price-sheet-pdf.ts`)                                           |
+| Seeded memories (beats 4, 5)          | `banking`, `people`, `commerce`; `bookstore` seeds beat 4 only                                                |
+| Debugged layout + meta-utility strip  | `logistics`, `people`, `commerce`                                                                             |
+| Server-emitted a2ui canvas            | `logistics` (`renderBrief`), `banking` (`render_report`)                                                      |
+| Per-user identity plumbing            | `banking`, `logistics`, `keel`, `people`, `commerce`, `bookstore`                                             |
+| Parameterized routes in `resolvePage` | `keel` (`knowledge/<docId>`, `runs/<runId>`), `bookstore` (`book/<slug>`)                                     |
+| In-memory `useData` substrate         | `airline`, `keel`; `bookstore` adds a `localStorage` mirror                                                   |
+| Minimal contract surface              | `airline`                                                                                                     |
+
+> **Writing a PDF by hand?** Two traps, both of which produce a VALID PDF that is
+> wrong on screen — nothing type-checks a rendered page, and this document is
+> projected at exactly the moment the room is looking.
+>
+> 1. **Encoding.** The page declares base-14 fonts (WinAnsi, one byte per glyph)
+>    while the content stream is written with `TextEncoder` (UTF-8), so a single em
+>    dash goes out as three bytes: the reader shows mojibake AND the `/Length`
+>    computed from JS string length no longer matches the byte count. Fold the text
+>    to ASCII first — `toAscii` in `commerce/data/price-sheet-pdf.ts`.
+>
+>    **Only one of the two shipped builders does that**, so copy commerce's and
+>    not the other one. `people/data/offer-letter-pdf.ts` has no fold at all while
+>    using the identical `/Length ${stream.length}` and `body.length` xref math,
+>    which makes this a live defect rather than a hypothetical: the seed carries
+>    `Inés Vidal`, `Sasha Bergström` and `Montréal`, and
+>    `GET /api/people/v1/offer-letter?employeeId=…` reaches every one of them. It
+>    is named here as the counter-example; fixing it is out of scope for the PR
+>    that wrote this note.
+>
+>    **Then PIN the fold with a test, or your byte-layout assertions are
+>    decorative.** Once the document is ASCII, characters and bytes are the same
+>    thing, so a test that checks `/Length` or an xref offset against a
+>    `TextDecoder().decode()` string passes for the same reason the builder is
+>    correct — and would desync in step with the builder if the fold were ever
+>    relaxed, so it can never fail for the case it exists to catch. Two cheap
+>    habits close it: build a sheet from input carrying an accent, a curly quote and
+>    an em dash and assert every emitted byte is `< 0x80`; and decode with
+>    `new TextDecoder("latin1")` (one byte, one character) wherever an assertion is
+>    about byte offsets rather than glyphs. `price-sheet-pdf.layout.test.ts` § "ASCII
+>    invariant" is the worked version — and the offer letter has neither the fold
+>    nor any test, so there is nothing there to be decorative in the first place.
+>
+> 2. **Alignment.** Any table spaced with `padEnd` is aligned by CHARACTER COUNT,
+>    which is only true in a MONOSPACED font. Drawn in Helvetica, every row starts
+>    its next column somewhere new and the table renders visibly ragged. So either
+>    draw each column at an explicit x-offset (and carry a glyph-width table to
+>    bound overflow), or set the columnar lines in Courier — `price-sheet-pdf.ts`
+>    takes the second route: `mono` on a `Line` selects `/F3` Courier or `/F4`
+>    Courier-Bold, and its 600/1000-em advance turns both alignment and the
+>    page-fit bound into arithmetic on character counts. If you add a face, declare
+>    it in the page's `/Font` dictionary AND emit its font object — a referenced
+>    but undeclared `/Fn` renders blank, which is worse than ragged.
+
+> **Generating a document? Every sentence in it must be DERIVED from its own
+> rows.** The agent lifts facts out of this file and narrates them, so a claim the
+> document's own numbers contradict comes back as something the assistant asserts
+> to the room. Commerce shipped a hardcoded "Driven by merino price" under a rise
+> the route put on two non-merino styles while quoting its only merino SKU flat.
+> Do not name a material, a cause, or a direction of change that you did not
+> compute from the rows — the row set is usually parameterized (commerce's vendor
+> is a query parameter), so today's shape is not tomorrow's. See
+> `costMovementLines` in `commerce/data/price-sheet-pdf.ts` and its test.
+
+> **And every ROW has to belong to the party the document is addressed to.** The
+> same defect one level down from the sentence above, and easier to ship: beat 3d
+> wants one row the app's own data cannot supply (that is what proves the file was
+> read rather than politely acknowledged), and the cheap way to get it is to append
+> a fixed row. Commerce appended one hard-coded "Alder Crewneck" to EVERY vendor's
+> price sheet, so `?vendor=Ardent%20Leather` handed the model a leather-goods
+> supplier quoting a knit crewneck — a supplier relationship that does not exist,
+> asserted by us and narrated by the assistant. Key the invented row by whatever
+> parameterizes the document and check it against the LIVE data before emitting it
+> (`commerce/data/price-sheet-styles.ts`: one entry per vendor, each in a category
+> that vendor actually supplies, re-checked against the vendor's own rows, and
+> DROPPED rather than misattributed when a reseed moves them). Losing the row for
+> one party is recoverable; a false claim about them is not.
 
 **Do not use airline, logistics or keel as demo-completeness references.** They
 predate this bar: each hits roughly one beat of nine. Logistics and keel are

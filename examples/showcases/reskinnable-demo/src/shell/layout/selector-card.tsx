@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { allSkins } from "@/shell/registry";
+import { useLockedSkin } from "@/shell/locked-skin-context";
 import { useSkinThemeReconcile } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
 import { useLayoutPreferences } from "./layout-preferences";
@@ -36,6 +37,12 @@ import { useLayoutPreferences } from "./layout-preferences";
  *
  * The menu portals to `<body>`; `globals.css` already lifts every Radix popper to
  * z-index 1300, so it layers above the frame's cards without extra rules.
+ *
+ * On a LOCK_SKIN deploy the switcher is not rendered at all — the identity block
+ * becomes a static badge at the same metrics (so there is no layout shift), while
+ * swap-sides and hide stay. A DISABLED dropdown was rejected: it implies a choice
+ * that does not exist on this deploy, which reads as a bug rather than as a
+ * single-tenant product.
  */
 export function SelectorCard({ activeId }: { activeId: string }) {
   const router = useRouter();
@@ -50,6 +57,25 @@ export function SelectorCard({ activeId }: { activeId: string }) {
   // render harmless.
   const active = skins.find((skin) => skin.id === activeId) ?? skins[0];
   const ActiveLogo = active.identity.logo;
+  const lockedSkin = useLockedSkin();
+
+  // One definition of the identity block, rendered into either a button or a
+  // plain div, so locked and unlocked read identically and cannot drift apart.
+  const identity = (
+    <>
+      <span className="flex h-7 w-7 flex-none items-center justify-center rounded-md bg-brand-soft text-brand">
+        <ActiveLogo className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1 leading-tight">
+        <span className="block truncate text-sm font-semibold text-ink">
+          {active.identity.brand}
+        </span>
+        <span className="block truncate text-[11px] text-ink-muted">
+          {active.identity.tagline}
+        </span>
+      </span>
+    </>
+  );
 
   return (
     <div
@@ -57,68 +83,72 @@ export function SelectorCard({ activeId }: { activeId: string }) {
       data-testid="skin-selector"
       className="nw-panel-card flex shrink-0 items-stretch border border-hairline bg-surface shadow-soft"
     >
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            data-testid="skin-selector-trigger"
-            aria-label={`Switch skin — currently ${active.identity.brand}`}
-            className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-surface-muted"
-          >
-            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-md bg-brand-soft text-brand">
-              <ActiveLogo className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate text-sm font-semibold text-ink">
-                {active.identity.brand}
-              </span>
-              <span className="block truncate text-[11px] text-ink-muted">
-                {active.identity.tagline}
-              </span>
-            </span>
-            <ChevronsUpDown className="h-4 w-4 flex-none text-ink-muted" />
-          </button>
-        </DropdownMenuTrigger>
-
-        <DropdownMenuContent
-          align="start"
-          // Match the trigger's width, and scroll rather than grow once there are
-          // more skins than fit — this is the point of the dropdown.
-          className="max-h-[min(60vh,22rem)] w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
+      {lockedSkin ? (
+        <div
+          data-testid="skin-brand-locked"
+          className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5 text-left"
         >
-          {skins.map((skin) => {
-            const Logo = skin.identity.logo;
-            const isActive = skin.id === activeId;
-            return (
-              <DropdownMenuItem
-                key={skin.id}
-                data-testid={`skin-option-${skin.id}`}
-                aria-current={isActive ? "page" : undefined}
-                onSelect={() => router.push(`/${skin.id}`)}
-                className="gap-2.5 py-2"
-              >
-                <span className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-surface-muted text-ink">
-                  <Logo className="h-3.5 w-3.5" />
-                </span>
-                <span className="min-w-0 flex-1 leading-tight">
-                  <span className="block truncate text-sm font-medium text-ink">
-                    {skin.identity.brand}
+          {identity}
+        </div>
+      ) : (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              data-testid="skin-selector-trigger"
+              aria-label={`Switch skin — currently ${active.identity.brand}`}
+              className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-surface-muted"
+            >
+              {identity}
+              <ChevronsUpDown className="h-4 w-4 flex-none text-ink-muted" />
+            </button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent
+            align="start"
+            // Match the trigger's width, and scroll rather than grow once there are
+            // more skins than fit — this is the point of the dropdown.
+            className="max-h-[min(60vh,22rem)] w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
+          >
+            {skins.map((skin) => {
+              const Logo = skin.identity.logo;
+              const isActive = skin.id === activeId;
+              return (
+                <DropdownMenuItem
+                  key={skin.id}
+                  data-testid={`skin-option-${skin.id}`}
+                  aria-current={isActive ? "page" : undefined}
+                  // Keeps the `/[skin]` prefix on purpose, and must: this branch
+                  // renders ONLY when unlocked (the locked deploy shows the badge
+                  // above instead), and switching skins is exactly the case where
+                  // the segment is meaningful. `useSkinHref` would be wrong here —
+                  // it strips the prefix of the ACTIVE skin, not of a target one.
+                  onSelect={() => router.push(`/${skin.id}`)}
+                  className="gap-2.5 py-2"
+                >
+                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-surface-muted text-ink">
+                    <Logo className="h-3.5 w-3.5" />
                   </span>
-                  <span className="block truncate text-[11px] text-ink-muted">
-                    {skin.identity.tagline}
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block truncate text-sm font-medium text-ink">
+                      {skin.identity.brand}
+                    </span>
+                    <span className="block truncate text-[11px] text-ink-muted">
+                      {skin.identity.tagline}
+                    </span>
                   </span>
-                </span>
-                <Check
-                  className={cn(
-                    "h-4 w-4 flex-none text-brand",
-                    isActive ? "opacity-100" : "opacity-0",
-                  )}
-                />
-              </DropdownMenuItem>
-            );
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
+                  <Check
+                    className={cn(
+                      "h-4 w-4 flex-none text-brand",
+                      isActive ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       <button
         type="button"

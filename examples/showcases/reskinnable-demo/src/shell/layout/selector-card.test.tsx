@@ -11,6 +11,7 @@ vi.mock("next/navigation", () => ({
 import { SelectorCard } from "@/shell/layout/selector-card";
 import { LayoutPreferencesProvider } from "@/shell/layout/layout-preferences";
 import { allSkins } from "@/shell/registry";
+import { LockedSkinProvider } from "@/shell/locked-skin-context";
 
 /** Radix opens its trigger on Enter as well as pointerdown; the keyboard path is
  *  the reliable one in jsdom, which has no real pointer events. */
@@ -116,5 +117,91 @@ describe("SelectorCard", () => {
     expect(screen.getByTestId("skin-selector").className).toContain(
       "nw-panel-card",
     );
+  });
+
+  describe("when the deploy is locked to one skin", () => {
+    const renderLocked = (activeId = "banking") =>
+      render(
+        <LockedSkinProvider lockedSkinId="banking">
+          <SelectorCard activeId={activeId} />
+        </LockedSkinProvider>,
+      );
+
+    it("shows the brand as a static badge, not a dropdown trigger", () => {
+      renderLocked();
+
+      const badge = screen.getByTestId("skin-brand-locked");
+      expect(badge.textContent).toContain("Northwind Finance");
+      // Not a disabled button: a disabled control implies a choice that does not
+      // exist on this deploy, which reads as a bug to a prospect.
+      expect(screen.queryByTestId("skin-selector-trigger")).toBeNull();
+      expect(badge.tagName).not.toBe("BUTTON");
+    });
+
+    it("renders the brand as an inert badge, not a menu trigger", () => {
+      renderLocked();
+
+      // These three are the real guards: they fail the moment a trigger creeps
+      // back in. getByTestId throws if the badge is replaced by a real trigger;
+      // a real trigger is also a <button> carrying aria-haspopup, and the badge
+      // is neither. (Mutation testing confirmed the badge query is what fails.)
+      const badge = screen.getByTestId("skin-brand-locked");
+      expect(badge.getAttribute("aria-haspopup")).toBeNull();
+      expect(badge.tagName).not.toBe("BUTTON");
+
+      // The click below is defence-in-depth, not the primary proof: in locked
+      // mode the component renders no DropdownMenu, so role="menu" and the
+      // skin-option-* items are already null with or without the click — Radix
+      // only mounts menu items once a menu opens, and there is no trigger to
+      // open one. Kept as a backstop should a menu ever regress back in.
+      fireEvent.click(badge);
+
+      expect(document.querySelector('[role="menu"]')).toBeNull();
+      for (const skin of allSkins()) {
+        expect(screen.queryByTestId(`skin-option-${skin.id}`)).toBeNull();
+      }
+    });
+
+    it("keeps the card testid the layout e2e keys off", () => {
+      renderLocked();
+      expect(screen.getByTestId("skin-selector")).toBeDefined();
+      expect(screen.getByTestId("skin-selector").className).toContain(
+        "nw-panel-card",
+      );
+    });
+
+    it("keeps swap-sides and hide working", () => {
+      render(
+        <LockedSkinProvider lockedSkinId="banking">
+          <LayoutPreferencesProvider>
+            <SelectorCard activeId="banking" />
+          </LayoutPreferencesProvider>
+        </LockedSkinProvider>,
+      );
+
+      const swap = screen.getByTestId("swap-sides");
+      expect(swap.getAttribute("aria-label")).toBe(
+        "Move assistant to the right",
+      );
+      fireEvent.click(swap);
+      expect(screen.getByTestId("swap-sides").getAttribute("aria-label")).toBe(
+        "Move assistant to the left",
+      );
+
+      // Losing this would strand anyone who had collapsed the column.
+      fireEvent.click(screen.getByTestId("sidebar-close"));
+      expect(
+        JSON.parse(window.localStorage.getItem("nw-layout-prefs") ?? "{}")
+          .sidebarOpen,
+      ).toBe(false);
+    });
+
+    it("still shows the dropdown when unlocked", () => {
+      // The guard's inverse. If this ever fails, the lock has leaked into the
+      // normal multi-skin demo.
+      render(<SelectorCard activeId="banking" />);
+      expect(screen.getByTestId("skin-selector-trigger")).toBeDefined();
+      expect(screen.queryByTestId("skin-brand-locked")).toBeNull();
+    });
   });
 });

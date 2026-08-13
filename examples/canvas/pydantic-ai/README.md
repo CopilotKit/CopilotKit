@@ -20,8 +20,8 @@ https://github.com/user-attachments/assets/2a4ec718-b83b-4968-9cbe-7c1fe082e958
 
 ## Prerequisites
 
-- Node.js 18+
-- Python 3.8+
+- Node.js 20+
+- Python 3.12+
 - OpenAI API Key (for the PydanticAI agent)
 - Any of the following package managers:
   - [pnpm](https://pnpm.io/installation) (recommended)

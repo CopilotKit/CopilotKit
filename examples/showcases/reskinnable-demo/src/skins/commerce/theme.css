@@ -1,0 +1,212 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Bellwether — commerce operations. Skin-scoped VALUES for the shell's shared
+   token vocabulary (names declared in src/app/globals.css; never invent new
+   ones).
+
+   PALETTE RATIONALE. The five shipped skins already own violet (banking 252),
+   cyan (airline 190), amber (logistics 32), teal (keel 170) and plum (people
+   315). Deep ink blue (206) is the remaining hue that reads as INFRASTRUCTURE
+   rather than as a consumer brand — which is the point: this is the back office
+   behind a storefront, not the storefront. It is dark and only moderately
+   saturated (206 72% 30%) so the one genuinely loud colour on any screen is the
+   markdown accent below.
+
+   `--brand-violet` is repurposed as Bellwether's MARKDOWN accent — a hot rose
+   (336 78% 44%) reserved for discounts, promotions and anything a merchandiser
+   is being asked to sign off on. That is the same move keel makes with amber and
+   people makes with gold. The shell only cares that the token resolves; what it
+   MEANS is the skin's business. Reserving it this narrowly is what lets a
+   markdown chip be spotted from the back of a room.
+
+   `--negative` is pulled to a warm red (4) and kept far from both the ink brand
+   and the rose accent in hue, so "below the margin floor" can never be mistaken
+   for "on promotion".
+   ────────────────────────────────────────────────────────────────────────── */
+.theme-commerce {
+  /* Crisper than people's 0.875rem: this is a trading console, and softened
+     corners on dense numeric tables read as a consumer app pretending to be
+     one. Still short of logistics' utilitarian 0.5rem. */
+  --radius: 0.625rem;
+
+  /* Dark-mode OPT-IN. src/hooks/use-theme.ts forces any skin WITHOUT this flag
+     to light and ignores the stored preference, which would make the layout's
+     ThemeToggle a dead control. The `.dark .theme-commerce` block below is only
+     live because this is set. */
+  --nw-dark-capable: 1;
+
+  --brand: 206 72% 30%;
+  --brand-indigo: 210 66% 21%;
+  /* 44%, not 50%. Both uses are small text — a `text-[0.74rem] font-medium`
+     figure in pages/promotions.tsx and a `text-[0.68rem]` chip in
+     components/primitives.tsx — so the bar is WCAG AA's 4.5:1, and the CHIP does
+     not sit on the bare card: the markdown Pill is `bg-brand-violet/12
+     text-brand-violet`, i.e. the rose reads against a 12% wash of ITSELF
+     composited over `--surface`. That ground is darker than the card, so the
+     card measurement flatters it. At 50% the figure cleared 4.52:1 on the card
+     while the chip was only 3.75:1 — a fail that a card-only measurement called
+     a pass. 44% buys 4.60:1 on the chip's real ground and 5.60:1 on the card,
+     hue and saturation untouched: the same hot rose, one step deeper.
+     `theme.test.ts` computes BOTH grounds. */
+  --brand-violet: 336 78% 44%;
+  --brand-foreground: 0 0% 100%;
+  --brand-soft: 206 62% 95%;
+
+  --background: 210 30% 99%;
+  --foreground: 212 32% 12%;
+  --canvas: 210 22% 95%;
+  --surface: 0 0% 100%;
+  --surface-muted: 210 26% 97%;
+  --ink: 212 32% 12%;
+  --ink-muted: 210 12% 44%;
+  --hairline: 210 20% 89%;
+
+  --positive: 162 58% 33%;
+  --positive-soft: 162 48% 94%;
+  --negative: 4 74% 48%;
+  --negative-soft: 4 84% 96%;
+}
+
+/* DARK. `.dark` lands on <html>, an ancestor of the `.theme-commerce` root, so
+   this re-values only what differs — surfaces, ink, hairline and the semantic
+   pairs — and lets `--radius` inherit from the light block. The ink brand has to
+   be lifted here: at 30% lightness it disappears against a dark surface, where
+   in light mode it is the anchor.
+
+   CONTRAST. A lifted `--brand` FLIPS the polarity of every pair it anchors, and
+   the two directions pull against each other, so both halves have to move here:
+
+   - `--brand` is a FILL under `--brand-foreground` (every primary button:
+     `bg-brand text-brand-foreground`). White on the lifted brand measures only
+     2.60:1 — the labels are small and semibold, so the applicable WCAG AA bar is
+     4.5:1, not 3:1. Darkening `--brand` back toward the light value is NOT the
+     fix: `--brand` is simultaneously TEXT on `--brand-soft` (nav active state,
+     brand pills, `activeSelectClass`), and at 40% lightness that pair collapses
+     to 2.70:1. So the brand stays lifted and `--brand-foreground` becomes a deep
+     ink in the brand's own hue — the move logistics already makes in light mode
+     for its bright amber (`--brand-foreground: 30 50% 10%`). 6.70:1.
+   - `--brand-violet` is TEXT on `--brand-soft` wherever the shared chrome opts
+     the rose accent into dark mode (`dark:focus:text-brand-violet` in
+     dropdown-menu / select, `dark:text-brand-violet` on avatar initials and the
+     secondary/ghost/link buttons). At 62% that measured 3.65:1. Lifting the rose
+     to 70% clears 4.5:1 (4.70:1) while leaving `--brand-soft` alone, so the nav
+     tint, pill fills and progress track are visually unchanged. Hue and
+     saturation are untouched: it is the same hot rose, one step brighter for a
+     dark ground.
+
+   `src/skins/commerce/theme.test.ts` computes these ratios from this file and
+   fails if either regresses — a contrast regression is invisible to typecheck,
+   lint and every other test. */
+.dark .theme-commerce {
+  color-scheme: dark;
+
+  --background: 212 26% 8%;
+  --foreground: 210 24% 94%;
+  --canvas: 212 26% 8%;
+  --surface: 212 22% 12%;
+  --surface-muted: 212 20% 15%;
+  --ink: 210 24% 94%;
+  --ink-muted: 210 10% 60%;
+  --hairline: 212 14% 22%;
+
+  --brand: 202 76% 58%;
+  --brand-indigo: 206 60% 44%;
+  --brand-foreground: 206 60% 10%;
+  --brand-soft: 206 40% 20%;
+
+  --brand-violet: 336 76% 70%;
+
+  --positive: 162 50% 48%;
+  --positive-soft: 162 32% 15%;
+  --negative: 4 78% 62%;
+  --negative-soft: 4 40% 18%;
+}
+
+/* ── Signature: the margin ladder ────────────────────────────────────────────
+   The one element this skin is meant to be remembered by. Each category is a
+   vertical rail running from that category's MARGIN FLOOR (bottom) to a shared
+   ceiling (top); every product is a dot at its real gross margin. Kept in CSS
+   rather than Tailwind because the gradient direction and the below-floor pulse
+   both need to follow the live tokens. */
+.bw-rail {
+  /* Ink only, deepening upward — healthy margin is "further up the rail". An
+     earlier version graded into the rose markdown accent at the top, which read
+     as though high margin were itself a promotion. The floor is now marked by a
+     discrete line instead, which says "this is the edge" without recolouring the
+     whole rail. */
+  background-image: linear-gradient(
+    to top,
+    hsl(var(--brand) / 0.07) 0%,
+    hsl(var(--brand) / 0.28) 100%
+  );
+}
+
+/* The margin floor. A short solid line in the negative tone, because crossing it
+   downward is the thing that makes a SKU actionable — this is the one place a
+   rail earns a warning colour. */
+.bw-rail-floor {
+  background-color: hsl(var(--negative) / 0.8);
+}
+
+/* The planned margin for the category. Quiet — it is a reference, not an alarm. */
+.bw-rail-target {
+  background-color: hsl(var(--ink-muted) / 0.35);
+}
+
+/* A product trading below its floor gets a ring that breathes twice on mount — a
+   visible affordance the audience can catch from the back of a room without it
+   animating forever. */
+@keyframes bw-flag-in {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--negative) / 0.55);
+  }
+
+  70% {
+    box-shadow: 0 0 0 7px hsl(var(--negative) / 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--negative) / 0);
+  }
+}
+
+.bw-flag {
+  animation: bw-flag-in 1.4s ease-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bw-flag {
+    animation: none;
+    outline: 2px solid hsl(var(--negative));
+    outline-offset: 2px;
+  }
+}
+
+/* BEAT 6 — the recording vignette. A slow breathe on the canvas edge so a room
+   can see that Bellwether is watching the demonstration, without a spinner or a
+   modal stealing focus from the thing being demonstrated. */
+@keyframes bw-record-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the border — it carries the "recording" signal — drop the pulse. */
+  [style*="bw-record-breathe"] {
+    animation: none !important;
+    opacity: 0.85 !important;
+  }
+}
+
+/* Tabular figures everywhere a price, a margin, a unit count or a day-count is
+   shown, so columns of numbers line up and a changed digit is visible as a
+   change rather than as a reflow. */
+.bw-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}

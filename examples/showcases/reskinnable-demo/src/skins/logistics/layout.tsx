@@ -3,7 +3,7 @@ import "./theme.css"; // side-effect import registers the .theme-logistics block
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { HelpCircle, RotateCcw } from "lucide-react";
 import { useSkin } from "@/shell/skin-provider";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
@@ -22,7 +22,8 @@ const SIDEBAR_WIDTH_PX = 240;
 
 export function LogisticsLayout({ children }: { children: ReactNode }) {
   const skin = useSkin();
-  const pathname = usePathname();
+  const skinHref = useSkinHref(skin.id);
+  const restHead = useSkinSegments(skin.id)[0] ?? "";
   const { currentPlanner, planners, setPlannerId } = usePlannerAuth();
   const resetEnabled = usePresenterReset();
   const askCopilot = useAskCopilot();
@@ -41,8 +42,9 @@ export function LogisticsLayout({ children }: { children: ReactNode }) {
       if (res.ok) {
         // Hard navigate to the skin root for a pristine client slate (fresh
         // store, cleared canvas, new thread on next message) AND the clean
-        // starting URL the demo should always open on.
-        window.location.assign(`/${skin.id}`);
+        // starting URL the demo should always open on — which is `/` itself on
+        // a locked single-tenant deploy.
+        window.location.assign(skinHref());
       } else {
         window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
       }
@@ -70,10 +72,8 @@ export function LogisticsLayout({ children }: { children: ReactNode }) {
         </div>
         <nav className="flex flex-col gap-0.5">
           {skin.nav.map((route) => {
-            const href = route.segment
-              ? `/${skin.id}/${route.segment}`
-              : `/${skin.id}`;
-            const active = pathname === href;
+            const href = skinHref(route.segment);
+            const active = restHead === route.segment;
             const Icon = route.icon;
             return (
               <Link

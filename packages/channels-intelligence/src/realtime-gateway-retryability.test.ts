@@ -6,7 +6,7 @@ import {
 
 interface RetryabilitySetup {
   connection: ReturnType<typeof connectRealtimeGateway>;
-  diagnosticFetch: ReturnType<typeof vi.fn<typeof fetch>>;
+  diagnosticFetch: ReturnType<typeof vi.fn<() => Promise<Response>>>;
 }
 
 /** Build one socket that opens but rejects or never answers its join. */
@@ -98,7 +98,7 @@ function setupRetryability(
     }
   }
 
-  const diagnosticFetch = vi.fn<typeof fetch>(async () =>
+  const diagnosticFetch = vi.fn(async () =>
     Promise.resolve(new Response(null, { status })),
   );
   const connection = connectRealtimeGateway({
@@ -111,7 +111,7 @@ function setupRetryability(
       channels: [{ channelName: "support", adapter: "slack" }],
     },
     connectTimeoutMs: 10,
-    diagnosticFetch,
+    diagnosticFetch: diagnosticFetch as unknown as typeof fetch,
     webSocket: RefusedWebSocket,
   });
 

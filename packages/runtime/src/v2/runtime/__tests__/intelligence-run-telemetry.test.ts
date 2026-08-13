@@ -20,6 +20,10 @@ import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { telemetry } from "../telemetry";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type { CopilotRuntime } from "../core/runtime";
+import {
+  attachRuntimeErrorReporter,
+  createRuntimeErrorReporter,
+} from "../core/runtime-error-reporter";
 
 // --- Minimal helpers (mirroring handle-run.test.ts's intelligence block) ---
 
@@ -51,6 +55,7 @@ function makeAgent(): AbstractAgent {
 function makeIntelligenceRuntime(
   runObservable: Observable<BaseEvent>,
   extraPlatform: MockIntelligencePlatform = {},
+  onError?: ReturnType<typeof vi.fn>,
 ): CopilotRuntime {
   const runner = Object.create(IntelligenceAgentRunner.prototype);
   runner.run = vi.fn(() => runObservable);
@@ -72,7 +77,7 @@ function makeIntelligenceRuntime(
     ...extraPlatform,
   };
 
-  return {
+  const runtime = {
     agents: Promise.resolve({ "my-agent": makeAgent() }),
     transcriptionService: undefined,
     beforeRequestMiddleware: undefined,
@@ -86,6 +91,10 @@ function makeIntelligenceRuntime(
     lockTtlSeconds: 20,
     lockHeartbeatIntervalSeconds: 15,
   } as unknown as CopilotRuntime;
+  if (onError) {
+    attachRuntimeErrorReporter(runtime, createRuntimeErrorReporter(onError));
+  }
+  return runtime;
 }
 
 function makeRunRequest(): Request {
@@ -176,7 +185,8 @@ describe("intelligence/run.ts — telemetry lifecycle", () => {
     const failing = new Observable<BaseEvent>((subscriber) => {
       subscriber.error(new Error("agent exploded"));
     });
-    const runtime = makeIntelligenceRuntime(failing);
+    const onError = vi.fn();
+    const runtime = makeIntelligenceRuntime(failing, {}, onError);
 
     await handleRunAgent({
       runtime,
@@ -192,5 +202,189 @@ describe("intelligence/run.ts — telemetry lifecycle", () => {
       "oss.runtime.agent_execution_stream_errored",
       expect.objectContaining({ error: "agent exploded" }),
     );
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError.mock.calls[0][0].context.request.headers).toEqual({
+      "content-type": "application/json",
+    });
   });
+
+  it("reports a post-start subscription failure once and keeps lock cleanup", async () => {
+    const failing = new Observable<BaseEvent>((subscriber) => {
+      subscriber.next({
+        type: "RUN_STARTED",
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent);
+      subscriber.error(new Error("subscription exploded"));
+    });
+    const onError = vi.fn();
+    const cleanupThreadLock = vi.fn().mockResolvedValue(undefined);
+    const runtime = makeIntelligenceRuntime(
+      failing,
+      { ɵcleanupThreadLock: cleanupThreadLock },
+      onError,
+    );
+
+    await handleRunAgent({
+      runtime,
+      request: makeRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError.mock.calls[0][0].context.metadata).toEqual({
+      phase: "intelligence.subscription",
+    });
+    await vi.waitFor(() =>
+      expect(cleanupThreadLock).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        runId: "run-1",
+      }),
+    );
+  });
+
+  it("reports a pre-start RUN_ERROR event as an intelligence startup failure", async () => {
+    const onError = vi.fn();
+    const failing = new Observable<BaseEvent>((subscriber) => {
+      subscriber.next({
+        type: "RUN_ERROR",
+        message: "startup event failed",
+      } as BaseEvent);
+      subscriber.complete();
+    });
+    const cleanupThreadLock = vi.fn().mockResolvedValue(undefined);
+    const runtime = makeIntelligenceRuntime(
+      failing,
+      { ɵcleanupThreadLock: cleanupThreadLock },
+      onError,
+    );
+
+    const response = await handleRunAgent({
+      runtime,
+      request: makeRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(response.status).toBe(502);
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError.mock.calls[0][0]).toMatchObject({
+      error: new Error("startup event failed"),
+      context: { metadata: { phase: "intelligence.startup" } },
+    });
+    expect(cleanupThreadLock).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      runId: "run-1",
+    });
+  });
+
+  it("reports a post-start RUN_ERROR event as an intelligence subscription failure", async () => {
+    const onError = vi.fn();
+    const failing = new Observable<BaseEvent>((subscriber) => {
+      subscriber.next({
+        type: "RUN_STARTED",
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent);
+      subscriber.next({
+        type: "RUN_ERROR",
+        message: "subscription event failed",
+      } as BaseEvent);
+      subscriber.complete();
+    });
+    const runtime = makeIntelligenceRuntime(failing, {}, onError);
+
+    await handleRunAgent({
+      runtime,
+      request: makeRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError.mock.calls[0][0]).toMatchObject({
+      error: new Error("subscription event failed"),
+      context: { metadata: { phase: "intelligence.subscription" } },
+    });
+  });
+
+  it.each([
+    [
+      "intelligence is not configured",
+      (runtime: any) => (runtime.intelligence = undefined),
+    ],
+    [
+      "user resolution fails",
+      (runtime: any) => {
+        runtime.identifyUser = vi
+          .fn()
+          .mockRejectedValue(new Error("auth failed"));
+      },
+    ],
+    [
+      "user id is invalid",
+      (runtime: any) => {
+        runtime.identifyUser = vi.fn().mockResolvedValue({
+          id: "",
+          name: "User One",
+        });
+      },
+    ],
+    [
+      "user name is invalid",
+      (runtime: any) => {
+        runtime.identifyUser = vi.fn().mockResolvedValue({
+          id: "user-1",
+          name: "",
+        });
+      },
+    ],
+    [
+      "thread creation fails",
+      (runtime: any) => {
+        runtime.intelligence.getOrCreateThread = vi
+          .fn()
+          .mockRejectedValue(new Error("thread failed"));
+      },
+    ],
+    [
+      "thread lock fails",
+      (runtime: any) => {
+        runtime.intelligence.ɵacquireThreadLock = vi
+          .fn()
+          .mockRejectedValue(new Error("lock failed"));
+      },
+    ],
+    [
+      "thread lock response is malformed",
+      (runtime: any) => {
+        runtime.intelligence.ɵacquireThreadLock = vi.fn().mockResolvedValue({});
+      },
+    ],
+    [
+      "thread history lookup fails",
+      (runtime: any) => {
+        runtime.intelligence.getThreadMessages = vi
+          .fn()
+          .mockRejectedValue(new Error("history failed"));
+      },
+    ],
+  ])(
+    "does not report %s before the runner starts",
+    async (_name, configure) => {
+      const onError = vi.fn();
+      const runtime = makeIntelligenceRuntime(
+        new Observable<BaseEvent>(() => {}),
+        {},
+        onError,
+      );
+      configure(runtime);
+
+      await handleRunAgent({
+        runtime,
+        request: makeRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(onError).not.toHaveBeenCalled();
+    },
+  );
 });
