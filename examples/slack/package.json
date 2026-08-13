@@ -29,7 +29,7 @@
     "@slack/bolt": "^4.2.0",
     "@slack/types": "^2.21.1",
     "react": "^19.1.0",
-    "takumi-js": "^2.4.1",
+    "takumi-js": "^2.7.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {

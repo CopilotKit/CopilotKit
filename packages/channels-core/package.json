@@ -65,7 +65,7 @@
     "@copilotkit/channels-ui": "workspace:~",
     "@copilotkit/core": "workspace:^",
     "@copilotkit/shared": "workspace:^",
-    "takumi-js": "^2.4.1",
+    "takumi-js": "^2.7.3",
     "zod-to-json-schema": "^3.24.1"
   },
   "devDependencies": {
