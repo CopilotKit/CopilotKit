@@ -4,6 +4,11 @@
 `docs.copilotkit.ai`. Author CopilotKit product documentation here, not in the retired
 top-level `docs/` app.
 
+Public machine-readable endpoints are governed by the
+[public AEO surface contract](https://docs.copilotkit.ai/aeo). Update the shared contract
+and its enforcement in the same pull request as any canonical, discovery, raw Markdown,
+LLM index, structured-data, or docs MCP surface change.
+
 ## Run Locally
 
 Shell-docs is a standalone npm-based app. You do not need a root install just to run the

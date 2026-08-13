@@ -81,7 +81,9 @@ jobs:
           # Cache npm for the showcase/shell `npm ci` step below (shell is
           # NOT a pnpm workspace member; it ships its own package-lock.json).
           cache: "npm"
-          cache-dependency-path: showcase/shell/package-lock.json
+          cache-dependency-path: |
+            showcase/shell/package-lock.json
+            showcase/shell-docs/package-lock.json
 
       - name: Setup pnpm
         # Pinned to a specific minor rather than floating @v4 so that a
@@ -385,6 +387,19 @@ jobs:
         # pnpm-lock.yaml) rather than `npx`, which could fetch a different
         # version on a registry cache miss.
         run: pnpm exec vitest run
+
+      - name: Validate public AEO surface contract
+        run: pnpm nx run @copilotkit/showcase-scripts:validate-aeo-contract
+
+      - name: Check deployed docs canonical behavior
+        run: pnpm nx run @copilotkit/showcase-scripts:test -- __tests__/verify-deploy.drivers.test.ts
+
+      - name: Install shell-docs dependencies
+        working-directory: showcase/shell-docs
+        run: npm ci --ignore-scripts
+
+      - name: Check shell-docs public AEO behavior
+        run: npm --prefix showcase/shell-docs test -- src/app/sitemap.test.ts src/app/llms.txt/route.test.ts src/app/llms-full.txt/route.test.ts 'src/app/llms-mdx/[[...slug]]/route.test.ts' src/app/well-known/copilotkit-capabilities/v1.json/route.test.ts src/lib/runtime-config.test.ts src/lib/__tests__/next-config-redirects.test.ts
 
       - name: CVDIAG emit perf-regression gate
         working-directory: showcase/harness
