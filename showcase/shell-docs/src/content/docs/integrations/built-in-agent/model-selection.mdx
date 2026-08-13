@@ -5,7 +5,7 @@ description: "Choose and configure models for your Built-in Agent."
 ---
 
 The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai), so you can use
-models from OpenAI, Anthropic, and Google, or pass any custom AI SDK model.
+built-in model strings or pass any custom AI SDK model.
 
 ## Supported Models
 
@@ -63,6 +63,19 @@ const agent = new BuiltInAgent({
 });
 ```
 
+### MiniMax
+
+| Model        | Specifier              |
+| ------------ | ---------------------- |
+| MiniMax M3   | `minimax:MiniMax-M3`   |
+| MiniMax M2.7 | `minimax:MiniMax-M2.7` |
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "minimax:MiniMax-M3",
+});
+```
+
 ## Environment Variables
 
 Set the API key for your chosen provider:
@@ -76,6 +89,12 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 # Google
 GOOGLE_API_KEY=...
+
+# MiniMax
+MINIMAX_API_KEY=...
+
+# Optional: use the China endpoint
+MINIMAX_BASE_URL=https://api.minimaxi.com/v1
 ```
 
 Alternatively, pass the API key directly in your configuration:

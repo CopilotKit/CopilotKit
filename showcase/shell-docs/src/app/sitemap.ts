@@ -70,7 +70,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${baseUrl}/`,
     lastModified: now,
   });
-
   // 2. Bare unscoped docs and 3. framework-scoped variants. Each bare
   // slug generates one bare entry plus N framework-scoped entries — one
   // per registered integration. Per-framework override pages are added
