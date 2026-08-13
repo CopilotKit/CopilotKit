@@ -43,7 +43,7 @@ RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && cd ../shell-docs && npx next build
 
 FROM node:20-slim AS runner
-WORKDIR /app
+WORKDIR /app/shell-docs
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 ENV NODE_ENV=production
@@ -56,6 +56,12 @@ COPY --from=builder /app/shell-docs/node_modules ./node_modules
 COPY --from=builder /app/shell-docs/package.json ./
 COPY --from=builder /app/shell-docs/public ./public
 COPY --from=builder /app/shell-docs/src/content ./src/content
+
+# Turbopack can emit hashed package aliases under `.next/node_modules` as
+# relative symlinks back to `shell-docs/node_modules`. Keep the builder's
+# directory layout in the runtime image, and fail the image build if a future
+# Next.js change leaves any runtime alias dangling.
+RUN node -e 'const fs = require("node:fs"); const root = ".next/node_modules"; const broken = fs.readdirSync(root).map((name) => `${root}/${name}`).filter((path) => fs.lstatSync(path).isSymbolicLink() && !fs.existsSync(path)); if (broken.length) { console.error(`Broken Next.js runtime symlink(s):\n${broken.join("\n")}`); process.exit(1); }'
 
 EXPOSE 10000
 CMD ["npx", "next", "start", "-p", "10000"]
