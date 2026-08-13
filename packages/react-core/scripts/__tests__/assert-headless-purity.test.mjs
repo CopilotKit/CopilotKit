@@ -16,13 +16,16 @@
 // Invoked from package.json `test:scripts` and the chained `test` command.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
+import os from "node:os";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import {
   assertEntryPurity,
   collectModuleGraph,
   forbiddenHits,
+  isEntrypoint,
   isForbiddenPackage,
   packageNameFor,
   stripComments,
@@ -220,5 +223,104 @@ describe("assertEntryPurity", () => {
     assert.deepEqual(report.hits, []);
     assert.equal(report.unanalyzable.length, 1);
     assert.match(report.unanalyzable[0], /purity-unanalyzable-entry\.mjs/);
+  });
+});
+
+// The gate can only fail CI if its CLI block actually RUNS. The first version of
+// that guard compared `import.meta.url` to a `file://`-concatenated
+// `process.argv[1]`, which is false whenever the checkout path needs URL encoding
+// (a SPACE) or is reached through a symlink — and a false guard made this
+// hard-fail gate exit 0 having printed and asserted nothing. Nothing covered the
+// guard, which is exactly why that was invisible; these tests are that cover.
+describe("isEntrypoint (the CLI entry guard)", () => {
+  /** A real file under a real directory whose name contains a space. */
+  const withSpaceFixture = () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "entry-guard-"));
+    const dir = path.join(root, "dir with space");
+    fs.mkdirSync(dir);
+    const file = path.join(dir, "script.mjs");
+    fs.writeFileSync(file, "export {};\n");
+    return { root, file };
+  };
+
+  it("holds for a plain path", () => {
+    const self = fileURLToPath(import.meta.url);
+    assert.equal(isEntrypoint(import.meta.url, self), true);
+  });
+
+  it("holds when the path contains a space (the percent-encoding trap)", () => {
+    const { root, file } = withSpaceFixture();
+    try {
+      const url = pathToFileURL(file).href;
+      // Guard the guard: without %20 in the URL this would pass vacuously.
+      assert.ok(url.includes("%20"), `expected an encoded URL, got ${url}`);
+      assert.notEqual(
+        url,
+        `file://${file}`,
+        "the naive string comparison must be the thing that fails here",
+      );
+      assert.equal(isEntrypoint(url, file), true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("holds when argv[1] reaches the script through a symlink", () => {
+    const { root, file } = withSpaceFixture();
+    const link = path.join(root, "link.mjs");
+    try {
+      fs.symlinkSync(file, link);
+      // Node resolves `import.meta.url` to the realpath but leaves argv[1] as
+      // typed, so these two strings genuinely differ.
+      assert.notEqual(link, file);
+      assert.equal(isEntrypoint(pathToFileURL(file).href, link), true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("is false for a different file, for no argv[1], and for a non-file URL", () => {
+    const self = fileURLToPath(import.meta.url);
+    assert.equal(
+      isEntrypoint(import.meta.url, path.join(path.dirname(self), "other.mjs")),
+      false,
+    );
+    assert.equal(isEntrypoint(import.meta.url, undefined), false);
+    assert.equal(isEntrypoint(import.meta.url, ""), false);
+    assert.equal(isEntrypoint("data:text/javascript,0", self), false);
+  });
+
+  it("runs the real CLI block when spawned through a symlinked path with a space", () => {
+    // End-to-end, because the unit cases above cannot catch the call site
+    // regressing back to a string comparison. The alias is a symlink to this
+    // package root whose name contains a space, so argv[1] differs from
+    // `import.meta.url` in BOTH ways at once; relative resolution inside the
+    // script still works because Node realpaths the module it loads.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "entry-guard-cli-"));
+    const alias = path.join(root, "react core with space");
+    fs.symlinkSync(pkgRoot, alias, "dir");
+    let result;
+    try {
+      result = spawnSync(
+        process.execPath,
+        [path.join(alias, "scripts", "assert-headless-purity.mjs")],
+        { encoding: "utf8" },
+      );
+    } finally {
+      // Unlink the symlink itself before removing the temp dir: never hand a
+      // recursive remove a link that points at the package root.
+      fs.unlinkSync(alias);
+      fs.rmdirSync(root);
+    }
+
+    const output = `${result.stdout}${result.stderr}`;
+    assert.notEqual(
+      output.trim(),
+      "",
+      "the CLI block printed nothing — the entry guard skipped the whole gate",
+    );
+    // State-agnostic: a built dist reports each entry, an unbuilt one reports it
+    // as missing. Either proves the main block ran.
+    assert.match(output, /headless\.mjs/);
   });
 });

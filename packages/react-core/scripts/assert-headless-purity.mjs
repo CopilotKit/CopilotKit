@@ -367,11 +367,53 @@ export async function assertEntryPurity({ entryFile, pkgRoot, forbidden }) {
   };
 }
 
+/** Absolute, symlink-resolved form of `p` (unresolvable → merely absolute). */
+function realPath(p) {
+  const absolute = path.resolve(p);
+  try {
+    return fs.realpathSync(absolute);
+  } catch {
+    return absolute;
+  }
+}
+
+/**
+ * True when this module is the process entrypoint.
+ *
+ * Compares REAL FILESYSTEM PATHS, never URL strings. The obvious string form —
+ * `import.meta.url === \`file://${process.argv[1]}\`` — is wrong three ways, and
+ * every one of them is silent: `import.meta.url` is percent-encoded (a checkout
+ * path containing a SPACE arrives as `%20`) and symlink-resolved (macOS `/tmp` is
+ * a symlink to `/private/tmp`), while `argv[1]` is the raw path as typed; and on
+ * Windows the URL is `file:///C:/…` against a `C:\…` argv. A false result skips
+ * the CLI block below, so this hard-fail gate would exit 0 having printed and
+ * asserted NOTHING — the one failure mode a gate must not have.
+ *
+ * `fs.realpathSync` on both sides is what defeats the symlink case;
+ * `fileURLToPath` is what defeats the encoding and Windows cases.
+ *
+ * Exported for the entry-guard tests. Duplicated verbatim in
+ * packages/react-native/scripts/measure-headless.mjs: these are standalone
+ * package scripts with no shared module between them.
+ *
+ * @param {string} moduleUrl - a module's `import.meta.url`.
+ * @param {string | undefined} argv1 - `process.argv[1]`.
+ */
+export function isEntrypoint(moduleUrl, argv1) {
+  if (!argv1) return false;
+  let modulePath;
+  try {
+    modulePath = fileURLToPath(moduleUrl);
+  } catch {
+    // Not a `file:` URL (e.g. `data:`), so it cannot be the CLI entry.
+    return false;
+  }
+  return realPath(modulePath) === realPath(argv1);
+}
+
 // CLI entry — only runs when invoked directly, so importing this module from
 // tests does not walk the real dist graph at module-load time.
-const isMain =
-  import.meta.url === `file://${process.argv[1]}` ||
-  import.meta.url === `file://${path.resolve(process.argv[1] ?? "")}`;
+const isMain = isEntrypoint(import.meta.url, process.argv[1]);
 
 if (isMain) {
   const pkgRoot = path.resolve(dist, "../..");
