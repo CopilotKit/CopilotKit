@@ -30,7 +30,7 @@ sys.path.insert(0, str(_INTEGRATION_ROOT))
 
 from pydantic import BaseModel  # noqa: E402
 from pydantic_ai import RunContext  # noqa: E402
-from pydantic_ai.ag_ui import StateDeps  # noqa: E402
+from pydantic_ai.ui import StateDeps  # noqa: E402
 from pydantic_ai.messages import (  # noqa: E402
     ModelRequest,
     ModelResponse,
