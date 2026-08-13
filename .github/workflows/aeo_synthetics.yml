@@ -3,7 +3,7 @@ name: "AEO: Production Synthetics"
 on:
   # Keep this manual until both the production baseline and the Slack alert
   # path have been exercised successfully. A follow-up can add a schedule
-  # without changing the contract-driven checker.
+  # without changing the checker.
   workflow_dispatch:
     inputs:
       exercise_alert:
@@ -45,7 +45,7 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Run contract-driven production checks
+      - name: Run production checks
         run: |
           set -o pipefail
           pnpm nx run @copilotkit/showcase-scripts:check-aeo-synthetics 2>&1 | tee aeo-synthetic-output.txt
