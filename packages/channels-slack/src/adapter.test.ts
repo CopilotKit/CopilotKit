@@ -413,6 +413,37 @@ describe("SlackAdapter.postFile", () => {
   });
 });
 
+describe("SlackAdapter.stageFile", () => {
+  it("uploads via files.uploadV2 without channel_id and returns fileId", async () => {
+    const { adapter } = makeAdapter();
+    const uploadV2 = vi.fn(async (_arg: Record<string, unknown>) => ({
+      ok: true,
+      files: [{ files: [{ id: "F123" }] }],
+    }));
+    (adapter as unknown as { client: { files: unknown } }).client = {
+      files: { uploadV2 },
+    };
+
+    const res = await adapter.stageFile(
+      { channel: "C1", threadTs: "100.0" },
+      {
+        bytes: new Uint8Array([1, 2, 3]),
+        filename: "render-hat.png",
+        altText: "Hat",
+      },
+    );
+
+    expect(res).toEqual({ fileId: "F123" });
+    expect(uploadV2).toHaveBeenCalledTimes(1);
+    const arg = uploadV2.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg).not.toHaveProperty("channel_id");
+    expect(arg).not.toHaveProperty("thread_ts");
+    expect(arg.filename).toBe("render-hat.png");
+    expect(arg.alt_text).toBe("Hat");
+    expect(Buffer.isBuffer(arg.file)).toBe(true);
+  });
+});
+
 describe("SlackAdapter.capabilities / ackDeadlineMs", () => {
   it("reports the Slack surface capabilities", () => {
     const { adapter } = makeAdapter();
