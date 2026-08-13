@@ -15,7 +15,7 @@
 
 Build **agent-native applications** — on any framework, on any surface.
 
-Generative UI, shared state, and human-in-the-loop workflows for React, Angular, Vue, React Native — and beyond the browser.
+Generative UI, shared state, and human-in-the-loop workflows for React, Angular, Vue, React Native — and in Slack and Microsoft Teams.
 
 </div>
 
@@ -55,7 +55,7 @@ Generative UI, shared state, and human-in-the-loop workflows for React, Angular,
 
 CopilotKit is a best-in-class SDK for building full-stack agentic applications, Generative UI, and chat applications.
 
-What started as a React library is now a **multi-platform agentic framework**: the same agent can power your web app, your mobile app, and your team's Slack workspace.
+What started as a React library is now the **horizontal layer between your agents and your users**: the same agent can power your web app, your mobile app, and your team's Slack or Microsoft Teams workspace.
 
 We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** - adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
 
@@ -104,10 +104,12 @@ One agent backend. Every frontend.
 | 🅰️ Angular                                  | ✅ Supported | [Source Code & Quickstart](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular) |
 | 💚 Vue                                      | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue)     |
 | 📱 React Native                             | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/react-native)                                                       |
-| 💬 Slack / MS Teams / Discord / WhatsApp / Google Chat / iMessage / Telegram / SMS | ✅ Supported      | [Quickstart](https://docs.copilotkit.ai/slack)                                        |
+| 💬 Slack / Microsoft Teams                  | ✅ Supported | [Channels](https://www.copilotkit.ai/channels) · [Quickstart](https://docs.copilotkit.ai/slack)             |
+| 🔜 Discord / WhatsApp / Telegram / Google Chat / iMessage / SMS | 🟡 Coming soon | [See the Channels roadmap](https://www.copilotkit.ai/channels)                          |
 
+Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework and channel.
 
-## 💬 Beyond the Browser: Slack & Microsoft Teams (Discord, Google Chat, Telegram, iMessage, SMS, WhatsApp)
+## 💬 Beyond the Browser: Agents in Slack and Microsoft Teams
 
 <img width="1920" height="1080" alt="Write it once, run every channel" src="https://github.com/user-attachments/assets/883e5ede-0387-4ae8-a361-48da3adf8f22" />
 
@@ -119,9 +121,9 @@ CopilotKit now lets you deploy the **same agent** to the places your users alrea
 - **Slack** – Agents as first-class Slack apps: threads, tool calls, and human-in-the-loop approvals right in the channel.
 - **Microsoft Teams** – Bring agentic workflows to the enterprise, where your org already lives.
 
-🔒 **Early access:** We're onboarding teams now.
+Discord, WhatsApp, Telegram, Google Chat, iMessage, and SMS are on the way.
 
-👉 **[Request early access →](https://go.copilotkit.ai/beyond-the-web-form)**
+👉 **[Explore Channels →](https://www.copilotkit.ai/channels)**
 
 ## 🧠 Self-Learning Agents
 
