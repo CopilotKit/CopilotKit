@@ -27,6 +27,8 @@ export const TEAMS_LIMITS = {
   /** Characters of a chart title or a data point's label. */
   chartTitle: 200,
   chartLabel: 200,
+  /** Slides in a carousel. Core already validates 1–10. */
+  carouselSlides: 10,
 } as const;
 
 /** Truncate to `max` chars, appending an ellipsis if the input was longer. Never returns >max. */
