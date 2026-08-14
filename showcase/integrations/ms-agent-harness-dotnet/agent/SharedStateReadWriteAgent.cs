@@ -103,23 +103,11 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
             augmentedMessages.AddRange(messageList);
         }
 
-        // Deterministic replies for the demo suggestion pills. Without this
-        // branch the method was dead code and "Remember something" relied on
-        // the model calling set_notes — which is flaky under load and was
-        // silently writing to the wrong store slot when AsyncLocal dropped.
-        var deterministic = TryBuildDeterministicReply(messageList, thread);
-        if (deterministic is not null)
-        {
-            yield return new AgentResponseUpdate
-            {
-                Contents = [new TextContent(deterministic)],
-            };
-            await foreach (var snapshotUpdate in EmitSnapshotAsync(thread, cancellationToken).ConfigureAwait(false))
-            {
-                yield return snapshotUpdate;
-            }
-            yield break;
-        }
+        // LGP / ms-agent-python shape: the model (aimock fixture) must call
+        // `set_notes`. A bare TextContent short-circuit skipped the tool and
+        // left AgentResponseUpdate.Role unset. The AG-UI host then threw
+        // "Nullable object must have a value." and the D6 run never finished
+        // (dom-missing, runsFinished=0).
 
         // Bind the `set_notes` tool's write target to the current thread.
         // The tool closure doesn't receive an AgentSession argument, so it
@@ -319,59 +307,6 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         };
         await Task.CompletedTask;
     }
-
-    private string? TryBuildDeterministicReply(IReadOnlyList<ChatMessage> messages, AgentSession? thread)
-    {
-        var userText = LatestUserText(messages);
-        if (ContainsIgnoreCase(userText, "Say hi and introduce yourself"))
-        {
-            return "Hi - I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something.";
-        }
-        if (ContainsIgnoreCase(userText, "weekend plan based on my interests"))
-        {
-            return "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan.";
-        }
-        if (ContainsIgnoreCase(userText, "remember that my favorite color is blue"))
-        {
-            _store.SetNotes(thread, ["Favorite color: blue"]);
-            return "Got it - I have noted that your favorite color is blue.";
-        }
-        // Staging "Remember something" pill — deterministic path so the notes
-        // panel updates even when the model skips set_notes under load.
-        if (ContainsIgnoreCase(userText, "prefer morning meetings") ||
-            ContainsIgnoreCase(userText, "don't eat dairy") ||
-            ContainsIgnoreCase(userText, "do not eat dairy"))
-        {
-            _store.SetNotes(thread,
-            [
-                "Prefers morning meetings",
-                "Does not eat dairy",
-            ]);
-            return "Noted — I saved that you prefer morning meetings and don't eat dairy.";
-        }
-        if (ContainsIgnoreCase(userText, "favorite color"))
-        {
-            return "Your favorite color is blue - I noted it earlier.";
-        }
-        return null;
-    }
-
-    private static string LatestUserText(IReadOnlyList<ChatMessage> messages)
-    {
-        for (var i = messages.Count - 1; i >= 0; i--)
-        {
-            var message = messages[i];
-            if (message.Role != ChatRole.User)
-            {
-                continue;
-            }
-            return string.Concat(message.Contents.OfType<TextContent>().Select(content => content.Text));
-        }
-        return "";
-    }
-
-    private static bool ContainsIgnoreCase(string haystack, string needle) =>
-        haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>

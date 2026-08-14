@@ -403,7 +403,7 @@ demos:
       path: "/declarative-gen-ui"
     runtime:
       a2ui:
-        injectA2UITool: false
+        injectA2UITool: true
         defaultCatalogId: "declarative-gen-ui-catalog"
   - id: a2ui-fixed-schema
     name: Declarative Generative UI (A2UI — Fixed Schema)

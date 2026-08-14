@@ -184,16 +184,32 @@ public sealed class D5ParityAgentFactory
             AIFunctionFactory.Create(RollDice, options: new() { Name = "roll_dice", SerializerOptions = _jsonSerializerOptions }),
         };
 
-        var prompt = """
-            You are a travel and lifestyle concierge. Use the mock tools for weather,
-            flights, stock prices, or dice rolls when the user asks. For flights,
-            default origin to SFO if the user only names a destination. Call multiple
-            tools in one turn if the user asks for them. After tools return, summarize
-            in one short sentence. Never fabricate data a tool could provide.
-            """;
+        var prompt = reasoning
+            ? """
+                You are a helpful travel & lifestyle concierge with mock tools for weather, flights, stock prices, and dice rolls — they all return fake data, so call them liberally.
+
+                Your habit is to CHAIN tools when one answer naturally invites another. For a single user question, call at least TWO tools in succession when the topic allows, then compose your final reply.
+                Default chains:
+                  - 'What's the weather in <city>?' -> call get_weather(<city>), then call search_flights(origin='SFO', destination=<city>).
+                  - 'How is <ticker> doing?' -> call get_stock_price(<ticker>), then call get_stock_price on a comparable ticker (e.g. 'MSFT').
+                  - 'Roll a 20-sided die' -> call roll_dice(sides=20), then call roll_dice again with a different number of sides.
+                  - 'Find flights from <a> to <b>' -> call search_flights(a, b), then call get_weather(<b>) for the destination.
+
+                Only skip chaining when the user has clearly asked for a single atomic answer. Never fabricate data a tool could provide.
+                """
+            : """
+                You are a travel and lifestyle concierge. Use the mock tools for weather,
+                flights, stock prices, or dice rolls when the user asks. For flights,
+                default origin to SFO if the user only names a destination. Call multiple
+                tools in one turn if the user asks for them. After tools return, summarize
+                in one short sentence. Never fabricate data a tool could provide.
+                """;
 
         var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
-        var inner = chatClient.AsHarnessAgent(
+        // Do not wrap the chain agent in ReasoningAgent — that XML splitter
+        // stops the sequential tool loop at the first card. The unified
+        // runtime injects REASONING_* via synthetic_reasoning_demos.
+        return chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
             new HarnessAgentOptions
@@ -204,15 +220,11 @@ public sealed class D5ParityAgentFactory
                     : "Tool-rendering concierge for weather, flights, stocks, and dice.",
                 ChatOptions = new ChatOptions
                 {
-                    Instructions = reasoning ? ReasoningAgentFactory.SystemPrompt + "\n\n" + prompt : prompt,
+                    Instructions = prompt,
                     MaxOutputTokens = HarnessMaxOutputTokens,
                     Tools = tools,
                 },
             });
-
-        return reasoning
-            ? new ReasoningAgent(inner, _loggerFactory.CreateLogger<ReasoningAgent>())
-            : inner;
     }
 
     public AIAgent CreateHeadlessCompleteAgent()

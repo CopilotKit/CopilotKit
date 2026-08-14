@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "description": "Fleet-index head for D6 gen-ui-agent competitor-research. No context field — matches any integration. Loaded from shared/ before d4/ and d6/, so this seed wins over leftover d4 'summarize' catch-alls and over an offsite rematch when the last user turn still contains both pill strings.",
+    "created": "2026-08-14"
+  },
+  "fixtures": [
+    {
+      "_comment": "Competitor-research first set_steps. userMessage is longer than the per-slug seed 'Research our top competitor' so the shared-vs-scoped exact-collision test stays clean. Titles carry the probe markers [competitor, weakness]. chunkSize 9999 so the args parse in one chunk.",
+      "match": {
+        "userMessage": "Research our top competitor and summarize"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_001",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"pending\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"pending\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    }
+  ]
+}

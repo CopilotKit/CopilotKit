@@ -1444,6 +1444,18 @@ function coerceBeautifulChatTodos(value: unknown): BeautifulChatTodo[] {
  * we return the final state from this function.
  */
 // @region[backend-tool-execution]
+function lastUserTextFromMessages(messages: unknown[] | undefined): string {
+  if (!messages) return "";
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i] as { role?: string; content?: unknown };
+    if (msg?.role !== "user") continue;
+    if (typeof msg.content === "string" && msg.content.trim()) {
+      return msg.content;
+    }
+  }
+  return "";
+}
+
 async function executeBackendTool(
   toolName: string,
   toolInput: Record<string, unknown>,
@@ -1451,6 +1463,7 @@ async function executeBackendTool(
   emit: (event: object) => void,
   forwardedHeaders: Record<string, string> = {},
   agentContext: string = "",
+  lastUserMessage: string = "",
 ): Promise<ExecuteToolResult> {
   if (toolName === "query_data") {
     const query = typeof toolInput.query === "string" ? toolInput.query : "";
@@ -1495,11 +1508,11 @@ async function executeBackendTool(
   }
 
   if (toolName === "generate_a2ui") {
-    const context =
-      typeof toolInput.context === "string" ? toolInput.context : "";
+    const fromArgs =
+      typeof toolInput.context === "string" ? toolInput.context.trim() : "";
     return {
       resultText: await generateDeclarativeA2uiOperations(
-        context,
+        fromArgs || lastUserMessage,
         forwardedHeaders,
         agentContext,
       ),
@@ -1798,6 +1811,7 @@ async function runAgenticLoop(
           toolEmit,
           forwardedHeaders,
           contextString,
+          lastUserTextFromMessages(input.messages),
         ),
     });
     res.end();
@@ -2250,6 +2264,7 @@ async function runAgenticLoop(
           emit,
           forwardedHeaders,
           contextString,
+          lastUserTextFromMessages(input.messages),
         );
         if (exec.state) {
           state = exec.state;

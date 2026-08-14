@@ -392,7 +392,7 @@ demos:
       path: /declarative-gen-ui
     runtime:
       a2ui:
-        injectA2UITool: false
+        injectA2UITool: true
         defaultCatalogId: declarative-gen-ui-catalog
     name: Declarative Generative UI (A2UI)
     description: Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider; runtime injects the render_a2ui tool automatically

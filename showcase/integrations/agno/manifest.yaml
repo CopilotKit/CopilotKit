@@ -673,14 +673,14 @@ demos:
       path: /declarative-gen-ui/agui
     runtime:
       a2ui:
-        injectA2UITool: false
+        injectA2UITool: true
         defaultCatalogId: declarative-gen-ui-catalog
     name: "Declarative Generative UI (A2UI Dynamic)"
     description:
       Agent dynamically composes UI per turn from a registered frontend
-      catalog — secondary LLM call inside the backend `generate_a2ui` tool emits
-      an a2ui_operations container that the A2UI middleware forwards to the
-      catalog renderer
+      catalog — no-arg `generate_a2ui`, middleware owns `render_a2ui`
+      (LGP shape). The Python body is only a fallback if inject does not
+      intercept.
     tags:
       - generative-ui
       - a2ui

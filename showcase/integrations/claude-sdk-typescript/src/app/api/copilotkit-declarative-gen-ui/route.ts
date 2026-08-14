@@ -1,8 +1,7 @@
 // Dedicated runtime for the Declarative Generative UI (A2UI) cell.
-// The backend owns the `generate_a2ui` tool and performs a secondary Claude
-// call against `render_a2ui`, so the runtime must not inject a competing
-// A2UI tool. It still reads the page-registered catalog and forwards
-// `a2ui_operations` tool results to the renderer.
+// LGP shape: injectA2UITool true so middleware owns `render_a2ui`.
+// The backend still binds no-arg `generate_a2ui` as a fallback if the
+// call reaches the agent body.
 
 import type { NextRequest } from "next/server";
 import {
@@ -24,7 +23,7 @@ const runtime = new CopilotRuntime({
     ),
   },
   a2ui: {
-    injectA2UITool: false,
+    injectA2UITool: true,
     defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });

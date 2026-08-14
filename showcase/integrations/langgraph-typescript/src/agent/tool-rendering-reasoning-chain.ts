@@ -19,12 +19,30 @@ import {
   messagesStateReducer,
   BaseMessage,
 } from "@langchain/langgraph";
-import { ChatOpenAI } from "@langchain/openai";
 import { makeChatOpenAI } from "./openai-headers";
 
 const SYSTEM_PROMPT =
-  "You are a travel & lifestyle concierge. When a user asks a question, " +
-  "reason step-by-step and call 2+ tools in succession when relevant.";
+  "You are a helpful travel & lifestyle concierge with mock tools for " +
+  "weather, flights, stock prices, and dice rolls — they all return " +
+  "fake data, so call them liberally.\n\n" +
+  "Your habit is to CHAIN tools when one answer naturally invites " +
+  "another. For a single user question, call at least TWO tools in " +
+  "succession when the topic allows, then compose your final reply. " +
+  "Default chains:\n" +
+  "  - 'What's the weather in <city>?' -> call get_weather(<city>), " +
+  "then call search_flights(origin='SFO', destination=<city>) so the " +
+  "user also sees how to get there.\n" +
+  "  - 'How is <ticker> doing?' -> call get_stock_price(<ticker>), " +
+  "then call get_stock_price on a comparable ticker (e.g. 'MSFT' or " +
+  "'GOOGL') so the user can compare.\n" +
+  "  - 'Roll a 20-sided die' -> call roll_dice(sides=20), then call " +
+  "roll_dice again with a different number of sides so the user sees " +
+  "a contrast.\n" +
+  "  - 'Find flights from <a> to <b>' -> call search_flights(a, b), " +
+  "then call get_weather(<b>) for the destination.\n\n" +
+  "Only skip chaining when the user has clearly asked for a single, " +
+  "atomic answer and more tool calls would feel intrusive. Never " +
+  "fabricate data that a tool could provide.";
 
 const getWeather = tool(
   async ({ location }) => ({
@@ -83,22 +101,31 @@ const searchFlights = tool(
 );
 
 const getStockPrice = tool(
-  async ({ ticker }) => {
+  async ({ ticker, price_usd, change_pct }) => {
     const randInt = (lo: number, hi: number) =>
       Math.floor(Math.random() * (hi - lo + 1)) + lo;
     const sign = Math.random() < 0.5 ? -1 : 1;
     return {
       ticker: ticker.toUpperCase(),
       price_usd:
-        Math.round((100 + randInt(0, 400) + randInt(0, 99) / 100) * 100) / 100,
-      change_pct: Math.round(sign * (randInt(0, 300) / 100) * 100) / 100,
+        price_usd != null
+          ? Math.round(price_usd * 100) / 100
+          : Math.round((100 + randInt(0, 400) + randInt(0, 99) / 100) * 100) /
+            100,
+      change_pct:
+        change_pct != null
+          ? Math.round(change_pct * 100) / 100
+          : Math.round(sign * (randInt(0, 300) / 100) * 100) / 100,
     };
   },
   {
     name: "get_stock_price",
-    description: "Get a mock current price for a stock ticker.",
+    description:
+      "Get a mock current price for a stock ticker. Optional price_usd/change_pct let fixtures script a deterministic quote.",
     schema: z.object({
       ticker: z.string().describe("Stock ticker symbol"),
+      price_usd: z.number().optional().describe("Deterministic price"),
+      change_pct: z.number().optional().describe("Deterministic change percent"),
     }),
   },
 );
@@ -124,9 +151,10 @@ const rollDice = tool(
 
 // Route through a reasoning-capable model via the Responses API so the
 // chain of thought streams as AG-UI `ReasoningMessage` events alongside
-// the tool calls. Falls back to gpt-4o-mini (no reasoning stream) if
-// `OPENAI_REASONING_MODEL` is unset.
-const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5-mini";
+// the tool calls. Match LGP: gpt-5.4 + medium/detailed. `summary: "auto"`
+// skips reasoning summaries when tools are present, so the reasoning-block
+// never mounts.
+const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5.4";
 
 const tools = [getWeather, searchFlights, getStockPrice, rollDice];
 
@@ -146,7 +174,12 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   const model = makeChatOpenAI(config, {
     model: REASONING_MODEL,
     useResponsesApi: true,
-    reasoning: { effort: "low", summary: "auto" },
+    reasoning: { effort: "medium", summary: "detailed" },
+    // Same @langchain/openai streaming collapse as reasoning-agent.ts:
+    // token deltas merge reasoning + answer into one block, so AG-UI
+    // never gets a distinct role:"reasoning" message. Non-streaming
+    // conversion yields separate reasoning and text blocks.
+    disableStreaming: true,
   });
 
   const modelWithTools = model.bindTools!(tools);

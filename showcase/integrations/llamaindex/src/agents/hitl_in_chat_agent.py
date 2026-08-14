@@ -135,9 +135,15 @@ class ToolCallResultWorkflowEvent(ToolCallEndWorkflowEvent):
 # Later MESSAGES_SNAPSHOTs must keep these backend toolCalls. The first
 # snapshot still strips them so they arrive via TOOL_CALL_CHUNK. A later
 # snapshot that strips them unmounts the custom-wildcard card.
-# Do not add frontend tools (change_background, book_call). That disables
-# HITL slots and blocks the frontend-tools background change.
+# Do not add HITL / frontend-tools names (change_background, book_call).
+# That disables HITL slots and blocks the frontend-tools background change.
 _KEEP_SNAPSHOT_TOOL_NAMES = frozenset({"get_weather", "get_stock_price"})
+
+# useComponent tools (headless highlight_note, gen-ui show_card). Headless
+# AssistantBubble returns null when content is empty AND toolCalls were
+# stripped — the card never mounts. Keep these on the FIRST snapshot.
+# Do not skip ToolCallEvent for HITL tools.
+_USE_COMPONENT_TOOL_NAMES = frozenset({"highlight_note", "show_card"})
 
 
 class FixedAGUIChatWorkflow(AGUIChatWorkflow):
@@ -180,11 +186,11 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
                 }
                 if self._keep_tool_calls_in_snapshot:
                     raw = msg.additional_kwargs.get("ag_ui_tool_calls") or []
+                    keep_names = _KEEP_SNAPSHOT_TOOL_NAMES | _USE_COMPONENT_TOOL_NAMES
                     kept = [
                         c
                         for c in raw
-                        if isinstance(c, dict)
-                        and c.get("name") in _KEEP_SNAPSHOT_TOOL_NAMES
+                        if isinstance(c, dict) and c.get("name") in keep_names
                     ]
                     if kept:
                         extra["ag_ui_tool_calls"] = kept
@@ -286,9 +292,6 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
         resp.message.additional_kwargs["id"] = resp_id
 
         chat_history.append(resp.message)
-        # First snapshot strips toolCalls. Stash weather/stock after this
-        # write, then persist, so later store.get still has the stash.
-        self._snapshot_messages(ctx, [*chat_history])
 
         tool_calls = self.llm.get_tool_calls_from_response(
             resp, error_on_no_tool_call=False
@@ -307,20 +310,47 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
                 for tool_call in tool_calls
                 if tool_call.tool_name in self.backend_tools
             ]
-            keep_calls = [
+            component_calls = [
                 tc
-                for tc in backend_tool_calls
-                if tc.tool_name in _KEEP_SNAPSHOT_TOOL_NAMES
+                for tc in frontend_tool_calls
+                if tc.tool_name in _USE_COMPONENT_TOOL_NAMES
             ]
-            if keep_calls:
+            # Stash useComponent BEFORE the first snapshot so an empty
+            # assistant bubble still has toolCalls (headless highlight).
+            if component_calls:
                 resp.message.additional_kwargs["ag_ui_tool_calls"] = [
                     {
                         "id": tc.tool_id,
                         "name": tc.tool_name,
                         "arguments": json.dumps(tc.tool_kwargs),
                     }
-                    for tc in keep_calls
+                    for tc in component_calls
                 ]
+                self._keep_tool_calls_in_snapshot = True
+
+        # First snapshot strips weather/stock so they arrive via CHUNK.
+        # useComponent names already stashed above stay on this snapshot.
+        self._snapshot_messages(ctx, [*chat_history])
+
+        if tool_calls:
+            keep_calls = [
+                tc
+                for tc in backend_tool_calls
+                if tc.tool_name in _KEEP_SNAPSHOT_TOOL_NAMES
+            ]
+            if keep_calls:
+                existing = list(
+                    resp.message.additional_kwargs.get("ag_ui_tool_calls") or []
+                )
+                existing.extend(
+                    {
+                        "id": tc.tool_id,
+                        "name": tc.tool_name,
+                        "arguments": json.dumps(tc.tool_kwargs),
+                    }
+                    for tc in keep_calls
+                )
+                resp.message.additional_kwargs["ag_ui_tool_calls"] = existing
                 self._keep_tool_calls_in_snapshot = True
 
         await ctx.store.set("chat_history", chat_history)
@@ -367,6 +397,8 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
                         )
 
             for tool_call in frontend_tool_calls:
+                # HITL (book_call / generate_task_steps) still needs
+                # ToolCallEvent. Do not skip it for all frontend tools.
                 ctx.send_event(
                     ToolCallEvent(
                         tool_call_id=tool_call.tool_id,
@@ -374,6 +406,11 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
                         tool_kwargs=tool_call.tool_kwargs,
                     )
                 )
+
+                # useComponent already arrived via the first snapshot.
+                # A second CHUNK doubles args and can unmount the card.
+                if tool_call.tool_name in _USE_COMPONENT_TOOL_NAMES:
+                    continue
 
                 ctx.write_event_to_stream(
                     ToolCallChunkWorkflowEvent(

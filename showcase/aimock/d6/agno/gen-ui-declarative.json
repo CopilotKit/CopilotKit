@@ -1,35 +1,16 @@
 {
   "_meta": {
     "description": "D6 fixtures for agno / gen-ui-declarative (A2UI Dynamic Schema)",
-    "sourceFile": "d5-gen-ui-declarative.ts",
-    "_note": "Agent plays a sales analyst for the fictional Vantage Threads company (OSS-136). agno uses a two-stage A2UI pattern (src/agents/a2ui_dynamic_agent.py): (1) the OUTER agent (OpenAIChat gpt-4o) owns a single `generate_a2ui(context: str)` tool; on a pill it emits a generate_a2ui toolcall carrying a per-pill `context` phrase. (2) `generate_a2ui` then makes a SECONDARY OpenAI call bound to `render_a2ui` (tool_choice forced) whose messages are [system=<catalog schema + \"Conversation context:\\n<context arg>\">, user=\"Generate a dynamic A2UI dashboard based on the conversation.\"] — note the inner user message is HARDCODED and identical across all four pills, so the inner render_a2ui fixture CANNOT key on userMessage; it discriminates on toolName:render_a2ui + context:agno + a systemMessage substring equal to the per-pill context phrase the outer injected. (3) after the tool returns, the OUTER agent emits a one-sentence narration (hasToolResult:true). So each pill needs three fixtures: outer emitter (userMessage=pill + hasToolResult:false), inner render (toolName:render_a2ui + systemMessage=context phrase), and narration (userMessage=pill + hasToolResult:true). render_a2ui args mirror the google-adk green north-star (same VantageThreads surfaces + declarative-gen-ui-catalog); agno's RENDER_A2UI_TOOL_SCHEMA (tools/generate_a2ui.py) takes the same surfaceId/catalogId/components nested tree. Runs strict (x-aimock-strict:true) so userMessage matches are exact. Keep pill prompts in sync with declarative-gen-ui/suggestions.ts + harness d5-gen-ui-declarative.ts.",
+    "_note": "LGP shape: (1) outer agent emits no-arg generate_a2ui; (2) middleware / leftover Python body drives inner render_a2ui (toolName: render_a2ui); (3) narration after generate_a2ui returns. Inner user message is the original pill prompt so userMessage+toolName matches. x-test-id / x-aimock-context are forwarded on the inner call. No third planner.",
     "created": "2026-07-18",
-    "copiedFrom": "google-adk"
+    "updated": "2026-08-14"
   },
   "fixtures": [
     {
-      "_comment": "pill sales-dashboard hero — OUTER agent emits generate_a2ui with a per-pill context arg. Guarded hasToolResult:false so it fires on the outer decision call, not the post-tool narration.",
+      "_comment": "pill sales-dashboard hero — inner secondary LLM (render_a2ui) emits the flat A2UI components.",
       "match": {
         "userMessage": "Show me my sales dashboard for this quarter.",
-        "context": "agno"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_dash_outer_agno_001",
-            "name": "generate_a2ui",
-            "arguments": "{\"context\":\"sales dashboard for this quarter\"}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill sales-dashboard hero — INNER secondary planner (forced render_a2ui). The inner user message is the hardcoded 'Generate a dynamic A2UI dashboard...' string for every pill, so we key on toolName:render_a2ui + context:agno + a systemMessage substring equal to the outer's per-pill context phrase (injected as 'Conversation context:\\n<context>'). Args copied verbatim from the google-adk sales-dashboard render entry. Asserts declarative-metric (>=4) + declarative-pie-chart + declarative-bar-chart.",
-      "match": {
-        "toolName": "render_a2ui",
-        "systemMessage": "sales dashboard for this quarter",
-        "context": "agno"
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [
@@ -43,7 +24,7 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill sales-dashboard hero — TERMINAL narration after generate_a2ui returns (hasToolResult:true) so the run emits RUN_FINISHED.",
+      "_comment": "pill sales-dashboard hero — outer agent narration after generate_a2ui returns.",
       "match": {
         "toolCallId": "call_d6_decl_dash_outer_agno_001",
         "context": "agno"
@@ -54,28 +35,27 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill team-performance — OUTER agent emits generate_a2ui with a per-pill context arg, guarded hasToolResult:false.",
+      "_comment": "pill sales-dashboard hero — outer agent emits generate_a2ui (no args).",
       "match": {
-        "userMessage": "How are our sales reps performing against quota?",
+        "userMessage": "Show me my sales dashboard for this quarter.",
         "context": "agno"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d6_decl_team_outer_agno_001",
+            "id": "call_d6_decl_dash_outer_agno_001",
             "name": "generate_a2ui",
-            "arguments": "{\"context\":\"sales rep performance against quota\"}"
+            "arguments": "{}"
           }
         ]
       },
       "chunkSize": 9999
     },
     {
-      "_comment": "pill team-performance — INNER forced render_a2ui, keyed by toolName + systemMessage(=outer context phrase) + context:agno. Args copied verbatim from the google-adk team-performance render entry. Asserts declarative-data-table + declarative-bar-chart.",
+      "_comment": "pill team-performance — inner secondary LLM (render_a2ui) emits the flat A2UI components.",
       "match": {
-        "toolName": "render_a2ui",
-        "systemMessage": "sales rep performance against quota",
-        "context": "agno"
+        "userMessage": "How are our sales reps performing against quota?",
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [
@@ -89,7 +69,7 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill team-performance — TERMINAL narration after generate_a2ui returns.",
+      "_comment": "pill team-performance — outer agent narration after generate_a2ui returns.",
       "match": {
         "toolCallId": "call_d6_decl_team_outer_agno_001",
         "context": "agno"
@@ -100,28 +80,27 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill at-risk — OUTER agent emits generate_a2ui with a per-pill context arg, guarded hasToolResult:false.",
+      "_comment": "pill team-performance — outer agent emits generate_a2ui (no args).",
       "match": {
-        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "userMessage": "How are our sales reps performing against quota?",
         "context": "agno"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d6_decl_risk_outer_agno_001",
+            "id": "call_d6_decl_team_outer_agno_001",
             "name": "generate_a2ui",
-            "arguments": "{\"context\":\"accounts and pipeline deals at risk this quarter\"}"
+            "arguments": "{}"
           }
         ]
       },
       "chunkSize": 9999
     },
     {
-      "_comment": "pill at-risk — INNER forced render_a2ui, keyed by toolName + systemMessage(=outer context phrase) + context:agno. Args copied verbatim from the google-adk at-risk render entry. Asserts declarative-status-badge (>=3) + declarative-metric (>=3).",
+      "_comment": "pill at-risk — inner secondary LLM (render_a2ui) emits the flat A2UI components.",
       "match": {
-        "toolName": "render_a2ui",
-        "systemMessage": "accounts and pipeline deals at risk this quarter",
-        "context": "agno"
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [
@@ -135,7 +114,7 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill at-risk — TERMINAL narration after generate_a2ui returns.",
+      "_comment": "pill at-risk — outer agent narration after generate_a2ui returns.",
       "match": {
         "toolCallId": "call_d6_decl_risk_outer_agno_001",
         "context": "agno"
@@ -146,28 +125,27 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill top-account — OUTER agent emits generate_a2ui with a per-pill context arg, guarded hasToolResult:false.",
+      "_comment": "pill at-risk — outer agent emits generate_a2ui (no args).",
       "match": {
-        "userMessage": "Pull up the details on our biggest account.",
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
         "context": "agno"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d6_decl_acct_outer_agno_001",
+            "id": "call_d6_decl_risk_outer_agno_001",
             "name": "generate_a2ui",
-            "arguments": "{\"context\":\"details on our biggest account\"}"
+            "arguments": "{}"
           }
         ]
       },
       "chunkSize": 9999
     },
     {
-      "_comment": "pill top-account — INNER forced render_a2ui, keyed by toolName + systemMessage(=outer context phrase) + context:agno. Args copied verbatim from the google-adk top-account render entry. Asserts declarative-info-row + declarative-pie-chart.",
+      "_comment": "pill top-account — inner secondary LLM (render_a2ui) emits the flat A2UI components.",
       "match": {
-        "toolName": "render_a2ui",
-        "systemMessage": "details on our biggest account",
-        "context": "agno"
+        "userMessage": "Pull up the details on our biggest account.",
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [
@@ -181,14 +159,32 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill top-account — TERMINAL narration after generate_a2ui returns.",
+      "_comment": "pill top-account — outer agent narration after generate_a2ui returns.",
       "match": {
         "toolCallId": "call_d6_decl_acct_outer_agno_001",
         "context": "agno"
       },
       "response": {
         "content": "Here's the rundown on Meridian Apparel Group."
-      }
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill top-account — outer agent emits generate_a2ui (no args).",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "context": "agno"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_acct_outer_agno_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      },
+      "chunkSize": 9999
     }
   ]
 }

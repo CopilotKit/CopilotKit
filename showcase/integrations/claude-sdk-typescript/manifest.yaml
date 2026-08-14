@@ -200,7 +200,7 @@ demos:
       path: "/tool-rendering"
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI)
-    description: Canonical A2UI BYOC — custom catalog wired via a2ui.catalog on the provider; backend agent owns the generate_a2ui tool with injectA2UITool false
+    description: Canonical A2UI BYOC — custom catalog wired via a2ui.catalog on the provider; no-arg generate_a2ui, middleware owns render_a2ui (LGP shape)
     tags:
       - generative-ui
     route: /demos/declarative-gen-ui
@@ -216,7 +216,7 @@ demos:
       path: "/declarative-gen-ui"
     runtime:
       a2ui:
-        injectA2UITool: false
+        injectA2UITool: true
         defaultCatalogId: "declarative-gen-ui-catalog"
   - id: gen-ui-agent
     name: Agentic Generative UI

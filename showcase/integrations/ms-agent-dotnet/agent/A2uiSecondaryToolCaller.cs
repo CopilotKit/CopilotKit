@@ -13,11 +13,15 @@ internal static class A2uiSecondaryToolCaller
         IConfiguration configuration,
         string systemPrompt,
         string userContent,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? designToolName = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(systemPrompt);
         ArgumentNullException.ThrowIfNull(userContent);
+        var toolName = string.IsNullOrWhiteSpace(designToolName)
+            ? DesignToolName
+            : designToolName;
 
         var endpoint = ApiKeyResolver.ResolveEndpoint(configuration).TrimEnd('/');
 
@@ -59,7 +63,7 @@ internal static class A2uiSecondaryToolCaller
                     type = "function",
                     function = new
                     {
-                        name = DesignToolName,
+                        name = toolName,
                         description = "Render a dynamic A2UI v0.9 surface.",
                         parameters = new
                         {
@@ -79,7 +83,7 @@ internal static class A2uiSecondaryToolCaller
             tool_choice = new
             {
                 type = "function",
-                function = new { name = DesignToolName },
+                function = new { name = toolName },
             },
         };
 
@@ -110,7 +114,7 @@ internal static class A2uiSecondaryToolCaller
         // surface as an uncaught KeyNotFoundException from a bare GetProperty.
         // Parse defensively, capture the body for logging, and raise a typed
         // signal the caller maps to a specific structured error.
-        return ParseDesignToolArguments(body);
+        return ParseDesignToolArguments(body, toolName);
     }
 
     /// <summary>
@@ -124,9 +128,12 @@ internal static class A2uiSecondaryToolCaller
     /// with the upstream body captured for logging — rather than letting an
     /// uncaught <see cref="KeyNotFoundException"/> escape.
     /// </summary>
-    internal static string? ParseDesignToolArguments(string body)
+    internal static string? ParseDesignToolArguments(string body, string? expectedToolName = null)
     {
         ArgumentNullException.ThrowIfNull(body);
+        var expectedName = string.IsNullOrWhiteSpace(expectedToolName)
+            ? DesignToolName
+            : expectedToolName;
 
         JsonDocument document;
         try
@@ -174,7 +181,7 @@ internal static class A2uiSecondaryToolCaller
             var toolName = function.TryGetProperty("name", out var nameElement)
                 ? nameElement.GetString()
                 : null;
-            if (!string.Equals(toolName, DesignToolName, StringComparison.Ordinal))
+            if (!string.Equals(toolName, expectedName, StringComparison.Ordinal))
             {
                 return null;
             }
