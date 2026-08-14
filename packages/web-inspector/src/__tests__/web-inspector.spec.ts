@@ -1456,6 +1456,10 @@ describe("WebInspectorElement announcement preview dismissal", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     store = {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))),
+    );
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => store[key] ?? null,
       setItem: (key: string, value: string) => {
