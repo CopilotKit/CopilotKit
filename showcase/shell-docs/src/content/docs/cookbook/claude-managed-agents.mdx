@@ -31,10 +31,8 @@ reduced to one interaction that fits a Cookbook pane.
 
 Use the suggested prompt, then adjust the contribution and return sliders in the resulting chart.
 
-{/* Local approval URL — replace with the permanent Railway deployment after approval. */}
-
 <iframe
-  src="http://localhost:5173"
+  src="https://showcase-claude-managed-agents-production.up.railway.app"
   title="Claude Managed Agents × CopilotKit live demo"
   className="w-full h-[480px] sm:h-[600px] block rounded-xl border border-[var(--border)]"
 />
@@ -207,8 +205,9 @@ ALLOWED_ORIGINS=https://your-app.example.com
 
 <Callout type="warning" title="Protect the runtime before going public">
   The example endpoint has no user authentication, and every message spends your Anthropic API credits.
-  `ALLOWED_ORIGINS` narrows browser origins but is not authentication. Put the runtime behind your application
-  session check before using this pattern in production.
+  When `ALLOWED_ORIGINS` is set, the server rejects requests without the matching origin and same-origin Fetch
+  Metadata. Those browser checks are not authentication because custom clients can forge the headers. Put the
+  runtime behind your application session check before using this pattern in production.
 </Callout>
 
 The adapter's default session store is in memory. A server restart starts fresh managed sessions, while the

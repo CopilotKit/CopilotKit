@@ -93,6 +93,11 @@ npm install && npm run build && npm start
 ```
 
 Set `ANTHROPIC_API_KEY` plus the two generated agent identity variables. Set
-`ALLOWED_ORIGINS` to the deployed frontend origin. The server keeps its thread-to-session map
-in memory, so a restart starts fresh sessions; that is acceptable for this demo but not a
-production persistence strategy.
+`ALLOWED_ORIGINS` to the deployed frontend origin. The server then requires that exact origin
+and `Sec-Fetch-Site: same-origin` on runtime requests. It also limits iframe parents to
+CopilotKit docs and local previews by default; override `FRAME_ANCESTORS` only for another
+approved host. These browser controls are not user authentication because custom clients can
+forge the headers.
+
+The server keeps its thread-to-session map in memory, so a restart starts fresh sessions; that
+is acceptable for this demo but not a production persistence strategy.
