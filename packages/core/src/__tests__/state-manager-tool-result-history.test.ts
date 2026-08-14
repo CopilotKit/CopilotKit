@@ -395,6 +395,44 @@ describe("StateManager tool result history", () => {
     );
   });
 
+  it("does not reconcile a finalized input's old result provenance", async () => {
+    const agent = new ScriptedWeatherAgent();
+    const core = new CopilotKitCore({});
+    await addAgent(core, agent);
+    await core.runAgent({ agent });
+
+    const stateManagerSubscriber = (
+      agent as unknown as {
+        subscribers: Array<{
+          onRunFinishedEvent?: (params: unknown) => unknown;
+          onRunFinalized?: (params: unknown) => unknown;
+        }>;
+      }
+    ).subscribers.find(
+      (subscriber) =>
+        subscriber.onRunFinishedEvent && subscriber.onRunFinalized,
+    );
+    expect(stateManagerSubscriber).toBeDefined();
+
+    const input = agent.inputs[0]!;
+    const messagesWithoutResult = agent.messages.filter(
+      (message) => message.id !== "result-weather",
+    );
+    const mutation = stateManagerSubscriber!.onRunFinishedEvent!({
+      input,
+      messages: messagesWithoutResult,
+      state: {},
+      agent,
+      event: {
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: input.runId,
+      },
+    });
+
+    expect(mutation).toBeUndefined();
+  });
+
   it("does not add a StateManager-owned result without an assistant owner", async () => {
     const callId = "call-ownerless";
     const agent = new ScenarioAgent(
