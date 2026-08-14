@@ -1,0 +1,128 @@
+---
+title: Conversational Flows
+description: Promote an existing CrewAI Flow to a session-aware Conversational Flow and connect it to CopilotKit through AG-UI.
+icon: "lucide/MessagesSquare"
+doc_type: how-to
+---
+
+CrewAI Conversational Flows are an execution mode for CrewAI Flows, not a separate CopilotKit integration. Start with the [CrewAI Quickstart](/crewai-flows/quickstart), then opt your existing Flow and its AG-UI endpoint into conversational execution.
+
+Each CopilotKit turn is passed to CrewAI's `stream_turn` API. The integration maps the CopilotKit `threadId` to CrewAI's `session_id`, so each browser thread gets an isolated, multi-turn conversation.
+
+<Callout type="info" title="Full CopilotKit support">
+  Conversational Flows support the same CopilotKit features as regular CrewAI
+  Flows, including chat components, headless chat, frontend tools, tool
+  rendering, generative UI, shared state, reasoning, human-in-the-loop,
+  subagents, voice, and multimodal input. Your CopilotKit frontend code does not
+  change when you promote a Flow.
+</Callout>
+
+## Prerequisites
+
+- Complete the [CrewAI Quickstart](/crewai-flows/quickstart) with a working Flow and AG-UI endpoint.
+- Install CrewAI 1.15.11 or later. Earlier versions do not provide the `stream_turn` behavior required by this integration.
+- Use the latest `ag-ui-crewai` release.
+
+```bash title="Terminal"
+pip install -U "crewai>=1.15.11,<2" ag-ui-crewai
+```
+
+## Promote your Flow
+
+<Steps>
+  <Step>
+    ### Enable conversational execution on the Flow
+
+    Add `conversational = True` to the Flow class you created in the Quickstart. You do not need a second agent or a separate deployment.
+
+    ```python title="flow.py"
+    class SupportFlow(Flow[AppState]):
+        conversational = True  # [!code highlight]
+
+        # Keep your Flow methods, tools, and state here.
+    ```
+  </Step>
+
+  <Step>
+    ### Enable conversational execution on the endpoint
+
+    Pass the same opt-in when you register the Flow with FastAPI:
+
+    ```python title="server.py"
+    from fastapi import FastAPI
+    from ag_ui_crewai import add_crewai_flow_fastapi_endpoint
+
+    from flow import SupportFlow
+
+    app = FastAPI()
+
+    add_crewai_flow_fastapi_endpoint(
+        app,
+        SupportFlow(),
+        "/",
+        conversational=True,  # [!code highlight]
+    )
+    ```
+
+    The endpoint now calls `stream_turn(message, session_id=thread_id)` instead of starting the Flow through the regular `kickoff` or `astream` path.
+  </Step>
+
+  <Step>
+    ### Keep the CopilotKit frontend unchanged
+
+    Continue using the same `<CopilotKit>`, chat component, hooks, tools, and generative UI components from the Quickstart and feature guides. The execution-mode change is entirely in the CrewAI backend.
+  </Step>
+</Steps>
+
+## Feature-specific notes
+
+Most CopilotKit features require no additional Conversational Flow configuration. These are the exceptions to keep in mind:
+
+| When you use | What to do |
+| --- | --- |
+| Custom Pydantic state | Inherit from `ag_ui_crewai.CopilotKitState`. It includes the conversation fields CrewAI needs alongside CopilotKit messages, tools, and shared state. |
+| CrewAI conversational routes | Route a turn with `route_turn()` and `@listen(...)`. Return the public reply or call `append_assistant_message()` once; CrewAI already appends the current user message. |
+| Native interrupts with `useInterrupt` | Register the endpoint with `emit_interrupt_outcome=True` and `enable_legacy_on_interrupt_event=False`, just as you would for a regular CrewAI Flow. |
+| CrewAI persistence | Keep using CrewAI's `@persist` support. CopilotKit supplies a stable `threadId`, and the integration uses it as the CrewAI `session_id`. |
+
+For an interrupt-enabled endpoint, the registration looks like this:
+
+```python title="server.py"
+add_crewai_flow_fastapi_endpoint(
+    app,
+    SupportFlow(),
+    "/",
+    conversational=True,
+    emit_interrupt_outcome=True,
+    enable_legacy_on_interrupt_event=False,
+)
+```
+
+## Existing Flow routing
+
+Enabling conversational mode adds CrewAI's turn router to your Flow. If your existing Flow already produces one public response from an `@start` graph, make sure the conversational router does not also send a built-in `converse` response. For intent-based conversations, move the per-turn entry points behind `route_turn()` and `@listen(...)` handlers.
+
+```python title="flow.py"
+from crewai.flow import listen
+
+class SupportFlow(Flow[AppState]):
+    conversational = True
+
+    def route_turn(self, _context):
+        return "support"
+
+    @listen("support")
+    def answer(self):
+        return self.run_existing_support_logic()
+```
+
+## Runtime contract
+
+Both opt-ins are required. If the endpoint requests conversational execution but the Flow does not declare `conversational = True` or expose `stream_turn`, the integration returns a correlated `RUN_ERROR` instead of silently falling back to regular Flow execution.
+
+## Next steps
+
+- **Build the base integration:** [CrewAI Quickstart](/crewai-flows/quickstart) — create the Flow and CopilotKit application that this guide promotes.
+- **Add generative UI:** [Tool rendering](/crewai-flows/generative-ui/tool-rendering) — render CrewAI tool activity with application components.
+- **Synchronize application state:** [Shared state](/crewai-flows/shared-state) — let your Conversational Flow read and update frontend state.
+- **Pause for user input:** [Human in the loop](/crewai-flows/human-in-the-loop) — suspend a turn and resume it with structured user feedback.

@@ -14,20 +14,26 @@ import { useSuggestions } from "./suggestions";
 /**
  * Agentic Generative UI — In-Chat State Rendering
  *
- * The deep agent on the backend defines its own state schema
+ * The intended contract: a backend agent defines its own state schema
  * (`steps: list[Step]`) and exposes a custom `set_steps` tool that the model
- * calls to mutate that state. Every `set_steps` call streams the updated
- * `steps` to the client.
+ * calls to mutate that state, streaming updated `steps` to the client.
  *
- * On the client we subscribe to that live state via `useAgent` (v2) and
- * render a single `InlineAgentStateCard` inside the chat transcript via
+ * NOT IMPLEMENTED IN THIS PACKAGE. There is no `src/agents/gen_ui_agent.py`
+ * and no `set_steps` tool anywhere in this package's Python. `gen-ui-agent`
+ * has no route override, so it proxies to the root sales agent
+ * (`src/agents/agent.py`), whose state slot is `todos`, not `steps` — the
+ * card below therefore never populates. The frontend, the D6 fixture and
+ * `tests/e2e/gen-ui-agent.spec.ts` were all copied from a parity sweep that
+ * did not port the backend. Tracked in GH #6381.
+ *
+ * On the client we subscribe to agent state via `useAgent` (v2) and render a
+ * single `InlineAgentStateCard` inside the chat transcript via
  * `messageView.children`. The card re-renders in place as state arrives —
- * no per-message claims, no duplicate cards.
- *
- * This mirrors the pattern used by every other integration's gen-ui-agent
- * demo (mastra, strands, ag2, agno, crewai-crews, langgraph-typescript,
- * pydantic-ai, ...) and replaces the earlier `useCoAgentStateRender`
- * approach which produced one card per state-changing message.
+ * no per-message claims, no duplicate cards. This mirrors the pattern used
+ * by the integrations that do implement the backend (mastra, strands, ag2,
+ * agno, crewai-crews, langgraph-typescript, ...) and replaces the earlier
+ * `useCoAgentStateRender` approach which produced one card per
+ * state-changing message.
  */
 export default function GenUiAgentDemo() {
   return (

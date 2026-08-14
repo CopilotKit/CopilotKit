@@ -19,7 +19,7 @@ env:
   NX_VERBOSE_LOGGING: true
 
 jobs:
-  # Posts a per-PR comment with per-file gzip diffs for the 9 in-scope packages.
+  # Posts a per-PR comment with per-file gzip diffs for the 10 in-scope packages.
   # Runs preactjs/compressed-size-action, which builds the PR head and the base
   # branch, scans the `pattern` glob in each, and diffs the gzip sizes; the
   # comment updates in place on subsequent pushes. No hard-fail (Phase 1) — see
@@ -65,9 +65,9 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           # Use the root `build` script (present on both this branch and the base
           # branch) so compressed-size-action can build both sides for comparison.
-          # The `pattern` below restricts measurement to the 9 in-scope packages.
+          # The `pattern` below restricts measurement to the 10 in-scope packages.
           build-script: build
-          pattern: "packages/{core,shared,react-core,react-ui,react-textarea,runtime-client-gql,web-inspector,voice,a2ui-renderer}/dist/**/*.{mjs,js,cjs}"
+          pattern: "packages/{core,shared,react-core,react-ui,react-textarea,runtime-client-gql,web-inspector,voice,a2ui-renderer,react-native}/dist/**/*.{mjs,js,cjs}"
 
   # Measures what an app importing { CopilotChat } from
   # @copilotkit/react-core/v2 bundles, by driving esbuild over a synthetic entry
@@ -102,5 +102,14 @@ jobs:
       - name: Build react-core
         run: npx nx run @copilotkit/react-core:build
 
+      - name: Assert /v2/headless stays free of the render stack (#4893)
+        run: pnpm --filter @copilotkit/react-core size:assert-headless
+
       - name: Measure CopilotChat bundle regression signal
         run: pnpm --filter @copilotkit/react-core size:headline
+
+      - name: Build react-native
+        run: npx nx run @copilotkit/react-native:build
+
+      - name: Measure react-native headless import size
+        run: pnpm --filter @copilotkit/react-native size:headless

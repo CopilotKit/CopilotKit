@@ -289,7 +289,25 @@ describe("fixture collision detection", () => {
     //      gen-ui-interrupt one, so first-match-wins yields the same Denied
     //      narration — one pair per pill.
     // All runtime-disambiguated by route/fixtureFile like every alias above.
-    const KNOWN_DUPLICATE_CEILING = 304;
+    //
+    // Bumped 304 → 316 for CrewAI full D6 parity. The pre-change fixture set
+    // had already healed to 290 duplicates (14 below the stale ceiling), while
+    // the newly enabled CrewAI cells add 26 intentional cross-demo aliases:
+    //   +8 gen-ui-headless-complete/headless-complete
+    //   +7 open-gen-ui/gen-ui-tool-based
+    //   +4 net interrupt aliases after replacing the old prompt vocabulary
+    //   +2 gen-ui-custom/render-a2ui
+    //   +3 shared-state-streaming/tool-rendering
+    //   +2 custom-catchall/tool-rendering
+    // Each pair is scoped to crewai-crews and disambiguated at runtime by the
+    // active route/fixtureFile, so 290 + 26 = 316 and the net ceiling increase
+    // is 12 rather than 26.
+    // Bumped 316 → 364 for CrewAI Conversational Flows and the current merged
+    // baseline. Relative to origin/main's 295 duplicates, the complete CrewAI
+    // matrix adds 69 intentional aliases: 26 scoped to regular Flows, 36 scoped
+    // to Conversational Flows, and 7 shared-scope fixtures. Every alias is
+    // disambiguated at runtime by fixture context, route, or fixtureFile.
+    const KNOWN_DUPLICATE_CEILING = 364;
 
     const collisions: string[] = [];
 

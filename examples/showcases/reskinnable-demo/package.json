@@ -11,6 +11,7 @@
     "test:e2e:ogui": "playwright test -c playwright.ogui.config.ts",
     "test:self-learning": "playwright test e2e/memory-learning.spec.ts",
     "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit",
     "mint-dev-license": "node scripts/mint-dev-license.mjs"
   },
   "dependencies": {

@@ -6,11 +6,12 @@ import {
   SLACK_ELEMENT_MANIFEST,
   SLACK_NATIVE_MANIFEST,
   SLACK_OBJECT_MANIFEST,
+  SLACK_UNTYPED_OBJECTS,
 } from "./native-manifest.js";
 import { Slack } from "./native.js";
 
-test("Slack exposes all 20 message-valid blocks from its manifest", () => {
-  expect(SLACK_BLOCK_MANIFEST).toHaveLength(20);
+test("Slack exposes all 19 message-valid blocks from its manifest", () => {
+  expect(SLACK_BLOCK_MANIFEST).toHaveLength(19);
   expect(Object.keys(Slack.Block).sort()).toEqual(
     SLACK_BLOCK_MANIFEST.map(([name]) => name).sort(),
   );
@@ -30,7 +31,16 @@ test("every Slack catalog entry serializes its fixed discriminator", () => {
       entry.type,
       requiredProps(entry.type),
     );
-    expect(serializeSlackNativeNode(node).type).toBe(entry.type);
+    const serialized = serializeSlackNativeNode(node);
+
+    // Composition objects Slack defines as plain structures must not carry a
+    // discriminator: an option is `{text, value}`, and a stray `type` on it is
+    // an unknown field that makes Slack refuse the whole message.
+    if (entry.kind === "object" && SLACK_UNTYPED_OBJECTS.has(entry.type)) {
+      expect(serialized).not.toHaveProperty("type");
+    } else {
+      expect(serialized.type).toBe(entry.type);
+    }
     expect(entry.source).toMatch(/^https:\/\/docs\.slack\.dev\//);
   }
 });
@@ -85,3 +95,31 @@ function requiredProps(type: string): Record<string, unknown> {
   }
   return {};
 }
+
+test("an image accepts either an external URL or a Slack-hosted file", () => {
+  const external = createNativeNode("slack", "block", "image", {
+    image_url: "https://picsum.photos/400/300",
+    alt_text: "Latency chart",
+  });
+  const hosted = createNativeNode("slack", "block", "image", {
+    slack_file: createNativeNode("slack", "object", "slack_file", {
+      url: "https://files.slack.com/files-pri/T0/chart.png",
+    }),
+    alt_text: "Latency chart",
+  });
+
+  expect(serializeSlackNativeNode(external).image_url).toBe(
+    "https://picsum.photos/400/300",
+  );
+  expect(serializeSlackNativeNode(hosted).slack_file).toEqual({
+    url: "https://files.slack.com/files-pri/T0/chart.png",
+  });
+
+  // Neither source is still an error — the check moved, it did not disappear.
+  const neither = createNativeNode("slack", "block", "image", {
+    alt_text: "Latency chart",
+  });
+  expect(() => serializeSlackNativeNode(neither)).toThrow(
+    /requires image_url or slack_file/,
+  );
+});

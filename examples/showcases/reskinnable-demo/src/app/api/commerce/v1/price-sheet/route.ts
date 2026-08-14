@@ -33,9 +33,10 @@ const DEFAULT_VENDOR = "Kestrel Mills";
  * on `null`/`undefined`, but `?vendor=` — the shape a cleared field or a
  * `URLSearchParams.set("vendor", "")` produces — yields the EMPTY STRING, which
  * is not nullish. The default never applied, the catalog filter matched nothing,
- * and the route 404'd on a vendor nobody had named. That is beat 3d's silent
- * failure once more: `stagePriceSheetAttachment` maps the non-2xx to
- * `staged === false` and the prompt is sent with no document attached.
+ * and the route 404'd on a vendor nobody had named. Downstream, `stageAttachment`
+ * (`@/shell/attach`) maps the non-2xx to `staged === false`, which now aborts the
+ * pill — so the beat does not run at all, and the only clue to WHY is whatever
+ * this route left in the log.
  *
  * The fallback (rather than a 400) is the house rule for levers, set by
  * `parseTopLever` in `skins/commerce/pages/orders.tsx`: trim, then IGNORE a
@@ -51,15 +52,18 @@ const requestedVendor = (url: string): string =>
 /**
  * Why the WHOLE body is inside the `try`, not just the `buildPriceSheetPdf` call.
  *
- * This route is beat 3d's document source, and a failure here is silent all the
- * way to the stage. `stagePriceSheetAttachment` treats any non-2xx as
- * `staged === false` (`attach-price-sheet.ts`), and
- * `sendRestockRequestWithPriceSheet` then sends the pill's prompt ANYWAY
- * (`skin.tsx`) — so the model is told "here's the autumn price sheet, read it"
- * with no file attached, and answers from the catalog it can already see. The
- * demo appears to work and proves nothing. Without the `catch` below there was
- * no server-side record either: an uncaught throw is whatever Next decides to
- * emit, with none of this route's own context in it.
+ * This route is beat 3d's document source, and it is the ONLY place a failure
+ * here can be diagnosed. `stageAttachment` (`@/shell/attach`, reached through
+ * `attach-price-sheet.ts`) treats any non-2xx as `staged === false`, and
+ * `sendMessageWithAttachment` then ABORTS the pill and alerts the presenter — so
+ * the beat fails loudly rather than sending "here's the autumn price sheet, read
+ * it" with no file attached. (It did the latter before that chain existed, and
+ * still does anywhere the chain is bypassed: the model then answers from the
+ * catalog it can already see, the plan is filed, and the demo proves nothing.)
+ * But the alert can only say "HTTP 500 — see the server logs", so if this handler
+ * leaves no record the presenter is stuck. Without the `catch` below there was no
+ * server-side record: an uncaught throw is whatever Next decides to emit, with
+ * none of this route's own context in it.
  *
  * Three distinct throw sites live in here, which is why the guard is the whole
  * handler rather than one expression:
@@ -94,9 +98,9 @@ export const GET = async (req: Request) => {
       // The miss used to be answered with NOTHING in the server log, which made a
       // seed vendor rename an invisible way to disable beat 3d: the pill fetches
       // this route with no `vendor` at all, so `DEFAULT_VENDOR` above stops
-      // matching, the route 404s, and `stagePriceSheetAttachment` maps that to
+      // matching, the route 404s, and `stageAttachment` maps that to
       // `staged: false`. The consumer chain does name it to the PRESENTER
-      // (`reportPriceSheetFailure` alerts, and the prompt is not sent), but the
+      // (`reportAttachmentFailure` alerts, and the prompt is not sent), but the
       // alert only says "HTTP 404 — see the server logs", and there was nothing
       // in the server logs to see.
       //
