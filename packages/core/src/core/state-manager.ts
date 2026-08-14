@@ -7,6 +7,8 @@ import type {
   StateDeltaEvent,
   MessagesSnapshotEvent,
   TextMessageStartEvent,
+  ToolCallResultEvent,
+  ToolMessage,
 } from "@ag-ui/client";
 import { randomUUID, structuredClone_ } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
@@ -17,6 +19,17 @@ const isContinuation = (input: RunAgentInput): boolean =>
     (input.forwardedProps as { command?: object } | undefined)?.command ?? {},
     "resume",
   );
+
+const isForwardedToClientPlaceholder = (content: unknown): boolean =>
+  content === "Forwarded to client" ||
+  (Array.isArray(content) &&
+    content.some(
+      (part) =>
+        typeof part === "object" &&
+        part !== null &&
+        "text" in part &&
+        (part as { text?: unknown }).text === "Forwarded to client",
+    ));
 
 export interface CopilotKitCoreContinuationHandoff {
   cancel(): void;
@@ -137,6 +150,115 @@ export class StateManager {
     let revoked = false;
     let subRunId: string | undefined; // runId assigned to the current logical run
     let runFinished = false; // true after RUN_FINISHED, reset on next RUN_STARTED
+    const pendingResults = new WeakMap<
+      RunAgentInput,
+      Map<string, ToolCallResultEvent>
+    >();
+
+    const reconcilePendingResults = (
+      historyMessages: readonly Message[],
+      input: RunAgentInput,
+    ): { messages: Message[] } | undefined => {
+      const events = pendingResults.get(input);
+      if (!events) return undefined;
+
+      const messages = [...historyMessages];
+      const insertedResultIds = new Set<string>();
+      let changed = false;
+
+      for (const event of events.values()) {
+        const ownerIndex = messages.findIndex(
+          (message) =>
+            message.role === "assistant" &&
+            message.toolCalls?.some(
+              (toolCall) => toolCall.id === event.toolCallId,
+            ),
+        );
+        if (ownerIndex < 0) continue;
+
+        const matchingIndexes = messages.reduce<number[]>(
+          (indexes, message, index) => {
+            if (
+              message.role === "tool" &&
+              message.toolCallId === event.toolCallId
+            ) {
+              indexes.push(index);
+            }
+            return indexes;
+          },
+          [],
+        );
+        const exactIndex = matchingIndexes.find(
+          (index) => messages[index]?.id === event.messageId,
+        );
+        if (exactIndex !== undefined) {
+          const duplicateIndexes = matchingIndexes.filter(
+            (index) => index !== exactIndex,
+          );
+          for (const index of duplicateIndexes.sort((a, b) => b - a)) {
+            messages.splice(index, 1);
+            changed = true;
+          }
+          continue;
+        }
+
+        const realIndex = matchingIndexes.find(
+          (index) => !isForwardedToClientPlaceholder(messages[index]?.content),
+        );
+        const realResultWasReconciled = matchingIndexes.some((index) =>
+          insertedResultIds.has(messages[index]?.id ?? ""),
+        );
+        if (realIndex !== undefined && !realResultWasReconciled) {
+          for (const duplicateIndex of matchingIndexes
+            .filter((candidateIndex) => candidateIndex !== realIndex)
+            .sort((a, b) => b - a)) {
+            messages.splice(duplicateIndex, 1);
+            changed = true;
+          }
+          continue;
+        }
+
+        const placeholderIndex = matchingIndexes[0];
+        if (placeholderIndex !== undefined) {
+          messages[placeholderIndex] = {
+            ...messages[placeholderIndex],
+            id: event.messageId,
+            content: event.content,
+          } as ToolMessage;
+          changed = true;
+          for (const duplicateIndex of matchingIndexes
+            .filter((candidateIndex) => candidateIndex !== placeholderIndex)
+            .sort((a, b) => b - a)) {
+            messages.splice(duplicateIndex, 1);
+          }
+          continue;
+        }
+
+        const result: ToolMessage = {
+          id: event.messageId,
+          role: "tool",
+          toolCallId: event.toolCallId,
+          content: event.content,
+        };
+        let insertIndex = ownerIndex + 1;
+        while (messages[insertIndex]?.role === "tool") insertIndex++;
+        messages.splice(insertIndex, 0, result);
+        insertedResultIds.add(result.id);
+        changed = true;
+        this.associateMessageWithRun(
+          agentId,
+          input.threadId,
+          result.id,
+          input.runId,
+        );
+      }
+
+      return changed ? { messages } : undefined;
+    };
+
+    const clearPendingResults = (input: RunAgentInput): void => {
+      pendingResults.delete(input);
+    };
 
     const effectiveInput = (input: RunAgentInput): RunAgentInput => ({
       ...input,
@@ -177,16 +299,39 @@ export class StateManager {
         runFinished = false;
         this.handleRunStarted(agent, effectiveInput(input), state);
       },
-      onRunFinishedEvent: ({ input, state }) => {
+      onRunFinishedEvent: ({ input, state, messages }) => {
         if (revoked) return;
         runFinished = true;
-        this.handleRunFinished(agent, effectiveInput(input), state);
+        const effective = effectiveInput(input);
+        const mutation = reconcilePendingResults(messages, input);
+        this.handleRunFinished(agent, effective, state);
+        return mutation;
       },
       // A run error terminates the run — treat identically to finished for cleanup
-      onRunErrorEvent: ({ input, state }) => {
+      onRunErrorEvent: ({ input, state, messages }) => {
         if (revoked) return;
         runFinished = true;
-        this.handleRunFinished(agent, effectiveInput(input), state);
+        const effective = effectiveInput(input);
+        const mutation = reconcilePendingResults(messages, input);
+        this.handleRunFinished(agent, effective, state);
+        return mutation;
+      },
+      onRunFailed: ({ input, messages }) => {
+        if (revoked) return;
+        return reconcilePendingResults(messages, input);
+      },
+      onRunFinalized: ({ input }) => {
+        if (revoked) return;
+        clearPendingResults(input);
+      },
+      onToolCallResultEvent: ({ event, input, messages }) => {
+        if (revoked) return;
+        let events = pendingResults.get(input);
+        if (!events) {
+          events = new Map();
+          pendingResults.set(input, events);
+        }
+        events.set(event.toolCallId, event);
       },
       onStateSnapshotEvent: ({ event, input, state }) => {
         if (revoked) return;
@@ -419,7 +564,7 @@ export class StateManager {
     agent: AbstractAgent,
     event: MessagesSnapshotEvent,
     input: RunAgentInput,
-    messages: readonly Message[],
+    _messages: readonly Message[],
   ): void {
     if (!agent.agentId) return;
 
