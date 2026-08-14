@@ -54,6 +54,34 @@ interface RoutableInput {
 }
 
 /**
+ * The text a user turn carries, whether it arrived as a plain string or as
+ * multimodal parts.
+ *
+ * The array form is not hypothetical here: banking's pill stages the statement
+ * CSV into the composer (`attach-statement.ts`), and a turn with an attachment
+ * arrives as `[{type:"text",…}, {type:"document",…}]` rather than a string. A
+ * router that only understood strings would stop matching the moment the
+ * attachment was added — Arm C would answer the expense job conversationally,
+ * with no harness and no error, while Arm A kept working. That failure is
+ * invisible in every gate.
+ */
+const turnText = (content: unknown): string | null => {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return null;
+  const text = content
+    .filter(
+      (part): part is { type: "text"; text: string } =>
+        typeof part === "object" &&
+        part !== null &&
+        (part as { type?: unknown }).type === "text" &&
+        typeof (part as { text?: unknown }).text === "string",
+    )
+    .map((part) => part.text)
+    .join("");
+  return text.length > 0 ? text : null;
+};
+
+/**
  * Deterministic route: exact-match the pill's message, the same idiom banking
  * already uses for its Q2 invoice beat. NOT model-decided — a mis-route is a
  * visible failure in both directions (a chat turn spawning a sandbox, or the
@@ -75,10 +103,7 @@ export const shouldRouteToHarness = (input: RoutableInput): boolean => {
   const lastUser = (input.messages ?? [])
     .toReversed()
     .find((message) => message.role === "user");
-  return (
-    typeof lastUser?.content === "string" &&
-    lastUser.content.trim() === EXPENSE_PILL_MESSAGE.trim()
-  );
+  return turnText(lastUser?.content)?.trim() === EXPENSE_PILL_MESSAGE.trim();
 };
 
 /**

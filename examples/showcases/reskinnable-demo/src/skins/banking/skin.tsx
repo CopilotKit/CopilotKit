@@ -19,6 +19,7 @@ import { catalog } from "@/skins/banking/catalog";
 // value — they cannot drift apart and silently degrade the invoice beat.
 import {
   bankingSuggestions,
+  EXPENSE_PILL_MESSAGE,
   Q2_REPORT_MESSAGE,
 } from "@/skins/banking/suggestions";
 import { NORTHWIND_DESIGN_SKILL } from "@/skins/banking/design-skill";
@@ -27,6 +28,7 @@ import {
   attachInvoiceByHand,
   sendQ2WithInvoice,
 } from "@/skins/banking/attach-invoice";
+import { sendExpensesWithStatement } from "@/skins/banking/attach-statement";
 import CardsPage from "@/skins/banking/pages/cards";
 import DashboardPage from "@/skins/banking/pages/dashboard";
 import ChargesPage from "@/skins/banking/pages/charges";
@@ -136,20 +138,30 @@ const banking: Skin = {
       onClick: () => void attachInvoiceByHand(),
     },
   ],
-  // Intercept the Q2 pill to ride the invoice attachment; every other pill takes
-  // the shell's default "send the message" path.
+  // TWO pills ride an attachment; every other pill takes the shell's default
+  // "send the message" path. Both are matched by STRING EQUALITY against the
+  // constant the pill itself carries, so neither can drift by reordering or
+  // retitling the pills.
+  //
+  // Returning `true` means "the shell must not run its default send", and it is
+  // only honest because `sendMessageWithAttachment` guarantees two outcomes —
+  // sent WITH the file, or aborted and the presenter told why. Never `true` plus
+  // silence.
   onSuggestionSelect: (suggestion: Suggestion) => {
-    if (suggestion.message !== Q2_REPORT_MESSAGE) {
-      return false; // every other pill takes the default "send the message" path
+    // The default path would send "prepare the Q2 report" with the invoice
+    // DROPPED, which is the exact failure beat 3d cannot survive.
+    if (suggestion.message === Q2_REPORT_MESSAGE) {
+      void sendQ2WithInvoice();
+      return true;
     }
-    // `true` means "the shell must not run its default send", and that is
-    // unconditionally correct for this pill: the default path would send "prepare
-    // the Q2 report" with the invoice DROPPED, which is the exact failure beat 3d
-    // cannot survive. Claiming the click is only honest because
-    // `sendQ2WithInvoice` guarantees two outcomes — sent WITH the invoice, or
-    // aborted and the presenter told why — never `true` plus silence.
-    void sendQ2WithInvoice();
-    return true;
+    // The harness beat's statement. Unlike the invoice, the file here is ALSO
+    // read server-side by the tool itself (see `attach-statement.ts`) — this
+    // staging is what puts it on screen, not what feeds the harness.
+    if (suggestion.message === EXPENSE_PILL_MESSAGE) {
+      void sendExpensesWithStatement();
+      return true;
+    }
+    return false;
   },
 };
 

@@ -221,8 +221,8 @@ filter through the page's real query params, and (iv) leaves the applied levers
 `navigateTo` does not earn this beat.
 
 ⚠️ **"Confirm the levers with them first" is read TWO ways, and one of them
-kills the beat.** You mean *the card confirms*; the model can just as well hear
-*ask them in chat*. Then it answers
+kills the beat.** You mean _the card confirms_; the model can just as well hear
+_ask them in chat_. Then it answers
 
 > Confirm the levers and I'll take you there: **pending** only, sorted by
 > **oldest first**, top **10**.
@@ -347,6 +347,8 @@ Three mechanics worth copying verbatim:
   import type { AttachmentDocument } from "@/shell/attach";
 
   const DOC: AttachmentDocument = { url: "…", filename: "…" };
+  // …or, for a delimited-data document rather than a generated PDF:
+  //   const DOC: AttachmentDocument = { url: "…", filename: "…", kind: "csv" };
 
   /** chatHeaderActions paperclip — stage only, no send. */
   export const attach<Id>ByHand = (): Promise<boolean> => attachByHand(DOC);
@@ -359,6 +361,17 @@ Three mechanics worth copying verbatim:
   (`banking/attach-invoice.ts`, `people/attach-offer-letter.ts`,
   `commerce/attach-price-sheet.ts`, `logistics/attach-rate-sheet.ts`) is about 45
   lines, most of it comment.
+
+  **`kind` defaults to `"pdf"` and selects the BYTE CHECK, not just the MIME
+  type.** Set it from what the route actually serves, never from the filename —
+  inferring it from a `.csv` suffix would defeat the check, whose whole job is to
+  catch a route answering 200 with an HTML error page under a correct-looking
+  URL. A kind also has to be in the composer's `accept` list
+  (`shell/chat/chat-panel.tsx`) or `processFiles` drops the file with no chip and
+  no error. Two kinds exist today (`pdf`, `csv`); adding a third is one row in
+  `ATTACHMENT_KINDS` plus one entry in that `accept` string plus a case in
+  `stage-attachment.test.ts`'s `ALL_CAUSES`, which fails until the new failure
+  cause is actually driven by a test.
 
   **The attachment chain must fail LOUD, and must never send without the file.**
   This is not defensive polish; it is what makes the beat honest. If any failure

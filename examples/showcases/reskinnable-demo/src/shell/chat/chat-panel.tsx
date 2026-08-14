@@ -55,22 +55,32 @@ export function ChatPanel({ threadId }: { threadId: string }) {
           <CopilotChat
             agentId={skin.id}
             threadId={threadId}
-            // Custom suggestion pills: the eight registered via
-            // useConfigureSuggestions. This slot owns the empty-state layout and
-            // routes each click through the active skin first
-            // (skin.onSuggestionSelect). Banking intercepts ONLY the Q2-report
-            // pill, which rides a real PDF attachment so the model reads the
-            // invoice; every other pill takes the framework's normal send path.
+            // Custom suggestion pills, registered via useConfigureSuggestions.
+            // This slot owns the empty-state layout and routes each click
+            // through the active skin first (skin.onSuggestionSelect). A skin
+            // intercepts only the pills that must ride a real file into the
+            // composer — banking claims two, the Q2 invoice and the offsite
+            // statement — and every other pill takes the framework's normal
+            // send path.
             suggestionView={
               DemoSuggestionsView as CopilotChatProps["suggestionView"]
             }
-            // Multimodal attachments: officers can drop a PDF (e.g. a vendor
-            // invoice) or an image into the composer. With no custom onUpload the
-            // built-in handler base64-encodes the file and sends it as a document
-            // part on the message, so the model can read it.
+            // Multimodal attachments: a user can drop a PDF (e.g. a vendor
+            // invoice), a CSV (e.g. a card statement) or an image into the
+            // composer. With no custom onUpload the built-in handler
+            // base64-encodes the file and sends it as a document part on the
+            // message, so the model can read it — which also means a turn
+            // carrying an attachment arrives as multimodal PARTS rather than a
+            // string, and anything matching on message text has to handle both.
             attachments={{
               enabled: true,
-              accept: "application/pdf,image/*",
+              // `text/csv` rides alongside the PDF and image kinds because a
+              // statement or an export is a document a user would reasonably hand
+              // the assistant. Note the composer filters on this string: a kind
+              // missing here is dropped by `processFiles` with no chip and no
+              // error, which is why `stageAttachment` treats "no chip appeared"
+              // as a named failure rather than a no-op.
+              accept: "application/pdf,text/csv,image/*",
               maxSize: 20 * 1024 * 1024,
             }}
             // Drop the "AI can make mistakes…" line under the composer.

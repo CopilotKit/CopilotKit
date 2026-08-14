@@ -98,7 +98,7 @@ function mountComposer({
 
   const input = document.createElement("input");
   input.type = "file";
-  input.setAttribute("accept", "application/pdf,image/*");
+  input.setAttribute("accept", "application/pdf,text/csv,image/*");
   // jsdom's `files` setter runs a webidl conversion that only accepts a real
   // jsdom FileList wrapper, which no stub can produce. Replace the accessor with
   // a plain data property so the production `input.files = dt.files` is an

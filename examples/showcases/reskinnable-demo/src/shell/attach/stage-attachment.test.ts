@@ -260,7 +260,7 @@ function mountComposer({
   if (fileInput) {
     const input = document.createElement("input");
     input.type = "file";
-    input.setAttribute("accept", "application/pdf,image/*");
+    input.setAttribute("accept", "application/pdf,text/csv,image/*");
     // jsdom's `files` setter runs a webidl conversion that only accepts a real
     // jsdom FileList wrapper, which no stub can produce — it rejects even a
     // correctly shaped object with a TypeError. Replace the accessor with a plain
@@ -388,6 +388,18 @@ function queuedChipCount() {
   return document.querySelectorAll(
     `${ATTACHMENT_QUEUE_SELECTOR} ${ATTACHMENT_CHIP_SELECTOR}`,
   ).length;
+}
+
+/**
+ * The MIME types actually written onto the composer's hidden input. This is the
+ * value the framework's `accept` filter judges, so it is the only place the
+ * per-kind MIME choice is observable.
+ */
+function stagedFileTypes() {
+  const input = document.querySelector<HTMLInputElement>(
+    ATTACHMENT_FILE_INPUT_SELECTOR,
+  );
+  return Array.from(input?.files ?? []).map((file) => file.type);
 }
 
 /** A real PDF body — checked on the BYTES by the production code. */
@@ -529,6 +541,109 @@ describe("stageAttachment: every failure names itself, and none of them send", (
     expect(observedCause(result)).toBe("empty-body");
     expect(detailOf(result)).toContain("EMPTY");
     expect(sendClicks).not.toHaveBeenCalled();
+  });
+
+  // ── the csv kind ──────────────────────────────────────────────────────────
+  // CSV has no magic number, so its check is the one most likely to be written
+  // as "always true" and never noticed: the beat would keep working while the
+  // guard did nothing, until the day the route 500s and the model is handed an
+  // HTML page to read a statement off.
+  describe("kind: csv", () => {
+    const CSV_DOC: AttachmentDocument = {
+      url: "/sample-expenses-offsite.csv",
+      filename: "personal-card-statement-july-2026.csv",
+      kind: "csv",
+    };
+    const csvBytes = () =>
+      new TextEncoder().encode(
+        "date,merchant,amount,city\n2026-07-14,Hotel Verrano,318.55,Austin\n",
+      );
+
+    it("stages a real CSV body as text/csv", async () => {
+      mountComposer();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => bodyResponse(csvBytes())),
+      );
+
+      const result = await stageAttachment(CSV_DOC, fast());
+
+      expect(observedCause(result)).toBe(true);
+      expect(queuedChipCount()).toBe(1);
+      // The MIME the composer's accept filter sees. A csv staged as
+      // application/pdf would be taken by the filter and then read as a broken
+      // PDF by everything downstream.
+      expect(stagedFileTypes()).toEqual(["text/csv"]);
+    });
+
+    it("rejects an HTML error page served as 200", async () => {
+      mountComposer();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          bodyResponse(
+            new TextEncoder().encode(
+              "<!doctype html><h1>500 — route threw</h1>",
+            ),
+          ),
+        ),
+      );
+
+      const result = await stageAttachment(CSV_DOC, fast());
+
+      expect(observedCause(result)).toBe("not-a-csv");
+      expect(detailOf(result)).toContain("not CSV");
+      expect(queuedChipCount()).toBe(0);
+    });
+
+    it("rejects a JSON error body served as 200", async () => {
+      mountComposer();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          bodyResponse(
+            new TextEncoder().encode('{"error":"not found","code":404}'),
+          ),
+        ),
+      );
+
+      const result = await stageAttachment(CSV_DOC, fast());
+
+      // Note this body DOES contain commas — the `{` rejection is what catches
+      // it, which is why the check is not just "has a comma".
+      expect(observedCause(result)).toBe("not-a-csv");
+    });
+
+    it("rejects binary served as 200, which decodes into plausible text", async () => {
+      mountComposer();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          // A PDF, i.e. the other kind. `TextDecoder` with `fatal:false` turns
+          // its bytes into a string with replacement characters rather than
+          // throwing, so only the NUL check rejects it.
+          bodyResponse(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x00, 0x2c])),
+        ),
+      );
+
+      const result = await stageAttachment(CSV_DOC, fast());
+
+      expect(observedCause(result)).toBe("not-a-csv");
+    });
+
+    it("rejects text with no delimiter at all", async () => {
+      mountComposer();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          bodyResponse(new TextEncoder().encode("Internal Server Error\n")),
+        ),
+      );
+
+      const result = await stageAttachment(CSV_DOC, fast());
+
+      expect(observedCause(result)).toBe("not-a-csv");
+    });
   });
 
   it("rejects a 200 whose body is not a PDF, rather than smuggling it past the accept filter", async () => {
@@ -1027,6 +1142,7 @@ const ALL_CAUSES: Record<AttachmentFailureCause, true> = {
   "http-error": true,
   "empty-body": true,
   "not-a-pdf": true,
+  "not-a-csv": true,
   "no-file-input": true,
   "staging-threw": true,
   rejected: true,

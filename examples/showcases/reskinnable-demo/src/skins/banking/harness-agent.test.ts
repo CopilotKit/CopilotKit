@@ -82,17 +82,61 @@ describe("shouldRouteToHarness", () => {
     ).toBe(false);
   });
 
-  it("does not route non-string content", () => {
-    // A multimodal turn (the invoice-attachment beat) arrives as an array of
-    // parts, not a string. Reading `.trim()` off it would throw inside the
-    // factory, i.e. on the run itself.
+  it("routes a MULTIMODAL turn whose text part is the pill message", () => {
+    // This is the shape the pill actually sends: it stages the statement CSV
+    // into the composer (`attach-statement.ts`), so the turn arrives as parts
+    // rather than a string. A string-only router would stop matching the day
+    // that attachment was added and answer the expense job conversationally,
+    // with no harness and no error.
     expect(
       shouldRouteToHarness(
         runInput([
           {
             id: "1",
             role: "user",
-            content: [{ type: "text", text: EXPENSE_PILL_MESSAGE }],
+            content: [
+              { type: "text", text: EXPENSE_PILL_MESSAGE },
+              {
+                type: "document",
+                mimeType: "text/csv",
+                name: "personal-card-statement-july-2026.csv",
+              },
+            ],
+          },
+        ]),
+      ),
+    ).toBe(true);
+  });
+
+  it("ignores non-text parts when reading a multimodal turn", () => {
+    // The document part must not be concatenated into the compared text, or the
+    // exact match silently becomes "starts with".
+    expect(
+      shouldRouteToHarness(
+        runInput([
+          {
+            id: "1",
+            role: "user",
+            content: [
+              { type: "text", text: EXPENSE_PILL_MESSAGE },
+              { type: "text", text: " and also cancel my card" },
+            ],
+          },
+        ]),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not route content that carries no text at all", () => {
+    // An attachment-only turn. Reading `.trim()` off the array would throw
+    // inside the factory, i.e. on the run itself.
+    expect(
+      shouldRouteToHarness(
+        runInput([
+          {
+            id: "1",
+            role: "user",
+            content: [{ type: "document", mimeType: "text/csv" }],
           },
         ]),
       ),
