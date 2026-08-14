@@ -9,8 +9,10 @@
  * Genuine assertion: mutate the user-name input
  * (`[data-testid="ctx-name"]`) to a sentinel string before sending
  * the pill prompt; install a `page.route()` interceptor that
- * captures any outgoing POST to the runtime endpoint
- * (`/api/copilotkit*`); after settle, assert the captured request
+ * captures any outgoing POST to the runtime endpoint (recognised by the
+ * SHARED shape rule in `helpers/runtime-endpoint.ts`, so BOTH
+ * `/api/copilotkit*` and the unified frontend's `/api/<slug>/<demo>`
+ * match); after settle, assert the captured request
  * body contains the sentinel string. This proves the context value
  * was forwarded into the agent's runtime payload — a regression
  * where `useAgentContext` no longer plumbs the value would still
@@ -22,17 +24,18 @@
  * structural Page type does not, so we runtime-cast and verify.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-  type D5FeatureType,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import {
   FIRST_SIGNAL_TIMEOUT_MS,
   SIBLING_TIMEOUT_MS,
   asGenuinePage,
 } from "./_genuine-shared.js";
+import {
+  COPILOTKIT_RUNTIME_URL_PATTERN,
+  isCopilotkitRuntimeRequest,
+} from "../helpers/runtime-endpoint.js";
 
 /** Default `/demos/<featureType>` would be `/demos/readonly-state-context`,
  *  which does not exist — the actual route uses the registry-id
@@ -76,9 +79,19 @@ async function installRequestCapture(
     );
   }
   let lastBody: string | null = null;
-  const pattern = /\/api\/copilotkit/;
+  // SHARED shape rule (`helpers/runtime-endpoint.ts`) — matches the
+  // per-integration `/api/copilotkit[-<demo>]` family AND the unified
+  // frontend's `/api/<slug>/<demo>` runtime route. Playwright's `page.route`
+  // filters on the URL only, so the method half of the predicate is applied
+  // inside the handler below (it already was).
+  //
+  // Before this, the literal `/\/api\/copilotkit/` matched nothing on a
+  // migrated integration: no route installed on the real request,
+  // `getLastBody()` stayed null, and the assertion failed with
+  // "captured body: (none)" for a demo that HAD forwarded the context.
+  const pattern = COPILOTKIT_RUNTIME_URL_PATTERN;
   await candidate.route(pattern, (route, request) => {
-    if (request.method() === "POST") {
+    if (isCopilotkitRuntimeRequest(request.url(), request.method())) {
       const body = request.postData();
       if (body) lastBody = body;
     }
@@ -134,7 +147,7 @@ export function buildContextAssertion(
     }
     void page;
     throw new Error(
-      `readonly-state-context-${pillTag}: outgoing /api/copilotkit request body did not contain sentinel "${sentinel}" — captured body: ${
+      `readonly-state-context-${pillTag}: outgoing CopilotKit runtime request body did not contain sentinel "${sentinel}" — captured body: ${
         lastBody ? `"${lastBody.slice(0, 200)}"` : "(none)"
       }`,
     );

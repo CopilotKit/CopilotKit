@@ -6,7 +6,7 @@ import { checkInternalLinks } from "./verify-shell-docs.js";
 import { checkImportPaths } from "./verify-shell-docs.js";
 import { checkComponentImports } from "./verify-shell-docs.js";
 import { checkClaudeQuickstarts } from "./verify-shell-docs.js";
-import { checkUnexpectedMultiFileRegionSources } from "./verify-shell-docs.js";
+import { checkUnexpectedDuplicateRegionSources } from "./verify-shell-docs.js";
 
 describe("runBuildCheck", () => {
   it("returns a result with name, status, and messages", () => {
@@ -138,9 +138,9 @@ describe("checkSnippetRegions", () => {
   });
 });
 
-describe("checkUnexpectedMultiFileRegionSources", () => {
+describe("checkUnexpectedDuplicateRegionSources", () => {
   it("fails when a multi-file region is not explicitly allowlisted", () => {
-    const result = checkUnexpectedMultiFileRegionSources({
+    const result = checkUnexpectedDuplicateRegionSources({
       sources: [
         {
           demoKey: "claude-sdk-python::gen-ui-tool-based",
@@ -155,12 +155,48 @@ describe("checkUnexpectedMultiFileRegionSources", () => {
   });
 
   it("passes for the known intentional multi-file snippets", () => {
-    const result = checkUnexpectedMultiFileRegionSources({
+    const result = checkUnexpectedDuplicateRegionSources({
       sources: [
         {
           demoKey: "claude-sdk-python::open-gen-ui-advanced",
           regionName: "sandbox-function-registration",
           files: ["page.tsx", "sandbox-functions.ts"],
+        },
+      ],
+    });
+
+    expect(result.status).toBe("pass");
+  });
+
+  // Regression: the guard used to decide on DISTINCT FILE count, so two
+  // copy-pasted `@region[x]` blocks in ONE file (files.length === 1) skipped
+  // the check entirely and the bundler silently concatenated them.
+  it("fails when one file opens the same region twice", () => {
+    const result = checkUnexpectedDuplicateRegionSources({
+      sources: [
+        {
+          demoKey: "claude-sdk-python::gen-ui-tool-based",
+          demoId: "gen-ui-tool-based",
+          regionName: "bar-chart-renderer",
+          files: ["src/app/demos/gen-ui-tool-based/page.tsx"],
+          sliceCount: 2,
+        },
+      ],
+    });
+
+    expect(result.status).toBe("fail");
+    expect(result.messages.join(" ")).toContain("appears 2 times");
+  });
+
+  it("still passes a region that occurs exactly once", () => {
+    const result = checkUnexpectedDuplicateRegionSources({
+      sources: [
+        {
+          demoKey: "claude-sdk-python::gen-ui-tool-based",
+          demoId: "gen-ui-tool-based",
+          regionName: "bar-chart-renderer",
+          files: ["src/app/demos/gen-ui-tool-based/page.tsx"],
+          sliceCount: 1,
         },
       ],
     });
@@ -188,6 +224,46 @@ describe("checkInternalLinks", () => {
   it("strips fragments and queries before resolution", () => {
     const pages = [{ path: "a.mdx", body: "[link](/a#section?q=1)" }];
     const knownRoutes = new Set(["/a"]);
+    const result = checkInternalLinks({ pages, knownRoutes });
+    expect(result.status).toBe("pass");
+  });
+
+  // Regression: the image guard used to be `(^|[^!])`, a CONSUMING character
+  // class. In two back-to-back links the second had no character left to
+  // match, so `[b](/y)` was never checked and a dead target there passed.
+  it("checks every link in a back-to-back run and still ignores images", () => {
+    const pages = [
+      {
+        path: "a.mdx",
+        body: "see [a](/x)[b](/y) and ![img](/images/z.png)[c](/w)",
+      },
+    ];
+    const knownRoutes = new Set<string>();
+    const result = checkInternalLinks({ pages, knownRoutes });
+
+    const reported = result.messages.join(" ");
+    expect(result.status).toBe("fail");
+    // All three real links are checked...
+    expect(reported).toContain('dead link "/x"');
+    expect(reported).toContain('dead link "/y"');
+    expect(reported).toContain('dead link "/w"');
+    // ...and the image target is not treated as a link.
+    expect(reported).not.toContain("/images/z.png");
+    expect(result.messages).toHaveLength(3);
+  });
+
+  it("does not report an image target as a dead link", () => {
+    const pages = [{ path: "a.mdx", body: "![alt](/images/x.png)" }];
+    const knownRoutes = new Set<string>();
+    const result = checkInternalLinks({ pages, knownRoutes });
+    expect(result.status).toBe("pass");
+  });
+
+  it("ignores links inside ~~~ fenced blocks", () => {
+    const pages = [
+      { path: "a.mdx", body: "~~~md\n[link](/does-not-exist)\n~~~" },
+    ];
+    const knownRoutes = new Set<string>();
     const result = checkInternalLinks({ pages, knownRoutes });
     expect(result.status).toBe("pass");
   });

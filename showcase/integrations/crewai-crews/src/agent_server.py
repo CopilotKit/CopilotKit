@@ -67,8 +67,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from agents.crew import LatestAiDevelopment
-from agents.a2ui_fixed import A2UIFixedSchema
-from agents.beautiful_chat import BeautifulChat
+from agents.a2ui_fixed import a2ui_fixed_flow
+from agents.beautiful_chat import beautiful_chat_flow
 from agents.byoc_hashbrown_agent import ByocHashbrown
 from agents.byoc_json_render_agent import ByocJsonRender
 from agents.declarative_gen_ui import DeclarativeGenUI
@@ -87,13 +87,21 @@ except ImportError:
 app = FastAPI(title="CrewAI (Crews) Agent Server")
 
 
-# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# Serve /health (and its /api/health alias) via middleware so it short-circuits
+# BEFORE route resolution.
 # `add_crewai_crew_fastapi_endpoint(app, crew, "/")` installs a catch-all at
 # the root that shadows any later `@app.get("/health")` decorator. Middleware
 # runs above the routing layer, so the health endpoint stays reachable.
 class HealthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        if request.url.path == "/health" and request.method == "GET":
+        # ``/api/health`` is an ALIAS of ``/health`` — same handler, same
+        # response. Railway's healthcheckPath is ``/api/health``, which the
+        # Next.js half of this container serves today. Answering it here as
+        # well means that when the Next.js process is removed and the agent
+        # becomes the only listener, the existing Railway healthcheck keeps
+        # working with no dashboard change. Today it is a pure addition: the
+        # agent's port is not the one Railway probes.
+        if request.url.path in ("/health", "/api/health") and request.method == "GET":
             return JSONResponse({"status": "ok"})
         return await call_next(request)
 
@@ -439,19 +447,16 @@ app.add_middleware(
 # The shared crew owns "/" and therefore must be registered last; otherwise
 # its route shadows subsequent per-demo endpoints.
 add_crewai_crew_fastapi_endpoint(app, DeclarativeGenUI(), "/declarative-gen-ui")
-add_crewai_crew_fastapi_endpoint(app, A2UIFixedSchema(), "/a2ui-fixed-schema")
 add_crewai_crew_fastapi_endpoint(app, ByocHashbrown(), "/byoc-hashbrown")
 add_crewai_crew_fastapi_endpoint(app, ByocJsonRender(), "/byoc-json-render")
-add_crewai_crew_fastapi_endpoint(app, BeautifulChat(), "/beautiful-chat")
 add_crewai_crew_fastapi_endpoint(app, MCPApps(), "/mcp-apps")
 
 # Per-demo dedicated `Flow` (not Crew) endpoints. The shared
 # `ChatWithCrewFlow` cannot host these demos because it has no per-tool
 # state-mutation surface — it only writes `state["outputs"]` when the
 # model invokes the magic `<crew_name>` tool. Mounting these as raw
-# CrewAI Flows lets us emit STATE_SNAPSHOT events directly via
-# `copilotkit_emit_state` so the UI sees per-tool / per-delegation
-# state updates live.
+# CrewAI Flows lets us emit STATE_SNAPSHOT / TOOL_CALL_* events
+# directly so the UI sees per-tool / per-delegation updates live.
 add_crewai_flow_fastapi_endpoint(
     app, shared_state_read_write_flow, "/shared-state-read-write"
 )
@@ -459,6 +464,8 @@ add_crewai_flow_fastapi_endpoint(app, subagents_flow, "/subagents")
 add_crewai_flow_fastapi_endpoint(app, gen_ui_agent_flow, "/gen-ui-agent")
 if tool_rendering_flow is not None:
     add_crewai_flow_fastapi_endpoint(app, tool_rendering_flow, "/tool-rendering")
+add_crewai_flow_fastapi_endpoint(app, a2ui_fixed_flow, "/a2ui-fixed-schema")
+add_crewai_flow_fastapi_endpoint(app, beautiful_chat_flow, "/beautiful-chat")
 
 add_crewai_crew_fastapi_endpoint(app, InterruptScheduling(), "/interrupt-adapted")
 

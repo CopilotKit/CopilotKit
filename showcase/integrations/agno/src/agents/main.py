@@ -200,6 +200,81 @@ def roll_dice(sides: int = 6):
     return json.dumps({"sides": sides, "result": randint(1, max(2, sides))})
 
 
+@tool(external_execution=True)
+def query_notes(keyword: str):
+    """Search the user's local notes database.
+
+    Args:
+        keyword (str): Keyword or phrase to search notes for.
+    """
+
+
+@tool(external_execution=True)
+def barChart(title: str, description: str = "", data: list = None):
+    """Display data as a bar chart.
+
+    Args:
+        title (str): Chart title.
+        description (str): Brief subtitle.
+        data (list): [{label, value}, ...].
+    """
+
+
+@tool(external_execution=True)
+def pieChart(title: str, description: str = "", data: list = None):
+    """Display data as a pie chart.
+
+    Args:
+        title (str): Chart title.
+        description (str): Brief subtitle.
+        data (list): [{label, value}, ...].
+    """
+
+
+@tool(external_execution=True, external_execution_silent=True)
+def scheduleTime(reasonForScheduling: str, meetingDuration: int = 30):
+    """Ask the user to pick a meeting time.
+
+    Args:
+        reasonForScheduling (str): Very brief reason.
+        meetingDuration (int): Duration in minutes.
+    """
+
+
+@tool(external_execution=True)
+def toggleTheme():
+    """Toggle the app theme between light and dark."""
+
+
+@tool(external_execution=True)
+def highlight_note(text: str, color: str = "yellow"):
+    """Highlight a short note in yellow, pink, green, or blue.
+
+    Args:
+        text (str): Note text to highlight.
+        color (str): yellow, pink, green, or blue.
+    """
+
+
+@tool
+def get_revenue_chart():
+    """Get a mock six-month revenue series for a chart."""
+    return json.dumps(
+        {
+            "title": "Quarterly revenue",
+            "subtitle": "Last six months · USD thousands",
+            "data": [
+                {"label": "Jan", "value": 38},
+                {"label": "Feb", "value": 47},
+                {"label": "Mar", "value": 52},
+                {"label": "Apr", "value": 49},
+                {"label": "May", "value": 63},
+                {"label": "Jun", "value": 71},
+            ],
+        }
+    )
+
+
 @tool
 def generate_a2ui(context: str):
     """
@@ -264,6 +339,13 @@ agent = Agent(
         get_stock_price,
         roll_dice,
         generate_a2ui,
+        query_notes,
+        barChart,
+        pieChart,
+        scheduleTime,
+        toggleTheme,
+        highlight_note,
+        get_revenue_chart,
     ],
     # Prevent runaway tool-call loops — same guard as the ag2 package.
     tool_call_limit=15,
@@ -310,6 +392,18 @@ agent = Agent(
 
         DYNAMIC A2UI:
         Use generate_a2ui when the user asks for a dashboard or dynamic UI.
+
+        NOTES:
+        When the user asks about their notes, call query_notes.
+
+        BEAUTIFUL CHARTS:
+        When asked for a bar chart, call barChart. When asked for a pie chart,
+        call pieChart. When asked to schedule a meeting time, call scheduleTime.
+        When asked to toggle the theme, call toggleTheme.
+
+        HEADLESS HIGHLIGHT / REVENUE:
+        When asked to highlight a note, call highlight_note. When asked for a
+        revenue chart, call get_revenue_chart.
 
         USER APPROVAL (HITL):
         When asked to take any action that affects a customer — for example

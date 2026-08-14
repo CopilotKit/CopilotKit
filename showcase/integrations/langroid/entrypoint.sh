@@ -12,12 +12,22 @@ WATCHDOG_PID=""
 # tracebacks and log lines immediately. Without this a silent crash during
 # module import can sit in Python's userspace buffer until the process
 # exits, by which point the container is already gone. Paired with `python
-# -u` on the uvicorn invocation below and `awk ... fflush()` on the log
-# prefixer — all three are belt-and-suspenders measures against pipe-
-# buffered log loss observed across Railway deploys.
+# -u` on the uvicorn invocation below and the `while read` log prefixer —
+# all three are belt-and-suspenders measures against pipe-buffered log loss
+# observed across Railway deploys.
 export PYTHONUNBUFFERED=1
 
+# Set once cleanup() has run, so it cannot run twice. Without it a SIGTERM runs
+# cleanup for the TERM trap, and bash then runs it AGAIN for the EXIT trap —
+# two full grace loops (up to 5s each) per shutdown, on the ordinary Railway
+# redeploy path.
+_CLEANED=0
+
 cleanup() {
+    if [ "$_CLEANED" = "1" ]; then
+        return 0
+    fi
+    _CLEANED=1
     # Trap may fire from a FATAL ``exit 1`` path where ``set -e`` is still
     # active. Any non-zero return from ``kill`` (e.g. process already gone)
     # in a ``&&`` chain whose final command is ``kill`` is subject to
@@ -49,6 +59,35 @@ cleanup() {
     [ -n "$WATCHDOG_PID" ] && kill -0 "$WATCHDOG_PID" 2>/dev/null && kill -9 "$WATCHDOG_PID" 2>/dev/null
     return 0
 }
+# EXIT alone does NOT cover SIGTERM: an untrapped SIGTERM kills bash BY SIGNAL
+# and bash never runs the EXIT trap — and SIGTERM is exactly what Railway sends
+# on every redeploy/rollover, and what ``docker stop`` sends. With an EXIT-only
+# trap the children were orphan-reparented to PID 1 on that path, still holding
+# :$AGENT_PORT and $PORT, so the replacement container could not bind.
+#
+# SEPARATE SIGNAL AND EXIT TRAPS, matching mastra, langgraph-typescript,
+# ms-agent-dotnet and strands-typescript: splitting INT from TERM lets the
+# handler report 130 vs 143 instead of a flat 143. Those four differ only in
+# HOW they kill — they walk /proc, because a bare kill reaps only the wrapper
+# and orphans the real server underneath it. This file signals its direct
+# children and escalates to SIGKILL after a grace window instead, which does not
+# close that gap: NEXT_PID is an ``npx next start`` wrapper that can fork the
+# real Next.js server, and only the wrapper is signalled. Adopting the /proc
+# walk here is a separate, larger change. spring-ai, strands and langgraph-python
+# carry the same idea in a shorter shape (one ``trap _on_signal INT TERM``,
+# unconditional 143) and state the same limitation.
+_on_signal() {
+    echo "[entrypoint] Received shutdown signal — terminating children"
+    cleanup
+    # 128 + signal number, the shell convention, so the container's exit status
+    # still says WHICH signal stopped it. ``docker stop`` sends TERM, so 143.
+    case "$1" in
+        INT) exit 130 ;;
+        *) exit 143 ;;
+    esac
+}
+trap '_on_signal INT' INT
+trap '_on_signal TERM' TERM
 trap cleanup EXIT
 
 # Provider-agnostic startup diagnostic. langroid is multi-provider — the chat
@@ -288,27 +327,49 @@ if [ "$A2UI_MODEL_EFFECTIVE" != "$LANGROID_MODEL_EFFECTIVE" ]; then
     _check_key "$A2UI_MODEL_EFFECTIVE" "A2UI planner"
 fi
 
+# Agent listen port. Deliberately AGENT_PORT and NOT PORT: this container still
+# runs Next.js on $PORT, and two processes cannot bind the same port — pointing
+# the agent at $PORT would collide and break the container. AGENT_PORT is unset
+# in every deploy today, so the agent still lands on 8000 and behaviour is
+# byte-for-byte unchanged. It exists so the agent's port becomes a knob for the
+# later single-process layout without another edit here.
+#
+# AGENT_PORT IS NOT A STANDALONE KNOB. It moves ONLY the agent's listen port.
+# Every Next.js route in src/app/api/* reads `process.env.AGENT_URL ||
+# "http://localhost:8000"`, so setting AGENT_PORT alone moves the agent away
+# from the port the frontend still dials — every demo breaks while this
+# entrypoint's watchdog (which follows AGENT_PORT) keeps reporting healthy.
+# To change the agent port you MUST set AGENT_URL to match, e.g.
+#   AGENT_PORT=9000 AGENT_URL=http://localhost:9000
+AGENT_PORT="${AGENT_PORT:-8000}"
+
 # Start agent backend.
 # NOTE: `set -e` does not fire on backgrounded processes — if uvicorn crashes
 # immediately, the shell still proceeds to start Next.js. We capture PIDs and
 # probe them explicitly after `wait -n` so operators can tell which process
 # died with which exit code.
 #
-# `python -u` + `awk ... fflush()` below: unbuffered stdout at the interpreter
-# level + line-flushed awk prefixer so uvicorn request lines and tracebacks
-# reach Railway's log stream immediately rather than block-buffered in pipe
-# buffers.
-python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &> >(awk '{print "[agent] " $0; fflush()}') &
+# `python -u` + the `while read` log prefixer below: unbuffered stdout at the
+# interpreter level + a line-at-a-time prefixer so uvicorn request lines and
+# tracebacks reach Railway's log stream immediately rather than block-buffered
+# in pipe buffers.
+#
+# That prefixer is a bash `while read`/`printf` loop and NOT `awk`: the images
+# ship mawk, which block-buffers its INPUT, so `fflush()` never fired for a
+# long-lived child and its lines never reached `docker logs` at all. Full
+# explanation in showcase/integrations/mastra/entrypoint.sh — do not go back
+# to awk.
+python -u -m uvicorn agent_server:app --host 0.0.0.0 --port "$AGENT_PORT" &> >(while IFS= read -r line; do printf '[agent] %s\n' "$line"; done) &
 AGENT_PID=$!
 
 # Start Next.js frontend (PORT defaults to 10000 — Railway / local compose
 # override as needed).
-npx next start --port ${PORT:-10000} &> >(awk '{print "[nextjs] " $0; fflush()}') &
+npx next start --port ${PORT:-10000} &> >(while IFS= read -r line; do printf '[nextjs] %s\n' "$line"; done) &
 NEXT_PID=$!
 
 # Watchdog: Railway deploys of showcase packages have been observed to hit a
 # silent agent hang — the Python process stays alive (so `wait -n` never
-# fires and the container never restarts) but stops responding on :8000.
+# fires and the container never restarts) but stops responding on :$AGENT_PORT.
 # Poll the agent's /health endpoint every 30s; after 3 consecutive failures
 # (~90s of unreachable agent), kill the agent process so `wait -n` returns
 # and Railway restarts the container. Generalized from
@@ -319,7 +380,7 @@ NEXT_PID=$!
         if ! kill -0 "$AGENT_PID" 2>/dev/null; then
             break
         fi
-        if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1; then
+        if curl -fsS --max-time 5 "http://127.0.0.1:${AGENT_PORT}/health" > /dev/null 2>&1; then
             FAILS=0
         else
             FAILS=$((FAILS + 1))

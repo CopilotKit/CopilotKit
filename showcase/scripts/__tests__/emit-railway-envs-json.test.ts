@@ -4,6 +4,11 @@ import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+// `npx` is `npx.cmd` on Windows — a name `execFileSync`/`spawnSync` cannot
+// resolve without a shell, so every call below fails there with
+// `spawnSync npx ENOENT` unless the shell is requested.
+import { NEEDS_SHELL_FOR_CMD } from "./test-cleanup";
+
 const SCRIPT = resolve(__dirname, "..", "emit-railway-envs-json.ts");
 
 describe("emit-railway-envs-json", () => {
@@ -20,7 +25,10 @@ describe("emit-railway-envs-json", () => {
   });
 
   it("emits canonical JSON containing every SSOT service", () => {
-    execFileSync("npx", ["tsx", SCRIPT, `--out=${outPath}`], { stdio: "pipe" });
+    execFileSync("npx", ["tsx", SCRIPT, `--out=${outPath}`], {
+      stdio: "pipe",
+      shell: NEEDS_SHELL_FOR_CMD,
+    });
     const json = JSON.parse(readFileSync(outPath, "utf8"));
     expect(json.projectId).toBe("6f8c6bff-a80d-4f8f-b78d-50b32bcf4479");
     expect(json.envIds.staging).toBe("8edfef02-ea09-4a20-8689-261f21cc2849");
@@ -33,23 +41,29 @@ describe("emit-railway-envs-json", () => {
   });
 
   it("--check passes when on-disk JSON matches SSOT", () => {
-    execFileSync("npx", ["tsx", SCRIPT, `--out=${outPath}`], { stdio: "pipe" });
+    execFileSync("npx", ["tsx", SCRIPT, `--out=${outPath}`], {
+      stdio: "pipe",
+      shell: NEEDS_SHELL_FOR_CMD,
+    });
     const out = execFileSync(
       "npx",
       ["tsx", SCRIPT, "--check", `--out=${outPath}`],
-      { stdio: "pipe" },
+      { stdio: "pipe", shell: NEEDS_SHELL_FOR_CMD },
     ).toString();
     expect(out).toMatch(/up to date/);
   });
 
   it("--check FAILS with a staleness diagnostic when on-disk JSON is stale", () => {
-    execFileSync("npx", ["tsx", SCRIPT, `--out=${outPath}`], { stdio: "pipe" });
+    execFileSync("npx", ["tsx", SCRIPT, `--out=${outPath}`], {
+      stdio: "pipe",
+      shell: NEEDS_SHELL_FOR_CMD,
+    });
     const original = readFileSync(outPath, "utf8");
     writeFileSync(outPath, original.replace(/docs.copilotkit.ai/g, "x"));
     const result = spawnSync(
       "npx",
       ["tsx", SCRIPT, "--check", `--out=${outPath}`],
-      { encoding: "utf8" },
+      { encoding: "utf8", shell: NEEDS_SHELL_FOR_CMD },
     );
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/stale/);
@@ -64,7 +78,7 @@ describe("emit-railway-envs-json", () => {
     const result = spawnSync(
       "npx",
       ["tsx", SCRIPT, "--check", `--out=${subdir}`],
-      { encoding: "utf8" },
+      { encoding: "utf8", shell: NEEDS_SHELL_FOR_CMD },
     );
     expect(result.status).toBe(2);
     expect(result.stderr).toMatch(/EISDIR|illegal operation on a directory/i);

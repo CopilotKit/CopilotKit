@@ -348,6 +348,213 @@ describe("writeFileAtomicSync tmp naming matches the straggler-sweep convention 
   });
 });
 
+// ---------------------------------------------------------------------------
+// Boot guards
+// ---------------------------------------------------------------------------
+// Both guards below shipped with NO test at all: deleting either block left
+// `generate-registry.test.ts`, `generate-registry-pattern.test.ts` and
+// `generate-catalog.test.ts` fully green, so the only thing standing between a
+// refactor and a silently-removed build gate was the reviewer noticing.
+//
+// They are tested IN-PROCESS (importing the two functions) rather than through
+// `runGenerator`. The subprocess harness would be the closer match to
+// production, but it cannot express "the schema disagrees with AGENT_KINDS"
+// without also staging a doctored copy of `lib/manifest.ts` — and the
+// in-process form pins the thing that is actually untested: this file's
+// `process.exit(1)` + labeled-stderr contract. (`manifest.test.ts` separately
+// pins the AGENT_KINDS set itself; it says nothing about what this script does
+// when the two spellings drift.)
+//
+// Importing the module does not run main() — see the direct-run guard at the
+// bottom of generate-registry.ts, and the atomicTmpPath test above.
+describe("generate-registry boot guards", () => {
+  /** Import the generator with the pattern env neutralised, as above. */
+  async function importGenerator() {
+    vi.stubEnv("SHOWCASE_BACKEND_HOST_PATTERN", "");
+    vi.stubEnv("NEXT_PUBLIC_SHOWCASE_BACKEND_HOST_PATTERN", "");
+    return import("../generate-registry");
+  }
+
+  describe("assertSchemaAgentKindsMatch", () => {
+    it("exits 1 with a labeled stderr message when the schema enum drifts from AGENT_KINDS", async () => {
+      const { assertSchemaAgentKindsMatch } = await importGenerator();
+      const { AGENT_KINDS } = await import("../lib/manifest");
+
+      // A schema that declares one kind FEWER than AGENT_KINDS — exactly the
+      // shape of "someone added a kind to the TS list and forgot the JSON".
+      const drifted = {
+        properties: {
+          agent_kind: { enum: [...AGENT_KINDS].slice(0, -1) },
+        },
+      };
+
+      const exitSpy = vi
+        .spyOn(process, "exit")
+        .mockImplementation((code?: number | string | null) => {
+          throw new Error(`process.exit:${code}`);
+        });
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        expect(() => assertSchemaAgentKindsMatch(drifted)).toThrow(
+          "process.exit:1",
+        );
+        expect(exitSpy).toHaveBeenCalledWith(1);
+        const stderr = errSpy.mock.calls.map((c) => String(c[0])).join("\n");
+        expect(stderr).toContain("ERROR");
+        expect(stderr).toContain("agent_kind");
+        expect(stderr).toContain("AGENT_KINDS");
+      } finally {
+        errSpy.mockRestore();
+        exitSpy.mockRestore();
+      }
+    });
+
+    it("also catches drift in the other direction (schema declares a kind the TS list does not)", async () => {
+      const { assertSchemaAgentKindsMatch } = await importGenerator();
+      const { AGENT_KINDS } = await import("../lib/manifest");
+      const drifted = {
+        properties: {
+          agent_kind: { enum: [...AGENT_KINDS, "kind-that-does-not-exist"] },
+        },
+      };
+      const exitSpy = vi
+        .spyOn(process, "exit")
+        .mockImplementation((code?: number | string | null) => {
+          throw new Error(`process.exit:${code}`);
+        });
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        expect(() => assertSchemaAgentKindsMatch(drifted)).toThrow(
+          "process.exit:1",
+        );
+      } finally {
+        errSpy.mockRestore();
+        exitSpy.mockRestore();
+      }
+    });
+
+    it("exits 1 when the schema has no agent_kind enum at all", async () => {
+      // The `Array.isArray` branch: a schema whose agent_kind lost its enum
+      // (or whose properties were restructured) compares `null !== expected`
+      // and must fail rather than pass vacuously.
+      const { assertSchemaAgentKindsMatch } = await importGenerator();
+      const exitSpy = vi
+        .spyOn(process, "exit")
+        .mockImplementation((code?: number | string | null) => {
+          throw new Error(`process.exit:${code}`);
+        });
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        expect(() => assertSchemaAgentKindsMatch({})).toThrow("process.exit:1");
+      } finally {
+        errSpy.mockRestore();
+        exitSpy.mockRestore();
+      }
+    });
+
+    it("passes silently for the REAL committed schema", async () => {
+      // The positive half. Without it, a guard that threw unconditionally
+      // would satisfy every assertion above.
+      const { assertSchemaAgentKindsMatch } = await importGenerator();
+      const schema = JSON.parse(
+        fs.readFileSync(
+          path.join(SHOWCASE_ROOT, "shared", "manifest.schema.json"),
+          "utf-8",
+        ),
+      );
+      const exitSpy = vi
+        .spyOn(process, "exit")
+        .mockImplementation((code?: number | string | null) => {
+          throw new Error(`process.exit:${code}`);
+        });
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        expect(() => assertSchemaAgentKindsMatch(schema)).not.toThrow();
+        expect(exitSpy).not.toHaveBeenCalled();
+        expect(errSpy).not.toHaveBeenCalled();
+      } finally {
+        errSpy.mockRestore();
+        exitSpy.mockRestore();
+      }
+    });
+  });
+
+  describe("duplicate demos[].id", () => {
+    // The JSON schema CANNOT express this rule (draft-07 `uniqueItems`
+    // compares whole items, so two rows differing in any other field slip
+    // past), and this script is the only place that runs the schema — so this
+    // hand-rolled check is the only gate. Both runtime parsers reject a
+    // duplicate, which is why an unreachable second row never surfaced as a
+    // schema error and could rot indefinitely.
+    //
+    // A stub validator stands in for the Ajv-compiled one: the duplicate scan
+    // is independent of schema validation, and stubbing keeps the assertions
+    // about the duplicate message rather than about unrelated schema errors.
+    const passingValidate = Object.assign(() => true, { errors: null }) as any;
+
+    it("reports the duplicate id AND both offending indices", async () => {
+      const { validateManifest } = await importGenerator();
+      const errors = validateManifest(
+        {
+          slug: "dup-pkg",
+          features: ["chat"],
+          demos: [
+            { id: "chat", route: "/demos/chat" },
+            { id: "chat", route: "/demos/chat-two" },
+          ],
+        },
+        passingValidate,
+        new Set(["chat"]),
+        "dup-pkg/manifest.yaml",
+      );
+      const dup = errors.filter((e) => e.includes("declared twice"));
+      expect(dup, errors.join("\n")).toHaveLength(1);
+      // Both indices must be named — "there is a duplicate somewhere" is not
+      // actionable on a manifest with 20+ rows.
+      expect(dup[0]).toContain("demos[0]");
+      expect(dup[0]).toContain("demos[1]");
+      expect(dup[0]).toContain('"chat"');
+    });
+
+    it("flags a duplicate even when the two rows differ in every other field", async () => {
+      // The precise case `uniqueItems` cannot see.
+      const { validateManifest } = await importGenerator();
+      const errors = validateManifest(
+        {
+          slug: "dup-pkg",
+          features: ["chat"],
+          demos: [
+            { id: "chat", route: "/demos/chat", agent: { path: "a.py" } },
+            { id: "chat", command: "npm run chat" },
+          ],
+        },
+        passingValidate,
+        new Set(["chat"]),
+        "dup-pkg/manifest.yaml",
+      );
+      expect(errors.some((e) => e.includes("declared twice"))).toBe(true);
+    });
+
+    it("does NOT flag distinct demo ids", async () => {
+      const { validateManifest } = await importGenerator();
+      const errors = validateManifest(
+        {
+          slug: "ok-pkg",
+          features: ["chat", "hitl"],
+          demos: [
+            { id: "chat", route: "/demos/chat" },
+            { id: "hitl", route: "/demos/hitl" },
+          ],
+        },
+        passingValidate,
+        new Set(["chat", "hitl"]),
+        "ok-pkg/manifest.yaml",
+      );
+      expect(errors.filter((e) => e.includes("declared twice"))).toEqual([]);
+    });
+  });
+});
+
 describe("generate-registry constraints-read error contract (SU7-F3 #4)", () => {
   it("fails with a labeled stderr message + exit 1 when constraints.yaml is missing, not a raw ENOENT stack", () => {
     const harness = makeHarness({ constraints: false });

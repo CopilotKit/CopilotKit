@@ -8,6 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/crewai-crews
 copilotkit_version: 2.0.0
 deployed: true
+demo_frontend: unified
 docs_mode: authored
 sort_order: 40
 generative_ui:
@@ -74,8 +75,17 @@ features:
   - voice
   - declarative-gen-ui
   - a2ui-fixed-schema
-  - byoc-hashbrown
-  - byoc-json-render
+  # DROPPED: `byoc-hashbrown` / `byoc-json-render`. Both ids are marked
+  # `deprecated` in showcase/shared/feature-registry.json, superseded by
+  # `declarative-hashbrown` / `declarative-json-render`. This package's demo
+  # folders already carry the NEW names and the unified app only ships pages for
+  # the new ids, so the legacy ids named nothing in this app: they sat in
+  # `features` with no `demos[]` row, which made the cell resolve as supported
+  # and then 404 at POST /api/crewai-crews/<id>. Re-adding them under the NEW ids
+  # is a follow-up: the agents ARE served (src/agent_server.py registers
+  # ByocHashbrown() at "/byoc-hashbrown" and ByocJsonRender() at
+  # "/byoc-json-render"), so the rows need `id: declarative-*` with `agent.path`
+  # pointing at those legacy backend prefixes.
   - beautiful-chat
   - shared-state-read
 a2ui_pattern: schema-loading
@@ -89,6 +99,8 @@ demos:
       - chat-ui
     command: "npx copilotkit@latest init --framework crewai-crews"
   - id: agentic-chat
+    agent:
+      name: agentic_chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
     tags:
@@ -131,6 +143,12 @@ demos:
     route: /demos/headless-simple
     animated_preview_url:
   - id: headless-complete
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
     name: Headless Chat (Complete)
     description: Full chat implementation built from scratch on useAgent
     tags:
@@ -145,6 +163,8 @@ demos:
     route: /demos/hitl-in-chat
     animated_preview_url:
   - id: hitl-in-chat-booking
+    agent:
+      name: hitl-in-chat
     name: In-Chat HITL (Booking)
     description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow
     tags:
@@ -165,6 +185,8 @@ demos:
     route: /demos/hitl-in-app
     animated_preview_url:
   - id: hitl
+    agent:
+      name: human_in_the_loop
     name: In-Chat Human in the Loop (original)
     description: Original CrewAI HITL demo — kept for backwards-compat
     tags:
@@ -172,6 +194,8 @@ demos:
     route: /demos/hitl
     animated_preview_url:
   - id: tool-rendering
+    agent:
+      path: /tool-rendering
     name: Tool Rendering
     description: Custom per-tool renderers plus a wildcard catch-all for every other tool
     tags:
@@ -187,6 +211,8 @@ demos:
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-default-catchall
+    agent:
+      path: /tool-rendering
     name: Tool Rendering (Default Catch-all)
     description: Out-of-the-box tool rendering — backend defines the tools; the
       frontend adds zero custom renderers and relies on CopilotKit's built-in
@@ -199,6 +225,8 @@ demos:
       - src/app/demos/tool-rendering-default-catchall/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-custom-catchall
+    agent:
+      path: /tool-rendering
     name: Tool Rendering (Custom Catch-all)
     description: Single branded wildcard renderer via useDefaultRenderTool — the
       same app-designed card paints every tool call
@@ -218,6 +246,8 @@ demos:
     route: /demos/tool-rendering-reasoning-chain
     animated_preview_url:
   - id: gen-ui-agent
+    agent:
+      path: /gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
     tags:
@@ -235,6 +265,8 @@ demos:
       - src/app/demos/gen-ui-tool-based/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools
+    agent:
+      name: frontend_tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
     tags:
@@ -255,7 +287,23 @@ demos:
       - agent-state
     route: /demos/shared-state-streaming
     animated_preview_url:
+  - id: shared-state-read
+    name: "Shared State: Read-only"
+    description:
+      "Recipe editor publishes form state via agent.setState; the agent
+      reads the recipe context but does not mutate it (no backend tool — neutral
+      default agent)."
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+    highlight:
+      - src/app/demos/shared-state-read/page.tsx
+      - src/app/demos/shared-state-read/recipe-card.tsx
+      - src/app/api/copilotkit/route.ts
   - id: shared-state-read-write
+    agent:
+      path: /shared-state-read-write
     name: Shared State (Read + Write)
     description: Bidirectional shared state - UI writes preferences, agent writes notes
     tags:
@@ -268,6 +316,8 @@ demos:
       - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/app/demos/shared-state-read-write/preferences-card.tsx
   - id: subagents
+    agent:
+      path: /subagents
     name: Sub-Agents
     description: Supervisor delegates to research / writing / critique CrewAI
       sub-crews with a live delegation log
@@ -287,6 +337,11 @@ demos:
     route: /demos/readonly-state-agent-context
     animated_preview_url:
   - id: open-gen-ui
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
     name: Fully Open-Ended Generative UI
     description: Agent generates UI from an arbitrary component library
     tags:
@@ -297,6 +352,11 @@ demos:
       - src/app/demos/open-gen-ui/page.tsx
       - src/app/api/copilotkit-ogui/route.ts
   - id: open-gen-ui-advanced
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
     name: "Open-Ended Gen UI (Advanced)"
     description:
       Agent-authored UI that invokes host sandbox functions from inside
@@ -310,6 +370,8 @@ demos:
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/api/copilotkit-ogui/route.ts
   - id: agent-config
+    agent:
+      name: agent-config-demo
     name: Agent Config Object
     description:
       Forward a typed config object (tone / expertise / response length)
@@ -319,6 +381,8 @@ demos:
     route: /demos/agent-config
     animated_preview_url:
   - id: auth
+    agent:
+      name: auth-demo
     name: Authentication
     description: Runtime-level bearer-token auth via the V2 onRequest hook
     tags:
@@ -326,6 +390,8 @@ demos:
     route: /demos/auth
     animated_preview_url:
   - id: voice
+    agent:
+      name: voice-demo
     name: Voice Input
     description: Speech-to-text transcription via @copilotkit/voice mounted on a
       per-demo runtime
@@ -338,6 +404,8 @@ demos:
       - src/app/demos/voice/sample-audio-button.tsx
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: multimodal
+    agent:
+      name: multimodal-demo
     name: Multimodal Attachments
     description: Image and PDF uploads routed through the AG-UI attachment pipeline
     tags:
@@ -345,6 +413,11 @@ demos:
     route: /demos/multimodal
     animated_preview_url:
   - id: declarative-gen-ui
+    agent:
+      path: /declarative-gen-ui
+    runtime:
+      a2ui:
+        defaultCatalogId: declarative-gen-ui-catalog
     name: Declarative Generative UI (A2UI - Dynamic Schema)
     description: Branded A2UI components generated by a secondary LLM against a
       custom catalog
@@ -353,6 +426,11 @@ demos:
     route: /demos/declarative-gen-ui
     animated_preview_url:
   - id: a2ui-fixed-schema
+    agent:
+      path: /a2ui-fixed-schema
+    runtime:
+      a2ui:
+        injectA2UITool: false
     name: A2UI Fixed-Schema
     description:
       Pre-authored component tree; the agent streams only data into the
@@ -368,6 +446,13 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
   - id: beautiful-chat
+    agent:
+      path: /beautiful-chat
+    runtime:
+      openGenerativeUI: true
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "copilotkit://app-dashboard-catalog"
     name: Beautiful Chat
     description: Flagship showcase - polished brand-styled chat with A2UI, Open
       Generative UI, and shared-state todos
@@ -375,6 +460,14 @@ demos:
       - chat-ui
     route: /demos/beautiful-chat
   - id: mcp-apps
+    agent:
+      path: /mcp-apps/
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
     name: MCP Apps
     description: MCP server-driven UI via activity renderers
     tags:
@@ -386,6 +479,8 @@ demos:
       - src/app/demos/mcp-apps/page.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
   - id: gen-ui-interrupt
+    agent:
+      path: /interrupt-adapted
     name: Gen UI Interrupt (Strategy B)
     description: Interrupt-style scheduling via useFrontendTool with an async
       Promise — time-picker card rendered inline in chat
@@ -399,6 +494,8 @@ demos:
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
+    agent:
+      path: /interrupt-adapted
     name: Headless Interrupt (Strategy B)
     description:
       Headless interrupt via useFrontendTool — time-picker popup appears

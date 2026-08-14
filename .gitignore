@@ -28,6 +28,15 @@ superpowers/
 
 __pycache__/
 *.env
+# EXCEPTION to `*.env` above. This one is a GENERATED, TRACKED artifact, not an
+# operator's secrets file: showcase/scripts/emit-local-services-env.ts projects
+# the `demo_frontend` field of every integration manifest into the
+# LOCAL_SERVICE_URL_<SLUG> namespace that docker-compose.local.yml interpolates.
+# It must be committed — it is the compose side of the migration's single source
+# of truth, and CI runs the emitter with `--check` to fail on drift. It holds no
+# secrets (only container-network URLs). The hand-maintained secrets file,
+# showcase/.env, stays ignored by the rule above.
+!showcase/local-services.generated.env
 .doctest-output/
 *.next
 .venv

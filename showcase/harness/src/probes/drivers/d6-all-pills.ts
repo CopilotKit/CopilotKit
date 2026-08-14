@@ -95,8 +95,30 @@ export const DEPLOY_CHURN_GRACE_MS = 120_000;
 const inputSchema = z
   .object({
     key: z.string().min(1),
+    /**
+     * AGENT origin. Reported in every emitted signal.
+     *
+     * NOTE: this used to double as the page-navigation base. It no longer
+     * does — navigation uses `frontendBaseUrl` (below), which falls back to
+     * this value so single-origin callers are unaffected.
+     */
     backendUrl: z.string().url().optional(),
     publicUrl: z.string().url().optional(),
+    /**
+     * Base URL the slug's DEMO PAGES are served from, INCLUDING any path
+     * prefix (`http://frontend-nextjs:3000/<slug>`). This is what the browser
+     * navigates to.
+     *
+     * The `/<slug>` prefix is baked in BY THE CALLER (`getSlugOrigins` in
+     * `src/cli/config.ts` for the local CLI path, `LOCAL_SERVICES_JSON` /
+     * railway discovery for the fleet path). The driver never constructs it,
+     * so this shared probe holds ZERO per-integration knowledge — showcase
+     * iron rule 1.
+     *
+     * Optional: absent ⇒ `backendUrl ?? publicUrl`, i.e. exactly the
+     * pre-split behaviour.
+     */
+    frontendBaseUrl: z.string().url().optional(),
     name: z.string().optional(),
     features: z.array(z.string()).optional(),
     demos: z.array(z.string()).optional(),
@@ -786,6 +808,10 @@ export function createE2eFullDriver(
     ): Promise<ProbeResult<E2eFullAggregateSignal>> {
       const observedAt = ctx.now().toISOString();
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
+      // WHERE THE DEMOS ARE SERVED — a different axis from `backendUrl`
+      // (where the agent is). Falls back to `backendUrl` so a caller that
+      // only has one origin composes byte-identical URLs to before.
+      const demoBaseUrl = input.frontendBaseUrl ?? backendUrl;
       const slug = deriveSlug(input.key, input.name);
 
       // Resolve the outer-cap per `run()`. Fleet path: the enumerator conveys
@@ -1183,7 +1209,11 @@ export function createE2eFullDriver(
           const route = (script.preNavigateRoute ?? defaultRoute)(ft, {
             demos: input.demos,
           });
-          const url = `${backendUrl}${route}`;
+          // Navigate to the DEMO-serving origin. `route` is produced by the
+          // per-feature script's `preNavigateRoute` and is slug-agnostic
+          // (`/demos/<id>`); any `/<slug>` prefix a migrated cell needs is
+          // already part of `demoBaseUrl`, so no route function changes.
+          const url = `${demoBaseUrl}${route}`;
 
           await sem.acquire();
           const featureStart = Date.now();
@@ -2103,7 +2133,17 @@ async function captureDiagnostics(
 
       const apiEntries = win.performance
         .getEntriesByType("resource")
-        .filter((e) => e.name.includes("copilotkit"))
+        // Diagnostic-only resource-timing snapshot. Filter on the `/api/`
+        // prefix, NOT on the literal `copilotkit` segment: a migrated
+        // (`demo_frontend: unified`) integration serves its runtime at
+        // `/api/<slug>/<demo>`, so the old filter reported ZERO runtime
+        // network activity and a failing cell looked like "the page never
+        // talked to a runtime". This runs inside `page.evaluate`, so it cannot
+        // import the shared predicate from `helpers/runtime-endpoint.ts`; a
+        // broader filter is the right trade here because over-reporting a
+        // couple of `/api/health` rows in a DIAGNOSTIC costs nothing while
+        // under-reporting destroys the evidence.
+        .filter((e) => e.name.includes("/api/"))
         .map((e) => ({
           url: e.name.slice(0, 200),
           duration: Math.round(e.duration),

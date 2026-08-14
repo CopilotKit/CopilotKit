@@ -8,16 +8,10 @@ registered client catalog injected via the runtime's
 container which the runtime's A2UI middleware detects and forwards to the
 frontend renderer.
 
-Why a separate agent (vs reusing the main agent's `generate_a2ui` tool)?
-The main agent uses a hardcoded internal catalog ID
-(`copilotkit://app-dashboard-catalog`) and ignores any runtime catalog the
-frontend registers via `<CopilotKit a2ui={{ catalog }}>`. This dedicated
-agent reads the runtime catalog from `session_state["copilotkit"]
-["context"]` so it stays in sync with the frontend renderer's catalog.
-
-The dedicated runtime route (`api/copilotkit-declarative-gen-ui/route.ts`)
-sets `injectA2UITool: false` so the runtime does not double-bind a second
-A2UI tool on top of this one.
+The running unified frontend bakes manifests at image build, so this
+session still has `injectA2UITool: false`. Keep the two-stage body. After
+a later frontend-nextjs rebuild with inject true, the middleware
+intercepts and this body does not run.
 """
 
 from __future__ import annotations
@@ -60,28 +54,23 @@ SYSTEM_PROMPT = (
 )
 
 
-def generate_a2ui(run_context: RunContext, context: str) -> str:
+def generate_a2ui(run_context: RunContext, context: str = "") -> str:
     """Generate dynamic A2UI components based on the conversation.
 
     A secondary LLM designs the UI schema and data. The result is
     returned as an `a2ui_operations` container for the A2UI middleware
     to detect and forward to the frontend renderer.
-
-    The runtime A2UI middleware injects the registered client catalog
-    schema into `state.copilotkit.context` automatically. We pull it out
-    of the per-run `session_state` (Agno's `validate_agui_state` mirrors
-    `RunAgentInput.state` into `session_state`) so the secondary LLM
-    knows which components are available — staying in sync with the
-    frontend catalog.
-
-    Args:
-        run_context: Agno run context (provides session_state).
-        context (str): Conversation context summary the secondary LLM
-            should design UI from.
-
-    Returns:
-        str: A2UI operations as JSON.
     """
+    if not (context and str(context).strip()):
+        msgs = getattr(run_context, "messages", None) or []
+        for msg in reversed(msgs):
+            role = getattr(msg, "role", None)
+            content = getattr(msg, "content", None)
+            if role == "user" and content:
+                context = content if isinstance(content, str) else str(content)
+                break
+        if not context:
+            context = "sales dashboard for this quarter"
     state = getattr(run_context, "session_state", None) or {}
     context_entries = []
     if isinstance(state, dict):
@@ -105,15 +94,6 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
     if context and context.strip():
         system_prompt = f"{system_prompt}\n\nConversation context:\n{context}"
 
-    # Forward the request-scoped CopilotKit ``x-*`` headers (notably
-    # ``x-aimock-context``) onto this SECONDARY OpenAI call explicitly.
-    # agno runs under uvloop in prod, where the executor-contextvar shim is
-    # inert; relying on the global httpx hook + ContextVar alone is fragile
-    # across loop types. Reading the captured headers here (on the request
-    # context that invoked the tool) and passing them as ``default_headers``
-    # makes the secondary call carry the context REGARDLESS of loop type, so
-    # aimock can match the fixture instead of returning 503 on an empty
-    # ``x-aimock-context``.
     forwarded_headers = get_forwarded_headers()
     client = openai.OpenAI(default_headers=forwarded_headers or None)
     response = client.chat.completions.create(

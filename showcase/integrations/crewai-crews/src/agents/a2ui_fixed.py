@@ -1,16 +1,17 @@
-"""Dedicated crew for the A2UI Fixed-Schema demo.
+"""CrewAI Flow backing the A2UI Fixed-Schema demo.
 
-Mirrors `langgraph-python/src/agents/a2ui_fixed.py`:
+Mirrors `langgraph-python/src/agents/a2ui_fixed.py` observable contract:
 
-- The component tree (schema) is authored ahead of time as JSON in
-  `agents/a2ui_schemas/flight_schema.json` and loaded at startup.
-- The crew binds a `DisplayFlightTool` that, when called, returns an
-  `a2ui_operations` container referencing the pre-authored schema and
-  filling the data model with the trip-specific values the LLM supplies.
-- The runtime's A2UI middleware detects the `a2ui_operations` container in
-  the tool result and forwards surfaces to the frontend renderer.
+- Bind `display_flight` with `{origin, destination, airline, price}`.
+- Execute it locally and return an `a2ui_operations` container
+  (createSurface + updateComponents + updateDataModel).
+- Stream the LLM turn through `copilotkit_stream` (TOOL_CALL_CHUNK)
+  and then emit TOOL_CALL_RESULT with that container.
 
-Reference: langgraph-python/src/agents/a2ui_fixed.py
+`ag_ui_crewai` 0.2.0 only bridges TEXT_MESSAGE_CHUNK and TOOL_CALL_CHUNK.
+It never emits TOOL_CALL_RESULT after a local tool run. The runtime A2UI
+middleware only paints `a2ui_operations` from TOOL_CALL_RESULT, so this
+flow puts that event on the AG-UI queue itself.
 """
 
 # @region[backend-render-operations]
@@ -18,148 +19,217 @@ Reference: langgraph-python/src/agents/a2ui_fixed.py
 from __future__ import annotations
 
 import json
+import uuid
 from pathlib import Path
-from typing import Any, Type
 
-from crewai import Agent, Crew, Process, Task
-from crewai.tools import BaseTool
-from pydantic import BaseModel, Field
+from ag_ui.core import EventType, ToolCallResultEvent
+from crewai.flow.flow import Flow, start
+from litellm import acompletion
 
-from agents._chat_flow_helpers import preseed_system_prompt
+from ag_ui_crewai import CopilotKitState, copilotkit_stream
+from ag_ui_crewai.endpoint import get_queue
+from ag_ui_crewai.utils import yield_control
 
 
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
-CREW_NAME = "A2UIFixedSchema"
 
 _SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
 
-# Load flight schema at module load so the first request does not pay I/O
-# for the JSON parse. The schema is authored as JSON so it can be reviewed
-# independently of the Python code.
+# The schema is JSON so it can be authored and reviewed independently of the
+# Python code. Loaded at import so the first request does not pay I/O.
 with (_SCHEMAS_DIR / "flight_schema.json").open() as _fp:
-    _FLIGHT_SCHEMA = json.load(_fp)
+    FLIGHT_SCHEMA = json.load(_fp)
 # @endregion[backend-schema-json-load]
 
 
-class DisplayFlightInput(BaseModel):
-    """Input schema for DisplayFlightTool."""
+DISPLAY_FLIGHT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "display_flight",
+        "description": (
+            "Show a flight card for the given trip. Use short airport codes "
+            '(e.g. "SFO", "JFK") for origin/destination and a price string '
+            'like "$289". After this tool returns, the flight card is already '
+            "rendered to the user via the A2UI surface — do NOT call this "
+            "tool again for the same flight. Reply with one short "
+            "confirmation sentence and stop."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "origin": {
+                    "type": "string",
+                    "description": '3-letter airport code, e.g. "SFO".',
+                },
+                "destination": {
+                    "type": "string",
+                    "description": '3-letter airport code, e.g. "JFK".',
+                },
+                "airline": {
+                    "type": "string",
+                    "description": 'Airline name, e.g. "United".',
+                },
+                "price": {
+                    "type": "string",
+                    "description": 'Price string, e.g. "$289".',
+                },
+            },
+            "required": ["origin", "destination", "airline", "price"],
+        },
+    },
+}
 
-    origin: str = Field(..., description='3-letter airport code, e.g. "SFO".')
-    destination: str = Field(..., description='3-letter airport code, e.g. "JFK".')
-    airline: str = Field(..., description='Airline name, e.g. "United Airlines".')
-    price: str = Field(..., description='Price string, e.g. "$289".')
 
+def display_flight_operations(
+    origin: str, destination: str, airline: str, price: str
+) -> str:
+    """LGP `a2ui.render(...)` shape: a2ui_operations v0.9 ops.
 
-class DisplayFlightTool(BaseTool):
-    """Render the pre-authored flight card with the supplied trip data.
-
-    Returns an `a2ui_operations` container that the runtime's A2UI
-    middleware serialises into a `render_a2ui` tool result on the AG-UI
-    wire. The frontend catalog resolves the component names in the schema
-    to real React components.
+    Note: schema-swap-on-action (e.g. swapping to a "booked" schema when
+    the card's button is clicked) will be added once the Python SDK
+    exposes `action_handlers=` on `a2ui.render`.
     """
+    ops = [
+        {
+            "version": "v0.9",
+            "createSurface": {"surfaceId": SURFACE_ID, "catalogId": CATALOG_ID},
+        },
+        {
+            "version": "v0.9",
+            "updateComponents": {
+                "surfaceId": SURFACE_ID,
+                "components": FLIGHT_SCHEMA,
+            },
+        },
+        {
+            "version": "v0.9",
+            "updateDataModel": {
+                "surfaceId": SURFACE_ID,
+                "path": "/",
+                "value": {
+                    "origin": origin,
+                    "destination": destination,
+                    "airline": airline,
+                    "price": price,
+                },
+            },
+        },
+    ]
+    return json.dumps({"a2ui_operations": ops})
+    # @endregion[backend-render-operations]
 
-    name: str = "display_flight"
-    description: str = (
-        "Show a flight card for the given trip. Use short airport codes "
-        '(e.g. "SFO", "JFK") for origin/destination and a price string '
-        'like "$289".'
+
+async def _emit_tool_call_result(flow: object, tool_call_id: str, content: str) -> None:
+    """Put TOOL_CALL_RESULT on the AG-UI queue for this flow.
+
+    `copilotkit_stream` never emits this event. Without it the A2UI
+    middleware never sees `a2ui_operations` and `a2ui-fixed-card` never
+    mounts.
+    """
+    queue = get_queue(flow)
+    if queue is None:
+        return
+    queue.put_nowait(
+        ToolCallResultEvent(
+            type=EventType.TOOL_CALL_RESULT,
+            tool_call_id=tool_call_id,
+            message_id=str(uuid.uuid4()),
+            content=content,
+            role="tool",
+        )
     )
-    args_schema: Type[BaseModel] = DisplayFlightInput
+    await yield_control()
 
-    def _run(self, origin: str, destination: str, airline: str, price: str) -> str:
-        # The A2UI middleware detects the `a2ui_operations` container in this
-        # tool result and forwards the ops to the frontend renderer. The
-        # frontend catalog resolves component names to local React components.
-        ops: list[dict[str, Any]] = [
-            {
-                "version": "v0.9",
-                "createSurface": {"surfaceId": SURFACE_ID, "catalogId": CATALOG_ID},
-            },
-            {
-                "version": "v0.9",
-                "updateComponents": {
-                    "surfaceId": SURFACE_ID,
-                    "components": _FLIGHT_SCHEMA,
-                },
-            },
-            {
-                "version": "v0.9",
-                "updateDataModel": {
-                    "surfaceId": SURFACE_ID,
-                    "path": "/",
-                    "value": {
-                        "origin": origin,
-                        "destination": destination,
-                        "airline": airline,
-                        "price": price,
-                    },
-                },
-            },
+
+_SYSTEM_PROMPT = (
+    "You help users find flights. When asked about a flight, call "
+    "`display_flight` exactly ONCE with origin, destination, airline, "
+    "and price. The tool's JSON return value is an A2UI surface "
+    "descriptor — the flight card is already rendered to the user; do "
+    "NOT call `display_flight` again for the same trip. After the tool "
+    "returns, reply with one short confirmation sentence and stop."
+)
+
+_MAX_ITERATIONS = 5
+
+
+class A2UIFixedState(CopilotKitState):
+    """Conversation-only state for the fixed-schema flight card."""
+
+    pass
+
+
+class A2UIFixedFlow(Flow[A2UIFixedState]):
+    """Chat flow that emits `display_flight` TOOL_CALL_* + a2ui ops."""
+
+    @start()
+    async def chat(self) -> None:
+        system_message = {
+            "role": "system",
+            "content": _SYSTEM_PROMPT,
+            "id": str(uuid.uuid4()) + "-system",
+        }
+
+        tools = [
+            *self.state.copilotkit.actions,
+            DISPLAY_FLIGHT_TOOL,
         ]
-        return json.dumps({"a2ui_operations": ops})
-        # @endregion[backend-render-operations]
+
+        for _iteration in range(_MAX_ITERATIONS):
+            messages = [system_message, *self.state.messages]
+
+            response = await copilotkit_stream(
+                await acompletion(
+                    model="openai/gpt-4o-mini",
+                    messages=messages,
+                    tools=tools,
+                    parallel_tool_calls=False,
+                    stream=True,
+                )
+            )
+
+            message = response.choices[0].message
+            self.state.messages.append(message)
+
+            tool_calls = message.get("tool_calls") or []
+            if not tool_calls:
+                return
+
+            for tool_call in tool_calls:
+                tool_call_id = tool_call["id"]
+                tool_name = tool_call["function"]["name"]
+
+                if tool_name == "display_flight":
+                    try:
+                        args = json.loads(tool_call["function"]["arguments"] or "{}")
+                    except json.JSONDecodeError:
+                        args = {}
+                    result_str = display_flight_operations(
+                        origin=args.get("origin", ""),
+                        destination=args.get("destination", ""),
+                        airline=args.get("airline", ""),
+                        price=args.get("price", ""),
+                    )
+                    self.state.messages.append(
+                        {
+                            "role": "tool",
+                            "content": result_str,
+                            "tool_call_id": tool_call_id,
+                        }
+                    )
+                    await _emit_tool_call_result(self, tool_call_id, result_str)
+                else:
+                    # Frontend-registered action — placeholder so the
+                    # next LLM turn has a matching tool result.
+                    self.state.messages.append(
+                        {
+                            "role": "tool",
+                            "content": "frontend tool -- handled client-side",
+                            "tool_call_id": tool_call_id,
+                        }
+                    )
 
 
-A2UI_FIXED_BACKSTORY = (
-    "You help users find flights. When asked about a flight, call the "
-    "display_flight tool with origin, destination, airline, and price. "
-    "Keep any chat reply to one short sentence."
-)
-
-
-preseed_system_prompt(
-    CREW_NAME,
-    (
-        "A2UI Fixed-Schema demo. When the user asks about a flight, call "
-        "display_flight with origin, destination, airline, and price. Keep "
-        "chat replies to one short sentence."
-    ),
-)
-
-
-def _build_crew() -> Crew:
-    agent = Agent(
-        role="A2UI Fixed-Schema Flight Finder",
-        goal=(
-            "Answer the user's flight questions by calling display_flight "
-            "to render the pre-authored flight card with their trip data."
-        ),
-        backstory=A2UI_FIXED_BACKSTORY,
-        verbose=False,
-        tools=[DisplayFlightTool()],
-    )
-
-    task = Task(
-        description=(
-            "Answer the user. When they ask about a flight, call "
-            "display_flight with origin, destination, airline, and price."
-        ),
-        expected_output="A one-sentence reply plus a rendered flight card.",
-        agent=agent,
-    )
-
-    return Crew(
-        name=CREW_NAME,
-        agents=[agent],
-        tasks=[task],
-        process=Process.sequential,
-        verbose=False,
-        chat_llm="gpt-4o-mini",
-    )
-
-
-_cached_crew: Crew | None = None
-
-
-class A2UIFixedSchema:
-    """Adapter matching the shape `add_crewai_crew_fastapi_endpoint` expects."""
-
-    name: str = CREW_NAME
-
-    def crew(self) -> Crew:
-        global _cached_crew
-        if _cached_crew is None:
-            _cached_crew = _build_crew()
-        return _cached_crew
+# Module-level singleton -- deepcopied per request by the endpoint.
+a2ui_fixed_flow = A2UIFixedFlow()

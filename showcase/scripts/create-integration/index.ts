@@ -342,6 +342,13 @@ function generateManifest(args: CLIArgs, features: Feature[]): string {
     // backend_url is intentionally omitted — generate-registry.ts synthesizes
     // it at build time from `SHOWCASE_BACKEND_HOST_PATTERN` + slug.
     deployed: false,
+    // WHICH frontend serves this integration's demos. Scaffolded explicitly at
+    // the default rather than omitted: this field is the single tracked source
+    // of truth for the unified-frontend migration (the harness and the compose
+    // roster both derive from it), and a new integration relying on the implicit
+    // default would hide the axis from anyone reading its manifest. See the
+    // unified-frontend note in showcase/AGENTS.md for how to migrate it later.
+    demo_frontend: "integration",
     generative_ui: ["constrained-explicit"],
     interaction_modalities: ["chat"],
     features: args.features,

@@ -189,16 +189,25 @@ export function resolveShowcaseCell(
     };
   }
 
-  const integrationOrigin = resolveBackendUrl(
+  // `integration.backend_url` is passed so a slug whose demos moved to
+  // the unified frontend (`https://<shared-host>/<slug>`) resolves to
+  // that shared host + path. resolveBackendUrl ignores the value unless
+  // it is a deliberate migration override (see registryBackendOverride),
+  // so today — where every registry value is the synthesized per-slug
+  // host — this changes nothing. The result is a BASE, not an origin: it
+  // may carry a path, and it never ends in "/", so concatenating a demo
+  // route (which starts with "/") yields exactly one slash at the join.
+  const integrationBase = resolveBackendUrl(
     integration.slug,
     input.backendHostPattern,
+    integration.backend_url,
   );
   return {
     ...common,
     kind: "runnable",
     iframeUrl:
       frontend.id === "angular"
-        ? `${integrationOrigin}/angular/${encodeURIComponent(feature.id)}`
-        : `${integrationOrigin}${demo.route}`,
+        ? `${integrationBase}/angular/${encodeURIComponent(feature.id)}`
+        : `${integrationBase}${demo.route}`,
   };
 }

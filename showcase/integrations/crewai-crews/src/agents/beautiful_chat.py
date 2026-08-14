@@ -1,59 +1,37 @@
-"""Dedicated crew for the Beautiful Chat flagship demo.
+"""CrewAI Flow backing the Beautiful Chat flagship demo.
 
-Mirrors `langgraph-python/src/agents/beautiful_chat.py` with CrewAI
-plumbing, with two deviations from the langgraph reference tracked in
-PARITY_NOTES.md:
+Mirrors `langgraph-python/src/agents/beautiful_chat.py` observable
+contract for `search_flights`: emit A2UI v0.9 ops with literal
+FlightCard children (United / Delta, $349 / $289).
 
-1. **MCP Apps skipped.** `ag-ui-crewai` has no MCP SSE client wiring and
-   CrewAI crews use a Pydantic-schema `BaseTool` list rather than an MCP
-   multiplexer, so the Excalidraw Diagram suggestion is omitted from the
-   frontend suggestion pills. A dedicated implementation would require
-   first-class MCP support in CrewAI upstream.
+`ChatWithCrewFlow` runs tools inside the crew and does not emit
+TOOL_CALL_*, so the runtime A2UI middleware never sees
+`a2ui_operations`. This module uses the same raw `Flow` loop as
+`tool_rendering.py`.
 
-2. **Shared-state todos simplified.** The LangGraph reference wires a
-   `manage_todos` tool that returns a LangGraph `Command` patching state.
-   CrewAI has no equivalent state-patch primitive, so we expose a
-   `manage_todos` tool that returns the new todos list as JSON; the
-   frontend's `useCoAgent`-backed headless chat picks up the return value
-   and maintains the UI state from there.
-
-The crew binds:
-- `GetWeatherTool` / `QueryDataTool` / `ScheduleMeetingTool` /
-  `SearchFlightsTool` / `GenerateA2uiTool` from the shared tools module.
-- A new `ManageTodosTool` for the shared-state todo surface.
-
-The crew has a single agent whose backstory is tuned for polished
-short-form responses (1-2 sentences) so the demo's "the UI does the
-talking" feel is preserved.
+MCP Apps are still omitted (NSF on this slug). Shared-state todos stay
+a JSON tool result — CrewAI has no LangGraph `Command` state patch.
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any, List, Type
+import uuid
+from typing import Type
 
-from crewai import Agent, Crew, Process, Task
+from crewai.flow.flow import Flow, start
 from crewai.tools import BaseTool
+from litellm import acompletion
 from pydantic import BaseModel, Field
 
-from agents._chat_flow_helpers import preseed_system_prompt
+from ag_ui_crewai import CopilotKitState, copilotkit_stream
 from agents.tools.custom_tool import (
     GenerateA2uiTool,
     GetWeatherTool,
     QueryDataTool,
     ScheduleMeetingTool,
-    SearchFlightsTool,
+    render_search_flights_a2ui,
 )
-
-
-class TodoItem(BaseModel):
-    """Shape of a single todo matching the frontend's Todo type."""
-
-    id: str = ""
-    title: str = ""
-    description: str = ""
-    emoji: str = ""
-    status: str = "pending"
 
 
 class ManageTodosInput(BaseModel):
@@ -68,12 +46,7 @@ class ManageTodosInput(BaseModel):
 
 
 class ManageTodosTool(BaseTool):
-    """Surface that the shared-state 'todos' app reads from.
-
-    Returns the todos list verbatim as the tool result. The frontend's
-    headless-chat wrapper picks up the ToolMessage content and updates
-    its local todos state.
-    """
+    """Surface that the shared-state 'todos' app reads from."""
 
     name: str = "manage_todos"
     description: str = (
@@ -84,96 +57,277 @@ class ManageTodosTool(BaseTool):
     args_schema: Type[BaseModel] = ManageTodosInput
 
     def _run(self, todos: list[dict]) -> str:
-        # Ensure every todo has a non-empty id so the frontend can key it.
-        import uuid
+        import uuid as _uuid
 
         for todo in todos:
             if not todo.get("id"):
-                todo["id"] = str(uuid.uuid4())
+                todo["id"] = str(_uuid.uuid4())
         return json.dumps({"todos": todos})
 
 
-CREW_NAME = "BeautifulChat"
+SEARCH_FLIGHTS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search_flights",
+        "description": (
+            "Search for flights and display the results as rich cards. "
+            "Return exactly 2 flights. Each flight must have: airline "
+            '(e.g. "United Airlines"), airlineLogo (Google favicon API), '
+            "flightNumber, origin, destination, date (short readable "
+            'format like "Tue, Mar 18"), departureTime, arrivalTime, '
+            'duration (e.g. "4h 25m"), status (e.g. "On Time"), and '
+            'price (e.g. "$289").'
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "flights": {
+                    "type": "array",
+                    "description": "Exactly 2 flight objects to display.",
+                    "items": {"type": "object"},
+                }
+            },
+            "required": ["flights"],
+        },
+    },
+}
+
+GET_WEATHER_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": (
+            "Get current weather for a location. Ensure location is fully spelled out."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The location to get weather for.",
+                }
+            },
+            "required": ["location"],
+        },
+    },
+}
+
+QUERY_DATA_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "query_data",
+        "description": (
+            "Query financial database for chart data. Returns data "
+            "suitable for pie or bar charts."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The query to run against the financial database.",
+                }
+            },
+            "required": ["query"],
+        },
+    },
+}
+
+SCHEDULE_MEETING_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "schedule_meeting",
+        "description": (
+            "Schedule a meeting with user approval. Returns available time slots."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": "Reason for scheduling the meeting.",
+                },
+                "duration_minutes": {
+                    "type": "integer",
+                    "description": "Duration of the meeting in minutes.",
+                },
+            },
+            "required": ["reason"],
+        },
+    },
+}
+
+GENERATE_A2UI_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "generate_a2ui",
+        "description": (
+            "Generate dynamic A2UI components based on the conversation. "
+            "A secondary LLM designs the UI schema and data."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "context": {
+                    "type": "string",
+                    "description": "Conversation context to generate UI for.",
+                }
+            },
+            "required": ["context"],
+        },
+    },
+}
+
+MANAGE_TODOS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "manage_todos",
+        "description": (
+            "Manage the current todos. Pass the FULL list of todos; the "
+            "previous list is replaced."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "todos": {
+                    "type": "array",
+                    "description": "Full list of todo objects.",
+                    "items": {"type": "object"},
+                }
+            },
+            "required": ["todos"],
+        },
+    },
+}
+
+_BACKEND_TOOL_SCHEMAS = [
+    SEARCH_FLIGHTS_TOOL,
+    GET_WEATHER_TOOL,
+    QUERY_DATA_TOOL,
+    SCHEDULE_MEETING_TOOL,
+    GENERATE_A2UI_TOOL,
+    MANAGE_TODOS_TOOL,
+]
+
+_get_weather = GetWeatherTool()
+_query_data = QueryDataTool()
+_schedule_meeting = ScheduleMeetingTool()
+_generate_a2ui = GenerateA2uiTool()
+_manage_todos = ManageTodosTool()
 
 
-BEAUTIFUL_CHAT_BACKSTORY = (
-    "You are a polished, professional demo assistant. Keep chat replies "
-    "to 1-2 short sentences; let the UI do the talking. "
+def _run_backend_tool(tool_name: str, args: dict) -> str:
+    if tool_name == "search_flights":
+        return render_search_flights_a2ui(args.get("flights") or [])
+    if tool_name == "get_weather":
+        return _get_weather._run(args.get("location", "Unknown"))
+    if tool_name == "query_data":
+        return _query_data._run(args.get("query", ""))
+    if tool_name == "schedule_meeting":
+        return _schedule_meeting._run(
+            args.get("reason", ""),
+            args.get("duration_minutes", 30),
+        )
+    if tool_name == "generate_a2ui":
+        return _generate_a2ui._run(args.get("context", ""))
+    if tool_name == "manage_todos":
+        return _manage_todos._run(args.get("todos") or [])
+    return json.dumps({"error": f"unknown tool {tool_name}"})
+
+
+_BACKEND_TOOL_NAMES = {
+    "search_flights",
+    "get_weather",
+    "query_data",
+    "schedule_meeting",
+    "generate_a2ui",
+    "manage_todos",
+}
+
+_SYSTEM_PROMPT = (
+    "You are a polished, professional demo assistant. Keep responses to "
+    "1-2 sentences.\n"
     "Tool guidance:\n"
     "- Flights: call search_flights to show flight cards with a "
     "pre-built schema.\n"
     "- Dashboards & rich UI: call generate_a2ui to create dashboard "
-    "UIs with metrics, charts, tables, and cards. It handles rendering "
-    "automatically.\n"
+    "UIs with metrics, charts, tables, and cards.\n"
     "- Charts: call query_data first, then render with the chart "
-    "component via generate_a2ui.\n"
+    "component.\n"
     "- Todos: call manage_todos with the new full todos list when the "
     "user asks to add, complete, or remove todos.\n"
     "- Meetings: call schedule_meeting when the user wants to book time.\n"
     "- Weather: call get_weather when asked about the weather."
 )
 
-
-preseed_system_prompt(
-    CREW_NAME,
-    (
-        "Polished Beautiful Chat demo. Keep replies to 1-2 short "
-        "sentences; call generate_a2ui for dashboards/charts, "
-        "search_flights for flight cards, schedule_meeting for "
-        "bookings, manage_todos for shared-state todos."
-    ),
-)
+_MAX_ITERATIONS = 5
 
 
-def _build_crew() -> Crew:
-    agent = Agent(
-        role="Beautiful Chat Demo Assistant",
-        goal=(
-            "Answer users crisply and rely on tools to render rich UI: "
-            "flight cards, dashboards, charts, meeting-time pickers, and "
-            "shared-state todo lists."
-        ),
-        backstory=BEAUTIFUL_CHAT_BACKSTORY,
-        verbose=False,
-        tools=[
-            GetWeatherTool(),
-            QueryDataTool(),
-            ScheduleMeetingTool(),
-            SearchFlightsTool(),
-            GenerateA2uiTool(),
-            ManageTodosTool(),
-        ],
-    )
+class BeautifulChatState(CopilotKitState):
+    """Conversation-only state. Todos travel as a tool result."""
 
-    task = Task(
-        description=(
-            "Respond to the user. Call the appropriate tool when a "
-            "visual / interactive surface would improve the answer."
-        ),
-        expected_output="A short one-sentence reply plus any rendered UI.",
-        agent=agent,
-    )
-
-    return Crew(
-        name=CREW_NAME,
-        agents=[agent],
-        tasks=[task],
-        process=Process.sequential,
-        verbose=False,
-        chat_llm="gpt-4o",
-    )
+    pass
 
 
-_cached_crew: Crew | None = None
+class BeautifulChatFlow(Flow[BeautifulChatState]):
+    """Chat flow that emits search_flights TOOL_CALL_* + A2UI cards."""
+
+    @start()
+    async def chat(self) -> None:
+        system_message = {
+            "role": "system",
+            "content": _SYSTEM_PROMPT,
+            "id": str(uuid.uuid4()) + "-system",
+        }
+
+        tools = [
+            *self.state.copilotkit.actions,
+            *_BACKEND_TOOL_SCHEMAS,
+        ]
+
+        for _iteration in range(_MAX_ITERATIONS):
+            messages = [system_message, *self.state.messages]
+
+            response = await copilotkit_stream(
+                await acompletion(
+                    model="openai/gpt-4o-mini",
+                    messages=messages,
+                    tools=tools,
+                    parallel_tool_calls=False,
+                    stream=True,
+                )
+            )
+
+            message = response.choices[0].message
+            self.state.messages.append(message)
+
+            tool_calls = message.get("tool_calls") or []
+            if not tool_calls:
+                return
+
+            for tool_call in tool_calls:
+                tool_call_id = tool_call["id"]
+                tool_name = tool_call["function"]["name"]
+
+                if tool_name not in _BACKEND_TOOL_NAMES:
+                    # Frontend action (barChart / pieChart / scheduleTime /
+                    # toggleTheme). End the run so CopilotKit owns HITL
+                    # and client-side renderers. Do not invent a result.
+                    return
+
+                try:
+                    args = json.loads(tool_call["function"]["arguments"] or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+                result_str = _run_backend_tool(tool_name, args)
+                self.state.messages.append(
+                    {
+                        "role": "tool",
+                        "content": result_str,
+                        "tool_call_id": tool_call_id,
+                    }
+                )
 
 
-class BeautifulChat:
-    """Adapter matching `add_crewai_crew_fastapi_endpoint` shape."""
-
-    name: str = CREW_NAME
-
-    def crew(self) -> Crew:
-        global _cached_crew
-        if _cached_crew is None:
-            _cached_crew = _build_crew()
-        return _cached_crew
+# Module-level singleton -- deepcopied per request by the endpoint.
+beautiful_chat_flow = BeautifulChatFlow()

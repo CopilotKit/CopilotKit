@@ -11,6 +11,10 @@ import { SERVICES } from "../railway-envs";
 // effects on the real file — see the dedicated guard test below.
 import { computeOptionTokens, SENTINEL } from "../sync-promote-service-options";
 import type { ServiceEntry } from "../railway-envs";
+// Every child_process call in this file invokes `npx`, which is `npx.cmd` on
+// Windows — a name `execFileSync`/`spawnSync` cannot resolve without a shell.
+// Without the gate the whole suite dies with `spawnSync npx ENOENT` there.
+import { NEEDS_SHELL_FOR_CMD } from "./test-cleanup";
 
 const SCRIPT = resolve(__dirname, "..", "sync-promote-service-options.ts");
 
@@ -309,6 +313,7 @@ describe("sync-promote-service-options", () => {
     );
     execFileSync("npx", ["tsx", SCRIPT, `--workflow=${wfPath}`], {
       stdio: "pipe",
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     const after = readFileSync(wfPath, "utf8");
     const doc = parseYaml(after);
@@ -335,17 +340,19 @@ describe("sync-promote-service-options", () => {
     writeFileSync(wfPath, fixture("        default: all\n        options:"));
     execFileSync("npx", ["tsx", SCRIPT, `--workflow=${wfPath}`], {
       stdio: "pipe",
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     const first = readFileSync(wfPath, "utf8");
     execFileSync("npx", ["tsx", SCRIPT, `--workflow=${wfPath}`], {
       stdio: "pipe",
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     const second = readFileSync(wfPath, "utf8");
     expect(second).toBe(first);
     const check = spawnSync(
       "npx",
       ["tsx", SCRIPT, "--check", `--workflow=${wfPath}`],
-      { encoding: "utf8" },
+      { encoding: "utf8", shell: NEEDS_SHELL_FOR_CMD },
     );
     expect(check.status).toBe(0);
   });
@@ -362,7 +369,7 @@ describe("sync-promote-service-options", () => {
     const result = spawnSync(
       "npx",
       ["tsx", SCRIPT, "--check", `--workflow=${wfPath}`],
-      { encoding: "utf8" },
+      { encoding: "utf8", shell: NEEDS_SHELL_FOR_CMD },
     );
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/sync-promote-service-options/);
@@ -373,6 +380,7 @@ describe("sync-promote-service-options", () => {
     writeFileSync(wfPath, fixture("        options:"));
     execFileSync("npx", ["tsx", SCRIPT, `--workflow=${wfPath}`], {
       stdio: "pipe",
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     const doc = parseYaml(readFileSync(wfPath, "utf8"));
     const input = doc.on.workflow_dispatch.inputs.service;
@@ -393,6 +401,7 @@ describe("sync-promote-service-options", () => {
     writeFileSync(wfPath, noMarkers);
     const result = spawnSync("npx", ["tsx", SCRIPT, `--workflow=${wfPath}`], {
       encoding: "utf8",
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     // Render error → exit 3, with the SPECIFIC "not found" diagnostic.
     expect(result.status).toBe(3);
@@ -420,6 +429,7 @@ describe("sync-promote-service-options", () => {
     writeFileSync(wfPath, dup);
     const result = spawnSync("npx", ["tsx", SCRIPT, `--workflow=${wfPath}`], {
       encoding: "utf8",
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     // Render error → exit 3, with the SPECIFIC "duplicate" diagnostic.
     expect(result.status).toBe(3);
@@ -443,6 +453,7 @@ describe("sync-promote-service-options", () => {
     writeFileSync(wfPath, outOfOrder);
     const result = spawnSync("npx", ["tsx", SCRIPT, `--workflow=${wfPath}`], {
       encoding: "utf8",
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     // Render error → nonzero exit 3, with the SPECIFIC "malformed" diagnostic.
     expect(result.status).toBe(3);
@@ -458,7 +469,7 @@ describe("sync-promote-service-options", () => {
     const result = spawnSync(
       "npx",
       ["tsx", SCRIPT, `--workflow=${missingPath}`],
-      { encoding: "utf8" },
+      { encoding: "utf8", shell: NEEDS_SHELL_FOR_CMD },
     );
     // ALL read failures, including a missing file, exit 2 (not 3).
     expect(result.status).toBe(2);
@@ -474,7 +485,7 @@ describe("sync-promote-service-options", () => {
     const result = spawnSync(
       "npx",
       ["tsx", SCRIPT, "--chek", `--workflow=${wfPath}`],
-      { encoding: "utf8" },
+      { encoding: "utf8", shell: NEEDS_SHELL_FOR_CMD },
     );
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("Unknown argument: --chek");
@@ -485,6 +496,7 @@ describe("sync-promote-service-options", () => {
   it("rejects an empty --workflow= value (fail loud, exit 2)", () => {
     const result = spawnSync("npx", ["tsx", SCRIPT, "--workflow="], {
       encoding: "utf8",
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("--workflow= requires a path value");
@@ -493,6 +505,7 @@ describe("sync-promote-service-options", () => {
   it("rejects a bare --workflow with no value (fail loud, exit 2)", () => {
     const result = spawnSync("npx", ["tsx", SCRIPT, "--workflow", wfPath], {
       encoding: "utf8",
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("--workflow requires a value");
@@ -503,7 +516,7 @@ describe("sync-promote-service-options", () => {
     const result = spawnSync(
       "npx",
       ["tsx", SCRIPT, `--workflow=${wfPath}`, `--workflow=${other}`],
-      { encoding: "utf8" },
+      { encoding: "utf8", shell: NEEDS_SHELL_FOR_CMD },
     );
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("--workflow may only be supplied once");
@@ -513,6 +526,7 @@ describe("sync-promote-service-options", () => {
     writeFileSync(wfPath, fixture("        options:"));
     execFileSync("npx", ["tsx", SCRIPT, `--workflow=${wfPath}`], {
       stdio: "pipe",
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     const after = readFileSync(wfPath, "utf8");
     // Surrounding structure is intact.
@@ -546,6 +560,7 @@ describe("sync-promote-service-options", () => {
     const result = spawnSync("npx", ["tsx", importer], {
       encoding: "utf8",
       cwd: workDir,
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     // The import completed cleanly...
     expect(result.status).toBe(0);

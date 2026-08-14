@@ -23,7 +23,16 @@ x-integration-defaults: &integration-defaults
       condition: service_healthy
   restart: unless-stopped
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:10000/api/health"]
+    # HEALTHCHECK HOST IS 127.0.0.1, NEVER `localhost` — and the same goes for
+    # every other healthcheck in this file. These probes run INSIDE the container,
+    # where /etc/hosts maps `localhost` to BOTH 127.0.0.1 and ::1. Every server in
+    # these images binds 0.0.0.0 (IPv4 only), so a probe that resolves `localhost`
+    # to ::1 first has nothing listening on the other side. Node 22's
+    # `autoSelectFamily` masks this today by retrying the other family, but curl
+    # and wget do not, and the mask is a runtime default that can change. The two
+    # harness roles were written with 127.0.0.1 deliberately; the rest were
+    # normalised to match rather than the other way round. Pin the literal.
+    test: ["CMD", "curl", "-f", "http://127.0.0.1:10000/api/health"]
     interval: 5s
     timeout: 3s
     retries: 5
@@ -52,9 +61,13 @@ services:
   # compose file into CI, e2e suites, or any non-interactive test pipeline.
   ###########################################################################
   aimock:
-    # Local aimock so the 17 integration containers can hit a stable LLM mock
-    # on the compose network at http://aimock:4010 instead of the prod Railway
-    # aimock (which can OOM) or direct-to-OpenAI (which costs).
+    # Local aimock so every integration container can hit a stable LLM mock on
+    # the compose network at http://aimock:4010 instead of the prod Railway
+    # aimock (which can OOM) or direct-to-OpenAI (which costs). That is 20
+    # containers today — one per showcase/integrations/*/manifest.yaml, matching
+    # the "20 integration Dockerfiles" count used elsewhere in this file. Derive
+    # the number from the manifests rather than trusting this comment; it was
+    # stale at 17 once already.
     #
     # Local vs. production parity: local uses volume mounts (below) so fixture
     # edits take effect on container restart without rebuilding. Production
@@ -119,7 +132,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://localhost:4010/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:4010/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
         ]
       interval: 5s
       timeout: 3s
@@ -141,7 +154,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test:
-        ["CMD", "wget", "-q", "--spider", "http://localhost:8090/api/health"]
+        ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8090/api/health"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -162,18 +175,24 @@ services:
         # Ops proxy target for the dashboard's /api/ops/* Route Handler
         # (shell-dashboard/src/app/api/ops/[...path]/route.ts), which
         # forwards /api/ops/probes -> ${OPS_BASE_URL}/api/probes. It MUST
-        # point at the showcase-harness HTTP origin (the service that serves
-        # /api/probes), reached over the compose network by its container
-        # name on the harness's internal port 8080 (harness/Dockerfile
-        # EXPOSEs 8080; orchestrator.ts binds PORT ?? 8080). Mirrors staging,
-        # where the dashboard's OPS_BASE_URL points at the harness origin.
-        # Run the harness on this compose network (container_name:
-        # showcase-harness) for the Ops tab's live-probe grid to resolve;
-        # without it the proxy returns 502 (unreachable upstream) rather than
-        # the previous self-referential 500. NOTE: OPS_BASE_URL is read at
-        # REQUEST time by the Route Handler, so it does not need to resolve
-        # at build time — this build arg only seeds the runtime default.
-        OPS_BASE_URL: http://showcase-harness:8080
+        # point at the harness control-plane HTTP origin (the service that
+        # serves /api/probes) on the harness's internal port 8080
+        # (harness/Dockerfile EXPOSEs 8080; orchestrator.ts binds PORT ??
+        # 8080). Mirrors staging, where the dashboard's OPS_BASE_URL points at
+        # the harness origin. NOTE: OPS_BASE_URL is read at REQUEST time by the
+        # Route Handler, so it does not need to resolve at build time — this
+        # build arg only seeds the runtime default.
+        #
+        # USE THE SERVICE NAME, NEVER THE CONTAINER NAME. This used to be
+        # `http://showcase-harness:8080` (the control-plane's container_name),
+        # which 502'd in EVERY `--isolate` run: apply_isolation() in
+        # scripts/cli/_common.sh rewrites `container_name: showcase-` →
+        # `container_name: <project>-`, so on an isolated project's network no
+        # `showcase-harness` host exists at all. Compose's network alias for the
+        # SERVICE name (`harness-control-plane`) is never rewritten, so it
+        # resolves in the default project AND in every isolated project. Same
+        # trap that slug_to_container() already documents.
+        OPS_BASE_URL: http://harness-control-plane:8080
     image: showcase-dashboard:local
     container_name: showcase-dashboard
     environment:
@@ -198,7 +217,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://localhost:10000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:10000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
         ]
       interval: 5s
       timeout: 3s
@@ -234,10 +253,12 @@ services:
       context: ../
       dockerfile: showcase/harness/Dockerfile
     image: showcase-harness:local
-    # container_name preserved as `showcase-harness` so the dashboard's
-    # OPS_BASE_URL (http://showcase-harness:8080, see the `dashboard` build
-    # arg above) resolves the control-plane's HTTP origin over the compose
-    # network — the control-plane is the service that serves /api/probes.
+    # container_name keeps the `showcase-` prefix every other service uses so
+    # apply_isolation() can rewrite it per isolated project. It is NOT the name
+    # anything dials: the dashboard's OPS_BASE_URL uses the SERVICE name
+    # (`harness-control-plane`, see the `dashboard` build arg above) precisely
+    # because the container_name is rewritten under `--isolate` and the service
+    # name is not.
     container_name: showcase-harness
     env_file: .env
     environment:
@@ -272,10 +293,71 @@ services:
       # vs Railway public domain). Without it the enumerator queries Railway and
       # the local N=1 run enqueues nothing. The demos[] is load-bearing: it
       # drives the d6 feature matrix (demosToFeatureTypes). Scoped here to the
-      # langgraph-python demo's agentic-chat cell for a fast N=1 ramp; add
-      # entries to widen the local fleet.
+      # langgraph-python demo's agentic-chat cell for a fast N=1 ramp.
+      #
+      # TWO TOPOLOGIES AT ONCE (unified-frontend migration). During the
+      # migration some slugs still serve their OWN demos (publicUrl = the
+      # integration container, the shape below) while others are served by the
+      # unified frontend (publicUrl = http://frontend-nextjs:3000/<slug>). Both
+      # must be expressible at the same time, and moving a slug must not mean
+      # hand-editing shell quoting — so nothing here is hardcoded any more:
+      #
+      #   MOVE a slug onto the unified frontend — DO NOT hand-set the variable
+      #   any more. `demo_frontend` in showcase/integrations/<slug>/manifest.yaml
+      #   is now the single tracked source of truth. Set it to `unified` and run:
+      #     npx tsx showcase/scripts/emit-local-services-env.ts
+      #   That writes showcase/local-services.generated.env (tracked), and
+      #   `showcase/scripts/cli/_common.sh` exports its assignments before
+      #   invoking compose — the shell environment outranks a .env file in
+      #   compose interpolation, so the value below resolves from the manifest.
+      #   _common.sh ABORTS if showcase/.env sets a LOCAL_SERVICE_URL_<SLUG>
+      #   that contradicts the manifest, rather than quietly winning or losing.
+      #
+      #   THE AGENT AXIS IS SEPARATE AND IS NOT INTERPOLATED. `agentBaseUrl`
+      #   below is always the integration's OWN container: a migration moves the
+      #   DEMO PAGES onto the unified frontend and leaves the AG-UI endpoint
+      #   where it was. The harness's d6 driver reads `frontendBaseUrl` for
+      #   navigation and `backendUrl` for the agent (see toDriverInputs in
+      #   fleet/control-plane/catalog-enumerator.ts), so a roster entry carrying
+      #   only one URL would let a live frontend green a cell whose agent is
+      #   dead. Both axes must always be present.
+      #
+      #   `--isolate` DOES HONOUR THIS OVERRIDE. apply_isolation() in
+      #   showcase/scripts/cli/_common.sh replaces this whole roster line with a
+      #   single-entry roster it builds itself, and it used to hardcode
+      #   `publicUrl: http://<slug>:10000` — which for a migrated slug reached the
+      #   integration's own Next.js, no longer serving the demo mounts, so EVERY
+      #   cell in the isolate run probed a 404. It now resolves
+      #   LOCAL_SERVICE_URL_<SLUG> first and falls back to the :10000 form, with a
+      #   named MIGRATED_ROSTER_URL_MISSING abort if a migrated slug's roster comes
+      #   out without the frontend URL. `frontend-nextjs` is in the `infra` profile
+      #   and every isolated up path passes `--profile infra`; only container_name
+      #   is rewritten per project, not the service name, so the DNS alias resolves
+      #   inside the isolated network.
+      #
+      #   THE TWO KNOBS ARE READ DIFFERENTLY UNDER --isolate, which is easy to trip
+      #   over. apply_isolation() reads LOCAL_SERVICE_URL_<SLUG> itself, from the
+      #   environment or from showcase/.env. It CANNOT be left to compose
+      #   interpolation: compose reads its interpolation .env from the project
+      #   directory, which for an isolated run is $ISOLATE_TMPDIR, and no .env
+      #   exists there — the value would silently fall back to the default. The
+      #   trailing ${LOCAL_SERVICES_EXTRA:-} below is carried over textually by the
+      #   same rewrite, so under --isolate it only takes effect if you EXPORT it;
+      #   putting it in showcase/.env alone is not enough.
+      #
+      #   ADD more slugs to the roster — one LOCAL_SERVICES_EXTRA line in
+      #   showcase/.env holding the extra JSON entries, each preceded by a
+      #   comma (it is spliced inside the array's brackets). Mix both shapes
+      #   freely:
+      #     LOCAL_SERVICES_EXTRA=,{"name":"showcase-mastra","publicUrl":"http://frontend-nextjs:3000/mastra","demos":["agentic-chat"]},{"name":"showcase-agno","publicUrl":"http://agno:10000","demos":["agentic-chat"]}
+      #
+      # Defaults reproduce today's value byte-for-byte, so with NO new
+      # configuration the langgraph-python N=1 local flow is unchanged. The
+      # defaults deliberately contain no `}` — compose's interpolation parser
+      # ends a `${VAR:-default}` at the first `}`, so a JSON default would not
+      # survive; only the per-field URL is interpolated, never a whole object.
       - >-
-        LOCAL_SERVICES_JSON=[{"name":"showcase-langgraph-python","publicUrl":"http://langgraph-python:10000","demos":["agentic-chat"]}]
+        LOCAL_SERVICES_JSON=[{"name":"showcase-langgraph-python","publicUrl":"${LOCAL_SERVICE_URL_LANGGRAPH_PYTHON:-http://langgraph-python:10000}","agentBaseUrl":"http://langgraph-python:10000","demos":["agentic-chat"]}${LOCAL_SERVICES_EXTRA:-}]
       # Producer cron cadence. Default is hourly-at-:40 (prod rhythm). Locally we
       # drive the SAME enqueue path every minute so an N=1 run doesn't wait up to
       # an hour for the first tick.
@@ -376,6 +458,138 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  ###########################################################################
+  # UNIFIED FRONTEND — one Next.js app that serves EVERY integration's demos
+  # at /<integration-slug>/demos/<demo-id> (slug FIRST, before `demos`).
+  #
+  # Why it lives in the `infra` profile and NOT in a per-slug profile: the
+  # local workflow is ~21 sequential per-slug `--isolate` D6 runs on ONE
+  # machine. `bin/showcase up` (and harness lifecycle.ts) bring the fleet up
+  # with two compose calls — call 1 starts every service in the active
+  # profiles from CACHED images (no `--build`), call 2 rebuilds ONLY the
+  # positional target slug(s). A service in the `infra` profile is therefore
+  # started, never rebuilt, on every isolated per-slug run. If this app were
+  # treated as a normal per-slug service instead, each of the 21 runs would
+  # cold-rebuild the whole Next.js bundle and local testing would be
+  # unusable. Same reasoning that keeps aimock / pocketbase / dashboard /
+  # harness / harness-pool-worker in `infra`.
+  #
+  # Rebuild it deliberately when the frontend itself changes:
+  #   docker compose -f showcase/docker-compose.local.yml build frontend-nextjs
+  #
+  # DNS: the compose network alias is the SERVICE name (`frontend-nextjs`),
+  # so other containers and LOCAL_SERVICES_JSON reach it at
+  # http://frontend-nextjs:3000. The container_name keeps the `showcase-`
+  # prefix every other service uses, because apply_isolation() in
+  # scripts/cli/_common.sh rewrites `container_name: showcase-` →
+  # `container_name: <project>-`; an unprefixed name would collide across
+  # concurrent --isolate stacks.
+  ###########################################################################
+  frontend-nextjs:
+    build:
+      # Monorepo root context (same as dashboard / harness). The reason is the
+      # MANIFESTS, not workspace packages: the Dockerfile's `manifests` stage
+      # reaches showcase/integrations/*/manifest.yaml, which lives outside this
+      # app directory, and the app 500s at request time without them.
+      #
+      # NOT for workspace packages. This app installs @copilotkit/* from the
+      # REGISTRY at pinned versions with its own package-lock.json, and
+      # pnpm-workspace.yaml deliberately EXCLUDES it (it needs
+      # legacy-peer-deps for the union of all 20 integrations' deps). So do not
+      # narrow this context to showcase/frontends/nextjs "now that the packages
+      # are published" — that reasoning never applied, and narrowing it breaks
+      # manifest staging.
+      context: ../
+      dockerfile: showcase/frontends/nextjs/Dockerfile
+    image: showcase-frontend-nextjs:local
+    container_name: showcase-frontend-nextjs
+    env_file: .env
+    environment:
+      # One AGENT_URL per integration, pointing at that integration's AGENT
+      # process on the compose network — NOT at the integration's Next.js
+      # site (:10000), which the unified frontend replaces.
+      #
+      # PORTS ARE NOT UNIFORM TODAY (verified against each integration's
+      # entrypoint.sh):
+      #   :8000  — the common case (uvicorn / Kestrel / node agent server)
+      #   :8123  — the three LangGraph cells (langgraph_cli dev / Hono)
+      #   :8000  — mastra too. It USED to run its agent in-process with no
+      #            separate server, but it now ships one (src/agent_server.ts,
+      #            AGENT_PORT default 8000) and its manifest declares
+      #            `agent_kind: http`. Pointing it at :10000 reaches mastra's
+      #            own Next.js app, which does not serve the demo mounts, so
+      #            every mastra demo 404s. Keep this in step with
+      #            integrations/mastra/entrypoint.sh.
+      #   :10000 — built-in-agent ONLY, and unused. Its manifest is
+      #            `agent_kind: in-process`: the unified frontend builds that
+      #            agent inside its own process and never dials a URL, so this
+      #            variable is inert. Kept for shape consistency.
+      # Each is overridable from showcase/.env so a slug can be re-pointed
+      # without editing this file.
+      - AGENT_URL_AG2=${AGENT_URL_AG2:-http://ag2:8000}
+      - AGENT_URL_AGNO=${AGENT_URL_AGNO:-http://agno:8000}
+      - AGENT_URL_BUILT_IN_AGENT=${AGENT_URL_BUILT_IN_AGENT:-http://built-in-agent:10000}
+      - AGENT_URL_CLAUDE_SDK_PYTHON=${AGENT_URL_CLAUDE_SDK_PYTHON:-http://claude-sdk-python:8000}
+      - AGENT_URL_CLAUDE_SDK_TYPESCRIPT=${AGENT_URL_CLAUDE_SDK_TYPESCRIPT:-http://claude-sdk-typescript:8000}
+      - AGENT_URL_CREWAI_CREWS=${AGENT_URL_CREWAI_CREWS:-http://crewai-crews:8000}
+      - AGENT_URL_GOOGLE_ADK=${AGENT_URL_GOOGLE_ADK:-http://google-adk:8000}
+      - AGENT_URL_LANGGRAPH_FASTAPI=${AGENT_URL_LANGGRAPH_FASTAPI:-http://langgraph-fastapi:8123}
+      - AGENT_URL_LANGGRAPH_PYTHON=${AGENT_URL_LANGGRAPH_PYTHON:-http://langgraph-python:8123}
+      - AGENT_URL_LANGGRAPH_TYPESCRIPT=${AGENT_URL_LANGGRAPH_TYPESCRIPT:-http://langgraph-typescript:8123}
+      - AGENT_URL_LANGROID=${AGENT_URL_LANGROID:-http://langroid:8000}
+      - AGENT_URL_LLAMAINDEX=${AGENT_URL_LLAMAINDEX:-http://llamaindex:8000}
+      - AGENT_URL_MASTRA=${AGENT_URL_MASTRA:-http://mastra:8000}
+      - AGENT_URL_MS_AGENT_DOTNET=${AGENT_URL_MS_AGENT_DOTNET:-http://ms-agent-dotnet:8000}
+      - AGENT_URL_MS_AGENT_HARNESS_DOTNET=${AGENT_URL_MS_AGENT_HARNESS_DOTNET:-http://ms-agent-harness-dotnet:8000}
+      - AGENT_URL_MS_AGENT_PYTHON=${AGENT_URL_MS_AGENT_PYTHON:-http://ms-agent-python:8000}
+      - AGENT_URL_PYDANTIC_AI=${AGENT_URL_PYDANTIC_AI:-http://pydantic-ai:8000}
+      - AGENT_URL_SPRING_AI=${AGENT_URL_SPRING_AI:-http://spring-ai:8000}
+      - AGENT_URL_STRANDS=${AGENT_URL_STRANDS:-http://strands:8000}
+      - AGENT_URL_STRANDS_TYPESCRIPT=${AGENT_URL_STRANDS_TYPESCRIPT:-http://strands-typescript:8000}
+      # LLM mock wiring, identical to x-integration-defaults, so anything the
+      # frontend proxies or renders server-side hits aimock, never a real
+      # provider.
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://aimock:4010/v1}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-http://aimock:4010}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}
+      - GOOGLE_GEMINI_BASE_URL=${GOOGLE_GEMINI_BASE_URL:-http://aimock:4010}
+      - AIMOCK_URL=${AIMOCK_URL:-http://aimock:4010}
+      - PORT=3000
+    ports:
+      # 3200 host → 3000 container. 3200 is unused across this file: the
+      # integrations occupy 3100-3119, the dashboard 3210, aimock 4010,
+      # pocketbase 8090, the harness control-plane 8081.
+      - "3200:3000"
+    # Every LLM base URL above points at aimock, AND built-in-agent's agent runs
+    # IN-PROCESS inside this app (manifest `agent_kind: in-process`), so this
+    # container makes its OWN server-side provider calls. Without this gate the
+    # frontend can accept traffic before aimock is healthy and those calls fail.
+    # Same block every other aimock consumer carries (x-integration-defaults,
+    # both harness roles).
+    depends_on:
+      aimock:
+        condition: service_healthy
+    profiles: ["infra", "all"]
+    restart: unless-stopped
+    healthcheck:
+      # Probe the dedicated /api/health route (src/app/api/health/route.ts) —
+      # the same cheap endpoint every integration's healthcheck uses. `/` would
+      # render the whole home page on every 5s tick and couple liveness to the
+      # middleware/routing layer.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
 
   langgraph-python:
     <<: *integration-defaults
@@ -548,15 +762,24 @@ services:
     # with x-integration-defaults; do NOT drop entries to "simplify" or the
     # service loses OPENAI_BASE_URL etc. (`env_file: .env` DOES survive the merge
     # independently, so it is not re-listed.)
+    #
+    # "Verbatim" means VERBATIM, including the `${VAR:-default}` form. Four
+    # entries had been flattened to hardcoded literals (OPENAI_BASE_URL,
+    # ANTHROPIC_BASE_URL, SPRING_AI_OPENAI_BASE_URL, AIMOCK_URL), which silently
+    # made this ONE service ignore the `showcase/.env` override the anchor
+    # documents above (e.g. `OPENAI_BASE_URL=https://api.openai.com/v1` for a
+    # real-LLM cell): every other integration switched to live OpenAI while
+    # strands-typescript stayed pinned to aimock. Restored to the interpolated
+    # form so a re-listed entry behaves identically to the anchored one.
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}
-      - OPENAI_BASE_URL=http://aimock:4010/v1
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://aimock:4010/v1}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
-      - ANTHROPIC_BASE_URL=http://aimock:4010
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-http://aimock:4010}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}
       - GOOGLE_GEMINI_BASE_URL=${GOOGLE_GEMINI_BASE_URL:-http://aimock:4010}
-      - SPRING_AI_OPENAI_BASE_URL=http://aimock:4010
-      - AIMOCK_URL=http://aimock:4010
+      - SPRING_AI_OPENAI_BASE_URL=${SPRING_AI_OPENAI_BASE_URL:-http://aimock:4010}
+      - AIMOCK_URL=${AIMOCK_URL:-http://aimock:4010}
       - GitHubToken=${GitHubToken:-gh-mock-local-dev}
       - LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}
       - CVDIAG_BACKEND_EMITTER=1

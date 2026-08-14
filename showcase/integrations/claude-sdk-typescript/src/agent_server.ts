@@ -2577,7 +2577,13 @@ app.post(
 // Health check
 // ---------------------------------------------------------------------------
 
-app.get("/health", (_req: Request, res: Response) => {
+// `/api/health` is an ALIAS of `/health` — same handler, same response.
+// Railway's `healthcheckPath` is `/api/health`, which the Next.js half of this
+// container serves today. Answering it here as well means that when the Next.js
+// process is removed and the agent becomes the only listener, the existing
+// Railway healthcheck keeps working with no dashboard change. Today it is a
+// pure addition: the agent's port is not the one Railway probes.
+app.get(["/health", "/api/health"], (_req: Request, res: Response) => {
   res.json({
     status: "ok",
     model: CLAUDE_MODEL,

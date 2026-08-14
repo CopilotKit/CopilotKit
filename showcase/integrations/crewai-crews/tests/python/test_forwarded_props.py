@@ -233,8 +233,8 @@ def _stub_agent_server_deps():
     ):
         sys.modules[f"agents.{name}"] = types.ModuleType(f"agents.{name}")
     setattr(sys.modules["agents.crew"], "LatestAiDevelopment", lambda: object())
-    setattr(sys.modules["agents.a2ui_fixed"], "A2UIFixedSchema", lambda: object())
-    setattr(sys.modules["agents.beautiful_chat"], "BeautifulChat", lambda: object())
+    setattr(sys.modules["agents.a2ui_fixed"], "a2ui_fixed_flow", object())
+    setattr(sys.modules["agents.beautiful_chat"], "beautiful_chat_flow", object())
     setattr(
         sys.modules["agents.byoc_hashbrown_agent"], "ByocHashbrown", lambda: object()
     )

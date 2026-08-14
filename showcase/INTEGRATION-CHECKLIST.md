@@ -46,7 +46,8 @@ Everything below should exist in `showcase/integrations/<slug>/`:
 
 ### Source Files
 
-- [ ] `manifest.yaml` — name, slug, category, language, features, demos, `deployed: false`, `generative_ui`, `interaction_modalities`, and optionally `managed_platform`
+- [ ] `manifest.yaml` — name, slug, category, language, features, demos, `deployed: false`, `demo_frontend: integration`, `generative_ui`, `interaction_modalities`, and optionally `managed_platform`
+  - `demo_frontend` is the single tracked source of truth for which frontend serves this integration's demos. New integrations start at `integration` (their own container). Migrating to `unified` is a two-step, tracked change — see the unified-frontend note in [`AGENTS.md`](./AGENTS.md).
 - [ ] `package.json` — dependencies including `@copilotkit/react-core`, `zod`, `tailwindcss`
 - [ ] `tsconfig.json`
 - [ ] `next.config.ts`

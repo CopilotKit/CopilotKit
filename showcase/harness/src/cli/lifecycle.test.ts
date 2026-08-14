@@ -307,3 +307,80 @@ describe("up() — two-call infra-start + scoped --build (A21b)", () => {
     expect(profilesIn(call1)).toContain("langgraph-python");
   });
 });
+
+// =====================================================================
+// up() health-gates the UNIFIED FRONTEND.
+//
+// `frontend-nextjs` is in the `infra` compose profile, so every `up` path
+// already STARTS it — but it has NO entry in shared/local-ports.json (that
+// file maps integration slugs to their own container ports, and the
+// frontend is not an integration). Before it was added to INFRA_PORTS,
+// `up()` therefore never WAITED for it: a probe could launch against a
+// frontend that was not yet listening, and the browser's ECONNREFUSED
+// surfaced as a ~0.0s red cell that looked like a broken demo.
+// =====================================================================
+describe("up() — unified frontend health gate", () => {
+  const _origFetch = globalThis.fetch;
+  const _origTimeout = process.env.SHOWCASE_HEALTHCHECK_TIMEOUT_MS;
+  let probed: string[];
+
+  beforeEach(() => {
+    probed = [];
+    // Keep the retry loop short: an unhealthy service otherwise re-polls for
+    // the 90s default. 500ms is small enough to bound the unhealthy case to a
+    // single poll + one 2s interval sleep, and large enough that a healthy
+    // service is never marked unhealthy because its deadline elapsed before
+    // its first fetch (which a 1ms budget did, flakily, for whichever service
+    // the event loop reached last).
+    process.env.SHOWCASE_HEALTHCHECK_TIMEOUT_MS = "500";
+    globalThis.fetch = vi.fn((url: unknown) => {
+      probed.push(String(url));
+      return Promise.resolve({ ok: true, status: 200 } as Response);
+    }) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = _origFetch;
+    if (_origTimeout === undefined) {
+      delete process.env.SHOWCASE_HEALTHCHECK_TIMEOUT_MS;
+    } else {
+      process.env.SHOWCASE_HEALTHCHECK_TIMEOUT_MS = _origTimeout;
+    }
+  });
+
+  it("waits for the frontend on an infra-only bring-up", async () => {
+    await up([]);
+    // 3200 is the host port docker-compose.local.yml publishes ("3200:3000"),
+    // and /api/health is the same dedicated route the compose healthcheck uses
+    // (src/app/api/health/route.ts) — NOT `/`, which would render the whole
+    // home page on every poll.
+    expect(probed).toContain("http://localhost:3200/api/health");
+  });
+
+  it("waits for the frontend when slugs are targeted too", async () => {
+    await up(["langgraph-python"]);
+    expect(probed).toContain("http://localhost:3200/api/health");
+  });
+
+  it("still gates the pre-existing infra services (no gate was traded away)", async () => {
+    await up([]);
+    expect(probed).toContain("http://localhost:4010/health");
+    expect(probed).toContain("http://localhost:8090/api/health");
+    expect(probed).toContain("http://localhost:3210/");
+  });
+
+  it("FAILS the bring-up, naming frontend-nextjs, when the frontend never answers", async () => {
+    // The point of the gate: an unlistening frontend must stop `up` rather
+    // than let a probe start against it.
+    globalThis.fetch = vi.fn((url: unknown) => {
+      const href = String(url);
+      probed.push(href);
+      if (href.startsWith("http://localhost:3200")) {
+        return Promise.reject(new Error("ECONNREFUSED"));
+      }
+      return Promise.resolve({ ok: true, status: 200 } as Response);
+    }) as unknown as typeof fetch;
+
+    await expect(up([])).rejects.toThrow(/frontend-nextjs/);
+  });
+});

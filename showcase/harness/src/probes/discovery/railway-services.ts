@@ -60,7 +60,37 @@ export type ShowcaseServiceShape = z.infer<typeof showcaseShapeSchema>;
 export interface RailwayServiceInfo {
   name: string;
   imageRef: string;
+  /**
+   * Where this service's DEMO PAGES are served. For a Railway service that is
+   * its public domain; locally it is either the integration's own container
+   * (`http://<slug>:10000`) or, for a slug migrated onto the unified frontend,
+   * `http://frontend-nextjs:3000/<slug>`.
+   *
+   * READ AS THE DEMO AXIS, not "the service's one URL". `agentBaseUrl` below is
+   * the other axis.
+   */
   publicUrl: string;
+  /**
+   * Where this service's AGENT answers, when it differs from `publicUrl`.
+   *
+   * ABSENT means "same origin as `publicUrl`", which is true for every Railway
+   * service today and for every un-migrated local slug — so an existing roster
+   * that omits it behaves exactly as before.
+   *
+   * PRESENT is what makes a migrated slug testable through the fleet
+   * control-plane path. Once the unified frontend serves a slug's demos, the
+   * demo origin and the agent origin are genuinely different values: the pages
+   * come from `frontend-nextjs`, the AG-UI endpoint still answers on the
+   * integration's own container. Collapsing them lets a live frontend green a
+   * cell whose agent is dead — the false-green the two-axis split in
+   * `showcase/harness/src/cli/config.ts` (`SlugOrigins`) exists to prevent, and
+   * the reason this field is not optional-by-convenience but load-bearing.
+   *
+   * Threaded into driver inputs by `toDriverInputs` in
+   * `fleet/control-plane/catalog-enumerator.ts`, which maps this to the d6
+   * driver's `backendUrl` and `publicUrl` to its `frontendBaseUrl`.
+   */
+  agentBaseUrl?: string;
   env: Record<string, string>;
   /**
    * Deployment archetype, classified from the service name. Drivers
@@ -472,6 +502,11 @@ const LocalServiceSchema = z
   .object({
     name: z.string().min(1),
     publicUrl: z.string().url(),
+    // The AGENT axis. Optional: absent means "same origin as publicUrl", which
+    // is the un-migrated case and keeps every pre-existing roster byte-valid.
+    // A migrated slug MUST supply it, or the demo origin would also be used to
+    // dial the agent (false-green). See `RailwayServiceInfo.agentBaseUrl`.
+    agentBaseUrl: z.string().url().optional(),
     imageRef: z.string().optional(),
     env: z.record(z.string()).optional(),
     deployedDigest: z.string().optional(),
@@ -525,6 +560,12 @@ function buildLocalServices(
       name: svc.name,
       imageRef: svc.imageRef ?? "",
       publicUrl: svc.publicUrl,
+      // Forwarded ONLY when the roster supplies it, so an un-migrated record
+      // stays shape-identical to what this builder produced before the agent
+      // axis existed (and `toDriverInputs` keeps emitting a single URL for it).
+      ...(svc.agentBaseUrl !== undefined
+        ? { agentBaseUrl: svc.agentBaseUrl }
+        : {}),
       env: svc.env ?? {},
       shape: classifyShape(svc.name, { logger: ctx.logger }),
       deployedDigest: svc.deployedDigest ?? "",

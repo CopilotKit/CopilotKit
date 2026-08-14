@@ -1,18 +1,15 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-  type MockInstance,
-} from "vitest";
-import {
-  backendUrlFromPattern,
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MockInstance } from "vitest";
+import type {
   normalizeBackendHostPattern,
   parseLocalBackends,
+} from "./backend-url";
+import {
+  DEFAULT_BACKEND_HOST_PATTERN,
+  backendUrlFromPattern,
   resolveBackendUrl,
 } from "./backend-url";
+import { getIntegrations } from "./registry";
 
 describe("backendUrlFromPattern", () => {
   it("substitutes {slug} into the host pattern and prepends https://", () => {
@@ -808,5 +805,277 @@ describe("resolveBackendUrl", () => {
     } finally {
       warnSpy.mockRestore();
     }
+  });
+});
+
+describe("resolveBackendUrl + registry backend_url (unified-frontend migration)", () => {
+  const ORIGINAL = process.env.NEXT_PUBLIC_LOCAL_BACKENDS;
+
+  // The unified Next.js frontend serves every integration's demos at
+  // <shared-origin>/<slug>/demos/<demo-id>, so a migrated slug's
+  // backend_url is a SHARED host plus a slug PATH — a shape the bare
+  // host pattern cannot express.
+  const UNIFIED_HOST = "https://showcase-frontends-production.up.railway.app";
+
+  beforeEach(() => {
+    delete process.env.NEXT_PUBLIC_LOCAL_BACKENDS;
+  });
+
+  afterEach(() => {
+    if (ORIGINAL === undefined) {
+      delete process.env.NEXT_PUBLIC_LOCAL_BACKENDS;
+    } else {
+      process.env.NEXT_PUBLIC_LOCAL_BACKENDS = ORIGINAL;
+    }
+  });
+
+  it("leaves EVERY real registry slug byte-identical (nothing is migrated yet)", () => {
+    // The registry is the actual generated one (vitest.global-setup.ts
+    // regenerates it), so this is a parity assertion over real data
+    // rather than over one hand-picked slug: today every backend_url is
+    // the value generate-registry.ts synthesized from the default
+    // pattern, so GATE 2 (no-new-information) must reject all of them.
+    const integrations = getIntegrations();
+    expect(integrations.length).toBeGreaterThan(5);
+    for (const integration of integrations) {
+      const derived = backendUrlFromPattern(
+        DEFAULT_BACKEND_HOST_PATTERN,
+        integration.slug,
+      );
+      // Passing the registry value must not change the result...
+      expect(
+        resolveBackendUrl(
+          integration.slug,
+          DEFAULT_BACKEND_HOST_PATTERN,
+          integration.backend_url,
+        ),
+      ).toBe(derived);
+      // ...and must equal what the pre-change two-arg call returned.
+      expect(
+        resolveBackendUrl(integration.slug, DEFAULT_BACKEND_HOST_PATTERN),
+      ).toBe(derived);
+    }
+  });
+
+  it("omitting the registry argument keeps the pattern-derived URL", () => {
+    // Call sites that predate the unified frontend (profile-client.tsx,
+    // shell-dojo's page.tsx) pass two arguments and must be unaffected.
+    expect(resolveBackendUrl("mastra", DEFAULT_BACKEND_HOST_PATTERN)).toBe(
+      "https://showcase-mastra-production.up.railway.app",
+    );
+    expect(
+      resolveBackendUrl("langgraph-python", "showcase-{slug}.example.test"),
+    ).toBe("https://showcase-langgraph-python.example.test");
+  });
+
+  it("prefers a migrated slug's shared host and KEEPS its path", () => {
+    expect(
+      resolveBackendUrl(
+        "langgraph-python",
+        DEFAULT_BACKEND_HOST_PATTERN,
+        `${UNIFIED_HOST}/langgraph-python`,
+      ),
+    ).toBe(`${UNIFIED_HOST}/langgraph-python`);
+  });
+
+  it("normalizes a migrated value (host case, default port, trailing slash)", () => {
+    // Same normalization the local-override path guarantees: the base is
+    // concatenated with demo routes that start with "/", so a trailing
+    // slash would ship `//demos/...` in every iframe src.
+    expect(
+      resolveBackendUrl(
+        "mastra",
+        DEFAULT_BACKEND_HOST_PATTERN,
+        "https://Showcase-Frontends.example.test:443/mastra/",
+      ),
+    ).toBe("https://showcase-frontends.example.test/mastra");
+    expect(
+      resolveBackendUrl(
+        "mastra",
+        DEFAULT_BACKEND_HOST_PATTERN,
+        "https://showcase-frontends.example.test/mastra//",
+      ),
+    ).toBe("https://showcase-frontends.example.test/mastra");
+  });
+
+  it("composes exactly one slash when a demo route is appended", () => {
+    // The consumer join (frontend-route.ts: `${base}${demo.route}`) with
+    // demo.route always starting with "/".
+    const base = resolveBackendUrl(
+      "langgraph-python",
+      DEFAULT_BACKEND_HOST_PATTERN,
+      `${UNIFIED_HOST}/langgraph-python/`,
+    );
+    const composed = `${base}/demos/agentic-chat`;
+    expect(composed).toBe(
+      `${UNIFIED_HOST}/langgraph-python/demos/agentic-chat`,
+    );
+    expect(composed).not.toContain("//demos");
+    // Only the scheme may contain a double slash.
+    expect(composed.slice("https://".length)).not.toContain("//");
+  });
+
+  it("does NOT change precedence for a value whose host is still the per-slug pattern host", () => {
+    // GATE 2: a backend_url on `showcase-<slug>-production…` is just the
+    // synthesized default and carries no new information — even when it
+    // differs from the derived string in other ways (a path here). It
+    // must be ignored so today's precedence is preserved exactly.
+    expect(
+      resolveBackendUrl(
+        "mastra",
+        DEFAULT_BACKEND_HOST_PATTERN,
+        "https://showcase-mastra-production.up.railway.app/somewhere",
+      ),
+    ).toBe("https://showcase-mastra-production.up.railway.app");
+    // Host comparison is case-insensitive (URL lowercases it), so an
+    // uppercase copy of the default is still "no new information".
+    expect(
+      resolveBackendUrl(
+        "agno",
+        DEFAULT_BACKEND_HOST_PATTERN,
+        "https://SHOWCASE-AGNO-PRODUCTION.UP.RAILWAY.APP",
+      ),
+    ).toBe("https://showcase-agno-production.up.railway.app");
+    // An explicit non-default PORT is a different host — deliberate.
+    expect(
+      resolveBackendUrl(
+        "agno",
+        DEFAULT_BACKEND_HOST_PATTERN,
+        "https://showcase-agno-production.up.railway.app:8443",
+      ),
+    ).toBe("https://showcase-agno-production.up.railway.app:8443");
+  });
+
+  it("STAGING SAFETY: a non-default host pattern ignores the registry value entirely", () => {
+    // The registry value is baked at Docker BUILD time with PRODUCTION
+    // hosts. A staging shell sets SHOWCASE_BACKEND_HOST_PATTERN to
+    // non-prod hosts; honoring the baked value there would iframe PROD —
+    // the exact bug backend-url.ts exists to prevent. GATE 1 makes a
+    // non-default pattern behave byte-identically to today for BOTH an
+    // unmigrated slug and a migrated one.
+    const STAGING = "showcase-{slug}-staging.up.railway.app";
+    expect(
+      resolveBackendUrl(
+        "mastra",
+        STAGING,
+        "https://showcase-mastra-production.up.railway.app",
+      ),
+    ).toBe("https://showcase-mastra-staging.up.railway.app");
+    expect(resolveBackendUrl("mastra", STAGING, `${UNIFIED_HOST}/mastra`)).toBe(
+      "https://showcase-mastra-staging.up.railway.app",
+    );
+    // A path-bearing pattern is an operator intent the registry value
+    // would silently discard — GATE 1 compares the whole derived URL,
+    // not just its host, so this is ignored too.
+    expect(
+      resolveBackendUrl(
+        "mastra",
+        "showcase-{slug}-production.up.railway.app/base",
+        `${UNIFIED_HOST}/mastra`,
+      ),
+    ).toBe("https://showcase-mastra-production.up.railway.app/base");
+  });
+
+  it("keeps NEXT_PUBLIC_LOCAL_BACKENDS above a migrated registry value", () => {
+    process.env.NEXT_PUBLIC_LOCAL_BACKENDS = JSON.stringify({
+      mastra: "http://localhost:4111",
+    });
+    expect(
+      resolveBackendUrl(
+        "mastra",
+        DEFAULT_BACKEND_HOST_PATTERN,
+        `${UNIFIED_HOST}/mastra`,
+      ),
+    ).toBe("http://localhost:4111");
+    // A slug absent from the local map still gets the migrated value.
+    expect(
+      resolveBackendUrl(
+        "agno",
+        DEFAULT_BACKEND_HOST_PATTERN,
+        `${UNIFIED_HOST}/agno`,
+      ),
+    ).toBe(`${UNIFIED_HOST}/agno`);
+  });
+
+  it("falls back to the registry value when a dead local override sits above it", () => {
+    // An empty override warns and is skipped; the fall-through must
+    // reach the registry preference, not short-circuit to the pattern.
+    process.env.NEXT_PUBLIC_LOCAL_BACKENDS = JSON.stringify({ mastra: "   " });
+    expect(
+      resolveBackendUrl(
+        "mastra",
+        DEFAULT_BACKEND_HOST_PATTERN,
+        `${UNIFIED_HOST}/mastra`,
+      ),
+    ).toBe(`${UNIFIED_HOST}/mastra`);
+  });
+
+  it("ignores an absent, empty, or whitespace-only registry value silently", () => {
+    const derived = "https://showcase-mastra-production.up.railway.app";
+    expect(
+      resolveBackendUrl("mastra", DEFAULT_BACKEND_HOST_PATTERN, undefined),
+    ).toBe(derived);
+    expect(resolveBackendUrl("mastra", DEFAULT_BACKEND_HOST_PATTERN, "")).toBe(
+      derived,
+    );
+    expect(
+      resolveBackendUrl("mastra", DEFAULT_BACKEND_HOST_PATTERN, "  \t "),
+    ).toBe(derived);
+  });
+
+  it("warns once and falls back for an unusable registry value", async () => {
+    // Fresh module instance: the warn-once latch is module state, so
+    // asserting on the STATIC import is not retry-safe — same discipline
+    // as the sibling describes.
+    vi.resetModules();
+    const {
+      resolveBackendUrl: resolveFresh,
+      DEFAULT_BACKEND_HOST_PATTERN: DEF,
+    } = await import("./backend-url");
+    const warns: string[] = [];
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((m: string) => void warns.push(m));
+    try {
+      // No scheme, non-http(s) scheme, userinfo, query, fragment — every
+      // class the local-override path rejects, for the same reasons
+      // (Chromium blocks credentialed iframe srcs; a query/fragment
+      // corrupts the URL once a demo route is concatenated).
+      for (const bad of [
+        "showcase-frontends.example.test/mastra",
+        "javascript://showcase-frontends.example.test/mastra",
+        "https://user:pw@showcase-frontends.example.test/mastra",
+        "https://showcase-frontends.example.test/mastra?x=1",
+        "https://showcase-frontends.example.test/mastra#f",
+      ]) {
+        expect(resolveFresh("mastra", DEF, bad)).toBe(
+          "https://showcase-mastra-production.up.railway.app",
+        );
+        expect(warns.some((m) => m.includes(bad))).toBe(true);
+      }
+      const countAfterFirstPass = warns.length;
+      expect(
+        resolveFresh("mastra", DEF, "showcase-frontends.example.test/mastra"),
+      ).toBe("https://showcase-mastra-production.up.railway.app");
+      // Once per distinct (slug, value) — resolveBackendUrl runs on every
+      // render, so a per-call warn would drown real signal.
+      expect(warns.length).toBe(countAfterFirstPass);
+    } finally {
+      warnSpy.mockRestore();
+      vi.resetModules();
+    }
+  });
+
+  it("still enforces the slug host-injection guard on the registry path", () => {
+    // backendUrlFromPattern is the documented choke point for the SLUG_RE
+    // assert. A precedence path that returned before reaching it would
+    // silently skip that guard.
+    expect(() =>
+      resolveBackendUrl(
+        "evil.example.test",
+        DEFAULT_BACKEND_HOST_PATTERN,
+        `${UNIFIED_HOST}/evil`,
+      ),
+    ).toThrow(/invalid integration slug/);
   });
 });

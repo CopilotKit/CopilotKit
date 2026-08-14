@@ -16,15 +16,57 @@
 // than the bundler's alphabetical fallback. Files not flagged in
 // `highlight:` have no `highlightOrder`.
 //
-// Files are scanned from the demo folder (`src/app/demos/<routeDir>/`)
-// recursively, and any files listed in the manifest's `highlight:` field
-// that sit OUTSIDE the demo folder (typically `src/agents/<agent>.py`) are
-// merged in with their column-relative paths.
+// Files are scanned from the demo folder recursively, and any files listed
+// in the manifest's `highlight:` field that sit OUTSIDE the demo folder
+// (typically `src/agents/<agent>.py`) are merged in with their
+// column-relative paths.
 //
 // Every path in `highlight:` must point to a real bundled file — otherwise
 // the bundle fails. This keeps stale references from silently rotting.
 //
 // Usage: npx tsx showcase/scripts/bundle-demo-content.ts
+//
+// -----------------------------------------------------------------------------
+// Two roots
+// -----------------------------------------------------------------------------
+// Demo source lives in TWO places and the bundler reads from both:
+//
+//   frontend demo files → showcase/frontends/nextjs/src/app/[integration]/demos/<demo-id>/
+//                         (`[integration]` is a literal directory name — a
+//                          Next.js dynamic segment. ONE shared copy of each
+//                          demo serves every integration.)
+//   backend `highlight:` → showcase/integrations/<slug>/<hlPath>
+//
+// `manifest.demos[].route` is unchanged and still reads `/demos/<demo-id>`;
+// the integration slug lives in `backend_url`, so the `routeDir` derivation
+// below keeps working for both roots.
+//
+// The bundled `filename` prefix stays `src/app/demos/<routeDir>/…` no matter
+// which root a file came from. Manifest `highlight:` entries and docs
+// `<Snippet file="src/app/demos/…">` call sites address files by that path,
+// so it is part of the bundle's public contract — not an implementation
+// detail of where the file happens to sit on disk.
+//
+// -----------------------------------------------------------------------------
+// Integration-slug substitution (deliberate divergence from the file on disk)
+// -----------------------------------------------------------------------------
+// A ported demo page reads its integration from the URL:
+//
+//     const { integration } = useParams<{ integration: string }>();
+//     <CopilotKit runtimeUrl={`/api/${integration}/agentic-chat`} …>
+//
+// That is right for the showcase (one page, every backend) but wrong for
+// docs: a reader on the LangGraph page must see something they can paste.
+// So when bundling for integration X the bundler rewrites the template
+// literal to the concrete path and drops the now-unused `useParams` line and
+// its import.
+//
+// This means the emitted snippet DIFFERS from the file on disk, on purpose.
+// It is the same class of transform as the `@region` marker stripping below,
+// just more visible. The rewrite is conservative: anything that does not
+// match the exact expected shape is emitted UNCHANGED and reported on
+// stdout, because a wrong rewrite in published docs is worse than an
+// unrewritten one.
 //
 // -----------------------------------------------------------------------------
 // Named-region markers (inline, Option A)
@@ -58,13 +100,27 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import yaml from "yaml";
-import { findUnexpectedMultiFileRegions } from "./lib/demo-region-guard.js";
+import {
+  describeDuplicateRegion,
+  findUnexpectedDuplicateRegions,
+} from "./lib/demo-region-guard.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIR = path.join(ROOT, "integrations");
+// The unified frontend app. `[integration]` is a literal directory name (a
+// Next.js dynamic segment), not a placeholder to interpolate.
+export const UNIFIED_DEMOS_DIR = path.join(
+  ROOT,
+  "frontends",
+  "nextjs",
+  "src",
+  "app",
+  "[integration]",
+  "demos",
+);
 // demo-content is consumed by ALL shells:
 //   - shell: integration pages + demo drawer read the bundle at runtime
 //   - shell-docs: <Snippet> (docs routes) imports directly at build time
@@ -94,7 +150,14 @@ interface Region {
   file: string;
   /** 1-based line number of the first line inside the region (post strip). */
   startLine: number;
-  /** 1-based inclusive line number of the last line inside the region. */
+  /**
+   * 1-based INCLUSIVE line number of the last line inside the region.
+   *
+   * EMPTY REGION INVERSION: a region with no body lines cannot have an
+   * inclusive last line, so it is emitted as `startLine - 1` — deliberately
+   * one BELOW `startLine`, and `0` when the region opens on line 1. Consumers
+   * must treat `endLine < startLine` as "empty span", not as a line number.
+   */
   endLine: number;
   /** The region's code, markers stripped. */
   code: string;
@@ -144,13 +207,18 @@ function detectLanguage(filename: string): string {
 }
 
 // Skip generated / OS noise when walking demo folders.
-const SKIP_EXACT = new Set([".DS_Store", "Thumbs.db"]);
-const SKIP_DIRS = new Set(["__pycache__", "node_modules", ".next"]);
+//
+// Exported because verify-shell-docs.ts walks the SAME trees to pre-flight the
+// bundler's duplicate-region hard error. When these lists were hand-copied
+// there, the two walkers could disagree about which files exist, so the
+// verifier passed and `nx build` then failed on the same tree.
+export const SKIP_EXACT = new Set([".DS_Store", "Thumbs.db"]);
+export const SKIP_DIRS = new Set(["__pycache__", "node_modules", ".next"]);
 // Extensions to skip entirely. Includes compiled Python artefacts (.pyc) and
 // binary-like assets we should NEVER pass through `fs.readFileSync(..., "utf-8")`
 // — doing so mangles the bytes and injects garbage strings into the bundled
 // `demo-content.json`. Images, fonts, archives, and PDFs all belong here.
-const SKIP_EXTENSIONS = new Set([
+export const SKIP_EXTENSIONS = new Set([
   ".pyc",
   // Images
   ".png",
@@ -201,6 +269,19 @@ const SKIP_EXTENSIONS = new Set([
  */
 const REGION_START_RE = /@region\[([a-z0-9][a-z0-9-]*)\]/;
 const REGION_END_RE = /@endregion\[([a-z0-9][a-z0-9-]*)\]/;
+
+/**
+ * Every well-formed region name opened in `source`, in file order, WITH
+ * repeats — two `@region[x]` markers in one file yield `["x", "x"]`.
+ *
+ * Exported so verify-shell-docs.ts scans with the bundler's own pattern
+ * instead of a hand-copied twin. A fresh `RegExp` per call keeps `lastIndex`
+ * from leaking between callers.
+ */
+export function findRegionStartNames(source: string): string[] {
+  const re = new RegExp(REGION_START_RE.source, "g");
+  return [...source.matchAll(re)].map((m) => m[1]);
+}
 
 /**
  * A loose detector for ANY `@region[...]` or `@endregion[...]` marker,
@@ -303,10 +384,203 @@ function extractRegions(
   return { cleaned: cleaned.join("\n"), regions };
 }
 
+// ---------------------------------------------------------------------------
+// Demo-folder resolution (two roots)
+// ---------------------------------------------------------------------------
+
+export type DemoDirOrigin = "unified" | "integration";
+
+export interface ResolvedDemoDir {
+  dir: string;
+  origin: DemoDirOrigin;
+}
+
+/**
+ * Whether `candidate` is a directory, FOLLOWING symlinks.
+ *
+ * One `statSync` in a try/catch (not `existsSync` + `statSync`, which is a
+ * time-of-check/time-of-use race). Mirrors `isDirectoryFollowingLinks` in
+ * generate-registry.ts and `isDirectory` in
+ * showcase/frontends/nextjs/src/lib/integration-support.ts.
+ */
+function isDirectoryFollowingLinks(candidate: string): boolean {
+  try {
+    return fs.statSync(candidate).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve a demo's frontend folder. Prefers the unified app; falls back to
+ * the integration's own `src/app/demos/<routeDir>`.
+ *
+ * TEMPORARY FALLBACK — during the migration BOTH layouts exist: most
+ * integrations still carry their own `src/app/demos/`, while the unified app
+ * has the ported copies. DELETE the `integration` branch (and this comment)
+ * once every demo is ported to
+ * `showcase/frontends/nextjs/src/app/[integration]/demos/`.
+ *
+ * Returns null when neither root has the folder — the caller turns that into
+ * a hard error naming the slug and demo id.
+ */
+export function resolveDemoDir(
+  pkgRoot: string,
+  routeDir: string,
+  unifiedRoot: string = UNIFIED_DEMOS_DIR,
+): ResolvedDemoDir | null {
+  const unified = path.join(unifiedRoot, routeDir);
+  if (fs.existsSync(unified) && fs.statSync(unified).isDirectory()) {
+    return { dir: unified, origin: "unified" };
+  }
+  const legacy = path.join(pkgRoot, "src", "app", "demos", routeDir);
+  if (fs.existsSync(legacy) && fs.statSync(legacy).isDirectory()) {
+    return { dir: legacy, origin: "integration" };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Integration-slug substitution
+// ---------------------------------------------------------------------------
+
+/**
+ * `runtimeUrl={`/api/${integration}/<demo-id>`}` — the ONE shape we rewrite.
+ * Anything else (a computed base, a variable demo id, a different prop) is
+ * left alone on purpose.
+ */
+const RUNTIME_URL_TEMPLATE_RE =
+  /runtimeUrl=\{`\/api\/\$\{integration\}\/([A-Za-z0-9._~-]+)`\}/g;
+
+/** `const { integration } = useParams<{ integration: string }>();` */
+const USE_PARAMS_DESTRUCTURE_RE =
+  /^[ \t]*const\s*\{\s*integration\s*\}\s*=\s*useParams<\{\s*integration\s*:\s*string\s*;?\s*\}>\(\)\s*;?[ \t]*\r?\n/m;
+
+/** `import { useParams } from "next/navigation";` (sole named import). */
+const USE_PARAMS_IMPORT_RE =
+  /^[ \t]*import\s*\{\s*useParams\s*\}\s*from\s*["']next\/navigation["']\s*;?[ \t]*\r?\n/m;
+
+/**
+ * Blank out comments so the "is this identifier still used?" checks below
+ * don't trip over prose. Only used for detection — never for emitted output.
+ * The `[^:]` guard keeps `https://…` inside a string from being read as the
+ * start of a line comment.
+ */
+function stripCommentsForCheck(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
+
+export interface SlugSubstitution {
+  content: string;
+  /** How many `runtimeUrl` template literals were rewritten. */
+  rewrites: number;
+  /** True when the `useParams` destructure + import were dropped. */
+  droppedUseParams: boolean;
+  /**
+   * Reasons this file was NOT fully rewritten. Empty means "nothing left to
+   * do". Non-empty entries are surfaced on stdout so an author can look.
+   */
+  unmatched: string[];
+}
+
+/**
+ * Rewrite a ported demo file so the emitted snippet names a concrete
+ * integration slug instead of reading it from the URL.
+ *
+ * Deliberately conservative — see the header block. When the provider line
+ * does not match the expected shape the content is returned unchanged and the
+ * reason is recorded in `unmatched`.
+ */
+export function substituteIntegrationSlug(
+  source: string,
+  slug: string,
+): SlugSubstitution {
+  const usesParam = source.includes("${integration}");
+  const importsUseParams = /\buseParams\b/.test(source);
+  if (!usesParam && !importsUseParams) {
+    return {
+      content: source,
+      rewrites: 0,
+      droppedUseParams: false,
+      unmatched: [],
+    };
+  }
+
+  let rewrites = 0;
+  RUNTIME_URL_TEMPLATE_RE.lastIndex = 0;
+  let content = source.replace(RUNTIME_URL_TEMPLATE_RE, (_m, demoPath) => {
+    rewrites++;
+    return `runtimeUrl="/api/${slug}/${demoPath}"`;
+  });
+
+  const unmatched: string[] = [];
+  if (usesParam && rewrites === 0) {
+    unmatched.push(
+      "references ${integration} but no runtimeUrl template literal matched the expected shape",
+    );
+  }
+
+  // Only drop the plumbing once nothing in the code still needs it. If the
+  // param is read anywhere else, keep the destructure AND the import —
+  // emitting a file that references an undeclared `integration` would be
+  // worse than emitting one extra line.
+  let droppedUseParams = false;
+  if (rewrites > 0) {
+    const withoutDestructure = content.replace(USE_PARAMS_DESTRUCTURE_RE, "");
+    const destructureRemoved = withoutDestructure !== content;
+    const stillUsesParam = /\bintegration\b/.test(
+      stripCommentsForCheck(withoutDestructure),
+    );
+    if (destructureRemoved && !stillUsesParam) {
+      content = withoutDestructure;
+      droppedUseParams = true;
+      const withoutImport = content.replace(USE_PARAMS_IMPORT_RE, "");
+      if (/\buseParams\b/.test(stripCommentsForCheck(withoutImport))) {
+        // `useParams` is called again elsewhere — keep the import.
+        unmatched.push(
+          "useParams is used beyond the integration destructure; import kept",
+        );
+      } else {
+        content = withoutImport;
+      }
+    } else if (!destructureRemoved) {
+      unmatched.push(
+        "useParams destructure did not match the expected shape; left in place",
+      );
+    } else {
+      unmatched.push(
+        "the integration param is read elsewhere in the file; useParams kept",
+      );
+    }
+  }
+
+  return { content, rewrites, droppedUseParams, unmatched };
+}
+
+/**
+ * Bundled-path prefix for every frontend demo file, regardless of which root
+ * it was read from. Part of the bundle's public contract (manifests and docs
+ * `<Snippet file="…">` address files by it).
+ */
+export const DEMO_PATH_PREFIX = "src/app/demos/";
+
+/** Extensions that can carry the `<CopilotKit runtimeUrl=…>` provider line. */
+const SLUG_SUBSTITUTION_EXTENSIONS = new Set([".tsx", ".ts", ".jsx", ".js"]);
+
+/** Per-demo tally of what the slug substitution did, for the run summary. */
+export interface SlugRewriteStats {
+  filesRewritten: number;
+  filesPassedThrough: Array<{ file: string; reasons: string[] }>;
+}
+
 function collectDemoFiles(
   demoDir: string,
   relPrefix: string,
   demoKey: string,
+  slug: string,
+  stats: SlugRewriteStats,
 ): {
   readme: string | null;
   files: DemoFile[];
@@ -316,26 +590,80 @@ function collectDemoFiles(
   let readme: string | null = null;
   const perFileRegions: Record<string, Record<string, ExtractedRegion[]>> = {};
 
+  // Realpaths of directories already walked. `withFileTypes` has LSTAT
+  // semantics, so following symlinked subdirectories (below) reintroduces the
+  // possibility of a cycle that plain lstat-based recursion could not hit.
+  // A directory is walked at most once, keyed by its resolved identity.
+  const visitedDirs = new Set<string>();
+
   const walk = (absDir: string, currentRel: string) => {
+    const realDir = fs.realpathSync(absDir);
+    if (visitedDirs.has(realDir)) return;
+    visitedDirs.add(realDir);
     const entries = fs.readdirSync(absDir, { withFileTypes: true });
     for (const entry of entries) {
       if (SKIP_EXACT.has(entry.name)) continue;
       const abs = path.join(absDir, entry.name);
       const rel = currentRel ? `${currentRel}/${entry.name}` : entry.name;
-      if (entry.isDirectory()) {
+      // `withFileTypes` has LSTAT semantics: a symlink POINTING AT a directory
+      // reports isSymbolicLink() === true and isDirectory() === false, so a
+      // bare `entry.isDirectory()` branch fell through to the `!entry.isFile()`
+      // guard below and dropped the whole subtree wordlessly — the demo shipped
+      // with those files missing from its Code tab and nothing said so.
+      // `statSync` follows the link.
+      if (
+        entry.isDirectory() ||
+        (entry.isSymbolicLink() && isDirectoryFollowingLinks(abs))
+      ) {
         if (SKIP_DIRS.has(entry.name)) continue;
         walk(abs, rel);
         continue;
       }
-      if (!entry.isFile()) continue;
+      // A symlink to a FILE also reports isFile() === false under lstat
+      // semantics; resolve it the same way so a linked source file is bundled
+      // rather than silently skipped.
+      if (!entry.isFile()) {
+        if (!entry.isSymbolicLink()) continue;
+        try {
+          if (!fs.statSync(abs).isFile()) continue;
+        } catch {
+          continue;
+        }
+      }
       if (SKIP_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue;
       const raw = fs.readFileSync(abs, "utf-8");
-      // Extract & strip region markers before anything else sees the text.
-      const { cleaned, regions: fileRegions } = extractRegions(
-        raw,
-        `${demoKey}:${rel}`,
-      );
       const bundledPath = relPrefix ? `${relPrefix}/${rel}` : rel;
+      // Substitute the concrete integration slug BEFORE region extraction so
+      // region bodies carry the rewritten text and their line spans match the
+      // emitted file. Only source files can hold the provider line.
+      let source = raw;
+      // Lower-case the extension before the lookup, exactly like the
+      // SKIP_EXTENSIONS check above. Without it a `Page.TSX` skips the
+      // rewrite and ships a docs snippet that still reads the integration
+      // slug from the URL.
+      if (
+        SLUG_SUBSTITUTION_EXTENSIONS.has(path.extname(entry.name).toLowerCase())
+      ) {
+        const sub = substituteIntegrationSlug(raw, slug);
+        source = sub.content;
+        if (sub.rewrites > 0) stats.filesRewritten++;
+        if (sub.unmatched.length > 0) {
+          stats.filesPassedThrough.push({
+            file: bundledPath,
+            reasons: sub.unmatched,
+          });
+        }
+      }
+      // Extract & strip region markers before anything else sees the text.
+      // Label with the BUNDLED path, not the demo-folder-relative one. The
+      // external-highlight loop in main() labels its errors `${key}:${hlPath}`
+      // — a column-relative path — so using `rel` here put two different
+      // address spaces in one error stream and an operator could not tell
+      // which root a reported file lived under.
+      const { cleaned, regions: fileRegions } = extractRegions(
+        source,
+        `${demoKey}:${bundledPath}`,
+      );
       if (entry.name === "README.md" || entry.name === "README.mdx") {
         // Use the demo-dir root README as the readme; nested READMEs show
         // up as regular files.
@@ -369,6 +697,13 @@ function main() {
   const bundle: BundledContent = {
     demos: {},
   };
+  const slugStats: SlugRewriteStats = {
+    filesRewritten: 0,
+    filesPassedThrough: [],
+  };
+  // Demos still served by the TEMPORARY integration fallback in
+  // resolveDemoDir(). Should shrink to zero as the port completes.
+  const fallbackResolved: string[] = [];
 
   if (!fs.existsSync(PACKAGES_DIR)) {
     console.log("No packages directory found.");
@@ -380,9 +715,22 @@ function main() {
     return;
   }
 
+  // `withFileTypes` has LSTAT semantics: a symlink POINTING AT a directory
+  // reports isSymbolicLink() === true and isDirectory() === false, so the bare
+  // `d.isDirectory()` filter dropped it wordlessly — no manifest read, no demo
+  // docs, no error. generate-registry.ts DOES follow such a link (see
+  // `findManifests` there, and `readManifests` in the frontend's
+  // integration-support.ts), so a symlinked integration got a registry entry
+  // and was served by the app while this bundler emitted zero docs for every
+  // one of its demos. `statSync` follows the link.
   const packageDirs = fs
     .readdirSync(PACKAGES_DIR, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
+    .filter(
+      (d) =>
+        d.isDirectory() ||
+        (d.isSymbolicLink() &&
+          isDirectoryFollowingLinks(path.join(PACKAGES_DIR, d.name))),
+    )
     .map((d) => d.name);
 
   for (const pkgDir of packageDirs) {
@@ -407,12 +755,26 @@ function main() {
         if (!demo.route) continue;
 
         const routeDir = demo.route.replace(/^\/demos\//, "");
-        const demoDir = path.join(pkgRoot, "src", "app", "demos", routeDir);
-        if (!fs.existsSync(demoDir)) {
+        const resolved = resolveDemoDir(pkgRoot, routeDir);
+        if (!resolved) {
           throw new Error(
-            `${slug}::${demo.id}: demo folder does not exist at ${demoDir}.`,
+            `${slug}::${demo.id}: demo folder does not exist at ` +
+              `${path.join(UNIFIED_DEMOS_DIR, routeDir)} (unified frontend) ` +
+              `nor ${path.join(pkgRoot, "src", "app", "demos", routeDir)} ` +
+              `(integration fallback).`,
           );
         }
+        const demoDir = resolved.dir;
+        if (resolved.origin === "integration") {
+          fallbackResolved.push(`${slug}::${demo.id}`);
+        }
+        // Root that `src/app/demos/…` highlight paths resolve against. Same
+        // root the demo folder itself came from, so a demo served by the
+        // temporary fallback keeps reading its own package.
+        const frontendDemosRoot =
+          resolved.origin === "unified"
+            ? UNIFIED_DEMOS_DIR
+            : path.join(pkgRoot, "src", "app", "demos");
 
         const key = `${slug}::${demo.id}`;
 
@@ -420,24 +782,55 @@ function main() {
         //    The bundled `filename` for each is prefixed with the
         //    column-relative path so highlight: entries can be matched as
         //    full column-relative paths.
+        //    That prefix is deliberately independent of which root the file
+        //    came from — it is the address docs and manifests already use.
         const demoRelPrefix = `src/app/demos/${routeDir}`;
         const { readme, files, perFileRegions } = collectDemoFiles(
           demoDir,
           demoRelPrefix,
           key,
+          slug,
+          slugStats,
         );
 
         // 2. Pull in any highlight: entries that sit OUTSIDE the demo folder
         //    (typically backend agents under src/agents/*). Error if a
         //    highlight path doesn't resolve to a real file.
         const highlightList = demo.highlight ?? [];
-        const demoPathSet = new Set(files.map((f) => f.filename));
+        // Set of every path already bundled. It MUST be updated as external
+        // highlights are appended, not just seeded from the demo folder:
+        // a manifest is free to list the same `highlight:` path twice (and
+        // several do), and a stale set would read, slug-rewrite,
+        // region-extract and push that file once PER occurrence. That ships
+        // duplicate tabs in the `/code` viewer and — worse — makes the region
+        // collapse loop below concatenate a duplicated file's region body once
+        // per duplicate. The `highlightIndex` map further down already
+        // de-duplicates; this loop is the half that did not.
+        const bundledPaths = new Set(files.map((f) => f.filename));
         for (const hlPath of highlightList) {
-          if (demoPathSet.has(hlPath)) continue;
-          const absExternal = path.join(pkgRoot, hlPath);
+          if (bundledPaths.has(hlPath)) continue;
+          // Which root owns this path? A `src/app/demos/…` entry is FRONTEND
+          // source (usually another demo's file — e.g. ag2::beautiful-chat
+          // highlights declarative-gen-ui's a2ui catalog), so it must resolve
+          // against the frontend demos root. The integration package is NOT a
+          // fallback for those: it still carries its pre-port private copy,
+          // and silently reading that would mix two different demo shapes
+          // into one bundle. Everything else (`src/agents/*.py`,
+          // `agent/*.cs`, `src/app/api/*`) stays with the integration.
+          const isFrontendDemoPath = hlPath.startsWith(DEMO_PATH_PREFIX);
+          const absExternal = isFrontendDemoPath
+            ? path.join(
+                frontendDemosRoot,
+                hlPath.slice(DEMO_PATH_PREFIX.length),
+              )
+            : path.join(pkgRoot, hlPath);
           if (!fs.existsSync(absExternal)) {
             throw new Error(
-              `${key}: highlight path "${hlPath}" not found in demo folder nor at ${absExternal}.`,
+              `${key}: highlight path "${hlPath}" not found in demo folder nor at ${absExternal}` +
+                (isFrontendDemoPath
+                  ? ` (resolved against the ${resolved.origin === "unified" ? "unified frontend" : "integration fallback"} demos root). ` +
+                    `Update manifest.highlight for ${slug} — the shared demo does not contain that file.`
+                  : "."),
             );
           }
           if (!fs.statSync(absExternal).isFile()) {
@@ -445,7 +838,23 @@ function main() {
               `${key}: highlight path "${hlPath}" exists but is not a regular file.`,
             );
           }
-          const raw = fs.readFileSync(absExternal, "utf-8");
+          let raw = fs.readFileSync(absExternal, "utf-8");
+          // Frontend demo source pulled in from another demo folder needs the
+          // same slug substitution the demo's own files got.
+          if (
+            isFrontendDemoPath &&
+            SLUG_SUBSTITUTION_EXTENSIONS.has(path.extname(hlPath).toLowerCase())
+          ) {
+            const sub = substituteIntegrationSlug(raw, slug);
+            raw = sub.content;
+            if (sub.rewrites > 0) slugStats.filesRewritten++;
+            if (sub.unmatched.length > 0) {
+              slugStats.filesPassedThrough.push({
+                file: hlPath,
+                reasons: sub.unmatched,
+              });
+            }
+          }
           const { cleaned, regions: fileRegions } = extractRegions(
             raw,
             `${key}:${hlPath}`,
@@ -455,6 +864,7 @@ function main() {
             language: detectLanguage(hlPath),
             content: cleaned,
           });
+          bundledPaths.add(hlPath);
           if (Object.keys(fileRegions).length > 0) {
             perFileRegions[hlPath] = fileRegions;
           }
@@ -516,33 +926,48 @@ function main() {
           .sort();
         const effectiveOrder = [...fileOrder, ...leftoverKeys];
 
-        const regionSources = new Map<string, Set<string>>();
+        // Tally BOTH the contributing files and the total slice count. The
+        // guard decides on the slice count: the collapse loop below
+        // concatenates every slice of a name, so two `@region[x]` blocks in
+        // ONE file are silently glued together exactly like a cross-file
+        // duplicate. Counting distinct files alone let that case through
+        // without even needing an allowlist entry.
+        const regionSources = new Map<
+          string,
+          { files: Set<string>; sliceCount: number }
+        >();
         for (const filename of effectiveOrder) {
           const fileRegs = perFileRegions[filename];
           if (!fileRegs) continue;
           for (const [name, slices] of Object.entries(fileRegs)) {
             if (slices.length === 0) continue;
-            const sources = regionSources.get(name) ?? new Set<string>();
-            sources.add(filename);
-            regionSources.set(name, sources);
+            const entry = regionSources.get(name) ?? {
+              files: new Set<string>(),
+              sliceCount: 0,
+            };
+            entry.files.add(filename);
+            entry.sliceCount += slices.length;
+            regionSources.set(name, entry);
           }
         }
-        const unexpectedMultiFileRegions = findUnexpectedMultiFileRegions(
-          [...regionSources.entries()].map(([regionName, filesForRegion]) => ({
+        const unexpectedDuplicateRegions = findUnexpectedDuplicateRegions(
+          [...regionSources.entries()].map(([regionName, entry]) => ({
             demoKey: key,
+            demoId: demo.id,
             regionName,
-            files: [...filesForRegion],
+            files: [...entry.files],
+            sliceCount: entry.sliceCount,
           })),
         );
-        if (unexpectedMultiFileRegions.length > 0) {
-          const details = unexpectedMultiFileRegions
+        if (unexpectedDuplicateRegions.length > 0) {
+          const details = unexpectedDuplicateRegions
             .map(
-              ({ regionName, files: regionFiles }) =>
-                `${key}: region "${regionName}" appears in multiple files:\n  ${regionFiles.join("\n  ")}`,
+              (source) =>
+                `${key}: region "${source.regionName}" ${describeDuplicateRegion(source)}`,
             )
             .join("\n\n");
           throw new Error(
-            `${details}\n\nRename/delete the accidental duplicate region, or add an explicit allowlist entry in showcase/scripts/lib/demo-region-guard.ts if this is an intentional multi-file snippet.`,
+            `${details}\n\nRename/delete the accidental duplicate region, or add an explicit allowlist entry in showcase/scripts/lib/demo-region-guard.ts if this is an intentional concatenated snippet.`,
           );
         }
 
@@ -583,6 +1008,21 @@ function main() {
     }
   }
 
+  console.log(
+    `\nSlug substitution: ${slugStats.filesRewritten} files rewritten, ` +
+      `${slugStats.filesPassedThrough.length} passed through unchanged.`,
+  );
+  for (const { file, reasons } of slugStats.filesPassedThrough) {
+    console.log(`  ${file}: ${reasons.join("; ")}`);
+  }
+  if (fallbackResolved.length > 0) {
+    console.log(
+      `\n${fallbackResolved.length} demos resolved from the TEMPORARY integration fallback ` +
+        `(not yet ported to the unified frontend):`,
+    );
+    for (const key of fallbackResolved) console.log(`  ${key}`);
+  }
+
   const json = JSON.stringify(bundle, null, 2) + "\n";
   for (const outputPath of OUTPUT_PATHS) {
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -593,23 +1033,56 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (err) {
-  console.error((err as Error).message);
-  process.exit(1);
+// Run only when this file is the process entrypoint. Tests import the pure
+// helpers above (resolveDemoDir / substituteIntegrationSlug) and must not
+// trigger a full bundle as a side effect. Every real caller invokes
+// `tsx bundle-demo-content.ts`, so the entry basename check is exact; the
+// realpath comparison covers symlinked or compiled invocations.
+const isEntrypoint = (() => {
+  const argvEntry = process.argv[1];
+  if (!argvEntry) return false;
+  const resolvedEntry = path.resolve(argvEntry);
+  if (resolvedEntry === __filename) return true;
+  return (
+    path.basename(resolvedEntry).replace(/\.[cm]?[jt]s$/, "") ===
+    "bundle-demo-content"
+  );
+})();
+
+const watchMode = isEntrypoint && process.argv.includes("--watch");
+
+// Track the last failure so transitions are visible. The previous
+// implementation logged a single `[watch] bundle failed` and then fell
+// silent on both repeat failures (no news = assumed fine) and on
+// recovery (no news = actually, it's fine again). Operators reading a
+// dev log couldn't tell either way. Now we log on first-failure,
+// distinguish repeat failures, and emit an explicit "recovered" note
+// when the next successful run clears the state.
+//
+// Declared out here (not inside the watch block) so the FIRST bundle —
+// which runs before watching starts — can seed it.
+let lastWatchError: Error | null = null;
+
+if (isEntrypoint) {
+  try {
+    main();
+  } catch (err) {
+    console.error((err as Error).message);
+    if (!watchMode) process.exit(1);
+    // Under --watch a failing first bundle is exactly the case the watcher
+    // exists for: exiting here meant a single bad region marker killed the
+    // watcher instead of waiting for the fix, and made the recovery logging
+    // below unreachable. Stay alive and record the failure so the next
+    // successful rebundle reports "recovered".
+    lastWatchError = err as Error;
+    console.error(
+      "[watch] initial bundle failed — watching for changes anyway.",
+    );
+  }
 }
 
-if (process.argv.includes("--watch")) {
+if (watchMode) {
   let timer: NodeJS.Timeout | null = null;
-  // Track the last failure so transitions are visible. The previous
-  // implementation logged a single `[watch] bundle failed` and then fell
-  // silent on both repeat failures (no news = assumed fine) and on
-  // recovery (no news = actually, it's fine again). Operators reading a
-  // dev log couldn't tell either way. Now we log on first-failure,
-  // distinguish repeat failures, and emit an explicit "recovered" note
-  // when the next successful run clears the state.
-  let lastWatchError: Error | null = null;
   const rebundle = () => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
@@ -630,17 +1103,34 @@ if (process.argv.includes("--watch")) {
       }
     }, 200);
   };
-  console.log("[watch] watching integrations/ for changes...\n");
-  fs.watch(PACKAGES_DIR, { recursive: true }, (_event, filename) => {
-    if (!filename) return;
-    // Rebundle for demo sources, agent sources, READMEs, and — critically —
-    // manifest.yaml edits.
-    if (
-      /(\/demos\/|\/agents\/|\/agent\/|\/mastra\/|README\.md$|manifest\.yaml$)/.test(
-        filename,
-      )
-    ) {
+  console.log(
+    "[watch] watching integrations/ and the unified frontend demos for changes...\n",
+  );
+  // Guarded exactly like the unified-demos watcher below. `main()` already
+  // treats a missing integrations/ as a legitimate state (it writes an empty
+  // bundle and returns), so an unguarded `fs.watch` here threw an uncaught
+  // ENOENT — OUTSIDE the try/catch that exists to keep the watcher alive —
+  // and killed the watch the moment the directory was absent.
+  if (fs.existsSync(PACKAGES_DIR)) {
+    fs.watch(PACKAGES_DIR, { recursive: true }, (_event, filename) => {
+      if (!filename) return;
+      // Rebundle for demo sources, agent sources, READMEs, and — critically —
+      // manifest.yaml edits.
+      if (
+        /([\\/]demos[\\/]|[\\/]agents[\\/]|[\\/]agent[\\/]|[\\/]mastra[\\/]|README\.md$|manifest\.yaml$)/.test(
+          filename,
+        )
+      ) {
+        rebundle();
+      }
+    });
+  }
+  // Frontend demo source now lives in the unified app, so watch it too —
+  // otherwise editing a ported demo produces no rebundle.
+  if (fs.existsSync(UNIFIED_DEMOS_DIR)) {
+    fs.watch(UNIFIED_DEMOS_DIR, { recursive: true }, (_event, filename) => {
+      if (!filename) return;
       rebundle();
-    }
-  });
+    });
+  }
 }

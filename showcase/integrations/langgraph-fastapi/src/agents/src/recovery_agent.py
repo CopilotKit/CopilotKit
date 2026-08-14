@@ -29,11 +29,58 @@ from __future__ import annotations
 import logging
 
 from copilotkit import CopilotKitMiddleware
+from copilotkit.copilotkit_lg_middleware import (
+    _ensure_httpx_hook,
+    _extract_forwarded_headers_from_config,
+)
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from ag_ui_langgraph import get_a2ui_tools
 
+from src.agents.src._header_forwarding_middleware import (
+    HeaderForwardingMiddleware,
+)
+
 logger = logging.getLogger(__name__)
+
+
+class _HeaderForwardingChatOpenAI(ChatOpenAI):
+    """ChatOpenAI that re-reads LangGraph x-* headers on every model call.
+
+    ``get_a2ui_tools`` invokes ``render_a2ui`` from a tool-node worker thread
+    via ``model.bind_tools(...).invoke`` with no config. CopilotKitMiddleware
+    only hooks the *agent* model, and a ContextVar set on the main thread
+    does not follow ThreadPoolExecutor workers. Re-read the runnable config
+    here so the inner call keeps ``x-test-id`` (aimock ``sequenceIndex``) and
+    ``x-aimock-context``.
+    """
+
+    def _refresh_forwarded_headers(self) -> None:
+        try:
+            from langgraph.config import get_config
+
+            get_config()
+        except Exception:
+            return
+        _extract_forwarded_headers_from_config()
+        _ensure_httpx_hook(self)
+
+    def _generate(self, *args, **kwargs):
+        self._refresh_forwarded_headers()
+        return super()._generate(*args, **kwargs)
+
+    async def _agenerate(self, *args, **kwargs):
+        self._refresh_forwarded_headers()
+        return await super()._agenerate(*args, **kwargs)
+
+    def _stream(self, *args, **kwargs):
+        self._refresh_forwarded_headers()
+        return super()._stream(*args, **kwargs)
+
+    async def _astream(self, *args, **kwargs):
+        self._refresh_forwarded_headers()
+        async for chunk in super()._astream(*args, **kwargs):
+            yield chunk
 
 
 def _log_attempt(record: dict) -> None:
@@ -57,18 +104,25 @@ SYSTEM_PROMPT = (
 
 _MODEL = "gpt-4.1"
 
+# ONE model for the agent and the inner render_a2ui sub-agent. Two instances
+# meant the inner call used an unhooked HTTP client, so aimock never saw
+# x-test-id and the heal fixture's sequenceIndex 0/1 was consumed into the
+# DEFAULT_TEST_ID bucket (second run on the same aimock then matches the
+# outer generate_a2ui stub and returns empty components).
+_model = _HeaderForwardingChatOpenAI(model=_MODEL)
+
 graph = create_agent(
-    model=ChatOpenAI(model=_MODEL),
+    model=_model,
     tools=[
         get_a2ui_tools(
             {
-                "model": ChatOpenAI(model=_MODEL),
+                "model": _model,
                 "default_catalog_id": "declarative-gen-ui-catalog",
                 "recovery": {"maxAttempts": 3},
                 "on_a2ui_attempt": _log_attempt,
             }
         )
     ],
-    middleware=[CopilotKitMiddleware()],
+    middleware=[HeaderForwardingMiddleware(), CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
 )

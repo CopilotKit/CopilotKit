@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import yaml from "js-yaml";
 import type { LocalConfig } from "./config.js";
-import { getPackageUrl } from "./config.js";
+import { getSlugOrigins } from "./config.js";
 
 export type TestLevel = "smoke" | "d4" | "d5" | "d6" | "all";
 
@@ -49,7 +49,14 @@ interface Manifest {
 export interface SmokeInput {
   key: string;
   name: string;
+  /** Where the DEMOS are served. Health/liveness is derived from this origin. */
   publicUrl: string;
+  /**
+   * Where the AGENT is. The `agent:<slug>` reachability probe is derived from
+   * THIS origin, never from `publicUrl` — otherwise a live unified frontend
+   * greens a cell whose agent is dead.
+   */
+  agentBaseUrl: string;
   shape: "package";
   [k: string]: unknown;
 }
@@ -63,7 +70,13 @@ export interface SmokeInput {
  */
 export interface ChatToolsInput {
   key: string;
+  /** AGENT origin. */
   backendUrl: string;
+  /**
+   * DEMO-serving base URL, `/<slug>` prefix already included when the slug is
+   * on the unified frontend. The driver navigates from this, not `backendUrl`.
+   */
+  frontendBaseUrl: string;
   name: string;
   demos: string[];
   shape: "package";
@@ -84,7 +97,10 @@ export interface ChatToolsInput {
  */
 export interface DeepInput {
   key: string;
+  /** AGENT origin. */
   backendUrl: string;
+  /** DEMO-serving base URL (see `ChatToolsInput.frontendBaseUrl`). */
+  frontendBaseUrl: string;
   name: string;
   demos: string[];
   /**
@@ -107,7 +123,10 @@ export interface DeepInput {
  */
 export interface FullInput {
   key: string;
+  /** AGENT origin. */
   backendUrl: string;
+  /** DEMO-serving base URL (see `ChatToolsInput.frontendBaseUrl`). */
+  frontendBaseUrl: string;
   name: string;
   demos: string[];
   /**
@@ -267,10 +286,16 @@ export function buildSmokeInputs(
     // `health:LangGraph (Python)` that didn't join with anything else
     // on the dashboard. Use the showcase-prefixed slug shape to mirror
     // production.
+    // TWO axes, deliberately separate. `publicUrl` is where the demos are
+    // served; `agentBaseUrl` is where the agent is. For an UNMIGRATED slug
+    // both are `http://localhost:<port>`, so the composed health + agent URLs
+    // are byte-identical to the pre-split behaviour.
+    const origins = getSlugOrigins(slug, config);
     return {
       key: `smoke:${slug}`,
       name: `showcase-${slug}`,
-      publicUrl: getPackageUrl(slug, config),
+      publicUrl: origins.demoBaseUrl,
+      agentBaseUrl: origins.agentBaseUrl,
       shape: "package" as const,
     };
   });
@@ -301,9 +326,11 @@ export function buildChatToolsInputs(
       }
     }
 
+    const origins = getSlugOrigins(slug, config);
     return {
       key: `d4:${slug}`,
-      backendUrl: getPackageUrl(slug, config),
+      backendUrl: origins.agentBaseUrl,
+      frontendBaseUrl: origins.demoBaseUrl,
       name: manifest.name,
       demos: demoIds,
       shape: "package" as const,
@@ -341,9 +368,11 @@ export function buildDeepInputs(
         }
       }
 
+      const origins = getSlugOrigins(slug, config);
       return {
         key: `d5-single-pill-e2e:${slug}`,
-        backendUrl: getPackageUrl(slug, config),
+        backendUrl: origins.agentBaseUrl,
+        frontendBaseUrl: origins.demoBaseUrl,
         name: manifest.name,
         demos: features,
         notSupportedFeatures: manifest.not_supported_features,
@@ -384,9 +413,11 @@ export function buildFullInputs(
         }
       }
 
+      const origins = getSlugOrigins(slug, config);
       return {
         key: `d6:${slug}`,
-        backendUrl: getPackageUrl(slug, config),
+        backendUrl: origins.agentBaseUrl,
+        frontendBaseUrl: origins.demoBaseUrl,
         name: manifest.name,
         demos: features,
         notSupportedFeatures: manifest.not_supported_features,

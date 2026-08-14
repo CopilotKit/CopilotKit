@@ -6,12 +6,16 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
+    "agent": "node --import tsx src/agent_server.ts",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@ag-ui/core": "0.0.57",
+    "@ag-ui/encoder": "0.0.57",
     "@ag-ui/mastra": "1.1.0",
     "@ai-sdk/openai": "^2.0.42",
     "@copilotkit/a2ui-renderer": "1.62.1",
@@ -35,6 +39,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "embla-carousel-react": "^8.6.0",
+    "express": "^5.1.0",
     "libsql": "^0.5.22",
     "lucide-react": "^1.14.0",
     "mastra": "1.17.0",
@@ -54,11 +59,13 @@
   "devDependencies": {
     "@playwright/test": "^1.50.0",
     "@tailwindcss/postcss": "^4.0.0",
+    "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "postcss": "^8.5.0",
     "tailwindcss": "^4.0.0",
+    "tsx": "^4.19.3",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },

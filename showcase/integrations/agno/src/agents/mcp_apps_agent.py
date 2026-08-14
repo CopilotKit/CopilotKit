@@ -9,16 +9,29 @@ invocation visibly exercises the MCP Apps surface.
 
 from agno.agent.agent import Agent
 from agno.models.openai import OpenAIChat
+from agno.tools import tool
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+@tool(external_execution=True)
+def create_view(elements: list = None):
+    """Draw a simple diagram in Excalidraw.
+
+    The CopilotKit MCP Apps middleware turns this call into the sandboxed
+    iframe. Declared here so Agno forwards the name; the body does not run.
+
+    Args:
+        elements (list): Excalidraw elements including one cameraUpdate.
+    """
 
 
 agent = Agent(
     # Same timeout treatment as the main agent — keeps aimock-proxied requests
     # from timing out under load.
     model=OpenAIChat(id="gpt-4o", timeout=120),
-    tools=[],
+    tools=[create_view],
     tool_call_limit=15,
     description=(
         "You are a helpful assistant. The host runtime injects MCP-provided "

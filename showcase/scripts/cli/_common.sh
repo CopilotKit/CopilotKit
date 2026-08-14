@@ -6,8 +6,25 @@
 
 SHOWCASE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="$SHOWCASE_ROOT/docker-compose.local.yml"
+# KNOWN LIMITATION — COMPOSE_CMD is a STRING, and every call site runs it as
+# `$COMPOSE_CMD …` (unquoted) so the shell word-splits it back into argv. That
+# means a SPACE anywhere in $SHOWCASE_ROOT (or in an --isolate project name,
+# which apply_isolation appends as `--project-name <name>`) splits the path into
+# two arguments and breaks EVERY compose invocation — up, down, logs, and the
+# teardown inside restore_isolation. Repo paths under this checkout have no
+# spaces today, which is the only reason it works.
+# The real fix is an ARRAY (`COMPOSE_CMD=(docker compose -f "$COMPOSE_FILE")`
+# expanded as `"${COMPOSE_CMD[@]}"`), which must change this file AND every call
+# site in scripts/cli/cmd-*.sh together — a string and an array cannot coexist
+# behind one name. Do not convert one side alone.
 COMPOSE_CMD="docker compose -f $COMPOSE_FILE"
 ENV_FILE="$SHOWCASE_ROOT/.env"
+# Generated bridge from the `demo_frontend` manifest field into the
+# LOCAL_SERVICE_URL_<SLUG> namespace compose interpolates. TRACKED and written by
+# showcase/scripts/emit-local-services-env.ts — never hand-edit it, and never
+# write migration state into $ENV_FILE (that file is hand-maintained and
+# gitignored; it holds provider keys).
+LOCAL_SERVICES_ENV_FILE="$SHOWCASE_ROOT/local-services.generated.env"
 PORTS_FILE="$SHOWCASE_ROOT/shared/local-ports.json"
 AIMOCK_COMPOSE="$SHOWCASE_ROOT/tests/docker-compose.integrations.yml"
 
@@ -38,6 +55,101 @@ need_slug() {
 
 require_env() {
   [ -f "$ENV_FILE" ] || die "Missing $ENV_FILE. Copy showcase/.env.example to showcase/.env and fill in keys."
+  assert_unified_frontend_sources_agree
+}
+
+# ── Unified-frontend migration state ─────────────────────────────────────────
+#
+# `demo_frontend` in showcase/integrations/<slug>/manifest.yaml is the single
+# tracked source of truth for "the unified frontend serves this slug's demos".
+# Compose cannot read a manifest, so emit-local-services-env.ts projects the
+# field into $LOCAL_SERVICES_ENV_FILE as LOCAL_SERVICE_URL_<SLUG> assignments and
+# these two functions bridge that file into the environment compose sees.
+#
+# WHY EXPORTING WORKS: docker compose resolves an interpolation from the SHELL
+# ENVIRONMENT first and only then from a .env file, so an exported assignment
+# beats $ENV_FILE. It also works for --isolate, whose compose project directory
+# is $ISOLATE_TMPDIR (no .env there at all) and whose apply_isolation() reads
+# LOCAL_SERVICE_URL_<SLUG> from the environment before falling back to $ENV_FILE.
+
+# Export every assignment in the generated bridge. Silent no-op when the file is
+# absent or declares nothing (the "no slug migrated" state, which is the tracked
+# state today). Only LOCAL_SERVICE_URL_<SLUG>=<value> lines are honoured;
+# comments, blanks and anything else are ignored, so this cannot be turned into a
+# general-purpose env injector by editing the generated file.
+load_unified_frontend_env() {
+  [ -f "$LOCAL_SERVICES_ENV_FILE" ] || return 0
+  local line key value
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    case "$line" in
+      LOCAL_SERVICE_URL_*=*) ;;
+      *) continue ;;
+    esac
+    key="${line%%=*}"
+    value="${line#*=}"
+    [[ "$key" =~ ^LOCAL_SERVICE_URL_[A-Z0-9_]+$ ]] || continue
+    export "$key=$value"
+  done < "$LOCAL_SERVICES_ENV_FILE"
+}
+
+# CROSS-VALIDATE THE TWO NAMESPACES AND ABORT ON DISAGREEMENT.
+#
+# This is the check whose absence allowed a half-migrated slug to look fine. The
+# manifest says whether a slug is migrated; $ENV_FILE may still carry a
+# hand-written LOCAL_SERVICE_URL_<SLUG> from before this field existed. Exporting
+# the generated value would silently WIN over that line — the operator's visible
+# configuration would stop taking effect with no diagnostic — so instead we
+# refuse to run and name both files and both fixes.
+#
+# Only a genuine CONTRADICTION aborts. A $ENV_FILE line that agrees with the
+# manifest is redundant but harmless and passes.
+assert_unified_frontend_sources_agree() {
+  load_unified_frontend_env
+  [ -f "$ENV_FILE" ] || return 0
+
+  local integrations_dir="$SHOWCASE_ROOT/integrations"
+  [ -d "$integrations_dir" ] || return 0
+
+  local manifest slug key declared env_value expected
+  for manifest in "$integrations_dir"/*/manifest.yaml; do
+    [ -f "$manifest" ] || continue
+    slug="$(basename "$(dirname "$manifest")")"
+    key="LOCAL_SERVICE_URL_$(printf '%s' "$slug" | tr '[:lower:]-' '[:upper:]_')"
+
+    # The manifest's own answer. An absent key means "integration" (the
+    # documented default in showcase/scripts/lib/manifest.ts).
+    declared="$(sed -n 's/^demo_frontend:[[:space:]]*\([^[:space:]]*\)[[:space:]]*$/\1/p' "$manifest" | tail -n 1 | tr -d '\r' | tr -d '"'"'"'')"
+    [ -n "$declared" ] || declared="integration"
+    case "$declared" in
+      integration) expected="http://$slug:10000" ;;
+      unified) expected="http://frontend-nextjs:3000/$slug" ;;
+      *)
+        die "$manifest declares demo_frontend: '$declared', which is not one of 'integration' | 'unified'. Fix the manifest."
+        ;;
+    esac
+
+    # What $ENV_FILE says, if anything. Last assignment wins, matching compose.
+    env_value="$(sed -n "s/^[[:space:]]*${key}=//p" "$ENV_FILE" \
+      | tail -n 1 | tr -d '\r' \
+      | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")"
+    [ -n "$env_value" ] || continue
+
+    if [ "$env_value" != "$expected" ]; then
+      die "UNIFIED_FRONTEND_SOURCE_DISAGREEMENT for slug '$slug'.
+  $manifest declares demo_frontend: $declared, which means $key=$expected
+  $ENV_FILE sets                     $key=$env_value
+The manifest is the single source of truth. Either:
+  (a) delete the $key line from showcase/.env (the generated bridge,
+      showcase/local-services.generated.env, already carries the manifest's
+      answer and is exported before compose runs); or
+  (b) change demo_frontend in the manifest to match what you intended, then
+      re-run: npx tsx showcase/scripts/emit-local-services-env.ts
+Refusing to run: exporting the generated value would silently override a line
+you can still see in showcase/.env, which is the half-migrated state this check
+exists to catch."
+    fi
+  done
 }
 
 # ── Docker / Compose helpers ─────────────────────────────────────────────────
@@ -72,15 +184,41 @@ stage_shared() {
   # so Docker COPY can follow them (Docker build contexts can't traverse
   # symlinks that point outside the context). `_shared` carries the
   # single-source CVDIAG bootstrap module into each Python integration context.
+  #
+  # THIS MUTATES THE WORKING TREE IN PLACE: each symlink is REMOVED and replaced
+  # by a real directory. `restore_symlinks` puts them back via git checkout, so
+  # every caller must guarantee it runs.
+  #
+  # Because the mutation is destructive, check rsync BEFORE the first `rm`.
+  # Without this guard a host without rsync lost the symlink and then failed,
+  # leaving the tree half-converted. Same up-front-dependency-check convention
+  # as lsof / python3 / jq elsewhere in this file.
+  command -v rsync >/dev/null 2>&1 \
+    || die "rsync is required to stage shared dirs (tools/, shared-tools/, _shared/) into the Docker build contexts; install it"
+
+  # NB the `integrations/*/` glob DOES iterate the canonical source directory
+  # `integrations/_shared/` itself (it is a real tracked dir, one level deep).
+  # That is harmless: it holds no `tools`/`shared-tools`/`_shared` symlink and no
+  # `public/angular` link, so both loops below no-op for it.
   for pkg_dir in "$SHOWCASE_ROOT"/integrations/*/; do
     for link_name in tools shared-tools _shared; do
       local link_path="$pkg_dir/$link_name"
       if [ -L "$link_path" ]; then
         local target
         target="$(readlink "$link_path")"
-        # Resolve relative symlink targets against the link's directory
+        # Resolve relative symlink targets against the link's directory.
+        #
+        # `|| true` is LOAD-BEARING, not defensive noise. bin/showcase runs with
+        # `set -euo pipefail`: for a DANGLING symlink the inner `cd` fails, the
+        # command substitution exits non-zero, and errexit killed the CLI RIGHT
+        # HERE — before the `[ -d "$target" ]` guard on the next line could
+        # simply skip the link. By then earlier iterations had already replaced
+        # other symlinks with real directories, so the tree was left
+        # HALF-CONVERTED: exactly the state the rsync pre-check above exists to
+        # prevent. With the guard, an unresolvable target yields a path that
+        # fails `-d` and the link is skipped, untouched.
         if [[ "$target" != /* ]]; then
-          target="$(cd "$(dirname "$link_path")" && cd "$(dirname "$target")" && pwd)/$(basename "$target")"
+          target="$(cd "$(dirname "$link_path")" && cd "$(dirname "$target")" && pwd || true)/$(basename "$target")"
         fi
         if [ -d "$target" ]; then
           rm "$link_path"
@@ -98,22 +236,84 @@ stage_shared() {
 
 restore_symlinks() {
   # Restore tools/, shared-tools/, and _shared/ symlinks replaced by
-  # stage_shared. The integrations/*/_shared glob also matches the canonical
-  # source dir integrations/_shared (a real tracked dir) — harmless no-op there.
-  (cd "$SHOWCASE_ROOT" && git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared integrations/*/public/angular 2>/dev/null || true)
+  # stage_shared. The `integrations/*/_shared` pathspec is two levels deep, so it
+  # can never match the canonical source dir `integrations/_shared` — that dir is
+  # only ever visited by stage_shared's own `integrations/*/` loop (see the note
+  # there). git checkout on a path with no changes is a no-op regardless.
+  #
+  # ONE `git checkout` PER PATHSPEC, DELIBERATELY. This used to be a single
+  # checkout carrying all four globs with `2>/dev/null || true`, which made the
+  # restore ALL-OR-NOTHING AND SILENT: git fails the WHOLE invocation when any
+  # ONE pathspec matches nothing ("pathspec ... did not match any file(s) known
+  # to git"), so `tools`, `_shared` and `public/angular` were left unrestored
+  # for EVERY integration — real copied directories standing where symlinks
+  # belong, i.e. exactly the mutation stage_shared promises every caller will
+  # reverse. That was not hypothetical: it happened via
+  # `integrations/*/shared-tools`, and shared/typescript/tools was emptied by
+  # junction-following deletes as a result.
+  #
+  # Do NOT read that history as "one fragile glob, since fixed". The count is
+  # not the argument. `integrations/*/shared-tools` matches more than one path
+  # today (`mastra/shared-tools` is a symlink; `claude-sdk-typescript` carries a
+  # real tracked `shared-tools` directory), so dropping the mastra symlink alone
+  # would no longer empty this particular glob. The per-pathspec design is
+  # justified by the FAILURE MODE, not by how many paths happen to match: any
+  # ONE of these four globs matching nothing — and `integrations/*/public/angular`
+  # or a future fifth glob can still get there in a single rename — used to
+  # silently suppress the restore of all the others. Keep them separate.
+  #
+  # Per-pathspec now: one failing glob can no longer suppress the others, and
+  # each failure WARNS with git's own message instead of being discarded. Still
+  # never fatal — restore_symlinks runs from cleanup paths (including EXIT
+  # traps), where aborting is worse than reporting.
+  local pathspec restore_err
+  for pathspec in \
+    'integrations/*/tools' \
+    'integrations/*/shared-tools' \
+    'integrations/*/_shared' \
+    'integrations/*/public/angular'
+  do
+    # Unquoted expansion inside the subshell keeps the pre-existing semantics:
+    # the shell expands the glob when it matches on disk, and git falls back to
+    # matching the literal pathspec against the index when it does not.
+    if ! restore_err="$( (cd "$SHOWCASE_ROOT" && git checkout -- $pathspec) 2>&1 )"; then
+      warn "restore_symlinks: could not restore '$pathspec' — the staged real directory may still be standing where a symlink belongs (run 'git checkout -- $pathspec' in $SHOWCASE_ROOT)${restore_err:+: ${restore_err}}"
+    fi
+  done
 }
 
+# Container name for a slug. COUPLED TO apply_isolation: the compose rewriter
+# there replaces `container_name: showcase-` with `container_name: $name-`, so
+# under --isolate every container is prefixed with the isolation project name,
+# NOT with `showcase`. Hardcoding `showcase-` here made every
+# is_service_healthy / wait_healthy call inspect a container that does not exist
+# under --isolate, so wait_healthy always ran its timeout out and died.
+# ISOLATE_NAME is "" for the default stack, which is why the default is
+# `showcase` — keep this in sync with apply_isolation's rewrite.
 slug_to_container() {
-  echo "showcase-${1}"
+  echo "${ISOLATE_NAME:-showcase}-${1}"
 }
 
+# Host port for a slug, read from PORTS_FILE.
+#
+# NOTE: currently UNUSED (nothing calls it) — kept as the counterpart of
+# slug_to_container. Do not "simplify" the jq-less fallback: `sed 's/[^0-9]//g'`
+# over the whole line strips non-digits from the SLUG NAME too, so `"ag2": 3110`
+# yielded `23110`. The fallback below matches the key and the value together and
+# then keeps only the part after the colon — the same shape `_slot_offset_ports`
+# uses for the same reason.
 slug_to_port() {
   local slug="${1:?slug required}"
   if command -v jq &>/dev/null; then
     jq -r --arg s "$slug" '.[$s] // empty' "$PORTS_FILE"
   else
-    # Fallback: simple grep/sed if jq is not available
-    grep "\"$slug\"" "$PORTS_FILE" | sed 's/[^0-9]//g'
+    # `|| true` on the PIPELINE: bin/showcase runs `set -euo pipefail`, so an
+    # unmatched slug makes grep exit 1, pipefail propagates that through sed,
+    # and the enclosing command substitution killed the CLI instead of yielding
+    # the empty string the jq branch above returns for the same input. "No such
+    # slug" is a normal answer here, not an error.
+    { grep -o "\"$slug\"[[:space:]]*:[[:space:]]*[0-9]*" "$PORTS_FILE" \
+      | sed 's/.*:[[:space:]]*//'; } || true
   fi
 }
 
@@ -177,12 +377,74 @@ _showcase_state_base() { printf '%s/copilotkit/showcase' "${XDG_STATE_HOME:-$HOM
 # protection via pid is also unreliable.
 ISOLATE_SLOT_DIR="$(_showcase_state_base)/slots"
 ISOLATE_STALE_THRESHOLD=7200  # 2 hours in seconds — slot-age fallback
+
+# _require_positive_int <VAR_NAME> <default> <label> — validate an operator-
+# supplied numeric knob IN PLACE. Keeps the value when it is a positive integer;
+# otherwise WARNS and substitutes the documented default. It never dies: this
+# guards a cleanup path, and aborting there is worse than falling back.
+#
+# Same apparatus, and the same reasoning, as `_require_int` in
+# showcase/integrations/mastra/entrypoint.sh: an operator typo must not silently
+# DISABLE a guard. The two share the SHAPE-BEFORE-LENGTH ordering and the
+# 10-digit cap for the same reasons; if you change one, change the other, or
+# delete this sentence. Rejected (and defaulted) forms:
+#   • empty / non-numeric ("", "4h", "abc")
+#   • "0" — a zero TTL would reclassify every kept stack as stale instantly
+#   • leading-zero forms ("010") — bash arithmetic reads those as OCTAL, and an
+#     "08"/"09" digit is an arithmetic ERROR that aborts under `set -e`
+#   • more than 10 digits — a conservative cap, not the overflow point (see the
+#     UPPER BOUND note in the body)
+_require_positive_int() {
+  local name="$1" default="$2" label="$3" value bad=""
+  eval "value=\${$name:-}"
+  # DIGIT SHAPE FIRST, LENGTH SECOND. The other order misdiagnosed every LONG
+  # NON-NUMERIC value as "too large (N digits)" — e.g. a pasted "four hours
+  # please" was reported as an 18-digit number, sending the operator hunting for
+  # a magnitude problem in a value that holds no digits at all. Only an
+  # all-digit value can be too large, so the length test belongs after the
+  # shape test.
+  case "$value" in
+    [1-9]) ;;
+    [1-9][0-9]*)
+      case "$value" in
+        *[!0-9]*) bad="not a positive integer" ;;
+      esac
+      ;;
+    *) bad="not a positive integer" ;;
+  esac
+  # UPPER BOUND. All digits, but too many. 10 is NOT the overflow point: bash
+  # arithmetic is signed 64-bit, which holds 19 digits, so `[ 99999999999 -gt 5 ]`
+  # (11 digits) evaluates just fine. It is a deliberately CONSERVATIVE cap — no
+  # real TTL is ever more than a handful of digits, so anything longer is a paste
+  # accident, and refusing it here keeps a genuinely unrepresentable 20+ digit
+  # value from ever reaching `-gt` (which aborts with "value too great for base",
+  # suppressed to false inside an `if` — silently disabling the guard) or the
+  # `%` in restore_isolation. Same cap and same reasoning as `_require_int` in
+  # showcase/integrations/mastra/entrypoint.sh.
+  if [ -z "$bad" ] && [ "${#value}" -gt 10 ]; then
+    bad="too large (${#value} digits, max 10)"
+  fi
+  if [ -n "$bad" ]; then
+    warn "$label ($name) is $bad (got: '$value') — falling back to default $default"
+    printf -v "$name" '%s' "$default"
+  fi
+}
+
 # TTL on a `kept` stack (running containers whose owning process is gone or
 # unverifiable — a forgotten `--keep` leak). Once a kept slot's age exceeds this
 # TTL it is reclassified `stale` and reaped by the sweep, so a --keep'd stack
 # left running with no owner cannot accumulate indefinitely. Default 4 hours.
 # Overridable via SHOWCASE_ISOLATE_KEEP_TTL (e.g. for tests / longer sessions).
 ISOLATE_KEEP_TTL="${SHOWCASE_ISOLATE_KEEP_TTL:-14400}"  # 4 hours in seconds
+# Validation is MANDATORY, not cosmetic. A bad value breaks two things:
+#   1. `[ "$kept_age" -gt "$ISOLATE_KEEP_TTL" ]` in _slot_liveness becomes an
+#      "integer expression expected" error that evaluates FALSE inside its `if`,
+#      so kept stacks never age out — the leak the TTL exists to stop.
+#   2. `$(( ISOLATE_KEEP_TTL % 3600 ))` in restore_isolation is an arithmetic
+#      FAILURE, which under `set -e` aborts restore_isolation BEFORE it disowns
+#      ISOLATE_SLOT / ISOLATE_TMPDIR. A later call then takes the
+#      half-initialised branch and deletes the kept stack's slot and run dir.
+_require_positive_int ISOLATE_KEEP_TTL 14400 "Isolated kept-stack TTL in seconds"
 # The sweep lock is held only for the duration of one sweep pass (seconds, even
 # with all 46 slots populated). A crashed sweeper's leftover lock must not
 # disable stale reaping for the full 2-hour SLOT threshold — give the lock its
@@ -190,6 +452,79 @@ ISOLATE_KEEP_TTL="${SHOWCASE_ISOLATE_KEEP_TTL:-14400}"  # 4 hours in seconds
 ISOLATE_SWEEP_LOCK_STALE_THRESHOLD=60  # seconds
 # Maximum slot index for --isolate (0 reserved for base stack; 1..N for isolated runs).
 ISOLATE_MAX_SLOT=45
+
+# ── Slot number validation + port-offset arithmetic ─────────────────────────
+#
+# _valid_slot_number <value> — true when <value> is a slot index that bash
+# arithmetic can evaluate SAFELY and unambiguously. Every place that feeds a
+# slot into `$(( ))` or `[ … -gt … ]` must pass it through here FIRST.
+#
+# `^[0-9]+$` (the old test) is NOT enough, and the gap is not cosmetic:
+#   • "08" / "09" — `test` reads base 10 and accepts them, but `$(( ))` reads a
+#     leading-zero literal as OCTAL and "8"/"9" are not octal digits, so the
+#     expansion fails with "value too great for base" and, under bin/showcase's
+#     `set -e`, aborts the whole CLI with a raw arithmetic error.
+#   • "010" — same octal rule, but it SUCCEEDS as 8. `SHOWCASE_ISO_SLOT=010`
+#     therefore created slot dir `010` while computing slot 8's port offset:
+#     two live owners on one set of host ports, the exact collision the slot
+#     registry exists to prevent.
+#   • a 30-digit all-digit value overflows signed 64-bit arithmetic, so even the
+#     `-gt ISOLATE_MAX_SLOT` range check itself errors out. Length is capped
+#     first, so the range test never sees an unrepresentable number.
+# Accepts "0" (the base stack) so the one predicate serves both the registry
+# (1..ISOLATE_MAX_SLOT) and the `showcase slots` table (0..ISOLATE_MAX_SLOT);
+# callers enforce their own lower bound.
+_valid_slot_number() {
+  local value="${1-}"
+  # ISOLATE_MAX_SLOT is two digits; 3 leaves room to grow without ever letting
+  # an arithmetic-overflowing value reach the range comparison below.
+  [ "${#value}" -le 3 ] || return 1
+  [[ "$value" =~ ^(0|[1-9][0-9]*)$ ]]
+}
+
+# _slot_port_offset <slot> — the host-port offset for a slot. THE only formula:
+# both the port ENUMERATION (_slot_offset_ports, and through it the port probe)
+# and the OFFSET COLUMN of `showcase slots` (_slot_state) call it, so the number
+# the table prints is always the number that gets probed and bound.
+#
+# Slot 0 is offset 0 because slot 0 IS the base (non-isolate) stack: it binds
+# the compose file's literal ports (4010 aimock / 8090 pocketbase / 3210
+# dashboard / 3200 frontend-nextjs / 8081 harness + the per-slug ports). Only
+# _slot_state used to special-case it, while the probe went through the
+# `(slot+1)*200` formula — so slot 0's row reported +200 ports (4210/8290/…)
+# that NO stack ever binds, and the base stack's REAL ports were never probed
+# at all. `showcase slots` iterates from 0, so that bogus row rendered every
+# run.
+#
+# Isolated slots start at +400 (slot 1) and step by 200: the +200 band is
+# skipped deliberately so no isolated slot can ever land on a port the base
+# stack would use if its own ports were shifted.
+#
+# KNOWN LIMITATION — a 200 step is NARROWER than the spread of the infra base
+# ports, so two DIFFERENT slots can compute the SAME host port: dashboard 3210
+# and aimock 4010 are 800 apart == 4 steps, and dashboard starts LOWER, so the
+# dashboard has to climb 4 extra steps to reach an aimock port. Slot s's
+# dashboard port therefore equals slot s−4's aimock port — the HIGHER slot is
+# the dashboard side. Worked: slot 5's dashboard is 3210 + (5+1)*200 = 4410, and
+# slot 1's aimock is 4010 + (1+1)*200 = 4410. The colliding pairs, written
+# (aimock slot, dashboard slot), are (1,5) … (41,45). No pair inside
+# shared/local-ports.json collides — only that 3210/4010 pair does. It is not
+# silent: _slot_ports_free probes EVERY port a slot would bind, so the second
+# claimant is refused with "ports are held" instead of double-binding. The cost
+# is capacity, not corruption. Widening the step (e.g. 1000) is the real fix,
+# but the offset is published beyond this file (SHOWCASE_INFRA_PORT_OFFSET to
+# the harness, plus the documented +200 banding), so it must be changed
+# together with those consumers — not here alone.
+_slot_port_offset() {
+  local slot="${1:?slot required}"
+  _valid_slot_number "$slot" \
+    || die "_slot_port_offset: slot must be a non-negative integer with no leading zeros, got: '$slot'"
+  if [ "$slot" -eq 0 ]; then
+    printf '0\n'
+  else
+    printf '%d\n' $(( (slot + 1) * 200 ))
+  fi
+}
 
 # _file_mtime <path> — epoch mtime of a path, or empty when it cannot be
 # stat'ed (vanished concurrently, permissions). Callers must treat a
@@ -204,7 +539,9 @@ _file_mtime() {
 
 # _kept_slot_age <slot> — age in seconds of a slot for the ISOLATE_KEEP_TTL
 # comparison, or empty when no anchor can be stat'ed. The TTL anchor is the
-# `pid` file's mtime: it is written ONCE at claim (~line 406) and never
+# `pid` file's mtime: it is written ONCE at claim (by _claim_isolate_slot's
+# post-claim block — name the function, never a line number: the previous
+# "~line 406" reference rotted and pointed into _reap_isolate_slot) and never
 # rewritten, so it is a stable claim-time stamp (and `pid.start` is a SIBLING
 # file, so writing it never disturbs `pid`'s mtime). Mandatory fallback chain so
 # a kept slot is never immortal even if `pid` is gone: pid-file mtime →
@@ -355,8 +692,9 @@ _release_sweep_lock() {
 # Claim an isolation slot using atomic mkdir. Slots 1..ISOLATE_MAX_SLOT are
 # usable for --isolate runs; slot 0 is reserved for the base (non-isolate)
 # stack. Each slot dir contains a "pid" file for stale-detection. The port
-# offset is (slot + 1) * 200, so slot 1 → +400, slot 2 → +600, etc. If
-# SHOWCASE_ISO_SLOT is set, the picker pins to that slot; otherwise it
+# offset comes from _slot_port_offset (slot 1 → +400, slot 2 → +600, …; slot 0
+# → +0), which is also what the enumeration and the `showcase slots` table use.
+# If SHOWCASE_ISO_SLOT is set, the picker pins to that slot; otherwise it
 # auto-picks the first free slot in 1..ISOLATE_MAX_SLOT.
 _claim_isolate_slot() {
   mkdir -p "$ISOLATE_SLOT_DIR"
@@ -443,7 +781,15 @@ _claim_isolate_slot() {
   if [ -n "${SHOWCASE_ISO_SLOT:-}" ]; then
     # Pinned path
     local pinned="$SHOWCASE_ISO_SLOT"
-    [[ "$pinned" =~ ^[0-9]+$ ]] || die "SHOWCASE_ISO_SLOT must be a positive integer, got: $pinned"
+    # Shape check BEFORE any arithmetic. `^[0-9]+$` was not enough: it accepted
+    # leading-zero forms that `test` reads as base 10 but `$(( ))` reads as
+    # OCTAL, so `SHOWCASE_ISO_SLOT=08` aborted the whole CLI with a raw "value
+    # too great for base" and `SHOWCASE_ISO_SLOT=010` claimed slot dir `010`
+    # while computing slot 8's port offset — two owners on identical ports. See
+    # _valid_slot_number, which is the single predicate every slot-arithmetic
+    # site now shares.
+    _valid_slot_number "$pinned" \
+      || die "SHOWCASE_ISO_SLOT must be an integer with no leading zeros (1-$ISOLATE_MAX_SLOT), got: '$pinned'"
     [ "$pinned" -ge 1 ] || die "slot 0 is reserved for the base stack — use 1-$ISOLATE_MAX_SLOT"
     [ "$pinned" -le "$ISOLATE_MAX_SLOT" ] || die "SHOWCASE_ISO_SLOT=$pinned exceeds ISOLATE_MAX_SLOT=$ISOLATE_MAX_SLOT"
 
@@ -466,23 +812,39 @@ _claim_isolate_slot() {
       _reap_isolate_slot "$pinned_entry" "$pinned_proj" || true
       mkdir "$slot_dir" 2>/dev/null || die "Slot $pinned could not be reclaimed after reap — check $slot_dir manually"
     fi
-    # Port-probe
+    # Port-probe. ISOLATE_SLOT is published BEFORE the probe on purpose:
+    # _slot_ports_free can `die` (missing lsof, or a port-enumeration failure),
+    # and a die here runs the caller's EXIT trap. With ISOLATE_SLOT still empty
+    # at that moment, restore_isolation's half-initialised branch cleaned up
+    # NOTHING and the freshly created slot dir was stranded until the 2-hour age
+    # sweep — a slot consumed for no stack at all. Publishing it first makes the
+    # trap release it. The held-ports path below still rmdir's and then clears
+    # the variable, so the auto-pick fallback and the "no slots available"
+    # check keep their existing meaning.
+    ISOLATE_SLOT="$pinned"
     if ! _slot_ports_free "$pinned"; then
       rmdir "$slot_dir" 2>/dev/null || true
+      ISOLATE_SLOT=""
       die "Slot $pinned ports are held by a foreign process — see info messages above; clear conflicts or pick a different SHOWCASE_ISO_SLOT"
     fi
-    ISOLATE_SLOT="$pinned"
   else
     # Auto-pick path: loop 1..ISOLATE_MAX_SLOT (slot 0 reserved)
     local n=1
     while [ "$n" -le "$ISOLATE_MAX_SLOT" ]; do
       local slot_dir="$ISOLATE_SLOT_DIR/$n"
       if mkdir "$slot_dir" 2>/dev/null; then
+        # Publish the claim BEFORE the probe: _slot_ports_free can `die`
+        # (missing lsof / port-enumeration failure), and with ISOLATE_SLOT still
+        # empty the caller's EXIT trap cleaned up nothing and stranded this slot
+        # dir until the 2-hour age sweep. Cleared again on the held-ports path
+        # so the loop's "keep looking" and the post-loop exhaustion check are
+        # unchanged.
+        ISOLATE_SLOT="$n"
         if _slot_ports_free "$n"; then
-          ISOLATE_SLOT="$n"
           break
         else
           rmdir "$slot_dir" 2>/dev/null || true
+          ISOLATE_SLOT=""
           info "Slot $n ports held, trying next"
           # Benign race: between our rmdir and the next iteration's mkdir attempt, a concurrent
           # claimant can mkdir this same slot dir. That's fine — mkdir is the
@@ -510,7 +872,9 @@ _claim_isolate_slot() {
   # dead, which is the safe direction.
   echo "$$" > "$ISOLATE_SLOT_DIR/$ISOLATE_SLOT/pid"
   _pid_start_time "$$" > "$ISOLATE_SLOT_DIR/$ISOLATE_SLOT/pid.start"
-  ISOLATE_PORT_OFFSET=$(( (ISOLATE_SLOT + 1) * 200 ))
+  # Same formula as the enumeration and the table (see _slot_port_offset) — do
+  # not re-derive it here.
+  ISOLATE_PORT_OFFSET="$(_slot_port_offset "$ISOLATE_SLOT")"
   return 0
 }
 
@@ -609,13 +973,21 @@ _owner_liveness() {
 #      for "in active use":
 #        - owner alive (start-time-verified)            → live (e.g. mid-build
 #          before any container exists)
-#        - owner dead OR reused                         → stale
+#        - owner dead, reused, OR unverifiable          → stale, IMMEDIATELY and
+#          with no age check. `unverifiable` belongs in this list, not in the
+#          age fallback of step 4: with no containers to defer to there is
+#          nothing to prove the recorded owner is still ours, and the whole
+#          point of the pid.start fingerprint is to stop treating an
+#          unprovable owner as alive. This is what demotes a legacy or
+#          cross-user slot (no readable pid.start / EPERM on its start time)
+#          straight to reapable.
 #   3. Project recorded + no pid file (owner absent) + no running containers
 #      → stale (claim writes the pid file BEFORE the project record, so a
 #      missing pid means the owner state is genuinely gone). Unchanged.
-#   4. Age fallback — owner absent/unverifiable (missing/empty/non-numeric pid,
-#      or a live-but-unverifiable owner on a project-less legacy slot) AND age
-#      > ISOLATE_STALE_THRESHOLD → stale. Unchanged.
+#   4. Age fallback — owner `absent` ONLY (no pid file, or empty/non-numeric
+#      contents, which may be a live owner whose pid write was truncated) AND
+#      age > ISOLATE_STALE_THRESHOLD → stale. `unverifiable` never reaches this
+#      step: step 2 already returned stale for it.
 #   5. Otherwise → inconclusive.
 _slot_liveness() {
   local slot="${1:?slot required}"
@@ -861,28 +1233,51 @@ _release_isolate_slot() {
 }
 
 # Print every host port that the given isolation slot will bind, one per line.
-# Includes all slug ports from PORTS_FILE and the four infra base ports.
-# Each output port = base + (slot+1)*200.
+# Includes all slug ports from PORTS_FILE and the five infra base ports.
+# Each output port = base + _slot_port_offset <slot>, so slot 0 enumerates the
+# BASE stack's real ports (offset 0) and isolated slots enumerate their own
+# offset band — the table and this probe can never disagree.
 _slot_offset_ports() {
   local slot="${1:?slot required}"
 
-  # Validate: must be a non-negative integer
-  if ! printf '%s' "$slot" | grep -qE '^[0-9]+$'; then
-    die "_slot_offset_ports: slot must be a non-negative integer, got: $slot"
+  # Validate BEFORE any arithmetic: rejects non-numeric, leading-zero/octal
+  # ("08" aborts `$(( ))` outright, "010" silently means 8) and lengths that
+  # would overflow the range comparison below. See _valid_slot_number.
+  if ! _valid_slot_number "$slot"; then
+    die "_slot_offset_ports: slot must be a non-negative integer with no leading zeros, got: '$slot'"
   fi
   if [ "$slot" -gt "$ISOLATE_MAX_SLOT" ]; then
     die "_slot_offset_ports: slot $slot exceeds ISOLATE_MAX_SLOT ($ISOLATE_MAX_SLOT)"
   fi
 
-  local offset=$(( (slot + 1) * 200 ))
-  local infra_ports=(4010 8090 3210 8081)
+  local offset
+  offset="$(_slot_port_offset "$slot")"
+  # Infra base ports — services in the compose `infra` profile, i.e. the ones
+  # every isolated per-slug run STARTS FROM CACHE and never rebuilds (call 1 of
+  # bin/showcase's two-call `up`: profiles up -d with no --build; only the
+  # positional target slug gets --build in call 2).
+  #   4010 aimock · 8090 pocketbase · 3210 dashboard · 8081 harness control-plane
+  #   3200 frontend-nextjs — the UNIFIED Next.js frontend that serves every
+  #        integration's demos at /<slug>/demos/<demo-id>. It belongs here, not
+  #        with the per-slug services: the local workflow is ~21 sequential
+  #        per-slug D6 runs on one machine, so rebuilding the whole Next.js app
+  #        once per run would make local testing unusable. Listing its port here
+  #        is what makes --isolate offset and port-probe it like the other infra
+  #        services (PORTS_FILE holds only per-slug integration ports).
+  local infra_ports=(4010 8090 3210 8081 3200)
 
   # Slug ports from PORTS_FILE
   local port_values
   if command -v jq &>/dev/null; then
     port_values="$(jq -r 'to_entries[] | .value' "$PORTS_FILE" 2>/dev/null)"
   else
-    port_values="$(grep -o '"[^"]*"[[:space:]]*:[[:space:]]*[0-9]*' "$PORTS_FILE" | sed 's/.*:[[:space:]]*//')"
+    # `|| true` on the PIPELINE, same reason as slug_to_port's fallback: under
+    # `set -euo pipefail` an empty/malformed PORTS_FILE makes grep exit 1 and
+    # pipefail turns that into a CLI-killing assignment failure. Here the
+    # consequence was worse than a bad message — this runs on the CLAIM path, so
+    # a hard exit mid-claim strands the slot dir. Degrade to "no slug ports" and
+    # let the infra ports below still be probed.
+    port_values="$({ grep -o '"[^"]*"[[:space:]]*:[[:space:]]*[0-9]*' "$PORTS_FILE" | sed 's/.*:[[:space:]]*//'; } || true)"
   fi
 
   while IFS= read -r base; do
@@ -1045,12 +1440,11 @@ _slot_state() {
     fi
   fi
 
+  # Same helper the port ENUMERATION uses, so the OFFSET column can never
+  # advertise a band that the probe does not actually check (slot 0 printed +0
+  # here while the probe used +200 — see _slot_port_offset).
   local offset
-  if [ "$slot" = "0" ]; then
-    offset=0
-  else
-    offset=$(( (slot + 1) * 200 ))
-  fi
+  offset="$(_slot_port_offset "$slot")"
 
   printf '%s|%s|%s|%s|%s|%s|%s\n' \
     "$slot" "$dir" "$pid" "$liveness" "$ports" "$offset" "$project"
@@ -1210,10 +1604,54 @@ with open('$tmp_ports', 'w') as f:
 
   # Generate offset compose file in the temp dir
   local tmp_compose="$ISOLATE_TMPDIR/docker-compose.local.yml"
+
+  # ---------------------------------------------------------------------------
+  # Resolve the isolated slug's roster publicUrl BEFORE the rewriter runs.
+  #
+  # WHY THIS IS DONE IN BASH AND NOT LEFT TO COMPOSE INTERPOLATION: the
+  # persistent stack writes the roster URL as
+  # `${LOCAL_SERVICE_URL_<SLUG>:-http://<slug>:10000}` and relies on docker
+  # compose parsing showcase/.env itself. That only works because the default
+  # stack's PROJECT DIRECTORY is showcase/. The isolated compose file lives in
+  # $ISOLATE_TMPDIR, and this function passes neither --project-directory nor
+  # --env-file, so compose's interpolation .env for an isolated run is
+  # $ISOLATE_TMPDIR/.env — which does not exist. Emitting the interpolation
+  # would therefore silently resolve to the default and change nothing. We read
+  # the override here instead, so --isolate honours the SAME knob the
+  # persistent stack documents.
+  #
+  # THE MIGRATION STATE NOW LIVES IN THE MANIFESTS. `demo_frontend` in
+  # showcase/integrations/<slug>/manifest.yaml is the single tracked source of
+  # truth; LOCAL_SERVICE_URL_<SLUG> is only its projection into the namespace
+  # compose can interpolate, written by
+  # showcase/scripts/emit-local-services-env.ts into
+  # $LOCAL_SERVICES_ENV_FILE and exported by load_unified_frontend_env (called
+  # just below, and again at source time). An earlier revision of this note said
+  # no manifest field existed, which was true when it was written.
+  #
+  # Precedence: exported environment first (which is where the generated bridge
+  # lands), then showcase/.env (last assignment wins, matching compose), then the
+  # historical default. assert_unified_frontend_sources_agree aborts if
+  # showcase/.env contradicts the manifest, so the fallback below can only ever
+  # read a value that AGREES with the manifest. With no slug migrated the emitted
+  # roster is byte-identical to what this rewriter produced before.
+  assert_unified_frontend_sources_agree
+  local _slug_env_key="LOCAL_SERVICE_URL_$(printf '%s' "$slug" | tr '[:lower:]-' '[:upper:]_')"
+  local _slug_public_url=""
+  if [[ "$_slug_env_key" =~ ^LOCAL_SERVICE_URL_[A-Z0-9_]+$ ]]; then
+    _slug_public_url="${!_slug_env_key:-}"
+    if [ -z "$_slug_public_url" ] && [ -f "$SHOWCASE_ROOT/.env" ]; then
+      _slug_public_url="$(sed -n "s/^[[:space:]]*${_slug_env_key}=//p" "$SHOWCASE_ROOT/.env" \
+        | tail -n 1 | tr -d '\r' \
+        | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")"
+    fi
+  fi
+
   # Pass slug via env var instead of bash-interpolating into the python
   # source — a slug containing a single quote would break the python literal.
   # Internal-tool risk only (slug is developer-typed), but cheap to harden.
-  SHOWCASE_ISO_SLUG="$slug" python3 -c "
+  # Same reasoning for the resolved publicUrl (operator-supplied string).
+  SHOWCASE_ISO_SLUG="$slug" SHOWCASE_ISO_PUBLIC_URL="$_slug_public_url" python3 -c "
 import os, re
 with open('$COMPOSE_FILE') as f:
     content = f.read()
@@ -1285,9 +1723,12 @@ if SLUG:
     import json as _json
     _os = os
     demos = []
+    # Integrations are FLAT under showcase/integrations/. The old second
+    # candidate, showcase/packages/<slug>/manifest.yaml, was a leftover from the
+    # pre-flat layout: no showcase/packages directory exists, so that path could
+    # never match and only made the loop look like it supported two layouts.
     for _mp in (
         _osp.join(ROOT, 'integrations', SLUG, 'manifest.yaml'),
-        _osp.join(ROOT, 'packages', SLUG, 'manifest.yaml'),
     ):
         if _os.path.exists(_mp):
             with open(_mp) as _mf:
@@ -1306,19 +1747,113 @@ if SLUG:
             break
     if not demos:
         demos = ['agentic-chat']
+    # publicUrl. Two topologies, selected by the LOCAL_SERVICE_URL_<SLUG>
+    # override the bash block above resolved (see its comment for why the
+    # resolution cannot be left to compose interpolation):
+    #
+    #   NOT migrated (override unset) — 'http://<slug>:10000', the integration's
+    #     own Next.js. Byte-identical to what this rewriter always emitted.
+    #   MIGRATED (override set to the unified frontend) — that value verbatim,
+    #     e.g. 'http://frontend-nextjs:3000/<slug>'. The integration's :10000
+    #     no longer serves the demo mounts for a migrated slug, so the old
+    #     unconditional ':10000' made EVERY cell of an isolated migrated run
+    #     probe a 404.
+    #
+    # 'frontend-nextjs' and :3000 are verified against
+    # showcase/docker-compose.local.yml: the SERVICE (and therefore the compose
+    # network DNS alias) is 'frontend-nextjs' and the container port is 3000
+    # (PORT=3000, published as 3200:3000, healthcheck on 127.0.0.1:3000). The
+    # service sits in the 'infra' profile, and both isolated up paths
+    # (bin/showcase's two compose calls and harness lifecycle.ts) always pass
+    # --profile infra, so the isolated slot DOES start it — this roster fix is
+    # not cosmetic. Only container_name is rewritten per project; the service
+    # name (the DNS alias) is not, so the URL resolves inside the isolated
+    # project's network too.
+    PUBLIC_URL = os.environ.get('SHOWCASE_ISO_PUBLIC_URL', '').strip() or f'http://{SLUG}:10000'
+    # 'Migrated' is decided by the override naming the unified frontend service,
+    # not by any hardcoded slug list (no such list exists, and inventing one
+    # would rot on the next migration).
+    _MIGRATED = 'frontend-nextjs' in PUBLIC_URL
+    _MIGRATED_FORM = f'http://frontend-nextjs:3000/{SLUG}'
+    # BOTH AXES. 'publicUrl' is where the DEMO PAGES are (the integration's own
+    # container, or the unified frontend once the slug is migrated);
+    # 'agentBaseUrl' is where the AGENT answers, which is ALWAYS the
+    # integration's own container. Key order and values match the synthesised
+    # host-CLI roster in harness/src/cli/control-plane-run.ts
+    # (buildLocalServicesJson) and the compose file's own roster line —
+    # local-services-roster-parity.test.ts pins the three together. Emitting
+    # only publicUrl let a live unified frontend green a cell whose agent was
+    # dead; see RailwayServiceInfo.agentBaseUrl.
     _override = _json.dumps([{
         'name': f'showcase-{SLUG}',
-        'publicUrl': f'http://{SLUG}:10000',
+        'publicUrl': PUBLIC_URL,
+        'agentBaseUrl': f'http://{SLUG}:10000',
         'demos': demos,
     }])
-    # Replace the entire folded-scalar LOCAL_SERVICES_JSON=[...] payload line.
-    # docker-compose.local.yml writes it as:  '        LOCAL_SERVICES_JSON=[...]'
-    content = re.sub(
-        r'(^\s+)LOCAL_SERVICES_JSON=\[[^\n]*\]',
-        lambda m: m.group(1) + 'LOCAL_SERVICES_JSON=' + _override,
+    # Replace the folded-scalar LOCAL_SERVICES_JSON=[...] payload line.
+    # docker-compose.local.yml writes it as:
+    #   '        LOCAL_SERVICES_JSON=[{...}\${LOCAL_SERVICES_EXTRA:-}]'
+    # The trailing compose interpolation is the DOCUMENTED extension point for
+    # widening the local fleet, and replacing the whole bracket payload used to
+    # DELETE it silently — an operator who set LOCAL_SERVICES_EXTRA saw it
+    # simply vanish under --isolate with no warning. So carry any \${...} that
+    # trailed the roster INSIDE the brackets over to the rewritten payload,
+    # keeping it immediately before the closing ']' (the variable's own value
+    # starts with the joining comma, per the compose file's usage note).
+    # chr(36) keeps a literal dollar out of this double-quoted bash string.
+    _DOLLAR = chr(36)
+    # re.escape() is LOAD-BEARING. Concatenating the raw dollar straight into
+    # the pattern made re parse it as the END-OF-STRING ANCHOR, so the pattern
+    # could never match ANY input: _suffix was always '' and the interpolation
+    # was deleted from every --isolate compose file — precisely the silent
+    # regression the note above says was fixed. The trailing '\$' inside the
+    # lookahead IS meant as an anchor; only the leading dollar is a literal.
+    _SFX_RE = re.compile(re.escape(_DOLLAR) + r'\{[^}]*\}(?=\s*\]\s*\$)')
+    def _rewrite_local_services(m):
+        indent, payload = m.group(1), m.group(2)
+        _sfx = _SFX_RE.search(payload)
+        _suffix = _sfx.group(0) if _sfx else ''
+        # _override always ends in ']'; splice the suffix in ahead of it.
+        _out = indent + 'LOCAL_SERVICES_JSON=' + _override[:-1] + _suffix + ']'
+        # Fail LOUD instead of silently dropping the extension point. If the
+        # source payload carried an interpolation and the rewritten line no
+        # longer does, the pattern above has regressed again; an operator who
+        # set LOCAL_SERVICES_EXTRA must hear about it, not lose it quietly.
+        if _DOLLAR + '{' in payload and _DOLLAR + '{' not in _out:
+            raise SystemExit(
+                'apply_isolation: LOCAL_SERVICES_JSON interpolation was dropped '
+                'while rewriting the roster for --isolate; payload was: ' + payload
+            )
+        # Same fail-loud spirit, for the migrated-slug topology. A roster that
+        # points a migrated slug anywhere other than the unified frontend's
+        # per-slug path is DEAD (every cell probes a 404), and a dead roster is
+        # indistinguishable from a genuinely failing cell in the run output. So
+        # abort by name instead of writing it.
+        if _MIGRATED and _MIGRATED_FORM not in _out:
+            raise SystemExit(
+                'apply_isolation: MIGRATED_ROSTER_URL_MISSING — slug ' + SLUG
+                + ' resolves to the unified frontend (' + PUBLIC_URL + ') but the'
+                + ' rewritten roster does not contain ' + _MIGRATED_FORM + '.'
+                + ' Set LOCAL_SERVICE_URL_' + SLUG.upper().replace('-', '_')
+                + '=' + _MIGRATED_FORM + ' (the slug path segment is required —'
+                + ' the harness appends /demos/<id> to this base). Emitted: ' + _out
+            )
+        return _out
+    content, _roster_subs = re.subn(
+        r'(^\s+)LOCAL_SERVICES_JSON=(\[[^\n]*\])',
+        _rewrite_local_services,
         content,
         flags=re.MULTILINE,
     )
+    # A migrated slug with NO roster line rewritten is the same dead-roster
+    # outcome by another route: the isolated stack would inherit the persistent
+    # stack's langgraph-python roster and never probe SLUG at all.
+    if _MIGRATED and _roster_subs == 0:
+        raise SystemExit(
+            'apply_isolation: MIGRATED_ROSTER_URL_MISSING — no LOCAL_SERVICES_JSON'
+            ' line matched in ' + '$COMPOSE_FILE' + ', so the roster for migrated'
+            ' slug ' + SLUG + ' was never written'
+        )
 
 with open('$tmp_compose', 'w') as f:
     f.write(content)
@@ -1485,3 +2020,18 @@ restore_isolation() {
     ISOLATE_ACTIVE=false
   fi
 }
+
+# ── Source-time wiring ───────────────────────────────────────────────────────
+#
+# Export the generated migration bridge for EVERY command, not just the ones
+# that call require_env / apply_isolation. Commands that invoke compose without
+# either gate (and the harness TS CLI, which is spawned as a child and inherits
+# this environment) must still see the manifest-derived LOCAL_SERVICE_URL_<SLUG>
+# values, or the compose roster would fall back to its :10000 default for a
+# migrated slug.
+#
+# This is the EXPORT ONLY — it never aborts. The disagreement check lives in
+# assert_unified_frontend_sources_agree, called from require_env (`up`) and
+# apply_isolation (`--isolate`), so a contradicted configuration fails on the
+# paths that act on it while `showcase down` / `ports` / `--help` keep working.
+load_unified_frontend_env

@@ -15,7 +15,6 @@ from tools import (
     get_weather_impl,
     query_data_impl,
     schedule_meeting_impl,
-    search_flights_impl,
     build_a2ui_operations_from_tool_call,
 )
 from typing import Any, List
@@ -76,6 +75,72 @@ class ScheduleMeetingTool(BaseTool):
         return json.dumps(schedule_meeting_impl(reason, duration_minutes))
 
 
+# LGP beautiful_chat.py card surface — inlined FlightCards, not the
+# shared search_flights_impl template + data-model form.
+FLIGHT_CATALOG_ID = "copilotkit://app-dashboard-catalog"
+FLIGHT_SURFACE_ID = "flight-search-results"
+
+
+def build_flight_components(flights: list) -> list[dict]:
+    """Build a flat A2UI tree with one literal FlightCard per flight.
+
+    Copied from langgraph-python `beautiful_chat._build_flight_components`.
+    Avoids the structural-children template form (Row.children =
+    {componentId, path}), which the GenericBinder only expands correctly
+    for components whose schema declares STRUCTURAL children.
+    """
+    flight_card_ids: list[str] = []
+    components: list[dict] = []
+    for index, flight in enumerate(flights or []):
+        card_id = f"flight-card-{index}"
+        flight_card_ids.append(card_id)
+        components.append(
+            {
+                "id": card_id,
+                "component": "FlightCard",
+                "airline": flight.get("airline", ""),
+                "airlineLogo": flight.get("airlineLogo", ""),
+                "flightNumber": flight.get("flightNumber", ""),
+                "origin": flight.get("origin", ""),
+                "destination": flight.get("destination", ""),
+                "date": flight.get("date", ""),
+                "departureTime": flight.get("departureTime", ""),
+                "arrivalTime": flight.get("arrivalTime", ""),
+                "duration": flight.get("duration", ""),
+                "status": flight.get("status", ""),
+                "price": flight.get("price", ""),
+            }
+        )
+    root: dict = {
+        "id": "root",
+        "component": "Row",
+        "children": flight_card_ids,
+        "gap": 16,
+    }
+    return [root, *components]
+
+
+def render_search_flights_a2ui(flights: list) -> str:
+    """LGP `a2ui.render` shape for beautiful-chat search_flights."""
+    ops: list[dict[str, Any]] = [
+        {
+            "version": "v0.9",
+            "createSurface": {
+                "surfaceId": FLIGHT_SURFACE_ID,
+                "catalogId": FLIGHT_CATALOG_ID,
+            },
+        },
+        {
+            "version": "v0.9",
+            "updateComponents": {
+                "surfaceId": FLIGHT_SURFACE_ID,
+                "components": build_flight_components(flights),
+            },
+        },
+    ]
+    return json.dumps({"a2ui_operations": ops})
+
+
 class SearchFlightsInput(BaseModel):
     """Input schema for SearchFlightsTool."""
 
@@ -88,14 +153,14 @@ class SearchFlightsTool(BaseTool):
     name: str = "search_flights"
     description: str = (
         "Search for flights and display the results as rich cards. Return exactly 2 flights. "
-        "Each flight must have: airline, airlineLogo, flightNumber, origin, destination, "
-        "date, departureTime, arrivalTime, duration, status, statusColor, price, and currency."
+        'Each flight must have: airline (e.g. "United Airlines"), airlineLogo, flightNumber, '
+        "origin, destination, date, departureTime, arrivalTime, duration, status, and price "
+        '(e.g. "$349" / "$289").'
     )
     args_schema: Type[BaseModel] = SearchFlightsInput
 
     def _run(self, flights: list) -> str:
-        result = search_flights_impl(flights)
-        return json.dumps(result)
+        return render_search_flights_a2ui(flights)
 
 
 class GenerateA2uiInput(BaseModel):

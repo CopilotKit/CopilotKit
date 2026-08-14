@@ -15,12 +15,13 @@
   "properties": {
     "name": {
       "type": "string",
-      "description": "Display name (e.g. 'LangGraph (Python)')"
+      "minLength": 1,
+      "description": "Display name (e.g. 'LangGraph (Python)'). `minLength: 1` because `required` alone does NOT reject an empty string: `name: \"\"` satisfied the required list and then rendered a blank card title on the landing page and a blank switcher entry in shell-docs. Same reasoning as `command` and `demos[].id`/`name`/`description`. No manifest carries an empty value today, so this only closes the hole."
     },
     "slug": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
-      "description": "URL-safe identifier (e.g. 'langgraph-python')"
+      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "description": "URL-safe identifier (e.g. 'langgraph-python'). Lowercase alphanumerics and '-', never leading or trailing '-'. The optional group is what admits a SINGLE-character slug: the earlier '^[a-z0-9][a-z0-9-]*[a-z0-9]$' required at least two characters, so a one-character slug was rejected for no stated reason while '-' placement stayed identical."
     },
     "category": {
       "type": "string",
@@ -47,7 +48,8 @@
     },
     "description": {
       "type": "string",
-      "description": "One-paragraph description of the integration"
+      "minLength": 1,
+      "description": "One-paragraph description of the integration. `minLength: 1` for the same reason as `name` — `required` does not reject `\"\"`, and an empty value renders an empty paragraph rather than failing the build."
     },
     "partner_docs": {
       "type": ["string", "null"],
@@ -61,8 +63,8 @@
     },
     "copilotkit_version": {
       "type": "string",
-      "pattern": "^\\d+\\.\\d+\\.\\d+",
-      "description": "CopilotKit SDK version this package is built against"
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "CopilotKit SDK version this package is built against. The `$` anchor is REQUIRED, not decoration: JSON Schema `pattern` is an UNANCHORED search, so without it '1.61.2garbage' and '2.0.0 (approx)' both passed and reached the registry as the version string. Every manifest today carries a bare 'MAJOR.MINOR.PATCH' ('2.0.0'), so the anchor rejects nothing that exists. If a prerelease or build-metadata suffix is ever needed, widen the pattern deliberately (e.g. '^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$') — do NOT reopen it by deleting the anchor."
     },
     "backend_url": {
       "type": "string",
@@ -74,11 +76,35 @@
       "default": false,
       "description": "Whether the backend is deployed and live. Stack nav and demo links only activate when true."
     },
+    "demo_frontend": {
+      "type": "string",
+      "enum": ["integration", "unified"],
+      "default": "integration",
+      "$comment": "THE TRACKED SOURCE OF TRUTH for the unified-frontend migration, and the ONLY one. Before this field existed the state was spelled three ways that nothing compared: LOCAL_SERVICE_URL_<SLUG> (read by docker-compose.local.yml's LOCAL_SERVICES_JSON roster and by apply_isolation() in showcase/scripts/cli/_common.sh), SHOWCASE_UNIFIED_FRONTEND_SLUGS (read only by showcase/harness/src/cli/config.ts), and nothing at all in showcase/harness/src/cli/control-plane-run.ts, which hardcoded http://<slug>:10000. Migrating a slug therefore meant hand-setting two env vars and hoping the third agreed, and a half-migrated slug looked healthy. Every consumer now derives from THIS key: the harness reads the manifests directly (config.ts), and the compose roster reads showcase/local-services.generated.env, emitted from the manifests by showcase/scripts/emit-local-services-env.ts. This enum is ONE OF THREE spellings of the same list, exactly like agent_kind: the others are DEMO_FRONTENDS in showcase/scripts/lib/manifest.ts (cross-checked against this enum by generate-registry.ts, so the pair cannot drift) and the entry in MANIFEST_KEYS in showcase/frontends/nextjs/src/lib/integration-support.ts (pinned to this schema's top-level property set by a both-directions set-equality test in agent-resolution.test.ts).",
+      "description": "WHICH frontend serves this integration's demo pages. 'integration' = the integration's own Next.js container at http://<slug>:10000 serves /demos/<id> (the DEFAULT, and what every manifest that omits this field gets). 'unified' = the shared app at showcase/frontends/nextjs serves them at <origin>/<slug>/demos/<id>. An ENUM rather than a boolean on purpose: it names which frontend serves the demos instead of asserting yes/no about one of them, it matches the house style of docs_mode / agent_kind, and a later phase that retires the per-integration frontend can add or remove a value without renaming the key or inverting a boolean. This axis is INDEPENDENT of where the agent is — a migrated slug's demos move to the unified app while its agent stays on its own origin — so nothing here changes agent resolution."
+    },
     "docs_mode": {
       "type": "string",
       "enum": ["generated", "authored", "hidden"],
       "default": "generated",
-      "description": "How shell-docs serves this framework's docs pages: 'generated' = data-driven FrameworkOverview + agnostic root MDX (current behavior, kept for langgraph-* and google-adk). 'authored' = render the per-framework MDX tree under content/docs/integrations/<docsFolder>/ with its own sidebar. 'hidden' = exclude from the docs site (no framework page, no switcher entry). Defaults to 'generated' when omitted."
+      "description": "How shell-docs serves this framework's docs pages: 'generated' = data-driven FrameworkOverview + agnostic root MDX (current behavior, kept for langgraph-* and google-adk). 'authored' = render the per-framework MDX tree under content/docs/integrations/<folder>/ with its own sidebar. 'hidden' = exclude from the docs site (no framework page, no switcher entry). Defaults to 'generated' when omitted. NOTE: <folder> is NOT a manifest property — this schema sets additionalProperties: false, so a 'docsFolder' key could never be declared here even though an earlier version of this description named one. The folder is resolved by DOCS_FOLDER_OVERRIDES in showcase/shell-docs/src/lib/registry.ts, which maps a slug to a folder name and otherwise falls back to the slug itself."
+    },
+    "agent_kind": {
+      "type": "string",
+      "enum": ["http", "langgraph", "in-process"],
+      "default": "http",
+      "$comment": "This enum is ONE OF THREE copies of the agent_kind list. The other two are AGENT_KINDS in showcase/scripts/lib/manifest.ts and AGENT_KINDS in showcase/frontends/nextjs/src/lib/agent-resolution.ts, and all three used to be documented as \"the\" runtime-checkable one. JSON cannot import TypeScript, so this copy cannot be deleted — instead generate-registry.ts now cross-checks it against AGENT_KINDS from scripts/lib/manifest.ts on every run and exits non-zero if the two drift, which makes this pair one list with two spellings. The frontend copy is still independent; it is validated only by isAgentKind at request time.",
+      "description": "How the shell/runtime reaches this integration's agent. 'http' = a plain AG-UI HTTP endpoint at the agent URL (the default, and what every manifest that omits this field gets). 'langgraph' = a LangGraph Platform / langgraph-dev server addressed by graph id (per-demo `agent.graph`). 'in-process' = the agent runs inside the Next.js app, so no agent URL is dialled at all."
+    },
+    "agent_url_env": {
+      "type": "string",
+      "minLength": 1,
+      "$comment": "No \"default\" here ON PURPOSE. It used to declare \"default\": \"AGENT_URL\", which contradicts this field's own description: schema-driven tooling and editors materialise declared defaults, so the default would inject a field the description ends by telling authors never to add. A dead field must not have a default that looks live.",
+      "description": "DEPRECATED — DEAD FIELD, has NO effect on the unified app. The app resolves an integration's agent base URL from AGENT_URL_<SLUG> (slug upper-cased, '-' -> '_') ONLY; see the 'NOT CONSUMED' note in showcase/frontends/nextjs/src/lib/agent-resolution.ts. Setting this does NOT redirect the lookup. It is retained solely so the three manifests that still carry it keep validating, and it records which env var the standalone integration package historically read (e.g. 'LANGGRAPH_DEPLOYMENT_URL'). Do not add it to new manifests."
+    },
+    "agent_defaults": {
+      "type": "object",
+      "description": "Free-form AGENT-CONSTRUCTION defaults handed to every agent of this integration (e.g. { recursion_limit: 100 }). Deliberately unconstrained: the accepted keys differ per framework and mirroring them here would rot. Per-demo overrides live under demos[].agent.config (NOT demos[].runtime, which is CopilotRuntime options only)."
     },
     "sort_order": {
       "type": "integer",
@@ -94,44 +120,61 @@
       "type": "array",
       "items": { "type": "string" },
       "minItems": 1,
-      "description": "List of supported feature IDs from the feature registry"
+      "uniqueItems": true,
+      "description": "List of supported feature IDs from the feature registry. `uniqueItems` matches parseManifest in showcase/scripts/lib/manifest.ts, which rejects a repeated id: the list is read as a membership set, so a duplicate changes nothing and hides the id the author meant to type. Without it `[a, a]` passed this schema — the only validator generate-registry.ts runs — while validate-parity failed on it, a split gate."
     },
     "not_supported_features": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "List of feature IDs that this integration's framework cannot architecturally support (e.g., framework lacks graph-interrupt API or MCP tool runtime). These are excluded from parity computation."
+      "uniqueItems": true,
+      "description": "List of feature IDs that this integration's framework cannot architecturally support (e.g., framework lacks graph-interrupt API or MCP tool runtime). These are excluded from parity computation. `uniqueItems` for the same reason as `features` — see that field."
+    },
+    "synthetic_reasoning_demos": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Demo ids whose AGENT CANNOT EMIT AG-UI REASONING_* EVENTS, so the unified runtime must synthesise them. For each id listed here the runtime injects a REASONING_START / REASONING_MESSAGE_START / REASONING_MESSAGE_CONTENT / REASONING_MESSAGE_END / REASONING_END sequence on RUN_STARTED, and strips reasoning-role messages out of the replayed history on the way back in (the events make the client hold a reasoning-role message, and the .NET AG-UI host's input mapper accepts only user/assistant/system/tool). Only meaningful under agent_kind: http; the app rejects it on any other kind rather than dropping it silently. NOT integration-wide on purpose: ms-agent-dotnet's own route shimmed exactly its three reasoning cells and left the rest alone, because injecting reasoning into e.g. tool-rendering-default-catchall breaks that cell's spec. Populated today by ms-agent-dotnet and ms-agent-harness-dotnet (Microsoft.Agents.AI.Hosting.AGUI.AspNetCore@1.0.0-preview.251110.1 emits no reasoning events). NOT spring-ai: its dedicated Java ReasoningController emits real REASONING_MESSAGE_* frames, so listing it would double them.",
+      "$comment": "Consumed at request time by needsSyntheticReasoning in showcase/frontends/nextjs/src/lib/agent-resolution.ts, applied by applySyntheticReasoning in src/lib/reasoning-shim.ts. Like every other top-level key it must ALSO appear in MANIFEST_KEYS in src/lib/integration-support.ts, which mirrors this closed key set by hand — a key here and not there rejects every manifest that declares it and takes the whole unified app down. The both-directions set-equality test in agent-resolution.test.ts (\"manifest key sets\") is what holds the two together."
     },
     "demos": {
       "type": "array",
+      "$comment": "demos[].id UNIQUENESS is enforced by generate-registry.ts, not here: draft-07 has no way to require uniqueness on one property of array items (`uniqueItems` compares whole items, so two rows differing in any other field slip through), and adding an ajv-keywords dependency for `uniqueItemProperties` is not worth a dependency. Both runtime parsers already reject a duplicate id — parseManifest in showcase/scripts/lib/manifest.ts and assertManifest in showcase/frontends/nextjs/src/lib/integration-support.ts — because every read resolves an id with .find, so the second row is unreachable and its route, agent and runtime are ignored with no diagnostic.",
       "items": {
         "type": "object",
         "required": ["id", "name", "description", "tags"],
+        "anyOf": [{ "required": ["route"] }, { "required": ["command"] }],
+        "$comment": "The anyOf is what makes a demo REACHABLE. A row carrying only { id, name, description, tags } passed this schema, parseManifest and assertManifest, and then 404ed at request time: with no route there is no page, and with no command there is nothing to render instead — the app resolves it as `informational` and the API refuses it. `route`'s own description already named `command` as the alternative; this states the rule the description assumed. parseManifest enforces the same pair (see the route/command check there), gated on a declared `features` key so fixture manifests that predate the schema still parse.",
         "properties": {
           "id": {
             "type": "string",
-            "description": "References a feature ID from the registry"
+            "minLength": 1,
+            "description": "References a feature ID from the registry. `minLength: 1` because `required` does not reject `\"\"`: an empty id passed, then failed to match any registry feature and dropped the demo out of parity silently instead of failing the build. `command` has carried this guard from the start; `id`/`name`/`description`/`tags` did not, which was an inconsistency, not a decision."
           },
           "name": {
             "type": "string",
-            "description": "Display name for this demo"
+            "minLength": 1,
+            "description": "Display name for this demo. `minLength: 1` — see `id`."
           },
           "description": {
             "type": "string",
-            "description": "One-line description of what this demo shows"
+            "minLength": 1,
+            "description": "One-line description of what this demo shows. `minLength: 1` — see `id`."
           },
           "tags": {
             "type": "array",
-            "items": { "type": "string" },
-            "description": "Freeform tags for search and filtering"
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Freeform tags for search and filtering. `minItems: 1` plus `minLength: 1` per tag, for the same reason as `id`: `tags` is in the `required` list, but `required` accepted `tags: []` and `tags: [\"\"]`, which declare the field and carry no searchable value — the exact state listing it as required was meant to prevent. No manifest carries an empty list or an empty tag today."
           },
           "route": {
             "type": "string",
-            "pattern": "^/",
-            "description": "Route within the package (e.g. /demos/agentic-chat). Omit for informational demos that expose `command` instead."
+            "pattern": "^/demos/.",
+            "description": "Route within the package (e.g. /demos/agentic-chat). MUST start with '/demos/' and be followed by at least one character: consumers (bundle-demo-content, validate-parity) strip the '/demos/' prefix to derive the on-disk demo directory, so a bare '/demos/' or a missing prefix would point at the wrong directory. BE PRECISE ABOUT THE STRENGTH: `^/demos/.` is a one-character tail test, NOT a non-empty-SEGMENT test. It rejects '/starter' and '/demos/' and (because `.` never matches a newline) '/demos/\\n', but it still ADMITS '/demos//' and '/demos/ ' — both of which derive a garbage directory name downstream rather than failing here. Closing that needs a stricter pattern (e.g. '^/demos/[^/\\\\s]'), and the pattern is deliberately kept identical to the runtime check in showcase/scripts/lib/manifest.ts — they used to disagree in both directions ('/starter' passed the schema but was 'malformed' to the parser; '/demos/\\n' was rejected here but accepted there on a length test alone), so tighten BOTH together or neither. Omit for informational demos that expose `command` instead."
           },
           "command": {
             "type": "string",
-            "description": "Copy-pasteable shell command (e.g. npx degit ...). When present and `route` is omitted, the shell renders an informational cell with a copy button instead of Demo/Code links."
+            "minLength": 1,
+            "description": "Copy-pasteable shell command (e.g. npx degit ...). When present and `route` is omitted, the shell renders an informational cell with a copy button instead of Demo/Code links. `minLength: 1` matches parseManifest, which rejects an empty command: an empty string still marks the demo informational — so parity stops expecting an on-disk folder — while rendering an empty \"copy this\" row."
           },
           "animated_preview_url": {
             "type": ["string", "null"],
@@ -145,7 +188,41 @@
           "highlight": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Core files to visually highlight in /code. Paths are relative to the package root (e.g. 'src/app/demos/agentic-chat/page.tsx', 'src/agents/sample_agent.py'). Files outside the demo folder (typically backend agent files) are included in the bundle for this demo when listed here."
+            "description": "Core files to visually highlight in /code. Files outside the demo folder (typically backend agent files) are included in the bundle for this demo when listed here. WHICH ROOT a path resolves against depends on its prefix, and the two are NOT interchangeable: a path starting 'src/app/demos/' (e.g. 'src/app/demos/agentic-chat/page.tsx') is FRONTEND source and resolves against the frontend demos root the demo itself came from — the unified app at showcase/frontends/nextjs/src/app/[integration]/demos/, or the integration's own src/app/demos/ while that temporary fallback still serves the demo. The package is deliberately NOT a fallback for those, because an integration may still carry a stale pre-port private copy. Every OTHER path (e.g. 'src/agents/sample_agent.py', 'agent/Program.cs', 'src/app/api/...') is relative to the package root. See bundle-demo-content.ts."
+          },
+          "agent": {
+            "type": "object",
+            "properties": {
+              "graph": {
+                "type": "string",
+                "minLength": 1,
+                "description": "LangGraph graph id this demo runs (e.g. 'a2ui_dynamic'). Only valid when the manifest declares agent_kind: langgraph. Mutually exclusive with `path`."
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^/",
+                "description": "URL sub-path appended to the integration's agent base URL (e.g. '/subagents/agui'). Must start with '/'; a bare '/' is allowed and means the shared agent mounted at the base URL root. Mutually exclusive with `graph`. WHEN OMITTED: the resolver dials the integration's base URL with a single trailing slash appended (`${BASE}/`). Every integration surveyed dials its default agent that way today — strands, pydantic-ai, ag2, ms-agent-harness-dotnet, spring-ai, crewai-crews and langroid all use `${AGENT_URL}/`. This is not cosmetic: FastAPI, Spring and ASP.NET mounts answer the slashless form with a 307, and a 307 drops the POST body, so the demo hangs instead of failing loudly. WHEN GIVEN, the path is concatenated verbatim — no normalising, no de-duplicating slashes."
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Explicit agent name override. Defaults to the demo id when omitted."
+              },
+              "config": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Free-form AGENT-CONSTRUCTION options for this demo (e.g. { recursion_limit: 25 }). This is the per-demo override of the top-level `agent_defaults`: the two are merged, demo wins. Deliberately unvalidated, same reasoning as `agent_defaults` — the accepted keys differ per framework and mirroring them here would rot. NOT the same thing as `runtime`: `runtime` is strictly CopilotRuntime options, while these values reach the agent constructor (for langgraph, `new LangGraphAgent({ assistantConfig })`). Putting an agent-construction option under `runtime` silently drops it. `config` stays valid when `agent.graph` is absent — it is not langgraph-only."
+              }
+            },
+            "additionalProperties": false,
+            "not": { "type": "object", "required": ["graph", "path"] },
+            "description": "How this demo maps onto an agent. All four keys are optional; omit the whole block to get the default mapping (agent name = demo id, no sub-path, no graph id, no per-demo agent config)."
+          },
+          "runtime": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Per-(integration, demo) CopilotRuntime option overrides, keyed by CopilotRuntime option name (e.g. { openGenerativeUI: true }, { a2ui: { injectA2UITool: false } }, { mcpApps: { servers: [...] } }). STRICTLY CopilotRuntime options: every key here is forwarded to `new CopilotRuntime()` with no filtering, so an agent-construction option placed here is silently dropped — those belong under demos[].agent.config / agent_defaults. Values are passed through to CopilotRuntime UNTOUCHED and are deliberately NOT validated here: the option surface is the runtime's business, it differs per framework, and mirroring it would rot on every runtime change. Note that a single option can legitimately take different value types across integrations — `openGenerativeUI` is `true` in strands-typescript but `{ agents: [...] }` in ag2 — so no per-option type constraint is possible even in principle."
           }
         },
         "additionalProperties": false
@@ -262,5 +339,57 @@
       "description": "Starter project details"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "$comment": "demos[].agent.graph is a LangGraph graph id, so it is only meaningful when the whole integration is addressed as a LangGraph server. Any other agent_kind (including the implicit 'http' default when the field is omitted) must not carry a graph id.",
+      "if": {
+        "not": {
+          "type": "object",
+          "required": ["agent_kind"],
+          "properties": { "agent_kind": { "const": "langgraph" } }
+        }
+      },
+      "then": {
+        "properties": {
+          "demos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "agent": {
+                  "not": { "type": "object", "required": ["graph"] }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "$comment": "MIRROR OF THE GUARD ABOVE. demos[].agent.path is a sub-path appended to the integration's agent BASE URL, so it only means anything when that base URL is dialled at all — agent_kind 'http', declared or taken as the implicit default. Under 'langgraph' the demo is addressed by graph id; under 'in-process' the agent runs inside the Next.js app and no URL is dialled. In both cases a path is inert: it used to pass BOTH validators and fail only at request time, while the `graph` half of the pair was checked three times over.",
+      "if": {
+        "type": "object",
+        "required": ["agent_kind"],
+        "properties": {
+          "agent_kind": { "enum": ["langgraph", "in-process"] }
+        }
+      },
+      "then": {
+        "properties": {
+          "demos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "agent": {
+                  "not": { "type": "object", "required": ["path"] }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

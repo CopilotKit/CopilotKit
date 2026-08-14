@@ -11,7 +11,6 @@
       "_comment": "pill sales-dashboard hero — OUTER agent emits generate_a2ui with a per-pill context arg. Guarded hasToolResult:false so it fires on the outer decision call, not the post-tool narration.",
       "match": {
         "userMessage": "Show me my sales dashboard for this quarter.",
-        "hasToolResult": false,
         "context": "agno"
       },
       "response": {
@@ -46,8 +45,7 @@
     {
       "_comment": "pill sales-dashboard hero — TERMINAL narration after generate_a2ui returns (hasToolResult:true) so the run emits RUN_FINISHED.",
       "match": {
-        "userMessage": "Show me my sales dashboard for this quarter.",
-        "hasToolResult": true,
+        "toolCallId": "call_d6_decl_dash_outer_agno_001",
         "context": "agno"
       },
       "response": {
@@ -59,7 +57,6 @@
       "_comment": "pill team-performance — OUTER agent emits generate_a2ui with a per-pill context arg, guarded hasToolResult:false.",
       "match": {
         "userMessage": "How are our sales reps performing against quota?",
-        "hasToolResult": false,
         "context": "agno"
       },
       "response": {
@@ -94,8 +91,7 @@
     {
       "_comment": "pill team-performance — TERMINAL narration after generate_a2ui returns.",
       "match": {
-        "userMessage": "How are our sales reps performing against quota?",
-        "hasToolResult": true,
+        "toolCallId": "call_d6_decl_team_outer_agno_001",
         "context": "agno"
       },
       "response": {
@@ -107,7 +103,6 @@
       "_comment": "pill at-risk — OUTER agent emits generate_a2ui with a per-pill context arg, guarded hasToolResult:false.",
       "match": {
         "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
-        "hasToolResult": false,
         "context": "agno"
       },
       "response": {
@@ -142,8 +137,7 @@
     {
       "_comment": "pill at-risk — TERMINAL narration after generate_a2ui returns.",
       "match": {
-        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
-        "hasToolResult": true,
+        "toolCallId": "call_d6_decl_risk_outer_agno_001",
         "context": "agno"
       },
       "response": {
@@ -155,7 +149,6 @@
       "_comment": "pill top-account — OUTER agent emits generate_a2ui with a per-pill context arg, guarded hasToolResult:false.",
       "match": {
         "userMessage": "Pull up the details on our biggest account.",
-        "hasToolResult": false,
         "context": "agno"
       },
       "response": {
@@ -190,8 +183,7 @@
     {
       "_comment": "pill top-account — TERMINAL narration after generate_a2ui returns.",
       "match": {
-        "userMessage": "Pull up the details on our biggest account.",
-        "hasToolResult": true,
+        "toolCallId": "call_d6_decl_acct_outer_agno_001",
         "context": "agno"
       },
       "response": {
