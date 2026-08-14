@@ -682,6 +682,65 @@ describe("resolveAgentTarget against real manifests", () => {
     );
   });
 
+  it("crewai-conversational-flows agentic-chat dials /conversational_flows/chat", () => {
+    const target = resolveAgentTarget(
+      manifestFor("crewai-conversational-flows"),
+      demoFor("crewai-conversational-flows", "agentic-chat"),
+      {
+        AGENT_URL_CREWAI_CONVERSATIONAL_FLOWS:
+          "http://crewai-conversational-flows:8000",
+      },
+    );
+    expect(target).toEqual({
+      kind: "http",
+      url: "http://crewai-conversational-flows:8000/conversational_flows/chat",
+    });
+  });
+
+  it("crewai-conversational-flows shared-state-read dials its dedicated flow", () => {
+    const target = resolveAgentTarget(
+      manifestFor("crewai-conversational-flows"),
+      demoFor("crewai-conversational-flows", "shared-state-read"),
+      {
+        AGENT_URL_CREWAI_CONVERSATIONAL_FLOWS:
+          "http://crewai-conversational-flows:8000",
+      },
+    );
+    expect(target).toEqual({
+      kind: "http",
+      url: "http://crewai-conversational-flows:8000/conversational_flows/shared-state-read",
+    });
+  });
+
+  it("langgraph-python shared-state-read: graph shared_state_read, not sample_agent", () => {
+    const target = resolveAgentTarget(
+      manifestFor("langgraph-python"),
+      demoFor("langgraph-python", "shared-state-read"),
+      { AGENT_URL_LANGGRAPH_PYTHON: "http://langgraph-python:8123" },
+    );
+    expect(target).toEqual({
+      kind: "langgraph",
+      deploymentUrl: "http://langgraph-python:8123",
+      graphId: "shared_state_read",
+    });
+  });
+
+  it("shared-state-read page seeds recipe on [agent], not []", () => {
+    // `useAgent` returns a provisional agent, then swaps in the runtime-synced
+    // one. A `[]`-deps seed writes only to the throwaway instance, so the
+    // card can show INITIAL_RECIPE while runAgent sends state: {}.
+    const page = readFileSync(
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        "../app/[integration]/demos/shared-state-read/page.tsx",
+      ),
+      "utf8",
+    );
+    expect(page).toMatch(/agent\.setState\(\{\s*recipe: INITIAL_RECIPE/);
+    expect(page).toMatch(/\}, \[agent\]\);/);
+    expect(page).not.toMatch(/\}, \[\]\);/);
+  });
+
   it("langgraph-python declarative-gen-ui: graph a2ui_dynamic, deployment URL verbatim", () => {
     const target = resolveAgentTarget(
       manifestFor("langgraph-python"),
@@ -1242,17 +1301,17 @@ describe("resolveDemoOptions against real manifests", () => {
     });
   });
 
-  it("does NOT invent an a2ui config for langgraph-python declarative-gen-ui", () => {
-    // That page passes the catalog through <CopilotKit a2ui={{ catalog }}>,
-    // which auto-enables A2UI with tool injection ON. A shared default here
-    // would flip injectA2UITool to false and kill the render.
+  it("injects generate_a2ui for langgraph-python declarative-gen-ui", () => {
+    // The unified runtime only attaches A2UI middleware when this flag is
+    // on CopilotRuntime. The page catalog alone does not intercept the
+    // Python generate_a2ui stub.
     const { runtimeOptions } = resolveDemoOptions(
       "declarative-gen-ui",
       manifestFor("langgraph-python"),
       demoFor("langgraph-python", "declarative-gen-ui"),
       {},
     );
-    expect(runtimeOptions.a2ui).toBeUndefined();
+    expect(runtimeOptions.a2ui).toEqual({ injectA2UITool: true });
   });
 
   it("ag2 beautiful-chat overrides openGenerativeUI with its own agent list", () => {
