@@ -92,6 +92,8 @@ class ScriptedWeatherAgent extends AbstractAgent {
 }
 
 class ScenarioAgent extends AbstractAgent {
+  readonly inputs: RunAgentInput[] = [];
+
   constructor(
     agentId: string,
     initialMessages: Message[],
@@ -101,6 +103,7 @@ class ScenarioAgent extends AbstractAgent {
   }
 
   run(input: RunAgentInput): Observable<BaseEvent> {
+    this.inputs.push(input);
     return from(
       this.events.map((event) =>
         event.type === EventType.RUN_STARTED ||
@@ -109,6 +112,37 @@ class ScenarioAgent extends AbstractAgent {
           : event,
       ),
     );
+  }
+}
+
+class PreStartRunErrorAgent extends AbstractAgent {
+  readonly inputs: RunAgentInput[] = [];
+
+  constructor() {
+    super({ agentId: "pre-start-error", threadId: "pre-start-thread" });
+  }
+
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    this.inputs.push(input);
+    if (this.inputs.length === 1) {
+      return from([
+        {
+          type: EventType.RUN_STARTED,
+          threadId: this.threadId,
+          runId: input.runId,
+        },
+      ] as BaseEvent[]);
+    }
+
+    return from([
+      {
+        type: EventType.RUN_ERROR,
+        threadId: this.threadId,
+        runId: input.runId,
+        message: "failed before start",
+        code: "pre_start_failure",
+      },
+    ] as BaseEvent[]);
   }
 }
 
@@ -208,6 +242,9 @@ describe("StateManager tool result history", () => {
         (message) => message.role === "tool" && message.toolCallId === callId,
       ),
     ).toEqual([expect.objectContaining({ id: "result-a", content: "a" })]);
+    expect(
+      core.getRunIdForMessage("duplicate", "duplicate-thread", "result-a"),
+    ).toBe(agent.inputs[0]?.runId);
   });
 
   it("replaces an already materialized frontend placeholder", async () => {
@@ -247,6 +284,62 @@ describe("StateManager tool result history", () => {
       ),
     ).toEqual([
       expect.objectContaining({ id: "canonical-result", content: "canonical" }),
+    ]);
+    expect(
+      core.getRunIdForMessage(
+        "placeholder",
+        "placeholder-thread",
+        "canonical-result",
+      ),
+    ).toBe(agent.inputs[0]?.runId);
+  });
+
+  it("does not classify a real multi-part result as a frontend placeholder", async () => {
+    const callId = "call-multipart";
+    const agent = new ScenarioAgent(
+      "multipart",
+      [
+        owner("assistant-multipart", callId),
+        {
+          id: "existing-multipart-result",
+          role: "tool",
+          toolCallId: callId,
+          content: [
+            { type: "text", text: "Forwarded to client" },
+            " plus more",
+          ],
+        } as unknown as Message,
+      ],
+      [
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "multipart-thread",
+          runId: "x",
+        },
+        result("multipart-result", callId, "canonical"),
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "multipart-thread",
+          runId: "x",
+        },
+      ],
+    );
+    const core = new CopilotKitCore({});
+    await addAgent(core, agent);
+    await core.runAgent({ agent });
+
+    expect(
+      agent.messages.filter(
+        (message) => message.role === "tool" && message.toolCallId === callId,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        id: "existing-multipart-result",
+        content: [
+          { type: "text", text: "Forwarded to client" },
+          " plus more",
+        ] as unknown as string,
+      }),
     ]);
   });
 
@@ -302,6 +395,10 @@ describe("StateManager tool result history", () => {
         },
         result("ownerless-result", callId),
         {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [],
+        },
+        {
           type: EventType.RUN_FINISHED,
           threadId: "ownerless-thread",
           runId: "x",
@@ -314,7 +411,7 @@ describe("StateManager tool result history", () => {
 
     expect(
       agent.messages.filter((message) => message.id === "ownerless-result"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 
   it("keeps distinct result identities from one input and cleans provenance at finalization", async () => {
@@ -367,12 +464,24 @@ describe("StateManager tool result history", () => {
     ).toHaveLength(2);
   });
 
-  it("uses the failed input when a run fails before RUN_STARTED", async () => {
-    const agent = new ScriptedWeatherAgent(false, true);
+  it("keeps the previous active run when a different input errors before RUN_STARTED", async () => {
+    const agent = new PreStartRunErrorAgent();
     const core = new CopilotKitCore({});
     await addAgent(core, agent);
     await core.runAgent({ agent });
     await expect(core.runAgent({ agent })).resolves.toBeDefined();
-    expect(agent.inputs[1]?.runId).toBeDefined();
+
+    agent.addMessage({
+      id: "after-pre-start-error",
+      role: "user",
+      content: "still active",
+    });
+    expect(
+      core.getRunIdForMessage(
+        "pre-start-error",
+        "pre-start-thread",
+        "after-pre-start-error",
+      ),
+    ).toBe(agent.inputs[0]?.runId);
   });
 });

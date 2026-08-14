@@ -20,16 +20,42 @@ const isContinuation = (input: RunAgentInput): boolean =>
     "resume",
   );
 
+const normalizeToolResultContent = (content: unknown): string | null => {
+  if (typeof content === "string") return content.trim();
+
+  if (Array.isArray(content)) {
+    const text = content
+      .flatMap((part) => {
+        if (typeof part === "string") return [part];
+        if (
+          part &&
+          typeof part === "object" &&
+          "text" in part &&
+          typeof (part as { text?: unknown }).text === "string"
+        ) {
+          return [(part as { text: string }).text];
+        }
+        return [];
+      })
+      .join("")
+      .trim();
+    return text.length > 0 ? text : null;
+  }
+
+  if (
+    content &&
+    typeof content === "object" &&
+    "text" in content &&
+    typeof (content as { text?: unknown }).text === "string"
+  ) {
+    return (content as { text: string }).text.trim();
+  }
+
+  return null;
+};
+
 const isForwardedToClientPlaceholder = (content: unknown): boolean =>
-  content === "Forwarded to client" ||
-  (Array.isArray(content) &&
-    content.some(
-      (part) =>
-        typeof part === "object" &&
-        part !== null &&
-        "text" in part &&
-        (part as { text?: unknown }).text === "Forwarded to client",
-    ));
+  normalizeToolResultContent(content) === "Forwarded to client";
 
 export interface CopilotKitCoreContinuationHandoff {
   cancel(): void;
@@ -191,17 +217,6 @@ export class StateManager {
         const exactIndex = matchingIndexes.find(
           (index) => messages[index]?.id === event.messageId,
         );
-        if (exactIndex !== undefined) {
-          const duplicateIndexes = matchingIndexes.filter(
-            (index) => index !== exactIndex,
-          );
-          for (const index of duplicateIndexes.sort((a, b) => b - a)) {
-            messages.splice(index, 1);
-            changed = true;
-          }
-          continue;
-        }
-
         const realIndex = matchingIndexes.find(
           (index) => !isForwardedToClientPlaceholder(messages[index]?.content),
         );
@@ -215,6 +230,13 @@ export class StateManager {
             messages.splice(duplicateIndex, 1);
             changed = true;
           }
+          continue;
+        }
+
+        if (
+          exactIndex !== undefined &&
+          insertedResultIds.has(messages[exactIndex]?.id ?? "")
+        ) {
           continue;
         }
 
@@ -245,12 +267,6 @@ export class StateManager {
         messages.splice(insertIndex, 0, result);
         insertedResultIds.add(result.id);
         changed = true;
-        this.associateMessageWithRun(
-          agentId,
-          input.threadId,
-          result.id,
-          input.runId,
-        );
       }
 
       return changed ? { messages } : undefined;
