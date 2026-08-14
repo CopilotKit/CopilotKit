@@ -1,9 +1,10 @@
 import { defineTool } from "@copilotkit/runtime/v2";
 import { z } from "zod";
+import { fetchExpenseCsv } from "./csv";
 import { buildHarnessPrompt } from "./prompt";
 import { clearProgress, publishProgress } from "./progress";
 import { createExpenseHarnessStream } from "./run";
-import { EXPENSE_CSV_PUBLIC_PATH, HARNESS_RUN_CHANNEL } from "./types";
+import { HARNESS_RUN_CHANNEL } from "./types";
 import type { HarnessProgressEvent, HarnessSummary } from "./types";
 import { prepareWorkspace, readSummary } from "./workspace";
 
@@ -22,39 +23,6 @@ import { prepareWorkspace, readSummary } from "./workspace";
  * Arm C deletes this file and hands `createExpenseHarnessStream` to the
  * runtime's tanstack factory instead.
  */
-
-/**
- * Where the bundled fixture is fetched from. Arm C fetches the same URL the same
- * way, so keep this a FETCH rather than a filesystem read: the two arms are only
- * comparable if the CSV arrives identically in both.
- */
-const expenseCsvUrl = (): string =>
-  `http://localhost:${process.env.PORT ?? 3000}${EXPENSE_CSV_PUBLIC_PATH}`;
-
-/**
- * The real CSV read, and `HarnessDeps.readCsv`'s default.
- *
- * The `response.ok` check is load-bearing, not defensive noise. `fetch` resolves
- * happily on a 404, so without it a wrong port or a renamed fixture writes an
- * HTML error page into `expenses.csv` verbatim and the harness spends SEVERAL
- * MINUTES web-searching the merchants of a Next.js 404 page before writing a
- * confident, wrong summary. Failing here costs a second; not failing costs the
- * demo.
- */
-export const fetchExpenseCsv = async (): Promise<string> => {
-  const url = expenseCsvUrl();
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(
-      `Could not read the expense fixture: GET ${url} returned ` +
-        `${response.status} ${response.statusText}. Refusing to run the ` +
-        `harness — a non-CSV body would be analysed as if it were the ` +
-        `statement. Check that the dev server is on this port and that ` +
-        `${EXPENSE_CSV_PUBLIC_PATH} is still in public/.`,
-    );
-  }
-  return response.text();
-};
 
 export interface HarnessDeps {
   channel: string;
