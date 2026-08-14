@@ -17,6 +17,12 @@ import {
   createCopilotRequestBodyParser,
   createFinancialAssistantAgentConfig,
 } from "./runtimeLimits.ts";
+import {
+  createBrowserRequestGuard,
+  createFrameAncestorHeaders,
+  DEFAULT_FRAME_ANCESTORS,
+  parseDeploymentList,
+} from "./deploymentSecurity.ts";
 import { loadAgentIds } from "./setup.ts";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -35,11 +41,13 @@ const runtime = new CopilotSseRuntime({
 // Unset: permissive CORS (fine locally). On a public deployment, set
 // ALLOWED_ORIGINS to your frontend's origin(s), comma-separated: this
 // endpoint spends your API credits. Set-but-empty means deny cross-origin.
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+const allowedOrigins = parseDeploymentList(process.env.ALLOWED_ORIGINS);
+const frameAncestors =
+  parseDeploymentList(process.env.FRAME_ANCESTORS) ?? DEFAULT_FRAME_ANCESTORS;
 
 const app = express();
+app.use(createFrameAncestorHeaders(frameAncestors));
+app.use("/api/copilotkit", createBrowserRequestGuard(allowedOrigins));
 app.use("/api/copilotkit", createCopilotRequestBodyParser());
 app.use(
   createCopilotExpressHandler({
