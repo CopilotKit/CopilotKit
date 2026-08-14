@@ -16,11 +16,29 @@ import { EXPENSE_CSV_PUBLIC_PATH } from "./types";
  */
 
 /**
+ * Where this app is answering, as the SERVER sees itself.
+ *
+ * One definition, because two things need it and they must agree: the CSV read
+ * below, and the ledger URL baked into the harness's own prompt (`prompt.ts`,
+ * whose step 4 has codex `curl` a POST at this app). That prompt used to
+ * hardcode port 3000, so running the demo on any other port left the harness
+ * POSTing into a dead socket — and the filing beat is one of the four this
+ * feature exists to show. It failed quietly: the run still finished, the summary
+ * was still written, and only the missing `filedTransactionId` values gave it
+ * away.
+ *
+ * `PORT` is what Next reads for its listen port, so reading the same variable is
+ * what keeps the two in step.
+ */
+export const localBaseUrl = (): string =>
+  `http://localhost:${process.env.PORT ?? 3000}`;
+
+/**
  * The fixture's URL. A fetch rather than a filesystem read so both arms exercise
  * the same path the browser would.
  */
 export const expenseCsvUrl = (): string =>
-  `http://localhost:${process.env.PORT ?? 3000}${EXPENSE_CSV_PUBLIC_PATH}`;
+  `${localBaseUrl()}${EXPENSE_CSV_PUBLIC_PATH}`;
 
 /**
  * The real CSV read.

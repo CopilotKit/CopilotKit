@@ -1,3 +1,4 @@
+import { localBaseUrl } from "./csv";
 import { OFFSITE } from "./types";
 
 /**
@@ -35,7 +36,7 @@ DO THIS, IN THIS ORDER:
    flat body shown here — exactly the three fields \`merchant\`, \`amount\` and
    \`note\`, nothing else — and answers 201 with the new transaction's id:
 
-   curl -sS -X POST http://localhost:3000/api/banking/v1/transactions \\
+   curl -sS -X POST ${localBaseUrl()}/api/banking/v1/transactions \\
      -H 'content-type: application/json' \\
      -w '%{http_code}' \\
      -d '{"merchant":"Hotel Verrano","amount":318.55,"note":"Offsite ${OFFSITE.city} — reimbursable"}'
