@@ -692,11 +692,18 @@ export const agentRegistry: Record<string, AgentRegistration> = {
 (`AgentRegistration` and the `IdentifyRunUser` type are declared in
 `agent-registry.ts` itself — import the type from there for your resolver.)
 
-⚠️ **This is the one append with NO automated guard.** No test imports
-`agent-registry.ts` (`grep -rln agentRegistry src --include='*.test.*'` is empty),
-and its `Record<string, AgentRegistration>` type accepts a missing key, so
-forgetting it builds, lints and renders — the only symptom is Verification step 5:
-sending a chat message errors with an unknown agent. Appends 3–5 below are all
+⚠️ **This is the one append with NO automated guard for YOUR skin.** Its
+`Record<string, AgentRegistration>` type accepts a missing key, so forgetting it
+builds, lints and renders — the only symptom is Verification step 5: sending a
+chat message errors with an unknown agent.
+
+Do not be reassured by `grep -rln agentRegistry src --include='*.test.*'`
+returning a file. It returns exactly one — `src/skins/banking/harness-slot.test.ts`
+— and that test guards ONE hardcoded non-skin key (the banking harness's second
+agent slot, which is gated by an env flag and so needs its own coverage). It
+iterates nothing and knows nothing about your skin. There is still no test that
+compares this map against `registry.ts` the way `skins-config.test.ts` compares
+appends 3–5. Appends 3–5 below are all
 compared against `registry.ts` by `skins-config.test.ts`; this one is on you.
 
 **3. Lint guard id list** — append your id to `LINTED_SKIN_IDS` in

@@ -19,6 +19,22 @@ export const EXPENSE_CSV_PUBLIC_PATH = "/sample-expenses-offsite.csv";
  */
 export const HARNESS_RUN_CHANNEL = "banking-harness";
 
+/**
+ * ARM C's agent id — a NON-skin key in `agentRegistry`.
+ *
+ * Deliberately not equal to any skin id: the shell's `agentId={skin.id}` binding
+ * stays untouched and Arm C's page overrides it with a nested
+ * `CopilotChatConfigurationProvider` instead (verified: react-core resolves
+ * `agentId ?? parentConfig?.agentId ?? DEFAULT`, so a nested explicit id wins for
+ * that subtree with zero shell edits).
+ *
+ * It shares its STRING with `HARNESS_RUN_CHANNEL` by coincidence of naming only
+ * — they are different namespaces (an agent slot vs an SSE channel) and neither
+ * reads the other. Kept as two constants so renaming one cannot silently move
+ * the other.
+ */
+export const HARNESS_AGENT_ID = "banking-harness";
+
 /** The offsite the harness reasons against. */
 export const OFFSITE = {
   city: "Austin",

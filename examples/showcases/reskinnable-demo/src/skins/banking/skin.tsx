@@ -31,6 +31,7 @@ import CardsPage from "@/skins/banking/pages/cards";
 import DashboardPage from "@/skins/banking/pages/dashboard";
 import ChargesPage from "@/skins/banking/pages/charges";
 import TeamPage from "@/skins/banking/pages/team";
+import DeepWorkPage from "@/skins/banking/pages/deep-work";
 
 // Route segments after /banking → page component. Verified against the app's
 // pre-cutover routes: `/` served page.tsx (the Credit Cards face view, now
@@ -51,6 +52,17 @@ const PAGES = new Map<string, ComponentType>([
   ["dashboard", DashboardPage],
   ["charges", ChargesPage],
   ["team", TeamPage],
+  // ARM C's surface, and the one route here that is NOT in `bankingNav` — it is
+  // reached by URL only, so the icon rail is identical on every deploy.
+  //
+  // Deliberately NOT gated on `armCEnabled()`, even though the agent slot it
+  // talks to is. That flag is a non-NEXT_PUBLIC_ server env and this is a client
+  // module: `process.env.EXPENSE_HARNESS_MODE` is inlined as `undefined` in the
+  // browser bundle, so a gate here would read "off" in EVERY mode and 404 the
+  // page even when the arm is live — a silent failure dressed as a feature flag.
+  // The registry gate (`shell/agent-registry.ts`) is the real one; this page
+  // states the requirement in its own header.
+  ["deep-work", DeepWorkPage],
 ]);
 
 function resolvePage(segments: string[]): ComponentType | null {

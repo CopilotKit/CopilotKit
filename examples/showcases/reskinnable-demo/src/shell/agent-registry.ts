@@ -13,6 +13,9 @@ import { commerceAgent } from "@/skins/commerce/agent";
 import { commerceIdentifyUser } from "@/skins/commerce/intelligence/user-id";
 import { bookstoreAgent } from "@/skins/bookstore/agent";
 import { bookstoreIdentifyUser } from "@/skins/bookstore/intelligence/user-id";
+import { bankingHarnessAgent } from "@/skins/banking/harness-agent";
+import { armCEnabled } from "@/skins/banking/harness/mode";
+import { HARNESS_AGENT_ID } from "@/skins/banking/harness/types";
 
 /**
  * Server-safe map of skin id → its server-side registration (agent factory +
@@ -152,6 +155,22 @@ export const agentRegistry: Record<string, AgentRegistration> = {
     createAgent: bookstoreAgent,
     identifyUser: bookstoreIdentifyUser,
   },
+  // ARM C, and the ONE non-skin key in this map. The harness surface at
+  // /banking/deep-work points a nested CopilotChatConfigurationProvider at this
+  // slot, which leaves banking's own classic agent — and every beat that depends
+  // on it — completely untouched. It contributes no `identifyUser`: it is a
+  // streaming-seam comparison, not a memory-scoped demo, so the route's generic
+  // fallback identity is the honest answer here.
+  //
+  // Gated, unlike Arm A's gen-UI renderer (which is registered unconditionally
+  // because an unused renderer is inert). A registered agent is NOT inert in the
+  // same way — this one constructs an OpenAI adapter per run and is reachable by
+  // anyone who knows the id — and `off` vs `factory` would otherwise be
+  // indistinguishable, making armCEnabled() dead code. `harness-slot.test.ts`
+  // pins all four modes.
+  ...(armCEnabled()
+    ? { [HARNESS_AGENT_ID]: { createAgent: bankingHarnessAgent } }
+    : {}),
 };
 
 export const agentIds = Object.keys(agentRegistry);
