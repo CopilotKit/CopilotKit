@@ -25,9 +25,6 @@ describe("CopilotKitProvider async header production anchor", () => {
     expect(
       new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("Authorization"),
     ).toBe("Bearer resolved");
-    console.log(
-      `pre-settle requests: 0; first request Authorization: ${new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("Authorization")}`,
-    );
     fetchMock.mockRestore();
   });
 });

@@ -28,7 +28,11 @@ import {
   CopilotKitProvider as CopilotKitV2Provider,
   useCopilotKit,
 } from "../../v2";
-import { useResolvedHeaderRecord } from "../../v2/providers/ResolvedHeadersContext";
+import {
+  useHeaderReadiness,
+  useResolvedHeaderRecord,
+} from "../../v2/providers/ResolvedHeadersContext";
+import { bindConfigHeaderReadiness } from "../../v2/providers/header-readiness";
 import type {
   CopilotApiConfig,
   ChatComponentsCache,
@@ -101,11 +105,6 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
       context: Record<string, any>;
     }) => {
       if (event.context?.source !== "headers") {
-        console.error(
-          `[CopilotKit] Error (${event.code}):`,
-          event.error,
-          event.context ?? {},
-        );
         return;
       }
       if (!_onError) return;
@@ -172,6 +171,7 @@ function CopilotKitErrorBridge() {
 
     const subscription = copilotkit.subscribe({
       onError: async (event) => {
+        if (event.context?.source === "headers") return;
         // Convert v2.x error event to v1.x CopilotErrorEvent format
         const errorEvent: CopilotErrorEvent = {
           type: "error",
@@ -216,6 +216,7 @@ function CopilotKitErrorBridge() {
 export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const { children, ...props } = cpkProps;
   const resolvedHeaderRecord = useResolvedHeaderRecord();
+  const headerReadiness = useHeaderReadiness();
 
   /**
    * This will throw an error if the props are invalid.
@@ -384,6 +385,9 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     props.cloudRestrictToTopic,
     props.guardrails_c,
   ]);
+  if (headerReadiness) {
+    bindConfigHeaderReadiness(copilotApiConfig, headerReadiness);
+  }
 
   const headers = useMemo(() => {
     const authHeaders = Object.values(authStates || {}).reduce((acc, state) => {

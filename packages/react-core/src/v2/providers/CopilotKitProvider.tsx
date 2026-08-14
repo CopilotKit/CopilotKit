@@ -60,7 +60,15 @@ import { schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { MaybePromise } from "@copilotkit/shared";
 import { useHeaderSource } from "./use-header-source";
-import { ResolvedHeadersProvider } from "./ResolvedHeadersContext";
+import {
+  ResolvedHeadersProvider,
+  useHeaderReadiness,
+} from "./ResolvedHeadersContext";
+import {
+  bindHeaderReadiness,
+  HeaderReadinessBarrier,
+  withProviderHeaderSync,
+} from "./header-readiness";
 
 // Adapts zod-to-json-schema's zod-specific signature to the injectable
 // `zodToJsonSchema` contract of `schemaToJsonSchema`, which only invokes it
@@ -302,6 +310,7 @@ const CopilotKitProviderInner: React.FC<
   inspectorDefaultAnchor,
   debug,
 }) => {
+  const headerReadiness = useHeaderReadiness();
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
@@ -643,6 +652,7 @@ const CopilotKitProviderInner: React.FC<
     }
   }
   const copilotkit = copilotkitRef.current;
+  if (headerReadiness) bindHeaderReadiness(copilotkit, headerReadiness);
 
   // Register the full A2UI catalog component list onto core so the inspector can
   // read `core.catalogComponents`, and re-derive the filtered catalog whenever
@@ -788,7 +798,9 @@ const CopilotKitProviderInner: React.FC<
           ? "rest"
           : "auto",
     );
-    copilotkit.setHeaders(mergedHeaders);
+    withProviderHeaderSync(copilotkit, () =>
+      copilotkit.setHeaders(mergedHeaders),
+    );
     copilotkit.setCredentials(credentials);
     // Forward a per-run signal when the provider has an A2UI catalog so the
     // runtime can turn A2UI on (and inject the render tool) without a separate
@@ -963,7 +975,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = (
     children,
     ...innerProps
   } = props;
-  const { headers, error } = useHeaderSource(source);
+  const { headers, error, status } = useHeaderSource(source);
+  const barrierRef = useRef<HeaderReadinessBarrier | null>(null);
+  if (barrierRef.current === null) {
+    barrierRef.current = new HeaderReadinessBarrier();
+  }
+  const barrier = barrierRef.current;
+  useEffect(() => {
+    if (status === "ready") barrier.ready(headers ?? EMPTY_HEADERS);
+    else if (status === "failed") barrier.failed(error);
+    else barrier.pending();
+  }, [barrier, error, headers, status]);
   const reportedError = useRef<{
     source: typeof source;
     error: Error;
@@ -994,14 +1016,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = (
     }
   }, [error, onError, runtimeUrl, source]);
 
-  if (!headers) return null;
   return (
-    <ResolvedHeadersProvider value={headers}>
+    <ResolvedHeadersProvider value={headers ?? EMPTY_HEADERS} barrier={barrier}>
       <CopilotKitProviderInner
         {...innerProps}
         runtimeUrl={runtimeUrl}
         onError={onError}
-        headers={headers}
+        headers={headers ?? EMPTY_HEADERS}
       >
         {children}
       </CopilotKitProviderInner>

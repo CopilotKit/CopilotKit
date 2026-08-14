@@ -64,6 +64,10 @@ import {
 } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
+import {
+  headerReadinessHeadersFor,
+  waitForHeaderReadiness,
+} from "../v2/providers/header-readiness";
 
 export interface CopilotTaskConfig {
   /**
@@ -110,6 +114,7 @@ export class CopilotTask<T = any> {
    * @param data The data to use for the task.
    */
   async run(context: CopilotContextParams, data?: T): Promise<void> {
+    await waitForHeaderReadiness(context.copilotApiConfig);
     const actions = this.includeCopilotActions
       ? Object.assign({}, context.actions)
       : {};
@@ -143,7 +148,9 @@ export class CopilotTask<T = any> {
     const runtimeClient = new CopilotRuntimeClient({
       url: context.copilotApiConfig.chatApiEndpoint,
       publicApiKey: context.copilotApiConfig.publicApiKey,
-      headers: context.copilotApiConfig.headers,
+      headers:
+        headerReadinessHeadersFor(context.copilotApiConfig) ??
+        context.copilotApiConfig.headers,
       credentials: context.copilotApiConfig.credentials,
     });
 

@@ -19,7 +19,7 @@ describe("CopilotKitProvider async headers", () => {
         <div>child</div>
       </CopilotKitProvider>,
     );
-    expect(queryByText("child")).toBeNull();
+    expect(queryByText("child")).not.toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
     release({ Authorization: "Bearer resolved" });
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -32,7 +32,7 @@ describe("CopilotKitProvider async headers", () => {
   it("reports the original initial resolution error", async () => {
     const original = new Error("token unavailable");
     const onError = vi.fn();
-    render(
+    const view = render(
       <CopilotKitProvider
         runtimeUrl="https://runtime.example"
         headers={() => Promise.reject(original)}
@@ -42,11 +42,54 @@ describe("CopilotKitProvider async headers", () => {
       </CopilotKitProvider>,
     );
     await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(view.queryByText("child")).not.toBeNull();
     expect(onError.mock.calls[0]?.[0]).toMatchObject({
       code: CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED,
       error: original,
       context: { source: "headers", runtimeUrl: "https://runtime.example" },
     });
+  });
+
+  it("reconnects after an initial failure is replaced by a synchronous record", async () => {
+    const original = new Error("token unavailable");
+    const onError = vi.fn();
+    let source:
+      | Record<string, string>
+      | (() => Promise<Record<string, string>>) = () =>
+      Promise.reject(original);
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ version: "1", agents: {} }), {
+        status: 200,
+      }),
+    );
+    const view = render(
+      <CopilotKitProvider
+        runtimeUrl="https://runtime.example"
+        headers={source}
+        onError={onError}
+      >
+        <div>child</div>
+      </CopilotKitProvider>,
+    );
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    source = { Authorization: "Bearer recovered" };
+    view.rerender(
+      <CopilotKitProvider
+        runtimeUrl="https://runtime.example"
+        headers={source}
+        onError={onError}
+      >
+        <div>child</div>
+      </CopilotKitProvider>,
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(
+      new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("Authorization"),
+    ).toBe("Bearer recovered");
+    view.unmount();
+    fetchMock.mockRestore();
   });
 
   it("keeps core nullish-value normalization for static records", async () => {

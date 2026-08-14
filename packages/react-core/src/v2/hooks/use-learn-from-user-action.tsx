@@ -1,6 +1,10 @@
 import { useCallback } from "react";
 import { useCopilotKit } from "../context";
 import { recordAnnotation } from "../lib/record-annotation";
+import {
+  headerReadinessFor,
+  headerReadinessHeadersFor,
+} from "../providers/header-readiness";
 
 /**
  * Input to {@link UseLearnFromUserActionRecorder}, the function returned
@@ -100,7 +104,9 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
 
       return recordAnnotation({
         runtimeUrl,
-        headers: copilotkit.headers ?? {},
+        headers: () =>
+          headerReadinessHeadersFor(copilotkit) ?? copilotkit.headers ?? {},
+        readiness: headerReadinessFor(copilotkit),
         type: "user_action",
         payload: Object.keys(payload).length > 0 ? payload : undefined,
         threadId: input.threadId,

@@ -24,7 +24,7 @@ describe("useHeaderSource", () => {
     const { result, rerender } = renderHook(() => useHeaderSource(source));
     for (let i = 0; i < 20; i += 1) rerender();
     expect(calls).toBe(1);
-    expect(result.current.headers).toBeNull();
+    expect(result.current.headers).toEqual({});
     await act(async () => pending.resolve({ Authorization: "Bearer one" }));
     expect(result.current.headers).toEqual({ Authorization: "Bearer one" });
   });
@@ -37,7 +37,7 @@ describe("useHeaderSource", () => {
     const refresh = new Promise<Record<string, string>>((_, reject) => {
       rejectRefresh = reject;
     });
-    let source = () => first;
+    let source: () => Promise<Record<string, string>> = () => first;
     const { result, rerender } = renderHook(() => useHeaderSource(source));
     await act(async () => first);
     source = () => refresh;
@@ -66,6 +66,20 @@ describe("useHeaderSource", () => {
     expect(result.current.headers).toEqual({ Authorization: "Bearer two" });
   });
 
+  it("treats a settled function identity change as a refresh signal", async () => {
+    const first = Promise.resolve({ Authorization: "Bearer one" });
+    const second = deferred<Record<string, string>>();
+    let source: () => Promise<Record<string, string>> = () => first;
+    const { result, rerender } = renderHook(() => useHeaderSource(source));
+    await act(async () => first);
+
+    source = () => second.promise;
+    rerender();
+    expect(result.current.headers).toEqual({ Authorization: "Bearer one" });
+    await act(async () => second.resolve({ Authorization: "Bearer two" }));
+    expect(result.current.headers).toEqual({ Authorization: "Bearer two" });
+  });
+
   it("ignores a stale result after a source replacement", async () => {
     const first = deferred<Record<string, string>>();
     const second = deferred<Record<string, string>>();
@@ -87,7 +101,7 @@ describe("useHeaderSource", () => {
     );
     unmount();
     await act(async () => pending.resolve({ Authorization: "Bearer late" }));
-    expect(result.current.headers).toBeNull();
+    expect(result.current.headers).toEqual({});
     expect(result.current.error).toBeNull();
   });
 
@@ -113,6 +127,41 @@ describe("useHeaderSource", () => {
     expect(calls).toBe(2);
     expect(result.current.headers).toEqual({ Authorization: "Bearer 2" });
     expect(result.current.error).toBeNull();
+  });
+
+  it("reuses the canonical object for equal synchronous values", () => {
+    const source = () => ({ Authorization: "Bearer stable" });
+    const { result, rerender } = renderHook(() => useHeaderSource(source));
+    const first = result.current.headers;
+    rerender();
+    expect(result.current.headers).toBe(first);
+  });
+
+  it("keeps pending work when a source changes before settlement", async () => {
+    const first = deferred<Record<string, string>>();
+    const second = vi.fn(() => Promise.resolve({ Authorization: "second" }));
+    let source = () => first.promise;
+    const { result, rerender } = renderHook(() => useHeaderSource(source));
+
+    source = second;
+    rerender();
+    expect(second).not.toHaveBeenCalled();
+    await act(async () => first.resolve({ Authorization: "first" }));
+    expect(result.current.headers).toEqual({ Authorization: "second" });
+  });
+
+  it("warns once when pending async work is replaced by rerenders", () => {
+    const pending = deferred<Record<string, string>>();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let source = () => pending.promise;
+    const { rerender } = renderHook(() => useHeaderSource(source));
+    source = () => pending.promise;
+    rerender();
+    source = () => pending.promise;
+    rerender();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).not.toContain("Authorization");
+    warn.mockRestore();
   });
 
   it("does not duplicate a stable async evaluation in StrictMode", () => {

@@ -7,6 +7,11 @@ import {
   type CopilotKitCoreSubscriber,
   type CopilotKitCoreSubscription,
 } from "@copilotkit/core";
+import {
+  headerReadinessFor,
+  isProviderHeaderSync,
+  waitForHeaderReadiness,
+} from "../providers/header-readiness";
 
 export interface CopilotKitCoreReactConfig extends CopilotKitCoreConfig {
   // Add any additional configuration properties specific to the React implementation
@@ -29,6 +34,8 @@ export interface CopilotKitCoreReactSubscriber extends CopilotKitCoreSubscriber 
 }
 
 export class CopilotKitCoreReact extends CopilotKitCore {
+  private _deferredRuntimeUrl: string | undefined;
+  private _hasDeferredRuntimeUrl = false;
   private _renderToolCalls: ReactToolCallRenderer<any>[] = [];
   private _hookRenderToolCalls: Map<string, ReactToolCallRenderer<any>> =
     new Map();
@@ -152,5 +159,61 @@ export class CopilotKitCoreReact extends CopilotKitCore {
    */
   async waitForPendingFrameworkUpdates(): Promise<void> {
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
+
+  override setHeaders(
+    headers: Record<string, string | null | undefined>,
+  ): void {
+    super.setHeaders(headers);
+    if (!isProviderHeaderSync(this)) {
+      headerReadinessFor(this)?.ready(this.headers);
+    }
+  }
+
+  override setRuntimeUrl(runtimeUrl: string | undefined): void {
+    const readiness = headerReadinessFor(this);
+    if (readiness && readiness.state !== "ready") {
+      this._deferredRuntimeUrl = runtimeUrl;
+      this._hasDeferredRuntimeUrl = true;
+      return;
+    }
+    super.setRuntimeUrl(runtimeUrl);
+  }
+
+  override connect(): void {
+    const readiness = headerReadinessFor(this);
+    const waitForConnect =
+      readiness?.state === "failed"
+        ? readiness.waitForRecovery()
+        : (readiness?.wait() ?? waitForHeaderReadiness(this));
+    void waitForConnect
+      .then(() => {
+        if (this._hasDeferredRuntimeUrl) {
+          super.setRuntimeUrl(this._deferredRuntimeUrl);
+          this._hasDeferredRuntimeUrl = false;
+        }
+        super.connect();
+      })
+      .catch(() => {});
+  }
+
+  override reloadSuggestions(agentId: string): void {
+    void (headerReadinessFor(this)?.wait() ?? waitForHeaderReadiness(this))
+      .then(() => super.reloadSuggestions(agentId))
+      .catch(() => {});
+  }
+
+  override async connectAgent(
+    params: Parameters<CopilotKitCore["connectAgent"]>[0],
+  ): ReturnType<CopilotKitCore["connectAgent"]> {
+    await (headerReadinessFor(this)?.wait() ?? waitForHeaderReadiness(this));
+    return super.connectAgent(params);
+  }
+
+  override async runAgent(
+    params: Parameters<CopilotKitCore["runAgent"]>[0],
+  ): ReturnType<CopilotKitCore["runAgent"]> {
+    await (headerReadinessFor(this)?.wait() ?? waitForHeaderReadiness(this));
+    return super.runAgent(params);
   }
 }

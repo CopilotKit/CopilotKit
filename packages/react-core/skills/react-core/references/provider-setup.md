@@ -339,7 +339,10 @@ Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx` (context)
 ## Async headers
 
 Pass a stable header builder when credentials are resolved asynchronously. The
-provider invokes it once per function identity, withholds its concrete
-descendants until the first valid record settles, and keeps the last-good record
-active if a refresh fails. Change the builder reference to request a declarative
-refresh; use `copilotkit.setHeaders()` for an imperative refresh.
+provider invokes it once per function identity and keeps children mounted while
+the first result is pending. Header-bearing requests wait for that result, reject
+with the header-resolution error after an initial failure, and keep using the
+last-good record if a refresh fails. A pending builder replaced by a new function
+on each render emits one development warning, so memoize the builder. Change the
+builder reference for a declarative refresh; use `copilotkit.setHeaders()` for an
+imperative refresh.

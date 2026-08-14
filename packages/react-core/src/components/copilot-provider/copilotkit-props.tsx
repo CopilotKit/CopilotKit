@@ -58,7 +58,11 @@ export interface CopilotKitProps extends Omit<
    * Additional headers to be sent with the request.
    * Can be a static object or a stable function that returns headers, including
    * an async result. Change the function reference to refresh declaratively;
-   * call `copilotkit.setHeaders()` for an imperative refresh.
+   * call `copilotkit.setHeaders()` for an imperative refresh. Children remain
+   * mounted while an async result is pending or fails; header-bearing requests
+   * wait for the first result or reject with the header-resolution error. A
+   * pending async source replaced by a new function each render emits a
+   * development warning, so memoize the builder.
    *
    * For example:
    * ```tsx

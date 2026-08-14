@@ -26,7 +26,7 @@ describe("v1 async headers", () => {
         <div>v1-child</div>
       </CopilotKit>,
     );
-    expect(view.queryByText("v1-child")).toBeNull();
+    expect(view.queryByText("v1-child")).not.toBeNull();
     release({ Authorization: "Bearer settled" });
     await waitFor(() => expect(view.queryByText("v1-child")).not.toBeNull());
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -34,13 +34,14 @@ describe("v1 async headers", () => {
       (fetchMock.mock.calls[0]?.[1] as RequestInit).headers,
     );
     expect(headers.get("Authorization")).toBe("Bearer settled");
+    view.unmount();
     fetchMock.mockRestore();
   });
 
   it("forwards an initial header failure through the v1 error shape", async () => {
     const onError = vi.fn();
     const original = new Error("token unavailable");
-    render(
+    const view = render(
       <CopilotKit
         runtimeUrl="https://runtime.example"
         headers={() => Promise.reject(original)}
@@ -58,5 +59,6 @@ describe("v1 async headers", () => {
         request: { operation: "header_resolution_failed" },
       },
     });
+    view.unmount();
   });
 });

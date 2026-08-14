@@ -72,22 +72,28 @@ function evaluate(source: HeaderSource): Evaluation {
 export function useHeaderSource(source: HeaderSource): {
   headers: HeaderRecord | null;
   error: Error | null;
+  status: "pending" | "ready" | "failed";
 } {
   const evaluationRef = useRef<{
     source: HeaderSource;
     value: Evaluation;
+    settled: boolean;
   } | null>(null);
   const previous = evaluationRef.current;
-  const evaluation =
-    previous &&
-    previous.source === source &&
-    (previous.value.kind === "async" || previous.value.kind === "error")
+  const holdPendingEvaluation =
+    previous?.value.kind === "async" && !previous.settled;
+  const evaluation = holdPendingEvaluation
+    ? previous.value
+    : previous &&
+        previous.source === source &&
+        (previous.value.kind === "async" || previous.value.kind === "error")
       ? previous.value
       : evaluate(source);
   if (
-    !previous ||
-    previous.source !== source ||
-    (previous.value.kind !== "async" && previous.value.kind !== "error")
+    !holdPendingEvaluation &&
+    (!previous ||
+      previous.source !== source ||
+      (previous.value.kind !== "async" && previous.value.kind !== "error"))
   ) {
     if (
       previous?.source === source &&
@@ -97,37 +103,60 @@ export function useHeaderSource(source: HeaderSource): {
     ) {
       evaluationRef.current = previous;
     } else {
-      evaluationRef.current = { source, value: evaluation };
+      evaluationRef.current = {
+        source,
+        value: evaluation,
+        settled: evaluation.kind !== "async",
+      };
     }
   }
 
   const generation = useRef(0);
-  const sourceIdentity = useRef(source);
-  if (sourceIdentity.current !== source) {
-    sourceIdentity.current = source;
+  const effectiveSource = evaluationRef.current!.source;
+  const sourceIdentity = useRef(effectiveSource);
+  if (sourceIdentity.current !== effectiveSource) {
+    sourceIdentity.current = effectiveSource;
     generation.current += 1;
   }
 
-  const initial = evaluation.kind === "sync" ? evaluation.value : null;
+  const canonicalEvaluation = evaluationRef.current!.value;
+  const initial =
+    canonicalEvaluation.kind === "sync" ? canonicalEvaluation.value : null;
   const [state, setState] = useState<{
     headers: HeaderRecord | null;
     error: Error | null;
   }>(() => ({
     headers: initial,
-    error: evaluation.kind === "error" ? evaluation.error : null,
+    error:
+      canonicalEvaluation.kind === "error" ? canonicalEvaluation.error : null,
   }));
   const lastGood = useRef(initial ?? EMPTY);
+  const warnedPendingReplacement = useRef(false);
+  const previousSource = useRef(source);
+  if (
+    previousSource.current !== source &&
+    canonicalEvaluation.kind === "async" &&
+    holdPendingEvaluation &&
+    !warnedPendingReplacement.current &&
+    process.env.NODE_ENV !== "production"
+  ) {
+    warnedPendingReplacement.current = true;
+    console.warn(
+      "[CopilotKit] An async headers source changed while the previous source was pending; the current pending evaluation remains authoritative until it settles. Memoize the source to refresh it only when intended.",
+    );
+  }
+  previousSource.current = source;
 
   useEffect(() => {
     const current = generation.current;
     let active = true;
-    if (evaluation.kind === "sync") {
-      lastGood.current = evaluation.value;
+    if (canonicalEvaluation.kind === "sync") {
+      lastGood.current = canonicalEvaluation.value;
       return () => {
         active = false;
       };
     }
-    if (evaluation.kind === "error") {
+    if (canonicalEvaluation.kind === "error") {
       return () => {
         active = false;
       };
@@ -137,8 +166,11 @@ export function useHeaderSource(source: HeaderSource): {
         ? previousState
         : { headers: previousState.headers, error: null },
     );
-    Promise.resolve(evaluation.value).then(
+    Promise.resolve(canonicalEvaluation.value).then(
       (headers) => {
+        if (evaluationRef.current?.value === canonicalEvaluation) {
+          evaluationRef.current.settled = true;
+        }
         if (!active || current !== generation.current || !isRecord(headers)) {
           if (active && current === generation.current && !isRecord(headers)) {
             setState({
@@ -153,9 +185,18 @@ export function useHeaderSource(source: HeaderSource): {
         const normalized = normalizeHeaders(headers);
         lastGood.current = normalized;
         if (!active || current !== generation.current) return;
-        setState({ headers: normalized, error: null });
+        setState((previousState) =>
+          previousState.error === null &&
+          previousState.headers !== null &&
+          sameHeaders(previousState.headers, normalized)
+            ? previousState
+            : { headers: normalized, error: null },
+        );
       },
       (error) => {
+        if (evaluationRef.current?.value === canonicalEvaluation) {
+          evaluationRef.current.settled = true;
+        }
         if (!active || current !== generation.current) return;
         setState({
           headers: lastGood.current === EMPTY ? null : lastGood.current,
@@ -166,22 +207,34 @@ export function useHeaderSource(source: HeaderSource): {
     return () => {
       active = false;
     };
-  }, [evaluation]);
+  }, [canonicalEvaluation]);
 
   return {
     headers:
-      evaluation.kind === "sync"
-        ? evaluation.value
+      canonicalEvaluation.kind === "sync"
+        ? canonicalEvaluation.value
         : lastGood.current === EMPTY
-          ? state.headers
+          ? (state.headers ?? EMPTY)
           : lastGood.current,
     error:
-      evaluation.kind === "error"
-        ? evaluation.error
-        : evaluation.kind === "sync"
+      canonicalEvaluation.kind === "error"
+        ? canonicalEvaluation.error
+        : canonicalEvaluation.kind === "sync"
           ? null
           : previous?.source === source
             ? state.error
             : null,
+    status:
+      canonicalEvaluation.kind === "sync"
+        ? "ready"
+        : canonicalEvaluation.kind === "error"
+          ? "failed"
+          : state.error
+            ? lastGood.current !== EMPTY
+              ? "ready"
+              : "failed"
+            : state.headers || lastGood.current !== EMPTY
+              ? "ready"
+              : "pending",
   };
 }
