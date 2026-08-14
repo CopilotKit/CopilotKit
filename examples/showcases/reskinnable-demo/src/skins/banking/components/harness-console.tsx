@@ -27,6 +27,22 @@ import type { HarnessProgressEvent } from "@/skins/banking/harness/types";
  */
 const NEAR_BOTTOM_PX = 40;
 
+/**
+ * How long a console may sit with ZERO frames before it says why that might be.
+ *
+ * The failure this exists for is silent and looks identical to a slow start: on
+ * an `EXPENSE_HARNESS_MODE=off` deploy the tool is not registered, but the model
+ * can still emit a call to it — the AI SDK enqueues an invalid tool call into
+ * the stream before flagging it, and the renderer is registered
+ * unconditionally — so this console mounts against a channel no server run will
+ * ever write to, and "Starting the harness…" is all the presenter ever sees.
+ *
+ * Generous on purpose, and non-destructive: the EventSource stays open and any
+ * frame that does arrive replaces this line. A real run's first frame lands well
+ * inside this window (the CSV read, then codex's first headline).
+ */
+const IDLE_DIAGNOSTIC_MS = 45_000;
+
 const isNearBottom = (element: HTMLDivElement | null): boolean =>
   element === null ||
   element.scrollHeight - element.scrollTop - element.clientHeight <=
@@ -41,6 +57,8 @@ export const HarnessConsole = ({ channel }: { channel: string }) => {
    * nobody has touched follows the run.
    */
   const stickToBottomRef = useRef(true);
+  /** Set once nothing has arrived for `IDLE_DIAGNOSTIC_MS`. Shown, not fatal. */
+  const [idle, setIdle] = useState(false);
 
   useEffect(() => {
     const source = new EventSource(
@@ -64,6 +82,15 @@ export const HarnessConsole = ({ channel }: { channel: string }) => {
   }, [channel]);
 
   useEffect(() => {
+    // Only ever armed while the console is empty: the moment a frame lands this
+    // effect re-runs, the cleanup clears the pending timer, and the early return
+    // stops it being re-armed.
+    if (events.length > 0) return;
+    const timer = setTimeout(() => setIdle(true), IDLE_DIAGNOSTIC_MS);
+    return () => clearTimeout(timer);
+  }, [events.length]);
+
+  useEffect(() => {
     // Never yank the viewport back down: a headline lands every ~7s across a
     // multi-minute run, so unconditional autoscroll would snap a reader back to
     // the tail within seconds of scrolling up — during the very run they are
@@ -82,7 +109,13 @@ export const HarnessConsole = ({ channel }: { channel: string }) => {
       className="max-h-64 overflow-y-auto rounded-[--radius] border border-hairline bg-canvas p-3 font-mono text-xs"
     >
       {events.length === 0 ? (
-        <div className="text-ink/50">Starting the harness…</div>
+        <div className="text-ink/50">
+          {idle
+            ? "Nothing has streamed on this channel for 45s. The run may not " +
+              "have started — check that EXPENSE_HARNESS_MODE is set and that " +
+              "the codex binary is on the server's PATH. Still listening."
+            : "Starting the harness…"}
+        </div>
       ) : null}
       {events.map((event, index) => (
         <div key={index} className="py-0.5">

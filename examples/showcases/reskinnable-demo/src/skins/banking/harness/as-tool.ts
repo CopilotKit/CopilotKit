@@ -73,15 +73,29 @@ export interface HarnessDeps {
 }
 
 /**
- * ONE concurrent harness run per instance, enforced rather than requested.
+ * The run that currently OWNS `HARNESS_RUN_CHANNEL`, or `null`.
  *
- * `HARNESS_RUN_CHANNEL` is a FIXED id (see `types.ts`), so two in-flight runs
- * interleave their frames into one console and whichever finishes first closes
- * the stream for both. The tool description asks the model to "call it once",
- * but prose is not a guarantee — a double-send or an impatient second click
- * would otherwise corrupt the run already on screen.
+ * ONE run per instance, because the channel id is FIXED (see `types.ts`): two
+ * live runs interleave their frames into one console and whichever finishes
+ * first closes the stream for both.
+ *
+ * A second call SUPERSEDES the first rather than being refused, and that
+ * direction is deliberate. `defineTool`'s `execute` is typed
+ * `(args) => Promise<unknown>` — there is no cancellation hook at the tool
+ * boundary, so nothing on the server ever hears that the presenter cancelled the
+ * turn or reloaded the tab. A refusal therefore had NO RELEASE: the guard came
+ * back only when the drain finished, i.e. when a codex run nobody was watching
+ * finally ended, and every retry across those MINUTES was refused before a
+ * console had even rendered — the stage showing nothing at all. Superseding
+ * makes the second click work, and aborting the old signal is what actually
+ * kills the codex process group (`run.ts` — that signal is the only thing that
+ * reaches `killTree`).
+ *
+ * The cost accepted: a genuine double-send restarts the run instead of being
+ * rejected. That is recoverable in one click; the lockout was not recoverable
+ * without a server restart.
  */
-let runInFlight = false;
+let inFlight: AbortController | null = null;
 
 /**
  * Chunk → console frame.
@@ -179,18 +193,28 @@ export const mapChunkToProgress = (
 export const runExpenseHarness = async (
   deps: HarnessDeps,
 ): Promise<HarnessSummary> => {
-  // Fail fast, and BEFORE touching the channel: a second caller must not clear
-  // the console the first run is still writing to, nor publish an `error` frame
-  // into it that the presenter would read as the live run dying.
-  if (runInFlight) {
-    throw new Error(
-      "A harness run is already in flight. Only one can run per instance " +
-        `because the progress channel is a fixed id ("${HARNESS_RUN_CHANNEL}"), ` +
-        "so a second run would interleave frames into the first run's console " +
-        "and close its stream early. Wait for the current run to finish.",
-    );
-  }
-  runInFlight = true;
+  // Take the channel from whoever holds it, and abort them FIRST so the old
+  // codex process is killed before this one starts rather than two of them
+  // racing for the same fixed channel id.
+  inFlight?.abort(
+    new Error(
+      `Superseded by a newer harness run on channel "${HARNESS_RUN_CHANNEL}".`,
+    ),
+  );
+  const controller = new AbortController();
+  inFlight = controller;
+
+  /**
+   * Every publish is gated on STILL OWNING the channel.
+   *
+   * Without this, the superseded run's abort rejection lands in the NEW run's
+   * console: its `catch` publishes an `error` frame after the new run has
+   * cleared the buffer, and `error` is terminal — so the new console would close
+   * instantly, reporting the death of a run the presenter already replaced.
+   */
+  const publishIfOwner = (event: HarnessProgressEvent): void => {
+    if (inFlight === controller) publishProgress(deps.channel, event);
+  };
 
   try {
     // Clear FIRST, before anything can publish. The channel id is fixed, so a
@@ -218,12 +242,16 @@ export const runExpenseHarness = async (
       const stream = createStream({
         dir,
         prompt: buildHarnessPrompt(),
-        abortSignal: new AbortController().signal,
+        // The REAL signal, not a throwaway controller: `run.ts` documents this
+        // as the only path to `killTree`, so a run that is superseded here is a
+        // codex process group that actually dies rather than one that keeps
+        // burning tokens with nobody listening.
+        abortSignal: controller.signal,
       });
 
       for await (const chunk of stream) {
         const event = mapChunkToProgress(chunk);
-        if (event) publishProgress(deps.channel, event);
+        if (event) publishIfOwner(event);
       }
 
       const elapsedSeconds = Math.max(
@@ -231,13 +259,13 @@ export const runExpenseHarness = async (
         Math.round((deps.now() - startedAt) / 1000),
       );
       const summary = await readSummary(summaryPath, elapsedSeconds);
-      publishProgress(deps.channel, { kind: "done", at: Date.now() });
+      publishIfOwner({ kind: "done", at: Date.now() });
       return summary;
     } catch (error) {
       // Publish BEFORE rethrowing: the console is the only place a presenter can
       // see why a four-minute run died, and silence here reads on stage as the
       // agent simply hanging.
-      publishProgress(deps.channel, {
+      publishIfOwner({
         kind: "error",
         message: error instanceof Error ? error.message : String(error),
         at: Date.now(),
@@ -245,7 +273,10 @@ export const runExpenseHarness = async (
       throw error;
     }
   } finally {
-    runInFlight = false;
+    // Only the OWNER releases. A superseded run reaching its `finally` after the
+    // new one started must not null out the new run's controller — that would
+    // hand the channel to a third caller while the second is still writing.
+    if (inFlight === controller) inFlight = null;
   }
 };
 

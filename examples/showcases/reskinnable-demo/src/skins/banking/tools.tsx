@@ -948,9 +948,18 @@ export function BankingTools() {
         }
         const summary = parseHarnessSummary(result);
         if (!summary) {
-          // A run that died returns an error string rather than a summary.
-          // Rendering that plainly beats throwing inside the transcript, which
-          // would take the whole conversation down with it.
+          // NOT the path a failed run takes, despite how it reads. When
+          // `execute` throws, the AI SDK emits a `tool-error` part and the
+          // runtime has NO case for it (grep `"tool-error"` across
+          // packages/runtime and packages/core — it is empty), so no
+          // TOOL_CALL_RESULT is emitted, this render never reaches "complete",
+          // and the slot stays on the console above. That is survivable because
+          // the tool publishes an `error` frame before rethrowing, so the
+          // console shows the cause and closes — but the slot itself never
+          // resolves. This branch is for a result that arrived and did not
+          // parse (e.g. the runtime's `[Unserializable tool result …]`), where
+          // rendering the string plainly beats throwing inside the transcript
+          // and taking the whole conversation down with it.
           return (
             <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
               The expense analysis did not finish: {result}

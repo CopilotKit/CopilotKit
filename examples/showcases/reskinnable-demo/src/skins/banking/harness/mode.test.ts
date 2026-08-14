@@ -1,15 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { armAEnabled, armCEnabled, harnessMode } from "./mode";
 
-const original = process.env.EXPENSE_HARNESS_MODE;
-afterEach(() => {
-  process.env.EXPENSE_HARNESS_MODE = original;
-});
-
 const set = (value: string | undefined) => {
   if (value === undefined) delete process.env.EXPENSE_HARNESS_MODE;
   else process.env.EXPENSE_HARNESS_MODE = value;
 };
+
+// Restore through `set`, NOT by assigning `original` back: on a checkout with no
+// `.env` the original is `undefined`, and `process.env.X = undefined` writes the
+// STRING "undefined" — after which every later harnessMode() in this process
+// throws. Contained today only by vitest's per-file isolation.
+const original = process.env.EXPENSE_HARNESS_MODE;
+afterEach(() => set(original));
 
 describe("harnessMode", () => {
   it("is off when unset", () => {

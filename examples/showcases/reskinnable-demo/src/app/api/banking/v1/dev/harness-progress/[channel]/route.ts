@@ -55,7 +55,25 @@ export const GET = async (
       // be no `await` between these two statements — `start` running
       // synchronously is what makes the ordering unviolatable.
       unsubscribe = subscribeProgress(channel, send);
-      for (const event of readProgress(channel)) send(event);
+
+      // A backlog that ENDS in a terminal frame belongs to a run that is already
+      // over, and replaying it would close this stream immediately.
+      //
+      // This is not hypothetical tidiness. The console mounts on
+      // TOOL_CALL_START — i.e. BEFORE the server's `execute` reaches
+      // `clearProgress` — so on the second run of a session the EventSource can
+      // open first (a coin flip on localhost, the gap is one provider chunk).
+      // Without this check the presenter then watches the PREVIOUS run's frames
+      // replay, hit the previous run's `done`, and freeze for the four minutes
+      // the real run takes. The console is only ever mounted DURING a run (once
+      // the tool completes, the slot renders the report instead), so a finished
+      // backlog is by definition stale and there is no case where a client wants
+      // it.
+      const backlog = readProgress(channel);
+      const last = backlog.at(-1);
+      if (last === undefined || !isTerminal(last)) {
+        for (const event of backlog) send(event);
+      }
     },
 
     /**

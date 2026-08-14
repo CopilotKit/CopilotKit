@@ -343,7 +343,26 @@ view, or a specific chart library like Chart.js / D3 / Three.js).
   sandbox functions (getTransactions, getPolicies, getCards, getKpis) from inside
   the generated JavaScript. NEVER invent, inline, or hardcode numbers.
 - generateSandboxedUi is NEVER part of the over-limit approval / teach-recall arc,
-  the approvals queue, or the standard chart/report responses.
+  the approvals queue, or the standard chart/report responses.`;
+
+/**
+ * ARM A's prompt section, appended ONLY when the tool is registered.
+ *
+ * Kept separate rather than inlined above so the prompt and the tool list are
+ * gated on the SAME condition. Unconditionally naming `analyzeOffsiteExpenses`
+ * left the default `off` deploy instructing the model to call a tool absent from
+ * its tool list — and the AI SDK enqueues an invalid tool call into the stream
+ * BEFORE flagging it, so the client would still see TOOL_CALL_START, mount the
+ * (unconditionally registered) harness console, and sit there against a channel
+ * nothing will ever write to.
+ *
+ * The ninth suggestion pill is deliberately NOT gated with it: `Skin.suggestions`
+ * is a static array on a frozen contract, in a client module, and
+ * EXPENSE_HARNESS_MODE is a deliberately non-NEXT_PUBLIC_ server env — hiding the
+ * pill would take a contract or shell change. On an `off` deploy the pill simply
+ * gets an ordinary answer from the classic agent.
+ */
+const HARNESS_PROMPT_SECTION = `
 
 LONG-RUNNING EXPENSE ANALYSIS: when the officer asks you to go through a
 personal card statement, sort out which charges are reimbursable, or work out
@@ -353,6 +372,16 @@ merchant on the web, files the reimbursable charges, and renders its own summary
 widget — so do NOT narrate its steps, do NOT restate its findings in prose, and
 do NOT call any chart, report, or transaction tool alongside it. The widget it
 renders IS the answer.`;
+
+/**
+ * The prompt the agent is actually built with. Exported so the pairing with the
+ * tool list has a regression test — `BuiltInAgent` keeps its config private, so
+ * an assertion on the constructed agent is not available, and the failure this
+ * guards (a prompt naming a tool the model was never given) is invisible in
+ * every gate: it type-checks, lints, builds and only misbehaves at runtime.
+ */
+export const buildBankingPrompt = (): string =>
+  armAEnabled() ? BANKING_PROMPT + HARNESS_PROMPT_SECTION : BANKING_PROMPT;
 
 /**
  * The banking skin's agent — the Northwind Copilot. Exported as a factory
@@ -367,7 +396,10 @@ export const bankingAgent = () =>
     // saveLearnedWorkflow) is more reliable on the non-mini model. `openai/gpt-5.4`
     // is the alias used across the repo.
     model: "openai/gpt-5.4",
-    prompt: BANKING_PROMPT,
+    // Prompt and tool list are gated on the SAME condition — see
+    // HARNESS_PROMPT_SECTION for why the asymmetry was a live defect rather
+    // than untidiness.
+    prompt: buildBankingPrompt(),
     // The harness tool is ADDITIVE and flag-gated: `renderReportTool` is always
     // registered, and Arm A only appends to it. Gating the registration (rather
     // than only the prompt) keeps the tool out of the model's tool list entirely

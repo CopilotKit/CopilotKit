@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mapChunkToProgress, runExpenseHarness } from "./as-tool";
 import { clearProgress, publishProgress, readProgress } from "./progress";
 
@@ -241,39 +241,69 @@ describe("runExpenseHarness", () => {
     });
   });
 
-  it("refuses a second concurrent run without touching either console", async () => {
-    // Deterministic without a gate: the in-flight flag is set synchronously,
-    // before `runExpenseHarness`'s first await, so the second call is refused
-    // while the first is unavoidably still in flight.
+  it("supersedes a run still holding the channel, and silences it", async () => {
+    // BOTH calls use the SAME channel, which is the only configuration that
+    // reproduces production: the real channel id is a fixed constant, so the two
+    // runs contend for one buffer. An earlier version of this test gave the
+    // second call its own channel, which made the ordering it claimed to pin
+    // (guard BEFORE the clear) unobservable — moving the guard below
+    // `clearProgress` still passed.
     const channel = "tool-test-concurrent";
-    const rival = "tool-test-concurrent-rival";
     clearProgress(channel);
-    clearProgress(rival);
 
+    // The first run only ends when its abort signal fires — so `first`
+    // rejecting IS the proof that superseding actually aborted it, rather than
+    // merely dropping the reference and leaving codex running.
     const first = runExpenseHarness({
       channel,
       now: () => 0,
       readCsv: async () => "x\n",
+      createStream: ({ abortSignal }) => ({
+        async *[Symbol.asyncIterator]() {
+          yield { type: "REASONING_MESSAGE_CONTENT", delta: "first run" };
+          await new Promise<never>((_, reject) => {
+            abortSignal.addEventListener(
+              "abort",
+              () => reject(new Error("codex process group killed")),
+              { once: true },
+            );
+          });
+        },
+      }),
+    });
+    // Attach the rejection handler NOW, not after the second run: `first`
+    // rejects while the second run is still awaiting, and a rejected promise
+    // with no handler at that microtask checkpoint is an unhandled rejection —
+    // the suite would pass while printing an error.
+    const firstOutcome = first.then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    // Wait for the first run to actually own the channel and write to it;
+    // superseding before it has published anything would prove nothing.
+    await vi.waitFor(() => expect(readProgress(channel)).toHaveLength(1));
+
+    const second = await runExpenseHarness({
+      channel,
+      now: () => 0,
+      readCsv: async () => "x\n",
       createStream: streamOf([
-        { type: "REASONING_MESSAGE_CONTENT", delta: "first run" },
+        { type: "REASONING_MESSAGE_CONTENT", delta: "second run" },
       ]),
     });
 
-    await expect(
-      runExpenseHarness({
-        channel: rival,
-        now: () => 0,
-        readCsv: async () => "x\n",
-        createStream: streamOf([]),
-      }),
-    ).rejects.toThrow(/already in flight/);
+    expect((await firstOutcome) as Error).toMatchObject({
+      message: expect.stringContaining("killed"),
+    });
+    expect(second.merchantsSearched).toBe(1);
 
-    // The refusal must publish NOTHING: an `error` frame here would read as the
-    // live run dying, and on the real fixed channel it would also wipe it.
-    expect(readProgress(rival)).toHaveLength(0);
-
-    await expect(first).resolves.toMatchObject({ merchantsSearched: 1 });
-    expect(readProgress(channel).at(-1)).toMatchObject({ kind: "done" });
+    // The superseded run must have gone SILENT the moment it lost the channel.
+    // Without the ownership gate its `error` frame lands here — and `error` is
+    // terminal, so the new console would close on the old run's death.
+    const frames = readProgress(channel);
+    expect(frames.map((f) => f.kind)).toEqual(["thinking", "done"]);
+    expect(frames[0]).toMatchObject({ text: "second run" });
   });
 
   it("releases the in-flight guard after a failed run", async () => {
