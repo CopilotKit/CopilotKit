@@ -11,6 +11,7 @@
     "check-claude-quickstarts:runtime": "tsx check-claude-quickstarts-runtime.ts",
     "validate-manifests": "tsx generate-registry.ts --validate-only",
     "validate-routes": "tsx validate-runtime-routes.ts --all",
+    "check-aeo-synthetics": "tsx check-aeo-synthetics.ts",
     "showcase:audit": "tsx audit.ts",
     "create-integration": "tsx create-integration/index.ts",
     "bundle-content": "tsx bundle-demo-content.ts",

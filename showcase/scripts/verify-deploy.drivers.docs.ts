@@ -21,7 +21,7 @@ function attributes(tag: string): Map<string, string> {
   return out;
 }
 
-function metadataUrl(
+export function metadataUrl(
   html: string,
   attribute: "rel" | "property",
   value: "canonical" | "og:url",
@@ -65,14 +65,20 @@ function absoluteUrls(text: string): string[] {
   return text.match(/https?:\/\/[^\s<>)"']+/g) ?? [];
 }
 
-function markdownLinkUrls(text: string): string[] {
+export function markdownLinkUrls(text: string): string[] {
   return [...text.matchAll(/\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/g)].map(
     (match) => match[1],
   );
 }
 
-function sourceUrls(text: string): string[] {
+export function sourceUrls(text: string): string[] {
   return [...text.matchAll(/^## Source:\s+(https?:\/\/\S+)\s*$/gm)].map(
+    (match) => match[1],
+  );
+}
+
+export function sitemapUrls(text: string): string[] {
+  return [...text.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)].map(
     (match) => match[1],
   );
 }
@@ -164,9 +170,7 @@ export async function checkProductionDocsCanonicalHost(
   }
 
   const sitemapError = validateUrls(
-    [
-      ...(byPath.get("/sitemap.xml") ?? "").matchAll(/<loc>([^<]+)<\/loc>/g),
-    ].map((match) => match[1]),
+    sitemapUrls(byPath.get("/sitemap.xml") ?? ""),
     "sitemap.xml <loc>",
   );
   if (sitemapError) return `docs: ${sitemapError}`;

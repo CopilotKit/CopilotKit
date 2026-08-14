@@ -15,10 +15,17 @@ import type { PriceSheetInput } from "./price-sheet-pdf";
  * and no other test opens the bytes, so these assertions are the only thing
  * standing between a regression and a ragged table on stage.
  *
- * So: parse the emitted PDF, and assert (a) every font the content stream
- * references is actually declared — a dangling `/Fn` is worse than ragged, it is
- * blank — (b) every columnar line is drawn in a Courier face, (c) the column
- * origins are identical on every row, and (d) no row can overflow the page.
+ * So: parse the emitted PDF, and assert (a) every line whose spacing carries
+ * meaning is drawn in a Courier face, (b) the column origins are identical on
+ * every row, and (c) no row can overflow the page.
+ *
+ * WHAT IS NOT HERE ANY MORE. The mechanism — a well-formed xref, a `/Length` that
+ * matches its stream, a `/Fn` that resolves to a declared font object — belongs to
+ * `@/shell/documents` now and is asserted once, for every skin, in
+ * `src/shell/documents/pdf.test.ts`. What stays is what only THIS sheet can be
+ * wrong about: which of its lines are marked `mono`, where its columns fall, and
+ * whether its chosen column widths fit the page. The shell's test cannot know any
+ * of that, so none of it moved.
  *
  * TWO UNITS LIVE IN THIS FILE, and mixing them up is how the byte-layout guard
  * below nearly became decorative:
@@ -182,34 +189,12 @@ function columnarLines(pdf: ParsedPdf) {
 describe("price sheet PDF", () => {
   const pdf = parsePdf(buildPriceSheetPdf(INPUT));
 
-  it("is a well-formed single-page PDF with a correct xref", () => {
-    expectCorrectXref(byteImage(buildPriceSheetPdf(INPUT)));
-  });
-
-  it("declares every font the content stream references", () => {
-    // A dangling /Fn renders blank or corrupt in most readers — strictly worse
-    // than the ragged table this fix was about.
-    const referenced = new Set(pdf.lines.map((l) => l.font));
-    expect(referenced.size).toBeGreaterThan(1);
-    for (const resource of referenced) {
-      expect(
-        pdf.fontResources.get(resource),
-        `${resource} is in the page's /Font dictionary`,
-      ).toBeTypeOf("number");
-      expect(
-        baseFontOf(pdf, resource),
-        `${resource} resolves to a declared font object`,
-      ).toBeTypeOf("string");
-    }
-  });
-
-  it("declares a /Length that matches the content stream it wraps", () => {
-    expectCorrectStreamLength(byteImage(buildPriceSheetPdf(INPUT)));
-  });
-
   it("draws every columnar line in a monospaced face", () => {
-    // THE FIX. Character padding only aligns in a fixed-advance font; these lines
-    // are padded, so they must not be drawn in Helvetica.
+    // THE FIX, and it did NOT move to the shell's test. That one proves the
+    // MECHANISM (a `mono` line comes out in Courier) over its own fixture; this
+    // one proves this sheet actually SETS `mono` on the lines whose spacing
+    // carries meaning. Drop the flag off `tableRow` and the shell's test stays
+    // green while the table renders ragged on stage.
     const { table, schedule } = columnarLines(pdf);
     expect(table.length).toBe(INPUT.lines.length + 1); // header + one per SKU
     expect(schedule.length).toBe(5);
@@ -257,8 +242,10 @@ describe("price sheet PDF", () => {
   });
 
   it("keeps every mono line inside the drawable width", () => {
-    // Fixed advance also makes overflow arithmetic — worth asserting, because a
-    // wider column set would silently run off the right edge of the page.
+    // Fixed advance also makes overflow arithmetic — and this is a claim about
+    // COLUMNS, not about the primitive: the shell publishes the drawable width,
+    // this sheet picks widths that have to fit inside it. Widen `columns.style`
+    // and the page overflows with the shell's suite still green, so this stayed.
     const { monoAdvance, drawableWidth } = PRICE_SHEET_METRICS;
     const { table, schedule } = columnarLines(pdf);
     for (const line of [...table, ...schedule]) {
@@ -350,16 +337,23 @@ describe("price sheet PDF — ASCII invariant", () => {
     const drawn = parsePdf(buildPriceSheetPdf(NON_ASCII_INPUT)).lines.map(
       (l) => l.text,
     );
-    // Masthead and signature — the two places the vendor is drawn.
-    expect(drawn).toContain("KESTREL MILLS - ?MILE & FILS");
-    expect(drawn).toContain("Head of Wholesale, Kestrel Mills - ?mile & Fils");
+    // Masthead and signature — the two places the vendor is drawn. The accented
+    // letters TRANSLITERATE (they have a base letter); the em dash and the curly
+    // quotes FOLD to their ASCII equivalents. These used to read "?MILE & FILS"
+    // and "Cr?me Br?l?e Tee", which pinned a defect as if it were the spec: this
+    // sheet is projected and the agent reads its style names back out loud.
+    expect(drawn).toContain("KESTREL MILLS - EMILE & FILS");
+    expect(drawn).toContain("Head of Wholesale, Kestrel Mills - Emile & Fils");
     // The season, folded: curly quotes and an em dash have ASCII equivalents.
     expect(drawn).toContain(`Autumn '26 - "Harvest" price sheet`);
     // Derived prose, which quotes a style name back.
-    expect(drawn).toContain("Cr?me Br?l?e Tee: up from $12 to $13 per unit.");
+    expect(drawn).toContain("Creme Brulee Tee: up from $12 to $13 per unit.");
     // Table cells: the SKU column and a name carrying folded punctuation.
-    expect(drawn.some((t) => t.startsWith("BW-CR?-TEE"))).toBe(true);
+    expect(drawn.some((t) => t.startsWith("BW-CRE-TEE"))).toBe(true);
     expect(drawn.some((t) => t.includes("Alder 2x3 rib..."))).toBe(true);
+    // A currency symbol has no base letter, so it stays a visible "?" — the
+    // half of the fold that must NOT silently drop what it cannot draw.
+    expect(drawn.some((t) => t.includes("Moss Scarf ?18 / ?21"))).toBe(true);
   });
 
   it("keeps /Length and the xref byte-exact for that document too", () => {

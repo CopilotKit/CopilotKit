@@ -28,7 +28,7 @@ import type { Employee, PeopleStoreState } from "./data/types";
 import { BandLadder } from "./components/band-ladder";
 import { Monogram } from "./components/monogram";
 import { Pill } from "./components/primitives";
-import { useRecording } from "./components/recording-context";
+import { useRecording } from "@/shell/teach";
 
 /**
  * Every frontend tool, HITL card, gen-UI component and global readable Rowan
@@ -576,13 +576,31 @@ export function PeopleTools() {
       name: "showRequestQueue",
       description:
         "Take the user to the Requests page with a specific status filter, " +
-        "sort order and top-N limit applied. Confirm the levers with them " +
-        "first. Use for any 'show me the oldest / biggest / pending requests' " +
-        "question.",
+        "sort order and top-N limit applied. Confirm with them first — the " +
+        "CARD this opens lists the levers and waits for their click, so calling " +
+        "this IS how you confirm. Never describe the levers in chat and ask " +
+        "them to confirm in words; that leaves them where they were. Use for " +
+        "any 'show me the oldest / biggest / pending requests' question. " +
+        "EVERY lever is REQUIRED: set the ones the request implies, and pass " +
+        "'all' (or 0 for the limit) for the ones it does not — that is how you " +
+        "say 'leave this lever alone', and it is the only way to say it. Never " +
+        "omit a lever, and never fill one merely because the schema offers it: " +
+        "a lever the user did not ask for narrows the queue for no reason and " +
+        "claims a choice they never made.",
       parameters: z.object({
         status: z.enum(["all", "pending", "approved", "declined"]),
         sort: z.enum(["aging_desc", "aging_asc", "amount_desc"]),
-        top: z.number().optional().describe("Limit to the first N rows."),
+        // REQUIRED, with 0 as the "no limit" sentinel rather than `.optional()`.
+        // An optional lever invites the model to go and ask for the missing
+        // value, which is one more reason to talk instead of act. 0 needs no
+        // special handling downstream: the render below sets the `top` query
+        // param only `if (args?.top)`, which is falsy at 0, so the page sees no
+        // limit and shows every matching row.
+        top: z
+          .number()
+          .int()
+          .min(0)
+          .describe("Limit to the first N rows. 0 means no limit."),
         reason: z.string().describe("One short line on why this view."),
       }),
       render: ({ args, respond, result, toolCallId }) => {
@@ -1297,11 +1315,15 @@ function SalaryCard({
  * the room can see that watching is really happening.
  */
 function DemonstrationCard({ onDone }: { onDone: (summary: string) => void }) {
-  const { beginRecording, endRecording, steps, getDemonstratedCode, reset } =
+  const { beginRecording, endRecording, steps, getDemonstratedCode } =
     useRecording();
 
+  // No explicit feed reset: the shell's `beginRecording` clears it when it opens
+  // a FRESH window, and deliberately inherits the feed when one is already open
+  // (the `opened → finalized → approve` chain arriving as brackets microseconds
+  // apart must read as one demonstration). An unconditional reset here would
+  // blank a live feed mid-demonstration.
   useEffect(() => {
-    reset();
     beginRecording();
     return () => endRecording();
     // eslint-disable-next-line react-hooks/exhaustive-deps

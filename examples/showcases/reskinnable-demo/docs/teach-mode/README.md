@@ -17,13 +17,25 @@
 > grep -l offerWorkflowRecording src/skins/*/tools.tsx
 > ```
 >
+> **That grep now returns EVERY registered skin** (`ls src/skins/` for the
+> comparison), so teach mode is no longer a subset feature — which makes the next
+> paragraph the important one.
+>
 > **The grep gives you the roster; it does not certify compliance.** Do not read
 > it as "every skin it names follows all five roles" — an earlier revision of this
 > paragraph said exactly that on the strength of two skins, and the third
-> falsifies it. Verified role by role at the time of writing: **`banking` and
-> `commerce` satisfy all five. `people` satisfies #1, #2, #4 and #5, and of role
-> #3's TWO replay invariants it satisfies one and violates the other** — read both
-> before deciding what to copy from it:
+> falsifies it. The mechanical discriminator for role #3 is whether the skin lifts
+> its two replay rules out of the render into a `teach-mode-directives.ts`, which is
+> also a command rather than a sentence:
+>
+> ```bash
+> ls src/skins/*/teach-mode-directives.ts
+> ```
+>
+> Verified role by role at the time of writing: **`banking`,
+> `commerce` and `logistics` satisfy all five. `people` satisfies #1, #2, #4 and
+> #5, and of role #3's TWO replay invariants it satisfies one and violates the
+> other** — read both before deciding what to copy from it:
 >
 > - _Survives replay_ — **satisfied.** `people`'s `awaitDemonstration` render
 >   (`src/skins/people/tools.tsx:1103`) counts `\d+\.\s` in `result`, and `result`
@@ -40,11 +52,17 @@
 >   The card asserts a durable write that never happened — live, and identically on
 >   every replay, which is why it survived.
 >
-> **So copy `commerce`.** It is the only one whose replay behaviour is _pinned_:
-> `src/skins/commerce/teach-mode-directives.ts` lifts the two rules out of the
-> render (`readDemonstratedStepCount`, `classifySaveProcedureResult`) so a
-> round-trip test can hold the builder and the reader together. `banking` is
+> **So copy a skin whose replay behaviour is _pinned_** — i.e. one the
+> `teach-mode-directives.ts` command above names. Those files lift the two rules out
+> of the render (`readDemonstratedStepCount`, `classifySaveProcedureResult`) so a
+> round-trip test can hold the builder and the reader together. `commerce` and
+> `logistics` were the first two; `airline` and `keel` shipped the same pair when
+> they were retrofitted, so the shape is now the norm rather than the exception.
+> `banking` is
 > correct but hand-rolled and unasserted, so it can rot without failing anything.
+> The pinned files are deliberate SIBLINGS rather than one shared module: a
+> skin's only inbound dependency on shared code is the `Skin` contract, and the
+> directives are domain wording, not shell machinery.
 > **Neither grep below is a verdict** — a hit is a place to read, not a defect,
 > and an empty result is not compliance:
 >
@@ -209,6 +227,20 @@ default, `CopilotKitIntelligence` when configured.
 > prompts, because one Intelligence backend is shared by every product in this
 > deployment: a project-scoped procedure is visible to skins that never learned
 > it. Prefer `"user"` for a new skin unless it genuinely owns its own backend.
+>
+> There is a second, harder reason, and it is the one that decides the question.
+> A skin whose `intelligence/forget-memories.ts` **skips project-scoped rows** —
+> which is every skin that has one, so that no skin's reset can delete another's
+> seeded procedure out from under it (`grep -n project
+src/skins/*/intelligence/forget-memories.ts`) — has a presenter reset that
+> physically cannot un-teach a project-scoped memory. Save beat 6's procedure at
+> project scope in such a skin and the SECOND run of the demo opens with the agent
+> already knowing the answer: it never declines, never offers to record, and the
+> beat proves nothing while looking perfect. Check what your skin's sweep actually
+> deletes before choosing a scope. Keeping beat 5's seeded procedure and beat 6's
+> learned one distinguishable is then a job for their TEXT and the prompt clauses
+> that route to them — each says plainly that it is not the other — not for the
+> scope field.
 
 > **Per-skin divergence — tool names.** The chain's shape is fixed (offer → wait →
 > summarize → confirm → persist); the names are not. `banking` calls the middle
@@ -221,13 +253,13 @@ default, `CopilotKitIntelligence` when configured.
 
 ## Where each role lives (banking skin)
 
-| Role                     | File(s)                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **#1 GATE**              | `src/app/api/banking/v1/transactions/[id]/route.ts` — PUT returns **422 `OVER_POLICY_LIMIT`** when an approve would exceed the policy limit and no approved exception is linked. Rule helpers in `src/skins/banking/data/store.ts`.                                                                                                                                   |
-| **#2 UNLOCK**            | Catalogue `src/skins/banking/data/policy-exception-codes.ts` (`POLICY_EXCEPTION_CODES`, `JUSTIFYING_EXCEPTION_CODES`, `isValidExceptionCode`, `isJustifying`). REST `src/app/api/banking/v1/exceptions/route.ts` (open, POST) + `src/app/api/banking/v1/exceptions/[id]/finalize/route.ts` (finalize, POST).                                                          |
-| **#3 RECORDING**         | `src/skins/banking/components/recording-context.tsx` + the recorder feed / vignette components under `src/skins/banking/components/`.                                                                                                                                                                                                                                 |
-| **#4 AGENT FRAMING**     | `src/skins/banking/agent.ts` — the `BuiltInAgent` prompt withholds the recipe, ships the three distractors, and carries the ACTION DISCIPLINE clause. It also defines the teach-flow HITL tools it orchestrates: `offerWorkflowRecording` → `awaitDashboardDemonstration` → `saveLearnedWorkflow`, plus `recall_memory` / `save_memory`.                              |
-| **#5 KNOWLEDGE BACKEND** | `src/app/api/copilotkit/[[...slug]]/route.ts` — env-gated `CopilotKitIntelligence` (OSS `InMemoryAgentRunner` default) keyed on `INTELLIGENCE_API_URL` / `INTELLIGENCE_GATEWAY_WS_URL` / `INTELLIGENCE_API_KEY`; `enableEnterpriseLearning` + `exposeMemoryRoutes` wire the memory tools and the inspector's Memory tab. `identifyUser` scopes memory by member/role. |
+| Role                     | File(s)                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **#1 GATE**              | `src/app/api/banking/v1/transactions/[id]/route.ts` — PUT returns **422 `OVER_POLICY_LIMIT`** when an approve would exceed the policy limit and no approved exception is linked. Rule helpers in `src/skins/banking/data/store.ts`.                                                                                                                                                                                   |
+| **#2 UNLOCK**            | Catalogue `src/skins/banking/data/policy-exception-codes.ts` (`POLICY_EXCEPTION_CODES`, `JUSTIFYING_EXCEPTION_CODES`, `isValidExceptionCode`, `isJustifying`). REST `src/app/api/banking/v1/exceptions/route.ts` (open, POST) + `src/app/api/banking/v1/exceptions/[id]/finalize/route.ts` (finalize, POST).                                                                                                          |
+| **#3 RECORDING**         | **Shell-owned, not per skin** — `src/shell/teach/` (`RecordingProvider`, `useRecording`, `RecordingFeed`, `RecordingVignette`; the glow's CSS is `.recording-vignette` in `src/app/globals.css`, valued from each skin's `--brand-violet` / `--brand-indigo`). Banking, people and commerce each shipped a private copy that diverged; all three now import the one module. Only the `logStep` LABELS are the skin's. |
+| **#4 AGENT FRAMING**     | `src/skins/banking/agent.ts` — the `BuiltInAgent` prompt withholds the recipe, ships the three distractors, and carries the ACTION DISCIPLINE clause. It also defines the teach-flow HITL tools it orchestrates: `offerWorkflowRecording` → `awaitDashboardDemonstration` → `saveLearnedWorkflow`, plus `recall_memory` / `save_memory`.                                                                              |
+| **#5 KNOWLEDGE BACKEND** | `src/app/api/copilotkit/[[...slug]]/route.ts` — env-gated `CopilotKitIntelligence` (OSS `InMemoryAgentRunner` default) keyed on `INTELLIGENCE_API_URL` / `INTELLIGENCE_GATEWAY_WS_URL` / `INTELLIGENCE_API_KEY`; `enableEnterpriseLearning` + `exposeMemoryRoutes` wire the memory tools and the inspector's Memory tab. `identifyUser` scopes memory by member/role.                                                 |
 
 The narrated variant: when asked to approve an over-limit charge it has no saved
 procedure for, the agent declines ("I don't have a saved way to approve an

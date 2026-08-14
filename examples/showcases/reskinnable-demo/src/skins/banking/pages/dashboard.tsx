@@ -11,7 +11,7 @@ import { StatisticsChart } from "@/skins/banking/components/statistics-chart";
 import { AnalyticsView } from "@/skins/banking/components/wow/analytics-view";
 import { ReportsView } from "@/skins/banking/components/wow/reports-view";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
-import { useRecording } from "@/skins/banking/components/recording-context";
+import { useRecording } from "@/shell/teach";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 

@@ -58,7 +58,7 @@
   Tracked in PARITY_NOTES.md.
 - **Per-token state streaming**: langgraph-python uses
   `StateStreamingMiddleware` to stream per-token todo deltas. PydanticAI's
-  `agent.to_ag_ui()` emits a single `STATE_SNAPSHOT` on `manage_todos`
+  AG-UI adapter emits a single `STATE_SNAPSHOT` on `manage_todos`
   completion instead. Functionally equivalent — the todo list still
   appears — but does not animate character-by-character.
 

@@ -42,6 +42,7 @@ examples/showcases/deep-agents-job-search/next.config.ts
 examples/showcases/deep-agents/next.config.ts
 examples/showcases/enterprise-brex/next.config.mjs
 examples/showcases/generative-ui-playground/next.config.ts
+examples/showcases/grok-generative-ui/next.config.ts
 examples/showcases/langgraph-js-support-agents/apps/web/next.config.ts
 examples/showcases/mcp-apps/mcp-server/apps/vite.config.ts
 examples/showcases/mcp-apps/next.config.ts
