@@ -139,7 +139,7 @@ export class MockAgent {
 
 export function createMessage(overrides: MessageOverrides = {}): Message {
   return {
-    id: `msg-${Math.random().toString(36).substr(2, 9)}`,
+    id: `msg-${Math.random().toString(36).slice(2, 11)}`,
     role: "user",
     content: "Test message",
     ...overrides,
@@ -161,7 +161,7 @@ export function createToolCallMessage(
   args: any = {},
   overrides: MessageOverrides = {},
 ): Message {
-  const toolCallId = `tool-call-${Math.random().toString(36).substr(2, 9)}`;
+  const toolCallId = `tool-call-${Math.random().toString(36).slice(2, 11)}`;
   return createAssistantMessage({
     content: "",
     toolCalls: [
@@ -215,7 +215,7 @@ export function createTool<T extends Record<string, unknown>>(
   overrides: Partial<FrontendTool<T>> = {},
 ): FrontendTool<T> {
   return {
-    name: `tool-${Math.random().toString(36).substr(2, 9)}`,
+    name: `tool-${Math.random().toString(36).slice(2, 11)}`,
     description: "Test tool",
     handler: vi.fn(async () => "Tool result"),
     followUp: false, // Default to false to avoid unexpected recursion in tests
@@ -230,7 +230,7 @@ export function createMultipleToolCallsMessage(
   return createAssistantMessage({
     content: "",
     toolCalls: toolCalls.map((tc) => ({
-      id: `tool-call-${Math.random().toString(36).substr(2, 9)}`,
+      id: `tool-call-${Math.random().toString(36).slice(2, 11)}`,
       type: "function",
       function: {
         name: tc.name,
@@ -279,7 +279,7 @@ export function createSuggestionToolCall(
   suggestions: Array<{ title: string; message: string }>,
   overrides: MessageOverrides = {},
 ): Message {
-  const toolCallId = `suggest-call-${Math.random().toString(36).substr(2, 9)}`;
+  const toolCallId = `suggest-call-${Math.random().toString(36).slice(2, 11)}`;
   return createAssistantMessage({
     content: "",
     toolCalls: [
@@ -339,6 +339,10 @@ export class MockChannel {
   >();
   private joinPush = new MockPush();
   private errorHandlers: Array<(reason?: any) => void> = [];
+  private closeHandlers: Array<{
+    ref: number;
+    callback: (reason?: any) => void;
+  }> = [];
   private nextRef = 1;
 
   constructor(topic: string = "", params: Record<string, any> = {}) {
@@ -356,6 +360,12 @@ export class MockChannel {
   }
 
   off(event: string, ref?: number): void {
+    if (event === "phx_close") {
+      this.closeHandlers = this.closeHandlers.filter(
+        (handler) => ref !== undefined && handler.ref !== ref,
+      );
+      return;
+    }
     if (!this.handlers.has(event)) return;
     if (ref === undefined) {
       this.handlers.delete(event);
@@ -367,6 +377,12 @@ export class MockChannel {
 
   onError(callback: (reason?: any) => void): void {
     this.errorHandlers.push(callback);
+  }
+
+  onClose(callback: (reason?: any) => void): number {
+    const ref = this.nextRef++;
+    this.closeHandlers.push({ ref, callback });
+    return ref;
   }
 
   join(payload?: Record<string, any>): MockPush {
@@ -400,6 +416,11 @@ export class MockChannel {
   /** Test helper — simulate the channel crashing server-side. */
   triggerError(reason?: string): void {
     for (const handler of this.errorHandlers) handler(reason);
+  }
+
+  /** Test helper — simulate the channel closing server-side. */
+  triggerClose(reason?: unknown): void {
+    for (const { callback } of this.closeHandlers) callback(reason);
   }
 }
 

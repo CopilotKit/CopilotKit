@@ -16,6 +16,8 @@ export interface CopilotKitProviderProps {
   runtimeUrl?: string;
   headers?: Record<string, string> | (() => Record<string, string>);
   credentials?: RequestCredentials;
+  /** Advertise compact full-thread restore support. Defaults to true. */
+  compactRestore?: boolean;
   defaultThrottleMs?: number;
   publicApiKey?: string;
   publicLicenseKey?: string;

@@ -19,6 +19,7 @@ import type { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
   isRunCompletionAware,
+  isThreadRestoreAware,
   ɵcreateThreadStore,
 } from "@copilotkit/core";
 import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
@@ -41,6 +42,8 @@ import {
 } from "../../lib/transcription-client";
 import { LastUserMessageContext } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
+import { useThreadRestoreForAgent } from "../../hooks/use-thread-restore";
+import type { UseThreadRestoreResult } from "../../hooks/use-thread-restore";
 
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
@@ -57,6 +60,7 @@ export type CopilotChatProps = Omit<
   | "onDragOver"
   | "onDragLeave"
   | "onDrop"
+  | "threadRestore"
 > & {
   agentId?: string;
   threadId?: string;
@@ -124,6 +128,7 @@ export function CopilotChat({
     agentId: resolvedAgentId,
     throttleMs,
   });
+  const observedThreadRestore = useThreadRestoreForAgent(agent);
   const { copilotkit } = useCopilotKit();
   const { suggestions: autoSuggestions } = useSuggestions({
     agentId: resolvedAgentId,
@@ -227,6 +232,24 @@ export function CopilotChat({
   >(null);
   const isConnecting =
     hasExplicitThreadId && lastConnectedThreadId !== resolvedThreadId;
+  // connectAgent begins in an effect, one paint after the first render. Treat
+  // that known pre-connect window as restoring so an explicit thread never
+  // flashes a usable composer before the core restore store advances.
+  const threadRestore = useMemo<UseThreadRestoreResult>(() => {
+    if (
+      isConnecting &&
+      isThreadRestoreAware(agent) &&
+      observedThreadRestore.status === "ready"
+    ) {
+      return {
+        status: "restoring",
+        threadId: resolvedThreadId,
+        elapsedMs: 0,
+        reloadConversation: observedThreadRestore.reloadConversation,
+      };
+    }
+    return observedThreadRestore;
+  }, [agent, isConnecting, observedThreadRestore, resolvedThreadId]);
   const activeConnectCountRef = useRef(0);
   const pendingRunActivityReconnectRef = useRef(false);
   const runActivityReconnectGenerationRef = useRef(0);
@@ -458,6 +481,7 @@ export function CopilotChat({
     let detached = false;
     let wakeReconnectActive = false;
     let pendingAgentIdleDrain: ReturnType<typeof setTimeout> | null = null;
+    const activeWakeRunIds = activeWakeRunIdsRef.current;
     const hasActiveAgentRun = () =>
       activeLocalRunIdsRef.current.size > 0 || agent.isRunning;
     const scheduleAgentIdleDrain = () => {
@@ -576,7 +600,7 @@ export function CopilotChat({
       if (wakeReconnectActive) {
         agent.detachActiveRun().catch(() => {});
       }
-      activeWakeRunIdsRef.current.clear();
+      activeWakeRunIds.clear();
       subscription.unsubscribe();
       if (ownsStandaloneStore) {
         threadStore.setContext(null);
@@ -945,7 +969,7 @@ export function CopilotChat({
     setTimeout(() => {
       fileInputRef.current?.click();
     }, 100);
-  }, []);
+  }, [fileInputRef]);
 
   // Use shallow spread instead of ts-deepmerge. ts-deepmerge deep-clones plain
   // objects even from a single source, which would defeat the reference
@@ -1069,6 +1093,7 @@ export function CopilotChat({
     onDrop: handleDrop,
     isConnecting,
     hasExplicitThreadId,
+    threadRestore,
   };
 
   // Always create a provider with merged values

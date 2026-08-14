@@ -150,6 +150,7 @@ export class CopilotKit {
       this.#config.properties,
       this.#config.a2ui?.catalog !== undefined,
     ),
+    compactRestore: this.#config.compactRestore,
   });
 
   readonly #toolCallRenderConfigs: WritableSignal<RenderToolCallConfig[]> =

@@ -53,6 +53,11 @@ export {
 export { CopilotChat, type CopilotChatProps } from "./CopilotChat";
 
 export {
+  CopilotChatRestoreView,
+  type CopilotChatRestoreViewProps,
+} from "./CopilotChatRestoreView";
+
+export {
   CopilotChatToggleButton,
   type CopilotChatToggleButtonProps,
   CopilotChatToggleButtonOpenIcon,

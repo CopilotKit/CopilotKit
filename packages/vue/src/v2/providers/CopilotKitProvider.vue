@@ -399,6 +399,7 @@ const createCopilotKit = () => {
           : "auto",
     headers: mergedHeaders.value,
     credentials: props.credentials,
+    compactRestore: props.compactRestore,
     properties: resolvedProperties.value,
     agents__unsafe_dev_only: mergedAgents.value,
     tools: allTools.value,

@@ -27,9 +27,59 @@ import type {
   ResolvedDebugConfig,
 } from "@copilotkit/shared";
 import { IntelligenceAgent } from "./intelligence-agent";
+import { isThreadRestoreAware } from "./thread-restore";
+import type { ThreadRestoreAware, ThreadRestoreState } from "./thread-restore";
 import type { CopilotRuntimeTransport } from "./types";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
+
+const MUTATION_CAPABLE_SUBSCRIBER_CALLBACKS = [
+  "onRunInitialized",
+  "onRunFailed",
+  "onRunFinalized",
+  "onEvent",
+  "onRunStartedEvent",
+  "onRunFinishedEvent",
+  "onRunErrorEvent",
+  "onStepStartedEvent",
+  "onStepFinishedEvent",
+  "onTextMessageStartEvent",
+  "onTextMessageContentEvent",
+  "onTextMessageEndEvent",
+  "onToolCallStartEvent",
+  "onToolCallArgsEvent",
+  "onToolCallEndEvent",
+  "onToolCallResultEvent",
+  "onStateSnapshotEvent",
+  "onStateDeltaEvent",
+  "onMessagesSnapshotEvent",
+  "onActivitySnapshotEvent",
+  "onActivityDeltaEvent",
+  "onRawEvent",
+  "onCustomEvent",
+  "onReasoningStartEvent",
+  "onReasoningMessageStartEvent",
+  "onReasoningMessageContentEvent",
+  "onReasoningMessageEndEvent",
+  "onReasoningEndEvent",
+  "onReasoningEncryptedValueEvent",
+] as const satisfies ReadonlyArray<keyof AgentSubscriber>;
+
+function canSubscriberMutateAgentState(subscriber: AgentSubscriber): boolean {
+  return MUTATION_CAPABLE_SUBSCRIBER_CALLBACKS.some(
+    (callbackName) => typeof subscriber[callbackName] === "function",
+  );
+}
+
+function isDevelopmentEnvironment(): boolean {
+  return (
+    (
+      globalThis as typeof globalThis & {
+        process?: { env?: { NODE_ENV?: string } };
+      }
+    ).process?.env?.NODE_ENV === "development"
+  );
+}
 
 interface RunnableAgent {
   connect(input: RunAgentInput): Observable<BaseEvent>;
@@ -95,9 +145,14 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
    * bookkeeping; only outbound routing is overridden.
    */
   runtimeAgentId?: string;
+  /** Advertise compact full-thread restore support. Defaults to true. */
+  compactRestore?: boolean;
 }
 
-export class ProxiedCopilotRuntimeAgent extends HttpAgent {
+export class ProxiedCopilotRuntimeAgent
+  extends HttpAgent
+  implements ThreadRestoreAware
+{
   runtimeUrl?: string;
   credentials?: RequestCredentials;
   // `readonly` because `super.url` is baked at construction; mutating
@@ -105,6 +160,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   // (already captured) from `routedAgentId()` (consulted per-call by
   // stop/connect/single-route paths).
   readonly runtimeAgentId?: string;
+  readonly compactRestore: boolean;
   private transport: CopilotRuntimeTransport;
   private singleEndpointUrl?: string;
   private runtimeMode: ResolvedRuntimeMode;
@@ -112,6 +168,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private _capabilities?: AgentCapabilities;
   private delegate?: AbstractAgent;
   private runtimeInfoPromise?: Promise<void>;
+  private restoreListeners = new Map<() => void, () => void>();
+  private didWarnAboutCompactRestoreMutation = false;
 
   constructor(config: ProxiedCopilotRuntimeAgentConfig) {
     const normalizedRuntimeUrl = config.runtimeUrl
@@ -137,6 +195,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.runtimeUrl = normalizedRuntimeUrl ?? config.runtimeUrl;
     this.credentials = config.credentials;
     this.runtimeAgentId = config.runtimeAgentId;
+    this.compactRestore = config.compactRestore ?? true;
     this.transport = transport;
     this.runtimeMode = config.runtimeMode ?? RUNTIME_MODE_SSE;
     this.intelligence = config.intelligence;
@@ -173,6 +232,37 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return this._capabilities;
   }
 
+  override subscribe(subscriber: AgentSubscriber): {
+    unsubscribe: () => void;
+  } {
+    this.warnAboutCompactRestoreMutation(subscriber);
+
+    return super.subscribe(subscriber);
+  }
+
+  private warnAboutCompactRestoreMutation(subscriber?: AgentSubscriber): void {
+    if (
+      subscriber &&
+      isDevelopmentEnvironment() &&
+      this.compactRestore &&
+      !this.didWarnAboutCompactRestoreMutation &&
+      canSubscriberMutateAgentState(subscriber)
+    ) {
+      this.didWarnAboutCompactRestoreMutation = true;
+      console.warn(
+        "CopilotKit: compact restore is enabled for an agent with a mutation-capable event subscriber. Returned messages or state mutations may produce different restore results because compact projections reduce the event stream; treat event payloads as immutable. If the subscriber intentionally transforms replayed events, configure { compactRestore: false } for this agent.",
+      );
+    }
+  }
+
+  override runAgent(
+    parameters?: Parameters<HttpAgent["runAgent"]>[0],
+    subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    this.warnAboutCompactRestoreMutation(subscriber);
+    return super.runAgent(parameters, subscriber);
+  }
+
   override requestInit(input: RunAgentInput): RequestInit {
     const baseInit = super.requestInit(input);
     return {
@@ -183,6 +273,38 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
 
   async getCapabilities(): Promise<AgentCapabilities> {
     return this._capabilities ?? {};
+  }
+
+  getThreadRestoreState(): ThreadRestoreState {
+    return isThreadRestoreAware(this.delegate)
+      ? this.delegate.getThreadRestoreState()
+      : {
+          status: "ready",
+          threadId: this.threadId ?? "",
+        };
+  }
+
+  subscribeToThreadRestore(listener: () => void): () => void {
+    if (!this.restoreListeners.has(listener)) {
+      this.restoreListeners.set(listener, () => {});
+      this.bindThreadRestoreListener(listener);
+    }
+
+    return () => {
+      this.restoreListeners.get(listener)?.();
+      this.restoreListeners.delete(listener);
+    };
+  }
+
+  forceFullRestore(): Promise<void> {
+    return this.resolveDelegate().then(() => {
+      if (!isThreadRestoreAware(this.delegate)) {
+        throw new Error(
+          "Thread restore is only available for Intelligence agents",
+        );
+      }
+      return this.delegate.forceFullRestore();
+    });
   }
 
   override async detachActiveRun(): Promise<void> {
@@ -267,6 +389,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     parameters?: RunAgentParameters,
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
+    this.warnAboutCompactRestoreMutation(subscriber);
+
     if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
       return super.connectAgent(parameters, subscriber);
     }
@@ -451,6 +575,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       intelligence: this.intelligence,
       capabilities: this._capabilities,
       debug: this.debug,
+      compactRestore: this.compactRestore,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);
@@ -492,6 +617,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         throw new Error("A delegate is only created for Intelligence mode");
       }
       this.delegate = this.createIntelligenceDelegate();
+      for (const listener of this.restoreListeners.keys()) {
+        this.bindThreadRestoreListener(listener);
+      }
     }
 
     this.syncDelegate(this.delegate);
@@ -672,6 +800,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       agentId: routedId,
       headers: { ...this.headers },
       credentials: this.credentials,
+      compactRestore: this.compactRestore,
     });
   }
 
@@ -691,5 +820,17 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     if (hasCredentials(delegate)) {
       delegate.credentials = this.credentials;
     }
+  }
+
+  private bindThreadRestoreListener(listener: () => void): void {
+    if (!isThreadRestoreAware(this.delegate)) {
+      return;
+    }
+
+    this.restoreListeners.get(listener)?.();
+    this.restoreListeners.set(
+      listener,
+      this.delegate.subscribeToThreadRestore(listener),
+    );
   }
 }

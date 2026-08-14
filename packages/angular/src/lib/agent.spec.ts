@@ -31,6 +31,7 @@ type StubCore = Pick<
   | "runtimeTransport"
   | "runtimeConnectionStatus"
   | "headers"
+  | "compactRestore"
   | "subscribeToAgentWithOptions"
 > & {
   agents?: Record<string, AbstractAgent>;
@@ -163,6 +164,7 @@ class CopilotKitStub {
     runtimeTransport: "auto",
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
     headers: {},
+    compactRestore: true,
     subscribeToAgentWithOptions:
       this.#coreInstance.subscribeToAgentWithOptions.bind(this.#coreInstance),
   };
@@ -190,6 +192,10 @@ class CopilotKitStub {
   setRuntimeTransport(value: "rest" | "single" | "auto") {
     this.#runtimeTransport.set(value);
     this.core = { ...this.core, runtimeTransport: value };
+  }
+
+  setCompactRestore(value: boolean) {
+    this.core = { ...this.core, compactRestore: value };
   }
 }
 
@@ -325,6 +331,28 @@ describe("injectAgentStore", () => {
     const proxiedAgent = proxied as ProxiedCopilotRuntimeAgent;
     expect(proxiedAgent.agentId).toBe("missing");
     expect(proxiedAgent.headers).toEqual({ "x-test": "1" });
+  });
+
+  it("propagates the core compact restore opt-out to a provisional agent", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setCompactRestore(false);
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({ standalone: true, template: "" })
+    class MissingAgentHost {
+      store = injectAgentStore("missing");
+    }
+
+    const fixture = TestBed.createComponent(MissingAgentHost);
+    fixture.detectChanges();
+
+    expect(
+      (fixture.componentInstance.store().agent as ProxiedCopilotRuntimeAgent)
+        .compactRestore,
+    ).toBe(false);
   });
 
   it("shares a provisional runtime agent across same-id consumers", () => {

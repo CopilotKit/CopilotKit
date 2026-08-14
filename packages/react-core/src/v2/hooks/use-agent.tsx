@@ -276,6 +276,7 @@ export function useAgent({
         runtimeAgentId,
         transport: copilotkit.runtimeTransport,
         runtimeMode: "pending",
+        compactRestore: copilotkit.compactRestore,
       });
       copilotkit.applyHeadersToAgent(provisional);
       provisionalAgentCache.current.set(resolvedAgentId, provisional);
@@ -310,6 +311,7 @@ export function useAgent({
         transport: copilotkit.runtimeTransport,
         credentials: copilotkit.credentials,
         runtimeMode: "pending",
+        compactRestore: copilotkit.compactRestore,
       });
       // Apply current headers so runs/connects inherit them
       copilotkit.applyHeadersToAgent(provisional);
@@ -336,6 +338,7 @@ export function useAgent({
         transport: copilotkit.runtimeTransport,
         credentials: copilotkit.credentials,
         runtimeMode: "pending",
+        compactRestore: copilotkit.compactRestore,
       });
       copilotkit.applyHeadersToAgent(provisional);
       provisionalAgentCache.current.set(resolvedAgentId, provisional);

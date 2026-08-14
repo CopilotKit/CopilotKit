@@ -53,6 +53,166 @@ Realtime sync keeps thread metadata and active conversation state aligned across
 
 The important application-level contract is simple: your app uses the same frontend APIs, while the runtime points at the platform endpoint for the selected deployment.
 
+### Reliable conversation restore
+
+When a restore-aware frontend reconnects to a durable thread, the realtime
+gateway does not present a partial replay as a successful conversation. The
+client declares versioned restore capabilities on the Phoenix channel join. If
+the gateway recognizes them, the join acknowledgement includes an opaque
+restore attempt ID, progress begins immediately and repeats at least every five
+seconds, and the attempt settles as either `ready` or one typed failure.
+
+For a connect restore with no cursor, compact full restore is enabled by
+default. The gateway may replace the retained event-by-event history with a
+smaller projection that reconstructs the same final messages and state. This
+also applies after an invalid cursor is cleared for a full-read retry. A normal
+run, a reconnect with a valid cursor, or a gateway that does not support the
+advertised projection versions continues to use the legacy event stream.
+
+Compact restore is negotiated as one compatible set of schema, reducer,
+sanitizer, and compactor versions. The gateway selects compaction only when it
+supports that complete set. Older gateways, unknown acknowledgements, and a
+gateway that selects legacy behavior remain compatible; they do not make the
+client fail the restore.
+
+The default full-restore deadline is 60 seconds. Self-hosted deployments may
+set it inclusively from 1,000 through 300,000 milliseconds. Live events that
+arrive during replay are sanitized before accounting and buffered up to both
+10,000 events and 16 MiB. Crossing either limit fails closed with
+`buffer_overflow`; the cursor is not advanced. Successful handoff emits the
+proven replay window before buffered live events in durable order. The gateway
+captures a Redis acceptance barrier after subscribing and waits until the
+PostgreSQL replay projection proves it. Run-follow joins scope replay, live
+events, and terminal completion to the requested run; the core client also
+ignores a mismatched run terminal defensively.
+
+#### Configure compact restore
+
+Most applications should keep the default. Use `compactRestore: false` only
+when existing subscriber behavior depends on every retained event being
+replayed.
+
+##### Core
+
+```ts
+import { CopilotKitCore } from "@copilotkit/core";
+
+const copilotkit = new CopilotKitCore({
+  runtimeUrl: "/api/copilotkit",
+  compactRestore: false,
+});
+```
+
+<FrontendOnly frontend="react">
+
+##### React
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  compactRestore={false}
+>
+  {children}
+</CopilotKitProvider>;
+```
+
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+
+##### Vue
+
+```vue
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotKitProvider
+    runtime-url="/api/copilotkit"
+    :compact-restore="false"
+  >
+    <RouterView />
+  </CopilotKitProvider>
+</template>
+```
+
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+
+##### Angular
+
+```ts
+import type { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+      compactRestore: false,
+    }),
+  ],
+};
+```
+
+</FrontendOnly>
+
+The Core or provider setting propagates to registered, discovered, and
+provisional runtime proxies. Agent clones preserve the originating setting, and
+an Intelligence proxy passes it to its delegate. You do not need to configure
+each generated agent separately.
+
+#### Subscriber compatibility
+
+A compact projection preserves the restored conversation, not the original
+number of replay callbacks. Event callbacks can run fewer times, and retained
+`RAW` events that are unnecessary to reconstruct messages and state may not be
+replayed. Do not use replay callback counts or the presence of every historical
+`RAW` event as a durable side-effect mechanism.
+
+Subscriber event payloads are immutable. In development, CopilotKit warns once
+per public agent when a subscriber has a callback that _can_ return replacement
+messages or state mutations while compact restore is enabled. The warning is
+advisory: callback capability does not prove that the subscriber mutates a
+restore. If its returned messages or state mutations depend on the complete
+legacy event stream, make the callback independent of replay granularity or set
+`compactRestore: false`. Notification-only callbacks do not trigger the
+warning.
+
+The browser exposes the same `ready | restoring | failed` model through the
+built-in chat, the `restoreView` slot, and
+[`useThreadRestore`](/reference/v2/hooks/useThreadRestore). A failed restore can
+be retried with **Reload conversation**, which clears the cursor, remints one
+credential, and performs one force-full reconnect. The opaque support ID may be
+shared with an operator; thread, project, user, and attempt identifiers are not
+metric dimensions.
+
+#### Version compatibility
+
+Reliable restore is capability-negotiated, so the frontend and gateway can be
+deployed in either order.
+
+| Frontend | Gateway | Behavior |
+|---|---|---|
+| Existing | Existing | Existing join and replay behavior. |
+| Existing | Restore-aware | Existing wire controls remain in use; the gateway applies the configured 60-second default deadline. |
+| Restore-aware | Existing | The gateway ignores unknown restore and compact-projection capabilities; the frontend accepts existing replay controls. |
+| Restore-aware | Restore-aware | Typed progress and failure reporting, bounded buffering, force-full recovery, and compact null-cursor full restore are enabled when the advertised projection versions match. |
+
+Malformed or unrecognized capability data never rejects a join. It falls back
+to existing behavior and is recorded only in protected diagnostics, without
+customer identifiers in metric labels.
+
+Terminal telemetry records restore duration, post-sanitization payload bytes,
+event count, and buffer event/byte high-water marks. Its dimensions are closed
+to `outcome` (`ready` or one of the eight failure codes), `failure_reporting`
+(`supported` or `legacy`), replay `source`, and whether an invalid-cursor
+full-read fallback occurred.
+
 ## Inspection and operational history
 
 The platform also gives teams operational visibility into agent behavior. The cloud-hosted web app exposes project history, thread detail pages, event timelines, API key management, and plan management.

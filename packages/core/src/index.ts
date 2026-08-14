@@ -9,3 +9,4 @@ export * from "./threads";
 export * from "./memory";
 export * from "./features";
 export * from "./interrupt-state";
+export * from "./thread-restore";

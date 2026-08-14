@@ -1,0 +1,166 @@
+---
+title: "useThreadRestore"
+description: "Observe and recover the reliable thread-restore lifecycle"
+---
+
+## Overview
+
+`useThreadRestore` exposes the restore lifecycle for a durable conversation as
+`ready`, `restoring`, or `failed`. Use it when you build a custom chat surface
+or need restore status outside the built-in `CopilotChat` UI.
+
+`CopilotChat` already uses this lifecycle. While a restore-aware agent is
+restoring, it replaces the normal messages and composer with an accessible
+status. If restoration fails, it shows a recovery action and an opaque support
+ID. The composer is rendered only after the conversation is ready.
+
+Agents and gateways that do not support reliable restore are treated as
+`ready`, preserving compatibility with existing AG-UI integrations.
+
+## Signature
+
+```tsx
+import { useThreadRestore } from "@copilotkit/react-core/v2";
+
+function useThreadRestore(options?: {
+  agentId?: string;
+}): UseThreadRestoreResult;
+```
+
+The hook is also available from the UI-free entry:
+
+```tsx
+import { useThreadRestore } from "@copilotkit/react-core/v2/headless";
+```
+
+## Parameters
+
+<PropertyReference name="options" type="UseThreadRestoreOptions">
+  Optional agent selection.
+
+  <PropertyReference name="agentId" type="string" default='"default"'>
+    Agent to observe. If omitted, the hook uses the agent from the surrounding
+    chat configuration, then the default agent.
+  </PropertyReference>
+</PropertyReference>
+
+## Return value
+
+Every state includes `threadId` and `reloadConversation()`.
+
+| `status` | Additional fields | Meaning |
+|---|---|---|
+| `ready` | `restoreAttemptId?` | The retained history is complete and normal conversation UI may render. |
+| `restoring` | `restoreAttemptId?`, `elapsedMs` | Replay is still in progress. Do not present partial history as ready. |
+| `failed` | `restoreAttemptId`, `error` | Restore settled with a typed failure. `restoreAttemptId` is safe to show as a support ID. |
+
+`error` is a `ThreadRestoreError` with a bounded `code`, `retryable` flag,
+`retryAction`, and the opaque `restoreAttemptId`. Failure codes are
+`timeout`, `dependency_failure`, `decode_failure`, `partial_window`,
+`invalid_cursor`, `buffer_overflow`, `scope_violation`, and
+`internal_failure`.
+
+`reloadConversation()` clears the failed cursor, obtains a new one-use join
+credential, and reconnects once from the complete retained history. Concurrent
+calls share the same in-flight recovery.
+
+## Default UI
+
+No extra wiring is required for the built-in chat:
+
+```tsx title="Conversation.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+export function Conversation({ threadId }: { threadId: string }) {
+  return <CopilotChat threadId={threadId} />;
+}
+```
+
+You can customize the four restore labels with the normal `labels` prop:
+
+```tsx
+<CopilotChat
+  threadId={threadId}
+  labels={{
+    restoreLoadingText: "Loading retained history…",
+    restoreFailedText: "This conversation couldn’t be restored.",
+    restoreReloadButtonLabel: "Reload conversation",
+    restoreSupportIdLabel: "Support ID",
+  }}
+/>
+```
+
+## Replace the restore view
+
+The `restoreView` slot receives the same state and recovery action. It replaces
+the default full-chat restore surface while status is `restoring` or `failed`.
+
+```tsx title="Conversation.tsx"
+import {
+  CopilotChat,
+  type CopilotChatRestoreViewProps,
+} from "@copilotkit/react-core/v2";
+
+function BrandedRestoreView({
+  threadRestore,
+}: CopilotChatRestoreViewProps) {
+  if (threadRestore.status === "restoring") {
+    return <p role="status">Restoring conversation…</p>;
+  }
+
+  if (threadRestore.status === "failed") {
+    return (
+      <div role="alert">
+        <p>This conversation couldn’t be restored.</p>
+        <button onClick={threadRestore.reloadConversation}>
+          Reload conversation
+        </button>
+        <small>Support ID: {threadRestore.restoreAttemptId}</small>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+export function Conversation({ threadId }: { threadId: string }) {
+  return <CopilotChat threadId={threadId} restoreView={BrandedRestoreView} />;
+}
+```
+
+## Headless UI
+
+Gate both the transcript and composer on `ready`. This prevents users from
+reading or replying to a history window that has not been proven complete.
+
+```tsx title="HeadlessConversation.tsx"
+import { useThreadRestore } from "@copilotkit/react-core/v2/headless";
+
+export function HeadlessConversation() {
+  const restore = useThreadRestore({ agentId: "default" });
+
+  if (restore.status === "restoring") {
+    return <p role="status">Restoring conversation…</p>;
+  }
+
+  if (restore.status === "failed") {
+    return (
+      <div role="alert">
+        <p>This conversation couldn’t be restored.</p>
+        <button onClick={restore.reloadConversation}>
+          Reload conversation
+        </button>
+        <small>Support ID: {restore.restoreAttemptId}</small>
+      </div>
+    );
+  }
+
+  return <YourConversationAndComposer />;
+}
+```
+
+## Related
+
+- [`useAgent`](/reference/v2/hooks/useAgent) — access the underlying AG-UI agent
+- [Enterprise Intelligence Architecture](/premium/intelligence-platform) — reliable restore protocol, limits, and compatibility
+- [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — configure restore deadlines and buffer bounds
