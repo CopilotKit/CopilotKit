@@ -17,6 +17,7 @@ import {
   validateImage,
 } from "../verify-railway-image-refs";
 import { SERVICES, repoNameFor } from "../railway-envs";
+import type { ServiceEntry } from "../railway-envs";
 
 describe("ServiceEntry gateIgnore field", () => {
   it("is unset for every SSOT-managed service", () => {
@@ -96,6 +97,7 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
     const sentinel = "transient-third-party-relay";
     (SERVICES as Record<string, ServiceEntry>)[sentinel] = {
       serviceId: "00000000-0000-0000-0000-000000000000",
+      autoUpdates: { staging: "disabled", prod: "disabled" },
       ciBuilt: false,
       gateValidated: false,
       gateIgnore: true,
