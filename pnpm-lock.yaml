@@ -5,11 +5,11 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-  '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-  '@ag-ui/encoder': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@2350
-  '@ag-ui/proto': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@2350
-  '@ag-ui/langgraph': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350
+  '@ag-ui/core': 0.0.59-canary.1786716392.0
+  '@ag-ui/client': 0.0.59-canary.1786716392.0
+  '@ag-ui/encoder': 0.0.59-canary.1786716392.0
+  '@ag-ui/proto': 0.0.59-canary.1786716392.0
+  '@ag-ui/langgraph': 0.0.43-canary.1786716392.0
   '@ag-ui/mcp-middleware>@ag-ui/client': 0.0.53
   streamdown>react: ^19.0.0
   '@types/react': 19.1.8
@@ -342,19 +342,19 @@ importers:
         version: 0.8.3(signal-polyfill@0.2.2)
       '@ag-ui/a2a':
         specifier: ^0.0.6
-        version: 0.0.6(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350)
+        version: 0.0.6(@ag-ui/client@0.0.59-canary.1786716392.0)(@ag-ui/core@0.0.59-canary.1786716392.0)
       '@ag-ui/a2a-middleware':
         specifier: ^0.0.2
         version: 0.0.2(rxjs@7.8.1)
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/mcp-apps-middleware':
         specifier: ^0.0.1
-        version: 0.0.1(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
+        version: 0.0.1(@ag-ui/client@0.0.59-canary.1786716392.0)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
         version: link:../../../packages/a2ui-renderer
@@ -1184,17 +1184,17 @@ importers:
         specifier: 0.9.0
         version: 0.9.0
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/encoder':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/proto':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@angular/animations':
         specifier: ^21.2.15
         version: 21.2.15(@angular/core@21.2.15(@angular/compiler@21.2.15)(rxjs@7.8.1)(zone.js@0.15.1))
@@ -1320,14 +1320,14 @@ importers:
   examples/v2/angular/demo-server:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/langgraph':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))
+        specifier: 0.0.43-canary.1786716392.0
+        version: 0.0.43-canary.1786716392.0(@ag-ui/client@0.0.59-canary.1786716392.0)(@ag-ui/core@0.0.59-canary.1786716392.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))
       '@ai-sdk/openai':
         specifier: 3.0.36
         version: 3.0.36(zod@3.25.76)
@@ -1357,8 +1357,8 @@ importers:
   examples/v2/angular/storybook:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@angular/animations':
         specifier: ^21.2.15
         version: 21.2.15(@angular/core@21.2.15(@angular/compiler@21.2.15)(rxjs@7.8.1)(zone.js@0.15.1))
@@ -1780,11 +1780,11 @@ importers:
   examples/v2/react/demo:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/mcp-apps-middleware':
         specifier: 0.0.2
-        version: 0.0.2(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
+        version: 0.0.2(@ag-ui/client@0.0.59-canary.1786716392.0)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
       '@ai-sdk/openai':
         specifier: 3.0.36
         version: 3.0.36(zod@3.25.76)
@@ -2037,14 +2037,14 @@ importers:
   examples/v2/vue/demo:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/mcp-apps-middleware':
         specifier: 0.0.2
-        version: 0.0.2(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
+        version: 0.0.2(@ag-ui/client@0.0.59-canary.1786716392.0)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../../../../packages/core
@@ -2120,8 +2120,8 @@ importers:
         version: 3.5.34(typescript@5.8.2)
     devDependencies:
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/typescript-config
@@ -2205,8 +2205,8 @@ importers:
   packages/agentcore-runner:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -2233,11 +2233,11 @@ importers:
   packages/angular:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
         version: link:../a2ui-renderer
@@ -2375,11 +2375,11 @@ importers:
   packages/bot:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/bot-ui':
         specifier: workspace:~
         version: link:../bot-ui
@@ -2412,8 +2412,8 @@ importers:
   packages/bot-discord:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/bot':
         specifier: workspace:*
         version: link:../bot
@@ -2443,11 +2443,11 @@ importers:
   packages/bot-slack:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/bot':
         specifier: workspace:~
         version: link:../bot
@@ -2495,11 +2495,11 @@ importers:
   packages/bot-teams:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/bot':
         specifier: workspace:~
         version: link:../bot
@@ -2550,8 +2550,8 @@ importers:
   packages/bot-telegram:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/bot':
         specifier: workspace:~
         version: link:../bot
@@ -2600,8 +2600,8 @@ importers:
   packages/bot-whatsapp:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/bot':
         specifier: workspace:~
         version: link:../bot
@@ -2625,8 +2625,8 @@ importers:
   packages/core:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
@@ -2683,8 +2683,8 @@ importers:
   packages/demo-agents:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       openai:
         specifier: ^4.85.1
         version: 4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)
@@ -2711,11 +2711,11 @@ importers:
   packages/react-core:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
         version: link:../a2ui-renderer
@@ -2883,8 +2883,8 @@ importers:
   packages/react-native:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -3139,22 +3139,22 @@ importers:
     dependencies:
       '@ag-ui/a2ui-middleware':
         specifier: 0.0.10
-        version: 0.0.10(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(rxjs@7.8.1)
+        version: 0.0.10(@ag-ui/client@0.0.59-canary.1786716392.0)(rxjs@7.8.1)
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/encoder':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/langgraph':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
+        specifier: 0.0.43-canary.1786716392.0
+        version: 0.0.43-canary.1786716392.0(@ag-ui/client@0.0.59-canary.1786716392.0)(@ag-ui/core@0.0.59-canary.1786716392.0)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
       '@ag-ui/mcp-apps-middleware':
         specifier: 0.0.3
-        version: 0.0.3(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@cfworker/json-schema@4.1.1)(zod@3.25.76)
+        version: 0.0.3(@ag-ui/client@0.0.59-canary.1786716392.0)(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       '@ag-ui/mcp-middleware':
         specifier: 0.0.1
         version: 0.0.1(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
@@ -3425,14 +3425,14 @@ importers:
   packages/sdk-js:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/langgraph':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350)(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
+        specifier: 0.0.43-canary.1786716392.0
+        version: 0.0.43-canary.1786716392.0(@ag-ui/client@0.0.59-canary.1786716392.0)(@ag-ui/core@0.0.59-canary.1786716392.0)(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
@@ -3489,11 +3489,11 @@ importers:
   packages/shared:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/license-verifier':
         specifier: ~0.5.0
         version: 0.5.0
@@ -3553,8 +3553,8 @@ importers:
   packages/sqlite-runner:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -3625,11 +3625,11 @@ importers:
         specifier: 0.9.0
         version: 0.9.0
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -3779,8 +3779,8 @@ importers:
   packages/web-inspector:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+        specifier: 0.0.59-canary.1786716392.0
+        version: 0.0.59-canary.1786716392.0
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -3984,75 +3984,61 @@ packages:
 
   '@ag-ui/a2a@0.0.6':
     resolution: {integrity: sha512-wvrBXU6214wuC5O+FBy7QiZFvobIlt3Lo0Ph2N+hBkeaBjPHvmMp/egIg4k9WyB60PzKjJDv5o21WxbvaYtzCw==}
-    version: 0.0.6
     peerDependencies:
-      '@ag-ui/client': '>=0.0.42'
-      '@ag-ui/core': '>=0.0.42'
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
 
   '@ag-ui/a2ui-middleware@0.0.10':
     resolution: {integrity: sha512-2BQFUQ9vJzUAQSR0dNW/ijhyH8KpiRWISSLTP6mIe6ENyQ2cM1/XLG38/Dcb69olcs36gtZADZzAQWcno5H6fA==}
-    version: 0.0.10
     peerDependencies:
-      '@ag-ui/client': '>=0.0.40'
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
       rxjs: 7.8.1
 
   '@ag-ui/a2ui-toolkit@0.0.4':
     resolution: {integrity: sha512-9VPmgpCAsFVICk7z23kh+Kp/BwYMxw0D0KGjOiKXhm1MAH+Wid2iC3yKsXso+q7UZZiyhWgeDUSgaAkltyLmGg==}
 
-  '@ag-ui/a2ui-toolkit@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@3b6c5c76847797163beec3cf6f87559733549051':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@3b6c5c76847797163beec3cf6f87559733549051}
-    version: 0.0.4
-
   '@ag-ui/client@0.0.53':
     resolution: {integrity: sha512-Mkup36KUp0KXy9v89QtAOWDUoh8H1s1Vgl4zvQv9HqXuAK1TkbtpXJHpbgZJXIxTqd54KT6yCurmC2UkOP7FDQ==}
 
-  '@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350}
-    version: 0.0.58
+  '@ag-ui/client@0.0.59-canary.1786716392.0':
+    resolution: {integrity: sha512-mvRU6b9NzUqQYxkkjZTPZDtvmG77aUQhNrFvOEpbTiAWo2GLxp4RSPdeteK7/BeW9xjupcWTObI8HCFPEY1TIw==}
 
-  '@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350}
-    version: 0.0.58
+  '@ag-ui/core@0.0.59-canary.1786716392.0':
+    resolution: {integrity: sha512-MY65z4Eg+0/akyymMdsdNa3xQy69aVJdeNLmsr+LL4TuB38kIVVp3Xs2ZP8MqYvgnlcrvN6a8KyjLIMfuK8atw==}
 
-  '@ag-ui/encoder@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@2350':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@2350}
-    version: 0.0.57
+  '@ag-ui/encoder@0.0.59-canary.1786716392.0':
+    resolution: {integrity: sha512-hngwbUSxHyAxLSGvIGbfVHzNQ/V0y4uksltXa7lG0Kyhj/ofhqPDRRZ8qelB+lvHVZXWU7V4BzZWB4WxwPOlyg==}
 
-  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350}
-    version: 0.0.42
+  '@ag-ui/langgraph@0.0.43-canary.1786716392.0':
+    resolution: {integrity: sha512-y08k4oFPUO5MgeM3Cnv16DiQWoxBxNtscmn5IPPnlrETjB78sokJ16xhJto3olarPpXkHNaIh8FXbWg0k3TRgQ==}
     peerDependencies:
-      '@ag-ui/client': '>=0.0.42'
-      '@ag-ui/core': '>=0.0.42'
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
 
   '@ag-ui/mcp-apps-middleware@0.0.1':
     resolution: {integrity: sha512-GndsrxBr12Ji/Ioa4zYALbmEGD7cglExIwL7wlco3/PVyqk1WsjybxRNyDj+p9NQh2HJ3s/ctEJWGxwVUyC+fw==}
-    version: 0.0.1
     peerDependencies:
-      '@ag-ui/client': '>=0.0.40'
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
       rxjs: 7.8.1
 
   '@ag-ui/mcp-apps-middleware@0.0.2':
     resolution: {integrity: sha512-EMHm65hs3aNfoCpxZ1RYDLvZejmit0yipvzg39jwKrGTzqvB3CZuZUenDS9o2eWu2PZIvcFuvU15nEwH7SZb8A==}
-    version: 0.0.2
     peerDependencies:
-      '@ag-ui/client': '>=0.0.40'
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
       rxjs: 7.8.1
 
   '@ag-ui/mcp-apps-middleware@0.0.3':
     resolution: {integrity: sha512-Z+NZQXj4J+Y/2PLNsiyhNzRWFtTT2sAoC5dztoAlIsdfzvLvYEa52YGdHesNTN85JJqaIrYxQ8e31IBpKjrnoA==}
-    version: 0.0.3
     peerDependencies:
-      '@ag-ui/client': '>=0.0.40'
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
 
   '@ag-ui/mcp-middleware@0.0.1':
     resolution: {integrity: sha512-TayUu7kB+jXUTPRUJesNvJYrP+0weTL9F2VJJ8QQ4sWxY/Ihjo+GgFYgJZYNcLwbo1DKgmVJtdm2XUouPCbxeg==}
     peerDependencies:
       rxjs: 7.8.1
 
-  '@ag-ui/proto@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@2350':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@2350}
-    version: 0.0.57
+  '@ag-ui/proto@0.0.59-canary.1786716392.0':
+    resolution: {integrity: sha512-1nFss1MQCkJdee/8lIdcP3I1pYpbXTzgvrWlaB6zOMpz4funyzoemVZlpA1dhcUEFRBSOCp9QJaJ3/72hQXnyQ==}
 
   '@ai-sdk/anthropic@2.0.71':
     resolution: {integrity: sha512-JXTtAwlyxGzzRtpiAXk/O93aOTgdfoVX28EoUuRNVqZRgtkoniLQTtqeb8uZ4oXljNJlXzaJLNasS/U90w/wjw==}
@@ -13763,10 +13749,12 @@ packages:
   '@xmldom/xmldom@0.8.13':
     resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@xmldom/xmldom@0.9.10':
     resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
     engines: {node: '>=14.6'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@xtuc/ieee754@1.2.0':
     resolution: {integrity: sha512-DX8nKgqcGwsc0eJSqYt5lwP4DH5FlHnmuWWBRy7X0NcaGR0ZtuyeESgMwTYVEtxmsNGY+qit4QYT/MIYTOTPeA==}
@@ -25605,38 +25593,36 @@ snapshots:
   '@ag-ui/a2a-middleware@0.0.2(rxjs@7.8.1)':
     dependencies:
       '@a2a-js/sdk': 0.2.5
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
       ai: 6.0.156(zod@3.25.76)
       rxjs: 7.8.1
       zod: 3.25.76
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2a@0.0.6(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350)':
+  '@ag-ui/a2a@0.0.6(@ag-ui/client@0.0.59-canary.1786716392.0)(@ag-ui/core@0.0.59-canary.1786716392.0)':
     dependencies:
       '@a2a-js/sdk': 0.2.5
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
       rxjs: 7.8.1
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2ui-middleware@0.0.10(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(rxjs@7.8.1)':
+  '@ag-ui/a2ui-middleware@0.0.10(@ag-ui/client@0.0.59-canary.1786716392.0)(rxjs@7.8.1)':
     dependencies:
       '@ag-ui/a2ui-toolkit': 0.0.4
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
       clarinet: 0.12.6
       rxjs: 7.8.1
 
   '@ag-ui/a2ui-toolkit@0.0.4': {}
 
-  '@ag-ui/a2ui-toolkit@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@3b6c5c76847797163beec3cf6f87559733549051': {}
-
   '@ag-ui/client@0.0.53':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-      '@ag-ui/encoder': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@2350
-      '@ag-ui/proto': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@2350
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
+      '@ag-ui/encoder': 0.0.59-canary.1786716392.0
+      '@ag-ui/proto': 0.0.59-canary.1786716392.0
       '@types/uuid': 10.0.0
       compare-versions: 6.1.1
       fast-json-patch: 3.1.1
@@ -25645,11 +25631,11 @@ snapshots:
       uuid: 11.1.0
       zod: 3.25.76
 
-  '@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350':
+  '@ag-ui/client@0.0.59-canary.1786716392.0':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-      '@ag-ui/encoder': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@2350
-      '@ag-ui/proto': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@2350
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
+      '@ag-ui/encoder': 0.0.59-canary.1786716392.0
+      '@ag-ui/proto': 0.0.59-canary.1786716392.0
       '@types/uuid': 10.0.0
       compare-versions: 6.1.1
       fast-json-patch: 3.1.1
@@ -25658,20 +25644,20 @@ snapshots:
       uuid: 11.1.0
       zod: 3.25.76
 
-  '@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350':
+  '@ag-ui/core@0.0.59-canary.1786716392.0':
     dependencies:
       zod: 3.25.76
 
-  '@ag-ui/encoder@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@2350':
+  '@ag-ui/encoder@0.0.59-canary.1786716392.0':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
-      '@ag-ui/proto': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@2350
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
+      '@ag-ui/proto': 0.0.59-canary.1786716392.0
 
-  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))':
+  '@ag-ui/langgraph@0.0.43-canary.1786716392.0(@ag-ui/client@0.0.59-canary.1786716392.0)(@ag-ui/core@0.0.59-canary.1786716392.0)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))':
     dependencies:
-      '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@3b6c5c76847797163beec3cf6f87559733549051
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+      '@ag-ui/a2ui-toolkit': 0.0.4
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
       '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
       langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
@@ -25689,11 +25675,11 @@ snapshots:
       - ws
       - zod-to-json-schema
 
-  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350)(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))':
+  '@ag-ui/langgraph@0.0.43-canary.1786716392.0(@ag-ui/client@0.0.59-canary.1786716392.0)(@ag-ui/core@0.0.59-canary.1786716392.0)(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))':
     dependencies:
-      '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@3b6c5c76847797163beec3cf6f87559733549051
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+      '@ag-ui/a2ui-toolkit': 0.0.4
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
       '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
       langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
@@ -25711,11 +25697,11 @@ snapshots:
       - ws
       - zod-to-json-schema
 
-  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))':
+  '@ag-ui/langgraph@0.0.43-canary.1786716392.0(@ag-ui/client@0.0.59-canary.1786716392.0)(@ag-ui/core@0.0.59-canary.1786716392.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))':
     dependencies:
-      '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@3b6c5c76847797163beec3cf6f87559733549051
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+      '@ag-ui/a2ui-toolkit': 0.0.4
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
       '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))
       langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0))(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))
@@ -25733,9 +25719,9 @@ snapshots:
       - ws
       - zod-to-json-schema
 
-  '@ag-ui/mcp-apps-middleware@0.0.1(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)':
+  '@ag-ui/mcp-apps-middleware@0.0.1(@ag-ui/client@0.0.59-canary.1786716392.0)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)':
     dependencies:
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -25743,9 +25729,9 @@ snapshots:
       - supports-color
       - zod
 
-  '@ag-ui/mcp-apps-middleware@0.0.2(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)':
+  '@ag-ui/mcp-apps-middleware@0.0.2(@ag-ui/client@0.0.59-canary.1786716392.0)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)':
     dependencies:
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -25753,9 +25739,9 @@ snapshots:
       - supports-color
       - zod
 
-  '@ag-ui/mcp-apps-middleware@0.0.3(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350)(@cfworker/json-schema@4.1.1)(zod@3.25.76)':
+  '@ag-ui/mcp-apps-middleware@0.0.3(@ag-ui/client@0.0.59-canary.1786716392.0)(@cfworker/json-schema@4.1.1)(zod@3.25.76)':
     dependencies:
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350
+      '@ag-ui/client': 0.0.59-canary.1786716392.0
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -25773,9 +25759,9 @@ snapshots:
       - supports-color
       - zod
 
-  '@ag-ui/proto@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@2350':
+  '@ag-ui/proto@0.0.59-canary.1786716392.0':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
       '@bufbuild/protobuf': 2.11.0
       '@protobuf-ts/protoc': 2.11.1
 
@@ -38213,13 +38199,13 @@ snapshots:
 
   '@tanstack/ai@0.14.0':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
       '@tanstack/ai-event-client': 0.2.8(@tanstack/ai@0.14.0)
       partial-json: 0.1.7
 
   '@tanstack/ai@0.31.0(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
       '@standard-schema/spec': 1.1.0
       '@tanstack/ai-event-client': 0.6.2(@tanstack/ai@0.31.0(@opentelemetry/api@1.9.0))
       partial-json: 0.1.7
@@ -38228,7 +38214,7 @@ snapshots:
 
   '@tanstack/ai@0.32.0(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350
+      '@ag-ui/core': 0.0.59-canary.1786716392.0
       '@standard-schema/spec': 1.1.0
       '@tanstack/ai-event-client': 0.6.3(@tanstack/ai@0.32.0(@opentelemetry/api@1.9.0))
       partial-json: 0.1.7
@@ -39569,7 +39555,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 2.0.0
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@20.19.27)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@25.0.1)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@20.19.27)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)
 
   '@vitest/utils@3.2.4':
     dependencies:
@@ -55121,7 +55107,7 @@ snapshots:
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.4
-      '@vitest/mocker': 3.2.4(vite@7.3.2(@types/node@18.19.130)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@vitest/mocker': 3.2.4(vite@7.3.2(@types/node@20.19.27)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
       '@vitest/pretty-format': 3.2.4
       '@vitest/runner': 3.2.4
       '@vitest/snapshot': 3.2.4

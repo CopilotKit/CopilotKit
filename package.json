@@ -90,11 +90,11 @@
       }
     },
     "overrides": {
-      "@ag-ui/core": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@2350",
-      "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@2350",
-      "@ag-ui/encoder": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@2350",
-      "@ag-ui/proto": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@2350",
-      "@ag-ui/langgraph": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@2350",
+      "@ag-ui/core": "0.0.59-canary.1786716392.0",
+      "@ag-ui/client": "0.0.59-canary.1786716392.0",
+      "@ag-ui/encoder": "0.0.59-canary.1786716392.0",
+      "@ag-ui/proto": "0.0.59-canary.1786716392.0",
+      "@ag-ui/langgraph": "0.0.43-canary.1786716392.0",
       "@ag-ui/mcp-middleware>@ag-ui/client": "0.0.53",
       "streamdown>react": "^19.0.0",
       "@types/react": "19.1.8",
