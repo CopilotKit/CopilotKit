@@ -20,9 +20,27 @@ import type { HarnessProgressEvent } from "@/skins/banking/harness/types";
  * There is no unit test: `EventSource` is a browser API jsdom does not implement,
  * and stubbing it would only prove the stub. The live run is the verification.
  */
+
+/**
+ * How close to the tail counts as "following the run". Generous enough that a
+ * viewer who is merely a line short of the bottom still gets carried along.
+ */
+const NEAR_BOTTOM_PX = 40;
+
+const isNearBottom = (element: HTMLDivElement | null): boolean =>
+  element === null ||
+  element.scrollHeight - element.scrollTop - element.clientHeight <=
+    NEAR_BOTTOM_PX;
+
 export const HarnessConsole = ({ channel }: { channel: string }) => {
   const [events, setEvents] = useState<HarnessProgressEvent[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  /**
+   * Whether to carry the view to the tail on the NEXT frame. Sampled while the
+   * frame arrives rather than after it renders, and it starts `true` so a console
+   * nobody has touched follows the run.
+   */
+  const stickToBottomRef = useRef(true);
 
   useEffect(() => {
     const source = new EventSource(
@@ -30,6 +48,12 @@ export const HarnessConsole = ({ channel }: { channel: string }) => {
     );
     source.onmessage = (message) => {
       const event = JSON.parse(message.data) as HarnessProgressEvent;
+      // Sampled HERE, before React appends the line — this is the only moment the
+      // measurement means anything. Once the DOM has grown, the distance to the
+      // bottom includes the line just added, so a viewer who scrolled up to
+      // re-read something is indistinguishable from one sitting at the tail and
+      // the guard would always read "at the bottom".
+      stickToBottomRef.current = isNearBottom(scrollRef.current);
       setEvents((previous) => [...previous, event]);
       // A terminal frame is the only clean close: without it the browser keeps
       // reconnecting to a channel that will never speak again.
@@ -40,7 +64,16 @@ export const HarnessConsole = ({ channel }: { channel: string }) => {
   }, [channel]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+    // Never yank the viewport back down: a headline lands every ~7s across a
+    // multi-minute run, so unconditional autoscroll would snap a reader back to
+    // the tail within seconds of scrolling up — during the very run they are
+    // trying to follow.
+    if (!stickToBottomRef.current) return;
+    const element = scrollRef.current;
+    // `scrollTop = scrollHeight` rather than `scrollTo({...})`: equivalent here,
+    // and jsdom implements the property but NOT `Element.prototype.scrollTo`, so
+    // the method form throws in any test that renders this component.
+    if (element) element.scrollTop = element.scrollHeight;
   }, [events]);
 
   return (
