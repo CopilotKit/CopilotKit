@@ -189,7 +189,6 @@ export class StateManager {
       if (!events) return undefined;
 
       const messages = [...historyMessages];
-      const insertedResultIds = new Set<string>();
       let changed = false;
 
       for (const event of events.values()) {
@@ -225,7 +224,14 @@ export class StateManager {
         );
         if (realIndex !== undefined && !realResultWasReconciled) {
           for (const duplicateIndex of matchingIndexes
-            .filter((candidateIndex) => candidateIndex !== realIndex)
+            .filter(
+              (candidateIndex) =>
+                candidateIndex !== exactIndex &&
+                (messages[candidateIndex]?.id === event.messageId ||
+                  isForwardedToClientPlaceholder(
+                    messages[candidateIndex]?.content,
+                  )),
+            )
             .sort((a, b) => b - a)) {
             messages.splice(duplicateIndex, 1);
             changed = true;
@@ -233,14 +239,9 @@ export class StateManager {
           continue;
         }
 
-        if (
-          exactIndex !== undefined &&
-          insertedResultIds.has(messages[exactIndex]?.id ?? "")
-        ) {
-          continue;
-        }
-
-        const placeholderIndex = matchingIndexes[0];
+        const placeholderIndex = matchingIndexes.find((index) =>
+          isForwardedToClientPlaceholder(messages[index]?.content),
+        );
         if (placeholderIndex !== undefined) {
           messages[placeholderIndex] = {
             ...messages[placeholderIndex],
@@ -249,7 +250,13 @@ export class StateManager {
           } as ToolMessage;
           changed = true;
           for (const duplicateIndex of matchingIndexes
-            .filter((candidateIndex) => candidateIndex !== placeholderIndex)
+            .filter(
+              (candidateIndex) =>
+                candidateIndex !== placeholderIndex &&
+                isForwardedToClientPlaceholder(
+                  messages[candidateIndex]?.content,
+                ),
+            )
             .sort((a, b) => b - a)) {
             messages.splice(duplicateIndex, 1);
           }
@@ -265,7 +272,6 @@ export class StateManager {
         let insertIndex = ownerIndex + 1;
         while (messages[insertIndex]?.role === "tool") insertIndex++;
         messages.splice(insertIndex, 0, result);
-        insertedResultIds.add(result.id);
         changed = true;
       }
 
@@ -340,7 +346,7 @@ export class StateManager {
         if (revoked) return;
         clearPendingResults(input);
       },
-      onToolCallResultEvent: ({ event, input, messages }) => {
+      onToolCallResultEvent: ({ event, input }) => {
         if (revoked) return;
         let events = pendingResults.get(input);
         if (!events) {

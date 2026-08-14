@@ -294,7 +294,7 @@ describe("StateManager tool result history", () => {
     ).toBe(agent.inputs[0]?.runId);
   });
 
-  it("does not classify a real multi-part result as a frontend placeholder", async () => {
+  it("preserves a real multi-part result beside a distinct canonical result", async () => {
     const callId = "call-multipart";
     const agent = new ScenarioAgent(
       "multipart",
@@ -326,21 +326,34 @@ describe("StateManager tool result history", () => {
     );
     const core = new CopilotKitCore({});
     await addAgent(core, agent);
+    let deliveredToLaterSubscriber = 0;
+    agent.subscribe({
+      onToolCallResultEvent: () => {
+        deliveredToLaterSubscriber++;
+      },
+    });
     await core.runAgent({ agent });
 
     expect(
       agent.messages.filter(
         (message) => message.role === "tool" && message.toolCallId === callId,
       ),
-    ).toEqual([
-      expect.objectContaining({
-        id: "existing-multipart-result",
-        content: [
-          { type: "text", text: "Forwarded to client" },
-          " plus more",
-        ] as unknown as string,
-      }),
-    ]);
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "existing-multipart-result",
+          content: [
+            { type: "text", text: "Forwarded to client" },
+            " plus more",
+          ] as unknown as string,
+        }),
+        expect.objectContaining({
+          id: "multipart-result",
+          content: "canonical",
+        }),
+      ]),
+    );
+    expect(deliveredToLaterSubscriber).toBe(1);
   });
 
   it("reconciles a RUN_ERROR terminal and clears provenance at finalization", async () => {
@@ -415,38 +428,21 @@ describe("StateManager tool result history", () => {
   });
 
   it("keeps distinct result identities from one input and cleans provenance at finalization", async () => {
-    const callId = "call-repeated-a";
-    const secondCallId = "call-repeated-b";
+    const callId = "call-repeated";
     const agent = new ScenarioAgent(
       "repeated",
-      [
-        {
-          ...owner("assistant-repeated", callId),
-          toolCalls: [
-            ...owner("assistant-repeated", callId).toolCalls!,
-            ...owner("assistant-repeated-2", secondCallId).toolCalls!,
-          ],
-        },
-      ],
+      [owner("assistant-repeated", callId)],
       [
         {
           type: EventType.RUN_STARTED,
           threadId: "repeated-thread",
           runId: "x",
         },
-        result("result-shared", callId, "one"),
-        result("result-shared", secondCallId, "two"),
+        result("result-shared-1", callId, "one"),
+        result("result-shared-2", callId, "two"),
         {
           type: EventType.MESSAGES_SNAPSHOT,
-          messages: [
-            {
-              ...owner("assistant-repeated", callId),
-              toolCalls: [
-                ...owner("assistant-repeated", callId).toolCalls!,
-                ...owner("assistant-repeated-2", secondCallId).toolCalls!,
-              ],
-            },
-          ],
+          messages: [owner("assistant-repeated", callId)],
         },
         {
           type: EventType.RUN_FINISHED,
@@ -459,9 +455,12 @@ describe("StateManager tool result history", () => {
     await addAgent(core, agent);
     await core.runAgent({ agent });
 
-    expect(
-      agent.messages.filter((message) => message.role === "tool"),
-    ).toHaveLength(2);
+    expect(agent.messages.filter((message) => message.role === "tool")).toEqual(
+      [
+        expect.objectContaining({ id: "result-shared-1", content: "one" }),
+        expect.objectContaining({ id: "result-shared-2", content: "two" }),
+      ],
+    );
   });
 
   it("keeps the previous active run when a different input errors before RUN_STARTED", async () => {
