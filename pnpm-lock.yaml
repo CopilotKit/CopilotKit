@@ -491,6 +491,9 @@ importers:
       '@tanstack/ai-sandbox':
         specifier: 0.3.2
         version: 0.3.2(@cfworker/json-schema@4.1.1)(@tanstack/ai@0.44.0(@opentelemetry/api@1.9.0)(zod@3.25.76))(vitest@3.2.4)(zod@3.25.76)
+      '@tanstack/ai-sandbox-local-process':
+        specifier: 0.2.1
+        version: 0.2.1(@tanstack/ai-sandbox@0.3.2(@cfworker/json-schema@4.1.1)(@tanstack/ai@0.44.0(@opentelemetry/api@1.9.0)(zod@3.25.76))(vitest@3.2.4)(zod@3.25.76))
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.1
@@ -13366,6 +13369,11 @@ packages:
       '@tanstack/ai': ^0.14.0
       '@tanstack/ai-client': ^0.8.0
       zod: '>=3.22.3'
+
+  '@tanstack/ai-sandbox-local-process@0.2.1':
+    resolution: {integrity: sha512-zpajjSvGFAHMIToPkG0Cbu+aSWdk7w5YwwiJXh8pB8ua3BO8I5o8kzVfkl97CKxsNydM6R3xnxWAU0eTx0mvTw==}
+    peerDependencies:
+      '@tanstack/ai-sandbox': ^0.3.0
 
   '@tanstack/ai-sandbox@0.3.2':
     resolution: {integrity: sha512-tDUmQlWzRfNIiocbcUrsRdIT+vj9C0mRhR4rHZOP1EN4Frfv9yaEi2RvEy0wjtFpPRPu6ZCR5VYdIYuthbnYEw==}
@@ -40423,6 +40431,10 @@ snapshots:
       zod: 3.25.76
     transitivePeerDependencies:
       - ws
+
+  '@tanstack/ai-sandbox-local-process@0.2.1(@tanstack/ai-sandbox@0.3.2(@cfworker/json-schema@4.1.1)(@tanstack/ai@0.44.0(@opentelemetry/api@1.9.0)(zod@3.25.76))(vitest@3.2.4)(zod@3.25.76))':
+    dependencies:
+      '@tanstack/ai-sandbox': 0.3.2(@cfworker/json-schema@4.1.1)(@tanstack/ai@0.44.0(@opentelemetry/api@1.9.0)(zod@3.25.76))(vitest@3.2.4)(zod@3.25.76)
 
   '@tanstack/ai-sandbox@0.3.2(@cfworker/json-schema@4.1.1)(@tanstack/ai@0.44.0(@opentelemetry/api@1.9.0)(zod@3.25.76))(vitest@3.2.4)(zod@3.25.76)':
     dependencies:

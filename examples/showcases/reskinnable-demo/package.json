@@ -38,6 +38,7 @@
     "@tanstack/ai": "0.44.0",
     "@tanstack/ai-codex": "0.3.2",
     "@tanstack/ai-sandbox": "0.3.2",
+    "@tanstack/ai-sandbox-local-process": "0.2.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "hono": "^4.11.4",
