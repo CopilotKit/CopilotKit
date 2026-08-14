@@ -1,9 +1,9 @@
 "use client";
 
 // Shared State (Read-only) — the UI publishes a recipe to the agent via
-// `agent.setState`; the agent reads that recipe on every turn but does
-// not mutate it (the wired graph is the neutral default agent with no
-// tools — see manifest entry `shared-state-read`).
+// `agent.setState`. The backend graph (`shared_state_read`) keeps that
+// key and injects the recipe into the model prompt. There is no write
+// tool, so the agent cannot change the card.
 //
 // Single source of truth: `agent.state.recipe`. The form is a pure
 // controlled component on top of that — every edit flows straight into
@@ -68,15 +68,23 @@ function Recipe() {
     available: "always",
   });
 
-  // Seed the initial recipe into agent state once so the agent has
-  // something to read on the first turn. After this, every edit lands
-  // via `agent.setState` below.
+  // Seed the initial recipe into agent state so the agent has something to
+  // read on the first turn. After this, every edit lands via `agent.setState`
+  // below.
+  //
+  // Deps are `[agent]`, NOT `[]`: `useAgent` returns a provisional agent while
+  // the runtime /info sync is still in flight, then swaps in the real
+  // (runtime-synced) agent once it resolves — a new reference. A `[]`-deps
+  // effect seeded only the provisional agent, so the real agent (the one
+  // `runAgent` serialises into `input.state`) shipped `state: {}` and the model
+  // replied without the card recipe. Re-seeding on every `agent` reference
+  // change fixes that; the `!recipe` guard keeps it from clobbering user edits.
   useEffect(() => {
     if (!(agent.state as RecipeAgentState | undefined)?.recipe) {
       agent.setState({ recipe: INITIAL_RECIPE } satisfies RecipeAgentState);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [agent]);
 
   const recipe =
     (agent.state as RecipeAgentState | undefined)?.recipe ?? INITIAL_RECIPE;

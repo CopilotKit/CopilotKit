@@ -5,13 +5,15 @@
  * READ THIS BEFORE EDITING A VALUE HERE: THE MANIFESTS ARE AUTHORITATIVE, AND
  * EDITING THIS FILE CHANGES NOTHING FOR ANY SHIPPED INTEGRATION.
  *
- * All 20 manifests declare a byte-identical `demos[].runtime` block for all four
- * ids this module covers (`mcp-apps`, `headless-complete`, `open-gen-ui`,
- * `open-gen-ui-advanced`), and `mergeRuntimeOptions` lets the manifest win at
- * every level it reaches. So `EXCALIDRAW_MCP_APPS` and `OPEN_GEN_UI` are
- * OVERWRITTEN on every real request: change the Excalidraw URL here and no cell
- * moves. To change a shipped value, edit
+ * All 20 manifests declare a byte-identical `demos[].runtime` block for
+ * `mcp-apps`, `headless-complete`, `open-gen-ui`, and
+ * `open-gen-ui-advanced`, and `mergeRuntimeOptions` lets the manifest win
+ * at every level it reaches. So `EXCALIDRAW_MCP_APPS` and `OPEN_GEN_UI`
+ * are OVERWRITTEN on every real request: change the Excalidraw URL here
+ * and no cell moves. To change a shipped value, edit
  * `showcase/integrations/<slug>/manifest.yaml` — all 20 of them.
+ * `declarative-gen-ui` is different: some manifests omit `runtime.a2ui`,
+ * so the default here is the live value for those cells.
  *
  * WHY THE TABLE SURVIVES ANYWAY: it is the value a demo gets when a manifest
  * declares no `runtime` block at all. That is not hypothetical — it is what a
@@ -32,25 +34,12 @@
  *
  * Deliberately ABSENT, even though they look tempting:
  *
- * - `declarative-gen-ui` -> `a2ui`. All 20 manifests list the id under
- *   `features` and ship a `demos[]` row, but they split three ways on the
- *   `runtime` block (counted from the manifests on 2026-08-11):
- *     - 14 declare `runtime.a2ui` with `defaultCatalogId:
- *       declarative-gen-ui-catalog`. Ten of those also set
- *       `injectA2UITool: false` (agno, built-in-agent, claude-sdk-python,
- *       claude-sdk-typescript, mastra, ms-agent-dotnet,
- *       ms-agent-harness-dotnet, ms-agent-python, pydantic-ai, spring-ai),
- *       three leave it unset (ag2, crewai-crews, langroid), and llamaindex
- *       sets it to `true`.
- *     - 6 declare NO `runtime` block at all, on purpose: google-adk,
- *       langgraph-fastapi, langgraph-python, langgraph-typescript, strands,
- *       strands-typescript.
- *   The shared page (`demos/declarative-gen-ui/page.tsx`) always passes the
- *   catalog through `<CopilotKit a2ui={{ catalog: myCatalog }}>`, which
- *   auto-enables A2UI and defaults tool injection ON. A default here would
- *   flip `injectA2UITool` to false for those SIX and kill the render.
- *   (`injectA2UITool` also splits 10 / 3 / 1 among the manifests that DO
- *   declare the block, so there is no one value to default to anyway.)
+ * - `declarative-gen-ui` -> `a2ui.injectA2UITool: true`. The shared page
+ *   passes the catalog through `<CopilotKit a2ui={{ catalog: myCatalog }}>`.
+ *   The unified runtime still needs the flag on `CopilotRuntime`, or the
+ *   Python `generate_a2ui` stub runs and fails loud. Manifests that want
+ *   the backend to own the tool set `injectA2UITool: false` and win the
+ *   merge. Do not default the flag to false.
  * - `a2ui-fixed-schema` -> `a2ui.injectA2UITool: false`. spring-ai
  *   deliberately declares no runtime `a2ui` for that demo, and llamaindex
  *   wants `true`.
@@ -108,10 +97,15 @@ const OPEN_GEN_UI: RuntimeOptions = deepFreeze({
   openGenerativeUI: { agents: ["open-gen-ui", "open-gen-ui-advanced"] },
 });
 
+const DECLARATIVE_GEN_UI: RuntimeOptions = deepFreeze({
+  a2ui: { injectA2UITool: true },
+});
+
 export const DEMO_RUNTIME_OPTIONS: Readonly<Record<string, RuntimeOptions>> =
   Object.freeze({
     "mcp-apps": EXCALIDRAW_MCP_APPS,
     "headless-complete": EXCALIDRAW_MCP_APPS,
     "open-gen-ui": OPEN_GEN_UI,
     "open-gen-ui-advanced": OPEN_GEN_UI,
+    "declarative-gen-ui": DECLARATIVE_GEN_UI,
   });

@@ -59,17 +59,22 @@ function DemoContent() {
   const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;
   const notes = agentState?.notes ?? [];
 
-  // Seed initial preferences + empty notes into agent state once, so the
-  // agent has something to read on the very first turn.
+  // Seed initial preferences + empty notes into agent state so the agent
+  // has something to read on the first turn.
+  //
+  // Deps are `[agent]`, NOT `[]`: `useAgent` returns a provisional agent
+  // while the runtime /info sync is still in flight, then swaps in the real
+  // agent. A `[]`-deps effect seeded only the provisional instance, so
+  // `runAgent` sent `state: {}`. The `!preferences` guard keeps user edits.
   useEffect(() => {
-    if (!agentState?.preferences) {
+    if (!(agent.state as RWAgentState | undefined)?.preferences) {
       agent.setState({
         preferences: INITIAL_PREFERENCES,
         notes: [],
       } as RWAgentState);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [agent]);
 
   // @region[set-state]
   // @region[use-agent-write]

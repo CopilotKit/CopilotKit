@@ -294,16 +294,17 @@ demos:
       graph: shared_state_read_write
   - id: shared-state-read
     name: "Shared State: Read-only"
-    description: "Recipe editor publishes form state via agent.setState; the agent reads the recipe context but does not mutate it (no backend tool — neutral default agent)."
+    description: "Recipe editor publishes form state via agent.setState; the agent reads the recipe from shared state and does not mutate it (no backend write tool)."
     tags:
       - agent-state
     route: /demos/shared-state-read
     animated_preview_url:
     highlight:
+      - src/agents/shared_state_read.py
       - src/app/demos/shared-state-read/page.tsx
       - src/app/api/copilotkit/route.ts
     agent:
-      graph: sample_agent
+      graph: shared_state_read
   - id: subagents
     name: Sub-Agents
     description: Multiple agents with visible task delegation
@@ -470,6 +471,9 @@ demos:
       graph: a2ui_dynamic
       config:
         recursion_limit: 25
+    runtime:
+      a2ui:
+        injectA2UITool: true
   - id: a2ui-fixed-schema
     name: "Declarative UI: Fixed A2UI"
     description: Render an A2UI tree from a fixed, server-side schema — the agent streams data into a pre-authored component tree
