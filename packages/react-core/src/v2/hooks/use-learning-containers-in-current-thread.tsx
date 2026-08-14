@@ -9,7 +9,7 @@ import { useLearningContainers } from "./use-learning-containers";
  * render time.
  *
  * @deprecated Legacy plural-container annotation compatibility only. New
- * Intelligence runtimes assign one container with `learning.containerId` on
+ * Intelligence runtimes assign one container with `ɵlearning.containerId` on
  * `CopilotRuntime`.
  */
 export type UseLearningContainersInCurrentThreadArgs = Omit<
@@ -45,7 +45,7 @@ export type UseLearningContainersInCurrentThreadArgs = Omit<
  * ```
  *
  * @deprecated Legacy plural-container annotation compatibility only. New
- * Intelligence runtimes assign one container with `learning.containerId` on
+ * Intelligence runtimes assign one container with `ɵlearning.containerId` on
  * `CopilotRuntime`.
  */
 export function useLearningContainersInCurrentThread({

@@ -343,7 +343,7 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
   identifyUser?: CopilotIntelligenceRuntimeOptions["identifyUser"];
   memory?: CopilotIntelligenceRuntimeOptions["memory"];
   channels?: CopilotIntelligenceRuntimeOptions["channels"];
-  learning?: CopilotIntelligenceRuntimeOptions["learning"];
+  ɵlearning?: CopilotIntelligenceRuntimeOptions["ɵlearning"];
   generateThreadNames?: CopilotIntelligenceRuntimeOptions["generateThreadNames"];
   maxReconnectMs?: CopilotIntelligenceRuntimeOptions["maxReconnectMs"];
   maxRejoinMs?: CopilotIntelligenceRuntimeOptions["maxRejoinMs"];
@@ -442,7 +442,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         identifyUser: params.identifyUser,
         memory: params.memory,
         channels: params.channels,
-        learning: params.learning,
+        ɵlearning: params.ɵlearning,
         generateThreadNames: params.generateThreadNames,
         maxReconnectMs: params.maxReconnectMs,
         maxRejoinMs: params.maxRejoinMs,

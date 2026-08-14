@@ -30,7 +30,7 @@ test("forwards Intelligence options through the package-root runtime", () => {
     identifyUser,
     memory,
     channels,
-    learning,
+    ɵlearning: learning,
     generateThreadNames: false,
     maxReconnectMs: 2_500,
     maxRejoinMs: 3_500,

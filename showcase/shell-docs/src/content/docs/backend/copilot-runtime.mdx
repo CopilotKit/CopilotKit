@@ -131,7 +131,7 @@ const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   intelligence,
   identifyUser,
-  learning: {
+  ɵlearning: {
     containerId: "support-quality",
   },
 });
@@ -146,7 +146,7 @@ const runtime = new CopilotRuntime({
   intelligence,
   identifyUser,
   channels: [supportChannel],
-  learning: {
+  ɵlearning: {
     containerId: async ({ surface, agentId, userId, threadId }) => {
       return chooseLearningContainer({ surface, agentId, userId, threadId });
     },

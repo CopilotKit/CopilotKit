@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import {
   CopilotIntelligenceRuntime,
   CopilotRuntime,
   CopilotSseRuntime,
 } from "../core/runtime";
+import type { CopilotIntelligenceRuntimeOptions } from "../core/runtime";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -21,6 +22,13 @@ describe("runtime construction", () => {
       ɵgetClientWsUrl: vi.fn().mockReturnValue("ws://client.example"),
     }) as unknown as CopilotKitIntelligence;
 
+  it("exposes Learning configuration only under the experimental marker", () => {
+    type HasUnprefixedLearning =
+      "learning" extends keyof CopilotIntelligenceRuntimeOptions ? true : false;
+
+    expectTypeOf<HasUnprefixedLearning>().toEqualTypeOf<false>();
+  });
+
   it("builds an SSE runtime by default", () => {
     const runtime = new CopilotSseRuntime({ agents });
 
@@ -35,9 +43,9 @@ describe("runtime construction", () => {
       () =>
         new CopilotSseRuntime({
           agents,
-          learning: { containerId: "support-quality" },
+          ɵlearning: { containerId: "support-quality" },
         } as never),
-    ).toThrow("`learning` requires the Intelligence runtime");
+    ).toThrow("`ɵlearning` requires the Intelligence runtime");
   });
 
   it("builds an Intelligence runtime with an Intelligence runner", () => {
@@ -67,7 +75,7 @@ describe("runtime construction", () => {
       agents,
       intelligence: sdk,
       identifyUser,
-      learning: { containerId },
+      ɵlearning: { containerId },
     });
 
     expect(runtime.learning?.containerId).toBe(containerId);
@@ -82,7 +90,7 @@ describe("runtime construction", () => {
             agents,
             intelligence: createMockIntelligence(),
             identifyUser,
-            learning: { containerId },
+            ɵlearning: { containerId },
           }),
       ).toThrow("stable ID");
     },

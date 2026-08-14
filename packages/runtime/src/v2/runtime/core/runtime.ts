@@ -237,7 +237,7 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligence: CopilotKitIntelligence;
   /** Chooses one stable Learning Container ID for each web or Channel run. */
-  learning?: CopilotRuntimeLearningConfig;
+  ɵlearning?: CopilotRuntimeLearningConfig;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
@@ -448,9 +448,9 @@ export class CopilotSseRuntime
           "Intelligence Channels are not available in SSE mode.",
       );
     }
-    if ((options as { learning?: unknown }).learning !== undefined) {
+    if ((options as { ɵlearning?: unknown }).ɵlearning !== undefined) {
       throw new Error(
-        "`learning` requires the Intelligence runtime (pass `intelligence`); " +
+        "`ɵlearning` requires the Intelligence runtime (pass `intelligence`); " +
           "Learning Containers are not available in SSE mode.",
       );
     }
@@ -482,7 +482,7 @@ export class CopilotIntelligenceRuntime
       identifyUser?: unknown;
       channels?: unknown;
       memory?: unknown;
-      learning?: unknown;
+      ɵlearning?: unknown;
     };
     if (
       rawOptions.identifyUser !== undefined &&
@@ -521,26 +521,26 @@ export class CopilotIntelligenceRuntime
       );
     }
     if (
-      rawOptions.learning !== undefined &&
-      (typeof rawOptions.learning !== "object" ||
-        rawOptions.learning === null ||
+      rawOptions.ɵlearning !== undefined &&
+      (typeof rawOptions.ɵlearning !== "object" ||
+        rawOptions.ɵlearning === null ||
         !(
-          typeof (rawOptions.learning as { containerId?: unknown })
+          typeof (rawOptions.ɵlearning as { containerId?: unknown })
             .containerId === "string" ||
-          typeof (rawOptions.learning as { containerId?: unknown })
+          typeof (rawOptions.ɵlearning as { containerId?: unknown })
             .containerId === "function"
         ))
     ) {
       throw new Error(
-        "Intelligence Runtime `learning.containerId` must be a stable ID or callback",
+        "Intelligence Runtime `ɵlearning.containerId` must be a stable ID or callback",
       );
     }
     if (
-      typeof (rawOptions.learning as { containerId?: unknown } | undefined)
+      typeof (rawOptions.ɵlearning as { containerId?: unknown } | undefined)
         ?.containerId === "string"
     ) {
       assertStableLearningContainerId(
-        (rawOptions.learning as { containerId: string }).containerId,
+        (rawOptions.ɵlearning as { containerId: string }).containerId,
       );
     }
     super(
@@ -553,7 +553,7 @@ export class CopilotIntelligenceRuntime
       }),
     );
     this.intelligence = options.intelligence;
-    this.learning = options.learning;
+    this.learning = options.ɵlearning;
     this.identifyUser = hasWebIdentity
       ? (rawOptions.identifyUser as IdentifyUserCallback)
       : undefined;

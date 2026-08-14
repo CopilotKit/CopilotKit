@@ -9,7 +9,7 @@ const DEFAULT_CONTAINERS: string[] = ["project"];
  * Arguments for {@link useLearningContainers}.
  *
  * @deprecated Legacy plural-container annotation compatibility only. New
- * Intelligence runtimes assign one container with `learning.containerId` on
+ * Intelligence runtimes assign one container with `ɵlearning.containerId` on
  * `CopilotRuntime`.
  */
 export interface UseLearningContainersArgs {
@@ -56,7 +56,7 @@ export interface UseLearningContainersArgs {
  * ```
  *
  * @deprecated Legacy plural-container annotation compatibility only. New
- * Intelligence runtimes assign one container with `learning.containerId` on
+ * Intelligence runtimes assign one container with `ɵlearning.containerId` on
  * `CopilotRuntime`.
  */
 export function useLearningContainers({
