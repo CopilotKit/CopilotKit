@@ -347,8 +347,6 @@ Three mechanics worth copying verbatim:
   import type { AttachmentDocument } from "@/shell/attach";
 
   const DOC: AttachmentDocument = { url: "…", filename: "…" };
-  // …or, for a delimited-data document rather than a generated PDF:
-  //   const DOC: AttachmentDocument = { url: "…", filename: "…", kind: "csv" };
 
   /** chatHeaderActions paperclip — stage only, no send. */
   export const attach<Id>ByHand = (): Promise<boolean> => attachByHand(DOC);
@@ -361,17 +359,6 @@ Three mechanics worth copying verbatim:
   (`banking/attach-invoice.ts`, `people/attach-offer-letter.ts`,
   `commerce/attach-price-sheet.ts`, `logistics/attach-rate-sheet.ts`) is about 45
   lines, most of it comment.
-
-  **`kind` defaults to `"pdf"` and selects the BYTE CHECK, not just the MIME
-  type.** Set it from what the route actually serves, never from the filename —
-  inferring it from a `.csv` suffix would defeat the check, whose whole job is to
-  catch a route answering 200 with an HTML error page under a correct-looking
-  URL. A kind also has to be in the composer's `accept` list
-  (`shell/chat/chat-panel.tsx`) or `processFiles` drops the file with no chip and
-  no error. Two kinds exist today (`pdf`, `csv`); adding a third is one row in
-  `ATTACHMENT_KINDS` plus one entry in that `accept` string plus a case in
-  `stage-attachment.test.ts`'s `ALL_CAUSES`, which fails until the new failure
-  cause is actually driven by a test.
 
   **The attachment chain must fail LOUD, and must never send without the file.**
   This is not defensive polish; it is what makes the beat honest. If any failure

@@ -63,25 +63,11 @@
  * generates its document and the name the composer should show for it.
  */
 export interface AttachmentDocument {
-  /** The route that serves the document, e.g. `/api/commerce/v1/price-sheet`. */
+  /** The route that serves the PDF, e.g. `/api/commerce/v1/price-sheet`. */
   url: string;
   /** The filename the composer chip prints, e.g. `price-sheet-acme.pdf`. */
   filename: string;
-  /**
-   * What kind of document the route serves. Defaults to `"pdf"`, which is what
-   * every generated-document beat in the tree attaches.
-   *
-   * This is NOT cosmetic and NOT inferred from the filename: it selects both the
-   * MIME type forced onto the `File` and the BYTE CHECK that runs first. Getting
-   * it from the extension would defeat the check's whole purpose — the failure
-   * being guarded against is a route that answers 200 with an HTML error page
-   * under a perfectly correct-looking URL.
-   */
-  kind?: AttachmentKind;
 }
-
-/** The document kinds the composer will take. */
-export type AttachmentKind = "pdf" | "csv";
 
 /**
  * The composer elements this beat drives. They are framework-owned test ids, so
@@ -219,8 +205,6 @@ export type AttachmentFailureCause =
   | "empty-body"
   /** 2xx whose bytes are not a PDF (typically an HTML error page). */
   | "not-a-pdf"
-  /** 2xx whose bytes are not CSV (typically an HTML error page). */
-  | "not-a-csv"
   /** The composer's hidden file input is not in the DOM. */
   | "no-file-input"
   /** Writing the file onto the input threw (DataTransfer/File unavailable). */
@@ -350,65 +334,6 @@ function looksLikePdf(bytes: Uint8Array): boolean {
   return false;
 }
 
-/**
- * CSV has no magic number, so this checks for the thing actually being guarded
- * against rather than for a signature that does not exist: a route answering 200
- * with an HTML error page or a JSON error body.
- *
- * Two rejections and one requirement, all on the first KB:
- *  - a body whose first non-space character is `<` or `{` is markup or JSON, not
- *    a statement;
- *  - a body with no comma anywhere in its first non-empty line is not delimited
- *    data, whatever else it is;
- *  - NUL bytes mean it is binary, so a mislabelled PDF or image cannot slip
- *    through as "text".
- *
- * It deliberately does NOT validate the header row or the column count. Those
- * are the SKIN's business (banking's fixture has its own parser and its own
- * test); a shell helper that knew them could not attach any other skin's CSV.
- */
-function looksLikeCsv(bytes: Uint8Array): boolean {
-  const head = bytes.subarray(0, 1024);
-  // Checked on the BYTES, before decoding. `TextDecoder` with `fatal:false`
-  // replaces anything invalid with U+FFFD instead of throwing, so a PDF or a PNG
-  // decodes into a plausible-looking string and would otherwise sail through on
-  // a stray comma.
-  if (head.includes(0)) return false;
-  const trimmed = new TextDecoder("utf-8", { fatal: false })
-    .decode(head)
-    .trimStart();
-  if (trimmed.startsWith("<") || trimmed.startsWith("{")) return false;
-  const firstLine = trimmed.split(/\r?\n/, 1)[0] ?? "";
-  return firstLine.includes(",");
-}
-
-/**
- * Per-kind: the MIME forced onto the `File`, the byte check that must pass
- * first, and the failure cause each one reports. Adding a kind is adding a row.
- */
-const ATTACHMENT_KINDS: Record<
-  AttachmentKind,
-  {
-    mime: string;
-    looksRight: (bytes: Uint8Array) => boolean;
-    cause: AttachmentFailureCause;
-    label: string;
-  }
-> = {
-  pdf: {
-    mime: "application/pdf",
-    looksRight: looksLikePdf,
-    cause: "not-a-pdf",
-    label: "a PDF",
-  },
-  csv: {
-    mime: "text/csv",
-    looksRight: looksLikeCsv,
-    cause: "not-a-csv",
-    label: "CSV",
-  },
-};
-
 /** The first bytes as text, for a failure message that identifies the culprit. */
 function describeBody(bytes: Uint8Array): string {
   const head = Array.from(bytes.subarray(0, 48))
@@ -465,11 +390,10 @@ export async function stageAttachment(
       `${doc.url} answered 200 with an EMPTY body, so there is no document to attach.`,
     );
   }
-  const kind = ATTACHMENT_KINDS[doc.kind ?? "pdf"];
-  if (!kind.looksRight(bytes)) {
+  if (!looksLikePdf(bytes)) {
     return fail(
-      kind.cause,
-      `${doc.url} answered 200 but the body is not ${kind.label} (${describeBody(bytes)}) — probably an error page. Restart the dev server and check the route.`,
+      "not-a-pdf",
+      `${doc.url} answered 200 but the body is not a PDF (${describeBody(bytes)}) — probably an error page. Restart the dev server and check the route.`,
     );
   }
 
@@ -493,7 +417,7 @@ export async function stageAttachment(
 
   try {
     const file = new File([bytes], doc.filename, {
-      type: kind.mime,
+      type: "application/pdf",
     });
     const dt = new DataTransfer();
     dt.items.add(file);

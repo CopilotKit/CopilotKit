@@ -19,7 +19,6 @@ import { catalog } from "@/skins/banking/catalog";
 // value — they cannot drift apart and silently degrade the invoice beat.
 import {
   bankingSuggestions,
-  EXPENSE_PILL_MESSAGE,
   Q2_REPORT_MESSAGE,
 } from "@/skins/banking/suggestions";
 import { NORTHWIND_DESIGN_SKILL } from "@/skins/banking/design-skill";
@@ -28,7 +27,6 @@ import {
   attachInvoiceByHand,
   sendQ2WithInvoice,
 } from "@/skins/banking/attach-invoice";
-import { sendExpensesWithStatement } from "@/skins/banking/attach-statement";
 import CardsPage from "@/skins/banking/pages/cards";
 import DashboardPage from "@/skins/banking/pages/dashboard";
 import ChargesPage from "@/skins/banking/pages/charges";
@@ -138,30 +136,30 @@ const banking: Skin = {
       onClick: () => void attachInvoiceByHand(),
     },
   ],
-  // TWO pills ride an attachment; every other pill takes the shell's default
-  // "send the message" path. Both are matched by STRING EQUALITY against the
-  // constant the pill itself carries, so neither can drift by reordering or
-  // retitling the pills.
+  // ONE pill rides an attachment; every other pill takes the shell's default
+  // "send the message" path. Matched by STRING EQUALITY against the constant the
+  // pill itself carries, so it cannot drift by reordering or retitling.
   //
   // Returning `true` means "the shell must not run its default send", and it is
-  // only honest because `sendMessageWithAttachment` guarantees two outcomes —
-  // sent WITH the file, or aborted and the presenter told why. Never `true` plus
+  // only honest because `sendQ2WithInvoice` guarantees two outcomes — sent WITH
+  // the invoice, or aborted and the presenter told why. Never `true` plus
   // silence.
+  //
+  // THE HARNESS PILL DELIBERATELY DOES NOT RIDE ITS STATEMENT, and the reason is
+  // a hard provider limit rather than a choice: `@ai-sdk/openai` accepts only
+  // images and `application/pdf` as file parts and throws
+  // `UnsupportedFunctionalityError` on anything else, so a `text/csv` document
+  // part fails the RUN — not the staging. Attaching the CSV looked correct all
+  // the way down (chip queued, message sent) and then every run died with
+  // "'file part media type text/csv' functionality not supported". If this beat
+  // is to show a file on screen, the file has to be a PDF rendering of the
+  // statement; the harness reads the CSV server-side either way.
   onSuggestionSelect: (suggestion: Suggestion) => {
     // The default path would send "prepare the Q2 report" with the invoice
     // DROPPED, which is the exact failure beat 3d cannot survive.
-    if (suggestion.message === Q2_REPORT_MESSAGE) {
-      void sendQ2WithInvoice();
-      return true;
-    }
-    // The harness beat's statement. Unlike the invoice, the file here is ALSO
-    // read server-side by the tool itself (see `attach-statement.ts`) — this
-    // staging is what puts it on screen, not what feeds the harness.
-    if (suggestion.message === EXPENSE_PILL_MESSAGE) {
-      void sendExpensesWithStatement();
-      return true;
-    }
-    return false;
+    if (suggestion.message !== Q2_REPORT_MESSAGE) return false;
+    void sendQ2WithInvoice();
+    return true;
   },
 };
 
