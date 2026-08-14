@@ -63,7 +63,6 @@ import {
   processActionsForRuntimeRequest,
 } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
-import { defaultCopilotContextCategories } from "../components";
 
 export interface CopilotTaskConfig {
   /**
@@ -127,10 +126,7 @@ export class CopilotTask<T = any> {
     }
 
     if (this.includeCopilotReadable) {
-      contextString += context.getContextString(
-        [],
-        defaultCopilotContextCategories,
-      );
+      contextString += context.getCopilotReadableContextString?.() ?? "";
     }
 
     const systemMessage = new TextMessage({

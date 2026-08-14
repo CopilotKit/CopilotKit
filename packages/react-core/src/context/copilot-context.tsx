@@ -151,6 +151,7 @@ export interface CopilotContextParams {
     documents: DocumentPointer[],
     categories: string[],
   ) => string;
+  getCopilotReadableContextString?: () => string;
 
   // document context
   addDocumentContext: (

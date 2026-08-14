@@ -199,6 +199,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   });
 
   const { addElement, removeElement, printTree, getAllElements } = useTree();
+  const { copilotkit } = useCopilotKit();
   const [isLoading, setIsLoading] = useState(false);
   const [chatInstructions, setChatInstructions] = useState("");
   const [authStates, setAuthStates] = useState<Record<string, AuthState>>({});
@@ -245,6 +246,14 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     },
     [printTree],
   );
+
+  const getCopilotReadableContextString = useCallback(() => {
+    if (!copilotkit) return "";
+
+    return Object.values(copilotkit.context)
+      .map(({ description, value }) => `${description}:\n${value}`)
+      .join("\n\n");
+  }, [copilotkit]);
 
   const addContext = useCallback(
     (
@@ -665,6 +674,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       setRegisteredActions: handleSetRegisteredActions,
       removeRegisteredAction: handleRemoveRegisteredAction,
       getContextString,
+      getCopilotReadableContextString,
       addContext,
       removeContext,
       getAllContext,
@@ -723,6 +733,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       handleSetRegisteredActions,
       handleRemoveRegisteredAction,
       getContextString,
+      getCopilotReadableContextString,
       addContext,
       removeContext,
       getAllContext,
