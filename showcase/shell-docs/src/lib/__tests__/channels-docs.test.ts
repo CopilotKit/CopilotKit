@@ -518,14 +518,24 @@ describe("Channels documentation journey", () => {
     expect(slack).not.toContain("Directory (tenant) ID");
 
     expect(teams).toContain("### Connect Microsoft Teams");
-    expect(teams).toContain("Microsoft Entra");
-    expect(teams).toContain("Azure Bot");
-    expect(teams).toMatch(/Follow the guided setup/);
-    expect(teams).toMatch(/Teams\s+Developer\s+Portal/);
-    expect(teams).toMatch(/never\s+stores them/);
-    expect(teams).toContain("Add to a team");
     expect(teams).toContain("Microsoft Teams");
-    expect(teams).toContain("fresh package");
+    expect(teams).toMatch(/Teams\s+Developer\s+Portal/);
+    // Setup is one CLI command, not a form the reader fills in. Pinning the
+    // flags keeps the doc from drifting back to hand-entered credentials.
+    expect(teams).toContain("--adapter teams --provision");
+    expect(teams).toMatch(/copy\s+button/);
+    // Both permissions, and which one is optional. Naming only the required
+    // one is how the file-access permission got documented as mandatory.
+    expect(teams).toContain("ChannelMessage.Read.Group");
+    expect(teams).toContain("Files.Read.All");
+    expect(teams).toMatch(/genuinely\s+optional/);
+    expect(teams).toContain("Created and installed");
+    expect(teams).toMatch(/adding\s+the\s+app\s+to\s+a\s+team/);
+    // Azure Bot and Entra app registration are not the shipped path. They may
+    // only appear to say so.
+    expect(teams).toMatch(/no\s+Azure\s+subscription/);
+    expect(teams).not.toContain("Microsoft Entra");
+    expect(teams).not.toContain("Files.ReadWrite.All");
     expect(teams).not.toContain("### Connect Slack");
     expect(teams).not.toContain("connections:write");
     expect(teams).not.toContain("`xapp-…`");

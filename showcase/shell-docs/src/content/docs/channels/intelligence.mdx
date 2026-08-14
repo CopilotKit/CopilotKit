@@ -157,35 +157,59 @@ for both Slack and Microsoft Teams.
   <Step>
     ### Connect Microsoft Teams
 
-    Intelligence creates the Channel draft before Microsoft setup. Keep the
-    default app name, descriptions, and CopilotKit kite icons, or expand the
-    branding control to customize them. Custom icons and the generated ZIP stay
-    in browser memory and operating-system temporary files; Intelligence never
-    stores them.
+    Intelligence creates the Channel draft, then shows you a command to run:
 
-    Follow the guided setup one current action at a time in Teams Developer
-    Portal and Microsoft Entra. Enter the write-only client ID, tenant ID, and
-    secret, then download the finished upload-ready package. Do not edit
-    `manifest.json`. Azure Bot is not part of the normal path.
+    ```bash title="Terminal"
+    npx copilotkit@latest channels add \
+      --project-id <project-id> --channel-id <channel-id> \
+      --adapter teams --provision
+    ```
 
-    The generated app configures personal and Team scopes,
-    `ChannelMessage.Read.Group`, and the required `Files.ReadWrite.All`
-    application permission. The latter lets the app read, create, update, and
-    delete files across SharePoint and OneDrive site collections and requires
-    administrator consent.
+    Use the wizard's copy button rather than retyping it. The wizard fills in
+    the project and channel ids that bind the Microsoft app it creates to this
+    exact Channel; retyping them is the most common way this goes wrong.
 
-    Finish by selecting **Add to a team**. A personal-only installation does
-    not complete setup. Intelligence reports **Created and installed** only
-    after it records a Team installation, required file access, and Team message
-    access. This result does not claim that your runtime is online or that a
-    real message was delivered.
+    The command signs you in to Microsoft, creates a Teams bot in your own
+    tenant, points it at the Intelligence messaging endpoint, builds the app
+    package, and installs it to a Team you choose. You are not asked for a
+    client ID, tenant ID, or secret: the command reads them from the bot it
+    just created and stores them write-only in Intelligence. There is no
+    package to download and no `manifest.json` to edit.
 
-    If a custom-package attempt is interrupted, reopen the Channel and select
-    the icons again (or explicitly choose the default kite) before downloading
-    a fresh package. Package and icon bytes are never restored from the server.
+    You need a Microsoft account that is allowed to upload a custom app to the
+    Team you pick. The bot is registered in Teams Developer Portal; no Azure
+    subscription and no Azure Bot resource are involved.
 
-    Do not replace the generated messaging endpoint with your Channels runner
-    URL. Intelligence owns the public Teams edge.
+    #### The two permissions
+
+    Reading messages in a Team channel uses `ChannelMessage.Read.Group`, granted
+    by a Team owner as the app is added. This one is required — without it the
+    app is installed but deaf in channels.
+
+    Reading a file someone uploads to a Team channel additionally needs the
+    `Files.Read.All` application permission, which a Microsoft administrator
+    must consent to. The command asks and defaults to skipping it. It is
+    genuinely optional: skip it and everything works except attachments
+    uploaded to a Team channel — files shared in a 1:1 chat and images pasted
+    into a channel are unaffected, and the message still arrives, just without
+    that attachment. It reads only; the app never creates, updates, or deletes.
+    You can grant it later.
+
+    Teams settles app permissions only while the app is being added, so
+    changing your mind later means removing the app from the Team and adding it
+    again.
+
+    #### What finishing does and does not prove
+
+    Finish by adding the app to a team. A personal-only installation does not
+    complete setup. Intelligence then reports **Created and installed**, which
+    means the bot exists, the credentials were accepted, and a Team
+    installation was recorded. It does not claim your runtime is online or that
+    a real message was ever delivered — that is the next guide.
+
+    Do not replace the messaging endpoint with your Channels runner URL.
+    Intelligence owns the public Teams edge, and the runner takes no inbound
+    provider traffic at all.
 
   </Step>
 
