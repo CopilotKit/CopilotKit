@@ -45,4 +45,77 @@ describe("GET harness-progress/[channel]", () => {
     });
     expect(await readAll(response.body!)).toContain("codex exited 1");
   });
+
+  // The live tail is the route's whole purpose, and the two tests above only
+  // replay an already-finished backlog. Here the reader is ALREADY WAITING when
+  // the frame is published, so only the subscription can deliver it: a broken
+  // fan-out hangs this test instead of passing green.
+  it("streams a frame published while a client is tailing", async () => {
+    const response = await GET(new Request("http://test"), {
+      params: Promise.resolve({ channel: CH }),
+    });
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+
+    const pendingThinking = reader.read();
+    publishProgress(CH, {
+      kind: "thinking",
+      text: "searching merchants",
+      at: 1,
+    });
+    const thinking = await pendingThinking;
+    expect(decoder.decode(thinking.value)).toContain("searching merchants");
+
+    const pendingDone = reader.read();
+    publishProgress(CH, { kind: "done", at: 2 });
+    expect(decoder.decode((await pendingDone).value)).toContain(
+      '"kind":"done"',
+    );
+
+    // The terminal frame closed the stream rather than leaving the tail open.
+    expect((await reader.read()).done).toBe(true);
+  });
+
+  // A tail that survives `clearProgress` is what the tool does at run START.
+  // Deleting the channel on clear used to orphan this listener: the frames below
+  // would reach nobody and the stream would never close.
+  it("keeps tailing across a clearProgress at run start", async () => {
+    publishProgress(CH, { kind: "thinking", text: "previous run", at: 1 });
+    const response = await GET(new Request("http://test"), {
+      params: Promise.resolve({ channel: CH }),
+    });
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+
+    // Drain the replayed backlog frame from the previous run.
+    expect(decoder.decode((await reader.read()).value)).toContain(
+      "previous run",
+    );
+
+    clearProgress(CH);
+    const pending = reader.read();
+    publishProgress(CH, { kind: "thinking", text: "fresh run", at: 2 });
+    expect(decoder.decode((await pending).value)).toContain("fresh run");
+
+    publishProgress(CH, { kind: "done", at: 3 });
+    expect(decoder.decode((await reader.read()).value)).toContain(
+      '"kind":"done"',
+    );
+    expect((await reader.read()).done).toBe(true);
+  });
+
+  // A disconnect mid-run must not take the harness down with it: the run keeps
+  // publishing after the reader is gone, and those publishes must be silent.
+  it("survives a client disconnecting mid-run", async () => {
+    const response = await GET(new Request("http://test"), {
+      params: Promise.resolve({ channel: CH }),
+    });
+    const reader = response.body!.getReader();
+    await reader.cancel();
+
+    expect(() =>
+      publishProgress(CH, { kind: "thinking", text: "still working", at: 1 }),
+    ).not.toThrow();
+    expect(() => publishProgress(CH, { kind: "done", at: 2 })).not.toThrow();
+  });
 });

@@ -29,6 +29,9 @@ export const GET = async (
 ): Promise<Response> => {
   const { channel } = await params;
 
+  // Hoisted out of `start` so `cancel` can reach it.
+  let unsubscribe: (() => void) | undefined;
+
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const encoder = new TextEncoder();
@@ -37,7 +40,7 @@ export const GET = async (
       const close = () => {
         if (closed) return;
         closed = true;
-        unsubscribe();
+        unsubscribe?.();
         controller.close();
       };
 
@@ -48,9 +51,22 @@ export const GET = async (
       };
 
       // Subscribe BEFORE replaying the backlog so a frame published between the
-      // two is delivered by the listener rather than lost in the gap.
-      const unsubscribe = subscribeProgress(channel, send);
+      // two is delivered by the listener rather than lost in the gap. There must
+      // be no `await` between these two statements — `start` running
+      // synchronously is what makes the ordering unviolatable.
+      unsubscribe = subscribeProgress(channel, send);
       for (const event of readProgress(channel)) send(event);
+    },
+
+    /**
+     * The client went away mid-run — the presenter reloading the tab, which is
+     * the very scenario this feature demonstrates. Without this the listener
+     * stays in the channel and its `controller.enqueue` throws on the next
+     * frame; `publishProgress` is defensive about that, but leaving a dead
+     * listener to be discovered by a throw is not a design.
+     */
+    cancel() {
+      unsubscribe?.();
     },
   });
 
