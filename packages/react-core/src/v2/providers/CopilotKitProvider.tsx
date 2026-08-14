@@ -791,6 +791,7 @@ const CopilotKitProviderInner: React.FC<
 
   useEffect(() => {
     copilotkit.setRuntimeUrl(chatApiEndpoint);
+    headerReadiness?.updateRuntimeUrl(chatApiEndpoint);
     copilotkit.setRuntimeTransport(
       useSingleEndpoint === true
         ? "single"
@@ -987,6 +988,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = (
     else if (status === "failed") barrier.failed(error);
     else barrier.pending();
   }, [barrier, error, headers, status]);
+  useEffect(
+    () => () =>
+      barrier.dispose(new Error("Header resolution ended before completion")),
+    [barrier],
+  );
   const reportedError = useRef<{
     source: typeof source;
     error: Error;

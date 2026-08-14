@@ -1,7 +1,7 @@
 import React from "react";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { CopilotKitProvider } from "../CopilotKitProvider";
+import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 import { CopilotKitCoreErrorCode } from "@copilotkit/core";
 
 describe("CopilotKitProvider async headers", () => {
@@ -88,6 +88,71 @@ describe("CopilotKitProvider async headers", () => {
     expect(
       new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("Authorization"),
     ).toBe("Bearer recovered");
+    view.unmount();
+    fetchMock.mockRestore();
+  });
+
+  it("waits for an async retry after an initial failure", async () => {
+    const initial = new Error("token unavailable");
+    let release!: (value: Record<string, string>) => void;
+    let source: () => Promise<Record<string, string>> = () =>
+      Promise.reject(initial);
+    const onError = vi.fn();
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ version: "1", agents: {} }), {
+        status: 200,
+      }),
+    );
+    const view = render(
+      <CopilotKitProvider
+        runtimeUrl="https://runtime.example"
+        headers={source}
+        onError={onError}
+      >
+        <div>child</div>
+      </CopilotKitProvider>,
+    );
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    source = () =>
+      new Promise<Record<string, string>>((resolve) => (release = resolve));
+    view.rerender(
+      <CopilotKitProvider
+        runtimeUrl="https://runtime.example"
+        headers={source}
+        onError={onError}
+      >
+        <div>child</div>
+      </CopilotKitProvider>,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    release({ Authorization: "Bearer retried" });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    view.unmount();
+    fetchMock.mockRestore();
+  });
+
+  it("releases the initial barrier when setHeaders supplies concrete headers", async () => {
+    let core: ReturnType<typeof useCopilotKit> | undefined;
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ version: "1", agents: {} }), {
+        status: 200,
+      }),
+    );
+    const Child = () => {
+      core = useCopilotKit();
+      return <div>child</div>;
+    };
+    const view = render(
+      <CopilotKitProvider
+        runtimeUrl="https://runtime.example"
+        headers={() => new Promise<Record<string, string>>(() => {})}
+      >
+        <Child />
+      </CopilotKitProvider>,
+    );
+    await waitFor(() => expect(core?.copilotkit).toBeDefined());
+    core!.copilotkit!.setHeaders({ Authorization: "Bearer manual" });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     view.unmount();
     fetchMock.mockRestore();
   });

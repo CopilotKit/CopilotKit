@@ -27,7 +27,7 @@ export interface RecordAnnotationArgs {
    * (e.g. `https://bff.example.com/api/copilotkit`).
    * The function appends `/annotate`.
    */
-  runtimeUrl: string;
+  runtimeUrl: string | (() => string | undefined);
   /**
    * Extra HTTP headers forwarded from `copilotkit.headers` — typically used
    * for customer auth tokens that the BFF needs to identify the user.
@@ -88,7 +88,12 @@ export async function recordAnnotation(
   args: RecordAnnotationArgs,
 ): Promise<RecordAnnotationResult> {
   await args.readiness?.wait();
-  const { runtimeUrl, type, payload, threadId, occurredAt } = args;
+  const runtimeUrl =
+    typeof args.runtimeUrl === "function" ? args.runtimeUrl() : args.runtimeUrl;
+  if (!runtimeUrl) {
+    throw new Error("recordAnnotation: runtimeUrl is not configured");
+  }
+  const { type, payload, threadId, occurredAt } = args;
   const headers =
     typeof args.headers === "function" ? args.headers() : args.headers;
 

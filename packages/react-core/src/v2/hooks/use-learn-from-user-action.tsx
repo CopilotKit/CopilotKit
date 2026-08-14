@@ -4,6 +4,7 @@ import { recordAnnotation } from "../lib/record-annotation";
 import {
   headerReadinessFor,
   headerReadinessHeadersFor,
+  headerReadinessRuntimeUrlFor,
 } from "../providers/header-readiness";
 
 /**
@@ -103,7 +104,8 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
       };
 
       return recordAnnotation({
-        runtimeUrl,
+        runtimeUrl: () =>
+          headerReadinessRuntimeUrlFor(copilotkit) ?? copilotkit.runtimeUrl,
         headers: () =>
           headerReadinessHeadersFor(copilotkit) ?? copilotkit.headers ?? {},
         readiness: headerReadinessFor(copilotkit),

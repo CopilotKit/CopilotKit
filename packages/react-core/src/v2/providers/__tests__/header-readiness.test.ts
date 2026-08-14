@@ -53,4 +53,12 @@ describe("HeaderReadinessBarrier", () => {
       Authorization: "Bearer refreshed",
     });
   });
+
+  it("rejects pending waiters when the provider is disposed", async () => {
+    const barrier = new HeaderReadinessBarrier();
+    const pending = barrier.wait();
+    const reason = new Error("provider unmounted");
+    barrier.dispose(reason);
+    await expect(pending).rejects.toBe(reason);
+  });
 });

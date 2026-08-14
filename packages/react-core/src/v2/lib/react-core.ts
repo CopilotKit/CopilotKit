@@ -168,7 +168,7 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     if (!isProviderHeaderSync(this)) {
       const readiness = headerReadinessFor(this);
       readiness?.update(this.headers);
-      readiness?.ready();
+      readiness?.recover();
     }
   }
 
@@ -179,6 +179,7 @@ export class CopilotKitCoreReact extends CopilotKitCore {
       this._hasDeferredRuntimeUrl = true;
       return;
     }
+    readiness?.updateRuntimeUrl(runtimeUrl);
     super.setRuntimeUrl(runtimeUrl);
   }
 

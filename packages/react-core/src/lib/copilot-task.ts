@@ -66,6 +66,7 @@ import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 import {
   headerReadinessHeadersFor,
+  headerReadinessRuntimeUrlFor,
   waitForHeaderReadiness,
 } from "../v2/providers/header-readiness";
 
@@ -146,7 +147,9 @@ export class CopilotTask<T = any> {
     const messages: Message[] = [systemMessage];
 
     const runtimeClient = new CopilotRuntimeClient({
-      url: context.copilotApiConfig.chatApiEndpoint,
+      url:
+        headerReadinessRuntimeUrlFor(context.copilotApiConfig) ??
+        context.copilotApiConfig.chatApiEndpoint,
       publicApiKey: context.copilotApiConfig.publicApiKey,
       headers:
         headerReadinessHeadersFor(context.copilotApiConfig) ??

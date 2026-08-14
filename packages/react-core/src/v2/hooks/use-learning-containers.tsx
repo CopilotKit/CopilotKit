@@ -4,6 +4,7 @@ import { recordAnnotation } from "../lib/record-annotation";
 import {
   headerReadinessFor,
   headerReadinessHeadersFor,
+  headerReadinessRuntimeUrlFor,
 } from "../providers/header-readiness";
 
 /** The default learning containers value. Matches the backend default. */
@@ -116,7 +117,8 @@ export function useLearningContainers({
         return;
       }
       recordAnnotation({
-        runtimeUrl,
+        runtimeUrl: () =>
+          headerReadinessRuntimeUrlFor(copilotkit) ?? copilotkit.runtimeUrl,
         headers: () =>
           headerReadinessHeadersFor(copilotkit) ?? copilotkit.headers ?? {},
         readiness: headerReadinessFor(copilotkit),
@@ -165,7 +167,10 @@ export function useLearningContainers({
 
       if (capturedRuntimeUrl) {
         recordAnnotation({
-          runtimeUrl: capturedRuntimeUrl,
+          runtimeUrl: () =>
+            headerReadinessRuntimeUrlFor(copilotkit) ??
+            copilotkit.runtimeUrl ??
+            capturedRuntimeUrl,
           headers: () =>
             headerReadinessHeadersFor(copilotkit) ?? capturedHeaders ?? {},
           readiness: headerReadinessFor(copilotkit),
