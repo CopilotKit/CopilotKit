@@ -783,18 +783,24 @@ export class RunHandler {
     }
 
     if (
-      originatingThreadId !== undefined &&
+      originatingThreadId === undefined ||
       this.getAgentThreadId(agent) !== originatingThreadId
     ) {
       return runAgentResult;
     }
 
-    const finalMessageIds = new Set(
-      this.getAgentMessages(agent).map((message) => message.id),
-    );
+    const finalMessages = this.getAgentMessages(agent);
+    const finalMessageIds = new Set(finalMessages.map((message) => message.id));
+    const finalToolResultIds = this.getToolResultIds(finalMessages);
     const missingRunMessages = observedStreamMessages.filter(
       (message) =>
-        !messagesBeforeRun.has(message.id) && !finalMessageIds.has(message.id),
+        !messagesBeforeRun.has(message.id) &&
+        !finalMessageIds.has(message.id) &&
+        this.shouldRestoreOmittedFrontendToolMessage({
+          agent,
+          finalToolResultIds,
+          message,
+        }),
     );
 
     if (missingRunMessages.length === 0) {
@@ -802,7 +808,7 @@ export class RunHandler {
     }
 
     const finalMessagesById = new Map(
-      this.getAgentMessages(agent).map((message) => [message.id, message]),
+      finalMessages.map((message) => [message.id, message]),
     );
     const missingMessagesById = new Map(
       missingRunMessages.map((message) => [message.id, message]),
@@ -819,7 +825,7 @@ export class RunHandler {
       seen.add(message.id);
     }
 
-    for (const message of this.getAgentMessages(agent)) {
+    for (const message of finalMessages) {
       if (seen.has(message.id)) continue;
       reconciledMessages.push(message);
       seen.add(message.id);
@@ -857,6 +863,43 @@ export class RunHandler {
       ...runAgentResult,
       newMessages: reconciledNewMessages,
     };
+  }
+
+  private getToolResultIds(messages: readonly Message[]): Set<string> {
+    const toolResultIds = new Set<string>();
+    for (const message of messages) {
+      if (message.role === "tool" && typeof message.toolCallId === "string") {
+        toolResultIds.add(message.toolCallId);
+      }
+    }
+    return toolResultIds;
+  }
+
+  private shouldRestoreOmittedFrontendToolMessage({
+    agent,
+    finalToolResultIds,
+    message,
+  }: {
+    agent: AbstractAgent;
+    finalToolResultIds: ReadonlySet<string>;
+    message: Message;
+  }): boolean {
+    if (message.role !== "assistant" || !message.toolCalls?.length) {
+      return false;
+    }
+
+    // @ag-ui/client can stream messages via onMessagesChanged before a later
+    // snapshot replaces agent.messages. Only restore omitted frontend tool
+    // calls that still need client-side execution; intentionally pruned
+    // backend/plain-text messages must stay pruned.
+    return message.toolCalls.some((toolCall) => {
+      const tool = this.getTool({
+        toolName: toolCall.function.name,
+        agentId: agent.agentId,
+      });
+
+      return Boolean(tool?.handler) && !finalToolResultIds.has(toolCall.id);
+    });
   }
 
   private isFrontendPlaceholderResult(message: Message): boolean {
