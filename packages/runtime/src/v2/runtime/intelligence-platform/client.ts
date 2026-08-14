@@ -247,6 +247,8 @@ export interface CreateThreadRequest {
   agentId: string;
   /** Optional initial display name. If omitted, the thread is unnamed until explicitly renamed. */
   name?: string;
+  /** Developer-set stable ID of the Learning Container for this Thread. */
+  learningContainerId?: string;
 }
 
 /** Credentials returned when locking or joining a thread's realtime channel. */
@@ -307,9 +309,8 @@ export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
  * from the customer's BFF auth before calling this; the platform prefixes
  * it with the project id at write time.
  *
- * `payload` is the type-specific JSON blob for the annotation (e.g. a
- * `"user_action"` event carries the recorded fields, a
- * `"set_learning_containers"` event carries the container list). The exact
+ * `payload` is the type-specific JSON blob for the annotation (for example, a
+ * `"user_action"` event carries the recorded fields). The exact
  * shape per type is validated by the Intelligence backend; canonical shapes
  * are documented on the Intelligence react-core side.
  */
@@ -321,7 +322,7 @@ export interface AnnotateParams {
   /**
    * Discriminator identifying the annotation type.
    * Must match a type known to the Intelligence platform
-   * (e.g. `"user_action"`, `"set_learning_containers"`).
+   * (for example, `"user_action"`).
    */
   type: string;
   /** Type-specific payload. Shape varies by `type`. */
@@ -414,6 +415,8 @@ export interface AcquireThreadLockRequest {
   runId: string;
   userId: string;
   agentId: string;
+  /** Developer-set stable ID to assign before the run lock is acquired. */
+  learningContainerId?: string;
   /** Internal managed-Channel delivery context for shared Thread access. */
   channelDeliveryId?: string;
   /** Custom Redis key prefix for the lock (default: "thread"). */
@@ -977,6 +980,9 @@ export class CopilotKitIntelligence {
         userId: params.userId,
         agentId: params.agentId,
         ...(params.name !== undefined ? { name: params.name } : {}),
+        ...(params.learningContainerId !== undefined
+          ? { learningContainerId: params.learningContainerId }
+          : {}),
       },
     );
     this.#invokeLifecycleCallback("onThreadCreated", response.thread);
@@ -1187,9 +1193,9 @@ export class CopilotKitIntelligence {
    *
    * This is the generalized replacement for the old
    * `PUT /connector/user-actions/record/:clientEventId` endpoint. It supports
-   * multiple annotation types via the `type` discriminator:
-   * - `"user_action"` — records a user UI interaction for the self-learning loop.
-   * - `"set_learning_containers"` — sets the learning containers for a thread.
+   * multiple annotation types via the `type` discriminator. The
+   * `"user_action"` type records a user UI interaction for the self-learning
+   * loop.
    *
    * `userId` must be resolved on the runtime side before calling this — the
    * platform prefixes it with the project id from the API key.
@@ -1248,6 +1254,9 @@ export class CopilotKitIntelligence {
         runId: params.runId,
         userId: params.userId,
         agentId: params.agentId,
+        ...(params.learningContainerId !== undefined
+          ? { learningContainerId: params.learningContainerId }
+          : {}),
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),
