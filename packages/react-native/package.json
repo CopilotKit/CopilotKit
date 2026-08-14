@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-native",
-  "version": "1.66.2",
+  "version": "1.67.1",
   "private": false,
   "keywords": [
     "ai",
@@ -71,12 +71,14 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "test": "vitest run",
+    "test": "vitest run && pnpm run test:scripts",
+    "test:scripts": "node --test scripts/__tests__/measure-headless.test.mjs",
     "check-types": "tsc --noEmit",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error",
     "link:global": "pnpm link --global",
-    "unlink:global": "pnpm unlink --global"
+    "unlink:global": "pnpm unlink --global",
+    "size:headless": "node scripts/measure-headless.mjs"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",
@@ -89,6 +91,7 @@
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.2.0",
+    "esbuild": "^0.27.0",
     "jsdom": "^26.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

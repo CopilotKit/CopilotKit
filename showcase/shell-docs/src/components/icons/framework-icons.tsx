@@ -334,6 +334,7 @@ const FRAMEWORK_ICONS: Record<string, React.ComponentType<IconProps>> = {
   mastra: MastraIcon,
   "pydantic-ai": PydanticAiIcon,
   "crewai-crews": CrewaiIcon,
+  "crewai-conversational-flows": CrewaiIcon,
   agno: AgnoIcon,
   ag2: Ag2Icon,
   llamaindex: LlamaIndexIcon,

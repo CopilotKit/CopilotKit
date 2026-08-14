@@ -8,7 +8,7 @@ import type {
 import type { AgentRunner } from "../runner/agent-runner";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { TranscriptionService } from "../transcription-service/transcription-service";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, test, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
 // Mock transcription service
@@ -579,4 +579,41 @@ describe("handleGetRuntimeInfo", () => {
       message: "Failed to get agents",
     });
   });
+});
+
+test("get-runtime-info advertises inspector metadata without fetching it", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "server-api-key",
+  });
+  const getInspectorMetadata = vi.spyOn(intelligence, "getInspectorMetadata");
+  const runtime = new CopilotRuntime({
+    agents: {},
+    intelligence,
+    identifyUser: async () => ({ id: "user-1", name: "User One" }),
+  });
+
+  const response = await handleGetRuntimeInfo({
+    runtime,
+    request: new Request("https://example.com/info"),
+  });
+  const data = await response.json();
+
+  expect(response.status).toBe(200);
+  expect(data.inspectorMetadata).toBe(true);
+  expect(getInspectorMetadata).not.toHaveBeenCalled();
+});
+
+test("get-runtime-info omits inspector metadata for an SSE runtime", async () => {
+  const runtime = new CopilotRuntime({ agents: {} });
+
+  const response = await handleGetRuntimeInfo({
+    runtime,
+    request: new Request("https://example.com/info"),
+  });
+  const data = await response.json();
+
+  expect(response.status).toBe(200);
+  expect(data).not.toHaveProperty("inspectorMetadata");
 });

@@ -19,7 +19,7 @@ const validManifest = {
       testedRxjs: "7.8.1",
       supportedMajors: [
         {
-          angular: "20.3.26",
+          angular: "20.3.27",
           cdk: "20.2.14",
           major: 20,
           typescript: "5.9.3",
@@ -40,9 +40,9 @@ const validManifest = {
     },
   },
   devDependencies: {
-    "@angular/common": "20.3.26",
-    "@angular/compiler-cli": "20.3.26",
-    "@angular/core": "20.3.26",
+    "@angular/common": "20.3.27",
+    "@angular/compiler-cli": "20.3.27",
+    "@angular/core": "20.3.27",
     typescript: "5.9.3",
   },
   peerDependencies: {

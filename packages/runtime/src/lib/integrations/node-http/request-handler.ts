@@ -84,14 +84,13 @@ export function toHeaders(rawHeaders: IncomingMessage["headers"]): Headers {
 }
 
 export function isStreamConsumed(req: IncomingWithBody): boolean {
-  const readableState = (req as any)._readableState;
-
-  return Boolean(
-    req.readableEnded ||
-    req.complete ||
-    readableState?.ended ||
-    readableState?.endEmitted,
-  );
+  // `readableEnded` is the only signal that means "application code drained this
+  // stream to its end". `req.complete` and the private `_readableState.ended` are
+  // set by the HTTP parser once all network bytes arrive at the socket, which
+  // happens before any handler reads the body. In frameworks that await between
+  // socket read and dispatch (Next.js pages router), checking those flags
+  // reported an unread body as consumed and forwarded an empty payload upstream.
+  return Boolean(req.readableEnded);
 }
 
 export function synthesizeBodyFromParsedBody(

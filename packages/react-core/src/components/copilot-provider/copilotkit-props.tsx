@@ -39,7 +39,7 @@ export interface CopilotKitProps extends Omit<
   };
 
   /**
-   * The endpoint for the Copilot Runtime instance. [Click here for more information](/concepts/copilot-runtime).
+   * The endpoint for the Copilot Runtime instance. [Click here for more information](/backend/copilot-runtime).
    */
   runtimeUrl?: string;
 

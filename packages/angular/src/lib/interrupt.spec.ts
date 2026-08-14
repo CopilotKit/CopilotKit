@@ -109,8 +109,8 @@ describe("InterruptController", () => {
   it("accumulates multiple decisions, persists tool results, and resumes once", async () => {
     const { agent, controller, run, startResume } = setup();
     finalizeStandard(agent, [
-      makeInterrupt("one", { toolCallId: "tool-one" }),
-      makeInterrupt("two", { toolCallId: "tool-two" }),
+      makeInterrupt("one", { reason: "tool_call", toolCallId: "tool-one" }),
+      makeInterrupt("two", { reason: "tool_call", toolCallId: "tool-two" }),
     ]);
 
     await controller.cancel("two");
@@ -143,6 +143,22 @@ describe("InterruptController", () => {
     startResume();
     await Promise.all([resumePromise, duplicatePromise]);
     expect(controller.hasInterrupt()).toBe(false);
+  });
+
+  it("does not add tool messages for backend-owned interrupts", async () => {
+    const { agent, controller, startResume } = setup();
+    finalizeStandard(agent, [
+      makeInterrupt("mastra-run::tool-one", {
+        reason: "human_approval",
+        toolCallId: "tool-one",
+      }),
+    ]);
+
+    const resume = controller.resolve("approved");
+    startResume();
+    await resume;
+
+    expect(agent.addMessage).not.toHaveBeenCalled();
   });
 
   it("resumes legacy events with forwarded command data", async () => {

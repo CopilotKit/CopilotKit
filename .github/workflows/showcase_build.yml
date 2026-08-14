@@ -124,7 +124,7 @@ jobs:
           persist-credentials: false
 
       - name: Detect changed paths
-        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           # All filter values use list form for consistency. `shell`
@@ -559,7 +559,7 @@ jobs:
             cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
           fi
 
-          # Dereference tools/, shared-tools/, and _shared/ symlinks for the
+          # Dereference tools/, shared-tools/, data/, and _shared/ symlinks for the
           # Docker context. Integration directories use symlinks pointing to
           # ../../shared/python/tools etc., and _shared -> ../_shared for the
           # CVDIAG bootstrap modules. Docker cannot follow symlinks outside
@@ -567,7 +567,7 @@ jobs:
           # symlinks: /_shared"), so we replace each symlink with a real copy
           # of its target. Mirrors stage_shared() in
           # showcase/scripts/cli/_common.sh (the local bin/showcase path).
-          for link_name in tools shared-tools _shared; do
+          for link_name in tools shared-tools data _shared; do
             link_path="$CONTEXT/$link_name"
             if [ -L "$link_path" ]; then
               target="$(readlink -f "$link_path")"
@@ -694,7 +694,7 @@ jobs:
           persist-credentials: false
 
       - name: Detect changed starter paths
-        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |

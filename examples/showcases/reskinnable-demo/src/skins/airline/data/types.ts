@@ -1,8 +1,8 @@
-// Airline domain types. Adapted from latam-demo `components/airline/types.ts`,
-// decoupled from any LangGraph agent-state shape — this skin keeps its state in
-// an in-memory store hook (`useAirlineData`) rather than syncing from a Python
-// backend. The readiness predicates are retained because gen-UI tool arguments
-// stream in and may be partially populated before a strict component mounts.
+// Airline CONCIERGE-VIEW types — the check-in shapes the pages and gen-UI cards
+// render. They are DERIVED from the REST ledger by `../components/concierge-view.ts`,
+// never stored: `data/trip-types.ts` holds what the ledger actually serves. The
+// readiness predicates are retained because gen-UI tool arguments stream in and
+// may be partially populated before a strict component mounts.
 
 export type Tier = "bronze" | "silver" | "gold" | "platinum";
 
@@ -113,7 +113,7 @@ export type BaggageItem = {
   description: string;
 };
 
-/** The full in-memory store the airline skin exposes via `useAirlineData()`. */
+/** The concierge view assembled from the ledger. Kept as a shape, not a store. */
 export interface AirlineData {
   passenger: Passenger;
   flight: Flight;

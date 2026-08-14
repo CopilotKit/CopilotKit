@@ -20,6 +20,8 @@ function setup() {
     disconnect,
     onClose: vi.fn(),
     onStateChange: vi.fn(),
+    // A real session always reports this (undefined = the gateway said nothing).
+    providerStates: vi.fn(() => undefined),
   };
   connectRealtimeGatewayMock.mockReset();
   connectRealtimeGatewayMock.mockResolvedValue(session);

@@ -3,10 +3,12 @@
 `@copilotkit/channels` is the batteries-included CopilotKit Channels package. One install
 provides the engine, JSX vocabulary, UI primitives, testing API, and every supported adapter.
 
-**Channels require a CopilotKit Intelligence connection** (an API key — a free tier
-is available, so this is "connect your Intelligence account," not "pay for it").
-There is no standalone / DIY way to run a Channel: the `CopilotRuntime` starts and
-owns each Channel's lifecycle once Intelligence is configured.
+**Channels run through a channel runner.** CopilotKit Intelligence provides the
+managed runner, available on a free plan: the `CopilotRuntime` starts and owns
+each Channel's lifecycle once Intelligence is configured. You can also build and
+operate your own channel runner on the lower-level SDK primitives, with no
+Intelligence dependency — a supported path where your team owns state,
+persistence, concurrency, locking, retries, and race-condition handling.
 
 ## Install
 

@@ -2,12 +2,12 @@
 
 ## Agent Types in CopilotKit v2
 
-| Agent Type             | Package             | Description                                                                          |
-| ---------------------- | ------------------- | ------------------------------------------------------------------------------------ |
-| `BuiltInAgent`         | `@copilotkit/agent` | Uses Vercel AI SDK `streamText` with configurable model providers                    |
-| `LangGraphAgent`       | `@ag-ui/langgraph`  | Wraps a LangGraph deployment (Python or JS)                                          |
-| `A2AAgent`             | Varies              | Agent-to-Agent protocol agent                                                        |
-| Custom `AbstractAgent` | `@ag-ui/client`     | Any class extending `AbstractAgent` with a `run()` returning `Observable<BaseEvent>` |
+| Agent Type             | Package                  | Description                                                                          |
+| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
+| `BuiltInAgent`         | `@copilotkit/runtime/v2` | Uses Vercel AI SDK `streamText` with configurable model providers                    |
+| `LangGraphAgent`       | `@ag-ui/langgraph`       | Wraps a LangGraph deployment (Python or JS)                                          |
+| `A2AAgent`             | Varies                   | Agent-to-Agent protocol agent                                                        |
+| Custom `AbstractAgent` | `@ag-ui/client`          | Any class extending `AbstractAgent` with a `run()` returning `Observable<BaseEvent>` |
 
 ## Agent Discovery Issues
 

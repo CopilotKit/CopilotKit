@@ -1,6 +1,6 @@
 /**
  * <Callout type="info">
- *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/concepts/copilot-runtime).
+ *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/backend/copilot-runtime).
  * </Callout>
  *
  * ## Usage
@@ -37,6 +37,11 @@ import {
   CopilotRuntime as CopilotRuntimeVNext,
   InMemoryAgentRunner,
 } from "../../v2/runtime";
+import {
+  createRuntimeErrorReporter,
+  runtimeErrorReporterOption,
+} from "../../v2/runtime/core/runtime-error-reporter";
+import type { RuntimeErrorReporterOptions } from "../../v2/runtime/core/runtime-error-reporter";
 import type {
   CopilotRuntimeOptions,
   CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
@@ -343,7 +348,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   // Cache MCP tools per endpoint to avoid re-fetching repeatedly
   private mcpToolsCache: Map<string, BuiltInAgentClassicConfig["tools"]> =
     new Map();
-  private runtimeArgs: CopilotRuntimeOptions;
+  private runtimeArgs: CopilotRuntimeOptions & RuntimeErrorReporterOptions;
   private _instance: CopilotRuntimeVNext;
 
   constructor(
@@ -414,6 +419,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       a2ui: params?.a2ui,
       mcpApps: params?.mcpApps,
       openGenerativeUI: params?.openGenerativeUI,
+      [runtimeErrorReporterOption]: createRuntimeErrorReporter(params?.onError),
     };
     this.params = params;
     this.observability = params?.observability_c;
