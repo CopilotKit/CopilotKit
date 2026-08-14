@@ -67,16 +67,8 @@ const agentNames = [
   "open-gen-ui-advanced",
 ];
 
-// Reasoning agent names — backed by the reasoning-enabled custom sub-app at
-// /reasoning. It emits AG-UI REASONING_MESSAGE_* events that the frontend
-// renders via the `reasoningMessage` slot (built-in card for
-// `reasoning-default`, custom amber ReasoningBlock for `reasoning-custom`).
-// The shared LatestAiDevelopment crew on "/" cannot host these demos because
-// its litellm adapter drops the model's reasoning_content channel and emits
-// no REASONING_MESSAGE_* events. The demo pages use the ids
-// `reasoning-default` / `reasoning-custom`; both share the one reasoning
-// backend. `agentic-chat-reasoning` and `reasoning-default-render` are legacy
-// aliases kept for any cell that still references them.
+// Reasoning variants share a native CrewAI Flow. The CrewAI bridge translates
+// the reasoning-model stream into AG-UI reasoning and text lifecycles.
 const reasoningAgentNames = [
   "reasoning-default",
   "reasoning-custom",
@@ -88,14 +80,38 @@ const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
 }
+
+// CrewAI Flows own the state, tool-result, and delegation lifecycles for
+// these cells. Keep every alias explicit: silently falling back to the root
+// Crew endpoint makes the UI appear connected while dropping the specialized
+// AG-UI events that each demo exists to prove.
+agents["shared-state-read"] = createAgent("/shared-state-read");
+agents["shared-state-write"] = createAgent("/shared-state-read-write");
+agents["shared-state-streaming"] = createAgent("/shared-state-streaming");
+agents["shared-state-read-write"] = createAgent("/shared-state-read-write");
+agents["subagents"] = createAgent("/subagents");
+agents["tool-rendering"] = createAgent("/tool-rendering");
+agents["tool-rendering-default-catchall"] = createAgent("/tool-rendering");
+agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
+agents["tool-rendering-reasoning-chain"] = createAgent(
+  "/tool-rendering-reasoning",
+);
+agents["frontend_tools"] = createAgent("/frontend-tools");
+agents["frontend-tools-async"] = createAgent("/frontend-tools");
+agents["human_in_the_loop"] = createAgent("/frontend-tools");
+agents["hitl-in-chat"] = createAgent("/frontend-tools");
+agents["hitl-in-app"] = createAgent("/frontend-tools");
+agents["headless-complete"] = createAgent("/tool-rendering");
+agents["open-gen-ui"] = createAgent("/frontend-tools");
+agents["open-gen-ui-advanced"] = createAgent("/frontend-tools");
 for (const name of reasoningAgentNames) {
-  agents[name] = createAgent("/reasoning/");
+  agents[name] = createAgent("/reasoning");
 }
 // Interrupt-adapted demos route to the dedicated scheduling crew backend.
 // Both gen-ui-interrupt and interrupt-headless share the same crew; only the
 // frontend UX differs (inline in chat vs. external popup).
-agents["gen-ui-interrupt"] = createAgent("/interrupt-adapted");
-agents["interrupt-headless"] = createAgent("/interrupt-adapted");
+agents["gen-ui-interrupt"] = createAgent("/interrupt");
+agents["interrupt-headless"] = createAgent("/interrupt");
 // gen-ui-agent routes to a dedicated CrewAI Flow backend that owns the
 // `set_steps` tool + per-call STATE_SNAPSHOT emit (see
 // src/agents/gen_ui_agent.py). The shared LatestAiDevelopment crew on "/"
@@ -111,7 +127,6 @@ agents["gen-ui-agent"] = createAgent("/gen-ui-agent");
 // custom wildcard renderer (`useDefaultRenderTool`) would never paint
 // the `[data-testid="custom-wildcard-card"]` shell that the
 // `d5-tool-rendering-custom-catchall` probe asserts on.
-agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
 agents["default"] = createAgent();
 
 console.log(
