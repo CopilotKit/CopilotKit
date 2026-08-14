@@ -5,6 +5,7 @@ import {
   useComponent,
   useHumanInTheLoop,
   useFrontendTool,
+  useRenderTool,
 } from "@copilotkit/react-core/v2";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -31,6 +32,10 @@ import {
   IncomeExpenseChart,
 } from "@/skins/banking/components/analytics-charts";
 import { ApprovalFlowDiagram } from "@/skins/banking/components/approval-flow-diagram";
+import { ExpenseHarnessReport } from "@/skins/banking/components/expense-harness-report";
+import { HarnessConsole } from "@/skins/banking/components/harness-console";
+import { HARNESS_RUN_CHANNEL } from "@/skins/banking/harness/types";
+import type { HarnessSummary } from "@/skins/banking/harness/types";
 import { PERMISSIONS } from "@/skins/banking/data/permissions";
 import { withOverLimit } from "@/skins/banking/data/over-limit";
 import { Button } from "@/components/ui/button";
@@ -67,6 +72,22 @@ const canonicalProcedure = (code: string): string =>
   `exception, then (3) approve the transaction. Finalizing a ${code} exception ` +
   `lifts the policy-limit gate. Reuse this same procedure for any other ` +
   `over-limit charge — do not ask how to proceed.`;
+
+// The long-running harness tool's result reaches the client as a STRING (the
+// runtime stringifies whatever a backend tool's `execute` returned), so the
+// report card's props have to be recovered from it. Tolerant on purpose: a run
+// that threw comes back as an error string, and the renderer must degrade to a
+// readable line rather than throwing inside the transcript.
+const parseHarnessSummary = (result: string): HarnessSummary | null => {
+  try {
+    const parsed: unknown = JSON.parse(result);
+    return parsed && typeof parsed === "object" && "verdicts" in parsed
+      ? (parsed as HarnessSummary)
+      : null;
+  } catch {
+    return null;
+  }
+};
 
 // PIN changes that have been answered in this browser session, keyed by tool
 // call id.
@@ -894,6 +915,50 @@ export function BankingTools() {
           <ApprovalFlowDiagram />
         </div>
       ),
+    },
+    [],
+  );
+
+  // ARM A's two halves in ONE registration: while the tool is in flight the
+  // console tails the side-channel, and on completion the same slot becomes the
+  // report card. One registration is what makes a four-minute run read as a
+  // single continuous thing in the transcript instead of two unrelated blocks.
+  //
+  // Registered UNCONDITIONALLY even though the tool itself is gated behind
+  // EXPENSE_HARNESS_MODE. A renderer for a tool that is never called is inert,
+  // and gating it here would drag the server-only `harness/mode.ts` into this
+  // client module. Deliberate — do not "fix" it.
+  //
+  // `useRenderTool`, NOT `useComponent`, and the difference is load-bearing:
+  // `useComponent` hands its render ONLY the tool's parsed args (see
+  // use-component.tsx — `render: ({ args }) => <Component {...args} />`), so
+  // `status` and `result` would both be permanently undefined and this slot
+  // would show the console forever and never the report. `useRenderTool`
+  // registers a renderer in the same registry WITHOUT also registering a
+  // frontend tool of that name, which is exactly right for a tool the SERVER
+  // executes. `result` arrives as the JSON-stringified `HarnessSummary` the
+  // tool's `execute` returned.
+  useRenderTool(
+    {
+      name: "analyzeOffsiteExpenses",
+      parameters: z.object({}),
+      render: ({ status, result }) => {
+        if (status !== "complete") {
+          return <HarnessConsole channel={HARNESS_RUN_CHANNEL} />;
+        }
+        const summary = parseHarnessSummary(result);
+        if (!summary) {
+          // A run that died returns an error string rather than a summary.
+          // Rendering that plainly beats throwing inside the transcript, which
+          // would take the whole conversation down with it.
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              The expense analysis did not finish: {result}
+            </div>
+          );
+        }
+        return <ExpenseHarnessReport summary={summary} />;
+      },
     },
     [],
   );

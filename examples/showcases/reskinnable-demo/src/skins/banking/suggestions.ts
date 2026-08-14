@@ -1,7 +1,7 @@
 import type { Suggestion } from "@/shell/skin-contract";
 
 /**
- * The eight banking demo suggestion pills (registered by the shell,
+ * The nine banking demo suggestion pills (registered by the shell,
  * available:"always"). Ordered to walk the copilot's capabilities end to end:
  *   1. show a chart
  *   2. change a card PIN (entered in an interactive card IN the chat)
@@ -11,13 +11,21 @@ import type { Suggestion } from "@/shell/skin-contract";
  *   6. apply a preference it ALREADY learned (memory, automatic)
  *   7. handle a suspicious charge via a recalled procedure
  *   8. approve the over-limit AWS charge (learns something NEW)
+ *   9. hand it a personal card statement and let a MULTI-MINUTE agentic run
+ *      research every merchant and file the reimbursable charges
  *
- * The Q2 report message is matched by string equality to trigger the
- * bundled-invoice staging, so it lives here as `Q2_REPORT_MESSAGE` and the
- * pill below reuses it. `./skin.tsx` imports the same constant for its
- * `onSuggestionSelect` check, so there is exactly ONE copy of the string and
- * the two cannot drift apart. (The shell's shell/chat/demo-suggestions.tsx
- * only delegates to skin.onSuggestionSelect; it knows nothing about Q2.)
+ * TWO of these messages are matched by STRING EQUALITY rather than by index, so
+ * both live here as exported constants and the pills below reuse them:
+ *   - `Q2_REPORT_MESSAGE` — `./skin.tsx`'s `onSuggestionSelect` matches it to
+ *     stage the bundled invoice attachment and drive the real composer.
+ *   - `EXPENSE_PILL_MESSAGE` — the long-running harness beat's router matches it
+ *     to route the run at the harness arm rather than the classic agent.
+ * Declaring each ONCE means there is no second copy to drift from, and
+ * `./suggestions.test.ts` asserts each one is still carried by exactly one pill
+ * (nothing else notices a dropped or retitled pill: the matcher would simply
+ * never fire and the beat would go missing silently). The shell's
+ * shell/chat/demo-suggestions.tsx only delegates to skin.onSuggestionSelect; it
+ * knows nothing about either message.
  */
 
 /**
@@ -28,6 +36,15 @@ import type { Suggestion } from "@/shell/skin-contract";
  */
 export const Q2_REPORT_MESSAGE =
   "Prepare a Q2 spend report for the board: summarize spend against budgets, call out anything over limit or pending, and file it as a report.";
+
+/**
+ * The long-running harness pill's message, shared with Arm C's router. Lives
+ * here for the same reason `Q2_REPORT_MESSAGE` does: the router matches it by
+ * string equality, so there must be exactly one copy of the string in the tree.
+ */
+export const EXPENSE_PILL_MESSAGE =
+  "Here's my personal card statement from the Austin offsite — work out " +
+  "which charges are reimbursable and file them.";
 
 export const bankingSuggestions: Suggestion[] = [
   {
@@ -63,5 +80,9 @@ export const bankingSuggestions: Suggestion[] = [
   {
     title: "Approve the $15,000 AWS charge",
     message: "Approve the $15,000 AWS charge.",
+  },
+  {
+    title: "Sort out my offsite expenses",
+    message: EXPENSE_PILL_MESSAGE,
   },
 ];

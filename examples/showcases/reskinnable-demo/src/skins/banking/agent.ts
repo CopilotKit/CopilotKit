@@ -5,6 +5,8 @@ import {
   A2UI_OPERATIONS_KEY,
   SURFACE_ID,
 } from "@/skins/banking/build-report-ops";
+import { analyzeExpensesTool } from "@/skins/banking/harness/as-tool";
+import { armAEnabled } from "@/skins/banking/harness/mode";
 
 // SERVER-SAFE. No client directive, no JSX, no React. Imported only by the
 // server runtime route (src/app/api/copilotkit/[[...slug]]/route.ts), never by
@@ -341,7 +343,16 @@ view, or a specific chart library like Chart.js / D3 / Three.js).
   sandbox functions (getTransactions, getPolicies, getCards, getKpis) from inside
   the generated JavaScript. NEVER invent, inline, or hardcode numbers.
 - generateSandboxedUi is NEVER part of the over-limit approval / teach-recall arc,
-  the approvals queue, or the standard chart/report responses.`;
+  the approvals queue, or the standard chart/report responses.
+
+LONG-RUNNING EXPENSE ANALYSIS: when the officer asks you to go through a
+personal card statement, sort out which charges are reimbursable, or work out
+what is claimable from the offsite, call analyzeOffsiteExpenses ONCE and then say
+nothing further until it returns. It runs for several minutes, researches each
+merchant on the web, files the reimbursable charges, and renders its own summary
+widget — so do NOT narrate its steps, do NOT restate its findings in prose, and
+do NOT call any chart, report, or transaction tool alongside it. The widget it
+renders IS the answer.`;
 
 /**
  * The banking skin's agent — the Northwind Copilot. Exported as a factory
@@ -357,7 +368,14 @@ export const bankingAgent = () =>
     // is the alias used across the repo.
     model: "openai/gpt-5.4",
     prompt: BANKING_PROMPT,
-    tools: [renderReportTool],
+    // The harness tool is ADDITIVE and flag-gated: `renderReportTool` is always
+    // registered, and Arm A only appends to it. Gating the registration (rather
+    // than only the prompt) keeps the tool out of the model's tool list entirely
+    // when the beat is off, so the classic demo cannot wander into a
+    // four-minute run it was never configured for.
+    tools: armAEnabled()
+      ? [renderReportTool, analyzeExpensesTool]
+      : [renderReportTool],
     // Temperature 0 for consistent tool routing — the teach-flow sequencing
     // (recall_memory → offerWorkflowRecording on an over-limit approve) needs the
     // agent to pick the same path every time, not sample alternatives.
