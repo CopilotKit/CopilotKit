@@ -54,4 +54,72 @@ describe("readSummary", () => {
       /never wrote summary\.json/,
     );
   });
+
+  it("refuses an empty object rather than returning a hollow summary", async () => {
+    const { summaryPath } = await prepareWorkspace("x\n");
+    await writeFile(summaryPath, "{}", "utf8");
+    await expect(readSummary(summaryPath, 1)).rejects.toThrow(
+      /unusable summary\.json/,
+    );
+    // The diagnostic must name the path so the operator can find the run.
+    await expect(readSummary(summaryPath, 1)).rejects.toThrow(summaryPath);
+  });
+
+  it("refuses a summary whose verdicts are missing or not an array", async () => {
+    const { summaryPath } = await prepareWorkspace("x\n");
+    await writeFile(
+      summaryPath,
+      JSON.stringify({
+        rowsRead: 14,
+        merchantsSearched: 5,
+        totalExpensable: 1284.63,
+        totalPersonal: 412.18,
+      }),
+      "utf8",
+    );
+    await expect(readSummary(summaryPath, 1)).rejects.toThrow(/verdicts/);
+  });
+
+  it("refuses a summary whose totals are not finite numbers", async () => {
+    const { summaryPath } = await prepareWorkspace("x\n");
+    await writeFile(
+      summaryPath,
+      JSON.stringify({
+        rowsRead: 14,
+        merchantsSearched: 5,
+        totalExpensable: "1284.63",
+        totalPersonal: 412.18,
+        verdicts: [{ merchant: "Hotel Verrano" }],
+      }),
+      "utf8",
+    );
+    await expect(readSummary(summaryPath, 1)).rejects.toThrow(
+      /totalExpensable.*finite number/,
+    );
+  });
+
+  it("refuses an empty verdicts array — the hollow report card", async () => {
+    const { summaryPath } = await prepareWorkspace("x\n");
+    await writeFile(
+      summaryPath,
+      JSON.stringify({
+        rowsRead: 14,
+        merchantsSearched: 5,
+        totalExpensable: 0,
+        totalPersonal: 0,
+        verdicts: [],
+      }),
+      "utf8",
+    );
+    await expect(readSummary(summaryPath, 1)).rejects.toThrow(/is empty/);
+  });
+
+  it("throws a diagnostic naming the harness when the JSON is malformed", async () => {
+    const { summaryPath } = await prepareWorkspace("x\n");
+    await writeFile(summaryPath, '{"rowsRead": 14, "verdicts": [', "utf8");
+    await expect(readSummary(summaryPath, 1)).rejects.toThrow(
+      /harness wrote unparseable JSON/,
+    );
+    await expect(readSummary(summaryPath, 1)).rejects.toThrow(summaryPath);
+  });
 });

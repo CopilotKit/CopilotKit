@@ -31,20 +31,47 @@ DO THIS, IN THIS ORDER:
 3. Decide each row: "expensable", "personal", or "unclear" when even after
    searching you cannot responsibly decide. Give a one-sentence reason citing
    the offsite dates or what your search established.
-4. File every "expensable" row against the company ledger with:
-   curl -s -X POST http://localhost:3000/api/banking/v1/transactions \\
+4. File every "expensable" row against the company ledger. The endpoint takes the
+   flat body shown here — exactly the three fields \`merchant\`, \`amount\` and
+   \`note\`, nothing else — and answers 201 with the new transaction's id:
+
+   curl -sS -X POST http://localhost:3000/api/banking/v1/transactions \\
      -H 'content-type: application/json' \\
-     -d '{"merchant":"...","amount":0,"note":"Offsite ${OFFSITE.city} — reimbursable"}'
-   Capture each response's transaction id.
+     -w '%{http_code}' \\
+     -d '{"merchant":"Hotel Verrano","amount":318.55,"note":"Offsite ${OFFSITE.city} — reimbursable"}'
+
+   A success is status 201 and a body of {"id":"txn_..."}. The \`-w\` flag prints
+   the status code after the body so you can actually see it. Take that row's
+   \`filedTransactionId\` from the \`id\` field of that 201 body and from nowhere
+   else.
+
+   CHECK EVERY SINGLE CALL BEFORE MOVING ON. If a call does not come back 201
+   with an \`id\`, then for that row you must:
+     - NOT invent, guess, pattern-match, or reuse a transaction id;
+     - leave \`filedTransactionId\` absent from that row entirely;
+     - state in that row's \`reason\` that the filing failed, with the status code
+       you got back.
+   A made-up id is far worse than a failed filing: it tells the reader money
+   moved when it did not. Never write an id you did not read out of a 201 body.
 5. Write \`summary.json\` in your working directory. THIS FILE IS THE
-   DELIVERABLE — if you do not write it, all of your work is discarded. Exact
-   shape, no extra keys:
+   DELIVERABLE — if you do not write it, all of your work is discarded. The
+   fields mean:
+     - \`rowsRead\` — how many data rows you read out of the CSV.
+     - \`merchantsSearched\` — how many DISTINCT merchants you web-searched.
+     - \`totalExpensable\` — the SUM OF THE \`amount\` VALUES of every row you
+       decided "expensable". A dollar total, NOT a count of rows.
+     - \`totalPersonal\` — the SUM OF THE \`amount\` VALUES of every row you
+       decided "personal". Again a dollar total, NOT a count of rows.
+       Rows you marked "unclear" belong to NEITHER total.
+     - \`verdicts\` — one entry per CSV row, in the order the rows appear.
+   Exact shape, no extra keys (\`merchantKind\` and \`filedTransactionId\` are the
+   only optional ones — omit them rather than writing a placeholder):
 
 {
   "rowsRead": 14,
   "merchantsSearched": 5,
-  "totalExpensable": 0,
-  "totalPersonal": 0,
+  "totalExpensable": 1284.63,
+  "totalPersonal": 412.18,
   "verdicts": [
     {
       "merchant": "Hotel Verrano",
@@ -53,7 +80,15 @@ DO THIS, IN THIS ORDER:
       "decision": "expensable",
       "reason": "Lodging on the first night of the ${OFFSITE.city} offsite.",
       "merchantKind": "hotel",
-      "filedTransactionId": "txn_..."
+      "filedTransactionId": "txn_4f2a91"
+    },
+    {
+      "merchant": "Lumen Streaming",
+      "date": "2026-07-09",
+      "amount": 17.99,
+      "decision": "personal",
+      "reason": "A monthly entertainment subscription, unrelated to the offsite.",
+      "merchantKind": "streaming service"
     }
   ]
 }
