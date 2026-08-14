@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useRenderCustomMessages } from "../use-render-custom-messages";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
@@ -14,6 +14,35 @@ import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatCon
  * throwing an error.
  */
 describe("useRenderCustomMessages (#3497)", () => {
+  it("returns null when applicable renderers only render ephemeral messages", () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CopilotKitProvider
+        renderCustomMessages={[
+          {
+            render: null,
+            renderEphemeral: () => <div>Ephemeral</div>,
+          },
+          {
+            agentId: "default",
+            render: null,
+            renderEphemeral: () => <div>Agent ephemeral</div>,
+          },
+        ]}
+      >
+        <CopilotChatConfigurationProvider
+          agentId="default"
+          threadId="test-thread"
+        >
+          {children}
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>
+    );
+
+    const { result } = renderHook(() => useRenderCustomMessages(), { wrapper });
+
+    expect(result.current).toBeNull();
+  });
+
   it("returns null instead of throwing when agent is not found", () => {
     // Render the hook inside a CopilotKitProvider with an agentId that
     // does NOT exist in the registry (simulating connecting state).

@@ -168,6 +168,8 @@ function createTestCore(
     applyHeadersToAgent: vi.fn(),
     connectAgent,
     defaultThrottleMs: undefined,
+    getEphemeralMessages: vi.fn(() => []),
+    reconcileEphemeralMessages: vi.fn(() => false),
     getAgent: vi.fn(
       (agentId: string) => agents[agentId as keyof typeof agents],
     ),
@@ -179,6 +181,7 @@ function createTestCore(
         : (options.registeredStore ?? store),
     ),
     headers: {},
+    renderCustomMessages: [],
     intelligence: options.intelligence,
     registerThreadStore: vi.fn(),
     runtimeConnectionStatus:
