@@ -28,6 +28,9 @@
     "configurable",
     "subgraphs",
     "auth",
+    "---Deploy---",
+    "deploy-agentcore",
+    "deploy-langsmith",
     "---Tutorials---",
     "...tutorials"
   ]
