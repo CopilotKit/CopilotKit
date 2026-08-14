@@ -119,8 +119,8 @@ describe("railway-envs SSOT", () => {
     expect(entry).toBeDefined();
     expect(entry.serviceId).toMatch(/^[0-9a-f-]{36}$/);
     expect(entry.ciBuilt).toBe(true);
-    expect(entry.gateValidated).toBe(false);
-    expect(entry.gateIgnore).toBe(true);
+    expect(entry.gateValidated).toBe(true);
+    expect(entry.gateIgnore).toBeUndefined();
     expect(entry.dispatchName).toBe("crewai-conversational-flows");
     expect(entry.probeDriver).toBe("agent");
     expect(entry.runtimeDeps).toEqual(["aimock"]);
