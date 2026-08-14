@@ -368,6 +368,7 @@ export function useCoAgent<T = any>(
     agent?.threadId,
     agent?.isRunning,
     agent?.agentId,
+    nodeName,
     handleStateUpdate,
     options.name,
   ]);
