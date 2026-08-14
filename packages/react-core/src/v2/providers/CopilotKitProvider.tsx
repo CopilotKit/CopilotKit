@@ -801,6 +801,7 @@ const CopilotKitProviderInner: React.FC<
     withProviderHeaderSync(copilotkit, () =>
       copilotkit.setHeaders(mergedHeaders),
     );
+    headerReadiness?.update(copilotkit.headers);
     copilotkit.setCredentials(credentials);
     // Forward a per-run signal when the provider has an A2UI catalog so the
     // runtime can turn A2UI on (and inject the render tool) without a separate

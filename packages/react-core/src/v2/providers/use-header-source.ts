@@ -228,8 +228,10 @@ export function useHeaderSource(source: HeaderSource): {
       canonicalEvaluation.kind === "sync"
         ? "ready"
         : canonicalEvaluation.kind === "error"
-          ? "failed"
-          : state.error
+          ? lastGood.current !== EMPTY
+            ? "ready"
+            : "failed"
+          : state.error && previous?.source === source
             ? lastGood.current !== EMPTY
               ? "ready"
               : "failed"

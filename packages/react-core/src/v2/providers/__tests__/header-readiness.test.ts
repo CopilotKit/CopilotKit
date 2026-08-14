@@ -40,4 +40,17 @@ describe("HeaderReadinessBarrier", () => {
     barrier.ready(headers);
     expect(barrier.currentHeaders()).toBe(headers);
   });
+
+  it("reopens a settled barrier for a later failure and recovery", async () => {
+    const barrier = new HeaderReadinessBarrier();
+    barrier.ready({ Authorization: "Bearer current" });
+    barrier.failed(new Error("refresh failed"));
+    barrier.pending();
+    const pending = barrier.wait();
+    barrier.ready({ Authorization: "Bearer refreshed" });
+    await expect(pending).resolves.toBeUndefined();
+    expect(barrier.currentHeaders()).toEqual({
+      Authorization: "Bearer refreshed",
+    });
+  });
 });

@@ -8,6 +8,7 @@ export interface HeaderReadiness {
   wait(): Promise<void>;
   waitForRecovery(): Promise<void>;
   currentHeaders(): HeaderRecord;
+  update(headers: HeaderRecord): void;
   pending(): void;
   ready(headers?: HeaderRecord): void;
   failed(error: unknown): void;
@@ -16,6 +17,7 @@ export interface HeaderReadiness {
 export class HeaderReadinessBarrier implements HeaderReadiness {
   state: HeaderReadinessState = "pending";
   private headers: HeaderRecord = Object.freeze({}) as HeaderRecord;
+  private hasCurrentHeaders = false;
   private deferred = this.createDeferred();
   private recovery = this.createDeferred();
 
@@ -35,6 +37,11 @@ export class HeaderReadinessBarrier implements HeaderReadiness {
     return this.headers;
   }
 
+  update(headers: HeaderRecord): void {
+    this.headers = headers;
+    this.hasCurrentHeaders = true;
+  }
+
   pending(): void {
     if (this.state === "pending") return;
     this.state = "pending";
@@ -42,7 +49,9 @@ export class HeaderReadinessBarrier implements HeaderReadiness {
   }
 
   ready(headers?: HeaderRecord): void {
-    if (headers !== undefined) this.headers = headers;
+    if (headers !== undefined && !this.hasCurrentHeaders) {
+      this.headers = headers;
+    }
     if (this.state === "ready") return;
     this.state = "ready";
     this.deferred.resolve();
@@ -50,6 +59,10 @@ export class HeaderReadinessBarrier implements HeaderReadiness {
   }
 
   failed(error: unknown): void {
+    if (this.state === "ready") {
+      this.deferred = this.createDeferred();
+      this.recovery = this.createDeferred();
+    }
     this.state = "failed";
     this.deferred.reject(error);
     this.deferred.promise.catch(() => {});

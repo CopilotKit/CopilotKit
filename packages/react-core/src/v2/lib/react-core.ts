@@ -166,7 +166,9 @@ export class CopilotKitCoreReact extends CopilotKitCore {
   ): void {
     super.setHeaders(headers);
     if (!isProviderHeaderSync(this)) {
-      headerReadinessFor(this)?.ready(this.headers);
+      const readiness = headerReadinessFor(this);
+      readiness?.update(this.headers);
+      readiness?.ready();
     }
   }
 
