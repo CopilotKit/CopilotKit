@@ -8,7 +8,8 @@ const { generateCopilotResponse, functionCallHandler } = vi.hoisted(() => ({
 }));
 
 vi.mock("@copilotkit/runtime-client-gql", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@copilotkit/runtime-client-gql")>();
+  const actual =
+    await importOriginal<typeof import("@copilotkit/runtime-client-gql")>();
 
   return {
     ...actual,
@@ -48,13 +49,12 @@ describe("CopilotTask", () => {
 
     await task.run(
       createContext({
-        getCopilotReadableContextString: () =>
-          "User profile:\n{\"name\":\"Ada\"}",
+        getCopilotReadableContextString: () => 'User profile:\n{"name":"Ada"}',
       }),
     );
 
     expect(systemPromptFromLastRequest()).toContain(
-      "User profile:\n{\"name\":\"Ada\"}",
+      'User profile:\n{"name":"Ada"}',
     );
   });
 
