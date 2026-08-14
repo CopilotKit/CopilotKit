@@ -46,7 +46,7 @@ test("charge client calls the delivery-scoped runtime route", async () => {
   const client = new ChannelDeliveryChargeClient({
     baseUrl: "https://api.example/",
     apiKey: "cpk-runtime",
-    fetch,
+    fetch: fetch as unknown as typeof globalThis.fetch,
   });
 
   await expect(client.charge(delivery.deliveryId)).resolves.toBeUndefined();

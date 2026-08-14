@@ -180,7 +180,7 @@ stage_angular() {
 }
 
 stage_shared() {
-  # Dereference tools/, shared-tools/, and _shared/ symlinks into real copies
+  # Dereference tools/, shared-tools/, data/, and _shared/ symlinks into real copies
   # so Docker COPY can follow them (Docker build contexts can't traverse
   # symlinks that point outside the context). `_shared` carries the
   # single-source CVDIAG bootstrap module into each Python integration context.
@@ -201,7 +201,7 @@ stage_shared() {
   # That is harmless: it holds no `tools`/`shared-tools`/`_shared` symlink and no
   # `public/angular` link, so both loops below no-op for it.
   for pkg_dir in "$SHOWCASE_ROOT"/integrations/*/; do
-    for link_name in tools shared-tools _shared; do
+    for link_name in tools shared-tools data _shared; do
       local link_path="$pkg_dir/$link_name"
       if [ -L "$link_path" ]; then
         local target
@@ -235,7 +235,7 @@ stage_shared() {
 }
 
 restore_symlinks() {
-  # Restore tools/, shared-tools/, and _shared/ symlinks replaced by
+  # Restore tools/, shared-tools/, data/, and _shared/ symlinks replaced by
   # stage_shared. The `integrations/*/_shared` pathspec is two levels deep, so it
   # can never match the canonical source dir `integrations/_shared` — that dir is
   # only ever visited by stage_shared's own `integrations/*/` loop (see the note
@@ -258,8 +258,8 @@ restore_symlinks() {
   # real tracked `shared-tools` directory), so dropping the mastra symlink alone
   # would no longer empty this particular glob. The per-pathspec design is
   # justified by the FAILURE MODE, not by how many paths happen to match: any
-  # ONE of these four globs matching nothing — and `integrations/*/public/angular`
-  # or a future fifth glob can still get there in a single rename — used to
+  # ONE of these five globs matching nothing — and `integrations/*/public/angular`
+  # or a future sixth glob can still get there in a single rename — used to
   # silently suppress the restore of all the others. Keep them separate.
   #
   # Per-pathspec now: one failing glob can no longer suppress the others, and
@@ -270,6 +270,7 @@ restore_symlinks() {
   for pathspec in \
     'integrations/*/tools' \
     'integrations/*/shared-tools' \
+    'integrations/*/data' \
     'integrations/*/_shared' \
     'integrations/*/public/angular'
   do

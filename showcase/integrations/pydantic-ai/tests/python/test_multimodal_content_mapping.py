@@ -3,14 +3,17 @@
 Exercises the REAL failure surface end-to-end:
 
     AG-UI ``UserMessage(content=[TextInputContent, ImageInputContent, ...])``
-      → ``pydantic_ai.ag_ui._messages_from_ag_ui``      (the AG-UI bridge)
+      → ``pydantic_ai.ui.ag_ui.AGUIAdapter.load_messages`` (the AG-UI bridge)
       → ``multimodal_agent._flatten_messages_for_model`` (model-boundary flatten)
       → ``OpenAIResponsesModel._map_user_prompt``        (lib mapping)
 
-The bug: the PydanticAI AG-UI bridge drops the raw ``UserMessage.content``
-list — a list of AG-UI ``InputContent`` *model objects* — straight into
+The bug (v1): the AG-UI bridge dropped the raw ``UserMessage.content`` list — a
+list of AG-UI ``InputContent`` *model objects* — straight into
 ``UserPromptPart.content`` with no conversion, and ``_map_user_prompt`` then
-``assert_never``s on those AG-UI objects. The model-boundary flatten
+``assert_never``d on those AG-UI objects. On v2 ``load_messages`` converts them
+to native content instead, so the flatten's job shifts from "convert AG-UI
+objects" to "apply the provider gate to native content" — unsupported image
+subtypes, audio/video, and PDF text extraction still need handling. The model-boundary flatten
 (``_flatten_messages_for_model``, invoked by the ``_MultimodalFlattenModel``
 wrapper) must normalise each part to a native PydanticAI content type
 (``str`` / ``ImageUrl`` / ``BinaryContent`` / ``DocumentUrl`` / extracted-PDF
@@ -58,7 +61,9 @@ _PNG_B64 = (
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-multimodal-mapping")
 
 ag_core = pytest.importorskip("ag_ui.core")
-pydantic_ag_ui = pytest.importorskip("pydantic_ai.ag_ui")
+# `pydantic_ai.ui.ag_ui`, not the v1 `pydantic_ai.ag_ui` — the latter no longer
+# exists, so importorskip against it would skip this whole file green.
+pydantic_ag_ui = pytest.importorskip("pydantic_ai.ui.ag_ui")
 pydantic_openai = pytest.importorskip("pydantic_ai.models.openai")
 
 from pydantic_ai import BinaryContent, ImageUrl  # noqa: E402
@@ -79,7 +84,8 @@ DocumentInputContent = ag_core.DocumentInputContent
 BinaryInputContent = ag_core.BinaryInputContent
 InputContentDataSource = ag_core.InputContentDataSource
 InputContentUrlSource = ag_core.InputContentUrlSource
-_messages_from_ag_ui = pydantic_ag_ui._messages_from_ag_ui
+# v2 equivalent of v1's private `_messages_from_ag_ui`, and public this time.
+_messages_from_ag_ui = pydantic_ag_ui.AGUIAdapter.load_messages
 OpenAIResponsesModel = pydantic_openai.OpenAIResponsesModel
 
 
@@ -332,7 +338,9 @@ def test_model_boundary_flatten_does_not_mutate_input():
         # raw AG-UI InputContent objects, and a NEW part object.
         assert orig_part.content == orig_snapshot
         assert orig_part is not part
-        assert all(type(o).__name__.endswith("InputContent") for o in orig_part.content)
+        # v2 pre-converts AG-UI attachments to native content, so the untouched
+        # original holds BinaryContent; what matters is the flatten did not leak.
+        assert not any(isinstance(o, ImageUrl) for o in orig_part.content)
 
     asyncio.run(run())
 
@@ -535,7 +543,11 @@ def test_agent_uses_no_content_flattening_history_processor():
 
     part = _user_prompt_part(processed)
     assert isinstance(part.content, list)
-    assert all(type(c).__name__.endswith("InputContent") for c in part.content), (
+    # v2's load_messages converts AG-UI attachments to native content before
+    # the model boundary, so the un-flattened original holds BinaryContent, not
+    # the AG-UI InputContent v1 delivered. The guarantee is the same: the
+    # flatten's output (ImageUrl / extracted text) must never appear here.
+    assert not any(isinstance(c, ImageUrl) for c in part.content), (
         "a registered history_processor flattened content — its return is "
         "persisted to ctx.state.message_history and would leak the flattened "
         f"PDF/image content into UI state: {[type(c).__name__ for c in part.content]}"
@@ -626,7 +638,11 @@ def test_model_boundary_flatten_does_not_persist_to_state():
     # same identity, same content (no persistence/leak into UI state).
     assert _user_prompt_part(state_history) is orig_part
     assert orig_part.content == orig_snapshot
-    assert all(type(c).__name__.endswith("InputContent") for c in orig_part.content), (
+    # v2's load_messages converts AG-UI attachments to native content before
+    # the model boundary, so the un-flattened original holds BinaryContent, not
+    # the AG-UI InputContent v1 delivered. The guarantee is the same: the
+    # flatten's output (ImageUrl / extracted text) must never appear here.
+    assert not any(isinstance(c, ImageUrl) for c in orig_part.content), (
         "model-boundary flatten leaked into state: "
         f"{[type(c).__name__ for c in orig_part.content]}"
     )
@@ -670,7 +686,9 @@ def test_model_wrapper_flattens_outgoing_request():
 
     # The input messages are untouched (no state mutation at the boundary).
     assert [type(c).__name__ for c in orig_part.content] == orig_types
-    assert all(type(c).__name__.endswith("InputContent") for c in orig_part.content)
+    # v2 pre-converts AG-UI attachments to native content; the guarantee is that
+    # the flatten output (ImageUrl / extracted text) never appears in state.
+    assert not any(isinstance(c, ImageUrl) for c in orig_part.content)
 
 
 # ---------------------------------------------------------------------------
@@ -1110,7 +1128,9 @@ def test_request_stream_flattens_outgoing_messages():
     # ...and the state-backing history is unchanged (no leak into UI state).
     assert _user_prompt_part(state_history) is orig_part
     assert orig_part.content == orig_snapshot
-    assert all(type(c).__name__.endswith("InputContent") for c in orig_part.content)
+    # v2 pre-converts AG-UI attachments to native content; the guarantee is that
+    # the flatten output (ImageUrl / extracted text) never appears in state.
+    assert not any(isinstance(c, ImageUrl) for c in orig_part.content)
 
 
 # ---------------------------------------------------------------------------

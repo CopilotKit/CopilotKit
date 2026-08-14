@@ -482,6 +482,19 @@ export async function openGuardedContext<C>(
 }
 
 /**
+ * D6 is strict by default so fixture gaps fail closed in CI. Live fixture
+ * capture can explicitly opt out because aimock gives the per-request strict
+ * header precedence over its server-side `--record` mode.
+ */
+export function resolveAimockStrictHeaders(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): Record<string, string> {
+  return env.SHOWCASE_AIMOCK_STRICT === "0"
+    ? {}
+    : { "X-AIMock-Strict": "true" };
+}
+
+/**
  * Default Playwright-backed launcher. Sets X-AIMock-Strict header at the
  * browser level. Per-context headers (X-AIMock-Context, X-Test-Id) are
  * set per-feature in newContext calls from the feature loop.
@@ -506,7 +519,7 @@ const defaultLauncher: E2eFullBrowserLauncher =
           browser,
           {
             extraHTTPHeaders: {
-              "X-AIMock-Strict": "true",
+              ...resolveAimockStrictHeaders(),
               ...contextOpts?.extraHTTPHeaders,
             },
           },

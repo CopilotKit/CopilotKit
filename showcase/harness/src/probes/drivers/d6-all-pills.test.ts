@@ -8,6 +8,7 @@ import {
   FEATURE_CONCURRENCY_D6,
   openGuardedContext,
   parseFailureClassifier,
+  resolveAimockStrictHeaders,
   Semaphore,
 } from "./d6-all-pills.js";
 import { CVDIAG_FAILURE_CLASSIFIERS } from "../../cvdiag/index.js";
@@ -40,6 +41,20 @@ import type {
 // disk). Each test populates the registry with the script(s) it needs.
 
 // --- Page / browser fakes -------------------------------------------------
+
+describe("resolveAimockStrictHeaders", () => {
+  it("keeps strict replay as the default", () => {
+    expect(resolveAimockStrictHeaders({})).toEqual({
+      "X-AIMock-Strict": "true",
+    });
+  });
+
+  it("omits the strict header only for an explicit live validation run", () => {
+    expect(resolveAimockStrictHeaders({ SHOWCASE_AIMOCK_STRICT: "0" })).toEqual(
+      {},
+    );
+  });
+});
 
 interface PageScript {
   throwOnGoto?: Error;

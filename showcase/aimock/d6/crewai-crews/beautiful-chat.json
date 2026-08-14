@@ -2,8 +2,8 @@
   "_meta": {
     "description": "D6 fixtures for crewai-crews / beautiful-chat",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "copiedFrom": "langgraph-python"
   },
   "fixtures": [
     {
@@ -111,9 +111,9 @@
       }
     },
     {
-      "_comment": "beautiful-chat-search-flights D5 probe. search_flights takes `flights: list[Flight]` (NOT the {origin,destination} shape used by tool-rendering). Fixture args are the LGP card payload — United / Delta and $349 / $289. Keyed on the D5 probe string. hasToolResult:false gates this to the initial user turn; the follow-up content fixture below catches iteration 2 via toolCallId.",
+      "_comment": "beautiful-chat 'Search Flights (A2UI Fixed Schema)' pill — sends 'Find flights from SFO to JFK for next Tuesday.'. Beautiful-chat's search_flights tool takes `flights: list[Flight]` (NOT the {origin,destination} shape used by tool_rendering_agent). Test asserts United Airlines + $349 + Delta + $289 are visible. Narrowed userMessage to 'for next Tuesday' so this stays scoped to the beautiful-chat pill (the tool-rendering basic + reasoning-chain pills both lack that phrase). hasToolResult:false gates this to the initial user turn; the follow-up content fixture below catches iteration 2 via toolCallId.",
       "match": {
-        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+        "userMessage": "for next Tuesday",
         "hasToolResult": false,
         "context": "crewai-crews"
       },

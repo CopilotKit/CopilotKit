@@ -72,8 +72,8 @@ describe("frontend-aware Showcase routes", () => {
     expect(
       resolveShowcaseCell({
         frontend: "angular",
-        integration: "crewai-crews",
-        feature: "mcp-apps",
+        integration: "built-in-agent",
+        feature: "background-agents",
         backendHostPattern: "showcase-{slug}.example.test",
       }),
     ).toMatchObject({ kind: "backend-unavailable" });

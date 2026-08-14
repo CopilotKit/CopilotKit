@@ -1,7 +1,8 @@
 {
   "_meta": {
     "description": "D6 fixtures for crewai-crews / gen-ui-a2ui-fixed (a2ui-fixed-schema flight card pill)",
-    "created": "2026-06-05"
+    "created": "2026-07-14",
+    "copiedFrom": "langgraph-python"
   },
   "fixtures": [
     {

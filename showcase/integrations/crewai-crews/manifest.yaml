@@ -1,9 +1,9 @@
-name: CrewAI (Crews)
+name: CrewAI Flows
 slug: crewai-crews
 category: popular
 language: python
 logo: /logos/crewai-crews.svg
-description: CopilotKit integration with CrewAI (Crews)
+description: CopilotKit integration with regular CrewAI Flows
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/crewai-crews
 copilotkit_version: 2.0.0
@@ -22,29 +22,7 @@ interaction_modalities:
 managed_platform:
   name: CrewAI Enterprise
   url: https://crewai.com/amp
-not_supported_features:
-  # NEVER IMPLEMENTED, not an oversight. `multimodal` (Attachments) has no
-  # backend on this integration: `src/agent_server.py` registers a dedicated
-  # AG-UI endpoint for every other demo but NO `/multimodal` route (see the
-  # endpoint block that ends with the catch-all
-  # `add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")`), and
-  # there is no `src/agents/multimodal_agent.py`. The demo's route
-  # (`src/app/api/copilotkit-multimodal/route.ts`) therefore aliases the generic
-  # shared crew, which has no vision handling and dies on a content-part
-  # message — surfacing as the opaque `CrewAI flow failed; see server logs`.
-  # Building the dedicated vision-tuned crew is tracked follow-up work (that
-  # route file's header comment already concedes the gap). Marked not-supported
-  # so the cell reads unsupported (gray/🚫) rather than green (which would claim
-  # it works) or red (which would claim a regression). The demo entry stays
-  # wired below, matching every other not-supported feature here.
-  - multimodal
-  - shared-state-streaming
-  - gen-ui-interrupt
-  - interrupt-headless
-  - mcp-apps
-  - reasoning-default-render
-  - agentic-chat-reasoning
-  - tool-rendering-reasoning-chain
+not_supported_features: []
 features:
   - cli-start
   - agentic-chat
@@ -54,6 +32,8 @@ features:
   - prebuilt-popup
   - headless-simple
   - headless-complete
+  - reasoning-default
+  - reasoning-custom
   - hitl
   - hitl-in-chat
   - hitl-in-chat-booking
@@ -61,6 +41,7 @@ features:
   - tool-rendering
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
+  - tool-rendering-reasoning-chain
   - gen-ui-agent
   - gen-ui-tool-based
   - frontend-tools
@@ -75,19 +56,16 @@ features:
   - voice
   - declarative-gen-ui
   - a2ui-fixed-schema
-  # DROPPED: `byoc-hashbrown` / `byoc-json-render`. Both ids are marked
-  # `deprecated` in showcase/shared/feature-registry.json, superseded by
-  # `declarative-hashbrown` / `declarative-json-render`. This package's demo
-  # folders already carry the NEW names and the unified app only ships pages for
-  # the new ids, so the legacy ids named nothing in this app: they sat in
-  # `features` with no `demos[]` row, which made the cell resolve as supported
-  # and then 404 at POST /api/crewai-crews/<id>. Re-adding them under the NEW ids
-  # is a follow-up: the agents ARE served (src/agent_server.py registers
-  # ByocHashbrown() at "/byoc-hashbrown" and ByocJsonRender() at
-  # "/byoc-json-render"), so the rows need `id: declarative-*` with `agent.path`
-  # pointing at those legacy backend prefixes.
+  - a2ui-recovery
+  - declarative-hashbrown
+  - declarative-json-render
   - beautiful-chat
+  - mcp-apps
   - shared-state-read
+  - shared-state-streaming
+  - multimodal
+  - gen-ui-interrupt
+  - interrupt-headless
 a2ui_pattern: schema-loading
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
@@ -155,6 +133,30 @@ demos:
       - chat-ui
     route: /demos/headless-complete
     animated_preview_url:
+  - id: reasoning-default
+    agent:
+      path: /reasoning
+    name: "Reasoning: Default"
+    description: Built-in CopilotChat reasoning rendering backed by native CrewAI Flow reasoning events
+    tags:
+      - chat-ui
+    route: /demos/reasoning-default
+    highlight:
+      - src/agents/reasoning_flow.py
+      - src/app/demos/reasoning-default/page.tsx
+      - src/app/demos/reasoning-default/suggestions.ts
+  - id: reasoning-custom
+    agent:
+      path: /reasoning
+    name: "Reasoning: Custom"
+    description: Native CrewAI reasoning tokens rendered through a custom reasoning message slot
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    highlight:
+      - src/agents/reasoning_flow.py
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
   - id: hitl-in-chat
     name: In-Chat Human in the Loop
     description: User approves agent actions before execution
@@ -239,6 +241,8 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
+    agent:
+      path: /tool-rendering-reasoning
     name: Tool Rendering + Reasoning Chain
     description: Sequential tool calls with reasoning tokens side-by-side
     tags:
@@ -266,7 +270,7 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools
     agent:
-      name: frontend_tools
+      path: /frontend-tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
     tags:
@@ -274,6 +278,8 @@ demos:
     route: /demos/frontend-tools
     animated_preview_url:
   - id: frontend-tools-async
+    agent:
+      path: /frontend-tools
     name: Frontend Tools (Async)
     description: useFrontendTool with an async handler
     tags:
@@ -281,6 +287,8 @@ demos:
     route: /demos/frontend-tools-async
     animated_preview_url:
   - id: shared-state-streaming
+    agent:
+      path: /shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
     tags:
@@ -288,6 +296,8 @@ demos:
     route: /demos/shared-state-streaming
     animated_preview_url:
   - id: shared-state-read
+    agent:
+      path: /shared-state-read
     name: "Shared State: Read-only"
     description:
       "Recipe editor publishes form state via agent.setState; the agent
@@ -405,7 +415,7 @@ demos:
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: multimodal
     agent:
-      name: multimodal-demo
+      path: /multimodal
     name: Multimodal Attachments
     description: Image and PDF uploads routed through the AG-UI attachment pipeline
     tags:
@@ -445,6 +455,36 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
+  - id: a2ui-recovery
+    agent:
+      path: /a2ui-recovery
+    name: A2UI Error Recovery
+    description: CrewAI Flow-owned validate-to-retry recovery that heals a malformed render or shows a graceful exhausted fallback
+    tags:
+      - generative-ui
+    route: /demos/a2ui-recovery
+    animated_preview_url:
+    highlight:
+      - src/agents/a2ui_recovery_flow.py
+      - src/app/demos/a2ui-recovery/page.tsx
+      - src/app/demos/a2ui-recovery/suggestions.ts
+      - src/app/api/copilotkit-a2ui-recovery/route.ts
+  - id: declarative-hashbrown
+    agent:
+      path: /byoc-hashbrown
+    name: "Declarative UI: Hashbrown"
+    description: Streaming structured output via @hashbrownai/react
+    tags:
+      - generative-ui
+    route: /demos/declarative-hashbrown
+  - id: declarative-json-render
+    agent:
+      path: /byoc-json-render
+    name: "Declarative UI: JSON Render"
+    description: Streaming structured output rendered through a JSON catalog
+    tags:
+      - generative-ui
+    route: /demos/declarative-json-render
   - id: beautiful-chat
     agent:
       path: /beautiful-chat
@@ -480,31 +520,28 @@ demos:
       - src/app/api/copilotkit-mcp-apps/route.ts
   - id: gen-ui-interrupt
     agent:
-      path: /interrupt-adapted
-    name: Gen UI Interrupt (Strategy B)
-    description: Interrupt-style scheduling via useFrontendTool with an async
-      Promise — time-picker card rendered inline in chat
+      path: /interrupt
+    name: "Human in the Loop: Interrupts"
+    description: Native CrewAI Flow human feedback rendered inline through useInterrupt
     tags:
       - interactivity
     route: /demos/gen-ui-interrupt
     animated_preview_url:
     highlight:
-      - src/agents/interrupt_crew.py
+      - src/agents/interrupt_flow.py
       - src/app/demos/gen-ui-interrupt/page.tsx
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
     agent:
-      path: /interrupt-adapted
-    name: Headless Interrupt (Strategy B)
-    description:
-      Headless interrupt via useFrontendTool — time-picker popup appears
-      in the app surface outside the chat
+      path: /interrupt
+    name: Headless Interrupt
+    description: Native CrewAI Flow human feedback rendered in the app surface outside chat
     tags:
       - interactivity
     route: /demos/interrupt-headless
     animated_preview_url:
     highlight:
-      - src/agents/interrupt_crew.py
+      - src/agents/interrupt_flow.py
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts

@@ -9,6 +9,7 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
+      - ".github/workflows/aeo_synthetics.yml"
       - ".github/workflows/showcase_deploy.yml"
       # This job runs showcase/scripts/advance-latest-tag.test.ts, which
       # asserts against the LIVE text of showcase_build.yml (that the build
@@ -50,6 +51,7 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
+      - ".github/workflows/aeo_synthetics.yml"
       - ".github/workflows/showcase_deploy.yml"
       - ".github/workflows/showcase_build.yml"
       # Kept in lockstep with the pull_request list above — see the comment

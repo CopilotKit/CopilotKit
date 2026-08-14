@@ -360,6 +360,26 @@ const DEEP_COAGENTS: RedirectEntry[] = [
 
 const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   {
+    id: "CF-mode-parity",
+    source: "/crewai-conversational-flows/feature-parity",
+    destination: "/crewai-flows/conversational-flows",
+  },
+  {
+    id: "CF-mode-parity-canonical",
+    source: "/crewai-crews/feature-parity",
+    destination: "/crewai-flows/conversational-flows",
+  },
+  {
+    id: "CF-mode-root",
+    source: "/crewai-conversational-flows",
+    destination: "/crewai-flows/conversational-flows",
+  },
+  {
+    id: "CF-mode-wild",
+    source: "/crewai-conversational-flows/:path*",
+    destination: "/crewai-flows/:path*",
+  },
+  {
     id: "F1",
     source: "/langgraph/quickstart/langgraph",
     destination: "/langgraph-python/quickstart",
