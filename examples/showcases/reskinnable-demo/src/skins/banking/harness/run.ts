@@ -1,6 +1,6 @@
 import { chat } from "@tanstack/ai";
 import { codexText } from "@tanstack/ai-codex";
-import { defineSandbox, withSandbox } from "@tanstack/ai-sandbox";
+import { defineSandbox, localSource, withSandbox } from "@tanstack/ai-sandbox";
 import { localProcessSandbox } from "@tanstack/ai-sandbox-local-process";
 
 /**
@@ -70,7 +70,16 @@ export const createExpenseHarnessStream = (opts: {
   abortSignal: AbortSignal;
 }): AsyncIterable<unknown> =>
   chat({
-    adapter: codexText("gpt-5.1-codex", {
+    // NOT a `*-codex` model, deliberately. The codex-branded ids are rejected
+    // outright on a ChatGPT-account `codex login` — `gpt-5.1-codex` comes back
+    // 400 "The 'gpt-5.1-codex' model is not supported when using Codex with a
+    // ChatGPT account", and it arrives as a RUN_ERROR *chunk* rather than a
+    // throw, so it reads as a harness that ran and said nothing. This id is
+    // reachable on both auth modes and is what the gate probe's successful runs
+    // used. It rides the `(string & {})` escape hatch in `CodexModel` (it is not
+    // in `CODEX_MODELS`), which is supported — the harness accepts any id its
+    // backend does. Switching back is a one-line change once an API key exists.
+    adapter: codexText("gpt-5.6-sol", {
       // The virtual root, which the provider maps to `opts.dir` (see above).
       cwd: SANDBOX_WORKSPACE_ROOT,
       // Codex's OWN --sandbox flag, independent of the TanStack sandbox above:
@@ -83,6 +92,20 @@ export const createExpenseHarnessStream = (opts: {
       modelReasoningEffort: "high",
       // The scratch dir is not a git repo and does not need to be.
       skipGitRepoCheck: true,
+      // VISIBLE THINKING — the feature's headline claim, and NOT implied by
+      // `modelReasoningEffort` above. Effort governs how hard the model thinks;
+      // this governs whether it ever SUMMARISES that thinking on the wire.
+      // Without it the gate probe observed ZERO `REASONING_*` chunks: the run
+      // works, reasons hard, and streams nothing to show for it.
+      //
+      // `"auto"` specifically. `"detailed"` is the tempting choice and is WRONG
+      // here — measured, it yields no reasoning items at all.
+      //
+      // The inner quotes are load-bearing: `config` values are interpolated
+      // into `--config key=value` VERBATIM as TOML, so a TOML string has to
+      // arrive already quoted (the same shape the adapter builds by hand for
+      // `model_reasoning_effort`).
+      config: { model_reasoning_summary: '"auto"' },
     }),
     messages: [{ role: "user", content: opts.prompt }],
     // `chat()` takes an AbortController, NOT a signal — and this is the wiring
@@ -97,8 +120,36 @@ export const createExpenseHarnessStream = (opts: {
           id: "banking-expense-harness",
           // The scratch dir IS the sandbox root; nothing to build or copy.
           provider: localProcessSandbox({ dir: opts.dir }),
-          // No `workspace` block: `prepareWorkspace` already populated the dir
-          // with expenses.csv, and declaring one would run a bootstrap over it.
+          // MANDATORY, and not for the reason its name suggests. `withSandbox`
+          // declares `provides: [SandboxCapability, ProjectionCapability]`
+          // unconditionally, but only calls `provideWorkspaceProjection()` when
+          // the definition carries a `workspace` — and `@tanstack/ai`'s
+          // middleware runner throws when a DECLARED capability is never
+          // provided ('provides "sandbox-projection" but never called
+          // provide()'). Omit this block and the run dies at middleware setup,
+          // before it can reach the model at all.
+          //
+          // It is a no-op on disk, which the gate probe verified across two runs
+          // (`expenses.csv` survived both, and the harness wrote `summary.json`
+          // normally). `bootstrapWorkspace` lands a source only when
+          // `source.type === "git"`; with no `skills`, no `instructions`, no
+          // `scripts` and no `setup`, every other write it can perform is
+          // skipped too. So this declares where the tree already is rather than
+          // asking for one to be created — `prepareWorkspace` populated it.
+          //
+          // ONE cosmetic side effect, observed and benign: the projector's
+          // idempotency marker gets its path resolved TWICE — once by
+          // `resolveHarnessCwd` (virtual `/workspace` → the real dir) and again
+          // by `handle.fs.write` (which strips the leading `/` and re-roots it),
+          // so an empty `.tanstack-projected-<hash>` lands under a mirrored
+          // `var/folders/…/` tree inside the scratch dir instead of at its top.
+          // Nothing reads it (the projection is a no-op here anyway) and
+          // `expenses.csv`/`summary.json` are untouched — but do not go hunting
+          // for a rogue harness when you see that directory.
+          workspace: {
+            root: SANDBOX_WORKSPACE_ROOT,
+            source: localSource(opts.dir),
+          },
           lifecycle: {
             // Every run gets a FRESH `mkdtemp` dir from `prepareWorkspace`, so
             // resuming a previous run's sandbox record would root this run at a
