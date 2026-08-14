@@ -1077,6 +1077,36 @@ export const SERVICES: Record<
       },
     },
   },
+  // STAGING-ONLY (for now). CrewAI Conversational Flows ships to staging
+  // first; its prod serviceInstance is intentionally not provisioned yet.
+  // ciBuilt keeps it in staging redeploys, while gateIgnore excludes this
+  // prod-less service from both image-ref drift directions until promotion.
+  "showcase-crewai-conversational-flows": {
+    serviceId: "11859593-da4e-486c-a810-6cdffeff9750",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    ciBuilt: true,
+    gateValidated: false,
+    gateIgnore: true,
+    dispatchName: "crewai-conversational-flows",
+    probeDriver: "agent",
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      staging: {
+        instanceId: "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
+        healthcheckPath: "/api/health",
+        domain: "showcase-crewai-conversational-flows-staging.up.railway.app",
+        probe: true,
+      },
+    },
+    // The Ruby/jq compatibility projection requires a prod domain even for a
+    // staging-only service. This borrowed host is never probed in prod.
+    legacyJsonCompat: {
+      domains: {
+        prod: "showcase-crewai-conversational-flows-staging.up.railway.app",
+      },
+    },
+  },
   "showcase-google-adk": {
     serviceId: "87f60507-5a3d-4b8a-9e23-2b1de85d939c",
     autoUpdates: { staging: "disabled", prod: "disabled" },
