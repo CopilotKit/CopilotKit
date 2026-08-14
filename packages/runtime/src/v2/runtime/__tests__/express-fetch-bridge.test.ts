@@ -140,6 +140,73 @@ describe("express-fetch-bridge — pre-parsed body", () => {
 });
 
 /* ------------------------------------------------------------------------------------------------
+ * `req.body` set without the stream being consumed
+ * --------------------------------------------------------------------------------------------- */
+
+/**
+ * body-parser 1.x (Express 4) assigns `req.body = req.body || {}` *before* it
+ * checks whether it should parse at all, so a request it declines — multipart,
+ * text/plain — arrives with `req.body === {}` and the stream still full. This
+ * middleware reproduces that state; the awaiting middleware after it lets the
+ * HTTP parser finish, which is what sets `req.complete` on an unread stream.
+ */
+function legacyParserThatDeclinesToParse(): express.RequestHandler {
+  return (req, _res, next) => {
+    req.body = req.body || {};
+    next();
+  };
+}
+
+const echoBody: CopilotRuntimeFetchHandler = async (req) => {
+  const text = await req.text();
+  return new Response(
+    JSON.stringify({ text, contentType: req.headers.get("content-type") }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+};
+
+describe("express-fetch-bridge — req.body set but stream not consumed", () => {
+  function createLegacyApp(fetchHandler: CopilotRuntimeFetchHandler) {
+    const app = express();
+    const nodeHandler = createExpressNodeHandler(fetchHandler);
+
+    app.use(legacyParserThatDeclinesToParse());
+    app.use(async (_req, _res, next) => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      next();
+    });
+    app.all(/.*/, (req, res) => nodeHandler(req, res));
+    return app;
+  }
+
+  it("streams a text/plain body instead of rebuilding it from an empty req.body", async () => {
+    const res = await request(createLegacyApp(echoBody))
+      .post("/test")
+      .set("Content-Type", "text/plain")
+      .send("hello");
+
+    expect(res.status).toBe(200);
+    // Previously the bridge saw `req.body === {}` plus `req.complete` and
+    // rebuilt the request as `"{}"`, silently discarding the real payload.
+    expect(res.body.text).toBe("hello");
+  });
+
+  it("streams a multipart body instead of rebuilding it from an empty req.body", async () => {
+    const payload =
+      '--xyz\r\nContent-Disposition: form-data; name="file"\r\n\r\nAUDIOBYTES\r\n--xyz--';
+
+    const res = await request(createLegacyApp(echoBody))
+      .post("/test")
+      .set("Content-Type", "multipart/form-data; boundary=xyz")
+      .send(payload);
+
+    expect(res.status).toBe(200);
+    expect(res.body.text).toContain("AUDIOBYTES");
+    expect(res.body.contentType).toContain("multipart/form-data");
+  });
+});
+
+/* ------------------------------------------------------------------------------------------------
  * URL reconstruction
  * --------------------------------------------------------------------------------------------- */
 
