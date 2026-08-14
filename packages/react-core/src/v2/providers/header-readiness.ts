@@ -134,6 +134,7 @@ export class HeaderReadinessBarrier implements HeaderReadiness {
 }
 
 const coreBarriers = new WeakMap<object, HeaderReadiness>();
+const barrierCores = new WeakMap<object, CopilotKitCoreReact>();
 const configBarriers = new WeakMap<object, HeaderReadiness>();
 const providerHeaderSync = new WeakSet<object>();
 
@@ -142,6 +143,7 @@ export function bindHeaderReadiness(
   barrier: HeaderReadiness,
 ): void {
   coreBarriers.set(core, barrier);
+  barrierCores.set(barrier, core);
 }
 
 export function headerReadinessFor(value: object): HeaderReadiness | undefined {
@@ -182,4 +184,8 @@ export function headerReadinessRuntimeUrlFor(
   value: object,
 ): string | undefined {
   return headerReadinessFor(value)?.currentRuntimeUrl();
+}
+
+export function applyDeferredHeaderRuntimeUrl(barrier: HeaderReadiness): void {
+  barrierCores.get(barrier)?.syncDeferredRuntimeUrl();
 }

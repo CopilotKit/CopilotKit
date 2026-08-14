@@ -65,6 +65,7 @@ import {
   useHeaderReadiness,
 } from "./ResolvedHeadersContext";
 import {
+  applyDeferredHeaderRuntimeUrl,
   bindHeaderReadiness,
   HeaderReadinessBarrier,
   withProviderHeaderSync,
@@ -984,8 +985,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = (
   }
   const barrier = barrierRef.current;
   useEffect(() => {
-    if (status === "ready") barrier.ready(headers ?? EMPTY_HEADERS);
-    else if (status === "failed") barrier.failed(error);
+    if (status === "ready") {
+      applyDeferredHeaderRuntimeUrl(barrier);
+      barrier.ready(headers ?? EMPTY_HEADERS);
+    } else if (status === "failed") barrier.failed(error);
     else barrier.pending();
   }, [barrier, error, headers, status]);
   useEffect(

@@ -168,7 +168,11 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     if (!isProviderHeaderSync(this)) {
       const readiness = headerReadinessFor(this);
       readiness?.update(this.headers);
-      readiness?.recover();
+      if (readiness) {
+        this.syncDeferredRuntimeUrl();
+        readiness.recover();
+        this.connect();
+      }
     }
   }
 
@@ -191,13 +195,16 @@ export class CopilotKitCoreReact extends CopilotKitCore {
         : (readiness?.wait() ?? waitForHeaderReadiness(this));
     void waitForConnect
       .then(() => {
-        if (this._hasDeferredRuntimeUrl) {
-          super.setRuntimeUrl(this._deferredRuntimeUrl);
-          this._hasDeferredRuntimeUrl = false;
-        }
+        this.syncDeferredRuntimeUrl();
         super.connect();
       })
       .catch(() => {});
+  }
+
+  syncDeferredRuntimeUrl(): void {
+    if (!this._hasDeferredRuntimeUrl) return;
+    super.setRuntimeUrl(this._deferredRuntimeUrl);
+    this._hasDeferredRuntimeUrl = false;
   }
 
   override reloadSuggestions(agentId: string): void {
