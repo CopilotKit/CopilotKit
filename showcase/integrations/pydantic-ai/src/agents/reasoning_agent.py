@@ -47,7 +47,9 @@ SYSTEM_PROMPT = dedent(
 # `detailed` matches LGP (`reasoning={"effort":"medium","summary":"detailed"}`).
 # `auto` lets the model skip the summary, so THINKING / REASONING events
 # never land and the reasoning-display probe sees 0 reasoning-role messages.
-_REASONING_MODEL = os.environ.get("REASONING_MODEL", os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4"))
+_REASONING_MODEL = os.environ.get(
+    "REASONING_MODEL", os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
+)
 
 agent = Agent(
     model=OpenAIResponsesModel(_REASONING_MODEL),

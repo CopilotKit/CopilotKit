@@ -50,8 +50,7 @@ export const getStockPrice = tool({
 
 export const getRevenueChart = tool({
   name: "get_revenue_chart",
-  description:
-    "Get a mock six-month revenue series for a chart visualization.",
+  description: "Get a mock six-month revenue series for a chart visualization.",
   inputSchema: z.object({}),
   callback: () =>
     JSON.stringify({

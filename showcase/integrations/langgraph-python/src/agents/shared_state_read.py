@@ -100,9 +100,7 @@ class RecipeInjectorMiddleware(AgentMiddleware[AgentState, Any]):
         message = self._build_recipe_message(recipe)
         if message is None:
             return await handler(request)
-        return await handler(
-            request.override(messages=[message, *request.messages])
-        )
+        return await handler(request.override(messages=[message, *request.messages]))
 
 
 graph = create_agent(

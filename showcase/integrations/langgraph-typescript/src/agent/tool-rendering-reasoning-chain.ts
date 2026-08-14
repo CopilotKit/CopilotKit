@@ -125,7 +125,10 @@ const getStockPrice = tool(
     schema: z.object({
       ticker: z.string().describe("Stock ticker symbol"),
       price_usd: z.number().optional().describe("Deterministic price"),
-      change_pct: z.number().optional().describe("Deterministic change percent"),
+      change_pct: z
+        .number()
+        .optional()
+        .describe("Deterministic change percent"),
     }),
   },
 );
