@@ -23,12 +23,65 @@ import { prepareWorkspace, readSummary } from "./workspace";
  * runtime's tanstack factory instead.
  */
 
+/**
+ * Where the bundled fixture is fetched from. Arm C fetches the same URL the same
+ * way, so keep this a FETCH rather than a filesystem read: the two arms are only
+ * comparable if the CSV arrives identically in both.
+ */
+const expenseCsvUrl = (): string =>
+  `http://localhost:${process.env.PORT ?? 3000}${EXPENSE_CSV_PUBLIC_PATH}`;
+
+/**
+ * The real CSV read, and `HarnessDeps.readCsv`'s default.
+ *
+ * The `response.ok` check is load-bearing, not defensive noise. `fetch` resolves
+ * happily on a 404, so without it a wrong port or a renamed fixture writes an
+ * HTML error page into `expenses.csv` verbatim and the harness spends SEVERAL
+ * MINUTES web-searching the merchants of a Next.js 404 page before writing a
+ * confident, wrong summary. Failing here costs a second; not failing costs the
+ * demo.
+ */
+export const fetchExpenseCsv = async (): Promise<string> => {
+  const url = expenseCsvUrl();
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `Could not read the expense fixture: GET ${url} returned ` +
+        `${response.status} ${response.statusText}. Refusing to run the ` +
+        `harness — a non-CSV body would be analysed as if it were the ` +
+        `statement. Check that the dev server is on this port and that ` +
+        `${EXPENSE_CSV_PUBLIC_PATH} is still in public/.`,
+    );
+  }
+  return response.text();
+};
+
 export interface HarnessDeps {
   channel: string;
-  csvText: string;
   now: () => number;
+  /**
+   * Reads the statement CSV. Defaults to `fetchExpenseCsv`.
+   *
+   * It is a THUNK rather than the `csvText` string this originally took, because
+   * the read has to happen INSIDE the published-error path: as a caller-supplied
+   * string, a failing read threw in `execute` — after the channel had already
+   * been cleared — so the console went blank with no `error` frame, which is the
+   * precise failure the error-frame rule exists to prevent.
+   */
+  readCsv?: () => Promise<string>;
   createStream?: typeof createExpenseHarnessStream;
 }
+
+/**
+ * ONE concurrent harness run per instance, enforced rather than requested.
+ *
+ * `HARNESS_RUN_CHANNEL` is a FIXED id (see `types.ts`), so two in-flight runs
+ * interleave their frames into one console and whichever finishes first closes
+ * the stream for both. The tool description asks the model to "call it once",
+ * but prose is not a guarantee — a double-send or an impatient second click
+ * would otherwise corrupt the run already on screen.
+ */
+let runInFlight = false;
 
 /**
  * Chunk → console frame.
@@ -43,10 +96,15 @@ export interface HarnessDeps {
  *  - `REASONING_MESSAGE_CONTENT` carries `delta` ONLY. There is NO `content`
  *    field on it; reading `content` yields undefined and the console stays
  *    permanently empty while the harness works perfectly.
- *  - `TOOL_CALL_START` carries BOTH `toolCallName` and `toolName`.
- *  - `TOOL_CALL_ARGS` carries `args` AND `delta`.
- *  - Tool calls arrive ALREADY RESOLVED (identical timestamps across
- *    START/ARGS/END), so START is the one to render — ARGS/END would duplicate.
+ *  - `RUN_ERROR` carries its cause as a STRING in `message`, and a rejected
+ *    model (a 400) arrives as this CHUNK rather than as a throw — so the loop
+ *    below ends normally and `readSummary` then reports "never wrote
+ *    summary.json", which is a symptom, not the cause. Mapping it is the only
+ *    way the real reason reaches the console.
+ *  - Tool calls arrive ALREADY RESOLVED: START, ARGS and END are emitted
+ *    back-to-back from one complete codex item with IDENTICAL timestamps, and
+ *    the whole `args` JSON lands in a single chunk. So exactly one of the three
+ *    may be rendered, and it is END — see the `TOOL_CALL_END` case.
  *  - `sandbox.file` and `codex.session-id` ride INSIDE `type:"CUSTOM"`,
  *    discriminated by `name`. Matching `type === "sandbox.file"` never fires.
  *
@@ -58,9 +116,10 @@ export const mapChunkToProgress = (
   const c = chunk as {
     type?: string;
     delta?: string;
+    message?: string;
     toolCallName?: string;
     toolName?: string;
-    args?: unknown;
+    input?: unknown;
     name?: string;
     value?: unknown;
   };
@@ -71,26 +130,45 @@ export const mapChunkToProgress = (
       // `delta` only — see the note above.
       return c.delta ? { kind: "thinking", text: c.delta, at } : null;
 
-    case "TOOL_CALL_START":
-      // Render on START only: ARGS and END share its timestamp and would
-      // triple every tool call in the console.
+    case "RUN_ERROR":
       return {
-        kind: "tool",
-        label: c.toolCallName ?? c.toolName ?? "tool",
+        kind: "error",
+        message:
+          c.message ??
+          "The harness run failed and reported no message. Check the server log.",
         at,
       };
 
-    case "TOOL_CALL_ARGS":
-      // Args arrive whole rather than streaming, so attach them as the detail
-      // of their own frame instead of trying to accumulate deltas.
-      return c.args
-        ? {
-            kind: "tool",
-            label: "args",
-            detail: JSON.stringify(c.args).slice(0, 160),
-            at,
-          }
-        : null;
+    /**
+     * END, not START — deliberately, and the choice costs nothing.
+     *
+     * All three tool chunks share one timestamp, so rendering on END is not
+     * later than rendering on START; it is the same instant. What END buys is
+     * that ONE frame carries both halves: `toolCallName`/`toolName` for the
+     * label AND the parsed arguments in `input`. START has the names but no
+     * arguments, and `TOOL_CALL_ARGS` has the arguments but no name — pairing
+     * them would need correlation state keyed by `toolCallId` for no gain.
+     *
+     * This also removes a duplicate: an earlier version rendered START *and*
+     * `TOOL_CALL_ARGS`, so every tool call produced two frames — one labelled
+     * and one labelled "args" — which contradicted the anti-duplication
+     * rationale written directly above it. That second frame was also
+     * double-encoded, because `TOOL_CALL_ARGS.args` is ALREADY a JSON string
+     * (`"args":"{\"query\":\"\"}"`), and its content was worthless anyway:
+     * `web_search` arrives with an empty query on every observed call.
+     *
+     * `input` is the parsed object, so it is the one to stringify.
+     */
+    case "TOOL_CALL_END": {
+      const label = c.toolCallName ?? c.toolName ?? "tool";
+      if (c.input === undefined) return { kind: "tool", label, at };
+      return {
+        kind: "tool",
+        label,
+        detail: JSON.stringify(c.input).slice(0, 160),
+        at,
+      };
+    }
 
     default:
       return null;
@@ -101,36 +179,73 @@ export const mapChunkToProgress = (
 export const runExpenseHarness = async (
   deps: HarnessDeps,
 ): Promise<HarnessSummary> => {
-  const startedAt = deps.now();
-  const { dir, summaryPath } = await prepareWorkspace(deps.csvText);
-  const createStream = deps.createStream ?? createExpenseHarnessStream;
+  // Fail fast, and BEFORE touching the channel: a second caller must not clear
+  // the console the first run is still writing to, nor publish an `error` frame
+  // into it that the presenter would read as the live run dying.
+  if (runInFlight) {
+    throw new Error(
+      "A harness run is already in flight. Only one can run per instance " +
+        `because the progress channel is a fixed id ("${HARNESS_RUN_CHANNEL}"), ` +
+        "so a second run would interleave frames into the first run's console " +
+        "and close its stream early. Wait for the current run to finish.",
+    );
+  }
+  runInFlight = true;
 
   try {
-    const stream = createStream({
-      dir,
-      prompt: buildHarnessPrompt(),
-      abortSignal: new AbortController().signal,
-    });
+    // Clear FIRST, before anything can publish. The channel id is fixed, so a
+    // previous run's backlog would otherwise replay into this run's console —
+    // and its trailing `done` frame closes the new console's stream instantly.
+    // This lives here rather than in `execute` so that the constraint has a
+    // regression test: `execute`'s channel is hardcoded, `deps.channel` is not.
+    clearProgress(deps.channel);
 
-    for await (const chunk of stream) {
-      const event = mapChunkToProgress(chunk);
-      if (event) publishProgress(deps.channel, event);
+    // Wall-clock, so an NTP step mid-run can skew the headline "this took
+    // minutes" figure. Acceptable for a presenter demo (nothing branches on it),
+    // and `Math.max(0, …)` below keeps a backwards step from rendering as a
+    // negative duration. A monotonic clock would need a second injected dep for
+    // a number nobody acts on.
+    const startedAt = deps.now();
+    const createStream = deps.createStream ?? createExpenseHarnessStream;
+    const readCsv = deps.readCsv ?? fetchExpenseCsv;
+
+    try {
+      // Inside the try on purpose: a failed read is the most likely failure of
+      // the whole run and it MUST leave an `error` frame behind.
+      const csvText = await readCsv();
+      const { dir, summaryPath } = await prepareWorkspace(csvText);
+
+      const stream = createStream({
+        dir,
+        prompt: buildHarnessPrompt(),
+        abortSignal: new AbortController().signal,
+      });
+
+      for await (const chunk of stream) {
+        const event = mapChunkToProgress(chunk);
+        if (event) publishProgress(deps.channel, event);
+      }
+
+      const elapsedSeconds = Math.max(
+        0,
+        Math.round((deps.now() - startedAt) / 1000),
+      );
+      const summary = await readSummary(summaryPath, elapsedSeconds);
+      publishProgress(deps.channel, { kind: "done", at: Date.now() });
+      return summary;
+    } catch (error) {
+      // Publish BEFORE rethrowing: the console is the only place a presenter can
+      // see why a four-minute run died, and silence here reads on stage as the
+      // agent simply hanging.
+      publishProgress(deps.channel, {
+        kind: "error",
+        message: error instanceof Error ? error.message : String(error),
+        at: Date.now(),
+      });
+      throw error;
     }
-
-    const elapsedSeconds = Math.round((deps.now() - startedAt) / 1000);
-    const summary = await readSummary(summaryPath, elapsedSeconds);
-    publishProgress(deps.channel, { kind: "done", at: Date.now() });
-    return summary;
-  } catch (error) {
-    // Publish BEFORE rethrowing: the console is the only place a presenter can
-    // see why a four-minute run died, and silence here reads on stage as the
-    // agent simply hanging.
-    publishProgress(deps.channel, {
-      kind: "error",
-      message: error instanceof Error ? error.message : String(error),
-      at: Date.now(),
-    });
-    throw error;
+  } finally {
+    runInFlight = false;
   }
 };
 
@@ -142,21 +257,13 @@ export const analyzeExpensesTool = defineTool({
     "offsite: research each merchant on the web, decide which charges are " +
     "reimbursable, file the reimbursable ones, and return a summary. This runs " +
     "for SEVERAL MINUTES. Call it once and do not narrate the steps yourself.",
+  // Everything this run needs is fixed, so `execute` is a one-liner: the fixed
+  // channel is cleared, the CSV is read and every failure is reported inside
+  // `runExpenseHarness`, where each of those steps has a test.
   parameters: z.object({}),
-  execute: async () => {
-    // Clear first: the channel is a fixed id, so a previous run's frames would
-    // otherwise replay into this run's console — and that backlog's trailing
-    // `done` frame closes the new console's stream instantly.
-    clearProgress(HARNESS_RUN_CHANNEL);
-
-    const csvText = await fetch(
-      `http://localhost:${process.env.PORT ?? 3000}${EXPENSE_CSV_PUBLIC_PATH}`,
-    ).then((response) => response.text());
-
-    return runExpenseHarness({
+  execute: async () =>
+    runExpenseHarness({
       channel: HARNESS_RUN_CHANNEL,
-      csvText,
       now: () => Date.now(),
-    });
-  },
+    }),
 });
