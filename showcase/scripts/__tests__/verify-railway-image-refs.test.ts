@@ -260,8 +260,8 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 41 services in the SSOT (29 showcase/infra + 12 starter-*)", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(41);
+  it("has 42 services in the SSOT (30 showcase/infra + 12 starter-*)", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(42);
   });
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
@@ -292,20 +292,23 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     });
   }
 
-  it("findMissingServices treats all 41 gateValidated services as targets (29 showcase/infra + 12 starters)", () => {
+  it("findMissingServices treats every gateValidated service as a target, per the envs it declares", () => {
     // With nothing "present", every gateValidated service should appear in
-    // the missing set. After S2 brought the 12 starter-<slug> services under
-    // the gate (gateValidated:true, dual-env), showcase-strands-typescript
-    // was provisioned in prod (gateValidated:true), and the prod harness-workers
-    // backfill flipped that worker to gateValidated:true (dual-env), that means
-    // all 41 — the 29 showcase/infra gateValidated services plus the 12
-    // starters. (harness-workers is now gateValidated and dual-env, so it IS
-    // required in both envs here.)
+    // the missing set for each env it DECLARES. All dual-env gateValidated
+    // services (the 29 showcase/infra + 12 starters that carry both prod and
+    // staging) are demanded in BOTH envs. The lone single-env gateValidated
+    // service — showcase-crewai-conversational-flows, live in staging only —
+    // is demanded ONLY in staging, so the counts are intentionally asymmetric:
+    //   prod    = 41 (the dual-env services; the staging-only one is skipped)
+    //   staging = 42 (the dual-env services PLUS the staging-only one)
     const missingProd = findMissingServices("prod", new Set<string>());
     const missingStaging = findMissingServices("staging", new Set<string>());
     expect(missingProd).toHaveLength(41);
-    expect(missingStaging).toHaveLength(41);
-    // The 12 starters are now demanded in BOTH envs.
+    expect(missingStaging).toHaveLength(42);
+    // The staging-only service is required in staging but NOT prod.
+    expect(missingStaging).toContain("showcase-crewai-conversational-flows");
+    expect(missingProd).not.toContain("showcase-crewai-conversational-flows");
+    // The 12 starters are still demanded in BOTH envs.
     expect(missingProd).toContain("starter-adk");
     expect(missingStaging).toContain("starter-mastra");
   });
