@@ -1049,6 +1049,38 @@ export const SERVICES: Record<
       },
     },
   },
+  "showcase-crewai-conversational-flows": {
+    serviceId: "11859593-da4e-486c-a810-6cdffeff9750",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    // NOT built+pushed by showcase_build.yml's ALL_SERVICES matrix — this
+    // integration is only wired into the PR-check build (showcase_build_check.
+    // yml). So it is deliberately NOT in CI_BUILT_SERVICES (whose members must
+    // each carry a matching dispatch_name in showcase_build.yml), exactly like
+    // `webhooks`. ciBuilt:false keeps that invariant intact.
+    ciBuilt: false,
+    gateValidated: true,
+    dispatchName: "crewai-conversational-flows",
+    probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic at
+    // the env-local aimock, so a cluster promote pulls aimock (tier-0) into the
+    // closure — same wiring as its `showcase-crewai-crews` sibling.
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    // STAGING-ONLY: the live Railway service currently has a serviceInstance in
+    // staging only (no prod instance is provisioned). The env-map schema models
+    // a single-env service by declaring only the env that exists — the image-ref
+    // gate then requires it in staging (findMissingServices) and never demands a
+    // (non-existent) prod instance. All values below are read verbatim from the
+    // live Railway service, not derived.
+    environments: {
+      staging: {
+        instanceId: "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
+        healthcheckPath: "/api/health",
+        domain: "showcase-crewai-conversational-flows-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
   "showcase-crewai-crews": {
     serviceId: "0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4",
     autoUpdates: { staging: "disabled", prod: "disabled" },
