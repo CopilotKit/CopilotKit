@@ -28,6 +28,8 @@ import type {
   ReplyContinuationOptions,
   ResolvedChannelMemory,
 } from "@copilotkit/channels";
+import type { CopilotRuntimeLearningConfig } from "./learning";
+import { resolveLearningContainerId } from "./learning";
 
 /**
  * Lifecycle status of a single Channel activation, or of the manager overall.
@@ -302,6 +304,8 @@ export interface ChannelManagerArgs {
   channels: Channel[];
   /** Standard runtime AgentRunner used by managed Channel executions. */
   runner?: AgentRunner;
+  /** Selects one stable Learning Container ID for each Channel run. */
+  learning?: CopilotRuntimeLearningConfig;
   /** Standard thread-lock TTL forwarded to Channel AgentRunner heartbeats. */
   lockTtlSeconds?: number;
   /** Standard thread-lock heartbeat cadence used by Channel AgentRunner calls. */
@@ -464,6 +468,7 @@ export async function defaultActivateChannel(
     lockTtlSeconds?: number;
     lockHeartbeatIntervalSeconds?: number;
     lockKeyPrefix?: string;
+    learning?: CopilotRuntimeLearningConfig;
   },
 ): Promise<ChannelsHandle> {
   let mod: ChannelsIntelligenceModule;
@@ -510,6 +515,7 @@ export async function defaultActivateChannel(
         services.lockHeartbeatIntervalSeconds ?? 15,
         args,
         services.lockKeyPrefix,
+        services.learning,
       ),
     loadHistory: async ({ deliveryId, threadId, appUserId }) => {
       const history = await services.intelligence.getThreadMessages({
@@ -634,17 +640,27 @@ async function runCanonicalChannelAgent(
   lockHeartbeatIntervalSeconds: number,
   args: CanonicalRunArgs,
   lockKeyPrefix?: string,
+  learning?: CopilotRuntimeLearningConfig,
 ): Promise<{
   iterations: number;
   interrupted: boolean;
   deliveryError?: unknown;
 }> {
+  const learningContainerId = await resolveLearningContainerId(learning, {
+    surface: "channel",
+    threadId: args.threadId,
+    runId: args.runId,
+    agentId: args.agentId,
+    userId: args.userId,
+    deliveryId: args.deliveryId,
+  });
   const lock = await intelligence.ɵacquireThreadLock({
     threadId: args.threadId,
     runId: args.runId,
     userId: args.userId,
     agentId: args.agentId,
     channelDeliveryId: args.deliveryId,
+    ...(learningContainerId !== undefined ? { learningContainerId } : {}),
     ttlSeconds: lockTtlSeconds,
     ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
   });
@@ -1069,6 +1085,7 @@ function withTimeout<T>(
 export class ChannelManager implements ChannelsControl {
   private readonly intelligence: CopilotKitIntelligence;
   private readonly runner?: AgentRunner;
+  private readonly learning?: CopilotRuntimeLearningConfig;
   private readonly lockTtlSeconds: number;
   private readonly lockHeartbeatIntervalSeconds: number;
   private readonly lockKeyPrefix?: string;
@@ -1087,6 +1104,7 @@ export class ChannelManager implements ChannelsControl {
   constructor(args: ChannelManagerArgs) {
     this.intelligence = args.intelligence;
     this.runner = args.runner;
+    this.learning = args.learning;
     this.lockTtlSeconds = args.lockTtlSeconds ?? 20;
     this.lockHeartbeatIntervalSeconds = args.lockHeartbeatIntervalSeconds ?? 15;
     this.lockKeyPrefix = args.lockKeyPrefix;
@@ -1108,6 +1126,9 @@ export class ChannelManager implements ChannelsControl {
             ? {
                 runner: this.runner,
                 intelligence: this.intelligence,
+                ...(this.learning !== undefined
+                  ? { learning: this.learning }
+                  : {}),
                 lockTtlSeconds: this.lockTtlSeconds,
                 lockHeartbeatIntervalSeconds: this.lockHeartbeatIntervalSeconds,
                 ...(this.lockKeyPrefix !== undefined

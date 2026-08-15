@@ -1,0 +1,114 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for crewai-conversational-flows / A2UI error recovery",
+    "_note": "CrewAI Flow-owned A2UITool recovery. Prompts are unique because inner render_a2ui calls intentionally carry no integration context.",
+    "created": "2026-08-05"
+  },
+  "fixtures": [
+    {
+      "_comment": "HEAL attempt 1: dangling child forces validation retry.",
+      "match": {
+        "userMessage": "Build a CrewAI Q2 revenue summary and self-correct a malformed first attempt.",
+        "toolName": "render_a2ui",
+        "sequenceIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_crewai_recover_heal_bad",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"crewai-recovery\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"missing-metric\"]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "HEAL attempt 2: valid two-metric surface paints.",
+      "match": {
+        "userMessage": "Build a CrewAI Q2 revenue summary and self-correct a malformed first attempt.",
+        "toolName": "render_a2ui",
+        "sequenceIndex": 1
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_crewai_recover_heal_good",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"crewai-recovery\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"m1\",\"m2\"]},{\"id\":\"m1\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12% QoQ\"},{\"id\":\"m2\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\",\"trendValue\":\"-2 pts\"}],\"data\":{}}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "HEAL narration after generate_a2ui returns.",
+      "match": {
+        "toolCallId": "call_d6_crewai_recover_heal_outer_001"
+      },
+      "response": {
+        "content": "The first render was malformed, so CrewAI recovered and painted the Q2 summary."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "HEAL outer generate_a2ui call.",
+      "match": {
+        "userMessage": "Build a CrewAI Q2 revenue summary and self-correct a malformed first attempt."
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_crewai_recover_heal_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"intent\":\"create\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST: every render attempt references a missing component.",
+      "match": {
+        "userMessage": "Build a CrewAI report that fails every validation pass so I can preview the fallback.",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_crewai_recover_exhaust_design",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"crewai-recovery-fail\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"never-defined\"]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST narration after the tasteful failure envelope.",
+      "match": {
+        "toolCallId": "call_d6_crewai_recover_exhaust_outer_001"
+      },
+      "response": {
+        "content": "CrewAI could not produce a valid surface after recovery, so the graceful fallback is shown."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST outer generate_a2ui call.",
+      "match": {
+        "userMessage": "Build a CrewAI report that fails every validation pass so I can preview the fallback."
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_crewai_recover_exhaust_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"intent\":\"create\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    }
+  ]
+}

@@ -11,15 +11,13 @@
  * the attachment, then the regular fill+press flow sends both message +
  * attachment together.
  *
- * Aimock returns canned responses keyed off unique substrings. The
- * assertion verifies the assistant transcript references the attachment
- * (substring "image" / "document" present in the assistant's reply).
+ * Aimock returns canned responses keyed off unique substrings. Assertions
+ * require phrases unique to the D6 fixture so broad legacy fixture replies
+ * cannot make the probe pass.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 export const SAMPLE_IMAGE_BUTTON_SELECTOR =
@@ -29,6 +27,8 @@ export const SAMPLE_PDF_BUTTON_SELECTOR =
 
 const SAMPLE_BUTTON_TIMEOUT_MS = 5_000;
 const ASSISTANT_TRANSCRIPT_TIMEOUT_MS = 5_000;
+const IMAGE_EXPECTED_PHRASE = "small abstract test pattern";
+const PDF_EXPECTED_PHRASE = "single test page";
 
 /** Read concatenated assistant transcript text (lowercased). */
 async function readAssistantTranscript(page: Page): Promise<string> {
@@ -87,21 +87,21 @@ async function clickSampleButton(page: Page, selector: string): Promise<void> {
   await clickable.click(selector, { timeout: 5_000 });
 }
 
-/** Build the assertion for an image / pdf turn. Verifies the assistant
- *  transcript contains the expected modality-keyword. */
+/** Build the assertion for an image / pdf turn. */
 function buildModalityAssertion(
-  modalityKeyword: string,
+  modality: "image" | "pdf",
+  expectedPhrase: string,
 ): (page: Page) => Promise<void> {
   return async (page: Page): Promise<void> => {
     const deadline = Date.now() + ASSISTANT_TRANSCRIPT_TIMEOUT_MS;
     let lastTranscript = "";
     while (Date.now() < deadline) {
       lastTranscript = await readAssistantTranscript(page);
-      if (lastTranscript.includes(modalityKeyword)) return;
+      if (lastTranscript.includes(expectedPhrase)) return;
       await new Promise<void>((r) => setTimeout(r, 200));
     }
     throw new Error(
-      `multimodal: assistant transcript missing keyword "${modalityKeyword}" — got "${lastTranscript.slice(0, 200)}"`,
+      `multimodal: assistant transcript missing expected phrase "${expectedPhrase}" for ${modality} — got "${lastTranscript.slice(0, 200)}"`,
     );
   };
 }
@@ -137,14 +137,14 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       preFill: preTurnAttachImage,
       skipSend: true,
       responseTimeoutMs: 60_000,
-      assertions: buildModalityAssertion("image"),
+      assertions: buildModalityAssertion("image", IMAGE_EXPECTED_PHRASE),
     },
     {
       input: "pdf-sample-button (auto-sent)",
       preFill: preTurnAttachPdf,
       skipSend: true,
       responseTimeoutMs: 60_000,
-      assertions: buildModalityAssertion("document"),
+      assertions: buildModalityAssertion("pdf", PDF_EXPECTED_PHRASE),
     },
   ];
 }
