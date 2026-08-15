@@ -12,14 +12,18 @@ const hoisted = vi.hoisted(() => {
       addMessage: vi.fn(),
     },
     mockRunAgent: vi.fn().mockResolvedValue(undefined),
-    mockToolRegistry: vi.fn(() => new Map()),
   };
 });
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+// This suite mocks react-core wholesale to unit-test CopilotChat's non-tool
+// behavior. Tool-call rendering (which drives a REAL useRenderToolCall) lives
+// in CopilotChatToolCalls.test.tsx; here useRenderToolCall is a stub that
+// resolves no renderer, so tool calls fall through to the placeholder.
 vi.mock("@copilotkit/react-core/v2/headless", () => ({
   useAgent: vi.fn(() => ({ agent: hoisted.mockAgent })),
+  useRenderToolCall: vi.fn(() => () => null),
 }));
 
 vi.mock("@copilotkit/react-core/v2/context", () => ({
@@ -50,11 +54,6 @@ vi.mock("../messages/UserMessage", () => ({
       content,
     );
   },
-}));
-
-// Mock RenderToolContext (B3)
-vi.mock("../../hooks/RenderToolContext", () => ({
-  useRenderToolRegistry: () => hoisted.mockToolRegistry(),
 }));
 
 // Mock react-native components with testable DOM elements
@@ -140,7 +139,6 @@ describe("CopilotChat", () => {
     hoisted.mockAgent.isRunning = false;
     hoisted.mockAgent.addMessage = vi.fn();
     hoisted.mockRunAgent.mockResolvedValue(undefined);
-    hoisted.mockToolRegistry.mockReturnValue(new Map());
   });
 
   it("renders empty state when there are no messages", () => {
@@ -301,48 +299,6 @@ describe("CopilotChat", () => {
     const { getByText } = render(<CopilotChat />);
 
     expect(getByText("Called: myTool")).toBeTruthy();
-  });
-
-  it("renders registered tool renderer with correct props", () => {
-    const receivedProps: any[] = [];
-    const mockRenderer = (props: any) => {
-      receivedProps.push(props);
-      const React = require("react");
-      return React.createElement(
-        "div",
-        { "data-testid": "tool-render" },
-        `rendered: ${JSON.stringify(props.args)}`,
-      );
-    };
-
-    const toolMap = new Map([["myTool", mockRenderer]]);
-    hoisted.mockToolRegistry.mockReturnValue(toolMap);
-
-    hoisted.mockAgent.messages = [
-      {
-        id: "1",
-        role: "assistant",
-        content: "",
-        toolCalls: [
-          {
-            id: "tc-1",
-            type: "function" as const,
-            function: {
-              name: "myTool",
-              arguments: '{"city":"Seattle"}',
-            },
-          },
-        ],
-      },
-    ];
-
-    const { getByTestId } = render(<CopilotChat />);
-
-    expect(getByTestId("tool-render")).toBeTruthy();
-    expect(receivedProps[0]).toEqual({
-      args: { city: "Seattle" },
-      status: "complete",
-    });
   });
 
   it("shows error message when runAgent fails", async () => {

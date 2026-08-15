@@ -1,7 +1,6 @@
 /**
  * `useCopilotReadable` is a React hook that provides app-state and other information
- * to the Copilot. Optionally, the hook can also handle hierarchical state within your
- * application, passing these parent-child relationships to the Copilot.
+ * to the Copilot.
  *
  * ## Usage
  *
@@ -24,41 +23,47 @@
  * }
  * ```
  *
- * ### Nested Components
+ * ### Custom Serialization
  *
- * Optionally, you can maintain the hierarchical structure of information by passing
- * `parentId`. This allows you to use `useCopilotReadable` in nested components:
+ * By default the value is serialized with `JSON.stringify`. Pass `convert` to
+ * control the string the Copilot sees. It is called with the description and the
+ * value, in that order:
  *
- * ```tsx /employeeContextId/1 {17,23}
- * import { useCopilotReadable } from "@copilotkit/react-core";
+ * ```tsx
+ * useCopilotReadable({
+ *   description: "The current user",
+ *   value: user,
+ *   convert: (description, value) => `${description}: ${value.firstName} ${value.lastName}`,
+ * });
+ * ```
  *
- * function Employee(props: EmployeeProps) {
- *   const { employeeName, workProfile, metadata } = props;
+ * ### Conditional Usage
  *
- *   // propagate any information to copilot
- *   const employeeContextId = useCopilotReadable({
- *     description: "Employee name",
- *     value: employeeName
- *   });
+ * Toggle `available` to add or remove the context as your app state changes.
+ * Switching to `"disabled"` removes the entry from the Copilot context; switching
+ * back to `"enabled"` re-adds it.
  *
- *   // Pass a parentID to maintain a hierarchical structure.
- *   // Especially useful with child React components, list elements, etc.
- *   useCopilotReadable({
- *     description: "Work profile",
- *     value: workProfile.description(),
- *     parentId: employeeContextId
- *   });
+ * ```tsx
+ * useCopilotReadable({
+ *   description: "The list of employees",
+ *   value: employees,
+ *   available: showEmployees ? "enabled" : "disabled",
+ * });
+ * ```
  *
- *   useCopilotReadable({
- *     description: "Employee metadata",
- *     value: metadata.description(),
- *     parentId: employeeContextId
- *   });
+ * ### Re-running on Custom Dependencies
  *
- *   return (
- *     // Render as usual...
- *   );
- * }
+ * The context is refreshed whenever `description`, `value`, `convert` or
+ * `available` change. Pass a second argument to add your own dependencies:
+ *
+ * ```tsx
+ * useCopilotReadable(
+ *   {
+ *     description: "The selected employee",
+ *     value: employee,
+ *   },
+ *   [departmentId],
+ * );
  * ```
  */
 import { useCopilotKit } from "../v2";
@@ -78,11 +83,18 @@ export interface UseCopilotReadableOptions {
   value: any;
   /**
    * The ID of the parent context, if any.
+   *
+   * @deprecated This option is currently ignored. The context store backing this
+   * hook is flat and has no parent/child relationships, so no hierarchy is applied.
+   * Accepted for source compatibility only.
    */
   parentId?: string;
   /**
    * An array of categories to control which context are visible where. Particularly useful
    * with CopilotTextarea (see `useMakeAutosuggestionFunction`)
+   *
+   * @deprecated This option is currently ignored. The context store backing this
+   * hook does not filter by category. Accepted for source compatibility only.
    */
   categories?: string[];
 
@@ -102,34 +114,43 @@ export interface UseCopilotReadableOptions {
  * Adds the given information to the Copilot context to make it readable by Copilot.
  */
 export function useCopilotReadable(
-  { description, value, convert, available }: UseCopilotReadableOptions,
+  {
+    description,
+    value,
+    convert,
+    available = "enabled",
+  }: UseCopilotReadableOptions,
   dependencies?: any[],
 ): string | undefined {
   const { copilotkit } = useCopilotKit();
   const ctxIdRef = useRef<string | undefined>(undefined);
+
   useEffect(() => {
     if (!copilotkit) return;
+    if (available === "disabled") return;
 
-    const found = Object.entries(copilotkit.context).find(([id, ctxItem]) => {
-      return JSON.stringify({ description, value }) == JSON.stringify(ctxItem);
-    });
-    if (found) {
-      ctxIdRef.current = found[0];
-      if (available === "disabled") copilotkit.removeContext(ctxIdRef.current);
-      return;
-    }
-    if (!found && available === "disabled") return;
-
-    ctxIdRef.current = copilotkit.addContext({
+    // `convert` takes (description, value). `JSON.stringify` must be called with
+    // the value alone — its second parameter is a replacer, not a value.
+    const id = copilotkit.addContext({
       description,
-      value: (convert ?? JSON.stringify)(value),
+      value: convert ? convert(description, value) : JSON.stringify(value),
     });
+    ctxIdRef.current = id;
 
     return () => {
-      if (!ctxIdRef.current) return;
-      copilotkit.removeContext(ctxIdRef.current);
+      copilotkit.removeContext(id);
+      if (ctxIdRef.current === id) {
+        ctxIdRef.current = undefined;
+      }
     };
-  }, [description, value, convert]);
+  }, [
+    copilotkit,
+    description,
+    value,
+    convert,
+    available,
+    ...(dependencies || []),
+  ]);
 
   return ctxIdRef.current;
 }

@@ -14,9 +14,8 @@ import useCreditCards from "@/skins/banking/actions";
 import { navTarget, chargesTarget } from "@/skins/banking/nav-target";
 import { CHARGE_CATEGORIES } from "@/skins/banking/pages/charges-data";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
-import { useRecording } from "@/skins/banking/components/recording-context";
+import { useRecording, RecordingFeed } from "@/shell/teach";
 import { ApprovalButtons } from "@/skins/banking/components/approval-buttons";
-import { RecordingSteps } from "@/skins/banking/components/recording-feed";
 import { PendingApprovalsChat } from "@/skins/banking/components/wow/pending-approvals-chat";
 import {
   PinChangeCard,
@@ -1226,7 +1225,7 @@ export function BankingTools() {
           </div>
           {/* Live feed of the actions being captured — same chat card, so it
               reads consistently with the other cards (not a floating overlay). */}
-          <RecordingSteps />
+          <RecordingFeed />
           <ApprovalButtons
             approveLabel="I'm done"
             denyLabel="Cancel"

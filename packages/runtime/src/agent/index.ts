@@ -102,6 +102,9 @@ export type BuiltInAgentModel =
   | "google/gemini-2.5-pro"
   | "google/gemini-2.5-flash"
   | "google/gemini-2.5-flash-lite"
+  // MiniMax models
+  | "minimax/MiniMax-M3"
+  | "minimax/MiniMax-M2.7"
   // Allow any LanguageModel instance
   | (string & {});
 
@@ -233,6 +236,15 @@ export function resolveModel(
       });
       // Accepts any Gemini id, e.g. "gemini-2.5-pro", "gemini-2.5-flash"
       return google(model);
+    }
+
+    case "minimax": {
+      const minimax = createOpenAI({
+        name: "minimax",
+        apiKey: apiKey || process.env.MINIMAX_API_KEY!,
+        baseURL: process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
+      });
+      return minimax(model);
     }
 
     case "vertex": {
@@ -815,6 +827,7 @@ export interface BuiltInAgentClassicConfig {
    * - OPENAI_API_KEY for OpenAI models
    * - ANTHROPIC_API_KEY for Anthropic models
    * - GOOGLE_API_KEY for Google models
+   * - MINIMAX_API_KEY for MiniMax models
    */
   apiKey?: string;
   /**

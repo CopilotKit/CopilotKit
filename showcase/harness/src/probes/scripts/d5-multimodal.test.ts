@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
@@ -125,7 +126,7 @@ describe("d5-multimodal script", () => {
     );
   });
 
-  it("turn-1 assertion succeeds when transcript references 'image'", async () => {
+  it("turn-1 assertion succeeds for the D6 abstract-test-pattern response", async () => {
     const ctx: D5BuildContext = {
       integrationSlug: "x",
       featureType: "multimodal",
@@ -140,7 +141,39 @@ describe("d5-multimodal script", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("turn-1 assertion fails when transcript lacks 'image'", async () => {
+  it("turn-1 assertion rejects the legacy generic image response", async () => {
+    const ctx: D5BuildContext = {
+      integrationSlug: "x",
+      featureType: "multimodal",
+      baseUrl: "https://x.test",
+    };
+    const turns = buildTurns(ctx);
+    await expect(
+      turns[0]!.assertions!(
+        makePage(
+          "The attached image is the CopilotKit logo — a clean geometric mark.",
+        ),
+        { bubbleIndex: 0, text: "" },
+      ),
+    ).rejects.toThrow(/missing expected phrase/);
+  }, 8_000);
+
+  it("turn-2 assertion requires the D6 single-test-page response", async () => {
+    const ctx: D5BuildContext = {
+      integrationSlug: "x",
+      featureType: "multimodal",
+      baseUrl: "https://x.test",
+    };
+    const turns = buildTurns(ctx);
+    await expect(
+      turns[1]!.assertions!(
+        makePage("The PDF document contains a single test page."),
+        { bubbleIndex: 1, text: "" },
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("turn-1 assertion fails when transcript lacks the D6 phrase", async () => {
     const ctx: D5BuildContext = {
       integrationSlug: "x",
       featureType: "multimodal",
@@ -155,6 +188,6 @@ describe("d5-multimodal script", () => {
         bubbleIndex: 0,
         text: "",
       }),
-    ).rejects.toThrow(/missing keyword "image"/);
+    ).rejects.toThrow(/missing expected phrase "small abstract test pattern"/);
   }, 8_000);
 });

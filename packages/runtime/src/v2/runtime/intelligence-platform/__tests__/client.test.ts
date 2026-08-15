@@ -480,6 +480,7 @@ describe("CopilotKitIntelligence", () => {
         threadId: "t-1",
         userId: "user-1",
         agentId: "agent-1",
+        learningContainerId: "support-quality",
       });
 
       expect(result).toEqual(thread);
@@ -490,6 +491,7 @@ describe("CopilotKitIntelligence", () => {
         threadId: "t-1",
         userId: "user-1",
         agentId: "agent-1",
+        learningContainerId: "support-quality",
       });
     });
 
@@ -693,6 +695,7 @@ describe("CopilotKitIntelligence", () => {
         userId: "user-1",
         agentId: "agent-1",
         channelDeliveryId: "dlv_delivery_1",
+        learningContainerId: "support-quality",
       });
 
       expect(result).toEqual({
@@ -707,6 +710,7 @@ describe("CopilotKitIntelligence", () => {
         runId: "r-1",
         userId: "user-1",
         agentId: "agent-1",
+        learningContainerId: "support-quality",
       });
       expect(opts.headers).toMatchObject({
         "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",

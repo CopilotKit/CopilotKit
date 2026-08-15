@@ -559,7 +559,7 @@ jobs:
             cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
           fi
 
-          # Dereference tools/, shared-tools/, and _shared/ symlinks for the
+          # Dereference tools/, shared-tools/, data/, and _shared/ symlinks for the
           # Docker context. Integration directories use symlinks pointing to
           # ../../shared/python/tools etc., and _shared -> ../_shared for the
           # CVDIAG bootstrap modules. Docker cannot follow symlinks outside
@@ -567,7 +567,7 @@ jobs:
           # symlinks: /_shared"), so we replace each symlink with a real copy
           # of its target. Mirrors stage_shared() in
           # showcase/scripts/cli/_common.sh (the local bin/showcase path).
-          for link_name in tools shared-tools _shared; do
+          for link_name in tools shared-tools data _shared; do
             link_path="$CONTEXT/$link_name"
             if [ -L "$link_path" ]; then
               target="$(readlink -f "$link_path")"

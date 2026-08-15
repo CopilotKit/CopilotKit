@@ -22,6 +22,7 @@ export const sortOrder: Record<string, number> = {
   mastra: 8,
   "crewai-crews": 9,
   crewai: 9,
+  "crewai-conversational-flows": 9.5,
   "pydantic-ai": 10,
   "claude-sdk-python": 11,
   "claude-sdk-typescript": 12,

@@ -1,6 +1,7 @@
 "use client";
 
 import type { Lane, Shipment } from "../data/types";
+import { HandlingDetail } from "./handling-strip";
 import { cn } from "@/lib/utils";
 
 const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
@@ -103,6 +104,11 @@ export function ShipmentCard({
           <span className="text-ink-muted"> — {shipment.exception.detail}</span>
         </div>
       ) : null}
+
+      {/* BEAT 5 — the watch flag, the carrier notice and the 🚨 note the stored
+          procedure left behind. Above the applied mitigation because it is the
+          most recent thing to have happened to this shipment. */}
+      <HandlingDetail shipment={shipment} />
 
       {shipment.appliedMitigation ? (
         <div className="mt-3 text-sm text-ink-muted">

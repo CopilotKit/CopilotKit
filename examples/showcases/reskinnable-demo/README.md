@@ -18,23 +18,29 @@ one **skin** per route segment `/[skin]/...`. The registered set lives in
 - **`commerce`** — "Bellwether", a storefront operations console for a DTC retail
   brand. **REST-backed** (`/api/commerce/v1/*`): orders, catalog, promotions, and
   returns, with a margin ladder and a teachable below-floor markdown approval.
-- **`airline`** — "Aeronova", a passenger concierge. **In-memory** (a seed-backed
-  React store): check-in and seat selection, loyalty, and disruption rebooking.
+- **`airline`** — "Aeronova", a passenger concierge and the one skin written from
+  the TRAVELLER's side rather than an operator's. **REST-backed**
+  (`/api/airline/v1/*`): trips, seat selection, loyalty, and disruption rebooking,
+  with a teachable fare-exception approval whose gate is entitlement (the fare's
+  own conditions) rather than organizational authority.
 - **`keel`** — "Keel", Harbor Point Health's knowledge and operations desk.
-  **In-memory** (a seed-backed React store), with the fullest parameterized
-  routing (`knowledge/<docId>`, `runs/<runId>`).
+  **REST-backed** (`/api/keel/v1/*`): a policy register, playbooks and runs on a
+  server-settled clock, with a teachable policy-release approval — and the fullest
+  parameterized routing (`knowledge/<docId>`, `runs/<runId>`).
 - **`bookstore`** — "Bookstore", an online bookshop: a storefront the shopper
   drives, not a console an employee operates (`airline` is the other
-  customer-facing skin, but predates the demo bar). **In-memory** (a frozen 24-book
-  seed catalog, with the cart and orders mirrored to `localStorage` per shopper): a
-  filterable shelf, a `book/<slug>` page, a cart, and an assistant that recommends
-  from what it remembers about you.
+  customer-facing skin). **In-memory** (a frozen 25-book seed catalog, with the
+  cart and orders mirrored to `localStorage` per shopper): a filterable shelf, a
+  `book/<slug>` page, a cart, and an assistant that recommends from what it
+  remembers about you.
 
-All of them run behind the **same** `Skin` contract on purpose: banking,
-logistics, people and commerce are REST-backed, airline, keel and bookstore are
-in-memory, which proves the contract is substrate-agnostic. Every skin gets the
-same inset frame, shared chat panel, tool-activity lines, suggestion pills, and
-full-region canvas from the shell.
+All of them run behind the **same** `Skin` contract on purpose. Every skin gets
+the same inset frame, shared chat panel, tool-activity lines, suggestion pills,
+and full-region canvas from the shell. The contract is substrate-agnostic:
+changing a skin's data substrate requires **no change to the contract and no
+change to the shell** — and both substrates are live, so the claim has evidence on
+either side. `grep -l 'useData:' src/skins/*/skin.tsx` names the skins that hold
+state in the shell (`bookstore`); every other registered skin is REST-backed.
 
 ## What it demonstrates
 
@@ -115,15 +121,18 @@ contract, and the shared canvas / OGUI model.
 
 ## Demo capabilities
 
-Three skins — **`banking`**, **`people`** and **`commerce`** — are demo-complete
-against the full beat list in
-[`.claude/skills/reskin/demo-beats.md`](./.claude/skills/reskin/demo-beats.md).
-**`bookstore`** hits most of that list and skips three beats deliberately
-(multimodal ingest, stored-procedure replay, teach-a-procedure), which its own
-beat map records rather than hides. `airline`, `logistics` and `keel` predate that
-bar: treat them as wiring references (contract surface, layout chrome,
-parameterized routes) rather than as demo references. The per-beat coverage matrix
-is in [CLAUDE.md](./CLAUDE.md).
+**Every registered skin but `bookstore` is demo-complete** against the full beat
+list in
+[`.claude/skills/reskin/demo-beats.md`](./.claude/skills/reskin/demo-beats.md), so
+any of them can be walked end to end and any of them is a fair reference.
+`bookstore` hits every beat it claims and skips two deliberately — multimodal
+ingest and teach-a-procedure — which its own beat map
+(`src/skins/bookstore/suggestions.ts`) records rather than hides, so read those two
+blanks as a scope decision. `people` and `commerce` were authored beat-first;
+`logistics`, `airline` and `keel` were raised to the bar afterwards, so read those
+three commit by commit if you need to do the same to an EXISTING skin. The per-beat
+coverage matrix, and the one-line commands that derive it instead of trusting it,
+are in [CLAUDE.md](./CLAUDE.md).
 
 ### `banking` — the original reference demo
 
@@ -144,11 +153,11 @@ The banking skin doubles as a CopilotKit feature tour. Notable beats:
   no saved procedure, watches you clear one, and (in Intelligence mode) recalls
   it on a later thread. See `docs/teach-mode/`.
 
-### `people` and `commerce` — the later demo-complete skins
+### `people` and `commerce` — authored beat-first
 
-Both were built against the beat list from the start, so each hits every beat
-banking does. Their beat maps are written out at the top of their own
-`src/skins/<id>/suggestions.ts`, one suggestion pill per beat in demo order.
+Both are built against the beat list from the start. Their beat maps are written
+out at the top of their own `src/skins/<id>/suggestions.ts`, one suggestion pill
+per beat in demo order.
 
 - **`people`** ("Rowan") — a People Ops command center over `/api/people/v1/*`.
   Its teachable gate is approving an **out-of-band** compensation request (422
@@ -163,25 +172,47 @@ banking does. Their beat maps are written out at the top of their own
   justifying code. It is also the reference for a four-lever navigation — status,
   exception class, sort and top-N all arrive from the query string.
 
-### `bookstore` — the customer-facing one
+### `logistics`, `airline` and `keel`
 
-Every skin but `airline` puts you behind an employee's console; this one puts you
-in the shop, with most of the beat list behind it. The demo opens as Maya, a
-shopper it already knows: one recommendation pill and the agent applies a taste
-nobody typed this session — paperback or ebook, under $20, literary and translated
-fiction — and prints the recalled preference in the answer rather than applying it
-silently. A sidebar switcher swaps to a Guest persona, which re-keys the cart and
-the forwarded identity, but **do not present it as memory isolation**: those
-forwarded properties frequently do not reach the server's `identifyUser` on a run,
-so both shoppers read the same memory bucket and the switch re-scopes nothing.
-That caveat is app-wide, not this skin's — see the CAVEAT block in `.env.example`.
-The shelf's four filters (genre, format, price cap, sort) are real URL levers the
-agent confirms before pulling, the card number typed at checkout never leaves the
-browser (only the last four digits reach the order),
-and the cart is mirrored to `localStorage` so a mid-demo hard reload proves the
-thread rather than emptying the basket. It deliberately ships no multimodal,
-stored-procedure or teach-mode beat. Its beat map, presenter notes and the
-Intelligence-mode requirement for its two headline beats are at the top of
+Each was raised to the beat list after it already existed, so together they are the
+record of what "demo-complete" costs on top of correct wiring — read them if you
+have to do the same to an existing skin. Each also contributes one thing no other
+skin does:
+
+- **`logistics`** ("Meridian") — the reference for skin layout chrome and
+  the meta-utility strip, plus a server-emitted a2ui canvas. Its teachable gate is
+  committing a mitigation **over the planner's approval authority** (403
+  `OVER_AUTHORITY`).
+- **`airline`** ("Aeronova") — PASSENGER-facing (`bookstore` is the other
+  customer-facing skin), and the worked example of contributing runtime identity
+  WITHOUT `RuntimeProviders` (one account holder, no switcher, so the hook reads no
+  context). Its gate is entitlement — a
+  fare whose conditions do not permit the change (422 `FARE_NOT_CHANGEABLE`) —
+  lifted only by an exception category MATCHING what the booking's own record
+  documents, so the learned procedure is a procedure rather than a memorized code.
+- **`keel`** ("Keel") — parameterized routes, and a server-settled clock: run
+  progress is settled on every read rather than ticked on a client interval. Its
+  gate is who may **release** a policy revision (403 `UNENDORSED_REVISION`).
+
+### `bookstore` — the storefront, and the one `useData` skin
+
+Most skins put you behind an employee's console; this one and `airline` put you on
+the customer's side, and this one is the tree's only `useData` implementor. The
+demo opens as Maya, a shopper it already knows: one recommendation pill and the
+agent applies a taste nobody typed this session — paperback or ebook, under $20,
+literary and translated fiction — and prints the recalled preference in the answer
+rather than applying it silently. A sidebar switcher swaps to a Guest persona,
+which re-keys the cart and the forwarded identity, but **do not present it as
+memory isolation**: those forwarded properties frequently do not reach the server's
+`identifyUser` on a run, so both shoppers read the same memory bucket and the
+switch re-scopes nothing. That caveat is app-wide, not this skin's — see the CAVEAT
+block in `.env.example`. The shelf's four filters (genre, format, price cap, sort)
+are real URL levers the agent confirms before pulling, the card number typed at
+checkout never leaves the browser (only the last four digits reach the order), and
+the cart is mirrored to `localStorage` so a mid-demo hard reload proves the thread
+rather than emptying the basket. It skips exactly two beats — multimodal ingest and
+teach-a-procedure. Its beat map, presenter notes and the Intelligence-mode
+requirement for its memory and stored-procedure beats are at the top of
 `src/skins/bookstore/suggestions.ts` — read that before demoing it.
 
 ### Memory & durable self-learning (Intelligence mode)
@@ -191,9 +222,12 @@ single conversation, but nothing persists across threads or restarts. When
 `INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, and `INTELLIGENCE_API_KEY`
 are all set (`src/app/api/copilotkit/[[...slug]]/route.ts`), the runtime builds
 in Intelligence mode: the agent gains durable long-term memory via the
-`recall_memory` / `save_memory` tools, so a demonstrated procedure — banking's
-over-limit approval, people's band exception, commerce's margin waiver — and
-remembered facts/preferences survive across threads and restarts. The bundled
+`recall_memory` / `save_memory` tools, so a demonstrated procedure — every skin
+but `bookstore` has one; `grep -l offerWorkflowRecording src/skins/*/tools.tsx`
+names them — and remembered facts/preferences survive across threads and users.
+Seeded memory is wider than that: `ls src/skins/*/intelligence/seed-memories.ts`
+returns the whole roster, `bookstore` included, so its recall and
+stored-procedure-replay beats work without a teach loop. The bundled
 `docker-compose.yml` and `*-demo.sh` scripts stand up the memory stack; the
 `.env.example` documents the required variables.
 
@@ -209,20 +243,26 @@ bucket. Recall is demoable; per-user isolation is not. Read the CAVEAT block in
 The images under `assets/` (`aurora-dashboard.png`, `copilot-chat.png`,
 `learning-mode-vignette.png`, `project-preview.png`) illustrate the **banking
 skin** specifically — its dashboard, chat panel, and learning-mode recording
-vignette. They predate the current shell chrome entirely: there is now an inset
-frame of resizable cards with a skin-selector dropdown at the top of the assistant
-column, and the app ships a whole roster of skins rather than two. Treat them as
-historical banking-skin illustrations rather than a picture of the app as it looks
-today.
+vignette. They predate the current shell chrome (an inset frame of resizable cards
+with a skin-selector dropdown at the top of the assistant column), so treat them
+as banking-skin illustrations rather than a picture of the app today.
 
 ## Testing
 
 ```bash
-pnpm test:unit          # vitest
-pnpm test:e2e           # playwright
-pnpm test:e2e:ogui      # open generative UI suite
-pnpm test:self-learning # the memory CI gate
+pnpm lint                # eslint (also the LOCK_SKIN URL-contract guard)
+pnpm typecheck   # the ONLY full type-check — see below
+pnpm test:unit           # vitest
+pnpm build               # production build
+pnpm test:e2e            # playwright
+pnpm test:e2e:ogui       # open generative UI suite
+pnpm test:self-learning  # the memory CI gate
 ```
+
+There is no `typecheck` script, and **`pnpm build` is not a substitute for
+`pnpm typecheck`**: `next build` type-checks only what the app's module
+graph reaches, so it never visits the test files, and Vitest transpiles without
+type-checking at all. `tsconfig.json` includes them; only `tsc --noEmit` looks.
 
 ## Tech
 
