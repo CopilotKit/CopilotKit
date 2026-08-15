@@ -129,6 +129,12 @@ a self-hosted gateway, an internal LLM proxy, [Ollama](https://ollama.com), [Tog
 `createOpenAI({ baseURL })` pattern shown in [Custom Models](#custom-models-ai-sdk)
 above. Point `baseURL` at the provider's OpenAI-compatible route and pass your key:
 
+<Callout type="warn" title="Novita: use provider.chat(model)">
+  Novita only implements the Chat Completions endpoint, not Responses. Call it as
+  `provider.chat("model")` (not `provider("model")`) — the bare call form used in
+  the example below routes through Responses and returns an error on Novita.
+</Callout>
+
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]
