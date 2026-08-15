@@ -783,8 +783,17 @@ export class RunHandler {
     let isArgumentError = false;
 
     let parsedArgs: unknown;
+    // A MESSAGES_SNAPSHOT can regress tool call arguments to the LLM's raw
+    // values after an args_streamer enriched them (#4935). Prefer the
+    // accumulated TOOL_CALL_ARGS data when it was observed for this call.
+    const authoritativeArgs =
+      this._internal.toolCallArgsManager.getAuthoritativeArgs(
+        agent,
+        toolCall.id,
+      );
+    const argsInput = authoritativeArgs ?? handlerArgs;
     try {
-      parsedArgs = parseToolArguments(handlerArgs, toolCall.function.name);
+      parsedArgs = parseToolArguments(argsInput, toolCall.function.name);
     } catch (error) {
       const parseError =
         error instanceof Error ? error : new Error(String(error));
@@ -797,7 +806,7 @@ export class RunHandler {
           agentId,
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
-          rawArguments: handlerArgs,
+          rawArguments: argsInput,
           toolType,
           ...(messageId ? { messageId } : {}),
         },
@@ -962,9 +971,19 @@ export class RunHandler {
 
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
+      // Same authoritative-args preference as executeToolHandler (#4935):
+      // wildcard tools parse the same (possibly snapshot-regressed)
+      // message arguments, so they get the same registry fallback.
+      const authoritativeArgs =
+        this._internal.toolCallArgsManager.getAuthoritativeArgs(
+          agent,
+          toolCall.id,
+        );
+      const argsInput =
+        authoritativeArgs ?? toolCall.function.arguments;
       try {
         parsedArgs = parseToolArguments(
-          toolCall.function.arguments,
+          argsInput,
           toolCall.function.name,
         );
       } catch (error) {
@@ -978,7 +997,7 @@ export class RunHandler {
             agentId: agentId,
             toolCallId: toolCall.id,
             toolName: toolCall.function.name,
-            rawArguments: toolCall.function.arguments,
+            rawArguments: argsInput,
             toolType: "wildcard",
             messageId: message.id,
           },
