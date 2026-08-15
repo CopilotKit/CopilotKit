@@ -97,6 +97,10 @@ jobs:
             pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }} --scope ${{ inputs.scope }}
           fi
 
+      - name: Generate public API manifest
+        if: inputs.dry_run != true
+        run: pnpm generate:public-api-manifest
+
       - name: Sync plugin skills
         if: inputs.dry_run != true
         run: pnpm sync:plugin-skills

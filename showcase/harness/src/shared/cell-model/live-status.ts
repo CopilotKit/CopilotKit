@@ -500,9 +500,9 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "frontend-tools": ["frontend-tools"],
   "frontend-tools-async": ["frontend-tools-async"],
   "threadid-frontend-tool-roundtrip": ["threadid-frontend-tool-roundtrip"],
-  // Reasoning family — both demos route through `reasoning-display`.
-  "reasoning-custom": ["reasoning-display"],
-  "reasoning-default": ["reasoning-display"],
+  // Reasoning family — each route has an independently reported probe.
+  "reasoning-custom": ["reasoning-custom"],
+  "reasoning-default": ["reasoning-default"],
   "shared-state-streaming": ["shared-state-streaming"],
   "readonly-state-agent-context": ["readonly-state-context"],
   "shared-state-read": ["shared-state-read"],

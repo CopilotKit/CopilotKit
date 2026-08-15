@@ -4,6 +4,7 @@
     "kind": "universal"
   },
   "pages": [
-    "agentcore"
+    "agentcore",
+    "langsmith"
   ]
 }
