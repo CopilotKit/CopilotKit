@@ -1,0 +1,9 @@
+{
+  "name": "@repo/agent-adk",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "uv run uvicorn main:app --host 0.0.0.0 --port 8124 --reload",
+    "postinstall": "uv sync"
+  }
+}
