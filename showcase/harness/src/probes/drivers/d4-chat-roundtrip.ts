@@ -7,6 +7,7 @@ import {
   showcaseShapeSchema,
 } from "../discovery/railway-services.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
+import { clearRemoteThreads } from "../helpers/clear-remote-threads.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 import { mintRunId } from "../helpers/cv-diag.js";
@@ -1579,6 +1580,10 @@ export function createE2eSmokeDriver(
           });
         }
         await tearDown();
+        // Fresh probe UUIDs otherwise accumulate forever in the default
+        // runner's process-wide store. The voice catch-all is intentional:
+        // it is the ungated route that accepts the service-wide clear path.
+        await clearRemoteThreads(backendUrl, slug, ctx.logger);
       }
     },
   };
