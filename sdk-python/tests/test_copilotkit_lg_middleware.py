@@ -895,6 +895,158 @@ def test_bedrock_fix_repairs_string_args_to_dicts():
 
 
 # ---------------------------------------------------------------------------
+# Checkpoint roundtrip — orphan-handoff contract
+# ---------------------------------------------------------------------------
+# These tests exercise the full checkpoint roundtrip path:
+# 1. after_agent leaves FE tool call as orphan (no ToolMessage)
+# 2. Checkpoint saved with orphan state
+# 3. Checkpoint loaded; patch_orphan_tool_calls adds _INTERRUPTED_PAT placeholder
+# 4. Real frontend result arrives (appended to messages)
+# 5. _fix_messages_for_bedrock dedupes: real result replaces placeholder
+#
+# The key invariant is that after_agent MUST NOT persist synthetic
+# ToolMessages — only the tool_calls are restored to the AIMessage.
+
+
+def test_checkpoint_roundtrip_placeholder_replaced_by_real_result():
+    """Simulates checkpoint restore with patch_orphan_tool_calls placeholder,
+    then real FE result arriving — the Bedrock fix should replace the
+    placeholder with the real result, keeping the result adjacent to the
+    AIMessage.
+    """
+    # State after checkpoint restore: patch_orphan_tool_calls added a
+    # placeholder for the orphan FE tool call. The real result is appended
+    # at the end (e.g. by the AG-UI adapter or add_messages).
+    ai = AIMessage(
+        content="",
+        tool_calls=[
+            {"id": "be-1", "name": "backend_search", "args": {}},
+            {"id": "fe-1", "name": "navigate", "args": {"path": "/x"}},
+        ],
+        id="ai-1",
+    )
+    backend_result = ToolMessage(content='{"hits": 3}', tool_call_id="be-1")
+    # patch_orphan_tool_calls injects this pattern for orphan tool calls
+    placeholder = ToolMessage(
+        content="Tool call 'navigate' with id 'fe-1' was interrupted before completion.",
+        tool_call_id="fe-1",
+    )
+    # Real FE result arrives later, appended at end
+    real_fe_result = ToolMessage(
+        content='{"navigated_to": "/x"}',
+        tool_call_id="fe-1",
+    )
+    messages: list[Any] = [
+        HumanMessage("hi"),
+        ai,
+        backend_result,
+        placeholder,
+        real_fe_result,
+    ]
+
+    CopilotKitMiddleware._fix_messages_for_bedrock(messages)
+
+    # The real result should replace the placeholder at the adjacent position
+    tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+    assert len(tool_messages) == 2, "Should have backend + FE results only"
+    assert tool_messages[0].tool_call_id == "be-1"
+    assert tool_messages[0].content == '{"hits": 3}'
+    assert tool_messages[1].tool_call_id == "fe-1"
+    assert tool_messages[1].content == '{"navigated_to": "/x"}'
+
+
+def test_checkpoint_roundtrip_multiple_fe_calls_with_placeholders():
+    """Multiple FE tool calls, all orphaned after turn 1, each gets a
+    placeholder from patch_orphan_tool_calls. Real results arrive for all.
+    """
+    ai = AIMessage(
+        content="",
+        tool_calls=[
+            {"id": "fe-1", "name": "select_tab", "args": {"tab": "overview"}},
+            {"id": "be-1", "name": "search", "args": {"q": "hi"}},
+            {"id": "fe-2", "name": "navigate", "args": {"path": "/x"}},
+        ],
+        id="ai-1",
+    )
+    placeholder_fe1 = ToolMessage(
+        content="Tool call 'select_tab' with id 'fe-1' was interrupted before completion.",
+        tool_call_id="fe-1",
+    )
+    backend_result = ToolMessage(content='{"hits": 5}', tool_call_id="be-1")
+    placeholder_fe2 = ToolMessage(
+        content="Tool call 'navigate' with id 'fe-2' was interrupted before completion.",
+        tool_call_id="fe-2",
+    )
+    real_fe1 = ToolMessage(content='{"tab": "overview"}', tool_call_id="fe-1")
+    real_fe2 = ToolMessage(content='{"path": "/x"}', tool_call_id="fe-2")
+    messages: list[Any] = [
+        HumanMessage("hi"),
+        ai,
+        placeholder_fe1,
+        backend_result,
+        placeholder_fe2,
+        real_fe1,  # appended later
+        real_fe2,  # appended later
+    ]
+
+    CopilotKitMiddleware._fix_messages_for_bedrock(messages)
+
+    tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+    assert len(tool_messages) == 3, "Should have 3 results: fe-1, be-1, fe-2"
+    # The dedup replaces placeholders with real results
+    assert all(
+        "was interrupted before completion" not in m.content for m in tool_messages
+    ), "All placeholders should be replaced"
+    ids = [m.tool_call_id for m in tool_messages]
+    assert set(ids) == {"fe-1", "be-1", "fe-2"}
+
+
+def test_after_agent_leaves_fe_call_orphaned_for_checkpoint():
+    """Verify that after_agent does not add any ToolMessage for FE calls —
+    the FE tool call is left orphaned so the checkpoint can receive the real
+    frontend result later via add_messages merge.
+    """
+    middleware = CopilotKitMiddleware()
+    backend_call = {"id": "be-1", "name": "search", "args": {"q": "hi"}}
+    frontend_call = {"id": "fe-1", "name": "navigate", "args": {"path": "/x"}}
+    # State after backend execution + mid-loop model calls complete
+    state = {
+        "messages": [
+            HumanMessage("hi"),
+            AIMessage(content="", tool_calls=[backend_call], id="ai-1"),
+            ToolMessage(content="ok", tool_call_id="be-1"),
+        ],
+        "copilotkit": {
+            "intercepted_tool_calls": [frontend_call],
+            "original_ai_message_id": "ai-1",
+            "original_tool_calls": [backend_call, frontend_call],
+        },
+    }
+    runtime = MagicMock(name="runtime")
+
+    result = middleware.after_agent(state, runtime)
+
+    assert result is not None
+    # AIMessage should have both tool_calls restored
+    restored_ai = next(
+        m for m in result["messages"] if isinstance(m, AIMessage) and m.id == "ai-1"
+    )
+    assert [tc["id"] for tc in restored_ai.tool_calls] == ["be-1", "fe-1"]
+
+    # Critical: only the backend ToolMessage should exist — the FE call is
+    # left as an orphan for the real frontend result to fill.
+    tool_messages = [m for m in result["messages"] if isinstance(m, ToolMessage)]
+    assert len(tool_messages) == 1, "Only backend ToolMessage should exist"
+    assert tool_messages[0].tool_call_id == "be-1"
+    # No synthetic FE ToolMessage should be present
+    assert not any(
+        "forwarded_to_frontend" in str(m.content)
+        for m in result["messages"]
+        if isinstance(m, ToolMessage)
+    ), "No synthetic FE ToolMessage should be in after_agent output"
+
+
+# ---------------------------------------------------------------------------
 # _extract_forwarded_headers_from_config — raw x-* header extraction
 # ---------------------------------------------------------------------------
 
