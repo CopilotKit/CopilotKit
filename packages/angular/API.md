@@ -8,9 +8,10 @@ symbol requires the package's normal breaking-change process.
 For task-oriented examples, start with the [package README](./README.md) and the
 [Angular documentation](https://docs.copilotkit.ai/frontends/angular). The high-level
 APIs most applications need are `provideCopilotKit`, `CopilotChat`,
-`CopilotPopup`, `CopilotSidebar`, `injectAgentStore`, the `register*` helpers,
-and the `inject*` controllers. The remaining components and context types are
-supported customization primitives for replacing individual chat slots.
+`CopilotPopup`, `CopilotSidebar`, `injectAgentStore`, `injectCapabilities`, the
+`register*` helpers, and the `inject*` controllers. The remaining components
+and context types are supported customization primitives for replacing
+individual chat slots.
 
 ## Root entry point
 
@@ -222,6 +223,7 @@ Import these symbols from `@copilotkit/angular`.
 - `createSlotRenderer`
 - `getSlotConfig`
 - `injectAgentStore`
+- `injectCapabilities`
 - `injectChatConfiguration`
 - `injectChatLabels`
 - `injectChatState`
