@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
+import { recordAnnotation } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
-import { recordAnnotation } from "../lib/record-annotation";
 
 /** The default learning containers value. Matches the backend default. */
 const DEFAULT_CONTAINERS: string[] = ["project"];
@@ -82,8 +82,12 @@ export function useLearningContainers({
     copilotkit.runtimeUrl,
   );
   const headersRef = useRef<Record<string, string>>(copilotkit.headers ?? {});
+  const credentialsRef = useRef<RequestCredentials | undefined>(
+    copilotkit.credentials,
+  );
   runtimeUrlRef.current = copilotkit.runtimeUrl;
   headersRef.current = copilotkit.headers ?? {};
+  credentialsRef.current = copilotkit.credentials;
 
   // Content-stable dependency: same items in same order → same key string.
   const key = JSON.stringify(learningContainers);
@@ -97,6 +101,7 @@ export function useLearningContainers({
   useEffect(() => {
     const runtimeUrl = copilotkit.runtimeUrl;
     const headers = copilotkit.headers ?? {};
+    const credentials = copilotkit.credentials;
 
     /**
      * Fire-and-forget emit; errors must not surface in render.
@@ -116,6 +121,7 @@ export function useLearningContainers({
       recordAnnotation({
         runtimeUrl,
         headers,
+        credentials,
         type: "set_learning_containers",
         payload: { containers },
         threadId,
@@ -150,7 +156,8 @@ export function useLearningContainers({
   // Runs whenever threadId changes and on unmount.
   // The cleanup emits the reset for the OLD threadId before the new one takes
   // over (or on final unmount). We intentionally do NOT re-run this effect when
-  // runtimeUrl or headers change — we read the latest values via refs instead.
+  // runtimeUrl, headers, or credentials change — we read the latest values via
+  // refs instead.
   useEffect(() => {
     // Capture the threadId that was active when this effect ran.
     const capturedThreadId = threadId;
@@ -158,11 +165,13 @@ export function useLearningContainers({
     return () => {
       const capturedRuntimeUrl = runtimeUrlRef.current;
       const capturedHeaders = headersRef.current;
+      const capturedCredentials = credentialsRef.current;
 
       if (capturedRuntimeUrl) {
         recordAnnotation({
           runtimeUrl: capturedRuntimeUrl,
           headers: capturedHeaders,
+          credentials: capturedCredentials,
           type: "set_learning_containers",
           payload: { containers: DEFAULT_CONTAINERS },
           threadId: capturedThreadId,

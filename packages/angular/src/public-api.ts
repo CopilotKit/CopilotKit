@@ -17,6 +17,7 @@ export * from "./lib/resize-observer";
 export * from "./lib/utils";
 export * from "./lib/agent-context";
 export * from "./lib/memories";
+export * from "./lib/user-actions";
 export type {
   Attachment,
   AttachmentModality,

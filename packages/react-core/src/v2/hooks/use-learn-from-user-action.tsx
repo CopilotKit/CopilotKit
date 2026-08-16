@@ -1,6 +1,7 @@
 import { useCallback } from "react";
+import { recordUserAction } from "@copilotkit/core";
+import type { RecordAnnotationResult, UserActionInput } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
-import { recordAnnotation } from "../lib/record-annotation";
 
 /**
  * Input to {@link UseLearnFromUserActionRecorder}, the function returned
@@ -8,33 +9,10 @@ import { recordAnnotation } from "../lib/record-annotation";
  * the Intelligence platform's auto-curated knowledge base loop will distill
  * into the team's `/project` notes.
  */
-export interface LearnFromUserActionInput {
-  /** Thread the action is associated with. May be unknown to the platform. */
-  threadId: string;
-  /** Short, agent-readable summary of what the user did. Optional. */
-  title?: string | null;
-  /** Optional longer explanation. */
-  description?: string | null;
-  /** Free-form, JSON-serializable snapshot describing the action. Optional. */
-  data?: unknown;
-  /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
-  occurredAt?: string;
-  /**
-   * Caller-supplied idempotency key. When omitted, `recordAnnotation` generates a
-   * fresh UUID per call so retries collapse to the original row at the
-   * platform. Supply your own to keep a single semantic event idempotent
-   * across calls (e.g. a React re-render or a manual retry button).
-   */
-  clientEventId?: string;
-}
+export interface LearnFromUserActionInput extends UserActionInput {}
 
 /** Outcome returned by the recorder function. */
-export interface LearnFromUserActionResult {
-  /** Platform-assigned id of the user-action row. */
-  id: string;
-  /** True when the platform recognized this `clientEventId` as a retry. */
-  duplicate: boolean;
-}
+export interface LearnFromUserActionResult extends RecordAnnotationResult {}
 
 /** Recorder function returned by {@link useLearnFromUserAction}. */
 export type UseLearnFromUserActionRecorder = (
@@ -53,11 +31,9 @@ export type UseLearnFromUserActionRecorder = (
  * resolves the Intel user from the BFF's auth and forwards to the
  * platform — the Intel API key never reaches the browser.
  *
- * If `clientEventId` is omitted `recordAnnotation` generates a UUID per call,
- * so a naive double-call (e.g. React 18 strict-mode double-mount, or a retry
- * after a network blip on a fresh Promise) is naturally safe. Supply your
- * own key when a single semantic event must remain idempotent across
- * multiple `learnFromUserAction(...)` calls.
+ * If `clientEventId` is omitted, `recordUserAction` generates a fresh UUID for
+ * each call. Supply and reuse an explicit ID when retrying the same semantic
+ * event so the platform can recognize the duplicate.
  *
  * @example
  * ```tsx
@@ -90,22 +66,11 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
         );
       }
 
-      const payload: Record<string, unknown> = {
-        ...(input.title !== undefined ? { title: input.title } : {}),
-        ...(input.description !== undefined
-          ? { description: input.description }
-          : {}),
-        ...(input.data !== undefined ? { data: input.data } : {}),
-      };
-
-      return recordAnnotation({
+      return recordUserAction({
+        ...input,
         runtimeUrl,
         headers: copilotkit.headers ?? {},
-        type: "user_action",
-        payload: Object.keys(payload).length > 0 ? payload : undefined,
-        threadId: input.threadId,
-        clientEventId: input.clientEventId,
-        occurredAt: input.occurredAt,
+        credentials: copilotkit.credentials,
       });
     },
     [copilotkit],

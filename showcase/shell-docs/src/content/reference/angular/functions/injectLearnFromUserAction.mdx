@@ -1,0 +1,123 @@
+---
+title: "injectLearnFromUserAction"
+description: "Angular function for recording a user action against an explicit chat thread through the authenticated CopilotKit runtime."
+---
+
+## Overview
+
+`injectLearnFromUserAction` returns an asynchronous function that records a
+meaningful application interaction against an explicit thread. The recorder
+sends a `user_action` annotation through your CopilotKit runtime, where the
+authenticated user is resolved before the annotation reaches Enterprise
+Intelligence.
+
+Call `injectLearnFromUserAction` from an Angular injection context such as a
+component field initializer. Runtime URL, headers, and Fetch credentials are
+read when the returned recorder is called, so later runtime configuration
+updates are honored.
+
+## Signature
+
+```ts
+import { injectLearnFromUserAction } from "@copilotkit/angular";
+
+function injectLearnFromUserAction(): LearnFromUserActionRecorder;
+
+type LearnFromUserActionRecorder = (
+  input: LearnFromUserActionInput,
+) => Promise<LearnFromUserActionResult>;
+```
+
+## Input
+
+<PropertyReference name="threadId" type="string" required>
+  Thread associated with the user action.
+</PropertyReference>
+
+<PropertyReference name="title" type="string | null">
+  Short, agent-readable summary of what the user did.
+</PropertyReference>
+
+<PropertyReference name="description" type="string | null">
+  Longer explanation of the action when the title is not sufficient.
+</PropertyReference>
+
+<PropertyReference name="data" type="unknown">
+  Optional JSON-serializable snapshot or structured details for the action.
+</PropertyReference>
+
+<PropertyReference name="occurredAt" type="string">
+  Optional ISO-8601 timestamp asserted by the client. The server records its
+  current time when this value is omitted.
+</PropertyReference>
+
+<PropertyReference name="clientEventId" type="string">
+  Optional idempotency key. Reuse the same value for every attempt to record
+  one semantic event.
+</PropertyReference>
+
+## Return value
+
+The recorder resolves to `LearnFromUserActionResult`:
+
+| Member | Type | Meaning |
+| --- | --- | --- |
+| `id` | `string` | Platform-assigned annotation ID |
+| `duplicate` | `boolean` | Whether this `clientEventId` had already been recorded |
+
+## Usage
+
+```ts title="src/app/project-settings.component.ts"
+import { Component, input } from "@angular/core";
+import { injectLearnFromUserAction } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-project-settings",
+  standalone: true,
+  template: `
+    <button type="button" (click)="renameProject('Quarterly plan')">
+      Rename project
+    </button>
+  `,
+})
+export class ProjectSettingsComponent {
+  readonly threadId = input.required<string>();
+  private readonly recordUserAction = injectLearnFromUserAction();
+
+  async renameProject(name: string): Promise<void> {
+    await this.recordUserAction({
+      threadId: this.threadId(),
+      title: "Renamed project",
+      description: "The user changed the project display name.",
+      data: { name },
+    });
+  }
+}
+```
+
+The promise rejects for network failures, non-success responses, or invalid
+runtime responses. It also rejects when `runtimeUrl` is not configured. Handle
+the rejection wherever the application needs retry or user feedback.
+
+<Callout type="info">
+  When `clientEventId` is omitted, a fresh ID is generated for each call. To
+  deduplicate a semantic retry, generate the ID before the first attempt and
+  reuse it on subsequent calls.
+</Callout>
+
+## Related
+
+<Cards>
+  <Card
+    title="injectLearnFromUserActionInCurrentThread"
+    description="Record an action against the ambient chat thread."
+    href="/reference/angular/functions/injectLearnFromUserActionInCurrentThread"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="provideCopilotKit"
+    description="Configure the runtime URL, headers, and Fetch credentials."
+    href="/reference/angular/functions/provideCopilotKit"
+    icon={<LinkIcon />}
+  />
+</Cards>

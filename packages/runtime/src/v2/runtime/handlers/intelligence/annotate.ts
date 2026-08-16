@@ -57,15 +57,16 @@ function isNonEmptyString(value: unknown): value is string {
  * `POST /annotate` handler.
  *
  * Three-tier flow:
- *   recordAnnotation() (frontend lib; called by useLearnFromUserAction)
+ *   framework adapter → recordUserAction() (shared semantic mapping)
+ *     → recordAnnotation() (shared transport)
  *     → POST ${runtimeUrl}/annotate
  *     → this handler resolves the Intel user from BFF auth
  *     → intelligence.annotate(...)
  *     → PUT ${apiUrl}/connector/annotate/:clientEventId
  *
- * The frontend hook may auto-generate a UUID `clientEventId` per call
- * so retries are idempotent end-to-end (the platform collapses to the
- * original row).
+ * Frontend callers may generate a fresh UUID `clientEventId` for each call.
+ * To make retries idempotent end-to-end, the caller must reuse the same ID for
+ * every attempt at recording one semantic event.
  */
 export async function handleAnnotate({
   runtime,

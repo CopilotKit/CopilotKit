@@ -162,6 +162,11 @@ Import these symbols from `@copilotkit/angular`.
 - `InterruptRunOptions`
 - `InterruptRunner`
 - `InterruptView`
+- `LearnFromUserActionInCurrentThreadInput`
+- `LearnFromUserActionInCurrentThreadRecorder`
+- `LearnFromUserActionInput`
+- `LearnFromUserActionRecorder`
+- `LearnFromUserActionResult`
 - `MemoriesController`
 - `Memory`
 - `MemoryChanges`
@@ -229,6 +234,8 @@ Import these symbols from `@copilotkit/angular`.
 - `injectChatState`
 - `injectCopilotKitConfig`
 - `injectInterrupt`
+- `injectLearnFromUserAction`
+- `injectLearnFromUserActionInCurrentThread`
 - `injectMemories`
 - `injectThreads`
 - `isComponentType`
