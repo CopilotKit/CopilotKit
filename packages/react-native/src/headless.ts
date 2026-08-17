@@ -115,14 +115,29 @@ export type {
   AgentCapabilities,
 } from "@ag-ui/client";
 
-// Render tool registration (React Native flavour: RN-typed render function,
-// registered into react-core's canonical registry — no local registry).
-export { useRenderTool } from "./hooks/useRenderTool";
-export type { UseRenderToolOptions } from "./hooks/useRenderTool";
-export type {
-  RenderToolProps,
-  RenderToolFunction,
-} from "./hooks/render-tool-types";
+// Render tool registration. React Native has ZERO render-tool API of its own:
+// this IS react-core's hook, re-exported unchanged, and its companion
+// `useFrontendTool` is re-exported with the other platform-agnostic hooks above.
+//
+// The two are NOT interchangeable, which is why RN no longer stands between a
+// consumer and either of them:
+//
+//   • `useFrontendTool` registers a TOOL *and* its renderer. The tool is
+//     advertised to the model on every run and the model may call it, so it
+//     needs a `description` and a handler (or HITL) to be worth offering.
+//   • `useRenderTool` registers a RENDERER ONLY. Nothing is advertised and
+//     nothing becomes callable; it supplies UI for a tool call somebody else
+//     owns — a server-side tool, or, with `name: "*"`, every tool call that has
+//     no renderer of its own.
+//
+// RN used to export a LOCAL `useRenderTool` whose whole body forwarded to
+// `useFrontendTool` — core's other hook, wearing this one's name. The visible
+// cost was `name: "*"`: it registered a frontend tool literally called `*`,
+// with no description and no schema, and offered it to the model. Do not
+// reintroduce a local hook under either name; the identity of this re-export is
+// asserted in src/__tests__/headless-entry-surface.test.ts.
+export { useRenderTool } from "@copilotkit/react-core/v2/headless";
+export type { RenderToolProps } from "@copilotkit/react-core/v2/headless";
 
 // Render tool consumption. react-core's hook is platform-agnostic — it pulls no
 // DOM and no chat-UI stack, and it returns ReactElement | null, which is exactly

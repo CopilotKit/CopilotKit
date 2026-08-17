@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 
 import * as headlessEntry from "../headless";
 import * as barrelEntry from "../index";
@@ -318,14 +319,24 @@ describe("react-native entries: no runtime value is re-exported type-only", () =
 
 describe("react-native entries: runtime values are usable as values", () => {
   it("branches a render-prop status against ToolCallStatus members", () => {
-    // The reported symptom. `RenderToolProps["status"]` is the `ToolCallStatus`
-    // enum type, so it rejects a bare `"executing"` literal too — without the
-    // value export there is no expression that compiles here at all.
+    // The reported symptom. Comparing a render prop's `status` against an enum
+    // MEMBER needs the enum's runtime binding: with `export type` the member is
+    // unnameable and this line is `TS1362`, whatever the field's own type is.
     //
-    // Read through an annotated signature so `status` keeps the full enum type
+    // `RenderToolProps` is react-core's, so `status` here is the string-literal
+    // union `"inProgress" | "executing" | "complete"` rather than the enum — a
+    // bare `"executing"` literal would compile against it too. That does not
+    // weaken this assertion (the enum member is still what is being named), but
+    // it does mean this is no longer the ONLY expression a consumer could write;
+    // §1 and §2 above are the load-bearing guards for the export kind.
+    //
+    // Read through an annotated signature so `status` keeps the full union
     // instead of narrowing to the single member assigned, which would turn the
     // comparisons below into TS2367 ("no overlap") rather than exercising them.
-    const readStatus = (): RenderToolProps<{ city: string }>["status"] =>
+    // `RenderToolProps` is generic over the SCHEMA, so the parameter is a schema
+    // type read back off a real one.
+    const citySchema = z.object({ city: z.string() });
+    const readStatus = (): RenderToolProps<typeof citySchema>["status"] =>
       ToolCallStatus.InProgress;
     const status = readStatus();
     const branch: string =
