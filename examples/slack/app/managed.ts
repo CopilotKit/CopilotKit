@@ -97,6 +97,18 @@ const requiredIntelligenceKey = (): string => {
  */
 const channelName = firstEnv("INTELLIGENCE_CHANNEL_NAME") ?? "triage";
 
+/** Prefer a key that carries `cpk-{projectId}_...`, even when another alias is set. */
+function intelligenceApiKey(): string {
+  const candidates = [
+    firstEnv("CPK_INTELLIGENCE_API_KEY"),
+    firstEnv("INTELLIGENCE_API_KEY"),
+    firstEnv("COPILOTKIT_API_KEY"),
+  ].filter((value): value is string => Boolean(value));
+  const matching = candidates.find((key) => /^cpk-\d+_/.test(key));
+  if (matching) return matching;
+  return requiredIntelligenceKey();
+}
+
 async function main() {
   const brand = await loadBrandRender();
   const agentUrl = required("AGENT_URL");
@@ -181,7 +193,7 @@ async function main() {
       "COPILOTKIT_INTELLIGENCE_WS_URL",
       "INTELLIGENCE_GATEWAY_WS_URL",
     ),
-    apiKey: requiredIntelligenceKey(),
+    apiKey: intelligenceApiKey(),
   });
 
   const runtime = new CopilotRuntime({
