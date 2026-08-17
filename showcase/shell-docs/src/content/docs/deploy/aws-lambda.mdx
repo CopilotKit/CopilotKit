@@ -4,24 +4,25 @@ icon: "lucide/Cloud"
 description: Run the CopilotKit runtime on AWS Lambda, including the response-streaming setup a chat UI requires.
 ---
 
-The CopilotKit runtime is a Fetch handler, so it runs on Lambda without a server. The one thing that needs care is **streaming**: chat responses are served as Server-Sent Events, and most Lambda front doors buffer the whole response before returning it.
+The CopilotKit runtime is a Fetch handler, so it runs on Lambda without a server. The one thing that needs care is **streaming**: chat responses are served as Server-Sent Events, and a front door that buffers turns a live conversation into a long pause followed by the whole reply at once.
 
 ## Start here: pick the right front door
 
-<Callout type="warn" title="API Gateway cannot stream">
-  Neither API Gateway REST APIs nor HTTP APIs support response streaming. They buffer the
-  full response, then return it in one piece (capped at 10 MB). A chat UI put behind API
-  Gateway appears to hang for the length of the agent run, then dumps the entire reply at
-  once. Application Load Balancer buffers the same way.
-</Callout>
-
 | Front door | Streams SSE? | Use it when |
 | --- | --- | --- |
-| **Lambda Function URL** with `RESPONSE_STREAM` | Yes | Anything with a chat UI. This is the path you want. |
-| API Gateway (REST or HTTP) | No | Non-streaming use only, or a runtime you drive entirely through your own non-chat endpoints. |
-| Application Load Balancer | No | Same caveat as API Gateway. |
+| **Lambda Function URL** with `InvokeMode: RESPONSE_STREAM` | Yes | The default. Nothing sits between the browser and the function. |
+| **API Gateway REST API** with `responseTransferMode: STREAM` | Yes | You need REST API features in front of the runtime — WAF, usage plans, a custom authorizer, or an existing REST API to extend. |
+| API Gateway **HTTP** API | No | Response streaming is REST-only. Buffered: 10 MB cap, 29-second timeout. |
+| Application Load Balancer | No | ALB has no streaming path for Lambda targets. |
 
-The rest of this page covers the Function URL path first, then the API Gateway path for the cases that genuinely don't need streaming.
+<Callout type="warn" title="Streaming is opt-in on every path">
+  Both streaming front doors default to buffering — a Function URL to `BUFFERED` invoke mode,
+  an API Gateway integration to `responseTransferMode: BUFFERED`. Deploy either without
+  flipping the switch and chat appears to hang for the length of the agent run, then dumps
+  the entire reply in one piece.
+</Callout>
+
+The handler code below is the same for both streaming paths; only the event shape and the infrastructure config differ.
 
 ## Function URL with response streaming
 
@@ -211,12 +212,141 @@ provideCopilotKit({
 <Callout type="info" title="Verify streaming actually works">
   `curl -N` on the run endpoint should print SSE events progressively. If the whole body
   arrives at once, streaming is not active — check that the Function URL's invoke mode is
-  `RESPONSE_STREAM` and that nothing buffering (API Gateway, an ALB) sits in front of it.
+  `RESPONSE_STREAM`, and that nothing buffering (an HTTP API, an ALB, a CloudFront
+  distribution without streaming configured) sits in front of it.
 </Callout>
 
-## API Gateway (no streaming)
+## API Gateway REST API with response streaming
 
-If you must sit behind API Gateway, `serverless-http` adapts the Express handler to a Lambda event. Chat still functions end to end, but every response arrives in one piece at the end of the run.
+REST APIs gained response streaming in November 2025. It is per-integration and off by default: setting `responseTransferMode` to `STREAM` makes API Gateway invoke the function through [`InvokeWithResponseStream`](https://docs.aws.amazon.com/lambda/latest/api/API_InvokeWithResponseStream.html) and forward bytes as they arrive, which also lifts the 10 MB response cap and the 29-second integration timeout that apply to buffered integrations.
+
+Use this path when you want REST API features in front of the runtime. If you don't, the Function URL above is less to configure.
+
+### 1. Adapt the handler to payload format 1.0
+
+The streaming half of the handler is unchanged — `awslambda.streamifyResponse` and `HttpResponseStream.from` emit exactly the metadata-plus-delimiter format API Gateway expects. What changes is the event: a REST proxy integration delivers payload format 1.0, not the 2.0 shape a Function URL sends.
+
+```ts title="src/handler.ts"
+import type { APIGatewayProxyEvent } from "aws-lambda";
+
+// REST proxy integrations deliver payload format 1.0: `httpMethod` and `path`
+// rather than `requestContext.http.method` and `rawPath`. `path` excludes the
+// stage name, which is what we want — it lines up with the runtime's basePath.
+function toFetchRequest(event: APIGatewayProxyEvent): Request {
+  const method = event.httpMethod;
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(event.headers)) {
+    if (value != null) headers.append(name, value);
+  }
+
+  const query = new URLSearchParams();
+  for (const [name, values] of Object.entries(
+    event.multiValueQueryStringParameters ?? {},
+  )) {
+    for (const value of values ?? []) query.append(name, value);
+  }
+  const search = query.toString();
+
+  const hasBody = method !== "GET" && method !== "HEAD" && event.body != null;
+
+  return new Request(
+    `https://${headers.get("host") ?? "localhost"}${event.path}${search ? `?${search}` : ""}`,
+    {
+      method,
+      headers,
+      body: hasBody
+        ? event.isBase64Encoded
+          ? Buffer.from(event.body!, "base64")
+          : event.body
+        : undefined,
+    },
+  );
+}
+```
+
+The `awslambda.streamifyResponse(...)` block from the Function URL section works as-is on top of this.
+
+### 2. Configure the integration
+
+Three settings matter: a Lambda **proxy** (`AWS_PROXY`) integration, a URI ending in `/response-streaming-invocations`, and `responseTransferMode: STREAM`. Streaming is not supported on non-proxy integration types.
+
+<Tabs groupId="iac" items={["AWS CLI", "AWS CDK", "AWS SAM"]}>
+<Tab value="AWS CLI">
+On an existing integration, patch the URI and the transfer mode together, then redeploy the stage:
+
+```bash
+aws apigateway update-integration \
+  --rest-api-id a1b2c3 \
+  --resource-id aaa111 \
+  --http-method ANY \
+  --patch-operations '[
+    {"op":"replace","path":"/uri","value":"arn:aws:apigateway:us-east-1:lambda:path/2021-11-15/functions/arn:aws:lambda:us-east-1:111122223333:function:copilotkit-runtime/response-streaming-invocations"},
+    {"op":"replace","path":"/responseTransferMode","value":"STREAM"},
+    {"op":"replace","path":"/timeoutInMillis","value":"900000"}
+  ]'
+
+aws apigateway create-deployment --rest-api-id a1b2c3 --stage-name prod
+```
+
+Note the API version in the URI path: `2021-11-15/.../response-streaming-invocations`, not the `2015-03-31/.../invocations` a buffered Lambda proxy integration uses. The permission is unchanged — `InvokeWithResponseStream` authorizes against `lambda:InvokeFunction`, so an existing `add-permission` grant still applies.
+</Tab>
+<Tab value="AWS CDK">
+```ts title="lib/stack.ts"
+import { LambdaIntegration, ResponseTransferMode, RestApi, EndpointType } from "aws-cdk-lib/aws-apigateway";
+import { Duration } from "aws-cdk-lib";
+
+const api = new RestApi(this, "CopilotKitApi", {
+  // Regional gets a 5-minute idle timeout; edge-optimized gets 30 seconds.
+  endpointConfiguration: { types: [EndpointType.REGIONAL] },
+});
+
+api.root.addResource("api").addResource("copilotkit").addResource("{proxy+}").addMethod(
+  "ANY",
+  new LambdaIntegration(fn, {
+    responseTransferMode: ResponseTransferMode.STREAM,
+    timeout: Duration.minutes(15),
+  }),
+);
+```
+
+`responseTransferMode` needs a recent `aws-cdk-lib`; the construct sets the streaming invocation URI for you.
+</Tab>
+<Tab value="AWS SAM">
+```yaml title="template.yaml"
+CopilotKitMethod:
+  Type: AWS::ApiGateway::Method
+  Properties:
+    RestApiId: !Ref CopilotKitApi
+    ResourceId: !Ref CopilotKitProxyResource
+    HttpMethod: ANY
+    AuthorizationType: NONE
+    Integration:
+      Type: AWS_PROXY
+      IntegrationHttpMethod: POST
+      ResponseTransferMode: STREAM
+      TimeoutInMillis: 900000
+      Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2021-11-15/functions/${CopilotKitRuntime.Arn}/response-streaming-invocations
+```
+</Tab>
+</Tabs>
+
+### 3. Plan around the streaming constraints
+
+- **Pick a Regional endpoint.** Streams are subject to an idle timeout: 5 minutes for Regional and private endpoints, but **30 seconds for edge-optimized ones**. An agent that thinks for longer than 30 seconds between SSE events will have its stream cut on an edge-optimized API. Fronting a Regional API with your own CloudFront distribution and raising its response timeout is the way to keep an edge cache.
+- **Raise the integration timeout.** It still defaults to 29 seconds. With `STREAM` you can take it up to 15 minutes on Regional and private APIs — match it to the Lambda timeout.
+- **`STREAM` disables buffered-only features** on that integration: endpoint caching, content encoding, and VTL response transformation. Compress inside the integration if you need it.
+- **Bandwidth.** The first 10 MB of each streamed response is uncapped; beyond that API Gateway throttles to 2 MB/s.
+- **A client timeout doesn't stop the function.** When API Gateway closes the connection, the Lambda keeps running and billing until it finishes or hits its own timeout.
+
+<Callout type="warn" title="The console test tab always buffers">
+  `TestInvokeMethod` and the console's **Test** tab buffer the stream and return it in one
+  piece, so a correctly configured integration still looks buffered there. Verify against a
+  deployed stage with `curl -i --no-buffer` instead.
+</Callout>
+
+## Buffered fallback: HTTP APIs and ALB
+
+Behind an HTTP API or an Application Load Balancer there is no streaming path, so `serverless-http` adapting the Express handler is as good as it gets. Chat still functions end to end, but every response arrives in one piece at the end of the run.
 
 ```
 npm install express serverless-http @copilotkit/runtime
@@ -250,7 +380,7 @@ export const handler = serverlessHttp(app);
 Two constraints to plan around:
 
 - **10 MB response cap.** A long agent run with large tool results can exceed it, and the request fails rather than truncating.
-- **29-second integration timeout** on API Gateway REST and HTTP APIs. Agent runs longer than that return a 504 even though the Lambda keeps executing.
+- **29-second integration timeout.** Agent runs longer than that return a 504 even though the Lambda keeps executing. On an HTTP API this ceiling is fixed; both limits are what `responseTransferMode: STREAM` lifts on a REST API.
 
 Single-route mode pairs well here, since it collapses the runtime to one `POST` and avoids configuring a catch-all proxy resource:
 
@@ -265,7 +395,7 @@ createCopilotExpressHandler({
 
 ## Authentication
 
-Use the runtime's `onRequest` hook to reject unauthenticated calls before any routing happens. It works identically on both paths above.
+Use the runtime's `onRequest` hook to reject unauthenticated calls before any routing happens. It works identically on every front door above.
 
 ```ts
 const copilotHandler = createCopilotRuntimeHandler({
@@ -294,7 +424,7 @@ See [Authentication](/auth) for forwarding user identity through to your agent.
 - **Construct the runtime outside the handler.** Putting `new CopilotRuntime(...)` at module scope means warm invocations reuse it rather than rebuilding it per request.
 - **Set the timeout to cover a full agent run.** Lambda's maximum is 15 minutes; the default of 3 seconds will cut off almost anything.
 - **Cold starts are visible in chat.** Provisioned concurrency is the usual fix if first-token latency matters.
-- **Streaming has its own limits.** Function URL response streaming allows a larger payload than the 6 MB buffered limit, but bandwidth beyond the first 6 MB is billed separately.
+- **Streaming has its own limits.** A streamed response can reach 200 MB against the 6 MB buffered ceiling, but Lambda throttles to 2 MB/s past the first 6 MB (API Gateway, past the first 10 MB). Streaming also incurs cost, and a streamed run is billed for the full function duration even if the client disconnects.
 
 ## Related
 

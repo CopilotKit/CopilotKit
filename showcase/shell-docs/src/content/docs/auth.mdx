@@ -446,9 +446,51 @@ This composes with [Human in the loop](/human-in-the-loop): gate on auth first, 
 
 ## Thread authorization
 
-Verifying *who* the caller is doesn't yet stop them reaching *someone else's conversation*. A `threadId` is just an opaque id travelling in a request — nothing in the runtime ties it to a user on its own. If user A learns user B's `threadId`, every thread route accepts it. Scoping threads to their owner is your responsibility, and it belongs in the runtime.
+Verifying *who* the caller is doesn't yet stop them reaching *someone else's conversation*. How much of that you have to build depends on which runtime you're running.
 
-### Own the mapping
+| Runtime | Who scopes threads to a user |
+| --- | --- |
+| `CopilotRuntime` with `intelligence` | The runtime does, via [`identifyUser`](#the-intelligence-platform-scopes-threads-for-you). |
+| Anything else — SSE runtime, custom store, local in-memory runner | You do. See [Scope threads yourself](#scope-threads-yourself). |
+
+### The Intelligence Platform scopes threads for you
+
+The Intelligence runtime requires an `identifyUser` callback — construction throws without one (or without at least one Channel). It runs on the server, once per request, and the id it returns is what the runtime passes to the platform on every thread-bearing route:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  intelligence,
+  identifyUser: async (request) => {
+    const session = await verifyAppSession(request); // Your server-side auth.
+    if (!session?.user) throw new Error("Unauthorized"); // Backstop; see below.
+
+    return { id: session.user.id, name: session.user.name };
+  },
+});
+```
+
+That resolved id is applied to `agent/run`, `agent/connect`, the thread message, event, and state reads, `threads/update`, `threads/archive`, `threads/delete`, and the token minted for the thread subscription. `threads/list` is scoped by the resolved user *and* filtered by `agentId`, so `useThreads` returns the caller's threads rather than every thread in the project.
+
+So on this path there is no ownership table to build. What you own is `identifyUser` itself:
+
+- **Derive the id from a server-verified credential.** The callback receives the raw `Request`; whatever it returns is trusted from there on. Reading a user id straight out of a header or request body hands every caller the ability to name themselves.
+- **Return a stable id.** It is the key threads hang off. Change it — swapping an email for a subject claim, say — and that user's existing threads stop resolving.
+- **Send the `401` from `onRequest`.** An `identifyUser` that throws surfaces as a `500`, and returning a malformed id gives a `400` — neither is what an unauthenticated caller should see. Do the authenticate-or-reject step in `onRequest`, which can throw a `Response` directly, and keep the throw inside `identifyUser` as a backstop for the case that slips through.
+
+<Callout type="warn">
+  A static `identifyUser` value is suitable only for a single-user demo. In a multi-user
+  application every request must resolve the authenticated user, or those users share one
+  thread scope.
+</Callout>
+
+See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user) for the full runtime contract.
+
+### Scope threads yourself
+
+Without the Intelligence Platform there is no server-side binding between a `threadId` and a user. A `threadId` is just an opaque id travelling in a request: if user A learns user B's, every thread route accepts it. The rest of this section is the pattern for a custom store, a plain SSE runtime, or the local in-memory runner.
+
+#### Own the mapping
 
 Whatever stores your threads, keep a record of who each one belongs to. The minimum is a table your runtime can query:
 
@@ -462,7 +504,7 @@ create index on thread_owners (user_id);
 
 Write a row when a conversation is first created — see [minting a thread with your own API](/threads-lifecycle#creating-a-thread-with-your-own-api-on-the-first-message) for where that hooks into the chat lifecycle.
 
-### Enforce it in `onBeforeHandler`
+#### Enforce it in `onBeforeHandler`
 
 `onRequest` runs before routing, so it can't see which thread is being addressed. `onBeforeHandler` runs after, and receives a `route` that names the operation and — for thread-scoped routes — the `threadId`:
 
@@ -510,23 +552,22 @@ The routes that carry a `threadId` on `route` are `agent/stop`, `threads/update`
   must own it". Minting UUIDs makes guessing impractical but is not itself a control.
 </Callout>
 
-### Filter the thread list
+#### Filter the thread list
 
-`threads/list` has no `threadId` to check — it returns whatever the configured store holds. On the Enterprise Intelligence Platform, threads are scoped to a project, so every user of one project sees that project's threads. If your product needs per-user thread lists, either give each user their own project scope, or build the list from your own ownership table and drive the chat with the selected id rather than rendering the platform list directly.
+`threads/list` has no `threadId` to check, so `onBeforeHandler` has nothing to authorize against. Off the platform the route returns whatever the configured store holds — the local in-memory runner filters by `agentId` only, and a custom store returns exactly what you wrote. Build the list from your own ownership table instead, and drive the chat with the selected id.
 
-`useThreads` is the platform-backed list. When you filter, filter server-side — hiding rows in the UI leaves the underlying route open.
+Filter server-side. Hiding rows in the UI leaves the underlying route open.
 
 <Callout type="info">
-  Running without the Enterprise Intelligence Platform? Then there is no server-side thread
-  store to authorize in the first place, and the ownership table above *is* your thread list.
-  See [Self-managed thread persistence](/threads-self-managed).
+  With no platform thread store, the ownership table above *is* your thread list. See
+  [Self-managed thread persistence](/threads-self-managed).
 </Callout>
 
 ## Security checklist
 
 - **Always validate** the token on the backend. Never trust the frontend's claim.
 - **Scope every read and write** to the resolved user. Auth context only matters if you actually use it to filter data.
-- **Check thread ownership on every thread route**, not just at login. See [Thread authorization](#thread-authorization).
+- **Bind threads to a user.** On the Intelligence Platform that means a correct `identifyUser`; off it, an ownership check on every thread route rather than only at login. See [Thread authorization](#thread-authorization).
 - **Don't log raw tokens.** Log the resolved user id (or `anonymous`) instead.
 - **Use HTTPS in production.** The Bearer token is sensitive.
 - **Refresh strategy.** Your frontend is responsible for rotating expired tokens before they reach the agent. CopilotKit doesn't refresh on your behalf.
