@@ -53,7 +53,8 @@ prepared delivery only to its originating provider.
 | `identifyUser`   | `"platform" \| ChannelIdentifyUser`            | Required. Maps each provider actor to an application user or `null`. See the Identity and Memory guide for [Slack](/slack/identity-and-memory) or [Teams](/teams/identity-and-memory). |
 | `showToolStatus` | `boolean`                                      | Managed Slack hides tool-call progress by default. Set `true` to show it; tool history remains available in Intelligence either way. |
 | `replyContinuation` | `ReplyContinuationOptions`                  | Managed Slack continuation limits. Direct Slack configures the same option on `slack()`.                                             |
-| `agent`          | `AbstractAgent \| (threadId) => AbstractAgent` | Prefer a factory. Every turn clones its configured agent, including the agent returned by a factory.                                 |
+| `agent`          | `AbstractAgent \| (threadId) => AbstractAgent` | Default agent. Prefer a factory. Every turn clones its configured agent, including the agent returned by a factory.                   |
+| `agents`         | `Record<string, AbstractAgent \| (threadId) => AbstractAgent>` | Named extra agents. `"default"` is the no-name agent when `agent` is omitted. Do not pass both `agent` and `agents.default`. |
 | `sanitizeAgentEvents` | `boolean`                                  | Defaults to `true`. Repairs the known nullable AG-UI parent-message field before strict HTTP-stream validation.                       |
 | `tools`          | `ChannelTool[]`                                | Channel-level typed tools.                                                                                                           |
 | `context`        | `ContextEntry[]`                               | Stable context added to every agent run.                                                                                             |

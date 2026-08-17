@@ -20,9 +20,10 @@ and interrupt callbacks.
 
 `thread.conversationKey` is the opaque, stable key Intelligence supplies for
 the native conversation. Do not parse it or infer workspace, team, channel, or
-thread identifiers from its value. The SDK passes that same value to your
-`agent(threadId)` factory (or sets it on a cloned singleton), which is why
-every quickstart creates a fresh agent and assigns its `threadId`.
+thread identifiers from its value. The SDK passes the checkpoint id to your
+`agent(threadId)` factory (or sets it on a cloned singleton). For the default
+agent that id is the conversation thread. Extra named agents get
+`threadId::agentId`. See [Multiple agents](/channels/multiple-agents).
 
 ```ts title="agent.ts"
 export function makeAgent(threadId: string) {

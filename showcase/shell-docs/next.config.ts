@@ -24,6 +24,7 @@ const CHANNEL_REDIRECT_GUIDE_SLUGS = [
   "commands-and-reactions",
   "files-and-multimodality",
   "threads-and-state",
+  "multiple-agents",
   "persistence-and-scaling",
   "history-and-transcripts",
   "deploy-and-operate",

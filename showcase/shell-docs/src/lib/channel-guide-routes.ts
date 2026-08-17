@@ -86,6 +86,12 @@ export const CHANNEL_GUIDE_ROUTES = [
     section: "build",
   },
   {
+    slug: "multiple-agents",
+    sourceSlug: "channels/multiple-agents",
+    navTitle: "Multiple agents",
+    section: "build",
+  },
+  {
     slug: "persistence-and-scaling",
     sourceSlug: "channels/persistence-and-scaling",
     navTitle: "Persistence and scaling",
