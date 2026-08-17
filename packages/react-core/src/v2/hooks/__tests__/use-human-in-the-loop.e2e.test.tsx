@@ -1552,3 +1552,170 @@ describe("HITL Run Abort", () => {
     });
   });
 });
+
+describe("HITL Wildcard Registration", () => {
+  it("passes the actual invoked tool name to a wildcard HITL renderer, not '*'", async () => {
+    // A wildcard HITL (`name: "*"`) approves any tool the agent calls, so the
+    // renderer's only way to tell the user *which* tool it is asking about is
+    // the `name` prop. Overwriting it with the registration name left every
+    // status showing "*".
+
+    const agent = new MockStepwiseAgent();
+    const namesSeen: string[] = [];
+
+    const WildcardHITLComponent: React.FC = () => {
+      const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
+        name: "*",
+        description: "Approve any tool",
+        parameters: z.object({ action: z.string() }),
+        render: ({ status, name, respond, result }) => {
+          useEffect(() => {
+            if (namesSeen[namesSeen.length - 1] !== name) {
+              namesSeen.push(name);
+            }
+          }, [name]);
+
+          return (
+            <div data-testid="wildcard-hitl">
+              <div data-testid="wildcard-name">{name}</div>
+              <div data-testid="wildcard-status">{status}</div>
+              {respond && (
+                <button
+                  data-testid="wildcard-respond"
+                  onClick={() => respond(JSON.stringify({ approved: true }))}
+                >
+                  Approve
+                </button>
+              )}
+              {result && <div data-testid="wildcard-result">{result}</div>}
+            </div>
+          );
+        },
+      };
+
+      useHumanInTheLoop(hitlTool);
+      return null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <WildcardHITLComponent />
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} />
+          </div>
+        </>
+      ),
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Delete the file" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Delete the file")).toBeDefined();
+    });
+
+    const messageId = testId("msg");
+    const toolCallId = testId("tc");
+
+    agent.emit(runStartedEvent());
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        toolCallName: "deleteFile",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ action: "delete" }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("wildcard-status").textContent).toBe(
+        ToolCallStatus.InProgress,
+      );
+    });
+    expect(screen.getByTestId("wildcard-name").textContent).toBe("deleteFile");
+
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    const approveButton = await screen.findByTestId("wildcard-respond");
+    expect(screen.getByTestId("wildcard-status").textContent).toBe(
+      ToolCallStatus.Executing,
+    );
+    expect(screen.getByTestId("wildcard-name").textContent).toBe("deleteFile");
+
+    fireEvent.click(approveButton);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("wildcard-status").textContent).toBe(
+        ToolCallStatus.Complete,
+      );
+    });
+    expect(screen.getByTestId("wildcard-name").textContent).toBe("deleteFile");
+
+    // "*" must never have reached the renderer in any status.
+    expect(namesSeen).not.toContain("*");
+  });
+
+  it("still passes the registration name to a named HITL renderer", async () => {
+    // Guards the no-op half of the wildcard fix: for a named registration the
+    // invoked name and the registration name are equal, so nothing changes.
+
+    const agent = new MockStepwiseAgent();
+
+    const NamedHITLComponent: React.FC = () => {
+      const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
+        name: "namedApprovalTool",
+        description: "Requires human approval",
+        parameters: z.object({ action: z.string() }),
+        render: ({ status, name }) => (
+          <div data-testid="named-hitl">
+            <div data-testid="named-name">{name}</div>
+            <div data-testid="named-status">{status}</div>
+          </div>
+        ),
+      };
+
+      useHumanInTheLoop(hitlTool);
+      return null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <NamedHITLComponent />
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} />
+          </div>
+        </>
+      ),
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Request approval" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Request approval")).toBeDefined();
+    });
+
+    agent.emit(runStartedEvent());
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId: testId("tc"),
+        toolCallName: "namedApprovalTool",
+        parentMessageId: testId("msg"),
+        delta: JSON.stringify({ action: "delete" }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("named-name").textContent).toBe(
+        "namedApprovalTool",
+      );
+    });
+  });
+});

@@ -60,15 +60,22 @@ export function useHumanInTheLoop<
     (props) => {
       const ToolComponent = tool.render;
 
+      // `props.name` is the tool that was actually invoked. For a named
+      // registration it already equals `tool.name`, so the override is a no-op.
+      // For a wildcard registration (`name: "*"`) `props.name` is the only
+      // place the real name exists — overwriting it with `"*"` left the
+      // renderer unable to say which tool it was asking the user to approve.
+      const name = tool.name === "*" ? props.name : tool.name;
+
       // Build the HITL render props per status. `props` already carries
-      // `toolCallId`; we overwrite `name`/`description` with the tool's
-      // registration values and add the registration `agentId`, so the HITL
-      // render always receives the full prop contract. `respond` is only live
-      // while the tool is executing.
+      // `toolCallId`; we overwrite `description` with the tool's registration
+      // value and add the registration `agentId`, so the HITL render always
+      // receives the full prop contract. `respond` is only live while the tool
+      // is executing.
       if (props.status === ToolCallStatus.InProgress) {
         const enhancedProps = {
           ...props,
-          name: tool.name,
+          name,
           description: tool.description || "",
           agentId: tool.agentId,
           respond: undefined,
@@ -77,7 +84,7 @@ export function useHumanInTheLoop<
       } else if (props.status === ToolCallStatus.Executing) {
         const enhancedProps = {
           ...props,
-          name: tool.name,
+          name,
           description: tool.description || "",
           agentId: tool.agentId,
           respond,
@@ -86,7 +93,7 @@ export function useHumanInTheLoop<
       } else if (props.status === ToolCallStatus.Complete) {
         const enhancedProps = {
           ...props,
-          name: tool.name,
+          name,
           description: tool.description || "",
           agentId: tool.agentId,
           respond: undefined,
