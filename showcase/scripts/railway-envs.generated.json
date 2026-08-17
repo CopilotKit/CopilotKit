@@ -445,7 +445,7 @@
       "dispatchName": "crewai-conversational-flows",
       "domains": {
         "staging": "showcase-crewai-conversational-flows-staging.up.railway.app",
-        "prod": "showcase-crewai-conversational-flows-staging.up.railway.app"
+        "prod": ""
       },
       "probe": {
         "staging": true,

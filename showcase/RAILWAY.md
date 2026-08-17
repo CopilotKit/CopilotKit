@@ -84,10 +84,7 @@ first and its prod instance is deferred to "promote later." In the SSOT
 - `gateValidated: true`,
 - no `gateIgnore` exemption,
 - an `environments:` map containing **only `staging`** (no `prod` block, so no
-  prod `serviceInstance` ID exists),
-- a `legacyJsonCompat.domains.prod` placeholder pointing at the **borrowed
-  staging host**, purely to keep the generated JSON's legacy `{prod, staging}`
-  shape (it is never dereferenced by any TS accessor).
+  prod `serviceInstance` ID exists).
 
 The image-ref verifier iterates only the environments declared by a service,
 so it validates the staging instance and canonical GHCR image without requiring
@@ -140,8 +137,6 @@ flipping the SSOT gate.
      `probe: true`;
    - keep `gateValidated: true`; the staging-only entry should already be
      validated, and it should not have a `gateIgnore` exemption;
-   - **remove** the `legacyJsonCompat` prod-domain placeholder (the borrowed
-     staging host);
    - update the leading comment to reflect the dual-env state.
 
    See the PR #5705 diff on this file for the exact before/after.

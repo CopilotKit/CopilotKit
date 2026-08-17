@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
   e2eChatToolsDriver,
   createE2eSmokeDriver,
@@ -24,6 +24,16 @@ import type { BrowserPool } from "../helpers/browser-pool.js";
 import type { Browser } from "playwright";
 import { logger } from "../../logger.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
+
+beforeEach(() => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(null, { status: 204 }),
+  );
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 // Driver-level tests for the Playwright-in-process e2e-smoke driver. The
 // real chromium launch path is never exercised here — tests inject a
@@ -203,6 +213,51 @@ describe("e2eChatToolsDriver L3 (chat)", () => {
     expect(chat?.state).toBe("green");
     // Browser must always be torn down.
     expect(state.closed).toBe(true);
+  });
+
+  it("clears backend thread state once without changing a green result when cleanup rejects", async () => {
+    const { browser, state } = makeBrowser([{ assistantText: "Hi there!" }]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const writer = new CapturingWriter();
+    const fetchSpy = vi.mocked(globalThis.fetch);
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    fetchSpy.mockImplementationOnce(async () => {
+      expect(state.closed).toBe(true);
+      throw new Error("thread clear rejected");
+    });
+
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://backend.example.com",
+      publicUrl: "https://public.example.com",
+      demos: [],
+    });
+
+    expect(result).toEqual({
+      key: "e2e-smoke:foo",
+      state: "green",
+      signal: {
+        shape: "package",
+        slug: "foo",
+        backendUrl: "https://backend.example.com",
+        l3: "green",
+        l4: "skipped",
+        failureSummary: "",
+      },
+      observedAt: "2026-04-21T00:00:00.000Z",
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://backend.example.com/api/copilotkit-voice/threads/clear",
+      {
+        method: "POST",
+        signal: expect.any(AbortSignal),
+      },
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      "probe.e2e.threads-clear-failed",
+      expect.objectContaining({ slug: "foo", err: "thread clear rejected" }),
+    );
   });
 
   it("red when chat yields an empty assistant response", async () => {

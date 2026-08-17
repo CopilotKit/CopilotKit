@@ -1049,6 +1049,37 @@ export const SERVICES: Record<
       },
     },
   },
+  "showcase-crewai-conversational-flows": {
+    serviceId: "11859593-da4e-486c-a810-6cdffeff9750",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    // Built and pushed by showcase_build.yml's ALL_SERVICES matrix. The
+    // production build workflow entry and dispatch name are added together,
+    // so this service belongs in CI_BUILT_SERVICES and follows the same
+    // staging redeploy path as the other showcase integrations.
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "crewai-conversational-flows",
+    probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic at
+    // the env-local aimock, so a cluster promote pulls aimock (tier-0) into the
+    // closure — same wiring as its `showcase-crewai-crews` sibling.
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    // STAGING-ONLY: the live Railway service currently has a serviceInstance in
+    // staging only (no prod instance is provisioned). The env-map schema models
+    // a single-env service by declaring only the env that exists — the image-ref
+    // gate then requires it in staging (findMissingServices) and never demands a
+    // (non-existent) prod instance. All values below are read verbatim from the
+    // live Railway service, not derived.
+    environments: {
+      staging: {
+        instanceId: "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
+        healthcheckPath: "/api/health",
+        domain: "showcase-crewai-conversational-flows-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
   "showcase-crewai-crews": {
     serviceId: "0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4",
     autoUpdates: { staging: "disabled", prod: "disabled" },
@@ -1074,35 +1105,6 @@ export const SERVICES: Record<
         healthcheckPath: "/api/health",
         domain: "showcase-crewai-crews-staging.up.railway.app",
         probe: true,
-      },
-    },
-  },
-  // STAGING-ONLY (for now). CrewAI Conversational Flows ships to staging
-  // first; its prod serviceInstance is intentionally not provisioned yet.
-  // ciBuilt keeps it in staging redeploys. The image-ref gate validates the
-  // declared staging instance without requiring a non-existent prod instance.
-  "showcase-crewai-conversational-flows": {
-    serviceId: "11859593-da4e-486c-a810-6cdffeff9750",
-    autoUpdates: { staging: "disabled", prod: "disabled" },
-    ciBuilt: true,
-    gateValidated: true,
-    dispatchName: "crewai-conversational-flows",
-    probeDriver: "agent",
-    runtimeDeps: ["aimock"],
-    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
-    environments: {
-      staging: {
-        instanceId: "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
-        healthcheckPath: "/api/health",
-        domain: "showcase-crewai-conversational-flows-staging.up.railway.app",
-        probe: true,
-      },
-    },
-    // The Ruby/jq compatibility projection requires a prod domain even for a
-    // staging-only service. This borrowed host is never probed in prod.
-    legacyJsonCompat: {
-      domains: {
-        prod: "showcase-crewai-conversational-flows-staging.up.railway.app",
       },
     },
   },

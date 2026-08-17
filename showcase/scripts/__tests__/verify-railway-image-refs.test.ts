@@ -267,18 +267,23 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     });
   }
 
-  it("requires the staging-only CrewAI service in staging but not prod", () => {
+  it("findMissingServices treats every gateValidated service as a target, per the envs it declares", () => {
     // With nothing "present", every gateValidated service should appear in
-    // each environment it declares. CrewAI Conversational Flows declares only
-    // staging, so the gate must catch a missing staging instance without
-    // inventing a missing prod instance.
+    // the missing set for each env it DECLARES. All dual-env gateValidated
+    // services (the 29 showcase/infra + 12 starters that carry both prod and
+    // staging) are demanded in BOTH envs. The lone single-env gateValidated
+    // service — showcase-crewai-conversational-flows, live in staging only —
+    // is demanded ONLY in staging, so the counts are intentionally asymmetric:
+    //   prod    = 41 (the dual-env services; the staging-only one is skipped)
+    //   staging = 42 (the dual-env services PLUS the staging-only one)
     const missingProd = findMissingServices("prod", new Set<string>());
     const missingStaging = findMissingServices("staging", new Set<string>());
     expect(missingProd).toHaveLength(41);
     expect(missingStaging).toHaveLength(42);
-    expect(missingProd).not.toContain("showcase-crewai-conversational-flows");
+    // The staging-only service is required in staging but NOT prod.
     expect(missingStaging).toContain("showcase-crewai-conversational-flows");
-    // The 12 starters are now demanded in BOTH envs.
+    expect(missingProd).not.toContain("showcase-crewai-conversational-flows");
+    // The 12 starters are still demanded in BOTH envs.
     expect(missingProd).toContain("starter-adk");
     expect(missingStaging).toContain("starter-mastra");
   });

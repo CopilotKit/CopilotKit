@@ -45,13 +45,13 @@ interface FrontendSearchPage {
   guidanceTitle?: "Docs status";
 }
 
-const FRONTEND_SEARCH_PAGES = [
+const FRONTEND_SEARCH_PAGES: readonly FrontendSearchPage[] = [
   { id: "vue", name: "Vue", guidanceTitle: "Docs status" },
   { id: "react-native", name: "React Native", guidanceTitle: "Docs status" },
   { id: "angular", name: "Angular", guidanceTitle: "Docs status" },
   { id: "slack", name: "Slack" },
   { id: "teams", name: "Microsoft Teams" },
-] as const satisfies readonly FrontendSearchPage[];
+];
 
 const FRONTEND_NAMES = new Map(
   FRONTEND_SEARCH_PAGES.map((frontend) => [frontend.id, frontend.name]),
