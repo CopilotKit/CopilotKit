@@ -144,10 +144,7 @@ async function main() {
   // API and realtime planes are separate hosts (api.… vs realtime.…), so
   // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: firstEnv(
-      "COPILOTKIT_INTELLIGENCE_URL",
-      "INTELLIGENCE_API_URL",
-    ),
+    apiUrl: firstEnv("COPILOTKIT_INTELLIGENCE_URL", "INTELLIGENCE_API_URL"),
     wsUrl: firstEnv(
       "COPILOTKIT_INTELLIGENCE_WS_URL",
       "INTELLIGENCE_GATEWAY_WS_URL",
