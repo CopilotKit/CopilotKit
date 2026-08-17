@@ -316,6 +316,11 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
+          # Backend tool-rendering demos call the live open-meteo API, which
+          # rate-limits CI's shared egress IPs and hangs the e2e tests. Return
+          # canned weather data instead so these suites are deterministic.
+          # Mirrors ag-ui's own dojo-e2e workflow.
+          AG_UI_MOCK_WEATHER: "1"
         if: steps.should-run.outputs.skip != 'true' && join(matrix.services, ',') != '' && contains(join(matrix.services, ','), 'dojo')
         with:
           run: |
