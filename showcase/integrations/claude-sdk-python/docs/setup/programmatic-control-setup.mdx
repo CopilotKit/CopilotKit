@@ -3,8 +3,8 @@
     ### Run Claude through an AG-UI endpoint
 
     Programmatic control starts from the same AG-UI run boundary as the chat UI.
-    Wrap Claude Agent SDK once, then use the complete frontend example below
-    to add a user message with `useAgent` and dispatch or stop the run with
-    `useCopilotKit`.
+    Wrap Claude Agent SDK once to expose that endpoint. The frontend patterns
+    on this page then use the same agent connection, whether they trigger a
+    run, render a headless chat, or resolve an interrupt.
   </Step>
 </Steps>
