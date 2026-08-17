@@ -61,9 +61,11 @@ COPY --chown=app:app src/agents/ ./agents/
 # Shared Python tools (symlinked locally, copied into build context by CI)
 COPY --chown=app:app tools/ /app/tools/
 
-# Shared CVDIAG bootstrap module (single source: showcase/integrations/_shared;
-# symlinked in source, dereferenced into this build context by the harness
-# stage_shared step). Lands at /app/_shared; /app is already on PYTHONPATH.
+# Shared CVDIAG bootstrap module plus the harness plumbing under
+# _shared/harness/ (header forwarding, CVDIAG backend middleware). Single
+# source: showcase/integrations/_shared; symlinked in source, dereferenced into
+# this build context by the harness stage_shared step. Lands at /app/_shared;
+# /app is already on PYTHONPATH, so `_shared.harness.*` imports resolve.
 COPY --chown=app:app _shared/ ./_shared/
 ENV PYTHONPATH=/app
 

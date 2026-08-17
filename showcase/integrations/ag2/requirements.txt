@@ -1,22 +1,4 @@
-# Upper bound pins us below ag2 1.0.0 (published 2026-07-27), which renames the
-# top-level module `autogen` -> `ag2` and drops `autogen/` entirely, so every
-# `from autogen... import` under src/agents/ raises ModuleNotFoundError.
-#
-# This is NOT a pure rename -- 1.0.0 promotes the old `autogen.beta.ag_ui`
-# stream in place of the stable adapter and changes the public API:
-#   - `autogen/ag_ui/adapter.py` (AgentService-based AGUIStream) is deleted
-#   - `AGUIStream.__init__` drops the `event_interceptors` kwarg
-#   - `AGUIStream.dispatch()` drops `context=` in favour of `variables=`
-#     (plus new prompt/dependencies/config/tools/middleware/observers/hitl_hook)
-# `src/agents/_multimodal_normalize.py` calls `super().dispatch(..., context=...)`,
-# so migrating the import path alone would trade an import error for a runtime
-# TypeError. Lift this bound only as part of a real 1.0 migration that ports the
-# ~20 `autogen` import sites and re-verifies every ag2 demo cell.
-ag2[openai,ag-ui]>=0.9.0,<1.0.0
-ag-ui-protocol>=0.1.10
+ag2[openai,ag-ui,a2ui]>=1.0.0
 fastapi>=0.115.0
 uvicorn>=0.34.0
-httpx>=0.27.0
 python-dotenv==1.0.1
-pypdf>=4.0.0
-openai>=1.50.0

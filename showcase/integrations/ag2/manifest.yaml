@@ -21,16 +21,22 @@ not_supported_features:
   - shared-state-streaming
   - gen-ui-interrupt
   - interrupt-headless
-  # AG2's ConversableAgent/AGUIStream does not emit AG-UI REASONING_MESSAGE_*
-  # events (documented in src/agents/tool_rendering_reasoning_chain.py) — the
-  # reasoning-block can never mount, so any reasoning-bearing pill is
-  # upstream-incapable until autogen maps reasoning deltas to AG-UI events.
-  # The reasoning-default-render / agentic-chat-reasoning demos remain wired
-  # on disk but cannot stream reasoning text; tool-rendering-reasoning-chain's
-  # tool loop works, but its reasoning slot is degraded for the same reason.
+  # HISTORICAL (pre-1.0): the old autogen AGUIStream emitted no AG-UI
+  # REASONING_MESSAGE_* events. ag2 1.0 maps reasoning deltas natively
+  # (see PARITY_NOTES.md "ag2 1.0 migration"), so these flags — and
+  # shared-state-streaming above, now backed by explicit intermediate
+  # STATE_SNAPSHOTs — are candidates for removal once QA re-verifies the
+  # demos against ag2>=1.0.0. Kept conservative until then.
   - reasoning-default-render
   - agentic-chat-reasoning
   - tool-rendering-reasoning-chain
+  # Built on disk and routed under `demos:` below, but NOT shipped: the
+  # shared d5 reasoning probe does not observe these cells (see
+  # .scratch/ag2-showcase-cleanup/decisions.md §1). Routed so the manifest
+  # guard can account for the directories; kept out of `features:` so the
+  # dashboard does not publish a cell we cannot prove green.
+  - reasoning-default
+  - reasoning-custom
 interaction_modalities:
   - sidebar
   - embedded
@@ -61,9 +67,12 @@ features:
   - readonly-state-agent-context
   - frontend-tools
   - frontend-tools-async
+  - shared-state-read
   - shared-state-read-write
   - subagents
   - auth
+  - declarative-hashbrown
+  - declarative-json-render
   - agent-config
   - voice
   - multimodal
@@ -292,6 +301,30 @@ demos:
       - src/app/demos/headless-complete/tools/stock-card.tsx
       - src/app/demos/headless-complete/tools/chart-card.tsx
       - src/app/demos/headless-complete/tools/highlight-note.tsx
+  - id: reasoning-default
+    name: "Reasoning: Default"
+    description: Built-in CopilotChatReasoningMessage rendering with no slot override.
+    tags:
+      - chat-ui
+    route: /demos/reasoning-default
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/reasoning-default/page.tsx
+      - src/app/demos/reasoning-default/suggestions.ts
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-custom
+    name: "Reasoning: Custom"
+    description: Visible reasoning/thinking chain alongside the final answer
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/app/api/copilotkit/route.ts
   - id: readonly-state-agent-context
     name: Readonly State (Agent Context)
     description: Frontend provides read-only context to the agent via useAgentContext
@@ -327,6 +360,19 @@ demos:
       - src/agents/agent.py
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: shared-state-read
+    name: "Shared State: Read-only"
+    description: >-
+      Recipe editor publishes form state via agent.setState; the agent reads the
+      recipe context but does not mutate it (no backend tool — neutral default
+      agent)
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+    highlight:
+      - src/app/demos/shared-state-read/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: shared-state-read-write
     name: Shared State (Read + Write)
@@ -488,6 +534,45 @@ demos:
       - src/app/demos/auth/use-demo-auth.ts
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
+  - id: declarative-hashbrown
+    name: "Declarative UI: Hashbrown"
+    description: Streaming structured output via @hashbrownai/react, rendering a
+      sales dashboard catalog (MetricCard + PieChart + BarChart)
+    tags:
+      - generative-ui
+    route: /demos/declarative-hashbrown
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_hashbrown_agent.py
+      - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+      - src/app/demos/declarative-hashbrown/metric-card.tsx
+      - src/app/demos/declarative-hashbrown/charts/bar-chart.tsx
+      - src/app/demos/declarative-hashbrown/charts/pie-chart.tsx
+      - src/app/demos/declarative-hashbrown/types.ts
+      - src/app/demos/declarative-hashbrown/suggestions.ts
+      - src/app/api/copilotkit-declarative-hashbrown/route.ts
+  - id: declarative-json-render
+    name: "Declarative UI: json-render"
+    description: Streaming hierarchical JSON UI spec rendered via
+      @json-render/react, with a Zod-validated catalog (MetricCard + PieChart +
+      BarChart)
+    tags:
+      - generative-ui
+    route: /demos/declarative-json-render
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_json_render_agent.py
+      - src/app/demos/declarative-json-render/page.tsx
+      - src/app/demos/declarative-json-render/json-render-renderer.tsx
+      - src/app/demos/declarative-json-render/registry.tsx
+      - src/app/demos/declarative-json-render/catalog.ts
+      - src/app/demos/declarative-json-render/metric-card.tsx
+      - src/app/demos/declarative-json-render/charts/bar-chart.tsx
+      - src/app/demos/declarative-json-render/charts/pie-chart.tsx
+      - src/app/demos/declarative-json-render/types.ts
+      - src/app/demos/declarative-json-render/suggestions.ts
+      - src/app/api/copilotkit-declarative-json-render/route.ts
   - id: agent-config
     name: Agent Config Object
     description:
