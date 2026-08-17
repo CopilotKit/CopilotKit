@@ -2,10 +2,10 @@
  * Strands `tool()` definitions for the shared showcase agent.
  *
  * Mirrors the Python sibling's tool set (`src/agents/agent.py`) minus the
- * A2UI `generate_a2ui` tool. Frontend-only tools (theme toggles, HITL
- * components) are NOT defined here — the @ag-ui/aws-strands adapter
- * auto-registers them as proxy tools from `RunAgentInput.tools`, so the LLM
- * sees them and the browser executes them.
+ * A2UI `generate_a2ui` tool. HITL frontend tools stay off this list —
+ * the @ag-ui/aws-strands adapter auto-registers them from
+ * `RunAgentInput.tools`. `change_background` is registered here and
+ * returns null so the browser handler runs (CopilotKit Strands docs).
  */
 
 import { tool } from "@strands-agents/sdk";
@@ -31,6 +31,40 @@ export const getWeather = tool({
     location: z.string().describe("The location to get weather for."),
   }),
   callback: ({ location }) => JSON.stringify(getWeatherImpl(location)),
+});
+
+export const getStockPrice = tool({
+  name: "get_stock_price",
+  description:
+    "Get a mock current price for a stock ticker. Returns ticker, price_usd, and change_pct.",
+  inputSchema: z.object({
+    ticker: z.string().describe("The ticker symbol to look up."),
+  }),
+  callback: ({ ticker }) =>
+    JSON.stringify({
+      ticker: ticker.toUpperCase(),
+      price_usd: 189.42,
+      change_pct: 1.27,
+    }),
+});
+
+export const getRevenueChart = tool({
+  name: "get_revenue_chart",
+  description: "Get a mock six-month revenue series for a chart visualization.",
+  inputSchema: z.object({}),
+  callback: () =>
+    JSON.stringify({
+      title: "Quarterly revenue",
+      subtitle: "Last six months · USD thousands",
+      data: [
+        { label: "Jan", value: 38 },
+        { label: "Feb", value: 47 },
+        { label: "Mar", value: 52 },
+        { label: "Apr", value: 49 },
+        { label: "May", value: 63 },
+        { label: "Jun", value: 71 },
+      ],
+    }),
 });
 
 export const queryData = tool({
@@ -111,6 +145,21 @@ export const setThemeColor = tool({
     theme_color: z.string().describe("The color to set as theme."),
   }),
   callback: ({ theme_color }) => `Theme color set to ${theme_color}.`,
+});
+
+// Official CopilotKit Strands frontend-tools shape: register the tool so the
+// model can call it, return null so the browser handler runs.
+// https://docs.copilotkit.ai/integrations/aws-strands/frontend-tools
+export const changeBackground = tool({
+  name: "change_background",
+  description:
+    "Change the background color of the chat. Can be anything that CSS accepts.",
+  inputSchema: z.object({
+    background: z
+      .string()
+      .describe("The background color or gradient. Prefer gradients."),
+  }),
+  callback: () => null,
 });
 
 export const setNotes = tool({
@@ -255,11 +304,14 @@ export const SHOWCASE_TOOLS = [
   getSalesTodos,
   manageSalesTodos,
   getWeather,
+  getStockPrice,
+  getRevenueChart,
   queryData,
   rollDice,
   scheduleMeeting,
   searchFlights,
   setThemeColor,
+  changeBackground,
   setNotes,
   setSteps,
   writeDocument,

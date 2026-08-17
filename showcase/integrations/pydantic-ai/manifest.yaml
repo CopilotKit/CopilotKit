@@ -8,6 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/pydantic-ai
 copilotkit_version: 2.0.0
 deployed: true
+demo_frontend: unified
 docs_mode: authored
 sort_order: 50
 generative_ui:
@@ -92,6 +93,8 @@ demos:
       - src/agents/agent.py
       - src/app/demos/agentic-chat/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: agentic_chat
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
     description: Docked sidebar chat via <CopilotSidebar />
@@ -183,6 +186,8 @@ demos:
       - src/agents/agent.py
       - src/app/demos/hitl/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: human_in_the_loop
   - id: hitl-in-app
     name: In-App Human in the Loop (Frontend Tools + async HITL)
     description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision
@@ -207,6 +212,8 @@ demos:
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /hitl_in_chat/
   - id: hitl-in-chat-booking
     name: In-Chat HITL (Booking)
     description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow
@@ -219,6 +226,9 @@ demos:
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /hitl_in_chat/
+      name: hitl-in-chat
   - id: tool-rendering
     name: Tool Rendering
     description: Backend agent tools rendered as UI components
@@ -281,6 +291,8 @@ demos:
       - src/app/demos/gen-ui-tool-based/bar-chart.tsx
       - src/app/demos/gen-ui-tool-based/pie-chart.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /gen_ui_tool_based/
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -294,7 +306,10 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: shared-state-read
     name: "Shared State: Read-only"
-    description: "Recipe editor publishes form state via agent.setState; the agent reads the recipe context but does not mutate it (no backend tool — neutral default agent)."
+    description:
+      "Recipe editor publishes form state via agent.setState; the agent
+      reads the recipe context but does not mutate it (no backend tool — neutral
+      default agent)."
     tags:
       - agent-state
     route: /demos/shared-state-read
@@ -303,6 +318,10 @@ demos:
       - src/app/demos/shared-state-read/page.tsx
       - src/app/demos/shared-state-read/recipe-card.tsx
       - src/app/api/copilotkit/route.ts
+    # No `agent` block on purpose: this demo needs no dedicated backend agent.
+    # agent_server.py mounts the neutral default agent at the base URL, and the
+    # absent-path rule dials ${AGENT_URL}/ — the same shape this manifest
+    # already uses for readonly-state-agent-context.
   - id: shared-state-read-write
     name: Shared State (Read + Write)
     description: Bidirectional agent state — UI writes preferences, agent writes notes back
@@ -316,6 +335,8 @@ demos:
       - src/app/demos/shared-state-read-write/preferences-card.tsx
       - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /shared_state_read_write/
   - id: subagents
     name: Sub-Agents
     description: Multiple agents with visible task delegation
@@ -328,6 +349,8 @@ demos:
       - src/app/demos/subagents/page.tsx
       - src/app/demos/subagents/delegation-log.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /subagents/
   - id: readonly-state-agent-context
     name: Readonly State (Agent Context)
     description: Frontend provides read-only context to the agent via useAgentContext
@@ -350,6 +373,13 @@ demos:
       - src/agents/open_gen_ui_agent.py
       - src/app/demos/open-gen-ui/page.tsx
       - src/app/api/copilotkit-ogui/route.ts
+    agent:
+      path: /open_gen_ui/
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
   - id: open-gen-ui-advanced
     name: Open Generative UI (Advanced)
     description: Sandboxed UI invokes host-registered sandbox functions via Websandbox.connection.remote
@@ -362,6 +392,13 @@ demos:
       - src/app/demos/open-gen-ui-advanced/page.tsx
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/api/copilotkit-ogui/route.ts
+    agent:
+      path: /open_gen_ui_advanced/
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI Dynamic)
     description: Agent generates dynamic A2UI surfaces from a frontend-registered component catalog
@@ -376,6 +413,12 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/app/api/copilotkit-declarative-gen-ui/route.ts
+    agent:
+      path: /a2ui_dynamic/
+    runtime:
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "declarative-gen-ui-catalog"
   - id: a2ui-fixed-schema
     name: A2UI — Fixed Schema
     description: Backend-authored JSON schema + frontend catalog renderers; agent streams only data
@@ -391,6 +434,11 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
       - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+    agent:
+      path: /a2ui_fixed/
+    runtime:
+      a2ui:
+        injectA2UITool: false
   - id: headless-complete
     name: Headless Chat (Complete)
     description: Full custom chat built from scratch on useAgent — no CopilotChat primitives
@@ -411,6 +459,14 @@ demos:
       - src/app/demos/headless-complete/tools/chart-card.tsx
       - src/app/demos/headless-complete/tools/highlight-note.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /headless_complete/
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
   - id: beautiful-chat
     name: Beautiful Chat
     description: Flagship showcase combining A2UI (fixed + dynamic), Open Generative UI, shared todos state, and HITL in a single polished cell
@@ -430,6 +486,13 @@ demos:
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
       - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
       - src/app/api/copilotkit-beautiful-chat/route.ts
+    agent:
+      path: /beautiful_chat/
+    runtime:
+      openGenerativeUI: true
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "copilotkit://app-dashboard-catalog"
   - id: declarative-json-render
     name: "Declarative UI: json-render"
     description: Streaming hierarchical JSON UI spec rendered via @json-render/react, with a Zod-validated catalog (MetricCard + PieChart + BarChart)
@@ -444,6 +507,9 @@ demos:
       - src/app/demos/declarative-json-render/registry.tsx
       - src/app/demos/declarative-json-render/catalog.ts
       - src/app/api/copilotkit-declarative-json-render/route.ts
+    agent:
+      path: /byoc_json_render/
+      name: byoc_json_render
   - id: declarative-hashbrown
     name: "Declarative UI: Hashbrown"
     description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
@@ -457,6 +523,9 @@ demos:
       - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
       - src/app/demos/declarative-hashbrown/suggestions.ts
       - src/app/api/copilotkit-declarative-hashbrown/route.ts
+    agent:
+      path: /byoc_hashbrown/
+      name: declarative-hashbrown-demo
   - id: multimodal
     name: Multimodal Attachments
     description: Image + PDF attachments via CopilotChat — images flow natively to GPT-4o vision; PDFs flatten to text via pypdf
@@ -469,6 +538,9 @@ demos:
       - src/app/demos/multimodal/page.tsx
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
+    agent:
+      path: /multimodal/
+      name: multimodal-demo
   - id: voice
     name: Voice Input
     description: Audio transcription via OpenAI Whisper — mic + bundled sample round-trip populate the chat composer
@@ -480,6 +552,8 @@ demos:
       - src/app/demos/voice/page.tsx
       - src/app/demos/voice/sample-audio-button.tsx
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
+    agent:
+      name: voice-demo
   - id: agent-config
     name: Agent Config Object
     description: Forwarded provider properties (tone / expertise / responseLength) reshape the agent's system prompt per turn
@@ -492,6 +566,9 @@ demos:
       - src/app/demos/agent-config/page.tsx
       - src/app/demos/agent-config/config-card.tsx
       - src/app/api/copilotkit-agent-config/route.ts
+    agent:
+      path: /agent_config/
+      name: agent-config-demo
   - id: auth
     name: Authentication
     description: Bearer-token gated runtime route via the V2 onRequest hook — sign out exercises the 401 path without white-screening
@@ -504,6 +581,8 @@ demos:
       - src/app/demos/auth/auth-banner.tsx
       - src/app/demos/auth/use-demo-auth.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
+    agent:
+      name: auth-demo
   - id: reasoning-default
     name: "Reasoning: Default"
     description: Built-in CopilotChatReasoningMessage rendering with no slot override.
@@ -515,6 +594,8 @@ demos:
       - src/app/demos/reasoning-default/suggestions.ts
       - src/agents/reasoning_agent.py
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /reasoning/
   - id: reasoning-custom
     name: "Reasoning: Custom"
     description: Visible reasoning/thinking chain alongside the final answer
@@ -527,6 +608,8 @@ demos:
       - src/app/demos/reasoning-custom/reasoning-block.tsx
       - src/agents/reasoning_agent.py
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /reasoning/
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering (Reasoning Chain)
     description: Reasoning + sequential tool calls (get_weather, search_flights, get_stock_price, roll_dice) in a single cell — gpt-5 reasoning model emits REASONING events between each tool call
@@ -542,6 +625,8 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /tool_rendering_reasoning_chain/
   - id: mcp-apps
     name: MCP Apps
     description: No-tools agent + runtime mcpApps middleware pointing at the public Excalidraw MCP server — the built-in MCPAppsActivityRenderer paints sandboxed iframes inline
@@ -553,6 +638,14 @@ demos:
       - src/agents/mcp_apps_agent.py
       - src/app/demos/mcp-apps/page.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
+    agent:
+      path: /mcp_apps/
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
   - id: gen-ui-interrupt
     name: In-Chat HITL (useInterrupt — low-level primitive)
     description: Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the interrupt lifecycle
@@ -565,6 +658,8 @@ demos:
       - src/app/demos/gen-ui-interrupt/page.tsx
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /interrupt/
   - id: interrupt-headless
     name: Headless Interrupt (testing)
     description: Resolve interrupts from a plain button grid — no chat, no useInterrupt render prop
@@ -576,3 +671,5 @@ demos:
       - src/agents/interrupt_agent.py
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: /interrupt/

@@ -47,7 +47,6 @@ function createAgent(
 // tool/component registrations scope correctly.
 const neutralAssistantCells = [
   "human_in_the_loop",
-  "shared-state-read",
   "shared-state-write",
   "prebuilt-sidebar",
   "prebuilt-popup",
@@ -104,7 +103,8 @@ agents["interrupt-headless"] = createAgent("interrupt_agent");
 agents["hitl-in-chat"] = createAgent("hitl_in_chat");
 // In-App HITL — async frontend-tool + app-level modal (outside chat).
 agents["hitl-in-app"] = createAgent("hitl_in_app");
-// Shared state R+W and read-only agent context.
+// Shared state read-only, R+W, and read-only agent context.
+agents["shared-state-read"] = createAgent("shared_state_read");
 agents["shared-state-read-write"] = createAgent("shared_state_read_write");
 agents["readonly-state-agent-context"] = createAgent(
   "readonly_state_agent_context",

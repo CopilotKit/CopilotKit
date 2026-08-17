@@ -161,6 +161,7 @@ app.add_middleware(CvdiagBackendMiddleware)
 # middleware needed here.
 
 
+@app.get("/api/health")
 @app.get("/health")
 async def health() -> dict[str, str]:
     """Liveness probe.
@@ -169,6 +170,13 @@ async def health() -> dict[str, str]:
     ``GET ${AGENT_URL}/health`` to surface backend reachability in its own
     health response. Without this endpoint the probe always reports
     ``unreachable`` even when FastAPI is healthy.
+
+    ``/api/health`` is an ALIAS of ``/health`` — same handler, same response.
+    Railway's ``healthcheckPath`` is ``/api/health``, which the Next.js half of
+    this container serves today. Answering it here as well means that when the
+    Next.js process is removed and the agent becomes the only listener, the
+    existing Railway healthcheck keeps working with no dashboard change. Today
+    it is a pure addition: the agent's port is not the one Railway probes.
     """
     return {"status": "ok"}
 

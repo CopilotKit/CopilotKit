@@ -8,6 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/llamaindex
 copilotkit_version: 2.0.0
 deployed: true
+demo_frontend: unified
 docs_mode: authored
 sort_order: 110
 generative_ui:
@@ -62,8 +63,18 @@ features:
   - gen-ui-agent
   - declarative-gen-ui
   - a2ui-fixed-schema
-  - byoc-json-render
-  - byoc-hashbrown
+  # DROPPED: `byoc-json-render` / `byoc-hashbrown`. Both ids are marked
+  # `deprecated` in showcase/shared/feature-registry.json, superseded by
+  # `declarative-json-render` / `declarative-hashbrown`. This package's demo
+  # folders already carry the NEW names and the unified app only ships pages for
+  # the new ids, so the legacy ids named nothing in this app: they sat in
+  # `features` with no `demos[]` row, which made the cell resolve as supported
+  # and then 404 at POST /api/llamaindex/<id>. Re-adding them under the NEW ids
+  # is a follow-up: the agents ARE served (src/agent_server.py includes
+  # byoc_json_render_router at prefix "/byoc-json-render" and
+  # byoc_hashbrown_router at "/byoc-hashbrown", so the AG-UI endpoints are
+  # /byoc-*/run), so the rows need `id: declarative-*` with `agent.path` pointing
+  # at those legacy backend prefixes.
   - auth
   - voice
   - open-gen-ui
@@ -101,6 +112,13 @@ demos:
       - src/agents/beautiful_chat_agent.py
       - src/app/demos/beautiful-chat/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/beautiful-chat/run"
+    runtime:
+      openGenerativeUI: true
+      a2ui:
+        injectA2UITool: true
+        defaultCatalogId: "copilotkit://app-dashboard-catalog"
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation (bar / pie chart components)
@@ -114,6 +132,8 @@ demos:
       - src/app/demos/gen-ui-tool-based/bar-chart.tsx
       - src/app/demos/gen-ui-tool-based/pie-chart.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/gen-ui-tool-based/run"
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI via activity renderers
@@ -125,6 +145,14 @@ demos:
       - src/agents/mcp_apps_agent.py
       - src/app/demos/mcp-apps/page.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
+    agent:
+      path: "/mcp-apps/run"
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
   - id: agentic-chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
@@ -136,6 +164,9 @@ demos:
       - src/agents/agent.py
       - src/app/demos/agentic-chat/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: agentic_chat
+      path: "/run"
   - id: frontend-tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
@@ -146,6 +177,9 @@ demos:
     highlight:
       - src/app/demos/frontend-tools/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: frontend_tools
+      path: "/run"
   - id: frontend-tools-async
     name: Frontend Tools (Async)
     description:
@@ -159,6 +193,8 @@ demos:
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/frontend-tools-async/run"
   - id: hitl-in-chat
     name: In-Chat HITL (useHumanInTheLoop)
     description:
@@ -172,6 +208,8 @@ demos:
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/hitl-in-chat/run"
   - id: hitl-in-chat-booking
     name: In-Chat HITL (Booking)
     description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow
@@ -183,6 +221,9 @@ demos:
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: hitl-in-chat
+      path: "/hitl-in-chat/run"
   - id: hitl-in-app
     name: In-App Human in the Loop (Frontend Tools + async HITL)
     description:
@@ -196,6 +237,8 @@ demos:
       - src/app/demos/hitl-in-app/page.tsx
       - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/hitl-in-app/run"
   - id: hitl
     name: In-Chat Human in the Loop (Original)
     description: User approves agent actions before execution
@@ -206,6 +249,9 @@ demos:
     highlight:
       - src/app/demos/hitl/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: human_in_the_loop
+      path: "/run"
   - id: tool-rendering
     name: Tool Rendering
     description: Backend agent tools rendered as UI components
@@ -223,6 +269,8 @@ demos:
       - src/app/api/copilotkit/route.ts
       - src/app/demos/tool-rendering/weather-card.tsx
       - src/app/demos/tool-rendering/flight-list-card.tsx
+    agent:
+      path: "/run"
   - id: tool-rendering-default-catchall
     name: Tool Rendering (Default Catch-all)
     description: Out-of-the-box tool rendering — backend defines tools; frontend
@@ -234,6 +282,8 @@ demos:
     highlight:
       - src/app/demos/tool-rendering-default-catchall/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/run"
   - id: tool-rendering-custom-catchall
     name: Tool Rendering (Custom Catch-all)
     description: Single branded wildcard renderer via useDefaultRenderTool — the
@@ -246,6 +296,8 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/run"
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
@@ -257,6 +309,8 @@ demos:
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/api/copilotkit/route.ts
       - src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx
+    agent:
+      path: "/gen-ui-agent/run"
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -268,6 +322,24 @@ demos:
       - src/app/demos/shared-state-streaming/page.tsx
       - src/app/api/copilotkit/route.ts
       - src/app/demos/shared-state-streaming/document-view.tsx
+    agent:
+      path: "/run"
+  - id: shared-state-read
+    name: "Shared State: Read-only"
+    description:
+      "Recipe editor publishes form state via agent.setState; the agent
+      reads the recipe context but does not mutate it (no backend tool — neutral
+      default agent)."
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+    highlight:
+      - src/app/demos/shared-state-read/page.tsx
+      - src/app/demos/shared-state-read/recipe-card.tsx
+      - src/app/api/copilotkit/route.ts
+    agent:
+      path: /run
   - id: shared-state-read-write
     name: Shared State (Read + Write)
     description: Bidirectional shared state — UI writes preferences via
@@ -283,6 +355,8 @@ demos:
       - src/app/demos/shared-state-read-write/preferences-card.tsx
       - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/shared-state-read-write/run"
   - id: subagents
     name: Sub-Agents
     description:
@@ -298,6 +372,8 @@ demos:
       - src/app/demos/subagents/page.tsx
       - src/app/demos/subagents/delegation-log.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/subagents/run"
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
     description: Docked sidebar chat via <CopilotSidebar />
@@ -308,6 +384,8 @@ demos:
     highlight:
       - src/app/demos/prebuilt-sidebar/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/run"
   - id: prebuilt-popup
     name: "Pre-Built: Popup"
     description: Floating popup chat via <CopilotPopup />
@@ -318,6 +396,8 @@ demos:
     highlight:
       - src/app/demos/prebuilt-popup/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/run"
   - id: chat-slots
     name: Chat Customization (Slots)
     description: Customize CopilotChat via its slot system
@@ -329,6 +409,8 @@ demos:
       - src/app/demos/chat-slots/page.tsx
       - src/app/api/copilotkit/route.ts
       - src/app/demos/chat-slots/slot-wrappers.tsx
+    agent:
+      path: "/run"
   - id: chat-customization-css
     name: Chat Customization (CSS)
     description: Default CopilotChat re-themed via CopilotKitCSSProperties
@@ -340,6 +422,8 @@ demos:
       - src/app/demos/chat-customization-css/page.tsx
       - src/app/demos/chat-customization-css/theme.css
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/run"
   - id: headless-simple
     name: Headless Chat (Simple)
     description: Minimal custom chat surface built on useAgent
@@ -354,6 +438,8 @@ demos:
       - src/app/demos/headless-simple/composer.tsx
       - src/app/demos/headless-simple/empty-state.tsx
       - src/app/demos/headless-simple/message-bubble.tsx
+    agent:
+      path: "/run"
   - id: headless-complete
     name: Headless Chat (Complete)
     description: Full chat implementation built from scratch on useAgent
@@ -373,6 +459,14 @@ demos:
       - src/app/demos/headless-complete/tools/stock-card.tsx
       - src/app/demos/headless-complete/tools/chart-card.tsx
       - src/app/demos/headless-complete/tools/highlight-note.tsx
+    agent:
+      path: "/run"
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
   - id: readonly-state-agent-context
     name: Readonly State (Agent Context)
     description: Frontend provides read-only context to the agent via useAgentContext
@@ -383,6 +477,8 @@ demos:
     highlight:
       - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/run"
   - id: reasoning-custom
     name: Agentic Chat (Reasoning)
     description: Visible reasoning / thinking chain rendered via a custom messageView slot
@@ -395,6 +491,9 @@ demos:
       - src/app/demos/reasoning-custom/page.tsx
       - src/app/demos/reasoning-custom/reasoning-block.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: agentic-chat-reasoning
+      path: "/reasoning/run"
   - id: reasoning-default
     name: Reasoning (Default Render)
     description: Reasoning rendered via CopilotKit's built-in collapsible card with zero custom config
@@ -406,6 +505,9 @@ demos:
       - src/agents/reasoning_agent.py
       - src/app/demos/reasoning-default/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: reasoning-default-render
+      path: "/reasoning/run"
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering + Reasoning Chain (testing)
     description: Sequential tool calls with reasoning tokens rendered side-by-side
@@ -421,6 +523,8 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/tool-rendering-reasoning-chain/run"
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI)
     description: Canonical A2UI BYOC — custom catalog
@@ -437,6 +541,12 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/app/api/copilotkit-declarative-gen-ui/route.ts
+    agent:
+      path: "/a2ui-dynamic/run"
+    runtime:
+      a2ui:
+        injectA2UITool: true
+        defaultCatalogId: "declarative-gen-ui-catalog"
   - id: a2ui-fixed-schema
     name: Declarative Generative UI (A2UI — Fixed Schema)
     description: A2UI rendering against a known client-side schema; the agent
@@ -454,6 +564,11 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
       - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+    agent:
+      path: "/a2ui-fixed/run"
+    runtime:
+      a2ui:
+        injectA2UITool: true
   - id: auth
     name: Authentication
     description:
@@ -469,6 +584,9 @@ demos:
       - src/app/demos/auth/use-demo-auth.ts
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
+    agent:
+      name: auth-demo
+      path: "/run"
   - id: voice
     name: Voice Input
     description: Speech-to-text via @copilotkit/voice with a bundled sample audio button
@@ -481,6 +599,9 @@ demos:
       - src/app/demos/voice/page.tsx
       - src/app/demos/voice/sample-audio-button.tsx
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
+    agent:
+      name: voice-demo
+      path: "/voice/run"
   - id: agent-config
     name: Agent Config Object
     description:
@@ -497,6 +618,9 @@ demos:
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit-agent-config/route.ts
+    agent:
+      name: agent-config-demo
+      path: "/agent-config/run"
   - id: multimodal
     name: Multimodal Attachments
     description:
@@ -511,6 +635,9 @@ demos:
       - src/app/demos/multimodal/page.tsx
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
+    agent:
+      name: multimodal-demo
+      path: "/multimodal/run"
   - id: open-gen-ui
     name: Fully Open-Ended Generative UI
     description: Agent generates UI from an arbitrary component library inside a
@@ -523,6 +650,13 @@ demos:
       - src/agents/open_gen_ui_agent.py
       - src/app/demos/open-gen-ui/page.tsx
       - src/app/api/copilotkit-ogui/route.ts
+    agent:
+      path: "/open-gen-ui/run"
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
   - id: open-gen-ui-advanced
     name: "Open-Ended Gen UI (Advanced: with frontend function calling)"
     description:
@@ -538,6 +672,13 @@ demos:
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
+    agent:
+      path: "/open-gen-ui-advanced/run"
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
   - id: gen-ui-interrupt
     name: In-Chat HITL (useInterrupt — low-level primitive)
     description: Interactive component rendered inline in the chat via the
@@ -552,6 +693,8 @@ demos:
       - src/app/demos/gen-ui-interrupt/page.tsx
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/interrupt/run"
   - id: interrupt-headless
     name: Headless Interrupt (testing)
     description: Resolve interrupts from a plain button grid — no chat, no
@@ -564,3 +707,5 @@ demos:
       - src/agents/interrupt_agent.py
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      path: "/interrupt/run"

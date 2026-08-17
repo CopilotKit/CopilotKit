@@ -25,5 +25,22 @@ packages:
   # breaks its independent deploy path and invalidates the npm-based
   # Docker build. `showcase/scripts` IS in the workspace because the
   # harness package imports from it and both use pnpm.
+  #
+  # `showcase/frontends/nextjs` (the unified frontend that serves every
+  # integration's demos) is ALSO intentionally excluded, for the same reason
+  # plus one stronger one. Like the dashboard it ships its own
+  # package-lock.json and its Dockerfile installs with
+  # `npm ci --legacy-peer-deps`. On top of that it carries the UNION of all 20
+  # integrations' dependencies, which only resolves under
+  # `legacy-peer-deps=true` (see its .npmrc and the "//zod" note in its
+  # package.json): openai@5.x declares `peerOptional zod@^3` while
+  # @tanstack/ai-openai hard-requires zod@^4. pnpm has no per-package
+  # equivalent of npm's `.npmrc legacy-peer-deps`, so pulling this app into the
+  # workspace would either fail peer resolution outright or hoist a single zod
+  # major across the workspace. The 20 integrations under
+  # `showcase/integrations/*` are excluded on exactly the same grounds; this app
+  # deliberately matches them. Its CI coverage comes from its own `npm ci` jobs
+  # in .github/workflows/showcase_validate.yml and showcase_build.yml, NOT from
+  # the workspace install.
 onlyBuiltDependencies:
   - better-sqlite3

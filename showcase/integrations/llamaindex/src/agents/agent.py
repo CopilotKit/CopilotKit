@@ -82,6 +82,14 @@ def show_card(
     return f"Displayed card: {title}"
 
 
+def highlight_note(
+    text: Annotated[str, "Note text to highlight."],
+    color: Annotated[str, "yellow, pink, green, or blue."] = "yellow",
+) -> str:
+    """Highlight a short note. Rendered on the frontend via useComponent."""
+    return f"Highlighted: {text}"
+
+
 # --- Backend tools (executed server-side, using shared implementations) ---
 
 
@@ -93,6 +101,44 @@ async def get_weather(
 
 
 # @endregion[weather-tool-backend]
+
+
+async def get_stock_price(
+    ticker: Annotated[str, "The ticker symbol to look up."],
+    price_usd: Annotated[float, "Optional mock price in USD."] = 189.42,
+    change_pct: Annotated[float, "Optional mock percent change."] = 1.27,
+) -> str:
+    """Get a mock current price for a stock ticker.
+
+    LGP echo: ticker (uppercased), price_usd, change_pct. Extra fixture
+    args are accepted so catchall emissions that include the quote inline
+    still execute.
+    """
+    return json.dumps(
+        {
+            "ticker": ticker.upper(),
+            "price_usd": price_usd,
+            "change_pct": change_pct,
+        }
+    )
+
+
+async def get_revenue_chart() -> str:
+    """Get a mock six-month revenue series for a chart visualization."""
+    return json.dumps(
+        {
+            "title": "Quarterly revenue",
+            "subtitle": "Last six months · USD thousands",
+            "data": [
+                {"label": "Jan", "value": 38},
+                {"label": "Feb", "value": 47},
+                {"label": "Mar", "value": 52},
+                {"label": "Apr", "value": 49},
+                {"label": "May", "value": 63},
+                {"label": "Jun", "value": 71},
+            ],
+        }
+    )
 
 
 async def query_data(
@@ -225,9 +271,15 @@ _AGENT_SYSTEM_PROMPT = (
     "- Generate step-by-step plans for user review (human-in-the-loop)\n"
     "- Book calls with people (via book_call frontend tool)\n"
     "- Show titled cards with a body of text (via show_card frontend tool)\n"
+    "- Get a stock quote (via get_stock_price tool)\n"
+    "- Render a revenue chart (via get_revenue_chart tool)\n"
+    "- Highlight a short note (via highlight_note frontend tool)\n"
     "When asked about weather, always use the get_weather tool. "
+    "When asked about a stock or ticker, use get_stock_price. "
+    "When asked for a chart of revenue or sales, use get_revenue_chart. "
     "When asked about financial data or charts, use query_data first. "
-    "When asked to book a call, use the book_call tool with topic and name."
+    "When asked to book a call, use the book_call tool with topic and name. "
+    "After a backend tool returns, write one short sentence summarizing the result."
 )
 
 
@@ -240,24 +292,30 @@ async def _agent_workflow_factory():
             generate_task_steps,
             book_call,
             show_card,
-            get_weather,
+            highlight_note,
         ],
         backend_tools=[
+            get_weather,
             query_data,
             manage_sales_todos,
             get_sales_todos_tool,
             schedule_meeting,
             search_flights,
             generate_a2ui,
+            get_stock_price,
+            get_revenue_chart,
         ],
         system_prompt=_AGENT_SYSTEM_PROMPT,
         initial_state={
             "todos": [],
         },
     )
-    # Tools that use useRenderTool on the frontend — emit
-    # TOOL_CALL_RESULT so the render transitions to "complete".
-    wf.render_only_tool_names = {"get_weather"}
+    # LGP shape: get_weather / get_stock_price / get_revenue_chart are
+    # backend tools. They emit TOOL_CALL_RESULT and then loop so
+    # catchall / headless narration fixtures can run. Do not put
+    # get_weather on frontend_tools — useDefaultRenderTool only paints
+    # backend tool calls, so a frontend get_weather yields 0 wildcard
+    # cards on custom-catchall.
     return wf
 
 

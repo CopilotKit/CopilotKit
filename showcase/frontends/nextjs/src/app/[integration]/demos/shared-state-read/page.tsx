@@ -1,0 +1,118 @@
+"use client";
+
+// Shared State (Read-only) — the UI publishes a recipe to the agent via
+// `agent.setState`. The backend graph (`shared_state_read`) keeps that
+// key and injects the recipe into the model prompt. There is no write
+// tool, so the agent cannot change the card.
+//
+// Single source of truth: `agent.state.recipe`. The form is a pure
+// controlled component on top of that — every edit flows straight into
+// `agent.setState({...})` and the next render reflects it.
+
+import { useParams } from "next/navigation";
+import React, { useEffect } from "react";
+import {
+  CopilotKit,
+  CopilotSidebar,
+  useAgent,
+  UseAgentUpdate,
+  useConfigureSuggestions,
+  useCopilotKit,
+} from "@copilotkit/react-core/v2";
+import { RecipeCard } from "./recipe-card";
+import { INITIAL_RECIPE } from "./types";
+import type { RecipeAgentState, RecipeData } from "./types";
+
+export default function SharedStateReadDemo() {
+  const { integration } = useParams<{ integration: string }>();
+  return (
+    <CopilotKit
+      runtimeUrl={`/api/${integration}/shared-state-read`}
+      agent="shared-state-read"
+    >
+      <div className="min-h-screen w-full bg-gray-50">
+        <div className="mx-auto max-w-2xl px-4 py-8 md:py-12">
+          <Recipe />
+        </div>
+        <CopilotSidebar
+          defaultOpen
+          labels={{ modalHeaderTitle: "AI Recipe Assistant" }}
+        />
+      </div>
+    </CopilotKit>
+  );
+}
+
+function Recipe() {
+  const { agent } = useAgent({
+    agentId: "shared-state-read",
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+  });
+  const { copilotkit } = useCopilotKit();
+
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Create Italian recipe",
+        message: "Create a delicious Italian pasta recipe.",
+      },
+      {
+        title: "Make it healthier",
+        message: "Make the recipe healthier with more vegetables.",
+      },
+      {
+        title: "Suggest variations",
+        message: "Suggest some creative variations of this recipe.",
+      },
+    ],
+    available: "always",
+  });
+
+  // Seed the initial recipe into agent state so the agent has something to
+  // read on the first turn. After this, every edit lands via `agent.setState`
+  // below.
+  //
+  // Deps are `[agent]`, NOT `[]`: `useAgent` returns a provisional agent while
+  // the runtime /info sync is still in flight, then swaps in the real
+  // (runtime-synced) agent once it resolves — a new reference. A `[]`-deps
+  // effect seeded only the provisional agent, so the real agent (the one
+  // `runAgent` serialises into `input.state`) shipped `state: {}` and the model
+  // replied without the card recipe. Re-seeding on every `agent` reference
+  // change fixes that; the `!recipe` guard keeps it from clobbering user edits.
+  useEffect(() => {
+    if (!(agent.state as RecipeAgentState | undefined)?.recipe) {
+      agent.setState({ recipe: INITIAL_RECIPE } satisfies RecipeAgentState);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent]);
+
+  const recipe =
+    (agent.state as RecipeAgentState | undefined)?.recipe ?? INITIAL_RECIPE;
+
+  const handleChange = (next: RecipeData) => {
+    agent.setState({ recipe: next } satisfies RecipeAgentState);
+  };
+
+  const handleImprove = () => {
+    if (agent.isRunning) return;
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: "Improve the recipe",
+    });
+    void copilotkit
+      .runAgent({ agent })
+      .catch((err) =>
+        console.error("[shared-state-read] runAgent failed", err),
+      );
+  };
+
+  return (
+    <RecipeCard
+      recipe={recipe}
+      isLoading={agent.isRunning}
+      onChange={handleChange}
+      onImprove={handleImprove}
+    />
+  );
+}

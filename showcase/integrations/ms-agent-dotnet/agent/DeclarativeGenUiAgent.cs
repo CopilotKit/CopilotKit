@@ -83,9 +83,13 @@ public class DeclarativeGenUiAgent
         context ??= "";
 
         var errorId = Guid.NewGuid().ToString("n")[..16];
-        var userContent = string.IsNullOrWhiteSpace(context)
-            ? "KPI dashboard with 3-4 metrics, pie chart sales by region, bar chart quarterly revenue, status report."
-            : context;
+        var lastUser = AimockHeaderContext.LastUserMessage(
+            AimockHeaderPolicy.HttpContextAccessor?.HttpContext);
+        var userContent = !string.IsNullOrWhiteSpace(context)
+            ? context
+            : !string.IsNullOrWhiteSpace(lastUser)
+                ? lastUser
+                : "Show me my sales dashboard for this quarter.";
         _logger.LogInformation("DeclarativeGenUi: Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userContent);
 
         string? content;
@@ -95,7 +99,8 @@ public class DeclarativeGenUiAgent
                 _configuration,
                 BeautifulChatA2ui.DeclarativeGenUiDesignSystemPrompt(),
                 userContent,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                designToolName: "render_a2ui").ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {

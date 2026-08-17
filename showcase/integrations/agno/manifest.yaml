@@ -11,6 +11,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/agno
 copilotkit_version: 2.0.0
 deployed: true
+demo_frontend: unified
 docs_mode: authored
 sort_order: 90
 generative_ui:
@@ -47,8 +48,19 @@ features:
   - agent-config
   - voice
   - multimodal
-  - byoc-hashbrown
-  - byoc-json-render
+  # DROPPED: `byoc-hashbrown` / `byoc-json-render`. Both ids are marked
+  # `deprecated` in showcase/shared/feature-registry.json, superseded by
+  # `declarative-hashbrown` / `declarative-json-render`. This package's demo
+  # folders already carry the NEW names (src/app/demos/declarative-hashbrown/,
+  # .../declarative-json-render/) and the unified app only ships pages for the
+  # new ids, so the legacy ids named nothing in this app: they sat in `features`
+  # with no `demos[]` row, which made the cell resolve as supported and then 404
+  # at POST /api/agno/<id>. Re-adding them under the NEW ids is a follow-up, not
+  # a drop-in rename: the agents ARE served (src/agent_server.py mounts
+  # AGUI(prefix="/byoc-hashbrown") -> /byoc-hashbrown/agui and
+  # AGUI(prefix="/byoc-json-render") -> /byoc-json-render/agui), so the rows need
+  # `id: declarative-*` with `agent.path` pointing at those legacy backend
+  # prefixes — exactly the shape strands / pydantic-ai / ms-agent-* already use.
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - reasoning-custom
@@ -78,6 +90,9 @@ demos:
       - chat-ui
     command: "npx copilotkit@latest init --framework agno"
   - id: agentic-chat
+    agent:
+      path: /agui
+      name: agentic_chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
     tags:
@@ -89,6 +104,8 @@ demos:
       - src/app/demos/agentic-chat/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering
+    agent:
+      path: /agui
     name: Tool Rendering
     description: Backend agent tools rendered as UI components
     tags:
@@ -104,6 +121,8 @@ demos:
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
+    agent:
+      path: /gen-ui-agent/agui
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
     tags:
@@ -115,6 +134,8 @@ demos:
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: shared-state-streaming
+    agent:
+      path: /agui
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
     tags:
@@ -125,7 +146,25 @@ demos:
       - src/agents/main.py
       - src/app/demos/shared-state-streaming/page.tsx
       - src/app/api/copilotkit/route.ts
+  - id: shared-state-read
+    agent:
+      path: /agui
+    name: "Shared State: Read-only"
+    description:
+      "Recipe editor publishes form state via agent.setState; the agent
+      reads the recipe context but does not mutate it (no backend tool — neutral
+      default agent)."
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+    highlight:
+      - src/app/demos/shared-state-read/page.tsx
+      - src/app/demos/shared-state-read/recipe-card.tsx
+      - src/app/api/copilotkit/route.ts
   - id: shared-state-read-write
+    agent:
+      path: /shared-state-rw/agui
     name: Shared State (Read + Write)
     description: Bidirectional agent state — UI writes preferences, agent writes notes back
     tags:
@@ -140,6 +179,8 @@ demos:
       - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: subagents
+    agent:
+      path: /subagents/agui
     name: Sub-Agents
     description: Multiple agents with visible task delegation
     tags:
@@ -153,6 +194,8 @@ demos:
       - src/app/demos/subagents/delegation-log.tsx
       - src/app/api/copilotkit/route.ts
   - id: prebuilt-sidebar
+    agent:
+      path: /agui
     name: "Pre-Built: Sidebar"
     description: Docked sidebar chat via <CopilotSidebar />
     tags:
@@ -164,6 +207,8 @@ demos:
       - src/app/demos/prebuilt-sidebar/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: prebuilt-popup
+    agent:
+      path: /agui
     name: "Pre-Built: Popup"
     description: Floating popup chat via <CopilotPopup />
     tags:
@@ -175,6 +220,8 @@ demos:
       - src/app/demos/prebuilt-popup/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: chat-slots
+    agent:
+      path: /agui
     name: Chat Customization (Slots)
     description: Customize CopilotChat via its slot system
     tags:
@@ -187,6 +234,8 @@ demos:
       - src/app/api/copilotkit/route.ts
       - src/app/demos/chat-slots/slot-wrappers.tsx
   - id: chat-customization-css
+    agent:
+      path: /agui
     name: Chat Customization (CSS)
     description: Default CopilotChat re-themed via CopilotKit CSS variables
     tags:
@@ -199,6 +248,8 @@ demos:
       - src/app/demos/chat-customization-css/theme.css
       - src/app/api/copilotkit/route.ts
   - id: headless-simple
+    agent:
+      path: /agui
     name: Headless Chat (Simple)
     description: Minimal custom chat surface built on useAgent
     tags:
@@ -210,6 +261,9 @@ demos:
       - src/app/demos/headless-simple/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl
+    agent:
+      path: /agui
+      name: human_in_the_loop
     name: In-Chat Human in the Loop
     description: User approves agent actions before execution
     tags:
@@ -220,6 +274,8 @@ demos:
       - src/app/demos/hitl/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
+    agent:
+      path: /agui
     name: In-Chat Human in the Loop (Time Picker)
     description: Agent proposes a meeting time; user confirms or adjusts via an
       in-chat card before the agent proceeds
@@ -233,6 +289,8 @@ demos:
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-app
+    agent:
+      path: /agui
     name: In-App Human in the Loop (Frontend Tools + async HITL)
     description:
       Agent requests approval via useFrontendTool with an async handler;
@@ -247,6 +305,9 @@ demos:
       - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools
+    agent:
+      path: /agui
+      name: frontend_tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
     tags:
@@ -258,6 +319,8 @@ demos:
       - src/app/demos/frontend-tools/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: readonly-state-agent-context
+    agent:
+      path: /agui
     name: Readonly State (Agent Context)
     description: Frontend provides read-only context to the agent via useAgentContext
     tags:
@@ -269,6 +332,8 @@ demos:
       - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-default-catchall
+    agent:
+      path: /agui
     name: Tool Rendering (Default Catch-all)
     description: Out-of-the-box default tool-call card via useDefaultRenderTool()
     tags:
@@ -280,6 +345,8 @@ demos:
       - src/app/demos/tool-rendering-default-catchall/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-custom-catchall
+    agent:
+      path: /agui
     name: Tool Rendering (Custom Catch-all)
     description: Single branded wildcard renderer via useDefaultRenderTool
     tags:
@@ -292,6 +359,8 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools-async
+    agent:
+      path: /frontend-tools-async/agui
     name: Frontend Tools (Async)
     description:
       useFrontendTool with an async handler — agent awaits a client-side
@@ -306,6 +375,8 @@ demos:
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: reasoning-custom
+    agent:
+      path: /reasoning/agui
     name: Agentic Chat (Reasoning)
     description: Visible reasoning / thinking chain rendered via a custom
       reasoningMessage slot on the reasoning-enabled Agno agent
@@ -320,6 +391,8 @@ demos:
       - src/app/demos/reasoning-custom/reasoning-block.tsx
       - src/app/api/copilotkit/route.ts
   - id: reasoning-default
+    agent:
+      path: /reasoning/agui
     name: Reasoning (Default Render)
     description: Zero-config rendering of the agent's reasoning chain via
       CopilotKit's built-in reasoning message
@@ -333,6 +406,8 @@ demos:
       - src/app/demos/reasoning-default/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
+    agent:
+      path: /reasoning/agui
     name: Tool Rendering (Reasoning Chain)
     description: Reasoning card + sequential tool-call renderers (per-tool +
       catch-all) on the same reasoning-enabled Agno agent
@@ -350,6 +425,14 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
   - id: headless-complete
+    agent:
+      path: /headless-complete/agui
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
     name: Headless Chat (Complete)
     description:
       Full chat built from scratch on useAgent — custom bubbles, input
@@ -372,6 +455,8 @@ demos:
       - src/app/demos/headless-complete/tools/chart-card.tsx
       - src/app/demos/headless-complete/tools/highlight-note.tsx
   - id: gen-ui-interrupt
+    agent:
+      path: /interrupt-adapted/agui
     name: Gen UI Interrupt (Frontend Tool + async Promise)
     description:
       In-chat time-picker card via useFrontendTool with an async handler
@@ -387,6 +472,8 @@ demos:
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
+    agent:
+      path: /interrupt-adapted/agui
     name: Headless Interrupt (Frontend Tool + async Promise)
     description:
       Time-picker popup rendered outside the chat in the app surface via
@@ -401,6 +488,9 @@ demos:
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: auth
+    agent:
+      path: /agui
+      name: auth-demo
     name: Authentication
     description: Bearer-token gate via the V2 runtime onRequest hook — dedicated
       /api/copilotkit-auth route rejects unauthenticated requests
@@ -415,6 +505,8 @@ demos:
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
   - id: gen-ui-tool-based
+    agent:
+      path: /agui
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation — frontend renders a
       haiku card from a generate_haiku tool call
@@ -426,6 +518,9 @@ demos:
       - src/app/demos/gen-ui-tool-based/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat-booking
+    agent:
+      path: /agui
+      name: hitl-in-chat
     name: In-Chat HITL (Booking)
     description: Time-picker card rendered inline via useHumanInTheLoop for a
       booking flow — same surface as hitl-in-chat, branded for the booking
@@ -440,6 +535,14 @@ demos:
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: mcp-apps
+    agent:
+      path: /mcp-apps/agui
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
     name: MCP Apps
     description: MCP-provided tools rendered inline as sandboxed UI via the
       runtime's mcpApps middleware
@@ -452,6 +555,13 @@ demos:
       - src/app/demos/mcp-apps/page.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
   - id: open-gen-ui
+    agent:
+      path: /open-gen-ui/agui
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
     name: Open Generative UI
     description:
       Agent-authored HTML + CSS streamed into a sandboxed iframe via the
@@ -464,6 +574,13 @@ demos:
       - src/app/demos/open-gen-ui/page.tsx
       - src/app/api/copilotkit-ogui/route.ts
   - id: open-gen-ui-advanced
+    agent:
+      path: /open-gen-ui/agui
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
     name: Open Generative UI (Advanced)
     description:
       Sandboxed iframe with host-side sandbox functions the agent's UI
@@ -478,6 +595,9 @@ demos:
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
   - id: agent-config
+    agent:
+      path: /agent-config/agui
+      name: agent-config-demo
     name: Agent Config Object
     description:
       Frontend forwards a typed config object (tone, expertise, response
@@ -492,6 +612,9 @@ demos:
       - src/app/demos/agent-config/config-card.tsx
       - src/app/api/copilotkit-agent-config/route.ts
   - id: voice
+    agent:
+      path: /agui
+      name: voice-demo
     name: Voice Input
     description: Microphone + sample-audio button → /transcribe endpoint → text
       injected into the chat composer
@@ -504,6 +627,9 @@ demos:
       - src/app/demos/voice/sample-audio-button.tsx
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: multimodal
+    agent:
+      path: /multimodal/agui
+      name: multimodal-demo
     name: Multimodal Attachments
     description:
       Image + PDF attachments forwarded to a vision-capable Agno agent
@@ -518,6 +644,13 @@ demos:
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
   - id: beautiful-chat
+    agent:
+      path: /beautiful-chat/agui
+    runtime:
+      openGenerativeUI: true
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "copilotkit://app-dashboard-catalog"
     name: Beautiful Chat
     description: Polished landing-style chat shell over the shared Agno agent —
       gradient background, suggestion pills, and an example dashboard surface
@@ -536,12 +669,18 @@ demos:
       - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
   - id: declarative-gen-ui
+    agent:
+      path: /declarative-gen-ui/agui
+    runtime:
+      a2ui:
+        injectA2UITool: true
+        defaultCatalogId: declarative-gen-ui-catalog
     name: "Declarative Generative UI (A2UI Dynamic)"
     description:
       Agent dynamically composes UI per turn from a registered frontend
-      catalog — secondary LLM call inside the backend `generate_a2ui` tool emits
-      an a2ui_operations container that the A2UI middleware forwards to the
-      catalog renderer
+      catalog — no-arg `generate_a2ui`, middleware owns `render_a2ui`
+      (LGP shape). The Python body is only a fallback if inject does not
+      intercept.
     tags:
       - generative-ui
       - a2ui
@@ -555,6 +694,11 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/app/api/copilotkit-declarative-gen-ui/route.ts
   - id: a2ui-fixed-schema
+    agent:
+      path: /a2ui-fixed-schema/agui
+    runtime:
+      a2ui:
+        injectA2UITool: false
     name: "A2UI Fixed Schema"
     description:
       Schema is authored ahead of time as JSON; the agent only streams

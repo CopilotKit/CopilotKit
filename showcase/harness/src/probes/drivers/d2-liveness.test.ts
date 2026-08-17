@@ -859,6 +859,165 @@ describe("livenessDriver", () => {
   });
 });
 
+// =====================================================================
+// TWO AXES: "where the demos are served" vs "where the agent is"
+//
+// THIS BLOCK IS A REGRESSION GUARD, NOT FEATURE COVERAGE. It exists to
+// fail loudly if `healthUrl` and `agentUrl` are ever derived from a
+// SINGLE input again.
+//
+// The collapsed version failed SILENTLY, which is why a test is the only
+// defence: with both URLs coming from `publicUrl`, pointing `publicUrl`
+// at the unified frontend made `health:<slug>` go green on the FRONTEND's
+// `/api/health` while the slug's agent was unreachable. `bin/showcase
+// test <slug> --smoke` exited 0. A migration read as verified when
+// nothing about the agent had been checked at all.
+//
+// If someone deletes `agentBaseUrl` and re-derives the agent URL from
+// `publicUrl`, every test below fails.
+// =====================================================================
+describe("liveness driver — demo-serving origin vs agent origin", () => {
+  const FRONTEND = "http://localhost:3200";
+  const AGENT = "http://localhost:3100";
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** Record every URL the driver fetches, answering per-path. */
+  function recordingFetch(
+    calls: string[],
+    opts: { healthStatus?: number; agentStatus?: number } = {},
+  ): typeof fetch {
+    return (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      calls.push(href);
+      return responseFor(href, {
+        healthStatus: opts.healthStatus ?? 200,
+        agentStatus: opts.agentStatus ?? 200,
+      });
+    }) as unknown as typeof fetch;
+  }
+
+  it("derives health from publicUrl and agent from agentBaseUrl — DIFFERENT hosts", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", recordingFetch(calls));
+    const { writer } = mkWriter();
+
+    await livenessDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      name: "showcase-mastra",
+      // Demos served by the unified frontend, under a /<slug> prefix.
+      publicUrl: `${FRONTEND}/mastra`,
+      // Agent still on the integration's own container.
+      agentBaseUrl: AGENT,
+    });
+
+    // Health hit the FRONTEND origin. The `/mastra` prefix is dropped because
+    // the unified frontend mounts /api/health at its ROOT.
+    expect(calls).toContain(`${FRONTEND}/api/health`);
+    // Agent hit the AGENT origin.
+    expect(calls).toContain(`${AGENT}/api/copilotkit/`);
+
+    // THE COLLAPSE GUARD: the two probes must not share an origin. A
+    // re-collapse onto `publicUrl` makes both of these localhost:3200.
+    const healthCall = calls.find((c) => c.includes("/api/health"))!;
+    const agentCall = calls.find((c) => c.includes("/api/copilotkit"))!;
+    expect(new URL(healthCall).origin).toBe(FRONTEND);
+    expect(new URL(agentCall).origin).toBe(AGENT);
+    expect(new URL(healthCall).origin).not.toBe(new URL(agentCall).origin);
+    // And specifically: the agent probe must NEVER be aimed at the frontend.
+    expect(calls.some((c) => c.startsWith(`${FRONTEND}/api/copilotkit`))).toBe(
+      false,
+    );
+    expect(
+      calls.some((c) => c.startsWith(`${FRONTEND}/mastra/api/copilotkit`)),
+    ).toBe(false);
+  });
+
+  it("a LIVE demo origin with a DEAD agent does not report a passing cell", async () => {
+    // The exact silent failure this split exists to close: the frontend is
+    // healthy (200) and the agent route is absent (404). Before the split the
+    // agent probe could not even see a different host, so the cell went green.
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", recordingFetch(calls, { agentStatus: 404 }));
+    const { writer, writes } = mkWriter();
+
+    const r = await livenessDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      name: "showcase-mastra",
+      publicUrl: `${FRONTEND}/mastra`,
+      agentBaseUrl: AGENT,
+    });
+
+    // The PRIMARY result is what the CLI collects and exits on
+    // (`runDriverInputs` in src/cli/runner.ts). It must not be green.
+    expect(r.state).not.toBe("green");
+    expect(r.signal.errorDesc).toMatch(/agent unreachable/i);
+    // The per-axis breakdown survives on its own row.
+    const agentRow = writes.find((w) => w.key === "agent:mastra");
+    expect(agentRow?.state).toBe("red");
+  });
+
+  it("a DEAD demo origin with a LIVE agent does not report a passing cell", async () => {
+    // The reverse asymmetry. Health is the primary probe, so this direction
+    // already failed — asserted so a future refactor cannot flip the fold
+    // into an OR.
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", recordingFetch(calls, { healthStatus: 503 }));
+    const { writer } = mkWriter();
+
+    const r = await livenessDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      name: "showcase-mastra",
+      publicUrl: `${FRONTEND}/mastra`,
+      agentBaseUrl: AGENT,
+    });
+
+    expect(r.state).not.toBe("green");
+  });
+
+  it("UNMIGRATED slug (no agentBaseUrl): both URLs are byte-identical to the pre-split output", async () => {
+    // Back-compat proof. Every slug in the tree is in this state today, so
+    // this pins the exact strings the collapsed implementation produced.
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", recordingFetch(calls));
+    const { writer } = mkWriter();
+
+    const r = await livenessDriver.run(mkCtx(writer), {
+      key: "smoke:langgraph-python",
+      name: "showcase-langgraph-python",
+      publicUrl: "http://localhost:3100",
+    });
+
+    expect(r.state).toBe("green");
+    expect(calls.sort()).toEqual([
+      "http://localhost:3100/api/copilotkit/",
+      "http://localhost:3100/api/health",
+    ]);
+  });
+
+  it("schema accepts agentBaseUrl on the discovery shape and rejects it on the static shape", async () => {
+    expect(
+      livenessInputSchema_safeParse({
+        key: "smoke:mastra",
+        name: "showcase-mastra",
+        publicUrl: `${FRONTEND}/mastra`,
+        agentBaseUrl: AGENT,
+      }).success,
+    ).toBe(true);
+    // Static mode carries ONE url by construction — it cannot express two
+    // axes, so pairing it with agentBaseUrl is a structural mistake.
+    expect(
+      livenessInputSchema_safeParse({
+        key: "smoke:mastra",
+        url: "https://x.example/smoke",
+        agentBaseUrl: AGENT,
+      }).success,
+    ).toBe(false);
+  });
+});
+
 /**
  * Proxy helper for the two schema-level assertions above. Not exposed
  * from the module itself (drivers keep their schemas private); the tests

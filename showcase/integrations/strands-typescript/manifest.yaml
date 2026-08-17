@@ -15,6 +15,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/strands-typescript
 copilotkit_version: 2.0.0
 deployed: true
+demo_frontend: unified
 docs_mode: generated
 sort_order: 131
 generative_ui:
@@ -98,6 +99,8 @@ demos:
       - src/agent/agent.ts
       - src/app/demos/agentic-chat/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: agentic_chat
   - id: chat-customization-css
     name: Chat Customization (CSS)
     description: Default CopilotChat re-themed via CopilotKitCSSProperties
@@ -175,6 +178,12 @@ demos:
       - src/app/demos/headless-complete/tools/stock-card.tsx
       - src/app/demos/headless-complete/tools/chart-card.tsx
       - src/app/demos/headless-complete/tools/highlight-note.tsx
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
   - id: frontend-tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
@@ -186,6 +195,8 @@ demos:
       - src/agent/agent.ts
       - src/app/demos/frontend-tools/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: frontend_tools
   - id: frontend-tools-async
     name: Frontend Tools (Async)
     description: useFrontendTool with an async handler
@@ -222,6 +233,8 @@ demos:
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: hitl-in-chat
   - id: hitl-in-app
     name: In-App Human in the Loop
     description:
@@ -246,6 +259,8 @@ demos:
     highlight:
       - src/app/demos/hitl/page.tsx
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: human_in_the_loop
   - id: tool-rendering
     name: Tool Rendering
     description: Custom render for tool calls inline in the chat stream
@@ -328,6 +343,8 @@ demos:
       - src/app/demos/declarative-gen-ui/page.tsx
       - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
       - src/app/api/copilotkit-declarative-gen-ui/route.ts
+    agent:
+      path: "/declarative-gen-ui/"
   - id: a2ui-fixed-schema
     name: Declarative Generative UI (A2UI — Fixed Schema)
     description: A2UI rendering against a known client-side schema
@@ -342,6 +359,12 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
       - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+    agent:
+      path: "/a2ui-fixed-schema/"
+    runtime:
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "copilotkit://flight-fixed-catalog"
   - id: a2ui-recovery
     name: A2UI Error Recovery
     description: Makes the A2UI validate->retry recovery loop visible — an invalid first render heals to a valid one, and an always-invalid render shows a graceful recovery-exhausted fallback. The Strands adapter runs the recovery loop on its auto-inject path; reuses the declarative-gen-ui catalog.
@@ -354,6 +377,8 @@ demos:
       - src/app/demos/a2ui-recovery/page.tsx
       - src/app/demos/a2ui-recovery/suggestions.ts
       - src/app/api/copilotkit-a2ui-recovery/route.ts
+    agent:
+      path: "/a2ui-recovery/"
   - id: shared-state-read-write
     name: Shared State (Read + Write)
     description: Bidirectional agent state — UI writes preferences, agent writes notes back
@@ -419,6 +444,8 @@ demos:
       - src/app/demos/multimodal/page.tsx
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
+    agent:
+      name: multimodal-demo
   - id: voice
     name: Voice Input
     description: Speech-to-text via @copilotkit/voice with a bundled sample audio button
@@ -431,6 +458,9 @@ demos:
       - src/app/demos/voice/page.tsx
       - src/app/demos/voice/sample-audio-button.tsx
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
+    agent:
+      name: voice-demo
+      path: "/voice/"
   - id: auth
     name: Authentication
     description: Bearer-token gate via runtime onRequest hook
@@ -444,6 +474,8 @@ demos:
       - src/app/demos/auth/use-demo-auth.ts
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
+    agent:
+      name: auth-demo
   - id: agent-config
     name: Agent Config Object
     description:
@@ -460,6 +492,8 @@ demos:
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit-agent-config/route.ts
+    agent:
+      name: agent-config-demo
   - id: declarative-hashbrown
     name: "Declarative UI: Hashbrown"
     description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
@@ -477,6 +511,9 @@ demos:
       - src/app/demos/declarative-hashbrown/types.ts
       - src/app/demos/declarative-hashbrown/suggestions.ts
       - src/app/api/copilotkit-declarative-hashbrown/route.ts
+    agent:
+      name: declarative-hashbrown-demo
+      path: "/byoc-hashbrown/"
   - id: declarative-json-render
     name: "Declarative UI: json-render"
     description: Streaming hierarchical JSON UI spec rendered via @json-render/react, with a Zod-validated catalog (MetricCard + PieChart + BarChart)
@@ -496,6 +533,9 @@ demos:
       - src/app/demos/declarative-json-render/types.ts
       - src/app/demos/declarative-json-render/suggestions.ts
       - src/app/api/copilotkit-declarative-json-render/route.ts
+    agent:
+      name: byoc_json_render
+      path: "/byoc-json-render/"
   - id: open-gen-ui
     name: Open Generative UI (Minimal)
     description: Agent-authored HTML/CSS/SVG in a sandboxed iframe, minimal variant
@@ -507,6 +547,11 @@ demos:
       - src/agent/agent.ts
       - src/app/demos/open-gen-ui/page.tsx
       - src/app/api/copilotkit-ogui/route.ts
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
   - id: open-gen-ui-advanced
     name: Open Generative UI (Advanced)
     description:
@@ -521,6 +566,11 @@ demos:
       - src/app/demos/open-gen-ui-advanced/page.tsx
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/api/copilotkit-ogui/route.ts
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI via activity renderers
@@ -532,6 +582,12 @@ demos:
       - src/agent/agent.ts
       - src/app/demos/mcp-apps/page.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
   - id: beautiful-chat
     name: Beautiful Chat
     description: Polished landing-style chat surface with brand theming and suggestion pills
@@ -543,6 +599,11 @@ demos:
       - src/agent/agent.ts
       - src/app/demos/beautiful-chat/page.tsx
       - src/app/api/copilotkit/route.ts
+    runtime:
+      openGenerativeUI: true
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "copilotkit://app-dashboard-catalog"
   - id: gen-ui-interrupt
     name: In-Chat HITL (useInterrupt — low-level primitive)
     description: Interactive component rendered inline in the chat via the

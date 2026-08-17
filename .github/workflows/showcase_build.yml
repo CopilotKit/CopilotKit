@@ -73,6 +73,7 @@ on:
           - ms-agent-harness-dotnet
           - claude-sdk-python
           - built-in-agent
+          - frontend-nextjs
           - shell-dojo
           - shell-dashboard
           - shell-docs
@@ -187,6 +188,20 @@ jobs:
               - 'showcase/integrations/claude-sdk-python/**'
             built_in_agent:
               - 'showcase/integrations/built-in-agent/**'
+            frontend_nextjs:
+              # The UNIFIED Next.js frontend: one image that serves all 43 demos
+              # for all 20 integrations. Gated to exactly what its Dockerfile
+              # reads from the repo root context — its own subtree, plus the
+              # per-integration manifests that the `manifests` stage bakes in
+              # (src/lib/integration-support.ts reads them FROM DISK at request
+              # time, so a manifest change with a stale image serves a stale
+              # roster). It does NOT copy showcase/shared/** or
+              # showcase/scripts/**: bundle-demo-content.ts writes demo sources
+              # INTO src/app/[integration]/demos/ and those writes are
+              # committed, so a scripts change only matters once its output
+              # lands under the first pattern.
+              - 'showcase/frontends/nextjs/**'
+              - 'showcase/integrations/*/manifest.yaml'
             shell_dojo:
               - 'showcase/shell-dojo/**'
               - 'showcase/shared/**'
@@ -251,6 +266,15 @@ jobs:
           # is skipped for this slot (image is built out-of-band by another
           # workflow/repo). Currently used by `webhooks` (built by the
           # showcase-eval-webhook repo's own release workflow).
+          # skip_redeploy (optional, boolean): when true, the slot is BUILT and
+          # pushed to GHCR and its `:latest` is advanced, but it is excluded
+          # from the Railway redeploy CSV (see "Compute changed-service list"
+          # in redeploy-staging). For a slot whose Railway service does not
+          # exist yet: redeploy-env.ts THROWS on an SSOT key it does not know,
+          # which would red redeploy-staging, skip the redeploy-summary upload,
+          # and block the deploy workflow for the ENTIRE fleet. Currently used
+          # by `frontend-nextjs` — see its entry below for the manual step that
+          # retires the flag.
           # health_path: historical field retained in the matrix for human
           # reference. The actual verify probe is driven by per-service
           # drivers in verify-deploy.ts (showcase/scripts/verify-deploy.ts),
@@ -285,6 +309,47 @@ jobs:
           # deliberately has NO concurrency group — see the header — so a
           # non-cancelling `concurrency` queue would be the lever, at the
           # cost of serializing main builds). Left as a follow-up.
+          #
+          # ──────────────────────────────────────────────────────────────────
+          # MANUAL STEP OUTSTANDING — `frontend-nextjs` has NO Railway service.
+          #
+          # Its railway_id is the literal placeholder
+          # "TODO-NO-RAILWAY-SERVICE-YET" and its `skip_redeploy` flag is set.
+          # The slot therefore BUILDS and pushes ghcr.io/copilotkit/
+          # showcase-frontend-nextjs:<sha> and advances its `:latest`, but never
+          # reaches Railway. That is the only safe shape today: creating the
+          # Railway service is a manual action nobody has taken, and handing an
+          # unknown SSOT key to redeploy-env.ts throws (exit 1), which reds
+          # redeploy-staging and blocks the deploy workflow for the WHOLE fleet.
+          #
+          # `railway_id` is INFORMATIONAL at this layer — nothing in this
+          # workflow or in showcase/scripts reads the matrix field (verified by
+          # grep; env/service IDs are resolved from the railway-envs.ts SSOT).
+          # So the placeholder cannot be silently mistaken for a real id: any
+          # code path that needs one goes through the SSOT, where the key is
+          # absent and fails loud.
+          #
+          # TO FINISH THE WIRING (all three, in order):
+          #   1. Create the Railway service in the Showcase project (staging +
+          #      prod), image ref ghcr.io/copilotkit/showcase-frontend-nextjs.
+          #   2. Add it to showcase/scripts/railway-envs.ts SERVICES with
+          #      `dispatchName: "frontend-nextjs"` and both env ids.
+          #   3. Replace the placeholder railway_id here and DELETE
+          #      `"skip_redeploy":true` from the entry below.
+          # Until step 3 lands, a frontend change ships an image that nothing
+          # deploys — deliberately, and visibly in the job log.
+          #
+          # THIS IS ALSO AN ACTIVE TRIPWIRE, BY DESIGN. The forward-guard in
+          # showcase/scripts/railway-envs.test.ts ("every showcase_build.yml
+          # ALL_SERVICES dispatch_name maps to an SSOT entry") regex-scrapes
+          # every `"dispatch_name"` in this file and asserts it resolves through
+          # railway-envs.ts. `frontend-nextjs` does not, so that test FAILS with
+          # `workflow dispatch_name "frontend-nextjs" has no SSOT entry in
+          # railway-envs.ts` until step 2 above is done. That is the loud failure
+          # this placeholder is supposed to produce — the alternative was leaving
+          # the image that serves all 43 demos with no CI build at all. Do not
+          # silence it by removing this slot; finish steps 1-3.
+          # ──────────────────────────────────────────────────────────────────
           ALL_SERVICES='[
             {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":20,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile","health_path":"/"},
             {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
@@ -307,6 +372,7 @@ jobs:
             {"dispatch_name":"ms-agent-harness-dotnet","filter_key":"ms_agent_harness_dotnet","context":"showcase/integrations/ms-agent-harness-dotnet","image":"showcase-ms-agent-harness-dotnet","railway_id":"6343d7f9-6c3f-4c8d-9a6e-79f03d2f1e37","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","railway_id":"f4f8371a-bc46-45b2-b6d4-9c9af608bdbf","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"frontend-nextjs","filter_key":"frontend_nextjs","context":".","image":"showcase-frontend-nextjs","railway_id":"TODO-NO-RAILWAY-SERVICE-YET","timeout":30,"build_args":"","dockerfile":"showcase/frontends/nextjs/Dockerfile","health_path":"/api/health","skip_redeploy":true},
             {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":20,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile","health_path":"/"},
             {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":20,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
             {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":20,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
@@ -1038,9 +1104,22 @@ jobs:
           set -euo pipefail
           matrix_names="$(echo "$MATRIX_JSON" | jq -r '[.[] | .dispatch_name]')"
           success_names="$(echo "$BUILD_RESULTS_JSON" | jq -r '[.[] | select(.status == "success") | .service]')"
-          csv="$(jq -rn --argjson m "$matrix_names" --argjson s "$success_names" \
+          # `built_csv` is the FULL matrix ∩ success set — every slot whose
+          # image was actually pushed. It is what the skew check below asserts
+          # on, and it is deliberately NOT the redeploy set.
+          built_csv="$(jq -rn --argjson m "$matrix_names" --argjson s "$success_names" \
             '($m | map(select(. as $n | $s | index($n)))) | join(",")')"
-          if [ -z "$csv" ]; then
+          # `csv` (the redeploy set) additionally drops `skip_redeploy` slots —
+          # slots with no Railway service yet. redeploy-env.ts THROWS on an SSOT
+          # key it does not know (exit 1), which would red this job, skip the
+          # redeploy-summary upload, and block the deploy workflow for the
+          # ENTIRE fleet. Such a slot still builds, pushes, and gets its
+          # `:latest` advanced (`images` below is intentionally unfiltered on
+          # this flag), so the image is ready the moment the service exists.
+          redeployable_names="$(echo "$MATRIX_JSON" | jq -r '[.[] | select(.skip_redeploy != true) | .dispatch_name]')"
+          csv="$(jq -rn --argjson m "$redeployable_names" --argjson s "$success_names" \
+            '($m | map(select(. as $n | $s | index($n)))) | join(",")')"
+          if [ -z "$built_csv" ]; then
             # This job only runs when aggregate-build-results.any_success == 'true'
             # (see the job-level `if:` guard). So reaching an EMPTY intersection
             # here does NOT mean "nothing to deploy" — it means at least one slot
@@ -1057,8 +1136,18 @@ jobs:
             echo "These two sets share no members — a successful build maps to no matrix entry. Reconcile showcase/scripts/lib/build-outputs.ts (service field) with the build matrix dispatch_name values."
             exit 1
           fi
+          if [ -z "$csv" ]; then
+            # NOT a skew, and NOT an error: every slot that built is a
+            # `skip_redeploy` slot (today only `frontend-nextjs`, which has no
+            # Railway service yet). The image is pushed and `:latest` advances
+            # below; the redeploy step is skipped by its own
+            # `services != ''` guard, which is the same legitimate
+            # nothing-to-redeploy path a push with no buildable service takes.
+            echo "::notice::Built [$built_csv] but every built slot is skip_redeploy — image(s) pushed and :latest advanced, no Railway redeploy. Create the Railway service and drop skip_redeploy to enable deploys (see the ALL_SERVICES header)."
+          fi
           echo "services=$csv" >> "$GITHUB_OUTPUT"
-          echo "Computed services CSV (matrix ∩ build-success): $csv"
+          echo "Computed services CSV (matrix ∩ build-success, minus skip_redeploy): $csv"
+          echo "Full built set (matrix ∩ build-success): $built_csv"
           # Same intersection, projected onto GHCR image names, MINUS the
           # `skip_build` slots. This is the exact set whose `:latest` may move,
           # so a service that failed to build can never have its tag advanced.

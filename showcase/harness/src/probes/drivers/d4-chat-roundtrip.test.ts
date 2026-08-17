@@ -56,11 +56,17 @@ interface PageScript {
   throwOnWaitForSelector?: Error;
   throwOnAssistantSelector?: Error;
   typedMessage?: { value: string };
+  /**
+   * When provided, every URL `page.goto` is called with is appended here.
+   * Used by the demo-serving-base-URL tests to assert the composed URL.
+   */
+  gotoLog?: string[];
 }
 
 function makePage(script: PageScript = {}): E2ePage {
   return {
-    async goto() {
+    async goto(url: string) {
+      script.gotoLog?.push(url);
       if (script.throwOnGoto) throw script.throwOnGoto;
     },
     async type(_sel, text) {
@@ -3631,5 +3637,80 @@ describe("wirePlaywrightPage attach-fault telemetry (finding 3)", () => {
     await wired.goto("https://x.example.com/demos/agentic-chat", {});
     const st = await wired.readTurnState!();
     expect(st.sseAttachFailed).toBe(false);
+  });
+});
+
+// =====================================================================
+// Navigation base URL: DEMO-serving origin, not the agent origin.
+//
+// `backendUrl` used to be both. It now means only "where the agent is";
+// `frontendBaseUrl` means "where the demos are served" and is what the
+// browser navigates to. Any `/<slug>` prefix is baked into
+// `frontendBaseUrl` by the CALLER, so the `/demos/<id>` path constants in
+// this driver stay slug-agnostic and no route function changes.
+// =====================================================================
+describe("e2eChatToolsDriver — demo-serving base URL", () => {
+  async function runAndCaptureGotos(
+    input: Record<string, unknown>,
+  ): Promise<string[]> {
+    const gotos: string[] = [];
+    // Two page scripts: L3 (chat) and L4 (tools). Both answer non-empty so
+    // both levels run and navigate.
+    const { browser } = makeBrowser([
+      { assistantText: "Hi there!", gotoLog: gotos },
+      { assistantText: "It is sunny in San Francisco.", gotoLog: gotos },
+    ]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    await driver.run(baseCtx({ writer: new CapturingWriter() }), {
+      key: "e2e-smoke:foo",
+      demos: ["agentic-chat", "tool-rendering"],
+      ...input,
+    });
+    return gotos;
+  }
+
+  it("UNMIGRATED slug (no frontendBaseUrl): composed URLs are byte-identical to `${backendUrl}${demoPath}`", async () => {
+    // BACK-COMPAT PROOF. Every slug in the tree is in this state today; the
+    // expected strings are exactly what the pre-split composition produced.
+    const gotos = await runAndCaptureGotos({
+      backendUrl: "http://localhost:3100",
+    });
+    expect(gotos).toEqual([
+      "http://localhost:3100/demos/agentic-chat",
+      "http://localhost:3100/demos/tool-rendering",
+    ]);
+  });
+
+  it("UNMIGRATED slug via discovery `publicUrl` only: same byte-identical URLs", async () => {
+    const gotos = await runAndCaptureGotos({
+      publicUrl: "http://localhost:3100",
+    });
+    expect(gotos).toEqual([
+      "http://localhost:3100/demos/agentic-chat",
+      "http://localhost:3100/demos/tool-rendering",
+    ]);
+  });
+
+  it("MIGRATED slug: navigates to the frontend base (prefix included), NOT the agent origin", async () => {
+    const gotos = await runAndCaptureGotos({
+      backendUrl: "http://localhost:3100",
+      frontendBaseUrl: "http://localhost:3200/mastra",
+    });
+    expect(gotos).toEqual([
+      "http://localhost:3200/mastra/demos/agentic-chat",
+      "http://localhost:3200/mastra/demos/tool-rendering",
+    ]);
+    expect(gotos.some((u) => u.startsWith("http://localhost:3100"))).toBe(
+      false,
+    );
+  });
+
+  it("inputSchema accepts frontendBaseUrl alongside backendUrl", () => {
+    const parsed = e2eChatToolsDriver.inputSchema.safeParse({
+      key: "e2e-smoke:foo",
+      backendUrl: "http://localhost:3100",
+      frontendBaseUrl: "http://localhost:3200/mastra",
+    });
+    expect(parsed.success).toBe(true);
   });
 });

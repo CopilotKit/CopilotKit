@@ -1,6 +1,14 @@
 **/node_modules
 .next
 .git
+# Local secrets. This integration's build context is its OWN directory
+# (compose: `build: ./integrations/mastra`), so the repo-root .dockerignore —
+# which does exclude **/.env — is NOT applied here. The Dockerfile does
+# `COPY . .`, so without these two lines a developer's integrations/mastra/.env
+# (the file .env.example invites them to create) is baked into an image layer
+# with real API keys. Matches langgraph-typescript.
+.env
+.env.local
 **/vitest.config.ts
 **/test-setup.ts
 **/*.test.ts

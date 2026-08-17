@@ -12,6 +12,7 @@ import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 import { mintRunId } from "../helpers/cv-diag.js";
 import { attachSseInterceptor } from "../helpers/sse-interceptor.js";
+import { isCopilotkitRuntimeRequest } from "../helpers/runtime-endpoint.js";
 import { CvdiagEmitter, filterEdgeHeaders } from "../../cvdiag/index.js";
 import type {
   CvdiagFailureClassifier,
@@ -103,6 +104,21 @@ const inputSchema = z
     // `backendUrl` when both are present.
     backendUrl: z.string().url().optional(),
     publicUrl: z.string().url().optional(),
+    /**
+     * Base URL the slug's DEMO PAGES are served from, INCLUDING any path
+     * prefix (`http://frontend-nextjs:3000/<slug>`). This is what the browser
+     * navigates to; `backendUrl` means the AGENT origin.
+     *
+     * The prefix is baked in by the CALLER (`getSlugOrigins` in
+     * `src/cli/config.ts`, or `LOCAL_SERVICES_JSON` / railway discovery on the
+     * fleet path), never by this driver — so the shared probe carries zero
+     * per-integration knowledge (showcase iron rule 1) and the `/demos/<id>`
+     * path constants below stay slug-agnostic.
+     *
+     * Optional: absent ⇒ `backendUrl ?? publicUrl`, i.e. exactly the
+     * pre-split behaviour.
+     */
+    frontendBaseUrl: z.string().url().optional(),
     // Service name from Railway (e.g. "showcase-langgraph-python"). Used
     // to derive the slug for registry lookup when `demos` isn't supplied
     // in-band. Optional so static YAML targets can skip it.
@@ -428,31 +444,25 @@ export interface E2eSmokeDriverDeps {
 const CVDIAG_MAX_OUTSTANDING_STARTS_PER_URL = 64;
 
 /**
- * CopilotKit runtime base path. Every showcase demo mounts its runtime under
- * this catch-all (`CopilotKitProvider runtimeUrl="/api/copilotkit"`,
- * `basePath:"/api/copilotkit"`), and the agent-message round-trip POSTs there
- * (bare `/api/copilotkit` or the per-agent run path
- * `/api/copilotkit/agent/<id>/run`). It is the ONLY route under this segment.
- */
-const CVDIAG_COPILOTKIT_RUNTIME_SEGMENT = "/api/copilotkit";
-
-/**
  * True iff a network response is the AGENT-MESSAGE POST that drives the chat
- * round-trip — i.e. a POST whose URL path is under the CopilotKit runtime
- * (`/api/copilotkit…`). Gating on the runtime path (not "any POST") is the
- * whole point: a page commonly issues OTHER POSTs (telemetry/analytics, RUM
- * beacons, asset uploads) around the agent message, and matching ANY POST let
- * the LAST such POST overwrite `messageSendEdge` / `lastMessagePostResp` — so
- * `probe.message.send`'s edge headers, the A/B `edge_interference_signal`, and
- * DEBUG raw-byte capture could be silently attributed to an UNRELATED response.
- * The path check pins capture to the actual agent-message POST. (Path is
- * matched case-insensitively against the URL string; the runtime segment is
- * distinctive enough that a substring test is unambiguous.)
+ * round-trip — i.e. a POST to a CopilotKit runtime endpoint. Gating on the
+ * runtime path (not "any POST") is the whole point: a page commonly issues
+ * OTHER POSTs (telemetry/analytics, RUM beacons, asset uploads) around the
+ * agent message, and matching ANY POST let the LAST such POST overwrite
+ * `messageSendEdge` / `lastMessagePostResp` — so `probe.message.send`'s edge
+ * headers, the A/B `edge_interference_signal`, and DEBUG raw-byte capture could
+ * be silently attributed to an UNRELATED response.
+ *
+ * Recognition is delegated to the SHARED predicate in
+ * `helpers/runtime-endpoint.ts` so this driver sees the unified frontend's
+ * `/api/<slug>/<demo>` runtime route as well as the per-integration
+ * `/api/copilotkit[-<demo>]` family. The previous literal
+ * `url.includes("/api/copilotkit")` flagged NOTHING on a migrated integration,
+ * silently dropping every cvdiag message-send edge for it.
  */
 function isAgentMessagePost(method: string, url: string): boolean {
   return (
-    method.toUpperCase() === "POST" &&
-    url.toLowerCase().includes(CVDIAG_COPILOTKIT_RUNTIME_SEGMENT)
+    method.toUpperCase() === "POST" && isCopilotkitRuntimeRequest(url, method)
   );
 }
 
@@ -1180,6 +1190,10 @@ export function createE2eSmokeDriver(
       // Prefer explicit backendUrl; fall back to discovery-supplied publicUrl.
       // Schema already guaranteed at least one is present.
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
+      // WHERE THE DEMOS ARE SERVED — a different axis from `backendUrl`
+      // (where the agent is). Falls back to `backendUrl` so a single-origin
+      // caller composes byte-identical URLs to before.
+      const demoBaseUrl = input.frontendBaseUrl ?? backendUrl;
       const slug = deriveSlug(input.key, input.name);
       // Per-run correlation id folded into the aimock X-Test-Id
       // (`d4-<slug>-<runId>`). Minted once per `run()` so both L3/L4 levels
@@ -1286,6 +1300,7 @@ export function createE2eSmokeDriver(
           browser,
           slug,
           backendUrl,
+          demoBaseUrl,
           level: "chat",
           demo: D4_DEMO_ROUTE_AGENTIC_CHAT,
           demoPath: `/demos/${D4_DEMO_ROUTE_AGENTIC_CHAT}`,
@@ -1410,6 +1425,7 @@ export function createE2eSmokeDriver(
             browser,
             slug,
             backendUrl,
+            demoBaseUrl,
             level: "tools",
             demo: D4_DEMO_ROUTE_TOOL_RENDERING,
             demoPath: `/demos/${D4_DEMO_ROUTE_TOOL_RENDERING}`,
@@ -1600,7 +1616,10 @@ export function createE2eSmokeDriver(
 async function runLevel(opts: {
   browser: E2eBrowser;
   slug: string;
+  /** AGENT origin — reported in the level signal, never navigated to. */
   backendUrl: string;
+  /** DEMO-serving base URL — `demoPath` is joined onto THIS. */
+  demoBaseUrl: string;
   level: "chat" | "tools";
   /** Closed-enum demo id (`agentic-chat` | `tool-rendering`) for CVDIAG. */
   demo: string;
@@ -1651,6 +1670,7 @@ async function runLevel(opts: {
     browser,
     slug,
     backendUrl,
+    demoBaseUrl,
     level,
     demo,
     demoPath,
@@ -1695,7 +1715,7 @@ async function runLevel(opts: {
     // outcome: the level was aborted before it could run) so the session is
     // balanced and the abort is observable in the timeline. Both fire on the
     // `cvdiag` session which is undefined when instrumentation is off (no-op).
-    cvdiag?.start(`${backendUrl}${demoPath}`, { width: 1280, height: 720 });
+    cvdiag?.start(`${demoBaseUrl}${demoPath}`, { width: 1280, height: 720 });
     cvdiag?.exit("timeout", 0);
     // Surface as red so the aggregate bookkeeping still reads "ran".
     return {
@@ -1810,9 +1830,12 @@ async function runLevel(opts: {
     }
 
     // probe.start — mint/thread the test_id and record entry (spec §3).
-    cvdiag?.start(`${backendUrl}${demoPath}`, { width: 1280, height: 720 });
+    cvdiag?.start(`${demoBaseUrl}${demoPath}`, { width: 1280, height: 720 });
 
-    const url = `${backendUrl}${demoPath}`;
+    // Navigate to the DEMO-serving origin, not the agent origin. `demoPath` is
+    // the slug-agnostic `/demos/<id>` constant; any `/<slug>` prefix a migrated
+    // cell needs is already part of `demoBaseUrl`.
+    const url = `${demoBaseUrl}${demoPath}`;
     // Use `waitUntil: "load"` (NOT "networkidle") to mirror the d5/d6
     // drivers (d6-all-pills.ts). CopilotKit demo pages hold a persistent
     // agent SSE stream, so "networkidle" never settles and D4 times out.

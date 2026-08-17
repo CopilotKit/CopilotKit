@@ -3,35 +3,21 @@
  *
  * This agent has no bespoke tools — the CopilotKit runtime is wired with
  * `mcpApps: { servers: [...] }` pointing at the public Excalidraw MCP
- * server (see `src/app/api/copilotkit-mcp-apps/route.ts`). The runtime
- * auto-applies the MCP Apps middleware which exposes the remote MCP
- * server's tools to this agent at request time and emits the activity
- * events that CopilotKit's built-in `MCPAppsActivityRenderer` renders in
- * the chat as a sandboxed iframe.
+ * server. The runtime auto-applies the MCP Apps middleware which exposes
+ * the remote MCP server's tools to this agent at request time and emits
+ * the activity events that CopilotKit's built-in `MCPAppsActivityRenderer`
+ * renders in the chat as a sandboxed iframe.
  *
- * Ported from `src/agents/mcp_apps_agent.py`.
+ * LGP shape: `create_agent` + `CopilotKitMiddleware` + empty `tools`.
+ * See `showcase/integrations/langgraph-python/src/agents/mcp_apps_agent.py`.
  *
- * NOTE: The TS runtime performs MCP tool injection via the A2UI/MCP-Apps
- * middleware before the graph sees the request. The graph itself doesn't
- * need bespoke MCP client wiring.
+ * Reference:
+ * https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
-import {
-  MemorySaver,
-  START,
-  END,
-  StateGraph,
-  Annotation,
-} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import { makeChatOpenAI } from "./openai-headers";
-
-import {
-  convertActionsToDynamicStructuredTools,
-  CopilotKitStateAnnotation,
-} from "@copilotkit/sdk-js/langgraph";
+import { createAgent } from "langchain";
+import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph";
 
 const SYSTEM_PROMPT = `You draw simple diagrams in Excalidraw via the MCP tool.
 
@@ -65,53 +51,9 @@ Do NOT:
 If the user asks for something specific (colors, more elements,
 particular layout), follow their lead — but still in ONE call.`;
 
-const AgentStateAnnotation = Annotation.Root({
-  ...CopilotKitStateAnnotation.spec,
-});
-
-export type AgentState = typeof AgentStateAnnotation.State;
-
-async function chatNode(state: AgentState, config: RunnableConfig) {
-  // gpt-4o-mini for speed — Excalidraw element emission is simple JSON and
-  // we're biasing hard toward sub-30s generation.
-  const model = makeChatOpenAI(config, {
-    temperature: 0,
-    model: "gpt-4o-mini",
-  });
-
-  // The MCP Apps middleware injects MCP tools into state.copilotkit.actions
-  // alongside any frontend actions, so a single bind picks up everything.
-  const copilotActions = convertActionsToDynamicStructuredTools(
-    state.copilotkit?.actions ?? [],
-  );
-
-  const modelWithTools =
-    copilotActions.length > 0 ? model.bindTools!(copilotActions) : model;
-
-  const systemMessage = new SystemMessage({ content: SYSTEM_PROMPT });
-
-  const response = await modelWithTools.invoke(
-    [systemMessage, ...state.messages],
-    config,
-  );
-
-  return { messages: response };
-}
-
-function shouldContinue({ messages }: AgentState) {
-  const lastMessage = messages[messages.length - 1] as AIMessage;
-  // All tool calls are frontend (MCP-injected) actions — never locally
-  // handled. End the run and let the runtime dispatch them.
-  return lastMessage.tool_calls?.length ? END : END;
-}
-
-const workflow = new StateGraph(AgentStateAnnotation)
-  .addNode("chat_node", chatNode)
-  .addEdge(START, "chat_node")
-  .addConditionalEdges("chat_node", shouldContinue as any);
-
-const memory = new MemorySaver();
-
-export const graph = workflow.compile({
-  checkpointer: memory,
+export const graph = createAgent({
+  model: new ChatOpenAI({ model: "gpt-5.5", temperature: 0 }),
+  tools: [],
+  middleware: [copilotkitMiddleware],
+  systemPrompt: SYSTEM_PROMPT,
 });

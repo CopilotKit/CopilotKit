@@ -7,8 +7,9 @@ protocol (SSE events) manually using the ag-ui-protocol types.
 
 The agent supports:
   - Agentic chat (streaming text responses)
-  - Backend tool execution (get_weather, query_data, manage_sales_todos,
-    get_sales_todos, search_flights, generate_a2ui)
+  - Backend tool execution (get_weather, get_stock_price, get_revenue_chart,
+    query_data, manage_sales_todos, get_sales_todos, search_flights,
+    generate_a2ui)
   - Frontend tool calls (change_background, generate_haiku, schedule_meeting)
   - Human-in-the-loop via schedule_meeting (frontend-rendered meeting time picker)
 
@@ -117,6 +118,62 @@ class GetWeatherTool(ToolMessage):
 
 
 # @endregion[weather-tool-backend]
+
+
+class GetStockPriceTool(ToolMessage):
+    request: str = "get_stock_price"
+    purpose: str = (
+        "Get a mock current price for a stock ticker. Use this whenever "
+        "the user asks about a stock price or quote. Pass the ticker "
+        "symbol (e.g. AAPL). Optional price_usd and change_pct are "
+        "echoed when supplied."
+    )
+    ticker: str
+    price_usd: float | None = None
+    change_pct: float | None = None
+
+    def handle(self) -> str:
+        return _json_dumps(
+            {
+                "ticker": self.ticker.upper(),
+                "price_usd": (
+                    round(float(self.price_usd), 2)
+                    if self.price_usd is not None
+                    else 189.42
+                ),
+                "change_pct": (
+                    round(float(self.change_pct), 2)
+                    if self.change_pct is not None
+                    else 1.27
+                ),
+            }
+        )
+
+
+class GetRevenueChartTool(ToolMessage):
+    request: str = "get_revenue_chart"
+    purpose: str = (
+        "Get a mock six-month revenue series for a chart visualization. "
+        "Use this whenever the user asks for a chart, graph, or "
+        "visualization of revenue, sales, or other quarterly/monthly "
+        "metrics."
+    )
+
+    def handle(self) -> str:
+        return _json_dumps(
+            {
+                "title": "Quarterly revenue",
+                "subtitle": "Last six months · USD thousands",
+                "data": [
+                    {"label": "Jan", "value": 38},
+                    {"label": "Feb", "value": 47},
+                    {"label": "Mar", "value": 52},
+                    {"label": "Apr", "value": 49},
+                    {"label": "May", "value": 63},
+                    {"label": "Jun", "value": 71},
+                ],
+            }
+        )
 
 
 class QueryDataTool(ToolMessage):
@@ -293,6 +350,8 @@ class GenerateA2UITool(ToolMessage):
 # Tools that execute server-side (Langroid handles them directly)
 BACKEND_TOOLS: tuple[type[ToolMessage], ...] = (
     GetWeatherTool,
+    GetStockPriceTool,
+    GetRevenueChartTool,
     QueryDataTool,
     ManageSalesTodosTool,
     GetSalesTodosTool,
@@ -337,12 +396,16 @@ SYSTEM_PROMPT = (
     "- Change the UI background when asked (via frontend tool)\n"
     "- Query data and render charts (via query_data tool)\n"
     "- Get weather information (via get_weather tool)\n"
+    "- Get a stock quote (via get_stock_price tool)\n"
+    "- Get a revenue chart (via get_revenue_chart tool)\n"
     "- Schedule meetings with the user (via schedule_meeting tool -- the user picks a time in the UI)\n"
     "- Manage sales pipeline todos (via manage_sales_todos / get_sales_todos tools)\n"
     "- Search flights and display rich A2UI cards (via search_flights tool)\n"
     "- Generate dynamic A2UI dashboards from conversation context (via generate_a2ui tool)\n"
     "- Generate step-by-step plans for user review (human-in-the-loop)\n"
     "When asked about weather, always use the get_weather tool. "
+    "When asked about a stock or ticker, always use the get_stock_price tool. "
+    "When asked for a revenue, sales, or metrics chart, always use the get_revenue_chart tool. "
     "When asked about data, charts, or graphs, use the query_data tool first."
 )
 

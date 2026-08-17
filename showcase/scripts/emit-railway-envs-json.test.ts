@@ -5,6 +5,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { SERVICES, computePromoteClosure } from "./railway-envs";
+// `npx` is `npx.cmd` on Windows — a name `execFileSync`/`spawnSync` cannot
+// resolve without a shell, so without this gate every emitter invocation below
+// dies with `spawnSync npx ENOENT` there.
+import { NEEDS_SHELL_FOR_CMD } from "./__tests__/test-cleanup";
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const EMITTER = resolve(SCRIPTS_DIR, "emit-railway-envs-json.ts");
@@ -25,6 +29,7 @@ function emitToTemp(): {
   execFileSync("npx", ["tsx", EMITTER, `--out=${out}`], {
     cwd: SCRIPTS_DIR,
     stdio: "pipe",
+    shell: NEEDS_SHELL_FOR_CMD,
   });
   const raw = readFileSync(out, "utf8");
   return {
@@ -186,6 +191,7 @@ describe("emit-railway-envs-json legacy shape preservation (golden)", () => {
     execFileSync("npx", ["tsx", EMITTER, "--check"], {
       cwd: SCRIPTS_DIR,
       stdio: "pipe",
+      shell: NEEDS_SHELL_FOR_CMD,
     });
   });
 });
@@ -205,6 +211,7 @@ describe("emit-railway-envs-json oxfmt-canonical output", () => {
       execFileSync("npx", ["tsx", EMITTER, `--out=${out}`], {
         cwd: SCRIPTS_DIR,
         stdio: "pipe",
+        shell: NEEDS_SHELL_FOR_CMD,
       });
       // ...then assert oxfmt considers the result already-canonical. RED on
       // the pre-fix emitter (multi-line arrays → "Format issues found"),
@@ -251,6 +258,7 @@ describe("emit-railway-envs-json EMIT_SKIP_OXFMT ephemeral opt-out", () => {
       stdio: "pipe",
       encoding: "utf8",
       env,
+      shell: NEEDS_SHELL_FOR_CMD,
     });
     return {
       status: res.status,

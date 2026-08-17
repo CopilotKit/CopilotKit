@@ -18,6 +18,30 @@ on:
       # PR that could break it — a change re-adding `:latest` to the push
       # would sail through untested.
       - ".github/workflows/showcase_build.yml"
+      # Same reasoning, same suite, four more LIVE workflow files. Every path
+      # below is read verbatim by a test this workflow runs, so an edit to one
+      # of them can only be caught if it triggers this workflow:
+      #   showcase_build_check.yml
+      #     __tests__/angular-integration-hosting.test.ts (vitest) asserts the
+      #     canonical Angular browser artifact is materialized in it.
+      #   showcase_promote.yml
+      #     __tests__/sync-promote-service-options.test.ts (vitest) asserts the
+      #     COMMITTED `workflow_dispatch.inputs.service.options` list — the enum
+      #     GitHub validates server-side. Deleting an option there merged green
+      #     and the promote dispatch then 422'd. __tests__/lint-prod-gate.bats
+      #     also asserts the workflow still invokes lint-prod-gate.sh.
+      #   showcase_promote_notify.yml + showcase_promote_notify.dry-run.sh
+      #     __tests__/promote-notify.bats extracts `slack_alert_posted_ok` and
+      #     the reaction-name mapping from BOTH files and fails on any drift
+      #     between them, so both halves of the mirror must trigger the check.
+      #   showcase_reconcile.yml
+      #     __tests__/reconcile-prod-gate.bats asserts it still invokes
+      #     reconcile-prod-gate.sh (guards the gate against being orphaned).
+      - ".github/workflows/showcase_build_check.yml"
+      - ".github/workflows/showcase_promote.yml"
+      - ".github/workflows/showcase_promote_notify.yml"
+      - ".github/workflows/showcase_promote_notify.dry-run.sh"
+      - ".github/workflows/showcase_reconcile.yml"
   push:
     branches: [main]
     paths:
@@ -30,6 +54,13 @@ on:
       - ".github/workflows/aeo_synthetics.yml"
       - ".github/workflows/showcase_deploy.yml"
       - ".github/workflows/showcase_build.yml"
+      # Kept in lockstep with the pull_request list above — see the comment
+      # there for why each of these live workflow files must trigger this run.
+      - ".github/workflows/showcase_build_check.yml"
+      - ".github/workflows/showcase_promote.yml"
+      - ".github/workflows/showcase_promote_notify.yml"
+      - ".github/workflows/showcase_promote_notify.dry-run.sh"
+      - ".github/workflows/showcase_reconcile.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:
@@ -132,11 +163,15 @@ jobs:
           for pkg_dir in showcase/integrations/*/; do
             [ -d "$pkg_dir" ] || continue
             pkg=$(basename "$pkg_dir")
-            # Skip manifest-only packages (no src/ directory) — these are
-            # virtual/meta integrations (e.g. built-in-agent) that carry no
-            # source code or demos and therefore have no e2e specs to enforce.
+            # Skip directories with no src/ — they are not integrations and
+            # have no e2e specs to enforce. Today `_shared` is the ONLY one:
+            # it holds the cvdiag emitters/schema staged into each integration
+            # through the per-integration `_shared` symlink, and it carries no
+            # manifest.yaml. (An earlier version of this comment named
+            # `built-in-agent` as the example — that is wrong: it has both
+            # src/ and tests/e2e/ specs, and this branch never skips it.)
             if [ ! -d "${pkg_dir}src" ]; then
-              echo "skip: $pkg (manifest-only, no src/)"
+              echo "skip: $pkg (no src/, not an integration)"
               continue
             fi
             found=$((found + 1))
@@ -540,6 +575,24 @@ jobs:
         # `cache-dependency-path: showcase/shell/package-lock.json`.
         run: npm ci --ignore-scripts
 
+      - name: Showcase shell unit tests
+        working-directory: showcase/shell
+        # These ran NOWHERE until this step existed. The shell shipped a vitest
+        # suite (250+ tests, including the backend-URL resolution that decides
+        # which host every demo iframe points at) and this workflow only ever
+        # did `npm ci` + `npm run build` for it — so a broken resolver merged
+        # green, and any test added to that suite was decoration.
+        #
+        # Placed BEFORE the build deliberately: the build is the slow step, and
+        # a failing resolver test should not wait behind it.
+        #
+        # Two tests in local-backends-env.test.ts assert a read failure by
+        # chmod-ing a path to 0o000. That works here (Linux) but is vacuous on
+        # an NTFS host, where the mode bits are ignored and the read succeeds.
+        # If Windows CI is ever added, those two need a platform gate — they are
+        # the reason this suite reports 2 failures when run on Windows.
+        run: npm test
+
       - name: Build showcase shell
         working-directory: showcase/shell
         run: npm run build
@@ -704,6 +757,183 @@ jobs:
 
       - name: Run bats suite
         run: bats showcase/scripts/__tests__/
+
+  frontend-nextjs-unit-tests:
+    name: Unified frontend unit tests
+    # The UNIFIED Next.js frontend (showcase/frontends/nextjs) serves all 43
+    # demos for all 20 integrations and had ZERO CI coverage: no workflow
+    # referenced it, so its vitest suite never ran while every integration's
+    # tests did.
+    #
+    # A SEPARATE job, not extra steps in `validate`, for three reasons:
+    #   1. Same rationale the sibling python-unit-tests / shell-script-tests
+    #      jobs give — a pre-existing validate failure must not mask a new
+    #      frontend regression, and vice versa.
+    #   2. This app is NOT a pnpm workspace member (see pnpm-workspace.yaml):
+    #      it installs with its own package-lock.json via `npm ci`. Bolting a
+    #      second npm install onto `validate` would also mean a second
+    #      `cache-dependency-path`, coupling two unrelated dependency trees.
+    #   3. Its node_modules is ~1.5 GB (measured — see the size note in
+    #      showcase/frontends/nextjs/Dockerfile). Adding that install to
+    #      `validate` risks its 25-minute cap, and a job that overruns
+    #      `timeout-minutes` concludes `cancelled`, which is neither success nor
+    #      failure and silently suppresses alerting.
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      # Required for Depot OIDC auth (runs-on: depot-ubuntu-*).
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: showcase/frontends/nextjs/package-lock.json
+
+      - name: Install unified frontend dependencies
+        working-directory: showcase/frontends/nextjs
+        # `npm ci --legacy-peer-deps` is the EXACT install the image build runs
+        # (showcase/frontends/nextjs/Dockerfile, `builder` stage). The flag is
+        # also in the app's own .npmrc; it is passed explicitly here so this
+        # step does not silently depend on .npmrc being picked up. The app
+        # carries the union of all 20 integrations' dependencies, and openai@5.x
+        # declares `peerOptional zod@^3` while @tanstack/ai-openai hard-requires
+        # zod@^4 — strict peer resolution fails outright.
+        run: npm ci --legacy-peer-deps
+
+      - name: Run unified frontend unit tests
+        working-directory: showcase/frontends/nextjs
+        # `npm test` → `vitest run` over src/**/*.test.ts(x). Uses the app's own
+        # locally-installed vitest from the `npm ci` above, so the version is
+        # pinned by its package-lock.json.
+        #
+        # NO TEST COUNT IS RECORDED HERE ON PURPOSE. An earlier version of this
+        # comment pinned one, and it was stale within the same change set. A
+        # count in a comment rots silently; a count that must hold belongs in an
+        # assertion. `working-directory` is load-bearing, not cosmetic:
+        # `resolveIntegrationsDir` falls back to a path relative to
+        # `process.cwd()`, so running this from the repo root resolves to
+        # `<root>/integrations`, finds no manifests, and fails tests for a
+        # reason unrelated to the code under test.
+        run: npm test
+
+      - name: Typecheck (error-count baseline)
+        working-directory: showcase/frontends/nextjs
+        # This app sets `typescript: { ignoreBuildErrors: true }` in
+        # next.config.ts, so `next build` NEVER reports a type error. Nothing
+        # else ran `tsc` on it either: the app has no project.json and is not a
+        # pnpm-workspace member, so static_quality.yml's
+        # `nx run-many -t check-types` cannot select it, and its script is named
+        # `typecheck`, not `check-types`. That left the app with ZERO type
+        # coverage anywhere in CI. This step is the only thing that runs `tsc`.
+        #
+        # It is a BASELINE gate, not a clean gate. `npm run typecheck` currently
+        # reports 49 errors, all of them in demo folders and built-in-agent
+        # factories copied byte-identically from the 20 integrations that pin
+        # different upstream SDK versions. A bare `tsc --noEmit` gate would be
+        # red on arrival, so it would have to be disabled and would protect
+        # nothing. Instead: count the errors and fail if the count RISES above
+        # the committed baseline. New type errors are blocked; the inherited 49
+        # are tolerated.
+        #
+        # A path-scoped alternative (gate only the app's own src/lib,
+        # src/app/api, src/middleware, src/components and exclude the ported
+        # demos) was measured and REJECTED: 17 of the 49 errors are already in
+        # src/lib/built-in-agent and src/lib/agent-resolution.ts, so that gate
+        # is red on arrival too — and it would additionally leave the demo
+        # folders, where the other 32 live, ungated forever.
+        #
+        # When you legitimately change the count, update TSC_ERROR_BASELINE in
+        # the same commit. Lowering it is only a WARNING (fixing types must not
+        # red the build), but leaving it stale weakens the gate by exactly the
+        # number of errors you fixed, so treat the warning as a to-do.
+        # WHY THIS GATE CANNOT PASS VACUOUSLY
+        # It used to be `npm run --silent typecheck > "$log" 2>&1 || true`, and
+        # `|| true` swallowed EVERY non-zero exit — including the ones that mean
+        # tsc never ran at all ("Missing script: typecheck", `tsc: not found`, a
+        # broken tsconfig). The counter then matched 0 lines, `0 -gt 49` was
+        # false, the step went GREEN, and it printed a `::warning::`
+        # congratulating the author on a drop from 49 to 0. Renaming or deleting
+        # the `typecheck` script therefore turned the only step that runs `tsc`
+        # into a no-op that reported an improvement.
+        #
+        # A zero count is now only believed when it is CORROBORATED. Three
+        # independent things must agree, and each maps to one real failure:
+        #   1. package.json must actually declare a `typecheck` script
+        #      (catches rename/delete, before npm's own message can be mistaken
+        #      for output).
+        #   2. tsc's exit status is captured, not discarded. Exit 0 means "ran,
+        #      found nothing" — the ONLY way a count of 0 is accepted.
+        #   3. A non-zero exit must come with at least one PRIMARY diagnostic.
+        #      Non-zero with no diagnostics is "tsc did not run" (missing binary,
+        #      unreadable tsconfig, OOM), which is a hard failure, NOT 0 errors.
+        env:
+          TSC_ERROR_BASELINE: 49
+        run: |
+          set -uo pipefail
+
+          # (1) The script must exist. `npm run` answers a missing script with a
+          # non-zero exit and "Missing script", which under the old `|| true`
+          # was indistinguishable from a clean run. Read package.json directly
+          # so the check does not depend on npm's message text.
+          if ! node -e 'process.exit(require("./package.json").scripts?.typecheck ? 0 : 1)'; then
+            echo "::error::showcase/frontends/nextjs/package.json declares no \"typecheck\" script. This step is the ONLY thing that runs tsc on this app (next.config.ts sets ignoreBuildErrors: true), so a missing script means zero type coverage, not zero errors. Restore the script or update this gate deliberately."
+            exit 1
+          fi
+
+          log="$(mktemp)"
+          # `npm run --silent` keeps npm's own script header and ELIFECYCLE
+          # noise out of the log, so the only lines that can match the counter
+          # below are tsc diagnostics. The exit status is CAPTURED rather than
+          # discarded — tsc exits non-zero whenever it reports anything, which
+          # is the normal state here, but "non-zero" and "reported diagnostics"
+          # are no longer assumed to be the same thing.
+          status=0
+          npm run --silent typecheck > "$log" 2>&1 || status=$?
+
+          # Count only PRIMARY diagnostics: `<file>(<line>,<col>): error TSxxxx`.
+          # tsc indents the explanatory follow-on lines of a single diagnostic,
+          # and some of those repeat the word "error", so a bare `grep -c 'error
+          # TS'` would inflate the count and make the baseline meaningless.
+          count="$(grep -cE '^[^ ]+\([0-9]+,[0-9]+\): error TS[0-9]+' "$log" || true)"
+          echo "tsc exit status: $status; primary diagnostics: $count (baseline: $TSC_ERROR_BASELINE)"
+
+          # (3) Non-zero exit with nothing that looks like a tsc diagnostic means
+          # tsc did not get far enough to typecheck anything. Distinct failure,
+          # distinct message — never counted as 0 errors.
+          if [ "$status" -ne 0 ] && [ "$count" -eq 0 ]; then
+            echo "::error::\`npm run typecheck\` exited $status but produced no tsc diagnostics, so tsc did not actually typecheck this app. This is a broken gate, not a clean tree. Output follows."
+            cat "$log"
+            exit 1
+          fi
+
+          # (2) The converse: a clean exit must come with a clean log. tsc exits
+          # 0 only when it reported nothing, so a diagnostic here would mean the
+          # log is not tsc's output and the count cannot be trusted.
+          if [ "$status" -eq 0 ] && [ "$count" -ne 0 ]; then
+            echo "::error::\`npm run typecheck\` exited 0 yet the log contains $count tsc diagnostic line(s). The log is not the output this gate thinks it is. Output follows."
+            cat "$log"
+            exit 1
+          fi
+
+          if [ "$count" -gt "$TSC_ERROR_BASELINE" ]; then
+            echo "::error::tsc error count rose from $TSC_ERROR_BASELINE to $count in showcase/frontends/nextjs. Full tsc output follows; fix the new errors (do not raise the baseline to hide them)."
+            cat "$log"
+            exit 1
+          fi
+          if [ "$count" -lt "$TSC_ERROR_BASELINE" ]; then
+            echo "::warning::tsc error count dropped from $TSC_ERROR_BASELINE to $count. Lower TSC_ERROR_BASELINE in .github/workflows/showcase_validate.yml to lock the improvement in."
+          fi
 
   python-unit-tests:
     name: Python unit tests (${{ matrix.python-version }})
@@ -877,13 +1107,20 @@ jobs:
     # red runs surface uniformly across the showcase pipeline. The validate
     # job has its own inline (and richer) push-only notifier that extracts
     # the failing step + error excerpt; this job is the workflow-level
-    # safety net that also covers the python-unit-tests matrix job and the
-    # shell-script-tests job — which otherwise had no Slack signal at all.
+    # safety net that also covers the python-unit-tests matrix job, the
+    # shell-script-tests job and the frontend-nextjs-unit-tests job — which
+    # otherwise had no Slack signal at all.
     # Webhook empty-guard mirrors promote.yml so an unset
     # SLACK_WEBHOOK_OSS_ALERTS secret does not break the shell or red the
     # workflow on this step.
-    needs: [validate, python-unit-tests, shell-script-tests]
-    if: always() && github.event_name == 'push' && !(needs.validate.result == 'failure' && needs.validate.outputs.inline_slack_notifier_reached == 'true' && needs.python-unit-tests.result == 'success' && needs.shell-script-tests.result == 'success')
+    needs:
+      [
+        validate,
+        python-unit-tests,
+        shell-script-tests,
+        frontend-nextjs-unit-tests,
+      ]
+    if: always() && github.event_name == 'push' && !(needs.validate.result == 'failure' && needs.validate.outputs.inline_slack_notifier_reached == 'true' && needs.python-unit-tests.result == 'success' && needs.shell-script-tests.result == 'success' && needs.frontend-nextjs-unit-tests.result == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
@@ -898,9 +1135,10 @@ jobs:
           VALIDATE: ${{ needs.validate.result }}
           PYTEST: ${{ needs.python-unit-tests.result }}
           SHELL: ${{ needs.shell-script-tests.result }}
+          FRONTEND: ${{ needs.frontend-nextjs-unit-tests.result }}
         run: |
           set -euo pipefail
-          if [ "$VALIDATE" = "success" ] && [ "$PYTEST" = "success" ] && [ "$SHELL" = "success" ]; then
+          if [ "$VALIDATE" = "success" ] && [ "$PYTEST" = "success" ] && [ "$SHELL" = "success" ] && [ "$FRONTEND" = "success" ]; then
             STATE="success"; ICON=":white_check_mark:"
           else
             STATE="failure"; ICON=":x:"
@@ -923,7 +1161,7 @@ jobs:
           payload: |
             {
               "text": ${{ toJSON(format(
-                '{0} *showcase_validate failed on {1}*{8}validate={2} python-unit-tests={3} shell-script-tests={4}{8}<{5}/{6}/actions/runs/{7}|View run>',
+                '{0} *showcase_validate failed on {1}*{8}validate={2} python-unit-tests={3} shell-script-tests={4} frontend-nextjs-unit-tests={9}{8}<{5}/{6}/actions/runs/{7}|View run>',
                 steps.state.outputs.icon,
                 github.ref,
                 needs.validate.result,
@@ -932,7 +1170,8 @@ jobs:
                 github.server_url,
                 github.repository,
                 github.run_id,
-                fromJSON('"\n"')
+                fromJSON('"\n"'),
+                needs.frontend-nextjs-unit-tests.result
               )) }}
             }
       - name: Log (no Slack — webhook unset)

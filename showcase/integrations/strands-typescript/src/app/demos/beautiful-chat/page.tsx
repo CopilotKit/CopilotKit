@@ -36,12 +36,27 @@ export default function BeautifulChatPage() {
         openGenerativeUI={{}}
         /*
          * `useSingleEndpoint` defaults to true (the single-POST-endpoint
-         * protocol). The canonical reference sets it to false to use the
-         * v2 multi-endpoint protocol (GET /info + POST /agent/{name}/connect),
-         * which requires a Hono-based endpoint via `createCopilotEndpoint`.
-         * The 4085 showcase uses `copilotRuntimeNextJSAppRouterEndpoint`
-         * (single-endpoint), which matches the other 4085 cells — so we
-         * use its default behavior here. Functionally equivalent for this demo.
+         * protocol: one POST to the runtime base path carrying an RPC
+         * envelope). Setting it false switches the client to REST sub-paths
+         * (GET /info + POST /agent/{name}/...).
+         *
+         * THE SERVER MUST BE IN THE MATCHING MODE. That is selected by
+         * `mode` on `createCopilotRuntimeHandler` — "single-route" serves the
+         * base-path envelope, "multi-route" serves the sub-paths and 404s the
+         * base path with no log line. It is NOT selected by which factory you
+         * call: `createCopilotEndpoint` is a deprecated alias of
+         * `createCopilotHonoHandler`, a thin wrapper that calls the same
+         * handler with the same default mode.
+         *
+         * An earlier version of this comment claimed the multi-endpoint
+         * protocol "requires a Hono-based endpoint via createCopilotEndpoint".
+         * That is false, and it cost real time: it sent three separate
+         * investigations of a live outage looking for a factory swap when the
+         * defect was a mode mismatch.
+         *
+         * This integration serves the single-endpoint shape via V1
+         * `copilotRuntimeNextJSAppRouterEndpoint`, matching its other cells,
+         * so the client default is left alone here.
          */
       >
         <HomePage />

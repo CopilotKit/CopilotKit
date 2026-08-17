@@ -60,6 +60,11 @@ from langroid.agent.tool_message import ToolMessage
 
 logger = logging.getLogger(__name__)
 
+# Maximum LLM round-trips per user turn (first call + follow-ups after
+# backend TOOL_CALL_RESULT). Mirrors crewai-crews tool_rendering and
+# LangGraph create_agent so toolCallId narration fixtures can fire.
+_MAX_TOOL_ITERATIONS = 5
+
 
 # Map tool name -> ToolMessage class for backend execution. Built once at
 # import so a collision surfaces loudly at startup instead of silently
@@ -655,252 +660,341 @@ async def handle_run(request: Request) -> StreamingResponse:
 
         # ``response`` is an OpenAI ChatCompletionMessage. ``.content``
         # is the text; ``.tool_calls`` carries structured tool calls.
-        content = getattr(response, "content", None) or ""
-        oai_tool_calls = getattr(response, "tool_calls", None) or []
+        #
+        # After every backend TOOL_CALL_RESULT we call the LLM again
+        # with the assistant tool_calls + role:tool results appended.
+        # Aimock's toolCallId narration fixtures (catchall phrase,
+        # revenue narration) match that follow-up request. Frontend
+        # tools do not loop — the client returns the result on the
+        # next run. Keep getattr(tc, "id") when the model sent one.
+        working_messages = list(oai_messages)
+        current = response
 
-        if oai_tool_calls:
-            # Emit synthesized tool-call events for each OAI tool call.
-            # ``_parse_tool_args`` returns a ``ParsedArgs`` with
-            # ``status`` in ``{"ok", "empty", "malformed"}``. We only
-            # emit when ``parsed.usable`` (i.e. ``status == "ok"``) —
-            # otherwise we SKIP the tool call entirely rather than
-            # emitting a call with ``{}`` (which renders a meaningless
-            # UI card). The warning already fired inside
-            # ``_parse_tool_args`` on the malformed path.
-            calls_to_emit = []
-            for tc in oai_tool_calls:
-                fn = getattr(tc, "function", None)
-                name = getattr(fn, "name", None) if fn is not None else None
-                raw_args = getattr(fn, "arguments", {}) if fn is not None else {}
-                parsed = _parse_tool_args(raw_args)
-                call_id = getattr(tc, "id", None) or str(uuid.uuid4())
-                if name and parsed.usable:
-                    calls_to_emit.append((call_id, name, parsed.args))
-                elif name:
-                    logger.warning(
-                        "Skipping tool call %s: arguments could not be parsed (status=%s)",
-                        name,
-                        parsed.status,
-                    )
+        for iteration in range(_MAX_TOOL_ITERATIONS):
+            if current is None:
+                break
 
-            if calls_to_emit:
-                # Emit a TEXT_MESSAGE_START to create a parent assistant
-                # message that the tool calls attach to.  Without this,
-                # the AG-UI client still synthesizes a message per tool
-                # call, but the Runtime's middleware SSE parser (used by
-                # open-gen-ui and other middleware) cannot associate tool
-                # calls with a parent message — they are silently dropped.
-                # Emitting the triple (START → tool calls → END) mirrors
-                # what LangGraph and google-adk adapters produce.
-                tc_parent_id = str(uuid.uuid4())
-                yield _sse_line(
-                    TextMessageStartEvent(
-                        type=EventType.TEXT_MESSAGE_START,
-                        message_id=tc_parent_id,
-                    )
-                )
+            content = getattr(current, "content", None) or ""
+            oai_tool_calls = getattr(current, "tool_calls", None) or []
 
-                for call_id, tool_name, tool_args in calls_to_emit:
+            if oai_tool_calls:
+                # Emit synthesized tool-call events for each OAI tool call.
+                # ``_parse_tool_args`` returns a ``ParsedArgs`` with
+                # ``status`` in ``{"ok", "empty", "malformed"}``. We only
+                # emit when ``parsed.usable`` (i.e. ``status == "ok"``) —
+                # otherwise we SKIP the tool call entirely rather than
+                # emitting a call with ``{}`` (which renders a meaningless
+                # UI card). The warning already fired inside
+                # ``_parse_tool_args`` on the malformed path.
+                calls_to_emit = []
+                for tc in oai_tool_calls:
+                    fn = getattr(tc, "function", None)
+                    name = getattr(fn, "name", None) if fn is not None else None
+                    raw_args = getattr(fn, "arguments", {}) if fn is not None else {}
+                    parsed = _parse_tool_args(raw_args)
+                    call_id = getattr(tc, "id", None) or str(uuid.uuid4())
+                    if name and parsed.usable:
+                        calls_to_emit.append((call_id, name, parsed.args))
+                    elif name:
+                        logger.warning(
+                            "Skipping tool call %s: arguments could not be parsed (status=%s)",
+                            name,
+                            parsed.status,
+                        )
+
+                backend_results: list[tuple[str, str, dict, str]] = []
+                if calls_to_emit:
+                    # Emit a TEXT_MESSAGE_START to create a parent assistant
+                    # message that the tool calls attach to.  Without this,
+                    # the AG-UI client still synthesizes a message per tool
+                    # call, but the Runtime's middleware SSE parser (used by
+                    # open-gen-ui and other middleware) cannot associate tool
+                    # calls with a parent message — they are silently dropped.
+                    # Emitting the triple (START → tool calls → END) mirrors
+                    # what LangGraph and google-adk adapters produce.
+                    tc_parent_id = str(uuid.uuid4())
                     yield _sse_line(
-                        ToolCallStartEvent(
-                            type=EventType.TOOL_CALL_START,
-                            tool_call_id=call_id,
-                            tool_call_name=tool_name,
-                            parent_message_id=tc_parent_id,
+                        TextMessageStartEvent(
+                            type=EventType.TEXT_MESSAGE_START,
+                            message_id=tc_parent_id,
                         )
                     )
 
-                    yield _sse_line(
-                        ToolCallArgsEvent(
-                            type=EventType.TOOL_CALL_ARGS,
-                            tool_call_id=call_id,
-                            delta=json.dumps(tool_args),
-                        )
-                    )
-
-                    yield _sse_line(
-                        ToolCallEndEvent(
-                            type=EventType.TOOL_CALL_END,
-                            tool_call_id=call_id,
-                        )
-                    )
-
-                    # For backend tools, execute and emit the result as a
-                    # ToolCallResultEvent so the CopilotKit runtime can
-                    # transition the useRenderTool status from "executing"
-                    # to "complete". Without this event the frontend card
-                    # stays stuck in a loading state.
-                    if tool_name not in FRONTEND_TOOL_NAMES:
-                        tool_cls = _TOOL_BY_NAME.get(tool_name)
-                        result: str | None = None
-                        if tool_cls is not None:
-                            result = await _run_backend_tool(
-                                tool_cls, tool_name, tool_args
+                    for call_id, tool_name, tool_args in calls_to_emit:
+                        yield _sse_line(
+                            ToolCallStartEvent(
+                                type=EventType.TOOL_CALL_START,
+                                tool_call_id=call_id,
+                                tool_call_name=tool_name,
+                                parent_message_id=tc_parent_id,
                             )
+                        )
 
-                        if result:
-                            yield _sse_line(
-                                ToolCallResultEvent(
-                                    type=EventType.TOOL_CALL_RESULT,
-                                    tool_call_id=call_id,
-                                    message_id=str(uuid.uuid4()),
-                                    content=result,
+                        yield _sse_line(
+                            ToolCallArgsEvent(
+                                type=EventType.TOOL_CALL_ARGS,
+                                tool_call_id=call_id,
+                                delta=json.dumps(tool_args),
+                            )
+                        )
+
+                        yield _sse_line(
+                            ToolCallEndEvent(
+                                type=EventType.TOOL_CALL_END,
+                                tool_call_id=call_id,
+                            )
+                        )
+
+                        # For backend tools, execute and emit the result as a
+                        # ToolCallResultEvent so the CopilotKit runtime can
+                        # transition the useRenderTool status from "executing"
+                        # to "complete". Without this event the frontend card
+                        # stays stuck in a loading state.
+                        if tool_name not in FRONTEND_TOOL_NAMES:
+                            tool_cls = _TOOL_BY_NAME.get(tool_name)
+                            result: str | None = None
+                            if tool_cls is not None:
+                                result = await _run_backend_tool(
+                                    tool_cls, tool_name, tool_args
                                 )
-                            )
 
-                # Close the parent message that wraps the tool calls.
-                yield _sse_line(
-                    TextMessageEndEvent(
-                        type=EventType.TEXT_MESSAGE_END,
-                        message_id=tc_parent_id,
-                    )
-                )
+                            if result:
+                                yield _sse_line(
+                                    ToolCallResultEvent(
+                                        type=EventType.TOOL_CALL_RESULT,
+                                        tool_call_id=call_id,
+                                        message_id=str(uuid.uuid4()),
+                                        content=result,
+                                    )
+                                )
+                                backend_results.append(
+                                    (call_id, tool_name, tool_args, result)
+                                )
 
-            yield _sse_line(
-                RunFinishedEvent(
-                    type=EventType.RUN_FINISHED,
-                    thread_id=thread_id,
-                    run_id=run_id,
-                )
-            )
-            return
-
-        # Check if the response contains a tool call parsed from content
-        tool_msg = _try_parse_tool(content)
-
-        if tool_msg is not None:
-            tool_name = (
-                tool_msg.default_value("request")
-                if hasattr(tool_msg, "default_value")
-                else getattr(tool_msg, "request", "unknown")
-            )
-            tool_call_id = str(uuid.uuid4())
-
-            # Build tool arguments (exclude metadata fields and unset/None
-            # values — emitting ``{"foo": null}`` forces the frontend to
-            # decide what a null field means, which almost always renders
-            # as an empty input on the tool card).
-            tool_args = {}
-            for field_name, field_info in tool_msg.model_fields.items():
-                if field_name in ("request", "purpose", "result"):
-                    continue
-                value = getattr(tool_msg, field_name)
-                if value is None:
-                    continue
-                tool_args[field_name] = value
-
-            # Emit a parent TEXT_MESSAGE that wraps the tool call, same
-            # as the oai_tool_calls path above. Without this, the
-            # Runtime middleware-sse-parser cannot attach the tool call
-            # to a parent message and silently drops it.
-            ct_parent_id = str(uuid.uuid4())
-            yield _sse_line(
-                TextMessageStartEvent(
-                    type=EventType.TEXT_MESSAGE_START,
-                    message_id=ct_parent_id,
-                )
-            )
-
-            yield _sse_line(
-                ToolCallStartEvent(
-                    type=EventType.TOOL_CALL_START,
-                    tool_call_id=tool_call_id,
-                    tool_call_name=tool_name,
-                    parent_message_id=ct_parent_id,
-                )
-            )
-
-            yield _sse_line(
-                ToolCallArgsEvent(
-                    type=EventType.TOOL_CALL_ARGS,
-                    tool_call_id=tool_call_id,
-                    delta=json.dumps(tool_args),
-                )
-            )
-
-            yield _sse_line(
-                ToolCallEndEvent(
-                    type=EventType.TOOL_CALL_END,
-                    tool_call_id=tool_call_id,
-                )
-            )
-
-            # If it's a backend tool, execute it and stream the result
-            # as text. We already have the instantiated ``tool_msg`` (it
-            # came from ``_try_parse_tool``), so bypass the construction
-            # step and go straight through ``_execute_backend_tool`` —
-            # shares the sanitization contract with the oai path above.
-            #
-            # Wrap the ``to_thread`` call itself in a broad try/except:
-            # ``_execute_backend_tool`` already sanitizes narrowed
-            # data-errors, but the scheduler call (thread-pool full,
-            # cancellation, loop shutdown) can raise *outside* that
-            # contract. Letting such an exception escape aborts the SSE
-            # generator after events have already been emitted, which
-            # hangs the UI. Emit a sanitized error + RUN_FINISHED and
-            # then re-raise so the framework still sees the real bug.
-            if tool_name not in FRONTEND_TOOL_NAMES:
-                try:
-                    result = await asyncio.to_thread(
-                        _execute_backend_tool, tool_msg, tool_name
-                    )
-                except Exception as exc:
-                    logger.exception(
-                        "asyncio.to_thread failed executing backend tool %s",
-                        tool_name,
-                    )
-                    err_payload = json.dumps(
-                        {
-                            "error": (
-                                f"Tool {tool_name} failed: {exc.__class__.__name__}"
-                            )
-                        }
-                    )
-                    yield _sse_line(
-                        ToolCallResultEvent(
-                            type=EventType.TOOL_CALL_RESULT,
-                            tool_call_id=tool_call_id,
-                            message_id=str(uuid.uuid4()),
-                            content=err_payload,
-                        )
-                    )
+                    # Close the parent message that wraps the tool calls.
                     yield _sse_line(
                         TextMessageEndEvent(
                             type=EventType.TEXT_MESSAGE_END,
-                            message_id=ct_parent_id,
-                        )
-                    )
-                    yield _sse_line(
-                        RunFinishedEvent(
-                            type=EventType.RUN_FINISHED,
-                            thread_id=thread_id,
-                            run_id=run_id,
-                        )
-                    )
-                    raise
-                if result:
-                    yield _sse_line(
-                        ToolCallResultEvent(
-                            type=EventType.TOOL_CALL_RESULT,
-                            tool_call_id=tool_call_id,
-                            message_id=str(uuid.uuid4()),
-                            content=result,
+                            message_id=tc_parent_id,
                         )
                     )
 
-            # Close the parent message that wraps the tool call.
-            yield _sse_line(
-                TextMessageEndEvent(
-                    type=EventType.TEXT_MESSAGE_END,
-                    message_id=ct_parent_id,
+                # Follow up only when every emitted tool produced a
+                # backend result. Mixed / frontend / injected tools
+                # wait for the next client run.
+                if backend_results and len(backend_results) == len(calls_to_emit):
+                    working_messages.append(
+                        {
+                            "role": "assistant",
+                            "content": content if content else None,
+                            "tool_calls": [
+                                {
+                                    "id": call_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": tool_name,
+                                        "arguments": json.dumps(tool_args),
+                                    },
+                                }
+                                for call_id, tool_name, tool_args, _result in backend_results
+                            ],
+                        }
+                    )
+                    for call_id, _name, _args, result in backend_results:
+                        working_messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": call_id,
+                                "content": result,
+                            }
+                        )
+                    try:
+                        current = await _call_openai(working_messages, oai_tools, model)
+                    except (
+                        openai.APIError,
+                        httpx.HTTPError,
+                        asyncio.TimeoutError,
+                    ):
+                        logger.exception("follow-up _call_openai failed")
+                        break
+                    continue
+                break
+
+            # Check if the response contains a tool call parsed from content
+            tool_msg = _try_parse_tool(content)
+
+            if tool_msg is not None:
+                tool_name = (
+                    tool_msg.default_value("request")
+                    if hasattr(tool_msg, "default_value")
+                    else getattr(tool_msg, "request", "unknown")
                 )
-            )
-        else:
+                tool_call_id = str(uuid.uuid4())
+
+                # Build tool arguments (exclude metadata fields and unset/None
+                # values — emitting ``{"foo": null}`` forces the frontend to
+                # decide what a null field means, which almost always renders
+                # as an empty input on the tool card).
+                tool_args = {}
+                for field_name, field_info in tool_msg.model_fields.items():
+                    if field_name in ("request", "purpose", "result"):
+                        continue
+                    value = getattr(tool_msg, field_name)
+                    if value is None:
+                        continue
+                    tool_args[field_name] = value
+
+                # Emit a parent TEXT_MESSAGE that wraps the tool call, same
+                # as the oai_tool_calls path above. Without this, the
+                # Runtime middleware-sse-parser cannot attach the tool call
+                # to a parent message and silently drops it.
+                ct_parent_id = str(uuid.uuid4())
+                yield _sse_line(
+                    TextMessageStartEvent(
+                        type=EventType.TEXT_MESSAGE_START,
+                        message_id=ct_parent_id,
+                    )
+                )
+
+                yield _sse_line(
+                    ToolCallStartEvent(
+                        type=EventType.TOOL_CALL_START,
+                        tool_call_id=tool_call_id,
+                        tool_call_name=tool_name,
+                        parent_message_id=ct_parent_id,
+                    )
+                )
+
+                yield _sse_line(
+                    ToolCallArgsEvent(
+                        type=EventType.TOOL_CALL_ARGS,
+                        tool_call_id=tool_call_id,
+                        delta=json.dumps(tool_args),
+                    )
+                )
+
+                yield _sse_line(
+                    ToolCallEndEvent(
+                        type=EventType.TOOL_CALL_END,
+                        tool_call_id=tool_call_id,
+                    )
+                )
+
+                # If it's a backend tool, execute it and stream the result
+                # as text. We already have the instantiated ``tool_msg`` (it
+                # came from ``_try_parse_tool``), so bypass the construction
+                # step and go straight through ``_execute_backend_tool`` —
+                # shares the sanitization contract with the oai path above.
+                #
+                # Wrap the ``to_thread`` call itself in a broad try/except:
+                # ``_execute_backend_tool`` already sanitizes narrowed
+                # data-errors, but the scheduler call (thread-pool full,
+                # cancellation, loop shutdown) can raise *outside* that
+                # contract. Letting such an exception escape aborts the SSE
+                # generator after events have already been emitted, which
+                # hangs the UI. Emit a sanitized error + RUN_FINISHED and
+                # then re-raise so the framework still sees the real bug.
+                content_json_result: str | None = None
+                if tool_name not in FRONTEND_TOOL_NAMES:
+                    try:
+                        content_json_result = await asyncio.to_thread(
+                            _execute_backend_tool, tool_msg, tool_name
+                        )
+                    except Exception as exc:
+                        logger.exception(
+                            "asyncio.to_thread failed executing backend tool %s",
+                            tool_name,
+                        )
+                        err_payload = json.dumps(
+                            {
+                                "error": (
+                                    f"Tool {tool_name} failed: {exc.__class__.__name__}"
+                                )
+                            }
+                        )
+                        yield _sse_line(
+                            ToolCallResultEvent(
+                                type=EventType.TOOL_CALL_RESULT,
+                                tool_call_id=tool_call_id,
+                                message_id=str(uuid.uuid4()),
+                                content=err_payload,
+                            )
+                        )
+                        yield _sse_line(
+                            TextMessageEndEvent(
+                                type=EventType.TEXT_MESSAGE_END,
+                                message_id=ct_parent_id,
+                            )
+                        )
+                        yield _sse_line(
+                            RunFinishedEvent(
+                                type=EventType.RUN_FINISHED,
+                                thread_id=thread_id,
+                                run_id=run_id,
+                            )
+                        )
+                        raise
+                    if content_json_result:
+                        yield _sse_line(
+                            ToolCallResultEvent(
+                                type=EventType.TOOL_CALL_RESULT,
+                                tool_call_id=tool_call_id,
+                                message_id=str(uuid.uuid4()),
+                                content=content_json_result,
+                            )
+                        )
+
+                # Close the parent message that wraps the tool call.
+                yield _sse_line(
+                    TextMessageEndEvent(
+                        type=EventType.TEXT_MESSAGE_END,
+                        message_id=ct_parent_id,
+                    )
+                )
+
+                if tool_name not in FRONTEND_TOOL_NAMES and content_json_result:
+                    working_messages.append(
+                        {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": tool_call_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": tool_name,
+                                        "arguments": json.dumps(tool_args),
+                                    },
+                                }
+                            ],
+                        }
+                    )
+                    working_messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "content": content_json_result,
+                        }
+                    )
+                    try:
+                        current = await _call_openai(working_messages, oai_tools, model)
+                    except (
+                        openai.APIError,
+                        httpx.HTTPError,
+                        asyncio.TimeoutError,
+                    ):
+                        logger.exception("follow-up _call_openai failed")
+                        break
+                    continue
+                break
+
             # Plain text response — stream it. emit_text_block handles the
             # empty-delta guard (AG-UI requires non-empty deltas, e.g. a
             # pure tool-call turn where content was stripped to "").
-            for line in emit_text_block(message_id, content):
+            text_id = message_id if iteration == 0 else str(uuid.uuid4())
+            for line in emit_text_block(text_id, content):
                 yield line
+            break
 
         yield _sse_line(
             RunFinishedEvent(

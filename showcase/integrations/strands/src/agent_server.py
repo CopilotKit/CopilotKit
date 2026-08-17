@@ -211,13 +211,21 @@ app.mount("/declarative-gen-ui", a2ui_dynamic_app)
 app.mount("/a2ui-recovery", a2ui_recovery_app)
 
 
-# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# Serve /health (and its /api/health alias) via middleware so it short-circuits
+# BEFORE route resolution.
 # `create_strands_app(..., agent_path="/")` installs a catch-all at the root
 # that shadows any later `@app.get("/health")` decorator. Middleware runs
 # above the routing layer, so /health stays reachable.
 class HealthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        if request.url.path == "/health" and request.method == "GET":
+        # ``/api/health`` is an ALIAS of ``/health`` — same handler, same
+        # response. Railway's healthcheckPath is ``/api/health``, which the
+        # Next.js half of this container serves today. Answering it here as
+        # well means that when the Next.js process is removed and the agent
+        # becomes the only listener, the existing Railway healthcheck keeps
+        # working with no dashboard change. Today it is a pure addition: the
+        # agent's port is not the one Railway probes.
+        if request.url.path in ("/health", "/api/health") and request.method == "GET":
             return JSONResponse({"status": "ok"})
         return await call_next(request)
 

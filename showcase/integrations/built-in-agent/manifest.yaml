@@ -10,6 +10,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/built-in-agent
 copilotkit_version: 2.0.0
 deployed: true
+demo_frontend: unified
 docs_mode: authored
 sort_order: 5
 generative_ui:
@@ -63,7 +64,16 @@ features:
   - open-gen-ui-advanced
   - voice
   - agent-config
-  - threadid-frontend-tool-roundtrip
+  # DROPPED: `threadid-frontend-tool-roundtrip`. It cannot be a catalog cell
+  # yet, and `features` is what the app reads to decide a cell is live — see the
+  # NOTE at the bottom of this file for the full reasoning and the owner of the
+  # unblock. Keeping it here made three layers disagree: `features` said live,
+  # `demos[]` had no row (so POST /api/built-in-agent/<id> 404'd on manifest
+  # drift), and `showcase/shared/constraints.yaml` refuses the `demos[]` row that
+  # would fix it. The in-process builder in
+  # showcase/frontends/nextjs/src/lib/in-process-agents.ts is deliberately KEPT,
+  # exactly like the two reasoning aliases beside it, so that re-adding this id
+  # resolves instead of throwing.
 # All features above are D6-GREEN locally when aimock is scoped to this
 # integration's own fixtures (verified with per-demo probes). declarative-gen-ui
 # and mcp-apps — earlier suspected downstream-host RED — are in fact green:
@@ -92,6 +102,7 @@ agent_config_pattern: runtime-properties
 
 a2ui_pattern: schema-inline
 auth_pattern: runtime-onrequest
+agent_kind: in-process
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -109,6 +120,8 @@ demos:
       - src/app/demos/agentic-chat/page.tsx
       - src/lib/factory/agentic-chat-factory.ts
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: agentic_chat
   - id: chat-customization-css
     name: "Chat Customization: CSS"
     description: Default CopilotChat re-themed via CopilotKitCSSProperties
@@ -152,6 +165,8 @@ demos:
       - src/app/demos/frontend-tools/page.tsx
       - src/lib/factory/tanstack-factory.ts
       - src/app/api/copilotkit/route.ts
+    agent:
+      name: frontend_tools
   - id: frontend-tools-async
     name: "Frontend Tools: Async"
     description: useFrontendTool with an async handler — agent awaits a client-side async operation (simulated notes DB query) and uses the returned result
@@ -339,6 +354,12 @@ demos:
       - src/app/demos/headless-complete/tools/highlight-note.tsx
       - src/lib/factory/mcp-apps-factory.ts
       - src/app/api/copilotkit-mcp-apps/route.ts
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
   - id: reasoning-default
     name: "Reasoning: Default"
     description: Built-in CopilotChatReasoningMessage rendering with no slot override.
@@ -395,6 +416,10 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/lib/factory/a2ui-factory.ts
       - src/app/api/copilotkit-declarative-gen-ui/route.ts
+    runtime:
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "declarative-gen-ui-catalog"
   - id: a2ui-fixed-schema
     name: "Declarative UI: Fixed A2UI"
     description: Render an A2UI tree from a fixed, server-side schema — the agent streams data into a pre-authored component tree
@@ -408,6 +433,9 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
       - src/lib/factory/a2ui-fixed-schema-factory.ts
       - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+    runtime:
+      a2ui:
+        injectA2UITool: false
   - id: a2ui-recovery
     name: A2UI Error Recovery
     description: Makes the A2UI validate->retry recovery loop visible — an invalid first render heals to a valid one, and an always-invalid render shows a graceful recovery-exhausted fallback. Backend-owned via get_a2ui_tools (injectA2UITool=false); reuses the declarative-gen-ui catalog.
@@ -419,6 +447,10 @@ demos:
       - src/app/demos/a2ui-recovery/suggestions.ts
       - src/lib/factory/a2ui-factory.ts
       - src/app/api/copilotkit-a2ui-recovery/route.ts
+    runtime:
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "declarative-gen-ui-catalog"
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI via activity renderers
@@ -429,6 +461,12 @@ demos:
       - src/app/demos/mcp-apps/page.tsx
       - src/lib/factory/mcp-apps-factory.ts
       - src/app/api/copilotkit-mcp-apps/route.ts
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
   - id: readonly-state-agent-context
     name: "Shared State: Frontend Context"
     description: Frontend provides read-only context to the agent via useAgentContext
@@ -457,6 +495,8 @@ demos:
       - src/app/demos/declarative-json-render/suggestions.ts
       - src/lib/factory/byoc-json-render-factory.ts
       - src/app/api/copilotkit-declarative-json-render/route.ts
+    agent:
+      name: byoc_json_render
   - id: beautiful-chat
     name: Beautiful Chat
     description: Canonical polished starter chat — brand fonts, theme tokens, suggestion pills
@@ -473,6 +513,16 @@ demos:
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
       - src/lib/factory/tanstack-factory.ts
       - src/app/api/copilotkit-beautiful-chat/route.ts
+    runtime:
+      openGenerativeUI: true
+      a2ui:
+        injectA2UITool: true
+        defaultCatalogId: "copilotkit://app-dashboard-catalog"
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: beautiful_chat_mcp
   - id: multimodal
     name: Attachments
     description: Image and PDF uploads via CopilotChat attachments, processed by a vision-capable agent
@@ -484,6 +534,8 @@ demos:
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/lib/factory/tanstack-factory.ts
       - src/app/api/copilotkit-multimodal/route.ts
+    agent:
+      name: multimodal-demo
   - id: auth
     name: Authentication
     description: Bearer-token gate via runtime onRequest hook with unauthenticated / authenticated states
@@ -498,6 +550,8 @@ demos:
       - src/app/demos/auth/demo-token.ts
       - src/lib/factory/tanstack-factory.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
+    agent:
+      name: auth-demo
   - id: declarative-hashbrown
     name: "Declarative UI: Hashbrown"
     description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
@@ -514,6 +568,8 @@ demos:
       - src/app/demos/declarative-hashbrown/suggestions.ts
       - src/lib/factory/byoc-hashbrown-factory.ts
       - src/app/api/copilotkit-declarative-hashbrown/route.ts
+    agent:
+      name: declarative-hashbrown-demo
   - id: open-gen-ui
     name: "Open Generative UI: Default"
     description: "Agent composes UI from a registered component library — distinct from Tool Rendering, which attaches a custom renderer to a *named* backend tool. Use Open Generative UI when you want the agent to assemble UI freely from a palette you control."
@@ -524,6 +580,11 @@ demos:
       - src/app/demos/open-gen-ui/page.tsx
       - src/lib/factory/ogui-factory.ts
       - src/app/api/copilotkit-ogui/route.ts
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
   - id: open-gen-ui-advanced
     name: "Open Generative UI: Custom"
     description: "Same Open Generative UI surface, with the iframe-rendered components able to call back into frontend sandbox functions (e.g., a Calculator app whose buttons trigger handlers in the host page)."
@@ -536,6 +597,11 @@ demos:
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/lib/factory/ogui-factory.ts
       - src/app/api/copilotkit-ogui/route.ts
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
   - id: voice
     name: Voice
     description: Speech-to-text via @copilotkit/voice with a bundled sample audio button
@@ -547,6 +613,8 @@ demos:
       - src/app/demos/voice/sample-audio-button.tsx
       - src/lib/factory/tanstack-factory.ts
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
+    agent:
+      name: voice-demo
   - id: agent-config
     name: Agent Config Object
     description: Forward a typed config object (tone / expertise / response length) from the provider to the agent's dynamic system prompt
@@ -559,18 +627,38 @@ demos:
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit-agent-config/route.ts
+    agent:
+      name: agent-config-demo
 # NOTE: starter omitted intentionally for v1 of this column. The
 # `showcase/scripts/generate-starters.ts` generator expects every package
 # to have a separate `src/agent/` backend; built-in-agent runs in-process
 # with no separate agent server, so generator support for single-service
 # packages is a follow-up. Starter will be added in a subsequent PR.
 #
-# NOTE: `threadid-frontend-tool-roundtrip` is listed under `features:` (the
-# backend registers a named `threadid-frontend-tool-roundtrip` agent in
-# src/app/api/copilotkit/route.ts and the byte-identical frontend lives at
-# src/app/demos/threadid-frontend-tool-roundtrip/). It is intentionally NOT a
-# `demos:` entry: LGP's own manifest has no threadid demos entry either, and a
-# demos entry here would fail validate-constraints because the shared
+# NOTE: `threadid-frontend-tool-roundtrip` is DELIBERATELY ABSENT from BOTH
+# `features:` and `demos:`.
+#
+# The wiring exists: the backend registers a named
+# `threadid-frontend-tool-roundtrip` agent in src/app/api/copilotkit/route.ts,
+# the byte-identical frontend lives at
+# src/app/demos/threadid-frontend-tool-roundtrip/, and
+# showcase/frontends/nextjs/src/lib/in-process-agents.ts carries a builder for
+# the name. What blocks the CELL is the constraints gate: a `demos:` entry here
+# fails validate-constraints because the shared
 # showcase/shared/constraints.yaml `constrained-explicit` allowlist does not
-# list it. Add it to that allowlist first (separate owner) to surface it as a
-# catalog demo.
+# list the id. LGP's own manifest has no threadid demos entry either.
+#
+# It used to sit in `features:` alone, which was the WORST of the three states.
+# `features` is exactly what resolveDemoSupport reads to call a cell live, so
+# the dashboard advertised it, the demo page rendered, and POST
+# /api/built-in-agent/threadid-frontend-tool-roundtrip then 404'd on manifest
+# drift because there was no `demos[]` row to resolve an agent from. Listing it
+# in one of the two lists but not the other cannot be made to work — parseManifest
+# now enforces BOTH directions of `features` <-> `demos[].id`.
+#
+# TO SURFACE IT AS A CATALOG DEMO (in this order, or the gate fails):
+#   1. add `threadid-frontend-tool-roundtrip` to the `constrained-explicit`
+#      `allowed` list in showcase/shared/constraints.yaml (separate owner);
+#   2. add the `demos:` row here (route: /demos/threadid-frontend-tool-roundtrip);
+#   3. add the id back to `features:` above.
+# Do NOT do step 3 on its own.

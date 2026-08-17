@@ -12,8 +12,23 @@
 // is a bare host with `{slug}` as the only placeholder, and `https://`
 // is prepended. Keep the two in sync — they consume the same env var.
 //
+// ONE EXCEPTION to "ignore the registry" was added for the unified
+// frontend migration: the pattern is a BARE HOST, so it structurally
+// cannot express `https://<one-shared-host>/<slug>` — the shape a slug
+// takes once its demos move to the unified Next.js app. The only
+// in-tree way to say "this slug moved" is a manifest-set `backend_url`
+// (showcase/shared/manifest.schema.json), which generate-registry.ts
+// lets win over the synthesized pattern value. resolveBackendUrl now
+// honors such a value, but ONLY under the two gates in
+// registryBackendOverride below — which is what keeps the staging
+// reasoning above intact. Read that function before touching this.
+//
 // This module is import-safe from client components, server components,
-// and middleware (pure functions, no next/* imports).
+// and middleware (pure functions, no next/* imports). In particular it
+// must NEVER import ./registry (and therefore @/data/registry.json):
+// src/middleware.ts imports SCHEME_RE from here, so a registry import
+// would drag the whole registry into the Edge bundle. The caller passes
+// the slug's registry `backend_url` in as an argument instead.
 
 // Matches an explicit URL scheme prefix (e.g. `https://`, `http://`).
 // Exported as the single source of truth — runtime-config.ts shares it
@@ -397,12 +412,59 @@ function parseLocalBackendsUncached(raw: string): Record<string, string> {
 }
 
 /**
- * Resolve an integration's backend base URL: a local-dev override from
- * NEXT_PUBLIC_LOCAL_BACKENDS wins (preserving the pre-existing
- * `SHOWCASE_LOCAL=1` behavior), otherwise derive from the runtime host
- * pattern.
+ * Validate a candidate backend BASE URL (a local-dev override or a
+ * registry `backend_url`) and return the parsed form, or undefined when
+ * it is unusable. The value lands verbatim in an iframe src, so require
+ * a scheme-bearing, parseable URL (`localhost:4111` without a scheme
+ * parses as scheme "localhost:"!) whose protocol is http(s):
+ * `javascript://...` and `ftp://...` are scheme-bearing AND parseable,
+ * but have no business in an iframe src. Userinfo, query, and fragment
+ * components are rejected too (same gates the pattern path has):
+ * Chromium silently blocks credentialed iframe srcs, and a
+ * query/fragment corrupts every composed URL when consumers concatenate
+ * demo routes.
  */
-export function resolveBackendUrl(slug: string, pattern: string): string {
+function parseBackendBaseUrl(value: string): URL | undefined {
+  const parsed = parseUrl(value);
+  if (
+    parsed !== undefined &&
+    SCHEME_RE.test(value) &&
+    /^https?:$/i.test(parsed.protocol) &&
+    parsed.username === "" &&
+    parsed.password === "" &&
+    parsed.search === "" &&
+    parsed.hash === ""
+  ) {
+    return parsed;
+  }
+  return undefined;
+}
+
+/**
+ * Render a validated base URL for consumers. Returns the
+ * parsed-normalized form (origin + path), not the raw string: the parse
+ * already happened, and the raw form leaks un-normalized values
+ * (uppercase hosts, explicit default ports) into iframe srcs. The PATH
+ * is preserved — that is what makes `https://<host>/<slug>` (the
+ * unified-frontend shape) survive. The trailing-slash trim matches the
+ * normalization the pattern path guarantees
+ * (normalizeBackendHostPattern): a base ending in "/" yields
+ * `host//route` when consumers concatenate demo routes, which start
+ * with "/". Query, fragment, and userinfo are empty here (gated in
+ * parseBackendBaseUrl), so origin + pathname IS the whole URL.
+ */
+function backendBaseUrlString(parsed: URL): string {
+  return (parsed.origin + parsed.pathname).replace(/\/+$/, "");
+}
+
+/**
+ * Local-dev override from NEXT_PUBLIC_LOCAL_BACKENDS, or undefined when
+ * absent/unusable (warning once per distinct bad value). Highest
+ * precedence — it preserves the pre-existing `SHOWCASE_LOCAL=1`
+ * behavior, and a developer pointing a slug at localhost must win over
+ * everything derived from deployed config.
+ */
+function localBackendOverride(slug: string): string | undefined {
   // ASSUMPTION: the server must never SET NEXT_PUBLIC_LOCAL_BACKENDS at
   // runtime post-build — the client bundle bakes the build-time value,
   // so a live server-side value would silently diverge from what client
@@ -426,38 +488,10 @@ export function resolveBackendUrl(slug: string, pattern: string): string {
         `bad-override:${slug}:empty`,
         `override for "${slug}" is empty (or whitespace-only) — ignoring it.`,
       );
-      return backendUrlFromPattern(pattern, slug);
+      return undefined;
     }
-    // The override lands verbatim in an iframe src — require a
-    // scheme-bearing, parseable URL (`localhost:4111` without a scheme
-    // parses as scheme "localhost:"!) whose protocol is http(s):
-    // `javascript://...` and `ftp://...` are scheme-bearing AND
-    // parseable, but have no business in an iframe src. Userinfo,
-    // query, and fragment components are rejected too (same gates the
-    // pattern path has): Chromium silently blocks credentialed iframe
-    // srcs, and a query/fragment corrupts every composed URL when
-    // consumers concatenate demo routes. Warn and fall back otherwise.
-    const parsed = parseUrl(override);
-    if (
-      parsed !== undefined &&
-      SCHEME_RE.test(override) &&
-      /^https?:$/i.test(parsed.protocol) &&
-      parsed.username === "" &&
-      parsed.password === "" &&
-      parsed.search === "" &&
-      parsed.hash === ""
-    ) {
-      // Return the parsed-normalized form (origin + path), not the raw
-      // string: the parse already happened, and the raw form leaks
-      // un-normalized values (uppercase hosts, explicit default ports)
-      // into iframe srcs. The trailing-slash trim matches the
-      // normalization the pattern path guarantees
-      // (normalizeBackendHostPattern) — an override skipping it yields
-      // `host//route` when consumers concatenate demo routes. Query,
-      // fragment, and userinfo are empty here (gated above), so
-      // origin + pathname IS the whole URL.
-      return (parsed.origin + parsed.pathname).replace(/\/+$/, "");
-    }
+    const parsed = parseBackendBaseUrl(override);
+    if (parsed !== undefined) return backendBaseUrlString(parsed);
     // Name the actual requirements instead of "not parseable":
     // `http:localhost:4111` IS parseable (special schemes tolerate
     // missing slashes), but it fails the explicit `scheme://`
@@ -470,7 +504,141 @@ export function resolveBackendUrl(slug: string, pattern: string): string {
         `or fragment — ignoring it.`,
     );
   }
-  return backendUrlFromPattern(pattern, slug);
+  return undefined;
+}
+
+// Warn once per distinct (slug, raw value) — resolveBackendUrl runs on
+// every render, same rationale as the two warn sets above.
+const registryBackendWarnings = new Set<string>();
+
+function warnRegistryBackendOnce(key: string, message: string): void {
+  if (registryBackendWarnings.has(key)) return;
+  registryBackendWarnings.add(key);
+  // eslint-disable-next-line no-console
+  console.warn(`[backend-url] registry backend_url ${message}`);
+}
+
+/**
+ * A slug's registry `backend_url`, honored ONLY when it is a deliberate
+ * migration override — otherwise undefined, so the caller falls through
+ * to the host pattern exactly as before.
+ *
+ * WHY this exists: DEFAULT_BACKEND_HOST_PATTERN is a bare host with
+ * `{slug}` as its only placeholder, so it cannot express the shape a
+ * slug takes once its demos move to the unified Next.js frontend —
+ * `https://<one-shared-host>/<slug>`, where the host is the same for
+ * every migrated slug and the slug is a PATH segment. A manifest-set
+ * `backend_url` is the only in-tree way to express that.
+ *
+ * TWO GATES, both load-bearing:
+ *
+ * 1. STAGING SAFETY. The registry value is baked at Docker BUILD time
+ *    with PRODUCTION hosts (scripts/generate-registry.ts) — that is the
+ *    whole reason this module derives URLs from the runtime pattern
+ *    instead (see the module header). So the preference applies ONLY
+ *    when this shell would ALREADY resolve this slug to the default
+ *    production host, i.e. when the effective pattern reproduces
+ *    DEFAULT_BACKEND_HOST_PATTERN for this slug. A staging shell (which
+ *    sets SHOWCASE_BACKEND_HOST_PATTERN to non-prod hosts) therefore
+ *    behaves BYTE-IDENTICALLY to today for every slug, migrated or not,
+ *    and can never be talked into iframing production.
+ *
+ *    Without this gate the regression is not subtle: on staging the
+ *    pattern host (`showcase-<slug>-staging…`) differs from the baked
+ *    registry host (`showcase-<slug>-production…`) for ALL 20 slugs, so
+ *    a bare "prefer backend_url when it differs from the pattern host"
+ *    rule would send the entire staging shell to production — exactly
+ *    the bug this module was written to fix.
+ *
+ *    Accepted cost: a staging shell shows a MIGRATED slug's old
+ *    per-slug backend, which may 404 once that backend is retired. A
+ *    visibly-broken staging cell is strictly better than a staging
+ *    shell silently serving production. Giving staging real coverage of
+ *    migrated slugs needs a staging unified host expressed in the
+ *    environment (a second env var), which is deliberately NOT invented
+ *    here.
+ *
+ *    Note the fail-open behavior of normalizeBackendHostPattern is
+ *    unchanged and consistent with this: a degenerate pattern already
+ *    falls back to the prod pattern, so such a deploy is treated as
+ *    production here too.
+ *
+ * 2. NO-NEW-INFORMATION. A `backend_url` whose host is still the
+ *    per-slug default host is just the value generate-registry.ts
+ *    synthesized from the pattern; it says nothing the pattern does not.
+ *    Ignoring it keeps the existing precedence — and today EVERY slug is
+ *    in this state (no manifest sets backend_url), so nothing changes
+ *    until a slug actually migrates.
+ */
+function registryBackendOverride(
+  slug: string,
+  pattern: string,
+  registryBackendUrl: string | undefined,
+): string | undefined {
+  if (registryBackendUrl === undefined) return undefined;
+  // Same paste-artifact tolerance the other two paths apply.
+  const raw = registryBackendUrl.trim();
+  if (raw.length === 0) return undefined;
+
+  // Called BEFORE any early return so the SLUG_RE host-injection assert
+  // inside backendUrlFromPattern still covers this precedence path — a
+  // path that returns early would otherwise skip the one choke point
+  // every backend URL was supposed to flow through.
+  const patternUrl = backendUrlFromPattern(pattern, slug);
+
+  // GATE 1 — staging safety. String equality (not host equality) on
+  // purpose: it also catches a path-bearing pattern, whose operator
+  // intent would be silently discarded by preferring the registry value.
+  const defaultUrl = backendUrlFromPattern(DEFAULT_BACKEND_HOST_PATTERN, slug);
+  if (patternUrl !== defaultUrl) return undefined;
+
+  const parsed = parseBackendBaseUrl(raw);
+  if (parsed === undefined) {
+    warnRegistryBackendOnce(
+      `bad:${slug}:${raw}`,
+      `for "${slug}" (${JSON.stringify(raw)}) must be an http(s) URL with ` +
+        `an explicit "scheme://" and no userinfo, query, or fragment — ` +
+        `ignoring it and deriving from the host pattern instead.`,
+    );
+    return undefined;
+  }
+
+  // GATE 2 — no new information. `defaultUrl` parses by construction
+  // (DEFAULT_BACKEND_HOST_PATTERN is a literal bare host and the slug
+  // passed SLUG_RE), so the optional chain is belt-and-braces.
+  if (parsed.host === parseUrl(defaultUrl)?.host) return undefined;
+
+  return backendBaseUrlString(parsed);
+}
+
+/**
+ * Resolve an integration's backend base URL. Precedence:
+ *
+ * 1. a local-dev override from NEXT_PUBLIC_LOCAL_BACKENDS;
+ * 2. the slug's registry `backend_url`, but ONLY when it is a deliberate
+ *    migration override — see registryBackendOverride for the two gates
+ *    and the staging reasoning;
+ * 3. the runtime host pattern.
+ *
+ * `registryBackendUrl` is OPTIONAL: callers that do not have the
+ * registry entry to hand (and every caller that predates the unified
+ * frontend) omit it and get the pattern-derived URL, unchanged.
+ *
+ * The returned base may carry a PATH (`https://<host>/<slug>`), and
+ * never a trailing slash — consumers concatenate demo routes that start
+ * with "/", so exactly one slash lands at the join.
+ */
+export function resolveBackendUrl(
+  slug: string,
+  pattern: string,
+  registryBackendUrl?: string,
+): string {
+  const local = localBackendOverride(slug);
+  if (local !== undefined) return local;
+  return (
+    registryBackendOverride(slug, pattern, registryBackendUrl) ??
+    backendUrlFromPattern(pattern, slug)
+  );
 }
 
 function parseUrl(value: string): URL | undefined {

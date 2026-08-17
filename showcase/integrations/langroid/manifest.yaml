@@ -8,6 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langroid
 copilotkit_version: 2.0.0
 deployed: true
+demo_frontend: unified
 docs_mode: hidden
 sort_order: 140
 generative_ui:
@@ -19,7 +20,6 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
-  - shared-state-read-write
   - shared-state-streaming
   - mcp-apps
   - tool-rendering-reasoning-chain
@@ -63,11 +63,21 @@ features:
   - open-gen-ui-advanced
   - voice
   - multimodal
-  - byoc-hashbrown
-  - byoc-json-render
+  # DROPPED: `byoc-hashbrown` / `byoc-json-render`. Both ids are marked
+  # `deprecated` in showcase/shared/feature-registry.json, superseded by
+  # `declarative-hashbrown` / `declarative-json-render`. This package's demo
+  # folders already carry the NEW names and the unified app only ships pages for
+  # the new ids, so the legacy ids named nothing in this app: they sat in
+  # `features` with no `demos[]` row, which made the cell resolve as supported
+  # and then 404 at POST /api/langroid/<id>. Re-adding them under the NEW ids is
+  # a follow-up: the agents ARE served (src/agent_server.py has
+  # @app.post("/byoc-hashbrown") and @app.post("/byoc-json-render")), so the rows
+  # need `id: declarative-*` with `agent.path` pointing at those legacy backend
+  # routes.
   - beautiful-chat
   - a2ui-fixed-schema
   - shared-state-read
+  - shared-state-read-write
 agent_config_pattern: shared-state
 interrupt_pattern: promise-based
 
@@ -81,6 +91,8 @@ demos:
       - chat-ui
     command: "npx copilotkit@latest init --framework langroid"
   - id: agentic-chat
+    agent:
+      name: agentic_chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
     tags:
@@ -92,6 +104,8 @@ demos:
       - src/app/demos/agentic-chat/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl
+    agent:
+      name: human_in_the_loop
     name: In-Chat Human in the Loop
     description: User approves agent actions before execution
     tags:
@@ -116,6 +130,8 @@ demos:
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat-booking
+    agent:
+      name: hitl-in-chat
     name: In-Chat HITL (Booking)
     description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow
     tags:
@@ -166,6 +182,8 @@ demos:
       - src/app/demos/gen-ui-tool-based/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
+    agent:
+      path: /gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
     tags:
@@ -187,7 +205,23 @@ demos:
       - src/agents/agent.py
       - src/app/demos/shared-state-streaming/page.tsx
       - src/app/api/copilotkit/route.ts
+  - id: shared-state-read
+    name: "Shared State: Read-only"
+    description:
+      "Recipe editor publishes form state via agent.setState; the agent
+      reads the recipe context but does not mutate it (no backend tool — neutral
+      default agent)."
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+    highlight:
+      - src/app/demos/shared-state-read/page.tsx
+      - src/app/demos/shared-state-read/recipe-card.tsx
+      - src/app/api/copilotkit/route.ts
   - id: shared-state-read-write
+    agent:
+      path: /shared-state-read-write
     name: Shared State (Read + Write)
     description: Bidirectional shared state — UI writes preferences via
       agent.setState, agent writes notes via the set_notes tool
@@ -202,6 +236,8 @@ demos:
       - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/app/api/copilotkit-shared-state-read-write/route.ts
   - id: subagents
+    agent:
+      path: /subagents
     name: Sub-Agents
     description: Supervisor LLM delegates to research / writing / critique
       sub-agents; live delegation log streams running -> completed transitions
@@ -268,6 +304,8 @@ demos:
       - src/app/demos/headless-simple/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools
+    agent:
+      name: frontend_tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
     tags:
@@ -301,6 +339,9 @@ demos:
       - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
+    runtime:
+      a2ui:
+        defaultCatalogId: declarative-gen-ui-catalog
     name: Declarative Generative UI
     description:
       A2UI dynamic-schema rendering — agent emits operations against a
@@ -317,6 +358,8 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/app/api/copilotkit-declarative-gen-ui/route.ts
   - id: auth
+    agent:
+      name: auth-demo
     name: Authentication
     description: Bearer-token gate via the V2 runtime's onRequest hook; unauth
       requests are rejected with 401
@@ -331,6 +374,12 @@ demos:
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
   - id: headless-complete
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
     name: Headless Chat (Complete)
     description: A full chat surface built from scratch on useAgent — no
       CopilotChat, hand-rolled message list + bubbles
@@ -351,6 +400,8 @@ demos:
       - src/app/demos/headless-complete/tools/chart-card.tsx
       - src/app/demos/headless-complete/tools/highlight-note.tsx
   - id: agent-config
+    agent:
+      name: agent-config-demo
     name: Agent Config Object
     description: Typed config forwarded via CopilotKit provider properties; the
       agent reads tone/expertise/responseLength per turn
@@ -406,6 +457,11 @@ demos:
       - src/agents/agent.py
       - src/app/api/copilotkit/route.ts
   - id: open-gen-ui
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
     name: Fully Open-Ended Generative UI
     description: Agent generates UI from an arbitrary component library via the
       runtime's openGenerativeUI middleware
@@ -418,6 +474,11 @@ demos:
       - src/agents/agent.py
       - src/app/api/copilotkit-ogui/route.ts
   - id: open-gen-ui-advanced
+    runtime:
+      openGenerativeUI:
+        agents:
+          - open-gen-ui
+          - open-gen-ui-advanced
     name: "Open-Ended Gen UI (Advanced: with frontend function calling)"
     description:
       Agent-authored UI that can invoke frontend sandbox functions from
@@ -433,6 +494,8 @@ demos:
       - src/agents/agent.py
       - src/app/api/copilotkit-ogui/route.ts
   - id: voice
+    agent:
+      name: voice-demo
     name: Voice Input
     description:
       Speech-to-text via @copilotkit/voice — mic button or sample audio
@@ -446,6 +509,9 @@ demos:
       - src/app/demos/voice/sample-audio-button.tsx
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: multimodal
+    agent:
+      path: /multimodal
+      name: multimodal-demo
     name: Multimodal Attachments
     description:
       Image + PDF uploads forwarded to a vision-capable agent (gpt-4o);
@@ -461,6 +527,14 @@ demos:
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
   - id: mcp-apps
+    agent:
+      path: /mcp-apps
+    runtime:
+      mcpApps:
+        servers:
+          - type: http
+            url: "${MCP_SERVER_URL:-https://mcp.excalidraw.com}"
+            serverId: excalidraw
     name: MCP Apps
     description:
       MCP servers with UI resources rendered inline as sandboxed iframes
@@ -474,6 +548,11 @@ demos:
       - src/app/demos/mcp-apps/page.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
   - id: beautiful-chat
+    runtime:
+      openGenerativeUI: true
+      a2ui:
+        injectA2UITool: false
+        defaultCatalogId: "copilotkit://app-dashboard-catalog"
     name: Beautiful Chat
     description:
       Polished landing-style chat shell over the shared Langroid agent —
@@ -493,6 +572,11 @@ demos:
       - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
   - id: a2ui-fixed-schema
+    agent:
+      path: /a2ui-fixed-schema
+    runtime:
+      a2ui:
+        injectA2UITool: false
     name: A2UI (Fixed Schema)
     description:
       Agent streams data into a frontend-authored fixed component schema;

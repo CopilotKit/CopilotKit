@@ -3,12 +3,11 @@ LlamaIndex agent for the Declarative Generative UI (A2UI — Dynamic Schema) dem
 
 Mirrors `langgraph-python/src/agents/a2ui_dynamic.py`:
 
-- The agent binds a single `generate_a2ui` backend tool.
-- When called, `generate_a2ui` kicks off a secondary OpenAI chat completion with
-  a forced `_design_a2ui_surface` tool call. The registered client catalog is
-  expected to surface through the system prompt (the LlamaIndex router does not
-  yet auto-inject `copilotkit.context`, so the catalog description is inlined
-  into the system prompt for parity).
+- The agent binds a single no-arg `generate_a2ui` backend tool.
+- Middleware owns `render_a2ui` (`a2ui.injectA2UITool: true`). If the
+  Python body still runs, it drives a secondary OpenAI call with
+  tool_choice forced on `render_a2ui` (not `_design_a2ui_surface`) and
+  forwards `x-test-id` / `x-aimock-context` from `_header_forwarding`.
 - The tool result carries the planner's A2UI component payload, which the
   workflow then RE-EMITS as a streamed ``render_a2ui`` tool-CALL on the outbound
   AG-UI stream so ``@ag-ui/a2ui-middleware`` mounts the surface.
@@ -59,11 +58,14 @@ touched.
 """
 
 import asyncio
+import contextvars
 import json
 import logging
 import os
 import uuid
-from typing import Annotated, Awaitable, Callable, List, Optional, Union
+from typing import Awaitable, Callable, List, Optional, Union
+
+from agents._header_forwarding import get_forwarded_headers
 
 from ag_ui.core import RunAgentInput
 from fastapi import APIRouter
@@ -99,13 +101,12 @@ CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
 # tool-CALL by this name on the outbound stream.
 RENDER_A2UI_TOOL_NAME = "render_a2ui"
 
-# Inner planner tool name. Deliberately NOT `render_a2ui`: the secondary forced
-# planner call is an internal OpenAI tool-call, and naming it `render_a2ui`
-# would risk the middleware/frontend intercepting that internal call. The
-# planner emits `_design_a2ui_surface`; the OUTER workflow then RE-EMITS its
-# component args as a STREAMED `render_a2ui` tool-CALL (see
-# `_A2UIRenderToolCallWorkflow`) that the middleware actually watches.
-DESIGN_TOOL_NAME = "_design_a2ui_surface"
+# Last user turn for the inner render_a2ui LLM call. Set per request in
+# `_make_a2ui_router` so the no-arg `generate_a2ui` body can key the
+# LGP-shaped fixture (userMessage = pill prompt, toolName = render_a2ui).
+_last_user_message: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "llamaindex_a2ui_last_user_message", default=""
+)
 
 
 # Allow-list the router streams against. The streamed `render_a2ui` tool-CALL
@@ -273,6 +274,15 @@ def _make_a2ui_router(
     router = APIRouter()
 
     async def run(input: RunAgentInput):
+        last_user = ""
+        for msg in reversed(input.messages or []):
+            if getattr(msg, "role", None) != "user":
+                continue
+            content = getattr(msg, "content", "")
+            if isinstance(content, str) and content.strip():
+                last_user = content
+                break
+        _last_user_message.set(last_user)
         workflow = await workflow_factory()
         handler = workflow.run(input_data=input)
 
@@ -313,21 +323,22 @@ def _make_a2ui_router(
     return router
 
 
-def _generate_a2ui(context: str) -> str:
-    """Blocking secondary-LLM round-trip for `generate_a2ui`.
+def _generate_a2ui(user_text: str, forwarded: dict) -> str:
+    """Blocking secondary-LLM round-trip for no-arg `generate_a2ui`.
 
-    Kept synchronous and offloaded via ``asyncio.to_thread`` from the async
-    tool wrapper below: the synchronous ``OpenAI().chat.completions`` call
-    would otherwise block the uvicorn asyncio event loop for the full LLM
-    round-trip, wedging the ``:8000`` ``/health`` endpoint under load.
+    Middleware owns `render_a2ui`. This body only runs if the middleware
+    did not intercept. It forces `render_a2ui` (LGP inner tool name) and
+    forwards `x-test-id` / `x-aimock-context` so the slug fixture can
+    match. Offloaded via ``asyncio.to_thread`` so the sync OpenAI call
+    never blocks the uvicorn event loop.
     """
     from openai import OpenAI as OpenAIClient
 
-    client = OpenAIClient()
+    client = OpenAIClient(default_headers=forwarded or None)
     tool_schema = {
         "type": "function",
         "function": {
-            "name": DESIGN_TOOL_NAME,
+            "name": RENDER_A2UI_TOOL_NAME,
             "description": "Render a dynamic A2UI v0.9 surface.",
             "parameters": {
                 "type": "object",
@@ -342,6 +353,8 @@ def _generate_a2ui(context: str) -> str:
         },
     }
 
+    if not user_text:
+        user_text = "Generate a useful dashboard UI."
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
@@ -365,14 +378,17 @@ def _generate_a2ui(context: str) -> str:
                     "available. The root component id must be 'root'."
                 ),
             },
-            {"role": "user", "content": context or "Generate a useful dashboard UI."},
+            {"role": "user", "content": user_text},
         ],
         tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": DESIGN_TOOL_NAME}},
+        tool_choice={
+            "type": "function",
+            "function": {"name": RENDER_A2UI_TOOL_NAME},
+        },
     )
 
     if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": f"LLM did not call {DESIGN_TOOL_NAME}"})
+        return json.dumps({"error": f"LLM did not call {RENDER_A2UI_TOOL_NAME}"})
 
     tool_call = response.choices[0].message.tool_calls[0]
     args = json.loads(tool_call.function.arguments)
@@ -386,26 +402,22 @@ def _generate_a2ui(context: str) -> str:
     return json.dumps(args)
 
 
-async def generate_a2ui(
-    context: Annotated[
-        str,
-        "Short description of what the UI should show; mirrors the last user "
-        "message so the secondary LLM has full context.",
-    ],
-) -> str:
-    """Generate dynamic A2UI components based on the conversation.
+async def generate_a2ui() -> str:
+    """Generate a dynamic A2UI dashboard surface from the current conversation.
 
-    Invokes a secondary LLM bound to `_design_a2ui_surface` (tool_choice
-    forced) and returns the planner's `render_a2ui` args (surfaceId, catalogId,
-    components, data) as JSON. The workflow override
-    (`_A2UIRenderToolCallWorkflow.aggregate_tool_calls`) parses this result and
-    RE-EMITS it as a streamed `render_a2ui` tool-CALL that the A2UI middleware
-    watches and mounts the surface from.
+    Takes no arguments. The CopilotKit runtime middleware
+    (`a2ui.injectA2UITool: true`) owns `render_a2ui`. If this body runs,
+    it drives the inner `render_a2ui` planner and the workflow re-emits
+    that call on the AG-UI stream.
 
     The blocking LLM round-trip runs in ``_generate_a2ui`` and is offloaded
     via ``asyncio.to_thread`` so it never blocks the event loop.
     """
-    return await asyncio.to_thread(_generate_a2ui, context)
+    return await asyncio.to_thread(
+        _generate_a2ui,
+        _last_user_message.get(),
+        get_forwarded_headers(),
+    )
 
 
 SYSTEM_PROMPT = (
@@ -414,8 +426,13 @@ SYSTEM_PROMPT = (
     "dashboard, status report, KPI summary, card layout, info grid, a "
     "pie/donut chart of part-of-whole breakdowns, a bar chart comparing "
     "values across categories, or anything more structured than plain text — "
-    "call `generate_a2ui` with a short `context` describing what to render. "
-    "Keep chat replies to one short sentence; let the UI do the talking."
+    "call `generate_a2ui` to draw it. The registered catalog includes "
+    "`Card`, `StatusBadge`, `Metric`, `InfoRow`, `PrimaryButton`, `PieChart`, "
+    "and `BarChart` (in addition to the basic A2UI primitives). Prefer "
+    "`PieChart` for part-of-whole breakdowns and `BarChart` for comparisons "
+    "across categories. `generate_a2ui` takes no arguments and handles the "
+    "rendering automatically. Keep chat replies to one short sentence; let "
+    "the UI do the talking."
 )
 
 

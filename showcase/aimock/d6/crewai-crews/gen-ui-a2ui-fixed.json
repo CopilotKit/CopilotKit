@@ -6,7 +6,7 @@
   },
   "fixtures": [
     {
-      "_comment": "a2ui-fixed-schema pill — 'Find me a flight from SFO to JFK on United for $289.' The langgraph-python backend calls OpenAI with the `display_flight` tool; the tool emits an a2ui_operations container (v0.9 shape) via TOOL_CALL_RESULT which the runtime A2UI middleware detects and forwards to the frontend renderer (Card renderer with data-testid='a2ui-fixed-card'). Anchored on hasToolResult:false so it fires on the initial routing turn before any tool result is observed.",
+      "_comment": "a2ui-fixed-schema pill — 'Find me a flight from SFO to JFK on United for $289.' The crewai-crews Flow calls OpenAI with the `display_flight` tool; the tool emits an a2ui_operations container (v0.9 shape) via TOOL_CALL_RESULT which the runtime A2UI middleware detects and forwards to the frontend renderer (Card renderer with data-testid='a2ui-fixed-card'). Anchored on hasToolResult:false so it fires on the initial routing turn before any tool result is observed.",
       "match": {
         "userMessage": "Find me a flight from SFO to JFK on United for $289",
         "hasToolResult": false,
@@ -16,7 +16,7 @@
         "content": "Here is the SFO to JFK flight on United.",
         "toolCalls": [
           {
-            "id": "call_a2ui_fixed_langgraph_python_sfo_jfk_001",
+            "id": "call_a2ui_fixed_flight_sfo_jfk_001",
             "name": "display_flight",
             "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\",\"airline\":\"United\",\"price\":\"$289\"}"
           }

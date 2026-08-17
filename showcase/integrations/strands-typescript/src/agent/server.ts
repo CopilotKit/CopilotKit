@@ -70,6 +70,17 @@ async function main(): Promise<void> {
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
   });
+  // `/api/health` is an ALIAS of `/health` — same handler, same response.
+  // Railway's `healthcheckPath` is `/api/health`, which the Next.js half of
+  // this container serves today. Answering it here as well means that when the
+  // Next.js process is removed and the agent becomes the only listener, the
+  // existing Railway healthcheck keeps working with no dashboard change. Today
+  // it is a pure addition: the agent's port is not the one Railway probes.
+  // Registered as a second route (not an array path) so it is independent of
+  // express 5's path-matching changes.
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
   addPing(app, "/ping");
 
   const [

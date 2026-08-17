@@ -75,12 +75,18 @@ interface PageScript {
    * assert WHICH timeout value the driver resolved.
    */
   stallGoto?: boolean;
+  /**
+   * When provided, every URL `page.goto` is called with is appended here.
+   * Used by the demo-serving-base-URL tests to assert the composed URL.
+   */
+  gotoLog?: string[];
 }
 
 function makePage(script: PageScript = {}): E2eFullPage {
   let messageCount = 0;
   return {
-    async goto() {
+    async goto(url: string) {
+      script.gotoLog?.push(url);
       if (script.throwOnGoto) throw script.throwOnGoto;
       if (script.stallGoto) {
         // Hang until the run's outer-cap abort tears the page down.
@@ -1997,5 +2003,92 @@ describe("parseFailureClassifier (conversation-error breadcrumb)", () => {
       parseFailureClassifier("turn 0 failed: no breadcrumb"),
     ).toBeUndefined();
     expect(parseFailureClassifier(undefined)).toBeUndefined();
+  });
+});
+
+// =====================================================================
+// Navigation base URL: DEMO-serving origin, not the agent origin.
+//
+// `backendUrl` used to be both. It now means only "where the agent is";
+// `frontendBaseUrl` means "where the demos are served" and is what the
+// browser navigates to. The `/<slug>` prefix a migrated cell needs is
+// baked into `frontendBaseUrl` BY THE CALLER, so this shared probe holds
+// no per-integration knowledge (showcase iron rule 1) and none of the
+// ~20 `preNavigateRoute` functions change.
+// =====================================================================
+describe("e2e-full driver — demo-serving base URL", () => {
+  beforeEach(() => {
+    __clearD5RegistryForTesting();
+  });
+
+  async function runAndCaptureGotos(
+    input: Record<string, unknown>,
+  ): Promise<string[]> {
+    const gotos: string[] = [];
+    registerD5Script(makeScript(["agentic-chat"]));
+    const driver = createE2eFullDriver({
+      launcher: async () => makeBrowser({ pageScript: { gotoLog: gotos } }),
+      scriptLoader: noopScriptLoader(),
+    });
+    await driver.run(makeCtx({ writer: { write: async () => {} } }), {
+      key: "e2e_d6:showcase-test-slug",
+      features: ["agentic-chat"],
+      ...input,
+    });
+    return gotos;
+  }
+
+  it("UNMIGRATED slug (no frontendBaseUrl): composed URL is byte-identical to `${backendUrl}${route}`", async () => {
+    // BACK-COMPAT PROOF. Every slug in the tree is in this state today. The
+    // expected string is exactly what the pre-split `${backendUrl}${route}`
+    // produced, spelled out as a literal so a change to the composition is a
+    // test diff and not a silent URL drift.
+    const gotos = await runAndCaptureGotos({
+      backendUrl: "http://localhost:3100",
+    });
+    expect(gotos).toEqual(["http://localhost:3100/demos/agentic-chat"]);
+  });
+
+  it("UNMIGRATED slug via discovery `publicUrl` only: same byte-identical URL", async () => {
+    const gotos = await runAndCaptureGotos({
+      publicUrl: "http://localhost:3100",
+    });
+    expect(gotos).toEqual(["http://localhost:3100/demos/agentic-chat"]);
+  });
+
+  it("MIGRATED slug: navigates to the frontend base (prefix included), NOT the agent origin", async () => {
+    const gotos = await runAndCaptureGotos({
+      // Agent stays on its own container.
+      backendUrl: "http://localhost:3100",
+      // Demos served by the unified frontend under /<slug>. The prefix comes
+      // from the caller; the driver never builds it.
+      frontendBaseUrl: "http://localhost:3200/mastra",
+    });
+    expect(gotos).toEqual(["http://localhost:3200/mastra/demos/agentic-chat"]);
+    // The agent origin must never be navigated to.
+    expect(gotos.some((u) => u.startsWith("http://localhost:3100"))).toBe(
+      false,
+    );
+  });
+
+  it("route functions stay slug-agnostic — a custom preNavigateRoute is joined verbatim", async () => {
+    // Guards the "do not edit the ~20 preNavigateRoute functions" constraint:
+    // the driver appends the route as-is and injects nothing, so a script's
+    // route needs no slug awareness under either topology.
+    const gotos: string[] = [];
+    registerD5Script(
+      makeScript(["agentic-chat"], { preNavigateRoute: "/demos/custom-route" }),
+    );
+    const driver = createE2eFullDriver({
+      launcher: async () => makeBrowser({ pageScript: { gotoLog: gotos } }),
+      scriptLoader: noopScriptLoader(),
+    });
+    await driver.run(makeCtx({ writer: { write: async () => {} } }), {
+      key: "e2e_d6:showcase-test-slug",
+      backendUrl: "http://localhost:3100",
+      frontendBaseUrl: "http://localhost:3200/mastra",
+      features: ["agentic-chat"],
+    });
+    expect(gotos).toEqual(["http://localhost:3200/mastra/demos/custom-route"]);
   });
 });

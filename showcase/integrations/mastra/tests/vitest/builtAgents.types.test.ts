@@ -1,8 +1,32 @@
 /**
- * Type-level test for `BuiltAgents`. Purpose: if someone relaxes the type
- * back to `Record<string, ...>` or mistypes a demo key, this file should
- * fail `tsc --noEmit`. There are zero runtime assertions — the value of
- * this test is in whether `npx tsc --noEmit` passes for this file.
+ * Type-level test for `BuiltAgents`. It guards the ONE invariant that
+ * `src/agent-registry.ts` cannot guard for itself: that `demoAgentNames` keeps
+ * its `as const`, and therefore that `BuiltAgents` stays keyed by a literal
+ * union instead of `string`.
+ *
+ * WHY THAT INVARIANT NEEDS A SEPARATE FILE
+ * Drop `as const` from `demoAgentNames` and `DemoAgentName` widens to `string`.
+ * Every declaration in agent-registry.ts still compiles: `Record<string,
+ * LocalMastraAgentName>` accepts the `demoAgentIds` literal, so the totality
+ * guarantee that map exists to provide is silently lost, and `BuiltAgents`
+ * becomes `Record<string, LocalAgentValue>` — indexable with any typo. No
+ * assertion inside agent-registry.ts fails. The assertions below do.
+ *
+ * WHAT THIS FILE DELIBERATELY NO LONGER DOES
+ * It used to hardcode its own copy of the local-agent union and enumerate every
+ * demo key in an object literal. Both copies drifted from the source (the union
+ * was missing three agents; two demo keys no longer existed), which left the
+ * assertions permanently RED inside the accepted `tsc` baseline — and a guard
+ * whose failure is expected cannot detect the drift it exists to catch. The
+ * unions are now IMPORTED, so there is nothing here left to drift. The
+ * mastra-registration invariants those hardcoded copies were reaching for are
+ * owned by `src/agent-registry.ts` (`_LocalNamesMatchMastra`,
+ * `_BuiltLocalNamesAreRegistered`, `_TableCoversBuiltLocalNames`), which derive
+ * them from the live `mastra` instance and fail in the same `tsc` run as the
+ * code they constrain.
+ *
+ * There are zero meaningful runtime assertions — the value of this file is in
+ * whether `tsc --noEmit` passes for it.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -31,12 +55,16 @@ vi.mock("next/server", () => ({
   },
 }));
 
-import {
-  buildAgents,
-  demoAgentNames,
-  type BuiltAgents,
-  type DemoAgentName,
+import { demoAgentNames } from "../../src/app/api/copilotkit/route";
+import type {
+  BuiltAgents,
+  DemoAgentName,
 } from "../../src/app/api/copilotkit/route";
+// `BuiltLocalAgentName` is the half of `keyof BuiltAgents` that is NOT demo
+// aliases. The route module re-exports `BuiltAgents` / `DemoAgentName` /
+// `LocalMastraAgentName` but not this one, so it comes straight from the
+// registry. Type-only import: erased at runtime, so it pulls no module in.
+import type { BuiltLocalAgentName } from "../../src/agent-registry";
 
 // Helper: "these two types are assignable in both directions" (i.e. equal).
 type Equals<A, B> =
@@ -45,93 +73,56 @@ type Equals<A, B> =
     : false;
 type Assert<T extends true> = T;
 
-// 1. `DemoAgentName` must be the literal union of the entries in `demoAgentNames`,
-//    not just `string`. If someone drops `as const`, this breaks. Derived
-//    directly from the runtime `demoAgentNames` constant so adding a new demo
-//    in route.ts requires no edit here — the only failure mode is that the
-//    constant loses `as const` (in which case this assertion breaks).
-type _DemoAgentNameIsLiteralUnion = Assert<
+// 1a. `DemoAgentName` must track the entries of `demoAgentNames`. Derived from
+//     the runtime constant, so adding a demo in agent-registry.ts requires no
+//     edit here. This catches `DemoAgentName` being redeclared independently of
+//     the array (e.g. hand-written back into a fixed union).
+type _DemoAgentNameTracksTheArray = Assert<
   Equals<DemoAgentName, (typeof demoAgentNames)[number]>
 >;
 
-// 2. `BuiltAgents` keys must be exactly `DemoAgentName | LocalMastraAgentName`.
-type _BuiltAgentsKeys = Assert<
-  Equals<
-    keyof BuiltAgents,
-    | DemoAgentName
-    | "weatherAgent"
-    | "headlessCompleteAgent"
-    | "sharedStateReadWriteAgent"
-    | "subagentsSupervisorAgent"
-    | "interruptAgent"
-    | "multimodalAgent"
-    | "mcpAppsAgent"
-  >
+// 1b. …and it must not be `string`. 1a alone does NOT catch a dropped
+//     `as const`: without it BOTH sides widen to `string` and the equality
+//     holds vacuously — the header comment this file shipped with claimed
+//     otherwise. This half is the one that fails.
+type _DemoAgentNameIsNotWidened = Assert<
+  Equals<DemoAgentName, string> extends true ? false : true
 >;
 
-// 3. Unknown keys must NOT be allowed. We assert this with a ts-expect-error
-//    pinned to the offending property line so it captures the TS2353 error.
-type _AgentValue = NonNullable<ReturnType<typeof buildAgents>>["weatherAgent"];
+// 2. `BuiltAgents` keys must be exactly `DemoAgentName | BuiltLocalAgentName`.
+//    Both sides are imported, so this cannot drift from the source; what it
+//    still catches is `BuiltAgents` being widened back to `Record<string, …>`
+//    (directly, or indirectly by `demoAgentNames` losing `as const`).
+type _BuiltAgentsKeys = Assert<
+  Equals<keyof BuiltAgents, DemoAgentName | BuiltLocalAgentName>
+>;
 
-const _badKey: BuiltAgents = {
-  // The next line must fail to compile (unknown key). Remove the directive and
-  // `tsc --noEmit` should error; add a drift-introducing key and the directive
-  // will become "unused" and `tsc --noEmit` will error.
-  // @ts-expect-error "totally-unknown-agent" is not a valid BuiltAgents key
-  "totally-unknown-agent": {} as _AgentValue,
-  // Local Mastra agent keys (LocalMastraAgentName).
-  weatherAgent: {} as _AgentValue,
-  headlessCompleteAgent: {} as _AgentValue,
-  sharedStateReadWriteAgent: {} as _AgentValue,
-  subagentsSupervisorAgent: {} as _AgentValue,
-  interruptAgent: {} as _AgentValue,
-  multimodalAgent: {} as _AgentValue,
-  mcpAppsAgent: {} as _AgentValue,
-  // Demo agent alias keys (DemoAgentName). Must enumerate every entry in
-  // `demoAgentNames` — `BuiltAgents` is `Record<DemoAgentName | LocalMastraAgentName, _>`,
-  // a non-partial Record where every key is required.
-  agentic_chat: {} as _AgentValue,
-  human_in_the_loop: {} as _AgentValue,
-  "tool-rendering": {} as _AgentValue,
-  "gen-ui-tool-based": {} as _AgentValue,
-  "gen-ui-agent": {} as _AgentValue,
-  "shared-state-read": {} as _AgentValue,
-  "shared-state-write": {} as _AgentValue,
-  "shared-state-read-write": {} as _AgentValue,
-  "shared-state-streaming": {} as _AgentValue,
-  subagents: {} as _AgentValue,
-  "prebuilt-sidebar": {} as _AgentValue,
-  "prebuilt-popup": {} as _AgentValue,
-  "chat-slots": {} as _AgentValue,
-  "chat-customization-css": {} as _AgentValue,
-  "headless-simple": {} as _AgentValue,
-  frontend_tools: {} as _AgentValue,
-  "frontend-tools-async": {} as _AgentValue,
-  "hitl-in-chat": {} as _AgentValue,
-  "hitl-in-app": {} as _AgentValue,
-  "tool-rendering-default-catchall": {} as _AgentValue,
-  "tool-rendering-custom-catchall": {} as _AgentValue,
-  "agentic-chat-reasoning": {} as _AgentValue,
-  "reasoning-default-render": {} as _AgentValue,
-  "readonly-state-agent-context": {} as _AgentValue,
-  "agent-config": {} as _AgentValue,
-  "declarative-gen-ui": {} as _AgentValue,
-  "a2ui-fixed-schema": {} as _AgentValue,
-  "headless-complete": {} as _AgentValue,
-  "tool-rendering-reasoning-chain": {} as _AgentValue,
-  "gen-ui-interrupt": {} as _AgentValue,
-  "interrupt-headless": {} as _AgentValue,
-};
+// 3. Unknown keys must NOT be indexable. Asserted with `extends keyof` rather
+//    than a `@ts-expect-error`-pinned object literal: the old literal had to
+//    enumerate EVERY key of the non-partial `BuiltAgents` Record to compile at
+//    all, which is precisely the hand-maintained copy that rotted.
+type _UnknownKeyIsRejected = Assert<
+  "totally-unknown-agent" extends keyof BuiltAgents ? false : true
+>;
 
 describe("BuiltAgents type narrowing", () => {
-  it("keeps the type compile-time checks referenced so tree-shaking doesn't drop the file", () => {
-    // Use the types so they aren't considered unused by TS (noUnusedLocals etc.).
+  it("keeps the type-level checks referenced so nothing drops the file", () => {
+    // Reference the aliases so they are not flagged as unused, and so the
+    // file has a body vitest will run. A `tsc --noEmit` failure above is the
+    // real signal.
     const _keep: [
-      _DemoAgentNameIsLiteralUnion,
+      _DemoAgentNameTracksTheArray,
+      _DemoAgentNameIsNotWidened,
       _BuiltAgentsKeys,
-      typeof _badKey,
-      typeof demoAgentNames,
-    ] = [true, true, _badKey, demoAgentNames];
-    expect(_keep.length).toBe(4);
+      _UnknownKeyIsRejected,
+    ] = [true, true, true, true];
+    expect(_keep).toEqual([true, true, true, true]);
+  });
+
+  it("has no duplicate entries in demoAgentNames", () => {
+    // Cheap runtime companion to assertion 1: a duplicated literal collapses
+    // in the union and would silently shrink `DemoAgentName` by one name
+    // without changing the array's length-based checks elsewhere.
+    expect(new Set(demoAgentNames).size).toBe(demoAgentNames.length);
   });
 });
