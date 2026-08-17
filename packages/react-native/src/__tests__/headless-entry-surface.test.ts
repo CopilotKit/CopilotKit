@@ -5,6 +5,9 @@ import path from "node:path";
 // deliberately loads at runtime (and is not part of the walked graph either —
 // the walk starts at src/headless.ts / src/index.ts, not at this test).
 import type * as HeadlessEntry from "../headless";
+// Same reason, and additionally: the identity assertion below needs the module
+// this entry re-exports FROM, to compare bindings rather than merely count them.
+import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
 
 /**
  * Guards the `@copilotkit/react-native/headless` entry (src/headless.ts).
@@ -480,9 +483,16 @@ describe("@copilotkit/react-native/headless entry", () => {
   // blast-radius problem as blind spot #4, just moved into a hook.
   describe("runtime export surface", () => {
     let mod: typeof HeadlessEntry;
+    let coreHeadless: typeof CoreHeadlessEntry;
 
     beforeAll(async () => {
-      mod = await import("../headless");
+      // Both loads live in the ONE budgeted hook. core's /v2/headless is already
+      // inside this entry's own graph, so importing it here is a module-cache
+      // hit rather than a second traversal.
+      [mod, coreHeadless] = await Promise.all([
+        import("../headless"),
+        import("@copilotkit/react-core/v2/headless"),
+      ]);
     }, IMPORT_BUDGET_MS);
 
     it("does export the provider + core headless hooks", () => {
@@ -507,6 +517,33 @@ describe("@copilotkit/react-native/headless entry", () => {
         "useRenderTool",
       ]) {
         expect(mod, `missing export: ${name}`).toHaveProperty(name);
+      }
+    });
+
+    it("exports react-core's tool hooks THEMSELVES, not RN copies of them", () => {
+      // IDENTITY, which the two presence checks above deliberately do not assert
+      // — and could not have. RN used to ship a LOCAL `useRenderTool` whose whole
+      // body forwarded to react-core's `useFrontendTool`: core's OTHER hook,
+      // wearing this one's name. Both names were present in that world and are
+      // present in this one, so every presence check stayed green across the
+      // deletion, having verified nothing about which hook a consumer gets.
+      //
+      // The difference is what a consumer is billed for. `useFrontendTool`
+      // registers a tool AND its renderer, so the tool is advertised to the model
+      // and callable by it; `useRenderTool` registers a renderer only. Under the
+      // alias, `name: "*"` — the documented spelling of "render every tool call
+      // nothing else claims" — registered a frontend tool literally named `*`,
+      // schema-less and description-less, and offered it to the model
+      // (src/hooks/__tests__/useRenderTool.test.tsx pins the behaviour; this pins
+      // the wiring).
+      for (const name of ["useRenderTool", "useFrontendTool"] as const) {
+        expect(
+          mod[name],
+          `\`${name}\` on the RN headless entry is NOT the binding from ` +
+            `@copilotkit/react-core/v2/headless. RN must own no implementation of ` +
+            `either hook: re-export core's, or a local one will drift from it ` +
+            `silently under a name consumers already trust.`,
+        ).toBe(coreHeadless[name]);
       }
     });
 
