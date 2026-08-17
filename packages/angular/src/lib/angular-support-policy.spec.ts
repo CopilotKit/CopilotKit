@@ -4,25 +4,13 @@ import { expect, test } from "vitest";
 import { z } from "zod";
 
 const angularSupportPolicySchema = z.object({
-  compilerMajor: z.literal(20),
+  compilerMajor: z.literal(22),
   rxjs: z.literal("^7.8.0"),
   testedRxjs: z.literal("7.8.1"),
   supportedMajors: z.tuple([
     z.object({
-      angular: z.literal("20.3.27"),
-      cdk: z.literal("20.2.14"),
-      major: z.literal(20),
-      typescript: z.literal("5.9.3"),
-    }),
-    z.object({
-      angular: z.literal("21.2.18"),
-      cdk: z.literal("21.2.14"),
-      major: z.literal(21),
-      typescript: z.literal("5.9.3"),
-    }),
-    z.object({
-      angular: z.literal("22.0.7"),
-      cdk: z.literal("22.0.5"),
+      angular: z.literal("22.1.2"),
+      cdk: z.literal("22.1.2"),
       major: z.literal(22),
       typescript: z.literal("6.0.3"),
     }),
@@ -53,25 +41,13 @@ test("publishes the supported Angular and TypeScript consumer matrix", () => {
   const manifest = readPackageManifest();
 
   expect(manifest.copilotkit.angularSupport).toEqual({
-    compilerMajor: 20,
+    compilerMajor: 22,
     rxjs: "^7.8.0",
     testedRxjs: "7.8.1",
     supportedMajors: [
       {
-        angular: "20.3.27",
-        cdk: "20.2.14",
-        major: 20,
-        typescript: "5.9.3",
-      },
-      {
-        angular: "21.2.18",
-        cdk: "21.2.14",
-        major: 21,
-        typescript: "5.9.3",
-      },
-      {
-        angular: "22.0.7",
-        cdk: "22.0.5",
+        angular: "22.1.2",
+        cdk: "22.1.2",
         major: 22,
         typescript: "6.0.3",
       },
@@ -81,7 +57,7 @@ test("publishes the supported Angular and TypeScript consumer matrix", () => {
 
 test("keeps Angular peers exact and compiles the library at the support floor", () => {
   const manifest = readPackageManifest();
-  const angularPeerRange = "^20.0.0 || ^21.0.0 || ^22.0.0";
+  const angularPeerRange = "^22.0.0";
 
   expect(manifest.peerDependencies).toMatchObject({
     "@angular/cdk": angularPeerRange,
@@ -89,9 +65,9 @@ test("keeps Angular peers exact and compiles the library at the support floor", 
     "@angular/core": angularPeerRange,
     rxjs: manifest.copilotkit.angularSupport.rxjs,
   });
-  expect(manifest.devDependencies["@angular/core"]).toBe("20.3.27");
-  expect(manifest.devDependencies["@angular/compiler-cli"]).toBe("20.3.27");
-  expect(manifest.devDependencies.typescript).toBe("5.9.3");
+  expect(manifest.devDependencies["@angular/core"]).toBe("22.1.2");
+  expect(manifest.devDependencies["@angular/compiler-cli"]).toBe("22.1.2");
+  expect(manifest.devDependencies.typescript).toBe("6.0.3");
 });
 
 test("keeps package and public documentation aligned with the support policy", () => {
@@ -108,10 +84,10 @@ test("keeps package and public documentation aligned with the support policy", (
     "showcase/shell-docs/src/content/reference/angular/index.mdx",
   );
 
-  expect(packageReadme).toContain("(20, 21, or 22)");
-  expect(frontendGuide).toContain("- Angular 20, 21, or 22");
+  expect(packageReadme).toContain("Angular 22");
+  expect(frontendGuide).toContain("- Angular 22");
   expect(frontendGuide).toContain("npx @angular/cli@22");
-  expect(referenceIndex).toContain("targets Angular 20, 21, and 22");
+  expect(referenceIndex).toContain("targets Angular 22");
   for (const documentation of [packageReadme, frontendGuide, referenceIndex]) {
     expect(documentation).not.toMatch(/Angular 19|19, 20/);
   }

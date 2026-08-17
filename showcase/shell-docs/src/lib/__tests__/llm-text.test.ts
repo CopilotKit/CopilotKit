@@ -406,7 +406,7 @@ test("publishes Angular-native voice, multimodal, and A2UI guidance", () => {
   expect(a2ui).toContain("features/a2ui/a2ui-catalogs.ts");
   expect(a2ui).toContain("styles.css");
   expect(a2ui).toContain(
-    "The stable Hashbrown Angular package does not support the complete Angular 20 through 22 policy.",
+    "The stable Hashbrown Angular package does not support the Angular 22 policy.",
   );
   expect(a2ui).toContain(
     "JSON Renderer does not provide an Angular renderer; use A2UI for declarative Angular interfaces.",
