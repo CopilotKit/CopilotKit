@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { AGUIConnectNotImplementedError } from "@ag-ui/client";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 
 /**
@@ -105,5 +106,41 @@ describe("self-hosted /connect replay across multiple past runs (#4943)", () => 
     await expect(agent.connectAgent()).resolves.toBeDefined();
 
     expect(agent.messages.map((m) => m.id)).toEqual(["msg-1", "msg-2"]);
+  });
+
+  /**
+   * The verifyEvents-free pipeline must keep the base implementation's special
+   * case for agents that don't implement `connect()`: swallow the error rather
+   * than route it through `onError`.
+   *
+   * `CopilotKitCore` awaits `detachActiveRun()` before every run and only
+   * resolves because this path reaches the pipeline's finalize block (see the
+   * historical deadlock note in run-handler.ts). Surfacing it through onError
+   * would also fire run-failure callbacks on every subscriber for a benign
+   * condition.
+   */
+  it("swallows AGUIConnectNotImplementedError instead of failing the run", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example/hono",
+      agentId: "no-connect-agent",
+      transport: "rest",
+    });
+
+    // Stand in for an agent whose transport has no /connect implementation.
+    (agent as unknown as { connect: () => never }).connect = () => {
+      throw new AGUIConnectNotImplementedError();
+    };
+
+    const onRunFailed = vi.fn();
+    const onRunErrorEvent = vi.fn();
+    agent.subscribe({ onRunFailed, onRunErrorEvent });
+
+    await expect(agent.connectAgent()).resolves.toBeDefined();
+
+    expect(onRunFailed).not.toHaveBeenCalled();
+    expect(onRunErrorEvent).not.toHaveBeenCalled();
+    // The finalize block must still have run, or detachActiveRun() would hang.
+    expect(agent.isRunning).toBe(false);
+    await expect(agent.detachActiveRun()).resolves.toBeUndefined();
   });
 });

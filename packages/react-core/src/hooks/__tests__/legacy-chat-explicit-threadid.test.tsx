@@ -4,7 +4,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { CopilotKit } from "../../components/copilot-provider/copilotkit";
 import type { CopilotKitProps } from "../../components/copilot-provider/copilotkit-props";
 import { useCopilotChatInternal } from "../use-copilot-chat_internal";
-import { useAgent } from "../../v2";
 
 /**
  * Issue #4943: the legacy CopilotPopup / useCopilotChatInternal path must reuse
@@ -15,6 +14,12 @@ import { useAgent } from "../../v2";
  * These tests exercise the REAL v2 useAgent through the legacy hook — the
  * pre-existing use-copilot-chat-internal-connect suite mocks useAgent wholesale
  * and therefore cannot observe threadId propagation at all.
+ *
+ * The assertion reads `useCopilotChatInternal().agent`, i.e. the very instance
+ * the hook itself resolved. Calling `useAgent` in the probe instead would make
+ * the test self-fulfilling: the probe's own call would perform the threadId
+ * assignment being asserted, and the test would pass even with the legacy hook
+ * removed entirely.
  */
 
 // `agents__unsafe_dev_only` isn't declared on v1 CopilotKitProps but is
@@ -35,12 +40,11 @@ describe("legacy useCopilotChatInternal → agent.threadId (#4943)", () => {
 
   /**
    * Drives the legacy chat hook (the surface CopilotPopup renders through) and
-   * reports the agent instance that hook is operating on.
+   * reports the threadId of the agent that hook is operating on.
    */
   function LegacyChatProbe() {
-    useCopilotChatInternal();
-    const { agent } = useAgent({ agentId: "default" });
-    return <div data-testid="threadId">{agent.threadId ?? ""}</div>;
+    const { agent } = useCopilotChatInternal();
+    return <div data-testid="threadId">{agent?.threadId ?? ""}</div>;
   }
 
   it("adopts an explicit threadId supplied to <CopilotKit>", () => {
