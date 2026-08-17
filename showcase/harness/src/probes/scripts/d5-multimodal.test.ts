@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { getD5Script } from "../helpers/d5-registry.js";
 import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
@@ -7,6 +10,27 @@ import {
   SAMPLE_IMAGE_BUTTON_SELECTOR,
   SAMPLE_PDF_BUTTON_SELECTOR,
 } from "./d5-multimodal.js";
+
+interface MultimodalFixtureFile {
+  fixtures: Array<{
+    match: { userMessage?: string };
+    response: { content: string };
+  }>;
+}
+
+function loadCanonicalFixture(): MultimodalFixtureFile {
+  const here = fileURLToPath(import.meta.url);
+  const fixturePath = path.resolve(
+    path.dirname(here),
+    "..",
+    "..",
+    "..",
+    "fixtures",
+    "d5",
+    "multimodal.json",
+  );
+  return JSON.parse(readFileSync(fixturePath, "utf8")) as MultimodalFixtureFile;
+}
 
 function makePage(transcript: string): Page {
   return {
@@ -61,6 +85,30 @@ describe("d5-multimodal script", () => {
     expect(script).toBeDefined();
     expect(script?.featureTypes).toEqual(["multimodal"]);
     expect(script?.fixtureFile).toBe("multimodal.json");
+  });
+
+  it("keeps the canonical D5 fixture aligned with the actual sample assets", () => {
+    const fixture = loadCanonicalFixture();
+    expect(fixture.fixtures).toHaveLength(2);
+
+    expect(fixture.fixtures[0]!.match.userMessage).toBe(
+      "can you tell me what is in this demo image I just attached",
+    );
+    expect(fixture.fixtures[0]!.response.content.toLowerCase()).toContain(
+      "copilotkit logo",
+    );
+
+    expect(fixture.fixtures[1]!.match.userMessage).toBe(
+      "can you tell me what is in this demo pdf I just attached",
+    );
+    expect(fixture.fixtures[1]!.response.content.toLowerCase()).toContain(
+      "copilotkit quickstart",
+    );
+
+    const serialized = JSON.stringify(fixture).toLowerCase();
+    expect(serialized).not.toContain("small abstract test pattern");
+    expect(serialized).not.toContain("single test page");
+    expect(serialized).not.toContain("confirms the binary attachment");
   });
 
   it("buildTurns produces two turns covering image + PDF", () => {
