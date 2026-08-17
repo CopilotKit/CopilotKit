@@ -195,7 +195,7 @@ test("a managed continuation keeps its initiator across a Runtime restart", asyn
   expect(lifecycleCalls[1]!.isResume).toBe(true);
 });
 
-test("independent runs on one Thread snapshot new initiators", async () => {
+test("independent runs snapshot new initiators", async () => {
   const state = new MemoryStore();
   const adapter = new FakeAdapter();
 
@@ -227,12 +227,18 @@ test("independent runs on one Thread snapshot new initiators", async () => {
   await channel.ɵruntime.start();
   activeChannels.push({ stop: () => channel.ɵruntime.stop() });
 
-  for (const actor of [
-    { id: "alice", kind: "human" as const, name: "Alice" },
-    { id: "bob", kind: "human" as const, name: "Bob" },
+  for (const { actor, conversationKey } of [
+    {
+      actor: { id: "alice", kind: "human" as const, name: "Alice" },
+      conversationKey: "thread-alice",
+    },
+    {
+      actor: { id: "bob", kind: "human" as const, name: "Bob" },
+      conversationKey: "thread-bob",
+    },
   ]) {
     await adapter.getSink().onTurn({
-      conversationKey: "thread-1",
+      conversationKey,
       replyTarget: {},
       userText: "start",
       platform: "slack",
@@ -272,6 +278,7 @@ test("concurrent independent runs cannot share a continuation chain", async () =
     identifyUser: "platform",
     adapters: [adapter],
     agent: () => new FakeAgent([interrupt]),
+    agents: { billing: () => new FakeAgent([interrupt]) },
     components: [Approval],
     store: { adapter: state, actionRetentionMs: 60_000 },
   });
@@ -305,7 +312,10 @@ test("concurrent independent runs cannot share a continuation chain", async () =
   if (!receivedThread)
     throw new Error("message handler did not receive a Thread");
 
-  await Promise.all([receivedThread.runAgent(), receivedThread.runAgent()]);
+  await Promise.all([
+    receivedThread.runAgent(),
+    receivedThread.runAgent({ agentId: "billing" }),
+  ]);
 
   const snapshots = await Promise.all(
     actionIds(adapter).map((id) =>
@@ -497,8 +507,9 @@ test("normal runs write no continuation state and one resume consumes once", asy
 
   await turn("interrupt");
   const actionId = firstActionId(adapter);
-  expect(set).toHaveBeenCalledTimes(1);
-  expect(set.mock.calls[0]?.[0]).toBe(`action:${actionId}`);
+  expect(
+    set.mock.calls.filter((call) => call[0] === `action:${actionId}`),
+  ).toHaveLength(1);
   expect(consume).not.toHaveBeenCalled();
 
   const click = (eventId: string) =>

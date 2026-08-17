@@ -24,6 +24,11 @@ import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
 import type { AbstractAgent } from "@ag-ui/client";
 import { sanitizeAgentEventStream } from "./sanitize-agent-events.js";
+import { resolveChannelAgents } from "./resolve-channel-agents.js";
+import type {
+  ChannelAgentIds,
+  ChannelAgentSource,
+} from "./resolve-channel-agents.js";
 import type {
   ChannelMessage,
   InteractionContext,
@@ -257,21 +262,30 @@ export type ChannelComponentRegistration =
   | ChannelComponent
   | ChannelComponentDefinition;
 
-export type ChannelHandler<TState = unknown> = (ctx: {
-  thread: StatefulThread<TState>;
+export type ChannelHandler<
+  TState = unknown,
+  TAgentId extends string = string,
+> = (ctx: {
+  thread: StatefulThread<TState, TAgentId>;
   message: ChannelMessage;
 }) => void | Promise<void>;
 
 /** Handler for a "conversation opened" lifecycle event (e.g. the Slack assistant pane). */
-export type ThreadStartHandler<TState = unknown> = (ctx: {
-  thread: StatefulThread<TState>;
+export type ThreadStartHandler<
+  TState = unknown,
+  TAgentId extends string = string,
+> = (ctx: {
+  thread: StatefulThread<TState, TAgentId>;
   user: ApplicationUser | null;
   actor: ProviderActor;
 }) => void | Promise<void>;
 
 /** Handler for a provider installation or conversation activation. */
-export type WelcomeHandler<TState = unknown> = (ctx: {
-  thread: StatefulThread<TState>;
+export type WelcomeHandler<
+  TState = unknown,
+  TAgentId extends string = string,
+> = (ctx: {
+  thread: StatefulThread<TState, TAgentId>;
   user: ApplicationUser | null;
   actor: ProviderActor;
   platform: string;
@@ -328,7 +342,10 @@ type ThreadStateOf<TSchema extends StandardSchemaV1 | undefined> =
   TSchema extends StandardSchemaV1 ? InferSchemaOutput<TSchema> : unknown;
 
 /** A Thread whose state()/setState() are narrowed to the configured state type. */
-export type StatefulThread<TState> = Omit<Thread, "setState" | "state"> & {
+export type StatefulThread<TState, TAgentId extends string = string> = Omit<
+  Thread<TAgentId>,
+  "setState" | "state"
+> & {
   setState(value: TState): Promise<void>;
   state(): Promise<TState | undefined>;
 };
@@ -403,6 +420,7 @@ export interface ReplyContinuationOptions {
 
 export interface CreateChannelOptions<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
+  TAgents extends Record<string, ChannelAgentSource> | undefined = undefined,
 > {
   /** Select the canonical application user for every incoming Channel event. */
   identifyUser: ChannelIdentifyUser;
@@ -434,7 +452,12 @@ export interface CreateChannelOptions<
    * configure direct Slack with `slack({ replyContinuation })` instead.
    */
   replyContinuation?: ReplyContinuationOptions;
-  agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
+  agent?: ChannelAgentSource;
+  /**
+   * Extra agents keyed by id. `agents.default` is the default when `agent`
+   * is omitted; passing both `agent` and `agents.default` throws.
+   */
+  agents?: TAgents;
   /**
    * Tolerate the AG-UI event streams real agents emit. On by default.
    *
@@ -467,7 +490,7 @@ export interface CreateChannelOptions<
   store?: StoreConfig<TStateSchema>;
 }
 
-export interface Channel<TState = unknown> {
+export interface Channel<TState = unknown, TAgentId extends string = string> {
   /** Project-unique identifier from `createChannel({ name })`; used by the Channel runtime. */
   readonly name?: string;
   /** Adapters currently attached to this Channel (read-only snapshot). The Channel runtime uses this to distinguish a managed-eligible Channel (no adapters) from one carrying developer-supplied direct adapters. */
@@ -485,16 +508,16 @@ export interface Channel<TState = unknown> {
   readonly replyContinuation?: ReplyContinuationOptions;
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
-  onMention(h: ChannelHandler<TState>): void;
-  onMessage(h: ChannelHandler<TState>): void;
+  onMention(h: ChannelHandler<TState, TAgentId>): void;
+  onMessage(h: ChannelHandler<TState, TAgentId>): void;
   /** Welcome a newly installed or activated provider conversation. */
-  onWelcome(h: WelcomeHandler<TState>): void;
+  onWelcome(h: WelcomeHandler<TState, TAgentId>): void;
   /**
    * A conversation surface opened (e.g. the Slack assistant pane). Greet, set
    * suggested prompts, set a title, or run the agent. Adapters without the
    * concept never fire this.
    */
-  onThreadStarted(h: ThreadStartHandler<TState>): void;
+  onThreadStarted(h: ThreadStartHandler<TState, TAgentId>): void;
   /** Handle clicks on a specific action `id`. `ctx.action.value` is typed as `TValue`. */
   onInteraction<TValue = unknown>(
     id: string,
@@ -503,13 +526,15 @@ export interface Channel<TState = unknown> {
   /**
    * Handle an agent interrupt (an `on_interrupt` custom event). `payload` is the
    * event's value; pass `TPayload` to type it, e.g.
-   * `onInterrupt<{ question: string }>("ask", ...)`.
+   * `onInterrupt<{ question: string }>("ask", ...)`. `agentId` is the named
+   * agent that interrupted.
    */
   onInterrupt<TPayload = unknown>(
     eventName: string,
     h: (args: {
       payload: TPayload;
-      thread: StatefulThread<TState>;
+      thread: StatefulThread<TState, TAgentId>;
+      agentId: TAgentId;
       user: ApplicationUser | null;
       actor: ProviderActor;
     }) => void | Promise<void>,
@@ -636,6 +661,24 @@ function resolveBackend(
 
 export function createChannel<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
+  const TAgents extends Record<string, ChannelAgentSource> | undefined =
+    undefined,
+>(
+  opts: CreateChannelOptions<TStateSchema, TAgents> & {
+    agent: ChannelAgentSource;
+  },
+): Channel<ThreadStateOf<TStateSchema>, ChannelAgentIds<TAgents, true>>;
+export function createChannel<
+  TStateSchema extends StandardSchemaV1 | undefined = undefined,
+  const TAgents extends Record<string, ChannelAgentSource> | undefined =
+    undefined,
+>(
+  opts: CreateChannelOptions<TStateSchema, TAgents> & {
+    agent?: undefined;
+  },
+): Channel<ThreadStateOf<TStateSchema>, ChannelAgentIds<TAgents, false>>;
+export function createChannel<
+  TStateSchema extends StandardSchemaV1 | undefined = undefined,
 >(
   opts: CreateChannelOptions<TStateSchema>,
 ): Channel<ThreadStateOf<TStateSchema>> {
@@ -666,33 +709,37 @@ export function createChannel<
   let registry: ActionRegistry | undefined;
   let telemetry: ChannelTelemetry | undefined;
 
-  const agentFactory: (threadId: string) => AbstractAgent = (() => {
-    // Applied here rather than at each call site so a developer never has to
-    // know the workaround exists. Idempotent, so reusing one agent instance
-    // across threads (or being handed an already-sanitized one) is fine.
-    const sanitize =
-      opts.sanitizeAgentEvents === false
-        ? (agent: AbstractAgent) => agent
-        : sanitizeAgentEventStream;
-    const a = opts.agent;
-    if (!a) {
-      return () => {
-        throw new Error(
-          "createChannel: no agent configured (pass `agent` to use runAgent)",
-        );
-      };
-    }
-    // Clone per turn for both shapes, so concurrent turns never share one
-    // mutable agent. Isolating only the singleton config is not enough: a
-    // factory is free to return the same object on every call. Cloning a fresh
-    // factory's result costs an unused instance and closes the shared case —
-    // see `isolateAgentInstance`.
-    if (typeof a === "function") {
+  // Throws immediately when `agent` and `agents.default` are both set.
+  const { defaultId, sources } = resolveChannelAgents(opts);
+
+  // Applied here rather than at each call site so a developer never has to
+  // know the workaround exists. Idempotent, so reusing one agent instance
+  // across threads (or being handed an already-sanitized one) is fine.
+  const sanitize =
+    opts.sanitizeAgentEvents === false
+      ? (agent: AbstractAgent) => agent
+      : sanitizeAgentEventStream;
+
+  // Clone per turn for every configured source, so concurrent turns never
+  // share one mutable agent. Isolating only the singleton config is not
+  // enough: a factory is free to return the same object on every call.
+  // Cloning a fresh factory's result costs an unused instance and closes
+  // the shared case — see `isolateAgentInstance`.
+  const wrapSource = (
+    source: ChannelAgentSource,
+  ): ((threadId: string) => AbstractAgent) => {
+    if (typeof source === "function") {
       return (threadId: string) =>
-        sanitize(isolateAgentInstance(a(threadId), threadId));
+        sanitize(isolateAgentInstance(source(threadId), threadId));
     }
-    return (threadId: string) => sanitize(isolateAgentInstance(a, threadId));
-  })();
+    return (threadId: string) =>
+      sanitize(isolateAgentInstance(source, threadId));
+  };
+
+  const agentFactories = new Map<string, (threadId: string) => AbstractAgent>();
+  for (const [id, source] of sources) {
+    agentFactories.set(id, wrapSource(source));
+  }
 
   /** Per-conversation serial turn queue (error-boundaried so one failure cannot poison the chain). */
   const conversationTurnQueues = new Map<string, Promise<void>>();
@@ -799,6 +846,7 @@ export function createChannel<
     (args: {
       payload: unknown;
       thread: Thread;
+      agentId: string;
       user: ApplicationUser | null;
       actor: ProviderActor;
     }) => void | Promise<void>
@@ -842,7 +890,8 @@ export function createChannel<
       replyTarget,
       conversationKey,
       registry,
-      agentFactory,
+      agentFactories,
+      defaultId,
       tools: toolMap,
       toolDescriptors,
       context,
@@ -856,6 +905,7 @@ export function createChannel<
       user: extras?.user ?? null,
       actor: extras?.actor ?? { id: "unknown", kind: "unknown" },
       channelName: opts.name ?? adapter.platform,
+      declaredName: opts.name,
       threadId: adapter.getCanonicalThreadId?.(replyTarget) ?? conversationKey,
       interactionActionId: extras?.interactionActionId,
       intelligenceMemoryAvailable,
@@ -1025,6 +1075,10 @@ export function createChannel<
             interactionActionId: evt.id,
           },
         );
+        const snap = await registry!.getSnapshot(evt.id);
+        if (snap?.agentId !== undefined) {
+          thread.implicitResumeAgentId = snap.agentId;
+        }
         const ctx: InteractionContext = {
           thread,
           message: {
@@ -1616,6 +1670,7 @@ export function createChannel<
       h: (args: {
         payload: TPayload;
         thread: StatefulThread<ThreadStateOf<TStateSchema>>;
+        agentId: string;
         user: ApplicationUser | null;
         actor: ProviderActor;
       }) => void | Promise<void>,
@@ -1625,6 +1680,7 @@ export function createChannel<
         h as (args: {
           payload: unknown;
           thread: Thread;
+          agentId: string;
           user: ApplicationUser | null;
           actor: ProviderActor;
         }) => void | Promise<void>,

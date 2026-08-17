@@ -18,9 +18,8 @@ function setupThreadWithSyncDeleteFailure(failure: Error): Thread {
     channelName: "test",
     threadId: "thread-promise-contract",
     registry: new ActionRegistry({ store: new InMemoryActionStore() }),
-    agentFactory: (threadId) => {
-      throw new Error(`agentFactory not needed in this test: ${threadId}`);
-    },
+    agentFactories: new Map(),
+    defaultId: undefined,
     tools: new Map(),
     toolDescriptors: [],
     context: [],

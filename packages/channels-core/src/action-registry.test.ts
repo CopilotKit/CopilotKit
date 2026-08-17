@@ -172,6 +172,57 @@ describe("ActionRegistry", () => {
     });
   });
 
+  it("stores agentId on the snapshot and returns it from getSnapshot", async () => {
+    const store = new InMemoryActionStore();
+    const reg = new ActionRegistry({ store });
+    reg.registerComponent("Confirm", Confirm as never);
+    const ir = await reg.bindTree(
+      "Confirm",
+      { action: "write" },
+      "conv1",
+      undefined,
+      {
+        platform: "slack",
+        signal: new AbortController().signal,
+      },
+      "billing",
+    );
+    const id = (
+      (ir[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+        id: string;
+      }
+    ).id;
+
+    const snap = await reg.getSnapshot(id);
+    expect(snap?.agentId).toBe("billing");
+    expect(await store.get(id)).toMatchObject({ agentId: "billing" });
+    await expect(reg.dispatch(id, ctx)).resolves.toEqual({ ok: "write" });
+  });
+
+  it("keeps old snapshots without agentId dispatchable", async () => {
+    const store = new InMemoryActionStore();
+    const reg = new ActionRegistry({ store });
+    reg.registerComponent("Confirm", Confirm as never);
+    const ir = await reg.bindTree("Confirm", { action: "write" }, "conv1");
+    const id = (
+      (ir[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+        id: string;
+      }
+    ).id;
+    const existing = await store.get(id);
+    expect(existing).toBeDefined();
+    expect(existing).not.toHaveProperty("agentId");
+
+    const snap = await reg.getSnapshot(id);
+    expect(snap).not.toHaveProperty("agentId");
+    await expect(reg.dispatch(id, ctx)).resolves.toEqual({ ok: "write" });
+  });
+
+  it("getSnapshot returns undefined for a missing id", async () => {
+    const reg = new ActionRegistry({ store: new InMemoryActionStore() });
+    await expect(reg.getSnapshot("ck:missing")).resolves.toBeUndefined();
+  });
+
   describe("one-use HITL continuations", () => {
     const continuation = {
       channelName: "approvals",
