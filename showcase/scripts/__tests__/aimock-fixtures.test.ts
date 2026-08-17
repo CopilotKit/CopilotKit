@@ -52,6 +52,18 @@ interface RawFixtureEntry {
   [key: string]: unknown;
 }
 
+function responseText(entry: RawFixtureEntry): string {
+  if (
+    typeof entry.response === "object" &&
+    entry.response !== null &&
+    "content" in entry.response &&
+    typeof entry.response.content === "string"
+  ) {
+    return entry.response.content;
+  }
+  return "";
+}
+
 /**
  * Build a deterministic match key from the match object. The key encodes
  * every field that aimock uses for disambiguation so two fixtures with
@@ -198,20 +210,32 @@ describe("aimock fixtures across repo", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Cross-depth multimodal routing
+// Multimodal fixture ownership and semantics
 //
-// The deployed fixture root is loaded recursively in lexical order, so a D4
-// chat fixture with the same context and prompt wins before the D6 multimodal
-// fixture. Multimodal probes also reuse a conversation across both attachment
-// turns, which makes a turnIndex gate inappropriate for these fixtures.
+// AIMock recursively loads every JSON file under each configured directory in
+// lexical order. Each multimodal prompt therefore needs exactly one owner per
+// context across the entire D6 tree, not merely one owner inside
+// multimodal.json. D4 does not exercise attachments, so it must not retain
+// active aliases or fake `_d4_unused_*` tombstones for these turns.
 // ---------------------------------------------------------------------------
 describe("multimodal fixture routing", () => {
-  const prompts = [
-    "can you tell me what is in this demo image I just attached",
-    "can you tell me what is in this demo pdf I just attached",
+  const IMAGE_PROMPT =
+    "can you tell me what is in this demo image I just attached";
+  const PDF_PROMPT = "can you tell me what is in this demo pdf I just attached";
+  const D4_TOMBSTONES = new Set([
+    "_d4_unused_multimodal_image",
+    "_d4_unused_multimodal_pdf",
+  ]);
+  const EXPECTED_PHRASE = new Map([
+    [IMAGE_PROMPT, "copilotkit logo"],
+    [PDF_PROMPT, "copilotkit quickstart"],
+  ]);
+  const FABRICATED_PHRASES = [
+    "small abstract test pattern",
+    "single test page",
   ];
 
-  it("keeps D6 multimodal fixtures reachable in recursively loaded bundles", () => {
+  it("keeps one factual D6 owner per prompt and no D4 aliases", () => {
     const violations: string[] = [];
     const multimodalFiles = d6Files.filter(
       (file) => path.basename(file) === "multimodal.json",
@@ -219,7 +243,14 @@ describe("multimodal fixture routing", () => {
 
     for (const file of multimodalFiles) {
       const relative = path.relative(REPO_ROOT, file);
+      const context = path.basename(path.dirname(file));
       const fixtures = loadRawFixtures(file);
+
+      if (fixtures.length !== 2) {
+        violations.push(
+          `${relative}: expected exactly 2 canonical fixtures, found ${fixtures.length}`,
+        );
+      }
 
       fixtures.forEach((fixture, index) => {
         if (fixture.match.turnIndex != null) {
@@ -227,42 +258,71 @@ describe("multimodal fixture routing", () => {
             `${relative}[${index}]: fixture is gated by turnIndex=${fixture.match.turnIndex}`,
           );
         }
+        if (scopeOf(fixture) !== context) {
+          violations.push(
+            `${relative}[${index}]: context "${scopeOf(fixture)}" does not match directory "${context}"`,
+          );
+        }
       });
 
-      for (const prompt of prompts) {
+      for (const [prompt, expectedPhrase] of EXPECTED_PHRASE) {
         const promptFixtures = fixtures.filter(
           (entry) => entry.match.userMessage === prompt,
         );
 
-        if (promptFixtures.length === 0) {
-          violations.push(`${relative}: missing prompt "${prompt}"`);
+        if (promptFixtures.length !== 1) {
+          violations.push(
+            `${relative}: expected one canonical fixture for "${prompt}", found ${promptFixtures.length}`,
+          );
           continue;
         }
 
-        for (const fixture of promptFixtures) {
-          const context = fixture.match.context;
-          if (!context) {
-            violations.push(`${relative}: prompt "${prompt}" has no context`);
-            continue;
-          }
-
-          for (const shadow of d4Tagged) {
-            if (
-              scopeOf(shadow.entry) === context &&
-              shadow.entry.match.userMessage === prompt
-            ) {
-              violations.push(
-                `${relative}: prompt "${prompt}" is shadowed by ${shadow.file}[${shadow.index}]`,
-              );
-            }
+        const fixture = promptFixtures[0]!;
+        const content = responseText(fixture).toLowerCase();
+        if (!content.includes(expectedPhrase)) {
+          violations.push(
+            `${relative}: response for "${prompt}" must contain factual phrase "${expectedPhrase}"`,
+          );
+        }
+        for (const fabricated of FABRICATED_PHRASES) {
+          if (content.includes(fabricated)) {
+            violations.push(
+              `${relative}: response for "${prompt}" retains fabricated phrase "${fabricated}"`,
+            );
           }
         }
+
+        const owners = d6Tagged.filter(
+          (candidate) =>
+            scopeOf(candidate.entry) === context &&
+            candidate.entry.match.userMessage === prompt,
+        );
+        if (owners.length !== 1 || owners[0]?.file !== relative) {
+          violations.push(
+            `${relative}: prompt "${prompt}" must be owned only by this file; found ${owners
+              .map((owner) => `${owner.file}[${owner.index}]`)
+              .join(", ")}`,
+          );
+        }
+      }
+    }
+
+    for (const fixture of d4Tagged) {
+      const userMessage = fixture.entry.match.userMessage;
+      if (
+        userMessage === IMAGE_PROMPT ||
+        userMessage === PDF_PROMPT ||
+        (userMessage !== undefined && D4_TOMBSTONES.has(userMessage))
+      ) {
+        violations.push(
+          `${fixture.file}[${fixture.index}]: obsolete D4 multimodal fixture "${userMessage}" must be deleted`,
+        );
       }
     }
 
     expect(
       violations,
-      `D6 multimodal fixtures must remain reachable when D4 and D6 are loaded together:\n${violations.join("\n")}`,
+      `Multimodal prompts need one factual D6 owner and no D4 aliases:\n${violations.join("\n")}`,
     ).toEqual([]);
   });
 });

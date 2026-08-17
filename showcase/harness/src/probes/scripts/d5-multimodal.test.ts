@@ -126,7 +126,7 @@ describe("d5-multimodal script", () => {
     );
   });
 
-  it("turn-1 assertion succeeds for the D6 abstract-test-pattern response", async () => {
+  it("turn-1 assertion succeeds for the actual CopilotKit logo response", async () => {
     const ctx: D5BuildContext = {
       integrationSlug: "x",
       featureType: "multimodal",
@@ -135,13 +135,13 @@ describe("d5-multimodal script", () => {
     const turns = buildTurns(ctx);
     await expect(
       turns[0]!.assertions!(
-        makePage("the image attachment shows a small abstract test pattern"),
+        makePage("the attached image is the copilotkit logo."),
         { bubbleIndex: 0, text: "" },
       ),
     ).resolves.toBeUndefined();
   });
 
-  it("turn-1 assertion rejects the legacy generic image response", async () => {
+  it("turn-1 assertion rejects the fabricated abstract-pattern response", async () => {
     const ctx: D5BuildContext = {
       integrationSlug: "x",
       featureType: "multimodal",
@@ -151,14 +151,14 @@ describe("d5-multimodal script", () => {
     await expect(
       turns[0]!.assertions!(
         makePage(
-          "The attached image is the CopilotKit logo — a clean geometric mark.",
+          "The image attachment shows a small abstract test pattern used by the demo.",
         ),
         { bubbleIndex: 0, text: "" },
       ),
     ).rejects.toThrow(/missing expected phrase/);
   }, 8_000);
 
-  it("turn-2 assertion requires the D6 single-test-page response", async () => {
+  it("turn-2 assertion requires the actual CopilotKit Quickstart response", async () => {
     const ctx: D5BuildContext = {
       integrationSlug: "x",
       featureType: "multimodal",
@@ -167,7 +167,7 @@ describe("d5-multimodal script", () => {
     const turns = buildTurns(ctx);
     await expect(
       turns[1]!.assertions!(
-        makePage("The PDF document contains a single test page."),
+        makePage("the attached pdf is the copilotkit quickstart guide."),
         { bubbleIndex: 1, text: "" },
       ),
     ).resolves.toBeUndefined();
@@ -188,6 +188,6 @@ describe("d5-multimodal script", () => {
         bubbleIndex: 0,
         text: "",
       }),
-    ).rejects.toThrow(/missing expected phrase "small abstract test pattern"/);
+    ).rejects.toThrow(/missing expected phrase "copilotkit logo"/);
   }, 8_000);
 });
