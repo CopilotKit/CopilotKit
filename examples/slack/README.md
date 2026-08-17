@@ -242,6 +242,7 @@ matching `render_*` tool). Both paths share one `render*` fn.
 | **PR review radar**  | `/prs` · "show the PR radar" | GitHub PRs (public, no token) | card of oldest open PRs (age-coloured badges) + PRs-by-age bar chart            |
 | **Weekly OSS pulse** | `/pulse` · "weekly pulse"    | GitHub + npm (public)         | KPI card (stars · downloads · issues) + downloads line chart + issues bar chart |
 | **Linear standup**   | `/standup` · "cycle standup" | Linear (`LINEAR_API_KEY`)     | per-team progress card (a meter per team) + done-vs-remaining stacked bar       |
+| **Product carousel** | `/carousel` or "show a carousel" | Sample catalog (or items you pass to `render_carousel`) | native carousel: React `ProductCard` PNGs plus native headers, sale text, and Buy buttons |
 
 The brand look comes from **Tailwind**: cards are authored with Tailwind classes
 (CopilotKit brand tokens in `styles/tailwind.css`), compiled to `styles/brand.css`
@@ -332,6 +333,9 @@ App-owned slash commands, registered via `createChannel({ commands })`:
   below). Each renders a shadcn-style card + charts as images and is **also**
   triggerable by prompt (the matching `render_*` tool), so the same feature
   works whether you type the slash command or just ask the agent for it.
+- **`/carousel`** — mixed native channel UI and React snapshots. Each slide
+  is a native card with a `<Render>` of `<ProductCard/>` (Takumi PNG) plus a
+  real Buy button. Also available as the `render_carousel` tool.
 
 ```ts
 defineChannelCommand({
@@ -352,7 +356,7 @@ user message (a slash command's text is never posted to the channel, so it
 isn't in the history the agent reconstructs).
 
 > **Slack setup:** every command (`/agent`, `/triage`, `/preview`,
-> `/file-issue`, `/prs`, `/pulse`, `/standup`) must be declared in your Slack
+> `/file-issue`, `/prs`, `/pulse`, `/standup`, `/carousel`) must be declared in your Slack
 > app under **Slash Commands** — Slack won't deliver an unregistered command,
 > even over Socket Mode. The easiest path is to paste the full
 > `slack-app-manifest.yaml` when creating (or updating) your app, which already
