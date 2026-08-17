@@ -145,6 +145,119 @@ describe("decodeInteraction", () => {
     expect(evt!.value).toBeUndefined();
   });
 
+  // OSS-846: Slack sends `state.values` — the current value of every input block
+  // on the clicked message — alongside a block_actions click. The decoder built
+  // its event from `actions[0]` alone and never read it, so a "fill the fields,
+  // then press the button" message reached the handler with `ctx.values` empty.
+  describe("state.values on a message click (OSS-846)", () => {
+    /** A button click on a message hosting five named input blocks. */
+    const clickWithForm = () =>
+      decodeInteraction({
+        type: "block_actions",
+        user: { id: "U1", name: "Ana" },
+        channel: { id: "C1" },
+        message: { ts: "111.1", thread_ts: "100.0" },
+        actions: [{ action_id: "ck:submit", value: "report" }],
+        state: {
+          values: {
+            root_cause: {
+              "ck:a": { type: "plain_text_input", value: "pool exhausted" },
+            },
+            severity: {
+              "ck:b": {
+                type: "radio_buttons",
+                selected_option: { value: "high" },
+              },
+            },
+            services: {
+              "ck:c": {
+                type: "checkboxes",
+                selected_options: [{ value: "payments" }, { value: "search" }],
+              },
+            },
+            target_date: {
+              "ck:d": { type: "datepicker", selected_date: "2026-08-20" },
+            },
+            owner: { "ck:e": { type: "users_select", selected_user: "U9" } },
+          },
+        },
+      });
+
+    it("delivers every input block's value, keyed by block id", () => {
+      expect(clickWithForm()!.values).toEqual({
+        root_cause: "pool exhausted",
+        severity: "high",
+        services: ["payments", "search"],
+        target_date: "2026-08-20",
+        owner: "U9",
+      });
+    });
+
+    it("keeps the clicked button's own value separate from the form state", () => {
+      const evt = clickWithForm();
+      expect(evt!.value).toBe("report");
+      expect(evt!.values).not.toHaveProperty("ck:submit");
+    });
+
+    it("omits values entirely when the message hosts no input blocks", () => {
+      // Byte-identical to what a plain button produced before `values` existed,
+      // so filling this in cannot perturb an existing single-button message.
+      const evt = decodeInteraction({
+        type: "block_actions",
+        channel: { id: "C1" },
+        message: { ts: "1.0" },
+        actions: [{ action_id: "ck:x", value: "yes" }],
+        state: { values: {} },
+      });
+      expect(evt!.values).toBeUndefined();
+    });
+
+    it("omits values when the payload carries no state at all", () => {
+      const evt = decodeInteraction({
+        type: "block_actions",
+        channel: { id: "C1" },
+        message: { ts: "1.0" },
+        actions: [{ action_id: "ck:x", value: "yes" }],
+      });
+      expect(evt!.values).toBeUndefined();
+    });
+
+    it("JSON-parses a form field's value the same way an action value is parsed", () => {
+      const evt = decodeInteraction({
+        type: "block_actions",
+        channel: { id: "C1" },
+        message: { ts: "1.0" },
+        actions: [{ action_id: "ck:x", value: "go" }],
+        state: {
+          values: {
+            payload: {
+              "ck:p": {
+                type: "static_select",
+                selected_option: { value: '{"id":7}' },
+              },
+            },
+          },
+        },
+      });
+      expect(evt!.values).toEqual({ payload: { id: 7 } });
+    });
+
+    it("reports an empty multi-select as [] rather than dropping the field", () => {
+      const evt = decodeInteraction({
+        type: "block_actions",
+        channel: { id: "C1" },
+        message: { ts: "1.0" },
+        actions: [{ action_id: "ck:x", value: "go" }],
+        state: {
+          values: {
+            services: { "ck:s": { type: "checkboxes", selected_options: [] } },
+          },
+        },
+      });
+      expect(evt!.values).toEqual({ services: [] });
+    });
+  });
+
   it("carries trigger_id from a block_actions payload", () => {
     const evt = decodeInteraction({
       type: "block_actions",
