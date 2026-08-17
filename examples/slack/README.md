@@ -237,11 +237,11 @@ rendering a **CopilotKit-branded card** plus **charts** as images, and each
 triggerable **two ways** — a slash command _and_ a prompt (the agent calls the
 matching `render_*` tool). Both paths share one `render*` fn.
 
-| Feature              | Slash / prompt               | Data                          | Renders                                                                         |
-| -------------------- | ---------------------------- | ----------------------------- | ------------------------------------------------------------------------------- |
-| **PR review radar**  | `/prs` · "show the PR radar" | GitHub PRs (public, no token) | card of oldest open PRs (age-coloured badges) + PRs-by-age bar chart            |
-| **Weekly OSS pulse** | `/pulse` · "weekly pulse"    | GitHub + npm (public)         | KPI card (stars · downloads · issues) + downloads line chart + issues bar chart |
-| **Linear standup**   | `/standup` · "cycle standup" | Linear (`LINEAR_API_KEY`)     | per-team progress card (a meter per team) + done-vs-remaining stacked bar       |
+| Feature              | Slash / prompt                   | Data                                                    | Renders                                                                                   |
+| -------------------- | -------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **PR review radar**  | `/prs` · "show the PR radar"     | GitHub PRs (public, no token)                           | card of oldest open PRs (age-coloured badges) + PRs-by-age bar chart                      |
+| **Weekly OSS pulse** | `/pulse` · "weekly pulse"        | GitHub + npm (public)                                   | KPI card (stars · downloads · issues) + downloads line chart + issues bar chart           |
+| **Linear standup**   | `/standup` · "cycle standup"     | Linear (`LINEAR_API_KEY`)                               | per-team progress card (a meter per team) + done-vs-remaining stacked bar                 |
 | **Product carousel** | `/carousel` or "show a carousel" | Sample catalog (or items you pass to `render_carousel`) | native carousel: React `ProductCard` PNGs plus native headers, sale text, and Buy buttons |
 
 The brand look comes from **Tailwind**: cards are authored with Tailwind classes

@@ -23,16 +23,15 @@ function fakeThread() {
   return { posts, thread };
 }
 
-function collectTypes(node: ChannelNode | unknown, acc: string[] = []): string[] {
+function collectTypes(
+  node: ChannelNode | unknown,
+  acc: string[] = [],
+): string[] {
   if (!node || typeof node !== "object") return acc;
   const n = node as ChannelNode;
   if (typeof n.type === "string") acc.push(n.type);
   const children = n.props?.children;
-  const list = Array.isArray(children)
-    ? children
-    : children
-      ? [children]
-      : [];
+  const list = Array.isArray(children) ? children : children ? [children] : [];
   for (const child of list) collectTypes(child, acc);
   return acc;
 }
@@ -55,10 +54,7 @@ function findButtons(nodes: ChannelNode[]): ChannelNode[] {
 describe("render_carousel tool", () => {
   it("posts a carousel of sample React product cards plus native Buy buttons", async () => {
     const { posts, thread } = fakeThread();
-    const res = await renderCarouselTool.handler(
-      {},
-      { thread } as never,
-    );
+    const res = await renderCarouselTool.handler({}, { thread } as never);
 
     expect(posts).toHaveLength(1);
     expect(res).toBe("Posted a 3-item carousel.");

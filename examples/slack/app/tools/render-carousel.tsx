@@ -25,9 +25,7 @@ import { ProductCard } from "../components/product-card.js";
 export const catalogItemSchema = z.object({
   name: z.string().describe("Product name, e.g. 'Red shoes'."),
   price: z.string().describe("Formatted price, e.g. '$89'."),
-  color: z
-    .string()
-    .describe("Hex swatch for the card, e.g. '#5a3cd1'."),
+  color: z.string().describe("Hex swatch for the card, e.g. '#5a3cd1'."),
   tag: z.string().optional().describe("Optional badge, e.g. 'On sale'."),
 });
 
