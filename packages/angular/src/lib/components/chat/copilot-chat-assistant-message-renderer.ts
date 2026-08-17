@@ -84,7 +84,6 @@ function processMathEquationsInHtml(html: string): string {
 @Component({
   standalone: true,
   selector: "copilot-chat-assistant-message-renderer",
-  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

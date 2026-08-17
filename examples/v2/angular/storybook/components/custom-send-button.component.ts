@@ -9,7 +9,6 @@ import {
 @Component({
   selector: "custom-send-button",
   standalone: true,
-  imports: [],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <button

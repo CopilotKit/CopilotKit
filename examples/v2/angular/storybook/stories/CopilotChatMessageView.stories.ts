@@ -295,7 +295,6 @@ type SearchArgs = z.infer<typeof searchArgsSchema>;
 // SearchToolRender component with explicit inputs
 @Component({
   standalone: true,
-  imports: [],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div [style]="containerStyle">
@@ -364,7 +363,6 @@ export class CalculatorCounterService {
 // CalculatorToolRender component with interactive counters
 @Component({
   standalone: true,
-  imports: [],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div [style]="containerStyle">
@@ -519,7 +517,6 @@ class CalculatorToolRenderComponent implements ToolRenderer<CalculatorArgs> {
 // WildcardToolRender component for unmatched tools
 @Component({
   standalone: true,
-  imports: [],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div

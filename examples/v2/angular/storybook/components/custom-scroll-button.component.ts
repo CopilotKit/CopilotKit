@@ -9,7 +9,6 @@ import {
 @Component({
   selector: "custom-scroll-button",
   standalone: true,
-  imports: [],
   template: `
     <button
       type="button"
