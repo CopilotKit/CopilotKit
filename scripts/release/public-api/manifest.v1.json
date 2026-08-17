@@ -19,7 +19,7 @@
   "packages": [
     {
       "name": "@copilotkit/a2ui-renderer",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/a2ui-renderer",
       "entrypoints": [
         {
@@ -136,7 +136,7 @@
     },
     {
       "name": "@copilotkit/agentcore-runner",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/agentcore-runner",
       "entrypoints": [
         {
@@ -279,7 +279,7 @@
     },
     {
       "name": "@copilotkit/channels",
-      "version": "0.8.1",
+      "version": "0.9.0",
       "sourceDirectory": "packages/channels",
       "entrypoints": [
         {
@@ -521,7 +521,7 @@
     },
     {
       "name": "@copilotkit/channels-core",
-      "version": "0.8.1",
+      "version": "0.9.0",
       "sourceDirectory": "packages/channels-core",
       "entrypoints": [
         {
@@ -637,7 +637,7 @@
     },
     {
       "name": "@copilotkit/channels-discord",
-      "version": "0.8.1",
+      "version": "0.9.0",
       "sourceDirectory": "packages/channels-discord",
       "entrypoints": [
         {
@@ -678,7 +678,7 @@
     },
     {
       "name": "@copilotkit/channels-intelligence",
-      "version": "0.8.1",
+      "version": "0.9.0",
       "sourceDirectory": "packages/channels-intelligence",
       "entrypoints": [
         {
@@ -719,7 +719,7 @@
     },
     {
       "name": "@copilotkit/channels-slack",
-      "version": "0.8.1",
+      "version": "0.9.0",
       "sourceDirectory": "packages/channels-slack",
       "entrypoints": [
         {
@@ -788,7 +788,7 @@
     },
     {
       "name": "@copilotkit/channels-teams",
-      "version": "0.8.1",
+      "version": "0.9.0",
       "sourceDirectory": "packages/channels-teams",
       "entrypoints": [
         {
@@ -843,7 +843,7 @@
     },
     {
       "name": "@copilotkit/channels-telegram",
-      "version": "0.8.1",
+      "version": "0.9.0",
       "sourceDirectory": "packages/channels-telegram",
       "entrypoints": [
         {
@@ -884,7 +884,7 @@
     },
     {
       "name": "@copilotkit/channels-ui",
-      "version": "0.8.1",
+      "version": "0.9.0",
       "sourceDirectory": "packages/channels-ui",
       "entrypoints": [
         {
@@ -970,7 +970,7 @@
     },
     {
       "name": "@copilotkit/channels-whatsapp",
-      "version": "0.8.1",
+      "version": "0.9.0",
       "sourceDirectory": "packages/channels-whatsapp",
       "entrypoints": [
         {
@@ -1011,7 +1011,7 @@
     },
     {
       "name": "@copilotkit/core",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/core",
       "entrypoints": [
         {
@@ -1072,7 +1072,7 @@
     },
     {
       "name": "@copilotkit/react-core",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/react-core",
       "entrypoints": [
         {
@@ -1188,7 +1188,7 @@
     },
     {
       "name": "@copilotkit/react-native",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/react-native",
       "entrypoints": [
         {
@@ -1383,7 +1383,7 @@
     },
     {
       "name": "@copilotkit/react-textarea",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/react-textarea",
       "entrypoints": [
         {
@@ -1456,7 +1456,7 @@
     },
     {
       "name": "@copilotkit/react-ui",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/react-ui",
       "entrypoints": [
         {
@@ -1539,7 +1539,7 @@
     },
     {
       "name": "@copilotkit/runtime",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/runtime",
       "entrypoints": [
         {
@@ -1695,7 +1695,7 @@
     },
     {
       "name": "@copilotkit/runtime-client-gql",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/runtime-client-gql",
       "entrypoints": [
         {
@@ -1756,7 +1756,7 @@
     },
     {
       "name": "@copilotkit/sdk-js",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/sdk-js",
       "entrypoints": [
         {
@@ -1863,7 +1863,7 @@
     },
     {
       "name": "@copilotkit/shared",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/shared",
       "entrypoints": [
         {
@@ -1924,7 +1924,7 @@
     },
     {
       "name": "@copilotkit/sqlite-runner",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/sqlite-runner",
       "entrypoints": [
         {
@@ -2001,7 +2001,7 @@
     },
     {
       "name": "@copilotkit/voice",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/voice",
       "entrypoints": [
         {
@@ -2070,7 +2070,7 @@
     },
     {
       "name": "@copilotkit/vue",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/vue",
       "entrypoints": [
         {
@@ -2176,7 +2176,7 @@
     },
     {
       "name": "@copilotkit/web-components",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/web-components",
       "entrypoints": [
         {
@@ -2271,7 +2271,7 @@
     },
     {
       "name": "@copilotkit/web-inspector",
-      "version": "1.67.1",
+      "version": "1.68.1",
       "sourceDirectory": "packages/web-inspector",
       "entrypoints": [
         {

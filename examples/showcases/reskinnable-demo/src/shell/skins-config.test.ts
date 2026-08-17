@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { Linter } from "eslint";
+import { ESLint, Linter } from "eslint";
 import { defaultSkinId, skinIdentities, skinIds } from "./skins-config";
 import { allSkins, SkinRegistry } from "./registry";
-import eslintConfig, { LINTED_SKIN_IDS } from "../../eslint.config.mjs";
+import eslintConfig, {
+  LINTED_SKIN_IDS,
+  NAMED_SELECTORS,
+} from "../../eslint.config.mjs";
 
 describe("skinIds", () => {
   // `skins-config.ts` must stay free of skin imports so server components can
@@ -23,12 +26,11 @@ describe("skinIds", () => {
 describe("the LOCK_SKIN lint guard", () => {
   // `eslint.config.mjs` hand-copies the skin id list into the `no-restricted-syntax`
   // selectors that enforce the LOCK_SKIN URL contract (it cannot import `skinIds`
-  // — see the comment on `LINTED_SKIN_IDS`). That copy rots SILENTLY: it named
-  // only the first four skins for two releases after `people` and `commerce`
-  // shipped, so a hardcoded `"/commerce/orders"` href passed `pnpm lint` while
+  // — see the comment on `LINTED_SKIN_IDS`). That copy rots SILENTLY: a skin
+  // missing from it lets a hardcoded `"/<skin>/…"` href pass `pnpm lint` while
   // breaking the address bar on a locked deploy. CLAUDE.md and the reskin skill
   // both promise `pnpm lint` "fails and names your file" for exactly that href,
-  // so the omission falsified documented behaviour with nothing to catch it.
+  // so an omission falsifies documented behaviour with nothing else to catch it.
   //
   // These two tests are that catch. The first pins the list; the second proves
   // the SELECTORS actually fire, so a refactor that keeps the list but breaks the
@@ -65,6 +67,158 @@ describe("the LOCK_SKIN lint guard", () => {
     );
     expect(unguarded).toEqual([]);
   });
+});
+
+describe("the resolved no-restricted-syntax selectors", () => {
+  // ESLint flat-config `rules` OPTIONS ARE REPLACED, NOT MERGED: for a given rule
+  // key the last block matching a file wins outright, so a later block silently
+  // drops every selector it does not restate. A block listing only its own
+  // selector therefore costs its files every selector it did not restate, and
+  // `pnpm lint` stays green — the synthetic-link test above does not notice
+  // either, because it lints a MADE-UP snippet through a hand-picked block rather
+  // than asking what a REAL FILE actually resolves to. This is the mechanical
+  // check.
+  //
+  // WHY `calculateConfigForFile` AND NOT A WALK OF THE EXPORTED ARRAY. The bug IS
+  // the resolution order. Re-implementing "last matching block wins" here would
+  // re-implement the very thing that must be verified, and any walk that models
+  // replacement correctly is just a worse copy of ESLint's own resolver. This
+  // calls the resolver.
+  //
+  // ASSERT THE LIST, NEVER A COUNT. A count rots the moment a block changes, and
+  // different files legitimately resolve to different totals (`actions.ts`
+  // resolves to two). A count also cannot say WHICH
+  // selector went missing. Selectors are named via `NAMED_SELECTORS` — the rule's
+  // own option schema is `additionalProperties: false` over `{ selector, message }`,
+  // so a `name` key on the option object itself is a hard config error.
+  const nameOf = (selector: string) =>
+    Object.entries(NAMED_SELECTORS).find(
+      ([, option]) => option.selector === selector,
+    )?.[0] ?? `UNNAMED(${selector})`;
+
+  // Every file whose selector set is deliberately different from its neighbours'.
+  // Widening a rule's `files` glob means updating a row here — that edit is the
+  // point.
+  it.each([
+    [
+      "src/skins/logistics/tools.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    [
+      "src/skins/logistics/agent.ts",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    // Any other logistics .tsx — pages and components carry beat 2 but not beat 6.
+    [
+      "src/skins/logistics/pages/control-tower.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    // The other two skins shipping a withheld gate vocabulary. Both carry beat 2
+    // AND beat 6, so both agent-facing files resolve to the full five, exactly as
+    // logistics does.
+    [
+      "src/skins/airline/tools.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    [
+      "src/skins/airline/agent.ts",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    [
+      "src/skins/keel/tools.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    [
+      "src/skins/keel/agent.ts",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    // The human filing FORMS are deliberately OUTSIDE the beat-6 block: each one
+    // legitimately imports its skin's label map, because the operator reads it and
+    // the agent learns the code by WATCHING them choose one. A withheld catalogue
+    // with no form is an unlearnable gate. They still carry beat 2.
+    [
+      "src/skins/airline/components/fare-exception-form.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    [
+      "src/skins/keel/components/variance-form.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    // A skin the beat-2 glob has NOT reached: it must not gain the selector
+    // before it is verified clean, or the tree goes red on a skin nobody has
+    // checked.
+    [
+      "src/skins/banking/tools.tsx",
+      ["literalSkinPrefix", "templateLeadingPrefix", "interpolationThenSlash"],
+    ],
+    // The REST/data layer legitimately drops the builder-concat selector.
+    [
+      "src/skins/logistics/actions.ts",
+      ["literalSkinPrefix", "templateLeadingPrefix"],
+    ],
+  ])(
+    "%s resolves to exactly its expected selectors",
+    async (file, expected) => {
+      const resolved = await new ESLint().calculateConfigForFile(file);
+      const entry = resolved.rules?.["no-restricted-syntax"];
+      expect(Array.isArray(entry)).toBe(true);
+      const [, ...selectors] = entry as [string, ...{ selector: string }[]];
+      expect(selectors.map((option) => nameOf(option.selector))).toEqual(
+        expected,
+      );
+    },
+  );
 });
 
 describe("skinIdentities", () => {

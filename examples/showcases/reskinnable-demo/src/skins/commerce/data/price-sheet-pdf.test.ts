@@ -30,7 +30,36 @@ function pdfText(bytes: Uint8Array): string {
 }
 
 /**
- * The lines between the "Cost movement" heading and the next section.
+ * Rejoin a sentence the page drew across more than one line.
+ *
+ * `buildPdf` wraps prose to the page (`@/shell/documents`), so a DRAWN line is no
+ * longer the same thing as a SENTENCE — this sheet's count summary is 89
+ * characters and now lands on two. Every assertion below is about the narrative,
+ * not the typography, so the sentences have to be reassembled first. (Before the
+ * shell wrapped, that summary simply ran off the right margin and was clipped by
+ * the reader; these tests passed throughout, because they read the content stream
+ * rather than the page.)
+ *
+ * The join rule is a property of the CONTENT, not of the wrap: every sentence
+ * here ends in a full stop, so a line whose predecessor does not is that
+ * predecessor's continuation. Re-implementing the writer's word-fitting to undo
+ * it would make this test pass for the same reason the writer is correct.
+ */
+function rejoinWrapped(lines: string[]): string[] {
+  const out: string[] = [];
+  for (const line of lines) {
+    const previous = out.at(-1);
+    if (previous !== undefined && !previous.endsWith(".")) {
+      out[out.length - 1] = `${previous} ${line}`;
+    } else {
+      out.push(line);
+    }
+  }
+  return out;
+}
+
+/**
+ * The SENTENCES between the "Cost movement" heading and the next section.
  *
  * THROWS rather than returning `[]` when the heading is gone: several assertions
  * below are of the form "the section says nothing rose", which an empty section
@@ -47,7 +76,7 @@ function movementSection(text: string): string[] {
     );
   }
   const end = lines.indexOf("Terms", start);
-  return lines.slice(start + 1, end === -1 ? undefined : end);
+  return rejoinWrapped(lines.slice(start + 1, end === -1 ? undefined : end));
 }
 
 interface Claim {

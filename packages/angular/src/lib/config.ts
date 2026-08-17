@@ -38,6 +38,8 @@ export interface A2UIRecoveryOptions {
 export interface CopilotKitConfig {
   runtimeUrl?: string;
   headers?: Record<string, string>;
+  /** Fetch credentials mode used for CopilotKit runtime requests. */
+  credentials?: RequestCredentials;
   licenseKey?: string;
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;

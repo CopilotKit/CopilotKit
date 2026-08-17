@@ -11,15 +11,21 @@ const STATUS_TONE: Record<Decision["status"], string> = {
   escalated: "bg-negative-soft text-negative",
 };
 
+/**
+ * Newest first. Exported so the Decision Log page's beat-3b readable and this
+ * list share ONE ordering rather than each carrying a copy of the comparator —
+ * see `orderExceptionRows`.
+ */
+export function orderDecisionRows(decisions: Decision[]): Decision[] {
+  return [...decisions].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 export function DecisionLog({ decisions }: { decisions: Decision[] }) {
   if (!decisions.length) {
     return <p className="text-sm text-ink-muted">No decisions filed yet.</p>;
   }
 
-  // Newest first.
-  const rows = [...decisions].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
-  );
+  const rows = orderDecisionRows(decisions);
 
   return (
     <ul className="space-y-2">

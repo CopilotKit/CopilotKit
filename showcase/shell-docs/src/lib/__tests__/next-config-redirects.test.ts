@@ -1,43 +1,8 @@
-import { existsSync } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-const TEST_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 
 describe("next.config redirects", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
-  });
-
-  it("rewrites the public well-known capability URL to its route", async () => {
-    const nextConfig = (await import("../../../next.config")).default;
-    const rewrites = await nextConfig.rewrites?.();
-
-    expect(rewrites).toMatchObject({
-      beforeFiles: expect.arrayContaining([
-        {
-          source: "/.well-known/copilotkit-capabilities/v1.json",
-          destination: "/well-known/copilotkit-capabilities/v1.json",
-        },
-      ]),
-    });
-  });
-
-  it("sets an absolute Turbopack root that contains the shared AEO contract", async () => {
-    const nextConfig = (await import("../../../next.config")).default;
-    const turbopackRoot = nextConfig.turbopack?.root;
-
-    expect(turbopackRoot).toBe(resolve(TEST_DIRECTORY, "../../../.."));
-    expect(isAbsolute(turbopackRoot ?? "")).toBe(true);
-    expect(
-      existsSync(
-        resolve(
-          turbopackRoot ?? "",
-          "shared/aeo/public-surface-contract.v1.json",
-        ),
-      ),
-    ).toBe(true);
   });
 
   it("does not redirect authored framework-scoped Generative UI component pages", async () => {

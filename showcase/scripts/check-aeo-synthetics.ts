@@ -1,7 +1,5 @@
-import { readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { AEO_CONTRACT_PATH } from "./validate-aeo-contract";
 import {
   markdownLinkUrls,
   metadataUrl,
@@ -52,22 +50,17 @@ const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 type MonitoredHost = keyof typeof REQUIRED_ENDPOINTS;
 
-interface ContractEndpoint {
-  path: string;
-  contentTypes: string[];
-}
-
-interface ContractSurface {
-  id: string;
-  host: "website" | "docs" | "docsMcp";
-  classification: string;
-  endpoints: ContractEndpoint[];
-}
-
-export interface AeoSyntheticContract {
+export interface AeoSyntheticConfig {
   canonicalHosts: Record<"website" | "docs" | "docsMcp", string>;
-  surfaces: ContractSurface[];
 }
+
+export const AEO_SYNTHETIC_CONFIG: AeoSyntheticConfig = {
+  canonicalHosts: {
+    website: "https://www.copilotkit.ai",
+    docs: "https://docs.copilotkit.ai",
+    docsMcp: "https://mcp.copilotkit.ai",
+  },
+};
 
 interface SyntheticTarget {
   host: MonitoredHost;
@@ -95,78 +88,31 @@ export type FetchLike = (
   init?: RequestInit,
 ) => Promise<Response>;
 
-export function loadAeoSyntheticContract(
-  repositoryRoot: string,
-): AeoSyntheticContract {
-  const path = join(repositoryRoot, AEO_CONTRACT_PATH);
-  try {
-    return JSON.parse(readFileSync(path, "utf8")) as AeoSyntheticContract;
-  } catch (error) {
-    throw new Error(
-      `Unable to load AEO synthetic baseline ${path}: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error },
-    );
-  }
-}
-
-function declaredEndpoints(
-  contract: AeoSyntheticContract,
-  host: MonitoredHost,
-): Map<string, ReadonlySet<string>> {
-  const endpoints = new Map<string, Set<string>>();
-  for (const surface of contract.surfaces) {
-    if (
-      surface.host !== host ||
-      surface.classification === "copilotkit-contract"
-    ) {
-      continue;
-    }
-    for (const endpoint of surface.endpoints) {
-      const path = endpoint.path === "/**" ? "/" : endpoint.path;
-      const types = endpoints.get(path) ?? new Set<string>();
-      endpoint.contentTypes.forEach((type) => types.add(type));
-      endpoints.set(path, types);
-    }
-  }
-  return endpoints;
-}
-
 export function validateAeoSyntheticConfig(
-  contract: AeoSyntheticContract,
+  config: AeoSyntheticConfig,
 ): string[] {
   const errors: string[] = [];
   for (const host of ["website", "docs"] as const) {
     try {
-      const origin = new URL(contract.canonicalHosts[host]);
+      const origin = new URL(config.canonicalHosts[host]);
       if (origin.protocol !== "https:" || origin.pathname !== "/") {
         throw new Error("not an HTTPS origin");
       }
     } catch {
       errors.push(`${host} canonical host must be an HTTPS origin`);
     }
-
-    const declared = declaredEndpoints(contract, host);
-    for (const [path, contentType] of REQUIRED_ENDPOINTS[host]) {
-      const declaredTypes = declared.get(path);
-      if (!declaredTypes) {
-        errors.push(`${host} baseline is missing ${path}`);
-      } else if (!declaredTypes.has(contentType)) {
-        errors.push(`${host} ${path} must declare Content-Type ${contentType}`);
-      }
-    }
   }
   return errors;
 }
 
-function targetsFromContract(
-  contract: AeoSyntheticContract,
-): SyntheticTarget[] {
-  return (["website", "docs"] as const).flatMap((host) => {
-    const declared = declaredEndpoints(contract, host);
-    return [...REQUIRED_ENDPOINTS[host]].flatMap(([path, contentType]) =>
-      declared.has(path) ? [{ host, path, contentType }] : [],
-    );
-  });
+function syntheticTargets(): SyntheticTarget[] {
+  return (["website", "docs"] as const).flatMap((host) =>
+    [...REQUIRED_ENDPOINTS[host]].map(([path, contentType]) => ({
+      host,
+      path,
+      contentType,
+    })),
+  );
 }
 
 function attributes(tag: string): Map<string, string> {
@@ -277,12 +223,12 @@ function createFailure(
 }
 
 function responseReasons(
-  contract: AeoSyntheticContract,
+  config: AeoSyntheticConfig,
   target: SyntheticTarget,
   response: Response,
   body: string,
 ): string[] {
-  const origin = contract.canonicalHosts[target.host];
+  const origin = config.canonicalHosts[target.host];
   const contentType = response.headers.get("content-type") ?? "";
   const reasons: string[] = [];
   if (response.status !== 200) {
@@ -326,7 +272,7 @@ function responseReasons(
         : markdownLinkUrls(body);
     if (urls.length === 0)
       reasons.push("machine content contains no indexed URLs");
-    const canonicalOrigins = new Set(Object.values(contract.canonicalHosts));
+    const canonicalOrigins = new Set(Object.values(config.canonicalHosts));
     for (const rawUrl of urls) {
       try {
         const parsed = new URL(rawUrl);
@@ -358,13 +304,13 @@ function responseReasons(
 }
 
 async function checkTarget(
-  contract: AeoSyntheticContract,
+  config: AeoSyntheticConfig,
   target: SyntheticTarget,
   crawler: (typeof CRAWLERS)[number],
   fetchImpl: FetchLike,
   timeoutMs: number,
 ): Promise<SyntheticFailure[]> {
-  const url = new URL(target.path, `${contract.canonicalHosts[target.host]}/`)
+  const url = new URL(target.path, `${config.canonicalHosts[target.host]}/`)
     .href;
   let fetched: { response: Response; body: string };
   try {
@@ -380,7 +326,7 @@ async function checkTarget(
   }
 
   const reasons = responseReasons(
-    contract,
+    config,
     target,
     fetched.response,
     fetched.body,
@@ -459,18 +405,18 @@ async function mapWithConcurrency<T, R>(
 }
 
 export async function runAeoSyntheticChecks(
-  contract: AeoSyntheticContract,
+  config: AeoSyntheticConfig,
   fetchImpl: FetchLike = globalThis.fetch,
   options: RunOptions = {},
 ): Promise<SyntheticFailure[]> {
   if (options.validateConfig !== false) {
-    const errors = validateAeoSyntheticConfig(contract);
+    const errors = validateAeoSyntheticConfig(config);
     if (errors.length > 0) {
       throw new Error(`Invalid AEO synthetic baseline:\n${errors.join("\n")}`);
     }
   }
   const jobs = CRAWLERS.flatMap((crawler) =>
-    targetsFromContract(contract).map((target) => ({ crawler, target })),
+    syntheticTargets().map((target) => ({ crawler, target })),
   );
   return (
     await mapWithConcurrency(
@@ -478,7 +424,7 @@ export async function runAeoSyntheticChecks(
       options.maxConcurrency ?? DEFAULT_MAX_CONCURRENCY,
       ({ crawler, target }) =>
         checkTarget(
-          contract,
+          config,
           target,
           crawler,
           fetchImpl,
@@ -497,12 +443,7 @@ export function formatSyntheticFailure(result: SyntheticFailure): string {
 }
 
 async function main(): Promise<void> {
-  const repositoryRoot = resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    "../..",
-  );
-  const contract = loadAeoSyntheticContract(repositoryRoot);
-  const failures = await runAeoSyntheticChecks(contract);
+  const failures = await runAeoSyntheticChecks(AEO_SYNTHETIC_CONFIG);
   if (failures.length > 0) {
     console.error(
       `AEO synthetic checks failed (${failures.length}):\n${failures

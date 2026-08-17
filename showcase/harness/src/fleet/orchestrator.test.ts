@@ -12,6 +12,8 @@ import type {
   ServiceJobResult,
 } from "./contracts.js";
 import type { Logger } from "../types/index.js";
+import { drainFleetWorker, makeRecycleExit } from "../orchestrator.js";
+import { WORKER_RECYCLE_EXIT_CODE } from "./worker/worker-loop.js";
 import { BrowserPool } from "../probes/helpers/browser-pool.js";
 import type {
   LaunchBrowser,
@@ -191,6 +193,122 @@ describe("runWorker default (self-contained) boot", () => {
       note: "no D5 features declared",
     });
   });
+});
+
+describe("runWorker recycle exit — deregister-first before process.exit", () => {
+  it(
+    "forwards the injected recycle exit to the loop so a WORKER_MAX_JOBS recycle runs drainFleetWorker (deregister) BEFORE exiting non-zero",
+    { timeout: 20000 },
+    async () => {
+      // The GAP this guards: a WORKER_MAX_JOBS recycle must deregister the roster
+      // row before the container restarts — otherwise the row strands for ~180s
+      // until fleet-health reclaims it, tripping a transient false-red every
+      // recycle. Pre-fix, fleet `runWorker` did NOT forward the `exit` dep to
+      // `startWorkerLoop`, so the loop fell back to a bare `process.exit` that
+      // skipped deregister. This test wires the PRODUCTION-shaped exit
+      // (`makeRecycleExit` → `gracefulTeardown` → the REAL `drainFleetWorker`),
+      // drives a real recycle, and asserts the deregister ran BEFORE the exit.
+      const order: string[] = [];
+      const registration = {
+        stop: (): void => {
+          order.push("registration.stop");
+        },
+        deregister: async (): Promise<void> => {
+          order.push("deregister");
+        },
+      };
+      const shutdownPool = async (): Promise<void> => {
+        order.push("shutdownPool");
+      };
+      const exitCodes: number[] = [];
+      const processExit = (code: number): void => {
+        order.push("processExit");
+        exitCodes.push(code);
+      };
+
+      // Late-bound worker handle (assigned by runWorker below) — mirrors the
+      // production wiring: the exit only dereferences it at recycle time.
+      let workerHandle: Awaited<ReturnType<typeof runWorker>> | undefined;
+      const gracefulTeardown = (): Promise<void> => {
+        // Runtime guard, NOT an `as NonNullable` cast: a recycle-ordering
+        // regression that fired the teardown before `runWorker` assigned the
+        // handle would otherwise silently pass `undefined` into drainFleetWorker
+        // (the cast hid that case). Fail LOUD so the regression surfaces here.
+        if (workerHandle === undefined) {
+          throw new Error(
+            "gracefulTeardown ran before runWorker assigned the worker handle",
+          );
+        }
+        return drainFleetWorker({
+          worker: workerHandle,
+          registration,
+          shutdownPool,
+        });
+      };
+      const exit = makeRecycleExit({
+        gracefulTeardown,
+        logger: silentLogger,
+        processExit,
+      });
+
+      // Safety net: if a regression drops the forwarding, the loop's DEFAULT exit
+      // is the real `process.exit` — stub it so a broken test can't kill the
+      // vitest worker (and so we can assert the default path was NOT taken).
+      const exitStub = vi
+        .spyOn(process, "exit")
+        .mockImplementation((() => undefined) as never);
+
+      // The loop resolves its recycle threshold from process.env at construction
+      // (resolveNonNegativeIntEnv), NOT the injected `env`. Stub it to recycle
+      // after the FIRST settled job (jitter 0 pins the threshold to 1) using the
+      // suite's vi.stubEnv style so the finally's vi.unstubAllEnvs guarantees
+      // teardown even if runWorker throws.
+      vi.stubEnv("WORKER_MAX_JOBS", "1");
+      vi.stubEnv("WORKER_MAX_JOBS_JITTER", "0");
+
+      const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+      try {
+        workerHandle = await runWorker(config, {
+          queue,
+          workerId: "worker-recycle-test",
+          logger: silentLogger,
+          env: {},
+          skipHealthServer: true,
+          leaseSeconds: 2000,
+          heartbeatMs: 1_000_000,
+          pollIntervalMs: 1,
+          launchBrowser: makeNoopLauncher(),
+          cgroupPidsReader: headroomPidsReader,
+          exit,
+        });
+        // The threshold was read at construction; unstub NOW so a lazy-threshold-
+        // read regression (reading the knob at recycle time instead) sees the
+        // default, never recycles, and FAILS FAST at the 5s waitFor below — rather
+        // than the stub keeping the recycle alive and masking the regression.
+        vi.unstubAllEnvs();
+
+        // One job settles → recycle fires → the forwarded exit runs to completion.
+        await vi.waitFor(
+          () => expect(exitCodes).toContain(WORKER_RECYCLE_EXIT_CODE),
+          { timeout: 5000 },
+        );
+
+        // Deregister-first: the roster delete ran BEFORE the process exit.
+        const deregisterAt = order.indexOf("deregister");
+        const exitAt = order.indexOf("processExit");
+        expect(deregisterAt).toBeGreaterThanOrEqual(0);
+        expect(exitAt).toBeGreaterThanOrEqual(0);
+        expect(deregisterAt).toBeLessThan(exitAt);
+        // The forwarded exit was used — the loop's default real process.exit was NOT.
+        expect(exitStub).not.toHaveBeenCalled();
+      } finally {
+        exitStub.mockRestore();
+        // Guarantee the recycle-knob stubs are gone even if runWorker threw before
+        // the inline unstub above (idempotent with it).
+        vi.unstubAllEnvs();
+      }
+    },
+  );
 });
 
 /** Bind-then-release an ephemeral port for the worker /health server. */

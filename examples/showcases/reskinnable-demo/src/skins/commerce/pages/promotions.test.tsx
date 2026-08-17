@@ -133,7 +133,11 @@ vi.mock("../data/ledger-context", () => ({
 }));
 
 const steps: { label: string; data?: string }[] = [];
-vi.mock("../components/recording-context", () => ({
+// Only `useRecording` is stubbed; the rest of the shell teach module is passed
+// through, so a component that renders `RecordingProvider` / `RecordingVignette`
+// / `RecordingFeed` anywhere in this graph still gets the real one.
+vi.mock("@/shell/teach", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/shell/teach")>()),
   useRecording: () => ({
     isRecording: false,
     steps: [],
@@ -141,7 +145,6 @@ vi.mock("../components/recording-context", () => ({
     endRecording: () => {},
     logStep: (label: string, data?: string) => steps.push({ label, data }),
     getDemonstratedCode: () => null,
-    reset: () => {},
   }),
 }));
 

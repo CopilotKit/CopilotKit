@@ -2,6 +2,12 @@ import { isNativeNode } from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { ContextActionsBlock, KnownBlock } from "@slack/types";
 import { markdownToMrkdwn } from "../markdown-to-mrkdwn.js";
+import {
+  markdownToRichTextRuns,
+  needsRichText,
+  truncateRuns,
+} from "../markdown-to-rich-text.js";
+import type { RichTextRun } from "../markdown-to-rich-text.js";
 import { SLACK_LIMITS, clampArray, truncateText } from "./budget.js";
 import { serializeSlackNativeNode } from "../native-codec.js";
 import { validateSlackBlockKit } from "../block-kit-validation.js";
@@ -315,14 +321,9 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       return;
     }
     case "table": {
-      // Native Slack Table block: rows of `{ type: "raw_text", text }` cells.
-      // Header row from `columns`, data rows from `row`/`cell` children.
-      // Not yet in `@slack/types`, so the block is built plain and cast.
-      const cellOf = (text: string): { type: "raw_text"; text: string } => ({
-        type: "raw_text",
-        text: truncateText(text, SLACK_LIMITS.cellText),
-      });
-
+      // Native Slack Table block. Header row from `columns`, data rows from
+      // `row`/`cell` children. Not yet in `@slack/types`, so the block is
+      // built plain and cast.
       const columnsProp = props.columns as
         | { header: string; align?: "left" | "center" | "right" }[]
         | undefined;
@@ -330,16 +331,18 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
         ? clampArray(columnsProp, SLACK_LIMITS.tableColumns).items
         : undefined;
 
-      const rows: { type: "raw_text"; text: string }[][] = [];
+      const rows: TableCell[][] = [];
       if (columns && columns.length > 0) {
-        rows.push(columns.map((c) => cellOf(c.header)));
+        // Header cells stay `raw_text`: Slack already renders them bold, and
+        // `rich_text` is not allowed in a `data_table` header cell.
+        rows.push(columns.map((c) => rawTextCell(c.header)));
       }
 
       const rowNodes = childNodes(node).filter((c) => c.type === "row");
       const { items: dataRows } = clampArray(rowNodes, SLACK_LIMITS.tableRows);
       for (const rowNode of dataRows) {
         const cells = childNodes(rowNode).filter((c) => c.type === "cell");
-        rows.push(cells.map((cell) => cellOf(collectText(cell))));
+        rows.push(cells.map((cell) => bodyCell(collectText(cell))));
       }
 
       const block: Record<string, unknown> = { type: "table", rows };
@@ -562,6 +565,47 @@ function fieldMrkdwn(node: ChannelNode): string {
 }
 
 /** Concatenate the `value` of all descendant `text` nodes (depth-first). */
+/**
+ * A cell of a Slack `table` block. `raw_text` is literal — Markdown, Slack
+ * link syntax and bare URLs all render as plain characters — so cell content
+ * that carries inline markup is promoted to `rich_text` instead.
+ *
+ * Only the portable `<Table>` vocabulary funnels through here; a `data_table`
+ * only ever reaches Slack via the native passthrough (`Slack.Block.DataTable`
+ * → `native-codec.ts`), which is untouched. `rich_text` body cells were
+ * verified to render in both block types.
+ */
+type TableCell =
+  | { type: "raw_text"; text: string }
+  | {
+      type: "rich_text";
+      elements: [{ type: "rich_text_section"; elements: RichTextRun[] }];
+    };
+
+function rawTextCell(text: string): TableCell {
+  return { type: "raw_text", text: truncateText(text, SLACK_LIMITS.cellText) };
+}
+
+/**
+ * Render a body cell: `rich_text` when the content actually needs it (link,
+ * bold, italic, strikethrough or inline code), otherwise the byte-identical
+ * `raw_text` payload it has always produced — plain content, emoji glyphs
+ * included, passes through untouched.
+ */
+function bodyCell(text: string): TableCell {
+  const runs = markdownToRichTextRuns(text);
+  if (!needsRichText(runs)) return rawTextCell(text);
+  return {
+    type: "rich_text",
+    elements: [
+      {
+        type: "rich_text_section",
+        elements: truncateRuns(runs, SLACK_LIMITS.cellText),
+      },
+    ],
+  };
+}
+
 function collectText(node: ChannelNode): string {
   if (typeof node.type === "string" && node.type === "text") {
     return String(node.props?.value ?? "");

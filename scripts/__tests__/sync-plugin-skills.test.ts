@@ -119,6 +119,55 @@ describe("syncPluginSkills", () => {
     expect(result.message).toContain("skills/runtime/SKILL.md");
   });
 
+  it("write mode syncs package skill versions before mirroring", async () => {
+    await makeRepo(repo);
+    await writeFile(
+      join(repo, "packages/runtime/package.json"),
+      JSON.stringify({ name: "@copilotkit/runtime", version: "1.68.0" }),
+    );
+    await writeFile(
+      join(repo, "packages/runtime/skills/runtime/SKILL.md"),
+      '---\nname: runtime\nlibrary_version: "1.67.1"\n---\n# Runtime\n',
+    );
+
+    const result = await syncPluginSkills({ cwd: repo, mode: "write" });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      await readFile(
+        join(repo, "packages/runtime/skills/runtime/SKILL.md"),
+        "utf8",
+      ),
+    ).toContain('library_version: "1.68.0"');
+    expect(
+      await readFile(join(repo, "skills/runtime/SKILL.md"), "utf8"),
+    ).toContain('library_version: "1.68.0"');
+  });
+
+  it("check mode detects stale package skill versions", async () => {
+    await makeRepo(repo);
+    await writeFile(
+      join(repo, "packages/runtime/package.json"),
+      JSON.stringify({ name: "@copilotkit/runtime", version: "1.68.0" }),
+    );
+    await writeFile(
+      join(repo, "packages/runtime/skills/runtime/SKILL.md"),
+      '---\nname: runtime\nlibrary_version: "1.67.1"\n---\n# Runtime\n',
+    );
+    await mkdir(join(repo, "skills/runtime"), { recursive: true });
+    await writeFile(
+      join(repo, "skills/runtime/SKILL.md"),
+      '---\nname: runtime\nlibrary_version: "1.67.1"\n---\n# Runtime\n',
+    );
+
+    const result = await syncPluginSkills({ cwd: repo, mode: "check" });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.message).toContain(
+      "packages/runtime/skills/runtime/SKILL.md",
+    );
+  });
+
   it("check mode flags orphan files in the mirror (e.g., skill deleted from source)", async () => {
     await makeRepo(repo);
     await syncPluginSkills({ cwd: repo, mode: "write" });
