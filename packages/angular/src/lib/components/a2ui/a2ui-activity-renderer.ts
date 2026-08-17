@@ -58,14 +58,14 @@ import { CopilotA2UIRecovery } from "./a2ui-recovery";
         @if (!surfaceReady()) {
           <copilot-a2ui-recovery
             [content]="loaderContent()"
-            [options]="config.a2ui?.recovery"
+            [options]="$safeNavigationMigration(config.a2ui?.recovery)"
           />
         }
       </div>
     } @else {
       <copilot-a2ui-recovery
         [content]="content()"
-        [options]="config.a2ui?.recovery"
+        [options]="$safeNavigationMigration(config.a2ui?.recovery)"
       />
     }
   `,

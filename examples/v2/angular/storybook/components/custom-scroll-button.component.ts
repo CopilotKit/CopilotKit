@@ -1,10 +1,15 @@
-import { Component, Input, Output, EventEmitter } from "@angular/core";
-import { CommonModule } from "@angular/common";
+import {
+  Component,
+  Input,
+  Output,
+  EventEmitter,
+  ChangeDetectionStrategy,
+} from "@angular/core";
 
 @Component({
   selector: "custom-scroll-button",
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <button
       type="button"
@@ -33,9 +38,12 @@ import { CommonModule } from "@angular/common";
       "
       [style.transform]="isHovered ? 'scale(1.1)' : 'scale(1)'"
     >
-      <span style="color: white; font-size: 24px; pointer-events: none">⬇️</span>
+      <span style="color: white; font-size: 24px; pointer-events: none"
+        >⬇️</span
+      >
     </button>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     `
       button.hover {

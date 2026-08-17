@@ -10,7 +10,7 @@ import {
   AfterViewInit,
   ViewChild,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { Marked } from "marked";
 import hljs from "highlight.js";
 import * as katex from "katex";
@@ -84,7 +84,7 @@ function processMathEquationsInHtml(html: string): string {
 @Component({
   standalone: true,
   selector: "copilot-chat-assistant-message-renderer",
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -108,8 +108,8 @@ function processMathEquationsInHtml(html: string): string {
         border-radius: 0.25rem;
         font-size: 0.875rem;
         font-family:
-          ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
-          monospace;
+          ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono",
+          Menlo, monospace;
         font-weight: 500;
         color: #000000;
       }
@@ -196,8 +196,8 @@ function processMathEquationsInHtml(html: string): string {
         padding: 0;
         font-size: 0.875rem;
         font-family:
-          ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
-          monospace;
+          ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono",
+          Menlo, monospace;
       }
 
       /* Highlight.js theme adjustments */

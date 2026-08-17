@@ -1,27 +1,29 @@
-import { Component, Input } from "@angular/core";
+import { Component, Input, ChangeDetectionStrategy } from "@angular/core";
 
 @Component({
   selector: "custom-disclaimer",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div
       [class]="inputClass"
-      style="
+      style='
         text-align: center;
         padding: 20px;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         border-radius: 10px;
         margin: 10px;
-        font-family: &quot;Segoe UI&quot;, Tahoma, Geneva, Verdana, sans-serif;
-      "
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      '
     >
       <h3 style="margin: 0 0 10px 0; font-size: 20px">
         ✨ Custom Disclaimer Component ✨
       </h3>
       <p style="margin: 0; font-size: 14px; opacity: 0.9">
         {{
-          text || "This is a custom disclaimer demonstrating component overrides!"
+          text ||
+            "This is a custom disclaimer demonstrating component overrides!"
         }}
       </p>
       <div

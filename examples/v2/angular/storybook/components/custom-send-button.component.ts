@@ -1,10 +1,16 @@
-import { Component, EventEmitter, Input, Output } from "@angular/core";
-import { CommonModule } from "@angular/common";
+import {
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  ChangeDetectionStrategy,
+} from "@angular/core";
 
 @Component({
   selector: "custom-send-button",
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <button
       [disabled]="disabled"
