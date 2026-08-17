@@ -69,6 +69,12 @@
         "description": "Show the current Linear cycle standup",
         "usage_hint": "",
         "should_escape": false
+      },
+      {
+        "command": "/carousel",
+        "description": "Post a demo carousel of React product cards",
+        "usage_hint": "",
+        "should_escape": false
       }
     ]
   },
