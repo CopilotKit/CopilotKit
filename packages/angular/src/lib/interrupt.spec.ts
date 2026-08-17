@@ -284,10 +284,13 @@ describe("InterruptController", () => {
     expect(controller.hasInterrupt()).toBe(false);
   });
 
-  it("clears pending state on thread changes and failed runs", () => {
-    const { agent, controller } = setup();
+  it("rejects stale-thread decisions and clears failed runs", async () => {
+    const { agent, controller, run } = setup();
     finalizeStandard(agent, [makeInterrupt("one")]);
-    controller.setThreadId("thread-b");
+    agent.threadId = "thread-b";
+    await controller.resolve("yes");
+
+    expect(run).not.toHaveBeenCalled();
     expect(controller.hasInterrupt()).toBe(false);
 
     finalizeStandard(agent, [makeInterrupt("two")]);
