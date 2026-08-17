@@ -156,7 +156,7 @@ Before you begin, you'll need the following:
           from ag_ui.encoder import EventEncoder
           from ag_ui_claude_sdk import ClaudeAgentAdapter
           from dotenv import load_dotenv
-          from fastapi import FastAPI, Request
+          from fastapi import FastAPI
           from fastapi.responses import StreamingResponse
 
           load_dotenv()
@@ -184,8 +184,7 @@ Before you begin, you'll need the following:
               return {"status": "ok"}
 
           @app.post("/")
-          async def run_agent(request: Request) -> StreamingResponse:
-              input_data = RunAgentInput(**(await request.json()))
+          async def run_agent(input_data: RunAgentInput) -> StreamingResponse:
               encoder = EventEncoder()
 
               async def event_stream() -> AsyncIterator[str]:

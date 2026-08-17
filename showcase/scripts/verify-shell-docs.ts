@@ -5,10 +5,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { glob } from "glob";
 import yaml from "yaml";
-import {
-  findUnexpectedMultiFileRegions,
-  type MultiFileRegionSource,
-} from "./lib/demo-region-guard.js";
+import { findUnexpectedMultiFileRegions } from "./lib/demo-region-guard.js";
+import type { MultiFileRegionSource } from "./lib/demo-region-guard.js";
 import { checkEssentialContent } from "./lib/essential-content.js";
 import type { PageInput } from "./lib/essential-content.js";
 
@@ -642,44 +640,6 @@ function checkBlockContains(
   }
 }
 
-function checkPythonRequestParsedBeforeStreaming(
-  failures: string[],
-  pagePath: string,
-  block: CodeBlock | undefined,
-) {
-  if (!block) return;
-
-  const requestJsonIndex = block.code.indexOf("await request.json()");
-  const runAgentInputIndex = block.code.indexOf("RunAgentInput(");
-  const eventStreamIndex = block.code.search(/async\s+def\s+event_stream\s*\(/);
-  const streamingResponseIndex = block.code.search(
-    /return\s+StreamingResponse\s*\(/,
-  );
-
-  if (
-    requestJsonIndex < 0 ||
-    runAgentInputIndex < 0 ||
-    eventStreamIndex < 0 ||
-    streamingResponseIndex < 0
-  ) {
-    failures.push(
-      `${pagePath}: main.py must parse request JSON and construct RunAgentInput before event_stream starts and before returning StreamingResponse`,
-    );
-    return;
-  }
-
-  if (
-    requestJsonIndex >= eventStreamIndex ||
-    runAgentInputIndex >= eventStreamIndex ||
-    requestJsonIndex >= streamingResponseIndex ||
-    runAgentInputIndex >= streamingResponseIndex
-  ) {
-    failures.push(
-      `${pagePath}: main.py must parse request JSON and construct RunAgentInput before event_stream starts and before returning StreamingResponse`,
-    );
-  }
-}
-
 function checkCommandContains(
   failures: string[],
   pagePath: string,
@@ -874,7 +834,10 @@ export function checkClaudeQuickstarts(input: {
       const mainBlock = findTitledBlock(blocks, "main.py");
       checkBlockContains(failures, page.path, mainBlock, "main.py", [
         ["RunAgentInput", "RunAgentInput"],
-        ["await request.json()", "request JSON parsing"],
+        [
+          /async\s+def\s+run_agent\s*\(\s*input_data\s*:\s*RunAgentInput\s*\)/,
+          "typed RunAgentInput request body",
+        ],
         ['os.getenv("ANTHROPIC_MODEL"', "Anthropic model env var"],
         ["RunErrorEvent", "RunErrorEvent"],
         ["EventType.RUN_ERROR", "RUN_ERROR event"],
@@ -885,7 +848,6 @@ export function checkClaudeQuickstarts(input: {
         ['@app.get("/health")', "health route"],
         ['@app.post("/")', "agent POST route"],
       ]);
-      checkPythonRequestParsedBeforeStreaming(failures, page.path, mainBlock);
     } else {
       checkCommandContains(
         failures,

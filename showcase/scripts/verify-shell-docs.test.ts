@@ -282,7 +282,7 @@ describe("checkClaudeQuickstarts", () => {
     from ag_ui.core import EventType, RunAgentInput, RunErrorEvent
     from ag_ui.encoder import EventEncoder
     from ag_ui_claude_sdk import ClaudeAgentAdapter
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI
     from fastapi.responses import StreamingResponse
 
     app = FastAPI()
@@ -290,8 +290,7 @@ describe("checkClaudeQuickstarts", () => {
     async def health():
         return {"status": "ok"}
     @app.post("/")
-    async def run_agent(request: Request):
-        input_data = RunAgentInput(**(await request.json()))
+    async def run_agent(input_data: RunAgentInput):
         adapter = ClaudeAgentAdapter(model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"))
         async def event_stream():
             try:
@@ -479,21 +478,17 @@ describe("checkClaudeQuickstarts", () => {
     expect(result.messages.join(" ")).toContain("main.py missing adapter run");
   });
 
-  it("fails when the Python BYOA snippet reads the request after streaming starts", () => {
-    const unsafePythonQuickstart = validPythonQuickstart
-      .replace(
-        "        input_data = RunAgentInput(**(await request.json()))\n        adapter = ClaudeAgentAdapter",
-        "        adapter = ClaudeAgentAdapter",
-      )
-      .replace(
-        "        async def event_stream():\n            try:",
-        "        async def event_stream():\n            input_data = RunAgentInput(**(await request.json()))\n            try:",
-      );
-    const result = runWith({ python: unsafePythonQuickstart });
+  it("fails when the Python BYOA snippet does not type its request body as RunAgentInput", () => {
+    const result = runWith({
+      python: validPythonQuickstart.replace(
+        "async def run_agent(input_data: RunAgentInput):",
+        "async def run_agent(input_data):",
+      ),
+    });
 
     expect(result.status).toBe("fail");
     expect(result.messages.join(" ")).toContain(
-      "must parse request JSON and construct RunAgentInput before event_stream starts",
+      "main.py missing typed RunAgentInput request body",
     );
   });
 

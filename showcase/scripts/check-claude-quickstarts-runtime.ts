@@ -441,6 +441,33 @@ async function postAgUiRun(
   return { contentType, events, text };
 }
 
+async function assertPythonRequestRejected(
+  url: string,
+  body: string,
+  label: string,
+) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body,
+    signal: AbortSignal.timeout(5_000),
+  });
+  const responseText = await response.text();
+
+  if (response.status !== 422) {
+    throw new Error(
+      `${label} must return 422, got ${response.status}: ${responseText}`,
+    );
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("text/event-stream")) {
+    throw new Error(`${label} must be rejected before SSE starts`);
+  }
+}
+
 function assertRuntimeRouteContract(blocks: CodeBlock[]) {
   const route = blockByTitle(blocks, "app/api/copilotkit/route.ts");
   if (!/export\s+const\s+POST\s*=/.test(route)) {
@@ -449,29 +476,6 @@ function assertRuntimeRouteContract(blocks: CodeBlock[]) {
   if (/export\s+const\s+GET\s*=/.test(route)) {
     throw new Error(
       "Quickstart should not document a GET /api/copilotkit info route",
-    );
-  }
-}
-
-function assertPythonRequestParsedBeforeStreaming(blocks: CodeBlock[]) {
-  const main = blockByTitle(blocks, "main.py");
-  const requestJsonIndex = main.indexOf("await request.json()");
-  const runAgentInputIndex = main.indexOf("RunAgentInput(");
-  const eventStreamIndex = main.search(/async\s+def\s+event_stream\s*\(/);
-  const streamingResponseIndex = main.search(/return\s+StreamingResponse\s*\(/);
-
-  if (
-    requestJsonIndex < 0 ||
-    runAgentInputIndex < 0 ||
-    eventStreamIndex < 0 ||
-    streamingResponseIndex < 0 ||
-    requestJsonIndex >= eventStreamIndex ||
-    runAgentInputIndex >= eventStreamIndex ||
-    requestJsonIndex >= streamingResponseIndex ||
-    runAgentInputIndex >= streamingResponseIndex
-  ) {
-    throw new Error(
-      "Python quickstart main.py must parse request JSON and construct RunAgentInput before event_stream starts and before returning StreamingResponse",
     );
   }
 }
@@ -592,7 +596,6 @@ async function checkTypeScriptQuickstart() {
 async function checkPythonVersion(version: string) {
   const blocks = readBlocks(PYTHON_QUICKSTART);
   assertRuntimeRouteContract(blocks);
-  assertPythonRequestParsedBeforeStreaming(blocks);
 
   if (LIVE_ANTHROPIC && !process.env.ANTHROPIC_API_KEY) {
     throw new Error("--live-anthropic requires ANTHROPIC_API_KEY");
@@ -683,6 +686,16 @@ async function checkPythonVersion(version: string) {
 
     try {
       await waitForHealth(`http://127.0.0.1:${port}/health`, server.readOutput);
+      await assertPythonRequestRejected(
+        `http://127.0.0.1:${port}/`,
+        "{",
+        "Malformed JSON request",
+      );
+      await assertPythonRequestRejected(
+        `http://127.0.0.1:${port}/`,
+        "{}",
+        "Schema-invalid AG-UI request",
+      );
       const threadId = `thread-py-${version}`;
       await postAgUiRun(
         `http://127.0.0.1:${port}/`,
