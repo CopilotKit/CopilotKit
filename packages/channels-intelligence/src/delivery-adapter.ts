@@ -34,6 +34,8 @@ import type {
   UserQuery,
   ReplyContinuationOptions,
   ResolvedChannelMemory,
+  StageFileArgs,
+  StagedFile,
 } from "@copilotkit/channels-core";
 import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
@@ -832,6 +834,32 @@ export class DeliveryAdapter implements PlatformAdapter {
       });
     });
     return { ok: true, assetId: handle };
+  }
+
+  /**
+   * Host a PNG without posting a channel message.
+   *
+   * Slack stores the bytes and returns the Intelligence handle. The gateway
+   * remaps `slack_file.id` handles to Slack file ids when it posts the message.
+   * Teams uses a data URI, the same as the local Teams adapter.
+   */
+  async stageFile(
+    targetValue: ReplyTarget,
+    args: StageFileArgs,
+  ): Promise<StagedFile> {
+    const target = asDeliveryTarget(targetValue);
+    if (target.delivery.adapter === "teams") {
+      const b64 = Buffer.from(args.bytes).toString("base64");
+      return { dataUrl: `data:image/png;base64,${b64}` };
+    }
+    const handle = await target.claimedDelivery.uploadFile(
+      mintId("response_"),
+      args,
+    );
+    if (!handle) {
+      throw new Error("Channel stageFile: upload returned no handle");
+    }
+    return { fileId: handle };
   }
 
   /** Retries canonical persistence without repeating provider delivery. */
