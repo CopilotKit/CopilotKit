@@ -457,3 +457,49 @@ test("keeps shared backend guidance while expanding Angular source regions", () 
   expect(angularSubagents).toContain("Exposing sub-agents as tools");
   expect(angularSubagents).not.toContain("useAgent({");
 });
+
+test.each(["langgraph-python", "google-adk", "strands", "claude-sdk-python"])(
+  "renders a complete programmatic-control example for %s",
+  (framework) => {
+    const doc = loadDoc("programmatic-control");
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText(
+      {
+        url: `${framework}/programmatic-control`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "programmatic-control",
+        framework,
+      },
+      { framework },
+    );
+
+    expect(output).toContain(
+      'import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";',
+    );
+    expect(output).toContain("agent.addMessage({");
+    expect(output).toContain("copilotkit.runAgent({ agent })");
+    expect(output).toContain("copilotkit.stopAgent({ agent })");
+
+    for (const chatShellHelper of [
+      "useAttachmentsConfig",
+      "useAutoScroll",
+      "consumeAttachments",
+      "buildContent",
+    ]) {
+      expect(output).not.toContain(chatShellHelper);
+    }
+
+    if (framework === "google-adk") {
+      expect(output).toContain("AGUIToolset()");
+    }
+
+    if (framework === "claude-sdk-python") {
+      expect(output).not.toContain("createMessageId");
+      expect(output).not.toContain("chat.tsx - useAgent run control");
+      expect(output).not.toContain('agentId: "headless-simple"');
+    }
+  },
+);

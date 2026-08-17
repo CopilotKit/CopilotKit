@@ -17,10 +17,9 @@ exposes three primitives that cover every triggering pattern:
 - `copilotkit.runAgent({ agent })` — the same entry point `<CopilotChat />` calls under the hood. Orchestrates frontend tools, follow-up runs, and the subscriber lifecycle.
 - `agent.subscribe(subscriber)` — low-level AG-UI event subscription (`onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, …). Pairs with `copilotkit.runAgent({ agent, forwardedProps: { command: { resume, interruptEvent } } })` to drive interrupt resolution from arbitrary UI.
 
-Every example on this page is pulled from two live cells:
-`headless-complete` (full chat surface, shown here for the message-send
-path) and `interrupt-headless` (button-driven interrupt resolver, shown
-here for the subscribe + resume path).
+The send-and-stop example below is intentionally self-contained. The
+later subscription and interrupt examples are pulled from the live
+`interrupt-headless` cell.
 
 ## When should I use this?
 
@@ -36,14 +35,34 @@ Use programmatic control when you want to:
 
 <FrameworkSetup concept="programmatic-control-setup" />
 
-The message-send path in `headless-complete` is the canonical pattern:
-append a user message with `agent.addMessage`, then call
-`copilotkit.runAgent({ agent })`. The same `handleStop` calls
-`copilotkit.stopAgent({ agent })` to cancel mid-run. Note the
-`connectAgent` effect at the top, which opens the backend session on
-mount so the very first `runAgent` doesn't race the handshake.
+The canonical pattern is to append a user message with
+`agent.addMessage`, then call `copilotkit.runAgent({ agent })`. Use
+`copilotkit.stopAgent({ agent })` to cancel an in-flight run.
 
-<Snippet region="page-send-message" title="frontend/src/app/page.tsx — connect, send, stop" />
+```tsx title="frontend/src/app/agent-trigger.tsx"
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+
+export function AgentTrigger({ agentId }: { agentId: string }) {
+  const { agent } = useAgent({ agentId });
+  const { copilotkit } = useCopilotKit();
+
+  const run = async () => {
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: "Summarize the latest sales data",
+    });
+    await copilotkit.runAgent({ agent });
+  };
+
+  return (
+    <>
+      <button onClick={run}>Run agent</button>
+      <button onClick={() => copilotkit.stopAgent({ agent })}>Stop</button>
+    </>
+  );
+}
+```
 
 ### `copilotkit.runAgent()` vs `agent.runAgent()`
 
