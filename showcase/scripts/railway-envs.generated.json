@@ -439,8 +439,9 @@
       "serviceId": "11859593-da4e-486c-a810-6cdffeff9750",
       "prodInstanceId": "11859593-da4e-486c-a810-6cdffeff9750",
       "stagingInstanceId": "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
-      "ciBuilt": false,
+      "ciBuilt": true,
       "gateValidated": true,
+      "onlyEnvironment": "staging",
       "dispatchName": "crewai-conversational-flows",
       "domains": {
         "staging": "showcase-crewai-conversational-flows-staging.up.railway.app",
