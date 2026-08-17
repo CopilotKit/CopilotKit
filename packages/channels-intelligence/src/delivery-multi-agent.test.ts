@@ -95,7 +95,9 @@ test("extra agents send prefixed canonical agentId and unsuffixed history thread
     expect(runCanonical.mock.calls[0]![0].agentId).toBe("support:billing");
     expect(runCanonical.mock.calls[0]![0].agent.threadId).toMatch(/::billing$/);
     expect(runCanonical.mock.calls[0]![0].threadId).not.toContain("::billing");
-    expect(String(runCanonical.mock.calls[0]![0].threadId)).toContain("thread_");
+    expect(String(runCanonical.mock.calls[0]![0].threadId)).toContain(
+      "thread_",
+    );
   } finally {
     await handle.stop();
   }
@@ -129,9 +131,7 @@ test("default agent keeps the Channel name as agentId", async () => {
   });
 
   try {
-    await gateway.deliver(
-      preparedDelivery("multidefault", "slack", textTurn),
-    );
+    await gateway.deliver(preparedDelivery("multidefault", "slack", textTurn));
 
     expect(runCanonical).toHaveBeenCalledOnce();
     expect(runCanonical.mock.calls[0]![0].agentId).toBe("support");
