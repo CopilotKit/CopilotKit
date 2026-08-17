@@ -38,9 +38,7 @@ import {
       "
       [style.transform]="isHovered ? 'scale(1.1)' : 'scale(1)'"
     >
-      <span style="color: white; font-size: 24px; pointer-events: none"
-        >⬇️</span
-      >
+      <span style="color: white; font-size: 24px; pointer-events: none">⬇️</span>
     </button>
   `,
   changeDetection: ChangeDetectionStrategy.Eager,

@@ -77,9 +77,7 @@ type ToolEntry = {
               @for (entry of entries(); track entry.key) {
                 <div class="copilot-tool-entry">
                   <span class="copilot-tool-entry-key">{{ entry.key }}:</span>
-                  <span class="copilot-tool-entry-value">{{
-                    entry.value
-                  }}</span>
+                  <span class="copilot-tool-entry-value">{{ entry.value }}</span>
                 </div>
               }
 
@@ -156,8 +154,8 @@ type ToolEntry = {
         white-space: nowrap;
         color: var(--foreground, #171717);
         font-family:
-          var(--font-code), ui-monospace, SFMono-Regular, Menlo, Monaco,
-          Consolas, "Liberation Mono", "Courier New", monospace;
+          var(--font-code), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
         font-weight: 500;
       }
 
@@ -207,8 +205,8 @@ type ToolEntry = {
         display: flex;
         gap: 8px;
         font-family:
-          var(--font-code), ui-monospace, SFMono-Regular, Menlo, Monaco,
-          Consolas, "Liberation Mono", "Courier New", monospace;
+          var(--font-code), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
         font-size: 12px;
         line-height: 1.4;
       }

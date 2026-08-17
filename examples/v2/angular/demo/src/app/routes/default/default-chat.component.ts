@@ -7,6 +7,8 @@ import { CopilotChat } from "@copilotkit/angular";
   standalone: true,
   imports: [CopilotChat],
   changeDetection: ChangeDetectionStrategy.Eager,
-  template: ` <copilot-chat [threadId]="'xyz'" /> `,
+  template: `
+    <copilot-chat [threadId]="'xyz'" />
+  `,
 })
 export class DefaultChatComponent {}

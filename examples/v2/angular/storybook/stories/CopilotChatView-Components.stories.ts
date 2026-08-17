@@ -747,9 +747,7 @@ export class ServiceBasedExampleComponent {
             margin: 10px;
           "
         >
-          <h4 style="color: white; margin: 0 0 10px 0">
-            Service-Based Custom Input
-          </h4>
+          <h4 style="color: white; margin: 0 0 10px 0">Service-Based Custom Input</h4>
           <div style="display: flex; gap: 10px">
             <input
               type="text"
