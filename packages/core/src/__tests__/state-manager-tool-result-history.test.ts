@@ -146,17 +146,56 @@ class PreStartRunErrorAgent extends AbstractAgent {
   }
 }
 
-const owner = (id: string, callId: string) => ({
+class ReusedRunErrorAgent extends AbstractAgent {
+  readonly inputs: RunAgentInput[] = [];
+
+  constructor() {
+    super({ agentId: "reused-run-error", threadId: "reused-run-thread" });
+  }
+
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    this.inputs.push(input);
+    const events: BaseEvent[] =
+      this.inputs.length === 1
+        ? [
+            {
+              type: EventType.RUN_STARTED,
+              threadId: this.threadId,
+              runId: input.runId,
+            },
+            {
+              type: EventType.RUN_FINISHED,
+              threadId: this.threadId,
+              runId: input.runId,
+            },
+          ]
+        : [
+            {
+              type: EventType.RUN_STARTED,
+              threadId: this.threadId,
+              runId: input.runId,
+            },
+            {
+              type: EventType.RUN_ERROR,
+              threadId: this.threadId,
+              runId: input.runId,
+              message: "backend failed",
+              code: "backend_error",
+            },
+          ];
+    return from(events);
+  }
+}
+
+const owner = (id: string, ...callIds: string[]) => ({
   id,
   role: "assistant" as const,
   content: "",
-  toolCalls: [
-    {
-      id: callId,
-      type: "function" as const,
-      function: { name: "tool", arguments: "{}" },
-    },
-  ],
+  toolCalls: callIds.map((callId) => ({
+    id: callId,
+    type: "function" as const,
+    function: { name: "tool", arguments: "{}" },
+  })),
 });
 
 const result = (messageId: string, callId: string, content = "result") => ({
@@ -296,6 +335,45 @@ describe("StateManager tool result history", () => {
     expect(delivered).toBe(2);
   });
 
+  it("restores multiple tool results after their assistant owner", async () => {
+    const firstCallId = "call-first";
+    const secondCallId = "call-second";
+    const agent = new ScenarioAgent(
+      "siblings",
+      [owner("assistant-siblings", firstCallId, secondCallId)],
+      [
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "siblings-thread",
+          runId: "x",
+        },
+        result("first-result", firstCallId, "first"),
+        result("second-result", secondCallId, "second"),
+        {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [owner("assistant-siblings", firstCallId, secondCallId)],
+        },
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "siblings-thread",
+          runId: "x",
+        },
+      ],
+    );
+    const core = new CopilotKitCore({});
+    await addAgent(core, agent);
+    await core.runAgent({ agent });
+
+    expect(
+      agent.messages
+        .filter((message) => message.role === "tool")
+        .map((message) => [message.toolCallId, message.content]),
+    ).toEqual([
+      [firstCallId, "first"],
+      [secondCallId, "second"],
+    ]);
+  });
+
   it("replaces an already materialized frontend placeholder", async () => {
     const callId = "call-placeholder";
     const agent = new ScenarioAgent(
@@ -420,6 +498,45 @@ describe("StateManager tool result history", () => {
         }),
       ]),
     );
+  });
+
+  it("clears the remapped active run after a reused-id RUN_ERROR", async () => {
+    const agent = new ReusedRunErrorAgent();
+    const core = new CopilotKitCore({});
+    await addAgent(core, agent);
+
+    await core.runAgent({ agent, runId: "reused-run" });
+    await core.runAgent({ agent, runId: "reused-run" });
+
+    agent.addMessage({
+      id: "after-reused-error",
+      role: "user",
+      content: "not assigned to the failed run",
+    });
+    expect(
+      core.getRunIdForMessage(
+        "reused-run-error",
+        "reused-run-thread",
+        "after-reused-error",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("reconciles and finalizes a local run failure", async () => {
+    const agent = new ScriptedWeatherAgent(false, true);
+    const core = new CopilotKitCore({});
+    await addAgent(core, agent);
+
+    await core.runAgent({ agent });
+    await expect(core.runAgent({ agent })).resolves.toBeDefined();
+    expect(agent.secondTurnError).toBe("401 Unauthorized");
+
+    expect(
+      agent.messages.filter(
+        (message) =>
+          message.role === "tool" && message.toolCallId === toolCallId,
+      ),
+    ).toHaveLength(1);
   });
 
   it("does not add a StateManager-owned result without an assistant owner", async () => {
