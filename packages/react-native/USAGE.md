@@ -17,7 +17,7 @@ import "@copilotkit/react-native/polyfills";
 import {
   CopilotKitProvider,
   CopilotChat,
-  useRenderTool,
+  useFrontendTool,
 } from "@copilotkit/react-native";
 import { z } from "zod";
 
@@ -31,7 +31,7 @@ function App() {
 
 function ChatScreen() {
   // parameters accepts any StandardSchemaV1-compatible schema (Zod, Valibot, ArkType, etc.)
-  useRenderTool({
+  useFrontendTool({
     name: "showWeather",
     description: "Show weather info",
     parameters: z.object({ city: z.string() }),
@@ -93,19 +93,57 @@ import { AssistantMessage, UserMessage } from "@copilotkit/react-native";
 
 ## Hooks
 
-### useRenderTool
+The package re-exports react-core's hooks unchanged — it has no render-tool API
+of its own. The two that draw tool calls are worth telling apart.
 
-Register a React Native component to render inline when the agent calls a tool.
+### useFrontendTool
+
+Registers a **tool** and, optionally, its renderer. The tool is advertised to the
+model on every run, so it takes a `description` and (if it should do something on
+the device) a `handler`. Render props carry the parsed arguments as `args`.
 
 ```tsx
 // parameters accepts any StandardSchemaV1-compatible schema (Zod, Valibot, ArkType, etc.)
-useRenderTool({
+useFrontendTool({
   name: "showChart",
   description: "Display a chart",
   parameters: z.object({ data: z.record(z.unknown()) }),
   render: ({ args }) => <ChartView data={args.data} />,
 });
 ```
+
+### useRenderTool
+
+Registers a **renderer only** — nothing is advertised to the model and nothing
+becomes callable. Use it to draw a tool call somebody else owns, such as a
+server-side tool. Render props carry the parsed arguments as `parameters`, and
+`parameters` is required on a named renderer.
+
+```tsx
+useRenderTool({
+  name: "showChart",
+  parameters: z.object({ data: z.record(z.unknown()) }),
+  render: ({ status, parameters }) => {
+    // `parameters` is Partial while the agent is still writing the call.
+    if (status === "inProgress") return <Text>Preparing…</Text>;
+    return <ChartView data={parameters.data} />;
+  },
+});
+```
+
+`name: "*"` registers a fallback for every tool call with no renderer of its own,
+and is the one case that takes no schema:
+
+```tsx
+useRenderTool({
+  name: "*",
+  render: ({ name, status }) => <Text>{`${name}: ${status}`}</Text>,
+});
+```
+
+See the [`useRenderTool` reference](https://docs.copilotkit.ai/reference/react-native/hooks/useRenderTool)
+for the full contract, including migration notes if you used React Native's older
+local hook of the same name.
 
 ## Alternative Import Path
 
