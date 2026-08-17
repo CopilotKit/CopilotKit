@@ -39,6 +39,57 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
   CopilotKit supports to connect agents to user-facing frontends
 </div>
 
+## When you do (and don't) need an MCP App
+
+"MCP server" covers three quite different things, and only one of them needs an [MCP App](/generative-ui/mcp-apps). Picking the wrong one means either building UI you didn't need or shipping a tool nobody can act on.
+
+Work out which kind of server you have:
+
+| Your server… | What the user should see | What to build |
+| --- | --- | --- |
+| Reads data and returns it | Nothing, or a status line — the answer belongs in the agent's reply | Plain MCP tool. No renderer needed. |
+| Changes something (writes, sends, deletes) | What is about to happen, with a way to stop it | Plain MCP tool + a renderer, plus approval for anything irreversible |
+| Has its own interface (a form, a picker, a chart to interact with) | The interface itself | An MCP App with a UI resource |
+
+### Read-only context servers
+
+The most common case, and the one that needs the least. A docs search, a database query, a "look up this customer" tool — the tool result is *context for the model*, not something the user reads directly. The agent folds it into its answer, and that answer is the UI.
+
+Connect the server and stop there. If you want the call to be visible rather than invisible, a wildcard renderer gives every tool call a status card without writing one renderer per tool:
+
+```tsx
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+
+useDefaultRenderTool({
+  render: ({ name, status, parameters, result }) => (
+    <McpToolCall status={status} name={name} args={parameters} result={result} />
+  ),
+});
+```
+
+Reach for an MCP App here only if the *result* is genuinely interactive — a chart the user filters, not a table they read.
+
+### Action and mutation servers
+
+When a tool sends an email, files a ticket, or deletes a row, the user needs to see it — and usually needs to authorize it. That's still not an MCP App: it's a renderer plus human-in-the-loop.
+
+The renderer shows what happened. The approval step decides whether it happens at all, and belongs on anything the user can't undo. See [Human in the loop](/human-in-the-loop) for the approval flow, and [Tool rendering](/generative-ui/tool-rendering) for renderer options.
+
+A useful test: if you're considering an MCP App purely to render a confirmation button, you want human-in-the-loop instead. Approval is a CopilotKit concern, not a server-supplied UI.
+
+### Interactive MCP Apps
+
+An MCP App is the right answer when the *server* owns the interface — it exposes a tool with an associated UI resource, and CopilotKit fetches and renders that resource in a sandboxed iframe with no frontend code from you.
+
+That's worth it when the interaction is rich enough to need real UI (a seat picker, a configuration form, an embedded editor), and when the server author — not the app author — is the one who should define how it looks. The cost is that the server now ships and versions UI, so a read-only lookup doesn't justify it.
+
+See [MCP Apps](/generative-ui/mcp-apps) for setup.
+
+<Callout type="info">
+  These aren't exclusive. One server can expose plain tools and App-backed tools side by
+  side; CopilotKit renders each call according to whether it carries a UI resource.
+</Callout>
+
 ## Quickstart with CopilotKit
 
 <Steps>
