@@ -20,6 +20,30 @@ how the SDK, Runtime, Intelligence, and provider connection fit together.
 Before you continue, [configure the Channel in Intelligence](/channels/intelligence).
 You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
 
+## What kind of bot this is
+
+Microsoft supports more than one kind of bot identity. Setup creates a
+**Teams-managed** bot: Teams Developer Portal owns the registration, and its app
+ID and client secrets live there under **Tools → Bot management**, in your
+directory, rotatable by your own admins. It is registered single-tenant, so it is
+scoped to your organization. Nothing is created in your Azure account and nothing
+is billable. If you stop using CopilotKit the registration stays in your
+Developer Portal; removing it is yours to do.
+
+The alternative Microsoft offers is an **Azure Bot** — a billable Azure Bot
+Service resource in your own subscription, needing a subscription, resource
+group, and region. Microsoft's Teams CLI recognizes only these two kinds; a
+self-managed Microsoft Entra app registration that you create and manage yourself
+is not something it can produce or consume.
+
+Treat the choice as permanent. Microsoft provides a one-way `teams app bot
+migrate` to Azure that replaces the existing registration, with nothing to
+migrate back. CopilotKit itself is indifferent to which kind you point a Channel
+at — Intelligence performs an ordinary client-credentials grant with the app ID,
+tenant ID, and secret — but the app ID is embedded in the app package as the bot
+ID, so changing identity means generating a fresh package, uploading it, and
+re-installing.
+
 ## Before you start
 
 - Node.js 22 or later; the managed launcher requires the global `WebSocket`

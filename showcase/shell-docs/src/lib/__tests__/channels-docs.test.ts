@@ -364,6 +364,29 @@ describe("Channels documentation journey", () => {
     expect(intelligence).toMatch(/browser wizard[\s\S]*released setup path/i);
   });
 
+  it("names which kind of Microsoft bot identity Teams setup creates", () => {
+    const teams = bodyFor("frontends/teams");
+
+    // A tenant administrator's first question. Saying only what we do NOT
+    // create (the previous "Azure Bot is not part of the normal path") does not
+    // answer it, so the kind we DO create has to be named, along with where its
+    // credentials live and who can rotate them.
+    expect(teams).toContain("Teams-managed");
+    expect(teams).toMatch(/Tools\s+→\s+Bot\s+management/);
+    expect(teams).toMatch(/single-tenant/);
+    expect(teams).toMatch(/nothing\s+is\s+billable/);
+    // Azure Bot and a self-managed Entra app are the alternatives, and both may
+    // only appear as alternatives. What separates them from what we create is
+    // the cost and where the resource lives, so pin that rather than the prose.
+    expect(teams).toContain("Azure Bot");
+    expect(teams).toContain("Microsoft Entra");
+    expect(teams).toMatch(/billable\s+Azure\s+Bot/);
+    expect(teams).toMatch(/your\s+own\s+subscription/);
+    // Switching kinds is not a toggle: the app ID is the manifest's bot ID.
+    expect(teams).toMatch(/teams\s+app\s+bot\s+migrate/);
+    expect(teams).toMatch(/fresh\s+package/);
+  });
+
   it("documents provider-scoped identity and per-run Memory", () => {
     const source = bodyFor("channels/identity-and-memory");
     const slackQuickstart = bodyFor("frontends/slack");
