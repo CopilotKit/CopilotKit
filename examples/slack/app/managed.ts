@@ -1,13 +1,13 @@
 /**
- * Intelligence (managed Channel) entrypoint for the same Slack bot as
- * `app/index.ts`.
+ * Default entrypoint (`pnpm dev` / `pnpm start`). Intelligence owns Slack.
  *
- * `index.ts` is the SELF-HOSTED variant: it holds the Slack bot/app tokens and
- * talks to Slack directly via the native `slack()` adapter. This file is the
- * MANAGED variant: it holds no Slack credentials and no public Slack endpoint —
- * Intelligence owns the Slack edge (signed ingress → app-api, egress via the
- * Connector Outbox) and delivers turns to this process over its realtime
- * transport.
+ * This process holds no Slack tokens and no public Slack endpoint.
+ * Intelligence owns the Slack edge (signed ingress, egress via the Connector
+ * Outbox) and delivers turns here over its realtime transport.
+ *
+ * `app/index.ts` is the optional self-hosted path (`pnpm direct`): it holds
+ * Slack/Discord/Telegram/WhatsApp tokens and talks to those platforms
+ * directly. Use that only when you want local adapters.
  *
  * The bot itself — the agent, tools, context, commands, and turn handlers — is
  * IDENTICAL to the native bot; only the transport changes. Instead of a
@@ -39,24 +39,34 @@ import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
+import { loadBrandRender } from "./render/brand.js";
 
-const required = (name: string): string => {
-  const v = process.env[name];
-  if (!v) {
-    console.error(`Missing required env var: ${name}`);
+const firstEnv = (...names: string[]): string | undefined => {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) return value;
+  }
+  return undefined;
+};
+
+const required = (...names: string[]): string => {
+  const value = firstEnv(...names);
+  if (!value) {
+    console.error(`Missing required env var: ${names.join(" or ")}`);
     process.exit(1);
   }
-  return v;
+  return value;
 };
 
 /**
- * The managed Channel `name` is chosen HERE, in code — it is the project-unique
- * identifier the runtime uses to derive the managed Channel's activation config
- * (there is no launcher and no `INTELLIGENCE_CHANNEL_*` env to supply).
+ * Channel name on the Intelligence project. Defaults to `triage`. Set
+ * `INTELLIGENCE_CHANNEL_NAME` to attach to an existing managed Channel
+ * (for example the OpenTag Slack app).
  */
-const channelName = "triage";
+const channelName = firstEnv("INTELLIGENCE_CHANNEL_NAME") ?? "triage";
 
 async function main() {
+  const brand = await loadBrandRender();
   const agentUrl = required("AGENT_URL");
   const agentHeaders = process.env.AGENT_AUTH_HEADER
     ? { Authorization: process.env.AGENT_AUTH_HEADER }
@@ -81,12 +91,10 @@ async function main() {
     tools: [...appTools, ...defaultSlackTools],
     context: [...appContext, ...defaultSlackContext],
     commands: appCommands,
-    // Takumi JSX image rendering config. No `fonts`/`googleFonts` (the latter
-    // can trigger a network fetch and hang tests/CI) — Takumi's built-in Latin
-    // covers this demo. The `charts` components render in color from their own
-    // fixed hex palette (no stylesheet needed), and `MrrCard` uses inline styles.
     render: {
-      width: 720,
+      width: 760,
+      stylesheets: brand.stylesheets,
+      fonts: brand.fonts,
     },
   });
 
@@ -136,9 +144,15 @@ async function main() {
   // API and realtime planes are separate hosts (api.… vs realtime.…), so
   // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
-    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
-    apiKey: required("COPILOTKIT_API_KEY"),
+    apiUrl: firstEnv(
+      "COPILOTKIT_INTELLIGENCE_URL",
+      "INTELLIGENCE_API_URL",
+    ),
+    wsUrl: firstEnv(
+      "COPILOTKIT_INTELLIGENCE_WS_URL",
+      "INTELLIGENCE_GATEWAY_WS_URL",
+    ),
+    apiKey: required("COPILOTKIT_API_KEY", "INTELLIGENCE_API_KEY"),
   });
 
   const runtime = new CopilotRuntime({
