@@ -531,9 +531,14 @@ describe("Channels documentation journey", () => {
     expect(teams).toMatch(/genuinely\s+optional/);
     expect(teams).toContain("Created and installed");
     expect(teams).toMatch(/adding\s+the\s+app\s+to\s+a\s+team/);
-    // Azure Bot and Entra app registration are not the shipped path. They may
-    // only appear to say so.
-    expect(teams).toMatch(/no\s+Azure\s+subscription/);
+    // Microsoft exposes no install API, so the command produces a package and
+    // the reader uploads it. Saying the command "installs the app" is the drift
+    // this guards, and the upload has to name the Team's own Apps tab: the
+    // personal Apps section installs to personal scope, which cannot be
+    // promoted to a Team afterwards.
+    expect(teams).toContain("teams-app.zip");
+    expect(teams).toMatch(/Manage\s+team/);
+    expect(teams).toMatch(/no\s+install\s+API/);
     expect(teams).not.toContain("Microsoft Entra");
     expect(teams).not.toContain("Files.ReadWrite.All");
     expect(teams).not.toContain("### Connect Slack");
