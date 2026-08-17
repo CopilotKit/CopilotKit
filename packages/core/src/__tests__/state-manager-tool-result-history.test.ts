@@ -213,6 +213,52 @@ describe("StateManager tool result history", () => {
     );
   });
 
+  it("keeps the checkpoint result when LangGraph uses divergent message ids", async () => {
+    const callId = "call_weather_1";
+    const checkpointId = "lc-tool-1";
+    const agent = new ScenarioAgent(
+      "langgraph",
+      [owner("assistant-weather", callId)],
+      [
+        { type: EventType.RUN_STARTED, threadId: "x", runId: "x" },
+        result("72192d78-8458-4e31-a03f-eddbcc88ed58", callId, "72 and sunny"),
+        {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            owner("assistant-weather", callId),
+            {
+              id: checkpointId,
+              role: "tool",
+              toolCallId: callId,
+              content: "72 and sunny",
+            },
+          ],
+        },
+        { type: EventType.RUN_FINISHED, threadId: "x", runId: "x" },
+      ],
+    );
+    const core = new CopilotKitCore({});
+    await addAgent(core, agent);
+    await core.runAgent({ agent });
+    await core.runAgent({ agent });
+
+    expect(
+      agent.messages.filter(
+        (message) => message.role === "tool" && message.toolCallId === callId,
+      ),
+    ).toEqual([
+      expect.objectContaining({ id: checkpointId, content: "72 and sunny" }),
+    ]);
+    expect(
+      agent.inputs[1]?.messages.filter(
+        (message) => message.role === "tool" && message.toolCallId === callId,
+      ),
+    ).toHaveLength(1);
+    expect(
+      core.getRunIdForMessage("langgraph", "langgraph-thread", checkpointId),
+    ).toBe(agent.inputs[1]?.runId);
+  });
+
   it("preserves normal result delivery and removes duplicate identities", async () => {
     const callId = "call-duplicate";
     const agent = new ScenarioAgent(
@@ -225,7 +271,7 @@ describe("StateManager tool result history", () => {
           runId: "x",
         },
         result("result-a", callId, "a"),
-        result("result-a", callId, "a"),
+        result("result-b", callId, "b"),
         {
           type: EventType.RUN_FINISHED,
           threadId: "duplicate-thread",
@@ -235,6 +281,8 @@ describe("StateManager tool result history", () => {
     );
     const core = new CopilotKitCore({});
     await addAgent(core, agent);
+    let delivered = 0;
+    agent.subscribe({ onToolCallResultEvent: () => void delivered++ });
     await core.runAgent({ agent });
 
     expect(
@@ -245,6 +293,7 @@ describe("StateManager tool result history", () => {
     expect(
       core.getRunIdForMessage("duplicate", "duplicate-thread", "result-a"),
     ).toBe(agent.inputs[0]?.runId);
+    expect(delivered).toBe(2);
   });
 
   it("replaces an already materialized frontend placeholder", async () => {
@@ -294,7 +343,7 @@ describe("StateManager tool result history", () => {
     ).toBe(agent.inputs[0]?.runId);
   });
 
-  it("preserves a real multi-part result beside a distinct canonical result", async () => {
+  it("removes a placeholder beside an existing real result", async () => {
     const callId = "call-multipart";
     const agent = new ScenarioAgent(
       "multipart",
@@ -304,10 +353,7 @@ describe("StateManager tool result history", () => {
           id: "existing-multipart-result",
           role: "tool",
           toolCallId: callId,
-          content: [
-            { type: "text", text: "Forwarded to client" },
-            " plus more",
-          ],
+          content: "Forwarded to client",
         } as unknown as Message,
       ],
       [
@@ -316,7 +362,7 @@ describe("StateManager tool result history", () => {
           threadId: "multipart-thread",
           runId: "x",
         },
-        result("multipart-result", callId, "canonical"),
+        result("real-result", callId, "canonical"),
         {
           type: EventType.RUN_FINISHED,
           threadId: "multipart-thread",
@@ -326,34 +372,15 @@ describe("StateManager tool result history", () => {
     );
     const core = new CopilotKitCore({});
     await addAgent(core, agent);
-    let deliveredToLaterSubscriber = 0;
-    agent.subscribe({
-      onToolCallResultEvent: () => {
-        deliveredToLaterSubscriber++;
-      },
-    });
     await core.runAgent({ agent });
 
     expect(
       agent.messages.filter(
         (message) => message.role === "tool" && message.toolCallId === callId,
       ),
-    ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "existing-multipart-result",
-          content: [
-            { type: "text", text: "Forwarded to client" },
-            " plus more",
-          ] as unknown as string,
-        }),
-        expect.objectContaining({
-          id: "multipart-result",
-          content: "canonical",
-        }),
-      ]),
-    );
-    expect(deliveredToLaterSubscriber).toBe(1);
+    ).toEqual([
+      expect.objectContaining({ id: "real-result", content: "canonical" }),
+    ]);
   });
 
   it("reconciles a RUN_ERROR terminal and clears provenance at finalization", async () => {
@@ -395,44 +422,6 @@ describe("StateManager tool result history", () => {
     );
   });
 
-  it("does not reconcile a finalized input's old result provenance", async () => {
-    const agent = new ScriptedWeatherAgent();
-    const core = new CopilotKitCore({});
-    await addAgent(core, agent);
-    await core.runAgent({ agent });
-
-    const stateManagerSubscriber = (
-      agent as unknown as {
-        subscribers: Array<{
-          onRunFinishedEvent?: (params: unknown) => unknown;
-          onRunFinalized?: (params: unknown) => unknown;
-        }>;
-      }
-    ).subscribers.find(
-      (subscriber) =>
-        subscriber.onRunFinishedEvent && subscriber.onRunFinalized,
-    );
-    expect(stateManagerSubscriber).toBeDefined();
-
-    const input = agent.inputs[0]!;
-    const messagesWithoutResult = agent.messages.filter(
-      (message) => message.id !== "result-weather",
-    );
-    const mutation = stateManagerSubscriber!.onRunFinishedEvent!({
-      input,
-      messages: messagesWithoutResult,
-      state: {},
-      agent,
-      event: {
-        type: EventType.RUN_FINISHED,
-        threadId,
-        runId: input.runId,
-      },
-    });
-
-    expect(mutation).toBeUndefined();
-  });
-
   it("does not add a StateManager-owned result without an assistant owner", async () => {
     const callId = "call-ownerless";
     const agent = new ScenarioAgent(
@@ -465,23 +454,26 @@ describe("StateManager tool result history", () => {
     ).toHaveLength(0);
   });
 
-  it("keeps distinct result identities from one input and cleans provenance at finalization", async () => {
-    const callId = "call-repeated";
+  it("does not churn a live placeholder for a forwarded-to-client event", async () => {
+    const callId = "call-forwarded";
     const agent = new ScenarioAgent(
-      "repeated",
-      [owner("assistant-repeated", callId)],
+      "forwarded",
+      [
+        owner("assistant-forwarded", callId),
+        {
+          id: "placeholder",
+          role: "tool",
+          toolCallId: callId,
+          content: "Forwarded to client",
+        },
+      ],
       [
         {
           type: EventType.RUN_STARTED,
           threadId: "repeated-thread",
           runId: "x",
         },
-        result("result-shared-1", callId, "one"),
-        result("result-shared-2", callId, "two"),
-        {
-          type: EventType.MESSAGES_SNAPSHOT,
-          messages: [owner("assistant-repeated", callId)],
-        },
+        result("new-id", callId, "Forwarded to client"),
         {
           type: EventType.RUN_FINISHED,
           threadId: "repeated-thread",
@@ -493,12 +485,16 @@ describe("StateManager tool result history", () => {
     await addAgent(core, agent);
     await core.runAgent({ agent });
 
-    expect(agent.messages.filter((message) => message.role === "tool")).toEqual(
-      [
-        expect.objectContaining({ id: "result-shared-1", content: "one" }),
-        expect.objectContaining({ id: "result-shared-2", content: "two" }),
-      ],
-    );
+    expect(
+      agent.messages.filter(
+        (message) => message.role === "tool" && message.toolCallId === callId,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        id: "placeholder",
+        content: "Forwarded to client",
+      }),
+    ]);
   });
 
   it("keeps the previous active run when a different input errors before RUN_STARTED", async () => {
