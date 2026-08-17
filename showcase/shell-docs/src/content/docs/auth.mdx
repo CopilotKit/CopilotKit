@@ -450,7 +450,7 @@ Verifying *who* the caller is doesn't yet stop them reaching *someone else's con
 
 | Runtime | Who scopes threads to a user |
 | --- | --- |
-| `CopilotRuntime` with `intelligence` | Mostly the runtime, via [`identifyUser`](#the-intelligence-platform-scopes-most-thread-routes) — with two inspector routes you still have to guard. |
+| `CopilotRuntime` with `intelligence` | Mostly the runtime, via [`identifyUser`](#the-intelligence-platform-scopes-most-thread-routes) — with three routes you still have to guard. |
 | Anything else — SSE runtime, custom store, local in-memory runner | You do. See [Scope threads yourself](#scope-threads-yourself). |
 
 ### The Intelligence Platform scopes most thread routes
@@ -470,7 +470,15 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-Every route resolves the caller this way, so an unauthenticated request is rejected everywhere. What differs is whether the resolved id is then *carried to the platform* as a scope:
+<Callout type="warn" title="`identifyUser` is not an authentication gate">
+  Most routes resolve the caller through `identifyUser`, but **not all of them do** — and the
+  ones that don't never invoke your callback at all. Rejecting unauthenticated requests is
+  `onRequest`'s job: it runs before routing, on every route, without exception. Treat
+  `identifyUser` as the thing that *names* an already-authenticated caller, never as the thing
+  that decides whether a caller gets in.
+</Callout>
+
+Where a route does resolve the caller, what matters next is whether that id is actually *carried to the platform* as a scope:
 
 | Route | Scoped to the resolved user? |
 | --- | --- |
@@ -479,34 +487,53 @@ Every route resolves the caller this way, so an unauthenticated request is rejec
 | `threads/messages` | Yes |
 | `threads/update` (rename via `PATCH`, delete via `DELETE`), `threads/archive` | Yes |
 | Thread subscription token | Yes |
-| `threads/events`, `threads/state` | **No** — see the callout below |
+| `threads/events`, `threads/state` | **No** — resolves the caller, then ignores it |
+| `agent/stop` | **No** — never resolves a caller at all |
 
-<Callout type="warn" title="`threads/events` and `threads/state` are not user-scoped">
-  These two routes back the [inspector](/inspector). Both resolve the caller through
-  `identifyUser` and then discard the result, reading the thread by id alone — the runtime
-  calls the platform's project-authenticated `_inspect` endpoints, which take no user
-  parameter. Any caller `identifyUser` accepts can read the full event log and current agent
-  state of any thread in the project, given its `threadId`.
+<Callout type="warn" title="Three routes are not user-scoped">
+  **`threads/events` and `threads/state`** back the [inspector](/inspector). Both resolve the
+  caller and then discard the result, reading the thread by id alone — the runtime calls the
+  platform's project-authenticated `_inspect` endpoints, which take no user parameter. Any
+  caller can read the full event log and current agent state of any thread in the project,
+  given its `threadId`.
 
-  Guard them yourself until the platform scopes them. The `onBeforeHandler` pattern below
-  applies on the Intelligence path too, narrowed to these two routes:
+  **`agent/stop`** never resolves a caller. It goes straight to `runner.stop({ threadId })`,
+  which aborts whichever run the runtime is tracking under that thread id. Any caller who
+  learns an active `threadId` can kill that run mid-flight.
+
+  Guard all three yourself. The `onBeforeHandler` pattern below applies on the Intelligence
+  path too, narrowed to these routes:
 
   ```ts
-  onBeforeHandler: async ({ route }) => {
-    if (route.method !== "threads/events" && route.method !== "threads/state") return;
+  onBeforeHandler: async ({ request, route }) => {
+    // Switch rather than an array `includes`, so `route` narrows and
+    // `route.threadId` type-checks — all three variants carry one.
+    switch (route.method) {
+      case "threads/events":
+      case "threads/state":
+      case "agent/stop":
+        break;
+      default:
+        return;
+    }
 
-    // Neither route is scoped platform-side. Reject outright unless you keep an
-    // ownership record of your own to check `route.threadId` against.
-    throw new Response("Not found", { status: 404 });
+    // None of these is scoped platform-side; check your own ownership record.
+    const user = await verifyRequest(request);
+    if (!(await userOwnsThread(user.id, route.threadId))) {
+      throw new Response("Not found", { status: 404 });
+    }
   },
   ```
+
+  Without an ownership record of your own, reject these routes outright rather than leaving
+  them open.
 </Callout>
 
 For everything in the Yes rows there is no ownership table to build. What you own is `identifyUser` itself:
 
 - **Derive the id from a server-verified credential.** The callback receives the raw `Request`; whatever it returns is trusted from there on. Reading a user id straight out of a header or request body hands every caller the ability to name themselves.
 - **Return a stable id.** It is the key threads hang off. Change it — swapping an email for a subject claim, say — and that user's existing threads stop resolving.
-- **Send the `401` from `onRequest`.** An `identifyUser` that throws surfaces as a `500`, and returning a malformed id gives a `400` — neither is what an unauthenticated caller should see. Do the authenticate-or-reject step in `onRequest`, which can throw a `Response` directly, and keep the throw inside `identifyUser` as a backstop for the case that slips through.
+- **Send the `401` from `onRequest`.** Beyond the status codes being wrong — an `identifyUser` that throws surfaces as a `500`, a malformed id as a `400` — routes like `agent/stop` never call it, so a check placed only here isn't reached on every request. Authenticate in `onRequest`, which runs on every route and can throw a `Response` directly, and keep the throw inside `identifyUser` as a backstop.
 
 <Callout type="warn">
   A static `identifyUser` value is suitable only for a single-user demo. In a multi-user
@@ -518,7 +545,7 @@ See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-thr
 
 ### Scope threads yourself
 
-Without the Intelligence Platform there is no server-side binding between a `threadId` and a user. A `threadId` is just an opaque id travelling in a request: if user A learns user B's, every thread route accepts it. The rest of this section is the pattern for a custom store, a plain SSE runtime, or the local in-memory runner — and it's also what you narrow to `threads/events` and `threads/state` if you *are* on the platform.
+Without the Intelligence Platform there is no server-side binding between a `threadId` and a user. A `threadId` is just an opaque id travelling in a request: if user A learns user B's, every thread route accepts it. The rest of this section is the pattern for a custom store, a plain SSE runtime, or the local in-memory runner — and it's also what you narrow to `threads/events`, `threads/state`, and `agent/stop` if you *are* on the platform.
 
 #### Own the mapping
 
@@ -597,7 +624,8 @@ Filter server-side. Hiding rows in the UI leaves the underlying route open.
 
 - **Always validate** the token on the backend. Never trust the frontend's claim.
 - **Scope every read and write** to the resolved user. Auth context only matters if you actually use it to filter data.
-- **Bind threads to a user.** On the Intelligence Platform that means a correct `identifyUser`, plus your own guard on `threads/events` and `threads/state`; off it, an ownership check on every thread route rather than only at login. See [Thread authorization](#thread-authorization).
+- **Authenticate in `onRequest`.** It is the only hook that runs on every route. `identifyUser` names a caller; it does not gate one, and some routes never invoke it.
+- **Bind threads to a user.** On the Intelligence Platform that means a correct `identifyUser`, plus your own guard on `threads/events`, `threads/state`, and `agent/stop`; off it, an ownership check on every thread route rather than only at login. See [Thread authorization](#thread-authorization).
 - **Don't log raw tokens.** Log the resolved user id (or `anonymous`) instead.
 - **Use HTTPS in production.** The Bearer token is sensitive.
 - **Refresh strategy.** Your frontend is responsible for rotating expired tokens before they reach the agent. CopilotKit doesn't refresh on your behalf.
