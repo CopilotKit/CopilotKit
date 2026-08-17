@@ -185,17 +185,16 @@ Before you begin, you'll need the following:
 
           @app.post("/")
           async def run_agent(request: Request) -> StreamingResponse:
+              input_data = RunAgentInput(**(await request.json()))
               encoder = EventEncoder()
 
               async def event_stream() -> AsyncIterator[str]:
                   try:
-                      input_data = RunAgentInput(**(await request.json()))
                       async for event in adapter.run(input_data):
                           yield encoder.encode(event)
                   except Exception as error:
-                      # Every failure — malformed request body or streaming —
-                      # becomes a graceful RUN_ERROR, and the full detail is
-                      # logged server-side rather than only sent to the client.
+                      # Agent and streaming failures become a graceful RUN_ERROR,
+                      # with the full detail logged server-side.
                       logger.exception("Claude agent run failed")
                       yield encoder.encode(
                           RunErrorEvent(

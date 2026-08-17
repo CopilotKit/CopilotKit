@@ -453,6 +453,29 @@ function assertRuntimeRouteContract(blocks: CodeBlock[]) {
   }
 }
 
+function assertPythonRequestParsedBeforeStreaming(blocks: CodeBlock[]) {
+  const main = blockByTitle(blocks, "main.py");
+  const requestJsonIndex = main.indexOf("await request.json()");
+  const runAgentInputIndex = main.indexOf("RunAgentInput(");
+  const eventStreamIndex = main.search(/async\s+def\s+event_stream\s*\(/);
+  const streamingResponseIndex = main.search(/return\s+StreamingResponse\s*\(/);
+
+  if (
+    requestJsonIndex < 0 ||
+    runAgentInputIndex < 0 ||
+    eventStreamIndex < 0 ||
+    streamingResponseIndex < 0 ||
+    requestJsonIndex >= eventStreamIndex ||
+    runAgentInputIndex >= eventStreamIndex ||
+    requestJsonIndex >= streamingResponseIndex ||
+    runAgentInputIndex >= streamingResponseIndex
+  ) {
+    throw new Error(
+      "Python quickstart main.py must parse request JSON and construct RunAgentInput before event_stream starts and before returning StreamingResponse",
+    );
+  }
+}
+
 async function checkTypeScriptQuickstart() {
   assertCurrentNodeIsSupported();
   if (LIVE_ANTHROPIC && !process.env.ANTHROPIC_API_KEY) {
@@ -567,6 +590,10 @@ async function checkTypeScriptQuickstart() {
 }
 
 async function checkPythonVersion(version: string) {
+  const blocks = readBlocks(PYTHON_QUICKSTART);
+  assertRuntimeRouteContract(blocks);
+  assertPythonRequestParsedBeforeStreaming(blocks);
+
   if (LIVE_ANTHROPIC && !process.env.ANTHROPIC_API_KEY) {
     throw new Error("--live-anthropic requires ANTHROPIC_API_KEY");
   }
@@ -585,9 +612,6 @@ async function checkPythonVersion(version: string) {
   if (!(await commandExists("uv"))) {
     throw new Error("Python quickstart runtime check requires uv");
   }
-
-  const blocks = readBlocks(PYTHON_QUICKSTART);
-  assertRuntimeRouteContract(blocks);
 
   const root = mkdtempSync(
     join(tmpdir(), `claude-sdk-py${version.replace(".", "")}-`),

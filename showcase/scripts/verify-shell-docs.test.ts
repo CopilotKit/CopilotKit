@@ -479,6 +479,24 @@ describe("checkClaudeQuickstarts", () => {
     expect(result.messages.join(" ")).toContain("main.py missing adapter run");
   });
 
+  it("fails when the Python BYOA snippet reads the request after streaming starts", () => {
+    const unsafePythonQuickstart = validPythonQuickstart
+      .replace(
+        "        input_data = RunAgentInput(**(await request.json()))\n        adapter = ClaudeAgentAdapter",
+        "        adapter = ClaudeAgentAdapter",
+      )
+      .replace(
+        "        async def event_stream():\n            try:",
+        "        async def event_stream():\n            input_data = RunAgentInput(**(await request.json()))\n            try:",
+      );
+    const result = runWith({ python: unsafePythonQuickstart });
+
+    expect(result.status).toBe("fail");
+    expect(result.messages.join(" ")).toContain(
+      "must parse request JSON and construct RunAgentInput before event_stream starts",
+    );
+  });
+
   it("fails when the TypeScript BYOA server omits JSON body parsing", () => {
     const result = runWith({
       typescript: validTypeScriptQuickstart.replace(
