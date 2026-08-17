@@ -127,6 +127,23 @@ export type CatchAllActionRenderProps<T extends Parameter[] | [] = []> =
       name: string;
     });
 
+/**
+ * Render props for a catch-all action that waits for a response. Same as
+ * {@link ActionRenderPropsWait} — including `respond` while executing — plus
+ * the `name` of the tool call being handled, since one catch-all render serves
+ * every tool.
+ */
+export type CatchAllActionRenderPropsWait<T extends Parameter[] | [] = []> =
+  | (CompleteStateWait<T> & {
+      name: string;
+    })
+  | (ExecutingStateWait<T> & {
+      name: string;
+    })
+  | (InProgressStateWait<T> & {
+      name: string;
+    });
+
 export type FrontendActionAvailability =
   | "disabled"
   | "enabled"
@@ -173,8 +190,29 @@ export type FrontendAction<
 
 export type CatchAllFrontendAction = {
   name: "*";
-  render: (props: CatchAllActionRenderProps<any>) => React.ReactElement;
-};
+} & (
+  | {
+      render: (props: CatchAllActionRenderProps<any>) => React.ReactElement;
+      /** @deprecated use renderAndWaitForResponse instead */
+      renderAndWait?: never;
+      renderAndWaitForResponse?: never;
+    }
+  | {
+      render?: never;
+      /** @deprecated use renderAndWaitForResponse instead */
+      renderAndWait?: (
+        props: CatchAllActionRenderPropsWait<any>,
+      ) => React.ReactElement;
+      /**
+       * Handle every tool call that has no dedicated action with one
+       * human-in-the-loop render: the call stays pending until `respond` is
+       * called. Use `name` to tell the calls apart.
+       */
+      renderAndWaitForResponse?: (
+        props: CatchAllActionRenderPropsWait<any>,
+      ) => React.ReactElement;
+    }
+);
 
 export type RenderFunctionStatus = ActionRenderProps<any>["status"];
 

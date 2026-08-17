@@ -7,6 +7,9 @@ import { useCallback, useEffect, useRef } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
 
+/** Registration name of a catch-all tool: handles any otherwise-unhandled call. */
+const WILDCARD_TOOL_NAME = "*";
+
 export function useHumanInTheLoop<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
@@ -65,10 +68,17 @@ export function useHumanInTheLoop<
       // registration values and add the registration `agentId`, so the HITL
       // render always receives the full prop contract. `respond` is only live
       // while the tool is executing.
+      //
+      // A catch-all registration is the exception: `"*"` is not the name of
+      // anything the agent called, so the incoming `props.name` — the tool
+      // actually being handled — is kept instead. It is what lets one
+      // catch-all render serve N tools.
+      const name = tool.name === WILDCARD_TOOL_NAME ? props.name : tool.name;
+
       if (props.status === ToolCallStatus.InProgress) {
         const enhancedProps = {
           ...props,
-          name: tool.name,
+          name,
           description: tool.description || "",
           agentId: tool.agentId,
           respond: undefined,
@@ -77,7 +87,7 @@ export function useHumanInTheLoop<
       } else if (props.status === ToolCallStatus.Executing) {
         const enhancedProps = {
           ...props,
-          name: tool.name,
+          name,
           description: tool.description || "",
           agentId: tool.agentId,
           respond,
@@ -86,7 +96,7 @@ export function useHumanInTheLoop<
       } else if (props.status === ToolCallStatus.Complete) {
         const enhancedProps = {
           ...props,
-          name: tool.name,
+          name,
           description: tool.description || "",
           agentId: tool.agentId,
           respond: undefined,
