@@ -1,0 +1,303 @@
+---
+title: AWS Lambda
+icon: "lucide/Cloud"
+description: Run the CopilotKit runtime on AWS Lambda, including the response-streaming setup a chat UI requires.
+---
+
+The CopilotKit runtime is a Fetch handler, so it runs on Lambda without a server. The one thing that needs care is **streaming**: chat responses are served as Server-Sent Events, and most Lambda front doors buffer the whole response before returning it.
+
+## Start here: pick the right front door
+
+<Callout type="warn" title="API Gateway cannot stream">
+  Neither API Gateway REST APIs nor HTTP APIs support response streaming. They buffer the
+  full response, then return it in one piece (capped at 10 MB). A chat UI put behind API
+  Gateway appears to hang for the length of the agent run, then dumps the entire reply at
+  once. Application Load Balancer buffers the same way.
+</Callout>
+
+| Front door | Streams SSE? | Use it when |
+| --- | --- | --- |
+| **Lambda Function URL** with `RESPONSE_STREAM` | Yes | Anything with a chat UI. This is the path you want. |
+| API Gateway (REST or HTTP) | No | Non-streaming use only, or a runtime you drive entirely through your own non-chat endpoints. |
+| Application Load Balancer | No | Same caveat as API Gateway. |
+
+The rest of this page covers the Function URL path first, then the API Gateway path for the cases that genuinely don't need streaming.
+
+## Function URL with response streaming
+
+Response streaming requires three things: a Function URL with its invoke mode set to `RESPONSE_STREAM`, a handler wrapped in `awslambda.streamifyResponse`, and a Node.js managed runtime (Node.js 18 or later).
+
+### 1. The handler
+
+Lambda Function URLs deliver events in payload format 2.0. Convert that into a `Request`, hand it to the CopilotKit handler, then pipe the `Response` body into the Lambda response stream.
+
+```ts title="src/handler.ts"
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import type { LambdaFunctionURLEvent } from "aws-lambda";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+  BuiltInAgent,
+} from "@copilotkit/runtime/v2";
+
+// Created once per container, reused across warm invocations.
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const copilotHandler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+function toFetchRequest(event: LambdaFunctionURLEvent): Request {
+  const method = event.requestContext.http.method;
+  const host = event.headers.host ?? "localhost";
+  const query = event.rawQueryString ? `?${event.rawQueryString}` : "";
+
+  const hasBody = method !== "GET" && method !== "HEAD" && event.body != null;
+
+  return new Request(`https://${host}${event.rawPath}${query}`, {
+    method,
+    headers: new Headers(event.headers as Record<string, string>),
+    body: hasBody
+      ? event.isBase64Encoded
+        ? Buffer.from(event.body!, "base64")
+        : event.body
+      : undefined,
+  });
+}
+
+export const handler = awslambda.streamifyResponse(
+  async (event: LambdaFunctionURLEvent, responseStream) => {
+    const response = await copilotHandler(toFetchRequest(event));
+
+    // Status and headers must be attached before the first byte is written.
+    const stream = awslambda.HttpResponseStream.from(responseStream, {
+      statusCode: response.status,
+      headers: Object.fromEntries(response.headers),
+    });
+
+    if (!response.body) {
+      stream.end();
+      return;
+    }
+
+    // Readable.fromWeb bridges the Fetch ReadableStream to a Node stream, so
+    // SSE chunks reach the client as the agent produces them.
+    await pipeline(Readable.fromWeb(response.body as any), stream);
+  },
+);
+```
+
+`awslambda` is a global injected by the managed Node.js runtime, so TypeScript needs to be told it exists:
+
+```ts title="src/awslambda.d.ts"
+import type { Writable } from "node:stream";
+
+declare global {
+  namespace awslambda {
+    function streamifyResponse<TEvent>(
+      handler: (event: TEvent, responseStream: Writable, context: unknown) => Promise<void>,
+    ): (event: TEvent, responseStream: Writable, context: unknown) => Promise<void>;
+
+    namespace HttpResponseStream {
+      function from(
+        stream: Writable,
+        metadata: { statusCode: number; headers?: Record<string, string> },
+      ): Writable;
+    }
+  }
+}
+
+export {};
+```
+
+### 2. Set the invoke mode
+
+Streaming is off by default. The Function URL must be created with `InvokeMode: RESPONSE_STREAM` — flipping it later requires updating the URL config, not the function.
+
+<Tabs groupId="iac" items={["AWS CLI", "AWS CDK", "AWS SAM"]}>
+<Tab value="AWS CLI">
+```bash
+aws lambda create-function-url-config \
+  --function-name copilotkit-runtime \
+  --auth-type NONE \
+  --invoke-mode RESPONSE_STREAM \
+  --cors '{"AllowOrigins":["https://myapp.com"],"AllowHeaders":["content-type","authorization"],"AllowMethods":["GET","POST"]}'
+```
+</Tab>
+<Tab value="AWS CDK">
+```ts title="lib/stack.ts"
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { Runtime, FunctionUrlAuthType, InvokeMode } from "aws-cdk-lib/aws-lambda";
+import { Duration } from "aws-cdk-lib";
+
+const fn = new NodejsFunction(this, "CopilotKitRuntime", {
+  entry: "src/handler.ts",
+  runtime: Runtime.NODEJS_22_X,
+  // Long enough for a full agent run; Lambda's ceiling is 15 minutes.
+  timeout: Duration.minutes(5),
+  memorySize: 1024,
+  environment: {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
+  },
+});
+
+fn.addFunctionUrl({
+  authType: FunctionUrlAuthType.NONE,
+  invokeMode: InvokeMode.RESPONSE_STREAM,
+  cors: {
+    allowedOrigins: ["https://myapp.com"],
+    allowedHeaders: ["content-type", "authorization"],
+  },
+});
+```
+</Tab>
+<Tab value="AWS SAM">
+```yaml title="template.yaml"
+Resources:
+  CopilotKitRuntime:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: dist/handler.handler
+      Runtime: nodejs22.x
+      Timeout: 300
+      MemorySize: 1024
+      Environment:
+        Variables:
+          OPENAI_API_KEY: !Ref OpenAiApiKey
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: RESPONSE_STREAM
+        Cors:
+          AllowOrigins: ["https://myapp.com"]
+          AllowHeaders: ["content-type", "authorization"]
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Target: node22
+        Bundle: true
+        EntryPoints: [src/handler.ts]
+```
+</Tab>
+</Tabs>
+
+### 3. Point the frontend at it
+
+The Function URL is the origin; `basePath` is appended to it.
+
+<FrontendOnly frontend="react">
+```tsx
+<CopilotKit runtimeUrl="https://<url-id>.lambda-url.<region>.on.aws/api/copilotkit">
+  <YourApp />
+</CopilotKit>
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "https://<url-id>.lambda-url.<region>.on.aws/api/copilotkit",
+})
+```
+</FrontendOnly>
+
+<Callout type="info" title="Verify streaming actually works">
+  `curl -N` on the run endpoint should print SSE events progressively. If the whole body
+  arrives at once, streaming is not active — check that the Function URL's invoke mode is
+  `RESPONSE_STREAM` and that nothing buffering (API Gateway, an ALB) sits in front of it.
+</Callout>
+
+## API Gateway (no streaming)
+
+If you must sit behind API Gateway, `serverless-http` adapts the Express handler to a Lambda event. Chat still functions end to end, but every response arrives in one piece at the end of the run.
+
+```
+npm install express serverless-http @copilotkit/runtime
+```
+
+```ts title="src/handler.ts"
+import express from "express";
+import serverlessHttp from "serverless-http";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const app = express();
+
+app.use(
+  createCopilotExpressHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    cors: true,
+  }),
+);
+
+export const handler = serverlessHttp(app);
+```
+
+Two constraints to plan around:
+
+- **10 MB response cap.** A long agent run with large tool results can exceed it, and the request fails rather than truncating.
+- **29-second integration timeout** on API Gateway REST and HTTP APIs. Agent runs longer than that return a 504 even though the Lambda keeps executing.
+
+Single-route mode pairs well here, since it collapses the runtime to one `POST` and avoids configuring a catch-all proxy resource:
+
+```ts
+createCopilotExpressHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+  cors: true,
+});
+```
+
+## Authentication
+
+Use the runtime's `onRequest` hook to reject unauthenticated calls before any routing happens. It works identically on both paths above.
+
+```ts
+const copilotHandler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+  hooks: {
+    onRequest: async ({ request }) => {
+      const token = request.headers.get("authorization");
+      if (!token || !(await verifyToken(token))) {
+        // Throwing a Response short-circuits the handler.
+        throw new Response("Unauthorized", { status: 401 });
+      }
+    },
+  },
+});
+```
+
+For AWS-native auth instead, set the Function URL's `AuthType` to `AWS_IAM` and have callers sign requests with SigV4. That moves the check into IAM, but the browser can no longer call the URL directly — you need a signing proxy in between.
+
+See [Authentication](/auth) for forwarding user identity through to your agent.
+
+## Operational notes
+
+- **Bundle your dependencies.** `@copilotkit/runtime` is not in any AWS-managed layer. Use `NodejsFunction` (CDK), `BuildMethod: esbuild` (SAM), or your own bundler.
+- **Construct the runtime outside the handler.** Putting `new CopilotRuntime(...)` at module scope means warm invocations reuse it rather than rebuilding it per request.
+- **Set the timeout to cover a full agent run.** Lambda's maximum is 15 minutes; the default of 3 seconds will cut off almost anything.
+- **Cold starts are visible in chat.** Provisioned concurrency is the usual fix if first-token latency matters.
+- **Streaming has its own limits.** Function URL response streaming allows a larger payload than the 6 MB buffered limit, but bandwidth beyond the first 6 MB is billed separately.
+
+## Related
+
+- [Deploy to any runtime](/runtime-server-adapter) — the adapter reference these examples build on
+- [AWS AgentCore](/deploy/agentcore) — a managed AWS runtime for AG-UI agents, if you'd rather not operate Lambda yourself
+- [Authentication](/auth)
