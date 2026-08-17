@@ -282,7 +282,7 @@ The package has three import surfaces — `/headless` (provider + hooks, no nati
         - `useFrontendTool` - let the agent call functions in your app
         - `useHumanInTheLoop` - add approval flows for agent actions
         - `useCopilotKit` - access the CopilotKit instance directly
-        - `useRenderTool` - React Native's own hook for drawing tool UI inside the rendered chat (see [Frontend tools](#frontend-tools-and-generative-ui))
+        - `useRenderTool` - draw UI for a tool call you don't own, by name or with a `"*"` fallback (see [Frontend tools](#frontend-tools-and-generative-ui))
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
@@ -332,11 +332,11 @@ Importing the provider auto-installs the polyfills: `/headless` runs the polyfil
 
 ### Which hooks are shared, and which aren't
 
-The **package** (both `/headless` and the root barrel) re-exports the platform-agnostic hooks from `@copilotkit/react-core`: `useAgent`, `useFrontendTool`, `useHumanInTheLoop`, `useInterrupt`, `useSuggestions`, `useConfigureSuggestions`, `useAgentContext`, `useThreads`, `useCapabilities`, `useComponent`, and `useCopilotKit`. These behave the same as on the web.
+The **package** (both `/headless` and the root barrel) re-exports the platform-agnostic hooks from `@copilotkit/react-core`: `useAgent`, `useFrontendTool`, `useHumanInTheLoop`, `useInterrupt`, `useSuggestions`, `useConfigureSuggestions`, `useAgentContext`, `useThreads`, `useCapabilities`, `useComponent`, `useCopilotKit`, `useRenderTool`, and `useRenderToolCall`. These behave the same as on the web — the package has no render-tool API of its own.
 
-Two React-Native-specific differences are worth knowing:
+Two things are worth knowing:
 
-- **`useRenderTool` is React Native's own hook**, not react-core's. It registers the tool *and* its renderer, requires both `description` and `parameters`, accepts a `handler`, and must return `ReactElement | null` (React Native's `FlatList` cannot render bare strings). It writes into react-core's canonical renderer registry, so a named renderer draws in the chat exactly as it does on the web — but **do not register a `"*"` entry here.** react-core's hook is renderer-only and special-cases `"*"` into a fallback renderer with no arguments schema; React Native's routes through `useFrontendTool`, which also calls `addTool`. So on React Native a `"*"` entry registers a real frontend tool *literally named* `*`, which is advertised to the model in the run's tool list and collides with core's separate wildcard-**executable**-tool feature — whose handler is invoked for every otherwise-unmatched tool call with arguments wrapped as `{ toolName, args }` rather than in your schema's shape. Register one named renderer per tool instead. See [Known limitations](#known-limitations).
+- **`useFrontendTool` and `useRenderTool` are not interchangeable**, and the distinction is the same one the web draws. `useFrontendTool` registers a **tool** and (optionally) its renderer: the tool is advertised to the model on every run and the model may call it, so it takes a `description` and a `handler`. `useRenderTool` registers a **renderer only** — nothing is advertised and nothing becomes callable; it draws a tool call somebody else owns, such as a server-side tool, and `name: "*"` makes it the fallback for every tool call with no renderer of its own. Both write into the same react-core renderer registry, which the rendered chat reads. Their render types differ too, exactly as they do on the web: `useRenderTool`'s `render` must return `ReactElement | null`, while `useFrontendTool`'s `render` is a component type that also accepts a bare string. What *is* React-Native-specific is the consequence of that looser type — a bare string typechecks and then throws inside a `FlatList`.
 - **Most of the web rendering hooks are deliberately not exported**: `useDefaultRenderTool` (its built-in card renders `<div>` / `<svg>`), `useRenderCustomMessages`, and `useRenderActivityMessage` (both link the web chat-message stack). `useRenderToolCall` **is** exported, though — it is platform-agnostic, pulls no DOM, and returns `ReactElement | null`, which is exactly what `FlatList`'s `renderItem` needs, so you can draw a registered tool call on any surface rather than only inside the chat.
 
 ## Metro configuration for release bundles
@@ -590,25 +590,45 @@ export function useComposeStage() {
 
 Because the tool is registered on the device, the model's call reaches your `handler` on the client — the ideal place to drive a state reducer that your React Native views render declaratively (the agent sends *state*, the client owns rendering). Discriminated-union / `oneOf` / `anyOf` param schemas are preserved through the runtime's schema conversion, so `z.discriminatedUnion(...)` params work. It's still good practice to normalize defensively in the handler — coerce a partially populated tool call into valid state rather than letting a malformed one render broken UI.
 
-<Callout type="warn" title="For inline chat UI, prefer `useRenderTool` — it's the React-Native-typed hook">
-  Both hooks write to the **same** place: react-core's renderer registry, which the rendered React Native chat (`@copilotkit/react-native/components`) reads through `useRenderToolCall`. So a `render` passed to `useFrontendTool` *is* drawn there. What `useRenderTool` adds is React Native's return type — its `render` must produce `ReactElement | null`, whereas `useFrontendTool`'s web-shaped `render` also accepts a bare string, which typechecks and then throws inside a `FlatList` at runtime.
+<Callout type="warn" title="Choose the hook by who owns the tool, not by where the UI goes">
+  Both hooks write to the **same** place: react-core's renderer registry, which the rendered React Native chat (`@copilotkit/react-native/components`) reads through `useRenderToolCall`. So inline chat UI is available from either — a `render` passed to `useFrontendTool` *is* drawn there. What differs is whether a **tool** gets registered.
+
+  Use `useFrontendTool` for a tool your app owns: it advertises the tool to the model and runs your `handler` on the device. Pass `render` alongside the handler when you also want it drawn in the chat.
 
   ```tsx
-  import { ToolCallStatus, useRenderTool } from "@copilotkit/react-native/headless";
+  import { useFrontendTool } from "@copilotkit/react-native/headless";
 
-  useRenderTool({
+  useFrontendTool({
     name: "composeStage",
     description: "Render POI panels on the screen.",
     parameters: z.object({ mode: z.string() }),
+    handler: async (args) => { /* drive your own state */ return "rendered"; },
     render: ({ args, status }) => (
-      <StagePreview mode={args.mode} pending={status !== ToolCallStatus.Complete} />
+      <StagePreview mode={args.mode} pending={status !== "complete"} />
     ),
   });
   ```
 
-  Two more render-prop differences from the web hook are worth memorizing: arguments arrive as `args` (web exposes them as `parameters`), and `status` is the `ToolCallStatus` **enum**, so branch on `ToolCallStatus.Complete` rather than on the string `"complete"` — comparing the enum to a bare string literal does not typecheck. `ToolCallStatus` is exported as a value from `/headless`.
+  Use [`useRenderTool`](/reference/react-native/hooks/useRenderTool) when the tool is **not** yours — a server-side tool you only want to draw, or `name: "*"` as a fallback for every tool call with no renderer of its own. It registers no tool, takes no `description` and no `handler`, and exposes arguments as `parameters`:
 
-  Use `useFrontendTool({ handler })` when the tool drives your **own** state and your views render it declaratively (what this guide does); use `useRenderTool` when you want UI drawn inline in the rendered chat. `useRenderTool` registers both the tool and its renderer, so don't also register the same tool with `useFrontendTool`.
+  ```tsx
+  import { useRenderTool } from "@copilotkit/react-native/headless";
+
+  useRenderTool(
+    {
+      name: "lookupPlaces",
+      parameters: z.object({ mode: z.string() }),
+      render: ({ parameters, status }) => (
+        <StagePreview mode={parameters.mode} pending={status !== "complete"} />
+      ),
+    },
+    [],
+  );
+  ```
+
+  `useRenderTool`'s `render` must return `ReactElement | null`, so returning `null` draws nothing. `useFrontendTool`'s `render` is a component type that also accepts a bare string, which typechecks and then throws inside a `FlatList` — return an element or `null` there too.
+
+  `status` is `"inProgress"` / `"executing"` / `"complete"` in both hooks — typed as string literals in `useRenderTool`'s render props and as `ToolCallStatus` enum members in `useFrontendTool`'s. **You do not have to care which.** A string-enum member is assignable to its own literal type, so the string and the member compare interchangeably against either shape, and both forms narrow. `ToolCallStatus` is exported as a value from `/headless` if you prefer the members.
 
   For agent-authored content whose length you can't predict, render it in a `ScrollView` with a `maxHeight` set to the available band — it sizes to content when short and scrolls when long, so it never hard-clips.
 </Callout>
@@ -642,7 +662,6 @@ A client-executed frontend tool renders its UI **mid-run**: the tool fires, your
 - **`threadId` on `useAgent`** — not supported yet ([#6141](https://github.com/CopilotKit/CopilotKit/pull/6141)). Thread scoping comes from a chat-configuration provider; a `threadId` passed to `useAgent` does not typecheck and is ignored.
 - **Cloud provider props** — `publicApiKey` / `licenseToken` are not supported on the React Native provider; connect via `runtimeUrl`.
 - **Web-only rendering hooks** — `useDefaultRenderTool`, `useRenderCustomMessages`, and `useRenderActivityMessage` are not exported, because they render host DOM or link the web chat-message stack. `useRenderToolCall` **is** exported; use it to draw a registered tool call outside the chat.
-- **`useRenderTool` is not react-core's `useRenderTool`** — React Native's hook registers a frontend tool *as well as* a renderer (it routes through `useFrontendTool`), and that has three consequences. A `"*"` name is **not** a renderer-only wildcard as it is on the web: it registers a frontend tool named `*` and advertises it to the model, so register named renderers instead. Of the tool-level options `useFrontendTool` itself accepts, `followUp` and `available` are not forwarded, so neither can be set through this hook. And its `handler` type declares only `(args)`, omitting the `context` argument (`toolCall` / `agent` / `signal`) that core does pass at runtime, so a typed handler cannot reach it. All three are tracked for a follow-up that converges React Native onto react-core's hooks; until then reach for `useFrontendTool` directly when you need a tool-level option.
 
 ## Next steps
 

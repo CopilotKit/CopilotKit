@@ -1,11 +1,33 @@
 ---
 title: "useRenderTool"
-description: "Register a React Native component to render inline when an agent calls a tool."
+description: "Register a React Native renderer for a tool call, by tool name or wildcard."
 ---
 
 ## Overview
 
-`useRenderTool` is the React Native counterpart of the web tool-rendering hooks. It registers a tool with the agent **and** a render function that produces a React Native element for that tool's call, so the agent can drive inline generative UI inside the chat. It combines [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool) (registration + optional handler) with a render registry that the prebuilt [`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui) reads when displaying tool calls.
+`useRenderTool` registers a **renderer only**. It supplies UI for a tool call
+somebody else owns — a server-side tool, or, with `name: "*"`, every tool call
+that has no renderer of its own. It does not register a tool: nothing is
+advertised to the model and nothing becomes callable.
+
+The hook exported from `@copilotkit/react-native` **is** react-core's
+`useRenderTool`, re-exported unchanged. React Native has no render-tool API of
+its own, so this page and the [React (V2)
+`useRenderTool`](/reference/v2/hooks/useRenderTool) document the same hook; only
+the import path differs.
+
+<Callout type="warn" title="Registering a tool is a different hook">
+  If you want the agent to be able to *call* your function and draw its UI, that
+  is [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool) — it
+  accepts `description`, `handler` and `render`, and it advertises the tool to
+  the model on every run. `useRenderTool` does neither: no `description`, no
+  `handler`, nothing offered to the model.
+
+  React Native used to export a **local** hook under this name whose whole body
+  forwarded to `useFrontendTool`, so it shipped one capability under the other's
+  name. See [Migrating from the old React Native
+  `useRenderTool`](#migrating-from-the-old-react-native-userendertool).
+</Callout>
 
 <Callout type="info">
   `useRenderToolCall` **is** exported on React Native — import it from
@@ -19,56 +41,89 @@ description: "Register a React Native component to render inline when an agent c
 
 ## Signature
 
+There are two overloads: a wildcard fallback that takes no schema, and a
+name-scoped renderer that requires one.
+
+### Wildcard overload
+
 ```tsx
 import { useRenderTool } from "@copilotkit/react-native";
 
-function useRenderTool<
-  T extends Record<string, unknown> = Record<string, unknown>,
->(options: UseRenderToolOptions<T>, deps?: ReadonlyArray<unknown>): void;
+useRenderTool(
+  {
+    name: "*",
+    render: (props: any) => React.ReactElement | null,
+    agentId?: string,
+  },
+  deps?: ReadonlyArray<unknown>,
+);
 ```
 
-`T` is the parsed shape of the tool's arguments. It is constrained to
-`Record<string, unknown>` and defaults to it, so calling the hook without an
-explicit type argument is valid — `T` is normally inferred from the `parameters`
-schema.
+### Named overload
+
+```tsx
+import { useRenderTool } from "@copilotkit/react-native";
+import { z } from "zod";
+
+useRenderTool<S extends StandardSchemaV1>(
+  {
+    name: string,
+    parameters: S,
+    render: (props: RenderToolProps<S>) => React.ReactElement | null,
+    agentId?: string,
+  },
+  deps?: ReadonlyArray<unknown>,
+);
+```
+
+`S` is the **schema** type, not the parsed argument object — the shape of
+`props.parameters` inside `render` is inferred from it.
 
 ## Parameters
 
-<PropertyReference name="options" type="UseRenderToolOptions<T>" required>
-  Tool definition and render function.
+<PropertyReference name="config" type="object" required>
+  Renderer configuration.
 
-  <PropertyReference name="name" type="string" required>
-    Unique tool name. Must match the name the agent calls.
+  <PropertyReference name="name" type='string | "*"' required>
+    The tool name to render. Must match the name the agent calls. `"*"` selects
+    the wildcard overload: a fallback used for any tool call that has no
+    exact-name renderer registered.
   </PropertyReference>
 
-  <PropertyReference name="description" type="string" required>
-    Human-readable description shown to the agent.
+  <PropertyReference name="parameters" type="S extends StandardSchemaV1" required>
+    Schema describing the tool's parameters, which types `props.parameters` in
+    `render`. Accepts any schema compatible with [Standard
+    Schema](https://standardschema.dev/) (Zod, Valibot, ArkType, etc.).
+
+    Required on the named overload; the wildcard overload takes no schema at all
+    and types its render props as `any`.
   </PropertyReference>
 
-  <PropertyReference name="parameters" type="StandardSchemaV1<unknown, T>" required>
-    Schema describing the tool's parameters. Accepts any schema compatible with
-    [Standard Schema](https://standardschema.dev/) (Zod, Valibot, ArkType,
-    etc.).
-  </PropertyReference>
+  <PropertyReference name="render" type="(props: RenderToolProps<S>) => React.ReactElement | null" required>
+    Render function for the tool call. Returning `null` draws nothing, which is
+    how you suppress UI for a tool call you do not want shown.
 
-  <PropertyReference name="render" type="(props: RenderToolProps<T>) => React.ReactElement | null" required>
-    Render function returning a React Native element for the tool call.
-  </PropertyReference>
-
-  <PropertyReference name="handler" type="(args: T) => Promise<unknown>">
-    Optional handler executed when the tool is called. Omit for a render-only
-    tool.
+    The return type is `ReactElement | null` rather than `ReactNode`, which
+    matters on React Native: `FlatList` cannot render a bare string, so a
+    renderer that returned one would typecheck and then throw at runtime. This
+    hook's signature rejects it.
   </PropertyReference>
 
   <PropertyReference name="agentId" type="string">
-    Optional agent ID to scope the tool to a specific agent.
+    Scopes the registry **key** to one agent. Registrations are deduplicated by
+    `agentId:name`, so an `agentId` lets two renderers coexist under the same
+    tool name.
+
+    `agentId` is not itself part of the hook's re-registration check, so if it
+    comes from a value that changes at runtime, list that value in `deps` too.
   </PropertyReference>
 </PropertyReference>
 
 <PropertyReference name="deps" type="ReadonlyArray<unknown>">
-  Optional dependency array. Re-registers the tool when these values change. The
-  `render` function is **captured at registration** and only refreshed when the
-  tool re-registers — it does not re-read the latest closure on every render.
+  Optional dependency array. Re-registers the renderer when these values change.
+  The `render` function is **captured at registration** and only refreshed when
+  the renderer re-registers — it does not re-read the latest closure on every
+  render.
 
   `deps` are compared by **serializing the whole array with `JSON.stringify`**,
   not by reference identity the way React's own `useEffect` compares. So `deps`
@@ -79,33 +134,21 @@ schema.
   cannot see](#values-deps-cannot-see) for what to do with those.
 </PropertyReference>
 
-### `RenderToolProps<T>`
+### `RenderToolProps<S>`
 
-Props passed to your `render` function. The type is not declared in the React
-Native package — it is derived from react-core's canonical renderer contract, so
-React Native and web cannot drift apart:
+Props passed to your `render` function on the named overload.
+`@copilotkit/react-native` re-exports this type from react-core, so React Native
+and web cannot drift apart:
 
 ```ts
-type RenderToolProps<T = Record<string, unknown>> = React.ComponentProps<
-  ReactToolCallRenderer<T>["render"]
->;
+import type { RenderToolProps } from "@copilotkit/react-native";
 ```
 
-That resolves to a three-arm union discriminated on `status`: `args` is
-`Partial<T>` on the in-progress arm and `T` on the executing and complete arms,
-and `result` is a `string` only on the complete arm (`undefined` on the other
-two). Narrow on `status` before reading `args` fields or `result`.
-
-The discriminant is the **`ToolCallStatus` enum** — not a string-literal union.
-Each arm is typed `ToolCallStatus.InProgress`, `ToolCallStatus.Executing` or
-`ToolCallStatus.Complete`. Comparing a `status` against the string a member
-carries still type-checks and still narrows, so `status === "executing"` is
-valid TypeScript; the enum members are the **recommended** style rather than a
-compilation requirement, because they say which arm you mean and break loudly if
-a member's value ever changes. Two things are genuinely errors: comparing
-against a string that matches no member (TS2367, "no overlap"), and *assigning* a
-bare `"executing"` to a `status`-typed variable (TS2322 — a raw string is not
-assignable to the enum, even though the enum is comparable to it).
+It is a three-arm union discriminated on `status`. `parameters` is
+`Partial<InferSchemaOutput<S>>` on the in-progress arm and the full
+`InferSchemaOutput<S>` on the executing and complete arms; `result` is a
+`string` only on the complete arm. Narrow on `status` before reading
+`parameters` fields or `result`.
 
 <PropertyReference name="name" type="string">
   The tool name being rendered.
@@ -115,54 +158,52 @@ assignable to the enum, even though the enum is comparable to it).
   Unique ID of this tool call.
 </PropertyReference>
 
-<PropertyReference name="args" type="Partial<T> | T">
-  Tool-call arguments, typed from your `parameters` schema: `Partial<T>` on the
-  in-progress arm (the agent is still writing the call), `T` on the executing and
-  complete arms.
+<PropertyReference name="parameters" type="Partial<T> | T">
+  Tool-call arguments, typed from your `parameters` schema: partial on the
+  in-progress arm (the agent is still writing the call), complete on the
+  executing and complete arms.
 
-  That widening from `Partial<T>` to `T` is a **type-level assertion, not a
-  runtime parse**. Every arm receives the same value — the raw tool-call argument
-  string run through CopilotKit's partial JSON parser — and your `parameters`
-  schema is never applied to validate or coerce it before it reaches `render`. A
-  truncated or malformed argument string therefore still yields whatever the
-  partial parse produced, typed as complete. Keep renderers defensive about
-  missing fields even on the later arms.
+  That widening is a **type-level assertion, not a runtime parse**. Every arm
+  receives the same value — the raw tool-call argument string run through
+  CopilotKit's partial JSON parser — and your `parameters` schema is never
+  applied to validate or coerce it before it reaches `render`. A truncated or
+  malformed argument string therefore still yields whatever the partial parse
+  produced, typed as complete. Keep renderers defensive about missing fields
+  even on the later arms.
 </PropertyReference>
 
-<PropertyReference name="status" type="ToolCallStatus">
-  Current tool-call status, as a member of the `ToolCallStatus` enum
-  (`@copilotkit/core`, re-exported from `@copilotkit/react-native`):
-  `ToolCallStatus.InProgress` while arguments stream,
-  `ToolCallStatus.Executing` while the handler runs, and
-  `ToolCallStatus.Complete` once the result is available.
+<PropertyReference name="status" type='"inProgress" | "executing" | "complete"'>
+  Current tool-call status, as a **string literal**: `"inProgress"` while
+  arguments stream, `"executing"` while the call runs, and `"complete"` once a
+  result is available.
 
-  Prefer the enum members over the raw strings they carry. `status === "executing"`
-  does compile and does narrow — TypeScript accepts an enum member compared
-  against its own value — but `status === ToolCallStatus.Executing` is
-  self-documenting and fails loudly if the enum's values ever change, so it is the
-  form this reference uses. Comparing against a string that is not a member value
-  is a TS2367 error, and *assigning* a raw `"executing"` to a `status`-typed
-  variable is a TS2322 error.
+  The `ToolCallStatus` enum members (`ToolCallStatus.InProgress`,
+  `ToolCallStatus.Executing`, `ToolCallStatus.Complete`) carry exactly these
+  three strings, and a string-enum member is assignable to its own literal type
+  — so `status === ToolCallStatus.Complete` compiles **and** narrows against
+  this union just as `status === "complete"` does. Use whichever you prefer.
+
+  `ToolCallStatus` is still exported as a value from `@copilotkit/react-native`,
+  and it is the type you actually meet on the canonical
+  `ReactToolCallRenderer` contract — the props a renderer written against that
+  contract receives, whether you build it with `defineToolCallRenderer` or pass
+  `render` to `useFrontendTool`, declare `status` as enum members rather than as
+  string literals.
 </PropertyReference>
 
 <PropertyReference name="result" type="string | undefined">
-  The **content of the tool result message** for this `toolCallId` — not the value
-  your `handler` returned. `CopilotChat` correlates the agent's messages by
-  `toolCallId`, and the renderer passes that message's `content` straight through
-  (non-string content is coerced to `""`). Present as a `string` on the complete
-  arm; `undefined` on the other two.
+  The **content of the tool result message** for this `toolCallId` — not the
+  value a `handler` returned. Tool calls are correlated with their results by
+  `toolCallId`, and the renderer passes that message's `content` through.
+  Present as a `string` on the complete arm; `undefined` on the other two.
 
   Consequences worth knowing:
 
-  - The complete arm is selected **because a tool result message exists**, not
-    because a handler finished.
-  - A `handler` return value reaches you only after serialization:
-    `undefined`/`null` become `""`, strings pass through, anything else is
-    `JSON.stringify`-ed. A handler that throws yields the string
-    `` `Error: <message>` `` — indistinguishable from a successful result unless
-    you encode status in the payload yourself.
-  - A render-only tool (no `handler`) still reaches the complete arm, with
-    `result` as the empty string.
+  - The complete arm is selected **because a tool result message exists** for
+    this `toolCallId`, not because a handler finished.
+  - The prebuilt React Native chat serializes a non-string `content` before it
+    reaches you: `null` / `undefined` become `""`, anything else is
+    `JSON.stringify`-ed, and it warns in dev either way.
   - On replay, `result` comes from the stored tool message in thread history, so
     it survives reloads without any handler running.
 </PropertyReference>
@@ -170,49 +211,59 @@ assignable to the enum, even though the enum is comparable to it).
 ### `RenderToolInProgressProps`, `RenderToolExecutingProps`, `RenderToolCompleteProps`
 
 `@copilotkit/react-native` re-exports these three types from react-core. They are
-**not** arms of the `RenderToolProps<T>` above and they do not describe the props
-this hook passes to `render`:
+the **arms** of the `RenderToolProps<S>` union above, so you can name a single
+state directly:
 
-- they are generic over a **schema** (`S extends StandardSchemaV1`), not over the
-  parsed argument object `T`;
-- they carry arguments under **`parameters`** (`Partial<InferSchemaOutput<S>>`,
-  then `InferSchemaOutput<S>`), where React Native's render props use **`args`**;
-- they declare `status` as the string literals `"inProgress"` / `"executing"` /
-  `"complete"`, where React Native's `status` is the `ToolCallStatus` **enum**;
-- they are the arms of react-core's own `RenderToolProps<S>` union, which belongs
-  to the **web** `useRenderTool` — a different hook from the React Native one
-  documented here, and one React Native does not export.
+```tsx
+import type { RenderToolCompleteProps } from "@copilotkit/react-native";
+import { Text } from "react-native";
+import { z } from "zod";
 
-Type React Native render functions with `RenderToolProps<T>` or
-`RenderToolFunction<T>` (both exported from `@copilotkit/react-native`). Reach for
-the three `RenderTool*Props` types only when sharing code with a web react-core
-renderer.
+const schema = z.object({ city: z.string() });
+
+function WeatherResult(props: RenderToolCompleteProps<typeof schema>) {
+  // `props.parameters.city` is a `string`, and `props.result` is a `string`.
+  return <Text>{props.parameters.city}: {props.result}</Text>;
+}
+```
+
+Each is generic over the **schema** (`S extends StandardSchemaV1`), matching
+`RenderToolProps<S>`.
 
 ## Usage
 
 ```tsx
-import { ToolCallStatus, useRenderTool } from "@copilotkit/react-native";
+import { useRenderTool } from "@copilotkit/react-native";
 import { CopilotChat } from "@copilotkit/react-native/components";
 import { ActivityIndicator, Text, View } from "react-native";
 import { z } from "zod";
 
 function ChatScreen() {
-  useRenderTool({
-    name: "showWeather",
-    description: "Display weather for a city",
-    parameters: z.object({
-      city: z.string(),
-      temp: z.number(),
-      condition: z.string(),
-    }),
-    render: ({ args, status }) => (
-      <View style={{ padding: 12, backgroundColor: "#f0f0f0", borderRadius: 8 }}>
-        <Text style={{ fontWeight: "bold" }}>{args.city}</Text>
-        <Text>{args.temp}°C · {args.condition}</Text>
-        {status === ToolCallStatus.Executing && <ActivityIndicator />}
-      </View>
-    ),
-  });
+  useRenderTool(
+    {
+      // A tool your agent executes server-side; this only draws it.
+      name: "showWeather",
+      parameters: z.object({
+        city: z.string(),
+        temp: z.number(),
+        condition: z.string(),
+      }),
+      render: ({ status, parameters }) => {
+        if (status === "inProgress") return <ActivityIndicator />;
+        return (
+          <View
+            style={{ padding: 12, backgroundColor: "#f0f0f0", borderRadius: 8 }}
+          >
+            <Text style={{ fontWeight: "bold" }}>{parameters.city}</Text>
+            <Text>
+              {parameters.temp}°C · {parameters.condition}
+            </Text>
+          </View>
+        );
+      },
+    },
+    [],
+  );
 
   return <CopilotChat agentName="default" />;
 }
@@ -224,18 +275,54 @@ exported from the `@copilotkit/react-native` root is
 [headless](/reference/react-native/components/CopilotChat) and renders no message
 list, so a registered `render` would never appear.
 
+### Wildcard fallback
+
+A `"*"` entry draws any tool call that has no exact-name renderer. It takes no
+schema, so its render props are untyped:
+
+```tsx
+useRenderTool(
+  {
+    name: "*",
+    render: ({ name, status }) => (
+      <Text>
+        {status === "complete" ? "✓" : "⏳"} {name}
+      </Text>
+    ),
+  },
+  [],
+);
+```
+
+Returning `null` from a renderer draws nothing, so `render: () => null` is how
+you silence a tool call — one named tool, or, with `"*"`, every tool that has no
+renderer of its own.
+
 ## Behavior
 
-- **Render returns `ReactElement | null`**, not `ReactNode`. React Native's `FlatList` cannot render bare strings or portals, so a render function must return an element or `null`.
-- **Arguments stream.** While the agent is still writing the call, `status` is `ToolCallStatus.InProgress` and `args` is partial — fields arrive progressively. Write renderers that tolerate missing fields; that is what lets UI build as the agent writes it.
-- **`render` is captured at registration.** It is not refreshed on every render — only when the tool re-registers, which happens when `deps` compare as changed. This matches the web hooks. If your `render` closes over component state or props that change over time, list a JSON-comparable form of them in `deps`, or read them through a ref (see [below](#values-deps-cannot-see)); otherwise the chat keeps invoking the stale closure and paints outdated UI. Earlier React Native versions refreshed the closure on every render, so code that relied on that must now handle staleness explicitly.
-- **Cleanup**: unmounting removes the *tool* (the agent can no longer call it) but keeps the *render function* registered, so tool calls already in the chat history still render after you navigate away.
+- **Renderer only.** Nothing is added to the tool list the runtime hands the
+  agent, and the model cannot call a name registered here.
+- **`render` returns `ReactElement | null`**, not `ReactNode`. React Native's
+  `FlatList` cannot render bare strings or portals, and this signature enforces
+  it.
+- **Deduplicated by `agentId:name`** — the latest registration under a key wins.
+- **Arguments stream.** While the agent is still writing the call, `status` is
+  `"inProgress"` and `parameters` is partial — fields arrive progressively.
+  Write renderers that tolerate missing fields; that is what lets UI build as
+  the agent writes it.
+- **`render` is captured at registration.** It is not refreshed on every render
+  — only when the renderer re-registers, which happens when `name` changes or
+  when `deps` compare as changed. If your `render` closes over component state
+  or props that change over time, list a JSON-comparable form of them in `deps`,
+  or read them through a ref (see [below](#values-deps-cannot-see)); otherwise
+  the chat keeps invoking the stale closure and paints outdated UI.
+- **No cleanup on unmount.** The renderer entry is deliberately kept, so tool
+  calls already in the chat history still render after you navigate away.
 
 ### Values `deps` cannot see
 
-`deps` is forwarded to [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool)
-in react-core, which decides whether to re-register by comparing
-[`JSON.stringify(deps)`](https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-core/src/v2/hooks/use-frontend-tool.tsx)
+The hook decides whether to re-register by comparing
+[`JSON.stringify(deps)`](https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-core/src/v2/hooks/use-render-tool.tsx)
 against the previous render's. Serialization, not reference identity, is the
 comparison — which has consequences worth knowing before you reach for `deps`:
 
@@ -254,24 +341,26 @@ function SeatPicker({ onSelect }: { onSelect: (id: string) => void }) {
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
 
-  useRenderTool({
-    name: "pickSeat",
-    description: "Let the traveler pick a seat",
-    parameters: z.object({ seats: z.array(z.string()) }),
-    render: ({ args }) => (
-      <SeatGrid
-        seats={args.seats ?? []}
-        onSelect={(id) => onSelectRef.current(id)}
-      />
-    ),
-  });
+  useRenderTool(
+    {
+      name: "pickSeat",
+      parameters: z.object({ seats: z.array(z.string()) }),
+      render: ({ parameters }) => (
+        <SeatGrid
+          seats={parameters.seats ?? []}
+          onSelect={(id) => onSelectRef.current(id)}
+        />
+      ),
+    },
+    [],
+  );
 }
 ```
 
 The captured `render` is still the stale one, but the ref it reads is current, so
-the tool never has to re-register to reach the newest callback. That makes the ref
-pattern the more reliable default whenever what changes is behavior rather than
-displayed data.
+the renderer never has to re-register to reach the newest callback. That makes the
+ref pattern the more reliable default whenever what changes is behavior rather
+than displayed data.
 
 ## Rendering a tool call outside the chat
 
@@ -289,10 +378,10 @@ function ToolCallStage({ agentId = "default" }: { agentId?: string }) {
 
   // Pair each call with its result message — the same correlation the prebuilt
   // chat does. `toolMessage` is what selects the complete arm: pass it and the
-  // call resolves to `ToolCallStatus.Complete` with `result`. Without one,
-  // `result` is `undefined` and the status comes from the provider instead —
-  // `ToolCallStatus.Executing` while this call id is one the provider is tracking
-  // as executing, and `ToolCallStatus.InProgress` otherwise.
+  // call resolves to `"complete"` with `result`. Without one, `result` is
+  // `undefined` and the status comes from the provider instead — `"executing"`
+  // while this call id is one the provider is tracking as executing, and
+  // `"inProgress"` otherwise.
   const toolMessages = new Map(
     messages.flatMap((message) =>
       message.role === "tool" ? [[message.toolCallId, message] as const] : [],
@@ -319,89 +408,131 @@ function ToolCallStage({ agentId = "default" }: { agentId?: string }) {
 
 <PropertyReference name="useRenderToolCall" type="() => (input: { toolCall, toolMessage? }) => ReactElement | null">
   Returns a function that renders a single tool call using the render function
-  registered for it. Returns `null` when no renderer matches the tool call.
-  Arguments are partial-parsed, so components paint as the agent writes the call.
+  registered for it. Prefers an exact name match, falls back to a `"*"` entry,
+  and returns `null` when neither exists. Arguments are partial-parsed, so
+  components paint as the agent writes the call.
 </PropertyReference>
 
-`RenderToolProvider` is **removed** — there is no separate registry provider to mount. See the migration section below.
+## Migrating from the old React Native `useRenderTool`
 
-## Migrating from `useRenderToolRegistry` (removed)
+React Native used to export a **local** hook under this name. It was not
+react-core's `useRenderTool`: its whole body forwarded to react-core's *other*
+hook, `useFrontendTool`, so it registered a tool **and** a renderer while
+carrying the renderer-only hook's name. `@copilotkit/react-native` now
+re-exports react-core's hook directly and has no render-tool API of its own.
 
-`useRenderToolRegistry` is gone. It exposed a React Native-only registry that no
-longer exists — render functions now live in the same registry the rest of
-CopilotKit uses, which is what makes [`useComponent`](/reference/react-native/hooks/useComponent)
-work on React Native and keeps chat history rendering after navigation.
+| Before (RN) | After |
+| --- | --- |
+| `useRenderTool({ name, description, parameters, handler, render }, deps)` | `useFrontendTool({ …identical object }, deps)` — rename only |
+| renderer-only registration: impossible | `useRenderTool({ name, parameters, render, agentId? }, deps)` — `parameters` required on a named renderer |
+| wildcard: registers a tool named `*` | `useRenderTool({ name: "*", render })` — works, same as web; the one case that takes no schema |
+| render props `{ args, status, … }` | `{ parameters, status, … }` |
+| `RenderToolProps<T>` (args-shaped, generic over parsed args) | `RenderToolProps<S>` (parameters-shaped, generic over schema) |
+| `UseRenderToolOptions<T>` | gone — write the config inline (`RenderToolConfig` is core-internal) |
+| `RenderToolFunction<T>` | gone |
 
-```diff
-- const registry = useRenderToolRegistry();
-- const renderer = registry.get(toolCall.function.name);
-- return renderer ? renderer({ args, status }) : null;
-+ const renderToolCall = useRenderToolCall();
-+ return renderToolCall({ toolCall });
-```
+There is no exported config type to annotate a call with, and that is deliberate
+rather than an oversight. `RenderToolConfig` — core's internal name for the
+shape, declared without `export` and referenced only by the implementation
+signature — is **looser than what the overloads accept**: it declares
+`parameters?: S`, so it would permit `{ name: "showWeather", render }` with no
+schema, which the named overload rejects. Exporting it would hand you a type that
+describes calls the compiler refuses. Write the config as an inline object literal
+and let the overload infer it. `RenderToolProps<S>` **is** exported, and is what
+you annotate a standalone render function with.
 
-Render props also change. They gain `name` and `toolCallId`, and `status` widens:
-it was the two-member string-literal union `"executing" | "complete"`, and is now
-the three-member **`ToolCallStatus` enum** (`ToolCallStatus.InProgress` was added,
-for the state where the agent is still streaming the call). **The added arm is the
-breaking part** — a renderer that handled only `"executing"` and `"complete"` now
-has a third state to account for. Your existing string comparisons keep working:
-`status === "complete"` still type-checks and still narrows against the enum. So
-moving them onto the members is a recommended cleanup, not a required migration
-step:
+**A type-checked call site that writes its old fields inline in a fresh object
+literal — which is how essentially every call site in the wild is written — fails
+loudly at `check-types`.** That is the property the deletion was for:
 
-```diff
-- if (status === "complete") return <Result value={result} />;
-+ if (status === ToolCallStatus.Complete) return <Result value={result} />;
-```
+- `description` was **required** on the old hook and does not exist on core's
+  config, so TypeScript's excess-property check rejects the call with
+  `TS2769: No overload matches this call … 'description' does not exist in
+  type '{ name; parameters; render; agentId? }'`. This is what most consumers
+  hit, `name: "*"` call sites included.
+- The renamed render prop is `TS2339: Property 'args' does not exist`.
 
-What does *not* survive the change is assigning a raw string into a
-`status`-typed variable (`const s: RenderToolProps<T>["status"] = "complete"` is
-TS2322), and comparing against a string that is not one of the three member
-values (TS2367).
+If your call site wanted a **callable** tool, `useFrontendTool` is a rename and
+nothing else — it takes the same object, `description` and `handler` included.
+If it only ever drew UI for a tool the agent already had, drop `description`
+(and `handler`, if you passed one) and rename `args` to `parameters`.
 
-`args` used to be the fully-typed `T` in every state; it is now `Partial<T>` on
-the newly added `ToolCallStatus.InProgress` arm and stays the full `T` once
-`status` is `ToolCallStatus.Executing` or `ToolCallStatus.Complete`. So renderers
-that previously assumed every field was present must now tolerate missing fields
-while in progress. `result` is narrowed the other way: it was `string |
-undefined` in every state, and is now `undefined` unless `status` is
-`ToolCallStatus.Complete`.
+The wildcard is the case that changes behaviour for the better rather than
+merely compiling differently. `name: "*"` on the old hook registered a frontend
+tool **literally named** `*`, with no description and no schema, and advertised
+it to the model on every run. On core's hook `"*"` is what it is on the web: a
+schema-less fallback renderer that registers no tool at all.
 
-The `args` half is the one most existing renderers actually trip over, and it
-fails at **compile** time rather than on screen. On the un-narrowed union `args`
-is `Partial<T> | T`, so `args.foo` reads as `T["foo"] | undefined` and a `strict`
-type check (`tsc --noEmit` — what `check-types` runs) rejects every use that needs
-the field to be present: dereferencing or calling it is **TS18048**
-(`'args.foo' is possibly 'undefined'`), and passing it into a prop or argument
-typed without `undefined` is TS2322 / TS2345. Interpolating it bare into JSX —
-`<Text>{args.city}</Text>` — still compiles, because an element accepts
-`undefined` children. That is why this break surfaces as a type error rather than
-as something visibly wrong in the chat.
+### Three shapes the compiler does not catch
 
-Narrowing on `status` clears it, and the later arms hand back the full `T`:
+Excess-property checking is what rejects the old `description`, and it reaches
+only properties **written inline** in a **fresh** object literal. Three shapes
+therefore slip through, and all three are worth auditing for by hand:
 
-```diff
-- render: ({ args }) => <WeatherCard city={args.city} temp={args.temp} />,
-+ render: ({ args, status }) => {
-+   if (status === ToolCallStatus.InProgress) return <WeatherSkeleton />;
-+   return <WeatherCard city={args.city} temp={args.temp} />;
-+ },
-```
+1. **A hoisted config object.** Assign the config to a variable first and pass
+   the variable, and the excess `description` is no longer excess:
 
-An early return on the in-progress arm is usually the smallest change. Per-field
-defaults (`args.city ?? ""`) also satisfy the checker, at the cost of painting a
-half-written call as though it had finished.
+   ```tsx
+   const cfg = {
+     name: "showWeather",
+     description: "Show weather info",
+     parameters: z.object({ city: z.string() }),
+     handler: async ({ city }: { city: string }) => fetchWeather(city),
+     render: () => <WeatherCard city="Berlin" />, // ignores its props
+   };
+   useRenderTool(cfg); // compiles clean
+   ```
 
-Two behavior changes ride along with the props change, both documented under
-[Behavior](#behavior). `render` is now **captured at registration** and refreshed
-only when `deps` compare as changed, so a `render` that closes over changing state
-or props needs those values in `deps` — or a ref — or the chat keeps painting the
-stale closure. And unmounting no longer unregisters the render function: the tool
-itself is still removed, but tool calls already in the chat history keep rendering
-after you navigate away.
+   The call silently becomes renderer-only: the tool stops being registered and
+   advertised to the model, and `handler` never runs again. A hoisted config
+   whose `render` *does* destructure `args` is still caught — the render
+   parameter is contravariant, so it fails `TS2769` on `render` — so this is
+   specifically the "hoisted **and** `render` ignores its props" combination.
+
+2. **Spread-carried fields.** Same cause, and it survives a fresh literal at the
+   call site: excess-property checking does not reach a property that arrives via
+   a spread, so the old `description` is not flagged.
+
+   ```tsx
+   const base = {
+     name: "showWeather",
+     description: "Show weather",
+     parameters: z.object({ city: z.string() }),
+   };
+   useRenderTool({ ...base, render: () => <WeatherCard city="Berlin" /> }); // compiles clean
+   ```
+
+   Silently renderer-only, exactly as above — and, exactly as above, a `render`
+   that *does* destructure `args` is still caught on contravariance.
+
+3. **An untyped call site.** A plain-JavaScript screen, or one under
+   `@ts-nocheck`, is checked by nothing at all. Here the runtime detail matters:
+   core's bridge spreads `{ ...props, parameters: props.args }` into your
+   renderer, so `args` **still arrives at runtime**. An old
+   `render: ({ args }) => …` keeps painting exactly as it did. The UI looks
+   identical while the tool has silently stopped existing.
+
+If you have JavaScript React Native screens, grep them for `useRenderTool` and
+decide per call site whether it wanted a tool (`useFrontendTool`) or only a
+renderer.
+
+### `status` is not a break
+
+The old hook's render props typed `status` as the `ToolCallStatus` **enum**;
+core's `RenderToolProps` types it as the string literals `"inProgress" |
+"executing" | "complete"`. **No migration work follows from that.** A
+string-enum member is assignable to its own literal type, so
+`status === ToolCallStatus.Complete` compiles *and* narrows against the literal
+union — existing enum comparisons keep working untouched. Either form is fine;
+pick one and be consistent.
+
+`ToolCallStatus` remains a value export of `@copilotkit/react-native`, and it is
+still the shape you meet where the canonical `ReactToolCallRenderer` contract is
+in play: a renderer built with `defineToolCallRenderer`, or a `render` passed to
+`useFrontendTool`, receives `status` as an enum member.
 
 ## Related
 
-- [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): register a tool without inline rendering
+- [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): register a tool the agent can call, with an optional renderer
+- [`useComponent`](/reference/react-native/hooks/useComponent): register a tool whose renderer is a component
 - [`useHumanInTheLoop`](/reference/react-native/hooks/useHumanInTheLoop): gate a tool call on user approval
