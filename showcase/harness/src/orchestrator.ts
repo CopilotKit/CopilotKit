@@ -3995,6 +3995,67 @@ export async function drainFleetWorker(args: {
 }
 
 /**
+ * Memoize a zero-arg async thunk so it runs AT MOST ONCE, no matter how many
+ * callers (concurrent or sequential) invoke the returned function.
+ *
+ * This is the once-latch for `gracefulTeardown` below. That teardown is
+ * reachable from BOTH the WORKER_MAX_JOBS recycle exit (`makeRecycleExit`) AND
+ * the SIGTERM/SIGINT signal handler (`bootFleet`'s `drainAndExit` → the handle's
+ * `stop()`). The signal handler has its OWN `draining` boolean guard, but that
+ * guard protects only its own re-entry — it does NOT stop a recycle firing
+ * concurrently with (or moments before) a SIGTERM from running the whole
+ * deregister + `pool.shutdown()` sequence a SECOND time. The downstream is
+ * already idempotent / `.catch`-wrapped so a double-teardown does not crash, but
+ * the once-only invariant must be EXPLICIT: latching here makes every caller
+ * share the first invocation's promise, so `drainFleetWorker` (roster delete +
+ * pool shutdown) runs exactly once and concurrent callers all await the same
+ * outcome. A rejection is memoized too — a later caller observes (and logs) the
+ * same teardown failure rather than re-running a partial teardown.
+ */
+export function latchOnce<T>(fn: () => Promise<T>): () => Promise<T> {
+  let inflight: Promise<T> | undefined;
+  return (): Promise<T> => {
+    if (inflight === undefined) inflight = fn();
+    return inflight;
+  };
+}
+
+/**
+ * Build the injectable `exit` dep for the worker loop's WORKER_MAX_JOBS recycle.
+ *
+ * The recycle must NOT bare-`process.exit`: that skips the roster deregister and
+ * leaves a stale `workers` row for ~180s until fleet-health reclaims it, tripping
+ * a transient false-red on the dashboard every recycle. Instead run the SAME
+ * deregister-first graceful teardown as SIGTERM (`gracefulTeardown`, which wraps
+ * `drainFleetWorker` — roster delete + pool shutdown) BEFORE exiting.
+ *
+ * The `finally` GUARANTEES the (non-zero) exit even if the teardown rejects, so a
+ * failed drain still surrenders the container to Railway's restart policy — the
+ * recycle's whole purpose. Teardown is best-effort; the exit is load-bearing.
+ * `processExit` is injectable so the recycle path is unit-testable without
+ * killing the test process (defaults to `process.exit`).
+ */
+export function makeRecycleExit(deps: {
+  gracefulTeardown: () => Promise<void>;
+  logger: Logger;
+  processExit?: (code: number) => void;
+}): (code: number) => void {
+  const doExit = deps.processExit ?? ((code: number) => process.exit(code));
+  return (code: number): void => {
+    void deps
+      .gracefulTeardown()
+      .catch((err) =>
+        logErrorWithStack(
+          deps.logger,
+          "showcase-harness.fleet.worker.recycle-drain-failed",
+          err,
+        ),
+      )
+      .finally(() => doExit(code));
+  };
+}
+
+/**
  * Worker role entrypoint: runs the BrowserPool and pulls per-service jobs from
  * the control-plane queue.
  *
@@ -4227,6 +4288,51 @@ export async function runWorker(
   });
 
   let worker: Awaited<ReturnType<typeof runFleetWorker>>;
+
+  // SINGLE SOURCE OF TRUTH for this worker's deregister-first graceful teardown:
+  // drain (stop claiming) → registration.stop() → deregister (roster delete) →
+  // fleet worker.stop() → pool shutdown (WE own the pool since we injected
+  // budgetSource, so drainFleetWorker's shutdownPool is the one that runs it).
+  // Used by BOTH the handle's stop() (the SIGTERM path in bootFleet) AND the
+  // recycle `exit` dep injected below, so a WORKER_MAX_JOBS recycle tears down
+  // IDENTICALLY to SIGTERM — deregistering cleanly instead of stranding a stale
+  // roster row for fleet-health to reclaim at its 180s stale window (a transient
+  // false-red on every recycle). `worker` is captured by reference (assigned by
+  // the runFleetWorker call below); this closure only dereferences it at
+  // teardown time, long after boot.
+  //
+  // ONCE-LATCH (latchOnce): BOTH the recycle exit (makeRecycleExit below) and
+  // the SIGTERM/SIGINT handler (bootFleet's drainAndExit → this handle's stop())
+  // reference this SAME closure. The signal handler's `draining` boolean only
+  // guards its own re-entry — it cannot stop a recycle firing concurrently with
+  // a SIGTERM from running the whole deregister + pool.shutdown sequence twice.
+  // Latching makes the shared teardown run at most once; concurrent callers all
+  // await the first invocation's promise.
+  const gracefulTeardown = latchOnce(
+    (): Promise<void> =>
+      drainFleetWorker({
+        worker,
+        registration,
+        shutdownPool: () =>
+          pool.shutdown().catch((err) => {
+            logger.error("showcase-harness.fleet.worker.pool-shutdown-failed", {
+              workerId,
+              err: err instanceof Error ? err.message : String(err),
+            });
+            // CVDIAG: the worker's pool shutdown threw — chromium processes may
+            // be stranded. Surface the swallowed error with the worker_id.
+            console.log(
+              formatCvdiag({
+                component: "harness-orchestrator:worker-pool-shutdown-failed",
+                boundary: "als-snapshot",
+                status: "error",
+                error: `workerId=${workerId} ${err instanceof Error ? err.message : String(err)}`,
+              }),
+            );
+          }),
+      }),
+  );
+
   try {
     worker = await runFleetWorker(config, {
       queue,
@@ -4234,6 +4340,13 @@ export async function runWorker(
       port,
       logger,
       env,
+      // WORKER_MAX_JOBS recycle exit: run the SAME deregister-first graceful
+      // teardown as SIGTERM (deregister roster row + pool shutdown) BEFORE
+      // exiting non-zero so Railway restarts a fresh container. Without this the
+      // recycle used a bare process.exit that skipped deregister, leaving a
+      // stale roster row for ~180s that could trip a transient false-red on the
+      // fleet dashboard on every recycle.
+      exit: makeRecycleExit({ gracefulTeardown, logger }),
       // Inject the pool we own as the budget gate and the driver REGISTRY
       // (driverKind → { driver, payloadToInput }) we built above — fleet
       // runWorker skips constructing its own pool when both are supplied.
@@ -4309,28 +4422,10 @@ export async function runWorker(
       // job-settle heartbeat — which now fires AFTER the delete — is latched
       // into a logged no-op.
       // We injected BOTH budgetSource and drivers, so fleet runWorker did NOT
-      // construct its own pool — WE own it and shut it down here (last).
-      await drainFleetWorker({
-        worker,
-        registration,
-        shutdownPool: () =>
-          pool.shutdown().catch((err) => {
-            logger.error("showcase-harness.fleet.worker.pool-shutdown-failed", {
-              workerId,
-              err: err instanceof Error ? err.message : String(err),
-            });
-            // CVDIAG: the worker's pool shutdown threw — chromium processes may
-            // be stranded. Surface the swallowed error with the worker_id.
-            console.log(
-              formatCvdiag({
-                component: "harness-orchestrator:worker-pool-shutdown-failed",
-                boundary: "als-snapshot",
-                status: "error",
-                error: `workerId=${workerId} ${err instanceof Error ? err.message : String(err)}`,
-              }),
-            );
-          }),
-      });
+      // construct its own pool — WE own it and shut it down here (last). Shared
+      // with the recycle `exit` dep via `gracefulTeardown` (single source of
+      // truth) so SIGTERM and WORKER_MAX_JOBS recycle tear down identically.
+      await gracefulTeardown();
     },
   };
 }
