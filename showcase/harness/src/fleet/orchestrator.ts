@@ -41,13 +41,12 @@ import type { Logger } from "../types/index.js";
 import type { FleetRoleConfig } from "./role-config.js";
 import type { FleetQueueClient } from "./contracts.js";
 import { buildWorkerHealthServer } from "./worker/worker-health.js";
-import {
-  startWorkerLoop,
-  safeLog,
-  type PayloadToDriverInput,
-  type ServiceJobDriver,
-  type DriverRegistry,
-  type WorkerLoopHandle,
+import { startWorkerLoop, safeLog } from "./worker/worker-loop.js";
+import type {
+  PayloadToDriverInput,
+  ServiceJobDriver,
+  DriverRegistry,
+  WorkerLoopHandle,
 } from "./worker/worker-loop.js";
 import {
   createD6PayloadToInput,
@@ -263,14 +262,18 @@ export async function runWorker(
       // with the d6 payload→input mapper, so the self-contained boot routes by
       // driverKind through the registry (equivalence with the pre-registry
       // single-d6 worker) and the loop's construction guard is satisfied.
+      // Bound to a const so the mapper can be handed the SAME driver's
+      // `inputSchema` — the fleet path's validation gate lives in the mapper,
+      // not in `driver.run` (see `payload-mapper.ts`).
+      const d6Driver = createE2eFullDriver({
+        launcher: createPooledE2eFullLauncher(pool, logger),
+      });
       drivers = new Map([
         [
           E2E_D6_DRIVER_KIND,
           {
-            driver: createE2eFullDriver({
-              launcher: createPooledE2eFullLauncher(pool, logger),
-            }),
-            payloadToInput: createD6PayloadToInput(),
+            driver: d6Driver,
+            payloadToInput: createD6PayloadToInput(d6Driver.inputSchema),
             aggregateSlugKey: (serviceSlug: string) => `d6:${serviceSlug}`,
           },
         ],
