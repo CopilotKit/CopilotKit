@@ -5,6 +5,12 @@ import {
   input,
   linkedSignal,
 } from "@angular/core";
+import {
+  LucideCheck,
+  LucideChevronDown,
+  LucideLoaderCircle,
+  LucideWrench,
+} from "@lucide/angular";
 
 import type { AngularToolCall, ToolRenderer } from "@copilotkit/angular";
 
@@ -18,6 +24,7 @@ type ToolEntry = {
 @Component({
   selector: "wildcard-tool-render",
   standalone: true,
+  imports: [LucideCheck, LucideChevronDown, LucideLoaderCircle, LucideWrench],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="copilot-tool-reasoning" data-testid="wildcard-tool-render">
@@ -30,40 +37,38 @@ type ToolEntry = {
       >
         @if (isRunning()) {
           <svg
-            viewBox="0 0 24 24"
+            lucideLoaderCircle
+            size="14"
             class="copilot-tool-icon copilot-tool-icon--spin"
             aria-hidden="true"
-          >
-            <path d="M21 12a9 9 0 1 1-6.2-8.6" />
-          </svg>
+          ></svg>
         } @else {
           <svg
-            viewBox="0 0 24 24"
+            lucideCheck
+            size="14"
             class="copilot-tool-icon copilot-tool-icon--complete"
             aria-hidden="true"
-          >
-            <path d="m20 6-11 11-5-5" />
-          </svg>
+          ></svg>
         }
 
-        <svg viewBox="0 0 24 24" class="copilot-tool-icon" aria-hidden="true">
-          <path
-            d="M14.7 6.3a4 4 0 0 0-5-5L7.4 3.6l3 3L8 9 5 6l-2.3 2.3a4 4 0 0 0 5 5L16 21.6a2.1 2.1 0 0 0 3-3z"
-          />
-        </svg>
+        <svg
+          lucideWrench
+          size="14"
+          class="copilot-tool-icon"
+          aria-hidden="true"
+        ></svg>
 
         <span class="copilot-tool-name">{{ toolName() }}</span>
         <span class="copilot-tool-status">{{ statusLabel() }}</span>
 
         @if (hasDetails()) {
           <svg
-            viewBox="0 0 24 24"
+            lucideChevronDown
+            size="14"
             class="copilot-tool-chevron"
             [class.copilot-tool-chevron--open]="open()"
             aria-hidden="true"
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
+          ></svg>
         }
       </button>
 
