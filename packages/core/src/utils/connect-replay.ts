@@ -5,9 +5,14 @@ import type {
   RunAgentParameters,
   RunAgentResult,
 } from "@ag-ui/client";
-import { randomUUID, structuredClone_, transformChunks } from "@ag-ui/client";
+import {
+  AGUIConnectNotImplementedError,
+  randomUUID,
+  structuredClone_,
+  transformChunks,
+} from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { Subject, defer, lastValueFrom } from "rxjs";
+import { EMPTY, Subject, defer, lastValueFrom } from "rxjs";
 import { catchError, finalize, takeUntil } from "rxjs/operators";
 
 /**
@@ -96,11 +101,21 @@ export async function ɵconnectWithoutEventVerification(
       processed$.pipe(
         catchError((error: unknown) => {
           agent.isRunning = false;
+          // An agent that doesn't implement connect() is not an error worth
+          // surfacing: the base pipeline swallows it, and callers rely on that.
+          // `CopilotKitCore` awaits `detachActiveRun()` before every run, which
+          // only resolves because this path still reaches the finalize block
+          // below (see the historical note in run-handler.ts). Routing it
+          // through onError would also fire run-failure callbacks on every
+          // subscriber for a benign condition.
+          if (error instanceof AGUIConnectNotImplementedError) {
+            return EMPTY;
+          }
           return self.onError(input, error, subscribers);
         }),
         finalize(() => {
           agent.isRunning = false;
-          self.onFinalize(input, subscribers);
+          void self.onFinalize(input, subscribers);
           resolveCompletion?.();
           resolveCompletion = undefined;
           self.activeRunCompletionPromise = undefined;
