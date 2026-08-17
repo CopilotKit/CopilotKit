@@ -73,8 +73,8 @@ module Railway
     # EXPECTED_DOMAINS is derived from showcase/scripts/railway-envs.generated.json
     # (canonical source: showcase/scripts/railway-envs.ts). The CI guard
     # `npx tsx showcase/scripts/emit-railway-envs-json.ts --check` ensures the
-    # JSON artifact stays in sync with the TS SSOT on every PR. Only public
-    # (non-`*.up.railway.app`) hosts are included, preserving the original set.
+    # JSON artifact stays in sync with the TS SSOT on every PR. Only non-empty
+    # public (non-`*.up.railway.app`) hosts are included.
     # Shared SSOT load — read once at class-load, derive both EXPECTED_DOMAINS
     # and STAGING_SERVICES from the same generated.json so they cannot drift.
     SSOT_DATA = begin
@@ -92,8 +92,8 @@ module Railway
             domains = svc.fetch("domains")
             prod = domains.fetch("prod")
             staging = domains.fetch("staging")
-            by_env[PRODUCTION_ENV_ID] << prod unless prod.end_with?(".up.railway.app")
-            by_env[STAGING_ENV_ID] << staging unless staging.end_with?(".up.railway.app")
+            by_env[PRODUCTION_ENV_ID] << prod unless prod.empty? || prod.end_with?(".up.railway.app")
+            by_env[STAGING_ENV_ID] << staging unless staging.empty? || staging.end_with?(".up.railway.app")
         end
         by_env.transform_values { |v| v.sort.uniq.freeze }.freeze
     end
