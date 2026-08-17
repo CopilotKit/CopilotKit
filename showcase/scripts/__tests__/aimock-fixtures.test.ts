@@ -99,10 +99,14 @@ function scopeOf(entry: RawFixtureEntry): string {
 }
 
 // ---------------------------------------------------------------------------
-// Deployment scopes — d4 and d6 fixtures never coexist at runtime, so
-// collision detection must check within each deployment's load set:
-//   d4 runtime loads: shared/ + d4/
-//   d6 runtime loads: shared/ + d6/
+// Logical deployment scopes used by the broad collision ratchets below:
+//   d4 validation scope: shared/ + d4/
+//   d6 validation scope: shared/ + d6/
+//
+// Some deployed AIMock bundles load the fixture root recursively, so targeted
+// cross-depth invariants must also account for D4 and D6 coexisting. Keep those
+// checks narrow: combining every fixture here would mix intentional aliases
+// that are selected by the active feature route.
 // ---------------------------------------------------------------------------
 const sharedFiles = globSync("showcase/aimock/shared/*.json", {
   cwd: REPO_ROOT,
@@ -194,10 +198,80 @@ describe("aimock fixtures across repo", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Cross-depth multimodal routing
+//
+// The deployed fixture root is loaded recursively in lexical order, so a D4
+// chat fixture with the same context and prompt wins before the D6 multimodal
+// fixture. Multimodal probes also reuse a conversation across both attachment
+// turns, which makes a turnIndex gate inappropriate for these fixtures.
+// ---------------------------------------------------------------------------
+describe("multimodal fixture routing", () => {
+  const prompts = [
+    "can you tell me what is in this demo image I just attached",
+    "can you tell me what is in this demo pdf I just attached",
+  ];
+
+  it("keeps D6 multimodal fixtures reachable in recursively loaded bundles", () => {
+    const violations: string[] = [];
+    const multimodalFiles = d6Files.filter(
+      (file) => path.basename(file) === "multimodal.json",
+    );
+
+    for (const file of multimodalFiles) {
+      const relative = path.relative(REPO_ROOT, file);
+      const fixtures = loadRawFixtures(file);
+
+      fixtures.forEach((fixture, index) => {
+        if (fixture.match.turnIndex != null) {
+          violations.push(
+            `${relative}[${index}]: fixture is gated by turnIndex=${fixture.match.turnIndex}`,
+          );
+        }
+      });
+
+      for (const prompt of prompts) {
+        const promptFixtures = fixtures.filter(
+          (entry) => entry.match.userMessage === prompt,
+        );
+
+        if (promptFixtures.length === 0) {
+          violations.push(`${relative}: missing prompt "${prompt}"`);
+          continue;
+        }
+
+        for (const fixture of promptFixtures) {
+          const context = fixture.match.context;
+          if (!context) {
+            violations.push(`${relative}: prompt "${prompt}" has no context`);
+            continue;
+          }
+
+          for (const shadow of d4Tagged) {
+            if (
+              scopeOf(shadow.entry) === context &&
+              shadow.entry.match.userMessage === prompt
+            ) {
+              violations.push(
+                `${relative}: prompt "${prompt}" is shadowed by ${shadow.file}[${shadow.index}]`,
+              );
+            }
+          }
+        }
+      }
+    }
+
+    expect(
+      violations,
+      `D6 multimodal fixtures must remain reachable when D4 and D6 are loaded together:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Fixture collision detection
 //
-// Each test iterates over deployment scopes (d4, d6) independently because
-// d4 and d6 fixtures never coexist at runtime.
+// Each broad ratchet iterates over the logical D4 and D6 scopes independently.
+// Targeted cross-depth hazards are checked above.
 // ---------------------------------------------------------------------------
 describe("fixture collision detection", () => {
   it("no exact duplicate match keys within the same context scope", () => {

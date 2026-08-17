@@ -29,7 +29,6 @@
       "_comment": "multimodal \u2014 fallback for image analysis when the auto-send injects a different message shape.",
       "match": {
         "userMessage": "image",
-        "turnIndex": 0,
         "context": "strands-typescript"
       },
       "response": {
@@ -40,7 +39,6 @@
       "_comment": "multimodal \u2014 fallback for document analysis when the auto-send injects a different message shape.",
       "match": {
         "userMessage": "document",
-        "turnIndex": 0,
         "context": "strands-typescript"
       },
       "response": {

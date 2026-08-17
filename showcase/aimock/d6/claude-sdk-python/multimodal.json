@@ -9,7 +9,6 @@
       "_comment": "multimodal image turn \u2014 preFill clicks the sample-image button which auto-sends. The D5 script asserts the assistant transcript contains 'image'. The input text is descriptive only (skipSend=true in the script).",
       "match": {
         "userMessage": "can you tell me what is in this demo image I just attached",
-        "turnIndex": 0,
         "context": "claude-sdk-python"
       },
       "response": {
@@ -20,7 +19,6 @@
       "_comment": "multimodal PDF turn \u2014 preFill clicks the sample-pdf button which auto-sends. The D5 script asserts the assistant transcript contains 'document'.",
       "match": {
         "userMessage": "can you tell me what is in this demo pdf I just attached",
-        "turnIndex": 0,
         "context": "claude-sdk-python"
       },
       "response": {

@@ -567,7 +567,7 @@
     },
     {
       "match": {
-        "userMessage": "can you tell me what is in this demo pdf I just attached",
+        "userMessage": "_d4_unused_multimodal_pdf",
         "context": "pydantic-ai"
       },
       "response": {
@@ -576,7 +576,7 @@
     },
     {
       "match": {
-        "userMessage": "can you tell me what is in this demo image I just attached",
+        "userMessage": "_d4_unused_multimodal_image",
         "context": "pydantic-ai"
       },
       "response": {

@@ -9,7 +9,6 @@
       "_comment": "multimodal image turn \u2014 the D5 script clicks 'Try with sample image' which auto-sends a message with the image attachment. The assertion checks for 'image' keyword in the assistant transcript.",
       "match": {
         "userMessage": "can you tell me what is in this demo image I just attached",
-        "turnIndex": 0,
         "context": "ms-agent-harness-dotnet"
       },
       "response": {
@@ -20,7 +19,6 @@
       "_comment": "multimodal PDF turn \u2014 the D5 script clicks 'Try with sample PDF' which auto-sends a message with the PDF attachment. The assertion checks for 'document' keyword in the assistant transcript.",
       "match": {
         "userMessage": "can you tell me what is in this demo pdf I just attached",
-        "turnIndex": 0,
         "context": "ms-agent-harness-dotnet"
       },
       "response": {

@@ -9,7 +9,6 @@
       "_comment": "multimodal image turn \u2014 the sample image button auto-sends 'can you tell me what is in this demo image I just attached'. The D5 assertion checks assistant transcript contains 'image'. Already present in agentic-chat.json but duplicated here for the dedicated multimodal fixture file match.",
       "match": {
         "userMessage": "can you tell me what is in this demo image I just attached",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {
@@ -20,7 +19,6 @@
       "_comment": "multimodal PDF turn \u2014 the sample PDF button auto-sends 'can you tell me what is in this demo pdf I just attached'. The D5 assertion checks assistant transcript contains 'document'.",
       "match": {
         "userMessage": "can you tell me what is in this demo pdf I just attached",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {

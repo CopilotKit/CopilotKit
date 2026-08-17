@@ -570,7 +570,7 @@
     },
     {
       "match": {
-        "userMessage": "can you tell me what is in this demo pdf I just attached",
+        "userMessage": "_d4_unused_multimodal_pdf",
         "context": "ms-agent-harness-dotnet"
       },
       "response": {
@@ -579,7 +579,7 @@
     },
     {
       "match": {
-        "userMessage": "can you tell me what is in this demo image I just attached",
+        "userMessage": "_d4_unused_multimodal_image",
         "context": "ms-agent-harness-dotnet"
       },
       "response": {
