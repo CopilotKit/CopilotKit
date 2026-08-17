@@ -393,3 +393,81 @@ describe("DeliveryAdapter.postFile", () => {
     );
   });
 });
+
+describe("DeliveryAdapter.stageFile", () => {
+  it("stores Slack bytes and returns the handle without posting a file", async () => {
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue("fileref_stage_01"),
+      effect: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      makeAdapter().stageFile(replyTarget(session), {
+        bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+        filename: "hat.png",
+        altText: "Hat",
+      }),
+    ).resolves.toEqual({ fileId: "fileref_stage_01" });
+    expect(session.uploadFile).toHaveBeenCalledWith(
+      expect.stringMatching(/^response_/),
+      {
+        bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+        filename: "hat.png",
+        altText: "Hat",
+      },
+    );
+    expect(session.effect).not.toHaveBeenCalled();
+  });
+
+  it("throws when Slack upload fails so the carousel post cannot continue", async () => {
+    const session = {
+      uploadFile: vi.fn().mockRejectedValue(new Error("upload config missing")),
+      effect: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      makeAdapter().stageFile(replyTarget(session), {
+        bytes: new Uint8Array([1]),
+        filename: "hat.png",
+        altText: "Hat",
+      }),
+    ).rejects.toThrow("upload config missing");
+    expect(session.effect).not.toHaveBeenCalled();
+  });
+
+  it("throws when Slack upload returns no handle", async () => {
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue(""),
+      effect: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      makeAdapter().stageFile(replyTarget(session), {
+        bytes: new Uint8Array([1]),
+        filename: "hat.png",
+        altText: "Hat",
+      }),
+    ).rejects.toThrow("Channel stageFile: upload returned no handle");
+    expect(session.effect).not.toHaveBeenCalled();
+  });
+
+  it("returns a Teams data URI and does not upload or post", async () => {
+    const session = {
+      uploadFile: vi.fn(),
+      effect: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+    const bytes = new Uint8Array([1, 2, 3]);
+
+    await expect(
+      makeAdapter().stageFile(replyTarget(session, "teams"), {
+        bytes,
+        filename: "hat.png",
+        altText: "Hat",
+      }),
+    ).resolves.toEqual({
+      dataUrl: `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`,
+    });
+    expect(session.uploadFile).not.toHaveBeenCalled();
+    expect(session.effect).not.toHaveBeenCalled();
+  });
+});
