@@ -129,7 +129,7 @@ export class RunHandler {
   /**
    * Tools registered imperatively via {@link addTool} — `useFrontendTool`,
    * `useHumanInTheLoop`, and direct `core.addTool()` callers. Held separately
-   * from {@link _propTools} so a provider re-sync cannot wipe them: they share
+   * from {@link _propTools} so a provider re-sync cannot wipe them: they shared
    * one array before, so the `/info` response flipping `openGenerativeUI` (or
    * any other provider-prop change) silently dropped every hook-registered
    * tool (#4952). Key = `capabilityKey(name, agentId)`.
@@ -137,7 +137,14 @@ export class RunHandler {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _hookTools: Map<string, FrontendTool<any>> = new Map();
 
-  /** Memoized merge of both buckets; invalidated on every registry write. */
+  /**
+   * Memoized merge of both buckets, invalidated on every registry write.
+   *
+   * This is about identity, not speed: `tools` is public and used to return the
+   * same array instance until something mutated the registry, so consumers can
+   * hold it or use it as an effect dependency. Rebuilding the merge on every
+   * read would hand out a new array each time.
+   */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _cachedMergedTools: FrontendTool<any>[] | null = null;
 
@@ -267,7 +274,11 @@ export class RunHandler {
    * Initialize with tools
    */
   initialize(tools: FrontendTool<any>[]): void {
-    this._propTools = tools;
+    // Copied, like `setTools` does: the merged view is memoized, so holding the
+    // caller's array would let an in-place mutation of it go unnoticed. (It
+    // also used to be mutated from this side — `addTool` pushed straight onto
+    // the array the provider passed in.)
+    this._propTools = [...tools];
     this._cachedMergedTools = null;
   }
 

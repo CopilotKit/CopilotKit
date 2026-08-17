@@ -170,6 +170,22 @@ describe("RunHandler tool registry ownership (#4952)", () => {
     ]);
   });
 
+  it("neither mutates nor tracks the array the caller handed to initialize", () => {
+    const runHandler = createRunHandler();
+    const provided = [{ name: "providerTool", description: "p" }];
+    runHandler.initialize(provided);
+
+    runHandler.addTool({ name: "hookTool", description: "h" });
+
+    // `addTool` used to push straight onto the provider's own array.
+    expect(provided.map((t) => t.name)).toEqual(["providerTool"]);
+
+    // And the registry must not read through to the caller's array, since the
+    // merged view is memoized and would not see the change.
+    provided.push({ name: "sneaky", description: "s" });
+    expect(runHandler.getTool({ toolName: "sneaky" })).toBeUndefined();
+  });
+
   it("preserves provider order in the merged view", () => {
     const runHandler = createRunHandler();
     runHandler.initialize([
