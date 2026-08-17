@@ -1007,6 +1007,11 @@ export class RunHandler {
           const result = await wildcardTool.handler(wildcardArgs as any, {
             toolCall,
             agent,
+            // Same signal the named-tool path passes. Without it a wildcard
+            // handler that waits on something — a human-in-the-loop tool
+            // registered as `"*"` is the case that surfaced this — can never
+            // observe an abort, so stopping the run leaves it pending forever.
+            signal: this._runAbortController?.signal,
           });
           if (result === undefined || result === null) {
             toolCallResult = "";
