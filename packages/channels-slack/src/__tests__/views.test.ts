@@ -38,6 +38,84 @@ describe("decodeViewSubmission", () => {
     });
   });
 
+  // OSS-846: the message-click path now shares this flattening. The helper it
+  // shares used to read `value ?? selected_option.value` only, so every element
+  // family that reports under a different key came back `undefined` — silently,
+  // in modal submissions too.
+  it("parses element families the old value ?? selected_option reader lost", () => {
+    const evt = decodeViewSubmission(
+      {
+        callback_id: "triage",
+        state: {
+          values: {
+            services: {
+              services: {
+                type: "multi_static_select",
+                selected_options: [{ value: "payments" }, { value: "search" }],
+              },
+            },
+            responders: {
+              responders: {
+                type: "multi_users_select",
+                selected_users: ["U1", "U2"],
+              },
+            },
+            owner: { owner: { type: "users_select", selected_user: "U9" } },
+            escalate_in: {
+              escalate_in: { type: "channels_select", selected_channel: "C7" },
+            },
+            notify: {
+              notify: {
+                type: "multi_conversations_select",
+                selected_conversations: ["C1"],
+              },
+            },
+            target_date: {
+              target_date: { type: "datepicker", selected_date: "2026-08-20" },
+            },
+            cutover_at: {
+              cutover_at: { type: "timepicker", selected_time: "14:32" },
+            },
+            deadline: {
+              deadline: {
+                type: "datetimepicker",
+                selected_date_time: 1786451118,
+              },
+            },
+          },
+        },
+      },
+      { id: "U1", kind: "human" },
+    );
+
+    expect(evt.values).toEqual({
+      services: ["payments", "search"],
+      responders: ["U1", "U2"],
+      owner: "U9",
+      escalate_in: "C7",
+      notify: ["C1"],
+      target_date: "2026-08-20",
+      cutover_at: "14:32",
+      deadline: 1786451118,
+    });
+  });
+
+  it("reports a select with nothing chosen as undefined, not a crash", () => {
+    // Slack sends `selected_option: null` for an untouched select.
+    const evt = decodeViewSubmission(
+      {
+        callback_id: "triage",
+        state: {
+          values: {
+            prio: { prio: { type: "static_select", selected_option: null } },
+          },
+        },
+      },
+      { id: "U1", kind: "human" },
+    );
+    expect(evt.values).toEqual({ prio: undefined });
+  });
+
   it("decodes a __cpk envelope into conversationKey + replyTarget and restores pm", () => {
     const evt = decodeViewSubmission(
       {

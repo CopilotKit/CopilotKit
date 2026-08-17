@@ -19,10 +19,16 @@ export function conversationKeyOf(key: ConversationKey): string {
 /**
  * Decode a Slack `block_actions` payload into a bot `InteractionEvent`.
  *
- * Carries ONLY the opaque minted action id (`ck:...`) plus the tiny, non-sensitive
- * button/option value — there is NO resume-data smuggling through the payload.
- * Durability rides on the ActionStore keyed by that opaque id, not on what Slack
- * round-trips back to us.
+ * Carries the opaque minted action id (`ck:...`), the clicked element's own
+ * value, and — in `values` — the current state of every input block on the
+ * message, which is what Slack sends alongside the click in `state.values`.
+ * There is still NO resume-data smuggling: durability rides on the ActionStore
+ * keyed by the opaque id, not on what Slack round-trips back to us.
+ *
+ * Note that `values` is user-entered form content, not a tiny opaque token: a
+ * click on a message hosting a text input carries whatever the user typed. It is
+ * surfaced because a "fill the fields, then press the button" message is
+ * otherwise unreadable (OSS-846) — but callers should treat it as user input.
  */
 export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   const body = raw as {
@@ -38,22 +44,11 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
       message_ts?: string;
       channel_id?: string;
     };
-    actions?: Array<{
-      action_id?: string;
-      value?: string;
-      selected_option?: { value?: string };
-      selected_options?: Array<{ value?: string }>;
-      selected_user?: string;
-      selected_users?: string[];
-      selected_conversation?: string;
-      selected_conversations?: string[];
-      selected_channel?: string;
-      selected_channels?: string[];
-      selected_date?: string;
-      selected_time?: string;
-      selected_date_time?: number;
-      action_ts?: string;
-    }>;
+    /** Current value of every input block on the clicked message. */
+    state?: SlackBlockState;
+    actions?: Array<
+      SlackElementState & { action_id?: string; action_ts?: string }
+    >;
   };
   if (body.type !== "block_actions") return undefined;
   const action = body.actions?.[0];
@@ -85,33 +80,10 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     threadTs: isDm && !explicitThreadTs ? undefined : threadTs,
   };
 
-  // Tiny, non-sensitive value: the clicked button's value (or selected option
-  // value), JSON-parsed if it round-trips, otherwise the raw string. A
-  // multi_static_select reports `selected_options` (an array) → a `string[]`.
-  let value: unknown;
-  if (action.selected_users) {
-    value = action.selected_users;
-  } else if (action.selected_conversations) {
-    value = action.selected_conversations;
-  } else if (action.selected_channels) {
-    value = action.selected_channels;
-  } else if (action.selected_user !== undefined) {
-    value = action.selected_user;
-  } else if (action.selected_conversation !== undefined) {
-    value = action.selected_conversation;
-  } else if (action.selected_channel !== undefined) {
-    value = action.selected_channel;
-  } else if (action.selected_date !== undefined) {
-    value = action.selected_date;
-  } else if (action.selected_time !== undefined) {
-    value = action.selected_time;
-  } else if (action.selected_date_time !== undefined) {
-    value = action.selected_date_time;
-  } else if (action.selected_options) {
-    value = action.selected_options.map((o) => parseValue(o.value));
-  } else {
-    value = parseValue(action.value ?? action.selected_option?.value);
-  }
+  // The clicked element's own value, read through the same vocabulary as the
+  // message's input state below so a control reports identically whichever of
+  // the two it arrives in.
+  const value = elementStateValue(action);
 
   const actor = body.user?.id
     ? {
@@ -138,11 +110,18 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
       ? `${channelId}:${messageTs}:${action.action_ts}`
       : body.trigger_id;
 
+  // Slack sends the current state of every input block on the message alongside
+  // the click. Omitted rather than sent as `{}` when the message hosts no inputs
+  // (the Teams decoder's convention), so a plain button is byte-identical to
+  // what it produced before this field existed.
+  const values = flattenStateValues(body.state);
+
   return {
     id: action.action_id,
     conversationKey,
     replyTarget,
     value,
+    ...(Object.keys(values).length > 0 ? { values } : {}),
     actor,
     messageRef,
     triggerId: body.trigger_id,
@@ -166,6 +145,87 @@ function parseValue(raw: string | undefined): unknown {
   } catch {
     return raw;
   }
+}
+
+/**
+ * Every shape a Slack interactive element reports its current value in — the
+ * same set whether it arrives as the clicked `actions[0]` or as an entry in a
+ * surface's `state.values`.
+ */
+interface SlackElementState {
+  type?: string;
+  value?: string;
+  selected_option?: { value?: string } | null;
+  selected_options?: Array<{ value?: string }>;
+  selected_user?: string;
+  selected_users?: string[];
+  selected_conversation?: string;
+  selected_conversations?: string[];
+  selected_channel?: string;
+  selected_channels?: string[];
+  selected_date?: string;
+  selected_time?: string;
+  selected_date_time?: number;
+  /** `rich_text_input` reports a rich-text document, not a string. */
+  rich_text_value?: unknown;
+}
+
+/** A Slack surface's input state: `blockId → actionId → element state`. */
+interface SlackBlockState {
+  values?: Record<string, Record<string, SlackElementState | undefined>>;
+}
+
+/**
+ * Read one element's current value.
+ *
+ * Slack reports a value under a different key per element family, and reading
+ * only `value ?? selected_option.value` silently yields `undefined` for every
+ * multi-select, picker, date/time control and rich-text field. Each family
+ * therefore gets an explicit arm. The plural arms come first because a
+ * multi-select reports ONLY the plural key, and an empty multi-select reports it
+ * as `[]` — which must stay an empty array rather than falling through to the
+ * text-input arm and becoming `undefined`.
+ */
+function elementStateValue(el: SlackElementState): unknown {
+  if (el.selected_users) return el.selected_users;
+  if (el.selected_conversations) return el.selected_conversations;
+  if (el.selected_channels) return el.selected_channels;
+  if (el.selected_user !== undefined) return el.selected_user;
+  if (el.selected_conversation !== undefined) return el.selected_conversation;
+  if (el.selected_channel !== undefined) return el.selected_channel;
+  if (el.selected_date !== undefined) return el.selected_date;
+  if (el.selected_time !== undefined) return el.selected_time;
+  if (el.selected_date_time !== undefined) return el.selected_date_time;
+  if (el.selected_options) {
+    return el.selected_options.map((o) => parseValue(o.value));
+  }
+  if (el.rich_text_value !== undefined) return el.rich_text_value;
+  return parseValue(el.value ?? el.selected_option?.value ?? undefined);
+}
+
+/**
+ * Flatten a Slack surface's `state.values` to a flat `fieldId → value` map.
+ *
+ * Slack nests the state as `blockId → actionId → element`. The modal vocabulary
+ * names every block id == action id (see `render/modal.ts`), so `inner[blockId]`
+ * hits directly there; on a message the two differ, and the first (in practice
+ * only) element of the block is taken. The key is always the BLOCK id, because
+ * that is the half an author can name — Slack generates a random one per render
+ * when they do not.
+ */
+function flattenStateValues(
+  state: SlackBlockState | undefined,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const values = state?.values ?? {};
+  for (const blockId of Object.keys(values)) {
+    const inner = values[blockId];
+    if (!inner) continue;
+    const el = inner[blockId] ?? Object.values(inner)[0];
+    if (!el) continue;
+    out[blockId] = elementStateValue(el);
+  }
+  return out;
 }
 
 interface SlackReactionEvent {
@@ -230,38 +290,7 @@ export function decodeReaction(
 interface SlackViewState {
   callback_id?: string;
   private_metadata?: string;
-  state?: {
-    values?: Record<
-      string,
-      Record<
-        string,
-        {
-          type?: string;
-          value?: string;
-          selected_option?: { value?: string };
-        }
-      >
-    >;
-  };
-}
-
-/**
- * Flatten a Slack view's `state.values` to a flat `fieldId → value` map. The
- * modal vocabulary names every block id == action id (the field id), so for
- * each block we take the inner element keyed by that same block id, falling
- * back to the first element. Text inputs expose `value`; selects/radios expose
- * `selected_option.value`.
- */
-function flattenViewValues(view: SlackViewState): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  const values = view.state?.values ?? {};
-  for (const blockId of Object.keys(values)) {
-    const inner = values[blockId]!;
-    const el = inner[blockId] ?? Object.values(inner)[0];
-    if (!el) continue;
-    out[blockId] = el.value ?? el.selected_option?.value;
-  }
-  return out;
+  state?: SlackBlockState;
 }
 
 /**
@@ -330,7 +359,7 @@ export function decodeViewSubmission(
   const ctx = decodeModalContext(v.private_metadata);
   return {
     callbackId: v.callback_id ?? "",
-    values: flattenViewValues(v),
+    values: flattenStateValues(v.state),
     actor: actor ?? { id: "unknown", kind: "unknown" },
     identityContext: {
       tenant: { id: "unknown" },
