@@ -65,6 +65,17 @@ const required = (...names: string[]): string => {
  */
 const channelName = firstEnv("INTELLIGENCE_CHANNEL_NAME") ?? "triage";
 
+/** Prefer a key that carries `cpk-{projectId}_...`. OpenTag's COPILOTKIT_API_KEY uses `cpk_` and cannot activate a Channel. */
+function intelligenceApiKey(): string {
+  const candidates = [
+    firstEnv("INTELLIGENCE_API_KEY"),
+    firstEnv("COPILOTKIT_API_KEY"),
+  ].filter((value): value is string => Boolean(value));
+  const matching = candidates.find((key) => /^cpk-\d+_/.test(key));
+  if (matching) return matching;
+  return required("INTELLIGENCE_API_KEY", "COPILOTKIT_API_KEY");
+}
+
 async function main() {
   const brand = await loadBrandRender();
   const agentUrl = required("AGENT_URL");
@@ -149,7 +160,7 @@ async function main() {
       "COPILOTKIT_INTELLIGENCE_WS_URL",
       "INTELLIGENCE_GATEWAY_WS_URL",
     ),
-    apiKey: required("COPILOTKIT_API_KEY", "INTELLIGENCE_API_KEY"),
+    apiKey: intelligenceApiKey(),
   });
 
   const runtime = new CopilotRuntime({
