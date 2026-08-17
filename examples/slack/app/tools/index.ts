@@ -11,6 +11,7 @@
 import { readThreadTool } from "./read-thread.js";
 import { renderTableTool } from "./render-table.js";
 import { renderMrrTool } from "./render-mrr.js";
+import { renderCarouselTool } from "./render-carousel.js";
 import { issueCardTool, issueListTool, pageListTool } from "./render-tools.js";
 import {
   showIncidentTool,
@@ -34,6 +35,7 @@ export const appTools: ChannelTool[] = [
   readThreadTool,
   renderTableTool,
   renderMrrTool,
+  renderCarouselTool,
   issueCardTool,
   issueListTool,
   pageListTool,
@@ -54,6 +56,7 @@ export {
   readThreadTool,
   renderTableTool,
   renderMrrTool,
+  renderCarouselTool,
   issueCardTool,
   issueListTool,
   pageListTool,

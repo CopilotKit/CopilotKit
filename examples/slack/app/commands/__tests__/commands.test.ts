@@ -44,6 +44,7 @@ describe("example slash commands", () => {
   it("registers the core + showcase slash commands", () => {
     expect(appCommands.map((c) => c.name).sort()).toEqual([
       "agent",
+      "carousel",
       "file-issue",
       "preview",
       "prs",
