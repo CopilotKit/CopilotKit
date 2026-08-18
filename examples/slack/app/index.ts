@@ -64,13 +64,33 @@ import { loadBrandRender } from "./render/brand.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
 
-const required = (name: string): string => {
-  const v = process.env[name];
-  if (!v) {
-    console.error(`Missing required env var: ${name}`);
+const firstEnv = (...names: string[]): string | undefined => {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) return value;
+  }
+  return undefined;
+};
+
+const required = (...names: string[]): string => {
+  const value = firstEnv(...names);
+  if (!value) {
+    console.error(`Missing required env var: ${names.join(" or ")}`);
     process.exit(1);
   }
-  return v;
+  return value;
+};
+
+/** Prefer a key that carries `cpk-{projectId}_...`, even when another alias is set. */
+function intelligenceApiKey(): string {
+  const candidates = [
+    firstEnv("CPK_INTELLIGENCE_API_KEY"),
+    firstEnv("INTELLIGENCE_API_KEY"),
+    firstEnv("COPILOTKIT_API_KEY"),
+  ].filter((value): value is string => Boolean(value));
+  const matching = candidates.find((key) => /^cpk-\d+_/.test(key));
+  if (matching) return matching;
+  return requiredIntelligenceKey();
 };
 
 /**
@@ -82,7 +102,9 @@ const required = (name: string): string => {
  */
 const requiredIntelligenceKey = (): string => {
   const key =
-    process.env.CPK_INTELLIGENCE_API_KEY ?? process.env.COPILOTKIT_API_KEY;
+    process.env.CPK_INTELLIGENCE_API_KEY ??
+    process.env.COPILOTKIT_API_KEY ??
+    process.env.INTELLIGENCE_API_KEY;
   if (!key) {
     console.error(
       "Missing required env var: CPK_INTELLIGENCE_API_KEY\n" +
@@ -94,8 +116,11 @@ const requiredIntelligenceKey = (): string => {
     process.exit(1);
   }
   if (!process.env.CPK_INTELLIGENCE_API_KEY) {
+    const alias = process.env.COPILOTKIT_API_KEY
+      ? "COPILOTKIT_API_KEY"
+      : "INTELLIGENCE_API_KEY";
     console.warn(
-      "COPILOTKIT_API_KEY is a deprecated alias; rename it to CPK_INTELLIGENCE_API_KEY.",
+      `${alias} is a deprecated alias; rename it to CPK_INTELLIGENCE_API_KEY.`,
     );
   }
   return key;
@@ -323,9 +348,12 @@ async function main() {
   // API and realtime planes are separate hosts (api.… vs realtime.…), so
   // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
-    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
-    apiKey: requiredIntelligenceKey(),
+    apiUrl: firstEnv("COPILOTKIT_INTELLIGENCE_URL", "INTELLIGENCE_API_URL"),
+    wsUrl: firstEnv(
+      "COPILOTKIT_INTELLIGENCE_WS_URL",
+      "INTELLIGENCE_GATEWAY_WS_URL",
+    ),
+    apiKey: intelligenceApiKey(),
   });
 
   // Declare the Channel on the Intelligence runtime, which OWNS its lifecycle:
