@@ -1,0 +1,33 @@
+<Steps>
+  <Step>
+    ### Register the backend tools
+
+    `run_with_claude_agent_sdk` receives the tool schemas from the agent. It
+    converts each schema to an SDK tool and creates an in-process MCP server.
+    The adapter receives this server through `mcp_servers`. The matching
+    `allowed_tools` entries give Claude permission to call the tools.
+
+    <DemoCode
+      file="src/agents/claude_agent_sdk_adapter.py"
+      region="claude-agent-sdk-agent-setup"
+    />
+  </Step>
+
+  <Step>
+    ### Call the CopilotKit tool handler
+
+    Each `sdk_tool_handler` calls the executable CopilotKit handler for its
+    schema. It returns the handler result to Claude as MCP tool content.
+
+    <DemoCode
+      file="src/agents/claude_agent_sdk_adapter.py"
+      region="claude-agent-sdk-tool-handler"
+    />
+  </Step>
+</Steps>
+
+<Callout type="info">
+  This MCP path handles compatible requests that use backend tools only.
+  Requests with frontend tools or structured user content use the direct
+  Anthropic path.
+</Callout>

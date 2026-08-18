@@ -1,0 +1,33 @@
+<Steps>
+  <Step>
+    ### Connect the adapter to the MCP server
+
+    `buildBackendToolServer` converts the tool schemas from the agent. The
+    `ClaudeAgentAdapter` receives the resulting `mcpServers` and
+    `allowedTools` values.
+
+    <DemoCode
+      file="src/claude-agent-sdk-adapter.ts"
+      region="claude-agent-sdk-mcp-adapter-wiring"
+    />
+  </Step>
+
+  <Step>
+    ### Register the executable tool handlers
+
+    Each schema becomes an `sdkTool` that calls its executable CopilotKit
+    handler. `createSdkMcpServer` registers these tools. The allowlist uses
+    their fully qualified `mcp__copilotkit__*` names.
+
+    <DemoCode
+      file="src/claude-agent-sdk-adapter.ts"
+      region="claude-agent-sdk-mcp-server-registration"
+    />
+  </Step>
+</Steps>
+
+<Callout type="info">
+  This MCP path handles compatible requests that use backend tools only.
+  Requests with frontend tools, structured user content, or extended thinking
+  use the direct Anthropic path.
+</Callout>

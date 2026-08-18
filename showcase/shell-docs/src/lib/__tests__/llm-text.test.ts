@@ -591,3 +591,43 @@ test("renders the Claude TypeScript SDK/MCP fixed-schema wiring only for that fr
     expect(output, framework).not.toContain("<FrameworkSetup");
   }
 });
+
+test("renders executable Claude SDK tool wiring on both tool-rendering routes", () => {
+  const doc = loadDoc("generative-ui/tool-rendering");
+  expect(doc).not.toBeNull();
+
+  const render = (framework: string) =>
+    renderPageToLlmText(
+      {
+        url: `${framework}/generative-ui/tool-rendering`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "generative-ui/tool-rendering",
+        framework,
+      },
+      { framework },
+    );
+
+  const python = render("claude-sdk-python");
+  expect(python).toContain("create_sdk_mcp_server(");
+  expect(python).toContain('options["mcp_servers"]');
+  expect(python).toContain('options["allowed_tools"]');
+  expect(python).toContain("ClaudeAgentAdapter(");
+  expect(python).toContain("sdk_tool_handler");
+  expect(python).not.toContain("<FrameworkSetup");
+
+  const typeScript = render("claude-sdk-typescript");
+  expect(typeScript).toContain("createSdkMcpServer({");
+  expect(typeScript).toContain("mcpServers: backendToolServer.mcpServers");
+  expect(typeScript).toContain("allowedTools: backendToolServer.allowedTools");
+  expect(typeScript).toContain("new ClaudeAgentAdapter({");
+  expect(typeScript).toContain("sdkTool(");
+  expect(typeScript).not.toContain("<FrameworkSetup");
+
+  const control = render("langgraph-typescript");
+  expect(control).not.toContain("createSdkMcpServer({");
+  expect(control).not.toContain("create_sdk_mcp_server(");
+  expect(control).not.toContain("ClaudeAgentAdapter");
+  expect(control).not.toContain("<FrameworkSetup");
+});

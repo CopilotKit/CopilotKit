@@ -60,6 +60,45 @@ describe("setup content bundle", () => {
     }
   });
 
+  it.each([
+    [
+      "claude-sdk-python",
+      [
+        "create_sdk_mcp_server(",
+        'options["mcp_servers"]',
+        'options["allowed_tools"]',
+        "ClaudeAgentAdapter(",
+        "sdk_tool_handler",
+      ],
+    ],
+    [
+      "claude-sdk-typescript",
+      [
+        "createSdkMcpServer({",
+        "mcpServers: backendToolServer.mcpServers",
+        "allowedTools: backendToolServer.allowedTools",
+        "new ClaudeAgentAdapter({",
+        "sdkTool(",
+      ],
+    ],
+  ])(
+    "bundles executable tool-rendering wiring for %s",
+    (framework, expectedIdentifiers) => {
+      const setupContent = setupContentData as SetupContentBundle;
+      const source = resolveBundledSetupConcept(
+        framework,
+        "tool-rendering-setup",
+        setupContent,
+      );
+
+      for (const identifier of expectedIdentifiers) {
+        expect(source, `${framework}: ${identifier}`).toContain(identifier);
+      }
+      expect(source, framework).not.toContain("<DemoCode");
+      expect(source, framework).not.toContain("@region[");
+    },
+  );
+
   it("bundles the Claude TypeScript fixed-schema backend wiring", () => {
     const setupContent = setupContentData as SetupContentBundle;
     const source = resolveBundledSetupConcept(
