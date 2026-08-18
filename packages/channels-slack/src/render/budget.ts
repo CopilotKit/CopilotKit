@@ -8,6 +8,7 @@ export const SLACK_LIMITS = {
   contextElements: 10,
   buttonText: 75,
   actionId: 255,
+  blockId: 255,
   buttonValue: 2000,
   selectOptions: 100,
   tableColumns: 20,
