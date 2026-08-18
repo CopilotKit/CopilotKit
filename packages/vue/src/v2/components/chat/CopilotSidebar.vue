@@ -22,16 +22,14 @@ function sidebarViewEventBindings(slotProps: CopilotChatViewOverrideSlotProps) {
     onSubmitMessage: slotProps.onSubmitMessage,
     onInputChange: slotProps.onInputChange,
     onSelectSuggestion: slotProps.onSelectSuggestion,
-    ...(slotProps.onStop ? { onStop: slotProps.onStop } : {}),
-    ...(slotProps.onAddFile ? { onAddFile: slotProps.onAddFile } : {}),
-    ...(slotProps.onStartTranscribe
-      ? { onStartTranscribe: slotProps.onStartTranscribe }
-      : {}),
-    ...(slotProps.onCancelTranscribe
-      ? { onCancelTranscribe: slotProps.onCancelTranscribe }
-      : {}),
-    ...(slotProps.onFinishTranscribe
-      ? { onFinishTranscribe: slotProps.onFinishTranscribe }
+    ...(slotProps.canStop ? { onStop: slotProps.onStop } : {}),
+    ...(slotProps.canAddFile ? { onAddFile: slotProps.onAddFile } : {}),
+    ...(slotProps.canTranscribe
+      ? {
+          onStartTranscribe: slotProps.onStartTranscribe,
+          onCancelTranscribe: slotProps.onCancelTranscribe,
+          onFinishTranscribe: slotProps.onFinishTranscribe,
+        }
       : {}),
   };
 }
