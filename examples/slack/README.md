@@ -47,8 +47,9 @@ Slack / Discord / Telegram ──@mention──▶  bot (app/)  ──AG-UI─�
   `confirm_write` HITL gate, and the bot's context. The components emit a
   cross-platform JSX IR that each adapter renders natively. This is the
   directory you'd copy to start your own bot.
-- **`runtime.ts`** — the agent backend: a single CopilotKit `BuiltInAgent`
-  (LLM + Linear/Notion MCP), served over AG-UI. No Python, no LangGraph.
+- **`runtime.ts`** — the agent backend: two CopilotKit `BuiltInAgent`s
+  (`triage` and `search`, LLM + Linear/Notion MCP), served over AG-UI. No
+  Python, no LangGraph.
 - **`e2e/`** — live test harnesses. The Slack harness (`run.ts` /
   `restart-recovery.ts`, `pnpm e2e`) is _legacy/WIP — see [Tests](#tests)_;
   the Telegram harness (`telegram-run.ts`, `pnpm e2e:telegram`) is a
@@ -93,11 +94,23 @@ const bot = createChannel({
       },
     }),
   ],
-  // One AG-UI agent per conversation, pointed at the runtime.
+  // Default agent plus a named extra. Mentions use triage. `/search` uses search.
   agent: (threadId) => {
     const a = new HttpAgent({ url: process.env.AGENT_URL! });
     a.threadId = threadId;
     return a;
+  },
+  agents: {
+    search: (threadId) => {
+      const a = new HttpAgent({
+        url: process.env.AGENT_URL!.replace(
+          /\/agent\/[^/]+\/run\/?$/,
+          "/agent/search/run",
+        ),
+      });
+      a.threadId = threadId;
+      return a;
+    },
   },
   // defaultSlackTools ships universal-Slack tools (e.g. lookup_slack_user
   // for @-mentions); appTools adds this bot's tools. defaultSlackContext
@@ -223,10 +236,12 @@ decision the moment it's clicked. (On Telegram the value can't ride in the
 
 ### Slash commands (`app/commands/`)
 
-Four app-owned slash commands, registered via `createChannel({ commands })`:
+Five app-owned slash commands, registered via `createChannel({ commands })`:
 
-- **`/agent <text>`** — a mention-free entry point; runs the agent with the
-  command text as the prompt.
+- **`/agent <text>`** — a mention-free entry point; runs the default triage
+  agent with the command text as the prompt.
+- **`/search <query>`** — runs the named `search` agent on the same thread.
+  Search looks things up and does not file work. Replies start with `Search:`.
 - **`/triage [note]`** — summarizes the conversation and proposes Linear
   issues to file.
 - **`/preview <title>`** — privately previews the issue the bot would file
@@ -252,21 +267,22 @@ The args arrive as `ctx.text`; `runAgent({ prompt })` injects them as the
 user message (a slash command's text is never posted to the channel, so it
 isn't in the history the agent reconstructs).
 
-> **Slack setup:** all four commands (`/agent`, `/triage`, `/preview`,
-> `/file-issue`) must be declared in your Slack app under **Slash Commands** —
-> Slack won't deliver an unregistered command, even over Socket Mode. The
-> easiest path is to paste the full `slack-app-manifest.yaml` when creating
-> (or updating) your app, which already declares all four. Discord and Telegram
-> register their commands up front via the adapter.
+> **Slack setup:** all five commands (`/agent`, `/search`, `/triage`,
+> `/preview`, `/file-issue`) must be declared in your Slack app under **Slash
+> Commands**. Slack will not deliver an unregistered command, even over Socket
+> Mode. The easiest path is to paste the full `slack-app-manifest.yaml` when
+> creating (or updating) your app, which already declares all five. After you
+> add `/search`, reinstall the Slack app so Slack picks up the new command.
+> Discord and Telegram register their commands up front via the adapter.
 
 ### The agent (`runtime.ts`)
 
-A single CopilotKit `BuiltInAgent` (LLM + MCP) served over AG-UI by a
-`CopilotSseRuntime`. It connects to Linear (hosted MCP, raw API key as
-bearer token) and Notion (the official MCP server run as a local
-Streamable-HTTP sidecar), discovering the available list/search/create tools
-from each server at runtime. A server is only wired up when its credentials
-are present, so the bot runs Linear-only, Notion-only, or both. The default
+Two CopilotKit `BuiltInAgent`s (LLM + MCP) served over AG-UI by one
+`CopilotSseRuntime`: `triage` (default) and `search`. They share Linear and
+Notion MCP when those credentials are set. Each Channel run still isolates
+the agent and gives `search` its own checkpoint id (`threadId::search`).
+A server is only wired up when its credentials are present, so the bot runs
+Linear-only, Notion-only, or both. The default
 model is `openai/gpt-5.5` (override with `AGENT_MODEL`).
 
 ## Local run
@@ -322,9 +338,10 @@ several from one process).
 - In Telegram, message **@BotFather** → `/newbot` → follow the prompts (name +
   a username ending in `bot`) → copy the HTTP API token (`TELEGRAM_BOT_TOKEN`).
 - Long-polling is the default ingress — no public URL or webhook needed.
-- The bot auto-registers its slash commands (`/agent`, `/triage`, `/preview`,
-  `/file-issue` — all four passed to `createChannel`) via `setMyCommands` on start
-  (no manual BotFather `/setcommands` step). For group use, `/setprivacy` →
+- The bot auto-registers its slash commands (`/agent`, `/search`, `/triage`,
+  `/preview`, `/file-issue`, all five passed to `createChannel`) via
+  `setMyCommands` on start (no manual BotFather `/setcommands` step). For group
+  use, `/setprivacy` →
   **Disable** if you want it to see non-mention messages.
 
 ### 2. Credentials
@@ -363,11 +380,11 @@ Linear needs no sidecar — its hosted MCP accepts the API key directly.
 ### 4. Agent
 
 ```bash
-pnpm --filter slack-example runtime   # CopilotKit runtime on :8200, agent "triage"
+pnpm --filter slack-example runtime   # CopilotKit runtime on :8200
 ```
 
-Exposes `http://localhost:8200/api/copilotkit/agent/triage/run` — the
-default `AGENT_URL`.
+Exposes `http://localhost:8200/api/copilotkit/agent/triage/run` (the default
+`AGENT_URL`) and `.../agent/search/run` for `/search`.
 
 ### 5. Bot
 
@@ -388,6 +405,12 @@ follow-up unless you enabled legacy thread continuation:
 > @CopilotKit Triage find the runbook for our last auth outage
 
 > @CopilotKit Triage write this thread up as a Notion postmortem
+
+To run the extra agent on the same thread:
+
+> `/search what shipped in Linear this week`
+
+Search replies start with `Search:`. Mentions still go to triage.
 
 ## Per-user identity
 

@@ -35,8 +35,9 @@
  * A server is only wired up when its credentials are present, so the bot
  * runs Linear-only, Notion-only, or both.
  *
- * Exposed route (the bridge's `AGENT_URL`):
+ * Exposed routes (the bridge's `AGENT_URL` is the triage run path):
  *   POST http://localhost:8200/api/copilotkit/agent/triage/run
+ *   POST http://localhost:8200/api/copilotkit/agent/search/run
  */
 import "dotenv/config";
 import { createServer } from "node:http";
@@ -246,81 +247,94 @@ const model = (process.env["AGENT_MODEL"] ?? "openai/gpt-5.5").replace(
   "",
 ) as Parameters<typeof openaiText>[0];
 
+const SEARCH_SYSTEM_PROMPT = [
+  "You are the workspace search agent. You look things up. You do not file",
+  "work. Mentions of this bot still go to the triage agent. The user reached",
+  "you through `/search`.",
+  "",
+  "Start every text reply with `Search:` so the user can tell you from triage.",
+  "",
+  "You may use web search and read Linear or Notion. You must not create or",
+  "update issues or pages. If the user asks you to file something, tell them",
+  "to mention the bot or run `/triage` instead.",
+  "",
+  "Keep answers short. Prefer one or two facts and a link.",
+].join("\n");
+
 // Factory mode: we own the LLM call (TanStack AI `chat()`); BuiltInAgent owns
 // the AG-UI run lifecycle and converts TanStack's stream into AG-UI events.
 // `chat()` runs the multi-turn tool loop, the OpenAI `web_search` provider
-// tool, and the MCP tools — discovering MCP tools and closing the connections
-// when the run ends. The big triage prompt is prepended as a system prompt,
-// ahead of any system/context/state prompts derived from the run input.
-const agent = new BuiltInAgent({
-  type: "tanstack",
-  factory: async (ctx) => {
-    const {
-      messages,
-      systemPrompts,
-      tools: clientTools,
-    } = convertInputToTanStackAI(ctx.input);
+// tool, and the MCP tools. Discover MCP tools and close the connections when
+// the run ends. The named prompt is prepended as a system prompt, ahead of
+// any system/context/state prompts derived from the run input.
+function makeTanstackAgent(systemPrompt: string): BuiltInAgent {
+  return new BuiltInAgent({
+    type: "tanstack",
+    factory: async (ctx) => {
+      const {
+        messages,
+        systemPrompts,
+        tools: clientTools,
+      } = convertInputToTanStackAI(ctx.input);
 
-    // Connect each MCP server independently so one bad/unreachable server can't
-    // kill the turn. Failures are dropped (the agent runs with whatever else is
-    // up) and noted so the model only tells the user a source is down if they
-    // actually ask for it — see `availabilityNote` below.
-    const transports = mcpTransports();
-    const settled = await Promise.allSettled(
-      transports.map((t) => connectMcp(t.transport)),
-    );
-    const clients: Array<Awaited<ReturnType<typeof connectMcp>>> = [];
-    const unavailable: string[] = [];
-    settled.forEach((result, i) => {
-      if (result.status === "fulfilled") {
-        clients.push(result.value);
-      } else {
-        unavailable.push(transports[i]!.name);
-        console.error(
-          `[slack-runtime] MCP "${transports[i]!.name}" unavailable this turn:`,
-          (result.reason as Error)?.message ?? result.reason,
-        );
-      }
-    });
+      // Connect each MCP server independently so one bad/unreachable server
+      // cannot kill the turn. Failures are dropped (the agent runs with
+      // whatever else is up) and noted so the model only tells the user a
+      // source is down if they actually ask for it.
+      const transports = mcpTransports();
+      const settled = await Promise.allSettled(
+        transports.map((t) => connectMcp(t.transport)),
+      );
+      const clients: Array<Awaited<ReturnType<typeof connectMcp>>> = [];
+      const unavailable: string[] = [];
+      settled.forEach((result, i) => {
+        if (result.status === "fulfilled") {
+          clients.push(result.value);
+        } else {
+          unavailable.push(transports[i]!.name);
+          console.error(
+            `[slack-runtime] MCP "${transports[i]!.name}" unavailable this turn:`,
+            (result.reason as Error)?.message ?? result.reason,
+          );
+        }
+      });
 
-    // Tell the model which sources are down THIS turn so it degrades gracefully:
-    // keep answering with everything that works, and only surface the outage if
-    // the user's request needs the missing source (never invent data).
-    const isAre = unavailable.length > 1 ? "are" : "is";
-    const itsTheir = unavailable.length > 1 ? "their" : "its";
-    const availabilityNote =
-      unavailable.length > 0
-        ? `\n\nDATA SOURCE STATUS: ${unavailable.join(" and ")} ${isAre} ` +
-          `temporarily UNAVAILABLE this turn (connection failed), so ${itsTheir} ` +
-          `tools are not loaded. Everything else — web search, rendering cards/` +
-          `charts, reading the Slack thread — still works normally. ONLY if the ` +
-          `user asks for something that needs ${unavailable.join(" or ")}, tell ` +
-          `them that source is temporarily unreachable and to try again shortly; ` +
-          `never invent data or claim a write/read succeeded.`
-        : "";
+      const isAre = unavailable.length > 1 ? "are" : "is";
+      const itsTheir = unavailable.length > 1 ? "their" : "its";
+      const availabilityNote =
+        unavailable.length > 0
+          ? `\n\nDATA SOURCE STATUS: ${unavailable.join(" and ")} ${isAre} ` +
+            `temporarily UNAVAILABLE this turn (connection failed), so ${itsTheir} ` +
+            `tools are not loaded. Everything else (web search, rendering cards/` +
+            `charts, reading the Slack thread) still works normally. ONLY if the ` +
+            `user asks for something that needs ${unavailable.join(" or ")}, tell ` +
+            `them that source is temporarily unreachable and to try again shortly; ` +
+            `never invent data or claim a write/read succeeded.`
+          : "";
 
-    return chat({
-      adapter: openaiText(model),
-      messages,
-      systemPrompts: [SYSTEM_PROMPT + availabilityNote, ...systemPrompts],
-      // `web_search` is an OpenAI provider tool (run server-side by OpenAI);
-      // `clientTools` are the bot's frontend tools (issue/page cards, charts,
-      // confirm_write HITL) forwarded on every run — passed as client-side
-      // tools so the model can call them and the bot renders/gates them via
-      // the AG-UI client-tool round-trip. MCP tools come in via `mcp` below.
-      tools: [
-        webSearchTool({ type: "web_search" }),
-        ...(clientTools as never[]),
-      ],
-      ...(clients.length > 0 ? { mcp: { clients } } : {}),
-      // TanStack AI needs the full AbortController (not just the signal).
-      abortController: ctx.abortController,
-    });
-  },
-});
+      return chat({
+        adapter: openaiText(model),
+        messages,
+        systemPrompts: [systemPrompt + availabilityNote, ...systemPrompts],
+        // `web_search` is an OpenAI provider tool (run server-side by OpenAI);
+        // `clientTools` are the bot's frontend tools (issue/page cards, charts,
+        // confirm_write HITL) forwarded on every run.
+        tools: [
+          webSearchTool({ type: "web_search" }),
+          ...(clientTools as never[]),
+        ],
+        ...(clients.length > 0 ? { mcp: { clients } } : {}),
+        abortController: ctx.abortController,
+      });
+    },
+  });
+}
 
 const runtime = new CopilotSseRuntime({
-  agents: { triage: agent },
+  agents: {
+    triage: makeTanstackAgent(SYSTEM_PROMPT),
+    search: makeTanstackAgent(SEARCH_SYSTEM_PROMPT),
+  },
 });
 
 const listener = createCopilotNodeListener({
@@ -334,12 +348,15 @@ createServer(listener).listen(port, () => {
   console.log(
     `[slack-runtime] listening on http://localhost:${port}/api/copilotkit/agent/triage/run`,
   );
+  console.log(
+    `[slack-runtime] search agent on http://localhost:${port}/api/copilotkit/agent/search/run`,
+  );
   const connected = [
     process.env["LINEAR_API_KEY"] ? "Linear" : null,
     process.env["NOTION_MCP_AUTH_TOKEN"] ? "Notion" : null,
   ].filter(Boolean);
   console.log(
-    `[slack-runtime] agent "triage" ready · MCP: ${
+    `[slack-runtime] agents "triage", "search" ready · MCP: ${
       connected.length ? connected.join(", ") : "none"
     }`,
   );

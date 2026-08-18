@@ -37,6 +37,24 @@ export const appCommands: ChannelCommand[] = [
     },
   }),
 
+  // `/search <query>` — run the named extra agent. Same Slack thread, own
+  // checkpoint. The search agent looks things up and does not file work.
+  defineChannelCommand({
+    name: "search",
+    description: "Look something up with the search agent.",
+    async handler({ thread, text, user }) {
+      if (!text) {
+        await thread.post("Usage: `/search <what to look up>`");
+        return;
+      }
+      await thread.runAgent({
+        agentId: "search",
+        prompt: text,
+        context: senderContext(user, thread.platform),
+      });
+    },
+  }),
+
   // `/triage [note]` — summarize the current channel/thread and propose Linear
   // issues to file. Demonstrates a command with its own intent.
   defineChannelCommand({

@@ -29,7 +29,7 @@
  */
 import "dotenv/config";
 import { createServer } from "node:http";
-import { createChannel, HttpAgent } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import type {
@@ -63,6 +63,7 @@ import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
 import { closeBrowser } from "./render/browser.js";
+import { httpAgentFactory, siblingAgentRunUrl } from "./agents.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -199,18 +200,16 @@ async function main() {
     // runtime starts each of its direct adapters when the Channel activates.
     name: "triage",
     adapters,
-    // One AG-UI agent per conversation. The backend is a CopilotKit
-    // `BuiltInAgent` (CopilotSseRuntime), which does NOT require a UUID-format
-    // threadId, so the raw conversation thread id is fine. Nothing here is
-    // platform-specific, so one factory covers Slack, Discord, Telegram, and
-    // WhatsApp alike.
-    agent: (threadId) => {
-      const a = new HttpAgent({
-        url: agentUrl,
-        headers: agentHeaders,
-      });
-      a.threadId = threadId;
-      return a;
+    // Default agent plus a named extra. Mentions and `/agent` / `/triage`
+    // use triage. `/search` uses the search agent. The backend is a
+    // CopilotKit `BuiltInAgent` (CopilotSseRuntime), which does NOT require a
+    // UUID-format threadId. Extra agents get `threadId::search`.
+    agent: httpAgentFactory(agentUrl, agentHeaders),
+    agents: {
+      search: httpAgentFactory(
+        siblingAgentRunUrl(agentUrl, "search"),
+        agentHeaders,
+      ),
     },
     // `appTools` adds this bot's tools (read_thread, render_*, issue/page
     // cards); the per-platform `default*Tools` add `lookup_*_user`. All are
@@ -219,7 +218,7 @@ async function main() {
     // guidance; `appContext` adds identity + triage policy.
     tools,
     context,
-    // Slash commands (`/agent`, `/triage`, `/preview`, `/file-issue`). For Slack
+    // Slash commands (`/agent`, `/search`, `/triage`, `/preview`, `/file-issue`). For Slack
     // each must ALSO be declared in the app config (or paste the manifest); Discord
     // and Telegram register them up front. The engine routes by name; adapters that
     // can't take commands ignore them.

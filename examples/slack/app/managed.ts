@@ -27,7 +27,7 @@
  */
 import "dotenv/config";
 import { createServer } from "node:http";
-import { createChannel, HttpAgent } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import {
   defaultSlackTools,
   defaultSlackContext,
@@ -40,6 +40,7 @@ import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
 import { closeBrowser } from "./render/browser.js";
+import { httpAgentFactory, siblingAgentRunUrl } from "./agents.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -71,13 +72,12 @@ async function main() {
   const support = createChannel({
     identifyUser: "platform",
     name: channelName,
-    agent: (threadId) => {
-      const a = new HttpAgent({
-        url: agentUrl,
-        headers: agentHeaders,
-      });
-      a.threadId = threadId;
-      return a;
+    agent: httpAgentFactory(agentUrl, agentHeaders),
+    agents: {
+      search: httpAgentFactory(
+        siblingAgentRunUrl(agentUrl, "search"),
+        agentHeaders,
+      ),
     },
     tools: [...appTools, ...defaultSlackTools],
     context: [...appContext, ...defaultSlackContext],
