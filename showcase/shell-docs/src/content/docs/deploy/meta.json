@@ -5,6 +5,7 @@
   },
   "pages": [
     "agentcore",
+    "aws-lambda",
     "langsmith"
   ]
 }
