@@ -60,6 +60,27 @@ test("publishes channel connection guides at canonical URLs with the default age
   ).toBe(false);
 });
 
+test("front-loads the v1 deprecation warning in agent-facing reference Markdown", () => {
+  const filePath = new URL(
+    "../../content/reference/v1/hooks/useCopilotReadable.mdx",
+    import.meta.url,
+  ).pathname;
+
+  const output = renderPageToLlmText({
+    url: "reference/v1/hooks/useCopilotReadable",
+    title: "useCopilotReadable",
+    filePath,
+    loadSlug: "__reference__/v1/hooks/useCopilotReadable",
+  });
+
+  expect(output).toContain("# Deprecated: v1 SDK");
+  expect(output).toContain("AI coding agents");
+  expect(output).toContain("@copilotkit/react-core/v2");
+  expect(output.indexOf("# Deprecated: v1 SDK")).toBeLessThan(
+    output.indexOf("## Usage"),
+  );
+});
+
 test.each(["all", "content-unique"] as const)(
   "publishes the exact visible framework root set in %s mode",
   (channelGuideVariants) => {

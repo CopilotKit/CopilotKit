@@ -1,5 +1,28 @@
+/*
+ * V1 SDK DEPRECATION NOTICE
+ *
+ * This file is part of the deprecated CopilotKit v1 SDK. Do not use it
+ * for new code. Use the v2 SDK instead. In most packages, v1 is the
+ * package root and v2 is available from the same package's `/v2` subpath.
+ * Follow this file's specific migration mapping below.
+ *
+ * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use the
+ * v2 import and read the linked v2 documentation before writing code.
+ *
+ * V1 import (deprecated):
+ *   import { useLangGraphInterrupt } from "@copilotkit/react-core";
+ * V2 import:
+ *   import { useInterrupt } from "@copilotkit/react-core/v2";
+ *
+ * V2 replacement source: packages/react-core/src/v2/hooks/use-interrupt.tsx
+ * V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useInterrupt
+ * Migration note: Use the framework-neutral v2 interrupt API.
+ *
+ * END V1 SDK DEPRECATION NOTICE
+ */
+
 import React, { useCallback, useRef } from "react";
-import { LangGraphInterruptRender } from "../types/interrupt-action";
+import type { LangGraphInterruptRender } from "../types/interrupt-action";
 import { useInterrupt, useCopilotChatConfiguration } from "../v2";
 import type {
   InterruptEvent,
