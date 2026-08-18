@@ -42,7 +42,7 @@ The Slack example posts this mix with `/carousel` or by asking the bot to show a
 This works on both paths:
 
 - Direct Slack, Teams, Discord, Telegram, and WhatsApp. The local adapter uploads the PNG (or keeps a data URI) and does not post a second file message.
-- Managed Intelligence Slack. The SDK stores the PNG and puts the file handle in `slack_file.id`. Intelligence uploads that file to Slack without sharing it, then posts the carousel. Managed Teams uses a data URI, the same as the local Teams adapter.
+- Managed Intelligence Slack. The SDK stores the PNG and puts the file handle in `slack_file.id`. Intelligence uploads that file to Slack without sharing it, waits until Slack marks the file as an image, then posts the carousel. Managed Teams uses a data URI, the same as the local Teams adapter.
 
 Use `pnpm direct` in `examples/slack` when you want the local Slack adapter. Use `pnpm start` when Intelligence owns Slack.
 

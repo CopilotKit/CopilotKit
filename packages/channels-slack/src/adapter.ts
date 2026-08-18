@@ -1099,6 +1099,7 @@ export class SlackAdapter implements PlatformAdapter {
     if (!file?.id) {
       throw new Error("Slack stageFile: upload returned no file id");
     }
+    await waitForSlackImageFile(this.client, file.id);
     return { fileId: file.id };
   }
 
@@ -1231,4 +1232,34 @@ export function slack(opts: SlackAdapterOptions): SlackAdapter {
 function channelOf(ref: MessageRef): string {
   const channel = (ref as { channel?: unknown }).channel;
   return typeof channel === "string" ? channel : "";
+}
+
+const SLACK_FILE_READY_ATTEMPTS = 12;
+const SLACK_FILE_READY_SLEEP_MS = 200;
+
+/**
+ * Private Slack files have an empty mimetype until Slack finishes
+ * processing. Block Kit `slack_file` rejects the file until then.
+ */
+async function waitForSlackImageFile(
+  client: Pick<WebClient, "files">,
+  fileId: string,
+): Promise<void> {
+  for (let attempt = 1; attempt <= SLACK_FILE_READY_ATTEMPTS; attempt += 1) {
+    const info = await client.files.info({ file: fileId });
+    const mime = info.file?.mimetype;
+    const type = info.file?.filetype;
+    if (
+      (typeof mime === "string" && mime.length > 0) ||
+      (typeof type === "string" && type.length > 0)
+    ) {
+      return;
+    }
+    if (attempt === SLACK_FILE_READY_ATTEMPTS) {
+      throw new Error("Slack stageFile: file was not ready as an image");
+    }
+    await new Promise((resolve) =>
+      setTimeout(resolve, SLACK_FILE_READY_SLEEP_MS),
+    );
+  }
 }
