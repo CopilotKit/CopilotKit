@@ -56,6 +56,7 @@ describe("setup content bundle", () => {
       expect(source, framework).toContain("ClaudeAgentAdapter");
       expect(source, framework).toMatch(/```|~~~/);
       expect(source, framework).not.toContain("<DemoCode");
+      expect(source, framework).not.toContain("@region[");
     }
   });
 

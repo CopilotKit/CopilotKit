@@ -63,6 +63,45 @@ export function shouldUseClaudeAgentSdk({
 // @endregion[claude-agent-sdk-request-selection]
 
 // @region[claude-agent-sdk-typescript-adapter]
+// @region[claude-agent-sdk-mcp-adapter-wiring]
+function createClaudeAgentAdapter({
+  toolSchemas,
+  emit,
+  getState,
+  setState,
+  executeTool,
+  model,
+  systemPrompt,
+}: {
+  toolSchemas: Anthropic.Tool[];
+  emit: Emit;
+  getState: () => Record<string, unknown>;
+  setState: (state: Record<string, unknown>) => void;
+  executeTool: ExecuteTool;
+  model: string;
+  systemPrompt: string;
+}) {
+  const backendToolServer = buildBackendToolServer({
+    toolSchemas,
+    emit,
+    getState,
+    setState,
+    executeTool,
+  });
+
+  return new ClaudeAgentAdapter({
+    agentId: "claude-sdk-typescript",
+    model: normalizeClaudeAgentSdkModel(model),
+    systemPrompt,
+    tools: [],
+    mcpServers: backendToolServer.mcpServers,
+    allowedTools: backendToolServer.allowedTools,
+    permissionMode: "dontAsk",
+    maxTurns: 10,
+  });
+}
+// @endregion[claude-agent-sdk-mcp-adapter-wiring]
+
 // @region[claude-agent-sdk-agent-setup]
 export async function runWithClaudeAgentSdk({
   input,
@@ -89,8 +128,7 @@ export async function runWithClaudeAgentSdk({
 }): Promise<void> {
   let state = { ...initialState };
   const pendingStateSnapshots: Record<string, unknown>[] = [];
-  // @region[claude-agent-sdk-mcp-adapter-wiring]
-  const backendToolServer = buildBackendToolServer({
+  const adapter = createClaudeAgentAdapter({
     toolSchemas,
     emit,
     getState: () => state,
@@ -99,19 +137,9 @@ export async function runWithClaudeAgentSdk({
       pendingStateSnapshots.push(state);
     },
     executeTool,
-  });
-
-  const adapter = new ClaudeAgentAdapter({
-    agentId: "claude-sdk-typescript",
-    model: normalizeClaudeAgentSdkModel(model),
     systemPrompt,
-    tools: [],
-    mcpServers: backendToolServer.mcpServers,
-    allowedTools: backendToolServer.allowedTools,
-    permissionMode: "dontAsk",
-    maxTurns: 10,
+    model,
   });
-  // @endregion[claude-agent-sdk-mcp-adapter-wiring]
 
   if (forwardedHeaders && Object.keys(forwardedHeaders).length > 0) {
     adapter.headers = forwardedHeaders;

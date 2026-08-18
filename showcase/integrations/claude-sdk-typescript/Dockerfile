@@ -15,6 +15,11 @@ RUN npm run build
 RUN npx tsc --outDir /app/dist --module commonjs --moduleResolution node \
     --target es2020 --esModuleInterop true --resolveJsonModule true \
     --skipLibCheck true src/agent_server.ts
+# The runner copies node_modules from this stage, so remove test/build-only
+# packages after every command that needs them. Keep this assertion next to the
+# prune so a future Dockerfile edit cannot silently ship Vitest again.
+RUN npm prune --omit=dev --legacy-peer-deps \
+ && test ! -d node_modules/vitest
 
 # Stage 2: Production image — runtime only (no build tools)
 FROM node:22-slim AS runner
