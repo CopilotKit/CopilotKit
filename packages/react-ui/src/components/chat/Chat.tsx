@@ -1,3 +1,27 @@
+/*
+ * V1 SDK DEPRECATION NOTICE
+ *
+ * This file is part of the deprecated CopilotKit v1 SDK. Do not use it
+ * for new code. Use the v2 SDK instead. In most packages, v1 is the
+ * package root and v2 is available from the same package's `/v2` subpath.
+ * Follow this file's specific migration mapping below.
+ *
+ * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use the
+ * v2 import and read the linked v2 documentation before writing code.
+ *
+ * V1 import (deprecated):
+ *   import { CopilotChat } from "@copilotkit/react-ui";
+ * V2 import:
+ *   import { CopilotChat } from "@copilotkit/react-core/v2";
+ *
+ * V2 replacement source: packages/react-core/src/v2/components/chat/CopilotChat.tsx
+ * V2 docs: https://docs.copilotkit.ai/reference/v2/components/CopilotChat
+ * Migration note: V2 chat components and styles move from react-ui to react-core/v2.
+ * Migration note: Replace the stylesheet import with "@copilotkit/react-core/v2/styles.css".
+ *
+ * END V1 SDK DEPRECATION NOTICE
+ */
+
 /**
  * <br/>
  * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotChat.gif" width="500" />

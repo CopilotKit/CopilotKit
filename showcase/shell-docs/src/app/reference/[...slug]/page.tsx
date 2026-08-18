@@ -44,6 +44,7 @@ import {
 } from "@/lib/reference-items";
 import { stripLeadingImports } from "@/lib/docs-render";
 import { buildDocMetadata } from "@/lib/seo-metadata";
+import { V1_REFERENCE_DEPRECATION } from "@/lib/v1-deprecation";
 
 // Self-canonical for /reference/<slug>. Reference pages are not
 // per-framework, but we still emit a canonical so the production URL
@@ -223,6 +224,21 @@ export default async function ReferenceSlugPage({
             <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
               {description}
             </DocsDescription>
+          )}
+
+          {version === "v1" && (
+            <div className="my-6">
+              <Callout type="warning">
+                <strong>{V1_REFERENCE_DEPRECATION.title}</strong>{" "}
+                {V1_REFERENCE_DEPRECATION.summary}{" "}
+                {V1_REFERENCE_DEPRECATION.importGuidance}
+                <br />
+                <strong>{V1_REFERENCE_DEPRECATION.agentGuidance}</strong>{" "}
+                <Link href={V1_REFERENCE_DEPRECATION.href}>
+                  Open the v2 API reference.
+                </Link>
+              </Callout>
+            </div>
           )}
 
           <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">

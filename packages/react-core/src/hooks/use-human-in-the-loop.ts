@@ -1,24 +1,39 @@
-import {
-  ActionRenderProps,
-  ActionRenderPropsWait,
-  FrontendAction,
-} from "../types";
+/*
+ * V1 SDK DEPRECATION NOTICE
+ *
+ * This file is part of the deprecated CopilotKit v1 SDK. Do not use it
+ * for new code. Use the v2 SDK instead. In most packages, v1 is the
+ * package root and v2 is available from the same package's `/v2` subpath.
+ * Follow this file's specific migration mapping below.
+ *
+ * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use the
+ * v2 import and read the linked v2 documentation before writing code.
+ *
+ * V1 import (deprecated):
+ *   import { useHumanInTheLoop } from "@copilotkit/react-core";
+ * V2 import:
+ *   import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+ *
+ * V2 replacement source: packages/react-core/src/v2/hooks/use-human-in-the-loop.tsx
+ * V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useHumanInTheLoop
+ * Migration note: The v2 API uses a Zod schema instead of the v1 Parameter[] shape.
+ *
+ * END V1 SDK DEPRECATION NOTICE
+ */
+
+import type { ActionRenderPropsWait, FrontendAction } from "../types";
+import { ActionRenderProps } from "../types";
+import type { MappedParameterTypes, Parameter } from "@copilotkit/shared";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
-  MappedParameterTypes,
-  Parameter,
   getZodParameters,
   parseJson,
 } from "@copilotkit/shared";
 import { useHumanInTheLoop as useHumanInTheLoopVNext } from "../v2";
 import { ToolCallStatus } from "@copilotkit/core";
-import React, {
-  ComponentType,
-  FunctionComponent,
-  useEffect,
-  useRef,
-} from "react";
+import type { FunctionComponent } from "react";
+import React, { ComponentType, useEffect, useRef } from "react";
 
 type HumanInTheLoopOptions = Parameters<typeof useHumanInTheLoopVNext>[0];
 type HumanInTheLoopRender = HumanInTheLoopOptions["render"];

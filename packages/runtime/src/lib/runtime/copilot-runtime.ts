@@ -1,3 +1,26 @@
+/*
+ * V1 SDK DEPRECATION NOTICE
+ *
+ * This file is part of the deprecated CopilotKit v1 SDK. Do not use it
+ * for new code. Use the v2 SDK instead. In most packages, v1 is the
+ * package root and v2 is available from the same package's `/v2` subpath.
+ * Follow this file's specific migration mapping below.
+ *
+ * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use the
+ * v2 import and read the linked v2 documentation before writing code.
+ *
+ * V1 import (deprecated):
+ *   import { CopilotRuntime } from "@copilotkit/runtime";
+ * V2 import:
+ *   import { CopilotRuntime } from "@copilotkit/runtime/v2";
+ *
+ * V2 replacement source: packages/runtime/src/v2/runtime/core/runtime.ts
+ * V2 docs: https://docs.copilotkit.ai/runtime-server-adapter
+ * Migration note: V2 uses AG-UI runtime handlers instead of the v1 GraphQL adapter setup.
+ *
+ * END V1 SDK DEPRECATION NOTICE
+ */
+
 /**
  * <Callout type="info">
  *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/backend/copilot-runtime).
