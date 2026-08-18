@@ -554,6 +554,31 @@ test.each(["langgraph-python", "strands", "strands-typescript", "google-adk"])(
   },
 );
 
+test("publishes both canonical Strands starter commands in LLM text", () => {
+  const loadSlug = "integrations/aws-strands/quickstart";
+  const doc = loadDoc(loadSlug);
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "strands/quickstart",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug,
+      framework: "strands",
+    },
+    { framework: "strands" },
+  );
+
+  expect(output).toContain(
+    "npx copilotkit@latest create --framework aws-strands-py",
+  );
+  expect(output).toContain(
+    "npx copilotkit@latest create --framework aws-strands-ts",
+  );
+});
+
 test.each([
   ["claude-sdk-python", "programmatic-control"],
   ["claude-sdk-python", "headless"],
