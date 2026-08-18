@@ -35,6 +35,10 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import {
+  isV1ReferenceUrl,
+  renderV1ReferenceDeprecationMarkdown,
+} from "@/lib/v1-deprecation";
+import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
   channelConnectHref,
@@ -958,7 +962,10 @@ export function renderPageToLlmText(
   const header: string[] = [`# ${title}`];
   if (description) header.push("", `> ${description}`);
   header.push("");
-  return `${header.join("\n")}${body.trimEnd()}\n`;
+  const deprecationNotice = isV1ReferenceUrl(page.url)
+    ? renderV1ReferenceDeprecationMarkdown()
+    : "";
+  return `${header.join("\n")}${deprecationNotice}${body.trimEnd()}\n`;
 }
 
 /**
