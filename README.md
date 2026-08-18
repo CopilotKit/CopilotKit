@@ -17,6 +17,8 @@ Build **agent-native applications** — on any framework, on any surface.
 
 Generative UI, shared state, and human-in-the-loop workflows for React, Angular, Vue, React Native — and in Slack and Microsoft Teams.
 
+hello from slack
+
 </div>
 
 [![Bring Your Own Agent. Any Channel. — CopilotKit and AG-UI connect any agent framework to Slack, Microsoft Teams, Discord, WhatsApp, Telegram, Google Chat, iMessage, and SMS.](assets/bring-your-own-agent-any-channel.png)](https://go.copilotkit.ai/copilotkit-docs)
