@@ -180,6 +180,7 @@ export default function RootLayout({
          */}
         <PostHogProvider>
           <PublicClerkProvider
+            opsPublicUrl={runtimeConfig.intelligenceSignupUrl}
             publishableKey={runtimeConfig.clerkPublishableKey}
           >
             <FrameworkProvider knownFrameworks={knownFrameworks}>

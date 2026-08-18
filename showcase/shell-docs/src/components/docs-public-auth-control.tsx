@@ -5,10 +5,10 @@ import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { Component } from "react";
 import { useEffect, useState } from "react";
-import { usePublicClerkAvailable } from "./public-clerk-provider";
-
-const DOCS_AUTH_ENTRY_BASE =
-  "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar";
+import {
+  usePublicClerkAvailable,
+  usePublicOpsUrl,
+} from "./public-clerk-provider";
 
 function getCurrentDocsUrl(): string {
   return typeof window === "undefined"
@@ -18,8 +18,13 @@ function getCurrentDocsUrl(): string {
 
 export function buildDocsAuthEntryHref(
   currentUrl = getCurrentDocsUrl(),
+  opsPublicUrl = "https://dashboard.operations.copilotkit.ai",
 ): string {
-  const url = new URL(DOCS_AUTH_ENTRY_BASE);
+  const url = new URL(opsPublicUrl);
+  url.searchParams.set("utm_source", "docs");
+  url.searchParams.set("utm_medium", "cta");
+  url.searchParams.set("utm_campaign", "intelligence");
+  url.searchParams.set("utm_content", "navbar");
   url.searchParams.set("redirect_url", currentUrl);
   return url.toString();
 }
@@ -27,11 +32,14 @@ export function buildDocsAuthEntryHref(
 export function useDocsAuthEntryHref(): string {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [href, setHref] = useState(buildDocsAuthEntryHref);
+  const opsPublicUrl = usePublicOpsUrl();
+  const [href, setHref] = useState(() =>
+    buildDocsAuthEntryHref(getCurrentDocsUrl(), opsPublicUrl),
+  );
 
   useEffect(() => {
-    setHref(buildDocsAuthEntryHref());
-  }, [pathname, searchParams]);
+    setHref(buildDocsAuthEntryHref(getCurrentDocsUrl(), opsPublicUrl));
+  }, [opsPublicUrl, pathname, searchParams]);
 
   return href;
 }

@@ -6,9 +6,16 @@ import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useState } from "react";
 
 const PublicClerkAvailableContext = createContext(true);
+const PublicOpsUrlContext = createContext(
+  "https://dashboard.operations.copilotkit.ai",
+);
 
 export function usePublicClerkAvailable(): boolean {
   return useContext(PublicClerkAvailableContext);
+}
+
+export function usePublicOpsUrl(): string {
+  return useContext(PublicOpsUrlContext);
 }
 
 function getCurrentUrl(): string {
@@ -17,9 +24,11 @@ function getCurrentUrl(): string {
 
 export function PublicClerkProvider({
   children,
+  opsPublicUrl,
   publishableKey,
 }: {
   children: ReactNode;
+  opsPublicUrl: string;
   publishableKey: string;
 }) {
   const pathname = usePathname();
@@ -32,20 +41,24 @@ export function PublicClerkProvider({
 
   if (!publishableKey) {
     return (
-      <PublicClerkAvailableContext.Provider value={false}>
-        {children}
-      </PublicClerkAvailableContext.Provider>
+      <PublicOpsUrlContext.Provider value={opsPublicUrl}>
+        <PublicClerkAvailableContext.Provider value={false}>
+          {children}
+        </PublicClerkAvailableContext.Provider>
+      </PublicOpsUrlContext.Provider>
     );
   }
 
   return (
-    <PublicClerkAvailableContext.Provider value>
-      <ClerkProvider
-        publishableKey={publishableKey}
-        afterSignOutUrl={afterSignOutUrl}
-      >
-        {children}
-      </ClerkProvider>
-    </PublicClerkAvailableContext.Provider>
+    <PublicOpsUrlContext.Provider value={opsPublicUrl}>
+      <PublicClerkAvailableContext.Provider value>
+        <ClerkProvider
+          publishableKey={publishableKey}
+          afterSignOutUrl={afterSignOutUrl}
+        >
+          {children}
+        </ClerkProvider>
+      </PublicClerkAvailableContext.Provider>
+    </PublicOpsUrlContext.Provider>
   );
 }

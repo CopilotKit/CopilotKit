@@ -39,6 +39,7 @@ import {
   PublicClerkProvider,
   usePublicClerkAvailable,
 } from "../public-clerk-provider";
+import { useDocsAuthEntryHref } from "../docs-public-auth-control";
 
 function ProviderAvailabilityProbe() {
   const isAvailable = usePublicClerkAvailable();
@@ -46,9 +47,18 @@ function ProviderAvailabilityProbe() {
   return <span>{isAvailable ? "available" : "unavailable"}</span>;
 }
 
+function AuthEntryHrefProbe() {
+  const href = useDocsAuthEntryHref();
+
+  return <a href={href}>Auth entry</a>;
+}
+
 function renderProvider(publishableKey = "pk_test_shell_docs") {
   return render(
-    <PublicClerkProvider publishableKey={publishableKey}>
+    <PublicClerkProvider
+      opsPublicUrl="https://dashboard.staging.operations.copilotkit.ai"
+      publishableKey={publishableKey}
+    >
       <ProviderAvailabilityProbe />
     </PublicClerkProvider>,
   );
@@ -78,7 +88,10 @@ describe("PublicClerkProvider", () => {
     window.history.replaceState(null, "", "/vue/quickstart?ref=nav");
 
     rerender(
-      <PublicClerkProvider publishableKey="pk_test_shell_docs">
+      <PublicClerkProvider
+        opsPublicUrl="https://dashboard.staging.operations.copilotkit.ai"
+        publishableKey="pk_test_shell_docs"
+      >
         <ProviderAvailabilityProbe />
       </PublicClerkProvider>,
     );
@@ -96,5 +109,24 @@ describe("PublicClerkProvider", () => {
 
     expect(clerkProviderCalls.props).toEqual([]);
     expect(screen.getByText("unavailable")).toBeTruthy();
+  });
+
+  it("builds auth entry links from the matching environment Ops origin", async () => {
+    render(
+      <PublicClerkProvider
+        opsPublicUrl="https://dashboard.staging.operations.copilotkit.ai"
+        publishableKey="pk_test_shell_docs"
+      >
+        <AuthEntryHrefProbe />
+      </PublicClerkProvider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("link", { name: "Auth entry" }).getAttribute("href"),
+      ).toBe(
+        "https://dashboard.staging.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar&redirect_url=http%3A%2F%2Flocalhost%3A3000%2Freact%3Futm_source%3Ddocs%23intro",
+      ),
+    );
   });
 });

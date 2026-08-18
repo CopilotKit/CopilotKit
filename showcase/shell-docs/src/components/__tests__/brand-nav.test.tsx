@@ -90,6 +90,17 @@ describe("BrandNav auth control", () => {
     );
   });
 
+  it("uses the environment-specific Ops origin for auth entry", () => {
+    const href = buildDocsAuthEntryHref(
+      "https://docs.staging.copilotkit.ai/react?ref=nav#install",
+      "https://dashboard.staging.operations.copilotkit.ai",
+    );
+
+    expect(href).toBe(
+      "https://dashboard.staging.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar&redirect_url=https%3A%2F%2Fdocs.staging.copilotkit.ai%2Freact%3Fref%3Dnav%23install",
+    );
+  });
+
   it("keeps the public auth CTA when Clerk auth state cannot be resolved", () => {
     const boundary = new DocsAuthFallbackBoundary({
       children: <button type="button">Account menu</button>,
@@ -110,6 +121,8 @@ describe("BrandNav auth control", () => {
   it("refreshes the auth href when the persistent nav route context changes", () => {
     expect(docsPublicAuthControlSource).toContain("usePathname()");
     expect(docsPublicAuthControlSource).toContain("useSearchParams()");
-    expect(docsPublicAuthControlSource).toContain("[pathname, searchParams]");
+    expect(docsPublicAuthControlSource).toContain(
+      "[opsPublicUrl, pathname, searchParams]",
+    );
   });
 });
