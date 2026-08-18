@@ -40,7 +40,11 @@ import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
 import { closeBrowser } from "./render/browser.js";
-import { httpAgentFactory, siblingAgentRunUrl } from "./agents.js";
+import {
+  httpAgentFactory,
+  parseNamedAgentPrompt,
+  siblingAgentRunUrl,
+} from "./agents.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -91,10 +95,12 @@ async function main() {
       // in-flight turn (unlike native adapters whose getHistory rebuilds the
       // live thread), so pass the current message explicitly as `prompt` —
       // otherwise runAgent runs with zero messages. Prefer multimodal parts.
+      const picked = parseNamedAgentPrompt(message.text);
       await thread.runAgent({
+        agentId: picked.agentId,
         prompt: message.contentParts?.length
           ? message.contentParts
-          : message.text,
+          : picked.prompt,
         context: senderContext(message.user, thread.platform),
       });
     } catch (err) {

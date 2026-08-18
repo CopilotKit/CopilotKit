@@ -35,12 +35,6 @@
         "should_escape": false
       },
       {
-        "command": "/search",
-        "description": "Look something up with the search agent",
-        "usage_hint": "<what to look up>",
-        "should_escape": false
-      },
-      {
         "command": "/triage",
         "description": "Triage this thread \u2014 summarize and propose Linear issues",
         "usage_hint": "",

@@ -63,7 +63,11 @@ import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
 import { closeBrowser } from "./render/browser.js";
-import { httpAgentFactory, siblingAgentRunUrl } from "./agents.js";
+import {
+  httpAgentFactory,
+  parseNamedAgentPrompt,
+  siblingAgentRunUrl,
+} from "./agents.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -200,10 +204,10 @@ async function main() {
     // runtime starts each of its direct adapters when the Channel activates.
     name: "triage",
     adapters,
-    // Default agent plus a named extra. Mentions and `/agent` / `/triage`
-    // use triage. `/search` uses the search agent. The backend is a
-    // CopilotKit `BuiltInAgent` (CopilotSseRuntime), which does NOT require a
-    // UUID-format threadId. Extra agents get `threadId::search`.
+    // Default agent plus a named extra. Mentions use triage unless the text
+    // starts with `search:`. The backend is a CopilotKit `BuiltInAgent`
+    // (CopilotSseRuntime), which does NOT require a UUID-format threadId.
+    // Extra agents get `threadId::search`.
     agent: httpAgentFactory(agentUrl, agentHeaders),
     agents: {
       search: httpAgentFactory(
@@ -218,7 +222,7 @@ async function main() {
     // guidance; `appContext` adds identity + triage policy.
     tools,
     context,
-    // Slash commands (`/agent`, `/search`, `/triage`, `/preview`, `/file-issue`). For Slack
+    // Slash commands (`/agent`, `/triage`, `/preview`, `/file-issue`). For Slack
     // each must ALSO be declared in the app config (or paste the manifest); Discord
     // and Telegram register them up front. The engine routes by name; adapters that
     // can't take commands ignore them.
@@ -237,7 +241,12 @@ async function main() {
   // silently.
   bot.onMention(async ({ thread, message }) => {
     try {
+      const picked = parseNamedAgentPrompt(message.text);
       await thread.runAgent({
+        agentId: picked.agentId,
+        prompt: message.contentParts?.length
+          ? message.contentParts
+          : picked.prompt,
         context: senderContext(message.user, thread.platform),
       });
     } catch (err) {

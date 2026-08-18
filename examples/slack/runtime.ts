@@ -249,8 +249,7 @@ const model = (process.env["AGENT_MODEL"] ?? "openai/gpt-5.5").replace(
 
 const SEARCH_SYSTEM_PROMPT = [
   "You are the workspace search agent. You look things up. You do not file",
-  "work. Mentions of this bot still go to the triage agent. The user reached",
-  "you through `/search`.",
+  "work. The user reached you by starting their message with `search`.",
   "",
   "Start every text reply with `Search:` so the user can tell you from triage.",
   "",

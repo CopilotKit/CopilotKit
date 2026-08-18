@@ -27,10 +27,6 @@ features:
       description: Talk to the AG-UI agent from any channel
       usage_hint: "<your message>"
       should_escape: false
-    - command: /search
-      description: Look something up with the search agent
-      usage_hint: "<what to look up>"
-      should_escape: false
     - command: /triage
       description: Triage this thread — summarize and propose Linear issues
       usage_hint: ""

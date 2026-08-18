@@ -56,10 +56,9 @@ channel.onMention(async ({ thread, message }) => {
 `runAgent()` with no `agentId` uses `"default"`. That is the same as
 `useAgent()` on the web runtime.
 
-The Slack example in `examples/slack` wires this up. Mentions and `/agent`
-run triage. `/search <query>` runs the named `search` agent on the same
-thread. Reinstall the Slack app after you update the manifest so `/search`
-is registered.
+The Slack example in `examples/slack` wires this up. Mentions run triage.
+Start a mention or DM with `search:` to run the named `search` agent on the
+same thread. You do not need a new slash command.
 
 Tools and context stay on the Channel, plus extras on this call. There is no
 per-agent tool list.

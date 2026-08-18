@@ -41,12 +41,11 @@ const ctx = (over: Partial<CommandContext>): CommandContext =>
   }) as CommandContext;
 
 describe("example slash commands", () => {
-  it("registers /agent, /file-issue, /preview, /search and /triage", () => {
+  it("registers /agent, /file-issue, /preview and /triage", () => {
     expect(appCommands.map((c) => c.name).sort()).toEqual([
       "agent",
       "file-issue",
       "preview",
-      "search",
       "triage",
     ]);
   });
@@ -66,12 +65,12 @@ describe("example slash commands", () => {
     });
   });
 
-  it("/search runs the named extra agent", async () => {
+  it("/agent search: routes to the named extra agent", async () => {
     const thread = fakeThread();
-    await byName("search").handler(
+    await byName("agent").handler(
       ctx({
-        command: "search",
-        text: "linear cycle 12",
+        command: "agent",
+        text: "search: linear cycle 12",
         thread: thread as never,
       }),
     );
@@ -80,15 +79,6 @@ describe("example slash commands", () => {
       agentId: "search",
       prompt: "linear cycle 12",
     });
-  });
-
-  it("/search with no text posts usage and does not run the agent", async () => {
-    const thread = fakeThread();
-    await byName("search").handler(
-      ctx({ command: "search", text: "", thread: thread as never }),
-    );
-    expect(thread.runAgent).not.toHaveBeenCalled();
-    expect(thread.post).toHaveBeenCalledTimes(1);
   });
 
   it("/agent with no text posts usage and does not run the agent", async () => {

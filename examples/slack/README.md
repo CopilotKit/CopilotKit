@@ -94,7 +94,8 @@ const bot = createChannel({
       },
     }),
   ],
-  // Default agent plus a named extra. Mentions use triage. `/search` uses search.
+  // Default agent plus a named extra. Mentions use triage unless the text
+  // starts with `search:`.
   agent: (threadId) => {
     const a = new HttpAgent({ url: process.env.AGENT_URL! });
     a.threadId = threadId;
@@ -236,12 +237,10 @@ decision the moment it's clicked. (On Telegram the value can't ride in the
 
 ### Slash commands (`app/commands/`)
 
-Five app-owned slash commands, registered via `createChannel({ commands })`:
+Four app-owned slash commands, registered via `createChannel({ commands })`:
 
-- **`/agent <text>`** — a mention-free entry point; runs the default triage
-  agent with the command text as the prompt.
-- **`/search <query>`** — runs the named `search` agent on the same thread.
-  Search looks things up and does not file work. Replies start with `Search:`.
+- **`/agent <text>`** — a mention-free entry point; runs triage, or search
+  if the text starts with `search:`.
 - **`/triage [note]`** — summarizes the conversation and proposes Linear
   issues to file.
 - **`/preview <title>`** — privately previews the issue the bot would file
@@ -267,13 +266,15 @@ The args arrive as `ctx.text`; `runAgent({ prompt })` injects them as the
 user message (a slash command's text is never posted to the channel, so it
 isn't in the history the agent reconstructs).
 
-> **Slack setup:** all five commands (`/agent`, `/search`, `/triage`,
-> `/preview`, `/file-issue`) must be declared in your Slack app under **Slash
-> Commands**. Slack will not deliver an unregistered command, even over Socket
-> Mode. The easiest path is to paste the full `slack-app-manifest.yaml` when
-> creating (or updating) your app, which already declares all five. After you
-> add `/search`, reinstall the Slack app so Slack picks up the new command.
-> Discord and Telegram register their commands up front via the adapter.
+> **Slack setup:** all four commands (`/agent`, `/triage`, `/preview`,
+> `/file-issue`) must be declared in your Slack app under **Slash Commands**.
+> Slack will not deliver an unregistered command, even over Socket Mode. The
+> easiest path is to paste the full `slack-app-manifest.yaml` when creating
+> (or updating) your app, which already declares all four. Discord and Telegram
+> register their commands up front via the adapter.
+>
+> The extra `search` agent does **not** need a new slash command. Start a
+> mention or DM with `search:`.
 
 ### The agent (`runtime.ts`)
 
@@ -338,10 +339,9 @@ several from one process).
 - In Telegram, message **@BotFather** → `/newbot` → follow the prompts (name +
   a username ending in `bot`) → copy the HTTP API token (`TELEGRAM_BOT_TOKEN`).
 - Long-polling is the default ingress — no public URL or webhook needed.
-- The bot auto-registers its slash commands (`/agent`, `/search`, `/triage`,
-  `/preview`, `/file-issue`, all five passed to `createChannel`) via
-  `setMyCommands` on start (no manual BotFather `/setcommands` step). For group
-  use, `/setprivacy` →
+- The bot auto-registers its slash commands (`/agent`, `/triage`, `/preview`,
+  `/file-issue` — all four passed to `createChannel`) via `setMyCommands` on start
+  (no manual BotFather `/setcommands` step). For group use, `/setprivacy` →
   **Disable** if you want it to see non-mention messages.
 
 ### 2. Credentials
@@ -384,7 +384,7 @@ pnpm --filter slack-example runtime   # CopilotKit runtime on :8200
 ```
 
 Exposes `http://localhost:8200/api/copilotkit/agent/triage/run` (the default
-`AGENT_URL`) and `.../agent/search/run` for `/search`.
+`AGENT_URL`) and `.../agent/search/run` when the user starts with `search:`.
 
 ### 5. Bot
 
@@ -406,11 +406,14 @@ follow-up unless you enabled legacy thread continuation:
 
 > @CopilotKit Triage write this thread up as a Notion postmortem
 
-To run the extra agent on the same thread:
+To run the extra agent on the same thread, start with `search:`:
 
-> `/search what shipped in Linear this week`
+> @CopilotKit search: what shipped in Linear this week
 
-Search replies start with `Search:`. Mentions still go to triage.
+Or DM: `search: what shipped in Linear this week`
+
+Search replies start with `Search:`. Other mentions still go to triage. No new
+slash command is required.
 
 ## Per-user identity
 
