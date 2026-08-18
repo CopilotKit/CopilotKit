@@ -1,28 +1,65 @@
 <Steps>
   <Step>
-    ### Execute the fixed-schema tool on the backend
+    ### Register the fixed-schema tool at the endpoint
 
-    This integration uses a direct Anthropic Messages API loop translated to
-    AG-UI events. When Claude calls `display_flight`, the backend builds the
-    fixed schema's A2UI operations and returns them as the tool result.
-
-    <DemoCode
-      file="src/agent_server.ts"
-      region="a2ui-fixed-schema-tool-execution"
-    />
-  </Step>
-
-  <Step>
-    ### Register the tool with the agent loop
-
-    The dedicated endpoint supplies `DISPLAY_FLIGHT_TOOL_SCHEMA` to the same
-    loop. This is the connection between the schema shown above and the
-    executable handler; no MCP server or `ClaudeAgentAdapter` is involved in
-    this showcase integration.
+    The dedicated endpoint supplies `DISPLAY_FLIGHT_TOOL_SCHEMA` to the shared
+    agent loop. This is the first connection between the schema shown above and
+    the executable backend tool.
 
     <DemoCode
       file="src/agent_server.ts"
       region="a2ui-fixed-schema-route"
+    />
+  </Step>
+
+  <Step>
+    ### Select the Claude Agent SDK path
+
+    A normal request has no runtime-provided tools, structured input, extended
+    thinking, or aimock headers, so `shouldUseClaudeAgentSdk` selects the
+    production `ClaudeAgentAdapter` path. The direct Anthropic Messages API
+    loop remains a compatibility fallback for those excluded request shapes.
+
+    <DemoCode
+      file="src/claude-agent-sdk-adapter.ts"
+      region="claude-agent-sdk-request-selection"
+    />
+
+    <DemoCode
+      file="src/agent_server.ts"
+      region="claude-agent-sdk-agent-loop-dispatch"
+    />
+  </Step>
+
+  <Step>
+    ### Expose `display_flight` through an SDK MCP server
+
+    `runWithClaudeAgentSdk` converts the Anthropic tool schema into an
+    in-process Claude SDK MCP tool, registers the server on
+    `ClaudeAgentAdapter`, and adds the fully-qualified
+    `mcp__copilotkit__display_flight` name to `allowedTools`.
+
+    <DemoCode
+      file="src/claude-agent-sdk-adapter.ts"
+      region="claude-agent-sdk-mcp-adapter-wiring"
+    />
+
+    <DemoCode
+      file="src/claude-agent-sdk-adapter.ts"
+      region="claude-agent-sdk-mcp-server-registration"
+    />
+  </Step>
+
+  <Step>
+    ### Execute the tool and return A2UI operations
+
+    When the MCP tool invokes `display_flight`, the backend dispatches to the
+    canonical handler, builds the fixed schema's A2UI operations, and returns
+    them as the tool result for the middleware to render.
+
+    <DemoCode
+      file="src/agent_server.ts"
+      region="a2ui-fixed-schema-tool-execution"
     />
   </Step>
 </Steps>

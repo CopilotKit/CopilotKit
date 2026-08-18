@@ -68,17 +68,33 @@ describe("setup content bundle", () => {
     );
 
     expect(source).toContain('if (toolName === "display_flight")');
+    expect(source).toContain("shouldUseClaudeAgentSdk({");
+    expect(source).toContain("runWithClaudeAgentSdk({");
+    expect(source).toContain("new ClaudeAgentAdapter({");
+    expect(source).toContain("createSdkMcpServer({");
+    expect(source).toContain("mcpServers: backendToolServer.mcpServers");
+    expect(source).toContain("allowedTools: backendToolServer.allowedTools");
+    expect(source).toContain("mcp__copilotkit__display_flight");
     expect(source).toContain(
       "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
     );
+    expect(source).not.toContain("no MCP server");
     expect(source).not.toContain("<DemoCode");
-    expect(
-      resolveBundledSetupConcept(
-        "langgraph-typescript",
-        "a2ui-fixed-schema-setup",
-        setupContent,
-      ),
-    ).toBe(null);
+
+    const publicFrameworks = getIntegrations()
+      .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+      .map((integration) => integration.slug)
+      .filter((framework) => framework !== "claude-sdk-typescript");
+    for (const framework of publicFrameworks) {
+      expect(
+        resolveBundledSetupConcept(
+          framework,
+          "a2ui-fixed-schema-setup",
+          setupContent,
+        ),
+        framework,
+      ).toBe(null);
+    }
   });
 
   it("resolves Channels agent setup for all 19 public framework choices", () => {

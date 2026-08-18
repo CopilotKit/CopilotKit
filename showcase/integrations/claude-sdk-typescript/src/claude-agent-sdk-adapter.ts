@@ -13,9 +13,6 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod4/v4";
 import type { ZodTypeAny } from "zod4/v4";
 
-const COPILOTKIT_MCP_SERVER_NAME = "copilotkit";
-const COPILOTKIT_TOOL_PREFIX = `mcp__${COPILOTKIT_MCP_SERVER_NAME}__`;
-
 type Emit = (event: BaseEvent | object) => void;
 
 type ExecuteToolResult = {
@@ -30,6 +27,7 @@ type ExecuteTool = (
   emit: Emit,
 ) => Promise<ExecuteToolResult>;
 
+// @region[claude-agent-sdk-request-selection]
 export function shouldUseClaudeAgentSdk({
   input,
   forwardedHeaders,
@@ -62,6 +60,7 @@ export function shouldUseClaudeAgentSdk({
   }
   return true;
 }
+// @endregion[claude-agent-sdk-request-selection]
 
 // @region[claude-agent-sdk-typescript-adapter]
 // @region[claude-agent-sdk-agent-setup]
@@ -90,6 +89,7 @@ export async function runWithClaudeAgentSdk({
 }): Promise<void> {
   let state = { ...initialState };
   const pendingStateSnapshots: Record<string, unknown>[] = [];
+  // @region[claude-agent-sdk-mcp-adapter-wiring]
   const backendToolServer = buildBackendToolServer({
     toolSchemas,
     emit,
@@ -111,6 +111,7 @@ export async function runWithClaudeAgentSdk({
     permissionMode: "dontAsk",
     maxTurns: 10,
   });
+  // @endregion[claude-agent-sdk-mcp-adapter-wiring]
 
   if (forwardedHeaders && Object.keys(forwardedHeaders).length > 0) {
     adapter.headers = forwardedHeaders;
@@ -145,6 +146,10 @@ export async function runWithClaudeAgentSdk({
   });
 }
 // @endregion[claude-agent-sdk-agent-setup]
+
+// @region[claude-agent-sdk-mcp-server-registration]
+const COPILOTKIT_MCP_SERVER_NAME = "copilotkit";
+const COPILOTKIT_TOOL_PREFIX = `mcp__${COPILOTKIT_MCP_SERVER_NAME}__`;
 
 function buildBackendToolServer({
   toolSchemas,
@@ -210,6 +215,7 @@ function buildBackendToolServer({
     ),
   };
 }
+// @endregion[claude-agent-sdk-mcp-server-registration]
 
 function zodShapeFromJsonSchema(
   schema: Anthropic.Tool.InputSchema,

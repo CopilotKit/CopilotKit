@@ -543,7 +543,7 @@ test.each([
   },
 );
 
-test("renders Claude TypeScript fixed-schema backend wiring without changing other frameworks", () => {
+test("renders the Claude TypeScript SDK/MCP fixed-schema wiring only for that framework", () => {
   const doc = loadDoc("generative-ui/a2ui/fixed-schema");
   expect(doc).not.toBeNull();
 
@@ -561,18 +561,33 @@ test("renders Claude TypeScript fixed-schema backend wiring without changing oth
     );
 
   const claudeTypeScript = render("claude-sdk-typescript");
-  const langGraphTypeScript = render("langgraph-typescript");
 
   expect(claudeTypeScript).toContain('if (toolName === "display_flight")');
+  expect(claudeTypeScript).toContain("shouldUseClaudeAgentSdk({");
+  expect(claudeTypeScript).toContain("runWithClaudeAgentSdk({");
+  expect(claudeTypeScript).toContain("new ClaudeAgentAdapter({");
+  expect(claudeTypeScript).toContain("createSdkMcpServer({");
+  expect(claudeTypeScript).toContain("mcp__copilotkit__display_flight");
   expect(claudeTypeScript).toContain(
     "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
   );
+  expect(claudeTypeScript).not.toContain("no MCP server");
   expect(claudeTypeScript).not.toContain("<FrameworkSetup");
-  expect(langGraphTypeScript).not.toContain(
-    'if (toolName === "display_flight")',
-  );
-  expect(langGraphTypeScript).not.toContain(
-    "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
-  );
-  expect(langGraphTypeScript).not.toContain("<FrameworkSetup");
+
+  const otherPublicFrameworks = getIntegrations()
+    .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+    .map((integration) => integration.slug)
+    .filter((framework) => framework !== "claude-sdk-typescript");
+  for (const framework of otherPublicFrameworks) {
+    const output = render(framework);
+    expect(output, framework).not.toContain(
+      'if (toolName === "display_flight")',
+    );
+    expect(output, framework).not.toContain("new ClaudeAgentAdapter({");
+    expect(output, framework).not.toContain("createSdkMcpServer({");
+    expect(output, framework).not.toContain(
+      "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+    );
+    expect(output, framework).not.toContain("<FrameworkSetup");
+  }
 });

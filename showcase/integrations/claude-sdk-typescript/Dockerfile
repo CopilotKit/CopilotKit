@@ -4,6 +4,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY . .
+# Keep the production SDK/MCP request path covered by the same image build
+# that gates this integration in pull requests.
+RUN npm run test:unit
 # Build Next.js frontend
 RUN npm run build
 # Compile TypeScript agent server to JS so boot is a straight `node` call

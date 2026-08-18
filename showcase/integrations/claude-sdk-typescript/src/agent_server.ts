@@ -1774,6 +1774,7 @@ async function runAgenticLoop(
     contextString,
   );
 
+  // @region[claude-agent-sdk-agent-loop-dispatch]
   if (
     shouldUseClaudeAgentSdk({
       input,
@@ -1805,6 +1806,7 @@ async function runAgenticLoop(
     res.end();
     return;
   }
+  // @endregion[claude-agent-sdk-agent-loop-dispatch]
 
   try {
     emit({ type: EventType.RUN_STARTED, runId, threadId });
