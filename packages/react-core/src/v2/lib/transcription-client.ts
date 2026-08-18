@@ -1,4 +1,5 @@
 import type { CopilotKitCoreReact } from "./react-core";
+import { waitForHeaderReadiness } from "../providers/header-readiness";
 import {
   TranscriptionErrorCode,
   type TranscriptionErrorResponse,
@@ -94,6 +95,7 @@ export async function transcribeAudio(
   audioBlob: Blob,
   filename: string = "recording.webm",
 ): Promise<TranscriptionResult> {
+  await waitForHeaderReadiness(core);
   const runtimeUrl = core.runtimeUrl;
   if (!runtimeUrl) {
     throw new TranscriptionError({

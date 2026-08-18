@@ -28,6 +28,11 @@ import {
   CopilotKitProvider as CopilotKitV2Provider,
   useCopilotKit,
 } from "../../v2";
+import {
+  useHeaderReadiness,
+  useResolvedHeaderRecord,
+} from "../../v2/providers/ResolvedHeadersContext";
+import { bindConfigHeaderReadiness } from "../../v2/providers/header-readiness";
 import type {
   CopilotApiConfig,
   ChatComponentsCache,
@@ -93,6 +98,41 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // error events to the v1 shape — so it must not be spread into the v2
   // provider directly.
   const { onError: _onError, ...v2Props } = props;
+  const handleV2HeaderError = useCallback(
+    async (event: {
+      error: Error;
+      code: string;
+      context: Record<string, any>;
+    }) => {
+      if (event.context?.source !== "headers") {
+        return;
+      }
+      if (!_onError) return;
+      await _onError({
+        type: "error",
+        timestamp: Date.now(),
+        context: {
+          source: "agent",
+          request: {
+            operation: event.code,
+            url: props.runtimeUrl,
+            startTime: Date.now(),
+          },
+          technical: {
+            environment: "browser",
+            userAgent:
+              typeof navigator !== "undefined"
+                ? navigator.userAgent
+                : undefined,
+            stackTrace: event.error.stack,
+          },
+          ...event.context,
+        },
+        error: event.error,
+      });
+    },
+    [_onError, props.runtimeUrl],
+  );
 
   return (
     <ToastProvider enabled={enabled}>
@@ -106,6 +146,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
             showDevConsole={showInspector}
             renderCustomMessages={renderArr}
             useSingleEndpoint={props.useSingleEndpoint ?? true}
+            onError={_onError ? handleV2HeaderError : undefined}
           >
             <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
           </CopilotKitV2Provider>
@@ -130,6 +171,7 @@ function CopilotKitErrorBridge() {
 
     const subscription = copilotkit.subscribe({
       onError: async (event) => {
+        if (event.context?.source === "headers") return;
         // Convert v2.x error event to v1.x CopilotErrorEvent format
         const errorEvent: CopilotErrorEvent = {
           type: "error",
@@ -173,6 +215,8 @@ function CopilotKitErrorBridge() {
 
 export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const { children, ...props } = cpkProps;
+  const resolvedHeaderRecord = useResolvedHeaderRecord();
+  const headerReadiness = useHeaderReadiness();
 
   /**
    * This will throw an error if the props are invalid.
@@ -323,9 +367,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       ...(cloud ? { cloud } : {}),
       chatApiEndpoint: chatApiEndpoint,
       headers:
-        typeof props.headers === "function"
-          ? props.headers()
-          : props.headers || {},
+        resolvedHeaderRecord ??
+        (typeof props.headers === "function" ? {} : props.headers || {}),
       properties: props.properties || {},
       transcribeAudioUrl: props.transcribeAudioUrl,
       textToSpeechUrl: props.textToSpeechUrl,
@@ -333,6 +376,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     };
   }, [
     publicApiKey,
+    resolvedHeaderRecord,
     props.headers,
     props.properties,
     props.transcribeAudioUrl,
@@ -341,6 +385,9 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     props.cloudRestrictToTopic,
     props.guardrails_c,
   ]);
+  if (headerReadiness) {
+    bindConfigHeaderReadiness(copilotApiConfig, headerReadiness);
+  }
 
   const headers = useMemo(() => {
     const authHeaders = Object.values(authStates || {}).reduce((acc, state) => {

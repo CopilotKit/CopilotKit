@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { recordAnnotation } from "../record-annotation";
+import { HeaderReadinessBarrier } from "../../providers/header-readiness";
 
 // Override randomUUID with a counter so each call produces a distinct,
 // predictable value (mirrors the pattern used in the hook tests).
@@ -81,6 +82,32 @@ it("POSTs the correct wire body to ${runtimeUrl}/annotate", async () => {
   expect(calls[0]!.body).not.toHaveProperty("userId");
   expect(typeof calls[0]!.body!.clientEventId).toBe("string");
   expect((calls[0]!.body!.clientEventId as string).length).toBeGreaterThan(0);
+});
+
+it("reads the current headers after readiness releases the request", async () => {
+  const { calls, fetch } = mockFetch([
+    { status: 200, body: { id: "evt-ready", duplicate: false } },
+  ]);
+  globalThis.fetch = fetch;
+  const barrier = new HeaderReadinessBarrier();
+  let headers: Record<string, string> = {};
+
+  const pending = recordAnnotation({
+    runtimeUrl: "https://bff.example.com/api/copilotkit",
+    headers: () => headers,
+    readiness: barrier,
+    type: "user_action",
+    threadId: "thread-ready",
+  });
+  await Promise.resolve();
+  expect(calls).toHaveLength(0);
+
+  headers = { Authorization: "Bearer current" };
+  barrier.ready(headers);
+  await pending;
+  expect(new Headers(calls[0]!.init?.headers).get("Authorization")).toBe(
+    "Bearer current",
+  );
 });
 
 it("uses the caller-supplied clientEventId verbatim when provided", async () => {

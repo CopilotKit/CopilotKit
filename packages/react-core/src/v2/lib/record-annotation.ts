@@ -1,4 +1,5 @@
 import { randomUUID } from "@copilotkit/shared";
+import type { HeaderReadiness } from "../providers/header-readiness";
 
 /**
  * The result shape returned by the CopilotKit runtime `/annotate` endpoint.
@@ -26,12 +27,14 @@ export interface RecordAnnotationArgs {
    * (e.g. `https://bff.example.com/api/copilotkit`).
    * The function appends `/annotate`.
    */
-  runtimeUrl: string;
+  runtimeUrl: string | (() => string | undefined);
   /**
    * Extra HTTP headers forwarded from `copilotkit.headers` — typically used
    * for customer auth tokens that the BFF needs to identify the user.
    */
-  headers: Record<string, string>;
+  headers: Record<string, string> | (() => Record<string, string>);
+  /** Private provider barrier used to avoid requests before headers settle. */
+  readiness?: HeaderReadiness;
   /**
    * The annotation discriminant understood by the Intelligence platform.
    * `"user_action"` records a UI interaction for the self-learning loop.
@@ -84,7 +87,15 @@ export interface RecordAnnotationArgs {
 export async function recordAnnotation(
   args: RecordAnnotationArgs,
 ): Promise<RecordAnnotationResult> {
-  const { runtimeUrl, headers, type, payload, threadId, occurredAt } = args;
+  await args.readiness?.wait();
+  const runtimeUrl =
+    typeof args.runtimeUrl === "function" ? args.runtimeUrl() : args.runtimeUrl;
+  if (!runtimeUrl) {
+    throw new Error("recordAnnotation: runtimeUrl is not configured");
+  }
+  const { type, payload, threadId, occurredAt } = args;
+  const headers =
+    typeof args.headers === "function" ? args.headers() : args.headers;
 
   const clientEventId = args.clientEventId ?? randomUUID();
 

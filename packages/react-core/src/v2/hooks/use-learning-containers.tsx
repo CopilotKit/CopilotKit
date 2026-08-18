@@ -1,6 +1,11 @@
 import { useEffect, useRef } from "react";
 import { useCopilotKit } from "../context";
 import { recordAnnotation } from "../lib/record-annotation";
+import {
+  headerReadinessFor,
+  headerReadinessHeadersFor,
+  headerReadinessRuntimeUrlFor,
+} from "../providers/header-readiness";
 
 /** The default learning containers value. Matches the backend default. */
 const DEFAULT_CONTAINERS: string[] = ["project"];
@@ -96,8 +101,6 @@ export function useLearningContainers({
   // threadId changes are handled by Effect 2's cleanup.
   useEffect(() => {
     const runtimeUrl = copilotkit.runtimeUrl;
-    const headers = copilotkit.headers ?? {};
-
     /**
      * Fire-and-forget emit; errors must not surface in render.
      * Failures are logged as warnings so they are diagnosable without
@@ -114,8 +117,11 @@ export function useLearningContainers({
         return;
       }
       recordAnnotation({
-        runtimeUrl,
-        headers,
+        runtimeUrl: () =>
+          headerReadinessRuntimeUrlFor(copilotkit) ?? copilotkit.runtimeUrl,
+        headers: () =>
+          headerReadinessHeadersFor(copilotkit) ?? copilotkit.headers ?? {},
+        readiness: headerReadinessFor(copilotkit),
         type: "set_learning_containers",
         payload: { containers },
         threadId,
@@ -161,8 +167,13 @@ export function useLearningContainers({
 
       if (capturedRuntimeUrl) {
         recordAnnotation({
-          runtimeUrl: capturedRuntimeUrl,
-          headers: capturedHeaders,
+          runtimeUrl: () =>
+            headerReadinessRuntimeUrlFor(copilotkit) ??
+            copilotkit.runtimeUrl ??
+            capturedRuntimeUrl,
+          headers: () =>
+            headerReadinessHeadersFor(copilotkit) ?? capturedHeaders ?? {},
+          readiness: headerReadinessFor(copilotkit),
           type: "set_learning_containers",
           payload: { containers: DEFAULT_CONTAINERS },
           threadId: capturedThreadId,

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { waitForHeaderReadiness } from "../providers/header-readiness";
 
 /**
  * The subset of `CopilotKitCore` that {@link ɵrunMcpFollowUp} depends on.
@@ -414,6 +415,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       // Create the fetch promise using the queue to serialize requests
       const fetchPromise = (async (): Promise<FetchedResource | null> => {
         try {
+          await waitForHeaderReadiness(copilotkit);
           // Use queue to wait for agent to be idle and serialize requests
           const runResult = await mcpAppsRequestQueue.enqueue(agent, () =>
             agent.runAgent({
@@ -698,6 +700,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                   }
 
                   try {
+                    await waitForHeaderReadiness(copilotkit);
                     // Use queue to wait for agent to be idle and serialize requests
                     const runResult = await mcpAppsRequestQueue.enqueue(
                       currentAgent,

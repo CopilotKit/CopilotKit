@@ -27,7 +27,7 @@ import type {
   DebugConfig,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
@@ -58,6 +58,18 @@ import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import type { MaybePromise } from "@copilotkit/shared";
+import { useHeaderSource } from "./use-header-source";
+import {
+  ResolvedHeadersProvider,
+  useHeaderReadiness,
+} from "./ResolvedHeadersContext";
+import {
+  applyDeferredHeaderRuntimeUrl,
+  bindHeaderReadiness,
+  HeaderReadinessBarrier,
+  withProviderHeaderSync,
+} from "./header-readiness";
 
 // Adapts zod-to-json-schema's zod-specific signature to the injectable
 // `zodToJsonSchema` contract of `schemaToJsonSchema`, which only invokes it
@@ -114,7 +126,9 @@ const GENERATE_SANDBOXED_UI_DESCRIPTION =
 export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  headers?:
+    | Record<string, string>
+    | (() => MaybePromise<Record<string, string>>);
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
@@ -268,7 +282,11 @@ function useStableArrayProp<T>(
 }
 
 // Provider component
-export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
+const CopilotKitProviderInner: React.FC<
+  Omit<CopilotKitProviderProps, "headers"> & {
+    headers?: Record<string, string>;
+  }
+> = ({
   children,
   runtimeUrl,
   headers: headersProp = EMPTY_HEADERS,
@@ -293,6 +311,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   inspectorDefaultAnchor,
   debug,
 }) => {
+  const headerReadiness = useHeaderReadiness();
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
@@ -456,8 +475,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
   // Resolve headers from function or static object
-  const headers =
-    typeof headersProp === "function" ? headersProp() : headersProp;
+  const headers = headersProp;
 
   // Merge a provided publicApiKey into headers (without overwriting an explicit header).
   const mergedHeaders = useMemo(() => {
@@ -635,6 +653,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }
   const copilotkit = copilotkitRef.current;
+  if (headerReadiness) bindHeaderReadiness(copilotkit, headerReadiness);
 
   // Register the full A2UI catalog component list onto core so the inspector can
   // read `core.catalogComponents`, and re-derive the filtered catalog whenever
@@ -773,6 +792,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   useEffect(() => {
     copilotkit.setRuntimeUrl(chatApiEndpoint);
+    headerReadiness?.updateRuntimeUrl(chatApiEndpoint);
     copilotkit.setRuntimeTransport(
       useSingleEndpoint === true
         ? "single"
@@ -780,7 +800,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           ? "rest"
           : "auto",
     );
-    copilotkit.setHeaders(mergedHeaders);
+    withProviderHeaderSync(copilotkit, () =>
+      copilotkit.setHeaders(mergedHeaders),
+    );
+    headerReadiness?.update(copilotkit.headers);
     copilotkit.setCredentials(credentials);
     // Forward a per-run signal when the provider has an A2UI catalog so the
     // runtime can turn A2UI on (and inject the render tool) without a separate
@@ -942,6 +965,78 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         </LicenseContext.Provider>
       </CopilotKitContext.Provider>
     </SandboxFunctionsContext.Provider>
+  );
+};
+
+export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = (
+  props,
+) => {
+  const {
+    headers: source = EMPTY_HEADERS,
+    onError,
+    runtimeUrl,
+    children,
+    ...innerProps
+  } = props;
+  const { headers, error, status } = useHeaderSource(source);
+  const barrierRef = useRef<HeaderReadinessBarrier | null>(null);
+  if (barrierRef.current === null) {
+    barrierRef.current = new HeaderReadinessBarrier();
+  }
+  const barrier = barrierRef.current;
+  useEffect(() => {
+    if (status === "ready") {
+      applyDeferredHeaderRuntimeUrl(barrier);
+      barrier.ready(headers ?? EMPTY_HEADERS);
+    } else if (status === "failed") barrier.failed(error);
+    else barrier.pending();
+  }, [barrier, error, headers, status]);
+  useEffect(
+    () => () =>
+      barrier.dispose(new Error("Header resolution ended before completion")),
+    [barrier],
+  );
+  const reportedError = useRef<{
+    source: typeof source;
+    error: Error;
+  } | null>(null);
+
+  useEffect(() => {
+    if (
+      !error ||
+      (reportedError.current?.source === source &&
+        reportedError.current.error === error)
+    ) {
+      return;
+    }
+    reportedError.current = { source, error };
+    const event = {
+      error,
+      code: CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED,
+      context: { source: "headers", runtimeUrl },
+    };
+    if (onError) {
+      onError(event);
+    } else {
+      console.error(
+        `[CopilotKit] Error (${event.code}):`,
+        event.error,
+        event.context,
+      );
+    }
+  }, [error, onError, runtimeUrl, source]);
+
+  return (
+    <ResolvedHeadersProvider value={headers ?? EMPTY_HEADERS} barrier={barrier}>
+      <CopilotKitProviderInner
+        {...innerProps}
+        runtimeUrl={runtimeUrl}
+        onError={onError}
+        headers={headers ?? EMPTY_HEADERS}
+      >
+        {children}
+      </CopilotKitProviderInner>
+    </ResolvedHeadersProvider>
   );
 };
 
