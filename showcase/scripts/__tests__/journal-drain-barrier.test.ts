@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
-// The module under test is a .mjs CLI. Its recording orchestration is guarded
-// behind an entry-module check, so importing it here only pulls in the pure,
-// exported barrier helpers — no docker calls fire.
+// The barrier helpers live in a shared .mjs module (imported by BOTH the D5
+// recorder and the hand-run D4 proxy-capture flow). Importing them here pulls
+// in the pure functions only — no docker calls, no recording orchestration.
 import {
   waitForJournalDrain,
   countCompletedTurns,
-  // @ts-expect-error — plain .mjs script, no type declarations
-} from "../record-d5-fixtures.mjs";
+  // @ts-expect-error — plain .mjs module, no type declarations
+} from "../lib/journal-drain.mjs";
 
 /**
  * Build a minimal journal-entries payload with `completed` settled upstream

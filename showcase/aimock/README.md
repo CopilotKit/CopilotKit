@@ -71,6 +71,39 @@ The process is manual. There is no CLI for this directory specifically — aimoc
 
 When a package's agent code changes in a way that changes its LLM calls, the person making the change is responsible for updating the corresponding fixture. There is no automation to remind you.
 
+### Proxy-capturing a D4 fixture: drain the journal first
+
+D4 fixtures are hand-authored, but the shape of a tool-calling flow is often
+easiest to obtain by proxy-capturing it once (boot aimock with `--record`
+against the real provider — as `docker-compose.record.yml` does — drive the D4
+cell, then hand-clean the emitted fixture before committing it under
+`d4/<slug>/`). If you do that, there is a **capture race** you must guard
+against, the same one the D5 recorder hit:
+
+> A probe (or your manual click-through) marks the cell satisfied as soon as the
+> tool card meets the assertion, but the **POST-tool-result LLM turn can still be
+> draining** — aimock is still proxying upstream and writing that fixture — after
+> the driving process exits. If you move/commit the captured fixtures or restart
+> aimock at that instant, the late fixture lands in the wrong place (or is lost),
+> and the D4 cell can go red on replay for a turn that was never captured.
+
+So, after driving the D4 cell and **before** moving/committing the captured
+fixtures or restarting aimock, **wait for the request journal to drain**. aimock
+exposes the journal at `GET /__aimock/journal`; a turn is only appended once it
+is fully served (record-mode proxy → `response.source === "proxy"`, or a replay
+→ `response.status === 200 && response.fixture != null` — never
+`source === "fixture"`, which aimock leaves unset on a normal replay).
+
+Use the shared barrier rather than re-deriving this rule:
+[`showcase/scripts/lib/journal-drain.mjs`](../scripts/lib/journal-drain.mjs)
+exports `waitForJournalDrain(...)`, which polls the journal until the
+completed-turn count has reached the floor **and** held steady through a
+quiescence window. The D5 recorder
+([`record-d5-fixtures.mjs`](../scripts/record-d5-fixtures.mjs)) calls it
+automatically between the probe and fixture consolidation; a hand-run D4 capture
+must call the same barrier (or poll the same endpoint by hand) at the equivalent
+point.
+
 ## Drift risk
 
 Drift surfaces as **flaky or silently-wrong E2E tests**, not as a dedicated signal. Symptoms and how to respond:
