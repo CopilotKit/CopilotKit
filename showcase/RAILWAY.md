@@ -79,19 +79,19 @@ primary deploy path.
 
 You added an integration **staging-only on purpose** — it ships to staging
 first and its prod instance is deferred to "promote later." In the SSOT
-(`showcase/scripts/railway-envs.ts`) such an entry looks like the
-`showcase-strands-typescript` block did before [PR #5705](https://github.com/CopilotKit/CopilotKit/pull/5705):
+(`showcase/scripts/railway-envs.ts`) such an entry has:
 
-- `gateValidated: false`,
-- `gateIgnore: true`,
+- `gateValidated: true`,
+- no `gateIgnore` exemption,
 - an `environments:` map containing **only `staging`** (no `prod` block, so no
-  prod `serviceInstance` ID exists),
-- a `legacyJsonCompat.domains.prod` placeholder pointing at the **borrowed
-  staging host**, purely to keep the generated JSON's legacy `{prod, staging}`
-  shape (it is never dereferenced by any TS accessor).
+  prod `serviceInstance` ID exists).
 
-This is the worked example to follow — `showcase-strands-typescript` was
-promoted exactly this way in PR #5705.
+The image-ref verifier iterates only the environments declared by a service,
+so it validates the staging instance and canonical GHCR image without requiring
+a prod instance. Older staging-first entries used a temporary `gateIgnore`
+exemption; do not copy that historical pattern.
+
+`showcase-crewai-conversational-flows` is the current worked example.
 
 ### The critical gotcha (read this first)
 
@@ -135,13 +135,8 @@ flipping the SSOT gate.
    - add a `prod` env block under `environments:` with the **real**
      `instanceId`, `healthcheckPath: "/api/health"`, the prod `domain`, and
      `probe: true`;
-   - set `gateValidated: true` (per the `gateValidated` doc in that file, new
-     SSOT services MUST land `gateValidated: true`; `gateIgnore` is only for
-     "deliberately-untracked third-party / domainless / single-env services" —
-     a prod-promoted demo is none of those);
-   - **remove** `gateIgnore: true`;
-   - **remove** the `legacyJsonCompat` prod-domain placeholder (the borrowed
-     staging host);
+   - keep `gateValidated: true`; the staging-only entry should already be
+     validated, and it should not have a `gateIgnore` exemption;
    - update the leading comment to reflect the dual-env state.
 
    See the PR #5705 diff on this file for the exact before/after.
@@ -159,7 +154,8 @@ flipping the SSOT gate.
      a promote target (CI verifies with `--check`).
    - `npx tsx showcase/scripts/verify-railway-image-refs.ts` — run the image-ref
      gate; with `gateValidated: true` it now validates the prod pin too.
-   - Run the scripts test suite (`pnpm exec vitest run` from `showcase/`),
+   - Run the scripts test suite through Nx
+     (`pnpm exec nx run @copilotkit/showcase-scripts:test`),
      including `verify-railway-image-refs.test.ts` and `redeploy-env.test.ts`,
      whose gate-target / redeploy-scope counts and "staging-only" comments
      change when the entry flips dual-env.

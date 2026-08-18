@@ -6,12 +6,8 @@ WORKDIR /app
 # Enable corepack for pnpm support
 RUN corepack enable
 
-# Copy package files. .npmrc must come with them: it carries
-# legacy-peer-deps=true, without which `npm install` fails here with ERESOLVE
-# (@ag-ui/mastra's "@copilotkit/runtime": "^1.10.5" peer cannot match the
-# prerelease pin, because semver excludes prereleases from a caret range).
-# Copying it later, with the rest of the source, would be too late.
-COPY package.json .npmrc ./
+# Copy package files
+COPY package.json ./
 
 # Install dependencies (no lockfile in this starter)
 RUN npm install

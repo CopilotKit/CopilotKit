@@ -1382,3 +1382,69 @@ describe("agui-to-gql", () => {
     });
   });
 });
+
+describe("normalizeMessageContent unsupported content parts", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  test("warns instead of silently dropping an unrecognized part type", () => {
+    const aguiMessage = {
+      id: "assistant-structured",
+      role: "assistant",
+      content: [
+        { type: "text", text: "Sample png file" },
+        {
+          type: "image",
+          image_data: { data: "aGVsbG8=", format: "image/png" },
+        },
+      ],
+    } as unknown as agui.Message;
+
+    const result = aguiToGQL(aguiMessage);
+
+    // The part is still dropped — carrying it needs a schema change (OSS-767).
+    // What changes here is that the drop is no longer silent.
+    expect((result[0] as gql.TextMessage).content).toBe("Sample png file");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toContain('unsupported type "image"');
+  });
+
+  test("warns once per part type, not once per part", () => {
+    const message = {
+      id: "assistant-repeated",
+      role: "assistant",
+      content: [
+        { type: "video", url: "a" },
+        { type: "video", url: "b" },
+      ],
+    } as unknown as agui.Message;
+
+    aguiToGQL(message);
+    aguiToGQL(message);
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not warn for supported part types", () => {
+    const aguiMessage = {
+      id: "assistant-supported",
+      role: "assistant",
+      content: [
+        { type: "text", text: "hello" },
+        { type: "binary", mimeType: "application/pdf", filename: "a.pdf" },
+      ],
+    } as unknown as agui.Message;
+
+    const result = aguiToGQL(aguiMessage);
+
+    expect((result[0] as gql.TextMessage).content).toBe("hello\na.pdf");
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+});

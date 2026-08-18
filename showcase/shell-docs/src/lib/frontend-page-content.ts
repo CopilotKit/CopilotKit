@@ -109,6 +109,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "headless-threads": "guides/threads-memory-attachments-headless",
   "threads-lifecycle": "guides/threads-memory-attachments-headless",
   "threads-import": "guides/threads-memory-attachments-headless",
+  "threads-self-managed": "guides/threads-memory-attachments-headless",
   "premium/headless-ui": "guides/threads-memory-attachments-headless",
   "custom-look-and-feel/headless-ui":
     "guides/threads-memory-attachments-headless",

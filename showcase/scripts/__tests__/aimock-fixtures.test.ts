@@ -52,6 +52,18 @@ interface RawFixtureEntry {
   [key: string]: unknown;
 }
 
+function responseText(entry: RawFixtureEntry): string {
+  if (
+    typeof entry.response === "object" &&
+    entry.response !== null &&
+    "content" in entry.response &&
+    typeof entry.response.content === "string"
+  ) {
+    return entry.response.content;
+  }
+  return "";
+}
+
 /**
  * Build a deterministic match key from the match object. The key encodes
  * every field that aimock uses for disambiguation so two fixtures with
@@ -99,10 +111,14 @@ function scopeOf(entry: RawFixtureEntry): string {
 }
 
 // ---------------------------------------------------------------------------
-// Deployment scopes — d4 and d6 fixtures never coexist at runtime, so
-// collision detection must check within each deployment's load set:
-//   d4 runtime loads: shared/ + d4/
-//   d6 runtime loads: shared/ + d6/
+// Logical deployment scopes used by the broad collision ratchets below:
+//   d4 validation scope: shared/ + d4/
+//   d6 validation scope: shared/ + d6/
+//
+// Some deployed AIMock bundles load the fixture root recursively, so targeted
+// cross-depth invariants must also account for D4 and D6 coexisting. Keep those
+// checks narrow: combining every fixture here would mix intentional aliases
+// that are selected by the active feature route.
 // ---------------------------------------------------------------------------
 const sharedFiles = globSync("showcase/aimock/shared/*.json", {
   cwd: REPO_ROOT,
@@ -194,10 +210,128 @@ describe("aimock fixtures across repo", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Multimodal fixture ownership and semantics
+//
+// AIMock recursively loads every JSON file under each configured directory in
+// lexical order. Each multimodal prompt therefore needs exactly one owner per
+// context across the entire D6 tree, not merely one owner inside
+// multimodal.json. D4 does not exercise attachments, so it must not retain
+// active aliases or fake `_d4_unused_*` tombstones for these turns.
+// ---------------------------------------------------------------------------
+describe("multimodal fixture routing", () => {
+  const IMAGE_PROMPT =
+    "can you tell me what is in this demo image I just attached";
+  const PDF_PROMPT = "can you tell me what is in this demo pdf I just attached";
+  const D4_TOMBSTONES = new Set([
+    "_d4_unused_multimodal_image",
+    "_d4_unused_multimodal_pdf",
+  ]);
+  const EXPECTED_PHRASE = new Map([
+    [IMAGE_PROMPT, "copilotkit logo"],
+    [PDF_PROMPT, "copilotkit quickstart"],
+  ]);
+  const FABRICATED_PHRASES = [
+    "small abstract test pattern",
+    "single test page",
+  ];
+
+  it("keeps one factual D6 owner per prompt and no D4 aliases", () => {
+    const violations: string[] = [];
+    const multimodalFiles = d6Files.filter(
+      (file) => path.basename(file) === "multimodal.json",
+    );
+
+    for (const file of multimodalFiles) {
+      const relative = path.relative(REPO_ROOT, file);
+      const context = path.basename(path.dirname(file));
+      const fixtures = loadRawFixtures(file);
+
+      if (fixtures.length !== 2) {
+        violations.push(
+          `${relative}: expected exactly 2 canonical fixtures, found ${fixtures.length}`,
+        );
+      }
+
+      fixtures.forEach((fixture, index) => {
+        if (fixture.match.turnIndex != null) {
+          violations.push(
+            `${relative}[${index}]: fixture is gated by turnIndex=${fixture.match.turnIndex}`,
+          );
+        }
+        if (scopeOf(fixture) !== context) {
+          violations.push(
+            `${relative}[${index}]: context "${scopeOf(fixture)}" does not match directory "${context}"`,
+          );
+        }
+      });
+
+      for (const [prompt, expectedPhrase] of EXPECTED_PHRASE) {
+        const promptFixtures = fixtures.filter(
+          (entry) => entry.match.userMessage === prompt,
+        );
+
+        if (promptFixtures.length !== 1) {
+          violations.push(
+            `${relative}: expected one canonical fixture for "${prompt}", found ${promptFixtures.length}`,
+          );
+          continue;
+        }
+
+        const fixture = promptFixtures[0]!;
+        const content = responseText(fixture).toLowerCase();
+        if (!content.includes(expectedPhrase)) {
+          violations.push(
+            `${relative}: response for "${prompt}" must contain factual phrase "${expectedPhrase}"`,
+          );
+        }
+        for (const fabricated of FABRICATED_PHRASES) {
+          if (content.includes(fabricated)) {
+            violations.push(
+              `${relative}: response for "${prompt}" retains fabricated phrase "${fabricated}"`,
+            );
+          }
+        }
+
+        const owners = d6Tagged.filter(
+          (candidate) =>
+            scopeOf(candidate.entry) === context &&
+            candidate.entry.match.userMessage === prompt,
+        );
+        if (owners.length !== 1 || owners[0]?.file !== relative) {
+          violations.push(
+            `${relative}: prompt "${prompt}" must be owned only by this file; found ${owners
+              .map((owner) => `${owner.file}[${owner.index}]`)
+              .join(", ")}`,
+          );
+        }
+      }
+    }
+
+    for (const fixture of d4Tagged) {
+      const userMessage = fixture.entry.match.userMessage;
+      if (
+        userMessage === IMAGE_PROMPT ||
+        userMessage === PDF_PROMPT ||
+        (userMessage !== undefined && D4_TOMBSTONES.has(userMessage))
+      ) {
+        violations.push(
+          `${fixture.file}[${fixture.index}]: obsolete D4 multimodal fixture "${userMessage}" must be deleted`,
+        );
+      }
+    }
+
+    expect(
+      violations,
+      `Multimodal prompts need one factual D6 owner and no D4 aliases:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Fixture collision detection
 //
-// Each test iterates over deployment scopes (d4, d6) independently because
-// d4 and d6 fixtures never coexist at runtime.
+// Each broad ratchet iterates over the logical D4 and D6 scopes independently.
+// Targeted cross-depth hazards are checked above.
 // ---------------------------------------------------------------------------
 describe("fixture collision detection", () => {
   it("no exact duplicate match keys within the same context scope", () => {

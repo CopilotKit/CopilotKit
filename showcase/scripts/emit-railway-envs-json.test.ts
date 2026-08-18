@@ -91,6 +91,23 @@ describe("emit-railway-envs-json closure block", () => {
     expect(agent?.promoteTier).toBe(2);
   });
 
+  it("marks only single-environment services with their declared environment", () => {
+    const services = parsed.services as Array<{
+      name: string;
+      onlyEnvironment?: string;
+    }>;
+
+    expect(
+      services.find(
+        (service) => service.name === "showcase-crewai-conversational-flows",
+      )?.onlyEnvironment,
+    ).toBe("staging");
+    expect(
+      services.find((service) => service.name === "showcase-crewai-crews")
+        ?.onlyEnvironment,
+    ).toBeUndefined();
+  });
+
   it("emits per-env healthcheckPath when the SSOT declares one, omits it for live-null services", () => {
     const services = parsed.services as Array<{
       name: string;
