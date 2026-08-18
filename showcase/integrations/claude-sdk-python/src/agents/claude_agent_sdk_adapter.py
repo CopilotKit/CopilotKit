@@ -172,6 +172,8 @@ def _make_sdk_tool(
             }
 
     return sdk_tool_handler
+
+
 # @endregion[claude-agent-sdk-tool-handler]
 
 
