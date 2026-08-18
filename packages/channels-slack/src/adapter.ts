@@ -1271,8 +1271,11 @@ function isUnreadySlackFileError(error: unknown): boolean {
   if (typeof error !== "object" || error === null || !("data" in error)) {
     return false;
   }
-  const data = (error as { data?: { error?: string; response_metadata?: { messages?: string[] } } })
-    .data;
+  const data = (
+    error as {
+      data?: { error?: string; response_metadata?: { messages?: string[] } };
+    }
+  ).data;
   if (data?.error !== "invalid_blocks") return false;
   return (data.response_metadata?.messages ?? []).some((message) =>
     message.includes("slack_file"),

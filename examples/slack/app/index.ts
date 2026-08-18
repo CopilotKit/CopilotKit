@@ -90,7 +90,7 @@ function intelligenceApiKey(): string {
   const matching = candidates.find((key) => /^cpk-\d+_/.test(key));
   if (matching) return matching;
   return required("INTELLIGENCE_API_KEY", "COPILOTKIT_API_KEY");
-};
+}
 
 /** True only when every named env var is set and non-empty. */
 const have = (...names: string[]): boolean =>
