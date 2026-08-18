@@ -112,6 +112,29 @@ describe("railway-envs SSOT", () => {
     expect(names.length).toBe(42);
   });
 
+  it("models CrewAI conversational flows as a staging-first showcase deployment", () => {
+    const name = "showcase-crewai-conversational-flows";
+    const entry = SERVICES[name];
+
+    expect(entry).toBeDefined();
+    expect(entry.serviceId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(entry.ciBuilt).toBe(true);
+    expect(entry.gateValidated).toBe(true);
+    expect(entry.gateIgnore).toBeUndefined();
+    expect(entry.dispatchName).toBe("crewai-conversational-flows");
+    expect(entry.probeDriver).toBe("agent");
+    expect(entry.runtimeDeps).toEqual(["aimock"]);
+    expect(entry.serviceRefs).toEqual([
+      { key: "OPENAI_BASE_URL", target: "aimock" },
+    ]);
+    expect(envsFor(name)).toEqual(["staging"]);
+    expect(domainFor(name, "staging")).toBe(
+      "showcase-crewai-conversational-flows-staging.up.railway.app",
+    );
+    expect(healthcheckPathFor(name, "staging")).toBe("/api/health");
+    expect(probeEnabled(name, "staging")).toBe(true);
+  });
+
   it("contains the expected canonical services", () => {
     const names = listServiceNames();
     // Sample sentinels — checking the full list is overkill, but these
@@ -224,12 +247,12 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("CI_BUILT_SERVICES contains exactly 39 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
-    // 27 showcase/infra CI-built (incl. the staging-only
-    // showcase-strands-typescript) + 12 starter-<slug> (S2 brought them under
+  it("CI_BUILT_SERVICES contains exactly 40 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
+    // 28 showcase/infra CI-built (incl. the staging-only
+    // showcase-crewai-conversational-flows) + 12 starter-<slug> (S2 brought them under
     // the gate; they ARE built+pushed by showcase_build.yml's `build-starters`
     // job to ghcr.io/copilotkit/starter-<slug>:latest).
-    expect(CI_BUILT_SERVICES.size).toBe(39);
+    expect(CI_BUILT_SERVICES.size).toBe(40);
     // pocketbase is now CI-built (showcase_build.yml `pocketbase` slot,
     // gated to showcase/pocketbase/** changes).
     expect(CI_BUILT_SERVICES.has("pocketbase")).toBe(true);
@@ -237,6 +260,9 @@ describe("railway-envs SSOT", () => {
     expect(CI_BUILT_SERVICES.has("webhooks")).toBe(false);
     // Sample positives.
     expect(CI_BUILT_SERVICES.has("showcase-mastra")).toBe(true);
+    expect(CI_BUILT_SERVICES.has("showcase-crewai-conversational-flows")).toBe(
+      true,
+    );
     expect(CI_BUILT_SERVICES.has("aimock")).toBe(true);
     expect(CI_BUILT_SERVICES.has("dashboard")).toBe(true);
     // S2: starters are now CI-built.

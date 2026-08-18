@@ -292,25 +292,35 @@ jobs:
         run: |
           pnpm install
 
+      # Deliberately no LANGSMITH_API_KEY: langgraph-api turns tracing on
+      # whenever it sees one (config/__init__.py: LANGSMITH_CONTROL_PLANE_API_KEY
+      # defaults to LANGSMITH_API_KEY, which force-sets LANGSMITH_TRACING).
+      # With tracing on, the LangSmith client merges every LANGSMITH_*/LANGCHAIN_*
+      # env var into each run's metadata dict — and langchain_core hands the
+      # tracer the *same* dict the run config streams out, so `langgraph dev`'s
+      # LANGSMITH_LANGGRAPH_API_VARIANT=local_dev leaks into STATE_SNAPSHOT and
+      # breaks the dojo's golden event traces. Upstream ag-ui runs these suites
+      # keyless against LLMock; keep parity.
       - name: write langgraph env files
         working-directory: ag-ui/integrations/langgraph
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
         if: steps.should-run.outputs.skip != 'true' && (contains(join(matrix.services, ','), 'langgraph-fastapi') || contains(join(matrix.services, ','), 'langgraph-platform-python') || contains(join(matrix.services, ','), 'langgraph-platform-typescript'))
         run: |
           echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > python/examples/.env
-          echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> python/examples/.env
           echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > typescript/examples/.env
-          echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> typescript/examples/.env
 
       - name: Run dojo+agents
         uses: JarvusInnovations/background-action@1f5e5fa2462e48a95f97b54b4842d076d1008e3b # v2
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
+          # Backend tool-rendering demos call the live open-meteo API, which
+          # rate-limits CI's shared egress IPs and hangs the e2e tests. Return
+          # canned weather data instead so these suites are deterministic.
+          # Mirrors ag-ui's own dojo-e2e workflow.
+          AG_UI_MOCK_WEATHER: "1"
         if: steps.should-run.outputs.skip != 'true' && join(matrix.services, ',') != '' && contains(join(matrix.services, ','), 'dojo')
         with:
           run: |

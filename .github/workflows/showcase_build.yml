@@ -56,6 +56,7 @@ on:
           - langgraph-python
           - mastra
           - crewai-crews
+          - crewai-conversational-flows
           - pydantic-ai
           - google-adk
           - ag2
@@ -153,6 +154,8 @@ jobs:
               - 'showcase/integrations/mastra/**'
             crewai_crews:
               - 'showcase/integrations/crewai-crews/**'
+            crewai_conversational_flows:
+              - 'showcase/integrations/crewai-conversational-flows/**'
             pydantic_ai:
               - 'showcase/integrations/pydantic-ai/**'
             google_adk:
@@ -290,6 +293,7 @@ jobs:
             {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","railway_id":"d7979eb7-2405-4aab-ad21-438f4a1b08af","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","railway_id":"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"crewai-conversational-flows","filter_key":"crewai_conversational_flows","context":"showcase/integrations/crewai-conversational-flows","image":"showcase-crewai-conversational-flows","railway_id":"11859593-da4e-486c-a810-6cdffeff9750","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","railway_id":"87f60507-5a3d-4b8a-9e23-2b1de85d939c","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","railway_id":"4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
