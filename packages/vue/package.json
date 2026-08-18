@@ -72,6 +72,7 @@
     "test:ui": "vitest --ui",
     "lint": "eslint .",
     "check-types": "vue-tsc --noEmit",
+    "test:types": "vitest --config vitest.type.config.ts --run",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --exclude-entrypoints ./styles.css --ignore-rules internal-resolution-error",
     "clean": "node -e \"const fs=require('fs');fs.rmSync('dist',{recursive:true,force:true})\""

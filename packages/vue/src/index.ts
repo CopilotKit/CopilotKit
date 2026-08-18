@@ -3,7 +3,13 @@ export * from "./v2";
 
 // V1 wrapper overrides (these shadow v2 exports where the API differs)
 export { useCopilotAction } from "./hooks";
-export type { FrontendAction, CatchAllFrontendAction } from "./hooks";
+export type {
+  FrontendAction,
+  FrontendActionRenderProps,
+  FrontendActionWaitRenderProps,
+  CatchAllFrontendAction,
+  CatchAllFrontendActionRenderProps,
+} from "./hooks";
 export { useFrontendTool } from "./hooks";
 export type { UseFrontendToolArgs } from "./hooks";
 export { useCopilotReadable } from "./hooks";
