@@ -141,9 +141,12 @@ const isConnecting = computed(
 const stableLabels = useShallowStableRef(computed(() => props.labels));
 const resolvedLabels = computed(() => stableLabels.value);
 
+// `useAgent` takes no threadId: it pins one only from a surrounding chat
+// configuration, and this call sits outside the provider rendered in this
+// component's template, so it would never see the thread being rendered. The
+// thread is assigned in the connect watcher below, mirroring React's CopilotChat.
 const { agent } = useAgent({
   agentId: resolvedAgentId,
-  threadId: resolvedThreadId,
   throttleMs: computed(() => props.throttleMs),
 });
 const { suggestions: autoSuggestions } = useSuggestions({
@@ -312,6 +315,16 @@ watch(
     if (!currentAgent) {
       return;
     }
+
+    // Pin the thread this chat renders onto its agent, before anything issues a
+    // request. `CopilotKitCore.connectAgent` reads `agent.threadId` synchronously
+    // to decide whether this is a fresh restore, so a later assignment would let
+    // /connect address the previous thread. Assigning inside this callback — as
+    // React does — makes the ordering unconditional instead of depending on
+    // watcher scheduling. Non-explicit threads skip /connect below, but the first
+    // runAgent still has to ship the thread the UI is rendering.
+    currentAgent.threadId = threadId;
+
     // When the caller hasn't picked a specific thread, resolvedThreadId is
     // a UUID minted locally. The backend has never seen it, so /connect
     // would always 404 — skip the call. A real thread is only created

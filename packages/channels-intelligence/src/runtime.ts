@@ -136,4 +136,20 @@ export interface ChannelsHandle {
       detail?: { reason?: string; code?: string },
     ) => void,
   ): void;
+  /**
+   * Optional seam: managed provider attachment state per declared Channel, as
+   * reported on the newest gateway control join reply — so a supervising
+   * `ChannelManager` can tell "the control socket is up" from "a Slack/Teams app
+   * is actually bound to this Channel".
+   *
+   * A getter, not a snapshot: the gateway's join hooks re-fire on every Phoenix
+   * auto-rejoin, so a Channel provisioned while the runtime was disconnected is
+   * reflected on the next read.
+   *
+   * `undefined` means "not reported", NOT "no provider attached" — a gateway
+   * predating this contract and one whose lookup failed both omit it. Present
+   * when the underlying session supports it (see
+   * `ConnectedRealtimeGatewaySession.providerStates` in `realtime-gateway.ts`).
+   */
+  providerStates?(): Readonly<Record<string, string>> | undefined;
 }

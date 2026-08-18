@@ -50,7 +50,8 @@ const nullParentRun = (): string[] => [
 function agentServing(chunks: string[], contentType?: string): HttpAgent {
   return new HttpAgent({
     url: "http://agent.test/run",
-    fetch: (async () => streamResponse(chunks, contentType)) as typeof fetch,
+    fetch: (async () =>
+      streamResponse(chunks, contentType)) as unknown as typeof fetch,
   });
 }
 
@@ -147,7 +148,7 @@ describe("sanitizeAgentEventStream", () => {
           new Response(body, {
             status: 200,
             headers: { "content-type": "text/event-stream" },
-          })) as typeof fetch,
+          })) as unknown as typeof fetch,
       }),
     );
 
@@ -194,6 +195,7 @@ describe("createChannel({ sanitizeAgentEvents })", () => {
   ): Promise<unknown> {
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => agent,
       ...opts,
@@ -225,6 +227,7 @@ describe("createChannel({ sanitizeAgentEvents })", () => {
     // sanitizing has to live on the transport to reach the cloned instance.
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: agentServing(nullParentRun()),
     });

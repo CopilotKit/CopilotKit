@@ -12,7 +12,7 @@ consumer or WebSocket worker.
 ## Use the tested runtime pair
 
 ```bash title="Terminal"
-npm install --save-exact @copilotkit/channels@0.4.0 @copilotkit/runtime@1.64.1
+npm install --save-exact @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0
 ```
 
 Run Node.js 22 or later. The managed launcher relies on the global `WebSocket`
@@ -44,14 +44,14 @@ healthy connected activation.
 
 The runtime status values are:
 
-| Runtime status | Meaning |
-| --- | --- |
-| `connecting` | Activation has not settled |
-| `online` | The managed connection is healthy and can claim delivery invitations |
-| `setup_required` | The Intelligence provider setup is incomplete |
-| `reconnecting` | The gateway connection dropped and is retrying |
-| `error` | Activation failed, or reconnect give-up (~60s default) marked the session not-sendable |
-| `stopped` | The Channels control was stopped |
+| Runtime status   | Meaning                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| `connecting`     | Activation has not settled                                                             |
+| `online`         | The managed connection is healthy and can claim delivery invitations                   |
+| `setup_required` | The Intelligence provider setup is incomplete                                          |
+| `reconnecting`   | The gateway connection dropped and is retrying                                         |
+| `error`          | Activation failed, or reconnect give-up (~60s default) marked the session not-sendable |
+| `stopped`        | The Channels control was stopped                                                       |
 
 Treat post-online `error` carefully: after reconnect give-up the client marks
 `error` while Phoenix **keeps retrying underneath**. A successful rejoin
@@ -137,10 +137,11 @@ Intelligence offers each prepared delivery to connected Runtimes that declare
 the matching Channel. One Runtime claims that delivery; other replicas can
 claim different deliveries at the same time.
 
-Run the same build and Channel declarations on every replica. Set
-`maxConcurrentDeliveries` to a bound each process can sustain. A full Runtime
+Run the same build and Channel declarations on every replica. The managed
+listener bounds active and pending delivery work internally. A full Runtime
 declines an invitation before it claims the delivery, which leaves another
-eligible replica free to claim it.
+eligible replica free to claim it. That capacity is not currently exposed as a
+public Channel configuration option.
 
 ## Observe the full delivery path
 

@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: changes
         with:
           filters: |
@@ -201,7 +201,7 @@ jobs:
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
         if: steps.should-run.outputs.skip != 'true'
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           package_json_file: CopilotKit/package.json
 
@@ -245,7 +245,7 @@ jobs:
 
       - name: Install uv
         if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Install cpk dependencies
         if: steps.should-run.outputs.skip != 'true'
@@ -292,25 +292,35 @@ jobs:
         run: |
           pnpm install
 
+      # Deliberately no LANGSMITH_API_KEY: langgraph-api turns tracing on
+      # whenever it sees one (config/__init__.py: LANGSMITH_CONTROL_PLANE_API_KEY
+      # defaults to LANGSMITH_API_KEY, which force-sets LANGSMITH_TRACING).
+      # With tracing on, the LangSmith client merges every LANGSMITH_*/LANGCHAIN_*
+      # env var into each run's metadata dict — and langchain_core hands the
+      # tracer the *same* dict the run config streams out, so `langgraph dev`'s
+      # LANGSMITH_LANGGRAPH_API_VARIANT=local_dev leaks into STATE_SNAPSHOT and
+      # breaks the dojo's golden event traces. Upstream ag-ui runs these suites
+      # keyless against LLMock; keep parity.
       - name: write langgraph env files
         working-directory: ag-ui/integrations/langgraph
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
         if: steps.should-run.outputs.skip != 'true' && (contains(join(matrix.services, ','), 'langgraph-fastapi') || contains(join(matrix.services, ','), 'langgraph-platform-python') || contains(join(matrix.services, ','), 'langgraph-platform-typescript'))
         run: |
           echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > python/examples/.env
-          echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> python/examples/.env
           echo "OPENAI_API_KEY=${OPENAI_API_KEY}" > typescript/examples/.env
-          echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> typescript/examples/.env
 
       - name: Run dojo+agents
         uses: JarvusInnovations/background-action@1f5e5fa2462e48a95f97b54b4842d076d1008e3b # v2
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
+          # Backend tool-rendering demos call the live open-meteo API, which
+          # rate-limits CI's shared egress IPs and hangs the e2e tests. Return
+          # canned weather data instead so these suites are deterministic.
+          # Mirrors ag-ui's own dojo-e2e workflow.
+          AG_UI_MOCK_WEATHER: "1"
         if: steps.should-run.outputs.skip != 'true' && join(matrix.services, ',') != '' && contains(join(matrix.services, ','), 'dojo')
         with:
           run: |

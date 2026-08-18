@@ -30,10 +30,12 @@ function prepared(): PreparedChannelDelivery {
       input: {
         kind: "text",
         text: "hi",
+        messageRef: { id: "pref_v1_message_postfile_123" },
         operation: {
           kind: "created",
-          logicalMessageId: "message-postfile",
-          revisionId: "revision-postfile",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
           mentioned: false,
         },
       },
@@ -315,6 +317,8 @@ describe("DeliveryAdapter.postFile", () => {
         .mockResolvedValueOnce({ capabilityError: "teams_image_rejected" })
         .mockResolvedValueOnce({
           providerReference: "pref_v1_teams_activity_01",
+          providerMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
         }),
     } as unknown as ClaimedChannelDelivery;
     const adapter = makeAdapter({ log });
@@ -361,6 +365,30 @@ describe("DeliveryAdapter.postFile", () => {
       {
         kind: "teams.message.create",
         text: "Here is a text fallback",
+      },
+    );
+  });
+
+  it("delivers a general Teams file through the managed file effect", async () => {
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue("file_handle_01"),
+      effect: vi.fn().mockResolvedValue({}),
+    } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      makeAdapter().postFile(replyTarget(session, "teams"), {
+        bytes: new TextEncoder().encode("report"),
+        filename: "report.txt",
+        title: "Weekly report",
+      }),
+    ).resolves.toEqual({ ok: true, assetId: "file_handle_01" });
+    expect(session.effect).toHaveBeenCalledWith(
+      expect.stringMatching(/^response_/),
+      {
+        kind: "teams.file.create",
+        fileHandle: "file_handle_01",
+        filename: "report.txt",
+        title: "Weekly report",
       },
     );
   });

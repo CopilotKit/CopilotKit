@@ -84,6 +84,7 @@ import { handleSuggestAgent } from "../handlers/handle-suggest";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
+import { handleInspectorMetadata } from "../handlers/handle-inspector-metadata";
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import { handleDebugEvents } from "../handlers/handle-debug-events";
 import {
@@ -248,6 +249,7 @@ function getOrCreateChannelManager(
   const manager = new ChannelManager({
     intelligence: runtime.intelligence,
     runner: runtime.runner,
+    ...(runtime.learning !== undefined ? { learning: runtime.learning } : {}),
     lockTtlSeconds: runtime.lockTtlSeconds,
     lockHeartbeatIntervalSeconds: runtime.lockHeartbeatIntervalSeconds,
     ...(runtime.lockKeyPrefix !== undefined
@@ -526,6 +528,14 @@ function dispatchRoute(
   route: RouteInfo,
   options: { threadEndpointsEnabled: boolean },
 ): Promise<Response> {
+  if (
+    isIntelligenceRuntime(runtime) &&
+    runtime.identifyUser === undefined &&
+    route.method !== "info"
+  ) {
+    throw jsonResponse({ error: "Not found" }, 404);
+  }
+
   // Opt-in gate for the client-facing memory proxy routes (secure default:
   // off). When not explicitly enabled, every `/memories/*` route 404s as if it
   // did not exist — this MUST run before the per-handler `isIntelligenceRuntime`
@@ -571,6 +581,8 @@ function dispatchRoute(
         request,
         threadEndpointsEnabled: options.threadEndpointsEnabled,
       });
+    case "inspector/metadata":
+      return handleInspectorMetadata({ runtime, request });
     case "transcribe":
       return handleTranscribe({ runtime, request });
     case "threads/clear":
@@ -697,6 +709,9 @@ async function resolveSingleRoute(
     case "info":
       route = { method: "info" };
       break;
+    case "inspector/metadata":
+      route = { method: "inspector/metadata" };
+      break;
     case "transcribe":
       route = { method: "transcribe" };
       break;
@@ -724,6 +739,7 @@ function validateHttpMethod(
 
   switch (route.method) {
     case "info":
+    case "inspector/metadata":
     case "threads/list":
     case "threads/messages":
     case "threads/events":

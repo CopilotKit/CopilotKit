@@ -24,7 +24,14 @@ vi.mock("../framework-provider", () => ({
   }),
 }));
 
-import { FrameworkSelector } from "../framework-selector";
+import {
+  ComingSoonChannelPickerOption,
+  FrameworkSelector,
+} from "../framework-selector";
+import {
+  COMING_SOON_CHANNEL_OPTIONS,
+  isFrontendId,
+} from "../../lib/frontend-options";
 
 const options = [
   {
@@ -155,6 +162,29 @@ describe("FrameworkSelector", () => {
     expect(componentSource).toContain('role="separator"');
     expect(componentSource).not.toContain("FrontendProductionReadyBadge");
     expect(componentSource).not.toContain("FrontendEarlyAccessBadge");
+  });
+
+  it("shows disabled coming-soon channel options without making them routable", () => {
+    const markup = renderToStaticMarkup(
+      <>
+        {COMING_SOON_CHANNEL_OPTIONS.map((option) => (
+          <ComingSoonChannelPickerOption key={option.id} option={option} />
+        ))}
+      </>,
+    );
+
+    for (const option of COMING_SOON_CHANNEL_OPTIONS) {
+      expect(markup).toContain(option.name);
+      expect(isFrontendId(option.id)).toBe(false);
+    }
+    for (const brandColor of ["#5865F2", "#25D366", "#26A5E4", "#34C759"]) {
+      expect(markup).toContain(brandColor);
+    }
+    expect(markup.match(/aria-disabled="true"/g)?.length).toBe(4);
+    expect(markup.match(/ disabled=""/g)?.length).toBe(4);
+    expect(markup.match(/Coming soon/g)?.length).toBe(4);
+    expect(markup).toContain("cursor-not-allowed");
+    expect(markup).toContain("text-[var(--text-muted)]");
   });
 
   it("uses a picker menu shadow that does not bleed upward", () => {

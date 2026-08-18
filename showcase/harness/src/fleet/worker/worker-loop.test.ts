@@ -2950,3 +2950,312 @@ describe("driver registry (driverKind → driver)", () => {
     expect(queue.reports[0]!.aggregateKey).toBe("e2e_demos:routed");
   });
 });
+
+// ── startWorkerLoop: claim-time PID headroom gate ──────────────────────────
+
+/**
+ * Pins the dispatch defect the 2026-08-10 worker-starvation incident exposed:
+ * `budget.available` counts free browser CONTEXT slots and is blind to the
+ * container's cgroup PID ceiling, so a worker at `pids=1000/1000` kept winning
+ * claims it could not run and burned each one to a 600000ms abort. The gate must
+ * decline the claim WITHOUT dropping or requeueing the job, and must stay inert
+ * whenever the gauges are unmeasurable (every non-Linux dev box).
+ */
+describe("startWorkerLoop PID headroom gate", () => {
+  /** Runs a loop for a few poll turns and reports whether it claimed. */
+  async function runGate(budget: Partial<BrowserPoolBudget>): Promise<{
+    claimNextCalls: number;
+    reports: number;
+  }> {
+    let claimNextCalls = 0;
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const innerClaimNext = queue.claimNext.bind(queue);
+    queue.claimNext = async (...args: Parameters<typeof innerClaimNext>) => {
+      claimNextCalls++;
+      return innerClaimNext(...args);
+    };
+    // Count poll cycles so we can wait on a CONDITION (the loop has actually
+    // made several gate decisions) rather than a fixed real-timer wall — the
+    // loop sleeps once per poll iteration regardless of whether it claims or
+    // the gate declines, so this is the one signal common to both the claiming
+    // and declining cases below.
+    let sleeps = 0;
+    const sleep = yieldingSleep();
+    const countingSleep = (ms: number, signal?: AbortSignal): Promise<void> => {
+      sleeps++;
+      return sleep(ms, signal);
+    };
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      // Full context budget on purpose: the ONLY thing that may stop this
+      // worker in the saturated cases is the PID gate.
+      pool: budgetWith(24, budget),
+      driver: makeDriver({
+        slug: "langgraph-python",
+        cells: [{ featureId: "tools", state: "green" }],
+        aggregateState: "green",
+      }),
+      payloadToInput: passInput,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: countingSleep,
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+    // Give the loop room to make several claim decisions. A claiming iteration
+    // claims-and-reports BEFORE it sleeps, so once the loop has polled a few
+    // times the claim/report (or the decline) has definitely settled.
+    await vi.waitFor(() => expect(sleeps).toBeGreaterThanOrEqual(3));
+    await handle.stop();
+    return { claimNextCalls, reports: queue.reports.length };
+  }
+
+  it("declines to claim at the PID ceiling — the job is never claimed, so it stays pending", async () => {
+    // The measured prod condition: 1000/1000 PIDs, full context budget.
+    const out = await runGate({ pidsCurrent: 1000, pidsMax: 1000 });
+    expect(out.claimNextCalls).toBe(0);
+    expect(out.reports).toBe(0);
+  });
+
+  it("declines at the gate ratio boundary (0.90)", async () => {
+    const out = await runGate({ pidsCurrent: 900, pidsMax: 1000 });
+    expect(out.claimNextCalls).toBe(0);
+  });
+
+  it("still claims just BELOW the gate — the alarm's 0.75 must not withhold capacity", async () => {
+    // 0.89 is above the control-plane's 0.75 saturation ALARM but below this
+    // gate: the operator has been paged, and the worker keeps working. If these
+    // two thresholds were equal, alarming would cost ~36h of fleet capacity.
+    const out = await runGate({ pidsCurrent: 890, pidsMax: 1000 });
+    expect(out.claimNextCalls).toBeGreaterThan(0);
+    expect(out.reports).toBeGreaterThan(0);
+  });
+
+  it("claims normally on a healthy worker", async () => {
+    const out = await runGate({ pidsCurrent: 100, pidsMax: 1000 });
+    expect(out.claimNextCalls).toBeGreaterThan(0);
+    expect(out.reports).toBe(1);
+  });
+
+  it("stays INERT when the cgroup gauges are unreadable (-1 sentinel, off-Linux)", async () => {
+    // Every macOS dev box and any container without the PID controller reports
+    // -1/-1. A gate that engaged there would stop the local fleet dead.
+    const out = await runGate({ pidsCurrent: -1, pidsMax: -1 });
+    expect(out.claimNextCalls).toBeGreaterThan(0);
+    expect(out.reports).toBe(1);
+  });
+
+  it("honours an injected gate ratio", async () => {
+    let claimNextCalls = 0;
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const inner = queue.claimNext.bind(queue);
+    queue.claimNext = async (...args: Parameters<typeof inner>) => {
+      claimNextCalls++;
+      return inner(...args);
+    };
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(24, { pidsCurrent: 500, pidsMax: 1000 }),
+      driver: makeDriver({
+        slug: "langgraph-python",
+        cells: [{ featureId: "tools", state: "green" }],
+        aggregateState: "green",
+      }),
+      payloadToInput: passInput,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+      // 0.50 would pass the default 0.90 gate; an explicit 0.40 must decline.
+      pidClaimGateRatio: 0.4,
+    });
+    await new Promise((r) => setTimeout(r, 40));
+    await handle.stop();
+    expect(claimNextCalls).toBe(0);
+  });
+});
+
+// ── startWorkerLoop: worker recycle (WORKER_MAX_JOBS) ───────────────────────
+//
+// After ~WORKER_MAX_JOBS settled jobs (staggered per-replica by a deterministic
+// jitter) the worker stops claiming, runs the existing graceful drain, and exits
+// NON-ZERO so Railway (restartPolicyType ON_FAILURE) replaces the container —
+// pre-empting slow Chromium/heap growth on long-lived workers. Mirrors Gunicorn
+// --max-requests / Celery max-tasks-per-child.
+
+/** A logger that records every message so drain/recycle lines can be asserted. */
+function recordingLogger(): { logger: Logger; messages: string[] } {
+  const messages: string[] = [];
+  const push =
+    () =>
+    (msg: string): void => {
+      messages.push(msg);
+    };
+  return {
+    messages,
+    logger: {
+      info: push(),
+      warn: push(),
+      error: push(),
+      debug: push(),
+    },
+  };
+}
+
+describe("startWorkerLoop — worker recycle (WORKER_MAX_JOBS)", () => {
+  it("recycles after WORKER_MAX_JOBS settled jobs: drains and exits non-zero", async () => {
+    // Two claimable jobs, threshold 2 (jitter 0 → deterministic). After the 2nd
+    // job SETTLES the worker must stop claiming, fire the drain, and call the
+    // (injected) exit with a NON-ZERO code.
+    const queue = makeQueue([
+      { claimed: true, lease: makeLease({ job: { id: "job-1" } }) },
+      { claimed: true, lease: makeLease({ job: { id: "job-2" } }) },
+    ]);
+    const driver = makeDriver({
+      slug: "langgraph-python",
+      cells: [{ featureId: "shared-state", state: "green" }],
+      aggregateState: "green",
+    });
+    const exit = vi.fn<(code: number) => void>();
+    const { logger, messages } = recordingLogger();
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver,
+      payloadToInput: passInput,
+      logger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+      // Recycle after exactly 2 settled jobs (jitter 0 pins the threshold).
+      maxJobs: 2,
+      maxJobsJitter: 0,
+      exit,
+    });
+
+    // The (injected) exit is called with a NON-ZERO code once the 2nd job settles.
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledTimes(1));
+    // The loop stopped on its own (drain → break), so `done` resolves.
+    await handle.done;
+
+    const code = exit.mock.calls[0]![0];
+    expect(code).not.toBe(0);
+    expect(code).toBeGreaterThan(0);
+    // Both jobs ran and were reported before the recycle fired.
+    expect(queue.reports).toHaveLength(2);
+    // The EXISTING drain path was invoked (requestDrain logs drain-requested),
+    // alongside the recycle marker.
+    expect(messages).toContain("fleet.worker.recycle-max-jobs");
+    expect(messages).toContain("fleet.worker.drain-requested");
+
+    await handle.stop();
+  });
+
+  it("does NOT recycle when the feature is disabled (maxJobs=0)", async () => {
+    // With maxJobs 0 the worker must keep claiming past what would otherwise be
+    // the threshold and NEVER exit.
+    const queue = makeQueue([
+      { claimed: true, lease: makeLease({ job: { id: "job-1" } }) },
+      { claimed: true, lease: makeLease({ job: { id: "job-2" } }) },
+      { claimed: true, lease: makeLease({ job: { id: "job-3" } }) },
+    ]);
+    // Count claim ATTEMPTS: a 4th claim only happens if the recycle check after
+    // the 3rd settled job chose NOT to break — a deterministic positive signal
+    // that the recycle window is fully passed, replacing a fixed real-timer wait.
+    let claimAttempts = 0;
+    const origClaimNext = queue.claimNext.bind(queue);
+    queue.claimNext = async (...args: Parameters<typeof origClaimNext>) => {
+      claimAttempts++;
+      return origClaimNext(...args);
+    };
+    const driver = makeDriver({
+      slug: "langgraph-python",
+      cells: [{ featureId: "shared-state", state: "green" }],
+      aggregateState: "green",
+    });
+    const exit = vi.fn<(code: number) => void>();
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver,
+      payloadToInput: passInput,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+      maxJobs: 0,
+      maxJobsJitter: 0,
+      exit,
+    });
+
+    // Poll for the loop to advance PAST all 3 settled jobs (a 4th claim proves
+    // the post-job-3 recycle check ran and chose to continue). If the disable
+    // were broken the loop would recycle and never make the 4th claim, so this
+    // waitFor would time out (fail loud) instead of the assertion sneaking by.
+    await vi.waitFor(() => expect(claimAttempts).toBeGreaterThanOrEqual(4));
+    expect(exit).not.toHaveBeenCalled();
+    await handle.stop();
+  });
+
+  it("subtracts a stable per-replica jitter from the threshold", async () => {
+    // maxJobs 5, jitter 3 → threshold in [2,5], STABLE within a process. Two
+    // workers with different ids may land on different thresholds; the SAME id
+    // must recycle at the SAME count every run. Assert the recycle count is in
+    // range and deterministic for a fixed workerId.
+    async function recycleAfter(workerId: string): Promise<number> {
+      const claims = Array.from({ length: 10 }, (_v, i) => ({
+        claimed: true as const,
+        lease: makeLease({ job: { id: `job-${i + 1}` } }),
+      }));
+      const queue = makeQueue(claims);
+      const driver = makeDriver({
+        slug: "langgraph-python",
+        cells: [{ featureId: "shared-state", state: "green" }],
+        aggregateState: "green",
+      });
+      const exit = vi.fn<(code: number) => void>();
+      const handle = startWorkerLoop({
+        workerId,
+        queue,
+        pool: budgetWith(5),
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+        pollIntervalMs: 1,
+        leaseSeconds: 2000,
+        heartbeatMs: 1_000_000,
+        maxJobs: 5,
+        maxJobsJitter: 3,
+        exit,
+      });
+      await vi.waitFor(() => expect(exit).toHaveBeenCalledTimes(1));
+      await handle.done;
+      await handle.stop();
+      return queue.reports.length;
+    }
+
+    const first = await recycleAfter("worker-alpha");
+    const again = await recycleAfter("worker-alpha");
+    expect(first).toBe(again); // deterministic within a fixed id
+    expect(first).toBeGreaterThanOrEqual(2); // maxJobs - jitter floor
+    expect(first).toBeLessThanOrEqual(5); // maxJobs ceiling
+  });
+});

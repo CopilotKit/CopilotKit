@@ -197,7 +197,10 @@ test("renders selected channel guide axes and scopes prose links", () => {
 
   expect(output).toContain("](/teams/mastra/interactive)");
   expect(output).toContain("](/reference/channels/classes/Channel)");
-  expect(output).toContain('provider: "teams"');
+  expect(output).toMatch(/native origin \(`"slack"` or\s+`"teams"`\)/i);
+  expect(output).toContain("Microsoft Teams Adaptive Card");
+  expect(output).not.toContain("Slack Block Kit");
+  expect(output).not.toContain('provider: "teams"');
   expect(output).not.toContain('provider: "slack"');
 });
 
@@ -454,3 +457,88 @@ test("keeps shared backend guidance while expanding Angular source regions", () 
   expect(angularSubagents).toContain("Exposing sub-agents as tools");
   expect(angularSubagents).not.toContain("useAgent({");
 });
+
+test.each([
+  "langgraph-python",
+  "google-adk",
+  "strands",
+  "claude-sdk-python",
+  "claude-sdk-typescript",
+])("renders a complete programmatic-control example for %s", (framework) => {
+  const doc = loadDoc("programmatic-control");
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: `${framework}/programmatic-control`,
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: "programmatic-control",
+      framework,
+    },
+    { framework },
+  );
+
+  expect(output).toContain(
+    'import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";',
+  );
+  expect(output).toContain("agent.addMessage({");
+  expect(output).toContain("copilotkit.runAgent({ agent })");
+  expect(output).toContain("copilotkit.stopAgent({ agent })");
+  expect(output).toContain("if (agent.isRunning) return;");
+  expect(output).toContain(
+    'console.error("CopilotKit runAgent failed:", error);',
+  );
+  expect(output).toContain("disabled={agent.isRunning}");
+  expect(output).toContain("disabled={!agent.isRunning}");
+
+  for (const chatShellHelper of [
+    "useAttachmentsConfig",
+    "useAutoScroll",
+    "consumeAttachments",
+    "buildContent",
+  ]) {
+    expect(output).not.toContain(chatShellHelper);
+  }
+
+  if (framework === "google-adk") {
+    expect(output).toContain("AGUIToolset()");
+  }
+
+  if (framework.startsWith("claude-sdk-")) {
+    expect(output).not.toContain("createMessageId");
+    expect(output).not.toContain("chat.tsx - useAgent run control");
+    expect(output).not.toContain('agentId: "headless-simple"');
+  }
+});
+
+test.each([
+  ["claude-sdk-python", "programmatic-control"],
+  ["claude-sdk-python", "headless"],
+  ["claude-sdk-python", "human-in-the-loop/headless"],
+  ["claude-sdk-typescript", "programmatic-control"],
+  ["claude-sdk-typescript", "headless"],
+  ["claude-sdk-typescript", "human-in-the-loop/headless"],
+])(
+  "keeps the shared Claude setup context-neutral for %s/%s",
+  (framework, loadSlug) => {
+    const doc = loadDoc(loadSlug);
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText(
+      {
+        url: `${framework}/${loadSlug}`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug,
+        framework,
+      },
+      { framework },
+    );
+
+    expect(output).not.toContain("complete frontend example below");
+    expect(output).not.toContain("chat.tsx - useAgent run control");
+  },
+);

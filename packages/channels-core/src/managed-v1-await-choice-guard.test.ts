@@ -15,7 +15,10 @@ class NonBlockingManagedAdapter extends FakeAdapter {
 
 async function setupNonBlockingManagedThread() {
   const adapter = new NonBlockingManagedAdapter();
-  const channel = createChannel({ adapters: [adapter] });
+  const channel = createChannel({
+    identifyUser: "platform",
+    adapters: [adapter],
+  });
   let thread: Pick<Thread, "awaitChoice"> | undefined;
   channel.onThreadStarted(({ thread: activeThread }) => {
     thread = activeThread;

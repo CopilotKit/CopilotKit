@@ -4,13 +4,11 @@ import {
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { MastraAgent } from "@ag-ui/mastra";
-import { mastra } from "@/mastra";
+import { createLocalAgents } from "@/agent";
 import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
-  // @ts-expect-error - ignore for now, typing error
-  agents: MastraAgent.getLocalAgents({ mastra }),
+  agents: createLocalAgents(),
   // --- copilotkit:intelligence (remove this block to opt out) ---
   ...(process.env.COPILOTKIT_LICENSE_TOKEN
     ? {

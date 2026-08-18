@@ -239,6 +239,25 @@ describe("loadDoc", () => {
     expect(overview).toContain("## Sync existing conversations");
     expect(overview).toContain("threads-diagram-dark.png");
   });
+
+  it("links locked Inspector users to a complete Rich Threads Runtime repair journey", () => {
+    const runtimeEndpoints = loadDoc("backend/runtime-endpoints")?.source ?? "";
+    const inspector = loadDoc("inspector")?.source ?? "";
+
+    expect(runtimeEndpoints).toContain("## Enable Rich Threads routes");
+    expect(runtimeEndpoints).toContain('Remove `mode: "single-route"`');
+    expect(runtimeEndpoints).toContain(
+      'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
+    );
+    expect(runtimeEndpoints).toContain("`useSingleEndpoint={false}`");
+    expect(runtimeEndpoints).toContain("`identifyUser`");
+    expect(runtimeEndpoints).toContain("GET, POST, PATCH, and DELETE");
+    expect(runtimeEndpoints).toContain('"list": true');
+    expect(runtimeEndpoints).toContain('"inspect": true');
+    expect(inspector).toContain(
+      "[Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)",
+    );
+  });
 });
 
 describe("readIcon", () => {
@@ -494,6 +513,10 @@ describe("framework nav", () => {
       { title: "Headless Threads", slug: "headless-threads" },
       { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
       { title: "Synchronize Thread History", slug: "threads-import" },
+      {
+        title: "Self-Managed Persistence",
+        slug: "threads-self-managed",
+      },
       {
         title: "Threads & Persistence Architecture",
         slug: "premium/threads-explained",

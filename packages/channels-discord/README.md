@@ -8,11 +8,11 @@ streaming, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Discord.
 
-The adapter keeps its own Discord credentials (`botToken` / `appId` / …) — but
-the Channel itself only runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (an API key; a free tier is available). There is no
-standalone / DIY runner and no `channel.start()`; the runtime starts and owns
-the channel because Intelligence is configured.
+The adapter keeps its own Discord credentials (`botToken` / `appId` / …) — in
+the managed path the Channel runs inside a CopilotKit Intelligence-configured
+`CopilotRuntime` (free plan available), which starts and owns the channel's
+lifecycle. Building and operating your own channel runner on the SDK primitives
+is also a supported path.
 
 ## Install
 
@@ -33,6 +33,7 @@ import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
+  identifyUser: "platform",
   name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     discord({
@@ -64,7 +65,6 @@ const runtime = new CopilotRuntime({
     // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [bot],
 });
 
@@ -239,10 +239,10 @@ The adapter supports both Discord-native capabilities:
 
 ### Sender-profile resolution
 
-The adapter resolves each turn's Discord user id to a `PlatformUser`
-(`{ id, name?, handle? }`), cached per id. Note that Discord bots cannot read
-user email addresses — `PlatformUser.email` is always `undefined` on this
-platform. Inbound file attachments can be downloaded and delivered to the agent
+The adapter resolves each turn's Discord user id to a `ProviderActor`
+(`{ id, kind, name?, handle? }`), cached per id. Discord bots cannot read
+user email addresses, so `ProviderActor.email` stays unset on this platform.
+Inbound file attachments can be downloaded and delivered to the agent
 as multimodal content parts (`buildFileContentParts`); a tool can post a file
 back out via `thread.postFile(...)`.
 
@@ -263,7 +263,7 @@ only through capability-gated `thread` methods, which this adapter backs:
 - `thread.getMessages()` — the current channel's recent messages (via
   `channel.messages.fetch`), each a `ThreadMessage` (`{ user?, text, ts?,
 isBot? }`).
-- `thread.lookupUser(query)` — resolve a name/handle to a `PlatformUser` by
+- `thread.lookupUser(query)` — resolve a name/handle to a `ProviderActor` by
   searching guild members.
 - `thread.postFile({ bytes, filename, title?, altText? })` — upload a file
   into the channel as an attachment.

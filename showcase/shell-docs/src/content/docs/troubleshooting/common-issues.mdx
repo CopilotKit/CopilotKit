@@ -203,3 +203,33 @@ cases, but a custom runner backed by an external memory layer must handle the
 [AWS AgentCore integration](/deploy/agentcore) shows the exact pattern.
 </Accordion>
 </Accordions>
+
+## Runtime memory keeps growing or the process runs out of heap
+
+A long-lived server on the default `InMemoryAgentRunner` accumulates thread
+history in process memory.
+
+<Accordions>
+<Accordion title="Tune or lower the in-memory bounds">
+The store is bounded by default (1000 threads, 100 runs per thread, ~512 MiB of
+retained history), but those defaults assume a reasonably sized heap. If your
+process runs with a small `--max-old-space-size`, or your threads carry unusually
+large payloads, lower the limits:
+
+```ts
+new InMemoryAgentRunner({ maxThreads: 200, maxBytes: 64 * 1024 ** 2 });
+```
+
+See [bounding in-memory history](/backend/agent-runner#bounding-in-memory-history)
+for what each bound covers and what it deliberately does not.
+</Accordion>
+
+<Accordion title="You saw an eviction warning in the logs">
+`InMemoryAgentRunner evicted in-memory thread history...` means the bounds are
+doing their job — the process is safe, but that thread's scrollback is gone and
+will not come back. If losing history matters, move to a durable runner:
+[Self-Hosting Enterprise Intelligence](/premium/self-hosting), or your own
+[custom runner](/backend/agent-runner#extending-a-runner-for-a-custom-backend)
+backed by your datastore.
+</Accordion>
+</Accordions>

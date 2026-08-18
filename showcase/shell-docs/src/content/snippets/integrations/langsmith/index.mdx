@@ -1,0 +1,488 @@
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { Cards, Card } from "fumadocs-ui/components/card";
+import { PaintbrushIcon, RepeatIcon } from "lucide-react";
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+
+## CopilotKit + LangSmith Platform
+
+[LangSmith Deployment](https://docs.langchain.com/langsmith/deployment) gives your LangGraph and
+Google ADK agents a managed runtime (serverless by default) — handling scaling, persistence, and
+the LangGraph Server API. CopilotKit gives those agents a production-ready frontend.
+
+## How it works
+
+The two connect through **CopilotKit Runtime**, a lightweight server-side layer that sits between
+your browser and your LangSmith deployment. It's the same runtime you'd use with any
+CopilotKit-powered agent — it just needs to run server-side so your `LANGSMITH_API_KEY` never
+reaches the browser.
+
+```
+Browser → CopilotKit Runtime → LangSmith deployment → your agent
+```
+
+LangSmith hosts the agent only; there's no frontend-hosting offering. You host the CopilotKit
+frontend and runtime wherever you already deploy your app (Vercel, your own Node server, etc.) and
+point the runtime at the LangSmith deployment URL.
+
+## What you get
+
+- **Chat UI** — prebuilt chat interface, or headless hooks to build your own
+- **Shared state** — bidirectional sync between agent state and your React UI
+- **Generative UI** — render custom components from tool calls in real time
+- **Human-in-the-loop** — let users review, approve, or redirect agent actions
+- **Managed persistence** — thread history and checkpoints live in the LangSmith deployment
+
+## Quickstart
+
+<Callout type="info" title="LangSmith authority">
+  These steps reproduce the LangSmith deploy flow inline so you can finish here. For the
+  canonical reference — pricing, deployment types, and self-hosting — see the
+  [LangSmith deployment docs](https://docs.langchain.com/langsmith/deployment).
+</Callout>
+
+<Callout type="info" title="Prerequisites">
+  You need a [LangSmith account](https://smith.langchain.com) on the **Plus plan or above** and a
+  LangSmith API key (`lsv2_...`). Deploying uses the LangGraph CLI; Docker is optional (only needed
+  for local container builds). **Google ADK** additionally needs **Python 3.11+**, the
+  `deployments-wrap-sdk[google-adk]` package, and a **Google AI API key** if you use Gemini models.
+</Callout>
+
+<Callout type="info" title="Deployment models">
+  This guide uses **LangSmith Cloud** via the CLI — serverless by default, or `--deployment-type
+  dedicated` for a dedicated deployment. LangSmith also supports self-hosted control plane, hybrid,
+  and standalone-server models; see the
+  [deployment overview](https://docs.langchain.com/langsmith/deployment) to pick one. The CopilotKit
+  wiring below is the same regardless of which model you deploy to.
+</Callout>
+
+<Steps>
+  <TailoredContent
+    className="step"
+    id="starting-point"
+    header={
+      <div>
+        <p className="text-xl font-semibold">Choose your starting point</p>
+        <p className="text-base">
+          Deploy a new agent to LangSmith from scratch, or connect CopilotKit to an agent you've
+          already deployed.
+        </p>
+      </div>
+    }
+  >
+    <TailoredContentOption
+      id="scratch"
+      title="Deploy a new agent"
+      description="Scaffold an agent, deploy it to LangSmith, then wire up CopilotKit."
+    >
+      <Step>
+        ### Install the LangGraph CLI
+
+        The CLI scaffolds a deployable project and pushes it to LangSmith:
+
+        ```bash
+        uv tool install langgraph-cli
+        ```
+      </Step>
+
+      <Step>
+        ### Create your deployable app
+
+        A LangSmith deployment is any project that exports a graph via `langgraph.json`.
+
+        <Tabs groupId="langsmith-agent-framework" items={['LangGraph', 'Google ADK']}>
+          <Tab value="LangGraph">
+            Scaffold a new project from the official template:
+
+            ```bash
+            langgraph new ./my-agent --template new-langgraph-project-python
+            ```
+
+            The template ships a `langgraph.json` that already exports a graph:
+
+            ```json title="langgraph.json"
+            {
+              "$schema": "https://langgra.ph/schema.json",
+              "dependencies": ["."],
+              "graphs": {
+                "agent": "./src/agent/graph.py:graph"
+              },
+              "env": ".env"
+            }
+            ```
+
+            The `graphs` key (`agent` here) is the **graph ID** you'll point CopilotKit at later.
+          </Tab>
+
+          <Tab value="Google ADK">
+            ADK agents don't deploy to LangSmith natively — you wrap the ADK `Runner` so it exports a
+            LangGraph-compatible graph, then deploy it exactly like a LangGraph app.
+
+            Install the wrapper SDK (published as `deployments-wrap-sdk`, imported as `saf_sdk`):
+
+            ```bash
+            pip install "deployments-wrap-sdk[google-adk]"
+            ```
+
+            Wrap your ADK `Runner` with `wrap()` and a `LangsmithSessionService`, then export the
+            result as a module-level `agent`:
+
+            ```python title="agent.py"
+            from google.adk.agents import Agent
+            from google.adk.runners import Runner
+            from saf_sdk.adk import LangsmithSessionService, wrap
+
+            agent = wrap(
+                Runner(
+                    agent=Agent(
+                        name="my_agent",
+                        model="gemini-2.5-flash",
+                        instruction="You are a helpful assistant.",
+                    ),
+                    app_name="my_adk_agent",
+                    session_service=LangsmithSessionService(),
+                )
+            )
+            ```
+
+            <Callout type="warn">
+              The `Runner.session_service` **must** be a `LangsmithSessionService`. ADK's other
+              session services (`InMemorySessionService`, `DatabaseSessionService`,
+              `VertexAiSessionService`) are rejected — session state lives in the LangGraph
+              checkpoint.
+            </Callout>
+
+            Point `langgraph.json` at the exported symbol:
+
+            ```json title="langgraph.json"
+            {
+              "$schema": "https://langgra.ph/schema.json",
+              "dependencies": ["."],
+              "graphs": {
+                "my_agent": "./agent.py:agent"
+              },
+              "env": ".env"
+            }
+            ```
+
+            The `graphs` key (`my_agent` here) is the **graph ID** you'll point CopilotKit at later.
+            See the [Deploy Google ADK agents](https://docs.langchain.com/langsmith/deploy-google-adk)
+            guide for the full walkthrough.
+
+            <Callout type="warn" title="ADK wrapper limitations">
+              The wrapper adapts ADK onto the LangGraph Server, so some ADK and CopilotKit features
+              don't carry over. Per LangChain's
+              [ADK guide](https://docs.langchain.com/langsmith/deploy-google-adk):
+
+              - **No multimodal input** — only `messages[-1].content` is forwarded as a single text
+                part; inbound images, files, or audio are dropped.
+              - **Last message only** — just the final item in `messages` is sent to the ADK agent
+                each turn.
+              - **No live / audio / voice** — ADK's `run_live()` bidirectional streaming isn't used.
+              - **Text output only** — non-text output parts (images, audio, files) aren't surfaced.
+              - **No intermediate events** — tool calls, tool results, and sub-agent turns aren't
+                emitted as separate messages.
+              - **`LangsmithSessionService` required** — other ADK session services are rejected.
+              - **No LangGraph interrupts** — `interrupt` / `Command(resume=...)` aren't exposed, so
+                human-in-the-loop that relies on native interrupts won't work with a wrapped ADK
+                agent.
+            </Callout>
+          </Tab>
+        </Tabs>
+      </Step>
+
+      <Step>
+        ### Add your API key
+
+        Add your LangSmith API key to the project's `.env`. The deploy command reads it
+        automatically:
+
+        ```plaintext title=".env"
+        LANGSMITH_API_KEY=lsv2_...
+        ```
+      </Step>
+
+      <Step>
+        ### Deploy
+
+        <Callout type="info" title="Verify locally first">
+          Before deploying, run `langgraph dev` from the project root to serve the graph locally and
+          confirm it starts. This catches import errors, a bad graph export, or (for ADK) a missing
+          `LangsmithSessionService` or model credentials with clearer feedback than a remote build.
+        </Callout>
+
+        From the project root:
+
+        ```bash
+        langgraph deploy --name my-agent
+        ```
+
+        This creates a **serverless** deployment by default. Useful flags and follow-ups:
+
+        - `--deployment-type dedicated` — provision a dedicated (non-serverless) deployment
+        - `--name <name>` — set the deployment name (re-running `langgraph deploy` with the same
+          name **updates the existing deployment in place**)
+        - `langgraph deploy list` — list your deployments
+        - `langgraph deploy logs` — tail runtime logs
+        - `langgraph deploy delete <id>` — remove a deployment
+      </Step>
+
+      <Step>
+        ### Get your deployment API URL
+
+        <Callout type="info" title="Where to find the URL">
+          In the [LangSmith UI](https://smith.langchain.com), open **Deployments** in the sidebar,
+          select your deployment, and copy the **API URL** from the details view. It looks like
+          `https://<deployment-id>.<region>.langgraph.app`.
+        </Callout>
+      </Step>
+
+      <Step>
+        ### Install CopilotKit
+
+        In your frontend app:
+
+        ```npm
+        npm install @copilotkit/react-core @copilotkit/runtime
+        ```
+      </Step>
+
+      <Step>
+        ### Set up CopilotKit Runtime
+
+        CopilotKit Runtime is the server-side layer that connects your frontend to the LangSmith
+        deployment. Create an API route:
+
+        ```typescript title="app/api/copilotkit/route.ts"
+        import {
+          CopilotRuntime,
+          ExperimentalEmptyAdapter,
+          copilotRuntimeNextJSAppRouterEndpoint,
+        } from "@copilotkit/runtime";
+        import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+        import { NextRequest } from "next/server";
+
+        const runtime = new CopilotRuntime({
+          agents: {
+            my_agent: new LangGraphAgent({
+              deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL!, // your LangSmith API URL
+              graphId: "agent", // must match a key in your langgraph.json "graphs"
+              langsmithApiKey: process.env.LANGSMITH_API_KEY!,
+            }),
+          },
+        });
+
+        export const POST = async (req: NextRequest) => {
+          const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+            runtime,
+            serviceAdapter: new ExperimentalEmptyAdapter(),
+            endpoint: "/api/copilotkit",
+          });
+          return handleRequest(req);
+        };
+        ```
+
+        <Callout type="info" title="graphId must match langgraph.json">
+          `graphId` is the key from the `graphs` object in your `langgraph.json` — `agent` for the
+          LangGraph template, or whatever you named the ADK graph (e.g. `my_agent`). If it doesn't
+          match, the runtime can't find your graph.
+        </Callout>
+      </Step>
+
+      <Step>
+        ### Add the CopilotKit provider
+
+        ```tsx title="app/layout.tsx"
+        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import "@copilotkit/react-core/v2/styles.css";
+
+        export default function RootLayout({ children }: { children: React.ReactNode }) {
+          return (
+            <html lang="en">
+              <body>
+                <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                  {children}
+                </CopilotKit>
+              </body>
+            </html>
+          );
+        }
+        ```
+      </Step>
+
+      <Step>
+        ### 🎉 Run it
+
+        Point your app at the deployment and start it. Create `.env.local`:
+
+        ```bash title=".env.local"
+        LANGGRAPH_DEPLOYMENT_URL=https://<deployment-id>.<region>.langgraph.app
+        LANGSMITH_API_KEY=lsv2_...
+        ```
+
+        Then:
+
+        ```bash
+        npm run dev
+        ```
+
+        Add a `<CopilotSidebar />` to any page and open `localhost:3000`. The frontend runs
+        wherever you host it while the agent stays on LangSmith — the `/api/copilotkit` route
+        forwards each call to your deployment using your API key.
+      </Step>
+    </TailoredContentOption>
+
+    <TailoredContentOption
+      id="existing"
+      title="I already have a deployment"
+      description="I've deployed my agent to LangSmith and have its API URL."
+    >
+      <Step>
+        ### Grab your deployment URL
+
+        CopilotKit connects to your agent through a deployment URL. Pick the option that matches how
+        you're running the agent:
+
+        <LangGraphPlatformDeploymentTabs />
+      </Step>
+
+      <Step>
+        ### Install CopilotKit
+
+        ```npm
+        npm install @copilotkit/react-core @copilotkit/runtime
+        ```
+      </Step>
+
+      <Step>
+        ### Set up CopilotKit Runtime
+
+        Create an API route that points at your LangSmith deployment:
+
+        ```typescript title="app/api/copilotkit/route.ts"
+        import {
+          CopilotRuntime,
+          ExperimentalEmptyAdapter,
+          copilotRuntimeNextJSAppRouterEndpoint,
+        } from "@copilotkit/runtime";
+        import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+        import { NextRequest } from "next/server";
+
+        const runtime = new CopilotRuntime({
+          agents: {
+            my_agent: new LangGraphAgent({
+              deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL!, // your LangSmith API URL
+              graphId: "agent", // must match a key in your langgraph.json "graphs"
+              langsmithApiKey: process.env.LANGSMITH_API_KEY!,
+            }),
+          },
+        });
+
+        export const POST = async (req: NextRequest) => {
+          const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+            runtime,
+            serviceAdapter: new ExperimentalEmptyAdapter(),
+            endpoint: "/api/copilotkit",
+          });
+          return handleRequest(req);
+        };
+        ```
+
+        <Callout type="info" title="graphId must match langgraph.json">
+          `graphId` is the key from the `graphs` object in your `langgraph.json` — `agent` for the
+          LangGraph template, or whatever you named the ADK graph. If it doesn't match, the runtime
+          can't find your graph.
+        </Callout>
+      </Step>
+
+      <Step>
+        ### Add the CopilotKit provider
+
+        ```tsx title="app/layout.tsx"
+        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import "@copilotkit/react-core/v2/styles.css";
+
+        export default function RootLayout({ children }: { children: React.ReactNode }) {
+          return (
+            <html lang="en">
+              <body>
+                <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                  {children}
+                </CopilotKit>
+              </body>
+            </html>
+          );
+        }
+        ```
+      </Step>
+
+      <Step>
+        ### 🎉 Add chat and run
+
+        Drop a chat interface into any page:
+
+        ```tsx title="app/page.tsx"
+        import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+        export default function Page() {
+          return (
+            <main>
+              <h1>My App</h1>
+              <CopilotSidebar />
+            </main>
+          );
+        }
+        ```
+
+        Set `LANGGRAPH_DEPLOYMENT_URL` and `LANGSMITH_API_KEY` in `.env.local`, then `npm run dev`.
+      </Step>
+    </TailoredContentOption>
+  </TailoredContent>
+</Steps>
+
+## Troubleshooting
+
+<Accordions>
+  <Accordion title="The runtime can't find my graph / 404 on invoke">
+    Your `graphId` must exactly match a key in the `graphs` object of your deployment's
+    `langgraph.json`. The LangGraph template names it `agent`; an ADK app uses whatever key you set
+    (e.g. `my_agent`). Check the deployment's config in the LangSmith UI if unsure.
+  </Accordion>
+  <Accordion title="401 / authentication errors from the deployment">
+    Confirm `LANGSMITH_API_KEY` is set on the **server** (where CopilotKit Runtime runs), not the
+    browser, and that the key belongs to the same LangSmith workspace as the deployment. The key
+    must start with `lsv2_`.
+  </Accordion>
+  <Accordion title="langgraph deploy fails or hangs">
+    Ensure your LangSmith account is on the **Plus plan or above** and that `LANGSMITH_API_KEY` is
+    present in `.env`. For local container builds, Docker (with the daemon running) is required — on
+    Apple Silicon you also need Docker Buildx.
+  </Accordion>
+  <Accordion title="My ADK agent won't deploy">
+    ADK agents must be wrapped with `wrap()` from `saf_sdk.adk` and use a `LangsmithSessionService`.
+    The wrapped object has to be exported as a module-level variable that `langgraph.json` points at
+    (e.g. `./agent.py:agent`). See the
+    [Deploy Google ADK agents](https://docs.langchain.com/langsmith/deploy-google-adk) guide.
+  </Accordion>
+</Accordions>
+
+## What's next?
+
+<Cards>
+  <Card
+    title="Generative UI"
+    description="Render custom React components directly from your agent's tool calls."
+    href={`/${framework ?? "langgraph"}/generative-ui/tool-rendering`}
+    icon={<PaintbrushIcon />}
+  />
+  <Card
+    title="Shared State"
+    description="Sync structured state between your agent and your React UI bidirectionally."
+    href={`/${framework ?? "langgraph"}/shared-state/in-app-agent-read`}
+    icon={<RepeatIcon />}
+  />
+</Cards>

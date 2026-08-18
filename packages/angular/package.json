@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/angular",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Angular library for CopilotKit",
   "license": "MIT",
   "repository": {
@@ -38,7 +38,7 @@
       "testedRxjs": "7.8.1",
       "supportedMajors": [
         {
-          "angular": "20.3.26",
+          "angular": "20.3.27",
           "cdk": "20.2.14",
           "major": 20,
           "typescript": "5.9.3"
@@ -80,7 +80,7 @@
     "clsx": "^2.1.1",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.22",
-    "marked": "^16.2.0",
+    "marked": "^12.0.2",
     "rxjs": "^7.8.1",
     "tailwind-merge": "^2.6.0",
     "tslib": "^2.6.0",
@@ -90,14 +90,14 @@
   "devDependencies": {
     "@analogjs/vite-plugin-angular": "1.20.2",
     "@analogjs/vitest-angular": "1.20.2",
-    "@angular-devkit/architect": "0.2003.26",
+    "@angular-devkit/architect": "0.2003.33",
     "@angular/cdk": "20.2.14",
-    "@angular/common": "20.3.26",
-    "@angular/compiler": "20.3.26",
-    "@angular/compiler-cli": "20.3.26",
-    "@angular/core": "20.3.26",
-    "@angular/platform-browser": "20.3.26",
-    "@angular/platform-browser-dynamic": "20.3.26",
+    "@angular/common": "20.3.27",
+    "@angular/compiler": "20.3.27",
+    "@angular/compiler-cli": "20.3.27",
+    "@angular/core": "20.3.27",
+    "@angular/platform-browser": "20.3.27",
+    "@angular/platform-browser-dynamic": "20.3.27",
     "@copilotkit/typescript-config": "workspace:*",
     "@tailwindcss/cli": "^4.1.11",
     "@tailwindcss/postcss": "^4.1.11",

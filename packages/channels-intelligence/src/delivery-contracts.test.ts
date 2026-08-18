@@ -12,6 +12,7 @@ const appendPayload = (): ChannelProviderPayload => ({
   kind: "slack.stream.append",
   providerReference: "pref_v1_reference_01",
   delta: "Hello",
+  fullText: "Hello",
 });
 
 const packet = (): ChannelDeliveryPacket => {
@@ -32,6 +33,19 @@ test("uses the hard-cut realtime delivery protocol", () => {
 
 test("accepts one destination-free packet", () => {
   expect(() => assertDeliveryPacket(packet())).not.toThrow();
+});
+
+test("accepts a legacy Slack stream append without an authoritative snapshot", () => {
+  const missingSnapshot = {
+    ...packet(),
+    payload: {
+      kind: "slack.stream.append",
+      providerReference: "pref_v1_reference_01",
+      delta: " world",
+    },
+  };
+
+  expect(() => assertDeliveryPacket(missingSnapshot)).not.toThrow();
 });
 
 test("rejects trusted addressing and credentials", () => {
@@ -75,6 +89,93 @@ test("accepts a distinct Teams final effect for priority rate gating", () => {
   ).not.toThrow();
 });
 
+test("rejects application-originated Teams typing effects", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: { kind: "teams.typing" },
+    }),
+  ).toThrow(TypeError);
+});
+
+test("accepts destination-free provider reaction effects", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "teams.reaction.add",
+        providerReference: "pref_v1_reference_01",
+        reaction: "like",
+      },
+    }),
+  ).not.toThrow();
+
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "teams.reaction.add",
+        providerReference: "pref_v1_reference_01",
+        reaction: "provider native 👍",
+      },
+    }),
+  ).not.toThrow();
+});
+
+test("rejects provider reactions outside the shared UTF-8 byte bounds", () => {
+  for (const reaction of ["", "👍".repeat(33)]) {
+    expect(() =>
+      assertDeliveryPacket({
+        ...packet(),
+        payload: {
+          kind: "teams.reaction.add",
+          providerReference: "pref_v1_reference_01",
+          reaction,
+        },
+      }),
+    ).toThrow("delivery payload is invalid");
+  }
+});
+
+test("accepts a provider reaction at the shared UTF-8 byte boundary", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "teams.reaction.add",
+        providerReference: "pref_v1_reference_01",
+        reaction: "👍".repeat(32),
+      },
+    }),
+  ).not.toThrow();
+});
+
+test("accepts a destination-free Teams delete effect", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "teams.message.delete",
+        providerReference: "pref_v1_reference_01",
+      },
+    }),
+  ).not.toThrow();
+});
+
+test("accepts a bounded destination-free Teams file effect", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "teams.file.create",
+        fileHandle: "file_handle_01",
+        filename: "report.txt",
+        title: "Weekly report",
+      },
+    }),
+  ).not.toThrow();
+});
+
 test("accepts bounded destination-free Slack thread status", () => {
   expect(() =>
     assertDeliveryPacket({
@@ -96,6 +197,18 @@ test("accepts bounded destination-free Slack thread status", () => {
       },
     }),
   ).toThrow("delivery payload is invalid");
+});
+
+test("accepts a destination-free Teams personal-file consent completion", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "teams.file.consent.complete",
+        fileHandle: "fileref_personal_file_01",
+      },
+    }),
+  ).not.toThrow();
 });
 
 test("accepts the destination-free irreversible-work fence", () => {

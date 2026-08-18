@@ -8,11 +8,11 @@ plus streaming via chunked message edits, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Telegram.
 
-The adapter keeps its own Telegram bot token — but the Channel itself only runs
-inside a CopilotKit Intelligence-configured `CopilotRuntime` (an API key; a
-free tier is available). There is no standalone / DIY runner and no
-`channel.start()`; the runtime starts and owns the channel because
-Intelligence is configured.
+The adapter keeps its own Telegram bot token — in the managed path the Channel
+runs inside a CopilotKit Intelligence-configured `CopilotRuntime` (free plan
+available), which starts and owns the channel's lifecycle. Building and
+operating your own channel runner on the SDK primitives is also a supported
+path.
 
 ## Install
 
@@ -46,6 +46,7 @@ import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
+  identifyUser: "platform",
   name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     telegram({
@@ -75,7 +76,6 @@ const runtime = new CopilotRuntime({
     // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [bot],
 });
 
@@ -260,7 +260,7 @@ await bot.api.setWebhook(url, {
 
 `telegram`, `TelegramAdapter`, `TelegramAdapterOptions`;
 `createRunRenderer`, `CreateRunRendererArgs`;
-`decodeInteraction`, `conversationKeyOf`, `deriveConversationKey`, `toPlatformUser`;
+`decodeInteraction`, `conversationKeyOf`, `deriveConversationKey`, `toProviderActor`;
 `renderTelegram`; `TELEGRAM_LIMITS`, `truncateText`, `clampArray`, `byteLen`;
 `defaultTelegramTools`, `lookupTelegramUserTool`;
 `defaultTelegramContext`, `telegramTaggingContext`, `telegramFormattingContext`,

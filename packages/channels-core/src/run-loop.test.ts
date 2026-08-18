@@ -52,7 +52,12 @@ describe("runAgentLoop", () => {
       tools,
       toolDescriptors,
       context,
-      makeToolCtx: () => ({ thread: {} as never, platform: "fake" }),
+      makeToolCtx: () => ({
+        thread: {} as never,
+        user: null,
+        actor: { id: "actor", kind: "unknown" as const },
+        platform: "fake",
+      }),
     });
 
     expect(recorded).toEqual([{ msg: "hi" }]);
@@ -92,7 +97,12 @@ describe("runAgentLoop", () => {
       tools: new Map([["recoverable", tool]]),
       toolDescriptors,
       context,
-      makeToolCtx: () => ({ thread: {} as never, platform: "fake" }),
+      makeToolCtx: () => ({
+        thread: {} as never,
+        user: null,
+        actor: { id: "actor", kind: "unknown" as const },
+        platform: "fake",
+      }),
     });
 
     expect(agent.runAgentCalls).toBe(2);
@@ -122,7 +132,12 @@ describe("runAgentLoop", () => {
       tools,
       toolDescriptors,
       context,
-      makeToolCtx: () => ({ thread: {} as never, platform: "fake" }),
+      makeToolCtx: () => ({
+        thread: {} as never,
+        user: null,
+        actor: { id: "actor", kind: "unknown" as const },
+        platform: "fake",
+      }),
       handleInterrupt,
     });
 
@@ -155,7 +170,12 @@ describe("runAgentLoop", () => {
       tools,
       toolDescriptors,
       context,
-      makeToolCtx: () => ({ thread: {} as never, platform: "fake" }),
+      makeToolCtx: () => ({
+        thread: {} as never,
+        user: null,
+        actor: { id: "actor", kind: "unknown" as const },
+        platform: "fake",
+      }),
       handleInterrupt,
     };
 
@@ -180,7 +200,12 @@ describe("runAgentLoop", () => {
       tools,
       toolDescriptors,
       context,
-      makeToolCtx: () => ({ thread: {} as never, platform: "fake" }),
+      makeToolCtx: () => ({
+        thread: {} as never,
+        user: null,
+        actor: { id: "actor", kind: "unknown" as const },
+        platform: "fake",
+      }),
     };
 
     const result = await runAgentLoop(args);

@@ -18,8 +18,9 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
       JSON.stringify({
         messages: [
           {
-            logicalMessageId: "message-channel-name",
-            revisionId: "revision-channel-name",
+            logicalMessageId:
+              "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+            revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
             occurredAt: "2026-07-29T17:00:00.000Z",
             role: "participant",
             actor: {
@@ -29,6 +30,9 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
               handle: null,
             },
             text: "hello",
+            messageRef: {
+              id: "pref_v1_transcript_message_channel_name_123",
+            },
             deleted: false,
             currentTrigger: true,
             files: [],
@@ -42,9 +46,16 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
       }),
     );
   });
-  const channel = createChannel({ name: "support", agent: () => agent });
+  const channel = createChannel({
+    identifyUser: "platform",
+    name: "support",
+    agent: () => agent,
+  });
   channel.onMessage(async ({ thread, message }) => {
-    await thread.runAgent({ prompt: message.text });
+    await thread.runAgent({
+      prompt: message.text,
+      memory: { user: "read", project: "read-write" },
+    });
   });
   const handle = await startChannelsWithGatewayControl([channel], {
     session: gateway,
@@ -52,7 +63,7 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
     runtimeInstanceId: "rti_channel_name",
     appApiBaseUrl: "https://api.example",
     apiKey: "cpk-runtime",
-    appApiFetch,
+    appApiFetch: appApiFetch as unknown as typeof globalThis.fetch,
     runCanonical,
     loadHistory: async () => [],
   });
@@ -64,8 +75,9 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
         text: "hello",
         operation: {
           kind: "created",
-          logicalMessageId: "message-channel-name",
-          revisionId: "revision-channel-name",
+          logicalMessageId:
+            "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          revisionId: "pid_v1_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq",
           mentioned: false,
         },
       }),
@@ -73,6 +85,13 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
 
     expect(runCanonical).toHaveBeenCalledOnce();
     expect(runCanonical.mock.calls[0]![0].agentId).toBe("support");
+    expect(runCanonical.mock.calls[0]![0].memory).toEqual({
+      grant: { user: "read", project: "read-write" },
+      user: {
+        id: "slack:tenant_channel_name:user_channel_name",
+        name: "Ada",
+      },
+    });
   } finally {
     await handle.stop();
   }

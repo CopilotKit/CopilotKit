@@ -10,11 +10,27 @@ It is built on the **Microsoft 365 Agents SDK** (`@microsoft/agents-hosting`),
 the successor to the Bot Framework SDK.
 
 The adapter keeps its own Teams/Microsoft 365 credentials (`clientId` /
-`clientSecret` / `tenantId`, or none for anonymous local dev) — but the
-Channel itself only runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (an API key; a free tier is available). There is no
-standalone / DIY runner and no `channel.start()`; the runtime starts and owns
-the channel because Intelligence is configured.
+`clientSecret` / `tenantId`, or none for anonymous local dev) — in the managed
+path the Channel runs inside a CopilotKit Intelligence-configured
+`CopilotRuntime` (free plan available), which starts and owns the channel's
+lifecycle. Building and operating your own channel runner on the SDK primitives
+is also a supported path.
+
+## Managed Channels: the alternative to holding your own credentials
+
+This adapter is the **self-hosted** path: your process holds the Microsoft Teams credentials, runs the Microsoft Teams ingress, and talks to Microsoft Teams directly.
+
+**Managed Intelligence Channels** is the alternative. Intelligence owns the provider edge — signed ingress, egress, and encrypted credential storage — so your process holds no Microsoft Teams credentials and exposes no public Microsoft Teams endpoint. You also get durable threads, the Channels dashboard with per-Channel health and transcripts, and guided provider setup from either the browser wizard or the CLI. For a newly created managed app, the browser creates the durable Channel draft and issues the fully scoped provisioning command:
+
+```bash
+npx copilotkit@latest channels add --project-id <project-id> --channel-id <channel-id> --adapter teams --provision
+```
+
+That managed path creates a Teams-managed bot and Entra identity; it does not require Azure Bot. The peer manual path uses Teams Developer Portal plus Entra. Both keep provider secrets and one-time app-package bytes out of your project.
+
+Your bot code is otherwise identical — the agent, tools, context, commands, and turn handlers do not change. Only the transport does. See `examples/teams/app/managed.ts` for the same bot wired both ways, and the **copilotkit-channels** skill for the runtime wiring.
+
+This self-hosted adapter remains fully supported. Choose it when you want the provider connection inside your own infrastructure.
 
 ## Install
 
@@ -32,6 +48,7 @@ import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
+  identifyUser: "platform",
   adapters: [teams({ port: 3978 })],
 });
 
@@ -44,7 +61,6 @@ const runtime = new CopilotRuntime({
     // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [bot],
 });
 
@@ -101,6 +117,43 @@ for sideloading into real Teams via Azure Bot Service.
 - **History:** Teams does not hand the bot a queryable transcript, so an
   in-memory `TeamsConversationStore` keeps one per conversation and seeds each
   agent run with it. Swap in a durable `ConversationStore` for production.
+
+## Native Teams JSX
+
+Use the `Teams` namespace for Adaptive Card types outside the portable JSX
+set. A native card has one explicit `Teams.AdaptiveCard` root. Actions can be
+root children or children of `Teams.ActionSet`.
+
+```tsx
+import { Teams } from "@copilotkit/channels-teams";
+
+await thread.post(
+  <Teams.AdaptiveCard fallbackText="Deploy approval">
+    <Teams.TextBlock text="Deploy ready" wrap />
+    <Teams.ActionSet>
+      <Teams.Action.Submit
+        key="approve"
+        title="Approve"
+        value={{ decision: "approve" }}
+        onSubmit={({ action }) => approve(action.value)}
+      />
+    </Teams.ActionSet>
+  </Teams.AdaptiveCard>,
+);
+```
+
+The serializer computes the card version from the types and properties in use.
+An explicit lower root version fails with the component and property that raised
+the minimum. Named child slots stay traversable, so handlers inside an action
+set survive managed delivery and action recovery. `Teams.Raw` accepts a
+reviewed non-interactive Adaptive Card object.
+
+The generated [native catalog](../channels/native-catalogs.md) labels the 38
+stable Teams body types, 7 stable actions, preview entries, and supporting
+nodes. Host badges and catalog presence come from adaptivecards.microsoft.com.
+“Supported” here means Microsoft marks the entry for Teams; verification in a
+live tenant remains a separate release check. Direct Teams and managed Teams
+use the same serializer and Bot Framework attachment shape.
 
 ## Options
 

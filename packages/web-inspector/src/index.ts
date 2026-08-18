@@ -11,6 +11,7 @@ import type { CopilotKitCore } from "@copilotkit/core";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
   ɵselectThreads,
+  ɵselectThreadsIsLoading,
   ɵselectThreadsError,
   ɵcreateThreadStore,
   ɵselectMemories,
@@ -26,6 +27,7 @@ import type {
   ɵThread,
   Memory,
   MemoryRealtimeStatus,
+  RuntimeLicenseStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -54,6 +56,12 @@ import {
   isValidDockMode,
 } from "./lib/persistence.js";
 import type { PersistedState } from "./lib/persistence.js";
+import { projectInspectorMetadata } from "./lib/inspector-metadata.js";
+import type {
+  InspectorMetadataAction,
+  InspectorMetadataProjection,
+} from "./lib/inspector-metadata.js";
+import { selectVisibleRealThreadId } from "./lib/thread-selection.js";
 import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
@@ -64,6 +72,8 @@ import {
   trackBannerDismissed,
   trackBannerViewed,
   trackInspectorOpened,
+  trackMetadataActionClicked,
+  trackMetadataModuleViewed,
   trackTalkToEngineerClicked,
   trackThreadsEmptyEnabledViewed,
   trackThreadsEnabledViewed,
@@ -82,9 +92,18 @@ import {
 } from "./lib/telemetry.js";
 import type {
   BannerSurface,
+  ExampleKind,
+  ExampleTourStep,
+  ExampleTourTab,
+  InspectorMetadataLicenseBucket,
+  InspectorMetadataModuleViewedTelemetryProps,
+  InspectorMetadataTelemetryModule,
   InspectorMemoryTelemetryProps,
   InspectorOpenSource,
   InspectorThreadTelemetryProps,
+  MetadataActionPlacement,
+  ThreadsExpiryBucket,
+  ThreadsUsageBucket,
 } from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
@@ -95,29 +114,69 @@ export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
 /**
- * User-facing label for the memory surface (nav item + view header). The menu
- * KEY stays "memories" for persistence/telemetry stability; only the label
- * changed from "Learning" to "Memory".
+ * User-facing label for the memory view header. The legacy menu key stays
+ * "memories" for persistence and telemetry stability.
  */
 const MEMORY_VIEW_LABEL = "Memory";
 
 type LucideIconName = keyof typeof icons;
 
-type MenuKey =
-  | "ag-ui-events"
-  | "agents"
-  | "frontend-tools"
-  | "capabilities"
-  | "agent-context"
-  | "threads"
-  | "memories"
-  | "settings";
+const INSPECTOR_GROUPS = {
+  threads: ["threads"],
+  agents: [
+    "ag-ui-events",
+    "agents",
+    "frontend-tools",
+    "capabilities",
+    "agent-context",
+  ],
+  learning: ["memories"],
+} as const;
+
+type InspectorGroupKey = keyof typeof INSPECTOR_GROUPS;
+type MenuKey = (typeof INSPECTOR_GROUPS)[InspectorGroupKey][number];
+
+const INSPECTOR_MENU_KEYS: ReadonlyArray<MenuKey> = [
+  ...INSPECTOR_GROUPS.threads,
+  ...INSPECTOR_GROUPS.agents,
+  ...INSPECTOR_GROUPS.learning,
+];
+
+/** Return whether persisted state names a legacy Inspector leaf. */
+function isInspectorMenuKey(value: unknown): value is MenuKey {
+  return (
+    typeof value === "string" &&
+    INSPECTOR_MENU_KEYS.some((menuKey) => menuKey === value)
+  );
+}
 
 type MenuItem = {
   key: MenuKey;
   label: string;
   icon: LucideIconName;
 };
+
+const INSPECTOR_PRIMARY_NAVIGATION = [
+  {
+    key: "threads",
+    label: "Threads",
+    icon: "MessageSquare",
+  },
+  {
+    key: "agents",
+    label: "Agents",
+    icon: "Bot",
+  },
+  {
+    key: "learning",
+    label: "Learning",
+    icon: "Brain",
+  },
+] as const satisfies ReadonlyArray<{
+  key: InspectorGroupKey;
+  label: string;
+  icon: LucideIconName;
+}>;
 
 const EDGE_MARGIN = 16;
 const DRAG_THRESHOLD = 6;
@@ -131,13 +190,13 @@ const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
 const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
+const INTERACTIVE_FOCUS_BASE_STYLE =
+  "outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;";
 // Cap on banner impressions held while waiting for the runtime handshake, so a
 // runtime that never connects can't accumulate an unbounded queue.
 const MAX_PENDING_BANNER_VIEWED = 20;
 const MAX_TOTAL_EVENTS = 500;
 const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
-const THREADS_INTELLIGENCE_SIGNIN_URL =
-  "https://dashboard.operations.copilotkit.ai/sign-in";
 const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
 // Label for the Capabilities tab (client-authoritative dev experimentation
 // surface: toggle frontend tools + A2UI catalog components on/off, enforced
@@ -145,20 +204,81 @@ const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
 // Renameable — keep the display string in this one place.
 const CAPABILITIES_TAB_LABEL = "Capabilities";
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
+const THREADS_RUNTIME_SETUP_DOCS_URL =
+  "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes";
+const THREADS_RUNTIME_SETUP_PROMPT = [
+  `Read ${THREADS_RUNTIME_SETUP_DOCS_URL} and finish setting up Rich Threads in this repository.`,
+  "",
+  "First inspect the repository's agent instructions, installed CopilotKit versions, Runtime adapter, frontend provider, route or proxy setup, and existing authentication. Preserve the current framework and deployment model. Preserve existing authentication middleware and access checks on every Runtime route.",
+  "",
+  "Follow the guide to enable the multi-route Runtime, align the frontend transport, scope identifyUser to the existing server-verified signed-in application user, and expose the full Runtime subtree for GET, POST, PATCH, and DELETE. Never use a fixed demo identity in production. If no trusted user identity exists, stop and ask me which auth source to use.",
+  "",
+  "Start the app and verify GET {basePath}/info reports threadEndpoints.list, inspect, mutations, and realtimeMetadata as true. Run focused tests, lint, and typecheck. Report the files changed, commands run, and verification result. If blocked, explain the missing input; do not invent setup.",
+].join("\n");
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
+const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
+  "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.";
 const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
   "cpk:inspector:threads-example-tour:v1";
 const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
 
 type ThreadServiceStatus = "available" | "unavailable" | "unknown" | "error";
+type ThreadsExampleOverviewVideoState =
+  | "deferred"
+  | "ready"
+  | "playing"
+  | "failed";
+type ThreadsSetupPromptCopyState = "idle" | "copied" | "error";
+type ThreadsExampleOverviewVideoListeners = Readonly<{
+  loadeddata: EventListener;
+  play: EventListener;
+  pause: EventListener;
+  error: EventListener;
+}>;
+
+type ThreadStoreStatus = Readonly<{
+  error: Error | null;
+  isLoading: boolean;
+}>;
+
+/**
+ * Selects the Thread store status with a stable object identity so loading-only
+ * transitions reach one of the Inspector's two existing store subscriptions.
+ */
+function createThreadStoreStatusSelector(): (
+  state: ReturnType<ɵThreadStore["getState"]>,
+) => ThreadStoreStatus {
+  let previousError: Error | null | undefined;
+  let previousIsLoading: boolean | undefined;
+  let previousStatus: ThreadStoreStatus | undefined;
+
+  return (state) => {
+    const error = ɵselectThreadsError(state);
+    const isLoading = ɵselectThreadsIsLoading(state);
+    if (
+      previousStatus &&
+      previousError === error &&
+      previousIsLoading === isLoading
+    ) {
+      return previousStatus;
+    }
+
+    previousError = error;
+    previousIsLoading = isLoading;
+    previousStatus = { error, isLoading };
+    return previousStatus;
+  };
+}
 
 type InspectorAgentEventType =
   | "RUN_STARTED"
   | "RUN_FINISHED"
   | "RUN_ERROR"
+  | "STEP_STARTED"
+  | "STEP_FINISHED"
   | "TEXT_MESSAGE_START"
   | "TEXT_MESSAGE_CONTENT"
   | "TEXT_MESSAGE_END"
@@ -184,6 +304,8 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "RUN_STARTED",
   "RUN_FINISHED",
   "RUN_ERROR",
+  "STEP_STARTED",
+  "STEP_FINISHED",
   "TEXT_MESSAGE_START",
   "TEXT_MESSAGE_CONTENT",
   "TEXT_MESSAGE_END",
@@ -508,6 +630,20 @@ const THREADS_EXAMPLE_THREADS: ExampleThread[] = [
   },
 ];
 
+/** Map Sam's fixed example IDs to a closed telemetry vocabulary. */
+function getExampleKind(threadId: string): ExampleKind | undefined {
+  switch (threadId) {
+    case "example-realtime-sync":
+      return "realtime_sync";
+    case "example-manage-history":
+      return "manage_history";
+    case "example-inspect-runs":
+      return "inspect_runs";
+    default:
+      return undefined;
+  }
+}
+
 const THREADS_EXAMPLE_DETAILS: Record<string, ExampleThreadDetails> = {
   "example-realtime-sync": {
     messages: [
@@ -675,13 +811,13 @@ const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
 }> = [
   {
     tab: "timeline",
-    label: "Timeline",
+    label: "Messages",
     title: "Read the run as a story",
     body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
   },
   {
     tab: "raw-events",
-    label: "Raw AG-UI Events",
+    label: "AG-UI Events",
     title: "Drop into the protocol payloads",
     body: "Raw events show the exact AG-UI stream behind the timeline when you need to verify ordering or payload shape.",
   },
@@ -692,6 +828,34 @@ const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
     body: "The state tab shows the saved values that make a thread resumable across sessions.",
   },
 ];
+
+type ExampleTourTelemetryPair = Readonly<{
+  tour_step: ExampleTourStep;
+  tour_tab: ExampleTourTab;
+}>;
+
+/** Return only the three supported tour step/tab pairs. */
+function getExampleTourTelemetryPair(
+  index: number,
+): ExampleTourTelemetryPair | undefined {
+  switch (index) {
+    case 0:
+      return { tour_step: 1, tour_tab: "timeline" };
+    case 1:
+      return { tour_step: 2, tour_tab: "raw-events" };
+    case 2:
+      return { tour_step: 3, tour_tab: "state" };
+    default:
+      return undefined;
+  }
+}
+
+/** Convert rendered action placement to its stable telemetry key. */
+function getMetadataActionPlacement(
+  placement: "threads-footer" | "locked",
+): MetadataActionPlacement {
+  return placement === "threads-footer" ? "threads_footer" : "threads_locked";
+}
 
 // ─── JSON syntax highlighter ─────────────────────────────────────────────────
 // Inline-styled so shadow DOM encapsulation preserves colors when the output
@@ -715,10 +879,10 @@ function highlightedJson(obj: unknown): string {
   }
   const colors = {
     key: "#5558B2",
-    str: "#189370",
-    num: "#996300",
+    str: "#087653",
+    num: "#8a5900",
     bool: "#c0333a",
-    nil: "#838389",
+    nil: "#68686e",
   };
   const json = JSON.stringify(obj, null, 2);
   if (!json) return "";
@@ -752,14 +916,14 @@ function highlightedJson(obj: unknown): string {
 function eventColors(type: string): { bg: string; fg: string } {
   if (type.startsWith("TEXT_MESSAGE")) return { bg: "#EEE6FE", fg: "#57575B" };
   if (type.startsWith("TOOL_CALL"))
-    return { bg: "rgba(133,236,206,0.15)", fg: "#189370" };
+    return { bg: "rgba(133,236,206,0.15)", fg: "#087653" };
   if (type.startsWith("STATE"))
     return { bg: "rgba(190,194,255,0.102)", fg: "#5558B2" };
   if (type === "RUN_ERROR" || type === "ERROR")
     return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
   if (type.startsWith("RUN_") || type.startsWith("STEP_"))
-    return { bg: "rgba(255,172,77,0.2)", fg: "#996300" };
-  return { bg: "#F7F7F9", fg: "#838389" };
+    return { bg: "rgba(255,172,77,0.2)", fg: "#8a5900" };
+  return { bg: "#F7F7F9", fg: "#68686e" };
 }
 
 function formatTimestamp(ts: string | number): string {
@@ -785,6 +949,7 @@ class CpkThreadList extends LitElement {
     threads: { attribute: false },
     selectedThreadId: { attribute: false },
     errorMessage: { attribute: false },
+    suppressEmptyState: { attribute: false },
     _query: { state: true },
   };
   threads: ɵThread[] = [];
@@ -796,6 +961,7 @@ class CpkThreadList extends LitElement {
    * empty data with no indication of what went wrong.
    */
   errorMessage: string | null = null;
+  suppressEmptyState = false;
   private _query = "";
 
   static styles = css`
@@ -850,7 +1016,18 @@ class CpkThreadList extends LitElement {
 
     /* ── Thread item ── */
     .cpk-tl__item {
+      appearance: none;
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
       padding: 11px 13px;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
       cursor: pointer;
       border-bottom: 1px solid #e9e9ef;
       border-left: 3px solid transparent;
@@ -868,6 +1045,13 @@ class CpkThreadList extends LitElement {
 
     .cpk-tl__item--active:hover {
       background: #bec2ff33;
+    }
+
+    .cpk-tl__item:focus-visible {
+      outline-color: #5558b2;
+      outline-offset: -2px;
+      outline-style: solid;
+      outline-width: 2px;
     }
 
     .cpk-tl__row1 {
@@ -888,7 +1072,7 @@ class CpkThreadList extends LitElement {
     }
 
     .cpk-tl__name--unnamed {
-      color: #838389;
+      color: #68686e;
       font-style: italic;
       font-weight: 400;
     }
@@ -896,7 +1080,7 @@ class CpkThreadList extends LitElement {
     .cpk-tl__time {
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
-      color: #838389;
+      color: #68686e;
       flex-shrink: 0;
     }
 
@@ -921,14 +1105,14 @@ class CpkThreadList extends LitElement {
 
     .cpk-tl__pill--example {
       background: rgba(133, 236, 206, 0.22);
-      color: #189370;
+      color: #087653;
     }
 
     /* ── Empty state ── */
     .cpk-tl__empty {
       padding: 32px 16px;
       text-align: center;
-      color: #838389;
+      color: #68686e;
       font-size: 12px;
       display: flex;
       flex-direction: column;
@@ -998,7 +1182,11 @@ class CpkThreadList extends LitElement {
         <div class="cpk-tl__list">
           ${filtered.map(
             (thread) => html`
-              <div
+              <button
+                type="button"
+                aria-current=${
+                  this.selectedThreadId === thread.id ? "true" : nothing
+                }
                 class="cpk-tl__item ${
                   this.selectedThreadId === thread.id
                     ? "cpk-tl__item--active"
@@ -1006,7 +1194,7 @@ class CpkThreadList extends LitElement {
                 }"
                 @click=${() => this.onThreadClick(thread.id)}
               >
-                <div class="cpk-tl__row1">
+                <span class="cpk-tl__row1">
                   <span
                     class="cpk-tl__name ${
                       !thread.name ? "cpk-tl__name--unnamed" : ""
@@ -1016,8 +1204,8 @@ class CpkThreadList extends LitElement {
                   <span class="cpk-tl__time"
                     >${this.relativeTime(thread.updatedAt)}</span
                   >
-                </div>
-                <div class="cpk-tl__meta">
+                </span>
+                <span class="cpk-tl__meta">
                   <span class="cpk-tl__pill">${thread.agentId}</span>
                   ${
                     (thread as Partial<ExampleThread>).isExample
@@ -1026,12 +1214,12 @@ class CpkThreadList extends LitElement {
                         `
                       : nothing
                   }
-                </div>
-              </div>
+                </span>
+              </button>
             `,
           )}
           ${
-            filtered.length === 0
+            filtered.length === 0 && !this.suppressEmptyState
               ? html`
                 <div class="cpk-tl__empty">
                   ${
@@ -1225,18 +1413,21 @@ export class CpkThreadInspector extends LitElement {
   private _messagesAbort: AbortController | null = null;
   private _eventsAbort: AbortController | null = null;
   private _stateAbort: AbortController | null = null;
+  private _hasConnectedOnce = false;
   private _dividerResizing = false;
   private _dividerPointerId = -1;
   private _dividerStartX = 0;
   private _dividerStartWidth = 0;
+  private static nextDomId = 1;
+  private readonly domIdPrefix = `cpk-thread-detail-${CpkThreadInspector.nextDomId++}`;
 
   static readonly COLLAPSE_THRESHOLD = 800;
   static readonly TAB_LIST: ReadonlyArray<{
     id: ThreadDetailsTab;
     label: string;
   }> = [
-    { id: "timeline", label: "Timeline" },
-    { id: "raw-events", label: "Raw AG-UI Events" },
+    { id: "timeline", label: "Messages" },
+    { id: "raw-events", label: "AG-UI Events" },
     { id: "state", label: "State" },
   ];
 
@@ -1279,6 +1470,49 @@ export class CpkThreadInspector extends LitElement {
     if (id === "timeline") return this.renderTimeline();
     if (id === "state") return this.renderState();
     return this.renderEvents();
+  }
+
+  /** Returns the stable DOM ID for one tab in this inspector instance. */
+  private tabDomId(id: ThreadDetailsTab): string {
+    return `${this.domIdPrefix}-tab-${id}`;
+  }
+
+  /** Returns the stable DOM ID for the panel controlled by one tab. */
+  private panelDomId(id: ThreadDetailsTab): string {
+    return `${this.domIdPrefix}-panel-${id}`;
+  }
+
+  /** Selects and focuses the tab targeted by an ARIA tabs navigation key. */
+  private handleTabKeyDown(
+    event: KeyboardEvent,
+    currentId: ThreadDetailsTab,
+  ): void {
+    const currentIndex = CpkThreadInspector.TAB_LIST.findIndex(
+      (tab) => tab.id === currentId,
+    );
+    if (currentIndex < 0) return;
+
+    let targetIndex: number | null = null;
+    if (event.key === "ArrowRight") {
+      targetIndex = (currentIndex + 1) % CpkThreadInspector.TAB_LIST.length;
+    } else if (event.key === "ArrowLeft") {
+      targetIndex =
+        (currentIndex - 1 + CpkThreadInspector.TAB_LIST.length) %
+        CpkThreadInspector.TAB_LIST.length;
+    } else if (event.key === "Home") {
+      targetIndex = 0;
+    } else if (event.key === "End") {
+      targetIndex = CpkThreadInspector.TAB_LIST.length - 1;
+    }
+    if (targetIndex === null) return;
+
+    const target = CpkThreadInspector.TAB_LIST[targetIndex];
+    if (!target) return;
+    event.preventDefault();
+    this.activateTab(target.id);
+    this.shadowRoot
+      ?.querySelector<HTMLButtonElement>(`#${this.tabDomId(target.id)}`)
+      ?.focus();
   }
 
   private activateTab(id: ThreadDetailsTab): void {
@@ -1385,7 +1619,7 @@ export class CpkThreadInspector extends LitElement {
       border-bottom: 2px solid transparent;
       cursor: pointer;
       background: transparent;
-      color: #838389;
+      color: #68686e;
       transition:
         color 0.12s,
         border-color 0.12s;
@@ -1394,6 +1628,12 @@ export class CpkThreadInspector extends LitElement {
 
     .cpk-td__tab:hover {
       color: #010507;
+    }
+
+    .cpk-td__tab:focus-visible {
+      outline: 2px solid #5558b2;
+      outline-offset: -3px;
+      border-radius: 4px;
     }
 
     .cpk-td__tab--active {
@@ -1415,7 +1655,7 @@ export class CpkThreadInspector extends LitElement {
       border: none;
       border-left: 1px solid #dbdbe5;
       background: transparent;
-      color: #838389;
+      color: #68686e;
       cursor: pointer;
       flex-shrink: 0;
       transition:
@@ -1484,7 +1724,7 @@ export class CpkThreadInspector extends LitElement {
     }
 
     .cpk-td__metadata-label {
-      color: #838389;
+      color: #68686e;
       text-transform: uppercase;
       font-size: 9px;
     }
@@ -1492,6 +1732,18 @@ export class CpkThreadInspector extends LitElement {
     .cpk-td__metadata-value {
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .cpk-td__metadata-pill--wrap {
+      max-width: 100%;
+      white-space: normal;
+    }
+
+    .cpk-td__metadata-value--wrap {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     /*
@@ -1511,6 +1763,10 @@ export class CpkThreadInspector extends LitElement {
       flex-shrink: 0;
     }
 
+    .cpk-td__panel[hidden] {
+      display: none;
+    }
+
     /* ── Empty state ─────────────────────────────────────────────────── */
     .cpk-td__empty-state {
       flex: 1;
@@ -1519,14 +1775,14 @@ export class CpkThreadInspector extends LitElement {
       align-items: center;
       justify-content: center;
       gap: 8px;
-      color: #838389;
+      color: #68686e;
       font-size: 13px;
       padding: 40px 0;
     }
 
     .cpk-td__empty-hint {
       font-size: 11px;
-      color: #838389;
+      color: #68686e;
       text-align: center;
       max-width: 220px;
       line-height: 1.5;
@@ -1536,7 +1792,7 @@ export class CpkThreadInspector extends LitElement {
     .cpk-td__status {
       padding: 16px;
       font-size: 12px;
-      color: #838389;
+      color: #68686e;
       text-align: center;
     }
 
@@ -1615,7 +1871,7 @@ export class CpkThreadInspector extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
       font-weight: 500;
-      color: #189370;
+      color: #087653;
       text-transform: uppercase;
       flex: 1;
     }
@@ -1624,15 +1880,15 @@ export class CpkThreadInspector extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       text-transform: uppercase;
-      color: #189370;
+      color: #087653;
     }
 
     .cpk-td__tool-status--pending {
-      color: #996300;
+      color: #8a5900;
     }
 
     .cpk-td__tool-chevron {
-      color: #838389;
+      color: #68686e;
       font-size: 10px;
     }
 
@@ -1646,7 +1902,7 @@ export class CpkThreadInspector extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       font-weight: 500;
-      color: #838389;
+      color: #68686e;
       text-transform: uppercase;
       margin-bottom: 4px;
       letter-spacing: 0.3px;
@@ -1678,7 +1934,7 @@ export class CpkThreadInspector extends LitElement {
       background: rgba(133, 236, 206, 0.15);
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
-      color: #189370;
+      color: #087653;
       text-transform: uppercase;
       font-weight: 500;
       border-bottom: 1px solid #e9e9ef;
@@ -1700,7 +1956,7 @@ export class CpkThreadInspector extends LitElement {
       align-items: center;
       gap: 8px;
       padding: 5px 0;
-      color: #838389;
+      color: #68686e;
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       text-transform: uppercase;
@@ -1757,7 +2013,7 @@ export class CpkThreadInspector extends LitElement {
     .cpk-td__timeline-time {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
-      color: #838389;
+      color: #68686e;
       flex-shrink: 0;
     }
 
@@ -1935,7 +2191,7 @@ export class CpkThreadInspector extends LitElement {
     .cpk-td__event-time {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
-      color: #838389;
+      color: #68686e;
     }
 
     .cpk-td__event-payload {
@@ -2007,7 +2263,7 @@ export class CpkThreadInspector extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 10px;
       font-weight: 500;
-      color: #838389;
+      color: #68686e;
       text-transform: uppercase;
       letter-spacing: 0.6px;
       margin-bottom: 8px;
@@ -2028,7 +2284,7 @@ export class CpkThreadInspector extends LitElement {
     }
 
     .cpk-tdp__label {
-      color: #838389;
+      color: #68686e;
       font-size: 11px;
       white-space: nowrap;
       flex-shrink: 0;
@@ -2057,6 +2313,7 @@ export class CpkThreadInspector extends LitElement {
   `;
 
   updated(_changed: Map<string, unknown>): void {
+    if (!this.isConnected) return;
     const loadKey = this.currentLoadKey();
     if (loadKey !== this._lastLoadKey) {
       this._lastLoadKey = loadKey;
@@ -2096,6 +2353,20 @@ export class CpkThreadInspector extends LitElement {
       this._messagesAbort = null;
       void this.fetchMessages(this.threadId, true);
     }
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    if (this._hasConnectedOnce) {
+      this.requestUpdate();
+    }
+    this._hasConnectedOnce = true;
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.resetLoadedThreadData();
+    this._lastLoadKey = null;
   }
 
   private canFetchMessages(): boolean {
@@ -2943,15 +3214,26 @@ export class CpkThreadInspector extends LitElement {
         <div class="cpk-td__left">
           <!-- Tab bar -->
           <div class="cpk-td__tabs-header">
-            <div class="cpk-td__tab-group" role="tablist">
+            <div
+              class="cpk-td__tab-group"
+              role="tablist"
+              aria-label="Thread detail views"
+            >
               ${CpkThreadInspector.TAB_LIST.map(
                 (tab) => html`
                   <button
+                    id=${this.tabDomId(tab.id)}
+                    type="button"
                     role="tab"
+                    aria-controls=${this.panelDomId(tab.id)}
+                    aria-selected=${this._tab === tab.id ? "true" : "false"}
+                    tabindex=${this._tab === tab.id ? "0" : "-1"}
                     class="cpk-td__tab ${
                       this._tab === tab.id ? "cpk-td__tab--active" : ""
                     }"
                     @click=${() => this.activateTab(tab.id)}
+                    @keydown=${(event: KeyboardEvent) =>
+                      this.handleTabKeyDown(event, tab.id)}
                   >
                     ${tab.label}
                   </button>
@@ -2974,12 +3256,11 @@ export class CpkThreadInspector extends LitElement {
             ${CpkThreadInspector.TAB_LIST.map((tab) =>
               this._activatedTabs.has(tab.id)
                 ? html`<div
+                    id=${this.panelDomId(tab.id)}
                     class="cpk-td__panel"
-                    style=${
-                      this._tab === tab.id && !this._panelInitializing
-                        ? ""
-                        : "display:none"
-                    }
+                    role="tabpanel"
+                    aria-labelledby=${this.tabDomId(tab.id)}
+                    ?hidden=${this._tab !== tab.id || this._panelInitializing}
                   >
                     ${this.renderTabContent(tab.id)}
                   </div>`
@@ -3021,28 +3302,52 @@ export class CpkThreadInspector extends LitElement {
 
   private renderMetadataStrip() {
     const metadata = this.metadata;
-    const pills: Array<{ label: string; value: string | null | undefined }> = [
-      { label: "Thread", value: metadata?.id ?? this.threadId },
-      { label: "Agent", value: metadata?.agentId },
+    const pills: Array<{ label: string; value: string; wrap?: boolean }> = [
       {
-        label: "End user",
-        value: metadata?.endUserId ?? metadata?.createdById,
+        label: "Name",
+        value: metadata?.name ?? this.thread?.name ?? "Untitled",
       },
-      { label: "Status", value: metadata?.status },
-    ].filter((pill) => pill.value != null && pill.value !== "");
+      { label: "ID", value: metadata?.id ?? this.threadId ?? "—", wrap: true },
+    ];
+    for (const fact of [
+      { label: "Agent", value: metadata?.agentId },
+      { label: "Created", value: metadata?.createdAt },
+      { label: "Updated", value: metadata?.updatedAt },
+    ]) {
+      if (fact.value == null || fact.value === "") continue;
+      pills.push({
+        label: fact.label,
+        value:
+          fact.label === "Created" || fact.label === "Updated"
+            ? this.fmtTime(fact.value)
+            : fact.value,
+      });
+    }
     const bulkControls = this.renderActiveBulkControls();
 
-    if (pills.length === 0 && bulkControls === nothing) return nothing;
-
     return html`
-      <div class="cpk-td__metadata-strip" aria-label="Thread metadata">
+      <div
+        class="cpk-td__metadata-strip"
+        role="group"
+        aria-label="Thread metadata"
+      >
         <div class="cpk-td__metadata-pills">
           ${pills.map(
             (pill) => html`
-              <span class="cpk-td__metadata-pill" title=${pill.value ?? ""}>
+              <span
+                class="cpk-td__metadata-pill ${
+                  pill.wrap ? "cpk-td__metadata-pill--wrap" : ""
+                }"
+                role="group"
+                title=${pill.value}
+                aria-label=${`${pill.label}: ${pill.value}`}
+              >
                 <span class="cpk-td__metadata-label">${pill.label}</span>
-                <span class="cpk-td__metadata-value"
-                  >${this.shortId(pill.value)}</span
+                <span
+                  class="cpk-td__metadata-value ${
+                    pill.wrap ? "cpk-td__metadata-value--wrap" : ""
+                  }"
+                  >${pill.value}</span
                 >
               </span>
             `,
@@ -3171,8 +3476,8 @@ export class CpkThreadInspector extends LitElement {
         <div class="cpk-td__empty-state">
           <span>No timeline events captured</span>
           <span class="cpk-td__empty-hint"
-            >Timeline rows are normalized from AG-UI events. Open Raw AG-UI Events or
-            State to inspect the available thread data.</span
+            >Timeline rows are normalized from AG-UI events. Open AG-UI Events or State
+            to inspect the available thread data.</span
           >
         </div>
       `;
@@ -3420,7 +3725,7 @@ export class CpkThreadInspector extends LitElement {
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <path
               d="M1 9C1 9 2 7 5 7C8 7 9 9 9 9M5 1C5 1 7 2.5 7 4.5C7 6.5 5 7 5 7C5 7 3 6.5 3 4.5C3 2.5 5 1 5 1Z"
-              stroke="#189370"
+              stroke="#087653"
               stroke-width="1.2"
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -3702,7 +4007,7 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">ID</span>
         <span class="cpk-tdp__value cpk-tdp__value--wrap"
-          >${this.shortId(metadata?.id)}</span
+          >${metadata?.id ?? this.threadId ?? "—"}</span
         >
       </div>
       <div class="cpk-tdp__row">
@@ -3930,7 +4235,7 @@ class CpkMemoryList extends LitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       margin-left: 4px;
-      color: #838389;
+      color: #68686e;
     }
 
     /* ── List ── */
@@ -3997,7 +4302,7 @@ class CpkMemoryList extends LitElement {
       font-weight: 500;
       white-space: nowrap;
       background: #f0f0f5;
-      color: #838389;
+      color: #68686e;
     }
 
     /* Content */
@@ -4019,7 +4324,7 @@ class CpkMemoryList extends LitElement {
 
     .cpk-ml__footer-threads {
       font-size: 10px;
-      color: #838389;
+      color: #68686e;
     }
 
     .cpk-ml__footer-id {
@@ -4032,7 +4337,7 @@ class CpkMemoryList extends LitElement {
     .cpk-ml__empty {
       padding: 32px 16px;
       text-align: center;
-      color: #838389;
+      color: #68686e;
       font-size: 12px;
       display: flex;
       flex-direction: column;
@@ -4113,7 +4418,7 @@ class CpkMemoryList extends LitElement {
     .cpk-ml__recall-clear {
       font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 10px;
-      color: #838389;
+      color: #68686e;
       background: none;
       border: none;
       cursor: pointer;
@@ -4124,7 +4429,7 @@ class CpkMemoryList extends LitElement {
     }
     .cpk-ml__recall-msg {
       font-size: 11px;
-      color: #838389;
+      color: #68686e;
       line-height: 1.45;
     }
     .cpk-ml__recall-msg--error {
@@ -4148,7 +4453,7 @@ class CpkMemoryList extends LitElement {
     /* ── Scope badge variants ── */
     .cpk-ml__scope-badge--user {
       background: #f0f0f5;
-      color: #838389;
+      color: #68686e;
     }
     .cpk-ml__scope-badge--project {
       background: #fef3c7;
@@ -4422,17 +4727,14 @@ class CpkMemoryList extends LitElement {
 // implementation.
 export class ɵCpkThreadDetails extends CpkThreadInspector {}
 
-if (!customElements.get("cpk-thread-list")) {
-  customElements.define("cpk-thread-list", CpkThreadList);
-}
-if (!customElements.get(THREAD_INSPECTOR_TAG)) {
-  customElements.define(THREAD_INSPECTOR_TAG, CpkThreadInspector);
-}
-if (!customElements.get("cpk-thread-details")) {
-  customElements.define("cpk-thread-details", ɵCpkThreadDetails);
-}
-if (!customElements.get("cpk-memory-list")) {
-  customElements.define("cpk-memory-list", CpkMemoryList);
+function defineElementOnce(
+  registry: CustomElementRegistry,
+  tag: string,
+  ctor: CustomElementConstructor,
+): void {
+  if (!registry.get(tag)) {
+    registry.define(tag, ctor);
+  }
 }
 
 export class WebInspectorElement extends LitElement {
@@ -4474,6 +4776,18 @@ export class WebInspectorElement extends LitElement {
   // detach is ignored — last-write-wins without racing state.
   private _recallSeq = 0;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
+  private inspectorMetadataValue: unknown;
+  private inspectorMetadataProjection: InspectorMetadataProjection =
+    projectInspectorMetadata(undefined, undefined);
+  // The last *visible* local fingerprint for each metadata module. This is a
+  // map rather than a cumulative set so A → B → A produces three impressions,
+  // while close/reopen with unchanged metadata produces only one. Fingerprint
+  // values can contain local labels and URLs because the map never leaves the
+  // browser; outbound helpers rebuild a coarse allowlisted payload.
+  private metadataTelemetryFingerprints: Map<
+    InspectorMetadataTelemetryModule,
+    string
+  > = new Map();
   private coreProperties: Readonly<Record<string, unknown>> = {};
   private lastCoreError: {
     code: CopilotKitCoreErrorCode;
@@ -4504,8 +4818,20 @@ export class WebInspectorElement extends LitElement {
   private isOpen = false;
   private draggedDuringInteraction = false;
   private ignoreNextButtonClick = false;
-  private selectedMenu: MenuKey = "ag-ui-events";
+  private selectedMenu: MenuKey = "threads";
+  private pendingPersistedMenu: MenuKey | null = null;
+  private hasResolvedCore = false;
+  private settingsOpen = false;
+  private readonly lastSelectedMenuByGroup: Record<InspectorGroupKey, MenuKey> =
+    {
+      threads: "threads",
+      agents: "ag-ui-events",
+      learning: "memories",
+    };
+  private lastScrolledAgentNavigationLayout: string | null = null;
   private selectedThreadId: string | null = null;
+  private selectedRealThreadIsExplicit = false;
+  private selectedLocalExampleThreadId: string | null = null;
   private threadListWidth = 290;
   private threadDividerResizing = false;
   private threadDividerPointerId = -1;
@@ -4519,8 +4845,11 @@ export class WebInspectorElement extends LitElement {
   // selection, the threads view renders an error state instead of stale
   // data with no indication.
   private _threadsErrorByAgent: Map<string, Error> = new Map();
+  private _threadsLoadingByAgent: Map<string, boolean> = new Map();
   // Thread stores created and owned by the inspector (keyed by agentId)
   private _ownedThreadStores: Map<string, ɵThreadStore> = new Map();
+  private threadCapabilityEnabled: boolean | null = null;
+  private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
   private dockMode: DockMode = "floating";
   private previousBodyMargins: { left: string; bottom: string } | null = null;
@@ -4589,8 +4918,8 @@ export class WebInspectorElement extends LitElement {
   // don't inflate funnel counts beyond one signal per intent type per banner.
   private clickedBannerIds: Set<string> = new Set();
   private viewedThreadsTelemetryStates: Set<string> = new Set();
-  private viewedExampleThreadIds: Set<string> = new Set();
-  private selectedExampleThreadIds: Set<string> = new Set();
+  private viewedExampleKinds: Set<ExampleKind> = new Set();
+  private selectedExampleKinds: Set<ExampleKind> = new Set();
   private viewedExampleTourSteps: Set<string> = new Set();
   private exampleThreadProviders: Map<string, ThreadDebuggerProvider> =
     new Map();
@@ -4598,10 +4927,22 @@ export class WebInspectorElement extends LitElement {
   private exampleTourActive = false;
   private exampleTourStep = 0;
   private exampleTourAutoShown = false;
-  private threadsExampleOverviewVideoShouldLoad = false;
-  private threadsExampleOverviewVideoReady = false;
+  private threadsExampleOverviewVideoState: ThreadsExampleOverviewVideoState =
+    "deferred";
+  private threadsExampleOverviewVideoLoaded = false;
+  private threadsExampleOverviewVideoReducedMotion = false;
   private threadsExampleOverviewVideoLoadTimer: number | null = null;
   private threadsExampleOverviewVideoIdleCallbackId: number | null = null;
+  private threadsExampleOverviewVideoElement: HTMLVideoElement | null = null;
+  private threadsExampleOverviewVideoListeners: ThreadsExampleOverviewVideoListeners | null =
+    null;
+  private threadsExampleOverviewVideoLifecycleGeneration = 0;
+  private threadsExampleOverviewVideoPlayAttemptGeneration = 0;
+  private threadsExampleOverviewVideoPlayPromise: Promise<void> | null = null;
+  private threadsExampleOverviewVideoPlayOnNextBind = false;
+  private threadsSetupPromptCopyState: ThreadsSetupPromptCopyState = "idle";
+  private threadsSetupPromptCopyResetTimeoutId: number | null = null;
+  private threadsSetupPromptCopyGeneration = 0;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -4615,7 +4956,17 @@ export class WebInspectorElement extends LitElement {
 
     this.detachFromCore();
 
+    const hadResolvedCore = this.hasResolvedCore;
     this._core = value ?? null;
+    if (this._core) {
+      this.hasResolvedCore = true;
+    }
+
+    if (!hadResolvedCore && this._core) {
+      this.resolvePendingPersistedMenu();
+    } else if (hadResolvedCore) {
+      this.reconcileSelectedMenuVisibility();
+    }
     this.requestUpdate("core", oldValue);
 
     if (this._core) {
@@ -4699,6 +5050,65 @@ export class WebInspectorElement extends LitElement {
     ];
   }
 
+  /** Return the primary navigation group that owns a legacy leaf key. */
+  private getGroupForMenu(key: MenuKey): InspectorGroupKey {
+    for (const group of INSPECTOR_PRIMARY_NAVIGATION) {
+      if (INSPECTOR_GROUPS[group.key].some((menuKey) => menuKey === key)) {
+        return group.key;
+      }
+    }
+
+    return "threads";
+  }
+
+  /** Return the primary group for the current legacy leaf selection. */
+  private get selectedGroup(): InspectorGroupKey {
+    return this.getGroupForMenu(this.selectedMenu);
+  }
+
+  /** Return only currently visible legacy leaves owned by a group. */
+  private getVisibleMenuItemsForGroup(group: InspectorGroupKey): MenuItem[] {
+    return this.menuItems.filter((item) =>
+      INSPECTOR_GROUPS[group].some((menuKey) => menuKey === item.key),
+    );
+  }
+
+  /** Resolve a group's last visible leaf, falling back to its first leaf. */
+  private getMenuForGroup(group: InspectorGroupKey): MenuKey {
+    const visibleItems = this.getVisibleMenuItemsForGroup(group);
+    const rememberedMenu = this.lastSelectedMenuByGroup[group];
+    return (
+      visibleItems.find((item) => item.key === rememberedMenu)?.key ??
+      visibleItems[0]?.key ??
+      "threads"
+    );
+  }
+
+  /** Replace a leaf that became hidden with its group's first visible leaf. */
+  private reconcileSelectedMenuVisibility(): void {
+    if (this.menuItems.some((item) => item.key === this.selectedMenu)) {
+      return;
+    }
+
+    const group = this.getGroupForMenu(this.selectedMenu);
+    const fallbackMenu = this.getVisibleMenuItemsForGroup(group)[0]?.key;
+    this.selectedMenu = fallbackMenu ?? "threads";
+    this.lastSelectedMenuByGroup[group] = this.selectedMenu;
+    this.persistState();
+  }
+
+  /** Open a primary group at its last currently visible legacy leaf. */
+  private handleGroupSelect(group: InspectorGroupKey): void {
+    this.handleMenuSelect(this.getMenuForGroup(group));
+  }
+
+  /** Toggle Settings without replacing or persisting the active legacy leaf. */
+  private handleSettingsToggle(): void {
+    this.settingsOpen = !this.settingsOpen;
+    this.contextMenuOpen = false;
+    this.requestUpdate();
+  }
+
   private getThreadServiceStatus(): ThreadServiceStatus {
     if (!this._core) return "unknown";
     if (!this._core.threadEndpoints) return "unknown";
@@ -4708,12 +5118,54 @@ export class WebInspectorElement extends LitElement {
   }
 
   private areThreadEndpointsAvailable(): boolean {
-    return this.getThreadServiceStatus() !== "unavailable";
+    const endpoints = this._core?.threadEndpoints;
+    return (
+      endpoints !== null &&
+      typeof endpoints === "object" &&
+      endpoints.list !== false
+    );
+  }
+
+  private synchronizeThreadCapability(): void {
+    const enabled = this.areThreadEndpointsAvailable();
+    if (this.threadCapabilityEnabled === enabled) return;
+
+    this.threadCapabilityEnabled = enabled;
+    this.threadCapabilityGeneration += 1;
+
+    if (enabled) {
+      const core = this.core;
+      if (!core) return;
+
+      const threadStores =
+        typeof core.getThreadStores === "function"
+          ? core.getThreadStores()
+          : {};
+      for (const [agentId, store] of Object.entries(threadStores)) {
+        this.subscribeToThreadStore(agentId, store);
+      }
+      for (const agent of Object.values(core.agents)) {
+        if (agent?.agentId) {
+          this.ensureOwnedThreadStore(agent.agentId);
+        }
+      }
+      return;
+    }
+
+    this.teardownThreadStoreSubscriptions();
+    this.teardownOwnedThreadStores();
+    if (this.selectedThreadId !== this.selectedLocalExampleThreadId) {
+      this.selectedThreadId = null;
+      this.selectedLocalExampleThreadId = null;
+    }
+    this.selectedRealThreadIsExplicit = false;
+    this.requestUpdate();
   }
 
   private getActiveThreadsState(): {
     displayThreads: ɵThread[];
     threadsErrorMessage: string | null;
+    threadsLoading: boolean;
   } {
     const displayThreads =
       this.selectedContext === "all-agents"
@@ -4733,20 +5185,77 @@ export class WebInspectorElement extends LitElement {
         this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
     }
 
-    return { displayThreads, threadsErrorMessage };
+    const threadsLoading =
+      this.selectedContext === "all-agents"
+        ? Array.from(this._threadsLoadingByAgent.values()).some(Boolean)
+        : (this._threadsLoadingByAgent.get(this.selectedContext) ?? false);
+
+    return { displayThreads, threadsErrorMessage, threadsLoading };
   }
 
-  private getThreadsTelemetryProps(
-    extra: Partial<InspectorThreadTelemetryProps> = {},
-    options: { includeUrlAttribution?: boolean } = {},
-  ): InspectorThreadTelemetryProps {
-    const distinctId =
-      options.includeUrlAttribution && !this.core?.telemetryDisabled
-        ? getTelemetryDistinctIdForUrl()
-        : null;
+  /** Bucket trusted usage without retaining exact counts or limits. */
+  private getThreadsUsageBucket(): ThreadsUsageBucket {
+    const usage = this.inspectorMetadataProjection.usage;
+    if (!usage) return "absent";
+    if (usage.used === 0) return "empty";
+    if (usage.limit.kind === "finite") {
+      return usage.used < usage.limit.value
+        ? "within_limit"
+        : "at_or_over_limit";
+    }
+    if (usage.limit.kind === "unlimited") return "unlimited";
+    return "unknown_limit";
+  }
+
+  /** Classify finite usage for render-only capacity copy and color. */
+  private getThreadsCapacityState():
+    | "normal"
+    | "warning"
+    | "critical"
+    | undefined {
+    const usage = this.inspectorMetadataProjection.usage;
+    if (!usage || usage.limit.kind !== "finite") return undefined;
+    if (usage.used >= usage.limit.value) return "critical";
+
+    const warningThreshold =
+      usage.limit.value - Math.floor(usage.limit.value / 10);
+    return usage.used >= warningThreshold ? "warning" : "normal";
+  }
+
+  /** Bucket trusted expiry data independently from the usage-limit bucket. */
+  private getThreadsExpiryBucket(): ThreadsExpiryBucket {
+    const usage = this.inspectorMetadataProjection.usage;
+    if (
+      !usage ||
+      !Object.prototype.hasOwnProperty.call(usage, "expiringSoonCount")
+    ) {
+      return "unavailable";
+    }
+    if (usage.expiringSoonCount === 0) return "zero";
+    return typeof usage.expiringSoonCount === "number" &&
+      usage.expiringSoonCount > 0
+      ? "positive"
+      : "unavailable";
+  }
+
+  /** Report only real rows visible in the active, settled Threads view. */
+  private hasActiveVisibleThreads(): boolean {
+    if (
+      this.selectedMenu !== "threads" ||
+      this.settingsOpen ||
+      !this.areThreadEndpointsAvailable()
+    ) {
+      return false;
+    }
+    const { displayThreads, threadsErrorMessage, threadsLoading } =
+      this.getActiveThreadsState();
+    return !threadsErrorMessage && !threadsLoading && displayThreads.length > 0;
+  }
+
+  /** Build the closed common property set shared by all Thread events. */
+  private getThreadsTelemetryProps(): InspectorThreadTelemetryProps {
     const threadServiceStatus = this.getThreadServiceStatus();
     return {
-      posthog_distinct_id: distinctId ?? undefined,
       intelligence_status:
         threadServiceStatus === "available"
           ? "intelligence_enabled"
@@ -4757,8 +5266,26 @@ export class WebInspectorElement extends LitElement {
       license_status: this.core?.licenseStatus ?? undefined,
       runtime_mode: this.core?.runtimeMode ?? undefined,
       runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
-      telemetry_disabled: this.core?.telemetryDisabled ?? false,
-      ...extra,
+      telemetry_disabled: false,
+      has_threads: this.hasActiveVisibleThreads(),
+      usage_bucket: this.getThreadsUsageBucket(),
+      expiry_bucket: this.getThreadsExpiryBucket(),
+      group_key: "threads",
+      leaf_key: "threads",
+    };
+  }
+
+  /** Add the frozen CTA leaves and anonymous URL attribution when allowed. */
+  private getThreadsCtaTelemetryProps(
+    cta: "signup" | "talk_to_engineer",
+    ctaSurface: "threads_locked" | "threads_header",
+  ): InspectorThreadTelemetryProps {
+    const distinctId = getTelemetryDistinctIdForUrl();
+    return {
+      ...this.getThreadsTelemetryProps(),
+      cta,
+      cta_surface: ctaSurface,
+      posthog_distinct_id: distinctId ?? undefined,
     };
   }
 
@@ -4777,13 +5304,6 @@ export class WebInspectorElement extends LitElement {
     return this.appendRefParam(INTELLIGENCE_SIGNUP_URL, "cpk-inspector");
   }
 
-  private getThreadsIntelligenceSignupUrl(): string {
-    return this.appendRefParam(
-      THREADS_INTELLIGENCE_SIGNIN_URL,
-      "cpk-inspector",
-    );
-  }
-
   private getTalkToEngineerUrl(): string {
     return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
   }
@@ -4796,6 +5316,20 @@ export class WebInspectorElement extends LitElement {
     return this.appendRefParam(THREADS_DOCS_URL, "cpk-inspector-threads");
   }
 
+  private getThreadsRuntimeSetupDocsUrl(): string {
+    return this.appendRefParam(
+      THREADS_RUNTIME_SETUP_DOCS_URL,
+      "cpk-inspector-threads",
+    );
+  }
+
+  private getThreadsIntelligenceSignupUrl(): string {
+    return this.appendRefParam(
+      INTELLIGENCE_SIGNUP_URL,
+      "cpk-inspector-threads",
+    );
+  }
+
   private getSelfHostedIntelligenceUrl(): string {
     return this.appendRefParam(
       SELF_HOSTED_INTELLIGENCE_URL,
@@ -4803,30 +5337,76 @@ export class WebInspectorElement extends LitElement {
     );
   }
 
+  /** Selects the onboarding path for an enabled runtime with no saved Threads. */
+  private getThreadsEmptyOnboardingAction(): Readonly<{
+    href: string;
+    label: "Sign up for Intelligence" | "Explore self-hosted Intelligence";
+  }> {
+    const planCode = this.inspectorMetadataProjection.plan?.code
+      .trim()
+      .toLowerCase();
+    if (planCode === "team_self_hosted" || planCode === "team-self-hosted") {
+      return {
+        href: this.getSelfHostedIntelligenceUrl(),
+        label: "Explore self-hosted Intelligence",
+      };
+    }
+    return {
+      href: this.getThreadsIntelligenceSignupUrl(),
+      label: "Sign up for Intelligence",
+    };
+  }
+
   private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
     if (!this.areThreadEndpointsAvailable()) return;
     if (this._threadStoreSubscriptions.has(agentId)) return;
+    const capabilityGeneration = this.threadCapabilityGeneration;
     const threadsSub = store.select(ɵselectThreads).subscribe((threads) => {
+      if (
+        capabilityGeneration !== this.threadCapabilityGeneration ||
+        !this.areThreadEndpointsAvailable()
+      ) {
+        return;
+      }
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
       this._threads = Array.from(this._threadsByAgent.values()).flat();
       this.autoSelectLatestThread();
       this.requestUpdate();
     });
-    const errorSub = store.select(ɵselectThreadsError).subscribe((error) => {
-      if (error) {
-        this._threadsErrorByAgent.set(agentId, error);
-      } else {
-        this._threadsErrorByAgent.delete(agentId);
-      }
-      this.requestUpdate();
-    });
+    const statusSub = store
+      .select(createThreadStoreStatusSelector())
+      .subscribe(({ error, isLoading }) => {
+        if (
+          capabilityGeneration !== this.threadCapabilityGeneration ||
+          !this.areThreadEndpointsAvailable()
+        ) {
+          return;
+        }
+        if (error) {
+          this._threadsErrorByAgent.set(agentId, error);
+        } else {
+          this._threadsErrorByAgent.delete(agentId);
+        }
+        this._threadsLoadingByAgent.set(agentId, isLoading);
+        this.requestUpdate();
+      });
     this._threadStoreSubscriptions.set(agentId, () => {
       threadsSub.unsubscribe();
-      errorSub.unsubscribe();
+      statusSub.unsubscribe();
     });
     // Populate immediately from current state
+    if (
+      capabilityGeneration !== this.threadCapabilityGeneration ||
+      !this.areThreadEndpointsAvailable()
+    ) {
+      return;
+    }
     const initialState = store.getState();
     this._threadsByAgent.set(agentId, ɵselectThreads(initialState));
+    this._threadsLoadingByAgent.set(
+      agentId,
+      ɵselectThreadsIsLoading(initialState),
+    );
     const initialError = ɵselectThreadsError(initialState);
     if (initialError) {
       this._threadsErrorByAgent.set(agentId, initialError);
@@ -4838,15 +5418,34 @@ export class WebInspectorElement extends LitElement {
   }
 
   private autoSelectLatestThread(): void {
-    if (this._threads.length === 0) return;
-    const stillValid =
-      this.selectedThreadId != null &&
-      !this.isExampleThreadId(this.selectedThreadId) &&
-      this._threads.some((t) => t.id === this.selectedThreadId);
-    if (!stillValid) {
-      // Threads are sorted most-recently-updated first
-      this.selectedThreadId = this._threads[0]!.id;
+    if (!this.areThreadEndpointsAvailable()) return;
+    const { displayThreads } = this.getActiveThreadsState();
+    const previousSelectedThreadId = this.selectedThreadId;
+
+    if (
+      this.selectedLocalExampleThreadId !== null &&
+      previousSelectedThreadId === this.selectedLocalExampleThreadId &&
+      displayThreads.length === 0
+    ) {
+      this.selectedRealThreadIsExplicit = false;
+      return;
     }
+
+    if (this.selectedLocalExampleThreadId !== null) {
+      this.exampleTourActive = false;
+    }
+    this.selectedLocalExampleThreadId = null;
+    const explicitSelectedThreadId = this.selectedRealThreadIsExplicit
+      ? previousSelectedThreadId
+      : null;
+    const nextSelectedThreadId = selectVisibleRealThreadId({
+      threads: displayThreads,
+      selectedThreadId: explicitSelectedThreadId,
+    });
+    this.selectedThreadId = nextSelectedThreadId;
+    this.selectedRealThreadIsExplicit =
+      explicitSelectedThreadId !== null &&
+      nextSelectedThreadId === explicitSelectedThreadId;
   }
 
   private teardownThreadStoreSubscriptions(): void {
@@ -4856,16 +5455,17 @@ export class WebInspectorElement extends LitElement {
     this._threadStoreSubscriptions.clear();
     this._threadsByAgent.clear();
     this._threadsErrorByAgent.clear();
+    this._threadsLoadingByAgent.clear();
     this._threads = [];
   }
 
   private ensureOwnedThreadStore(agentId: string): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     if (this._ownedThreadStores.has(agentId)) return;
     // Don't overwrite a store already registered by useThreads() or another external caller
     if (this.core?.getThreadStore(agentId)) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
-    if (!this.areThreadEndpointsAvailable()) return;
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
@@ -4884,6 +5484,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private refreshOwnedThreadStore(agentId: string): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
     // refresh() re-fetches without resetting threads to [] first, so the list
@@ -4898,6 +5499,7 @@ export class WebInspectorElement extends LitElement {
   private updateOwnedThreadStoreHeaders(
     headers: Readonly<Record<string, string>>,
   ): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
     for (const [agentId, store] of this._ownedThreadStores) {
@@ -4913,39 +5515,87 @@ export class WebInspectorElement extends LitElement {
   private removeOwnedThreadStore(agentId: string): void {
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
-    store.stop();
-    this.core?.unregisterThreadStore(agentId);
     this._ownedThreadStores.delete(agentId);
+    store.stop();
+    if (this.core?.getThreadStore(agentId) === store) {
+      this.core.unregisterThreadStore(agentId);
+    }
   }
 
   private teardownOwnedThreadStores(): void {
-    for (const [agentId, store] of this._ownedThreadStores) {
-      store.stop();
-      this.core?.unregisterThreadStore(agentId);
-    }
+    const ownedThreadStores = Array.from(this._ownedThreadStores);
     this._ownedThreadStores.clear();
+    for (const [agentId, store] of ownedThreadStores) {
+      store.stop();
+      if (this.core?.getThreadStore(agentId) === store) {
+        this.core.unregisterThreadStore(agentId);
+      }
+    }
+  }
+
+  private coreSupportsInspectorMetadata(core: CopilotKitCore): boolean {
+    try {
+      return "inspectorMetadata" in core;
+    } catch {
+      return false;
+    }
+  }
+
+  private readCoreInspectorMetadata(core: CopilotKitCore): unknown {
+    if (!this.coreSupportsInspectorMetadata(core)) {
+      return undefined;
+    }
+
+    try {
+      return core.inspectorMetadata;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private updateInspectorMetadataProjection(value: unknown): void {
+    this.inspectorMetadataValue = value;
+    let runtimeLicense: RuntimeLicenseStatus | undefined;
+    try {
+      runtimeLicense = this._core?.licenseStatus;
+    } catch {
+      runtimeLicense = undefined;
+    }
+    this.inspectorMetadataProjection = projectInspectorMetadata(
+      value,
+      runtimeLicense,
+    );
   }
 
   private attachToCore(core: CopilotKitCore): void {
     this.runtimeStatus = core.runtimeConnectionStatus;
     this.coreProperties = core.properties;
     this.lastCoreError = null;
+    const supportsInspectorMetadata = this.coreSupportsInspectorMetadata(core);
+    this.updateInspectorMetadataProjection(
+      this.readCoreInspectorMetadata(core),
+    );
 
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
+        this.updateInspectorMetadataProjection(this.inspectorMetadataValue);
+        const threadCapabilityWasEnabled =
+          this.threadCapabilityEnabled === true;
+        this.synchronizeThreadCapability();
         if (status === "connected") {
           if (!core.telemetryDisabled) {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
           this.flushPendingBannerViewed();
-          if (this.areThreadEndpointsAvailable()) {
+          if (
+            threadCapabilityWasEnabled &&
+            this.areThreadEndpointsAvailable()
+          ) {
             for (const agentId of this._ownedThreadStores.keys()) {
               this.refreshOwnedThreadStore(agentId);
             }
-          } else {
-            this.teardownOwnedThreadStores();
           }
         } else {
           // Clear stale thread data immediately when the server goes away
@@ -4962,6 +5612,17 @@ export class WebInspectorElement extends LitElement {
         this.updateOwnedThreadStoreHeaders(headers);
         this.requestUpdate();
       },
+      ...(supportsInspectorMetadata
+        ? {
+            onInspectorMetadataChanged: ({ inspectorMetadata }) => {
+              if (this._core !== core) {
+                return;
+              }
+              this.updateInspectorMetadataProjection(inspectorMetadata);
+              this.requestUpdate();
+            },
+          }
+        : {}),
       onError: ({ code, error }) => {
         this.lastCoreError = { code, message: error.message };
         this.requestUpdate();
@@ -4982,18 +5643,25 @@ export class WebInspectorElement extends LitElement {
         this.requestUpdate();
       },
       onThreadStoreRegistered: ({ agentId, store }) => {
+        if (!this.areThreadEndpointsAvailable()) return;
         this.subscribeToThreadStore(agentId, store);
         this.requestUpdate();
       },
-      onThreadStoreUnregistered: ({ agentId }) => {
+      onThreadStoreUnregistered: ({ agentId, prevStore }) => {
         const unsub = this._threadStoreSubscriptions.get(agentId);
         if (unsub) {
           unsub();
           this._threadStoreSubscriptions.delete(agentId);
         }
+        if (this._ownedThreadStores.get(agentId) === prevStore) {
+          this._ownedThreadStores.delete(agentId);
+          prevStore.stop();
+        }
         this._threadsByAgent.delete(agentId);
         this._threadsErrorByAgent.delete(agentId);
+        this._threadsLoadingByAgent.delete(agentId);
         this._threads = Array.from(this._threadsByAgent.values()).flat();
+        this.autoSelectLatestThread();
         this.requestUpdate();
       },
     } satisfies CopilotKitCoreSubscriber;
@@ -5014,8 +5682,10 @@ export class WebInspectorElement extends LitElement {
     // an older @copilotkit/core don't throw when assigning `inspector.core`.
     const threadStores =
       typeof core.getThreadStores === "function" ? core.getThreadStores() : {};
-    for (const [agentId, store] of Object.entries(threadStores)) {
-      this.subscribeToThreadStore(agentId, store);
+    if (this.areThreadEndpointsAvailable()) {
+      for (const [agentId, store] of Object.entries(threadStores)) {
+        this.subscribeToThreadStore(agentId, store);
+      }
     }
 
     // Initialize context from core
@@ -5162,6 +5832,13 @@ export class WebInspectorElement extends LitElement {
   }
 
   private detachFromCore(): void {
+    this.threadCapabilityGeneration += 1;
+    this.threadCapabilityEnabled = null;
+    if (this.selectedThreadId !== this.selectedLocalExampleThreadId) {
+      this.selectedThreadId = null;
+      this.selectedLocalExampleThreadId = null;
+    }
+    this.selectedRealThreadIsExplicit = false;
     if (this.coreUnsubscribe) {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
@@ -5186,6 +5863,12 @@ export class WebInspectorElement extends LitElement {
     this._recallQuery = "";
     this.coreSubscriber = null;
     this.runtimeStatus = null;
+    this.inspectorMetadataValue = undefined;
+    this.inspectorMetadataProjection = projectInspectorMetadata(
+      undefined,
+      undefined,
+    );
+    this.metadataTelemetryFingerprints.clear();
     this.lastCoreError = null;
     this.coreProperties = {};
     this.cachedTools = [];
@@ -5210,6 +5893,7 @@ export class WebInspectorElement extends LitElement {
   private processAgentsChanged(
     agents: Readonly<Record<string, AbstractAgent>>,
   ): void {
+    this.synchronizeThreadCapability();
     const seenAgentIds = new Set<string>();
 
     for (const agent of Object.values(agents)) {
@@ -5315,10 +5999,18 @@ export class WebInspectorElement extends LitElement {
           event: params.event,
           result: "result" in params ? params.result : undefined,
         });
-        this.refreshOwnedThreadStore(agentId);
+        if (this.areThreadEndpointsAvailable()) {
+          this.refreshOwnedThreadStore(agentId);
+        }
       },
       onRunErrorEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RUN_ERROR", event);
+      },
+      onStepStartedEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "STEP_STARTED", event);
+      },
+      onStepFinishedEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "STEP_FINISHED", event);
       },
       onTextMessageStartEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "TEXT_MESSAGE_START", event);
@@ -5554,6 +6246,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private updateContextOptions(agentIds: Set<string>): void {
+    let selectedContextChanged = false;
     const nextOptions: Array<{ key: string; label: string }> = [
       { key: "all-agents", label: "All Agents" },
       ...Array.from(agentIds)
@@ -5584,6 +6277,7 @@ export class WebInspectorElement extends LitElement {
       if (shouldRestore) {
         if (this.selectedContext !== pendingContext) {
           this.selectedContext = pendingContext;
+          selectedContextChanged = true;
           this.expandedRows.clear();
         }
         this.pendingSelectedContext = null;
@@ -5592,6 +6286,7 @@ export class WebInspectorElement extends LitElement {
         // agents — reset to "all-agents" so nothing is silently filtered.
         if (this.selectedContext !== "all-agents") {
           this.selectedContext = "all-agents";
+          selectedContextChanged = true;
           this.expandedRows.clear();
         }
         this.pendingSelectedContext = null;
@@ -5614,9 +6309,14 @@ export class WebInspectorElement extends LitElement {
 
       if (this.selectedContext !== nextSelected) {
         this.selectedContext = nextSelected;
+        selectedContextChanged = true;
         this.expandedRows.clear();
         this.persistState();
       }
+    }
+
+    if (selectedContextChanged) {
+      this.autoSelectLatestThread();
     }
   }
 
@@ -6091,7 +6791,7 @@ ${argsString}</pre
         align-items: center;
         justify-content: center;
         border-radius: 6px;
-        color: #838389;
+        color: #68686e;
         cursor: pointer;
         transition:
           background 120ms ease,
@@ -6112,7 +6812,7 @@ ${argsString}</pre
         background: none;
         border: none;
         cursor: pointer;
-        color: #838389;
+        color: #68686e;
         width: 28px;
         height: 28px;
         display: flex;
@@ -6161,7 +6861,7 @@ ${argsString}</pre
         height: 24px;
         border-radius: 50%;
         background-color: #f0f0f4;
-        color: #838389;
+        color: #68686e;
         flex-shrink: 0;
         transition: transform 0.2s;
       }
@@ -6278,7 +6978,7 @@ ${argsString}</pre
       }
 
       .announcement-content a {
-        color: #757cf2;
+        color: #5558b2;
         text-decoration: underline;
       }
 
@@ -6402,7 +7102,7 @@ ${argsString}</pre
         font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         font-size: 12px;
         font-weight: 500;
-        color: #757cf2;
+        color: #5558b2;
         cursor: pointer;
         text-align: center;
       }
@@ -6473,14 +7173,14 @@ ${argsString}</pre
         align-items: center;
       }
       .cpk-tab-active .cpk-tab-icon {
-        color: #757cf2;
+        color: #5558b2;
       }
       .cpk-tab-inactive {
         background-color: transparent;
         color: #2b2b2b;
       }
       .cpk-tab-inactive .cpk-tab-icon {
-        color: #838389;
+        color: #68686e;
       }
       .cpk-tab-inactive:hover {
         background-color: rgba(190, 194, 255, 0.08);
@@ -6513,23 +7213,39 @@ ${argsString}</pre
         width: 100%;
         height: 100%;
         object-fit: cover;
-        opacity: 0;
-        transition: opacity 220ms ease;
-      }
-      .cpk-threads-overview-video[data-ready="true"] {
-        opacity: 1;
       }
 
-      /* ── Header control buttons (dock, close) — first row only ───── */
-      .drag-handle > div:first-child button {
-        color: #838389 !important;
+      /* ── Header controls on the dark account strip ──────────────── */
+      .drag-handle > div[data-inspector-account-strip] button {
+        color: #afafb7 !important;
+        cursor: pointer;
       }
-      .drag-handle > div:first-child button:hover {
-        background-color: #f0f0f4 !important;
-        color: #57575b !important;
+      .drag-handle > div[data-inspector-account-strip] button,
+      .inspector-nav-control,
+      [data-inspector-thread-cta] {
+        outline: 2px solid transparent;
+        outline-offset: 2px;
       }
-      .drag-handle > div:first-child button:focus-visible {
+      .drag-handle > div[data-inspector-account-strip] button:hover {
+        background-color: rgba(255, 255, 255, 0.12) !important;
+        color: #ffffff !important;
+      }
+      .drag-handle > div[data-inspector-account-strip] button:focus-visible {
         outline-color: #bec2ff !important;
+      }
+      .drag-handle > div[data-inspector-account-strip] button:focus,
+      .drag-handle > div[data-inspector-account-strip] button:focus-visible {
+        outline: 2px solid #bec2ff !important;
+        outline-offset: 2px;
+      }
+      .inspector-nav-control:focus,
+      .inspector-nav-control:focus-visible,
+      [data-inspector-thread-cta]:focus,
+      [data-inspector-thread-cta]:focus-visible,
+      [data-inspector-action-placement="threads-footer"]:focus,
+      [data-inspector-action-placement="threads-footer"]:focus-visible {
+        outline: 2px solid #6430ab !important;
+        outline-offset: 2px;
       }
 
       /* ── Agent/context dropdown ──────────────────────────────────── */
@@ -6542,7 +7258,7 @@ ${argsString}</pre
         background-color: #f7f7f9 !important;
       }
       [data-context-dropdown-root="true"] > button > span:last-child {
-        color: #838389 !important;
+        color: #68686e !important;
       }
       [data-context-dropdown-root="true"] > div {
         border-color: #dbdbe5 !important;
@@ -6551,6 +7267,28 @@ ${argsString}</pre
       [data-context-dropdown-root="true"] > div button:hover,
       [data-context-dropdown-root="true"] > div button:focus {
         background-color: #f7f7f9 !important;
+      }
+      [data-inspector-account-strip]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button {
+        border-color: rgba(255, 255, 255, 0.28) !important;
+        background-color: transparent !important;
+        color: #e7e7ec !important;
+      }
+      [data-inspector-account-strip]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button:hover {
+        border-color: rgba(190, 194, 255, 0.7) !important;
+        background-color: rgba(255, 255, 255, 0.08) !important;
+      }
+      [data-inspector-account-strip]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button
+        > span:last-child {
+        color: #afafb7 !important;
       }
 
       /* ── Status bar (bottom chrome) ──────────────────────────────── */
@@ -6561,7 +7299,7 @@ ${argsString}</pre
 
       /* ── Resize handle ───────────────────────────────────────────── */
       .resize-handle {
-        color: #838389 !important;
+        color: #68686e !important;
       }
       .resize-handle:hover {
         color: #57575b !important;
@@ -6582,7 +7320,7 @@ ${argsString}</pre
       /* Copy "copied" state: generic green → brand mint */
       button[class*="bg-green-100"] {
         background-color: rgba(133, 236, 206, 0.2) !important;
-        color: #189370 !important;
+        color: #087653 !important;
       }
 
       /* ── Agents tab ──────────────────────────────────────────────── */
@@ -6591,14 +7329,14 @@ ${argsString}</pre
         background-color: rgba(190, 194, 255, 0.15) !important;
       }
       span[class*="text-blue-600"] {
-        color: #757cf2 !important;
+        color: #5558b2 !important;
       }
       /* Running badge: emerald → mint */
       span[class*="bg-emerald-50"] {
         background-color: rgba(133, 236, 206, 0.15) !important;
       }
       span[class*="text-emerald-700"] {
-        color: #189370 !important;
+        color: #087653 !important;
       }
       /* Running status dot */
       span[class*="bg-emerald-500"] {
@@ -6618,7 +7356,7 @@ ${argsString}</pre
       span[class*="bg-green-100"][class*="text-green-800"] {
         background-color: rgba(133, 236, 206, 0.18) !important;
         border: 1px solid rgba(133, 236, 206, 0.4) !important;
-        color: #189370 !important;
+        color: #087653 !important;
       }
       /* Tool role badge (amber → orange brand) */
       span[class*="bg-amber-100"][class*="text-amber-800"] {
@@ -6659,13 +7397,17 @@ ${argsString}</pre
         > div:last-child:has(div[class*="bg-emerald-50"]) {
         background-color: rgba(91, 228, 187, 0.08) !important;
         border-top-color: rgba(91, 228, 187, 0.3) !important;
-        color: #189370 !important;
+        color: #087653 !important;
       }
       /* Inner badge — slightly more opaque on the mint bg */
       div[class*="bg-emerald-50"][class*="border-emerald-200"] {
         background-color: rgba(91, 228, 187, 0.12) !important;
         border-color: rgba(91, 228, 187, 0.4) !important;
-        color: #189370 !important;
+        color: #087653 !important;
+      }
+      div[class*="bg-emerald-50"][class*="border-emerald-200"]
+        span[class*="opacity-80"] {
+        opacity: 1 !important;
       }
       /* Icon bubble inside connected badge → mint tint */
       div[class*="bg-emerald-50"] span[class*="bg-white"] {
@@ -6680,7 +7422,7 @@ ${argsString}</pre
       span[class*="bg-slate-900"],
       div[class*="bg-slate-900"] {
         background-color: #eee6fe !important;
-        color: #757cf2 !important;
+        color: #5558b2 !important;
       }
       span[class*="text-slate-800"],
       div[class*="text-slate-800"] {
@@ -6692,6 +7434,9 @@ ${argsString}</pre
   connectedCallback(): void {
     super.connectedCallback();
     if (typeof window !== "undefined") {
+      this.threadsExampleOverviewVideoReducedMotion =
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
+        false;
       this.ensureBrandFonts();
       window.addEventListener("resize", this.handleResize);
       window.addEventListener(
@@ -6705,6 +7450,7 @@ ${argsString}</pre
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
     }
+    this.requestUpdate();
   }
 
   private ensureBrandFonts(): void {
@@ -6736,17 +7482,13 @@ ${argsString}</pre
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
     }
-    if (this.threadsExampleOverviewVideoLoadTimer !== null) {
-      window.clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
-      this.threadsExampleOverviewVideoLoadTimer = null;
+    this.threadsSetupPromptCopyGeneration += 1;
+    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
+      this.threadsSetupPromptCopyResetTimeoutId = null;
     }
-    if (
-      this.threadsExampleOverviewVideoIdleCallbackId !== null &&
-      typeof window.cancelIdleCallback === "function"
-    ) {
-      window.cancelIdleCallback(this.threadsExampleOverviewVideoIdleCallbackId);
-      this.threadsExampleOverviewVideoIdleCallbackId = null;
-    }
+    this.threadsSetupPromptCopyState = "idle";
+    this.cleanupThreadsExampleOverviewVideo();
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
   }
@@ -6770,6 +7512,9 @@ ${argsString}</pre
     this.contextState.window.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
     this.hydrateStateFromStorage();
+    this.contextState.window.size = this.clampWindowSize(
+      this.contextState.window.size,
+    );
 
     // `hydrateStateFromStorage` may have restored `selectedMenu: "memories"`.
     // The memory subscription is normally created on a Memories-tab CLICK via
@@ -6805,6 +7550,51 @@ ${argsString}</pre
 
   render() {
     return this.isOpen ? this.renderWindow() : this.renderButton();
+  }
+
+  protected willUpdate(): void {
+    this.reconcileSelectedMenuVisibility();
+  }
+
+  protected updated(): void {
+    this.syncThreadsExampleOverviewVideo();
+    this.maybeTrackInspectorMetadataViews();
+
+    if (!this.isOpen || this.selectedGroup !== "agents") {
+      this.lastScrolledAgentNavigationLayout = null;
+      return;
+    }
+
+    const navigation = this.shadowRoot?.querySelector<HTMLElement>(
+      'nav[aria-label="Agent navigation"]',
+    );
+    if (!navigation) {
+      return;
+    }
+
+    const activeControl = navigation.querySelector<HTMLElement>(
+      '[aria-current="page"]',
+    );
+    if (!activeControl) {
+      return;
+    }
+
+    const layoutKey = [
+      this.selectedMenu,
+      this.dockMode,
+      Math.round(this.contextState.window.size.width),
+      typeof window === "undefined" ? 0 : window.innerWidth,
+      navigation.clientWidth,
+      navigation.scrollWidth,
+    ].join(":");
+    if (this.lastScrolledAgentNavigationLayout === layoutKey) {
+      return;
+    }
+
+    if (typeof activeControl.scrollIntoView === "function") {
+      activeControl.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+    this.lastScrolledAgentNavigationLayout = layoutKey;
   }
 
   private renderButton() {
@@ -6876,21 +7666,101 @@ ${argsString}</pre
     `;
   }
 
+  /** Render a trusted action with optional context-specific copy. */
+  private renderInspectorAction(
+    action: InspectorMetadataAction,
+    placement: "threads-footer" | "locked",
+    displayLabel:
+      | InspectorMetadataAction["label"]
+      | "Upgrade Your Plan" = action.label,
+  ) {
+    const actionIntent =
+      displayLabel === "Upgrade Your Plan" ? "upgrade" : undefined;
+    return html`
+      <a
+        data-inspector-action-placement=${placement}
+        data-inspector-action-intent=${actionIntent ?? nothing}
+        href=${action.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="${displayLabel} (opens in a new tab)"
+        style=${
+          placement === "threads-footer"
+            ? ""
+            : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"
+        }
+        @click=${() =>
+          this.handleInspectorMetadataActionClick(action, placement)}
+      >
+        ${displayLabel}
+      </a>
+    `;
+  }
+
+  private renderInspectorMetadataHeader() {
+    const { identity, plan } = this.inspectorMetadataProjection;
+    if (!identity && !plan) {
+      return nothing;
+    }
+
+    return html`
+      <div
+        style="display:flex;min-width:0;flex:1 1 220px;flex-wrap:wrap;align-items:center;gap:6px 8px;"
+        role="group"
+        aria-label="Inspector account details"
+      >
+        ${
+          identity
+            ? html`
+                <div
+                  data-inspector-metadata="identity"
+                  style="display:flex;min-width:0;max-width:100%;align-items:center;gap:6px;color:#e7e7ec;font-size:11px;line-height:1.3;"
+                  title="${identity.organizationName} / ${identity.projectName}"
+                >
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                    >${identity.organizationName}</span
+                  >
+                  <span aria-hidden="true" style="color:#68686e;">/</span>
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                    >${identity.projectName}</span
+                  >
+                </div>
+              `
+            : nothing
+        }
+        ${
+          plan
+            ? html`
+                <span
+                  data-inspector-metadata="plan"
+                  style="display:inline-flex;min-height:22px;align-items:center;border:1px solid rgba(133,236,206,0.5);border-radius:4px;background:rgba(133,236,206,0.14);padding:2px 7px;color:#85ecce;font-size:10px;font-weight:600;line-height:1.2;white-space:nowrap;"
+                  >${plan.label}</span
+                >
+              `
+            : nothing
+        }
+      </div>
+    `;
+  }
+
   private renderWindow() {
     const windowState = this.contextState.window;
     const isDocked = this.dockMode !== "floating";
     const isTransitioning = this.hasAttribute("data-transitioning");
 
     const windowStyles = isDocked
-      ? this.getDockedWindowStyles()
+      ? { ...this.getDockedWindowStyles(), overflowX: "hidden" }
       : {
           width: `${Math.round(windowState.size.width)}px`,
           height: `${Math.round(windowState.size.height)}px`,
           minWidth: `${MIN_WINDOW_WIDTH}px`,
           minHeight: `${MIN_WINDOW_HEIGHT}px`,
+          overflowX: "hidden",
         };
 
-    const hasContextDropdown = this.contextOptions.length > 0;
+    const hasContextDropdown = this.contextOptions.some(
+      (option) => option.key !== "all-agents",
+    );
     const contextDropdown = hasContextDropdown
       ? this.renderContextDropdown()
       : nothing;
@@ -6899,7 +7769,7 @@ ${argsString}</pre
       ? contextDropdown
       : html`
           <div
-            class="flex items-center gap-2 rounded-md border border-dashed border-gray-200 px-2 py-1 text-xs text-gray-400"
+            class="inspector-agent-placeholder flex items-center gap-2 rounded-md border border-dashed px-2 py-1 text-xs"
           >
             <span>${this.renderIcon("Bot")}</span>
             <span class="truncate">No agents available</span>
@@ -6945,41 +7815,45 @@ ${argsString}</pre
             @pointerup=${isDocked ? undefined : this.handlePointerUp}
             @pointercancel=${isDocked ? undefined : this.handlePointerCancel}
           >
-            <div class="flex flex-wrap items-center gap-3 px-4 py-3">
+            <div
+              class="inspector-account-strip flex flex-wrap items-center gap-3 px-4 py-3"
+              data-inspector-account-strip
+              style="width:100%;min-width:0;background-color:#010507;color:#ffffff;"
+            >
               <div class="flex items-center min-w-0">
                 <img
                   src=${inspectorLogoUrl}
                   alt="Inspector logo"
-                  class="h-6 w-auto"
+                  class="inspector-account-logo h-6 w-auto"
                   loading="lazy"
                 />
               </div>
+              ${this.renderInspectorMetadataHeader()}
               <div class="ml-auto flex min-w-0 items-center gap-2">
-                <div class="min-w-[160px] max-w-xs">${agentSelector}</div>
+                <div class="inspector-agent-selector min-w-[160px] max-w-xs">
+                  ${agentSelector}
+                </div>
                 <div class="flex items-center gap-1">
                   ${this.renderDockControls()}
                   <button
-                    class="flex h-8 w-8 items-center justify-center rounded-md transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 ${
-                      this.selectedMenu === "settings"
-                        ? "bg-gray-100 text-gray-700"
-                        : "text-gray-400 hover:text-gray-600"
+                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                      this.settingsOpen
+                        ? "inspector-account-control-active"
+                        : ""
                     }"
                     type="button"
                     aria-label="Settings"
-                    aria-pressed=${this.selectedMenu === "settings"}
-                    @click=${() =>
-                      this.handleMenuSelect(
-                        this.selectedMenu === "settings"
-                          ? "ag-ui-events"
-                          : "settings",
-                      )}
+                    aria-pressed=${this.settingsOpen}
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                    @click=${this.handleSettingsToggle}
                   >
                     ${this.renderIcon("Settings")}
                   </button>
                   <button
-                    class="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                     type="button"
                     aria-label="Close Web Inspector"
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
                     @pointerdown=${this.handleClosePointerDown}
                     @click=${this.handleCloseClick}
                   >
@@ -6988,27 +7862,36 @@ ${argsString}</pre
                 </div>
               </div>
             </div>
-            <div
-              class="flex flex-wrap items-center gap-2 border-t border-gray-100 px-3 py-2 text-xs"
+            <nav
+              class="inspector-primary-navigation"
+              aria-label="Inspector primary navigation"
+              style="overflow-x:auto;overflow-y:hidden;cursor:default;"
             >
-              ${this.menuItems.map(({ key, label, icon }) => {
-                const isSelected = this.selectedMenu === key;
-                const tabClasses = [
-                  "inline-flex items-center gap-2 rounded-md px-3 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300",
-                  isSelected ? "cpk-tab-active" : "cpk-tab-inactive",
-                ].join(" ");
+              ${INSPECTOR_PRIMARY_NAVIGATION.map(({ key, label, icon }) => {
+                const isSelected = this.selectedGroup === key;
+                const legacyMenuKey =
+                  key === "threads"
+                    ? "threads"
+                    : key === "learning"
+                      ? "memories"
+                      : undefined;
 
                 return html`
                   <button
                     type="button"
-                    class=${tabClasses}
-                    aria-pressed=${isSelected}
-                    @click=${() => this.handleMenuSelect(key)}
+                    class="inspector-nav-control inspector-primary-control ${
+                      isSelected ? "inspector-nav-control-active" : ""
+                    }"
+                    data-inspector-group=${key}
+                    data-inspector-menu-key=${legacyMenuKey ?? nothing}
+                    aria-current=${isSelected ? "page" : nothing}
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                    @click=${() => this.handleGroupSelect(key)}
                   >
-                    <span class="cpk-tab-icon">
+                    <span class="inspector-nav-icon" aria-hidden="true">
                       ${
-                        key in this.customTabIcons
-                          ? unsafeHTML(this.customTabIcons[key])
+                        key === "threads"
+                          ? unsafeHTML(this.customTabIcons.threads)
                           : this.renderIcon(icon)
                       }
                     </span>
@@ -7017,13 +7900,15 @@ ${argsString}</pre
                 `;
               })}
               ${
-                this.selectedMenu === "threads"
+                this.selectedGroup === "threads"
                   ? html`
                       <a
+                        data-inspector-thread-cta
                         href=${this.getThreadsTalkToEngineerUrl()}
                         target="_blank"
-                        rel="noopener"
-                        style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid #dbdbe5;background:#ffffff;padding:7px 10px;font-size:12px;font-weight:600;color:#57575b;text-decoration:none;"
+                        rel="noopener noreferrer"
+                        aria-label="Talk to an Engineer (opens in a new tab)"
+                        style=${INTERACTIVE_FOCUS_BASE_STYLE}
                         @click=${this.handleTalkToEngineerClick}
                       >
                         Talk to an Engineer
@@ -7031,7 +7916,43 @@ ${argsString}</pre
                     `
                   : nothing
               }
-            </div>
+            </nav>
+            ${
+              this.selectedGroup === "agents"
+                ? html`
+                    <nav
+                      class="inspector-child-navigation"
+                      aria-label="Agent navigation"
+                      style="overflow-x:auto;overflow-y:hidden;white-space:nowrap;cursor:default;"
+                    >
+                      ${this.getVisibleMenuItemsForGroup("agents").map(
+                        ({ key, label, icon }) => {
+                          const isSelected = this.selectedMenu === key;
+                          return html`
+                            <button
+                              type="button"
+                              class="inspector-nav-control inspector-child-control ${
+                                isSelected ? "inspector-nav-control-active" : ""
+                              }"
+                              data-inspector-menu-key=${key}
+                              aria-current=${isSelected ? "page" : nothing}
+                              style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                              @click=${() => this.handleMenuSelect(key)}
+                            >
+                              <span
+                                class="inspector-nav-icon"
+                                aria-hidden="true"
+                                >${this.renderIcon(icon)}</span
+                              >
+                              <span>${label}</span>
+                            </button>
+                          `;
+                        },
+                      )}
+                    </nav>
+                  `
+                : nothing
+            }
           </div>
           <div class="flex flex-1 flex-col overflow-hidden">
             <div id="cpk-main-scroll" class="flex-1 overflow-auto">
@@ -7102,15 +8023,7 @@ ${argsString}</pre
       this.dockMode = persisted.dockMode;
     }
 
-    // Restore selected menu
-    if (typeof persisted.selectedMenu === "string") {
-      const validMenu = this.menuItems.find(
-        (item) => item.key === persisted.selectedMenu,
-      );
-      if (validMenu) {
-        this.selectedMenu = validMenu.key;
-      }
-    }
+    this.restorePersistedMenu(persisted.selectedMenu);
 
     // Restore selected context (agent), will be validated later against available agents
     if (typeof persisted.selectedContext === "string") {
@@ -7128,6 +8041,8 @@ ${argsString}</pre
     if (!persisted) {
       return;
     }
+
+    this.restorePersistedMenu(persisted.selectedMenu);
 
     const persistedButton = persisted.button;
     if (persistedButton) {
@@ -7172,6 +8087,41 @@ ${argsString}</pre
     }
   }
 
+  /** Restore a visible legacy leaf, or use Threads for stale state. */
+  private restorePersistedMenu(value: unknown): void {
+    this.selectedMenu = "threads";
+    this.lastSelectedMenuByGroup.threads = "threads";
+    this.pendingPersistedMenu = null;
+
+    if (!isInspectorMenuKey(value)) {
+      return;
+    }
+
+    const validMenu = this.menuItems.find((item) => item.key === value);
+    if (!validMenu) {
+      if (!this.hasResolvedCore) {
+        this.pendingPersistedMenu = value;
+      }
+      return;
+    }
+
+    this.selectedMenu = validMenu.key;
+    this.lastSelectedMenuByGroup[this.getGroupForMenu(validMenu.key)] =
+      validMenu.key;
+  }
+
+  /** Resolve a valid stored leaf after the first Core exposes its sources. */
+  private resolvePendingPersistedMenu(): void {
+    const pendingMenu = this.pendingPersistedMenu;
+    if (!pendingMenu) {
+      return;
+    }
+
+    this.pendingPersistedMenu = null;
+    this.restorePersistedMenu(pendingMenu);
+    this.persistState();
+  }
+
   private get activeContext(): ContextKey {
     return this.isOpen ? "window" : "button";
   }
@@ -7187,7 +8137,7 @@ ${argsString}</pre
     const context: ContextKey = contextAttr === "window" ? "window" : "button";
 
     const eventTarget = event.target as HTMLElement | null;
-    if (context === "window" && eventTarget?.closest("button")) {
+    if (context === "window" && eventTarget?.closest("button, a, nav")) {
       return;
     }
 
@@ -7426,12 +8376,16 @@ ${argsString}</pre
     this.applyAnchorPosition("button");
 
     this.measureContext("window");
+    this.contextState.window.size = this.clampWindowSize(
+      this.contextState.window.size,
+    );
     if (this.hasCustomPosition.window) {
       this.applyAnchorPosition("window");
     } else {
       this.centerContext("window");
     }
 
+    this.requestUpdate();
     this.updateHostTransform();
   };
 
@@ -7542,7 +8496,7 @@ ${argsString}</pre
       },
       isOpen: this.isOpen,
       dockMode: this.dockMode,
-      selectedMenu: this.selectedMenu,
+      selectedMenu: this.pendingPersistedMenu ?? this.selectedMenu,
       selectedContext: this.selectedContext,
     };
     saveInspectorState(INSPECTOR_STORAGE_KEY, state);
@@ -7596,7 +8550,7 @@ ${argsString}</pre
       this.applyDockStyles();
     } else {
       // When floating, set size first then center
-      this.contextState.window.size = { ...DEFAULT_WINDOW_SIZE };
+      this.contextState.window.size = this.clampWindowSize(DEFAULT_WINDOW_SIZE);
       this.centerContext("window");
     }
 
@@ -7872,6 +8826,7 @@ ${argsString}</pre
           type="button"
           aria-label="Dock to left"
           title="Dock Left"
+          style=${INTERACTIVE_FOCUS_BASE_STYLE}
           @click=${() => this.handleDockClick("docked-left")}
         >
           ${this.renderIcon("PanelLeft")}
@@ -7885,6 +8840,7 @@ ${argsString}</pre
           type="button"
           aria-label="Float window"
           title="Float"
+          style=${INTERACTIVE_FOCUS_BASE_STYLE}
           @click=${() => this.handleDockClick("floating")}
         >
           ${this.renderIcon("Maximize2")}
@@ -8242,6 +9198,10 @@ ${argsString}</pre
   }
 
   private renderMainContent() {
+    if (this.settingsOpen) {
+      return this.renderSettingsPanel();
+    }
+
     if (this.selectedMenu === "ag-ui-events") {
       return this.renderEventsTable();
     }
@@ -8268,10 +9228,6 @@ ${argsString}</pre
 
     if (this.selectedMenu === "memories") {
       return this.renderMemoriesView();
-    }
-
-    if (this.selectedMenu === "settings") {
-      return this.renderSettingsPanel();
     }
 
     return nothing;
@@ -8344,6 +9300,178 @@ ${argsString}</pre
     });
   }
 
+  private getVisibleInspectorMetadataAction():
+    | Readonly<{
+        action: InspectorMetadataAction;
+        placement: "threads-footer" | "locked";
+      }>
+    | undefined {
+    const { threadsFooterAction, lockedAction } =
+      this.inspectorMetadataProjection;
+    if (
+      threadsFooterAction &&
+      !this.settingsOpen &&
+      this.selectedMenu === "threads"
+    ) {
+      return { action: threadsFooterAction, placement: "threads-footer" };
+    }
+    if (
+      lockedAction &&
+      !this.settingsOpen &&
+      this.selectedMenu === "threads" &&
+      !this.areThreadEndpointsAvailable()
+    ) {
+      return { action: lockedAction, placement: "locked" };
+    }
+    return undefined;
+  }
+
+  /** Return paired stable navigation keys, or neither for an invalid leaf. */
+  private getMetadataTelemetryNavigation(): Readonly<{
+    group_key?: InspectorGroupKey;
+    leaf_key?: MenuKey;
+  }> {
+    const selectedLeaf: unknown = this.selectedMenu;
+    if (!isInspectorMenuKey(selectedLeaf)) return {};
+    for (const group of INSPECTOR_PRIMARY_NAVIGATION) {
+      if (
+        INSPECTOR_GROUPS[group.key].some((menuKey) => menuKey === selectedLeaf)
+      ) {
+        return { group_key: group.key, leaf_key: selectedLeaf };
+      }
+    }
+    return {};
+  }
+
+  /** Build metadata's shared coarse buckets and stable navigation context. */
+  private getMetadataTelemetryContext(): Readonly<{
+    usage_bucket: ThreadsUsageBucket;
+    expiry_bucket: ThreadsExpiryBucket;
+    group_key?: InspectorGroupKey;
+    leaf_key?: MenuKey;
+  }> {
+    return {
+      usage_bucket: this.getThreadsUsageBucket(),
+      expiry_bucket: this.getThreadsExpiryBucket(),
+      ...this.getMetadataTelemetryNavigation(),
+    };
+  }
+
+  private trackMetadataModuleIfChanged(
+    props: InspectorMetadataModuleViewedTelemetryProps,
+    fingerprint: string,
+  ): void {
+    if (this.metadataTelemetryFingerprints.get(props.module) === fingerprint) {
+      return;
+    }
+    this.metadataTelemetryFingerprints.set(props.module, fingerprint);
+    try {
+      trackMetadataModuleViewed(props);
+    } catch {
+      // Telemetry is best-effort and must never break Inspector rendering.
+    }
+  }
+
+  private maybeTrackInspectorMetadataViews(): void {
+    if (
+      !this.isOpen ||
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
+
+    const { identity, plan } = this.inspectorMetadataProjection;
+    const license_bucket: InspectorMetadataLicenseBucket =
+      this.inspectorMetadataProjection.licenseState;
+    const telemetryContext = this.getMetadataTelemetryContext();
+    const contextFingerprint = [
+      telemetryContext.usage_bucket,
+      telemetryContext.expiry_bucket,
+      telemetryContext.group_key ?? null,
+      telemetryContext.leaf_key ?? null,
+    ];
+
+    if (identity) {
+      this.trackMetadataModuleIfChanged(
+        { module: "identity", license_bucket, ...telemetryContext },
+        JSON.stringify([
+          license_bucket,
+          ...contextFingerprint,
+          identity.organizationName,
+          identity.projectName,
+        ]),
+      );
+    } else {
+      this.metadataTelemetryFingerprints.delete("identity");
+    }
+
+    if (plan) {
+      this.trackMetadataModuleIfChanged(
+        { module: "plan", license_bucket, ...telemetryContext },
+        JSON.stringify([
+          license_bucket,
+          ...contextFingerprint,
+          plan.code,
+          plan.label,
+        ]),
+      );
+    } else {
+      this.metadataTelemetryFingerprints.delete("plan");
+    }
+
+    const visibleAction = this.getVisibleInspectorMetadataAction();
+    if (visibleAction) {
+      const { action, placement } = visibleAction;
+      const action_placement = getMetadataActionPlacement(placement);
+      this.trackMetadataModuleIfChanged(
+        {
+          module: "action",
+          action_kind: action.kind,
+          license_bucket,
+          ...telemetryContext,
+          action_placement,
+        },
+        JSON.stringify([
+          license_bucket,
+          ...contextFingerprint,
+          action_placement,
+          action.kind,
+          action.url,
+        ]),
+      );
+    } else {
+      this.metadataTelemetryFingerprints.delete("action");
+    }
+  }
+
+  private handleInspectorMetadataActionClick = (
+    action: InspectorMetadataAction,
+    placement: "threads-footer" | "locked",
+  ): void => {
+    if (
+      !this.isOpen ||
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
+    if (action.kind === "enable_intelligence") {
+      this.handleThreadsIntelligenceSignupClick();
+      return;
+    }
+    try {
+      trackMetadataActionClicked({
+        action_kind: action.kind,
+        license_bucket: this.inspectorMetadataProjection.licenseState,
+        ...this.getMetadataTelemetryContext(),
+        action_placement: getMetadataActionPlacement(placement),
+      });
+    } catch {
+      // Telemetry is best-effort and must never break action navigation.
+    }
+  };
+
   // Fires `banner_dismissed` at most once per `${bannerId}:${surface}` per
   // mount. Emitted alongside `banner_clicked { cta: "dismiss" }` rather than
   // replacing it, so dashboards reading the `cta` value keep working.
@@ -8380,39 +9508,21 @@ ${argsString}</pre
   private handleTalkToEngineerClick = (): void => {
     if (this.core?.telemetryDisabled) return;
     trackTalkToEngineerClicked(
-      this.getThreadsTelemetryProps(
-        {
-          cta: "talk_to_engineer",
-          cta_surface: "threads_header",
-        },
-        { includeUrlAttribution: true },
-      ),
+      this.getThreadsCtaTelemetryProps("talk_to_engineer", "threads_header"),
     );
   };
 
   private handleThreadsIntelligenceSignupClick = (): void => {
     if (this.core?.telemetryDisabled) return;
     trackThreadsIntelligenceSignupClicked(
-      this.getThreadsTelemetryProps(
-        {
-          cta: "signup",
-          cta_surface: "threads_locked",
-        },
-        { includeUrlAttribution: true },
-      ),
+      this.getThreadsCtaTelemetryProps("signup", "threads_locked"),
     );
   };
 
   private handleThreadsTalkToEngineerClick = (): void => {
     if (this.core?.telemetryDisabled) return;
     trackThreadsTalkToEngineerClicked(
-      this.getThreadsTelemetryProps(
-        {
-          cta: "talk_to_engineer",
-          cta_surface: "threads_locked",
-        },
-        { includeUrlAttribution: true },
-      ),
+      this.getThreadsCtaTelemetryProps("talk_to_engineer", "threads_locked"),
     );
   };
 
@@ -8450,13 +9560,12 @@ ${argsString}</pre
 
   private trackThreadsViewStateOnce(
     state: "locked" | "empty_enabled" | "enabled",
-    threadCount: number,
   ): void {
     if (this.core?.telemetryDisabled) return;
     const key = `${state}:${this.getThreadServiceStatus()}`;
     if (this.viewedThreadsTelemetryStates.has(key)) return;
     this.viewedThreadsTelemetryStates.add(key);
-    const props = this.getThreadsTelemetryProps({ thread_count: threadCount });
+    const props = this.getThreadsTelemetryProps();
     if (state === "locked") {
       trackThreadsLockedViewed(props);
     } else if (state === "empty_enabled") {
@@ -8467,23 +9576,15 @@ ${argsString}</pre
   }
 
   private shouldRenderExampleThreads(
+    locked: boolean,
     displayThreads: ɵThread[],
     threadsErrorMessage: string | null,
+    threadsLoading: boolean,
   ): boolean {
     return (
-      this.areThreadEndpointsAvailable() &&
-      !threadsErrorMessage &&
-      displayThreads.length === 0
+      locked ||
+      (!threadsErrorMessage && !threadsLoading && displayThreads.length === 0)
     );
-  }
-
-  private getVisibleThreads(
-    displayThreads: ɵThread[],
-    threadsErrorMessage: string | null,
-  ): ɵThread[] {
-    return this.shouldRenderExampleThreads(displayThreads, threadsErrorMessage)
-      ? THREADS_EXAMPLE_THREADS
-      : displayThreads;
   }
 
   private isExampleThreadId(threadId: string | null | undefined): boolean {
@@ -8504,6 +9605,7 @@ ${argsString}</pre
               agentId: thread.agentId,
               endUserId: "example-user",
               status: "completed",
+              createdAt: thread.createdAt,
               updatedAt: thread.updatedAt,
             }
           : null,
@@ -8518,51 +9620,55 @@ ${argsString}</pre
   private trackThreadsExampleViewedOnce(): void {
     if (this.core?.telemetryDisabled) return;
     for (const thread of THREADS_EXAMPLE_THREADS) {
-      if (this.viewedExampleThreadIds.has(thread.id)) continue;
-      this.viewedExampleThreadIds.add(thread.id);
-      trackThreadsExampleViewed(
-        this.getThreadsTelemetryProps({
-          example_thread_id: thread.id,
-          thread_count: 0,
-        }),
-      );
+      const exampleKind = getExampleKind(thread.id);
+      if (!exampleKind || this.viewedExampleKinds.has(exampleKind)) continue;
+      this.viewedExampleKinds.add(exampleKind);
+      trackThreadsExampleViewed({
+        ...this.getThreadsTelemetryProps(),
+        example_kind: exampleKind,
+      });
     }
   }
 
   private trackThreadsExampleSelectedOnce(threadId: string): void {
     if (this.core?.telemetryDisabled) return;
-    if (this.selectedExampleThreadIds.has(threadId)) return;
-    this.selectedExampleThreadIds.add(threadId);
-    trackThreadsExampleSelected(
-      this.getThreadsTelemetryProps({
-        example_thread_id: threadId,
-        thread_count: 0,
-      }),
-    );
+    const exampleKind = getExampleKind(threadId);
+    if (!exampleKind || this.selectedExampleKinds.has(exampleKind)) return;
+    this.selectedExampleKinds.add(exampleKind);
+    trackThreadsExampleSelected({
+      ...this.getThreadsTelemetryProps(),
+      example_kind: exampleKind,
+    });
   }
 
-  private getCurrentExampleTourProps(): InspectorThreadTelemetryProps {
-    const step =
-      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
-      THREADS_EXAMPLE_TOUR_STEPS[0]!;
-    return this.getThreadsTelemetryProps({
-      example_thread_id: this.selectedThreadId ?? undefined,
-      thread_count: 0,
-      tour_step: this.exampleTourStep + 1,
-      tour_tab: step?.tab,
-    });
+  private getCurrentExampleTourProps():
+    | (InspectorThreadTelemetryProps &
+        Readonly<{
+          example_kind: ExampleKind;
+          tour_step: ExampleTourStep;
+          tour_tab: ExampleTourTab;
+        }>)
+    | undefined {
+    const exampleKind = this.selectedThreadId
+      ? getExampleKind(this.selectedThreadId)
+      : undefined;
+    const tourPair = getExampleTourTelemetryPair(this.exampleTourStep);
+    if (!exampleKind || !tourPair) return undefined;
+    return {
+      ...this.getThreadsTelemetryProps(),
+      example_kind: exampleKind,
+      ...tourPair,
+    };
   }
 
   private trackThreadsExampleTourStepViewedOnce(): void {
     if (this.core?.telemetryDisabled || !this.selectedThreadId) return;
-    const step =
-      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
-      THREADS_EXAMPLE_TOUR_STEPS[0]!;
-    if (!step) return;
-    const key = `${this.selectedThreadId}:${this.exampleTourStep}`;
+    const props = this.getCurrentExampleTourProps();
+    if (!props) return;
+    const key = `${props.example_kind}:${props.tour_step}`;
     if (this.viewedExampleTourSteps.has(key)) return;
     this.viewedExampleTourSteps.add(key);
-    trackThreadsExampleTourStepViewed(this.getCurrentExampleTourProps());
+    trackThreadsExampleTourStepViewed(props);
   }
 
   private syncExampleTourTab(): void {
@@ -8585,10 +9691,12 @@ ${argsString}</pre
     if (autoStarted) {
       this.exampleTourAutoShown = true;
       if (!this.core?.telemetryDisabled) {
-        trackThreadsExampleTourStarted(this.getCurrentExampleTourProps());
+        const props = this.getCurrentExampleTourProps();
+        if (props) trackThreadsExampleTourStarted(props);
       }
     } else if (!this.core?.telemetryDisabled) {
-      trackThreadsExampleTourReopened(this.getCurrentExampleTourProps());
+      const props = this.getCurrentExampleTourProps();
+      if (props) trackThreadsExampleTourReopened(props);
     }
     this.trackThreadsExampleTourStepViewedOnce();
     this.syncExampleTourTab();
@@ -8596,29 +9704,31 @@ ${argsString}</pre
   }
 
   private setExampleTourStep(nextStep: number): void {
+    const telemetryStepIsValid =
+      getExampleTourTelemetryPair(nextStep) !== undefined;
     this.exampleTourStep = Math.max(
       0,
       Math.min(THREADS_EXAMPLE_TOUR_STEPS.length - 1, nextStep),
     );
-    this.trackThreadsExampleTourStepViewedOnce();
+    if (telemetryStepIsValid) this.trackThreadsExampleTourStepViewedOnce();
     this.syncExampleTourTab();
     this.requestUpdate();
   }
 
   private dismissExampleTour(method: "skip" | "done"): void {
     if (!this.selectedThreadId) return;
-    const props = {
-      ...this.getCurrentExampleTourProps(),
-      dismiss_method: method,
-    };
     this.exampleTourActive = false;
     this.exampleTourDismissed = true;
     this.writeThreadsExampleTourDismissed();
     if (!this.core?.telemetryDisabled) {
-      if (method === "done") {
-        trackThreadsExampleTourCompleted(props);
-      } else {
-        trackThreadsExampleTourDismissed(props);
+      const currentProps = this.getCurrentExampleTourProps();
+      if (currentProps) {
+        const props = { ...currentProps, dismiss_method: method };
+        if (method === "done") {
+          trackThreadsExampleTourCompleted(props);
+        } else {
+          trackThreadsExampleTourDismissed(props);
+        }
       }
     }
     this.requestUpdate();
@@ -8628,8 +9738,14 @@ ${argsString}</pre
     threadId: string,
     showingExamples: boolean,
   ): void {
-    if (showingExamples && this.selectedThreadId === threadId) {
+    if (
+      showingExamples &&
+      this.selectedThreadId === threadId &&
+      this.selectedLocalExampleThreadId === threadId
+    ) {
       this.selectedThreadId = null;
+      this.selectedRealThreadIsExplicit = false;
+      this.selectedLocalExampleThreadId = null;
       this.exampleTourActive = false;
       this.requestUpdate();
       return;
@@ -8637,6 +9753,8 @@ ${argsString}</pre
 
     this.selectedThreadId = threadId;
     if (showingExamples && this.isExampleThreadId(threadId)) {
+      this.selectedRealThreadIsExplicit = false;
+      this.selectedLocalExampleThreadId = threadId;
       this.trackThreadsExampleSelectedOnce(threadId);
       if (!this.exampleTourDismissed && !this.exampleTourAutoShown) {
         this.startExampleTour(true);
@@ -8644,6 +9762,11 @@ ${argsString}</pre
         this.exampleTourActive = false;
       }
     } else {
+      const { displayThreads } = this.getActiveThreadsState();
+      this.selectedRealThreadIsExplicit = displayThreads.some(
+        (thread) => thread.id === threadId,
+      );
+      this.selectedLocalExampleThreadId = null;
       this.exampleTourActive = false;
     }
     this.requestUpdate();
@@ -8673,9 +9796,161 @@ ${argsString}</pre
     }
   }
 
-  private scheduleThreadsExampleOverviewVideoLoad(): void {
+  /** Cancels the one deferred gate without disturbing a newer lifecycle. */
+  private cancelThreadsExampleOverviewVideoGate(): void {
+    if (this.threadsExampleOverviewVideoLoadTimer !== null) {
+      if (typeof window !== "undefined") {
+        window.clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
+      }
+      this.threadsExampleOverviewVideoLoadTimer = null;
+    }
+    if (this.threadsExampleOverviewVideoIdleCallbackId !== null) {
+      if (
+        typeof window !== "undefined" &&
+        typeof window.cancelIdleCallback === "function"
+      ) {
+        window.cancelIdleCallback(
+          this.threadsExampleOverviewVideoIdleCallbackId,
+        );
+      }
+      this.threadsExampleOverviewVideoIdleCallbackId = null;
+    }
+  }
+
+  /** Returns whether media work still belongs to the mounted lifecycle. */
+  private isCurrentThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+  ): boolean {
+    return (
+      this.isConnected &&
+      video.isConnected &&
+      this.threadsExampleOverviewVideoElement === video &&
+      this.threadsExampleOverviewVideoLifecycleGeneration ===
+        lifecycleGeneration
+    );
+  }
+
+  /** Invalidates any unresolved play request without exposing another state. */
+  private invalidateThreadsExampleOverviewVideoPlay(): void {
+    this.threadsExampleOverviewVideoPlayAttemptGeneration += 1;
+    this.threadsExampleOverviewVideoPlayPromise = null;
+  }
+
+  /** Moves a current media lifecycle into its readable failure state. */
+  private failThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+  ): void {
     if (
-      this.threadsExampleOverviewVideoShouldLoad ||
+      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
+    ) {
+      return;
+    }
+    this.invalidateThreadsExampleOverviewVideoPlay();
+    this.threadsExampleOverviewVideoLoaded = false;
+    this.threadsExampleOverviewVideoState = "failed";
+    this.requestUpdate();
+  }
+
+  /** Settles one guarded play promise and ignores stale completion. */
+  private async settleThreadsExampleOverviewVideoPlay(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+    playAttemptGeneration: number,
+    playback: Promise<void>,
+  ): Promise<void> {
+    try {
+      await playback;
+      if (
+        this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration) &&
+        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
+          playAttemptGeneration &&
+        this.threadsExampleOverviewVideoState !== "failed"
+      ) {
+        this.threadsExampleOverviewVideoState = "playing";
+        this.requestUpdate();
+      }
+    } catch {
+      if (
+        this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration) &&
+        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
+          playAttemptGeneration
+      ) {
+        this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
+      }
+    } finally {
+      if (
+        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
+        playAttemptGeneration
+      ) {
+        this.threadsExampleOverviewVideoPlayPromise = null;
+      }
+    }
+  }
+
+  /** Starts at most one play request for the current media lifecycle. */
+  private playThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+  ): void {
+    if (
+      this.threadsExampleOverviewVideoPlayPromise !== null ||
+      this.threadsExampleOverviewVideoState === "deferred" ||
+      this.threadsExampleOverviewVideoState === "failed" ||
+      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
+    ) {
+      return;
+    }
+
+    const playAttemptGeneration =
+      this.threadsExampleOverviewVideoPlayAttemptGeneration + 1;
+    this.threadsExampleOverviewVideoPlayAttemptGeneration =
+      playAttemptGeneration;
+    try {
+      const playback = Promise.resolve(video.play());
+      this.threadsExampleOverviewVideoPlayPromise =
+        this.settleThreadsExampleOverviewVideoPlay(
+          video,
+          lifecycleGeneration,
+          playAttemptGeneration,
+          playback,
+        );
+    } catch {
+      this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
+    }
+  }
+
+  /** Attaches the sole source for a generation and optionally starts playback. */
+  private activateThreadsExampleOverviewVideo(
+    video: HTMLVideoElement,
+    lifecycleGeneration: number,
+    play: boolean,
+  ): void {
+    if (
+      this.threadsExampleOverviewVideoState !== "deferred" ||
+      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
+    ) {
+      return;
+    }
+
+    this.threadsExampleOverviewVideoState = "ready";
+    this.threadsExampleOverviewVideoLoaded = false;
+    video.autoplay = !this.threadsExampleOverviewVideoReducedMotion;
+    video.setAttribute("src", THREADS_EXAMPLE_OVERVIEW_VIDEO_URL);
+    this.requestUpdate();
+    if (play) {
+      this.playThreadsExampleOverviewVideo(video, lifecycleGeneration);
+    }
+  }
+
+  /** Schedules exactly one idle or timer gate for the current video. */
+  private scheduleThreadsExampleOverviewVideoLoad(): void {
+    const video = this.threadsExampleOverviewVideoElement;
+    if (
+      !video ||
+      !this.isConnected ||
+      this.threadsExampleOverviewVideoState !== "deferred" ||
       this.threadsExampleOverviewVideoLoadTimer !== null ||
       this.threadsExampleOverviewVideoIdleCallbackId !== null ||
       typeof window === "undefined"
@@ -8683,61 +9958,323 @@ ${argsString}</pre
       return;
     }
 
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      return;
-    }
-
-    const loadVideo = () => {
-      this.threadsExampleOverviewVideoLoadTimer = null;
-      this.threadsExampleOverviewVideoIdleCallbackId = null;
-      this.threadsExampleOverviewVideoShouldLoad = true;
-      this.requestUpdate();
-    };
-
+    const lifecycleGeneration =
+      this.threadsExampleOverviewVideoLifecycleGeneration;
     if (typeof window.requestIdleCallback === "function") {
-      this.threadsExampleOverviewVideoIdleCallbackId =
-        window.requestIdleCallback(loadVideo, { timeout: 1200 });
+      let idleCallbackId = 0;
+      const loadVideo = () => {
+        if (this.threadsExampleOverviewVideoIdleCallbackId !== idleCallbackId) {
+          return;
+        }
+        this.threadsExampleOverviewVideoIdleCallbackId = null;
+        this.activateThreadsExampleOverviewVideo(
+          video,
+          lifecycleGeneration,
+          !this.threadsExampleOverviewVideoReducedMotion,
+        );
+      };
+      idleCallbackId = window.requestIdleCallback(loadVideo, { timeout: 1200 });
+      this.threadsExampleOverviewVideoIdleCallbackId = idleCallbackId;
       return;
     }
 
-    this.threadsExampleOverviewVideoLoadTimer = window.setTimeout(
-      loadVideo,
-      450,
-    );
+    const loadTimer = window.setTimeout(() => {
+      if (this.threadsExampleOverviewVideoLoadTimer !== loadTimer) {
+        return;
+      }
+      this.threadsExampleOverviewVideoLoadTimer = null;
+      this.activateThreadsExampleOverviewVideo(
+        video,
+        lifecycleGeneration,
+        !this.threadsExampleOverviewVideoReducedMotion,
+      );
+    }, 450);
+    this.threadsExampleOverviewVideoLoadTimer = loadTimer;
   }
 
-  private handleThreadsExampleOverviewVideoLoaded = (): void => {
-    this.threadsExampleOverviewVideoReady = true;
-    this.requestUpdate();
+  /** Attaches one generation-scoped media listener set to the stable video. */
+  private bindThreadsExampleOverviewVideo(video: HTMLVideoElement): void {
+    const lifecycleGeneration =
+      this.threadsExampleOverviewVideoLifecycleGeneration;
+    const listeners: ThreadsExampleOverviewVideoListeners = {
+      loadeddata: () => {
+        if (
+          !this.isCurrentThreadsExampleOverviewVideo(
+            video,
+            lifecycleGeneration,
+          ) ||
+          this.threadsExampleOverviewVideoState === "deferred" ||
+          this.threadsExampleOverviewVideoState === "failed"
+        ) {
+          return;
+        }
+        this.threadsExampleOverviewVideoLoaded = true;
+        this.requestUpdate();
+      },
+      play: () => {
+        if (
+          this.isCurrentThreadsExampleOverviewVideo(
+            video,
+            lifecycleGeneration,
+          ) &&
+          this.threadsExampleOverviewVideoState !== "deferred" &&
+          this.threadsExampleOverviewVideoState !== "failed"
+        ) {
+          this.threadsExampleOverviewVideoState = "playing";
+          this.requestUpdate();
+        }
+      },
+      pause: () => {
+        if (
+          this.isCurrentThreadsExampleOverviewVideo(
+            video,
+            lifecycleGeneration,
+          ) &&
+          this.threadsExampleOverviewVideoState !== "deferred" &&
+          this.threadsExampleOverviewVideoState !== "failed"
+        ) {
+          this.invalidateThreadsExampleOverviewVideoPlay();
+          this.threadsExampleOverviewVideoState = "ready";
+          this.requestUpdate();
+        }
+      },
+      error: () => {
+        this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
+      },
+    };
+    this.threadsExampleOverviewVideoElement = video;
+    this.threadsExampleOverviewVideoListeners = listeners;
+    video.addEventListener("loadeddata", listeners.loadeddata);
+    video.addEventListener("play", listeners.play);
+    video.addEventListener("pause", listeners.pause);
+    video.addEventListener("error", listeners.error);
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.autoplay =
+      this.threadsExampleOverviewVideoState !== "deferred" &&
+      !this.threadsExampleOverviewVideoReducedMotion;
+  }
+
+  /** Tears down gates, listeners, playback, and source in cleanup order. */
+  private cleanupThreadsExampleOverviewVideo(): void {
+    const video = this.threadsExampleOverviewVideoElement;
+    if (video) {
+      this.threadsExampleOverviewVideoLifecycleGeneration += 1;
+    }
+    this.invalidateThreadsExampleOverviewVideoPlay();
+    this.cancelThreadsExampleOverviewVideoGate();
+    this.threadsExampleOverviewVideoPlayOnNextBind = false;
+
+    const listeners = this.threadsExampleOverviewVideoListeners;
+    if (video && listeners) {
+      video.removeEventListener("loadeddata", listeners.loadeddata);
+      video.removeEventListener("play", listeners.play);
+      video.removeEventListener("pause", listeners.pause);
+      video.removeEventListener("error", listeners.error);
+    }
+    this.threadsExampleOverviewVideoElement = null;
+    this.threadsExampleOverviewVideoListeners = null;
+
+    if (video) {
+      try {
+        video.pause();
+      } catch {
+        // Some DOM shims expose media methods that throw instead of no-oping.
+      }
+      video.removeAttribute("src");
+      try {
+        video.load();
+      } catch {
+        // Cleanup must stay synchronous and never surface media abort errors.
+      }
+    }
+    this.threadsExampleOverviewVideoLoaded = false;
+    this.threadsExampleOverviewVideoState = "deferred";
+  }
+
+  /** Reconciles the rendered media node with its current lifecycle. */
+  private syncThreadsExampleOverviewVideo(): void {
+    const video = this.shadowRoot?.querySelector<HTMLVideoElement>(
+      ".cpk-threads-overview-video",
+    );
+    if (!video) {
+      if (
+        this.threadsExampleOverviewVideoElement ||
+        this.threadsExampleOverviewVideoState !== "deferred" ||
+        this.threadsExampleOverviewVideoLoadTimer !== null ||
+        this.threadsExampleOverviewVideoIdleCallbackId !== null ||
+        this.threadsExampleOverviewVideoPlayOnNextBind
+      ) {
+        this.cleanupThreadsExampleOverviewVideo();
+      }
+      return;
+    }
+
+    if (this.threadsExampleOverviewVideoElement !== video) {
+      if (this.threadsExampleOverviewVideoElement) {
+        this.cleanupThreadsExampleOverviewVideo();
+      }
+      this.bindThreadsExampleOverviewVideo(video);
+    }
+    if (this.threadsExampleOverviewVideoPlayOnNextBind) {
+      this.threadsExampleOverviewVideoPlayOnNextBind = false;
+      this.activateThreadsExampleOverviewVideo(
+        video,
+        this.threadsExampleOverviewVideoLifecycleGeneration,
+        true,
+      );
+      return;
+    }
+    this.scheduleThreadsExampleOverviewVideoLoad();
+  }
+
+  /** Handles the external native Play/Pause control. */
+  private handleThreadsExampleOverviewVideoControl = (): void => {
+    const video = this.threadsExampleOverviewVideoElement;
+    if (!video) return;
+
+    if (this.threadsExampleOverviewVideoState === "playing") {
+      this.invalidateThreadsExampleOverviewVideoPlay();
+      try {
+        video.pause();
+      } catch {
+        // Keep the visible state usable when a media shim cannot pause.
+      }
+      this.threadsExampleOverviewVideoState = "ready";
+      this.requestUpdate();
+      return;
+    }
+
+    if (this.threadsExampleOverviewVideoState === "failed") {
+      this.cleanupThreadsExampleOverviewVideo();
+      if (!this.isConnected || !video.isConnected) return;
+      this.threadsExampleOverviewVideoPlayOnNextBind = true;
+      this.requestUpdate();
+      return;
+    }
+
+    this.cancelThreadsExampleOverviewVideoGate();
+    const lifecycleGeneration =
+      this.threadsExampleOverviewVideoLifecycleGeneration;
+    if (this.threadsExampleOverviewVideoState === "deferred") {
+      this.activateThreadsExampleOverviewVideo(
+        video,
+        lifecycleGeneration,
+        true,
+      );
+      return;
+    }
+    this.playThreadsExampleOverviewVideo(video, lifecycleGeneration);
   };
 
   private renderThreadsExampleOverviewVideo() {
-    this.scheduleThreadsExampleOverviewVideoLoad();
-
+    const isPlaying = this.threadsExampleOverviewVideoState === "playing";
+    const sourceIsAttached =
+      this.threadsExampleOverviewVideoState !== "deferred";
+    const video = html`<video
+      class="cpk-threads-overview-video"
+      data-loaded=${this.threadsExampleOverviewVideoLoaded}
+      ?autoplay=${
+        sourceIsAttached && !this.threadsExampleOverviewVideoReducedMotion
+      }
+      .autoplay=${
+        sourceIsAttached && !this.threadsExampleOverviewVideoReducedMotion
+      }
+      loop
+      .loop=${true}
+      muted
+      .muted=${true}
+      playsinline
+      .playsInline=${true}
+      preload="metadata"
+    ></video>`;
+    // Alternating template identities retire the prior media node after cleanup.
+    // The node remains stable for every render within one lifecycle generation.
+    const generationScopedVideo =
+      this.threadsExampleOverviewVideoLifecycleGeneration % 2 === 0
+        ? html`<!-- cpk-video-generation-even -->${video}`
+        : html`<!-- cpk-video-generation-odd -->${video}`;
     return html`
       <div class="cpk-threads-overview-video-frame" aria-hidden="true">
-        ${
-          this.threadsExampleOverviewVideoShouldLoad
-            ? html`
-                <video
-                  class="cpk-threads-overview-video"
-                  data-ready=${this.threadsExampleOverviewVideoReady}
-                  src=${THREADS_EXAMPLE_OVERVIEW_VIDEO_URL}
-                  autoplay
-                  loop
-                  muted
-                  playsinline
-                  preload="metadata"
-                  @loadeddata=${this.handleThreadsExampleOverviewVideoLoaded}
-                ></video>
-              `
-            : nothing
-        }
+        ${generationScopedVideo}
       </div>
+      <button
+        class="cpk-threads-overview-video-control"
+        type="button"
+        aria-pressed=${isPlaying ? "false" : "true"}
+        @click=${this.handleThreadsExampleOverviewVideoControl}
+      >
+        ${isPlaying ? "Pause demo" : "Play demo"}
+      </button>
+      ${
+        this.threadsExampleOverviewVideoState === "failed"
+          ? html`
+              <p class="cpk-threads-overview-video-fallback" role="status">
+                ${THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK}
+              </p>
+            `
+          : nothing
+      }
     `;
   }
 
-  private renderThreadsExampleOverview() {
+  /** Show a copy result briefly and announce it to assistive technology. */
+  private showThreadsSetupPromptCopyState(
+    state: Exclude<ThreadsSetupPromptCopyState, "idle">,
+    generation: number,
+  ): void {
+    if (
+      !this.isConnected ||
+      generation !== this.threadsSetupPromptCopyGeneration
+    ) {
+      return;
+    }
+    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
+    }
+    this.threadsSetupPromptCopyState = state;
+    this.requestUpdate();
+    this.threadsSetupPromptCopyResetTimeoutId = window.setTimeout(() => {
+      if (
+        !this.isConnected ||
+        generation !== this.threadsSetupPromptCopyGeneration
+      ) {
+        return;
+      }
+      this.threadsSetupPromptCopyState = "idle";
+      this.threadsSetupPromptCopyResetTimeoutId = null;
+      this.requestUpdate();
+    }, 2_000);
+  }
+
+  /** Copy the static, docs-backed Rich Threads repair prompt. */
+  private handleThreadsSetupPromptCopy = async (): Promise<void> => {
+    const generation = (this.threadsSetupPromptCopyGeneration += 1);
+    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
+      this.threadsSetupPromptCopyResetTimeoutId = null;
+    }
+    this.threadsSetupPromptCopyState = "idle";
+    this.requestUpdate();
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      this.showThreadsSetupPromptCopyState("error", generation);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(THREADS_RUNTIME_SETUP_PROMPT);
+      this.showThreadsSetupPromptCopyState("copied", generation);
+    } catch {
+      this.showThreadsSetupPromptCopyState("error", generation);
+    }
+  };
+
+  private renderThreadsExampleOverview(locked: boolean) {
+    const lockedCopy = locked ? this.getThreadsLockedCopy() : undefined;
+    const { lockedAction } = this.inspectorMetadataProjection;
+    const onboardingAction = this.getThreadsEmptyOnboardingAction();
     return html`
       <div
         style="
@@ -8760,7 +10297,10 @@ ${argsString}</pre
               color: #010507;
             "
           >
-            Threads are persistent, inspectable conversations
+            ${
+              lockedCopy?.heading ??
+              "Threads are persistent, inspectable conversations"
+            }
           </h2>
           ${this.renderThreadsExampleOverviewVideo()}
           <p
@@ -8771,53 +10311,119 @@ ${argsString}</pre
               color: #57575b;
             "
           >
-            Take a tour with the example threads in the sidebar. Then, start
-            chatting in your app to create the first real thread.
+            ${
+              lockedCopy?.description ??
+              "Take a tour with the example threads in the sidebar. Then, start chatting in your app to create the first real thread."
+            }
           </p>
           <div style="display:flex;flex-wrap:wrap;gap:8px;">
-            <a
-              href=${this.getThreadsDocsUrl()}
-              target="_blank"
-              rel="noopener"
-              style="
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                min-height: 34px;
-                border-radius: 6px;
-                background: #010507;
-                padding: 8px 12px;
-                font-size: 12px;
-                font-weight: 600;
-                color: #ffffff;
-                text-decoration: none;
-              "
-            >
-              Learn how Threads work
-            </a>
-            <a
-              href=${this.getSelfHostedIntelligenceUrl()}
-              target="_blank"
-              rel="noopener"
-              style="
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                min-height: 34px;
-                border-radius: 6px;
-                border: 1px solid #dbdbe5;
-                background: #ffffff;
-                padding: 8px 12px;
-                font-size: 12px;
-                font-weight: 600;
-                color: #010507;
-                text-decoration: none;
-              "
-            >
-              Explore self-hosted Intelligence
-            </a>
+            ${
+              locked
+                ? html`
+                    ${
+                      this.inspectorMetadataProjection.licenseState === "valid"
+                        ? html`
+                            <button
+                              data-inspector-threads-setup-prompt
+                              type="button"
+                              aria-label=${
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Setup prompt copied"
+                                  : this.threadsSetupPromptCopyState === "error"
+                                    ? "Copy setup prompt failed. Try again"
+                                    : "Copy setup prompt for your coding agent"
+                              }
+                              @click=${this.handleThreadsSetupPromptCopy}
+                            >
+                              ${this.renderIcon(
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Check"
+                                  : "Copy",
+                              )}
+                              ${
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Copied"
+                                  : this.threadsSetupPromptCopyState === "error"
+                                    ? "Copy blocked"
+                                    : "Copy prompt for your agent"
+                              }
+                            </button>
+                            <a
+                              data-inspector-threads-setup-link
+                              href=${this.getThreadsRuntimeSetupDocsUrl()}
+                              target="_blank"
+                              rel="noopener"
+                              aria-label="Open setup guide (opens in a new tab)"
+                            >
+                              Open setup guide
+                            </a>
+                            <span
+                              class="sr-only"
+                              data-inspector-threads-setup-copy-status
+                              aria-live="polite"
+                              >${
+                                this.threadsSetupPromptCopyState === "copied"
+                                  ? "Setup prompt copied."
+                                  : this.threadsSetupPromptCopyState === "error"
+                                    ? "Setup prompt copy failed. Open the setup guide and copy it manually."
+                                    : ""
+                              }</span
+                            >
+                          `
+                        : nothing
+                    }
+                    ${
+                      lockedAction
+                        ? this.renderInspectorAction(lockedAction, "locked")
+                        : nothing
+                    }
+                  `
+                : html`
+                    <a
+                      href=${this.getThreadsDocsUrl()}
+                      target="_blank"
+                      rel="noopener"
+                      style="
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        min-height: 34px;
+                        border-radius: 6px;
+                        background: #010507;
+                        padding: 8px 12px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #ffffff;
+                        text-decoration: none;
+                      "
+                    >
+                      Learn how Threads work
+                    </a>
+                    <a
+                      href=${onboardingAction.href}
+                      target="_blank"
+                      rel="noopener"
+                      style="
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        min-height: 34px;
+                        border-radius: 6px;
+                        border: 1px solid #dbdbe5;
+                        background: #ffffff;
+                        padding: 8px 12px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #010507;
+                        text-decoration: none;
+                      "
+                    >
+                      ${onboardingAction.label}
+                    </a>
+                  `
+            }
           </div>
         </div>
       </div>
@@ -8827,7 +10433,7 @@ ${argsString}</pre
   private renderThreadsExampleTour() {
     if (
       !this.selectedThreadId ||
-      !this.isExampleThreadId(this.selectedThreadId)
+      this.selectedThreadId !== this.selectedLocalExampleThreadId
     ) {
       return nothing;
     }
@@ -8889,7 +10495,7 @@ ${argsString}</pre
             font-family: 'Spline Sans Mono', monospace;
             font-size: 10px;
             font-weight: 600;
-            color: #189370;
+            color: #087653;
             text-transform: uppercase;
           "
         >
@@ -8920,7 +10526,7 @@ ${argsString}</pre
         >
           <button
             type="button"
-            style="border:0;background:transparent;color:#838389;font-size:12px;font-weight:600;cursor:pointer;padding:7px 0;"
+            style="border:0;background:transparent;color:#68686e;font-size:12px;font-weight:600;cursor:pointer;padding:7px 0;"
             @click=${() => this.dismissExampleTour("skip")}
           >
             Skip
@@ -9105,124 +10711,36 @@ ${argsString}</pre
     `;
   }
 
-  private renderThreadsLockedView() {
-    this.trackThreadsViewStateOnce("locked", 0);
-    return html`
-      <div
-        style="
-          position: relative;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 32px;
-          overflow: hidden;
-          background: #ffffff;
-        "
-      >
-        ${this.renderThreadsLockedBackgroundMockup()}
-        <div
-          aria-hidden="true"
-          style="
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            background:
-              radial-gradient(circle at center, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.78) 24%, rgba(255,255,255,0.34) 48%, rgba(255,255,255,0.56) 100%);
-          "
-        ></div>
-        <div
-          style="
-            position: relative;
-            z-index: 1;
-            max-width: 440px;
-            text-align: center;
-            color: #57575b;
-          "
-        >
-          <div
-            aria-hidden="true"
-            style="
-              margin: 0 auto 18px;
-              display: flex;
-              justify-content: center;
-            "
-          >
-            <div
-              style="
-                display: flex;
-                height: 44px;
-                width: 44px;
-                align-items: center;
-                justify-content: center;
-                border: 1px solid #dfd6fb;
-                border-radius: 8px;
-                background: #eee6fe;
-                color: #57575b;
-                box-shadow: 0 8px 18px rgba(87, 87, 91, 0.14);
-              "
-            >
-              ${this.renderIcon("Lock")}
-            </div>
-          </div>
-          <h2
-            style="
-              margin: 0 0 8px;
-              font-size: 16px;
-              line-height: 1.35;
-              font-weight: 600;
-              color: #010507;
-            "
-          >
-            Enable Intelligence to inspect Threads.
-          </h2>
-          <p
-            style="
-              margin: 0 auto 18px;
-              max-width: 380px;
-              font-size: 13px;
-              line-height: 1.55;
-              color: #57575b;
-            "
-          >
-            Persist conversations and inspect saved thread history from the
-            Inspector.
-          </p>
-          <div
-            style="
-              display: flex;
-              flex-wrap: wrap;
-              justify-content: center;
-              gap: 8px;
-            "
-          >
-            <a
-              href=${this.getThreadsIntelligenceSignupUrl()}
-              target="_blank"
-              rel="noopener"
-              style="
-                display: inline-flex;
-                min-height: 34px;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                border-radius: 6px;
-                border: 1px solid #dbdbe5;
-                background: #ffffff;
-                padding: 8px 12px;
-                font-size: 12px;
-                font-weight: 600;
-                color: #57575b;
-                text-decoration: none;
-              "
-              @click=${this.handleThreadsIntelligenceSignupClick}
-            >
-              Sign up for Intelligence
-            </a>
-          </div>
-        </div>
-      </div>
-    `;
+  private getThreadsLockedCopy(): {
+    heading: string;
+    description: string;
+  } {
+    switch (this.inspectorMetadataProjection.licenseState) {
+      case "valid":
+        return {
+          heading: "Finish setting up Rich Threads",
+          description:
+            "Copy this prompt into your coding agent to finish the setup.",
+        };
+      case "none":
+        return {
+          heading: "Enable Intelligence to inspect Threads.",
+          description:
+            "Persist conversations and inspect saved thread history from the Inspector.",
+        };
+      case "expired":
+        return {
+          heading: "Renew Intelligence to inspect Threads.",
+          description:
+            "Your Intelligence access has expired. Renew it to inspect saved thread history.",
+        };
+      case "unknown":
+        return {
+          heading: "Threads are unavailable.",
+          description:
+            "This runtime does not expose Threads for the Inspector.",
+        };
+    }
   }
 
   /**
@@ -9254,7 +10772,7 @@ ${argsString}</pre
           gap: 4px;
           font-size: 10px;
           font-weight: 500;
-          color: ${connected ? "#57575b" : "#838389"};
+          color: ${connected ? "#57575b" : "#68686e"};
         "
       >
         <span
@@ -9430,7 +10948,7 @@ ${argsString}</pre
             align-items: center;
             justify-content: center;
             gap: 8px;
-            color: #838389;
+            color: #68686e;
           "
         >
           <svg
@@ -9476,7 +10994,7 @@ ${argsString}</pre
             align-items: center;
             justify-content: center;
             gap: 8px;
-            color: #838389;
+            color: #68686e;
           "
         >
           <svg
@@ -9578,22 +11096,116 @@ ${argsString}</pre
     `;
   }
 
-  private renderThreadsView() {
-    if (!this.areThreadEndpointsAvailable()) {
-      return this.renderThreadsLockedView();
+  /** Renders trusted Threads usage and its independent plan action. */
+  private renderThreadsUsageFooter() {
+    const { usage, threadsFooterAction } = this.inspectorMetadataProjection;
+    if (!usage && !threadsFooterAction) {
+      return nothing;
     }
 
-    const { displayThreads, threadsErrorMessage } =
+    let countLabel: string | undefined;
+    let progressMax: number | undefined;
+    let progressValue: number | undefined;
+    const capacityState = this.getThreadsCapacityState();
+    if (usage) {
+      if (usage.limit.kind === "finite") {
+        const overLimit = usage.used > usage.limit.value;
+        const visibleUsed = overLimit
+          ? `${usage.limit.value}+`
+          : String(usage.used);
+        countLabel = `${visibleUsed} / ${usage.limit.value} Threads`;
+        progressMax = usage.limit.value;
+        progressValue = Math.min(usage.used, usage.limit.value);
+      } else if (usage.limit.kind === "unlimited") {
+        countLabel = `${usage.used} Threads · Unlimited`;
+      } else {
+        countLabel = `${usage.used} Threads · Limit unavailable`;
+      }
+    }
+
+    return html`
+      <footer
+        class="inspector-threads-footer"
+        data-inspector-threads-footer
+        role="group"
+        aria-label="Threads usage"
+      >
+        ${
+          usage && countLabel
+            ? html`
+                <div class="inspector-threads-usage">
+                  <span data-inspector-thread-count>${countLabel}</span>
+                  ${
+                    progressMax !== undefined && progressValue !== undefined
+                      ? html`
+                          <progress
+                            class="inspector-thread-progress"
+                            data-inspector-thread-progress
+                            data-inspector-thread-capacity=${capacityState}
+                            max=${progressMax}
+                            value=${progressValue}
+                            aria-label=${
+                              capacityState === "warning"
+                                ? `${countLabel}. Near thread limit.`
+                                : capacityState === "critical"
+                                  ? `${countLabel}. Thread limit reached.`
+                                  : countLabel
+                            }
+                            >${countLabel}</progress
+                          >
+                        `
+                      : nothing
+                  }
+                  ${
+                    usage.expiringSoonCount !== undefined
+                      ? html`
+                          <span data-inspector-thread-expiry
+                            >${usage.expiringSoonCount} Expiring Soon</span
+                          >
+                        `
+                      : nothing
+                  }
+                </div>
+              `
+            : nothing
+        }
+        ${
+          threadsFooterAction
+            ? this.renderInspectorAction(
+                threadsFooterAction,
+                "threads-footer",
+                capacityState === "warning" || capacityState === "critical"
+                  ? "Upgrade Your Plan"
+                  : threadsFooterAction.label,
+              )
+            : nothing
+        }
+      </footer>
+    `;
+  }
+
+  private renderThreadsView() {
+    const locked = !this.areThreadEndpointsAvailable();
+    const { displayThreads, threadsErrorMessage, threadsLoading } =
       this.getActiveThreadsState();
+    const loadingWithoutRows =
+      !locked &&
+      threadsLoading &&
+      !threadsErrorMessage &&
+      displayThreads.length === 0;
 
     const showingExamples = this.shouldRenderExampleThreads(
+      locked,
       displayThreads,
       threadsErrorMessage,
+      threadsLoading,
     );
-    const visibleThreads = this.getVisibleThreads(
-      displayThreads,
-      threadsErrorMessage,
-    );
+    const visibleThreads =
+      !locked && (threadsErrorMessage || loadingWithoutRows)
+        ? []
+        : showingExamples
+          ? THREADS_EXAMPLE_THREADS
+          : displayThreads;
     if (showingExamples) {
       this.trackThreadsExampleViewedOnce();
     }
@@ -9602,12 +11214,18 @@ ${argsString}</pre
       this.selectedThreadId != null
         ? (visibleThreads.find((t) => t.id === this.selectedThreadId) ?? null)
         : null;
-    const selectedThreadIsExample = this.isExampleThreadId(selectedThread?.id);
+    const selectedThreadIsLocalExample =
+      selectedThread !== null &&
+      selectedThread.id === this.selectedLocalExampleThreadId;
 
-    if (!threadsErrorMessage) {
+    if (locked) {
+      this.trackThreadsViewStateOnce("locked");
+    } else if (
+      !threadsErrorMessage &&
+      (!threadsLoading || displayThreads.length > 0)
+    ) {
       this.trackThreadsViewStateOnce(
         displayThreads.length === 0 ? "empty_enabled" : "enabled",
-        displayThreads.length,
       );
     }
 
@@ -9619,14 +11237,16 @@ ${argsString}</pre
             style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
           >
             <cpk-thread-list
-              style="height:100%;"
+              style="min-height:0;flex:1;"
               .threads=${visibleThreads}
               .selectedThreadId=${this.selectedThreadId}
               .errorMessage=${threadsErrorMessage}
+              .suppressEmptyState=${loadingWithoutRows}
               @threadSelected=${(e: CustomEvent<string>) => {
                 this.handleThreadsThreadSelected(e.detail, showingExamples);
               }}
             ></cpk-thread-list>
+            ${this.renderThreadsUsageFooter()}
           </div>
 
           <!-- Resize divider -->
@@ -9641,21 +11261,64 @@ ${argsString}</pre
           <!-- Center + right: thread details or empty state -->
           <div style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;">
             ${
-              selectedThread
-                ? html`<cpk-thread-details
+              !locked && threadsErrorMessage
+                ? html`
+                    <div
+                      role="alert"
+                      style="
+                        display: flex;
+                        flex: 1;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        padding: 24px;
+                        color: #c0333a;
+                        text-align: center;
+                      "
+                    >
+                      <strong style="font-size:13px;">Failed to load threads</strong>
+                      <span style="max-width:440px;font-size:12px;line-height:1.5;"
+                        >${threadsErrorMessage}</span
+                      >
+                    </div>
+                  `
+                : loadingWithoutRows
+                  ? html`
+                      <div
+                        role="status"
+                        style="
+                          display: flex;
+                          flex: 1;
+                          align-items: center;
+                          justify-content: center;
+                          color: #57575b;
+                          font-size: 13px;
+                        "
+                      >
+                        Loading threads…
+                      </div>
+                    `
+                  : selectedThread
+                    ? html`<cpk-thread-details
                     style="flex:1;min-width:0;"
                     .threadId=${selectedThread.id}
                     .thread=${selectedThread}
                     .provider=${
-                      selectedThreadIsExample
+                      selectedThreadIsLocalExample
                         ? this.getExampleThreadProvider(selectedThread.id)
                         : null
                     }
-                    .runtimeUrl=${this._core?.runtimeUrl ?? ""}
+                    .runtimeUrl=${
+                      selectedThreadIsLocalExample
+                        ? ""
+                        : (this._core?.runtimeUrl ?? "")
+                    }
                     .headers=${this._core?.headers ?? {}}
                     .threadInspectionAvailable=${
-                      selectedThreadIsExample ||
-                      this._core?.threadEndpoints?.inspect !== false
+                      selectedThreadIsLocalExample ||
+                      (this.areThreadEndpointsAvailable() &&
+                        this._core?.threadEndpoints?.inspect !== false)
                     }
                     .liveMessageVersion=${
                       this.liveMessageVersion.get(selectedThread.id) ?? 0
@@ -9667,10 +11330,14 @@ ${argsString}</pre
                       this.agentEvents.get(selectedThread.agentId) ?? []
                     }
                   ></cpk-thread-details>
-                  ${selectedThreadIsExample ? this.renderThreadsExampleTour() : nothing}`
-                : showingExamples
-                  ? this.renderThreadsExampleOverview()
-                  : html`
+                  ${
+                    selectedThreadIsLocalExample
+                      ? this.renderThreadsExampleTour()
+                      : nothing
+                  }`
+                    : showingExamples
+                      ? this.renderThreadsExampleOverview(locked)
+                      : html`
                     <div
                       style="
                         flex: 1;
@@ -9679,7 +11346,7 @@ ${argsString}</pre
                         align-items: center;
                         justify-content: center;
                         gap: 8px;
-                        color: #838389;
+                        color: #68686e;
                       "
                     >
                       <svg
@@ -10342,15 +12009,15 @@ ${prettyEvent}</pre
   }
 
   private handleMenuSelect(key: MenuKey): void {
-    if (
-      key !== "settings" &&
-      !this.menuItems.some((item) => item.key === key)
-    ) {
+    if (!this.menuItems.some((item) => item.key === key)) {
       return;
     }
 
     const previousMenu = this.selectedMenu;
+    this.pendingPersistedMenu = null;
     this.selectedMenu = key;
+    this.settingsOpen = false;
+    this.lastSelectedMenuByGroup[this.getGroupForMenu(key)] = key;
 
     // If switching to agents view and "all-agents" is selected, switch to the most recently active agent
     if (key === "agents" && this.selectedContext === "all-agents") {
@@ -10427,6 +12094,7 @@ ${prettyEvent}</pre
     if (this.selectedContext !== key) {
       this.selectedContext = key;
       this.expandedRows.clear();
+      this.autoSelectLatestThread();
     }
 
     this.contextMenuOpen = false;
@@ -11824,10 +13492,19 @@ ${prettyEvent}</pre
   }
 }
 
-export function defineWebInspector(): void {
-  if (!customElements.get(WEB_INSPECTOR_TAG)) {
-    customElements.define(WEB_INSPECTOR_TAG, WebInspectorElement);
-  }
+// `customElements` is missing during SSR and in torn-down DOM test
+// environments. Resolve it when this function is called so registration can
+// be retried once a browser registry becomes available.
+export function defineWebInspector(
+  registry: CustomElementRegistry | undefined = globalThis.customElements,
+): void {
+  if (!registry) return;
+
+  defineElementOnce(registry, "cpk-thread-list", CpkThreadList);
+  defineElementOnce(registry, THREAD_INSPECTOR_TAG, CpkThreadInspector);
+  defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);
+  defineElementOnce(registry, "cpk-memory-list", CpkMemoryList);
+  defineElementOnce(registry, WEB_INSPECTOR_TAG, WebInspectorElement);
 }
 
 defineWebInspector();

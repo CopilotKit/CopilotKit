@@ -151,12 +151,14 @@ class CopilotKitStub {
   readonly #runtimeUrl = signal<string | undefined>(undefined);
   readonly #runtimeTransport = signal<"rest" | "single" | "auto">("auto");
   readonly #headers = signal<Record<string, string>>({});
+  readonly #credentials = signal<RequestCredentials | undefined>(undefined);
   getAgent = vi.fn((id: string) => this.#agents()[id]);
   agents = this.#agents.asReadonly();
   runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
   runtimeUrl = this.#runtimeUrl.asReadonly();
   runtimeTransport = this.#runtimeTransport.asReadonly();
   headers = this.#headers.asReadonly();
+  credentials = this.#credentials.asReadonly();
   #coreInstance = new CopilotKitCore({});
   core: StubCore = {
     runtimeUrl: undefined,
@@ -185,6 +187,10 @@ class CopilotKitStub {
   setHeaders(value: Record<string, string>) {
     this.#headers.set(value);
     this.core = { ...this.core, headers: value };
+  }
+
+  setCredentials(value: RequestCredentials | undefined) {
+    this.#credentials.set(value);
   }
 
   setRuntimeTransport(value: "rest" | "single" | "auto") {
@@ -325,6 +331,36 @@ describe("injectAgentStore", () => {
     const proxiedAgent = proxied as ProxiedCopilotRuntimeAgent;
     expect(proxiedAgent.agentId).toBe("missing");
     expect(proxiedAgent.headers).toEqual({ "x-test": "1" });
+  });
+
+  it("keeps credentials current on the cached provisional agent", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setCredentials("include");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class MissingAgentHost {
+      store = injectAgentStore("missing");
+    }
+
+    const fixture = TestBed.createComponent(MissingAgentHost);
+    const initialAgent = fixture.componentInstance.store()
+      .agent as ProxiedCopilotRuntimeAgent;
+    expect(initialAgent).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
+    expect(initialAgent.credentials).toBe("include");
+
+    copilotKitStub.setCredentials("omit");
+
+    const updatedAgent = fixture.componentInstance.store()
+      .agent as ProxiedCopilotRuntimeAgent;
+    expect(updatedAgent).toBe(initialAgent);
+    expect(updatedAgent.credentials).toBe("omit");
   });
 
   it("shares a provisional runtime agent across same-id consumers", () => {

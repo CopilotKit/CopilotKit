@@ -9,7 +9,8 @@
 // weatherAgent — the advanced cell only differs by client-side
 // sandbox-function registrations passed to <CopilotKit openGenerativeUI={...}>.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -19,27 +20,32 @@ import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 
+// Dedicated OGUI agents (NOT the shared weatherAgent): their system prompts
+// mandate a single interactive `generateSandboxedUi` call and fold the
+// CopilotKit design-skill + sandbox-function context into the prompt, so a
+// live LLM produces WIRED (not static) UI. See `src/mastra/agents/index.ts`
+// (open-gen-ui-agents region) for the why.
 const openGenUiAgent = getLocalAgent({
   mastra,
-  agentId: "weatherAgent",
+  agentId: "openGenUiAgent",
   resourceId: "mastra-open-gen-ui",
 });
 
 if (!openGenUiAgent) {
   throw new Error(
-    "getLocalAgent returned null for weatherAgent — required for /demos/open-gen-ui",
+    "getLocalAgent returned null for openGenUiAgent — required for /demos/open-gen-ui",
   );
 }
 
 const openGenUiAdvancedAgent = getLocalAgent({
   mastra,
-  agentId: "weatherAgent",
+  agentId: "openGenUiAdvancedAgent",
   resourceId: "mastra-open-gen-ui-advanced",
 });
 
 if (!openGenUiAdvancedAgent) {
   throw new Error(
-    "getLocalAgent returned null for weatherAgent — required for /demos/open-gen-ui-advanced",
+    "getLocalAgent returned null for openGenUiAdvancedAgent — required for /demos/open-gen-ui-advanced",
   );
 }
 

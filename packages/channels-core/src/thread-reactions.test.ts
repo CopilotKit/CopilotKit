@@ -6,7 +6,10 @@ import { FakeAdapter } from "./testing/fake-adapter.js";
 describe("Thread.react / unreact", () => {
   it("delegates to the adapter when supported", async () => {
     const fake = new FakeAdapter();
-    const channel = createChannel({ adapters: [fake] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
     const results: { ok: boolean }[] = [];
     channel.onMessage(async ({ thread, message }) => {
       results.push(await thread.react(message.ref, emoji.thumbs_up));
@@ -27,7 +30,10 @@ describe("Thread.react / unreact", () => {
 
   it("returns { ok: false } without throwing when unsupported", async () => {
     const fake = new FakeAdapter({ reactions: false });
-    const channel = createChannel({ adapters: [fake] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
     let res: { ok: boolean; error?: string } | undefined;
     channel.onMessage(async ({ thread, message }) => {
       res = await thread.react(message.ref, emoji.heart);

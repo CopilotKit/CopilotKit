@@ -37,6 +37,8 @@ describe("resolveModel — custom baseURL via env", () => {
     process.env.OPENAI_API_KEY = "test-openai-key";
     process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
     process.env.GOOGLE_API_KEY = "test-google-key";
+    process.env.MINIMAX_API_KEY = "test-minimax-key";
+    delete process.env.MINIMAX_BASE_URL;
   });
 
   afterEach(() => {
@@ -73,6 +75,30 @@ describe("resolveModel — custom baseURL via env", () => {
     resolveModel("openai/gpt-4o");
     expect(createOpenAI).toHaveBeenCalledWith(
       expect.objectContaining({ baseURL: undefined }),
+    );
+  });
+
+  it.each(["MiniMax-M3", "MiniMax-M2.7"])(
+    "resolves MiniMax model %s with the global endpoint",
+    (modelId) => {
+      const model = resolveModel(`minimax/${modelId}`);
+
+      expect(createOpenAI).toHaveBeenCalledWith({
+        name: "minimax",
+        apiKey: "test-minimax-key",
+        baseURL: "https://api.minimax.io/v1",
+      });
+      expect(model).toMatchObject({ modelId });
+    },
+  );
+
+  it("passes MINIMAX_BASE_URL to the MiniMax provider", () => {
+    process.env.MINIMAX_BASE_URL = "https://api.minimaxi.com/v1";
+
+    resolveModel("minimax:MiniMax-M3");
+
+    expect(createOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: "https://api.minimaxi.com/v1" }),
     );
   });
 });

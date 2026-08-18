@@ -7,6 +7,10 @@ import { useLearningContainers } from "./use-learning-containers";
  * Same as {@link UseLearningContainersArgs} minus `threadId`, which is
  * sourced from the surrounding `<CopilotChatConfigurationProvider>` at
  * render time.
+ *
+ * @deprecated Legacy plural-container annotation compatibility only. New
+ * Intelligence runtimes assign one container with `ɵlearning.containerId` on
+ * `CopilotRuntime`.
  */
 export type UseLearningContainersInCurrentThreadArgs = Omit<
   UseLearningContainersArgs,
@@ -14,8 +18,8 @@ export type UseLearningContainersInCurrentThreadArgs = Omit<
 >;
 
 /**
- * Declaratively keeps the **current chat thread's** learning containers in
- * sync. The `threadId` is sourced from the surrounding
+ * Legacy compatibility hook that keeps the **current chat thread's** plural
+ * learning-container annotation in sync. The `threadId` is sourced from the surrounding
  * `<CopilotChatConfigurationProvider>` (the same provider `<CopilotChat>`,
  * `<CopilotSidebar>`, and friends set up), so callers in a chat-aware
  * subtree don't need to thread an id through manually.
@@ -39,6 +43,10 @@ export type UseLearningContainersInCurrentThreadArgs = Omit<
  *   // ...
  * }
  * ```
+ *
+ * @deprecated Legacy plural-container annotation compatibility only. New
+ * Intelligence runtimes assign one container with `ɵlearning.containerId` on
+ * `CopilotRuntime`.
  */
 export function useLearningContainersInCurrentThread({
   learningContainers,

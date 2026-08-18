@@ -1,0 +1,119 @@
+# telemetry / docs fragment
+#
+# Regenerates the `CopilotKit.docs` telemetry-registry fragment (the
+# showcase/shell-docs site) and opens a path-limited PR against
+# CopilotKit/oss-path-to-production whenever the docs site's telemetry could
+# have changed. Callee-mode extraction (inline posthog.capture), content-gated:
+# if the extracted event set is unchanged the fragment is left untouched and no
+# PR is opened, so routine docs code changes don't churn the registry.
+name: telemetry / docs fragment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Only the code under `src/**`: the emitter walks showcase/shell-docs/src
+      # for .ts/.tsx, and src/content is pure MDX/JSON prose (1000+ files, the
+      # bulk of docs traffic) that cannot contain a posthog.capture call site.
+      - "showcase/shell-docs/src/**"
+      - "!showcase/shell-docs/src/content/**"
+      - "scripts/telemetry/**"
+      - ".github/workflows/telemetry-docs-fragment.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telemetry-docs-fragment
+  cancel-in-progress: false
+
+jobs:
+  fragment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # GitHub rejects secrets.* in `if:`; surface the registry App ID as an env
+    # var to gate on — the workflow self-skips when the App isn't configured.
+    env:
+      REGISTRY_APP_ID: ${{ secrets.TELEMETRY_REGISTRY_APP_ID }}
+    steps:
+      - name: Checkout CopilotKit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Cross-repo token, least privilege: NO explicit owner + bare
+      # `repositories`; contents+pull-requests write only.
+      - name: Mint token for oss-path-to-production
+        if: env.REGISTRY_APP_ID != ''
+        id: token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.TELEMETRY_REGISTRY_APP_ID }}
+          private-key: ${{ secrets.TELEMETRY_REGISTRY_APP_PRIVATE_KEY }}
+          repositories: oss-path-to-production
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Checkout oss-path-to-production
+        if: steps.token.outputs.token != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: CopilotKit/oss-path-to-production
+          token: ${{ steps.token.outputs.token }}
+          path: p2p
+          persist-credentials: false
+
+      - name: Generate docs fragment
+        if: steps.token.outputs.token != ''
+        run: pnpm tsx scripts/telemetry/emit-fragment.ts --surface docs --out p2p/telemetry-registry/fragments/CopilotKit.docs.json
+
+      # Regenerate the canonical alongside the fragment — the registry's reconcile
+      # CI rejects a stale telemetry-events.json, so a fragment-only PR fails.
+      # Use the registry's own pnpm (its packageManager field).
+      - name: Setup pnpm for registry
+        if: steps.token.outputs.token != ''
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          package_json_file: p2p/package.json
+
+      - name: Reconcile registry
+        if: steps.token.outputs.token != ''
+        working-directory: p2p
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm reconcile
+
+      - name: Open fragment PR
+        if: steps.token.outputs.token != ''
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        with:
+          token: ${{ steps.token.outputs.token }}
+          path: p2p
+          add-paths: |
+            telemetry-registry/fragments/CopilotKit.docs.json
+            telemetry-registry/telemetry-events.json
+          base: main
+          branch: telemetry/copilotkit-docs
+          delete-branch: true
+          commit-message: "chore(telemetry): update CopilotKit.docs fragment"
+          title: "chore(telemetry): update CopilotKit.docs fragment"
+          body: |
+            Automated update of the `CopilotKit.docs` telemetry-registry fragment
+            (showcase/shell-docs), extracted from inline posthog.capture call sites.
+
+            `telemetry-events.json` is regenerated alongside it (`pnpm reconcile`) so the
+            registry's reconcile check sees a fresh canonical; curated fields are preserved.

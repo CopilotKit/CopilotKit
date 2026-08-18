@@ -58,7 +58,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -85,7 +85,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -105,7 +105,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -121,7 +121,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -141,7 +141,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -162,7 +162,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
       log: (m: string) => logs.push(m),
       reconnectLogIntervalMs: 5,
@@ -199,7 +199,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
       log: (m: string) => logs.push(m),
     });

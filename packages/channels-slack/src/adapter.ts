@@ -18,11 +18,12 @@ import type {
   ConversationStore,
   AgentSession,
   MessageRef,
-  PlatformUser,
+  ProviderActor,
   UserQuery,
   EphemeralResult,
   NativePayload,
   ReplyContinuationOptions,
+  IngressIdentityContext,
 } from "@copilotkit/channels-core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
@@ -55,6 +56,7 @@ import type { TextStream, NativeStreamTransport } from "./native-stream.js";
 import { attachAssistant } from "./assistant.js";
 import type { AssistantHandle } from "./assistant.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
+import { slackFallbackText } from "./native-codec.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
 import { DM_SCOPE, resolveSlackRespondToOptions } from "./types.js";
 import type {
@@ -129,7 +131,7 @@ export class SlackAdapter implements PlatformAdapter {
   private readonly store: SlackConversationStore;
   private sink: IngressSink | undefined;
   /** Per-id cache for sender-profile resolution (repeat turns are cheap). */
-  private readonly userCache = new Map<string, PlatformUser>();
+  private readonly userCache = new Map<string, ProviderActor>();
   /** Set once the Assistant middleware is attached (when assistant !== false). */
   private assistantHandle: AssistantHandle | undefined;
   /** Our team id (from auth.test); native channel streams need it. */
@@ -211,7 +213,7 @@ export class SlackAdapter implements PlatformAdapter {
         app: this.app,
         sink,
         opts: this.opts.assistant ?? {},
-        resolveUser: (id) => this.resolveUser(id),
+        identityContext: (input) => this.identityContext(input),
       });
     }
 
@@ -224,8 +226,12 @@ export class SlackAdapter implements PlatformAdapter {
       respondTo: resolveSlackRespondToOptions(this.opts.respondTo),
       isAssistantThread: this.assistantHandle?.isAssistantThread,
       onTurn: async (turn) => {
+        const conversationKey = conversationKeyOf(turn.conversation);
+        const actor = turn.senderUserId
+          ? { id: turn.senderUserId, kind: "human" as const }
+          : { id: "", kind: "unknown" as const };
         await sink.onTurn({
-          conversationKey: conversationKeyOf(turn.conversation),
+          conversationKey,
           // Carry the sender id so native channel streams can pass
           // `recipient_user_id` to chat.startStream.
           replyTarget: {
@@ -234,9 +240,16 @@ export class SlackAdapter implements PlatformAdapter {
           },
           userText: turn.userText,
           operation: turn.operation,
-          user: turn.senderUserId
-            ? await this.resolveUser(turn.senderUserId)
-            : undefined,
+          actor,
+          identityContext: this.identityContext({
+            conversationKey,
+            conversationKind:
+              turn.conversation.scope === DM_SCOPE ? "direct" : "thread",
+            trigger: "message",
+            eventId: turn.eventId,
+            actor,
+            raw: { operation: turn.operation },
+          }),
           // Stable per-delivery id for inbound dedup (Events API event_id, or a
           // fallback derived by the listener); undefined when unavailable.
           eventId: turn.eventId,
@@ -244,16 +257,27 @@ export class SlackAdapter implements PlatformAdapter {
         });
       },
       onCommand: async (cmd) => {
+        const conversationKey = conversationKeyOf(cmd.conversation);
+        const actor = cmd.senderUserId
+          ? { id: cmd.senderUserId, kind: "human" as const }
+          : { id: "", kind: "unknown" as const };
         await sink.onCommand({
           command: cmd.command,
           text: cmd.text,
           // Slack delivers args as free text only; structured `rawOptions`
           // are a Discord-style capability, so they're left unset here.
-          conversationKey: conversationKeyOf(cmd.conversation),
+          conversationKey,
           replyTarget: cmd.replyTarget,
-          user: cmd.senderUserId
-            ? await this.resolveUser(cmd.senderUserId)
-            : undefined,
+          actor,
+          identityContext: this.identityContext({
+            conversationKey,
+            conversationKind:
+              cmd.conversation.scope === DM_SCOPE ? "direct" : "thread",
+            trigger: "command",
+            eventId: cmd.eventId,
+            actor,
+            raw: { command: cmd.command },
+          }),
           // Stable per-invocation id for inbound dedup (command:user:trigger_id).
           eventId: cmd.eventId,
           platform: "slack",
@@ -285,14 +309,28 @@ export class SlackAdapter implements PlatformAdapter {
       // Enrich the reactor to parity with onTurn/onCommand so per-user
       // attribution (e.g. senderContext(evt.user) → filter by email) works
       // for reaction-triggered runs, not just mentions and commands.
-      if (event.user) evt.user = await this.resolveUser(event.user);
+      if (event.user) evt.actor = { id: event.user, kind: "human" };
+      evt.identityContext = this.identityContext({
+        conversationKey: evt.conversationKey,
+        conversationKind: "thread",
+        trigger: "reaction",
+        actor: evt.actor ?? { id: "", kind: "unknown" },
+        raw: { rawEmoji: evt.rawEmoji, added: evt.added },
+      });
       await sink.onReaction(evt);
     });
     this.app.event("reaction_removed", async ({ event }) => {
       if (event.user === this.botUserId) return;
       const evt = decodeReaction(event, false);
       if (!evt) return;
-      if (event.user) evt.user = await this.resolveUser(event.user);
+      if (event.user) evt.actor = { id: event.user, kind: "human" };
+      evt.identityContext = this.identityContext({
+        conversationKey: evt.conversationKey,
+        conversationKind: "thread",
+        trigger: "reaction",
+        actor: evt.actor ?? { id: "", kind: "unknown" },
+        raw: { rawEmoji: evt.rawEmoji, added: evt.added },
+      });
       await sink.onReaction(evt);
     });
 
@@ -301,10 +339,18 @@ export class SlackAdapter implements PlatformAdapter {
     // open with inline messages); otherwise a plain ack closes the modal.
     // A catch-all `/.*/` callback_id constraint defaults to `view_submission`.
     this.app.view(/.*/, async ({ ack, body, view }) => {
-      const user = body.user?.id
-        ? { id: body.user.id, name: body.user.name }
+      const actor = body.user?.id
+        ? { id: body.user.id, kind: "human" as const, name: body.user.name }
         : undefined;
-      const result = await sink.onModalSubmit(decodeViewSubmission(view, user));
+      const event = decodeViewSubmission(view, actor);
+      event.identityContext = this.identityContext({
+        conversationKey: event.conversationKey ?? `modal:${event.callbackId}`,
+        conversationKind: "modal",
+        trigger: "modal-submit",
+        actor: actor ?? { id: "", kind: "unknown" },
+        raw: { callbackId: event.callbackId },
+      });
+      const result = await sink.onModalSubmit(event);
       if (result?.errors) {
         await ack({ response_action: "errors", errors: result.errors });
       } else {
@@ -315,10 +361,18 @@ export class SlackAdapter implements PlatformAdapter {
     this.app.view(
       { type: "view_closed", callback_id: /.*/ },
       async ({ ack, body, view }) => {
-        const user = body.user?.id
-          ? { id: body.user.id, name: body.user.name }
+        const actor = body.user?.id
+          ? { id: body.user.id, kind: "human" as const, name: body.user.name }
           : undefined;
-        await sink.onModalClose(decodeViewClosed(view, user));
+        const event = decodeViewClosed(view, actor);
+        event.identityContext = this.identityContext({
+          conversationKey: event.conversationKey ?? `modal:${event.callbackId}`,
+          conversationKind: "modal",
+          trigger: "modal-close",
+          actor: actor ?? { id: "", kind: "unknown" },
+          raw: { callbackId: event.callbackId },
+        });
+        await sink.onModalClose(event);
         await ack();
       },
     );
@@ -338,7 +392,7 @@ export class SlackAdapter implements PlatformAdapter {
   async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const { blocks, accent } = renderSlackMessage(ir);
-    const summary = fallbackText(ir);
+    const summary = slackFallbackText(ir);
     // Suppress Slack link/media unfurling: a card with many links (e.g. an
     // issue_list of Linear URLs) would otherwise spawn a wall of preview
     // attachments. The gen-UI card IS the presentation.
@@ -365,7 +419,7 @@ export class SlackAdapter implements PlatformAdapter {
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
     const channel = channelOf(ref);
     const { blocks, accent } = renderSlackMessage(ir);
-    const summary = fallbackText(ir);
+    const summary = slackFallbackText(ir);
     // Mirror `post`'s accent/non-accent split. `chat.update` does not accept
     // the `unfurl_*` flags, so they are only set on `postMessage`.
     const args: ChatUpdateArguments = accent
@@ -587,7 +641,11 @@ export class SlackAdapter implements PlatformAdapter {
         messageTs,
         threadTs: body.message?.thread_ts,
         user: body.user?.id
-          ? { id: body.user.id, name: body.user.name ?? body.user.username }
+          ? {
+              id: body.user.id,
+              kind: "human",
+              name: body.user.name ?? body.user.username,
+            }
           : undefined,
       }),
     ).catch((err) =>
@@ -728,10 +786,48 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   decodeInteraction(raw: unknown): InteractionEvent | undefined {
-    return decodeInteraction(raw);
+    const event = decodeInteraction(raw);
+    if (!event) return undefined;
+    const actor = event.actor ?? { id: "", kind: "unknown" };
+    event.identityContext = this.identityContext({
+      conversationKey: event.conversationKey,
+      conversationKind: "thread",
+      trigger: "interaction",
+      eventId: event.eventId,
+      actor,
+      raw: { actionId: event.id },
+    });
+    return event;
   }
 
-  async lookupUser(q: UserQuery): Promise<PlatformUser | undefined> {
+  /** Build bounded identity facts without fetching a Slack profile eagerly. */
+  private identityContext(input: {
+    conversationKey: string;
+    conversationKind: string;
+    trigger: string;
+    eventId?: string;
+    actor: ProviderActor;
+    raw: unknown;
+  }): IngressIdentityContext {
+    return {
+      tenant: { id: this.teamId ?? "unknown" },
+      installation: {
+        id: this.appId ?? this.botId ?? this.botUserId ?? "unknown",
+      },
+      conversation: {
+        id: input.conversationKey,
+        kind: input.conversationKind,
+      },
+      trigger: input.trigger,
+      event: input.eventId ? { id: input.eventId } : {},
+      raw: input.raw,
+      ...(input.actor.id && input.actor.kind === "human"
+        ? { lookupProfile: () => this.resolveUser(input.actor.id) }
+        : {}),
+    };
+  }
+
+  async lookupUser(q: UserQuery): Promise<ProviderActor | undefined> {
     const query = q.query.trim().toLowerCase();
     if (!query) return undefined;
     try {
@@ -761,6 +857,7 @@ export class SlackAdapter implements PlatformAdapter {
           if (candidates.some((c) => c === query || c.startsWith(query))) {
             return {
               id: m.id,
+              kind: "human",
               name: m.real_name ?? m.name,
               handle: m.name,
               email: m.profile?.email,
@@ -776,14 +873,14 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   /**
-   * Resolve a Slack user id to a richer `PlatformUser` (name + email) for each
+   * Resolve a Slack user id to a richer `ProviderActor` (name + email) for each
    * turn, cached by id so repeat turns in the same conversation are cheap.
    * Tolerates lookup failure by falling back to a bare `{ id }`.
    */
-  async resolveUser(userId: string): Promise<PlatformUser> {
+  async resolveUser(userId: string): Promise<ProviderActor> {
     const cached = this.userCache.get(userId);
     if (cached) return cached;
-    let user: PlatformUser = { id: userId };
+    let user: ProviderActor = { id: userId, kind: "human" };
     try {
       const r = (await this.client.users.info({ user: userId })) as {
         user?: {
@@ -801,6 +898,7 @@ export class SlackAdapter implements PlatformAdapter {
       if (u?.id) {
         user = {
           id: u.id,
+          kind: "human",
           name:
             u.real_name ??
             u.profile?.real_name ??
@@ -977,14 +1075,14 @@ export class SlackAdapter implements PlatformAdapter {
    */
   async postEphemeral(
     target: BotReplyTarget,
-    user: PlatformUser | string,
+    user: ProviderActor | string,
     ir: ChannelNode[],
     _opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
     const t = target as ReplyTarget;
     const userId = typeof user === "string" ? user : user.id;
     const { blocks } = renderSlackMessage(ir);
-    const text = fallbackText(ir);
+    const text = slackFallbackText(ir);
     try {
       const res = await this.client.chat.postEphemeral({
         channel: t.channel,
@@ -1057,66 +1155,4 @@ export function slack(opts: SlackAdapterOptions): SlackAdapter {
 function channelOf(ref: MessageRef): string {
   const channel = (ref as { channel?: unknown }).channel;
   return typeof channel === "string" ? channel : "";
-}
-
-/** Collect a node's descendant text into a single whitespace-joined string. */
-function collectNodeText(node: ChannelNode): string {
-  const acc: string[] = [];
-  const visit = (n: ChannelNode): void => {
-    if (typeof n.type === "string" && n.type === "text") {
-      const value = n.props?.value;
-      if (value != null) acc.push(String(value));
-      return;
-    }
-    const children = n.props?.children;
-    const list = Array.isArray(children)
-      ? children
-      : children && typeof children === "object" && "type" in children
-        ? [children]
-        : [];
-    for (const child of list as ChannelNode[]) visit(child);
-  };
-  visit(node);
-  return acc.join(" ");
-}
-
-/** Depth-first search for the first node of `type` in the IR tree. */
-function findFirst(ir: ChannelNode[], type: string): ChannelNode | undefined {
-  for (const node of ir) {
-    if (typeof node.type === "string" && node.type === type) return node;
-    const children = node.props?.children;
-    const list = Array.isArray(children)
-      ? children
-      : children && typeof children === "object" && "type" in children
-        ? [children]
-        : [];
-    const found = findFirst(list as ChannelNode[], type);
-    if (found) return found;
-  }
-  return undefined;
-}
-
-/**
- * Slack requires a plain-text `text` fallback alongside `blocks`/`attachments`
- * (used for notifications and a11y) — NOT a rendering of the card body. Return
- * a concise one-line summary: the card's header (title) if present, else the
- * first text encountered. Collapse whitespace and truncate to ~150 chars. This
- * MUST stay short: it is the notification text, never a dump of the whole tree
- * (which Slack would render as a duplicate "text wall" above the card).
- */
-function fallbackText(ir: ChannelNode[]): string {
-  const header = findFirst(ir, "header");
-  const source = header ? collectNodeText(header) : firstText(ir);
-  const text = source.replace(/\s+/g, " ").trim();
-  if (!text) return "…";
-  return text.length > 150 ? text.slice(0, 149) + "…" : text;
-}
-
-/** First descendant text node's value across the whole IR, or "". */
-function firstText(ir: ChannelNode[]): string {
-  for (const node of ir) {
-    const t = collectNodeText(node);
-    if (t.trim()) return t;
-  }
-  return "";
 }

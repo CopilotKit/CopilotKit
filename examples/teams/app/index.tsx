@@ -201,6 +201,7 @@ const showCard = defineChannelTool({
 });
 
 const bot = createChannel({
+  identifyUser: "platform",
   // Every declared Channel needs a unique `name` — the Intelligence runtime
   // keys its lifecycle (and, for managed Channels, its activation config) by it.
   name: "teams-assistant",
@@ -258,9 +259,6 @@ const intelligence = new CopilotKitIntelligence({
 const channelRuntime = new CopilotRuntime({
   agents: {},
   intelligence,
-  // Demo stub — replace with your own auth-derived user identity (e.g. OIDC)
-  // before any multi-user deployment, or all users share one thread history.
-  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
   channels: [bot],
 });
 
