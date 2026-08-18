@@ -4,10 +4,10 @@ import { Markdown } from "../Markdown";
 import { useState } from "react";
 import React from "react";
 import { copyToClipboard } from "@copilotkit/shared";
-import { isActivatingClick } from "../feedback";
+import { MessageTimestamp } from "./MessageTimestamp";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
-  const { icons, labels } = useChatContext();
+  const { icons, labels, showTimestamps } = useChatContext();
   const {
     message,
     isLoading,
@@ -37,17 +37,15 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     if (onRegenerate) onRegenerate();
   };
 
-  // Clicking the already-active button retracts the feedback, so report the
-  // state the click transitions to rather than an unconditional `true`.
   const handleThumbsUp = () => {
     if (onThumbsUp && message) {
-      onThumbsUp(message, isActivatingClick(feedback, "thumbsUp"));
+      onThumbsUp(message);
     }
   };
 
   const handleThumbsDown = () => {
     if (onThumbsDown && message) {
-      onThumbsDown(message, isActivatingClick(feedback, "thumbsDown"));
+      onThumbsDown(message);
     }
   };
 
@@ -69,6 +67,10 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
         <div className="copilotKitMessage copilotKitAssistantMessage">
           {content && (
             <Markdown content={content} components={markdownTagRenderers} />
+          )}
+
+          {showTimestamps && (
+            <MessageTimestamp timestamp={message?.timestamp} />
           )}
 
           {content && !isLoading && (
