@@ -5,10 +5,9 @@
 // `theme-keel` class higher up; this import supplies its values.)
 import "./theme.css";
 
-import { useEffect } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 import {
   LayoutDashboard,
   BookOpen,
@@ -24,13 +23,12 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { useSkinData } from "@/shell/skin-provider";
 import { useRole } from "@/skins/keel/role-context";
+import { useKeelDesk } from "@/skins/keel/desk-data";
 import { keelNav } from "@/skins/keel/nav";
 import { keelIdentity } from "@/skins/keel/identity";
-import type { KeelData } from "@/skins/keel/data/types";
-
-const BASE = "/keel";
+import { useKeelHref, useKeelSegments } from "@/skins/keel/href";
+import { PresenterResetButton } from "@/skins/keel/components/presenter-reset-button";
 
 /** Per-segment nav icon. keelNav carries labels only, so the chrome owns the
  *  glyphs — dense, monochrome, utilitarian, in keeping with the theme. */
@@ -89,40 +87,67 @@ function RoleSwitcher() {
  * shell, not here.
  */
 export function KeelLayout({ children }: { children: ReactNode }) {
-  const data = useSkinData<KeelData>();
-  const pathname = usePathname();
+  const data = useKeelDesk();
+  const keelHref = useKeelHref();
   const Logo = keelIdentity.logo;
 
   // The active segment is whatever follows the skin base ("" for the Desk).
-  const restHead = pathname.split("/").slice(2)[0] ?? "";
+  // `useKeelSegments` strips a LEADING skin id rather than slicing a fixed
+  // offset, so it is correct whether or not the pathname carries the prefix —
+  // which is what makes this work unchanged on a LOCK_SKIN deploy.
+  const segments = useKeelSegments();
+  const restHead = segments[0] ?? "";
   // Highlight the parent nav entry for parameterized routes too:
-  // /keel/knowledge/<docId> keeps "Knowledge" active.
+  // knowledge/<docId> keeps "Register" active.
   const isActive = (segment: string) =>
     segment === "" ? restHead === "" : restHead === segment;
 
+  // ── BEAT 3b, part 1 — the ROUTE readable ──────────────────────────────────
+  // Without this the agent has no idea which page is open, so "what's on my
+  // screen?" answers identically everywhere no matter how good the per-page
+  // readables are. It lives in the layout because the layout is the one
+  // component mounted on every route, including both parameterized ones — and
+  // `detail_id` is what lets the agent say WHICH document or run is open rather
+  // than only that a detail page is.
+  //
+  // Deliberately narrow: it names the route and nothing about the contents. Each
+  // page describes its own contents (`pages/knowledge.tsx`,
+  // `pages/document.tsx`), and a layout that also summarized them would be a
+  // second, staler opinion about the same screen.
+  //
+  // No semicolons in the description — the repo's readable omission guards
+  // anchor on a `useAgentContext(` window terminated by the statement's own
+  // semicolon.
+  const navLabel = keelNav.find((route) => isActive(route.segment))?.label;
+  useAgentContext({
+    description:
+      "The page the operator is looking at right now in Keel — the route below " +
+      "the app root, the nav entry that is highlighted, and the id of the " +
+      "record open on a detail route. Treat this as your knowledge of WHERE " +
+      "the operator is, and never say you cannot see the screen.",
+    value: JSON.stringify({
+      path: segments.join("/"),
+      section: navLabel ?? restHead ?? "",
+      // "knowledge/<docId>" and "runs/<runId>" are the two parameterized routes
+      // — keel is the only skin with any, and this is the field that makes them
+      // legible to the agent.
+      detail_id: segments[1] ?? null,
+      persona: data.persona.name,
+      persona_role: data.persona.role,
+    }),
+  });
+
   const awaiting = data.approvalsForMe.length;
 
-  // Publish this skin's edge-nav geometry so the shell's floating skin selector
-  // can inset its dock clear of the nav WITHOUT the shell knowing anything about
-  // keel (see `.nw-selector-dock` in globals.css). Keel pins a 224px (w-56) rail
-  // to the LEFT and nothing to the right. Published on <html> so the fixed dock,
-  // wherever it sits in the tree, inherits the values.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--nw-nav-inset-left", "224px");
-    root.style.setProperty("--nw-nav-inset-right", "0px");
-    return () => {
-      root.style.removeProperty("--nw-nav-inset-left");
-      root.style.removeProperty("--nw-nav-inset-right");
-    };
-  }, []);
-
   return (
-    <div className="flex h-full min-h-screen bg-canvas text-ink">
+    // `h-full`, not `min-h-screen`: this chrome now fills the shell's app card,
+    // which is already inset by the frame padding — sizing to the viewport would
+    // overflow the card by exactly that padding.
+    <div className="flex h-full bg-canvas text-ink">
       {/* Left nav rail */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5 md:flex">
         <Link
-          href={BASE}
+          href={keelHref()}
           className="mb-6 flex items-center gap-2.5 px-2"
           aria-label={keelIdentity.brand}
         >
@@ -141,7 +166,7 @@ export function KeelLayout({ children }: { children: ReactNode }) {
 
         <nav className="flex flex-col gap-0.5">
           {keelNav.map((route) => {
-            const href = route.segment ? `${BASE}/${route.segment}` : BASE;
+            const href = keelHref(route.segment);
             const active = isActive(route.segment);
             const Icon = route.icon ?? NAV_ICONS[route.segment] ?? Activity;
             return (
@@ -198,6 +223,10 @@ export function KeelLayout({ children }: { children: ReactNode }) {
               </span>
             </div>
             <RoleSwitcher />
+            {/* Renders null unless PRESENTER_RESET_ENABLED is set (or the env is
+                non-production) — the SAME gate `POST /dev/reset` enforces. Gate
+                them differently and a booth shows a control that 403s. */}
+            <PresenterResetButton />
             <ThemeToggle />
           </div>
         </header>

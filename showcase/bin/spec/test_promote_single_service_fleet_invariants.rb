@@ -425,6 +425,41 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         assert_equal "ghcr.io/copilotkit/docs@sha256:NEW_DOCS", image
     end
 
+    # Full-fleet parity tolerates only environment asymmetry explicitly modeled
+    # by the SSOT. This keeps a staging-first rollout from blocking the documented
+    # no-argument promote path without hiding unknown fleet drift.
+    def test_full_fleet_parity_tolerates_ssot_declared_staging_only_service
+        staging = {
+            "services" => [{ "name" => "showcase-crewai-conversational-flows" }],
+        }
+        prod = { "services" => [] }
+
+        findings = build_cmd([]).check_service_set_parity(staging, prod)
+
+        assert_empty findings
+    end
+
+    def test_full_fleet_parity_still_refuses_unknown_staging_only_service
+        staging = { "services" => [{ "name" => "showcase-rogue" }] }
+        prod = { "services" => [] }
+
+        findings = build_cmd([]).check_service_set_parity(staging, prod)
+
+        assert_equal ["REFUSE: services in staging not in prod: showcase-rogue"], findings
+    end
+
+    def test_targeted_promote_still_refuses_ssot_declared_staging_only_service
+        service = "showcase-crewai-conversational-flows"
+        staging = { "services" => [{ "name" => service }] }
+        prod = { "services" => [] }
+
+        findings = build_cmd([service]).check_service_set_parity(
+            staging, prod, target: service,
+        )
+
+        assert_equal ["REFUSE: services in staging not in prod: #{service}"], findings
+    end
+
     # ── Single-service promote must TOLERATE unrelated prod-only services.
     # This is the MIRROR of the staging-only tolerance test and the red-green
     # for the PROD-only arm of the target-scoping fix (#5324). A prod-only

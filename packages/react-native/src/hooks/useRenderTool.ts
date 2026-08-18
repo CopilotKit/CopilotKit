@@ -1,8 +1,6 @@
-import { useEffect, useRef } from "react";
 import { useFrontendTool } from "@copilotkit/react-core/v2/headless";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
-import type { RenderToolFunction } from "./RenderToolContext";
-import { useRenderToolContext } from "./RenderToolContext";
+import type { RenderToolFunction } from "./render-tool-types";
 
 /**
  * Options for the useRenderTool hook.
@@ -12,63 +10,45 @@ export interface UseRenderToolOptions<T extends Record<string, unknown>> {
   name: string;
   /** Human-readable description shown to the agent. */
   description: string;
-  /**
-   * Schema describing the tool's parameters.
-   * Accepts any StandardSchemaV1-compatible schema (Zod, Valibot, ArkType, etc.).
-   */
+  /** Schema describing the tool's parameters (any StandardSchemaV1 library). */
   parameters: StandardSchemaV1<unknown, T>;
   /**
-   * Render function that returns a React Native element for the tool call.
-   * Called by CopilotChat when it encounters a tool call message for this tool.
+   * Render function returning a React Native element for the tool call.
+   * Rendered by `CopilotChat` inline, and by `useRenderToolCall()` anywhere else.
    *
-   * Returns ReactElement | null (not ReactNode) because React Native's
-   * FlatList cannot render strings or portals.
+   * Arguments STREAM: on `status: "inProgress"` the props are partial, because
+   * the model has not finished writing the JSON. Write renderers that tolerate
+   * missing fields — that is what makes UI build progressively.
    */
   render: RenderToolFunction<T>;
-  /**
-   * Optional handler executed when the tool is called.
-   * If omitted, the tool is render-only (the render function shows UI
-   * but the tool returns no result to the agent).
-   */
+  /** Optional handler. Omit for render-only (display IS the effect). */
   handler?: (args: T) => Promise<unknown>;
-  /**
-   * Optional agent ID to scope this tool to a specific agent.
-   */
+  /** Scope this tool to a single agent. */
   agentId?: string;
 }
 
 /**
- * Hook that registers a frontend tool AND a render function for it.
+ * Registers a frontend tool AND its renderer.
  *
- * This bridges `useFrontendTool` (which handles tool registration and
- * handler execution) with a render registry so that CopilotChat can
- * render React Native elements inline when it encounters tool call messages.
- *
- * @example
- * ```tsx
- * useRenderTool({
- *   name: "showWeather",
- *   description: "Display weather information",
- *   parameters: z.object({ city: z.string(), temp: z.number() }),
- *   render: ({ args, status }) => (
- *     <View>
- *       <Text>{args.city}: {args.temp}</Text>
- *       {status === "executing" && <ActivityIndicator />}
- *     </View>
- *   ),
- *   handler: async ({ city }) => {
- *     return { forecast: "sunny" };
- *   },
- * });
- * ```
+ * Registration goes through react-core's `useFrontendTool`, which writes the
+ * renderer into `CopilotKitCoreReact.renderToolCalls` — the canonical registry
+ * that RN's provider already instantiates. There is deliberately NO React
+ * Native-local registry: this package previously kept its own Map, which meant
+ * `useComponent` (registering into core's) rendered nowhere on RN, and renderers
+ * were dropped from chat history on unmount.
+ */
+/**
+ * @param deps Optional dependency array. The `render` function is captured at
+ * registration and only refreshed when `deps` change — it does NOT re-read the
+ * latest closure on every render. If your `render` closes over component state
+ * or props that change over time, you MUST pass those values in `deps`, or the
+ * chat will keep painting with the stale closure.
  */
 export function useRenderTool<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(options: UseRenderToolOptions<T>, deps?: ReadonlyArray<unknown>): void {
   const { name, description, parameters, render, handler, agentId } = options;
-  const { register } = useRenderToolContext();
 
-  // Register the tool with the core system via useFrontendTool
   useFrontendTool<T>(
     {
       name,
@@ -76,21 +56,13 @@ export function useRenderTool<
       parameters,
       handler,
       agentId,
+      // No cast needed: ReactFrontendTool.render is ReactToolCallRenderer<T>["render"],
+      // and RenderToolFunction is derived from exactly that props type, returning
+      // ReactElement | null (assignable to ComponentType's ReactNode).
+      render,
     },
     deps,
   );
-
-  // Use a ref so the effect cleanup always has the latest render function
-  const renderRef = useRef(render);
-  renderRef.current = render;
-
-  // Register the render function in the RenderToolContext
-  useEffect(() => {
-    // Wrap in a stable function that delegates to the ref
-    const stableRender: RenderToolFunction<T> = (props) =>
-      renderRef.current(props);
-
-    const unregister = register(name, stableRender as RenderToolFunction);
-    return unregister;
-  }, [name, register]);
 }
+
+export type { RenderToolProps, RenderToolFunction } from "./render-tool-types";

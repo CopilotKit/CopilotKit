@@ -5,6 +5,7 @@
     "---Getting Started---",
     "index",
     "quickstart",
+    "conversational-flows",
     "cli",
     "build-with-agents",
     "---Basics---",
@@ -17,7 +18,8 @@
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
         "threads-lifecycle",
-        "threads-import"
+        "threads-import",
+        "threads-self-managed"
       ]
     },
     "custom-look-and-feel",

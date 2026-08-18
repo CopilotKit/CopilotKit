@@ -72,7 +72,27 @@ import React, { useState } from "react";
 import type { CopilotModalProps } from "./Modal";
 import { CopilotModal } from "./Modal";
 
-export function CopilotSidebar(props: CopilotModalProps) {
+export interface CopilotSidebarProps extends CopilotModalProps {
+  /**
+   * Make the sidebar's content wrapper exactly one viewport tall, so children
+   * can use `height: 100%` (or `flex: 1`) to fill the screen.
+   *
+   * Off by default: the wrappers are auto-height, so page content flows
+   * normally and percentage heights on children collapse to content height.
+   *
+   * ```tsx
+   * <CopilotSidebar fullHeightChildren>
+   *   <div style={{ height: "100%" }}>...</div>
+   * </CopilotSidebar>
+   * ```
+   */
+  fullHeightChildren?: boolean;
+}
+
+export function CopilotSidebar({
+  fullHeightChildren = false,
+  ...props
+}: CopilotSidebarProps) {
   props = {
     ...props,
     className: props.className
@@ -88,8 +108,16 @@ export function CopilotSidebar(props: CopilotModalProps) {
     setExpandedClassName(open ? "sidebarExpanded" : "");
   };
 
+  const contentWrapperClassName = [
+    "copilotKitSidebarContentWrapper",
+    expandedClassName,
+    fullHeightChildren ? "copilotKitSidebarFullHeightChildren" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className={`copilotKitSidebarContentWrapper ${expandedClassName}`}>
+    <div className={contentWrapperClassName}>
       <CopilotModal {...props} {...{ onSetOpen }}>
         {props.children}
       </CopilotModal>

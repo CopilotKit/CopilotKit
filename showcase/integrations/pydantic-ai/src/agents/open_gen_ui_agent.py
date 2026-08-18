@@ -1,7 +1,7 @@
 """PydanticAI agent for the Open-Ended Generative UI demo.
 
 Mirrors showcase/integrations/langgraph-python/src/agents/open_gen_ui_agent.py
-as closely as PydanticAI's `agent.to_ag_ui()` surface allows.
+as closely as PydanticAI's AG-UI adapter surface allows.
 
 The agent is ultra-minimal on purpose: all the heavy lifting happens in
 the runtime layer. When the `openGenerativeUI` runtime flag is enabled

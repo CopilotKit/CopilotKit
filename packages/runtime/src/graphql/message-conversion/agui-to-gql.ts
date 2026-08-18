@@ -44,6 +44,21 @@ function hasImageProperty(
   return true;
 }
 
+// Content part types we have already warned about. Streaming replays the same
+// unsupported part on every delta, so warn once per type rather than per part.
+const warnedContentPartTypes = new Set<string>();
+
+function warnUnsupportedContentPart(type: unknown): void {
+  const label = typeof type === "string" ? type : String(type);
+  if (warnedContentPartTypes.has(label)) return;
+  warnedContentPartTypes.add(label);
+  console.warn(
+    `[CopilotKit] Dropping message content part of unsupported type "${label}". ` +
+      `Only "text" and "binary" parts are carried through to the client; ` +
+      `see https://github.com/CopilotKit/CopilotKit/issues/1748.`,
+  );
+}
+
 function normalizeMessageContent(content: agui.Message["content"]): string {
   if (typeof content === "string" || typeof content === "undefined") {
     return content || "";
@@ -63,6 +78,7 @@ function normalizeMessageContent(content: agui.Message["content"]): string {
             `[binary:${part.mimeType}]`
           );
         }
+        warnUnsupportedContentPart(part?.type);
         return "";
       })
       .filter(Boolean)

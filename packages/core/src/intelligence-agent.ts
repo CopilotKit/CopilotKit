@@ -169,6 +169,43 @@ export class IntelligenceAgent extends AbstractAgent {
     this.sharedState = sharedState;
   }
 
+  /**
+   * Headers sent with the REST join requests (`/connect`, `/run`).
+   *
+   * Deliberately a public accessor pair rather than a plain read of `config`.
+   * `ProxiedCopilotRuntimeAgent` builds its delegate once and caches it for the
+   * proxy's lifetime, so a header that changes later (a tenant switch, a
+   * rotated bearer) would otherwise never reach the gateway. The accessor is
+   * what closes that gap: `syncDelegate` refreshes the delegate before every
+   * join, and its `hasHeaders` probe is an `"headers" in agent` check — which a
+   * prototype accessor satisfies but a `private config` does not.
+   *
+   * The setter replaces the config object instead of mutating it because
+   * `clone()` hands the same config reference to the copy. An in-place write
+   * would therefore have a per-thread clone's headers land on the original's
+   * config too. The join path itself would survive that (`syncDelegate`
+   * rewrites the headers just before every join), but the re-acquisition inside
+   * an already-running pipeline does not go through `syncDelegate` — so a
+   * clone's tenant could ride out on the original's socket-error refresh. That
+   * is the same cross-tenant leak this accessor exists to prevent.
+   */
+  get headers(): Record<string, string> | undefined {
+    return this.config.headers;
+  }
+
+  set headers(headers: Record<string, string> | undefined) {
+    this.config = { ...this.config, headers };
+  }
+
+  /** Credentials mode for the REST join requests. Live for the same reason as {@link headers}. */
+  get credentials(): RequestCredentials | undefined {
+    return this.config.credentials;
+  }
+
+  set credentials(credentials: RequestCredentials | undefined) {
+    this.config = { ...this.config, credentials };
+  }
+
   clone(): IntelligenceAgent {
     return new IntelligenceAgent(this.config, this.sharedState);
   }
@@ -419,7 +456,7 @@ export class IntelligenceAgent extends AbstractAgent {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...this.config.headers,
+            ...this.headers,
           },
           body: JSON.stringify({
             threadId: input.threadId,
@@ -438,9 +475,7 @@ export class IntelligenceAgent extends AbstractAgent {
                 }
               : {}),
           }),
-          ...(this.config.credentials
-            ? { credentials: this.config.credentials }
-            : {}),
+          ...(this.credentials ? { credentials: this.credentials } : {}),
         });
 
         if (response.status === 204 && mode === "connect") {

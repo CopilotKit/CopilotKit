@@ -85,8 +85,26 @@ describe("server getRuntimeConfig (shell-docs)", () => {
     });
   });
 
-  it("strips trailing slashes from URLs", () => {
+  it("refuses a non-canonical docs base URL in production", () => {
     (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.NEXT_PUBLIC_BASE_URL = "https://docs.showcase.copilotkit.ai";
+    process.env.NEXT_PUBLIC_SHELL_URL = "https://showcase.copilotkit.ai";
+    process.env.NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL =
+      "https://dashboard.operations.copilotkit.ai/";
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = "https://eu.i.posthog.com";
+
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cfg = getRuntimeConfig();
+
+    expect(cfg.baseUrl).toBe("https://docs.copilotkit.ai");
+    expect(errSpy).toHaveBeenCalledWith(
+      expect.stringContaining("docs.showcase.copilotkit.ai"),
+    );
+    errSpy.mockRestore();
+  });
+
+  it("strips trailing slashes from URLs", () => {
+    (process.env as Record<string, string>).NODE_ENV = "development";
     process.env.NEXT_PUBLIC_BASE_URL = "https://docs.example.com/";
     process.env.NEXT_PUBLIC_SHELL_URL = "https://shell.example.com//";
     process.env.NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL =
@@ -200,7 +218,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   });
 
   it("reads live process.env on each call (no module-load freeze)", () => {
-    (process.env as Record<string, string>).NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "development";
     process.env.NEXT_PUBLIC_BASE_URL = "https://first.example.com";
     process.env.NEXT_PUBLIC_SHELL_URL = "https://shell.example.com";
     process.env.NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL =
@@ -219,7 +237,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
     // follows the shell / shell-dashboard naming convention still
     // wires through. See the readUrl fallback chain in
     // runtime-config.ts.
-    (process.env as Record<string, string>).NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "development";
     process.env.BASE_URL = "https://alt-docs.example.com";
     process.env.SHELL_URL = "https://alt-shell.example.com";
     process.env.INTELLIGENCE_SIGNUP_URL = "https://alt-signup.example.com";
@@ -233,7 +251,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   });
 
   it("NEXT_PUBLIC_* takes precedence over bare-name when both set", () => {
-    (process.env as Record<string, string>).NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "development";
     process.env.NEXT_PUBLIC_BASE_URL = "https://primary-docs.example.com";
     process.env.BASE_URL = "https://alt-docs.example.com";
     process.env.NEXT_PUBLIC_SHELL_URL = "https://primary-shell.example.com";
@@ -256,7 +274,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   it("getRuntimeConfigForMiddleware skips noStore() (Edge runtime path)", async () => {
     const cacheMod = await import("next/cache");
     const noStoreSpy = vi.spyOn(cacheMod, "unstable_noStore");
-    (process.env as Record<string, string>).NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "development";
     process.env.NEXT_PUBLIC_BASE_URL = "https://edge.example.com";
     process.env.NEXT_PUBLIC_SHELL_URL = "https://edge-shell.example.com";
     process.env.NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL =

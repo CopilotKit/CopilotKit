@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { RendererProps } from "@copilotkit/a2ui-renderer";
-import { ExpenseRole } from "@/skins/banking/data/data";
+import { PolicyType } from "@/skins/banking/data/data";
 import type { ExpensePolicy, Transaction } from "@/skins/banking/data/data";
 import { formatCurrency } from "@/lib/utils";
 import { ReportDataProvider } from "../report-data";
@@ -27,7 +27,7 @@ function makeTransaction(overrides: Partial<Transaction>): Transaction {
 function makePolicy(overrides: Partial<ExpensePolicy>): ExpensePolicy {
   return {
     id: "p1",
-    type: ExpenseRole.Engineering,
+    type: PolicyType.Technology,
     limit: 1000,
     spent: 0,
     ...overrides,

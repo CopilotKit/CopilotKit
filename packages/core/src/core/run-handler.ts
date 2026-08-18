@@ -13,6 +13,7 @@ import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
+import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
@@ -420,12 +421,10 @@ export class RunHandler {
   /**
    * Run an agent
    */
-  async runAgent({
-    agent,
-    forwardedProps,
-    resume,
-    runId,
-  }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
+  async runAgent(
+    { agent, forwardedProps, resume, runId }: CopilotKitCoreRunAgentParams,
+    continuationHandoff?: CopilotKitCoreContinuationHandoff,
+  ): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
@@ -450,7 +449,12 @@ export class RunHandler {
     // (ConnectNotImplementedError → EMPTY) always runs the finalize block,
     // so the completion promise now resolves reliably.
     if (agent.detachActiveRun) {
-      await agent.detachActiveRun();
+      try {
+        await agent.detachActiveRun();
+      } catch (error) {
+        continuationHandoff?.cancel();
+        throw error;
+      }
     }
 
     // Set up abort controller and agent.abortRun() intercept only for the
@@ -490,21 +494,62 @@ export class RunHandler {
     this._runDepth++;
 
     try {
-      const runAgentResult = await agent.runAgent(
-        {
-          forwardedProps: {
-            ...this._internal.properties,
-            ...forwardedProps,
-          },
-          ...(resume !== undefined ? { resume } : {}),
-          ...(runId !== undefined ? { runId } : {}),
-          tools: this.buildFrontendTools(agent.agentId),
-          context: this._internal.getContextForAgent(agent.agentId),
+      let logicalRunId = runId;
+      const agentSubscriber = this.createAgentErrorSubscriber(agent);
+      let started = false;
+      const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
+      const onRunInitialized = agentSubscriber.onRunInitialized;
+      agentSubscriber.onRunInitialized = async (params) => {
+        continuationHandoff?.bind(params.input);
+        return onRunInitialized?.(params);
+      };
+      agentSubscriber.onRunStartedEvent = async (params) => {
+        started = true;
+        // A continuation keeps reporting under the run it continues; only an
+        // ordinary run adopts the id the transport assigned it.
+        if (!continuationHandoff) {
+          logicalRunId = params.input.runId;
+        }
+        return onRunStartedEvent?.(params);
+      };
+      // An internal continuation (a human-in-the-loop tool resolved and this is
+      // the recursive follow-up) deliberately does NOT pin the originating run
+      // id on the wire. Pinning it made the transport treat the follow-up as a
+      // resumption of a run it had already completed: it re-delivered that
+      // run's applied half — duplicating every tool call already on the
+      // message, each duplicate carrying empty arguments — and the follow-up's
+      // own tool call never reached client state, so its card never rendered.
+      //
+      // One logical run is still what everything downstream sees: the state
+      // manager re-stamps the continuation's events onto `runId` (passed to
+      // markNextRunAsContinuation), and `logicalRunId` below keeps the result
+      // reported under it. So external tracing still gets a single run without
+      // the wire having to lie about which invocation this is.
+      const pinRunIdOnWire = runId !== undefined && !continuationHandoff;
+      const agentRunInput = {
+        forwardedProps: {
+          ...this._internal.properties,
+          ...forwardedProps,
         },
-        this.createAgentErrorSubscriber(agent),
+        ...(resume !== undefined ? { resume } : {}),
+        ...(pinRunIdOnWire ? { runId } : {}),
+        tools: this.buildFrontendTools(agent.agentId),
+        context: this._internal.getContextForAgent(agent.agentId),
+      };
+      const runAgentResult = await agent.runAgent(
+        agentRunInput,
+        agentSubscriber,
       );
-      return await this.processAgentResult({ runAgentResult, agent });
+      if (!started) {
+        continuationHandoff?.cancel();
+      }
+      return await this.processAgentResult({
+        runAgentResult,
+        agent,
+        runId: logicalRunId,
+      });
     } catch (error) {
+      continuationHandoff?.cancel();
       const runError =
         error instanceof Error ? error : new Error(String(error));
       const context: Record<string, any> = {};
@@ -533,10 +578,12 @@ export class RunHandler {
   private async processAgentResult({
     runAgentResult,
     agent,
+    runId,
     executeFrontendTools = true,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
+    runId?: string;
     executeFrontendTools?: boolean;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
@@ -645,7 +692,15 @@ export class RunHandler {
         // complete and write fresh values into the context store before runAgent
         // reads it. The base implementation is a no-op; React overrides this.
         await this._internal.waitForPendingFrameworkUpdates();
-        return await this.runAgent({ agent });
+        const continuationHandoff =
+          this._internal.stateManager.markNextRunAsContinuation(agent, runId);
+        return await this.runAgent(
+          {
+            agent,
+            ...(runId !== undefined ? { runId } : {}),
+          },
+          continuationHandoff,
+        );
       }
     }
 

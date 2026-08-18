@@ -345,7 +345,7 @@ export class ClaimedChannelDelivery {
   effect(
     _responseId: string,
     payload: ProviderPayloadInput,
-    options: { charge?: boolean } = {},
+    options: { charge?: boolean; bestEffort?: boolean } = {},
   ): Promise<Record<string, unknown>> {
     if (isVisibleProviderEffect(payload)) {
       this.providerOutputExpected = true;
@@ -363,7 +363,7 @@ export class ClaimedChannelDelivery {
     const charged =
       options.charge === false ? Promise.resolve() : this.charge();
     return charged
-      .then(() => this.enqueue(payload))
+      .then(() => this.enqueue(payload, options.bestEffort === true))
       .then((result) => {
         const error =
           typeof result.error === "string" ? result.error : undefined;
@@ -375,6 +375,14 @@ export class ClaimedChannelDelivery {
           status === "failed_before_output" ||
           status === "uncertain"
         ) {
+          if (
+            options.bestEffort === true ||
+            payload.kind === "slack.thread.status"
+          ) {
+            throw new Error(
+              `Channel provider effect failed with ${error ?? "provider_failed"}`,
+            );
+          }
           this.effectsClosed = true;
           throw new ChannelProviderDeliveryError(
             error ?? "provider_failed",
@@ -582,6 +590,7 @@ export class ClaimedChannelDelivery {
 
   private enqueue(
     payload: ChannelDeliveryPayload,
+    bestEffort = false,
   ): Promise<Record<string, unknown>> {
     const isTerminal = payload.kind === "channel.delivery.terminal";
     // Stream stop must remain sendable after mid-stream effect failure so
@@ -613,7 +622,11 @@ export class ClaimedChannelDelivery {
         return acknowledgement.result;
       } catch (error) {
         this.unacknowledgedPacket = undefined;
-        if (!isCleanupPacket) {
+        if (
+          !isCleanupPacket &&
+          !bestEffort &&
+          payload.kind !== "slack.thread.status"
+        ) {
           this.effectsClosed = true;
         }
         throw error;

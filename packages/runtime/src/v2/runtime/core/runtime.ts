@@ -39,6 +39,17 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 // by the Channel-listener bootstrap — not here.
 import type { Channel } from "@copilotkit/channels-core";
 import telemetry from "../telemetry/telemetry-client";
+import {
+  attachRuntimeErrorReporter,
+  getRuntimeErrorReporterFromOptions,
+} from "./runtime-error-reporter";
+import type { CopilotRuntimeLearningConfig } from "./learning";
+import { assertStableLearningContainerId } from "./learning";
+
+export type {
+  CopilotRuntimeLearningConfig,
+  CopilotRuntimeLearningContext,
+} from "./learning";
 
 export const VERSION = pkg.version;
 
@@ -47,6 +58,7 @@ interface BaseCopilotRuntimeMiddlewareOptions {
   agents?: string[];
 }
 
+/** Per-server tool policy belongs to the external middleware and is unsupported at its pinned 0.0.3 release. */
 export type McpAppsServerConfig = MCPClientConfig & {
   /** Agent to bind this server to. If omitted, the server is available to all agents. */
   agentId?: string;
@@ -224,6 +236,8 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
 interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligence: CopilotKitIntelligence;
+  /** Chooses one stable Learning Container ID for each web or Channel run. */
+  ɵlearning?: CopilotRuntimeLearningConfig;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
@@ -304,6 +318,7 @@ export interface CopilotRuntimeLike {
    */
   exposeMemoryRoutes?: boolean;
   memory?: CopilotRuntimeMemoryConfig;
+  learning?: CopilotRuntimeLearningConfig;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
@@ -319,6 +334,7 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
   channels: Channel[];
+  learning?: CopilotRuntimeLearningConfig;
   mode: typeof RUNTIME_MODE_INTELLIGENCE;
 }
 
@@ -432,6 +448,12 @@ export class CopilotSseRuntime
           "Intelligence Channels are not available in SSE mode.",
       );
     }
+    if ((options as { ɵlearning?: unknown }).ɵlearning !== undefined) {
+      throw new Error(
+        "`ɵlearning` requires the Intelligence runtime (pass `intelligence`); " +
+          "Learning Containers are not available in SSE mode.",
+      );
+    }
     super(options, options.runner ?? new InMemoryAgentRunner());
   }
 }
@@ -447,6 +469,7 @@ export class CopilotIntelligenceRuntime
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
   readonly channels: Channel[];
+  readonly learning?: CopilotRuntimeLearningConfig;
   readonly mode = RUNTIME_MODE_INTELLIGENCE;
 
   /** Maximum allowed lock TTL in seconds (1 hour). */
@@ -459,6 +482,7 @@ export class CopilotIntelligenceRuntime
       identifyUser?: unknown;
       channels?: unknown;
       memory?: unknown;
+      ɵlearning?: unknown;
     };
     if (
       rawOptions.identifyUser !== undefined &&
@@ -496,6 +520,29 @@ export class CopilotIntelligenceRuntime
         "Intelligence Runtime web `memory` requires `identifyUser`",
       );
     }
+    if (
+      rawOptions.ɵlearning !== undefined &&
+      (typeof rawOptions.ɵlearning !== "object" ||
+        rawOptions.ɵlearning === null ||
+        !(
+          typeof (rawOptions.ɵlearning as { containerId?: unknown })
+            .containerId === "string" ||
+          typeof (rawOptions.ɵlearning as { containerId?: unknown })
+            .containerId === "function"
+        ))
+    ) {
+      throw new Error(
+        "Intelligence Runtime `ɵlearning.containerId` must be a stable ID or callback",
+      );
+    }
+    if (
+      typeof (rawOptions.ɵlearning as { containerId?: unknown } | undefined)
+        ?.containerId === "string"
+    ) {
+      assertStableLearningContainerId(
+        (rawOptions.ɵlearning as { containerId: string }).containerId,
+      );
+    }
     super(
       options,
       new IntelligenceAgentRunner({
@@ -506,6 +553,7 @@ export class CopilotIntelligenceRuntime
       }),
     );
     this.intelligence = options.intelligence;
+    this.learning = options.ɵlearning;
     this.identifyUser = hasWebIdentity
       ? (rawOptions.identifyUser as IdentifyUserCallback)
       : undefined;
@@ -604,6 +652,8 @@ export interface CopilotRuntime extends CopilotRuntimeLike {
   lockHeartbeatIntervalSeconds?: number;
   /** Declared Intelligence Channels; `undefined` in SSE mode. */
   channels?: Channel[];
+  /** Learning Container selector; `undefined` in SSE mode. */
+  learning?: CopilotRuntimeLearningConfig;
 }
 
 /**
@@ -654,6 +704,11 @@ class CopilotRuntimeShim implements CopilotRuntime {
     this.delegate = hasIntelligenceOptions(options)
       ? new CopilotIntelligenceRuntime(options)
       : new CopilotSseRuntime(options);
+
+    const reporter = getRuntimeErrorReporterFromOptions(options);
+    if (reporter) {
+      attachRuntimeErrorReporter(this, reporter);
+    }
   }
 
   get agents(): CopilotRuntimeOptions["agents"] {
@@ -725,6 +780,12 @@ class CopilotRuntimeShim implements CopilotRuntime {
   get channels(): Channel[] | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.channels
+      : undefined;
+  }
+
+  get learning(): CopilotRuntimeLearningConfig | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.learning
       : undefined;
   }
 

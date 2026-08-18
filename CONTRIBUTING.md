@@ -150,6 +150,22 @@ Remember, it's okay if your pull request is not perfect (no pull request ever is
 
 Celebrate your success after your pull request is merged :-)
 
+## Changelogs and releases — do not add a changeset
+
+**Do not add files under `.changeset/` to your pull request.** If you (or your AI coding assistant) see a `.changeset/` directory in your checkout, it is stale — delete it and sync your fork with `main`.
+
+CopilotKit did use [Changesets](https://github.com/changesets/changesets) for releases, and the per-package `CHANGELOG.md` files still carry that history and its formatting. We have since migrated to **conventional-commit-driven releases**: the release tooling in `scripts/release/` builds the changelog from commit subjects in `git log <lastTag>..HEAD`. Nothing reads `.changeset/*.md` anymore, and `@changesets/cli` is not a dependency of this repo — a changeset file in your PR is inert, and CI will fail on it.
+
+What to do instead: write a good conventional commit subject (see [Git Commit Messages](#git-commit-messages)). That line is what ships in the release notes, so make it describe the user-visible change:
+
+```
+fix(runtime): coalesce consecutive same-role Anthropic messages before dispatch
+```
+
+Version bumps and `CHANGELOG.md` edits are made by maintainers during a release, not in your PR — please leave `package.json` versions and changelogs alone.
+
+> Working from an older fork or a long-lived branch? Rebase onto current `main` before opening your PR. Branches cut before mid-2026 can reintroduce `.changeset/` debris.
+
 ## Git Commit Messages
 
 We structure our commit messages like this:
@@ -186,6 +202,6 @@ Our Code of Conduct means that you are responsible for treating everyone on the 
 ## Need Help?
 
 - **Questions**: Use our [Discord support channel](https://discord.com/invite/6dffbvGU3D) for any questions you have.
-- **Resources**: Visit [CopilotKit documentation](https://docs.copilotkit.ai/) for more helpful documentatation info.
+- **Resources**: Visit [CopilotKit documentation](https://docs.copilotkit.ai/) for more helpful documentation info.
 
 ⭐ Happy coding, and we look forward to your contributions!

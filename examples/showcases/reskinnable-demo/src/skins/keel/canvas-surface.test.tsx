@@ -47,8 +47,11 @@ vi.mock("@copilotkit/a2ui-renderer", () => ({
   useA2UIActions: () => ({ processMessages, getSurface }),
 }));
 
-vi.mock("@/shell/skin-provider", () => ({
-  useSkinData: () => ({
+// The catalog's KPI/chart/table renderers bind live desk data. `A2UIRenderer` is
+// stubbed above, so none of them actually mounts here — but the stub keeps this
+// file from reaching the real hook (and its ledger fetch) if one ever does.
+vi.mock("@/skins/keel/desk-data", () => ({
+  useKeelDesk: () => ({
     kpis: {
       openRuns: 0,
       blockedRuns: 0,

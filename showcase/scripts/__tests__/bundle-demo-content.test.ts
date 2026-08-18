@@ -77,7 +77,7 @@ describe("Content Bundler", () => {
 
     // Backend agent file (from manifest.highlight) should be present.
     const agentFile = agenticChat.files.find((f: any) =>
-      /agents\/agentic_chat\.py$/.test(f.filename),
+      f.filename.endsWith("agents/agentic_chat.py"),
     );
     expect(agentFile).toBeDefined();
     expect(agentFile.language).toBe("python");
@@ -108,7 +108,7 @@ describe("Content Bundler", () => {
     const lgDemo = content.demos["langgraph-python::agentic-chat"];
     expect(lgDemo).toBeDefined();
     const lgAgent = lgDemo.files.find((f: any) =>
-      /src\/agents\/agentic_chat\.py$/.test(f.filename),
+      f.filename.endsWith("src/agents/agentic_chat.py"),
     );
     expect(lgAgent).toBeDefined();
     expect(lgAgent.language).toBe("python");
@@ -133,6 +133,44 @@ describe("Content Bundler", () => {
       expect(content.demos[key]).toBeDefined();
       expect(content.demos[key].files.length).toBeGreaterThan(0);
     }
+  });
+
+  it("bundles the Strands TypeScript sub-agent documentation regions", () => {
+    const content = runBundlerAndRead();
+    const demo = content.demos["strands-typescript::subagents"];
+
+    expect(demo).toBeDefined();
+
+    const toolsFile = demo.files.find(
+      (file: any) => file.filename === "src/agent/tools.ts",
+    );
+    expect(toolsFile).toMatchObject({
+      filename: "src/agent/tools.ts",
+      language: "typescript",
+      highlighted: true,
+      highlightOrder: 1,
+    });
+    expect(toolsFile.content).not.toContain("@region[");
+
+    const setup = demo.regions["subagent-setup"];
+    expect(setup).toMatchObject({
+      file: "src/agent/tools.ts",
+      language: "typescript",
+    });
+    expect(setup.code).toContain("const SUBAGENT_SYSTEM_PROMPTS");
+    expect(setup.code).toContain("export function openaiClient");
+    expect(setup.code).toContain("async function runSubagent");
+    expect(setup.code).not.toContain("export const researchAgent");
+
+    const delegationTools = demo.regions["supervisor-delegation-tools"];
+    expect(delegationTools).toMatchObject({
+      file: "src/agent/tools.ts",
+      language: "typescript",
+    });
+    expect(delegationTools.code).toContain("export const researchAgent");
+    expect(delegationTools.code).toContain("export const writingAgent");
+    expect(delegationTools.code).toContain("export const critiqueAgent");
+    expect(delegationTools.code).not.toContain("export const SHOWCASE_TOOLS");
   });
 
   // Regression guard — verifies the snapshot/restore hooks defined at the

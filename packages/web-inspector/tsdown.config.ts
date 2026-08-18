@@ -38,6 +38,7 @@ export default defineConfig([
         marked: "marked",
         lucide: "lucide",
         "@copilotkit/core": "CopilotKitCore",
+        "@copilotkit/shared": "CopilotKitShared",
       };
       return options;
     },
