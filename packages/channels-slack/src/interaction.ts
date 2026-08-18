@@ -137,15 +137,63 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   };
 }
 
-/** JSON-parse a control value so non-string option values round-trip; else keep the raw string. */
-function parseValue(raw: string | undefined): unknown {
-  if (typeof raw !== "string") return raw;
+/**
+ * JSON-parse an AUTHOR-ENCODED control value so a non-string option value
+ * round-trips; keep the raw string when it is not JSON.
+ *
+ * Only ever applied to values the author put on the element (a button's
+ * `value`, an option's `value`) — never to text the user typed. See
+ * `FREE_TEXT_ELEMENT_TYPES`.
+ */
+function parseValue(raw: string): unknown {
   try {
     return JSON.parse(raw);
   } catch {
     return raw;
   }
 }
+
+/**
+ * Element families whose `value` is text the USER typed, not a token the author
+ * encoded. Their content is handed back as the verbatim string.
+ *
+ * `decodeViewSubmission` has shipped for several releases returning raw strings
+ * here, so JSON-parsing them would silently retype existing modal handlers'
+ * fields: an order number typed as `1234` would arrive as the number `1234` and
+ * `values.orderId.trim()` would throw. `number_input` is in the set for the same
+ * reason — Slack reports it as a string and that is what handlers already read.
+ */
+const FREE_TEXT_ELEMENT_TYPES = new Set([
+  "plain_text_input",
+  "rich_text_input",
+  "email_text_input",
+  "url_text_input",
+  "number_input",
+]);
+
+/**
+ * Keys under which Slack reports a multi-select as an array of bare ids (unlike
+ * `selected_options`, which carries option objects).
+ */
+const SELECTED_ID_LIST_KEYS = [
+  "selected_users",
+  "selected_conversations",
+  "selected_channels",
+] as const satisfies readonly (keyof SlackElementState)[];
+
+/**
+ * Keys under which Slack reports a single picker's choice as one scalar. Dates
+ * and times arrive as strings; `selected_date_time` arrives as unix seconds, so
+ * numbers have to survive too.
+ */
+const SELECTED_SCALAR_KEYS = [
+  "selected_user",
+  "selected_conversation",
+  "selected_channel",
+  "selected_date",
+  "selected_time",
+  "selected_date_time",
+] as const satisfies readonly (keyof SlackElementState)[];
 
 /**
  * Every shape a Slack interactive element reports its current value in — the
@@ -155,17 +203,19 @@ function parseValue(raw: string | undefined): unknown {
 interface SlackElementState {
   type?: string;
   value?: string;
+  /** Slack sends an explicit `null` for an untouched select. */
   selected_option?: { value?: string } | null;
-  selected_options?: Array<{ value?: string }>;
-  selected_user?: string;
-  selected_users?: string[];
-  selected_conversation?: string;
-  selected_conversations?: string[];
-  selected_channel?: string;
-  selected_channels?: string[];
-  selected_date?: string;
-  selected_time?: string;
-  selected_date_time?: number;
+  selected_options?: Array<{ value?: string }> | null;
+  /** Every picker below reports an explicit `null` while untouched. */
+  selected_user?: string | null;
+  selected_users?: string[] | null;
+  selected_conversation?: string | null;
+  selected_conversations?: string[] | null;
+  selected_channel?: string | null;
+  selected_channels?: string[] | null;
+  selected_date?: string | null;
+  selected_time?: string | null;
+  selected_date_time?: number | null;
   /** `rich_text_input` reports a rich-text document, not a string. */
   rich_text_value?: unknown;
 }
@@ -181,37 +231,80 @@ interface SlackBlockState {
  * Slack reports a value under a different key per element family, and reading
  * only `value ?? selected_option.value` silently yields `undefined` for every
  * multi-select, picker, date/time control and rich-text field. Each family
- * therefore gets an explicit arm. The plural arms come first because a
- * multi-select reports ONLY the plural key, and an empty multi-select reports it
- * as `[]` — which must stay an empty array rather than falling through to the
- * text-input arm and becoming `undefined`.
+ * therefore gets an explicit arm.
+ *
+ * Every guard is on the value's TYPE, not on `!== undefined`: Slack sends an
+ * explicit `null` for an untouched picker (`selected_date: null`,
+ * `selected_user: null`), and `null !== undefined`, so an `undefined` check
+ * would hand a literal `null` to the handler. A `null` falls through here and
+ * the field is then omitted by `flattenStateValues`, which is what the managed
+ * normalizer does — the two must agree key-for-key.
+ *
+ * Returns `undefined` when the element genuinely carries no value.
+ *
+ * Order mirrors the managed normalizer arm-for-arm so the two produce the same
+ * map for the same payload; the families are disjoint in practice.
  */
 function elementStateValue(el: SlackElementState): unknown {
-  if (el.selected_users) return el.selected_users;
-  if (el.selected_conversations) return el.selected_conversations;
-  if (el.selected_channels) return el.selected_channels;
-  if (el.selected_user !== undefined) return el.selected_user;
-  if (el.selected_conversation !== undefined) return el.selected_conversation;
-  if (el.selected_channel !== undefined) return el.selected_channel;
-  if (el.selected_date !== undefined) return el.selected_date;
-  if (el.selected_time !== undefined) return el.selected_time;
-  if (el.selected_date_time !== undefined) return el.selected_date_time;
-  if (el.selected_options) {
-    return el.selected_options.map((o) => parseValue(o.value));
+  if (Array.isArray(el.selected_options)) {
+    // An empty multi-select reports `[]`, which must stay an empty array rather
+    // than falling through to the text arm and becoming `undefined`.
+    return el.selected_options
+      .map((o) => o?.value)
+      .filter((v): v is string => typeof v === "string")
+      .map(parseValue);
   }
+  if (el.selected_option) {
+    const raw = el.selected_option.value;
+    return typeof raw === "string" ? parseValue(raw) : undefined;
+  }
+  for (const key of SELECTED_ID_LIST_KEYS) {
+    const selected = el[key];
+    if (Array.isArray(selected)) {
+      return selected.filter((id): id is string => typeof id === "string");
+    }
+  }
+  for (const key of SELECTED_SCALAR_KEYS) {
+    const selected = el[key];
+    if (typeof selected === "string" || typeof selected === "number") {
+      return selected;
+    }
+  }
+  // A `rich_text_input` reports a rich-text document rather than a string.
   if (el.rich_text_value !== undefined) return el.rich_text_value;
-  return parseValue(el.value ?? el.selected_option?.value ?? undefined);
+  if (typeof el.value !== "string") return undefined;
+  // Free text is the user's, verbatim; anything else is an author-encoded token.
+  return FREE_TEXT_ELEMENT_TYPES.has(el.type ?? "")
+    ? el.value
+    : parseValue(el.value);
 }
 
 /**
  * Flatten a Slack surface's `state.values` to a flat `fieldId → value` map.
  *
- * Slack nests the state as `blockId → actionId → element`. The modal vocabulary
- * names every block id == action id (see `render/modal.ts`), so `inner[blockId]`
- * hits directly there; on a message the two differ, and the first (in practice
- * only) element of the block is taken. The key is always the BLOCK id, because
- * that is the half an author can name — Slack generates a random one per render
- * when they do not.
+ * Slack nests the state as `blockId → actionId → element`. The key is the BLOCK
+ * id wherever a block id can name the element, because that is the half an
+ * author can name (`render/block-kit.ts` derives it from `props.name`, matching
+ * Teams; `render/modal.ts` names block id == action id).
+ *
+ * A block can hold MORE than one stateful element, though: an `<Actions>` packs
+ * up to `SLACK_LIMITS.actionsElements` elements into one block, and a
+ * hand-authored native block may do the same. One block id cannot name several
+ * elements, so the rule is:
+ *
+ * - the element whose action id equals the block id, or the sole element of the
+ *   block, is keyed by the BLOCK id — every shape the renderers emit today, and
+ *   every modal submission, therefore decodes exactly as before;
+ * - any further element in the same block is keyed by its own ACTION id, which
+ *   is the only identifier left that distinguishes it.
+ *
+ * Nothing is dropped silently, and an existing key is never clobbered.
+ *
+ * A field whose element reports no value is left out rather than set to
+ * `undefined`: the managed path carries `values` over the wire as JSON, which
+ * cannot express `undefined`, so keeping the key would promise the self-hosted
+ * handler a field the managed one never sees. `Object.keys`, `in` and
+ * `Object.entries` must agree on both deployments.
  */
 function flattenStateValues(
   state: SlackBlockState | undefined,
@@ -221,9 +314,18 @@ function flattenStateValues(
   for (const blockId of Object.keys(values)) {
     const inner = values[blockId];
     if (!inner) continue;
-    const el = inner[blockId] ?? Object.values(inner)[0];
-    if (!el) continue;
-    out[blockId] = elementStateValue(el);
+    const entries = Object.entries(inner).filter(
+      (entry): entry is [string, SlackElementState] =>
+        typeof entry[1] === "object" && entry[1] !== null,
+    );
+    for (const [actionId, el] of entries) {
+      const key =
+        actionId === blockId || entries.length === 1 ? blockId : actionId;
+      const value = elementStateValue(el);
+      if (value === undefined) continue;
+      if (Object.prototype.hasOwnProperty.call(out, key)) continue;
+      out[key] = value;
+    }
   }
   return out;
 }

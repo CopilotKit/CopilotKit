@@ -256,6 +256,138 @@ describe("decodeInteraction", () => {
       });
       expect(evt!.values).toEqual({ services: [] });
     });
+
+    /** A click carrying the given `state.values` and nothing else. */
+    const clickWith = (values: Record<string, unknown>) =>
+      decodeInteraction({
+        type: "block_actions",
+        channel: { id: "C1" },
+        message: { ts: "1.0" },
+        actions: [{ action_id: "ck:x", value: "go" }],
+        state: { values },
+      });
+
+    // The managed normalizer omits a field that reports no value, and carries
+    // `values` over the wire as JSON — which cannot express `undefined`. Keeping
+    // the key here would make `Object.keys`/`in`/`Object.entries` disagree
+    // between self-hosted and managed: the exact divergence this field exists to
+    // prevent. `toStrictEqual` is load-bearing — `toEqual` ignores keys whose
+    // value is `undefined` and would pass either way.
+    describe("a field that reports no value is omitted, not undefined", () => {
+      it.each([
+        // Slack sends an explicit `null` for an untouched picker, and
+        // `null !== undefined` — so an undefined-only guard leaks it, and unlike
+        // `undefined` a `null` survives JSON all the way to the handler.
+        ["datepicker", { type: "datepicker", selected_date: null }],
+        ["timepicker", { type: "timepicker", selected_time: null }],
+        ["users_select", { type: "users_select", selected_user: null }],
+        [
+          "conversations_select",
+          { type: "conversations_select", selected_conversation: null },
+        ],
+        [
+          "channels_select",
+          { type: "channels_select", selected_channel: null },
+        ],
+        [
+          "datetimepicker",
+          { type: "datetimepicker", selected_date_time: null },
+        ],
+        ["static_select", { type: "static_select", selected_option: null }],
+        ["an empty text input", { type: "plain_text_input" }],
+      ])(
+        "omits an untouched %s, and with it the whole values key",
+        (_label, element) => {
+          const evt = clickWith({ prio: { "ck:p": element } });
+          expect(evt!.values).toBeUndefined();
+        },
+      );
+
+      it("keeps the fields that DO report, and only those", () => {
+        const evt = clickWith({
+          root_cause: {
+            "ck:a": { type: "plain_text_input", value: "pool exhausted" },
+          },
+          target_date: { "ck:b": { type: "datepicker", selected_date: null } },
+        });
+        expect(evt!.values).toStrictEqual({ root_cause: "pool exhausted" });
+        expect(evt!.values).not.toHaveProperty("target_date");
+        expect(Object.keys(evt!.values!)).toEqual(["root_cause"]);
+      });
+    });
+
+    // The value ladder is shared with the modal path, which has shipped for
+    // several releases handing free text back verbatim. Discriminate on the
+    // element type: JSON-parse what the AUTHOR encoded, never what the user
+    // typed.
+    describe("JSON parsing reaches author-encoded values only", () => {
+      it.each([
+        ["plain_text_input", "1234"],
+        ["plain_text_input", "true"],
+        ["plain_text_input", "null"],
+        ["email_text_input", "7"],
+        ["url_text_input", "12.50"],
+        ["number_input", "42"],
+      ])("hands %s content back as the verbatim string", (type, typed) => {
+        const evt = clickWith({ f: { "ck:f": { type, value: typed } } });
+        expect(evt!.values).toStrictEqual({ f: typed });
+        expect(typeof (evt!.values as Record<string, unknown>).f).toBe(
+          "string",
+        );
+      });
+
+      it("still parses an author-encoded button value", () => {
+        const evt = clickWith({
+          f: { "ck:f": { type: "button", value: '{"id":7}' } },
+        });
+        expect(evt!.values).toStrictEqual({ f: { id: 7 } });
+      });
+    });
+
+    // `render/block-kit.ts` packs up to SLACK_LIMITS.actionsElements elements
+    // into ONE `actions` block, and a hand-authored native block may do the
+    // same. Taking `Object.values(inner)[0]` silently dropped every element but
+    // the first. Slack's own reference describes `state` as carrying "all
+    // stateful elements, not just input blocks", so this shape does reach us.
+    describe("a block holding several stateful elements", () => {
+      it("delivers every element, keyed by action id, dropping none", () => {
+        const evt = clickWith({
+          // One auto-generated actions-block id holding two selects.
+          block1: {
+            "ck:region": {
+              type: "static_select",
+              selected_option: { value: "emea" },
+            },
+            "ck:tier": {
+              type: "static_select",
+              selected_option: { value: "gold" },
+            },
+          },
+        });
+        expect(evt!.values).toStrictEqual({
+          "ck:region": "emea",
+          "ck:tier": "gold",
+        });
+      });
+
+      it("still keys the element the block id names by the BLOCK id", () => {
+        // The modal vocabulary (block id == action id) and every single-element
+        // block must decode exactly as before.
+        const evt = clickWith({
+          severity: {
+            severity: {
+              type: "static_select",
+              selected_option: { value: "high" },
+            },
+            "ck:extra": { type: "datepicker", selected_date: "2026-08-20" },
+          },
+        });
+        expect(evt!.values).toStrictEqual({
+          severity: "high",
+          "ck:extra": "2026-08-20",
+        });
+      });
+    });
   });
 
   it("carries trigger_id from a block_actions payload", () => {
