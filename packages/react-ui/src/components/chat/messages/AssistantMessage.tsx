@@ -4,6 +4,7 @@ import { Markdown } from "../Markdown";
 import { useState } from "react";
 import React from "react";
 import { copyToClipboard } from "@copilotkit/shared";
+import { isActivatingClick } from "../feedback";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { icons, labels } = useChatContext();
@@ -36,15 +37,17 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     if (onRegenerate) onRegenerate();
   };
 
+  // Clicking the already-active button retracts the feedback, so report the
+  // state the click transitions to rather than an unconditional `true`.
   const handleThumbsUp = () => {
     if (onThumbsUp && message) {
-      onThumbsUp(message);
+      onThumbsUp(message, isActivatingClick(feedback, "thumbsUp"));
     }
   };
 
   const handleThumbsDown = () => {
     if (onThumbsDown && message) {
-      onThumbsDown(message);
+      onThumbsDown(message, isActivatingClick(feedback, "thumbsDown"));
     }
   };
 
