@@ -41,3 +41,27 @@ test("the visual FrameworkSetup path stays empty for other frameworks", async ()
   expect(result).toBeNull();
   expect(mocks.mdxRemote).not.toHaveBeenCalled();
 });
+
+test.each([
+  ["claude-sdk-python", "create_sdk_mcp_server("],
+  ["claude-sdk-typescript", "createSdkMcpServer({"],
+])(
+  "the visual FrameworkSetup path renders %s tool wiring",
+  async (framework, expectedIdentifier) => {
+    const result = await FrameworkSetup({
+      concept: "tool-rendering-setup",
+      currentFramework: framework,
+    });
+    expect(result).not.toBeNull();
+    if (!result) {
+      throw new Error(`Expected ${framework} tool-rendering setup content`);
+    }
+    const source = (result.props as { children?: unknown }).children;
+
+    expect(source).toContain(expectedIdentifier);
+    expect(source).toContain("ClaudeAgentAdapter");
+    expect(source).toContain(
+      "register this schema as an executable backend tool",
+    );
+  },
+);
