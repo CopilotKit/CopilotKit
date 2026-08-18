@@ -167,7 +167,7 @@ export class StateManager {
           subRunId = randomUUID();
         } else {
           // A connect replay may contain multiple server runs under one input.runId.
-          subRunId = event.runId ?? input.runId;
+          subRunId = event.runId || input.runId;
         }
         runFinished = false;
         this.handleRunStarted(agent, effectiveInput(input), state);
@@ -353,9 +353,20 @@ export class StateManager {
 
     const { threadId, runId } = input;
 
-    // Associate all messages in the snapshot with this run
+    // Cumulative snapshots repeat messages from earlier runs, so only assign
+    // messages that do not already have a run association.
     for (const message of event.messages) {
-      this.associateMessageWithRun(agent.agentId, threadId, message.id, runId);
+      if (
+        this.getRunIdForMessage(agent.agentId, threadId, message.id) ===
+        undefined
+      ) {
+        this.associateMessageWithRun(
+          agent.agentId,
+          threadId,
+          message.id,
+          runId,
+        );
+      }
     }
   }
 
@@ -433,10 +444,7 @@ export class StateManager {
     }
     const threadMessages = agentMessages.get(threadId)!;
 
-    // Cumulative snapshots repeat messages from earlier runs.
-    if (!threadMessages.has(messageId)) {
-      threadMessages.set(messageId, runId);
-    }
+    threadMessages.set(messageId, runId);
   }
 
   /**

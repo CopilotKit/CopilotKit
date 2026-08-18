@@ -442,6 +442,25 @@ describe("StateManager - Multiple Runs", () => {
     ]);
   });
 
+  it("falls back to the input run ID when RUN_STARTED carries an empty run ID", async () => {
+    const inputRunId = "connect-run";
+
+    await agent.emitRunStarted(
+      "",
+      { step: "started" },
+      undefined,
+      undefined,
+      inputRunId,
+    );
+
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", inputRunId),
+    ).toEqual({ step: "started" });
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", ""),
+    ).toBeUndefined();
+  });
+
   it("should preserve the supplied ID for an explicit resume continuation", async () => {
     const runId = "hitl-run";
     const resume = [
@@ -796,6 +815,25 @@ describe("StateManager - Message Tracking", () => {
       "msg1",
     );
     expect(associatedRunId).toBe(runId);
+  });
+
+  it("allows a new-message event to correct an earlier run association", async () => {
+    const message: Message = {
+      id: "message-for-next-run",
+      role: "user",
+      content: "Follow-up",
+    };
+
+    await agent.emitRunStarted("run1", {});
+    await agent.emitNewMessageWithoutInput(message);
+    await agent.emitRunFinished("run1", {});
+
+    await agent.emitRunStarted("run2", {});
+    await agent.emitNewMessage("run2", message);
+
+    expect(
+      copilotKitCore.getRunIdForMessage("agent1", "thread1", message.id),
+    ).toBe("run2");
   });
 
   it("should associate messages from snapshot with runs", async () => {
