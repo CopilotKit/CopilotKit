@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run --config vitest.config.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -59,7 +60,8 @@
     "postcss": "^8.5.0",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.5"
   },
   "overrides": {
     "@copilotkit/web-inspector": {

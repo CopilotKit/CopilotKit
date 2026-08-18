@@ -56,6 +56,45 @@ describe("setup content bundle", () => {
       expect(source, framework).toContain("ClaudeAgentAdapter");
       expect(source, framework).toMatch(/```|~~~/);
       expect(source, framework).not.toContain("<DemoCode");
+      expect(source, framework).not.toContain("@region[");
+    }
+  });
+
+  it("bundles the Claude TypeScript fixed-schema backend wiring", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const source = resolveBundledSetupConcept(
+      "claude-sdk-typescript",
+      "a2ui-fixed-schema-setup",
+      setupContent,
+    );
+
+    expect(source).toContain('if (toolName === "display_flight")');
+    expect(source).toContain("shouldUseClaudeAgentSdk({");
+    expect(source).toContain("runWithClaudeAgentSdk({");
+    expect(source).toContain("new ClaudeAgentAdapter({");
+    expect(source).toContain("createSdkMcpServer({");
+    expect(source).toContain("mcpServers: backendToolServer.mcpServers");
+    expect(source).toContain("allowedTools: backendToolServer.allowedTools");
+    expect(source).toContain("mcp__copilotkit__display_flight");
+    expect(source).toContain(
+      "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+    );
+    expect(source).not.toContain("no MCP server");
+    expect(source).not.toContain("<DemoCode");
+
+    const publicFrameworks = getIntegrations()
+      .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+      .map((integration) => integration.slug)
+      .filter((framework) => framework !== "claude-sdk-typescript");
+    for (const framework of publicFrameworks) {
+      expect(
+        resolveBundledSetupConcept(
+          framework,
+          "a2ui-fixed-schema-setup",
+          setupContent,
+        ),
+        framework,
+      ).toBe(null);
     }
   });
 

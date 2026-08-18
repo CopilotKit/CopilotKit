@@ -542,3 +542,52 @@ test.each([
     expect(output).not.toContain("chat.tsx - useAgent run control");
   },
 );
+
+test("renders the Claude TypeScript SDK/MCP fixed-schema wiring only for that framework", () => {
+  const doc = loadDoc("generative-ui/a2ui/fixed-schema");
+  expect(doc).not.toBeNull();
+
+  const render = (framework: string) =>
+    renderPageToLlmText(
+      {
+        url: `${framework}/generative-ui/a2ui/fixed-schema`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "generative-ui/a2ui/fixed-schema",
+        framework,
+      },
+      { framework },
+    );
+
+  const claudeTypeScript = render("claude-sdk-typescript");
+
+  expect(claudeTypeScript).toContain('if (toolName === "display_flight")');
+  expect(claudeTypeScript).toContain("shouldUseClaudeAgentSdk({");
+  expect(claudeTypeScript).toContain("runWithClaudeAgentSdk({");
+  expect(claudeTypeScript).toContain("new ClaudeAgentAdapter({");
+  expect(claudeTypeScript).toContain("createSdkMcpServer({");
+  expect(claudeTypeScript).toContain("mcp__copilotkit__display_flight");
+  expect(claudeTypeScript).toContain(
+    "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+  );
+  expect(claudeTypeScript).not.toContain("no MCP server");
+  expect(claudeTypeScript).not.toContain("<FrameworkSetup");
+
+  const otherPublicFrameworks = getIntegrations()
+    .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+    .map((integration) => integration.slug)
+    .filter((framework) => framework !== "claude-sdk-typescript");
+  for (const framework of otherPublicFrameworks) {
+    const output = render(framework);
+    expect(output, framework).not.toContain(
+      'if (toolName === "display_flight")',
+    );
+    expect(output, framework).not.toContain("new ClaudeAgentAdapter({");
+    expect(output, framework).not.toContain("createSdkMcpServer({");
+    expect(output, framework).not.toContain(
+      "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+    );
+    expect(output, framework).not.toContain("<FrameworkSetup");
+  }
+});
