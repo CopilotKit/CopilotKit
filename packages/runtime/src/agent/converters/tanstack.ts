@@ -19,6 +19,11 @@ import type {
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import { createStateEventNormalizer } from "../state-delta";
+import {
+  a2uiRenderToolNames,
+  buildA2uiOperationsFromRenderArgs,
+  catalogIdFromA2UIContext,
+} from "../a2ui-render-tool";
 
 type ContentPartSource =
   | { type: "data"; value: string; mimeType: string }
@@ -74,6 +79,21 @@ export interface TanStackClientTool {
 }
 
 /**
+ * A TanStack server tool. A2UI's injected `render_a2ui` is converted this way
+ * so the run emits `a2ui_operations` in TOOL_CALL_RESULT instead of pausing
+ * as a client tool (which leaves the "Building interface" skeleton hung).
+ */
+export interface TanStackServerTool {
+  name: string;
+  description: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  inputSchema: any;
+  execute: (args: Record<string, unknown>) => unknown | Promise<unknown>;
+}
+
+export type TanStackTool = TanStackClientTool | TanStackServerTool;
+
+/**
  * Result of converting RunAgentInput to TanStack AI format.
  */
 export interface TanStackInputResult {
@@ -82,13 +102,12 @@ export interface TanStackInputResult {
   /** System prompts extracted from system/developer messages, context, and state */
   systemPrompts: string[];
   /**
-   * Client-side tools derived from `input.tools` (the frontend-provided tools
-   * the CopilotKit client forwards on every run). Pass these into `chat()`
-   * alongside any server/provider tools so the model can call the frontend's
-   * generative-UI and human-in-the-loop tools; TanStack pauses the run on a
-   * client-tool call and the client executes it.
+   * Tools derived from `input.tools`. Frontend tools stay client-side (TanStack
+   * pauses for the CopilotKit client to execute them). A2UI's injected
+   * `render_a2ui` is a server tool so the A2UI middleware receives
+   * `a2ui_operations` in TOOL_CALL_RESULT and can paint the surface.
    */
-  tools: TanStackClientTool[];
+  tools: TanStackTool[];
 }
 
 /**
@@ -308,12 +327,28 @@ export function convertInputToTanStackAI(
   // Frontend-provided tools become client-side TanStack tools (no executor):
   // the model can call them, TanStack pauses the run, and the AG-UI client
   // executes them and resumes — the CopilotKit client-tool round-trip.
-  const tools: TanStackClientTool[] = (input.tools ?? []).map((t) => ({
-    __toolSide: "client",
-    name: t.name,
-    description: t.description,
-    inputSchema: sanitizeClientToolSchema(t.parameters),
-  }));
+  // A2UI render tools are the exception: they must run on the server so the
+  // middleware sees `a2ui_operations` in TOOL_CALL_RESULT (#6526).
+  const a2uiRenderNames = a2uiRenderToolNames(input);
+  const a2uiCatalogId = catalogIdFromA2UIContext(input);
+  const tools: TanStackTool[] = (input.tools ?? []).map((t) => {
+    const inputSchema = sanitizeClientToolSchema(t.parameters);
+    if (a2uiRenderNames.has(t.name)) {
+      return {
+        name: t.name,
+        description: t.description,
+        inputSchema,
+        execute: (args: Record<string, unknown>) =>
+          buildA2uiOperationsFromRenderArgs(args ?? {}, a2uiCatalogId),
+      };
+    }
+    return {
+      __toolSide: "client" as const,
+      name: t.name,
+      description: t.description,
+      inputSchema,
+    };
+  });
 
   return { messages, systemPrompts, tools };
 }
