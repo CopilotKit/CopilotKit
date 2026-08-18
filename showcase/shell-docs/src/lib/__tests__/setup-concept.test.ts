@@ -60,5 +60,8 @@ test.each([
 
     expect(source).toContain(expectedIdentifier);
     expect(source).toContain("ClaudeAgentAdapter");
+    expect(source).toContain(
+      "register this schema as an executable backend tool",
+    );
   },
 );

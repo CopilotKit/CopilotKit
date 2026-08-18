@@ -615,6 +615,9 @@ test("renders executable Claude SDK tool wiring on both tool-rendering routes", 
   expect(python).toContain('options["allowed_tools"]');
   expect(python).toContain("ClaudeAgentAdapter(");
   expect(python).toContain("sdk_tool_handler");
+  expect(python).toContain(
+    "register this schema as an executable backend tool",
+  );
   expect(python).not.toContain("<FrameworkSetup");
 
   const typeScript = render("claude-sdk-typescript");
@@ -623,11 +626,17 @@ test("renders executable Claude SDK tool wiring on both tool-rendering routes", 
   expect(typeScript).toContain("allowedTools: backendToolServer.allowedTools");
   expect(typeScript).toContain("new ClaudeAgentAdapter({");
   expect(typeScript).toContain("sdkTool(");
+  expect(typeScript).toContain(
+    "register this schema as an executable backend tool",
+  );
   expect(typeScript).not.toContain("<FrameworkSetup");
 
   const control = render("langgraph-typescript");
   expect(control).not.toContain("createSdkMcpServer({");
   expect(control).not.toContain("create_sdk_mcp_server(");
   expect(control).not.toContain("ClaudeAgentAdapter");
+  expect(control).not.toContain(
+    "register this schema as an executable backend tool",
+  );
   expect(control).not.toContain("<FrameworkSetup");
 });

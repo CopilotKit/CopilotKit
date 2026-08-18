@@ -69,6 +69,7 @@ describe("setup content bundle", () => {
         'options["allowed_tools"]',
         "ClaudeAgentAdapter(",
         "sdk_tool_handler",
+        "register this schema as an executable backend tool",
       ],
     ],
     [
@@ -79,6 +80,7 @@ describe("setup content bundle", () => {
         "allowedTools: backendToolServer.allowedTools",
         "new ClaudeAgentAdapter({",
         "sdkTool(",
+        "register this schema as an executable backend tool",
       ],
     ],
   ])(
