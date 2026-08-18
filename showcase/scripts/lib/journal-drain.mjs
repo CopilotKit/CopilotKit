@@ -23,25 +23,38 @@ function sleep(ms) {
 }
 
 /**
- * True when a journal entry represents a COMPLETED upstream turn — i.e. aimock
- * has fully served the request and appended the entry (so any fixture it
- * produced is already written to disk).
+ * True when a journal entry represents a fully-DRAINED upstream turn — aimock
+ * has finished serving the request AND written any fixture it produced to disk.
  *
- * Two completion shapes exist, both observed live on this aimock build:
- *   - RECORD mode: no fixture matched, aimock proxied to the real provider and
- *     wrote a fixture. The entry carries `response.source === "proxy"`.
- *   - REPLAY: a fixture served the request. `response.fixture` is populated but
- *     `response.source` is UNSET (aimock does not stamp source:"fixture" on a
- *     normal replay), so we MUST gate on `status === 200 && fixture != null`
- *     and never on `source === "fixture"`.
+ * The ONLY sound journal signal for that is the RECORD (proxy) path:
+ *   - RECORD mode: no fixture matched, aimock proxied to the real provider,
+ *     awaited the ENTIRE upstream stream, wrote the fixture to disk, and only
+ *     THEN appended the journal entry with `response.source === "proxy"`
+ *     (verified in aimock `server.ts`: the `source:"proxy"` `journal.add` runs
+ *     AFTER `await proxyAndRecord(...)`, which awaits the full upstream body).
+ *     So a `source:"proxy"` entry proves the turn drained and its fixture is on
+ *     disk — exactly the guarantee this barrier needs.
  *
- * Both are 200s; anything else (in-flight has no entry yet, errors, chaos
- * fallbacks) is not a settled upstream turn.
+ * A REPLAY entry is deliberately NOT counted as drained. On a fixture hit aimock
+ * appends the journal entry (`status:200`, `fixture` set, `source` UNSET) BEFORE
+ * it streams the response — verified in aimock `server.ts`, where the replay
+ * `journal.add(... response:{status:200, fixture})` runs BEFORE
+ * `await writeSSEStream(...)`; the entry is only mutated afterward if the stream
+ * is interrupted. So `fixture != null` means "replay started / matched," NOT
+ * "fully drained," and gating on it would let the barrier settle while a slow
+ * replay is still streaming. Replay therefore has NO sound journal-based
+ * completion signal; this barrier's "drained" definition is scoped to the
+ * record path on purpose. The D5/D4 proxy-capture flows that use this barrier
+ * run aimock in `--record` mode, where every genuine upstream turn is a
+ * `source:"proxy"` entry, so this scoping is exactly right for them.
+ *
+ * Anything else (in-flight has no entry yet, errors, chaos fallbacks, or a
+ * bare replay hit) is not a settled upstream-record turn.
  */
 export function isCompletedTurn(entry) {
   const r = entry?.response;
   if (!r || r.status !== 200) return false;
-  return r.source === "proxy" || r.fixture != null;
+  return r.source === "proxy";
 }
 
 /**
@@ -66,15 +79,27 @@ export function countCompletedTurns(entries) {
  * landing under run 4, and a run-4 EMPTY initial-weather fixture landing under
  * run 5 (weather then went red on replay).
  *
- * "Drained" here = the completed-turn count has reached `expectedTurns` AND has
- * stopped growing for `quiesceMs` (nothing else is in flight). Because the
- * journal only appends an entry once a turn is fully served, a turn still
- * draining is simply absent from the count; requiring the count to hold steady
- * for a quiescence window is how we know no further turn is about to land.
+ * "Drained" here = the drained-turn count (record-path `source:"proxy"`
+ * entries — see `isCompletedTurn`) has reached `expectedTurns` AND has stopped
+ * growing for `quiesceMs`. Both conditions are REQUIRED and neither is
+ * sufficient alone:
  *
- * `expectedTurns` is a floor (e.g. the built-in-agent D4 weather flow expects 3:
- * greeting, tool-call turn, post-tool-result turn); pass 0 to wait purely for
- * quiescence when the exact turn count for a demo is not known ahead of time.
+ *   - The count floor alone is not enough: a run can momentarily sit at the
+ *     floor between turns.
+ *   - Quiescence alone is NOT sound, which is why `expectedTurns` is REQUIRED
+ *     and must be the REAL number of upstream turns. An in-flight upstream
+ *     request is INVISIBLE in the journal until it completes (aimock appends the
+ *     `source:"proxy"` entry only AFTER the full upstream drain). So during the
+ *     gap between the (N-1)th turn finishing and the Nth turn landing, the count
+ *     is quiescent at N-1 while the slow final turn is still in flight. Waiting
+ *     "purely for quiescence" (the old `expectedTurns: 0` behavior) would settle
+ *     prematurely at N-1 and move fixtures out from under the Nth turn. Requiring
+ *     the count to reach a real `expectedTurns` closes that hole.
+ *
+ * `expectedTurns` is REQUIRED — there is no default. It must be the true number
+ * of upstream turns the captured flow drives (e.g. the built-in-agent D4 weather
+ * flow expects 3: greeting, tool-call turn, post-tool-result turn). Omitting it
+ * throws, rather than silently degrading to unsound quiescence-only draining.
  *
  * Rejects with a clear error if the journal never drains within `timeoutMs`.
  *
@@ -85,8 +110,8 @@ export function countCompletedTurns(entries) {
  * to satisfy `RequestInfo | URL` / `Response`.
  *
  * @typedef {{ ok?: boolean, status: number, json: () => Promise<unknown> }} JournalResponse
- * @param {object} [opts]
- * @param {number} [opts.expectedTurns]
+ * @param {object} opts
+ * @param {number} opts.expectedTurns REQUIRED — the true number of upstream turns.
  * @param {string} [opts.journalUrl]
  * @param {(url: string) => Promise<JournalResponse>} [opts.fetchImpl]
  * @param {number} [opts.timeoutMs]
@@ -95,13 +120,24 @@ export function countCompletedTurns(entries) {
  * @returns {Promise<{ completed: number }>}
  */
 export async function waitForJournalDrain({
-  expectedTurns = 0,
+  expectedTurns,
   journalUrl = JOURNAL_URL,
   fetchImpl = globalThis.fetch,
   timeoutMs = 120000,
   pollIntervalMs = 500,
   quiesceMs = 2000,
 } = {}) {
+  // expectedTurns is REQUIRED and must be a real turn count. Defaulting it to 0
+  // (the old behavior) degrades the barrier to unsound quiescence-only draining
+  // that settles prematurely while a slow final upstream turn is still in flight
+  // (invisible in the journal until it completes). Fail loudly instead.
+  if (expectedTurns === undefined) {
+    throw new Error(
+      "waitForJournalDrain: expectedTurns is required — pass the real number of " +
+        "upstream turns the captured flow drives. Quiescence alone is not a sound " +
+        "drain signal (an in-flight turn is invisible in the journal until it lands).",
+    );
+  }
   if (!Number.isInteger(expectedTurns) || expectedTurns < 0) {
     throw new Error(
       `waitForJournalDrain: expectedTurns must be a non-negative integer, got ${expectedTurns}`,

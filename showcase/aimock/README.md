@@ -71,38 +71,61 @@ The process is manual. There is no CLI for this directory specifically — aimoc
 
 When a package's agent code changes in a way that changes its LLM calls, the person making the change is responsible for updating the corresponding fixture. There is no automation to remind you.
 
-### Proxy-capturing a D4 fixture: drain the journal first
+### Refresh D4: capture the canonical once, then mirror — drain the journal during capture
 
-D4 fixtures are hand-authored, but the shape of a tool-calling flow is often
-easiest to obtain by proxy-capturing it once (boot aimock with `--record`
-against the real provider — as `docker-compose.record.yml` does — drive the D4
-cell, then hand-clean the emitted fixture before committing it under
-`d4/<slug>/`). If you do that, there is a **capture race** you must guard
-against, the same one the D5 recorder hit:
+"Refresh D4" is **not** per-integration recording. Recording each integration's
+own live traffic launders that integration's request-side bugs into a
+forever-green fixture (the matcher keys mainly on `userMessage` + `context`, not
+the system prompt or tool schema), so a buggy prompt or wrong tool name replays
+green. The canonical model — see `showcase/GOTCHAS.md` ("MIRROR the canonical
+(langgraph-python) fixtures — never re-record per-integration") — is:
+
+1. **Capture / verify the canonical live flow ONCE.** `langgraph-python` is the
+   canonical reference. Boot aimock with `--record` against the real provider (as
+   `docker-compose.record.yml` does), drive the D4 cell on langgraph-python, and
+   capture its live tool-calling flow. **This is the only step that proxies
+   upstream, so this is where the journal-drain barrier applies (see below).**
+2. **Normalize the canonical fixture** — hand-clean the captured turns into the
+   canonical `d4/langgraph-python/<cell>.json` shape.
+3. **Mirror across integrations**, copying the canonical fixture to each
+   integration and re-keying `match.context` to the integration slug (never
+   re-recording per integration). This forces every integration onto one shared
+   contract.
+4. **Run fresh replay validation** across the mirrored integrations.
+
+The journal-drain step belongs to **step 1 only**. During the canonical capture
+there is a **capture race**:
 
 > A probe (or your manual click-through) marks the cell satisfied as soon as the
 > tool card meets the assertion, but the **POST-tool-result LLM turn can still be
 > draining** — aimock is still proxying upstream and writing that fixture — after
-> the driving process exits. If you move/commit the captured fixtures or restart
+> the driving process exits. If you move/commit the captured fixture or restart
 > aimock at that instant, the late fixture lands in the wrong place (or is lost),
-> and the D4 cell can go red on replay for a turn that was never captured.
+> and the cell can go red on replay for a turn that was never captured.
 
-So, after driving the D4 cell and **before** moving/committing the captured
-fixtures or restarting aimock, **wait for the request journal to drain**. aimock
-exposes the journal at `GET /__aimock/journal`; a turn is only appended once it
-is fully served (record-mode proxy → `response.source === "proxy"`, or a replay
-→ `response.status === 200 && response.fixture != null` — never
-`source === "fixture"`, which aimock leaves unset on a normal replay).
+So, after driving the canonical cell and **before** normalizing/committing the
+captured fixture or restarting aimock, **wait for the request journal to drain**.
+aimock exposes the journal at `GET /__aimock/journal`. The **only** sound
+"fully-drained" signal is the record path: aimock appends a
+`response.source === "proxy"` entry **after** it has awaited the entire upstream
+stream and written the fixture to disk. A replay entry (`response.status === 200`
+with `response.fixture` set, `response.source` unset) is appended at stream
+**start**, so it means "replay matched," **not** "fully drained" — never treat
+`fixture != null` as a completion signal. Since capture runs aimock in `--record`
+mode, every genuine upstream turn is a `source === "proxy"` entry.
 
 Use the shared barrier rather than re-deriving this rule:
 [`showcase/scripts/lib/journal-drain.mjs`](../scripts/lib/journal-drain.mjs)
-exports `waitForJournalDrain(...)`, which polls the journal until the
-completed-turn count has reached the floor **and** held steady through a
-quiescence window. The D5 recorder
-([`record-d5-fixtures.mjs`](../scripts/record-d5-fixtures.mjs)) calls it
-automatically between the probe and fixture consolidation; a hand-run D4 capture
-must call the same barrier (or poll the same endpoint by hand) at the equivalent
-point.
+exports `waitForJournalDrain({ expectedTurns })`, which polls the journal until
+the drained (`source:"proxy"`) turn count has reached a **required** real
+`expectedTurns` **and** held steady through a quiescence window. `expectedTurns`
+is mandatory — quiescence alone can settle prematurely between turns while a slow
+final turn is still in flight (invisible in the journal until it lands). The D5
+recorder ([`record-d5-fixtures.mjs`](../scripts/record-d5-fixtures.mjs)) calls it
+automatically between the probe and fixture consolidation, aborting the run if
+the journal does not drain; a hand-run canonical capture must call the same
+barrier (or poll the same endpoint by hand, gating on `source === "proxy"`) at
+the equivalent point.
 
 ## Drift risk
 
