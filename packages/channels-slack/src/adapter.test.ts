@@ -62,6 +62,30 @@ describe("SlackAdapter.post", () => {
     expect((ref as { channel?: string }).channel).toBe("C1");
   });
 
+  it("retries chat.postMessage when Slack says the slack_file is not ready", async () => {
+    const { adapter, chat } = makeAdapter();
+    const unready = Object.assign(new Error("invalid_blocks"), {
+      data: {
+        error: "invalid_blocks",
+        response_metadata: {
+          messages: [
+            "invalid slack file [json-pointer:/blocks/1/elements/0/hero_image/slack_file.id/slack_file]",
+          ],
+        },
+      },
+    });
+    chat.postMessage
+      .mockRejectedValueOnce(unready)
+      .mockResolvedValueOnce({ ts: "201.0", channel: "C1" });
+
+    const ref = await adapter.post({ channel: "C1", threadTs: "100.0" }, [
+      section("hi"),
+    ]);
+
+    expect(chat.postMessage).toHaveBeenCalledTimes(2);
+    expect(ref.id).toBe("201.0");
+  });
+
   it("threads the reply under statusTs when the target has no threadTs (flat DM)", async () => {
     const { adapter, chat } = makeAdapter();
     await adapter.post({ channel: "C1", statusTs: "200.0" }, [section("hi")]);

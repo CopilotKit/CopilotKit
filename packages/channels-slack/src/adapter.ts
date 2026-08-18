@@ -439,7 +439,9 @@ export class SlackAdapter implements PlatformAdapter {
     const args: ChatPostMessageArguments = accent
       ? { ...base, attachments: [{ color: accent, blocks }] }
       : { ...base, blocks };
-    const res = await this.client.chat.postMessage(args);
+    const res = await withSlackFileRetry(() =>
+      this.client.chat.postMessage(args),
+    );
     return { id: res.ts as string, channel: t.channel, ts: res.ts };
   }
 
@@ -462,7 +464,7 @@ export class SlackAdapter implements PlatformAdapter {
           text: summary,
           blocks,
         };
-    await this.client.chat.update(args);
+    await withSlackFileRetry(() => this.client.chat.update(args));
   }
 
   async stream(
@@ -1236,6 +1238,7 @@ function channelOf(ref: MessageRef): string {
 
 const SLACK_FILE_READY_ATTEMPTS = 12;
 const SLACK_FILE_READY_SLEEP_MS = 200;
+const SLACK_FILE_POST_ATTEMPTS = 5;
 
 /**
  * Private Slack files have an empty mimetype until Slack finishes
@@ -1262,4 +1265,38 @@ async function waitForSlackImageFile(
       setTimeout(resolve, SLACK_FILE_READY_SLEEP_MS),
     );
   }
+}
+
+function isUnreadySlackFileError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("data" in error)) {
+    return false;
+  }
+  const data = (error as { data?: { error?: string; response_metadata?: { messages?: string[] } } })
+    .data;
+  if (data?.error !== "invalid_blocks") return false;
+  return (data.response_metadata?.messages ?? []).some((message) =>
+    message.includes("slack_file"),
+  );
+}
+
+/** Slack can still reject slack_file after files.info reports a mimetype. */
+async function withSlackFileRetry<T>(op: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= SLACK_FILE_POST_ATTEMPTS; attempt += 1) {
+    try {
+      return await op();
+    } catch (error) {
+      lastError = error;
+      if (
+        !isUnreadySlackFileError(error) ||
+        attempt === SLACK_FILE_POST_ATTEMPTS
+      ) {
+        throw error;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, SLACK_FILE_READY_SLEEP_MS * attempt),
+      );
+    }
+  }
+  throw lastError;
 }

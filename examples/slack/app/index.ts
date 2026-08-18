@@ -64,13 +64,32 @@ import { loadBrandRender } from "./render/brand.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
 
-const required = (name: string): string => {
-  const v = process.env[name];
-  if (!v) {
-    console.error(`Missing required env var: ${name}`);
+const firstEnv = (...names: string[]): string | undefined => {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) return value;
+  }
+  return undefined;
+};
+
+const required = (...names: string[]): string => {
+  const value = firstEnv(...names);
+  if (!value) {
+    console.error(`Missing required env var: ${names.join(" or ")}`);
     process.exit(1);
   }
-  return v;
+  return value;
+};
+
+/** Prefer a key that carries `cpk-{projectId}_...`. OpenTag's COPILOTKIT_API_KEY uses `cpk_` and cannot activate a Channel. */
+function intelligenceApiKey(): string {
+  const candidates = [
+    firstEnv("INTELLIGENCE_API_KEY"),
+    firstEnv("COPILOTKIT_API_KEY"),
+  ].filter((value): value is string => Boolean(value));
+  const matching = candidates.find((key) => /^cpk-\d+_/.test(key));
+  if (matching) return matching;
+  return required("INTELLIGENCE_API_KEY", "COPILOTKIT_API_KEY");
 };
 
 /** True only when every named env var is set and non-empty. */
@@ -295,9 +314,12 @@ async function main() {
   // API and realtime planes are separate hosts (api.… vs realtime.…), so
   // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
-    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
-    apiKey: required("COPILOTKIT_API_KEY"),
+    apiUrl: firstEnv("COPILOTKIT_INTELLIGENCE_URL", "INTELLIGENCE_API_URL"),
+    wsUrl: firstEnv(
+      "COPILOTKIT_INTELLIGENCE_WS_URL",
+      "INTELLIGENCE_GATEWAY_WS_URL",
+    ),
+    apiKey: intelligenceApiKey(),
   });
 
   // Declare the Channel on the Intelligence runtime, which OWNS its lifecycle:
