@@ -513,6 +513,47 @@ test.each([
   }
 });
 
+test.each(["langgraph-python", "strands", "strands-typescript", "google-adk"])(
+  "renders a lifecycle-safe shared-state initializer for %s",
+  (framework) => {
+    const loadSlug = "shared-state/rendering-in-app";
+    const doc = loadDoc(loadSlug);
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText(
+      {
+        url: `${framework}/${loadSlug}`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug,
+        framework,
+      },
+      { framework },
+    );
+
+    expect(output).toContain('import { useEffect } from "react";');
+    expect(output).toContain("const INITIAL_CANVAS_STATE: CanvasState = {");
+    expect(output).toContain('title: "Project launch"');
+    expect(output).toContain('label: "Research user needs"');
+    expect(output).toContain("const { agent, isReady } = useAgent();");
+    expect(output).toContain("if (!isReady) return;");
+    expect(output).toContain("const current = (agent.state ?? {})");
+    expect(output).toContain("if (current.title === undefined)");
+    expect(output).toContain("if (current.items === undefined)");
+    expect(output).toContain(
+      "agent.setState({ ...(agent.state ?? {}), ...updates });",
+    );
+    expect(output).toContain("[agent, isReady, state.title, state.items]");
+    expect(output).toContain("UI-owned initial state");
+    expect(output).toMatch(/backend owns the initial\s+state/);
+    expect(output).not.toContain("<TabItem");
+    expect(output).not.toContain("from langgraph");
+    expect(output).not.toContain("from strands");
+    expect(output).not.toContain("from google.adk");
+  },
+);
+
 test.each([
   ["claude-sdk-python", "programmatic-control"],
   ["claude-sdk-python", "headless"],
