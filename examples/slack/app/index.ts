@@ -91,7 +91,7 @@ function intelligenceApiKey(): string {
   const matching = candidates.find((key) => /^cpk-\d+_/.test(key));
   if (matching) return matching;
   return requiredIntelligenceKey();
-};
+}
 
 /**
  * Resolves the Intelligence project key.
