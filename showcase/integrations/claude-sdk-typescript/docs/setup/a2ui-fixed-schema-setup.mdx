@@ -1,0 +1,28 @@
+<Steps>
+  <Step>
+    ### Execute the fixed-schema tool on the backend
+
+    This integration uses a direct Anthropic Messages API loop translated to
+    AG-UI events. When Claude calls `display_flight`, the backend builds the
+    fixed schema's A2UI operations and returns them as the tool result.
+
+    <DemoCode
+      file="src/agent_server.ts"
+      region="a2ui-fixed-schema-tool-execution"
+    />
+  </Step>
+
+  <Step>
+    ### Register the tool with the agent loop
+
+    The dedicated endpoint supplies `DISPLAY_FLIGHT_TOOL_SCHEMA` to the same
+    loop. This is the connection between the schema shown above and the
+    executable handler; no MCP server or `ClaudeAgentAdapter` is involved in
+    this showcase integration.
+
+    <DemoCode
+      file="src/agent_server.ts"
+      region="a2ui-fixed-schema-route"
+    />
+  </Step>
+</Steps>

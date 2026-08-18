@@ -542,3 +542,37 @@ test.each([
     expect(output).not.toContain("chat.tsx - useAgent run control");
   },
 );
+
+test("renders Claude TypeScript fixed-schema backend wiring without changing other frameworks", () => {
+  const doc = loadDoc("generative-ui/a2ui/fixed-schema");
+  expect(doc).not.toBeNull();
+
+  const render = (framework: string) =>
+    renderPageToLlmText(
+      {
+        url: `${framework}/generative-ui/a2ui/fixed-schema`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "generative-ui/a2ui/fixed-schema",
+        framework,
+      },
+      { framework },
+    );
+
+  const claudeTypeScript = render("claude-sdk-typescript");
+  const langGraphTypeScript = render("langgraph-typescript");
+
+  expect(claudeTypeScript).toContain('if (toolName === "display_flight")');
+  expect(claudeTypeScript).toContain(
+    "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+  );
+  expect(claudeTypeScript).not.toContain("<FrameworkSetup");
+  expect(langGraphTypeScript).not.toContain(
+    'if (toolName === "display_flight")',
+  );
+  expect(langGraphTypeScript).not.toContain(
+    "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+  );
+  expect(langGraphTypeScript).not.toContain("<FrameworkSetup");
+});

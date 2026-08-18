@@ -59,6 +59,28 @@ describe("setup content bundle", () => {
     }
   });
 
+  it("bundles the Claude TypeScript fixed-schema backend wiring", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const source = resolveBundledSetupConcept(
+      "claude-sdk-typescript",
+      "a2ui-fixed-schema-setup",
+      setupContent,
+    );
+
+    expect(source).toContain('if (toolName === "display_flight")');
+    expect(source).toContain(
+      "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+    );
+    expect(source).not.toContain("<DemoCode");
+    expect(
+      resolveBundledSetupConcept(
+        "langgraph-typescript",
+        "a2ui-fixed-schema-setup",
+        setupContent,
+      ),
+    ).toBe(null);
+  });
+
   it("resolves Channels agent setup for all 19 public framework choices", () => {
     const setupContent = setupContentData as SetupContentBundle;
     const publicFrameworks = getIntegrations()
