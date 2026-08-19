@@ -4,7 +4,6 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
   computed,
-  effect,
   inject,
   ElementRef,
   AfterViewInit,
@@ -17,6 +16,7 @@ import * as katex from "katex";
 import { completePartialMarkdown } from "@copilotkit/core";
 import { copyToClipboard } from "@copilotkit/shared";
 import { injectChatLabels } from "../../chat-config";
+import { explicitEffect } from "../../explicit-effect";
 
 function processMathEquationsInHtml(html: string): string {
   // First, temporarily replace code blocks with placeholders to protect them from math processing
@@ -240,18 +240,18 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
   });
 
   constructor() {
-    // React to content changes using signals
-    effect(() => {
-      // Read content to establish dependency
-      this.content();
-      // Reset copy states when content changes
-      this.copyStates.clear();
-      // If view is ready, update DOM
-      if (this.markdownContainer) {
-        this.updateContent();
-        this.renderMathEquations();
-      }
-    });
+    explicitEffect(
+      () => this.content(),
+      () => {
+        // Reset copy states when content changes
+        this.copyStates.clear();
+        // If view is ready, update DOM
+        if (this.markdownContainer) {
+          this.updateContent();
+          this.renderMathEquations();
+        }
+      },
+    );
   }
 
   ngAfterViewInit(): void {

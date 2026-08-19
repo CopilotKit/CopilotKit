@@ -5,13 +5,13 @@ import {
   NgZone,
   PLATFORM_ID,
   computed,
-  effect,
   inject,
   input,
   signal,
 } from "@angular/core";
 
 import type { A2UIRecoveryOptions } from "../../config";
+import { explicitEffect } from "../../explicit-effect";
 import { safeToolValue } from "../tools/default-tool-renderer";
 import { CopilotA2UIProgress } from "./a2ui-progress";
 import { isRecord } from "./a2ui-surface-host";
@@ -186,28 +186,29 @@ export class CopilotA2UIRecovery {
   readonly #zone = inject(NgZone);
 
   constructor() {
-    effect((onCleanup) => {
-      const lifecycle = this.lifecycle();
-      const options = this.options();
-      this.retryRevealed.set(false);
-      if (lifecycle.status !== "retrying") return;
+    explicitEffect(
+      () => ({ lifecycle: this.lifecycle(), options: this.options() }),
+      ({ lifecycle, options }, onCleanup) => {
+        this.retryRevealed.set(false);
+        if (lifecycle.status !== "retrying") return;
 
-      const showAfterAttempts = options?.showAfterAttempts ?? 2;
-      if (
-        lifecycle.attempt !== undefined &&
-        lifecycle.attempt >= showAfterAttempts
-      ) {
-        this.retryRevealed.set(true);
-        return;
-      }
-      if (!isPlatformBrowser(this.#platformId)) return;
-      const timeout = this.#zone.runOutsideAngular(() =>
-        globalThis.setTimeout(
-          () => this.#zone.run(() => this.retryRevealed.set(true)),
-          options?.showAfterMs ?? 2000,
-        ),
-      );
-      onCleanup(() => globalThis.clearTimeout(timeout));
-    });
+        const showAfterAttempts = options?.showAfterAttempts ?? 2;
+        if (
+          lifecycle.attempt !== undefined &&
+          lifecycle.attempt >= showAfterAttempts
+        ) {
+          this.retryRevealed.set(true);
+          return;
+        }
+        if (!isPlatformBrowser(this.#platformId)) return;
+        const timeout = this.#zone.runOutsideAngular(() =>
+          globalThis.setTimeout(
+            () => this.#zone.run(() => this.retryRevealed.set(true)),
+            options?.showAfterMs ?? 2000,
+          ),
+        );
+        onCleanup(() => globalThis.clearTimeout(timeout));
+      },
+    );
   }
 }

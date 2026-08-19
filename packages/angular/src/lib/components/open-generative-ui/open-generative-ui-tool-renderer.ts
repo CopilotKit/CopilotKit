@@ -3,13 +3,13 @@ import {
   Component,
   DestroyRef,
   computed,
-  effect,
   inject,
   input,
   signal,
 } from "@angular/core";
 import type { AngularToolCall, ToolRenderer } from "../../tools";
 import type { GenerateSandboxedUiArgs } from "../../open-generative-ui";
+import { explicitEffect } from "../../explicit-effect";
 
 @Component({
   selector: "copilot-open-generative-ui-tool-renderer",
@@ -57,32 +57,34 @@ export class CopilotOpenGenerativeUIToolRenderer implements ToolRenderer<Generat
   constructor() {
     this.destroyRef.onDestroy(() => this.clearTimer());
 
-    effect((onCleanup) => {
-      const call = this.toolCall();
-      const messages = call.args.placeholderMessages;
-      this.clearTimer();
+    explicitEffect(
+      () => this.toolCall(),
+      (call, onCleanup) => {
+        const messages = call.args.placeholderMessages;
+        this.clearTimer();
 
-      if (!messages?.length) {
-        this.previousMessageCount = 0;
-        this.visibleMessageIndex.set(0);
-        return;
-      }
+        if (!messages?.length) {
+          this.previousMessageCount = 0;
+          this.visibleMessageIndex.set(0);
+          return;
+        }
 
-      if (messages.length !== this.previousMessageCount) {
-        this.previousMessageCount = messages.length;
-        this.visibleMessageIndex.set(messages.length - 1);
-      }
+        if (messages.length !== this.previousMessageCount) {
+          this.previousMessageCount = messages.length;
+          this.visibleMessageIndex.set(messages.length - 1);
+        }
 
-      if (call.status === "complete") return;
+        if (call.status === "complete") return;
 
-      this.interval = setInterval(() => {
-        this.visibleMessageIndex.update(
-          (index) => (index + 1) % messages.length,
-        );
-      }, 5000);
+        this.interval = setInterval(() => {
+          this.visibleMessageIndex.update(
+            (index) => (index + 1) % messages.length,
+          );
+        }, 5000);
 
-      onCleanup(() => this.clearTimer());
-    });
+        onCleanup(() => this.clearTimer());
+      },
+    );
   }
 
   private clearTimer(): void {

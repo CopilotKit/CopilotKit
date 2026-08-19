@@ -2,11 +2,9 @@ import type { Signal } from "@angular/core";
 import {
   computed,
   DestroyRef,
-  effect,
   inject,
   Injectable,
   signal,
-  untracked,
 } from "@angular/core";
 import type { Subscription } from "rxjs";
 import {
@@ -26,6 +24,7 @@ import type {
   ɵThreadStore,
 } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
+import { explicitEffect } from "./explicit-effect";
 
 /**
  * A conversation thread managed by the Intelligence platform.
@@ -325,10 +324,9 @@ export class ThreadsStore implements InjectThreadsResult {
     // route realtime/agent-driven thread updates to it. Re-runs when the agent
     // id changes; the previous registration is cleared first.
     let registeredAgentId: string | undefined;
-    effect(() => {
-      const nextAgentId = agentId();
-      const enabled = isEnabled();
-      untracked(() => {
+    explicitEffect(
+      () => ({ nextAgentId: agentId(), enabled: isEnabled() }),
+      ({ nextAgentId, enabled }) => {
         // Disabled (e.g. unlicensed): ensure this store is NOT registered. The
         // registry is single-slot/last-writer-wins, so an inert store claiming
         // the agentId slot would evict — and on destroy tear down — a co-mounted
@@ -348,8 +346,8 @@ export class ThreadsStore implements InjectThreadsResult {
         }
         this.#copilotkit.core.registerThreadStore(nextAgentId, this.#store);
         registeredAgentId = nextAgentId;
-      });
-    });
+      },
+    );
 
     // Sync the runtime context. Defer until the runtime reports Connected so
     // the initial context carries `intelligence.wsUrl` and avoids a redundant
@@ -367,22 +365,33 @@ export class ThreadsStore implements InjectThreadsResult {
     // an unchanged context. This collapses the benign URL→Connected transition
     // to a single dispatch and matches react-core's dependency-gated effect.
     let lastDispatchedContext: string | null = null;
-    effect(() => {
-      // Track every reactive input the dispatched context depends on, so the
-      // effect re-runs when any of them changes — including `wsUrl`, which
-      // arrives with `/info` and (via the dedup signature below) triggers a
-      // single re-dispatch carrying the realtime URL.
-      const active = isEnabled();
-      const url = runtimeUrl();
-      const status = runtimeStatus();
-      const headers = this.#copilotkit.headers();
-      const id = agentId();
-      const archived = includeArchived();
-      const pageLimit = limit();
-      const listSupported = threadListSupported();
-      const wsUrl = this.#copilotkit.intelligence()?.wsUrl;
-
-      untracked(() => {
+    explicitEffect(
+      // Every reactive input the dispatched context depends on, so the effect
+      // re-runs when any of them changes — including `wsUrl`, which arrives
+      // with `/info` and (via the dedup signature below) triggers a single
+      // re-dispatch carrying the realtime URL.
+      () => ({
+        active: isEnabled(),
+        url: runtimeUrl(),
+        status: runtimeStatus(),
+        headers: this.#copilotkit.headers(),
+        id: agentId(),
+        archived: includeArchived(),
+        pageLimit: limit(),
+        listSupported: threadListSupported(),
+        wsUrl: this.#copilotkit.intelligence()?.wsUrl,
+      }),
+      ({
+        active,
+        url,
+        status,
+        headers,
+        id,
+        archived,
+        pageLimit,
+        listSupported,
+        wsUrl,
+      }) => {
         const clearContext = (): void => {
           if (this.#hasDispatchedContext()) {
             this.#store.setContext(null);
@@ -439,8 +448,8 @@ export class ThreadsStore implements InjectThreadsResult {
         lastDispatchedContext = signature;
         this.#store.setContext(context);
         this.#hasDispatchedContext.set(true);
-      });
-    });
+      },
+    );
 
     this.renameThread = this.#guardMutation(mutationsError, (threadId, name) =>
       this.#store.renameThread(threadId, name),
