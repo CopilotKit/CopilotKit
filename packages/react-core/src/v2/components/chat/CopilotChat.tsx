@@ -953,7 +953,15 @@ export function CopilotChat({
   const mergedProps: Partial<CopilotChatViewProps> = {
     isRunning: agent.isRunning,
     suggestions: autoSuggestions,
-    onSelectSuggestion: handleSelectSuggestion,
+    // Gate suggestion submission on runtime readiness, mirroring the
+    // `onSubmitMessage` gate below. Static `available:"always"` pills render
+    // during the provisional window (before `/info` swaps the real agent in),
+    // so a click before `isReady` would commit `suggestion.message` to the
+    // doomed provisional agent and run against it — the same empty-assistant
+    // loss the typed-message gate prevents. Withholding `onSelectSuggestion`
+    // makes the pill click a no-op until the real agent is bound; the pill
+    // becomes live again once `isReady` flips true.
+    onSelectSuggestion: isReady ? handleSelectSuggestion : undefined,
     suggestionView: stableSuggestionView,
     ...restProps,
   };
