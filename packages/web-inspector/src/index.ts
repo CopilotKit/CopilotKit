@@ -56,7 +56,11 @@ import {
   isValidDockMode,
 } from "./lib/persistence.js";
 import type { PersistedState } from "./lib/persistence.js";
-import { buildPopOutFeatures, openPopOutWindow } from "./lib/pop-out.js";
+import {
+  buildPopOutFeatures,
+  ensureBrandFont,
+  openPopOutWindow,
+} from "./lib/pop-out.js";
 import type { PopOutHandle } from "./lib/pop-out.js";
 import { projectInspectorMetadata } from "./lib/inspector-metadata.js";
 import type {
@@ -954,9 +958,36 @@ function formatTimestamp(ts: string | number): string {
   );
 }
 
+/**
+ * Lit's constructable stylesheets belong to the document that created them.
+ * These child elements move between the app and pop-out documents, so keep
+ * their styles as shadow-root style nodes that travel with the live element.
+ */
+abstract class PortableLitElement extends LitElement {
+  protected override createRenderRoot(): HTMLElement | DocumentFragment {
+    const elementClass = this.constructor as unknown as {
+      elementStyles: readonly (CSSStyleSheet | { cssText: string })[];
+      shadowRootOptions: ShadowRootInit;
+    };
+    const renderRoot =
+      this.shadowRoot ?? this.attachShadow(elementClass.shadowRootOptions);
+
+    for (const style of elementClass.elementStyles) {
+      const styleElement = this.ownerDocument.createElement("style");
+      styleElement.textContent =
+        "cssText" in style
+          ? style.cssText
+          : Array.from(style.cssRules, (rule) => rule.cssText).join("");
+      renderRoot.append(styleElement);
+    }
+
+    return renderRoot;
+  }
+}
+
 // ─── cpk-thread-list ────────────────────────────────────────────────────────
 
-class CpkThreadList extends LitElement {
+class CpkThreadList extends PortableLitElement {
   static properties = {
     threads: { attribute: false },
     selectedThreadId: { attribute: false },
@@ -1296,7 +1327,7 @@ class CpkThreadList extends LitElement {
 // Renders the selected thread's read-only timeline, state, raw AG-UI events,
 // and compact technical metadata. External hosts provide a ThreadDebuggerProvider;
 // the legacy CopilotKit Inspector wrapper can still pass runtime URL inputs.
-export class CpkThreadInspector extends LitElement {
+export class CpkThreadInspector extends PortableLitElement {
   static properties = {
     threadId: { attribute: false },
     provider: { attribute: false },
@@ -4219,7 +4250,7 @@ export {
 /** Memory kind values including the "all" sentinel used by the filter UI. */
 type MemoryKindFilter = "all" | "topical" | "episodic" | "operational";
 
-class CpkMemoryList extends LitElement {
+class CpkMemoryList extends PortableLitElement {
   static properties = {
     memories: { attribute: false },
     recallResults: { attribute: false },
@@ -4949,6 +4980,7 @@ export class WebInspectorElement extends LitElement {
   private contextMenuOpen = false;
   private dockMode: DockMode = "floating";
   private popOut: PopOutHandle | null = null;
+  private inspectorPortal: HTMLDivElement | null = null;
   private previousBodyMargins: { left: string; bottom: string } | null = null;
   private transitionTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private bodyTransitionTimeoutIds: Set<ReturnType<typeof setTimeout>> =
@@ -6758,7 +6790,7 @@ ${argsString}</pre
         return popped;
       }
     }
-    const view = event instanceof UIEvent ? event.view : null;
+    const view = event && "view" in event ? (event as UIEvent).view : null;
     const viewClipboard = view?.navigator.clipboard;
     if (viewClipboard) {
       return viewClipboard;
@@ -7632,14 +7664,7 @@ ${argsString}</pre
   }
 
   private ensureBrandFonts(): void {
-    const FONT_LINK_ID = "cpk-inspector-brand-fonts";
-    if (document.getElementById(FONT_LINK_ID)) return;
-    const link = document.createElement("link");
-    link.id = FONT_LINK_ID;
-    link.rel = "stylesheet";
-    link.href =
-      "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap";
-    document.head.appendChild(link);
+    ensureBrandFont(document);
   }
 
   disconnectedCallback(): void {
@@ -7729,10 +7754,11 @@ ${argsString}</pre
   }
 
   render() {
-    if (this.isPoppedOut) {
-      return nothing;
-    }
-    return this.isOpen ? this.renderWindow() : this.renderButton();
+    return this.isOpen
+      ? html`
+          <div data-inspector-portal-anchor></div>
+        `
+      : this.renderButton();
   }
 
   protected willUpdate(): void {
@@ -7740,7 +7766,7 @@ ${argsString}</pre
   }
 
   protected updated(): void {
-    this.syncPopOutView();
+    this.syncInspectorPortal();
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
 
@@ -8059,10 +8085,13 @@ ${argsString}</pre
                     type="button"
                     aria-label="Settings"
                     aria-pressed=${this.settingsOpen}
+                    title="Settings"
                     style=${INTERACTIVE_FOCUS_BASE_STYLE}
                     @click=${this.handleSettingsToggle}
                   >
-                    ${this.renderIcon("Settings")}
+                    <span class="inspector-account-control-icon" aria-hidden="true">
+                      ${this.renderIcon("Settings")}
+                    </span>
                   </button>
                   ${
                     isPoppedOut
@@ -8544,15 +8573,12 @@ ${argsString}</pre
       defineWebInspector(handle.win.customElements);
       if (this.dockMode !== "floating") {
         this.removeDockStyles();
-        // Computed style restores "0px". The page should have no dock padding.
-        document.body.style.marginLeft = "";
-        document.body.style.marginBottom = "";
       }
       handle.win.addEventListener(
         "pointerdown",
         this.handleGlobalPointerDown as EventListener,
       );
-      this.syncPopOutView();
+      this.syncInspectorPortal();
       this.requestUpdate();
     } catch (error) {
       this.popOut = null;
@@ -8582,11 +8608,7 @@ ${argsString}</pre
     if (!handle) return;
     this.popOut = null;
     this.unbindPopOutPointerDown(handle.win);
-    try {
-      render(nothing, handle.win.document.body);
-    } catch {
-      // Popup document may already be gone.
-    }
+    this.syncInspectorPortal();
     if (this.isConnected && this.isOpen && this.dockMode !== "floating") {
       this.applyDockStyles();
     }
@@ -8604,15 +8626,36 @@ ${argsString}</pre
     this.closePopOut();
   };
 
-  private syncPopOutView(): void {
-    if (!this.isPoppedOut) return;
-    const doc = this.popOut!.win.document;
-    // Create nodes in this realm so custom-element constructors stay valid.
-    // Lit then adopts them into the popup document.
-    render(this.renderWindow(), doc.body, {
+  private syncInspectorPortal(): void {
+    if (!this.inspectorPortal) {
+      const portal = (this.ownerDocument ?? document).createElement("div");
+      portal.dataset.inspectorPortal = "true";
+      portal.style.display = "contents";
+      this.inspectorPortal = portal;
+    }
+
+    if (!this.isOpen) {
+      render(nothing, this.inspectorPortal, {
+        host: this,
+        creationScope: this.ownerDocument ?? document,
+      });
+      this.inspectorPortal.remove();
+      return;
+    }
+
+    render(this.renderWindow(), this.inspectorPortal, {
       host: this,
       creationScope: this.ownerDocument ?? document,
     });
+
+    const target = this.isPoppedOut
+      ? this.popOut!.win.document.body
+      : this.renderRoot.querySelector<HTMLElement>(
+          "[data-inspector-portal-anchor]",
+        );
+    if (target && this.inspectorPortal.parentNode !== target) {
+      target.appendChild(this.inspectorPortal);
+    }
   }
 
   private handleResizePointerDown = (event: PointerEvent) => {
@@ -11929,7 +11972,8 @@ ${argsString}</pre
                 return html`
                   <tr
                     class="${rowBg} cursor-pointer transition hover:bg-blue-50/50"
-                    @click=${() => this.toggleRowExpansion(event.id)}
+                    @click=${(clickEvent: Event) =>
+                      this.toggleRowExpansion(event.id, clickEvent)}
                   >
                     <td
                       class="border-l border-r border-b border-gray-200 px-3 py-2"
@@ -13388,9 +13432,12 @@ ${prettyEvent}</pre
     }
 
     const clickedDropdown = event.composedPath().some((node) => {
+      const candidate = node as {
+        getAttribute?: (name: string) => string | null;
+      };
       return (
-        node instanceof HTMLElement &&
-        node.dataset?.contextDropdownRoot === "true"
+        typeof candidate.getAttribute === "function" &&
+        candidate.getAttribute("data-context-dropdown-root") === "true"
       );
     });
 
@@ -13400,9 +13447,14 @@ ${prettyEvent}</pre
     }
   };
 
-  private toggleRowExpansion(eventId: string): void {
+  private toggleRowExpansion(eventId: string, event?: Event): void {
     // Don't toggle if user is selecting text
-    const selection = window.getSelection();
+    const target = event?.currentTarget;
+    const ownerDocument =
+      target && "ownerDocument" in target
+        ? (target as Node).ownerDocument
+        : this.ownerDocument;
+    const selection = ownerDocument?.getSelection();
     if (selection && selection.toString().length > 0) {
       return;
     }
@@ -13734,9 +13786,16 @@ ${prettyEvent}</pre
   }
 
   private handleAnnouncementContentClick = (event: Event): void => {
-    const target = event.target instanceof HTMLElement ? event.target : null;
-    const button = target?.closest(".announcement-code__copy");
-    if (!(button instanceof HTMLButtonElement)) {
+    const target = event.target as {
+      closest?: (selector: string) => Element | null;
+    } | null;
+    const closest =
+      typeof target?.closest === "function"
+        ? target.closest(".announcement-code__copy")
+        : null;
+    const button =
+      closest?.tagName === "BUTTON" ? (closest as HTMLButtonElement) : null;
+    if (!button) {
       // banner_clicked fires once per banner per cta-type per mount. Dedup
       // prevents accidental multi-clicks from inflating funnel counts beyond
       // one "body" signal and one "dismiss" signal per banner.
@@ -13751,14 +13810,15 @@ ${prettyEvent}</pre
       return;
     }
     const showCopied = () => {
+      const view = button.ownerDocument.defaultView ?? window;
       const existing = this.copyResetTimeouts.get(button);
       if (existing !== undefined) {
-        window.clearTimeout(existing);
+        view.clearTimeout(existing);
       }
       button.setAttribute("data-copied", "true");
       button.setAttribute("aria-label", "Code copied");
       button.textContent = "Copied";
-      const id = window.setTimeout(() => {
+      const id = view.setTimeout(() => {
         button.removeAttribute("data-copied");
         button.setAttribute("aria-label", "Copy code");
         button.textContent = "Copy";

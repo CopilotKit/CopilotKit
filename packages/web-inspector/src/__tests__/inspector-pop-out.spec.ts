@@ -47,7 +47,7 @@ type InspectorPopOutContext = {
   selectGroup: (key: string) => Promise<void>;
   clickDetach: () => Promise<void>;
   firePageHide: () => void;
-  firePopOutPointerDown: () => void;
+  firePopOutPointerDown: (path?: EventTarget[]) => void;
   teardown: () => void;
 };
 
@@ -73,7 +73,7 @@ function installPopOutStub(blockPopOut = false): {
   fakeWindow: PopOutWindowStub;
   popDoc: Document;
   firePageHide: () => void;
-  firePointerDown: () => void;
+  firePointerDown: (path?: EventTarget[]) => void;
 } {
   const popDoc = document.implementation.createHTMLDocument("pop-out");
   const listeners = new Map<string, Set<EventListenerOrEventListenerObject>>();
@@ -135,11 +135,18 @@ function installPopOutStub(blockPopOut = false): {
       fakeWindow.closed = true;
       emit("pagehide");
     },
-    firePointerDown: () => {
-      emit(
-        "pointerdown",
-        new PointerEvent("pointerdown", { bubbles: true, cancelable: true }),
-      );
+    firePointerDown: (path = []) => {
+      const event = new PointerEvent("pointerdown", {
+        bubbles: true,
+        cancelable: true,
+      });
+      if (path.length > 0) {
+        Object.defineProperty(event, "composedPath", {
+          configurable: true,
+          value: () => path,
+        });
+      }
+      emit("pointerdown", event);
     },
   };
 }
@@ -490,10 +497,77 @@ describe("Inspector pop-out", () => {
     }
   });
 
-  it("hides Close, Detach, and dock controls in the pop-out and keeps Settings", async () => {
+  it("moves the same Inspector subtree into the pop-out and back", async () => {
     const context = await setup();
     try {
       await context.open();
+      await context.selectGroup("threads");
+
+      const inPageThreadList = requireElement(
+        requireShadow(context.inspector).querySelector("cpk-thread-list"),
+        "the in-page threads list",
+      );
+      const portableThreadListStyle = requireElement(
+        inPageThreadList.shadowRoot?.querySelector("style"),
+        "the portable threads-list stylesheet",
+      );
+      expect(portableThreadListStyle.textContent).toContain(".cpk-tl");
+
+      await context.clickDetach();
+      await waitFor(
+        () => context.popDoc.querySelector("cpk-thread-list") !== null,
+        "the threads list to move into the pop-out",
+      );
+      expect(context.popDoc.querySelector("cpk-thread-list")).toBe(
+        inPageThreadList,
+      );
+      expect(inPageThreadList.shadowRoot?.querySelector("style")).toBe(
+        portableThreadListStyle,
+      );
+      expect(portableThreadListStyle.ownerDocument).toBe(context.popDoc);
+
+      context.firePageHide();
+      await context.inspector.updateComplete;
+      await waitFor(
+        () =>
+          requireShadow(context.inspector).querySelector("cpk-thread-list") !==
+          null,
+        "the threads list to return to the app page",
+      );
+      expect(
+        requireShadow(context.inspector).querySelector("cpk-thread-list"),
+      ).toBe(inPageThreadList);
+      expect(portableThreadListStyle.ownerDocument).toBe(document);
+    } finally {
+      context.teardown();
+    }
+  });
+
+  it("hides Close, Detach, and dock controls in the pop-out and keeps Settings", async () => {
+    const context = await setup();
+    try {
+      const mock = createMockAgent("alpha");
+      context.core.addAgent__unsafe_dev_only({
+        id: "alpha",
+        agent: mock.agent,
+      });
+      await context.inspector.updateComplete;
+      await context.open();
+
+      const inPageRoot = requireShadow(context.inspector);
+      const inPageSettings = requireElement(
+        queryControl(inPageRoot, 'button[aria-label="Settings"]'),
+        "the in-page Settings control",
+      );
+      const inPageAgentSelector = requireElement(
+        inPageRoot.querySelector<HTMLButtonElement>(
+          '[data-context-dropdown-root="true"] > button',
+        ),
+        "the in-page agent selector",
+      );
+      const inPageSettingsMarkup = inPageSettings.outerHTML;
+      const inPageAgentSelectorMarkup = inPageAgentSelector.outerHTML;
+
       await context.clickDetach();
 
       await waitFor(
@@ -519,9 +593,19 @@ describe("Inspector pop-out", () => {
       expect(
         queryControl(context.popDoc, 'button[aria-label="Float window"]'),
       ).toBeNull();
-      expect(
+      const settings = requireElement(
         queryControl(context.popDoc, 'button[aria-label="Settings"]'),
-      ).not.toBeNull();
+        "the pop-out Settings control",
+      );
+      expect(settings.outerHTML).toBe(inPageSettingsMarkup);
+
+      const agentSelector = requireElement(
+        context.popDoc.querySelector<HTMLButtonElement>(
+          '[data-context-dropdown-root="true"] > button',
+        ),
+        "the pop-out agent selector",
+      );
+      expect(agentSelector.outerHTML).toBe(inPageAgentSelectorMarkup);
     } finally {
       context.teardown();
     }
@@ -682,14 +766,15 @@ describe("Inspector pop-out", () => {
     }
   });
 
-  it("clears dock-left page margin while popped out and restores it on pagehide", async () => {
+  it("preserves the app margin while a docked Inspector is popped out and restored", async () => {
     const context = await setup({
       persistedState: JSON.stringify({ dockMode: "docked-left" }),
     });
     try {
+      document.body.style.marginLeft = "19px";
       await context.open();
       await waitFor(
-        () => dockMarginPx() > 0,
+        () => dockMarginPx() > 19,
         "the dock-left page margin to apply",
       );
       const dockMargin = document.body.style.marginLeft;
@@ -705,21 +790,25 @@ describe("Inspector pop-out", () => {
         () => context.popDoc.querySelector(".inspector-window") !== null,
         "the Inspector window in the pop-out document",
       );
-      expect(document.body.style.marginLeft).toBe("");
+      expect(document.body.style.marginLeft).toBe("19px");
 
       context.firePageHide();
       await context.inspector.updateComplete;
       await waitFor(
-        () => dockMarginPx() > 0,
+        () => dockMarginPx() > 19,
         "the dock-left page margin to return",
       );
       expect(document.body.style.marginLeft).toBe(dockMargin);
-      expect(
+      const float = requireElement(
         queryControl(
           requireShadow(context.inspector),
           'button[aria-label="Float window"]',
         ),
-      ).not.toBeNull();
+        "the Float window control",
+      );
+      float.click();
+      await context.inspector.updateComplete;
+      expect(document.body.style.marginLeft).toBe("19px");
     } finally {
       context.teardown();
     }
@@ -877,6 +966,57 @@ describe("Inspector pop-out", () => {
         "the agent menu to close after a pop-out pointerdown",
       );
     } finally {
+      context.teardown();
+    }
+  });
+
+  it("keeps the agent menu open for a dropdown pointerdown from another realm", async () => {
+    const context = await setup();
+    const iframe = document.createElement("iframe");
+    document.body.append(iframe);
+    try {
+      await context.open();
+      const mock = createMockAgent("alpha");
+      context.core.addAgent__unsafe_dev_only({
+        id: "alpha",
+        agent: mock.agent,
+      });
+      await context.inspector.updateComplete;
+
+      await context.clickDetach();
+      await waitFor(
+        () => context.popDoc.querySelector(".inspector-window") !== null,
+        "the Inspector window in the pop-out document",
+      );
+
+      const toggle = requireElement(
+        context.popDoc.querySelector<HTMLButtonElement>(
+          '[data-context-dropdown-root="true"] > button',
+        ),
+        "Agent menu was not rendered in the pop-out",
+      );
+      toggle.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, cancelable: true }),
+      );
+      await context.inspector.updateComplete;
+
+      const foreignButton = requireElement(
+        iframe.contentDocument?.createElement("button"),
+        "foreign-realm test button",
+      );
+      foreignButton.dataset.contextDropdownRoot = "true";
+      expect(foreignButton instanceof HTMLElement).toBe(false);
+
+      context.firePopOutPointerDown([foreignButton]);
+      await context.inspector.updateComplete;
+
+      expect(
+        context.popDoc.querySelectorAll(
+          '[data-context-dropdown-root="true"] button',
+        ).length,
+      ).toBeGreaterThan(1);
+    } finally {
+      iframe.remove();
       context.teardown();
     }
   });
