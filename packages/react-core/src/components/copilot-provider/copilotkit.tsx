@@ -207,7 +207,9 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     coAgentStateRenders: {},
   });
 
-  const { addElement, removeElement, printTree, getAllElements } = useTree();
+  const { copilotkit } = useCopilotKit();
+
+  const { addElement, removeElement, getAllElements } = useTree();
   const [isLoading, setIsLoading] = useState(false);
   const [chatInstructions, setChatInstructions] = useState("");
   const [authStates, setAuthStates] = useState<Record<string, AuthState>>({});
@@ -241,18 +243,20 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   }, []);
 
   const getContextString = useCallback(
-    (documents: DocumentPointer[], categories: string[]) => {
+    (documents: DocumentPointer[], _categories: string[]) => {
       const documentsString = documents
         .map((document) => {
           return `${document.name} (${document.sourceApplication}):\n${document.getContents()}`;
         })
         .join("\n\n");
 
-      const nonDocumentStrings = printTree(categories);
+      const contextString = Object.values(copilotkit.context)
+        .map((entry) => `${entry.description}:\n${entry.value}`)
+        .join("\n\n");
 
-      return `${documentsString}\n\n${nonDocumentStrings}`;
+      return `${documentsString}\n\n${contextString}`;
     },
-    [printTree],
+    [copilotkit],
   );
 
   const addContext = useCallback(
