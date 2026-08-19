@@ -40,7 +40,7 @@ headers and a `joinCode`). The runner owns whatever storage backs those threads.
 | Runner | Import | Use it for |
 |---|---|---|
 | `InMemoryAgentRunner` | `@copilotkit/runtime/v2` | The default v2 runner. Stores thread runs in process memory. Use it for local development, single-instance deployments, or as a base class to extend. |
-| `SqliteAgentRunner` | `@copilotkit/sqlite-runner` | First-party, file-backed durable runner. Persists thread runs to a SQLite file so history survives restarts on a single instance. Requires the `better-sqlite3` peer dependency and a real (non-`:memory:`) `dbPath`. |
+| `SqliteAgentRunner` | `@copilotkit/sqlite-runner` | First-party, file-backed durable runner. Persists thread runs to a SQLite file so history survives restarts on a single instance. Requires the `better-sqlite3` `^12.10.0` peer dependency and a real (non-`:memory:`) `dbPath`. |
 | `IntelligenceAgentRunner` | `@copilotkit/runtime/v2` | Backs the Enterprise Intelligence Platform with durable threads, cross-instance persistence, and threads/history features. Used automatically on an Intelligence runtime. |
 | `TelemetryAgentRunner` | `@copilotkit/runtime` | Legacy wrapper behavior. The root runtime composes telemetry around a runner when telemetry is enabled; `@copilotkit/runtime/v2` does not. |
 
@@ -155,7 +155,7 @@ Bounding prevents the crash; it does not make the runner durable. If losing
 history is unacceptable, move to a durable backend. The first-party
 `SqliteAgentRunner` (from `@copilotkit/sqlite-runner`) persists thread runs to a
 SQLite file so history survives restarts on a single instance — install its
-`better-sqlite3` peer dependency and give it a real, non-`:memory:` `dbPath`:
+`better-sqlite3` `^12.10.0` peer dependency and give it a real, non-`:memory:` `dbPath`:
 
 ```ts title="app/api/copilotkit/route.ts"
 import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";

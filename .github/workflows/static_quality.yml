@@ -253,10 +253,11 @@ jobs:
         # `packageManager` field in package.json (via corepack).
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
-      - name: Use Node.js 20
+      - name: Use Node.js 22
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20.x
+          # tsdown 0.22 engines: ^22.18.0 || >=24.11.0
+          node-version: 22.x
           # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
           cache: "pnpm"
           cache-dependency-path: "**/pnpm-lock.yaml"
@@ -299,10 +300,11 @@ jobs:
         # `packageManager` field in package.json (via corepack).
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
-      - name: Use Node.js 20
+      - name: Use Node.js 22
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20.x
+          # tsdown 0.22 engines: ^22.18.0 || >=24.11.0
+          node-version: 22.x
           # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
           cache: "pnpm"
           cache-dependency-path: "**/pnpm-lock.yaml"

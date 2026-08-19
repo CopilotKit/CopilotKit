@@ -26,6 +26,6 @@ describe("web-inspector dev vite config", () => {
         'import tailwindStyles from "./styles/other.css";',
         "/repo/packages/web-inspector/src/index.ts",
       ),
-    ).toThrow("generated.css import");
+    ).toThrow("generated.css?inline import");
   });
 });

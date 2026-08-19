@@ -1363,10 +1363,21 @@
           }
         },
         {
+          "importPath": "@copilotkit/react-textarea/style.css",
+          "exportKey": "./style.css",
+          "kind": "style",
+          "conditions": "./dist/style.css",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-textarea/package.json",
+            "selector": "exports[\"./style.css\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/react-textarea/styles.css",
           "exportKey": "./styles.css",
           "kind": "style",
-          "conditions": "./dist/index.css",
+          "conditions": "./dist/style.css",
           "provenance": {
             "kind": "package-json",
             "path": "packages/react-textarea/package.json",
@@ -1436,10 +1447,21 @@
           }
         },
         {
+          "importPath": "@copilotkit/react-ui/style.css",
+          "exportKey": "./style.css",
+          "kind": "style",
+          "conditions": "./dist/style.css",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-ui/package.json",
+            "selector": "exports[\"./style.css\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/react-ui/styles.css",
           "exportKey": "./styles.css",
           "kind": "style",
-          "conditions": "./dist/index.css",
+          "conditions": "./dist/style.css",
           "provenance": {
             "kind": "package-json",
             "path": "packages/react-ui/package.json",
@@ -1783,7 +1805,7 @@
           "@langchain/core": ">=0.4.0 <2.0.0",
           "@langchain/langgraph": ">=0.4.0 <2.0.0",
           "langchain": ">=1.0.0",
-          "typescript": "^5.2.3",
+          "typescript": "^5.2.3 || ^6.0.0 || ^7.0.0",
           "zod": "^3.23.3 || ^3.24.0 || ^3.25.0"
         },
         "provenance": [
@@ -1909,7 +1931,7 @@
           "node": ">=18"
         },
         "peerDependencies": {
-          "better-sqlite3": "^12.2.0"
+          "better-sqlite3": "^12.10.0"
         },
         "optionalPeerDependencies": [
           "better-sqlite3"

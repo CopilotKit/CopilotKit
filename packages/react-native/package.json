@@ -95,8 +95,8 @@
     "jsdom": "^26.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "tsdown": "^0.20.3",
-    "typescript": "^5.8.3",
+    "tsdown": "^0.22.14",
+    "typescript": "7.0.2",
     "vitest": "^3.2.4"
   },
   "peerDependencies": {

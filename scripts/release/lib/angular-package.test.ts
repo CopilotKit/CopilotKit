@@ -73,11 +73,11 @@ test("runs the Angular 22 packed matrix only on a compatible Node lane", () => {
     "if: matrix.node-version == '22.x'",
   );
   expect(angularStep("Verify packed Channels umbrella contract")).toContain(
-    "if: matrix.node-version == '20.x'",
+    "if: matrix.node-version == '24.x'",
   );
   expect(
     angularStep("Verify packed Runtime managed Channels contract"),
-  ).toContain("if: matrix.node-version == '20.x'");
+  ).toContain("if: matrix.node-version == '24.x'");
 });
 
 test("reads an ordered Angular support contract", () => {

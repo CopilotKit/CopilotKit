@@ -12,7 +12,7 @@ import { type AgentRunner, InMemoryAgentRunner } from "../../v2/runtime";
 import { createHash } from "node:crypto";
 import { tap, catchError, finalize } from "rxjs";
 import telemetry from "../telemetry-client";
-import type { AgentExecutionResponseInfo } from "@copilotkit/shared/src/telemetry/events";
+import type { AgentExecutionResponseInfo } from "@copilotkit/shared";
 
 /**
  * Configuration options for TelemetryAgentRunner

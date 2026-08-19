@@ -4,4 +4,6 @@
 
 // katex ships no type declarations for its CSS entrypoints; the stylesheet is
 // dynamically imported for its side effect only (see useKatexStyles).
+// TypeScript 7 also rejects local side-effect CSS imports without a module.
+declare module "*.css";
 declare module "katex/dist/katex.min.css";

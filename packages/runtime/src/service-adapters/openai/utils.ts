@@ -8,7 +8,7 @@ import type {
   ChatCompletionTool,
   ChatCompletionUserMessageParam,
   ChatCompletionDeveloperMessageParam,
-} from "openai/resources/chat";
+} from "openai/resources/chat/completions";
 import { parseJson } from "@copilotkit/shared";
 
 /**

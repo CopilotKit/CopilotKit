@@ -154,7 +154,8 @@ export class CopilotResolver {
   @Mutation(() => CopilotResponse)
   async generateCopilotResponse(
     @Ctx() ctx: GraphQLContext,
-    @Arg("data") data: GenerateCopilotResponseInput,
+    @Arg("data", () => GenerateCopilotResponseInput)
+    data: GenerateCopilotResponseInput,
     @Arg("properties", () => GraphQLJSONObject, { nullable: true })
     properties?: CopilotRequestContextProperties,
   ) {
