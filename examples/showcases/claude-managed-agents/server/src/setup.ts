@@ -3,7 +3,7 @@
  *
  * Managed agents are persistent, versioned resources: create them once, store
  * the IDs, and reference them on every session. This script provisions a
- * cloud environment and a single financial-assistant agent on claude-fable-5.
+ * cloud environment and a single financial-assistant agent.
  *
  * IDs land in agent-ids.json at the repo root (gitignored). Re-running with
  * --force re-provisions and overwrites the file.
@@ -23,7 +23,7 @@ export interface AgentIds {
   agentId: string;
 }
 
-const MODEL = "claude-fable-5";
+const DEFAULT_MODEL = "claude-fable-5";
 
 const ASSISTANT_SYSTEM = `You are a careful, plain-spoken personal finance assistant. Your job is
 to help people review their personal finances, brainstorm ideas, and think through best
@@ -66,6 +66,7 @@ interface SetupLogger {
 export async function provisionAgentResources(
   client: ProvisioningClient,
   logger: SetupLogger = console,
+  environmentVariables: Readonly<{ ANTHROPIC_MODEL?: string }> = process.env,
 ): Promise<AgentIds> {
   // The chat endpoint that fronts this agent is unauthenticated in the demo, so
   // the managed environment has no outbound network and the agent's complete
@@ -90,7 +91,7 @@ export async function provisionAgentResources(
     logger.log("Creating agent…");
     const agent = await client.beta.agents.create({
       name: "financial-assistant",
-      model: MODEL,
+      model: environmentVariables.ANTHROPIC_MODEL ?? DEFAULT_MODEL,
       system: ASSISTANT_SYSTEM,
       // The financial assistant tools are not registered here: the AG-UI
       // adapter adds them to each session as tool overrides, merged with the

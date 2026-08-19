@@ -41,7 +41,7 @@ Use the suggested prompt, then adjust the contribution and return sliders in the
 
 - Node.js 22 or newer.
 - An Anthropic Console account and API key with **Claude Managed Agents** access.
-- An Anthropic organization with 30-day data retention. The example's `claude-fable-5` model is unavailable
+- An Anthropic organization with 30-day data retention. The default `claude-fable-5` model is unavailable
   under zero data retention.
 
 ## Run the example
@@ -59,6 +59,8 @@ Add your key to `.env`:
 
 ```plaintext title=".env"
 ANTHROPIC_API_KEY=sk-ant-your_key
+# Optional; defaults to claude-fable-5
+ANTHROPIC_MODEL=claude-haiku-4-5
 ```
 
 Provision the persistent environment and managed agent once, then start the server and frontend:
@@ -104,9 +106,11 @@ const environment = await client.beta.environments.create({
   },
 });
 
+const model = process.env.ANTHROPIC_MODEL ?? "claude-fable-5";
+
 const agent = await client.beta.agents.create({
   name: "financial-assistant",
-  model: "claude-fable-5",
+  model,
   system: ASSISTANT_SYSTEM,
   tools: [{
     type: "agent_toolset_20260401",
@@ -114,6 +118,10 @@ const agent = await client.beta.agents.create({
   }],
 });
 ```
+
+The model is fixed when the managed agent is provisioned. Changing `ANTHROPIC_MODEL` later does not update that
+agent. Run `npm run setup -- --force` with the new model, then replace the generated environment and agent IDs
+wherever the demo is deployed.
 
 At runtime, the AG-UI adapter owns managed-session creation and maps it to the CopilotKit thread. The visual tool
 is supplied as a session override, so changing its schema does not require a new managed-agent version.
@@ -202,6 +210,9 @@ ANTHROPIC_ENVIRONMENT_ID=env_...
 ANTHROPIC_AGENT_ID=agent_...
 ALLOWED_ORIGINS=https://your-app.example.com
 ```
+
+`ANTHROPIC_MODEL` is used by setup, not by the running server. To change models on Railway, reprovision first and
+then update `ANTHROPIC_ENVIRONMENT_ID` and `ANTHROPIC_AGENT_ID` with the replacement IDs.
 
 <Callout type="warning" title="Protect the runtime before going public">
   The example endpoint has no user authentication, and every message spends your Anthropic API credits.

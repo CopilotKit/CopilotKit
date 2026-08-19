@@ -23,7 +23,7 @@ and reduced to one focused Cookbook interaction.
 
 - Node.js 22 or newer.
 - An Anthropic Console account and API key with Claude Managed Agents access.
-- An organization with 30-day data retention. `claude-fable-5` is unavailable under zero data retention.
+- An organization with 30-day data retention. The default `claude-fable-5` model is unavailable under zero data retention.
 
 ## Run locally
 
@@ -37,6 +37,13 @@ Copy the environment template and add your Anthropic API key:
 
 ```bash
 cp .env.example .env
+```
+
+The setup defaults to `claude-fable-5`. To provision another supported model, set
+`ANTHROPIC_MODEL` in `.env` before running setup, for example:
+
+```text
+ANTHROPIC_MODEL=claude-haiku-4-5
 ```
 
 Provision the reusable environment and agent, then start the runtime and web app:
@@ -73,6 +80,10 @@ ANTHROPIC_ENVIRONMENT_ID=env_...
 ANTHROPIC_AGENT_ID=agent_...
 ```
 
+`ANTHROPIC_MODEL` is provisioning-time configuration. Changing it does not modify an existing
+managed agent. Run `npm run setup -- --force` with the new value, then replace both generated
+agent IDs on the deployment before it can use the new model.
+
 ## Security and deployment
 
 This is a demo, not a production deployment. The runtime endpoint has no authentication and
@@ -98,6 +109,10 @@ and `Sec-Fetch-Site: same-origin` on runtime requests. It also limits iframe par
 CopilotKit docs and local previews by default; override `FRAME_ANCESTORS` only for another
 approved host. These browser controls are not user authentication because custom clients can
 forge the headers.
+
+Do not expect setting `ANTHROPIC_MODEL` on Railway to change the deployed agent: the server uses
+the provisioned agent ID at runtime. To switch models, reprovision the agent and update
+`ANTHROPIC_ENVIRONMENT_ID` and `ANTHROPIC_AGENT_ID` on Railway.
 
 The server keeps its thread-to-session map in memory, so a restart starts fresh sessions; that
 is acceptable for this demo but not a production persistence strategy.

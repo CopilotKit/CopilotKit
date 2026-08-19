@@ -50,6 +50,26 @@ test("does not instruct the agent to use disabled built-in tools", async () => {
   );
 });
 
+test("uses the configured Anthropic model when provisioning", async () => {
+  const { client, getAgentParams } = createCapturingClient();
+
+  await provisionAgentResources(
+    client,
+    { log() {}, error() {} },
+    { ANTHROPIC_MODEL: "claude-haiku-4-5" },
+  );
+
+  assert.equal(getAgentParams()?.model, "claude-haiku-4-5");
+});
+
+test("defaults to claude-fable-5 when no Anthropic model is configured", async () => {
+  const { client, getAgentParams } = createCapturingClient();
+
+  await provisionAgentResources(client, { log() {}, error() {} }, {});
+
+  assert.equal(getAgentParams()?.model, "claude-fable-5");
+});
+
 test("deletes the environment when agent creation fails", async () => {
   const failure = new Error("agent creation failed");
   const deletedEnvironmentIds: string[] = [];
