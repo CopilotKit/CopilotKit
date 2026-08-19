@@ -744,6 +744,19 @@ describe("AgentStore.interruptController", () => {
     ]);
   });
 
+  it.skip("clears the store interrupt as soon as its agent changes threads", () => {
+    const agent = new MockAgent("agent-1");
+    agent.threadId = "thread-a";
+    agent.pendingInterrupts = [interrupt("approve-refund")];
+    const { store } = hostFor(agent);
+
+    expect(store.interruptController.hasInterrupt()).toBe(true);
+
+    agent.threadId = "thread-b";
+
+    expect(store.interruptController.hasInterrupt()).toBe(false);
+  });
+
   it("unregisters manual teardown and runs cleanup only once", () => {
     const agent = new MockAgent("agent-1");
     const unregisterDestroy = vi.fn();
