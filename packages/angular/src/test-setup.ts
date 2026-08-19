@@ -16,13 +16,6 @@ vi.mock("@copilotkit/web-inspector", () => {
   class MockWebInspectorElement extends HTMLElement {
     core: unknown = null;
     autoAttachCore = true;
-    coreAtConnection: unknown = null;
-    autoAttachCoreAtConnection = true;
-
-    connectedCallback() {
-      this.coreAtConnection = this.core;
-      this.autoAttachCoreAtConnection = this.autoAttachCore;
-    }
   }
 
   return {

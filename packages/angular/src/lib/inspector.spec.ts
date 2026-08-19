@@ -70,23 +70,34 @@ describe("Angular inspector integration", () => {
   });
 
   it("mounts by default in development and attaches the exact core before connection", async () => {
+    const appendChild = document.body.appendChild.bind(document.body);
+    let coreAtAppend: unknown;
+    let autoAttachCoreAtAppend: boolean | undefined;
+    vi.spyOn(document.body, "appendChild").mockImplementation((node) => {
+      if (node instanceof Element && node.matches(WEB_INSPECTOR_TAG)) {
+        const inspector = node as Element & {
+          autoAttachCore?: boolean;
+          core?: unknown;
+        };
+        coreAtAppend = inspector.core;
+        autoAttachCoreAtAppend = inspector.autoAttachCore;
+      }
+      return appendChild(node);
+    });
+
     const fixture = await renderHost({});
     const inspector = document.querySelector<
       HTMLElement & {
         autoAttachCore?: boolean;
-        autoAttachCoreAtConnection?: boolean;
         core?: unknown;
-        coreAtConnection?: unknown;
       }
     >(WEB_INSPECTOR_TAG);
 
     expect(inspector).not.toBeNull();
     expect(inspector?.core).toBe(fixture.componentInstance.copilotKit.core);
     expect(inspector?.autoAttachCore).toBe(false);
-    expect(inspector?.coreAtConnection).toBe(
-      fixture.componentInstance.copilotKit.core,
-    );
-    expect(inspector?.autoAttachCoreAtConnection).toBe(false);
+    expect(coreAtAppend).toBe(fixture.componentInstance.copilotKit.core);
+    expect(autoAttachCoreAtAppend).toBe(false);
     expect(defineWebInspector).toHaveBeenCalledTimes(1);
   });
 
