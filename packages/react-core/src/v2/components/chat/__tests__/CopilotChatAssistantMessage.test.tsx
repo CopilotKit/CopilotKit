@@ -4,7 +4,8 @@ import { vi } from "vitest";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
-import { AssistantMessage } from "@ag-ui/core";
+import type { AssistantMessage } from "@ag-ui/core";
+import { CopilotKitInspectorContextProvider } from "../../CopilotKitInspectorContext";
 
 // No mocks needed - Vitest handles ES modules natively!
 
@@ -96,6 +97,35 @@ describe("CopilotChatAssistantMessage", () => {
       expect(screen.queryByRole("button", { name: /thumbs down/i })).toBeNull();
       expect(screen.queryByRole("button", { name: /read aloud/i })).toBeNull();
       expect(screen.queryByRole("button", { name: /regenerate/i })).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /view in inspector/i }),
+      ).toBeNull();
+    });
+
+    it("renders the local Inspector action and opens it from the toolbar", () => {
+      const openInspector = vi.fn();
+
+      renderWithProvider(
+        <CopilotKitInspectorContextProvider
+          value={{ isLocalInspectorEnabled: true, openInspector }}
+        >
+          <CopilotChatAssistantMessage message={basicMessage} />
+        </CopilotKitInspectorContextProvider>,
+      );
+
+      const inspectorButton = screen.getByRole("button", {
+        name: "View in Inspector (Local Only)",
+      });
+      const inspectorIcon = screen.getByTestId("copilot-inspector-icon");
+
+      expect(inspectorIcon.querySelectorAll("linearGradient")).toHaveLength(4);
+      fireEvent.click(inspectorButton);
+
+      expect(openInspector).toHaveBeenCalledWith({
+        messageId: basicMessage.id,
+        threadId: TEST_THREAD_ID,
+        agentId: "default",
+      });
     });
 
     it("renders all buttons when all callbacks provided", () => {
