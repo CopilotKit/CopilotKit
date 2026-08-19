@@ -1,4 +1,3 @@
-import type { OnDestroy, OnInit } from "@angular/core";
 import {
   Component,
   ChangeDetectionStrategy,
@@ -21,8 +20,6 @@ import {
   registerHumanInTheLoop,
 } from "@copilotkit/angular";
 import { RenderToolCalls } from "@copilotkit/angular";
-import { WEB_INSPECTOR_TAG } from "@copilotkit/web-inspector";
-import type { WebInspectorElement } from "@copilotkit/web-inspector";
 import { z } from "zod";
 
 @Component({
@@ -143,7 +140,7 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
     </div>
   `,
 })
-export class HeadlessChatComponent implements OnInit, OnDestroy {
+export class HeadlessChatComponent {
   readonly agentStore = injectAgentStore("openai");
   readonly agent = computed(() => this.agentStore()?.agent);
   readonly isRunning = computed(() => !!this.agentStore()?.isRunning());
@@ -151,7 +148,6 @@ export class HeadlessChatComponent implements OnInit, OnDestroy {
   readonly copilotkit = inject(CopilotKit);
 
   inputValue = "";
-  private inspectorElement: WebInspectorElement | null = null;
 
   constructor() {
     registerHumanInTheLoop({
@@ -170,31 +166,6 @@ export class HeadlessChatComponent implements OnInit, OnDestroy {
         description: "active",
       }),
     );
-  }
-
-  ngOnInit(): void {
-    if (typeof document === "undefined") return;
-
-    const existing =
-      document.querySelector<WebInspectorElement>(WEB_INSPECTOR_TAG);
-    const inspector =
-      existing ??
-      (document.createElement(WEB_INSPECTOR_TAG) as WebInspectorElement);
-    inspector.core = this.copilotkit.core;
-    inspector.setAttribute("auto-attach-core", "false");
-
-    if (!existing) {
-      document.body.appendChild(inspector);
-    }
-
-    this.inspectorElement = inspector;
-  }
-
-  ngOnDestroy(): void {
-    if (this.inspectorElement && this.inspectorElement.isConnected) {
-      this.inspectorElement.remove();
-    }
-    this.inspectorElement = null;
   }
 
   async clearThreads() {

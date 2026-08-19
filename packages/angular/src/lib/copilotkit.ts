@@ -11,8 +11,10 @@ import {
   type ThreadEndpointRuntimeInfo,
 } from "@copilotkit/core";
 import {
+  DestroyRef,
   Injectable,
   Injector,
+  PLATFORM_ID,
   Signal,
   WritableSignal,
   computed,
@@ -20,6 +22,7 @@ import {
   signal,
   inject,
 } from "@angular/core";
+import { DOCUMENT } from "@angular/common";
 import {
   FrontendToolConfig,
   HumanInTheLoopConfig,
@@ -61,6 +64,7 @@ import {
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
+import { scheduleInspectorMount } from "./inspector";
 
 /**
  * Advertise a client-provided A2UI catalog to the runtime without mutating the
@@ -85,6 +89,9 @@ export class CopilotKit {
   );
   readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
+  readonly #destroyRef = inject(DestroyRef);
+  readonly #document = inject(DOCUMENT);
+  readonly #platformId = inject(PLATFORM_ID);
   /** Whether unknown tools may use the built-in text-only fallback renderer. */
   readonly defaultToolRenderingEnabled =
     this.#config.defaultToolRendering === true;
@@ -278,6 +285,13 @@ export class CopilotKit {
     });
     this.#syncBuiltInActivityMessageRenderers();
     this.#syncBuiltInOpenGenerativeUI();
+    scheduleInspectorMount({
+      config: this.#config,
+      core: this.core,
+      destroyRef: this.#destroyRef,
+      document: this.#document,
+      platformId: this.#platformId,
+    });
   }
 
   #setSuggestions(

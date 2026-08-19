@@ -53,6 +53,11 @@ export interface CopilotKitConfig {
   defaultToolRendering?: boolean;
   a2ui?: A2UIConfig;
   openGenerativeUI?: OpenGenerativeUIConfig;
+  /**
+   * Enable or disable the CopilotKit Inspector.
+   * When omitted, the inspector is shown on local development hosts only.
+   */
+  enableInspector?: boolean;
 }
 
 const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";

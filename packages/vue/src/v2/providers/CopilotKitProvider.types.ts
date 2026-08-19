@@ -37,7 +37,16 @@ export interface CopilotKitProviderProps {
     sandboxFunctions?: SandboxFunction[];
     designSkill?: string;
   };
+  /**
+   * @deprecated Use `enableInspector` instead.
+   * Controls the CopilotKit Inspector when `enableInspector` is omitted.
+   */
   showDevConsole?: boolean | "auto";
+  /**
+   * Enable or disable the CopilotKit Inspector.
+   * When omitted, the inspector is shown on local development hosts only.
+   */
+  enableInspector?: boolean;
   onError?: (event: {
     error: Error;
     code: CopilotKitCoreErrorCode;

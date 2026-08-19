@@ -53,6 +53,8 @@ import type {
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
+const LOCAL_INSPECTOR_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
+const LEGACY_AUTO_INSPECTOR_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
 // Canonical A2UI viewer theme default (matches @copilotkit/a2ui-renderer).
 // Defined locally to avoid pulling React dependencies from a2ui-renderer.
@@ -103,33 +105,40 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   renderCustomMessages: () => [],
   renderActivityMessages: () => [],
   openGenerativeUI: undefined,
-  showDevConsole: false,
   useSingleEndpoint: undefined,
   a2ui: undefined,
+  enableInspector: undefined,
+  showDevConsole: undefined,
 });
 
 const shouldRenderInspector = ref(false);
 
 const updateInspectorVisibility = () => {
-  if (props.showDevConsole === true) {
-    shouldRenderInspector.value = true;
+  if (typeof window === "undefined") {
+    shouldRenderInspector.value = false;
     return;
   }
-  if (props.showDevConsole === "auto") {
-    if (typeof window === "undefined") {
-      shouldRenderInspector.value = false;
-      return;
-    }
-    const localhostHosts = new Set(["localhost", "127.0.0.1"]);
-    shouldRenderInspector.value = localhostHosts.has(window.location.hostname);
+  if (props.enableInspector !== undefined) {
+    shouldRenderInspector.value = props.enableInspector;
     return;
   }
-  shouldRenderInspector.value = false;
+  if (props.showDevConsole !== undefined) {
+    shouldRenderInspector.value =
+      props.showDevConsole === "auto"
+        ? LEGACY_AUTO_INSPECTOR_HOSTS.has(window.location?.hostname ?? "")
+        : props.showDevConsole;
+    return;
+  }
+  shouldRenderInspector.value = LOCAL_INSPECTOR_HOSTS.has(
+    window.location?.hostname ?? "",
+  );
 };
 
-watch(() => props.showDevConsole, updateInspectorVisibility, {
-  immediate: true,
-});
+watch(
+  [() => props.enableInspector, () => props.showDevConsole],
+  updateInspectorVisibility,
+  { immediate: true },
+);
 
 const initialFrontendTools = props.frontendTools;
 const initialHumanInTheLoop = props.humanInTheLoop;

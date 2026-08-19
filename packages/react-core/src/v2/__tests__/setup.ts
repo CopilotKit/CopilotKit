@@ -4,6 +4,23 @@ import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 import React from "react";
 
+vi.mock("@copilotkit/web-inspector", () => {
+  const WEB_INSPECTOR_TAG = "cpk-web-inspector";
+  class MockWebInspectorElement extends HTMLElement {
+    core: unknown = undefined;
+  }
+
+  return {
+    WEB_INSPECTOR_TAG,
+    WebInspectorElement: MockWebInspectorElement,
+    defineWebInspector: vi.fn(() => {
+      if (!customElements.get(WEB_INSPECTOR_TAG)) {
+        customElements.define(WEB_INSPECTOR_TAG, MockWebInspectorElement);
+      }
+    }),
+  };
+});
+
 // Mock ResizeObserver which is not available in jsdom
 global.ResizeObserver = class ResizeObserver {
   constructor(callback: ResizeObserverCallback) {
