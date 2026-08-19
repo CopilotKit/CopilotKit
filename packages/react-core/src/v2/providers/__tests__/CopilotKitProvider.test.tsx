@@ -1,5 +1,6 @@
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import type React from "react";
+import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -155,6 +156,33 @@ describe("CopilotKitProvider", () => {
       await settleInspectorLoad();
       expect(html).not.toContain("cpk-web-inspector");
       expect(defineWebInspector).not.toHaveBeenCalled();
+    });
+
+    it("hydrates development markup before mounting the Inspector", async () => {
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const element = (
+        <CopilotKitProvider enableInspector={true}>
+          <div>child</div>
+        </CopilotKitProvider>
+      );
+
+      vi.stubGlobal("window", undefined);
+      container.innerHTML = renderToString(element);
+      vi.unstubAllGlobals();
+
+      const onRecoverableError = vi.fn();
+      const root = hydrateRoot(container, element, { onRecoverableError });
+
+      try {
+        await waitFor(() => {
+          expect(container.querySelector("cpk-web-inspector")).not.toBeNull();
+        });
+        expect(onRecoverableError).not.toHaveBeenCalled();
+      } finally {
+        await act(async () => root.unmount());
+        container.remove();
+      }
     });
   });
 

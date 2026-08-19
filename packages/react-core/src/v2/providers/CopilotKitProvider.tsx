@@ -305,11 +305,21 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   inspectorDefaultAnchor,
   debug,
 }) => {
-  const shouldRenderInspector = shouldEnableInspector({
-    enableInspector,
-    isBrowser: typeof window !== "undefined",
-    isDevelopment: process.env.NODE_ENV === "development",
-  });
+  // Keep the server render and the first client render identical. The
+  // Inspector is browser-only, so resolve its development policy after
+  // hydration instead of branching on `window` during render.
+  const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
+
+  useEffect(() => {
+    setShouldRenderInspector(
+      shouldEnableInspector({
+        enableInspector,
+        isBrowser: true,
+        isDevelopment: process.env.NODE_ENV === "development",
+      }),
+    );
+  }, [enableInspector]);
+
   const isLocalInspectorEnabled = shouldRenderInspector;
   const [inspectorOpenRequest, setInspectorOpenRequest] =
     useState<CopilotKitInspectorOpenRequest | null>(null);
