@@ -20,6 +20,7 @@ import type {
   CanonicalRunIdentity,
   ChannelAgentLifecycleArgs,
   ChannelAgentLoopResult,
+  ChannelComponentDeliveryPolicy,
   ConversationStore,
   AgentToolDescriptor,
   ContextEntry,
@@ -38,6 +39,7 @@ import type {
 import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
   createRunRenderer as createSlackRunRenderer,
+  renderSlackComponentMessage,
   renderSlackMessage,
   slackFallbackText,
 } from "@copilotkit/channels-slack/render";
@@ -45,11 +47,16 @@ import {
   createRunRenderer as createTeamsRunRenderer,
   isPlainText,
   renderAdaptiveCard,
+  assertTeamsComponentCardBudget,
+  renderTeamsComponentCard,
+  renderTeamsComponentNativeCard,
   renderTeamsNativeCard,
   renderTeamsMarkdown,
 } from "@copilotkit/channels-teams/render";
 import type { ChannelProviderPayload } from "./delivery-contracts.js";
 import { SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY } from "./delivery-contracts.js";
+import { SLACK_COMPONENT_EDIT_INTERVAL_MS } from "@copilotkit/channels-slack";
+import { TEAMS_COMPONENT_EDIT_INTERVAL_MS } from "@copilotkit/channels-teams";
 import type {
   ClaimedChannelDelivery,
   ChannelDeliveryTransport,
@@ -149,6 +156,22 @@ export class DeliveryAdapter implements PlatformAdapter {
     supportsBlockingChoice: false,
     supportsEphemeral: false,
   };
+
+  getComponentDeliveryPolicy(platform: string): ChannelComponentDeliveryPolicy {
+    if (platform !== "slack" && platform !== "teams") {
+      throw new Error(
+        `Managed Channels cannot deliver ${platform} components.`,
+      );
+    }
+    return {
+      minIntervalMs:
+        platform === "slack"
+          ? SLACK_COMPONENT_EDIT_INTERVAL_MS
+          : TEAMS_COMPONENT_EDIT_INTERVAL_MS,
+      maxAttempts: 3,
+      retryDelayMs: (attempt) => 100 * 2 ** (attempt - 1),
+    };
+  }
   readonly conversationStore: ConversationStore = {
     seedsInboundTurn: true,
     getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
@@ -544,6 +567,23 @@ export class DeliveryAdapter implements PlatformAdapter {
     return messageRef(target, responseId, providerReference, providerMessageId);
   }
 
+  /** Post one strict Channel component revision through managed delivery. */
+  async postComponent(
+    targetValue: ReplyTarget,
+    ir: ChannelNode[],
+  ): Promise<MessageRef> {
+    const target = asDeliveryTarget(targetValue);
+    const responseId = mintId("response_");
+    const { providerReference, providerMessageId } = await this.postRendered(
+      target.claimedDelivery,
+      target.delivery.adapter,
+      responseId,
+      ir,
+      true,
+    );
+    return messageRef(target, responseId, providerReference, providerMessageId);
+  }
+
   async update(refValue: MessageRef, ir: ChannelNode[]): Promise<void> {
     const ref = asDeliveryRef(refValue);
     assertProviderReference(ref.providerReference);
@@ -553,6 +593,23 @@ export class DeliveryAdapter implements PlatformAdapter {
       ref.responseId,
       ir,
       ref.providerReference,
+    );
+  }
+
+  /** Replace one strict Channel component revision through managed delivery. */
+  async updateComponent(
+    refValue: MessageRef,
+    ir: ChannelNode[],
+  ): Promise<void> {
+    const ref = asDeliveryRef(refValue);
+    assertProviderReference(ref.providerReference);
+    await this.replaceRendered(
+      ref.claimedDelivery,
+      ref.adapter,
+      ref.responseId,
+      ir,
+      ref.providerReference,
+      true,
     );
   }
 
@@ -1094,11 +1151,14 @@ export class DeliveryAdapter implements PlatformAdapter {
     adapter: "slack" | "teams",
     responseId: string,
     ir: ChannelNode[],
+    strictComponent = false,
   ): Promise<ProviderMessageResult> {
     claimedDelivery.expectProviderOutput?.();
     assertProviderElements(ir, adapter);
     if (adapter === "slack") {
-      const rendered = renderSlackMessage(ir);
+      const rendered = strictComponent
+        ? renderSlackComponentMessage(ir)
+        : renderSlackMessage(ir);
       return providerMessageResultFromResult(
         await claimedDelivery.effect(responseId, {
           kind: "slack.message.create",
@@ -1110,7 +1170,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     return providerMessageResultFromResult(
       await claimedDelivery.effect(
         responseId,
-        teamsMessageEffect("create", ir),
+        teamsMessageEffect("create", ir, undefined, strictComponent),
       ),
     );
   }
@@ -1121,12 +1181,15 @@ export class DeliveryAdapter implements PlatformAdapter {
     responseId: string,
     ir: ChannelNode[],
     providerReference: string,
+    strictComponent = false,
   ): Promise<void> {
     claimedDelivery.expectProviderOutput?.();
     assertProviderElements(ir, adapter);
     assertProviderReference(providerReference);
     if (adapter === "slack") {
-      const rendered = renderSlackMessage(ir);
+      const rendered = strictComponent
+        ? renderSlackComponentMessage(ir)
+        : renderSlackMessage(ir);
       await claimedDelivery.effect(responseId, {
         kind: "slack.message.replace",
         text: slackFallbackText(ir),
@@ -1137,7 +1200,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     }
     await claimedDelivery.effect(
       responseId,
-      teamsMessageEffect("replace", ir, providerReference),
+      teamsMessageEffect("replace", ir, providerReference, strictComponent),
     );
   }
 
@@ -1471,6 +1534,7 @@ function teamsMessageEffect(
   operation: "create" | "replace",
   ir: ChannelNode[],
   providerReference?: string,
+  strictComponent = false,
 ): ChannelProviderPayload {
   const nativeJsx = ir.filter(isNativeNode);
   const portable = ir.filter(
@@ -1478,17 +1542,36 @@ function teamsMessageEffect(
   );
   const nativeCards = ir.flatMap((node) =>
     node.type === "raw" && node.props.provider === "teams"
-      ? [assertNativeCard(node.props.value)]
+      ? [
+          assertStrictTeamsNativeCard(
+            assertNativeCard(node.props.value),
+            strictComponent,
+          ),
+        ]
       : [],
   );
   const text = renderTeamsMarkdown(portable);
   const renderedCards = [
     ...(!isPlainText(portable) && portable.length > 0
-      ? [renderAdaptiveCard(portable) as unknown as Record<string, unknown>]
+      ? [
+          (strictComponent
+            ? renderTeamsComponentCard(portable)
+            : renderAdaptiveCard(portable)) as unknown as Record<
+            string,
+            unknown
+          >,
+        ]
       : []),
     ...nativeCards,
     ...(nativeJsx.length > 0
-      ? [renderTeamsNativeCard(nativeJsx) as unknown as Record<string, unknown>]
+      ? [
+          (strictComponent
+            ? renderTeamsComponentNativeCard(nativeJsx)
+            : renderTeamsNativeCard(nativeJsx)) as unknown as Record<
+            string,
+            unknown
+          >,
+        ]
       : []),
   ];
   const cards = renderedCards.length > 0 ? { cards: renderedCards } : {};
@@ -1502,6 +1585,16 @@ function teamsMessageEffect(
     text,
     ...cards,
   };
+}
+
+function assertStrictTeamsNativeCard(
+  card: Record<string, unknown>,
+  strictComponent: boolean,
+): Record<string, unknown> {
+  if (strictComponent) {
+    assertTeamsComponentCardBudget(card as never);
+  }
+  return card;
 }
 
 /** Reject provider-native IR before the delivery emits any provider effect. */

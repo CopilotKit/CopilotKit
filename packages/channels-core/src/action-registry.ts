@@ -1,13 +1,27 @@
 import type {
   ChannelNode,
+  ChannelCallbackBinding,
   ClickHandler,
   InteractionContext,
   ComponentFn,
   Renderable,
   MessageReactionHandler,
 } from "@copilotkit/channels-ui";
-import { isBound, getBoundArgs, renderToIR } from "@copilotkit/channels-ui";
-import type { ChannelComponentRenderContext } from "./channel-component.js";
+import {
+  isBound,
+  getBoundArgs,
+  isChannelCallbackBinding,
+  renderToIR,
+} from "@copilotkit/channels-ui";
+import type { ChannelComponentAdapterRenderContext } from "./channel-component.js";
+import type {
+  ChannelComponentBindingSnapshot,
+  ChannelComponentInstanceSnapshot,
+  ChannelComponentInteractivePhase,
+  ChannelComponentStore,
+} from "./component-store.js";
+import { assertJsonValue } from "./json-value.js";
+import type { JsonValue } from "./json-value.js";
 import { mintId } from "./mint-id.js";
 import type {
   ActionContinuationContext,
@@ -37,6 +51,48 @@ export class ActionContinuationMismatchError extends Error {
 
 const EVENT_PROPS = ["onClick", "onSelect", "onSubmit"] as const;
 
+/** Exact provider-visible component revision used to persist named bindings. */
+export interface ComponentBindingRenderSnapshot {
+  componentInstanceId: string;
+  phase: ChannelComponentInteractivePhase;
+  props: JsonValue;
+  state?: JsonValue;
+  revision: number;
+}
+
+/** Runtime bridge supplied by the live component controller. */
+export interface ChannelComponentActionRuntime {
+  isLive?(componentInstanceId: string): boolean;
+  setState?(
+    componentInstanceId: string,
+    next: unknown,
+    context: InteractionContext,
+  ): Promise<void>;
+  onInterrupted?(
+    componentInstanceId: string,
+    snapshot: ChannelComponentInstanceSnapshot,
+    context: InteractionContext,
+  ): Promise<void>;
+  onCallbackError?(error: unknown, context: InteractionContext): Promise<void>;
+}
+
+/** Runtime callback context reconstructed from a durable binding snapshot. */
+export interface RegisteredChannelComponentCallbackContext {
+  phase: ChannelComponentInteractivePhase;
+  props: JsonValue;
+  state: JsonValue | undefined;
+  revision: number;
+  thread: InteractionContext["thread"];
+  message: InteractionContext["message"];
+  interaction: InteractionContext;
+  setState?: (next: unknown) => Promise<void>;
+}
+
+export type RegisteredChannelComponentCallback = (
+  args: JsonValue,
+  context: RegisteredChannelComponentCallbackContext,
+) => void | Promise<void>;
+
 function isComponentElement(
   ui: unknown,
 ): ui is { type: ComponentFn; props: Record<string, unknown> } {
@@ -54,7 +110,7 @@ export class ActionRegistry {
     {
       render: (
         props: Record<string, unknown>,
-        context: ChannelComponentRenderContext,
+        context: ChannelComponentAdapterRenderContext,
       ) => Renderable | Promise<Renderable>;
       requireKeys: boolean;
     }
@@ -71,12 +127,69 @@ export class ActionRegistry {
   // posted message's id. Mirrors the `hot` action cache; the durable snapshot
   // (below) is the cross-restart counterpart, exactly like onClick.
   private messageReactions = new Map<string, MessageReactionHandler>();
+  private componentCallbacks = new Map<
+    string,
+    Record<string, RegisteredChannelComponentCallback>
+  >();
 
   private readonly retentionMs?: number;
+  private readonly componentStore?: ChannelComponentStore;
+  private readonly componentRuntime?: ChannelComponentActionRuntime;
 
-  constructor(opts: { store: ActionStore; retentionMs?: number }) {
+  constructor(opts: {
+    store: ActionStore;
+    retentionMs?: number;
+    componentStore?: ChannelComponentStore;
+    componentRuntime?: ChannelComponentActionRuntime;
+  }) {
     this.store = opts.store;
     this.retentionMs = opts.retentionMs;
+    this.componentStore = opts.componentStore;
+    this.componentRuntime = opts.componentRuntime;
+  }
+
+  /** Register the stable named callbacks for the current component definition. */
+  registerComponentCallbacks(
+    componentName: string,
+    callbacks: Record<string, (...args: never[]) => unknown>,
+  ): void {
+    this.componentCallbacks.set(
+      componentName,
+      Object.fromEntries(
+        Object.entries(callbacks).map(([name, callback]) => [
+          name,
+          (
+            args: JsonValue,
+            context: RegisteredChannelComponentCallbackContext,
+          ) =>
+            Reflect.apply(callback, undefined, [
+              args,
+              context,
+            ]) as void | Promise<void>,
+        ]),
+      ),
+    );
+  }
+
+  /**
+   * Replace opaque named callback bindings with provider action IDs and persist
+   * the exact clicked revision before the component is delivered.
+   */
+  async bindComponentRenderable(
+    ui: Renderable,
+    snapshot: ComponentBindingRenderSnapshot,
+  ): Promise<ChannelNode[]> {
+    if (!this.componentStore) {
+      throw new Error("Component persistence is not configured.");
+    }
+    const root = renderToIR(ui);
+    const pending: Array<{
+      id: string;
+      record: ChannelComponentBindingSnapshot;
+    }> = [];
+    this.walkComponentBindings(root, snapshot, pending);
+    await this.componentStore.putBindings(pending);
+    return root;
   }
 
   /** Cache a `<Message onReaction>` handler for the posted message (same-process). */
@@ -129,7 +242,7 @@ export class ActionRegistry {
     const root = renderToIR(
       await registered.render(snap.props as Record<string, unknown>, {
         platform: (snap.platform ??
-          "slack") as ChannelComponentRenderContext["platform"],
+          "slack") as ChannelComponentAdapterRenderContext["platform"],
         signal: new AbortController().signal,
       }),
     );
@@ -140,7 +253,7 @@ export class ActionRegistry {
     name: string,
     fn: (
       props: Record<string, unknown>,
-      context: ChannelComponentRenderContext,
+      context: ChannelComponentAdapterRenderContext,
     ) => Renderable | Promise<Renderable>,
     options: { requireKeys?: boolean } = {},
   ): void {
@@ -161,7 +274,7 @@ export class ActionRegistry {
     props: Record<string, unknown>,
     conversationKey: string,
     continuation?: ActionContinuationContext,
-    renderContext: ChannelComponentRenderContext = {
+    renderContext: ChannelComponentAdapterRenderContext = {
       platform: "slack",
       signal: new AbortController().signal,
     },
@@ -192,7 +305,7 @@ export class ActionRegistry {
     props: Record<string, unknown>,
     conversationKey: string,
     continuation: ActionContinuationContext | undefined,
-    renderContext: ChannelComponentRenderContext,
+    renderContext: ChannelComponentAdapterRenderContext,
   ): Promise<{
     root: ChannelNode[];
     onReaction?: MessageReactionHandler;
@@ -230,7 +343,7 @@ export class ActionRegistry {
     ui: Renderable,
     conversationKey: string,
     continuation?: ActionContinuationContext,
-    renderContext: ChannelComponentRenderContext = {
+    renderContext: ChannelComponentAdapterRenderContext = {
       platform: "slack",
       signal: new AbortController().signal,
     },
@@ -458,6 +571,11 @@ export class ActionRegistry {
    * the element has no `value`.
    */
   async dispatch(id: string, ctx: InteractionContext): Promise<unknown> {
+    const componentBinding = await this.componentStore?.getBinding(id);
+    if (componentBinding) {
+      await this.dispatchComponentBinding(componentBinding, ctx);
+      return undefined;
+    }
     let handler: ClickHandler | undefined;
     let value: unknown;
     const hot = this.hot.get(id);
@@ -476,7 +594,7 @@ export class ActionRegistry {
       const tree = renderToIR(
         await registered.render(snap.props as Record<string, unknown>, {
           platform: (snap.platform ??
-            ctx.platform) as ChannelComponentRenderContext["platform"],
+            ctx.platform) as ChannelComponentAdapterRenderContext["platform"],
           signal: new AbortController().signal,
         }),
       );
@@ -492,6 +610,98 @@ export class ActionRegistry {
       action: { ...ctx.action, id, value: actionValue },
     });
     return value;
+  }
+
+  private walkComponentBindings(
+    value: unknown,
+    snapshot: ComponentBindingRenderSnapshot,
+    pending: Array<{
+      id: string;
+      record: ChannelComponentBindingSnapshot;
+    }>,
+  ): void {
+    if (Array.isArray(value)) {
+      for (const child of value) {
+        this.walkComponentBindings(child, snapshot, pending);
+      }
+      return;
+    }
+    if (!isChannelNode(value)) return;
+
+    for (const eventProp of EVENT_PROPS) {
+      const binding = value.props[eventProp];
+      if (!isChannelCallbackBinding(binding)) continue;
+      const id = `ck:${globalThis.crypto.randomUUID()}`;
+      pending.push({
+        id,
+        record: componentBindingSnapshot(binding, snapshot),
+      });
+      value.props[eventProp] = { id };
+    }
+    for (const [property, child] of Object.entries(value.props)) {
+      if ((EVENT_PROPS as readonly string[]).includes(property)) continue;
+      this.walkComponentBindings(child, snapshot, pending);
+    }
+  }
+
+  private async dispatchComponentBinding(
+    binding: ChannelComponentBindingSnapshot,
+    context: InteractionContext,
+  ): Promise<void> {
+    if (!this.componentStore) throw new ActionExpiredError(context.action.id);
+    const current = await this.componentStore.getInstance(
+      binding.componentInstanceId,
+    );
+    if (!current) throw new ActionExpiredError(context.action.id);
+    if (
+      current.phase === "streaming" &&
+      !this.componentRuntime?.isLive?.(binding.componentInstanceId)
+    ) {
+      const failed = await this.componentStore.failInterrupted(
+        binding.componentInstanceId,
+      );
+      if (failed) {
+        await this.componentRuntime?.onInterrupted?.(
+          binding.componentInstanceId,
+          failed,
+          context,
+        );
+      }
+      return;
+    }
+
+    const callback = this.componentCallbacks.get(current.componentName)?.[
+      binding.callbackName
+    ];
+    if (!callback) throw new ActionExpiredError(context.action.id);
+    const callbackContext: RegisteredChannelComponentCallbackContext = {
+      phase: binding.phase,
+      props: binding.props,
+      state: binding.state,
+      revision: binding.revision,
+      thread: context.thread,
+      message: context.message,
+      interaction: context,
+      ...("state" in binding && this.componentRuntime?.setState
+        ? {
+            setState: (next: unknown) =>
+              this.componentRuntime!.setState!(
+                binding.componentInstanceId,
+                next,
+                context,
+              ),
+          }
+        : {}),
+    };
+    try {
+      await callback(binding.args, callbackContext);
+    } catch (error) {
+      if (this.componentRuntime?.onCallbackError) {
+        await this.componentRuntime.onCallbackError(error, context);
+        return;
+      }
+      console.error("[channel-component] callback failed:", error);
+    }
   }
 
   /** Read and validate one continuation capability without consuming it. */
@@ -591,6 +801,24 @@ function findHandlerByLocator(
 /** Store key for a message's durable reaction snapshot (distinct from minted action ids). */
 function reactionKey(messageId: string): string {
   return `reaction:${messageId}`;
+}
+
+function componentBindingSnapshot(
+  binding: ChannelCallbackBinding,
+  snapshot: ComponentBindingRenderSnapshot,
+): ChannelComponentBindingSnapshot {
+  return {
+    version: 1,
+    componentInstanceId: snapshot.componentInstanceId,
+    callbackName: binding.callbackName,
+    args: assertJsonValue(binding.args, {
+      label: "Component binding arguments",
+    }),
+    phase: snapshot.phase,
+    props: snapshot.props,
+    ...(snapshot.state !== undefined ? { state: snapshot.state } : {}),
+    revision: snapshot.revision,
+  };
 }
 
 /**

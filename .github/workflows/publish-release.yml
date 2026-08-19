@@ -38,6 +38,7 @@ on:
         type: choice
         options:
           - monorepo
+          - schema
           - angular
           - channels
           # Sentinel, not a scope (see ALL_SCOPES in scripts/release/lib/config.ts).

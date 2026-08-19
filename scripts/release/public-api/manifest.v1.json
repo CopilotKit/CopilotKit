@@ -1706,6 +1706,84 @@
       }
     },
     {
+      "name": "@copilotkit/schema",
+      "version": "0.0.0",
+      "sourceDirectory": "packages/schema",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/schema",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/index.d.mts",
+              "default": "./dist/index.mjs"
+            },
+            "require": {
+              "types": "./dist/index.d.cts",
+              "default": "./dist/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/schema/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/schema/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/schema/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/schema/streaming",
+          "exportKey": "./streaming",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/streaming.d.mts",
+              "default": "./dist/streaming.mjs"
+            },
+            "require": {
+              "types": "./dist/streaming.d.cts",
+              "default": "./dist/streaming.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/schema/package.json",
+            "selector": "exports[\"./streaming\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "provenance": []
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/schema/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/schema/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.schema.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/sdk-js",
       "version": "1.68.1",
       "sourceDirectory": "packages/sdk-js",

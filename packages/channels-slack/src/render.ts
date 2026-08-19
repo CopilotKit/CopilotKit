@@ -14,6 +14,7 @@ export type { SlackRenderTransport } from "./render/transport.js";
 
 export {
   renderBlockKit,
+  renderSlackComponentMessage,
   renderSlackMessage,
   buildFeedbackBlocks,
   FEEDBACK_ACTION_ID,

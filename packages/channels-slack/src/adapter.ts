@@ -10,6 +10,7 @@ import type {
 import type { AnyChunk, KnownBlock } from "@slack/types";
 import type {
   PlatformAdapter,
+  ChannelComponentDeliveryPolicy,
   SurfaceCapabilities,
   IngressSink,
   InteractionEvent,
@@ -44,6 +45,7 @@ import {
 } from "./interaction.js";
 import {
   renderBlockKit,
+  renderSlackComponentMessage,
   renderSlackMessage,
   buildFeedbackBlocks,
   FEEDBACK_ACTION_ID,
@@ -59,6 +61,7 @@ import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 import { slackFallbackText } from "./native-codec.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
 import { DM_SCOPE, resolveSlackRespondToOptions } from "./types.js";
+import { SLACK_COMPONENT_EDIT_INTERVAL_MS } from "./component-delivery.js";
 import type {
   ConversationKey,
   ReplyTarget,
@@ -120,6 +123,17 @@ export interface SlackAdapterOptions {
 /** Slack `PlatformAdapter`: ingress via Bolt, egress via Block Kit + streaming. */
 export class SlackAdapter implements PlatformAdapter {
   readonly platform = "slack";
+
+  getComponentDeliveryPolicy(platform: string): ChannelComponentDeliveryPolicy {
+    if (platform !== "slack") {
+      throw new Error(`Slack adapter cannot deliver ${platform} components.`);
+    }
+    return {
+      minIntervalMs: SLACK_COMPONENT_EDIT_INTERVAL_MS,
+      maxAttempts: 3,
+      retryDelayMs: (attempt) => 100 * 2 ** (attempt - 1),
+    };
+  }
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs = 3000;
 
@@ -390,8 +404,24 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
+    return this.postRendered(target, ir, renderSlackMessage(ir));
+  }
+
+  /** Post one strict Channel component revision without clamping overflow. */
+  async postComponent(
+    target: BotReplyTarget,
+    ir: ChannelNode[],
+  ): Promise<MessageRef> {
+    return this.postRendered(target, ir, renderSlackComponentMessage(ir));
+  }
+
+  private async postRendered(
+    target: BotReplyTarget,
+    ir: ChannelNode[],
+    rendered: ReturnType<typeof renderSlackMessage>,
+  ): Promise<MessageRef> {
     const t = target as ReplyTarget;
-    const { blocks, accent } = renderSlackMessage(ir);
+    const { blocks, accent } = rendered;
     const summary = slackFallbackText(ir);
     // Suppress Slack link/media unfurling: a card with many links (e.g. an
     // issue_list of Linear URLs) would otherwise spawn a wall of preview
@@ -417,8 +447,21 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
+    await this.updateRendered(ref, ir, renderSlackMessage(ir));
+  }
+
+  /** Replace one strict Channel component revision without clamping overflow. */
+  async updateComponent(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
+    await this.updateRendered(ref, ir, renderSlackComponentMessage(ir));
+  }
+
+  private async updateRendered(
+    ref: MessageRef,
+    ir: ChannelNode[],
+    rendered: ReturnType<typeof renderSlackMessage>,
+  ): Promise<void> {
     const channel = channelOf(ref);
-    const { blocks, accent } = renderSlackMessage(ir);
+    const { blocks, accent } = rendered;
     const summary = slackFallbackText(ir);
     // Mirror `post`'s accent/non-accent split. `chat.update` does not accept
     // the `unfurl_*` flags, so they are only set on `postMessage`.

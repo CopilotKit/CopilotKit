@@ -4,11 +4,12 @@ import { z } from "zod";
 import { expect, test, vi } from "vitest";
 import { createChannel } from "./create-channel.js";
 import { defineChannelComponent } from "./channel-component.js";
+import type { ChannelComponentDefinition } from "./channel-component.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 import { FakeAgent } from "./testing/fake-agent.js";
 
 function setup(args: {
-  component: ReturnType<typeof defineChannelComponent>;
+  component: ChannelComponentDefinition;
   platform?: string;
   toolArgs?: Record<string, unknown>;
 }) {
@@ -53,15 +54,15 @@ function setup(args: {
   };
 }
 
-test("a channel component validates args, renders asynchronously, and posts through the thread", async () => {
+test("a channel component validates args, renders synchronously, and posts through the strict path", async () => {
   const render = vi.fn(
-    async (
-      props: { orderId: string },
-      context: { platform: string; signal: AbortSignal },
-    ) => {
-      await Promise.resolve();
+    (context: {
+      phase: string;
+      platform: string;
+      props?: { orderId: string };
+    }) => {
       return Section({
-        children: `${context.platform}:${props.orderId}:${context.signal.aborted}`,
+        children: `${context.phase}:${context.platform}:${context.props?.orderId}`,
       });
     },
   );
@@ -80,8 +81,11 @@ test("a channel component validates args, renders asynchronously, and posts thro
   await harness.run();
 
   expect(render).toHaveBeenCalledWith(
-    { orderId: "order-42" },
-    { platform: "teams", signal: expect.any(AbortSignal) },
+    expect.objectContaining({
+      phase: "ready",
+      platform: "teams",
+      props: { orderId: "order-42" },
+    }),
   );
   expect(harness.adapter.posted).toEqual([
     [
@@ -91,7 +95,7 @@ test("a channel component validates args, renders asynchronously, and posts thro
           children: [
             {
               type: "text",
-              props: { value: "teams:order-42:false" },
+              props: { value: "ready:teams:order-42" },
             },
           ],
         },
@@ -101,8 +105,10 @@ test("a channel component validates args, renders asynchronously, and posts thro
   expect(harness.iterations()).toBe(2);
 });
 
-test("invalid component arguments do not render or post", async () => {
-  const render = vi.fn(() => Section({ children: "should not render" }));
+test("invalid component arguments render a failed component and fail the tool", async () => {
+  const render = vi.fn((context: { phase: string }) =>
+    Section({ children: context.phase }),
+  );
   const component = defineChannelComponent({
     name: "show_order",
     description: "Show one order",
@@ -113,8 +119,10 @@ test("invalid component arguments do not render or post", async () => {
 
   await harness.run();
 
-  expect(render).not.toHaveBeenCalled();
-  expect(harness.adapter.posted).toEqual([]);
+  expect(render).toHaveBeenCalledWith(
+    expect.objectContaining({ phase: "failed" }),
+  );
+  expect(harness.adapter.posted).toHaveLength(1);
   expect(harness.iterations()).toBe(2);
 });
 
@@ -142,4 +150,27 @@ test("channel start rejects component and tool name collisions", async () => {
   await expect(channel.ɵruntime.start()).rejects.toThrow(
     'duplicate channel tool or component name "show_order"',
   );
+});
+
+test("MemoryStore warning names lost callback recovery", async () => {
+  const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  const channel = createChannel({
+    identifyUser: "platform",
+    adapters: [new FakeAdapter()],
+    components: [
+      defineChannelComponent({
+        name: "memory_card",
+        description: "Warn about ephemeral recovery",
+        parameters: z.object({}),
+        render: () => Section({ children: "card" }),
+      }),
+    ],
+  });
+
+  await channel.ɵruntime.start();
+
+  expect(warning).toHaveBeenCalledWith(
+    expect.stringContaining("callback recovery"),
+  );
+  warning.mockRestore();
 });

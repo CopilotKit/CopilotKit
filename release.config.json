@@ -23,6 +23,11 @@
       "versionSource": "@copilotkit/react-core",
       "sharedVersion": true
     },
+    "schema": {
+      "packages": ["@copilotkit/schema"],
+      "versionSource": "@copilotkit/schema",
+      "sharedVersion": false
+    },
     "angular": {
       "packages": ["@copilotkit/angular"],
       "versionSource": "@copilotkit/angular",

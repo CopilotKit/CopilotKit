@@ -9,6 +9,7 @@ import { Slack } from "./native.js";
 import { renderBlockKit } from "./render/block-kit.js";
 
 test("Slack data visualization requires a title", () => {
+  // @ts-expect-error exercises the runtime required-field guard.
   const [node] = renderToIR(<Slack.Block.DataVisualization />);
 
   expect(isNativeNode(node)).toBe(true);
@@ -20,6 +21,7 @@ test("Slack data visualization requires a title", () => {
 
 test("Slack data visualization requires a chart", () => {
   const [node] = renderToIR(
+    // @ts-expect-error exercises the runtime required-field guard.
     <Slack.Block.DataVisualization title="Weekly weather" />,
   );
 
@@ -74,18 +76,29 @@ test("a weather channel component reaches Slack as a data visualization block", 
       city: z.string(),
       temperatures: z.tuple([z.number(), z.number(), z.number()]),
     }),
-    render: ({ city, temperatures }) => (
+    render: ({ phase, props }) => (
       <Slack.Block.DataVisualization
-        title={`${city} forecast`}
+        title={
+          phase === "failed" ? "Weather unavailable" : `${props.city} forecast`
+        }
         chart={{
           type: "line",
           series: [
             {
               name: "Temperature",
               data: [
-                { label: "Mon", value: temperatures[0] },
-                { label: "Tue", value: temperatures[1] },
-                { label: "Wed", value: temperatures[2] },
+                {
+                  label: "Mon",
+                  value: phase === "failed" ? 0 : props.temperatures[0],
+                },
+                {
+                  label: "Tue",
+                  value: phase === "failed" ? 0 : props.temperatures[1],
+                },
+                {
+                  label: "Wed",
+                  value: phase === "failed" ? 0 : props.temperatures[2],
+                },
               ],
             },
           ],
@@ -102,10 +115,14 @@ test("a weather channel component reaches Slack as a data visualization block", 
   const postMessage = vi
     .spyOn(adapter.client.chat, "postMessage")
     .mockResolvedValue({ ok: true, channel: "C1", ts: "200.5" });
-  const rendered = await WeatherCard.render(
-    { city: "San Francisco", temperatures: [62, 65, 61] },
-    { platform: "slack", signal: new AbortController().signal },
-  );
+  const rendered = WeatherCard.render({
+    phase: "ready",
+    props: { city: "San Francisco", temperatures: [62, 65, 61] },
+    platform: "slack",
+    state: undefined,
+    revision: 1,
+    callbacks: {},
+  });
 
   await adapter.post(
     { channel: "C1", threadTs: "100.0" },

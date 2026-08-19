@@ -1,0 +1,79 @@
+{
+  "name": "@copilotkit/schema",
+  "version": "0.0.0",
+  "description": "Tiny, fast, strictly typed schema validation with streaming JSON support.",
+  "license": "MIT",
+  "author": "CopilotKit, Inc.",
+  "homepage": "https://copilotkit.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/schema"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./streaming": {
+      "import": {
+        "types": "./dist/streaming.d.mts",
+        "default": "./dist/streaming.mjs"
+      },
+      "require": {
+        "types": "./dist/streaming.d.cts",
+        "default": "./dist/streaming.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "benchmark": "tsx benchmarks/performance.ts",
+    "benchmark:async": "tsx benchmarks/async-performance.ts",
+    "benchmark:bundle": "tsx benchmarks/bundle-size.ts",
+    "benchmark:cold": "node --expose-gc --import tsx benchmarks/cold-start.ts",
+    "build": "tsdown",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "pnpm build && vitest run --typecheck",
+    "test:types": "vitest run --typecheck.only",
+    "test:watch": "vitest",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "COMPATIBILITY.md",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@standard-schema/spec": "^1.0.0"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:^",
+    "@types/node": "^22.10.0",
+    "arktype": "2.2.3",
+    "esbuild": "0.19.12",
+    "tsdown": "^0.20.3",
+    "tsx": "4.21.0",
+    "typescript": "^5.6.3",
+    "valibot": "1.3.1",
+    "vitest": "4.0.18",
+    "zod": "4.3.6"
+  }
+}

@@ -25,6 +25,7 @@ import {
   channelDeliveryErrorDetails,
   isChannelDeliveryTerminatedError,
 } from "./delivery-error.js";
+import type { ChannelComponentRun } from "./channel-component-runtime.js";
 
 export interface RunLoopArgs {
   agent: AbstractAgent;
@@ -49,6 +50,8 @@ export interface RunLoopArgs {
    * lifecycle around the whole loop.
    */
   canonicalRun?: CanonicalRunIdentity;
+  /** V2 component event consumer and final tool executor for this run. */
+  componentRun?: ChannelComponentRun;
 }
 
 interface SubscriberFanoutOptions {
@@ -60,6 +63,15 @@ interface SubscriberFanoutOptions {
 }
 
 type SubscriberCallback = (value: unknown) => unknown;
+
+function toolCallExecutionKey(
+  call: CapturedToolCall,
+  componentRun?: ChannelComponentRun,
+): string {
+  return componentRun?.hasComponent(call.toolCallName)
+    ? componentRun.executionKey(call)
+    : `${call.runId ?? "run"}:${call.toolCallId}`;
+}
 
 /**
  * Merge two subscriber callback results while preserving either subscriber's
@@ -333,11 +345,16 @@ export async function runAgentLoop(
     deliveryError = error;
   };
   const isRendererClosed = (): boolean => hasDeliveryError;
+  const ingestionSubscriber = args.componentRun
+    ? args.subscriber
+      ? mergeAgentSubscribers(args.subscriber, args.componentRun.subscriber)
+      : args.componentRun.subscriber
+    : args.subscriber;
   const subscriber =
-    args.subscriber || args.canonicalRun
+    ingestionSubscriber || args.canonicalRun
       ? mergeAgentSubscribers(
           renderer.subscriber,
-          args.subscriber ?? {},
+          ingestionSubscriber ?? {},
           args.canonicalRun
             ? {
                 canonicalRun: args.canonicalRun,
@@ -382,44 +399,63 @@ export async function runAgentLoop(
         return { iterations: i + 1, interrupted: true };
       }
 
-      const calls = renderer
-        .getCapturedToolCalls()
-        .filter(
-          (c) => tools.has(c.toolCallName) && !executed.has(c.toolCallId),
-        );
+      const seenThisIteration = new Set<string>();
+      const calls = renderer.getCapturedToolCalls().filter((call) => {
+        if (!tools.has(call.toolCallName)) return false;
+        const key = toolCallExecutionKey(call, args.componentRun);
+        if (executed.has(key) || seenThisIteration.has(key)) return false;
+        seenThisIteration.add(key);
+        return true;
+      });
       if (calls.length === 0) return { iterations: i + 1, interrupted: false };
 
       ensureAssistantToolCallMessage(agent, calls);
       for (const call of calls) {
         const tool = tools.get(call.toolCallName)!;
         let result: string;
-        const parsed = await parseToolArgs(tool.parameters, call.toolCallArgs);
-        if (!parsed.ok) {
-          result = JSON.stringify({
-            error: `invalid arguments: ${parsed.error}`,
-          });
-        } else {
+        if (args.componentRun?.hasComponent(call.toolCallName)) {
           await args.canonicalRun?.beforeToolCall?.();
           try {
-            result = stringifyHandlerResult(
-              await tool.handler(
-                parsed.value as never,
-                makeToolCtx(call) as never,
-              ),
-            );
+            // The component controller performs its one final Standard Schema
+            // validation after finalizing raw streamed JSON. Do not run the
+            // generic tool validator here as well.
+            result = await args.componentRun.finish(call);
           } catch (err) {
             if (isChannelDeliveryTerminatedError(err)) {
-              // The provider already terminalled this delivery. Freeze renderer
-              // fanout before the canonical RUN_ERROR is ingested, then stop the
-              // loop instead of inviting the model to emit through a closed path.
               deferRendererError(err);
               throw err;
             }
             result = JSON.stringify({ error: (err as Error).message });
           }
+        } else {
+          const parsed = await parseToolArgs(
+            tool.parameters,
+            call.toolCallArgs,
+          );
+          if (!parsed.ok) {
+            result = JSON.stringify({
+              error: `invalid arguments: ${parsed.error}`,
+            });
+          } else {
+            await args.canonicalRun?.beforeToolCall?.();
+            try {
+              result = stringifyHandlerResult(
+                await tool.handler(
+                  parsed.value as never,
+                  makeToolCtx(call) as never,
+                ),
+              );
+            } catch (err) {
+              if (isChannelDeliveryTerminatedError(err)) {
+                deferRendererError(err);
+                throw err;
+              }
+              result = JSON.stringify({ error: (err as Error).message });
+            }
+          }
         }
         pushToolResult(agent, call.toolCallId, result);
-        executed.add(call.toolCallId);
+        executed.add(toolCallExecutionKey(call, args.componentRun));
       }
     }
     return { iterations: maxIterations, interrupted: false };

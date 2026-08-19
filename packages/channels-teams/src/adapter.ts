@@ -7,6 +7,7 @@ import type { AuthConfiguration, TurnContext } from "@microsoft/agents-hosting";
 import { ActivityTypes, Activity } from "@microsoft/agents-activity";
 import type {
   PlatformAdapter,
+  ChannelComponentDeliveryPolicy,
   SurfaceCapabilities,
   IngressSink,
   InteractionEvent,
@@ -34,11 +35,20 @@ import type { TeamsServer } from "./listener.js";
 import { conversationKeyOf, parseCardAction } from "./interaction.js";
 import { createRunRenderer } from "./event-renderer.js";
 import { renderTeamsMarkdown } from "./render/markdown.js";
-import { renderAdaptiveCard, isPlainText } from "./render/adaptive-card.js";
+import {
+  renderAdaptiveCard,
+  renderTeamsComponentCard,
+  isPlainText,
+} from "./render/adaptive-card.js";
 import type { AdaptiveCard } from "./render/adaptive-card.js";
-import { containsTeamsNative, renderTeamsNativeCard } from "./native-codec.js";
+import {
+  containsTeamsNative,
+  renderTeamsComponentNativeCard,
+  renderTeamsNativeCard,
+} from "./native-codec.js";
 import { TeamsMessageStream } from "./message-stream.js";
 import type { TeamsAdapterOptions, TeamsReplyTarget } from "./types.js";
+import { TEAMS_COMPONENT_EDIT_INTERVAL_MS } from "./component-delivery.js";
 
 /** Native render output: a plain text activity or an Adaptive Card attachment. */
 type TeamsActivityPayload = { text: string } | { card: AdaptiveCard };
@@ -73,6 +83,17 @@ interface TeamsMessageRef extends MessageRef {
  */
 export class TeamsAdapter implements PlatformAdapter {
   readonly platform = "teams";
+
+  getComponentDeliveryPolicy(platform: string): ChannelComponentDeliveryPolicy {
+    if (platform !== "teams") {
+      throw new Error(`Teams adapter cannot deliver ${platform} components.`);
+    }
+    return {
+      minIntervalMs: TEAMS_COMPONENT_EDIT_INTERVAL_MS,
+      maxAttempts: 3,
+      retryDelayMs: (attempt) => 100 * 2 ** (attempt - 1),
+    };
+  }
   readonly capabilities: SurfaceCapabilities;
   // Teams keeps the inbound HTTP turn open while the bot works; ~15s is the
   // practical channel window. Declarative today (the engine doesn't enforce it).
@@ -412,9 +433,30 @@ export class TeamsAdapter implements PlatformAdapter {
       : { card: renderAdaptiveCard(ir) };
   }
 
+  /** Render one strict Channel component revision without clamping overflow. */
+  renderComponent(ir: ChannelNode[]): TeamsActivityPayload {
+    return containsTeamsNative(ir)
+      ? { card: renderTeamsComponentNativeCard(ir) }
+      : { card: renderTeamsComponentCard(ir) };
+  }
+
   async post(target: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
+    return this.postRendered(target, this.render(ir));
+  }
+
+  /** Post one strict Channel component revision. */
+  async postComponent(
+    target: ReplyTarget,
+    ir: ChannelNode[],
+  ): Promise<MessageRef> {
+    return this.postRendered(target, this.renderComponent(ir));
+  }
+
+  private async postRendered(
+    target: ReplyTarget,
+    payload: TeamsActivityPayload,
+  ): Promise<MessageRef> {
     const t = target as TeamsReplyTarget;
-    const payload = this.render(ir);
     const id =
       "text" in payload
         ? await this.sendText(t, payload.text)
@@ -423,9 +465,23 @@ export class TeamsAdapter implements PlatformAdapter {
   }
 
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
+    await this.updateRendered(ref, this.render(ir));
+  }
+
+  /** Replace one strict Channel component revision. */
+  async updateComponent(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
+    if (!ref.id) {
+      throw new Error("Teams component update requires a provider message id.");
+    }
+    await this.updateRendered(ref, this.renderComponent(ir));
+  }
+
+  private async updateRendered(
+    ref: MessageRef,
+    payload: TeamsActivityPayload,
+  ): Promise<void> {
     const r = ref as TeamsMessageRef;
     if (!r.id) return;
-    const payload = this.render(ir);
     // `updateActivity` re-derives addressing from the turn, so we build a fresh
     // activity carrying only the id + new content (cloning the inbound activity
     // drags fields that fail the SDK's re-validation).

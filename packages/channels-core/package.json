@@ -58,6 +58,7 @@
   "dependencies": {
     "@ag-ui/client": "0.0.57",
     "@ag-ui/core": "0.0.57",
+    "@copilotkit/schema": "workspace:~",
     "@copilotkit/channels-ui": "workspace:~",
     "@copilotkit/core": "workspace:^",
     "@copilotkit/shared": "workspace:^",

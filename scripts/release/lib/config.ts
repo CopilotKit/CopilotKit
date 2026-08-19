@@ -7,7 +7,7 @@ export const ROOT = path.resolve(
   "../../..",
 );
 
-export type ReleaseScope = "monorepo" | "angular" | "channels";
+export type ReleaseScope = "monorepo" | "schema" | "angular" | "channels";
 
 export interface ScopeConfig {
   packages: string[];

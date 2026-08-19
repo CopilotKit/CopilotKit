@@ -1,6 +1,7 @@
 import { createNativeNode } from "@copilotkit/channels-ui";
 import type {
   BotChildren,
+  ChannelCallbackBinding,
   ChannelNode,
   ClickHandler,
 } from "@copilotkit/channels-ui";
@@ -78,9 +79,9 @@ export interface TeamsNativeProps<TValue = unknown> {
   min?: number | string;
   max?: number | string;
   isMultiSelect?: boolean;
-  onClick?: ClickHandler<TValue>;
-  onSelect?: ClickHandler<TValue>;
-  onSubmit?: ClickHandler<TValue>;
+  onClick?: ClickHandler<TValue> | ChannelCallbackBinding<TValue>;
+  onSelect?: ClickHandler<TValue> | ChannelCallbackBinding<TValue>;
+  onSubmit?: ClickHandler<TValue> | ChannelCallbackBinding<TValue>;
 }
 
 type NativeComponent = <TValue = unknown>(

@@ -33,6 +33,7 @@ import { ROOT, getScopeConfig, loadConfig } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
 import { resolvePublishNpm } from "./lib/npm-cli.js";
+import { preflightStableReleaseDependencies } from "./lib/stable-release-dependencies.js";
 
 type PublishPhase = "all" | "dependencies" | "umbrella";
 
@@ -167,6 +168,19 @@ async function main() {
       );
       process.exit(1);
     }
+  }
+
+  // Cross-scope preflight must run before resolving the publish CLI or entering
+  // any publish loop. In particular, Channels cannot publish a partial package
+  // family until the schema range in the packed core manifest exists on npm.
+  try {
+    preflightStableReleaseDependencies(scope);
+  } catch (err: any) {
+    console.error(
+      "Stable dependency preflight failed — nothing was published.",
+    );
+    console.error(err.message);
+    process.exit(1);
   }
 
   // Try to read edited release notes from Notion
