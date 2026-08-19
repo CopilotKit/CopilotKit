@@ -113,7 +113,7 @@ export const HarnessConsole = ({ channel }: { channel: string }) => {
           {idle
             ? "Nothing has streamed on this channel for 45s. The run may not " +
               "have started — check that EXPENSE_HARNESS_MODE is set and that " +
-              "the codex binary is on the server's PATH. Still listening."
+              "the claude binary is on the server's PATH. Still listening."
             : "Starting the harness…"}
         </div>
       ) : null}

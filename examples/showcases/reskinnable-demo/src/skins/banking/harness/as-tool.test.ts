@@ -161,6 +161,31 @@ describe("runExpenseHarness", () => {
     expect(frames.at(-1)).toBe("done");
   });
 
+  it("launches the harness on the claude-code engine, not the default", async () => {
+    // The one regression NO other gate catches. `createExpenseHarnessStream`
+    // defaults to `"codex"` so that Arm C stays untouched, which means dropping
+    // this one argument leaves Arm A green in lint, typecheck, build AND every
+    // other test in this file — while silently restoring codex's synthesised
+    // `web_search` arguments (`{"query":""}`), the exact defect this arm changed
+    // engines to fix. Nothing would surface it until someone read the console on
+    // stage and found the search frames blank.
+    const channel = "tool-test-engine";
+    clearProgress(channel);
+    let seen: string | undefined = "never called";
+
+    await runExpenseHarness({
+      channel,
+      now: () => 0,
+      readCsv: async () => "x\n",
+      createStream: (opts) => {
+        seen = opts.engine;
+        return streamOf([])(opts);
+      },
+    });
+
+    expect(seen).toBe("claude-code");
+  });
+
   it("never reports a negative duration when the clock steps backwards", async () => {
     const channel = "tool-test-clock";
     const times = [10_000, 4_000];

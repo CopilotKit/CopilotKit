@@ -74,6 +74,10 @@ let inFlight: AbortController | null = null;
  * this plan guessed `type:"reasoning-delta"` reading `.text`, and every one of
  * those guesses was wrong. The stream emits AG-UI-shaped event names.
  *
+ * Every field fact below was RE-MEASURED against the `claude` binary when this
+ * arm changed engines, and all of them held. The only behavioural difference is
+ * the one this arm changed engines FOR — see the `TOOL_CALL_END` case.
+ *
  * Field facts that matter, all verified:
  *  - `REASONING_MESSAGE_CONTENT` carries `delta` ONLY. There is NO `content`
  *    field on it; reading `content` yields undefined and the console stays
@@ -84,11 +88,15 @@ let inFlight: AbortController | null = null;
  *    summary.json", which is a symptom, not the cause. Mapping it is the only
  *    way the real reason reaches the console.
  *  - Tool calls arrive ALREADY RESOLVED: START, ARGS and END are emitted
- *    back-to-back from one complete codex item with IDENTICAL timestamps, and
+ *    back-to-back from one complete harness item with IDENTICAL timestamps, and
  *    the whole `args` JSON lands in a single chunk. So exactly one of the three
- *    may be rendered, and it is END — see the `TOOL_CALL_END` case.
- *  - `sandbox.file` and `codex.session-id` ride INSIDE `type:"CUSTOM"`,
- *    discriminated by `name`. Matching `type === "sandbox.file"` never fires.
+ *    may be rendered, and it is END — see the `TOOL_CALL_END` case. Re-measured
+ *    on `claude-code`: the same three, in the same order.
+ *  - `sandbox.file` and the engine's session id (`codex.session-id` /
+ *    `claude-code.session-id`) ride INSIDE `type:"CUSTOM"`, discriminated by
+ *    `name`. Matching `type === "sandbox.file"` never fires. Neither engine's
+ *    name is read here — `CUSTOM` falls through to `null` — which is why
+ *    switching engines needed no change in this mapper.
  *
  * A chunk the console does not render maps to `null` rather than a noise frame.
  */
@@ -135,9 +143,16 @@ export const mapChunkToProgress = (
      * `TOOL_CALL_ARGS`, so every tool call produced two frames — one labelled
      * and one labelled "args" — which contradicted the anti-duplication
      * rationale written directly above it. That second frame was also
-     * double-encoded, because `TOOL_CALL_ARGS.args` is ALREADY a JSON string
-     * (`"args":"{\"query\":\"\"}"`), and its content was worthless anyway:
-     * `web_search` arrives with an empty query on every observed call.
+     * double-encoded, because `TOOL_CALL_ARGS.args` is ALREADY a JSON string.
+     *
+     * ⚠ ONE HALF OF THAT REASONING WAS ENGINE-SPECIFIC AND IS NOW DEAD. Under
+     * codex the args were also worthless — `web_search` arrived with an empty
+     * query on every observed call, because that adapter reads the CLI's own
+     * item schema and SYNTHESISES arguments it never receives. Arm A now runs
+     * `claude-code`, which reads the model's `tool_use` blocks, so the real
+     * query lands in both `TOOL_CALL_ARGS.args` and the `input` rendered below.
+     * Recovering that query is the whole reason this arm changed engines. The
+     * anti-duplication rule above still stands on its own.
      *
      * `input` is the parsed object, so it is the one to stringify.
      */
@@ -212,9 +227,16 @@ export const runExpenseHarness = async (
         prompt: buildHarnessPrompt(),
         // The REAL signal, not a throwaway controller: `run.ts` documents this
         // as the only path to `killTree`, so a run that is superseded here is a
-        // codex process group that actually dies rather than one that keeps
+        // harness process group that actually dies rather than one that keeps
         // burning tokens with nobody listening.
         abortSignal: controller.signal,
+        // ARM A RUNS CLAUDE CODE; Arm C passes nothing and keeps codex. The one
+        // reason to spend an engine on this arm: codex's adapter synthesises the
+        // `web_search` arguments it never receives, so the console's search
+        // frames read `{"query":""}` — see the `TOOL_CALL_END` case below. This
+        // engine reads the model's own `tool_use` blocks, so the real query
+        // arrives. `run.ts` carries the model-pin warning that goes with it.
+        engine: "claude-code",
       });
 
       for await (const chunk of stream) {
