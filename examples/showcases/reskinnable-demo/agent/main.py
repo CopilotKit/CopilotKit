@@ -1,4 +1,4 @@
-"""FastAPI server exposing the offsite-expenses deep agent over AG-UI.
+"""FastAPI server exposing banking's deep agent over AG-UI.
 
 The reskinnable demo's Next app registers this endpoint as an ordinary AG-UI
 agent (`HttpAgent`) in its server agent registry, so every event this service
@@ -36,10 +36,10 @@ app.add_middleware(
 @app.get("/health")
 def health():
     """Health check — `run-demo.sh` and docker-compose both wait on this."""
-    return {"status": "ok", "service": "expense-agent"}
+    return {"status": "ok", "service": "banking-agent"}
 
 
-class ExpenseAGUIAgent(LangGraphAGUIAgent):
+class BankingAGUIAgent(LangGraphAGUIAgent):
     """`LangGraphAGUIAgent` with a working `clone()`.
 
     WORKAROUND for an incompatibility between two published packages, not a
@@ -71,12 +71,31 @@ class ExpenseAGUIAgent(LangGraphAGUIAgent):
     """
 
     def clone(self):
-        return type(self)(
+        clone = type(self)(
             name=self.name,
             graph=self.graph,
             description=self.description,
             config=dict(self.config) if self.config else None,
         )
+        # Carry the flag across the per-request clone by hand.
+        #
+        # `emit_raw_events` defaults to True, which piggybacks LangChain's
+        # internal event objects onto the AG-UI stream. On a multi-minute run
+        # that is most of the payload — a measured run streamed ~27MB, of which
+        # RAW was the single largest event category. The thread PERSISTS those
+        # events (a completed run replayed 8221 of them), and this demo's whole
+        # premise is that you can leave a running thread and come back to it, so
+        # the replay path pays that weight every time.
+        #
+        # Nothing downstream reads RAW: the report card renders off
+        # TOOL_CALL_RESULT and the transcript off TEXT_MESSAGE_*.
+        #
+        # It is set as an ATTRIBUTE rather than a constructor argument because
+        # `copilotkit`'s `LangGraphAGUIAgent.__init__` accepts only
+        # (name, graph, description, config) — the same narrow signature behind
+        # the clone() bug this class already works around.
+        clone.emit_raw_events = self.emit_raw_events
+        return clone
 
     async def run(self, input):
         """Log what the host sent, once per run.
@@ -96,7 +115,7 @@ class ExpenseAGUIAgent(LangGraphAGUIAgent):
             getattr(t, "name", None) for t in (getattr(input, "tools", None) or [])
         ]
         print(
-            f"[expense-agent] run: {len(input.messages or [])} message(s), "
+            f"[banking-agent] run: {len(input.messages or [])} message(s), "
             f"host sent {len(names)} tool(s) {sorted(n for n in names if n)}",
             flush=True,
         )
@@ -104,24 +123,25 @@ class ExpenseAGUIAgent(LangGraphAGUIAgent):
             yield event
 
 
-add_langgraph_fastapi_endpoint(
-    app=app,
-    agent=ExpenseAGUIAgent(
-        name="banking_expenses",
-        description=(
-            "Reads a personal card statement, researches every merchant, "
-            "decides what an offsite makes reimbursable, files the "
-            "reimbursable charges, and returns a report card."
-        ),
-        graph=build_agent(),
-        # A multi-minute run over fourteen rows with per-merchant subagents and
-        # a shell burns supersteps fast — a measured run used well over a
-        # hundred. LangGraph's default is 25, and this is the ONLY place the
-        # adapter honours the setting (see the note in `agent.py`).
-        config={"recursion_limit": 300},
+banking_agent = BankingAGUIAgent(
+    name="banking",
+    description=(
+        "Northwind Finance's banking copilot. Drives the dashboard, renders "
+        "reports on the canvas, and runs the multi-minute offsite-expense "
+        "analysis in a sandboxed shell with parallel research subagents."
     ),
-    path="/",
+    graph=build_agent(),
+    # A multi-minute run over fourteen rows with per-merchant subagents and a
+    # shell burns supersteps fast — a measured run used well over a hundred.
+    # LangGraph's default is 25, and this is the ONLY place the adapter honours
+    # the setting (see the note in `agent.py`).
+    config={"recursion_limit": 300},
 )
+
+# See `clone()` above for why this is an attribute and why it matters.
+banking_agent.emit_raw_events = False
+
+add_langgraph_fastapi_endpoint(app=app, agent=banking_agent, path="/")
 
 
 def main():
@@ -129,7 +149,7 @@ def main():
 
     host = os.getenv("SERVER_HOST", "0.0.0.0")
     port = int(os.getenv("SERVER_PORT", "8124"))
-    print(f"[expense-agent] listening on {host}:{port}")
+    print(f"[banking-agent] listening on {host}:{port}")
     uvicorn.run("main:app", host=host, port=port, log_level="info")
 
 

@@ -33,6 +33,9 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from copilotkit import CopilotKitMiddleware
 
+from prompt import BANKING_PROMPT
+from report import render_report
+
 # The offsite the agent reasons against. Mirrors `harness/types.ts`'s OFFSITE —
 # the two must agree, and the invariant guard in the demo's test suite is what
 # pins the CSV fixture to these dates.
@@ -53,8 +56,18 @@ def _app_base_url() -> str:
     return os.environ.get("DEMO_APP_URL", "http://localhost:3000")
 
 
-SYSTEM_PROMPT = f"""You are an expense analyst with a shell, a filesystem, and
-subagents. Work in your working directory.
+EXPENSE_TASK_PROMPT = f"""
+
+## LONG-RUNNING TASK — OFFSITE EXPENSE ANALYSIS
+
+Everything above governs how you behave in general. This section is a SPECIFIC
+JOB, and it applies ONLY when the user hands you a personal card statement and
+asks which charges an offsite makes reimbursable. For every other request,
+ignore this section entirely — it does not change your identity, your tools, or
+the rules above.
+
+When it DOES apply, you have a shell, a filesystem, and research subagents, and
+you are expected to take minutes rather than answer in one turn.
 
 CONTEXT: there was a company offsite in {OFFSITE_CITY} from {OFFSITE_START} to
 {OFFSITE_END}. Expenses are reimbursable only when they are business expenses
@@ -385,13 +398,30 @@ def build_agent():
     )
 
     model = ChatOpenAI(
-        model=os.environ.get("EXPENSE_AGENT_MODEL", "gpt-5.4"),
+        # Both values are carried over from the TypeScript `BuiltInAgent` this
+        # replaces, where each had a reason written beside it:
+        #   - the NON-mini model, because the multi-step teach-and-recall arc
+        #     (recall -> offer to record -> watch -> save) routes unreliably on
+        #     the mini model;
+        #   - temperature 0, because tool ROUTING must be deterministic. This
+        #     agent's job is picking the right tool far more often than it is
+        #     composing prose.
+        model=os.environ.get("BANKING_AGENT_MODEL", "gpt-5.4"),
+        temperature=0,
     )
 
     agent = create_deep_agent(
         model=model,
-        system_prompt=SYSTEM_PROMPT,
-        tools=[submit_expense_report],
+        # The banking skin's own prompt FIRST — it establishes the identity, the
+        # tool-routing rules, the formatting discipline and the teach-and-recall
+        # arc that nine of this skin's ten demo beats depend on. The expense
+        # section is appended as a conditional job, not a second identity.
+        system_prompt=BANKING_PROMPT + EXPENSE_TASK_PROMPT,
+        # `render_report` is banking's canvas report, ported from the TS
+        # `defineTool`. The prompt's report-routing rules name it explicitly, so
+        # without it registered here those rules describe a tool that is not
+        # there.
+        tools=[submit_expense_report, render_report],
         backend=backend,
         subagents=[
             {
