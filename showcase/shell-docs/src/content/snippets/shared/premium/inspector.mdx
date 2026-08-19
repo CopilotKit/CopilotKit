@@ -104,3 +104,10 @@ By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
 
 Set `enableInspector` to `true` to show it on another host, including in a
 production build. CopilotKit always uses an explicit `true` or `false` value.
+
+`NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY` is a browser-visible publishable key and is
+a **different credential** from the server-side `INTELLIGENCE_API_KEY` that
+`copilotkit project select` writes into your `.env`. The server-side key is
+consumed by the `CopilotKitIntelligence` client described in
+[Runtime endpoints](/backend/runtime-endpoints). Do not substitute one for the
+other, and never expose the server-side key to the browser.
