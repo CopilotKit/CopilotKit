@@ -467,10 +467,15 @@ jobs:
           done
           curl -sf --max-time 2 --connect-timeout 1 http://localhost:3000 || { echo "Dev server failed to start"; exit 1; }
 
+      # No --with-deps: it shells out to apt, which on the runners cannot always
+      # reach azure.archive.ubuntu.com and retries for many minutes — long enough to
+      # burn this job's whole timeout before a test runs. Chromium's system libraries
+      # are already present on the Ubuntu runner image, so downloading the browser is
+      # all this step needs.
       - name: Install Playwright
         run: |
           cd "showcase/integrations/${{ steps.slug.outputs.slug }}"
-          npx playwright install chromium --with-deps
+          npx playwright install chromium
 
       - name: Re-probe aimock liveness
         # aimock was readiness-checked once right after startup, but several

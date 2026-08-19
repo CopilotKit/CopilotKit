@@ -75,6 +75,18 @@ CopilotKit's basic catalog (Card, Column, Row, Text, Button, …) via
 
 <Steps>
 <Step>
+### Install the renderer package
+
+The catalog, definitions and renderers below all import from
+`@copilotkit/a2ui-renderer`. It ships separately from
+`@copilotkit/react-core`, and the definitions use `zod` for prop schemas:
+
+```npm
+npm install @copilotkit/a2ui-renderer zod
+```
+</Step>
+
+<Step>
 ### Declare the component definitions
 
 Each component declares its props as a Zod schema. Props are the
@@ -124,6 +136,62 @@ data fields (`origin`, `destination`, `airline`, `price`); the schema
 does the rest:
 
 <Snippet region="backend-render-operations" />
+
+Nothing about A2UI depends on how the agent itself is built — the operations
+container is just the tool's return value, so the tool drops into whatever agent
+you already have.
+</Step>
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="a2ui_agent_form" equals="langgraph-state-graph">
+<Step>
+### Attach the tool to an existing `StateGraph`
+
+The snippets above stop at the tool. The reference cell builds its agent with
+`langchain.agents.create_agent` plus `CopilotKitMiddleware` — that is what
+those imports are for — but the construction itself is not shown. If you added
+A2UI to an agent you already wrote, you probably have a hand-built `StateGraph`
+instead. The tool is unchanged; put it in a `ToolNode` and leave the rest of the
+graph alone:
+
+```python title="agent.py (LangGraph StateGraph form)"
+from langchain_openai import ChatOpenAI
+from langgraph.graph import START, MessagesState, StateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
+
+# `display_flight` is the tool defined above — unchanged.
+model = ChatOpenAI(model="gpt-4.1-mini").bind_tools([display_flight])
+
+
+def call_model(state: MessagesState):
+    return {"messages": [model.invoke(state["messages"])]}
+
+
+builder = StateGraph(MessagesState)
+builder.add_node("call_model", call_model)
+builder.add_node("tools", ToolNode([display_flight]))
+builder.add_edge(START, "call_model")
+builder.add_conditional_edges("call_model", tools_condition)
+builder.add_edge("tools", "call_model")
+
+# No `checkpointer=` — the LangGraph API server owns persistence and
+# rejects a custom one. See the LangGraph quickstart for the FastAPI case,
+# where you host the graph yourself and do need a checkpointer.
+graph = builder.compile()
+```
+
+Keep whatever system prompt your agent already has. The reference cell's prompt
+tells the model to call `display_flight` exactly once and stop, because the tool
+result *is* the rendered card. Without it, the model tends to call the tool
+again, looking for a status code.
+
+`CopilotKitMiddleware` is a `create_agent` middleware, so it has no
+`StateGraph` equivalent — and the fixed-schema path does not need one: the
+A2UI middleware that turns the tool result into a surface runs in the
+TypeScript runtime (see [Registering the runtime](#registering-the-runtime)
+below), not in the graph. Note that dropping it also drops the other things it
+does — frontend-tool injection and exposing agent state to the model — so keep
+`create_agent` if your agent relies on those.
 </Step>
 </WhenFrameworkHas>
 
@@ -207,6 +275,8 @@ const runtime = new CopilotRuntime({
 });
 ```
 
+<FrameworkSetup concept="a2ui-fixed-schema-setup" />
+
 ## Action handlers (reference)
 
 The canonical reference pairs fixed schemas with
@@ -235,9 +305,10 @@ When available, a button declares its action like this:
 ```
 
 And the Python tool matches it with a handler keyed by the action
-name (plus a `"*"` catch-all). Until the SDK lands, see the reference
-[fixed-schema guide](/integrations/langgraph/generative-ui/a2ui/fixed-schema)
-for the full pattern.
+name (plus a `"*"` catch-all). Until the SDK lands, handle the click on the
+frontend instead — see
+[Advanced — Action Handlers](./advanced#action-handlers) for the
+`createA2UIMessageRenderer` / `onAction` pattern.
 
 ## When should I use fixed schemas?
 

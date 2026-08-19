@@ -398,18 +398,8 @@ export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true
 # server it forks (the server is a DESCENDANT, reached only via the tree-kill —
 # see the file header and _kill_agent_tree).  Never `kill $AGENT_PID` directly:
 # that reaps only the wrapper subshell and orphans the real server on :8123.
-# Cap the agent's V8 heap. The @langchain/langgraph-api server is the long-lived
-# process whose old-space drifts unbounded on the many-core Railway host (no
-# cgroup limit → V8 auto-sizes old-space to physical RAM, several GB). Cap it to
-# 1536 MB so steady-state RSS stays bounded. Scoped INLINE to this npm invocation
-# — NOT a global `export` — on purpose: a global NODE_OPTIONS would also cap the
-# `next start` node below, and starving the Next.js frontend (which serves the
-# showcase under D6 probe fan-out) risks its own OOM. Only the agent needs the
-# cap. `${NODE_OPTIONS:+$NODE_OPTIONS }` safe-appends so an explicit Railway
-# NODE_OPTIONS override still applies (and wins on duplicate flags — V8 takes the
-# last --max-old-space-size).
 echo "[entrypoint] Starting LangGraph TS agent on port 8123 (prod mode, no CLI)..."
-cd /app/src/agent && PORT=8123 HOST=0.0.0.0 NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=1536" npm start &> >(awk '{print "[agent] " $0; fflush()}') &
+cd /app/src/agent && PORT=8123 HOST=0.0.0.0 npm start &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 cd /app
 sleep 3

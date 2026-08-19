@@ -513,6 +513,77 @@ test.each([
   }
 });
 
+test.each(["langgraph-python", "strands", "strands-typescript", "google-adk"])(
+  "renders a lifecycle-safe shared-state initializer for %s",
+  (framework) => {
+    const loadSlug = "shared-state/rendering-in-app";
+    const doc = loadDoc(loadSlug);
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText(
+      {
+        url: `${framework}/${loadSlug}`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug,
+        framework,
+      },
+      { framework },
+    );
+
+    expect(output).toContain('import { useEffect } from "react";');
+    expect(output).toContain("const INITIAL_CANVAS_STATE: CanvasState = {");
+    expect(output).toContain('title: "Project launch"');
+    expect(output).toContain('label: "Research user needs"');
+    expect(output).toContain("const { agent, isReady } = useAgent();");
+    expect(output).toContain("if (!isReady) return;");
+    expect(output).toContain("const current = (agent.state ?? {})");
+    expect(output).toContain("if (current.title === undefined)");
+    expect(output).toContain("if (current.items === undefined)");
+    expect(output).toContain(
+      "agent.setState({ ...(agent.state ?? {}), ...updates });",
+    );
+    expect(output).toContain("[agent, isReady, state.title, state.items]");
+    expect(output).toContain("UI-owned initial state");
+    expect(output).toMatch(/backend owns the initial\s+state/);
+    expect(output).not.toContain("<TabItem");
+    expect(output).not.toContain("from langgraph");
+    expect(output).not.toContain("from strands");
+    expect(output).not.toContain("from google.adk");
+  },
+);
+
+test("publishes both canonical Strands starter commands in LLM text", () => {
+  const loadSlug = "integrations/aws-strands/quickstart";
+  const doc = loadDoc(loadSlug);
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "strands/quickstart",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug,
+      framework: "strands",
+    },
+    { framework: "strands" },
+  );
+
+  expect(output).toContain(
+    "npx copilotkit@latest create --framework aws-strands-py",
+  );
+  expect(output).toContain(
+    "npx copilotkit@latest create --framework aws-strands-ts",
+  );
+  expect(output).toContain("Python 3.12+ (Python agents only)");
+  expect(output).not.toContain(
+    "npm install @ag-ui/aws-strands @strands-agents/sdk express cors",
+  );
+  expect(output).not.toContain("@types/cors");
+});
+
 test.each([
   ["claude-sdk-python", "programmatic-control"],
   ["claude-sdk-python", "headless"],
@@ -542,3 +613,188 @@ test.each([
     expect(output).not.toContain("chat.tsx - useAgent run control");
   },
 );
+
+test("renders the Claude TypeScript SDK/MCP fixed-schema wiring only for that framework", () => {
+  const doc = loadDoc("generative-ui/a2ui/fixed-schema");
+  expect(doc).not.toBeNull();
+
+  const render = (framework: string) =>
+    renderPageToLlmText(
+      {
+        url: `${framework}/generative-ui/a2ui/fixed-schema`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "generative-ui/a2ui/fixed-schema",
+        framework,
+      },
+      { framework },
+    );
+
+  const claudeTypeScript = render("claude-sdk-typescript");
+
+  expect(claudeTypeScript).toContain('if (toolName === "display_flight")');
+  expect(claudeTypeScript).toContain("shouldUseClaudeAgentSdk({");
+  expect(claudeTypeScript).toContain("runWithClaudeAgentSdk({");
+  expect(claudeTypeScript).toContain("new ClaudeAgentAdapter({");
+  expect(claudeTypeScript).toContain("createSdkMcpServer({");
+  expect(claudeTypeScript).toContain("mcp__copilotkit__display_flight");
+  expect(claudeTypeScript).toContain(
+    "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+  );
+  expect(claudeTypeScript).not.toContain("no MCP server");
+  expect(claudeTypeScript).not.toContain("<FrameworkSetup");
+
+  const otherPublicFrameworks = getIntegrations()
+    .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+    .map((integration) => integration.slug)
+    .filter((framework) => framework !== "claude-sdk-typescript");
+  for (const framework of otherPublicFrameworks) {
+    const output = render(framework);
+    expect(output, framework).not.toContain(
+      'if (toolName === "display_flight")',
+    );
+    expect(output, framework).not.toContain("new ClaudeAgentAdapter({");
+    expect(output, framework).not.toContain("createSdkMcpServer({");
+    expect(output, framework).not.toContain(
+      "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+    );
+    expect(output, framework).not.toContain("<FrameworkSetup");
+  }
+});
+
+test("renders executable Claude SDK tool wiring on both tool-rendering routes", () => {
+  const doc = loadDoc("generative-ui/tool-rendering");
+  expect(doc).not.toBeNull();
+
+  const render = (framework: string) =>
+    renderPageToLlmText(
+      {
+        url: `${framework}/generative-ui/tool-rendering`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "generative-ui/tool-rendering",
+        framework,
+      },
+      { framework },
+    );
+
+  const python = render("claude-sdk-python");
+  expect(python).toContain("create_sdk_mcp_server(");
+  expect(python).toContain('options["mcp_servers"]');
+  expect(python).toContain('options["allowed_tools"]');
+  expect(python).toContain("ClaudeAgentAdapter(");
+  expect(python).toContain("sdk_tool_handler");
+  expect(python).toContain(
+    "register this schema as an executable backend tool",
+  );
+  expect(python).not.toContain("<FrameworkSetup");
+
+  const typeScript = render("claude-sdk-typescript");
+  expect(typeScript).toContain("createSdkMcpServer({");
+  expect(typeScript).toContain("mcpServers: backendToolServer.mcpServers");
+  expect(typeScript).toContain("allowedTools: backendToolServer.allowedTools");
+  expect(typeScript).toContain("new ClaudeAgentAdapter({");
+  expect(typeScript).toContain("sdkTool(");
+  expect(typeScript).toContain(
+    "register this schema as an executable backend tool",
+  );
+  expect(typeScript).not.toContain("<FrameworkSetup");
+
+  const control = render("langgraph-typescript");
+  expect(control).not.toContain("createSdkMcpServer({");
+  expect(control).not.toContain("create_sdk_mcp_server(");
+  expect(control).not.toContain("ClaudeAgentAdapter");
+  expect(control).not.toContain(
+    "register this schema as an executable backend tool",
+  );
+  expect(control).not.toContain("<FrameworkSetup");
+});
+
+test("renders executable Deep Agents state streaming in both languages", () => {
+  const loadSlug = "integrations/deepagents/generative-ui/state-rendering";
+  const doc = loadDoc(loadSlug);
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "deepagents/generative-ui/state-rendering",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug,
+      framework: "deepagents",
+    },
+    { framework: "deepagents" },
+  );
+
+  expect(output).toContain("class SearchesStateMiddleware(");
+  expect(output).toContain("AgentMiddleware[AgentState, Any, Any]");
+  expect(output).toContain("state_schema = AgentState");
+  expect(output).toContain("def report_research_progress(");
+  expect(output).toContain("runtime: ToolRuntime");
+  expect(output).toContain("Command(");
+  expect(output).toContain("tool_call_id=runtime.tool_call_id");
+  expect(output).toContain("tools=[report_research_progress]");
+  expect(output).toContain("SearchesStateMiddleware()");
+  expect(output).toContain("CopilotKitMiddleware()");
+  expect(output).toMatch(
+    /StateItem\(\s*state_key="searches",\s*tool="report_research_progress",\s*tool_argument="searches"/,
+  );
+
+  expect(output).toContain(
+    "const searchesStateMiddleware = createMiddleware({",
+  );
+  expect(output).toContain("const reportResearchProgress = tool(");
+  expect(output).toContain("runtime: ToolRuntime<typeof SearchesStateSchema>");
+  expect(output).toContain("new Command({");
+  expect(output).toContain("tool_call_id: runtime.toolCallId");
+  expect(output).toContain("tools: [reportResearchProgress]");
+  expect(output).toContain("copilotkitMiddleware");
+  expect(output).toMatch(
+    /stateItem\(\{\s*stateKey: "searches",\s*tool: "report_research_progress",\s*toolArgument: "searches"/,
+  );
+
+  expect(output).not.toContain("emit_research_progress");
+  expect(output).not.toContain("copilotkit_emit_state");
+  expect(output).not.toContain("copilotkitEmitState");
+  expect(output).not.toContain("chatNode");
+});
+
+test("raw Markdown keeps only the active framework's <WhenFrameworkHas> branch", () => {
+  const slug = "generative-ui/a2ui/fixed-schema";
+  const doc = loadDoc(slug);
+  expect(doc).not.toBeNull();
+
+  const page = {
+    url: `langgraph-python/${slug}`,
+    title: doc!.fm.title,
+    description: doc!.fm.description,
+    filePath: doc!.filePath,
+    loadSlug: slug,
+    framework: "langgraph-python",
+  };
+  const langgraph = renderPageToLlmText(page);
+
+  // The gating tags themselves must never reach a Markdown consumer.
+  expect(langgraph).not.toContain("WhenFrameworkHas");
+
+  // langgraph-python is `a2ui_pattern: schema-loading`, so only that branch
+  // survives. Emitting all three used to put the `schema-inline` prose ("the
+  // host language doesn't ship a `load_schema` JSON loader") directly above a
+  // snippet that calls `a2ui.load_schema`, and the `llm-driven` prose above
+  // the very same fixed-schema code.
+  expect(langgraph).toContain("Load the schema JSON at startup");
+  expect(langgraph).not.toContain("Define the schema inline");
+  expect(langgraph).not.toContain("Generate the schema dynamically");
+
+  // A framework on a different pattern gets its own branch, not langgraph's.
+  const mastra = renderPageToLlmText(
+    { ...page, url: `mastra/${slug}`, framework: "mastra" },
+    { framework: "mastra" },
+  );
+  expect(mastra).toContain("Generate the schema dynamically");
+  expect(mastra).not.toContain("Load the schema JSON at startup");
+  expect(mastra).not.toContain("Define the schema inline");
+});
