@@ -15,7 +15,7 @@ import type {
   CopilotKitCoreSubscriber,
   FrontendTool,
 } from "@copilotkit/core";
-import { schemaToJsonSchema } from "@copilotkit/shared";
+import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
@@ -54,7 +54,6 @@ import type {
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
-
 // Canonical A2UI viewer theme default (matches @copilotkit/a2ui-renderer).
 // Defined locally to avoid pulling React dependencies from a2ui-renderer.
 const viewerTheme: Record<string, unknown> = {};
@@ -104,47 +103,27 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   renderCustomMessages: () => [],
   renderActivityMessages: () => [],
   openGenerativeUI: undefined,
-  showDevConsole: false,
   useSingleEndpoint: undefined,
   a2ui: undefined,
+  enableInspector: undefined,
+  showDevConsole: undefined,
 });
 
 const shouldRenderInspector = ref(false);
-// Mounting the overlay follows showDevConsole. The in-chat affordances are
-// narrower: a dev build on localhost only, so `showDevConsole: true` on a
-// staging URL never puts a bookmark into a production chat. Matches React.
-const canShowLocalInspectorAction = ref(false);
 
-const updateInspectorVisibility = () => {
-  const isLocalhost =
-    typeof window !== "undefined" &&
-    new Set(["localhost", "127.0.0.1"]).has(window.location?.hostname ?? "");
-  canShowLocalInspectorAction.value =
-    process.env.NODE_ENV === "development" && isLocalhost;
+function updateInspectorVisibility(): void {
+  shouldRenderInspector.value = shouldEnableInspector({
+    enableInspector: props.enableInspector,
+    isBrowser: true,
+    isDevelopment: process.env.NODE_ENV === "development",
+  });
+}
 
-  if (props.showDevConsole === true) {
-    shouldRenderInspector.value = true;
-    return;
-  }
-  if (props.showDevConsole === "auto") {
-    shouldRenderInspector.value = isLocalhost;
-    if (!isLocalhost) {
-      canShowLocalInspectorAction.value = false;
-    }
-    return;
-  }
-  shouldRenderInspector.value = false;
-  canShowLocalInspectorAction.value = false;
-};
-
-watch(() => props.showDevConsole, updateInspectorVisibility, {
-  immediate: true,
-});
+onMounted(updateInspectorVisibility);
+watch(() => props.enableInspector, updateInspectorVisibility);
 
 const inspectorOpenRequest = ref<VueInspectorOpenRequest | null>(null);
-const isLocalInspectorEnabled = computed(
-  () => shouldRenderInspector.value && canShowLocalInspectorAction.value,
-);
+const isLocalInspectorEnabled = computed(() => shouldRenderInspector.value);
 
 function openInspector(request: VueInspectorOpenRequest) {
   inspectorOpenRequest.value = { ...request };

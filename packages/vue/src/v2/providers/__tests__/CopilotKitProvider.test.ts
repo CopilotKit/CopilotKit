@@ -26,6 +26,17 @@ interface CopilotKitCoreTestAccess {
   ) => Promise<void>;
 }
 
+function stubHostname(hostname: string): () => void {
+  const original = Object.getOwnPropertyDescriptor(window, "location");
+  Object.defineProperty(window, "location", {
+    value: { hostname },
+    configurable: true,
+  });
+  return () => {
+    if (original) Object.defineProperty(window, "location", original);
+  };
+}
+
 describe("CopilotKitProvider", () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
@@ -539,65 +550,123 @@ describe("CopilotKitProvider", () => {
       expect(tool?.followUp).toBe(false);
     });
 
-    it("renders inspector when showDevConsole is true", async () => {
+    it("renders by default on local development hosts and passes the provider core", async () => {
+      const restore = stubHostname("0.0.0.0");
+      const { wrapper, getCore } = mountWithProvider(() => h("div", "test"));
+
+      try {
+        await nextTick();
+        await vi.dynamicImportSettled();
+        await nextTick();
+
+        const inspector = wrapper.get("cpk-web-inspector");
+        expect(
+          (inspector.element as HTMLElement & { core?: unknown }).core,
+        ).toBe(getCore());
+        expect(defineWebInspector).toHaveBeenCalledTimes(1);
+      } finally {
+        wrapper.unmount();
+        restore();
+      }
+    });
+
+    it("stays hidden by default on non-local hosts", async () => {
+      const restore = stubHostname("app.example.com");
+      const wrapper = mount(CopilotKitProvider, {
+        props: { runtimeUrl: "/api/copilotkit" },
+        slots: { default: () => h("div", "test") },
+      });
+
+      try {
+        await nextTick();
+        expect(wrapper.find("cpk-web-inspector").exists()).toBe(false);
+        expect(defineWebInspector).not.toHaveBeenCalled();
+      } finally {
+        wrapper.unmount();
+        restore();
+      }
+    });
+
+    it("honors explicit enableInspector values on any host", async () => {
+      const restore = stubHostname("app.example.com");
+      const wrapper = mount(CopilotKitProvider, {
+        props: {
+          runtimeUrl: "/api/copilotkit",
+          enableInspector: true,
+        },
+        slots: { default: () => h("div", "test") },
+      });
+
+      try {
+        await nextTick();
+        await vi.dynamicImportSettled();
+        await nextTick();
+        expect(wrapper.find("cpk-web-inspector").exists()).toBe(true);
+
+        await wrapper.setProps({ enableInspector: false });
+        await nextTick();
+        expect(wrapper.find("cpk-web-inspector").exists()).toBe(false);
+      } finally {
+        wrapper.unmount();
+        restore();
+      }
+    });
+
+    it("keeps showDevConsole as an alias and gives enableInspector precedence", async () => {
       const wrapper = mount(CopilotKitProvider, {
         props: {
           runtimeUrl: "/api/copilotkit",
           showDevConsole: true,
+          enableInspector: false,
         },
-        slots: {
-          default: () => h("div", "test"),
-        },
+        slots: { default: () => h("div", "test") },
       });
 
       await nextTick();
-      await vi.dynamicImportSettled();
-      await nextTick();
-
-      expect(wrapper.find("cpk-web-inspector").exists()).toBe(true);
-      expect(defineWebInspector).toHaveBeenCalledTimes(1);
+      expect(wrapper.find("cpk-web-inspector").exists()).toBe(false);
+      expect(defineWebInspector).not.toHaveBeenCalled();
+      wrapper.unmount();
     });
 
-    it("renders inspector on localhost when showDevConsole is auto", async () => {
+    it("still supports showDevConsole auto", async () => {
+      const restore = stubHostname("localhost");
       const wrapper = mount(CopilotKitProvider, {
         props: {
           runtimeUrl: "/api/copilotkit",
           showDevConsole: "auto",
         },
-        slots: {
-          default: () => h("div", "test"),
-        },
+        slots: { default: () => h("div", "test") },
       });
 
-      await nextTick();
-      await vi.dynamicImportSettled();
-      await nextTick();
-
-      const shouldRenderOnThisHost = new Set(["localhost", "127.0.0.1"]).has(
-        window.location.hostname,
-      );
-
-      expect(wrapper.find("cpk-web-inspector").exists()).toBe(
-        shouldRenderOnThisHost,
-      );
+      try {
+        await nextTick();
+        await vi.dynamicImportSettled();
+        await nextTick();
+        expect(wrapper.find("cpk-web-inspector").exists()).toBe(true);
+      } finally {
+        wrapper.unmount();
+        restore();
+      }
     });
 
-    it("does not render inspector when showDevConsole is false", async () => {
+    it("preserves the legacy showDevConsole auto host list", async () => {
+      const restore = stubHostname("0.0.0.0");
       const wrapper = mount(CopilotKitProvider, {
         props: {
           runtimeUrl: "/api/copilotkit",
-          showDevConsole: false,
+          showDevConsole: "auto",
         },
-        slots: {
-          default: () => h("div", "test"),
-        },
+        slots: { default: () => h("div", "test") },
       });
 
-      await nextTick();
-      await vi.dynamicImportSettled();
-      await nextTick();
-
-      expect(wrapper.find("cpk-web-inspector").exists()).toBe(false);
+      try {
+        await nextTick();
+        expect(wrapper.find("cpk-web-inspector").exists()).toBe(false);
+        expect(defineWebInspector).not.toHaveBeenCalled();
+      } finally {
+        wrapper.unmount();
+        restore();
+      }
     });
   });
 });

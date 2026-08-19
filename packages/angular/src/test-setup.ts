@@ -1,6 +1,7 @@
 // Angular + Zone - Using AnalogJS setup for proper Zone.js integration
 import "@angular/compiler";
 import "@analogjs/vitest-angular/setup-zone";
+import { vi } from "vitest";
 
 import { getTestBed } from "@angular/core/testing";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -9,6 +10,24 @@ import {
   BrowserDynamicTestingModule,
   platformBrowserDynamicTesting,
 } from "@angular/platform-browser-dynamic/testing";
+
+vi.mock("@copilotkit/web-inspector", () => {
+  const WEB_INSPECTOR_TAG = "cpk-web-inspector";
+  class MockWebInspectorElement extends HTMLElement {
+    core: unknown = null;
+    autoAttachCore = true;
+  }
+
+  return {
+    WEB_INSPECTOR_TAG,
+    WebInspectorElement: MockWebInspectorElement,
+    defineWebInspector: vi.fn(() => {
+      if (!customElements.get(WEB_INSPECTOR_TAG)) {
+        customElements.define(WEB_INSPECTOR_TAG, MockWebInspectorElement);
+      }
+    }),
+  };
+});
 
 // JSDOM polyfills commonly needed by Angular/CDK/components
 // ResizeObserver

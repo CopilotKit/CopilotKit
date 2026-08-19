@@ -90,7 +90,6 @@ export default function Home() {
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       renderToolCalls={[wildcardRenderer]}
-      showDevConsole="auto"
       openGenerativeUI={{ sandboxFunctions }}
     >
       <div

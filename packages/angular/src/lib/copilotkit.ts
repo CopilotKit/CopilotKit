@@ -11,8 +11,10 @@ import {
   type ThreadEndpointRuntimeInfo,
 } from "@copilotkit/core";
 import {
+  DestroyRef,
   Injectable,
   Injector,
+  PLATFORM_ID,
   Signal,
   WritableSignal,
   computed,
@@ -20,6 +22,7 @@ import {
   signal,
   inject,
 } from "@angular/core";
+import { DOCUMENT } from "@angular/common";
 import {
   FrontendToolConfig,
   HumanInTheLoopConfig,
@@ -87,6 +90,9 @@ export class CopilotKit {
   );
   readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
+  readonly #destroyRef = inject(DestroyRef);
+  readonly #document = inject(DOCUMENT);
+  readonly #platformId = inject(PLATFORM_ID);
   /** Whether unknown tools may use the built-in text-only fallback renderer. */
   readonly defaultToolRenderingEnabled =
     this.#config.defaultToolRendering === true;

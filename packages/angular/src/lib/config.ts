@@ -54,10 +54,11 @@ export interface CopilotKitConfig {
   a2ui?: A2UIConfig;
   openGenerativeUI?: OpenGenerativeUIConfig;
   /**
-   * Show the Inspector overlay. `true` always shows it, `false` always hides
-   * it, and `"auto"` shows it only on localhost.
+   * Disable the CopilotKit Inspector in development.
+   * The Inspector is enabled by default in development browser builds and is
+   * always disabled in production and during server rendering.
    */
-  showDevConsole?: boolean | "auto";
+  enableInspector?: boolean;
 }
 
 const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";
